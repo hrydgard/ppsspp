@@ -294,6 +294,8 @@
     <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
+    <ClInclude Include="..\..\ext\pugixml\pugiconfig.hpp" />
+    <ClInclude Include="..\..\ext\pugixml\pugixml.hpp" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
@@ -474,6 +476,7 @@
     <ClCompile Include="..\..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
+    <ClCompile Include="..\..\ext\pugixml\pugixml.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc" />

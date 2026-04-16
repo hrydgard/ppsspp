@@ -75,6 +75,17 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+PUGI_ROOT := $(SRC)/ext/pugixml
+
+LOCAL_MODULE    := pugixml
+LOCAL_SRC_FILES := $(PUGI_ROOT)/pugixml.cpp
+LOCAL_C_INCLUDES := $(PUGI_ROOT)
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+
 LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -DZ7_ST
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
@@ -406,7 +417,7 @@ include $(BUILD_STATIC_LIBRARY)
 # Next up, Core, GPU, and other core parts shared by headless.
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common libchdr lua
+LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common libchdr lua pugixml
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \

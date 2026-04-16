@@ -775,6 +775,12 @@
     <ClInclude Include="File\VFS\SevenZipFileReader.h">
       <Filter>File\VFS</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\pugixml\pugiconfig.hpp">
+      <Filter>ext\pugixml</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\pugixml\pugixml.hpp">
+      <Filter>ext\pugixml</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1440,6 +1446,9 @@
     <ClCompile Include="File\VFS\SevenZipFileReader.cpp">
       <Filter>File\VFS</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\pugixml\pugixml.cpp">
+      <Filter>ext\pugixml</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1579,6 +1588,9 @@
     </Filter>
     <Filter Include="ext\lzma-sdk">
       <UniqueIdentifier>{00053099-bdf5-4638-9bf5-45e44dca79d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\pugixml">
+      <UniqueIdentifier>{32c8149f-f6e1-45e4-b0a5-79093450ac82}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

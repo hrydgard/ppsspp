@@ -369,6 +369,8 @@
     <ClInclude Include="..\ext\naett\naett.h" />
     <ClInclude Include="..\ext\nanosvg\src\nanosvg.h" />
     <ClInclude Include="..\ext\nanosvg\src\nanosvgrast.h" />
+    <ClInclude Include="..\ext\pugixml\pugiconfig.hpp" />
+    <ClInclude Include="..\ext\pugixml\pugixml.hpp" />
     <ClInclude Include="..\ext\sol\config.hpp" />
     <ClInclude Include="..\ext\sol\forward.hpp" />
     <ClInclude Include="..\ext\sol\sol.hpp" />
@@ -861,6 +863,7 @@
     <ClCompile Include="..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\ext\naett\naett.c" />
+    <ClCompile Include="..\ext\pugixml\pugixml.cpp" />
     <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp" />
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />

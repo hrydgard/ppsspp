@@ -1361,6 +1361,11 @@ add_library(basis_universal STATIC
 )
 set(BASISU_LIBRARIES basis_universal)
 
+add_library(pugixml STATIC
+	ext/pugixml/pugixml.cpp
+	ext/pugixml/pugixml.hpp
+)
+
 set(nativeExtra)
 set(nativeExtraLibs)
 
@@ -1728,7 +1733,8 @@ if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64) OR (LINUX AND LOONGA
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${LIB7ZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${LIB7ZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} pugixml vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
