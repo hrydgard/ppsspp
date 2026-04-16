@@ -51,6 +51,16 @@ static int ParsePortValue(const rapidjson::Value &v) {
 	return -1;
 }
 
+static std::string RemoveHttpsIfNeeded(std::string_view url) {
+	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		// Try with http. Needed on Linux installs currently.
+		if (startsWith(url, "https://")) {
+			return "http://" + std::string(url.substr(8));
+		}
+	}
+	return std::string(url);
+}
+
 std::vector<AdhocGame> ParseStatusXML(const std::string& xmlInput) {
 	pugi::xml_document doc;
 	pugi::xml_parse_result result = doc.load_string(xmlInput.c_str());
@@ -289,10 +299,15 @@ static UI::View *CreateLinkButton(std::string url, std::string_view title = "") 
 AdhocServerInfoScreen::AdhocServerInfoScreen(const AdhocServerListEntry &entry)
 	: UI::PopupScreen("", T(I18NCat::DIALOG, "Back")), entry_(entry) {
 
+	std::string dataUrl;
 	if (!entry.dataJsonUrl.empty()) {
-		statusRequest_ = g_DownloadManager.StartDownload(entry.dataJsonUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "status");
+		dataUrl = RemoveHttpsIfNeeded(entry.dataJsonUrl);
 	} else if (!entry.statusXmlUrl.empty()) {
-		statusRequest_ = g_DownloadManager.StartDownload(entry.statusXmlUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "status");
+		dataUrl = RemoveHttpsIfNeeded(entry.statusXmlUrl);
+	}
+
+	if (!dataUrl.empty()) {
+		statusRequest_ = g_DownloadManager.StartDownload(dataUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "status");
 	}
 }
 
