@@ -333,6 +333,24 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 			}
 			return true;
 		}
+
+		// Support Ctrl+Tab / Ctrl+Shift+Tab as well, as these are common shortcuts for tab switching even outside of browsers.
+		if (input.keyCode == NKCODE_TAB && (input.flags & KeyInputFlags::MOD_CTRL)) {
+			if (input.flags & KeyInputFlags::MOD_SHIFT) {
+				if (selected_ > 0) {
+					SetSelection(selected_ - 1, true);
+				} else if (!choices_.empty()) {
+					SetSelection(choices_.size() - 1, true);
+				}
+			} else {
+				if (selected_ < (int)choices_.size() - 1) {
+					SetSelection(selected_ + 1, true);
+				} else {
+					SetSelection(0, true);
+				}
+			}
+			return true;
+		}
 	}
 	return ViewGroup::Key(input);
 }
