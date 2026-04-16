@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <string>
+#include <string_view>
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Encoding/Utf16.h"
@@ -371,6 +372,46 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 	}
 	output->resize(out_idx);
 	_dbg_assert_(output->size() >= input.size());
+}
+
+std::string NormalizeForSearch(std::string_view input) {
+	std::string result;
+	// Pre-allocating input size is a good heuristic, though the
+	// result could be slightly smaller after normalization.
+	result.reserve(input.size());
+
+	int index = 0;
+	int size = static_cast<int>(input.size());
+	char buffer[4]; // Temporary buffer for UTF-8 encoding
+
+	while (index < size) {
+		uint32_t codepoint = u8_nextchar(input.data(), &index, size);
+
+		// 1. Convert Fullwidth Roman/Numbers to ASCII
+		// Range: U+FF01 (！) to U+FF5E (～)
+		if (codepoint >= 0xFF01 && codepoint <= 0xFF5E) {
+			codepoint -= 0xFEE0;
+		}
+		// Convert Fullwidth Space (U+3000) to standard space
+		else if (codepoint == 0x3000) {
+			codepoint = 0x20;
+		}
+
+		// 2. Lowercase (Basic Latin range)
+		// We do this after the wide-to-ascii conversion to catch characters
+		// that were originally wide uppercase (e.g., 'Ａ' -> 'A' -> 'a').
+		if (codepoint >= 'A' && codepoint <= 'Z') {
+			codepoint += ('a' - 'A');
+		}
+
+		// 3. Re-encode back to UTF-8
+		int bytes_written = u8_wc_toutf8(buffer, codepoint);
+		if (bytes_written > 0) {
+			result.append(buffer, bytes_written);
+		}
+	}
+
+	return result;
 }
 
 #ifndef _WIN32

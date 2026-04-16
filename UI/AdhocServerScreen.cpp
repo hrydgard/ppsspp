@@ -317,7 +317,7 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 	if (games.empty()) {
 		if (requestInProgress) {
 			// Still loading. Show a spinner.
-			content->Add(new Spinner(nullptr, 0, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, Gravity::G_CENTER)));
+			content->Add(new Spinner(nullptr, 0, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(8))));
 		} else {
 			content->Add(new TextView(ni->T("No games in progress on this server")));
 		}
@@ -336,22 +336,33 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 				gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
 				continue;
 			}
-			gameSection->Add(new TextView("  " + groupName + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
-			for (const AdhocUser &user : group.users) {
-				std::string portInfo;
-				if (!user.pdp_ports.empty()) {
-					portInfo += "PDP: ";
-					for (int port : user.pdp_ports) {
-						portInfo += std::to_string(port) + " ";
+			if (g_Config.bAdhocServerShowPlayerPorts) {
+				// Show detailed info, each player on their own line.
+				gameSection->Add(new TextView("  " + groupName + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+				for (const AdhocUser &user : group.users) {
+					std::string portInfo;
+					if (!user.pdp_ports.empty()) {
+						portInfo += "PDP: ";
+						for (int port : user.pdp_ports) {
+							portInfo += std::to_string(port) + " ";
+						}
 					}
-				}
-				if (!user.ptp_ports.empty()) {
-					portInfo += "PTP: ";
-					for (int port : user.ptp_ports) {
-						portInfo += std::to_string(port) + " ";
+					if (!user.ptp_ports.empty()) {
+						portInfo += "PTP: ";
+						for (int port : user.ptp_ports) {
+							portInfo += std::to_string(port) + " ";
+						}
 					}
+					gameSection->Add(new TextView("    " + user.name + " " + portInfo))->SetTextSize(TextSize::Tiny);
 				}
-				gameSection->Add(new TextView("    " + user.name + " " + portInfo))->SetTextSize(TextSize::Tiny);
+			} else {
+				// Show each group on a single line.
+				std::string groupString = "  " + group.name + ApplySafeSubstitutions("(%1):", group.usercount);
+				for (const AdhocUser &user : group.users) {
+					groupString.push_back(' ');
+					groupString += user.name;
+				}
+				gameSection->Add(new TextView(groupString))->SetTextSize(TextSize::Small)->SetWordWrap();
 			}
 		}
 		gameSection->SetOpen(false);  // NOTE: Must be last!

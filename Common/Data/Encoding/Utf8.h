@@ -129,3 +129,6 @@ std::u16string ConvertUTF8ToUCS2(std::string_view source);
 // Java needs 4-byte UTF-8 to be converted to surrogate pairs, each component of which get
 // encoded into 3-byte UTF-8.
 void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input);
+
+// Applies "tolower" and also rewrites full-with japanese characters.
+std::string NormalizeForSearch(std::string_view input);
