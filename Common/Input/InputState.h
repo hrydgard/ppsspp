@@ -171,7 +171,13 @@ enum class KeyInputFlags {
 	HAS_WHEEL_DELTA = 1 << 2,
 	IS_REPEAT = 1 << 3,
 	CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KeyInputFlags::DOWN and KeyInputFlags::UP are zero when this is set.
+
+	// NOTE: These are only available in sync input.
+	MOD_CTRL = 1 << 5,
+	MOD_SHIFT = 1 << 6,
+	MOD_ALT = 1 << 7,
 };
+
 ENUM_CLASS_BITOPS(KeyInputFlags);
 
 struct KeyInput {
