@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <limits>
+
 #include "ppsspp_config.h"
 
 #undef new
@@ -8,6 +9,7 @@
 #else
 #include "ext/rapidjson/include/rapidjson/document.h"
 #endif
+#include "ext/pugixml/pugixml.hpp"
 #include "Common/DbgNew.h"
 
 #include "AdhocServerScreen.h"
@@ -47,6 +49,43 @@ static int ParsePortValue(const rapidjson::Value &v) {
 	if (v.IsInt())
 		return v.GetInt();
 	return -1;
+}
+
+std::vector<AdhocGame> ParseStatusXML(const std::string& xmlInput) {
+	pugi::xml_document doc;
+	pugi::xml_parse_result result = doc.load_string(xmlInput.c_str());
+
+	std::vector<AdhocGame> gameList;
+	if (!result) {
+		ERROR_LOG(Log::sceNet, "XML Parsing Error: %s", result.description());
+		return gameList;
+	}
+
+	// Root is <prometheus>
+	pugi::xml_node prometheus = doc.child("prometheus");
+
+	for (pugi::xml_node xmlGame : prometheus.children("game")) {
+		AdhocGame game;
+		game.name = xmlGame.attribute("name").as_string();
+		game.usercount = xmlGame.attribute("usercount").as_int();
+
+		for (pugi::xml_node xmlGroup : xmlGame.children("group")) {
+			AdhocGroup group;
+			group.name = xmlGroup.attribute("name").as_string();
+			group.usercount = xmlGroup.attribute("usercount").as_int();
+
+			for (pugi::xml_node xmlUser : xmlGroup.children("user")) {
+				AdhocUser user;
+				// In XML, the username is the text inside the <user> tag
+				user.name = xmlUser.child_value();
+				group.users.push_back(user);
+			}
+			game.groups.push_back(group);
+		}
+		gameList.push_back(game);
+	}
+
+	return gameList;
 }
 
 std::vector<AdhocGame> ParseDataJson(std::string_view json) {
@@ -252,6 +291,8 @@ AdhocServerInfoScreen::AdhocServerInfoScreen(const AdhocServerListEntry &entry)
 
 	if (!entry.dataJsonUrl.empty()) {
 		statusRequest_ = g_DownloadManager.StartDownload(entry.dataJsonUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "status");
+	} else if (!entry.statusXmlUrl.empty()) {
+		statusRequest_ = g_DownloadManager.StartDownload(entry.statusXmlUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "status");
 	}
 }
 
@@ -330,7 +371,7 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	}
 
-	if (entry_.dataJsonUrl.empty()) {
+	if (entry_.dataJsonUrl.empty() && entry_.statusXmlUrl.empty()) {
 		content->Add(CreateInfoItemWithButton(ni->T("This server has no data.json status page"), ImageID("I_LINK_OUT_QUESTION"), [](UI::EventParams &e) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/multiplayer/adhoc-server-status/");
 		}));
@@ -351,9 +392,13 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void AdhocServerInfoScreen::update() {
 	UI::PopupScreen::update();
 	if (statusRequest_ && statusRequest_->Done()) {
-		std::string json;
-		statusRequest_->buffer().TakeAll(&json);
-		games_ = ParseDataJson(json);
+		std::string data;
+		statusRequest_->buffer().TakeAll(&data);
+		if (endsWith(statusRequest_->url(), ".xml")) {
+			games_ = ParseStatusXML(data);
+		} else {
+			games_ = ParseDataJson(data);
+		}
 		statusRequest_.reset();
 		RecreateViews();
 	}
