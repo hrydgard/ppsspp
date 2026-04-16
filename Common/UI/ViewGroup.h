@@ -63,8 +63,8 @@ public:
 	View *GetDefaultFocusView() { return defaultFocusView_; }
 
 	// Assumes that layout has taken place.
-	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
-	virtual NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best);
+	NeighborResult FindNeighbor(View *view, FocusMove direction, NeighborResult best);
+	virtual NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best);
 
 	bool CanBeFocused() const override { return false; }
 	bool IsViewGroup() const override { return true; }

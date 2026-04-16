@@ -148,7 +148,7 @@ void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, Vi
 	root->Layout();
 }
 
-static void MoveFocus(ViewGroup *root, FocusDirection direction) {
+static void MoveFocus(ViewGroup *root, FocusMove direction) {
 	View *focusedView = GetFocusedView();
 	if (!focusedView) {
 		// Nothing was focused when we got in here. Focus the first non-group in the hierarchy.
@@ -406,15 +406,15 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 		} else {
 			for (size_t i = 0; i < focusMoves.size(); i++) {
 				switch (focusMoves[i]) {
-				case NKCODE_DPAD_LEFT: MoveFocus(root, FOCUS_LEFT); break;
-				case NKCODE_DPAD_RIGHT: MoveFocus(root, FOCUS_RIGHT); break;
-				case NKCODE_DPAD_UP: MoveFocus(root, FOCUS_UP); break;
-				case NKCODE_DPAD_DOWN: MoveFocus(root, FOCUS_DOWN); break;
-				case NKCODE_PAGE_UP: MoveFocus(root, FOCUS_PREV_PAGE); break;
-				case NKCODE_PAGE_DOWN: MoveFocus(root, FOCUS_NEXT_PAGE); break;
-				case NKCODE_MOVE_HOME: MoveFocus(root, FOCUS_FIRST); break;
-				case NKCODE_MOVE_END: MoveFocus(root, FOCUS_LAST); break;
-				case NKCODE_TAB: MoveFocus(root, FOCUS_NEXT); break;
+				case NKCODE_DPAD_LEFT: MoveFocus(root, FocusMove::LEFT); break;
+				case NKCODE_DPAD_RIGHT: MoveFocus(root, FocusMove::RIGHT); break;
+				case NKCODE_DPAD_UP: MoveFocus(root, FocusMove::UP); break;
+				case NKCODE_DPAD_DOWN: MoveFocus(root, FocusMove::DOWN); break;
+				case NKCODE_PAGE_UP: MoveFocus(root, FocusMove::PREV_PAGE); break;
+				case NKCODE_PAGE_DOWN: MoveFocus(root, FocusMove::NEXT_PAGE); break;
+				case NKCODE_MOVE_HOME: MoveFocus(root, FocusMove::FIRST); break;
+				case NKCODE_MOVE_END: MoveFocus(root, FocusMove::LAST); break;
+				case NKCODE_TAB: MoveFocus(root, FocusMove::NEXT); break;
 				}
 			}
 		}

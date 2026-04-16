@@ -138,19 +138,24 @@ void MainScreen::CreateRecentTab() {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	scrollRecentGames->SetTag("MainScreenRecentGames");
+	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	tabContainer->SetSpacing(0.0f);
+	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 0))));
+
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	scrollView->SetTag("MainScreenRecentGames");
 
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
 		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	tabRecentGames->SetSearchBar(search);
 
-	scrollRecentGames->Add(tabRecentGames);
+	scrollView->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
 
-	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
+	tabHolder_->AddTab(mm->T("Recent"), ImageID::invalid(), tabContainer);
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
@@ -162,17 +167,23 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	tabContainer->SetSpacing(0.0f);
+	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
 
 	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, bGridView, screenManager(),
 		mm->T(howToTitle), howToUri,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
+	gameBrowser->SetSearchBar(search);
+
 	scrollView->Add(gameBrowser);
 	gameBrowsers_.push_back(gameBrowser);
 
-	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), scrollView);
+	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), tabContainer);
 	if (scrollPos) {
 		scrollView->RememberPosition(scrollPos);
 	}
@@ -572,8 +583,11 @@ void MainScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 
 	if (searchChanged_) {
-		for (auto browser : gameBrowsers_)
-			browser->ApplySearchFilter(searchFilter_);
+		for (auto browser : gameBrowsers_) {
+			if (browser->GetVisibility() == UI::V_VISIBLE) {
+				browser->SetSearchFilter(searchFilter_, false);
+			}
+		}
 		searchChanged_ = false;
 	}
 }
@@ -666,6 +680,7 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 			}
 		}
 		highlightedGamePath_.clear();
+		g_BackgroundAudio.SetGame(Path());
 		return;
 	}
 
@@ -859,6 +874,7 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
+	items->SetSpacing(0.0f);
 
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));

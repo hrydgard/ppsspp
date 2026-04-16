@@ -48,7 +48,7 @@ public:
 		shadows_ = shadows;
 	}
 
-	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) override;
+	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) override;
 
 private:
 	Margins GetMargins() const;

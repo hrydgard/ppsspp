@@ -23,6 +23,22 @@ enum class BrowseFlags {
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
+class SearchBar : public UI::InertView {
+public:
+	SearchBar(UI::LayoutParams *params) : UI::InertView(params) { SetVisibility(UI::Visibility::V_GONE); }
+	void Draw(UIContext &dc) override;
+
+	bool Touch(const TouchInput &input) override;
+	void SetSearchFilter(std::string_view filter) {
+		searchFilter_ = filter;
+	}
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+	UI::Event OnCancel;
+private:
+	std::string searchFilter_ = "N/A";
+};
+
 class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
@@ -33,7 +49,9 @@ public:
 
 	void FocusGame(const Path &gamePath);
 	void SetPath(const Path &path);
-	void ApplySearchFilter(const std::string &filter);
+	void SetSearchBar(SearchBar *searchBar);
+	bool Key(const KeyInput &key) override;
+	void SetSearchFilter(const std::string &filter, bool setKeyboardFocus);
 	void Draw(UIContext &dc) override;
 	void Update() override;
 	void RequestRefresh() {
@@ -48,7 +66,7 @@ protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 	virtual Path HomePath();
-	void ApplySearchFilter();
+	void ApplySearchFilter(bool setKeyboardFocus);
 
 	void Refresh();
 
@@ -80,6 +98,7 @@ private:
 
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
+	SearchBar *searchBar_ = nullptr;
 	bool *gridStyle_ = nullptr;
 	BrowseFlags browseFlags_;
 	std::string lastText_;
