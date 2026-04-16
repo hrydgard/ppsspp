@@ -1045,10 +1045,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 				screenManager()->push(new AdhocServerInfoScreen(entry));
 			});
 		} else {
-			networkingSettings->Add(new Choice(n->T("Ad hoc server address"), new LinearLayoutParams(1.0f)))->OnClick.Add(launchAdhocServerScreen);
+			// This case happens when updating from a previous version, as well as clicking on one of the local addresses
+			networkingSettings->Add(new ChoiceWithFixedValueDisplay(g_Config.sProAdhocServer, n->T("Ad hoc server address")))->OnClick.Add(launchAdhocServerScreen);
 		}
 	} else {
-		networkingSettings->Add(new Choice(n->T("Ad hoc server address"), new LinearLayoutParams(1.0f)))->OnClick.Add(launchAdhocServerScreen);
+		networkingSettings->Add(new ChoiceWithFixedValueDisplay(g_Config.sProAdhocServer, n->T("Ad hoc server address")))->OnClick.Add(launchAdhocServerScreen);
 	}
 
 	static const char *relayModes[] = {"Auto", "Yes", "No"};
