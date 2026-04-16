@@ -158,6 +158,15 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 #endif
 
 	list->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
+
+	// Media Engine CPU backend selector.
+	static const char *meCores[] = { "Disabled", "Interpreter", "Dynarec/JIT", "IR Interpreter", "Native JIT (recommended)" };
+	PopupMultiChoice *meCore = list->Add(new PopupMultiChoice(&g_Config.iMECpuCore, sy->T("Media Engine Core"), meCores, -1, ARRAY_SIZE(meCores), I18NCat::SYSTEM, screenManager()));
+	meCore->HideChoice(2);  // Hide "Dynarec/JIT" — not a valid ME backend
+#if !PPSSPP_ARCH(ARM64) && !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64)
+	meCore->HideChoice(4);  // Hide "Native JIT" on unsupported architectures
+#endif
+
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show in-game developer menu")));
 
 	AddOverlayList(list, screenManager());

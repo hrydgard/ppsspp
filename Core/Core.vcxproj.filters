@@ -469,7 +469,16 @@
     <ClCompile Include="ELF\PBPReader.cpp">
       <Filter>ELF</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceMeCore.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\scePauth.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceSysEvent.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceSysreg.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNp.cpp">
@@ -1746,7 +1755,16 @@
     <ClInclude Include="ELF\PBPReader.h">
       <Filter>ELF</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceMeCore.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\scePauth.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSysEvent.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSysreg.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNp.h">

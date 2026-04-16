@@ -1169,15 +1169,33 @@ u32 ImDisasmView::getInstructionSizeAt(u32 address) {
 }
 
 
-void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState) {
+void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState, const char *title, bool *openFlag) {
+	if (!title) title = Title();
+	if (!openFlag) openFlag = &cfg.disasmOpen;
 	disasmView_.setDebugger(mipsDebug);
 
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin(Title(), &cfg.disasmOpen)) {
+	if (!ImGui::Begin(title, openFlag)) {
 		ImGui::End();
 		return;
 	}
 
+	if (isMediaEngine_) {
+		// ME runs autonomously, no step/run/pause controls.
+		// Auto-follow: keep the view centered on ME's PC while the game runs.
+		ImGui::Checkbox("Live follow PC", &disasmView_.followPC_);
+		if (disasmView_.followPC_ && (coreState == CORE_RUNNING_CPU || coreState == CORE_RUNNING_GE)) {
+			disasmView_.GotoPC();
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Goto PC")) {
+			disasmView_.GotoPC();
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Goto RA")) {
+			disasmView_.GotoRA();
+		}
+	} else {
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
@@ -1262,6 +1280,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (ImGui::SmallButton("Goto RA")) {
 		disasmView_.GotoRA();
 	}
+	} // end !isMediaEngine_
 
 	if (ImGui::BeginPopup("disSearch")) {
 		if (ImGui::IsWindowAppearing()) {

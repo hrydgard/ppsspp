@@ -170,6 +170,7 @@ namespace MIPSComp {
 	u32 ResolveNotTakenTarget(const BranchInfo &branchInfo);
 
 	extern JitInterface *jit;
+	extern JitInterface *mainCpuJit;  // Always points to main CPU JIT (never swapped for ME)
 	extern std::recursive_mutex jitLock;
 
 	void DoDummyJitState(PointerWrap &p);

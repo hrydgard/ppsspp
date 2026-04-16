@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
@@ -1806,6 +1807,62 @@ static IRMemoryOpInfo IROpMemoryAccessSize(IROp op) {
 	default:
 		return { 0 };
 	}
+}
+
+bool ApplyMeMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	if (g_Config.bFastMemory)
+		DISABLE;
+
+	// Skip validation for ME HW pages and non-constant base registers.
+	// Validate the remaining constant addresses.
+	std::map<uint64_t, uint8_t> checks;
+	bool logBlocks = false;
+	for (IRInst inst : in.GetInstructions()) {
+		IRMemoryOpInfo info = IROpMemoryAccessSize(inst.op);
+		if (info.size != 0) {
+			bool skipValidation = false;
+			if (inst.src1 != MIPS_REG_ZERO) {
+				// Non-constant base register.
+				skipValidation = true;
+			} else {
+				// src1 == ZERO, address is fully constant.
+				u32 addr = inst.constant;
+				if (Memory::IsMeSensitiveHwPage(addr)) {
+					// The backend handles ME HW registers.
+					skipValidation = true;
+				}
+			}
+
+			if (!skipValidation) {
+				IROp validateOp = IROp::Nop;
+				switch (info.size) {
+				case 1: validateOp = IROp::ValidateAddress8; break;
+				case 2: validateOp = IROp::ValidateAddress16; break;
+				case 4: validateOp = IROp::ValidateAddress32; break;
+				case 16: validateOp = IROp::ValidateAddress128; break;
+				default: break;
+				}
+				if (validateOp != IROp::Nop) {
+					uint64_t key = ((uint64_t)inst.src1 << 32) | inst.constant;
+					auto it = checks.find(key);
+					if (it == checks.end() || it->second < info.size) {
+						out.Write(validateOp, 0, inst.src1, info.isWrite ? 1U : 0U, inst.constant);
+						checks[key] = info.size;
+					}
+				}
+			}
+		}
+
+		const IRMeta *m = GetIRMeta(inst.op);
+		if (m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0) {
+			uint64_t key = (uint64_t)inst.dest << 32;
+			checks.erase(checks.lower_bound(key), checks.upper_bound(key | 0xFFFFFFFFULL));
+		}
+
+		out.Write(inst);
+	}
+	return logBlocks;
 }
 
 bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &opts) {

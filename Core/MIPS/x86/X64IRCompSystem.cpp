@@ -392,7 +392,7 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 		regs_.Map(inst);
 		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), inst.constant));
 	}
-	AND(32, R(SCRATCH1), Imm32(0x3FFFFFFF));
+	AND(32, R(SCRATCH1), Imm32(jo.isMeJit ? 0x1FFFFFFF : 0x3FFFFFFF));
 
 	std::vector<FixupBranch> validJumps;
 

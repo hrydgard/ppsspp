@@ -215,6 +215,7 @@ public:
 
 	bool bFastMemory;
 	int iCpuCore;
+	int iMECpuCore;  // Media Engine CPU backend (0=interpreter, 2=IR interpreter)
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;

@@ -67,6 +67,8 @@
 #include "UI/AudioCommon.h"
 #include "UI/GameInfoCache.h"
 
+#include "Core/MIPS/MIPS.h"  // for debugMe
+
 extern bool g_TakeScreenshot;
 static ImVec4 g_normalTextColor;
 
@@ -213,9 +215,10 @@ void DrawSchedulerView(ImConfig &cfg) {
 	ImGui::End();
 }
 
-static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
+static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev, const char *title = "GPRs", bool *openFlag = nullptr) {
+	if (!openFlag) openFlag = &config.gprOpen;
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("GPRs", &config.gprOpen)) {
+	if (!ImGui::Begin(title, openFlag)) {
 		ImGui::End();
 		return;
 	}
@@ -282,9 +285,10 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 	ImGui::End();
 }
 
-static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
+static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev, const char *title = "FPRs", bool *openFlag = nullptr) {
+	if (!openFlag) openFlag = &config.fprOpen;
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("FPRs", &config.fprOpen)) {
+	if (!ImGui::Begin(title, openFlag)) {
 		ImGui::End();
 		return;
 	}
@@ -334,9 +338,10 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 	ImGui::End();
 }
 
-static void DrawVFPU(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
+static void DrawVFPU(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev, const char *title = "VFPU", bool *openFlag = nullptr) {
+	if (!openFlag) openFlag = &config.vfpuOpen;
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("VFPU", &config.vfpuOpen)) {
+	if (!ImGui::Begin(title, openFlag)) {
 		ImGui::End();
 		return;
 	}
@@ -2405,6 +2410,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
 			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
 			ImGui::MenuItem("JIT viewer", nullptr, &cfg_.jitViewerOpen);
+			ImGui::Separator();
+			ImGui::TextDisabled("Media Engine");
+			ImGui::MenuItem("ME Debugger", nullptr, &cfg_.meDisasmOpen);
+			ImGui::MenuItem("ME GPR regs", nullptr, &cfg_.meGprOpen);
+			ImGui::MenuItem("ME FPR regs", nullptr, &cfg_.meFprOpen);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Symbols")) {
@@ -2557,6 +2567,32 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 
 	if (cfg_.vfpuOpen) {
 		DrawVFPU(cfg_, control, mipsDebug, snapshot_);
+	}
+
+	// Media Engine windows (separate from main CPU)
+	// Update ME snapshot for diff highlighting (every frame while running).
+	if (cfg_.meGprOpen || cfg_.meFprOpen || cfg_.meDisasmOpen) {
+		extern MIPSState mipsMe;
+		meSnapshot_ = meNewSnapshot_;
+		memcpy(meNewSnapshot_.gpr, mipsMe.r, sizeof(meNewSnapshot_.gpr));
+		memcpy(meNewSnapshot_.fpr, mipsMe.fs, sizeof(meNewSnapshot_.fpr));
+		meNewSnapshot_.pc = mipsMe.pc;
+		meNewSnapshot_.lo = mipsMe.lo;
+		meNewSnapshot_.hi = mipsMe.hi;
+		meNewSnapshot_.ll = mipsMe.llBit;
+	}
+
+	if (cfg_.meDisasmOpen) {
+		meDisasm_.SetIsMediaEngine(true);
+		meDisasm_.Draw(&debugMe, cfg_, control, coreState, "ME Debugger", &cfg_.meDisasmOpen);
+	}
+
+	if (cfg_.meGprOpen) {
+		DrawGPRs(cfg_, control, &debugMe, meSnapshot_, "ME GPRs", &cfg_.meGprOpen);
+	}
+
+	if (cfg_.meFprOpen) {
+		DrawFPRs(cfg_, control, &debugMe, meSnapshot_, "ME FPRs", &cfg_.meFprOpen);
 	}
 
 	if (cfg_.breakpointsOpen) {

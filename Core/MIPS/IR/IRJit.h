@@ -119,10 +119,12 @@ private:
 
 class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
-	IRBlockCache(bool compileToNative);
+	IRBlockCache(bool compileToNative, bool patchMemory = true);
 	~IRBlockCache() {
 		Clear();
 	}
+
+	void SetPatchMemory(bool v) { patchMemory_ = v; }
 
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
@@ -199,6 +201,7 @@ public:
 private:
 	u32 AddressToPage(u32 addr) const;
 	bool compileToNative_;
+	bool patchMemory_;
 	std::vector<IRBlock> blocks_;
 	std::vector<IRInst> arena_;
 	std::unordered_map<u32, std::vector<int>> byPage_;

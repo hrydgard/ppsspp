@@ -22,6 +22,7 @@
 #include "Common/Log.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -281,6 +282,205 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	EndWrite();
 
 	// Update our current cached rounding mode func, too.
+	UpdateFCR31(mipsState);
+}
+
+// ME variant of the fixed dispatcher code.
+// Budgeting and exit checks stay in the C++ caller.
+void Arm64MEJitBackend::GenerateFixedCode(MIPSState *mipsState) {
+	const u8 *start = AlignCodePage();
+	if (DebugProfilerEnabled()) {
+		ProtectMemoryPages(start, GetMemoryProtectPageSize(), MEM_PROT_READ | MEM_PROT_WRITE);
+		hooks_.profilerPC = (uint32_t *)GetWritableCodePtr();
+		Write32(0);
+		hooks_.profilerStatus = (IRProfilerStatus *)GetWritableCodePtr();
+		Write32(0);
+	}
+
+	const u8 *disasmStart = AlignCodePage();
+	BeginWrite(GetMemoryProtectPageSize());
+
+	// Helper stubs shared with the base class.
+	if (jo.useStaticAlloc) {
+		saveStaticRegisters_ = AlignCode16();
+		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		regs_.EmitSaveStaticRegisters();
+		RET();
+
+		loadStaticRegisters_ = AlignCode16();
+		regs_.EmitLoadStaticRegisters();
+		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		RET();
+	} else {
+		saveStaticRegisters_ = nullptr;
+		loadStaticRegisters_ = nullptr;
+	}
+
+	restoreRoundingMode_ = AlignCode16();
+	{
+		MRS(SCRATCH2_64, FIELD_FPCR);
+		uint32_t mask = ~(4 << 22);
+		mask &= ~(3 << 22);
+		ANDI2R(SCRATCH2, SCRATCH2, mask);
+		_MSR(FIELD_FPCR, SCRATCH2_64);
+		RET();
+	}
+
+	applyRoundingMode_ = AlignCode16();
+	{
+		LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, fcr31));
+		ANDI2R(SCRATCH2, SCRATCH1, 3);
+		FixupBranch skip1 = TBZ(SCRATCH1, 24);
+		ADDI2R(SCRATCH2, SCRATCH2, 4);
+		SetJumpTarget(skip1);
+
+		FixupBranch skip = CBZ(SCRATCH2);
+
+		ANDI2R(SCRATCH1, SCRATCH2, 3);
+		CMPI2R(SCRATCH1, 1);
+		FixupBranch skipadd = B(CC_NEQ);
+		ADDI2R(SCRATCH2, SCRATCH2, 2);
+		SetJumpTarget(skipadd);
+		FixupBranch skipsub = B(CC_LE);
+		SUBI2R(SCRATCH2, SCRATCH2, 1);
+		SetJumpTarget(skipsub);
+
+		MRS(SCRATCH1_64, FIELD_FPCR);
+		ANDI2R(SCRATCH1, SCRATCH1, ~((4 | 3) << 22));
+		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 22));
+		_MSR(FIELD_FPCR, SCRATCH1_64);
+
+		SetJumpTarget(skip);
+		RET();
+	}
+
+	updateRoundingMode_ = AlignCode16();
+	{
+		LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, fcr31));
+		ANDI2R(SCRATCH2, SCRATCH1, 3);
+		FixupBranch skip = TBZ(SCRATCH1, 24);
+		ADDI2R(SCRATCH2, SCRATCH2, 4);
+		SetJumpTarget(skip);
+
+		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1_);
+		LSL(SCRATCH2, SCRATCH2, 3);
+		LDR(SCRATCH2_64, SCRATCH1_64, SCRATCH2);
+		MOVP2R(SCRATCH1_64, &currentRoundingFunc_);
+		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
+		RET();
+	}
+
+	// Entry point.
+	hooks_.enterDispatcher = (IRNativeFuncNoArg)AlignCode16();
+
+	uint32_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
+	uint32_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
+	fp_.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
+
+	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(CTXREG, mipsState);
+	MOVI2R(JITBASEREG, (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE);
+
+	LoadStaticRegisters();
+	ApplyRoundingMode(true);
+
+	// First entry uses the PC already stored in mipsState.
+	FixupBranch skipFirstMovToPC = B();
+
+	// Compiled blocks jump here with the next PC in SCRATCH1.
+	dispatcherPCInSCRATCH1_ = GetCodePtr();
+	outerLoopPCInSCRATCH1_ = GetCodePtr();
+	outerLoop_ = GetCodePtr();
+	MovToPC(SCRATCH1);
+
+	hooks_.dispatcher = GetCodePtr();
+	SetJumpTarget(skipFirstMovToPC);
+
+	// Stop when downcount < 0.
+	FixupBranch bail = TBNZ(DOWNCOUNTREG, 31);
+
+	dispatcherNoCheck_ = GetCodePtr();
+	dispatcherCheckCoreState_ = GetCodePtr();
+
+	hooks_.dispatchFetch = GetCodePtr();
+
+	// Fast cache lookup.
+	// Read pc from MIPSState into SCRATCH1 (W16)
+	MovFromPC(SCRATCH1);
+	// Compute cache index: (pc >> 2) & 0xFFF, then *16 for 16-byte entries.
+	LSR(SCRATCH2, SCRATCH1, 2);
+	ANDI2R(SCRATCH2, SCRATCH2, 0xFFF);
+	LSL(SCRATCH2, SCRATCH2, 4);  // index * sizeof(FastCacheEntry) = index * 16
+	// Load base pointer to fast cache into X0
+	MOVP2R(X0, &MIPSComp::Arm64MEIRJit::g_meFastCache);
+	LDR(INDEX_UNSIGNED, X0, X0, 0);  // X0 = g_meFastCache (deref pointer-to-pointer)
+	// Index into cache: X0 = &fastCache_[idx]
+	ADD(X0, X0, SCRATCH2_64);
+	// Compare entry.pc (offset 0) with current pc (SCRATCH1 = W16)
+	LDR(INDEX_UNSIGNED, SCRATCH2, X0, 0);  // entry.pc (W17)
+	CMP(SCRATCH1, SCRATCH2);
+	FixupBranch cacheMiss = B(CC_NEQ);
+	// Cache hit: load entry.nativeEntry (offset 8)
+	LDR(INDEX_UNSIGNED, X0, X0, 8);  // entry.nativeEntry
+	FixupBranch cacheNullEntry = CBZ(X0);
+	// Jump straight to the native block.
+	BR(X0);
+
+	// Cache miss: call back into C++.
+	SetJumpTarget(cacheMiss);
+	SetJumpTarget(cacheNullEntry);
+	SaveStaticRegisters();
+	RestoreRoundingMode(true);
+	QuickCallFunction(SCRATCH1_64, &MECompileAndLookup);
+	ApplyRoundingMode(true);
+	LoadStaticRegisters();
+
+	// MECompileAndLookup returns a native pointer in X0.
+	FixupBranch compileFailed = CBZ(X0);
+	BR(X0);
+
+	// Exit path.
+	SetJumpTarget(bail);
+	SetJumpTarget(compileFailed);
+
+	SaveStaticRegisters();
+	RestoreRoundingMode(true);
+	fp_.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
+	RET();
+
+	// --- Crash handler ---
+	hooks_.crashHandler = GetCodePtr();
+	MOVP2R(SCRATCH1_64, &coreState);
+	MOVI2R(SCRATCH2, CORE_RUNTIME_ERROR);
+	STR(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
+	SaveStaticRegisters();
+	RestoreRoundingMode(true);
+	fp_.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
+	RET();
+
+	// --- Integer conversion stubs ---
+	static const RoundingMode roundModes[8] = { ROUND_N, ROUND_Z, ROUND_P, ROUND_M, ROUND_N, ROUND_Z, ROUND_P, ROUND_M };
+	for (size_t i = 0; i < ARRAY_SIZE(roundModes); ++i) {
+		convertS0ToSCRATCH1_[i] = AlignCode16();
+		fp_.MVNI(32, EncodeRegToDouble(SCRATCHF2), 0x80, 24);
+		fp_.FCMP(S0, S0);
+		fp_.FCVTS(S0, S0, roundModes[i]);
+		fp_.FCSEL(S0, S0, SCRATCHF2, CC_VC);
+		RET();
+	}
+
+	if (enableDisasm) {
+		std::vector<std::string> lines = DisassembleArm64(disasmStart, (int)(GetCodePtr() - disasmStart));
+		for (auto s : lines) {
+			INFO_LOG(Log::JIT, "%s", s.c_str());
+		}
+	}
+
+	AlignCodePage();
+	jitStartOffset_ = (int)(GetCodePtr() - start);
+	FlushIcache();
+	EndWrite();
+
 	UpdateFCR31(mipsState);
 }
 

@@ -37,6 +37,29 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
+static u32 ComputeConstantAddress(const IRInst &inst, X64IRRegCache &regs) {
+	uint64_t base = 0;
+	if (inst.src1 != MIPS_REG_ZERO) {
+		if (!regs.IsGPRImm(inst.src1))
+			return 0;
+		base = regs.GetGPRImm(inst.src1);
+	}
+
+	int64_t imm = (int32_t)inst.constant;
+	if ((imm & 0xC0000000) == 0x80000000) {
+		imm = (uint64_t)(uint32_t)inst.constant;
+	}
+	return (u32)(base + imm);
+}
+
+static bool NeedsGenericMeHwAccess(const IRInst &inst, X64IRRegCache &regs, const MIPSComp::JitOptions &jo) {
+	if (!jo.isMeJit)
+		return false;
+	if (inst.src1 != MIPS_REG_ZERO && !regs.IsGPRImm(inst.src1))
+		return false;
+	return Memory::IsMeSensitiveHwPage(ComputeConstantAddress(inst, regs));
+}
+
 Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 	const IRMeta *m = GetIRMeta(inst.op);
 
@@ -52,14 +75,15 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 	}
 
 #ifdef MASKED_PSP_MEMORY
+	const u32 addrMask = jo.isMeJit ? 0x1FFFFFFFU : Memory::MEMVIEW32_MASK;
 	if (disp > 0)
-		disp &= Memory::MEMVIEW32_MASK;
+		disp &= addrMask;
 #endif
 
 	OpArg addrArg;
 	if (inst.src1 == MIPS_REG_ZERO) {
 #ifdef MASKED_PSP_MEMORY
-		disp &= Memory::MEMVIEW32_MASK;
+		disp &= addrMask;
 #endif
 #if PPSSPP_ARCH(AMD64)
 		addrArg = MDisp(MEMBASEREG, disp & 0x7FFFFFFF);
@@ -73,7 +97,7 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 		regs_.MapGPR(inst.src1);
 #ifdef MASKED_PSP_MEMORY
 		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), disp));
-		AND(PTRBITS, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
+		AND(PTRBITS, R(SCRATCH1), Imm32(addrMask));
 		addrArg = MDisp(SCRATCH1, (intptr_t)Memory::base);
 #else
 #if PPSSPP_ARCH(AMD64)
@@ -91,6 +115,8 @@ void X64JitBackend::CompIR_CondStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	OpArg addrArg = PrepareSrc1Address(inst);
@@ -118,6 +144,8 @@ void X64JitBackend::CompIR_CondStore(IRInst inst) {
 
 void X64JitBackend::CompIR_FLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	OpArg addrArg = PrepareSrc1Address(inst);
 
@@ -135,6 +163,8 @@ void X64JitBackend::CompIR_FLoad(IRInst inst) {
 
 void X64JitBackend::CompIR_FStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	OpArg addrArg = PrepareSrc1Address(inst);
 
@@ -152,6 +182,8 @@ void X64JitBackend::CompIR_FStore(IRInst inst) {
 
 void X64JitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	regs_.SpillLockGPR(inst.dest, inst.src1);
 	OpArg addrArg = PrepareSrc1Address(inst);
@@ -211,6 +243,8 @@ void X64JitBackend::CompIR_LoadShift(IRInst inst) {
 
 void X64JitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	regs_.SpillLockGPR(inst.src3, inst.src1);
 	OpArg addrArg = PrepareSrc1Address(inst);
@@ -275,6 +309,8 @@ void X64JitBackend::CompIR_StoreShift(IRInst inst) {
 
 void X64JitBackend::CompIR_VecLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	OpArg addrArg = PrepareSrc1Address(inst);
 
@@ -292,6 +328,8 @@ void X64JitBackend::CompIR_VecLoad(IRInst inst) {
 
 void X64JitBackend::CompIR_VecStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	OpArg addrArg = PrepareSrc1Address(inst);
 

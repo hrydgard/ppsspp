@@ -249,7 +249,7 @@ static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ....
 // Theoretically should not hit these.
 static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, Int_Halt, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -364,11 +364,11 @@ static const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ...........
 
 static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 {
-	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),  // unused
+	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, 0, IN_RT),  // unused
+	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	INVALID,
 	INVALID,
@@ -403,7 +403,7 @@ static const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... .....
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	INVALID_X_8,
 	//24
-	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, 0),
 	INSTR("iack", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID,
 	INSTR("deret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),

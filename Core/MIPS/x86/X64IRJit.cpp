@@ -401,6 +401,22 @@ void X64JitBackend::EmitConst4x32(const void **c, uint32_t v) {
 		Write32(v);
 }
 
+const u8 *X64MEIRJit::CompileAndLookup(u32 pc) {
+	int blockNum = blocks_.FindPreloadBlock(pc);
+	if (blockNum < 0) {
+		Compile(pc);
+		blockNum = blocks_.FindPreloadBlock(pc);
+	}
+	if (blockNum < 0) {
+		return nullptr;
+	}
+	const IRBlock *irBlock = blocks_.GetBlock(blockNum);
+	if (!irBlock || irBlock->GetNativeOffset() < 0) {
+		return nullptr;
+	}
+	return backend_->CodeBlock().GetBasePtr() + irBlock->GetNativeOffset();
+}
+
 } // namespace MIPSComp
 
 #endif

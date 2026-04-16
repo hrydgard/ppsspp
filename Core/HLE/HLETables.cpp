@@ -87,6 +87,9 @@
 #include "sceNetResolver.h"
 // #include "sceNp2.h"
 #include "sceNet_lib.h"
+#include "sceSysEvent.h"
+#include "sceSysreg.h"
+#include "sceMeCore.h"
 
 #define N(s) s
 
@@ -202,7 +205,6 @@ const HLEFunction pspeDebug[] =
 {
 	{0XDEADBEAF, nullptr,                                            "pspeDebugWrite",                          '?', ""   },
 };
-
 
 const HLEModule moduleList[] = 
 {
@@ -328,6 +330,10 @@ void RegisterAllModules() {
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 
+	// Media Engine HLE modules.
+	Register_sceSysEventForKernel();
+	Register_sceSysreg_driver();
+	Register_sceMeCore_driver();
+
 	// add new modules here.
 }
-

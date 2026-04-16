@@ -223,8 +223,11 @@
     <ClInclude Include="..\..\Core\HLE\sceP3da.h" />
     <ClInclude Include="..\..\Core\HLE\sceParseHttp.h" />
     <ClInclude Include="..\..\Core\HLE\sceParseUri.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMeCore.h" />
     <ClInclude Include="..\..\Core\HLE\scePauth.h" />
     <ClInclude Include="..\..\Core\HLE\scePower.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSysEvent.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSysreg.h" />
     <ClInclude Include="..\..\Core\HLE\scePsmf.h" />
     <ClInclude Include="..\..\Core\HLE\scePspNpDrm_user.h" />
     <ClInclude Include="..\..\Core\HLE\sceRtc.h" />
@@ -492,8 +495,11 @@
     <ClCompile Include="..\..\Core\HLE\sceP3da.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceParseHttp.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceParseUri.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMeCore.cpp" />
     <ClCompile Include="..\..\Core\HLE\scePauth.cpp" />
     <ClCompile Include="..\..\Core\HLE\scePower.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSysEvent.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSysreg.cpp" />
     <ClCompile Include="..\..\Core\HLE\scePsmf.cpp" />
     <ClCompile Include="..\..\Core\HLE\scePspNpDrm_user.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceRtc.cpp" />

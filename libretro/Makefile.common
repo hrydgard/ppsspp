@@ -845,6 +845,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceNp.cpp \
 	       $(COREDIR)/HLE/sceNp2.cpp \
 	       $(COREDIR)/HLE/scePauth.cpp \
+	       $(COREDIR)/HLE/sceMeCore.cpp \
+	       $(COREDIR)/HLE/sceSysEvent.cpp \
+	       $(COREDIR)/HLE/sceSysreg.cpp \
 	       $(COREDIR)/HLE/sceUsbGps.cpp \
 	       $(COREDIR)/HW/BufferQueue.cpp \
 	       $(COREDIR)/HW/Camera.cpp \
