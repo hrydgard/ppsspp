@@ -563,6 +563,8 @@ bool GameBrowser::Key(const KeyInput &input) {
 					// TODO: Restore focus state here.
 					UI::EnableFocusMovement(false);
 				}
+			} else {
+				// Empty search filter. Navigate upwards on backspace?
 			}
 		} else if (!searchFilter_.empty() && input.keyCode == NKCODE_ESCAPE) {
 			searchFilter_.clear();
@@ -594,8 +596,7 @@ void GameBrowser::ApplySearchFilter(bool setKeyboardFocus) {
 		return;
 	}
 
-	std::string filter = searchFilter_;
-	std::transform(filter.begin(), filter.end(), filter.begin(), tolower);
+	std::string filter = NormalizeForSearch(searchFilter_);
 
 	searchPending_ = false;
 	// By default, everything is matching.
@@ -632,7 +633,7 @@ void GameBrowser::ApplySearchFilter(bool setKeyboardFocus) {
 			continue;
 		}
 
-		std::transform(label.begin(), label.end(), label.begin(), tolower);
+		label = NormalizeForSearch(label);
 		bool match = v->CanBeFocused() && label.find(filter) != label.npos;
 		if (match && !firstMatch) {
 			firstMatch = v;
@@ -1152,6 +1153,9 @@ void GameBrowser::NavigateClick(UI::EventParams &e) {
 		path_.Navigate(text.ToString());
 	}
 	g_Config.currentDirectory = path_.GetPath();
+	// Clear the search filter. This allow for smooth directory navigation using search
+	// (although there's no good way of going up...)
+	SetSearchFilter("", false);
 	Refresh();
 }
 
