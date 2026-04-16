@@ -25,6 +25,36 @@ To download fresh development builds for Android, Windows and Mac, [go to the /d
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.20.4
+--------------------
+1.20.4 is an unusually big followup release, but given the new multiplayer developments, we need something to cover the longer gap to 1.21.
+During this cycle, I've mostly focused on UX improvements.
+
+- Ad-hoc
+  - Support for "data.json" live status from adhoc relay servers ([#21496], [#21526])
+  - RetroAchievements UI improvements around subsets ([#21536])
+  - Assorted ad-hoc UI improvements ([#21530], [#21510])
+  - Fixes for The Warriors ([#21464]) and Street Riders ([#21460]) in relay mode
+
+- Texture upscaling
+  - Fix old bug causing some textures to get stuck unscales on some hardware when using GPU texture upscaling ([#21533])
+  - Improved performance of MMPX_adv upscaler ([#21555])
+  - NNEDI3 and Spline36 GPU texture scaling ([#21527])
+
+- Rendering fixes
+  - Fix a bug in lens flare occlusion for the Syphon Filter games ([#21511])
+  
+- Other
+  - Hide the save-load indicator in the corner by default ([#21528])
+  - More plugin zip files can now auto-install ([#21556])
+  - Pause on lost-focus on Linux ([#21517])
+  - Frameskipping no longer breaks analog stick auto-rotation in GoW, however manual rotation still broken ([#21508])
+  - Android: Restore "Landscape Auto" ([#21482]), the "Auto" screen rotation mode now overrides the user rotation lock ([#21507])
+  - Contribution by Irzlin: Loongarch improvements ([#21499])
+  - Basic support for extracting ISO from 7z ([#21493])
+  - Fix a bug that prevented loading certain texture packs ([#21491])
+  - Fix music looping in Death JR ([#21490])
+
 What's new in 1.20.3
 --------------------
 
@@ -464,3 +494,24 @@ See [history.md](history.md).
 [#21433]: https://github.com/hrydgard/ppsspp/issues/21433 "Add a \"quick-edit\" button for the current server host/ip, if it's custom"
 [#21434]: https://github.com/hrydgard/ppsspp/issues/21434 "Fix support for custom game configs for homebrews"
 [#21437]: https://github.com/hrydgard/ppsspp/issues/21437 "Android: Handle inset adjustments on the C++ side, handle them better in the UI."
+[#21496]: https://github.com/hrydgard/ppsspp/issues/21496 "Add live server status for servers supporting data.json"
+[#21526]: https://github.com/hrydgard/ppsspp/issues/21526 "Fix json parsing bugs, add data.json for Relay Brasiliero"
+[#21536]: https://github.com/hrydgard/ppsspp/issues/21536 "Show RA subsets on separate tabs"
+[#21530]: https://github.com/hrydgard/ppsspp/issues/21530 "Pause screen network UI improvements"
+[#21510]: https://github.com/hrydgard/ppsspp/issues/21510 "Chat popup improvements"
+[#21464]: https://github.com/hrydgard/ppsspp/issues/21464 "fix the warriors in relay mode"
+[#21460]: https://github.com/hrydgard/ppsspp/issues/21460 "fix street rider sending pdp packets using wrong pdp dst addresses in relay mode"
+[#21533]: https://github.com/hrydgard/ppsspp/issues/21533 "Fix some textures getting stuck unscaled with GPU texture upscalers"
+[#21555]: https://github.com/hrydgard/ppsspp/issues/21555 "MMPX_adv  algorithm bug fixes and logic optimizations"
+[#21527]: https://github.com/hrydgard/ppsspp/issues/21527 "NNEDI3 and Spline36 GPU texture scaling"
+[#21511]: https://github.com/hrydgard/ppsspp/issues/21511 "Depth raster: Handle triangles properly when backface culling is disabled"
+[#21528]: https://github.com/hrydgard/ppsspp/issues/21528 "Hide the save/load indicator"
+[#21556]: https://github.com/hrydgard/ppsspp/issues/21556 "Fix for auto-installing plugins from zip"
+[#21517]: https://github.com/hrydgard/ppsspp/issues/21517 "Implement pause on lost focus on SDL"
+[#21508]: https://github.com/hrydgard/ppsspp/issues/21508 "Analog stick autorotation now uses game timing"
+[#21482]: https://github.com/hrydgard/ppsspp/issues/21482 "Restore the \"Landscape auto\" orientation mode"
+[#21507]: https://github.com/hrydgard/ppsspp/issues/21507 "Android: Make the \"Auto\" rotation mode override user rotation lock (SENSOR mode)"
+[#21499]: https://github.com/hrydgard/ppsspp/issues/21499 "loongarch: Implement excepetion handler and JIT bug fix"
+[#21493]: https://github.com/hrydgard/ppsspp/issues/21493 "Initial 7z support"
+[#21491]: https://github.com/hrydgard/ppsspp/issues/21491 "IniFile: Disallow section headers from starting at other line offsets than the start"
+[#21490]: https://github.com/hrydgard/ppsspp/issues/21490 "Atrac3: Allow sending 0xFFFFFFFF as data size (Death JR music looping)"
