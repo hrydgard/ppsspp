@@ -1549,7 +1549,11 @@ void Spinner::Draw(UIContext &dc) {
 
 	if (!images_) {
 		// Simple.
+		dc.BeginNoTex();
 		dc.Draw()->CircleSegment(bounds_.centerX(), bounds_.centerY(), bounds_.radius(), 3.0f, 20.0f, angle, angle + PI * 3.0 / 2.0, dc.GetTheme().itemStyle.fgColor, 0.0f);
+		dc.Flush();
+		dc.Begin();
+		dc.RebindTexture();
 		return;
 	}
 

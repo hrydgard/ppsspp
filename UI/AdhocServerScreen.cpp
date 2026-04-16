@@ -317,7 +317,7 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 	if (games.empty()) {
 		if (requestInProgress) {
 			// Still loading. Show a spinner.
-			content->Add(new Spinner(nullptr, 0, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, Gravity::G_CENTER)));
+			content->Add(new Spinner(nullptr, 0, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(8))));
 		} else {
 			content->Add(new TextView(ni->T("No games in progress on this server")));
 		}
