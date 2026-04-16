@@ -165,6 +165,10 @@ struct TouchInput {
 	double timestamp;
 };
 
+#undef MOD_CTRL
+#undef MOD_ALT
+#undef MOD_SHIFT
+
 enum class KeyInputFlags {
 	DOWN = 1 << 0,
 	UP = 1 << 1,

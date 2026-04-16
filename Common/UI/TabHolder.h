@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string_view>
+#include <functional>
 
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
