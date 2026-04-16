@@ -328,11 +328,15 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 		CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
 		gameSection->Header()->SetUnderline(false);
 		for (const AdhocGroup &group : game.groups) {
-			if (group.usercount >= 1 && group.name == "Groupless") {
+			std::string groupName = group.name;
+			if (groupName.empty()) {
+				groupName = "???";
+			}
+			if (group.usercount >= 1 && groupName == "Groupless") {
 				gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
 				continue;
 			}
-			gameSection->Add(new TextView("  " + group.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+			gameSection->Add(new TextView("  " + groupName + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
 			for (const AdhocUser &user : group.users) {
 				std::string portInfo;
 				if (!user.pdp_ports.empty()) {
