@@ -131,7 +131,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(deviceOrientation_);
+	TouchControlConfig &touch = g_Config.GetCurrentTouchControlsConfig(deviceOrientation_);
 
 	ConfigCustomButton *cfg = nullptr;
 	bool *show = nullptr;
