@@ -23,5 +23,5 @@ chmod +x ./quick-sharun
 cp -vr ./build/assets ./AppDir/bin
 
 # Make AppImage with uruntime
-quick-sharun --make-appimage
+./quick-sharun --make-appimage
 
