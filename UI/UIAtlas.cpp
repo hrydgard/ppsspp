@@ -365,14 +365,15 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 int DumpButtonsPNGsToSystem() {
 	Path systemDir = GetSysDirectory(DIRECTORY_SYSTEM);
+	Path iconDir = systemDir / "ICON";
 	std::string gameID;
 	if (g_paramSFO.IsValid()) {
 		gameID = g_paramSFO.GetDiscID();
 	}
 
-	Path customButtons = systemDir / "buttons.svg";
+	Path customButtons = iconDir / "buttons.svg";
 	if (!gameID.empty()) {
-		Path gameButtons = systemDir / (gameID + "_buttons.svg");
+		Path gameButtons = iconDir / gameID / "buttons.svg";
 		if (File::Exists(gameButtons)) {
 			customButtons = gameButtons;
 		}
@@ -389,35 +390,38 @@ int DumpButtonsPNGsToSystem() {
 		return 0;
 	}
 
+	Path dumpDir = iconDir / "DUMP";
+	if (!gameID.empty()) {
+		dumpDir = dumpDir / gameID;
+	}
+	File::CreateFullPath(dumpDir);
+
 	int dumped = 0;
 	for (int i = 0; i < (int)images.size(); i++) {
 		if (images[i].IsEmpty()) {
 			continue;
 		}
 
-		std::string fileNamePrefix;
-		if (!gameID.empty()) {
-			fileNamePrefix = gameID + "_";
-		}
-		Path outPath = systemDir / (fileNamePrefix + "buttons_" + PNGNameFromID(g_uiImageIDs[i].id));
+		Path outPath = dumpDir / ("buttons_" + PNGNameFromID(g_uiImageIDs[i].id));
 		pngSave(outPath, images[i].data(), images[i].width(), images[i].height(), 4);
 		dumped++;
 	}
 
-	INFO_LOG(Log::G3D, "Dumped %d buttons PNG files to %s", dumped, systemDir.c_str());
+	INFO_LOG(Log::G3D, "Dumped %d buttons PNG files to %s", dumped, dumpDir.c_str());
 	return dumped;
 }
 
 static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameID, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+	Path iconDir = systemDir / "ICON";
 	int loaded = 0;
 	for (int i = 0; i < (int)imageCount; i++) {
 		std::string pngName = PNGNameFromID(imageIDs[i].id);
 
 		Path gameSpecificPath;
 		if (!gameID.empty()) {
-			gameSpecificPath = systemDir / (std::string(gameID) + "_buttons_" + pngName);
+			gameSpecificPath = iconDir / std::string(gameID) / ("buttons_" + pngName);
 		}
-		Path globalPath = systemDir / ("buttons_" + pngName);
+		Path globalPath = iconDir / ("buttons_" + pngName);
 
 		Path chosenPath;
 		if (!gameID.empty() && File::Exists(gameSpecificPath)) {
@@ -464,9 +468,10 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	if (g_paramSFO.IsValid()) {
 		gameID = g_paramSFO.GetDiscID();
 	}
-	Path customButtons = systemDir / "buttons.svg";
+	Path iconDir = systemDir / "ICON";
+	Path customButtons = iconDir / "buttons.svg";
 	if (!gameID.empty()) {
-		Path gameButtons = systemDir / (gameID + "_buttons.svg");
+		Path gameButtons = iconDir / gameID / "buttons.svg";
 			if (File::Exists(gameButtons)) {
 				INFO_LOG(Log::G3D, "Using game-specific buttons SVG: %s", gameButtons.c_str());
 				customButtons = gameButtons;

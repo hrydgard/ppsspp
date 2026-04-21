@@ -744,7 +744,7 @@ void DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 void DeveloperToolsScreen::OnDumpButtonsPNGs(UI::EventParams &e) {
 	int dumped = DumpButtonsPNGsToSystem();
 	if (dumped > 0) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Buttons PNG dump complete", StringFromFormat("Dumped %d files to PSP/SYSTEM", dumped), 4.0f, "buttons_png_dump");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Buttons PNG dump complete", StringFromFormat("Dumped %d files to PSP/SYSTEM/ICON/DUMP", dumped), 4.0f, "buttons_png_dump");
 	} else {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, "Buttons PNG dump failed", "Could not dump PNG files from buttons.svg", 4.0f, "buttons_png_dump");
 	}
