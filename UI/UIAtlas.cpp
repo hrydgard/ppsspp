@@ -361,6 +361,40 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 	return true;
 }
 
+static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameID, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+	int loaded = 0;
+	for (int i = 0; i < (int)imageCount; i++) {
+		std::string pngName = PNGNameFromID(imageIDs[i].id);
+
+		Path gameSpecificPath;
+		if (!gameID.empty()) {
+			gameSpecificPath = systemDir / (std::string(gameID) + "_buttons_" + pngName);
+		}
+		Path globalPath = systemDir / ("buttons_" + pngName);
+
+		Path chosenPath;
+		if (!gameID.empty() && File::Exists(gameSpecificPath)) {
+			chosenPath = gameSpecificPath;
+		} else if (File::Exists(globalPath)) {
+			chosenPath = globalPath;
+		} else {
+			continue;
+		}
+
+		Image loadedImage;
+		if (!loadedImage.LoadPNG(chosenPath.c_str())) {
+			ERROR_LOG(Log::G3D, "Failed to load custom buttons PNG: %s", chosenPath.c_str());
+			continue;
+		}
+
+		loadedImage.ConvertToPremultipliedAlpha();
+		(*images)[i] = std::move(loadedImage);
+		loaded++;
+	}
+
+	return loaded;
+}
+
 static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
 	Bucket bucket;
 
@@ -378,16 +412,18 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	if (!RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 		return false;
 	}
-	Path customButtons = GetSysDirectory(DIRECTORY_SYSTEM) / "buttons.svg";
+	Path systemDir = GetSysDirectory(DIRECTORY_SYSTEM);
+	std::string gameID;
 	if (g_paramSFO.IsValid()) {
-		std::string gameID = g_paramSFO.GetDiscID();
-		if (!gameID.empty()) {
-			Path gameButtons = GetSysDirectory(DIRECTORY_SYSTEM) / (gameID + "_buttons.svg");
+		gameID = g_paramSFO.GetDiscID();
+	}
+	Path customButtons = systemDir / "buttons.svg";
+	if (!gameID.empty()) {
+		Path gameButtons = systemDir / (gameID + "_buttons.svg");
 			if (File::Exists(gameButtons)) {
 				INFO_LOG(Log::G3D, "Using game-specific buttons SVG: %s", gameButtons.c_str());
 				customButtons = gameButtons;
 			}
-		}
 	}
 	if (File::Exists(customButtons)) {
 		if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
@@ -398,6 +434,13 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			return false;
 		}
 	}
+
+	// Optional PNG override only for buttons assets.
+	int buttonsPngOverridden = LoadButtonsPNGOverrides(systemDir, gameID, imageIDs, imageCount, &images);
+	if (buttonsPngOverridden > 0) {
+		INFO_LOG(Log::G3D, "Loaded %d custom buttons PNG overrides", buttonsPngOverridden);
+	}
+
 	Instant shadowStart = Instant::Now();
 
 	// We can trivially parallelize shadowing/extension of the images.
