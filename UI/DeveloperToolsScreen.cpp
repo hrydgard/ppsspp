@@ -46,6 +46,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/IconCache.h"
 #include "UI/MiscViews.h"
+#include "UI/UIAtlas.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -236,6 +237,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 0.0f, "copyToClip");
 		}
 	});
+
+	list->Add(new Choice(dev->T("Dump buttons SVG to PNG files")))->OnClick.Handle(this, &DeveloperToolsScreen::OnDumpButtonsPNGs);
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
@@ -736,6 +739,15 @@ void DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	}
 	// Persist the setting.  Maybe should separate?
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+}
+
+void DeveloperToolsScreen::OnDumpButtonsPNGs(UI::EventParams &e) {
+	int dumped = DumpButtonsPNGsToSystem();
+	if (dumped > 0) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Buttons PNG dump complete", StringFromFormat("Dumped %d files to PSP/SYSTEM", dumped), 4.0f, "buttons_png_dump");
+	} else {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Buttons PNG dump failed", "Could not dump PNG files from buttons.svg", 4.0f, "buttons_png_dump");
+	}
 }
 
 void DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {

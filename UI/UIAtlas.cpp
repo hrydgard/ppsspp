@@ -220,7 +220,7 @@ static bool IsImageID(const ImageMeta *imageIDs, size_t imageCount, std::string_
 	return GetImageIndex(imageIDs, imageCount, id) != -1;
 }
 
-static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images, bool premultiplyAlpha = true) {
 	Instant svgStart = Instant::Now();
 
 	// Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
@@ -342,7 +342,9 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 				pngSave(Path(name), img.data(), img.width(), img.height(), 4);
 			}
 
-			img.ConvertToPremultipliedAlpha();
+			if (premultiplyAlpha) {
+				img.ConvertToPremultipliedAlpha();
+			}
 		}
 
 		shapeCount = (int)usedShapes.size();
@@ -359,6 +361,51 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
 	return true;
+}
+
+int DumpButtonsPNGsToSystem() {
+	Path systemDir = GetSysDirectory(DIRECTORY_SYSTEM);
+	std::string gameID;
+	if (g_paramSFO.IsValid()) {
+		gameID = g_paramSFO.GetDiscID();
+	}
+
+	Path customButtons = systemDir / "buttons.svg";
+	if (!gameID.empty()) {
+		Path gameButtons = systemDir / (gameID + "_buttons.svg");
+		if (File::Exists(gameButtons)) {
+			customButtons = gameButtons;
+		}
+	}
+
+	Path sourceButtons = customButtons;
+	if (!File::Exists(sourceButtons)) {
+		sourceButtons = Path("ui_images/buttons.svg");
+	}
+
+	std::vector<Image> images(ARRAY_SIZE(g_uiImageIDs));
+	if (!RasterizeSVG(sourceButtons.c_str(), 1.0f, 8192, g_uiImageIDs, ARRAY_SIZE(g_uiImageIDs), &images, false)) {
+		ERROR_LOG(Log::G3D, "Failed to rasterize buttons SVG for PNG dump: %s", sourceButtons.c_str());
+		return 0;
+	}
+
+	int dumped = 0;
+	for (int i = 0; i < (int)images.size(); i++) {
+		if (images[i].IsEmpty()) {
+			continue;
+		}
+
+		std::string fileNamePrefix;
+		if (!gameID.empty()) {
+			fileNamePrefix = gameID + "_";
+		}
+		Path outPath = systemDir / (fileNamePrefix + "buttons_" + PNGNameFromID(g_uiImageIDs[i].id));
+		pngSave(outPath, images[i].data(), images[i].width(), images[i].height(), 4);
+		dumped++;
+	}
+
+	INFO_LOG(Log::G3D, "Dumped %d buttons PNG files to %s", dumped, systemDir.c_str());
+	return dumped;
 }
 
 static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameID, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
