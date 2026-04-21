@@ -41,7 +41,7 @@ private:
 	void OnMemstickTest(UI::EventParams &e);
 	void OnTouchscreenTest(UI::EventParams &e);
 	void OnCopyStatesToRoot(UI::EventParams &e);
-	void OnDumpButtonsPNGs(UI::EventParams &e);
+	void OnSaveButtonsTexture(UI::EventParams &e);
 
 	void MemoryMapTest();
 

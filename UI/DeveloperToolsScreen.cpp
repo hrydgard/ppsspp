@@ -127,6 +127,8 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	static const char *texLoadSpeeds[] = { "Slow (smooth)", "Medium", "Fast", "Instant (may stutter)" };
 	PopupMultiChoice *texLoadSpeed = list->Add(new PopupMultiChoice(&g_Config.iReplacementTextureLoadSpeed, dev->T("Replacement texture load speed"), texLoadSpeeds, 0, ARRAY_SIZE(texLoadSpeeds), I18NCat::DEVELOPER, screenManager()));
 	texLoadSpeed->SetChoiceIcon(3, ImageID("I_WARNING"));
+
+	list->Add(new Choice(dev->T("Save buttons texture")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveButtonsTexture);
 }
 
 void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
@@ -238,7 +240,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		}
 	});
 
-	list->Add(new Choice(dev->T("Dump buttons SVG to PNG files")))->OnClick.Handle(this, &DeveloperToolsScreen::OnDumpButtonsPNGs);
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
@@ -741,12 +742,12 @@ void DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
 }
 
-void DeveloperToolsScreen::OnDumpButtonsPNGs(UI::EventParams &e) {
+void DeveloperToolsScreen::OnSaveButtonsTexture(UI::EventParams &e) {
 	int dumped = DumpButtonsPNGsToSystem();
 	if (dumped > 0) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Buttons PNG dump complete", StringFromFormat("Dumped %d files to PSP/SYSTEM/ICON/DUMP", dumped), 4.0f, "buttons_png_dump");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Buttons texture saved", StringFromFormat("Saved %d files to PSP/TEXTURES/<GAMEID>/new", dumped), 4.0f, "buttons_png_dump");
 	} else {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, "Buttons PNG dump failed", "Could not dump PNG files from buttons.svg", 4.0f, "buttons_png_dump");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Save buttons texture failed", "Could not save PNG files from buttons.svg", 4.0f, "buttons_png_dump");
 	}
 }
 

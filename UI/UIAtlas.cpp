@@ -1,6 +1,8 @@
 #include <cmath>
 #include <string>
+#include <unordered_map>
 
+#include "Common/Data/Format/IniFile.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
@@ -15,6 +17,7 @@
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/System.h"
@@ -365,22 +368,16 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 }
 
 int DumpButtonsPNGsToSystem() {
-	Path systemDir = GetSysDirectory(DIRECTORY_SYSTEM);
-	Path iconDir = systemDir / "ICON";
+	Path textureDir = GetSysDirectory(DIRECTORY_TEXTURES);
 	std::string gameID;
 	if (g_paramSFO.IsValid()) {
 		gameID = g_paramSFO.GetDiscID();
-	}
-
-	Path customButtons = iconDir / "buttons.svg";
-	if (!gameID.empty()) {
-		Path gameButtons = iconDir / gameID / "buttons.svg";
-		if (File::Exists(gameButtons)) {
-			customButtons = gameButtons;
+		if (!gameID.empty()) {
+			textureDir = textureDir / gameID;
 		}
 	}
 
-	Path sourceButtons = customButtons;
+	Path sourceButtons = textureDir / "buttons.svg";
 	if (!File::Exists(sourceButtons)) {
 		sourceButtons = Path("ui_images/buttons.svg");
 	}
@@ -391,11 +388,19 @@ int DumpButtonsPNGsToSystem() {
 		return 0;
 	}
 
-	Path dumpDir = iconDir / "DUMP";
-	if (!gameID.empty()) {
-		dumpDir = dumpDir / gameID;
-	}
+	Path dumpDir = textureDir / "new";
 	File::CreateFullPath(dumpDir);
+
+	// Also dump the source SVG to keep PNG dumps and vector source together.
+	size_t svgSize = 0;
+	const uint8_t *svgData = g_VFS.ReadFile(sourceButtons, &svgSize);
+	if (svgData && svgSize > 0) {
+		Path svgOutPath = dumpDir / "buttons.svg";
+		if (!File::WriteDataToFile(false, svgData, svgSize, svgOutPath)) {
+			WARN_LOG(Log::G3D, "Failed to write buttons SVG dump: %s", svgOutPath.c_str());
+		}
+		delete[] svgData;
+	}
 
 	int dumped = 0;
 	for (int i = 0; i < (int)images.size(); i++) {
@@ -412,7 +417,40 @@ int DumpButtonsPNGsToSystem() {
 	return dumped;
 }
 
-static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameID, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+static std::string NormalizeButtonAliasKey(std::string_view key) {
+	std::string out;
+	out.reserve(key.size());
+	if (key.size() > 2 && key[0] == 'I' && key[1] == '_') {
+		key = key.substr(2);
+	}
+	for (char c : key) {
+		out.push_back((char)tolower((unsigned char)c));
+	}
+	return out;
+}
+
+static std::unordered_map<std::string, std::string> LoadButtonAliases(const Path &textureDir) {
+	std::unordered_map<std::string, std::string> aliases;
+	IniFile ini;
+	if (!ini.Load(textureDir / "textures.ini")) {
+		return aliases;
+	}
+
+	const Section *buttons = ini.GetSection("buttons");
+	if (!buttons) {
+		return aliases;
+	}
+
+	for (const ParsedIniLine &line : buttons->Lines()) {
+		if (line.Key().empty() || line.Value().empty()) {
+			continue;
+		}
+		aliases[NormalizeButtonAliasKey(line.Key())] = std::string(line.Value());
+	}
+	return aliases;
+}
+
+static int LoadButtonsPNGOverrides(const Path &textureDir, const std::unordered_map<std::string, std::string> &aliases, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
 	auto bilinearSample = [](const Image &img, float x, float y) {
 		const int w = img.width();
 		const int h = img.height();
@@ -450,23 +488,20 @@ static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameI
 		return r | (g << 8) | (b << 16) | (a << 24);
 	};
 
-	Path iconDir = systemDir / "ICON";
 	int loaded = 0;
 	for (int i = 0; i < (int)imageCount; i++) {
 		std::string pngName = PNGNameFromID(imageIDs[i].id);
-
-		Path gameSpecificPath;
-		if (!gameID.empty()) {
-			gameSpecificPath = iconDir / std::string(gameID) / ("buttons_" + pngName);
-		}
-		Path globalPath = iconDir / ("buttons_" + pngName);
+		std::string key = NormalizeButtonAliasKey(imageIDs[i].id);
 
 		Path chosenPath;
-		if (!gameID.empty() && File::Exists(gameSpecificPath)) {
-			chosenPath = gameSpecificPath;
-		} else if (File::Exists(globalPath)) {
-			chosenPath = globalPath;
+		auto alias = aliases.find(key);
+		if (alias != aliases.end()) {
+			chosenPath = textureDir / alias->second;
 		} else {
+			chosenPath = textureDir / ("buttons_" + pngName);
+		}
+
+		if (!File::Exists(chosenPath)) {
 			continue;
 		}
 
@@ -532,34 +567,37 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	if (!RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 		return false;
 	}
-	Path systemDir = GetSysDirectory(DIRECTORY_SYSTEM);
-	std::string gameID;
-	if (g_paramSFO.IsValid()) {
-		gameID = g_paramSFO.GetDiscID();
-	}
-	Path iconDir = systemDir / "ICON";
-	Path customButtons = iconDir / "buttons.svg";
-	if (!gameID.empty()) {
-		Path gameButtons = iconDir / gameID / "buttons.svg";
-			if (File::Exists(gameButtons)) {
-				INFO_LOG(Log::G3D, "Using game-specific buttons SVG: %s", gameButtons.c_str());
-				customButtons = gameButtons;
+	if (g_Config.bReplaceTextures) {
+		Path textureDir = GetSysDirectory(DIRECTORY_TEXTURES);
+		std::string gameID;
+		if (g_paramSFO.IsValid()) {
+			gameID = g_paramSFO.GetDiscID();
+			if (!gameID.empty()) {
+				textureDir = textureDir / gameID;
 			}
-	}
-	if (File::Exists(customButtons)) {
-		if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
-			return false;
+		}
+
+		Path customButtons = textureDir / "buttons.svg";
+		if (File::Exists(customButtons)) {
+			INFO_LOG(Log::G3D, "Using texture-replacement buttons SVG: %s", customButtons.c_str());
+			if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+				return false;
+			}
+		} else {
+			if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+				return false;
+			}
+		}
+
+		std::unordered_map<std::string, std::string> aliases = LoadButtonAliases(textureDir);
+		int buttonsPngOverridden = LoadButtonsPNGOverrides(textureDir, aliases, imageIDs, imageCount, &images);
+		if (buttonsPngOverridden > 0) {
+			INFO_LOG(Log::G3D, "Loaded %d custom buttons PNG overrides", buttonsPngOverridden);
 		}
 	} else {
 		if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 			return false;
 		}
-	}
-
-	// Optional PNG override only for buttons assets.
-	int buttonsPngOverridden = LoadButtonsPNGOverrides(systemDir, gameID, imageIDs, imageCount, &images);
-	if (buttonsPngOverridden > 0) {
-		INFO_LOG(Log::G3D, "Loaded %d custom buttons PNG overrides", buttonsPngOverridden);
 	}
 
 	Instant shadowStart = Instant::Now();
