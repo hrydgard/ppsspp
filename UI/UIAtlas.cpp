@@ -14,7 +14,9 @@
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/System.h"
 
 #include "UI/UIAtlas.h"
 
@@ -377,6 +379,16 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 		return false;
 	}
 	Path customButtons = GetSysDirectory(DIRECTORY_SYSTEM) / "buttons.svg";
+	if (g_paramSFO.IsValid()) {
+		std::string gameID = g_paramSFO.GetDiscID();
+		if (!gameID.empty()) {
+			Path gameButtons = GetSysDirectory(DIRECTORY_SYSTEM) / (gameID + "_buttons.svg");
+			if (File::Exists(gameButtons)) {
+				INFO_LOG(Log::G3D, "Using game-specific buttons SVG: %s", gameButtons.c_str());
+				customButtons = gameButtons;
+			}
+		}
+	}
 	if (File::Exists(customButtons)) {
 		if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 			return false;

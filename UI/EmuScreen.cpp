@@ -384,6 +384,10 @@ void EmuScreen::bootComplete() {
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 
+	if (UIContext *ctx = screenManager()->getUIContext()) {
+		ctx->InvalidateAtlas();
+	}
+
 	UpdateUIState(UISTATE_INGAME);
 	System_Notify(SystemNotification::BOOT_DONE);
 	System_Notify(SystemNotification::DISASSEMBLY);
