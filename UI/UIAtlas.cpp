@@ -1,3 +1,4 @@
+#include <cmath>
 #include <string>
 
 #include "Common/File/Path.h"
@@ -412,6 +413,43 @@ int DumpButtonsPNGsToSystem() {
 }
 
 static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameID, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+	auto bilinearSample = [](const Image &img, float x, float y) {
+		const int w = img.width();
+		const int h = img.height();
+
+		x = std::clamp(x, 0.0f, (float)(w - 1));
+		y = std::clamp(y, 0.0f, (float)(h - 1));
+
+		const int x0 = (int)std::floor(x);
+		const int y0 = (int)std::floor(y);
+		const int x1 = std::min(x0 + 1, w - 1);
+		const int y1 = std::min(y0 + 1, h - 1);
+
+		const float tx = x - (float)x0;
+		const float ty = y - (float)y0;
+
+		const u32 c00 = img.get1(x0, y0);
+		const u32 c10 = img.get1(x1, y0);
+		const u32 c01 = img.get1(x0, y1);
+		const u32 c11 = img.get1(x1, y1);
+
+		auto interpChannel = [&](int shift) {
+			const float v00 = (float)((c00 >> shift) & 0xFF);
+			const float v10 = (float)((c10 >> shift) & 0xFF);
+			const float v01 = (float)((c01 >> shift) & 0xFF);
+			const float v11 = (float)((c11 >> shift) & 0xFF);
+			const float a = v00 + (v10 - v00) * tx;
+			const float b = v01 + (v11 - v01) * tx;
+			return (u32)std::lround(a + (b - a) * ty);
+		};
+
+		const u32 r = interpChannel(0);
+		const u32 g = interpChannel(8);
+		const u32 b = interpChannel(16);
+		const u32 a = interpChannel(24);
+		return r | (g << 8) | (b << 16) | (a << 24);
+	};
+
 	Path iconDir = systemDir / "ICON";
 	int loaded = 0;
 	for (int i = 0; i < (int)imageCount; i++) {
@@ -436,6 +474,37 @@ static int LoadButtonsPNGOverrides(const Path &systemDir, std::string_view gameI
 		if (!loadedImage.LoadPNG(chosenPath.c_str())) {
 			ERROR_LOG(Log::G3D, "Failed to load custom buttons PNG: %s", chosenPath.c_str());
 			continue;
+		}
+
+		const Image &targetImage = (*images)[i];
+		if (!targetImage.IsEmpty() && targetImage.width() > 0 && targetImage.height() > 0) {
+			const int targetW = targetImage.width();
+			const int targetH = targetImage.height();
+			const int srcW = loadedImage.width();
+			const int srcH = loadedImage.height();
+
+			float fitScale = std::min((float)targetW / (float)srcW, (float)targetH / (float)srcH);
+			fitScale = std::min(fitScale, 1.0f);
+
+			const int fitW = std::max(1, (int)std::lround(srcW * fitScale));
+			const int fitH = std::max(1, (int)std::lround(srcH * fitScale));
+			const int offsetX = (targetW - fitW) / 2;
+			const int offsetY = (targetH - fitH) / 2;
+
+			Image fitted;
+			fitted.resize(targetW, targetH);
+			fitted.fill(0);
+			fitted.scale = targetImage.scale;
+
+			for (int y = 0; y < fitH; y++) {
+				const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+				for (int x = 0; x < fitW; x++) {
+					const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+					fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+				}
+			}
+
+			loadedImage = std::move(fitted);
 		}
 
 		loadedImage.ConvertToPremultipliedAlpha();
