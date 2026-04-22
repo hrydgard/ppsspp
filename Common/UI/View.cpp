@@ -778,6 +778,9 @@ void CheckBox::Draw(UIContext &dc) {
 		}
 		if (down_) {
 			style = dc.GetTheme().itemDownStyle;
+		} else if (highlightChecked_ && Toggled()) {
+			style = dc.GetTheme().itemStyle;
+			style.background.color = alphaMul(style.background.color, 1.90f); // increase opacity (darker)
 		}
 	}
 
