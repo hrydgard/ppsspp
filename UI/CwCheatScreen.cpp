@@ -127,7 +127,9 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 	rightScroll->Add(rightColumn);
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
-		rightColumn->Add(new CheckBox(&fileInfo_[i].enabled, fileInfo_[i].name))->OnClick.Add([=](UI::EventParams &) {
+		auto checkbox = new CheckBox(&fileInfo_[i].enabled, fileInfo_[i].name);
+		checkbox->SetHighlightChecked(g_Config.bCwCheatHighlightCheckedCheats);
+		rightColumn->Add(checkbox)->OnClick.Add([=](UI::EventParams &) {
 			OnCheckBox((int)i);
 		});
 	}

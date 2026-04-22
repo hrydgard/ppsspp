@@ -354,6 +354,7 @@ public:
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bEnablePlugins;
+bool bCwCheatHighlightCheckedCheats;
 	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
