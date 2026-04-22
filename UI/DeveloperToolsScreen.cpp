@@ -92,7 +92,13 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
-	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+	CheckBox *replaceTextures = list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+	replaceTextures->OnClick.Add([this](UI::EventParams &) {
+		if (UIContext *ctx = screenManager()->getUIContext()) {
+			ctx->InvalidateAtlas();
+		}
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+	});
 
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
