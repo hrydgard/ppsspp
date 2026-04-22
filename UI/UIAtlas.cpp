@@ -393,7 +393,8 @@ int DumpButtonsPNGsToSystem() {
 
 	// Also dump the source SVG to keep PNG dumps and vector source together.
 	size_t svgSize = 0;
-	const uint8_t *svgData = g_VFS.ReadFile(sourceButtons, &svgSize);
+	std::string sourceButtonsPath = sourceButtons.ToString();
+	const uint8_t *svgData = g_VFS.ReadFile(sourceButtonsPath, &svgSize);
 	if (svgData && svgSize > 0) {
 		Path svgOutPath = dumpDir / "buttons.svg";
 		if (!File::WriteDataToFile(false, svgData, svgSize, svgOutPath)) {
