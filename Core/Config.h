@@ -428,6 +428,7 @@ bool bEnableGameScreenBackgroundAudio;
 	float fGameGridScale;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
+bool bShowPic1OnBackgroundScreen;
 	int iSettingsCurrentTab;
 	int iDeveloperSettingsCurrentTab;
 

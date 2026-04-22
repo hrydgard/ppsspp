@@ -106,7 +106,7 @@ ScreenRenderFlags BackgroundScreen::render(ScreenRenderMode mode) {
 	Lin::Vec3 focus;
 	screenManager()->getFocusPosition(focus.x, focus.y, focus.z);
 
-	if (!gamePath_.empty()) {
+	if (g_Config.bShowPic1OnBackgroundScreen && !gamePath_.empty()) {
 		::DrawGameBackground(*uiContext, gamePath_, focus, 1.0f);
 	} else {
 		::DrawBackground(*uiContext, 1.0f, focus);

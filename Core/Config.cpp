@@ -315,6 +315,7 @@ ConfigSetting("CwCheatHighlightCheckedCheats", SETTING(g_Config, bCwCheatHighlig
 
 	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), 1, CfgFlag::DEFAULT),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT),
+	ConfigSetting("ShowPic1OnBackgroundScreen", SETTING(g_Config, bShowPic1OnBackgroundScreen), true, CfgFlag::DEFAULT),
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT),
 	ConfigSetting("UISaturation", SETTING(g_Config, fUISaturation), &DefaultUISaturation, CfgFlag::DEFAULT),
 
