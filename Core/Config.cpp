@@ -828,6 +828,7 @@ std::string DefaultProAdhocServer() {
 
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", SETTING(g_Config, bEnableSound), true, CfgFlag::PER_GAME),
+ConfigSetting("EnableGameScreenBackgroundAudio", SETTING(g_Config, bEnableGameScreenBackgroundAudio), true, CfgFlag::DEFAULT),
 	ConfigSetting("ExtraAudioBuffering", SETTING(g_Config, bExtraAudioBuffering), false, CfgFlag::DEFAULT),
 	ConfigSetting("AudioBufferSize", SETTING(g_Config, iSDLAudioBufferSize), 256, CfgFlag::DEFAULT),
 

@@ -392,6 +392,7 @@ bool bCwCheatHighlightCheckedCheats;
 
 	// Sound
 	bool bEnableSound;
+bool bEnableGameScreenBackgroundAudio;
 	int iSDLAudioBufferSize;
 	int iAudioBufferSize;
 	bool bFillAudioGaps;
