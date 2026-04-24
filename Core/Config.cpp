@@ -247,6 +247,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("AutoLoadSaveState", SETTING(g_Config, iAutoLoadSaveState), 0, CfgFlag::PER_GAME),
 	ConfigSetting("EnableCheats", SETTING(g_Config, bEnableCheats), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("EnablePlugins", SETTING(g_Config, bEnablePlugins), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
+ConfigSetting("CwCheatHighlightCheckedCheats", SETTING(g_Config, bCwCheatHighlightCheckedCheats), true, CfgFlag::DEFAULT),
 	ConfigSetting("CwCheatRefreshRate", SETTING(g_Config, iCwCheatRefreshIntervalMs), 77, CfgFlag::PER_GAME),
 	ConfigSetting("CwCheatScrollPosition", SETTING(g_Config, fCwCheatScrollPosition), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", SETTING(g_Config, fGameListScrollPosition), 0.0f, CfgFlag::DEFAULT),
@@ -314,6 +315,7 @@ static const ConfigSetting generalSettings[] = {
 
 	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), 1, CfgFlag::DEFAULT),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT),
+	ConfigSetting("ShowPic1OnBackgroundScreen", SETTING(g_Config, bShowPic1OnBackgroundScreen), true, CfgFlag::DEFAULT),
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT),
 	ConfigSetting("UISaturation", SETTING(g_Config, fUISaturation), &DefaultUISaturation, CfgFlag::DEFAULT),
 
@@ -827,6 +829,7 @@ std::string DefaultProAdhocServer() {
 
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", SETTING(g_Config, bEnableSound), true, CfgFlag::PER_GAME),
+ConfigSetting("EnableGameScreenBackgroundAudio", SETTING(g_Config, bEnableGameScreenBackgroundAudio), true, CfgFlag::DEFAULT),
 	ConfigSetting("ExtraAudioBuffering", SETTING(g_Config, bExtraAudioBuffering), false, CfgFlag::DEFAULT),
 	ConfigSetting("AudioBufferSize", SETTING(g_Config, iSDLAudioBufferSize), 256, CfgFlag::DEFAULT),
 

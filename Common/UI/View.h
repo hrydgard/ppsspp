@@ -909,12 +909,12 @@ private:
 class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
+		: ClickableItem(layoutParams), toggle_(toggle), highlightChecked_(false), text_(text), smallText_(smallText) {
 	}
 
 	// Image-only "checkbox", lights up instead of showing a checkmark.
 	CheckBox(bool *toggle, ImageID imageID, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), toggle_(toggle), imageID_(imageID) {
+		: ClickableItem(layoutParams), toggle_(toggle), highlightChecked_(false), imageID_(imageID) {
 	}
 
 	void Draw(UIContext &dc) override;
@@ -928,10 +928,15 @@ public:
 	// we don't allow these for checkboxes.
 	void SetAutoResult(DialogResult result) override {}
 
+	void SetHighlightChecked(bool highlightChecked) {
+		highlightChecked_ = highlightChecked;
+	}
+
 protected:
 	void ClickInternal() override;
 
 	bool *toggle_;
+	bool highlightChecked_; // only for non-image mode
 	std::string text_;
 	std::string smallText_;
 	ImageID imageID_;

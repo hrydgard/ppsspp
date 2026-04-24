@@ -354,6 +354,7 @@ public:
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bEnablePlugins;
+bool bCwCheatHighlightCheckedCheats;
 	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
@@ -391,6 +392,7 @@ public:
 
 	// Sound
 	bool bEnableSound;
+bool bEnableGameScreenBackgroundAudio;
 	int iSDLAudioBufferSize;
 	int iAudioBufferSize;
 	bool bFillAudioGaps;
@@ -426,6 +428,7 @@ public:
 	float fGameGridScale;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
+bool bShowPic1OnBackgroundScreen;
 	int iSettingsCurrentTab;
 	int iDeveloperSettingsCurrentTab;
 
