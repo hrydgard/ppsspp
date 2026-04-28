@@ -341,7 +341,7 @@ void ppsspp_md5_hmac_finish( md5_context *ctx, unsigned char output[16] )
     ppsspp_md5_update( ctx, tmpbuf, 16 );
     ppsspp_md5_finish( ctx, output );
 
-    memset( tmpbuf, 0, sizeof( tmpbuf ) );
+    memset_s( tmpbuf, sizeof( tmpbuf ), 0, sizeof( tmpbuf ) );
 }
 
 /*
