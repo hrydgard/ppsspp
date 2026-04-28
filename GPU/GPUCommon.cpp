@@ -1595,6 +1595,7 @@ int GPUCommon::GetCurrentPrimCount() {
 
 std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 	std::vector<DisplayList> result;
+	result.reserve(dlQueue.size());
 
 	for (int it : dlQueue) {
 		result.push_back(dls[it]);

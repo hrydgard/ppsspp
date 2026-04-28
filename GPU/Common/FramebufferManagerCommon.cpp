@@ -3381,6 +3381,7 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 
 std::vector<const VirtualFramebuffer *> FramebufferManagerCommon::GetFramebufferList() const {
 	std::vector<const VirtualFramebuffer *> list;
+	list.reserve(vfbs_.size());
 	for (auto vfb : vfbs_) {
 		list.push_back(vfb);
 	}
