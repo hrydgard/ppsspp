@@ -246,6 +246,9 @@ void ShaderManagerVulkan::Clear() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	lastGSID_.set_invalid();
+	lastVShader_ = nullptr;
+	lastFShader_ = nullptr;
+	lastGShader_ = nullptr;
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
