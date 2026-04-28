@@ -622,7 +622,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 
 	// Send DNS query
 	size_t query_len = sizeof(DNSHeader) + (qinfo - buffer) + 4;
-	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	if (sendto(sockfd, (const char *)buffer, query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 		ERROR_LOG(Log::sceNet, "Failed to send DNS query");
 		closesocket(sockfd);
 		return false;
