@@ -75,7 +75,7 @@ GameInfo::~GameInfo() {
 	fileLoader.reset();
 }
 
-bool IsReasonableEbootDirectory(Path path) {
+bool IsReasonableEbootDirectory(const Path& path) {
 	// First some sanity checks.
 	if (path == Path("/")) {
 		return false;
@@ -250,7 +250,7 @@ std::string GameInfo::GetMTime() const {
 
 // Not too meaningful if the object itself is a savedata directory...
 // Call this under lock.
-std::vector<Path> GameInfo::GetSaveDataDirectories() {
+std::vector<Path> GameInfo::GetSaveDataDirectories() const {
 	if (!(hasFlags & GameInfoFlags::PARAM_SFO)) {
 		ERROR_LOG(Log::UI, "Can't get savedata directories if we don't have PARAM_SFO.");
 		return std::vector<Path>();
@@ -268,14 +268,14 @@ std::vector<Path> GameInfo::GetSaveDataDirectories() {
 	const std::string &prefix = id;
 	File::GetFilesInDir(memc, &dirs, nullptr, 0, prefix);
 
-	for (size_t i = 0; i < dirs.size(); i++) {
-		directories.push_back(dirs[i].fullName);
+	for (const auto& dir : dirs) {
+		directories.push_back(dir.fullName);
 	}
 
 	return directories;
 }
 
-u64 GameInfo::GetGameSavedataSizeInBytes() {
+u64 GameInfo::GetGameSavedataSizeInBytes() const {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
@@ -283,9 +283,9 @@ u64 GameInfo::GetGameSavedataSizeInBytes() {
 
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
+	for (const auto& dir : saveDataDir) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j], &fileInfo);
+		File::GetFilesInDir(dir, &fileInfo);
 		for (auto const &file : fileInfo) {
 			if (!file.isDirectory)
 				filesSizeInDir += file.size;
@@ -299,7 +299,7 @@ u64 GameInfo::GetGameSavedataSizeInBytes() {
 	return totalSize;
 }
 
-u64 GameInfo::GetInstallDataSizeInBytes() {
+u64 GameInfo::GetInstallDataSizeInBytes() const {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
@@ -307,9 +307,9 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
+	for (const auto& dir : saveDataDir) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j], &fileInfo);
+		File::GetFilesInDir(dir, &fileInfo);
 		for (auto const &file : fileInfo) {
 			// TODO: Might want to recurse here? Don't know games that use directories
 			// for install-data though.
@@ -357,12 +357,12 @@ void GameInfo::DisposeFileLoader() {
 	fileLoader.reset();
 }
 
-bool GameInfo::DeleteAllSaveData() {
+bool GameInfo::DeleteAllSaveData() const {
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		INFO_LOG(Log::System, "Deleting savedata from %s", saveDataDir[j].c_str());
-		if (!MoveDirectoryTreeToTrashOrDelete(saveDataDir[j])) {
-			ERROR_LOG(Log::System, "Failed to delete savedata %s", saveDataDir[j].c_str());
+	for (const auto& dir : saveDataDir) {
+		INFO_LOG(Log::System, "Deleting savedata from %s", dir.c_str());
+		if (!MoveDirectoryTreeToTrashOrDelete(dir)) {
+			ERROR_LOG(Log::System, "Failed to delete savedata %s", dir.c_str());
 		}
 	}
 	return true;
@@ -994,7 +994,7 @@ void GameInfoCache::Clear() {
 
 void GameInfoCache::CancelAll() {
 	std::lock_guard<std::mutex> lock(mapLock_);
-	for (auto info : info_) {
+	for (const auto& info : info_) {
 		// GetFileLoader will create one if there isn't one already.
 		// Avoid that by checking.
 		if (info.second->HasFileLoader()) {
@@ -1008,15 +1008,15 @@ void GameInfoCache::CancelAll() {
 
 void GameInfoCache::FlushBGs() {
 	std::lock_guard<std::mutex> lock(mapLock_);
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		std::lock_guard<std::mutex> lock(iter->second->lock);
-		iter->second->pic0.Clear();
-		iter->second->pic1.Clear();
-		if (!iter->second->sndFileData.empty()) {
-			iter->second->sndFileData.clear();
-			iter->second->sndDataLoaded = false;
+	for (const auto& iter : info_) {
+		std::lock_guard<std::mutex> lock(iter.second->lock);
+		iter.second->pic0.Clear();
+		iter.second->pic1.Clear();
+		if (!iter.second->sndFileData.empty()) {
+			iter.second->sndFileData.clear();
+			iter.second->sndDataLoaded = false;
 		}
-		iter->second->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::SND);
+		iter.second->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::SND);
 	}
 }
 

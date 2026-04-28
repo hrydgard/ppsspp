@@ -78,7 +78,7 @@ public:
 	~GameInfo();
 
 	bool Delete();  // Better be sure what you're doing when calling this. Will move to trash if available on the system, though.
-	bool DeleteAllSaveData();
+	bool DeleteAllSaveData() const;
 	bool CreateLoader();
 
 	bool HasFileLoader() const {
@@ -90,8 +90,8 @@ public:
 
 	u64 GetSizeUncompressedInBytes();  // NOTE: More expensive than GetGameSizeOnDiskInBytes().
 	u64 GetSizeOnDiskInBytes();
-	u64 GetGameSavedataSizeInBytes();  // For games
-	u64 GetInstallDataSizeInBytes();
+	u64 GetGameSavedataSizeInBytes() const;  // For games
+	u64 GetInstallDataSizeInBytes() const;
 
 	// For various kinds of savedata, mainly.
 	// NOTE: This one actually performs I/O directly, not cached.
@@ -104,7 +104,7 @@ public:
 	}
 	void FinishPendingTextureLoads(Draw::DrawContext *draw);
 
-	std::vector<Path> GetSaveDataDirectories();
+	std::vector<Path> GetSaveDataDirectories() const;
 
 	std::string GetTitle();
 	std::string GetDBTitle();  // Falls back to GetTitle if not in the DB.

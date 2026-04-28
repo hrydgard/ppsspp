@@ -1212,7 +1212,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	} else {
 		// The hacky way to get the display layout config (normally we pass it down, but it would require a lot of plumbing here).
 		// This is only for non-buffered rendering.
-		auto config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		const auto& config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
 		// Here config is valid.
 		_dbg_assert_(channel == RASTER_COLOR);
 		// We are drawing directly to the back buffer so need to flip.
