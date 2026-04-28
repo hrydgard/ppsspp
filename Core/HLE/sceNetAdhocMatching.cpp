@@ -163,10 +163,12 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context) {
 	// Allocate Hello Message Buffer, reuse when necessary
 	if ((int32_t)context->hellolen > len) {
 		uint8_t* tmp = (uint8_t *)realloc(hello, 5LL + context->hellolen);
-		if (tmp != NULL) {
-			hello = tmp;
-			len = context->hellolen;
+		if (tmp == NULL) {
+			ERROR_LOG(Log::sceNet, "Failed to reallocate hello buffer in broadcastHelloMessage");
+			return;
 		}
+		hello = tmp;
+		len = context->hellolen;
 	}
 
 	if (hello == NULL) {
