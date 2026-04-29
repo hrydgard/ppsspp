@@ -30,12 +30,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
-import android.database.Cursor;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -63,7 +61,6 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.documentfile.provider.DocumentFile;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -305,81 +302,36 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// Unofficial hacks to get a list of SD cards that are not the main "external storage".
 	private static ArrayList<String> getSdCardPaths(final Context context) {
-		// Q is the last version that will support normal file access.
-		ArrayList<String> list = null;
-		if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-			Log.i(TAG, "getSdCardPaths: Trying KitKat method");
-			list = getSdCardPaths19(context);
-		}
+		ArrayList<String> result = new ArrayList<>();
+		File[] externalFilesDirs = context.getExternalFilesDirs(null);
+		String primaryRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
 
-		if (list == null) {
-			Log.i(TAG, "getSdCardPaths: Attempting fallback");
-			// Try another method.
-			File[] fileList = new File("/storage/").listFiles();
-			if (fileList != null) {
-				list = new ArrayList<>();
-				for (File file : fileList) {
-					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
-						list.add(file.getAbsolutePath());
+		if (externalFilesDirs != null) {
+			for (File dir : externalFilesDirs) {
+				if (dir != null) {
+					String root = getRootOfInnerSdCardFolder(dir);
+					if (root != null && !root.equalsIgnoreCase(primaryRoot)) {
+						if (!result.contains(root)) {
+							Log.i(TAG, "SD card found: " + root);
+							result.add(root);
+						}
 					}
-				}
-				if (list.isEmpty()) {
-					list = null;
 				}
 			}
 		}
 
-		if (list == null) {
+		if (result.isEmpty()) {
+			// Fallback for some very old or unusual devices.
 			String[] varNames = { "EXTERNAL_SDCARD_STORAGE", "SECONDARY_STORAGE" };
 			for (String var : varNames) {
-				Log.i(TAG, "getSdCardPaths: Checking env " + var);
 				String secStore = System.getenv(var);
 				if (secStore != null && !secStore.isEmpty()) {
-					list = new ArrayList<>();
-					list.add(secStore);
+					result.add(secStore);
 					break;
 				}
 			}
 		}
 
-		if (list == null) {
-			return new ArrayList<>();
-		} else {
-			return list;
-		}
-	}
-
-	private static ArrayList<String> getSdCardPaths19(final Context context) {
-		final File[] externalCacheDirs = context.getExternalCacheDirs();
-		if (externalCacheDirs == null || externalCacheDirs.length==0)
-			return null;
-		if (externalCacheDirs.length == 1) {
-			if (externalCacheDirs[0] == null)
-				return null;
-			final String storageState = Environment.getStorageState(externalCacheDirs[0]);
-			if (!Environment.MEDIA_MOUNTED.equals(storageState))
-				return null;
-			if (Environment.isExternalStorageEmulated())
-				return null;
-		}
-		final ArrayList<String> result = new ArrayList<>();
-		if (externalCacheDirs.length == 1)
-			result.add(getRootOfInnerSdCardFolder(externalCacheDirs[0]));
-		for (int i = 1; i < externalCacheDirs.length; ++i)
-		{
-			final File file = externalCacheDirs[i];
-			if (file == null)
-				continue;
-			final String storageState = Environment.getStorageState(file);
-			if (Environment.MEDIA_MOUNTED.equals(storageState)) {
-				String root = getRootOfInnerSdCardFolder(externalCacheDirs[i]);
-				if (root != null) {
-					result.add(root);
-				}
-			}
-		}
-		if (result.isEmpty())
-			return null;
 		return result;
 	}
 
