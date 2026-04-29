@@ -339,21 +339,22 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static String getRootOfInnerSdCardFolder(File file) {
 		if (file == null)
 			return null;
-		final long totalSpace = file.getTotalSpace();
+		File current = file;
+		final long totalSpace = current.getTotalSpace();
 		if (totalSpace <= 0) {
 			return null;
 		}
 		while (true) {
-			final File parentFile = file.getParentFile();
+			final File parentFile = current.getParentFile();
 			if (parentFile == null || !parentFile.canRead()) {
 				break;
 			}
 			if (parentFile.getTotalSpace() != totalSpace) {
 				break;
 			}
-			file = parentFile;
+			current = parentFile;
 		}
-		return file.getAbsolutePath();
+		return current.getAbsolutePath();
 	}
 
 	private boolean detectOpenGLES20() {
