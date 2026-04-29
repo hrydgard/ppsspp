@@ -65,7 +65,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.documentfile.provider.DocumentFile;
 
-import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -217,23 +216,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} catch (NumberFormatException e) {
 			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
 		}
-	}
-
-	String getApplicationLibraryDir(ApplicationInfo application) {
-		String libdir = null;
-		try {
-			// Starting from Android 2.3, nativeLibraryDir is available:
-			Field field = ApplicationInfo.class.getField("nativeLibraryDir");
-			libdir = (String) field.get(application);
-		} catch (SecurityException | NoSuchFieldException | IllegalArgumentException |
-				 IllegalAccessException e1) {
-			Log.e(TAG, e1.toString());
-		}
-		if (libdir == null) {
-			// Fallback for Android < 2.3:
-			libdir = application.dataDir + "/lib";
-		}
-		return libdir;
 	}
 
 	boolean askForPermissions(String[] permissions, int requestCode) {
@@ -454,17 +436,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		boolean landscape = NativeApp.isLandscape();
 		Log.d(TAG, "Landscape: " + landscape);
 
-		// Get system information
-		PackageManager packMgmr = getPackageManager();
-		String packageName = getPackageName();
-
-		ApplicationInfo appInfo;
-		try {
-			appInfo = packMgmr.getApplicationInfo(packageName, 0);
-		} catch (PackageManager.NameNotFoundException e) {
-			e.printStackTrace();
-			throw new RuntimeException("Unable to locate assets, aborting...");
-		}
+		ApplicationInfo appInfo = getApplicationInfo();
 
 		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;
 		if (isVRDevice()) {
@@ -487,7 +459,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
 		File externalFiles = this.getExternalFilesDir(null);
 		String externalFilesDir = externalFiles == null ? "" : externalFiles.getAbsolutePath();
-		String nativeLibDir = getApplicationLibraryDir(appInfo);
+		String nativeLibDir = appInfo.nativeLibraryDir;
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 		Log.i(TAG, "Ext files dir: " + externalFilesDir);
@@ -573,13 +545,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	@NonNull
-	private static String getInstallerName(PackageManager packageManager) {
+	private String getInstallerName(PackageManager packageManager) {
 		String installerName;
+		String packageName = getPackageName();
 		try {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-				installerName = packageManager.getInstallSourceInfo("package name").getInstallingPackageName();
+				installerName = packageManager.getInstallSourceInfo(packageName).getInstallingPackageName();
 			else {
-				installerName = packageManager.getInstallerPackageName("package name");
+				installerName = packageManager.getInstallerPackageName(packageName);
 			}
 			if (installerName == null || installerName.isEmpty()) {
 				installerName = "unknown";
@@ -718,24 +691,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onCreate(savedInstanceState);
 
 		if (m_hasNoNativeBinary) {
-			new Thread() {
-				@Override
-				public void run() {
-					Looper.prepare();
-					AlertDialog.Builder builder = new AlertDialog.Builder(PpssppActivity.this);
-					builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?").setTitle("Error starting PPSSPP").create().show();
-					Looper.loop();
-				}
-			}.start();
-
-			try {
-				Thread.sleep(3000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-
-			// We don't call super.onCreate, we just bail in an ugly way.
-			System.exit(-1);
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?")
+				.setTitle("Error starting PPSSPP")
+				.setPositiveButton("OK", (dialog, which) -> finish())
+				.setOnCancelListener(dialog -> finish())
+				.show();
 			return;
 		}
 
