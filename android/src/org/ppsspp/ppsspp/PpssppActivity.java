@@ -8,7 +8,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.app.ApplicationExitInfo;
 import android.app.UiModeManager;
 import android.content.ClipData;
@@ -56,6 +55,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.DisplayCutoutCompat;
@@ -1446,21 +1446,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Log.i(TAG, "onActivityResult: packedRequest=" + packedRequest + " resultCode=" + resultCode);
 	}
 
-	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
-		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-	}
-
-	@RequiresApi(Build.VERSION_CODES.M)
-	private AlertDialog.Builder createDialogBuilderNew() {
-		return new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
-	}
-
 	private AlertDialog.Builder createDialogBuilder() {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			return createDialogBuilderNew();
-		} else {
-			return createDialogBuilderWithDeviceThemeAndUiVisibility();
-		}
+		return new AlertDialog.Builder(this);
 	}
 
 	// The return value is sent to C++ via requestID.
@@ -1951,11 +1938,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Keep
 	@SuppressWarnings("unused")
 	public void postCommand(String command, String parameter) {
-		final String cmd = command;
-		final String param = parameter;
 		runOnUiThread(() -> {
-			if (!processCommand(cmd, param)) {
-				Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
+			if (!processCommand(command, parameter)) {
+				Log.e(TAG, "processCommand failed: cmd: '" + command + "' param: '" + parameter + "'");
 			}
 		});
 	}
