@@ -421,6 +421,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 				System_ApplyFullscreenState();
 			});
 		}
+		CheckBox* fullscreenExclusive = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenExclusive, gr->T("Exclusive fullscreen")));
+		fullscreenExclusive->SetEnabledFunc([] {
+			return g_Config.bFullScreen;
+		});
 #endif
 		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
 		Choice *displayEditor = graphicsSettings->Add(new Choice(gr->T("Display layout & effects")));

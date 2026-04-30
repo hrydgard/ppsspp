@@ -1530,6 +1530,12 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 	}
 
+#ifdef VK_EXT_full_screen_exclusive
+	VkSurfaceFullScreenExclusiveInfoEXT fullScreenInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT };
+	fullScreenInfo.fullScreenExclusive = fullScreenExclusiveMode_;
+	swap_chain_info.pNext = &fullScreenInfo;
+#endif
+
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(Log::G3D, "vkCreateSwapchainKHR failed! %s", VulkanResultToString(res));
