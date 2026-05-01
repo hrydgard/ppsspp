@@ -155,6 +155,10 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
 	if (latencyMode != LatencyMode::Safe) {
 		hr = device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&audioClient3_);
+	} else {
+		// Proceed to AudioClient.
+		INFO_LOG(Log::Audio, "LatencyMode::Safe is set, skipping AudioClient3 and going directly to AudioClient");
+		return false;
 	}
 
 	if (!SUCCEEDED(hr)) {
@@ -179,7 +183,7 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 		// Free the format before falling through - AudioClient will allocate a new one
 		CoTaskMemFree(format_);
 		format_ = nullptr;
-		// Fall through to AudioClient creation below.
+		return false;
 	} else {
 		hr = audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
 		if (FAILED(hr)) {
@@ -193,15 +197,14 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 		INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames_, (int)fundamentalPeriodFrames_, (int)minPeriodFrames_, (int)maxPeriodFrames_);
 		INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames_, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames_, format_->nSamplesPerSec));
 
-		audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-		HRESULT result = audioClient3_->InitializeSharedAudioStream(
+		hr = audioClient3_->InitializeSharedAudioStream(
 			AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
 			minPeriodFrames_,
 			format_,
 			nullptr
 		);
-		if (FAILED(result)) {
-			WARN_LOG(Log::Audio, "Error initializing AudioClient3 shared audio stream: %08lx", result);
+		if (FAILED(hr)) {
+			WARN_LOG(Log::Audio, "Error initializing AudioClient3 shared audio stream: %08lx", hr);
 			audioClient3_.Reset();
 			CoTaskMemFree(format_);
 			format_ = nullptr;
@@ -250,7 +253,8 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 
 	hr = audioClient_->GetMixFormat(&format_);
 	if (FAILED(hr)) {
-		_dbg_assert_(false);
+		audioClient_.Reset();
+		SetErrorString("AudioClient GetMixFormat failed", hr);
 		return false;
 	}
 
@@ -272,8 +276,11 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 			if (result == S_OK) {
 				// We got the format! Use it and set as current.
 				_dbg_assert_(!closestMatch);
-				format_ = (WAVEFORMATEX *)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
-				memcpy(format_, &stereo, sizeof(WAVEFORMATEX) + stereo.Format.cbSize);
+				WAVEFORMATEX *newFormat = (WAVEFORMATEX *)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
+				_dbg_assert_(newFormat);
+				memcpy(newFormat, &stereo, sizeof(WAVEFORMATEX) + stereo.Format.cbSize);
+				CoTaskMemFree(format_);
+				format_ = newFormat;
 				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
 				INFO_LOG(Log::Audio, "Successfully asked for two channels");
 			} else if (result == S_FALSE) {
@@ -302,8 +309,6 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 	// Get engine period info
 	REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
 	audioClient_->GetDevicePeriod(&defaultPeriod, &minPeriod);
-
-	audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
 	const REFERENCE_TIME duration = minPeriod;
 	hr = audioClient_->Initialize(
@@ -399,9 +404,14 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	// Get rid of any old tempBuf_.
 	tempBuf_.reset();
 
+	// This is used by both paths.
+	audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
 	if (!TryInitAudioClient3(device.Get(), latencyMode)) {
 		if (!TryInitAudioClient(device.Get(), latencyMode)) {
 			// Failed both client types.
+			CloseHandle(audioEvent_);
+			audioEvent_ = nullptr;
 			return false;
 		}
 	}
