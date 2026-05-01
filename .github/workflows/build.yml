@@ -113,7 +113,7 @@ jobs:
         Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ github.ref_name }}-Windows-${{ matrix.platform }}.zip"
 
     - name: Upload release
-      uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+      uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
       if: github.ref_type == 'tag'
       with:
         files: releases/*.zip
@@ -264,7 +264,7 @@ jobs:
         git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
 
     - name: Install Qt
-      uses: jurplel/install-qt-action@d325aaf2a8baeeda41ad0b5d39f84a6af9bcf005 # v4.3.0
+      uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
       if: matrix.extra == 'qt'
       with:
         cache: true
@@ -309,7 +309,7 @@ jobs:
         echo "#define PPSSPP_GIT_VERSION_NO_UPDATE 1" >> git-version.cpp
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
+      uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
       # Disable ccache on macos for now, it's become buggy for some reason.
       if: matrix.id != 'macos'
       with:
@@ -391,7 +391,7 @@ jobs:
       run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS & iOS release
-      uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+      uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
       if: github.ref_type == 'tag' && (matrix.id == 'macos' || matrix.id == 'ios')
       with:
         files: |
@@ -478,7 +478,7 @@ jobs:
         chown -R $(id -u):$(id -g) $PWD
 
     - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
+      uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
 
     - name: Compile ffmpeg
       run: |
