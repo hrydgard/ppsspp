@@ -532,6 +532,11 @@ public:
 	float fMouseSmoothing;
 	int iMouseWheelUpDelayMs;
 
+	// Crude Windows controller filter.
+	bool bAllowHIDInput;
+	bool bAllowXInput;
+	bool bAllowDInput;
+
 	bool bSystemControls;
 	int iRapidFireInterval;
 

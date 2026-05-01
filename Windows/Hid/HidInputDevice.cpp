@@ -20,6 +20,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/OSD.h"
 #include "Core/KeyMap.h"
+#include "Core/Config.h"
 
 struct HidStickMapping {
 	HidStickAxis stickAxis;
@@ -235,6 +236,8 @@ int HidInputDevice::UpdateState() {
 		}
 	}
 
+	const bool sendInput = g_Config.bAllowHIDInput;
+
 	if (controller_) {
 		HIDControllerState state{};
 		bool result = false;
@@ -258,14 +261,14 @@ int HidInputDevice::UpdateState() {
 
 			for (u32 i = 0; i < buttonMappingsSize; i++) {
 				const ButtonInputMapping &mapping = buttonMappings[i];
-				if (downMask & mapping.button) {
+				if ((downMask & mapping.button) && sendInput) {
 					KeyInput key;
 					key.deviceId = deviceID;
 					key.flags = KeyInputFlags::DOWN;
 					key.keyCode = mapping.keyCode;
 					NativeKey(key);
 				}
-				if (upMask & mapping.button) {
+				if ((upMask & mapping.button) && sendInput) {
 					KeyInput key;
 					key.deviceId = deviceID;
 					key.flags = KeyInputFlags::UP;
@@ -275,7 +278,7 @@ int HidInputDevice::UpdateState() {
 			}
 
 			for (const auto &mapping : g_psStickMappings) {
-				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis]) {
+				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis] && sendInput) {
 					AxisInput axis;
 					axis.deviceId = deviceID;
 					axis.axisId = mapping.inputAxis;
@@ -285,7 +288,7 @@ int HidInputDevice::UpdateState() {
 			}
 
 			for (const auto &mapping : g_psTriggerMappings) {
-				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis]) {
+				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis] && sendInput) {
 					AxisInput axis;
 					axis.deviceId = deviceID;
 					axis.axisId = mapping.inputAxis;
@@ -294,7 +297,7 @@ int HidInputDevice::UpdateState() {
 				}
 			}
 
-			if (state.accValid) {
+			if (state.accValid && sendInput) {
 				NativeAccelerometer(state.accelerometer[0], state.accelerometer[1], state.accelerometer[2]);
 			}
 
