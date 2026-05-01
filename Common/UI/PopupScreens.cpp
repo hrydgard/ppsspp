@@ -833,7 +833,7 @@ std::string PopupTextInputChoice::ValueText(bool *shadow) const {
 	}
 }
 
-ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
+ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 	ScrollView *scrollView = new ScrollView(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	LinearLayout *keyboard = scrollView->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
@@ -841,17 +841,20 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 	static struct {
 		std::string_view v; const char *tag;
 	} kbRows[] = {
-		{"1234567890-=", "A"},
-		{"qwertyuiop'[]", "L"},
-		{"asdfghjkl()", "L"},
+		{"1234567890-_", "A"},
+		{"qwertyuiop", "L"},
+		{"asdfghjkl", "L"},
 		{"zxcvbnm,.", "L"},
-		{"QWERTYUIOP'[]", "U"},
-		{"ASDFGHJKL()", "U"},
+		{"QWERTYUIOP", "U"},
+		{"ASDFGHJKL", "U"},
 		{"ZXCVBNM,.", "U"},
+		{"@#$_&()/-+_", "S"},
+		{"*\"':;!?[]", "S"},
+		{"={}~<>|", "S"},
 		{"", "A"},
 	};
 	static const float space[] = {
-		0.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 30.0f,
+		0.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 30.0f,
 	};
 
 	static_assert(ARRAY_SIZE(kbRows) == ARRAY_SIZE(space));
@@ -871,8 +874,9 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 
 		bool visible = false;
 		switch (kbRows[i].tag[0]) {
-		case 'L': visible = !(*upperCase); break;
-		case 'U': visible = *upperCase; break;
+		case 'L': visible = (*state == SoftKeyboardState::Lower); break;
+		case 'U': visible = (*state == SoftKeyboardState::Upper); break;
+		case 'S': visible = (*state == SoftKeyboardState::Symbols); break;
 		case 'A': visible = true; break;
 		default: visible = false; break;
 		}
@@ -885,16 +889,20 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 				edit->Backspace();
 			});
 			break;
-		case 7:
+		case 10:
 			// Special keys.
-			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([keyboard, upperCase](EventParams &) {
-				*upperCase = !(*upperCase);
+			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([keyboard, state](EventParams &) {
+				*state = (SoftKeyboardState)((int)*state + 1);
+				if (*state == SoftKeyboardState::MAX) {
+					*state = SoftKeyboardState::Upper;
+				}
 				// Work through visibility.
 				for (int i = 0; i < keyboard->GetNumSubviews(); i++) {
 					LinearLayout *row = (LinearLayout *)keyboard->GetViewByIndex(i);
 					switch (row->Tag()[0]) {
-					case 'L': row->SetVisibility(*upperCase ? V_GONE : V_VISIBLE); break;
-					case 'U': row->SetVisibility(*upperCase ? V_VISIBLE : V_GONE); break;
+					case 'L': row->SetVisibility((*state == SoftKeyboardState::Lower) ? V_VISIBLE : V_GONE); break;
+					case 'U': row->SetVisibility((*state == SoftKeyboardState::Upper) ? V_VISIBLE : V_GONE); break;
+					case 'S': row->SetVisibility((*state == SoftKeyboardState::Symbols) ? V_VISIBLE : V_GONE); break;
 					case 'A': row->SetVisibility(V_VISIBLE); break;
 					default: row->SetVisibility(V_GONE); break;
 					}
@@ -930,7 +938,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	parent->Add(new Spacer(8.0f));
 
-	keyboard_ = parent->Add(CreateSoftKeyboard(edit_, &upperCase_));
+	keyboard_ = parent->Add(CreateSoftKeyboard(edit_, &kbState_));
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
 		keyboard_->SetVisibility(V_GONE);
 		lin->Add(new Spacer(5.0f));

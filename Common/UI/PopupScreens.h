@@ -222,7 +222,14 @@ private:
 	bool liveUpdate_;
 };
 
-ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase);
+enum class SoftKeyboardState {
+	Upper = 0,
+	Lower,
+	Symbols,
+	MAX,
+};
+
+ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state);
 
 class TextEditPopupScreen : public PopupScreen {
 public:
@@ -249,7 +256,7 @@ private:
 	std::string textEditValue_;
 	std::string placeholder_;
 	int maxLen_;
-	bool upperCase_ = false;
+	SoftKeyboardState kbState_{};
 	bool passwordMasking_ = false;
 };
 
