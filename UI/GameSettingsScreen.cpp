@@ -917,6 +917,13 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
+#if PPSSPP_PLATFORM(WINDOWS)
+	controlsSettings->Add(new ItemHeader(co->T("Control input sources")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAllowHIDInput, co->T("HID input")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAllowXInput, co->T("XInput")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAllowDInput, co->T("DirectInput")));
+#endif
+
 	if (deviceType != DEVICE_TYPE_VR) {
 		controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)

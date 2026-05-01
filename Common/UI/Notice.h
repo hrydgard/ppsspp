@@ -40,6 +40,9 @@ public:
 	void SetWrapText(bool wrapText) {
 		wrapText_ = wrapText;
 	}
+	void SetDetailsText(std::string_view detailsText) {
+		detailsText_ = detailsText;
+	}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;

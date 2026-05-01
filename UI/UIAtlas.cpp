@@ -151,6 +151,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_FOLDER_UPLOAD", false},
 	{"I_FILE", false},
 	{"I_FILE_COPY", false},
+	{"I_FILE_PASTE", false},
 	{"I_WEB_BROWSER", false},
 	{"I_WIFI", false},
 	{"I_LOGO_X", false},

@@ -32,6 +32,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
 #include "Core/KeyMap.h"
+#include "Core/Config.h"
 #include "Windows/DinputDevice.h"
 #include "Windows/Hid/HidInputDevice.h"
 
@@ -234,7 +235,7 @@ void DinputDevice::ReleaseAllKeys() {
 }
 
 void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis axisId) {
-	if (value != lastValue) {
+	if (value != lastValue && g_Config.bAllowDInput) {
 		AxisInput axis;
 		axis.deviceId = deviceId;
 		axis.axisId = axisId;
@@ -297,6 +298,8 @@ int DinputDevice::UpdateState() {
 }
 
 void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
+	const bool sendInput = g_Config.bAllowDInput;
+
 	BYTE *buttons = state.rgbButtons;
 	u32 downMask = 0x80;
 
@@ -306,11 +309,13 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 		}
 
 		bool down = (state.rgbButtons[i] & downMask) == downMask;
-		KeyInput key;
-		key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
-		key.flags = down ? KeyInputFlags::DOWN : KeyInputFlags::UP;
-		key.keyCode = dinput_buttons[i];
-		NativeKey(key);
+		if (sendInput) {
+			KeyInput key;
+			key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
+			key.flags = down ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+			key.keyCode = dinput_buttons[i];
+			NativeKey(key);
+		}
 
 		lastButtons_[i] = state.rgbButtons[i];
 	}
@@ -343,10 +348,12 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 			}
 		}
 
-		NativeKey(dpad[0]);
-		NativeKey(dpad[1]);
-		NativeKey(dpad[2]);
-		NativeKey(dpad[3]);
+		if (sendInput) {
+			NativeKey(dpad[0]);
+			NativeKey(dpad[1]);
+			NativeKey(dpad[2]);
+			NativeKey(dpad[3]);
+		}
 
 		lastPOV_[0] = LOWORD(state.rgdwPOV[0]);
 	}

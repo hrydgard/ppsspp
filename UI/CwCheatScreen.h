@@ -28,6 +28,7 @@
 
 struct CheatFileInfo;
 class CWCheatEngine;
+class NoticeView;
 
 class CwCheatScreen : public UITwoPaneBaseDialogScreen {
 public:
@@ -55,17 +56,21 @@ protected:
 
 private:
 	void OnCheckBox(int index);
-	bool ImportCheats(const Path &cheatFile);
+	bool ImportCheats(const Path &cheatFile, int *cheatsFound);
+
+	void ImportAndReport(const Path &cheatFile);
 
 	enum { INDEX_ALL = -1 };
 	bool HasCheatWithName(const std::string &name);
 	bool RebuildCheatFile(int index);
-
-	UI::TextView *errorMessageView_ = nullptr;
 
 	CWCheatEngine *engine_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
 	std::string gameID_;
 	int fileCheckCounter_ = 0;
 	uint64_t fileCheckHash_ = 0;
+
+	std::string errorMessage_;
+	NoticeLevel errorLevel_ = NoticeLevel::ERROR;
+	std::string errorDetails_;
 };
