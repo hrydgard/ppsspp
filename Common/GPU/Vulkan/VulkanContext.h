@@ -536,7 +536,7 @@ private:
 
 #ifdef VK_EXT_full_screen_exclusive
 	VkFullScreenExclusiveEXT fullScreenExclusiveMode_ = VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
-#endif 
+#endif
 
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};

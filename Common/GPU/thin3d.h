@@ -633,6 +633,7 @@ struct DeviceCaps {
 	bool requiresHalfPixelOffset;
 	bool provokingVertexLast;  // GL behavior, what the PSP does
 	bool verySlowShaderCompiler;
+	bool fullScreenExclusiveSupported;
 
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;

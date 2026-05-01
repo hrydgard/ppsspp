@@ -953,6 +953,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	// Note that it must also be enabled on the pipelines (which we do).
 	caps_.provokingVertexLast = vulkan->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast;
 
+	caps_.fullScreenExclusiveSupported = vulkan->Extensions().EXT_full_screen_exclusive;
 	// Present mode stuff
 	caps_.presentMaxInterval = 1;
 	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
