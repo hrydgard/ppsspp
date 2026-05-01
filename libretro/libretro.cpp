@@ -1437,10 +1437,11 @@ namespace Libretro
    void EmuThreadStart()
    {
       EmuThreadState state = emuThreadState;
-      if (state == EmuThreadState::RUNNING || state == EmuThreadState::START_REQUESTED || emuThread.joinable())
+      bool wasPaused = state == EmuThreadState::PAUSED;
+
+      if (state == EmuThreadState::RUNNING || state == EmuThreadState::START_REQUESTED || (emuThread.joinable() && !wasPaused))
          return;
 
-      bool wasPaused = state == EmuThreadState::PAUSED;
       emuThreadState = EmuThreadState::START_REQUESTED;
 
       if (!wasPaused)
