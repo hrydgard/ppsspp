@@ -112,15 +112,6 @@
 			"status_web": "https://adhoc.gamesnexus.ovh"
 		},
 		{
-			"name": "Sony PSP & PSVita Fans",
-			"host": "psp.gameplayer.club",
-			"discord": "",
-			"web": "https://psp.gameplayer.club/",
-			"location": "Unknown",
-			"description": "For players looking to play any games",
-			"data_mode": "P2P"
-		},
-		{
 			"name": "CVN-Play",
 			"host": "cvn-play.top",
 			"discord": "",
