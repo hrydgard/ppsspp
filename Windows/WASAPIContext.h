@@ -79,6 +79,9 @@ private:
 	void SetErrorString(std::string_view str, HRESULT hr);
 	void ClearErrorString();
 
+	bool TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMode);
+	bool TryInitAudioClient(IMMDevice *device, LatencyMode latencyMode);
+
 	void Start();
 	void Stop();
 
