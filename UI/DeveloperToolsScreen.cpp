@@ -213,7 +213,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 #endif
 
 #if PPSSPP_PLATFORM(IOS)
-	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""));
+	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""))->SetWrapText(true);
 	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
 		[=](UI::EventParams &) {
 		SetMemStickDirDarwin(GetRequesterToken());

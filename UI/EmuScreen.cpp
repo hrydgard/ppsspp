@@ -1851,7 +1851,12 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 
 void EmuScreen::runImDebugger() {
 	if (!lastImguiEnabled_ && g_Config.bShowImDebugger) {
+#if !defined(MOBILE_DEVICE)
+		// On mobile devices (specifically iOS) we don't want to pop the keyboard
+		// on activating imgui. Instead, we should do it when a text edit field in imgui gets focus,
+		// although we'll still have ugly overlap problems.
 		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+#endif
 		VERBOSE_LOG(Log::System, "activating keyboard");
 	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
