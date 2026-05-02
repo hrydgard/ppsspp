@@ -412,25 +412,25 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		fullscreenCheckbox->OnClick.Add([](UI::EventParams &e) {
 			System_ApplyFullscreenState();
 		});
-		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
-			CheckBox *fullscreenMulti = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays")));
-			fullscreenMulti->SetEnabledFunc([] {
-				return g_Config.bFullScreen;
-			});
-			fullscreenMulti->OnClick.Add([](UI::EventParams &e) {
-				System_ApplyFullscreenState();
-			});
-		}
 		if (draw->GetDeviceCaps().fullScreenExclusiveSupported) {
 			CheckBox* fullscreenExclusive = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenExclusive, gr->T("Exclusive fullscreen")));
 			fullscreenExclusive->SetEnabledFunc([] {
-				return g_Config.bFullScreen;
+				return g_Config.bFullScreen && !g_Config.bFullScreenMulti;
 			});
 			fullscreenExclusive->OnClick.Add([this](UI::EventParams &e) {
 				TriggerRestartOrDo([this]() {
 					g_Config.bFullScreenExclusive = !g_Config.bFullScreenExclusive;
 					RecreateViews();
 				});
+			});
+		}
+		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
+			CheckBox *fullscreenMulti = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays")));
+			fullscreenMulti->SetEnabledFunc([] {
+				return g_Config.bFullScreen && !g_Config.bFullScreenExclusive;
+			});
+			fullscreenMulti->OnClick.Add([](UI::EventParams &e) {
+				System_ApplyFullscreenState();
 			});
 		}
 #endif
