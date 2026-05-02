@@ -39,7 +39,8 @@ float PluginDataAxis[JOYSTICK_AXIS_MAX];
 std::map<int, uint8_t> PluginDataKeys;
 
 static bool anyEnabled = false;
-static std::vector<std::string> prxPlugins;
+
+static std::vector<PluginInfo> prxPlugins;
 
 static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	PluginInfo info;
@@ -166,6 +167,7 @@ void Init() {
 	}
 
 	std::vector<PluginInfo> plugins = FindPlugins(g_paramSFO.GetDiscID(), g_Config.sLanguageIni);
+	prxPlugins.clear();
 	for (auto &plugin : plugins) {
 		if (plugin.memory << 20 > Memory::g_MemorySize) {
 			Memory::g_MemorySize = plugin.memory << 20;
@@ -173,7 +175,7 @@ void Init() {
 		}
 
 		if (plugin.type == PluginType::PRX) {
-			prxPlugins.push_back(plugin.filename);
+			prxPlugins.push_back(plugin);
 			anyEnabled = true;
 		}
 	}
@@ -184,25 +186,24 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
-	for (const std::string &filename : prxPlugins) {
+	for (const PluginInfo &plugin : prxPlugins) {
 		if (!g_Config.bEnablePlugins) {
-			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled plugin '%s'", filename.c_str());
+			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled plugin '%s'", plugin.filename.c_str());
 			continue;
 		}
 
 		std::string error_string = "";
-		SceUID module = KernelLoadModule(filename, &error_string);
+		SceUID module = KernelLoadModule(plugin.filename, &error_string);
 		if (!error_string.empty() || module < 0) {
-			ERROR_LOG(Log::System, "Unable to load plugin '%s' (module %d): '%s'", filename.c_str(), module, error_string.c_str());
+			ERROR_LOG(Log::System, "Unable to load plugin '%s' (module %d): '%s'", plugin.filename.c_str(), module, error_string.c_str());
 			continue;
 		}
 
 		int ret = __KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
 		if (ret < 0) {
-			ERROR_LOG(Log::System, "Unable to start plugin '%s': %08x", filename.c_str(), ret);
+			ERROR_LOG(Log::System, "Unable to start plugin '%s': %08x", plugin.filename.c_str(), ret);
 		} else {
-			std::string shortName = Path(filename).GetFilename();
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: '%1'"), shortName), 6.0f);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: '%1'"), plugin.name), 6.0f);
 			started = true;
 			pluginWaitingModule->startingPlugins.push_back(module);
 			u32 error;
@@ -210,7 +211,7 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 			plugin_module->pluginWaitingThread = threadID;
 		}
 
-		INFO_LOG(Log::System, "Loaded plugin: '%s'", filename.c_str());
+		INFO_LOG(Log::System, "Loaded plugin: '%s'", plugin.name.c_str());
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);
