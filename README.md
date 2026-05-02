@@ -44,16 +44,26 @@ During this cycle, I've mostly focused on UX improvements.
 - Rendering fixes
   - Fix a bug in lens flare occlusion for the Syphon Filter games ([#21511])
   
+- Misc UI improvements
+  - Soft keyboard has more symbols ([#21625])
+  - Basic deep link support on iOS ([#21615])
+  - Fix file picker problems on some Android devices (regression) ([#21614])
+  - Fix crash in text edit fields on Mac/iOS ([#21601])
+  - PSP DVD prototypes can now load directly ([#21599, #21601])
+  - Cheat UI has been cleaned up and supports titles and comments natively ([#21590])
+  - Instant type-to-search in game browser ([#21559, #21565])
+  - RetroAchievement subset display improvements ([#21536])
+
 - Other
-  - Hide the save-load indicator in the corner by default ([#21528])
   - More plugin zip files can now auto-install ([#21556])
   - Pause on lost-focus on Linux ([#21517])
   - Frameskipping no longer breaks analog stick auto-rotation in GoW, however manual rotation still broken ([#21508])
   - Android: Restore "Landscape Auto" ([#21482]), the "Auto" screen rotation mode now overrides the user rotation lock ([#21507])
   - Contribution by Irzlin: Loongarch improvements ([#21499])
-  - Basic support for extracting ISO from 7z ([#21493])
+  - Basic support for extracting ISO from 7zip files ([#21493])
   - Fix a bug that prevented loading certain texture packs ([#21491])
   - Fix music looping in Death JR ([#21490])
+  - Hide the save-load indicator in the corner by default ([#21528])
 
 What's new in 1.20.3
 --------------------
