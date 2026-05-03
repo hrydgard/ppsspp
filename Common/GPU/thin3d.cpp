@@ -275,83 +275,9 @@ static const std::vector<ShaderSource> fsCol = {
 	}
 };
 
-// ================================== VERTEX SHADERS
-
-static const std::vector<ShaderSource> vsCol = {
-	{ GLSL_1xx,
-	"#if __VERSION__ >= 130\n"
-	"#define attribute in\n"
-	"#define varying out\n"
-	"#endif\n"
-	"attribute vec3 Position;\n"
-	"attribute vec4 Color0;\n"
-	"varying vec4 oColor0;\n"
-
-	"uniform mat4 WorldViewProj;\n"
-	"uniform vec2 TintSaturation;\n"
-	"void main() {\n"
-	"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
-	"  oColor0 = Color0;\n"
-	"}"
-	},
-	{ ShaderLanguage::HLSL_D3D11,
-	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
-	"struct VS_OUTPUT { float4 Color0 : COLOR0; float4 Position : SV_Position; };\n"
-	"cbuffer ConstantBuffer : register(b0) {\n"
-	"  matrix WorldViewProj;\n"
-	"  float2 TintSaturation;\n"
-	"};\n"
-	"VS_OUTPUT main(VS_INPUT input) {\n"
-	"  VS_OUTPUT output;\n"
-	"  output.Position = mul(WorldViewProj, float4(input.Position, 1.0));\n"
-	"  output.Color0 = input.Color0;\n"
-	"  return output;\n"
-	"}\n"
-	},
-	{ ShaderLanguage::GLSL_VULKAN,
-R"(#version 450
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 0, binding = 0) uniform bufferVals {
-	mat4 WorldViewProj;
-	vec2 TintSaturation;
-} myBufferVals;
-layout (location = 0) in vec4 pos;
-layout (location = 1) in vec4 inColor;
-layout (location = 0) out vec4 outColor;
-out gl_PerVertex { vec4 gl_Position; };
-void main() {
-    outColor = inColor;
-	gl_Position = myBufferVals.WorldViewProj * pos;
-}
-)"
-	}
-};
-
 const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
 	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },
 	{ "TintSaturation", 4, -1, UniformType::FLOAT2, 64 },
-} };
-
-static const std::vector<ShaderSource> vsTexColNoTint = { {
-	GLSL_1xx,
-	R"(
-#if __VERSION__ >= 130
-#define attribute in
-#define varying out
-#endif
-attribute vec3 Position;
-attribute vec4 Color0;
-attribute vec2 TexCoord0;
-varying vec4 oColor0;
-varying vec2 oTexCoord0;
-uniform mat4 WorldViewProj;
-uniform vec2 TintSaturation;
-void main() {
-	gl_Position = WorldViewProj * vec4(Position, 1.0);
-    oColor0 = Color0;
-	oTexCoord0 = TexCoord0;
-})"
 } };
 
 static_assert(SEM_TEXCOORD0 == 3, "Semantic shader hardcoded in glsl above.");
@@ -395,12 +321,13 @@ const UniformDef g_uniforms[] = {
 	{ "vec2", "TintSaturation", 1 },
 };
 
-static ShaderModule *GenerateVShader(DrawContext *draw, VertexShaderPreset preset) {
+static ShaderModule *GenerateVShader(DrawContext *draw, VertexShaderPreset preset, bool texCoords, bool tint) {
 	const ShaderLanguageDesc &shaderLanguageDesc = draw->GetShaderLanguageDesc();
 	char code[2048];
 	ShaderWriter vsWriter(code, shaderLanguageDesc, ShaderStage::Vertex);
 
-	vsWriter.C(R"(
+	if (tint) {
+		vsWriter.C(R"(
 vec3 rgb2hsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
 	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -415,29 +342,35 @@ vec3 hsv2rgb(vec3 c) {
 	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 )");
+	}
 
-	vsWriter.BeginVSMain(g_inputs, g_uniforms, g_varyingsTex);
-	vsWriter.C(R"(
-		gl_Position = mul(WorldViewProj, vec4(Position, 1.0));
+	vsWriter.BeginVSMain(g_inputs, g_uniforms, texCoords ? Slice(g_varyingsTex) : Slice(g_varyings));
+	vsWriter.C("gl_Position = mul(WorldViewProj, vec4(Position, 1.0));\n");
+	if (tint) {
+		vsWriter.C(R"(
 		vec3 hsv = rgb2hsv(Color0.xyz);
 		hsv.x += TintSaturation.x;
 		hsv.y *= TintSaturation.y;
 		oColor0 = vec4(hsv2rgb(hsv), Color0.w);
-		oTexCoord0 = TexCoord0;
-	)");
-	vsWriter.EndVSMain(g_varyingsTex);
-
+)");
+	} else {
+		vsWriter.C("oColor0 = Color0;\n");
+	}
+	if (texCoords) {
+		vsWriter.C("oTexCoord0 = TexCoord0;\n");
+	}
+	vsWriter.EndVSMain(texCoords ? Slice(g_varyingsTex) : Slice(g_varyings));
 	return draw->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)code, strlen(code));
 }
 
 bool DrawContext::CreatePresets() {
+	bool tintSupported = true;
 	if (bugs_.Has(Bugs::RASPBERRY_SHADER_COMP_HANG)) {
-		vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsTexColNoTint);
-	} else {
-		vsPresets_[VS_TEXTURE_COLOR_2D] = GenerateVShader(this, VS_TEXTURE_COLOR_2D);
+		tintSupported = false;
 	}
 
-	vsPresets_[VS_COLOR_2D] = CreateShader(this, ShaderStage::Vertex, vsCol);
+	vsPresets_[VS_TEXTURE_COLOR_2D] = GenerateVShader(this, VS_TEXTURE_COLOR_2D, true, tintSupported);
+	vsPresets_[VS_COLOR_2D] = GenerateVShader(this, VS_COLOR_2D, false, tintSupported);
 
 	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsTexCol);
 	fsPresets_[FS_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsCol);
