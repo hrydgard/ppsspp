@@ -164,117 +164,6 @@ bool RefCountedObject::ReleaseAssertLast() {
 	return released;
 }
 
-// ================================== PIXEL/FRAGMENT SHADERS
-
-// The Vulkan ones can be re-used with modern GL later if desired, as they're just GLSL.
-
-static const std::vector<ShaderSource> fsTexCol = {
-	{ShaderLanguage::GLSL_1xx,
-	"#ifdef GL_ES\n"
-	"precision lowp float;\n"
-	"#endif\n"
-	"#if __VERSION__ >= 130\n"
-	"#define varying in\n"
-	"#define texture2D texture\n"
-	"#define gl_FragColor fragColor0\n"
-	"out vec4 fragColor0;\n"
-	"#endif\n"
-	"varying vec4 oColor0;\n"
-	"varying vec2 oTexCoord0;\n"
-	"uniform sampler2D Sampler0;\n"
-	"void main() { vec4 col = texture2D(Sampler0, oTexCoord0) * oColor0; col.rgb *= oColor0.a; gl_FragColor = col; }\n"
-	},
-	{ShaderLanguage::HLSL_D3D11,
-	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
-	"SamplerState samp : register(s0);\n"
-	"Texture2D<float4> tex : register(t0);\n"
-	"float4 main(PS_INPUT input) : SV_Target {\n"
-	"  float4 col = input.color * tex.Sample(samp, input.uv);\n"
-	"  col.rgb *= input.color.a;\n"
-	"  return col;\n"
-	"}\n"
-	},
-	{ShaderLanguage::GLSL_VULKAN,
-	"#version 140\n"
-	"#extension GL_ARB_separate_shader_objects : enable\n"
-	"#extension GL_ARB_shading_language_420pack : enable\n"
-	"layout(location = 0) in vec4 oColor0;\n"
-	"layout(location = 1) in vec2 oTexCoord0;\n"
-	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
-	"void main() { vec4 col = texture(Sampler0, oTexCoord0) * oColor0; col.rgb *= oColor0.a; fragColor0 = col; }\n"
-	}
-};
-
-static const std::vector<ShaderSource> fsTexColRBSwizzle = {
-	{GLSL_1xx,
-	"#ifdef GL_ES\n"
-	"precision lowp float;\n"
-	"#endif\n"
-	"#if __VERSION__ >= 130\n"
-	"#define varying in\n"
-	"#define texture2D texture\n"
-	"#define gl_FragColor fragColor0\n"
-	"out vec4 fragColor0;\n"
-	"#endif\n"
-	"varying vec4 oColor0;\n"
-	"varying vec2 oTexCoord0;\n"
-	"uniform sampler2D Sampler0;\n"
-	"void main() { vec4 col = texture2D(Sampler0, oTexCoord0).zyxw * oColor0; col.rgb *= oColor0.a; gl_FragColor = col; }\n"
-	},
-	{ShaderLanguage::HLSL_D3D11,
-	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
-	"SamplerState samp : register(s0);\n"
-	"Texture2D<float4> tex : register(t0);\n"
-	"float4 main(PS_INPUT input) : SV_Target {\n"
-	"  float4 col = input.color * tex.Sample(samp, input.uv).bgra;\n"
-	"  col.rgb *= input.color.a;\n"
-	"  return col;\n"
-	"}\n"
-	},
-	{ShaderLanguage::GLSL_VULKAN,
-	"#version 140\n"
-	"#extension GL_ARB_separate_shader_objects : enable\n"
-	"#extension GL_ARB_shading_language_420pack : enable\n"
-	"layout(location = 0) in vec4 oColor0;\n"
-	"layout(location = 1) in vec2 oTexCoord0;\n"
-	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
-	"void main() { vec4 col = texture(Sampler0, oTexCoord0).bgra * oColor0; col.rgb *= oColor0.a; fragColor0 = col; }\n"
-	}
-};
-
-static const std::vector<ShaderSource> fsCol = {
-	{ GLSL_1xx,
-	"#ifdef GL_ES\n"
-	"precision lowp float;\n"
-	"#endif\n"
-	"#if __VERSION__ >= 130\n"
-	"#define varying in\n"
-	"#define gl_FragColor fragColor0\n"
-	"out vec4 fragColor0;\n"
-	"#endif\n"
-	"varying vec4 oColor0;\n"
-	"void main() { vec4 col = oColor0; col.rgb *= oColor0.a; gl_FragColor = col; }\n"
-	},
-	{ ShaderLanguage::HLSL_D3D11,
-	"struct PS_INPUT { float4 color : COLOR0; };\n"
-	"float4 main(PS_INPUT input) : SV_Target {\n"
-	"  float4 col = input.color;\n"
-	"  col.rgb *= input.color.a;\n"
-	"  return col;\n"
-	"}\n"
-	},
-	{ ShaderLanguage::GLSL_VULKAN,
-	"#version 140\n"
-	"#extension GL_ARB_separate_shader_objects : enable\n"
-	"#extension GL_ARB_shading_language_420pack : enable\n"
-	"layout(location = 0) in vec4 oColor0;\n"
-	"layout(location = 0) out vec4 fragColor0;\n"
-	"void main() { vec4 col = oColor0; col.rgb *= oColor0.a; fragColor0 = col; }\n"
-	}
-};
-
 const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
 	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 },
 	{ "TintSaturation", 4, -1, UniformType::FLOAT2, 64 },
@@ -313,7 +202,7 @@ static const VaryingDef g_varyingsTex[] = {
 };
 
 static const SamplerDef g_samplers[] = {
-	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+	{ 0, "tex" },
 };
 
 const UniformDef g_uniforms[] = {
@@ -321,7 +210,7 @@ const UniformDef g_uniforms[] = {
 	{ "vec2", "TintSaturation", 1 },
 };
 
-static ShaderModule *GenerateVShader(DrawContext *draw, VertexShaderPreset preset, bool texCoords, bool tint) {
+static ShaderModule *GenerateVShader(DrawContext *draw, bool texCoords, bool tint) {
 	const ShaderLanguageDesc &shaderLanguageDesc = draw->GetShaderLanguageDesc();
 	char code[2048];
 	ShaderWriter vsWriter(code, shaderLanguageDesc, ShaderStage::Vertex);
@@ -363,18 +252,40 @@ vec3 hsv2rgb(vec3 c) {
 	return draw->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)code, strlen(code));
 }
 
+static ShaderModule *GenerateFShader(DrawContext *draw, bool texturing, bool rbSwizzle) {
+	const ShaderLanguageDesc &shaderLanguageDesc = draw->GetShaderLanguageDesc();
+	char code[2048];
+	ShaderWriter fsWriter(code, shaderLanguageDesc, ShaderStage::Fragment);
+	fsWriter.DeclareSamplers(g_samplers);
+	fsWriter.BeginFSMain(g_uniforms, texturing ? Slice(g_varyingsTex) : Slice(g_varyings));
+	if (texturing) {
+		fsWriter.C("vec4 col = ");
+		fsWriter.SampleTexture2D("tex", "oTexCoord0");
+		if (rbSwizzle) {
+			fsWriter.C(".zyxw * oColor0;\n");
+		} else {
+			fsWriter.C(" * oColor0;\n");
+		}
+	} else {
+		fsWriter.C("vec4 col = oColor0;\n");
+	}
+	fsWriter.C("col.rgb *= oColor0.a;\n");  // premultiply alpha
+	fsWriter.EndFSMain("col");
+	return draw->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)code, strlen(code));
+}
+
 bool DrawContext::CreatePresets() {
 	bool tintSupported = true;
 	if (bugs_.Has(Bugs::RASPBERRY_SHADER_COMP_HANG)) {
 		tintSupported = false;
 	}
 
-	vsPresets_[VS_TEXTURE_COLOR_2D] = GenerateVShader(this, VS_TEXTURE_COLOR_2D, true, tintSupported);
-	vsPresets_[VS_COLOR_2D] = GenerateVShader(this, VS_COLOR_2D, false, tintSupported);
+	vsPresets_[VS_TEXTURE_COLOR_2D] = GenerateVShader(this, true, tintSupported);
+	vsPresets_[VS_COLOR_2D] = GenerateVShader(this, false, tintSupported);
 
-	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsTexCol);
-	fsPresets_[FS_COLOR_2D] = CreateShader(this, ShaderStage::Fragment, fsCol);
-	fsPresets_[FS_TEXTURE_COLOR_2D_RB_SWIZZLE] = CreateShader(this, ShaderStage::Fragment, fsTexColRBSwizzle);
+	fsPresets_[FS_TEXTURE_COLOR_2D] = GenerateFShader(this, true, false);
+	fsPresets_[FS_COLOR_2D] = GenerateFShader(this, false, false);
+	fsPresets_[FS_TEXTURE_COLOR_2D_RB_SWIZZLE] = GenerateFShader(this, true, true);
 
 	return vsPresets_[VS_TEXTURE_COLOR_2D] && vsPresets_[VS_COLOR_2D] && fsPresets_[FS_TEXTURE_COLOR_2D] && fsPresets_[FS_COLOR_2D] && fsPresets_[FS_TEXTURE_COLOR_2D_RB_SWIZZLE];
 }
