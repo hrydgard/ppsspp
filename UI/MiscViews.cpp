@@ -428,7 +428,7 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	// Only one is visible at a time, so we can just grab all Char input.
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
-		if (unichar >= 0x20) {
+		if (unichar >= 0x20 && unichar != 127) {  // 127 gets produced from Ctrl+Backspace on Windows for some reason.
 			// TODO: Save focus state here.
 
 			// Insert it! (todo: do it with a string insert)
@@ -441,7 +441,17 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	} else if (input.flags & KeyInputFlags::DOWN) {
 		if (input.keyCode == NKCODE_DEL) {
 			if (!searchFilter.empty()) {
-				searchFilter.pop_back();
+				if (input.flags & KeyInputFlags::MOD_CTRL) {
+					// Ctrl+Backspace deletes the last word. Delete until the last space.
+					size_t pos = searchFilter.find_last_of(' ');
+					if (pos != searchFilter.npos) {
+						searchFilter.erase(pos);
+					} else {
+						searchFilter.clear();
+					}
+				} else {
+					searchFilter.pop_back();
+				}
 				ApplySearchFilter(viewGroup, true);
 				retval = true;
 				if (searchFilter.empty()) {
