@@ -235,6 +235,9 @@ void GameButton::Draw(UIContext &dc) {
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN_BIN: imageIcon = ImageID("I_FILE"); break;
+	case IdentifiedFileType::ARCHIVE_ZIP: imageIcon = ImageID("I_ARCHIVE_ZIP"); drawBackground = false; break;
+	case IdentifiedFileType::ARCHIVE_7Z: imageIcon = ImageID("I_ARCHIVE_7Z"); drawBackground = false; break;
+	case IdentifiedFileType::ARCHIVE_RAR: imageIcon = ImageID("I_ARCHIVE_RAR"); drawBackground = false; break;
 	default: break;
 	}
 
@@ -487,7 +490,7 @@ public:
 	}
 
 	std::string DescribeText() const {
-		return path_.GetFilename();
+		return std::string(Button::GetText());  // From Button
 	}
 
 private:
@@ -874,21 +877,18 @@ void GameBrowser::Refresh() {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
 		}
-		// Put RAR/ZIP files at the end to get them out of the way. They're only shown so that people
-		// can click them and get an explanation that they need to unpack them. This is necessary due
-		// to a flood of support email...
+
+		// Put RAR/ZIP files at the end to get them out of the way.
+		// We do support unpacking some of them automatically.
 		if (browseFlags_ & BrowseFlags::ARCHIVES) {
 			fileInfo.clear();
-			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
+			path_.GetListing(fileInfo, "zip:rar:r00:r01:7z:");
 			if (!fileInfo.empty()) {
-				UI::LinearLayout *zl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-				zl->SetSpacing(4.0f);
-				Add(zl);
 				for (size_t i = 0; i < fileInfo.size(); i++) {
 					if (!fileInfo[i].isDirectory) {
-						GameButton *b = zl->Add(new GameButton(fileInfo[i].fullName, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
-						b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
+						GameButton *b = new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
 						b->SetHoldEnabled(false);
+						gameButtons.push_back(b);
 					}
 				}
 			}
