@@ -41,7 +41,6 @@ constexpr size_t FRAME_TIME_HISTORY_LENGTH = 32;
 
 // Different APIs use different coordinate conventions
 enum class CoordConvention {
-	Direct3D9,
 	Direct3D11,
 	Vulkan,
 	OpenGL,
