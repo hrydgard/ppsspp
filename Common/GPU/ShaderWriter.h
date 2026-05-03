@@ -119,6 +119,7 @@ private:
 	// Several of the shader languages ignore samplers, beware of that.
 	void DeclareSampler2D(const SamplerDef &def);
 	void DeclareTexture2D(const SamplerDef &def);
+	void DeclareUniforms(const Slice<UniformDef> &uniforms);
 	const SamplerDef *GetSamplerDef(const char *name) const;
 
 	void Preamble(Slice<const char *> extensions);

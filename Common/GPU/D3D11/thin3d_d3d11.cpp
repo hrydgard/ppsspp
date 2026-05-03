@@ -13,6 +13,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 #include <map>
 
@@ -148,7 +149,6 @@ public:
 		stencilCompareMask_ = compareMask;
 		stencilDirty_ = true;
 	}
-
 
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int indexCount, int offset) override;
@@ -1125,7 +1125,9 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ERROR_LOG(Log::G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
+		ERROR_LOG(Log::G3D, "Failed compiling %s:", tag);
+		ERROR_LOG(Log::G3D, "%s", LineNumberString(std::string((const char *)data, dataSize)).c_str());
+		ERROR_LOG(Log::G3D, "%s", errors.c_str());
 	}
 
 	if (result != S_OK) {
