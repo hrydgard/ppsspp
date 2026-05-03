@@ -586,11 +586,19 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		} else if (endsWith(lowerCaseName, "/icon0.png")) {
 			hasIcon0PNG = true;
 		} else if (endsWith(lowerCaseName, "/plugin.ini") && slashCount >= 1) {
-			int slashLocation = (int)lowerCaseName.find_last_of('/');
+			const size_t slashLocation = lowerCaseName.find_last_of('/');  // can't miss, we have a slash in the endsWith check.
 			// Find previous slash to determine the root of the plugin, so we can display it properly.
-			int prevSlashLocation = (int)lowerCaseName.find_last_of('/', slashLocation - 1);
-			_dbg_assert_(prevSlashLocation != std::string::npos);
-			stripChars = prevSlashLocation + 1;
+			if (slashLocation > 0) {
+				int prevSlashLocation = (int)lowerCaseName.find_last_of('/', slashLocation - 1);
+				if (prevSlashLocation == std::string::npos) {
+					stripChars = 0;
+				} else {
+					stripChars = prevSlashLocation + 1;
+				}
+			} else {
+				// Can't load plugins where plugin.ini is in the root.
+				continue;
+			}
 			hasPluginIni = true;
 			ZipExtractFileToMemory(z, i, &info->iniContents);
 			info->contentName = fileName.substr(0, fileName.find_last_of('/'));

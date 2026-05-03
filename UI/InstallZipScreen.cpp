@@ -149,6 +149,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	playChoice_ = nullptr;
 	doneView_ = nullptr;
 	existingSaveView_ = nullptr;
+	overwriteWarning_ = nullptr;
 	destFolders_.clear();
 
 	std::vector<Path> destOptions;
@@ -318,7 +319,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(GetFriendlyPath(destFolders_[0])))->SetAlign(FLAG_WRAP_TEXT);
 	}
 	if (overwrite) {
-		leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+		overwriteWarning_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
 	}
 }
 
@@ -351,6 +352,9 @@ void InstallZipScreen::OnInstall(UI::EventParams &params) {
 		}
 		if (installChoice_) {
 			installChoice_->SetEnabled(false);
+		}
+		if (overwriteWarning_) {
+			overwriteWarning_->SetVisibility(UI::Visibility::V_GONE);
 		}
 	}
 }

@@ -51,6 +51,7 @@ private:
 	UI::Choice *playChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
 	NoticeView *doneView_ = nullptr;
+	NoticeView *overwriteWarning_ = nullptr;
 	SavedataView *existingSaveView_ = nullptr;
 	Path savedataToOverwrite_;
 	Path zipPath_;
