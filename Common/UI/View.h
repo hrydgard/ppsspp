@@ -381,6 +381,7 @@ public:
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
+	// Technical description.
 	virtual std::string DescribeLog() const;
 	// Accessible/searchable description.
 	virtual std::string DescribeText() const { return ""; }
@@ -475,6 +476,13 @@ public:
 		autoResult_ = result;
 	}
 
+	void SetAlwaysVisibleInSearch(bool alwaysVisible) {
+		alwaysVisibleInSearch_ = alwaysVisible;
+	}
+	bool AlwaysVisibleInSearch() const {
+		return alwaysVisibleInSearch_;
+	}
+
 protected:
 	// Inputs to layout
 	std::unique_ptr<LayoutParams> layoutParams_;
@@ -501,6 +509,7 @@ private:
 	bool *enabledPtr_ = nullptr;
 	bool enabled_ = true;
 	bool enabledMeansDisabled_ = false;
+	bool alwaysVisibleInSearch_ = false;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };

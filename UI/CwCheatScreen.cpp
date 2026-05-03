@@ -156,6 +156,7 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 			// Title.
 			TextView *titleView = rightColumn->Add(new TextView(text, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, UI::Margins(8, 8, 8, 0))));
 			titleView->SetTextSize(UI::TextSize::Big);
+			titleView->SetAlwaysVisibleInSearch(true);
 			prevIsTitle = true;
 			prev = nullptr;
 		} else if (fileInfo_[i].IsPostComment(&text)) {
