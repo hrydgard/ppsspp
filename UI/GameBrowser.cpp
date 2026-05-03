@@ -489,7 +489,7 @@ public:
 		pinned_ = pin;
 	}
 
-	std::string DescribeText() const {
+	std::string DescribeText() const override {
 		return std::string(Button::GetText());  // From Button
 	}
 

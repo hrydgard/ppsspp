@@ -427,8 +427,8 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 	if (firstMatch) {
 		if (setKeyboardFocus) {
 			UI::EnableFocusMovement(true);
+			UI::SetFocusedView(firstMatch);
 		}
-		UI::SetFocusedView(firstMatch);
 	}
 }
 
