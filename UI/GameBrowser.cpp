@@ -235,6 +235,9 @@ void GameButton::Draw(UIContext &dc) {
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN_BIN: imageIcon = ImageID("I_FILE"); break;
+	case IdentifiedFileType::ARCHIVE_ZIP: imageIcon = ImageID("I_ARCHIVE_ZIP"); drawBackground = false; break;
+	case IdentifiedFileType::ARCHIVE_7Z: imageIcon = ImageID("I_ARCHIVE_7Z"); drawBackground = false; break;
+	case IdentifiedFileType::ARCHIVE_RAR: imageIcon = ImageID("I_ARCHIVE_RAR"); drawBackground = false; break;
 	default: break;
 	}
 
@@ -462,7 +465,7 @@ std::string GameButton::DescribeText() const {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO))
 		return "...";
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ApplySafeSubstitutions(u->T("%1 button"), ginfo->GetTitle());
+	return ginfo->GetTitle();
 }
 
 class DirButton : public UI::Button {
@@ -484,6 +487,10 @@ public:
 
 	void SetPinned(bool pin) {
 		pinned_ = pin;
+	}
+
+	std::string DescribeText() const {
+		return std::string(Button::GetText());  // From Button
 	}
 
 private:
@@ -551,120 +558,13 @@ bool GameBrowser::Key(const KeyInput &input) {
 		return true;
 	}
 
-	// Only one is visible at a time, so we can just grab all Char input.
-	if (input.flags & KeyInputFlags::CHAR) {
-		const int unichar = input.keyCode;
-		if (unichar >= 0x20) {
-			// TODO: Save focus state here.
-
-			// Insert it! (todo: do it with a string insert)
-			char buf[8];
-			buf[u8_wc_toutf8(buf, unichar)] = '\0';
-			searchFilter_ += buf;
-			ApplySearchFilter(true);
-			retval = true;
-		}
-	} else if (input.flags & KeyInputFlags::DOWN) {
-		if (input.keyCode == NKCODE_DEL) {
-			if (!searchFilter_.empty()) {
-				searchFilter_.pop_back();
-				ApplySearchFilter(true);
-				retval = true;
-				if (searchFilter_.empty()) {
-					// TODO: Restore focus state here.
-					UI::EnableFocusMovement(false);
-				}
-			} else {
-				// Empty search filter. Navigate upwards on backspace?
-			}
-		} else if (!searchFilter_.empty() && input.keyCode == NKCODE_ESCAPE) {
-			searchFilter_.clear();
-			ApplySearchFilter(false);
-			retval = true;
-
-			// TODO: Restore focus state here.
-			UI::EnableFocusMovement(false);
-		}
-	}
-	return retval;
+	return search_.Key(gameList_, input);
 }
 
 void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFocus) {
-	searchFilter_ = filter;
+	search_.searchFilter = filter;
 	// We don't refresh because game info loads asynchronously anyway.
-	ApplySearchFilter(setKeyboardFocus);
-}
-
-void GameBrowser::ApplySearchFilter(bool setKeyboardFocus) {
-	if (searchBar_) {
-		searchBar_->SetSearchFilter(searchFilter_);
-		searchBar_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
-	}
-
-	if (searchFilter_.empty() && searchStates_.empty()) {
-		// We haven't hidden anything, and we're not searching, so do nothing.
-		searchPending_ = false;
-		return;
-	}
-
-	std::string filter = NormalizeForSearch(searchFilter_);
-
-	searchPending_ = false;
-	// By default, everything is matching.
-	searchStates_.resize(gameList_->GetNumSubviews(), SearchState::MATCH);
-
-	if (filter.empty()) {
-		// Just quickly mark anything we hid as visible again.
-		for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
-			UI::View *v = gameList_->GetViewByIndex(i);
-			if (searchStates_[i] != SearchState::MATCH)
-				v->SetVisibility(UI::V_VISIBLE);
-		}
-
-		searchStates_.clear();
-		return;
-	}
-
-	View *firstMatch = nullptr;
-
-	for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
-		UI::View *v = gameList_->GetViewByIndex(i);
-		std::string label = v->DescribeText();
-		// TODO: Maybe we should just save the gameButtons list, though nice to search dirs too?
-		// This is a bit of a hack to recognize a pending game title.
-		if (label == "...") {
-			searchPending_ = true;
-			// Hide anything pending while, we'll pop-in search results as they match.
-			// Note: we leave it at MATCH if gone before, so we don't show it again.
-			if (v->GetVisibility() == UI::V_VISIBLE) {
-				if (searchStates_[i] == SearchState::MATCH)
-					v->SetVisibility(UI::V_GONE);
-				searchStates_[i] = SearchState::PENDING;
-			}
-			continue;
-		}
-
-		label = NormalizeForSearch(label);
-		bool match = v->CanBeFocused() && label.find(filter) != label.npos;
-		if (match && !firstMatch) {
-			firstMatch = v;
-		}
-		if (match && searchStates_[i] != SearchState::MATCH) {
-			// It was previously visible and force hidden, so show it again.
-			v->SetVisibility(UI::V_VISIBLE);
-			searchStates_[i] = SearchState::MATCH;
-		} else if (!match && searchStates_[i] == SearchState::MATCH && v->GetVisibility() == UI::V_VISIBLE) {
-			v->SetVisibility(UI::V_GONE);
-			searchStates_[i] = SearchState::MISMATCH;
-		}
-	}
-
-	if (firstMatch) {
-		if (setKeyboardFocus) {
-			UI::EnableFocusMovement(true);
-		}
-		UI::SetFocusedView(firstMatch);
-	}
+	search_.ApplySearchFilter(gameList_, setKeyboardFocus);
 }
 
 void GameBrowser::LayoutChange(UI::EventParams &e) {
@@ -762,8 +662,8 @@ void GameBrowser::Update() {
 		Refresh();
 		refreshPending_ = false;
 	}
-	if (searchPending_) {
-		ApplySearchFilter(false);
+	if (search_.searchPending) {
+		search_.ApplySearchFilter(gameList_, false);
 	}
 }
 
@@ -801,52 +701,9 @@ void GameBrowser::Draw(UIContext &dc) {
 	}
 }
 
-void SearchBar::Draw(UIContext &dc) {
-	using namespace UI;
-
-	dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
-
-	const ImageID searchIcon = ImageID("I_SEARCH");
-	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
-	int leftMargin = 10;
-	if (image) {
-		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
-		leftMargin += image->w + 10;
-	}
-	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-}
-
-void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = 0;
-	h = 0;
-	const ImageID searchIcon = ImageID("I_SEARCH");
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, searchFilter_, &w, &h);
-	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
-	if (image) {
-		w += image->w + 10;
-		h = std::max(h, (float)image->h);
-	}
-	w += 20;  // Padding
-	h += 24;
-}
-
-bool SearchBar::Touch(const TouchInput &input) {
-	bool retval = UI::InertView::Touch(input);
-	// Search bar has a simple touch-to-cancel functionality,
-	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
-	if (input.flags & TouchInputFlags::DOWN) {
-		if (bounds_.Contains(input.x, input.y)) {
-			UI::EventParams params{this};
-			OnCancel.Trigger(params);
-			return true;
-		}
-	}
-	return retval;
-}
-
 void GameBrowser::SetSearchBar(SearchBar *searchBar) {
-	searchBar_ = searchBar;
-	searchBar_->OnCancel.Add([this](UI::EventParams &) {
+	search_.searchBar = searchBar;
+	search_.searchBar->OnCancel.Add([this](UI::EventParams &) {
 		SetSearchFilter("", false);
 	});
 }
@@ -880,7 +737,7 @@ void GameBrowser::Refresh() {
 
 	// Kill all the contents
 	Clear();
-	searchStates_.clear();
+	search_.searchStates.clear();
 
 	Add(new Spacer(1.0f));
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -1020,21 +877,18 @@ void GameBrowser::Refresh() {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
 		}
-		// Put RAR/ZIP files at the end to get them out of the way. They're only shown so that people
-		// can click them and get an explanation that they need to unpack them. This is necessary due
-		// to a flood of support email...
+
+		// Put RAR/ZIP files at the end to get them out of the way.
+		// We do support unpacking some of them automatically.
 		if (browseFlags_ & BrowseFlags::ARCHIVES) {
 			fileInfo.clear();
-			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
+			path_.GetListing(fileInfo, "zip:rar:r00:r01:7z:");
 			if (!fileInfo.empty()) {
-				UI::LinearLayout *zl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-				zl->SetSpacing(4.0f);
-				Add(zl);
 				for (size_t i = 0; i < fileInfo.size(); i++) {
 					if (!fileInfo[i].isDirectory) {
-						GameButton *b = zl->Add(new GameButton(fileInfo[i].fullName, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
-						b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
+						GameButton *b = new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
 						b->SetHoldEnabled(false);
+						gameButtons.push_back(b);
 					}
 				}
 			}

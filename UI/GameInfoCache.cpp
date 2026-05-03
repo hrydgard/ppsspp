@@ -882,26 +882,7 @@ handleELF:
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
 				info_->title = info_->GetFilePath().GetFilename();
-				if (flags_ & GameInfoFlags::ICON) {
-					ReadVFSToString("zip.png", &info_->icon.data, &info_->lock);
-					info_->icon.dataLoaded = true;
-				}
-				break;
-
-			case IdentifiedFileType::ARCHIVE_RAR:
-				info_->title = info_->GetFilePath().GetFilename();
-				if (flags_ & GameInfoFlags::ICON) {
-					ReadVFSToString("rargray.png", &info_->icon.data, &info_->lock);
-					info_->icon.dataLoaded = true;
-				}
-				break;
-
-			case IdentifiedFileType::ARCHIVE_7Z:
-				info_->title = info_->GetFilePath().GetFilename();
-				if (flags_ & GameInfoFlags::ICON) {
-					ReadVFSToString("7z.png", &info_->icon.data, &info_->lock);
-					info_->icon.dataLoaded = true;
-				}
+				info_->icon.dataLoaded = true;
 				break;
 
 			case IdentifiedFileType::NORMAL_DIRECTORY:

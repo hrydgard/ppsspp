@@ -2903,7 +2903,6 @@ set(NativeAssets
 	assets/Roboto_Condensed-Bold.ttf
 	assets/Roboto_Condensed-Italic.ttf
 	assets/Inconsolata-Regular.ttf
-	assets/7z.png
 	assets/compat.ini
 	assets/adhoc-servers.json
 	assets/infra-dns.json
@@ -2911,8 +2910,6 @@ set(NativeAssets
 	assets/langregion.ini
 	assets/ppge_atlas.zim
 	assets/ppge_atlas.meta
-	assets/rargray.png
-	assets/zip.png
 	assets/sfx_back.wav
 	assets/sfx_confirm.wav
 	assets/sfx_select.wav
