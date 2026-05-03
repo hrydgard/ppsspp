@@ -7,6 +7,8 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/curves.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/UI/Root.h"
 #include "UI/MiscViews.h"
 #include "UI/GameInfoCache.h"
 #include "Common/UI/PopupScreens.h"
@@ -346,6 +348,116 @@ bool SearchBar::Touch(const TouchInput &input) {
 			UI::EventParams params{this};
 			OnCancel.Trigger(params);
 			return true;
+		}
+	}
+	return retval;
+}
+
+void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus) {
+	if (searchBar) {
+		searchBar->SetSearchFilter(searchFilter);
+		searchBar->SetVisibility(searchFilter.empty() ? UI::V_GONE : UI::V_VISIBLE);
+	}
+
+	if (searchFilter.empty() && searchStates.empty()) {
+		// We haven't hidden anything, and we're not searching, so do nothing.
+		searchPending = false;
+		return;
+	}
+
+	std::string filter = NormalizeForSearch(searchFilter);
+
+	searchPending = false;
+	// By default, everything is matching.
+	searchStates.resize(viewGroup->GetNumSubviews(), SearchState::MATCH);
+	if (filter.empty()) {
+		// Just quickly mark anything we hid as visible again.
+		for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
+			UI::View *v = viewGroup->GetViewByIndex(i);
+			if (searchStates[i] != SearchState::MATCH)
+				v->SetVisibility(UI::V_VISIBLE);
+		}
+
+		searchStates.clear();
+		return;
+	}
+
+	UI::View *firstMatch = nullptr;
+
+	for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
+		UI::View *v = viewGroup->GetViewByIndex(i);
+		std::string label = v->DescribeText();
+		// This is a bit of a hack to recognize a pending game title.
+		if (label == "...") {
+			searchPending = true;
+			// Hide anything pending while, we'll pop-in search results as they match.
+			// Note: we leave it at MATCH if gone before, so we don't show it again.
+			if (v->GetVisibility() == UI::V_VISIBLE) {
+				if (searchStates[i] == SearchState::MATCH)
+					v->SetVisibility(UI::V_GONE);
+				searchStates[i] = SearchState::PENDING;
+			}
+			continue;
+		}
+
+		label = NormalizeForSearch(label);
+		bool match = v->CanBeFocused() && label.find(filter) != label.npos;
+		if (match && !firstMatch) {
+			firstMatch = v;
+		}
+		if (match && searchStates[i] != SearchState::MATCH) {
+			// It was previously visible and force hidden, so show it again.
+			v->SetVisibility(UI::V_VISIBLE);
+			searchStates[i] = SearchState::MATCH;
+		} else if (!match && searchStates[i] == SearchState::MATCH && v->GetVisibility() == UI::V_VISIBLE) {
+			v->SetVisibility(UI::V_GONE);
+			searchStates[i] = SearchState::MISMATCH;
+		}
+	}
+
+	if (firstMatch) {
+		if (setKeyboardFocus) {
+			UI::EnableFocusMovement(true);
+		}
+		UI::SetFocusedView(firstMatch);
+	}
+}
+
+bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
+	bool retval = false;
+	// Only one is visible at a time, so we can just grab all Char input.
+	if (input.flags & KeyInputFlags::CHAR) {
+		const int unichar = input.keyCode;
+		if (unichar >= 0x20) {
+			// TODO: Save focus state here.
+
+			// Insert it! (todo: do it with a string insert)
+			char buf[8];
+			buf[u8_wc_toutf8(buf, unichar)] = '\0';
+			searchFilter += buf;
+			ApplySearchFilter(viewGroup, true);
+			retval = true;
+		}
+	} else if (input.flags & KeyInputFlags::DOWN) {
+		if (input.keyCode == NKCODE_DEL) {
+			if (!searchFilter.empty()) {
+				searchFilter.pop_back();
+				ApplySearchFilter(viewGroup, true);
+				retval = true;
+				if (searchFilter.empty()) {
+					// TODO: Restore focus state here.
+					UI::EnableFocusMovement(false);
+				}
+			} else {
+				// Empty search filter. Navigate upwards on backspace?
+			}
+		} else if (!searchFilter.empty() && input.keyCode == NKCODE_ESCAPE) {
+			searchFilter.clear();
+			ApplySearchFilter(viewGroup, false);
+			retval = true;
+
+			// TODO: Restore focus state here.
+			UI::EnableFocusMovement(false);
 		}
 	}
 	return retval;

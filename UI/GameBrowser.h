@@ -24,22 +24,6 @@ enum class BrowseFlags {
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
-enum class SearchState {
-	MATCH,
-	MISMATCH,
-	PENDING,
-};
-
-struct SearchEngine {
-	SearchBar *searchBar;
-	std::string searchFilter;
-	std::vector<SearchState> searchStates;
-	bool searchPending;
-
-	void ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus);
-	bool Key(UI::ViewGroup *viewGroup, const KeyInput &input);
-};
-
 class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
@@ -97,7 +81,7 @@ private:
 	std::string lastText_;
 	std::string lastLink_;
 
-	SearchEngine search_{};
+	ViewSearch search_{};
 
 	Path focusGamePath_;
 	bool listingPending_ = false;

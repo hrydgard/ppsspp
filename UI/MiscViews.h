@@ -115,3 +115,19 @@ public:
 private:
 	std::string searchFilter_ = "N/A";
 };
+
+enum class SearchState {
+	MATCH,
+	MISMATCH,
+	PENDING,
+};
+
+struct ViewSearch {
+	SearchBar *searchBar;
+	std::string searchFilter;
+	std::vector<SearchState> searchStates;
+	bool searchPending;
+
+	void ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus);
+	bool Key(UI::ViewGroup *viewGroup, const KeyInput &input);
+};
