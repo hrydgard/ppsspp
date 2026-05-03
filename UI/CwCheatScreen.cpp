@@ -289,7 +289,7 @@ void CwCheatScreen::ImportAndReport(const Path &cheatFile) {
 		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 		// Show an error message?
 		errorLevel_ = NoticeLevel::INFO;
-		errorMessage_ = cw->T("No cheats found for this game");
+		errorMessage_ = cw->T("No new cheats found for this game");
 		errorDetails_.clear();
 	} else {
 		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
