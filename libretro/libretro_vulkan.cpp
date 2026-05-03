@@ -40,6 +40,7 @@ struct VkSwapchainKHR_T {
 	std::mutex mutex;
 	std::condition_variable condVar;
 	int current_index;
+	bool ever_presented = false;
 };
 static VkSwapchainKHR_T chain;
 
@@ -252,6 +253,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice dev
 	}
 
 	chain.current_index = -1;
+	chain.ever_presented = false;
 	*pSwapchain = (VkSwapchainKHR)&chain;
 
 	return VK_SUCCESS;
@@ -291,6 +293,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR_libretro(VkQueue queue, 
 #else
 	vulkan->set_image(vulkan->handle, &swapchain->images[pPresentInfo->pImageIndices[0]].retro_image, 0, nullptr, vulkan->queue_index);
 #endif
+	chain.ever_presented = true;
 	swapchain->condVar.notify_all();
 
 	return VK_SUCCESS;
@@ -298,7 +301,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR_libretro(VkQueue queue, 
 
 void vk_libretro_wait_for_presentation() {
 	std::unique_lock<std::mutex> lock(chain.mutex);
-	if (chain.current_index < 0)
+	if (chain.ever_presented && chain.current_index < 0)
 		chain.condVar.wait(lock);
 #if 0
 	chain.current_index = -1;
@@ -319,6 +322,7 @@ static VKAPI_ATTR void VKAPI_CALL vkDestroySwapchainKHR_libretro(VkDevice device
 	memset(&chain.images, 0x00, sizeof(chain.images));
 	chain.count = 0;
 	chain.current_index = -1;
+	chain.ever_presented = false;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit_libretro(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence) {
