@@ -6,6 +6,7 @@
 #include "Common/File/Path.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/File/PathBrowser.h"
+#include "UI/MiscViews.h"
 
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1
@@ -23,20 +24,20 @@ enum class BrowseFlags {
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
-class SearchBar : public UI::InertView {
-public:
-	SearchBar(UI::LayoutParams *params) : UI::InertView(params) { SetVisibility(UI::Visibility::V_GONE); }
-	void Draw(UIContext &dc) override;
+enum class SearchState {
+	MATCH,
+	MISMATCH,
+	PENDING,
+};
 
-	bool Touch(const TouchInput &input) override;
-	void SetSearchFilter(std::string_view filter) {
-		searchFilter_ = filter;
-	}
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+struct SearchEngine {
+	SearchBar *searchBar;
+	std::string searchFilter;
+	std::vector<SearchState> searchStates;
+	bool searchPending;
 
-	UI::Event OnCancel;
-private:
-	std::string searchFilter_ = "N/A";
+	void ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus);
+	bool Key(UI::ViewGroup *viewGroup, const KeyInput &input);
 };
 
 class GameBrowser : public UI::LinearLayout {
@@ -66,7 +67,6 @@ protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 	virtual Path HomePath();
-	void ApplySearchFilter(bool setKeyboardFocus);
 
 	void Refresh();
 
@@ -90,24 +90,17 @@ private:
 	void OnRecentClear(UI::EventParams &e);
 	void OnHomebrewStore(UI::EventParams &e);
 
-	enum class SearchState {
-		MATCH,
-		MISMATCH,
-		PENDING,
-	};
-
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
-	SearchBar *searchBar_ = nullptr;
 	bool *gridStyle_ = nullptr;
 	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
-	std::string searchFilter_;
-	std::vector<SearchState> searchStates_;
+
+	SearchEngine search_{};
+
 	Path focusGamePath_;
 	bool listingPending_ = false;
-	bool searchPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;

@@ -462,7 +462,7 @@ std::string GameButton::DescribeText() const {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO))
 		return "...";
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ApplySafeSubstitutions(u->T("%1 button"), ginfo->GetTitle());
+	return ginfo->GetTitle();
 }
 
 class DirButton : public UI::Button {
@@ -484,6 +484,10 @@ public:
 
 	void SetPinned(bool pin) {
 		pinned_ = pin;
+	}
+
+	std::string DescribeText() const {
+		return path_.GetFilename();
 	}
 
 private:
@@ -551,6 +555,11 @@ bool GameBrowser::Key(const KeyInput &input) {
 		return true;
 	}
 
+	return search_.Key(gameList_, input);
+}
+
+bool SearchEngine::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
+	bool retval = false;
 	// Only one is visible at a time, so we can just grab all Char input.
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
@@ -560,26 +569,26 @@ bool GameBrowser::Key(const KeyInput &input) {
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
-			searchFilter_ += buf;
-			ApplySearchFilter(true);
+			searchFilter += buf;
+			ApplySearchFilter(viewGroup, true);
 			retval = true;
 		}
 	} else if (input.flags & KeyInputFlags::DOWN) {
 		if (input.keyCode == NKCODE_DEL) {
-			if (!searchFilter_.empty()) {
-				searchFilter_.pop_back();
-				ApplySearchFilter(true);
+			if (!searchFilter.empty()) {
+				searchFilter.pop_back();
+				ApplySearchFilter(viewGroup, true);
 				retval = true;
-				if (searchFilter_.empty()) {
+				if (searchFilter.empty()) {
 					// TODO: Restore focus state here.
 					UI::EnableFocusMovement(false);
 				}
 			} else {
 				// Empty search filter. Navigate upwards on backspace?
 			}
-		} else if (!searchFilter_.empty() && input.keyCode == NKCODE_ESCAPE) {
-			searchFilter_.clear();
-			ApplySearchFilter(false);
+		} else if (!searchFilter.empty() && input.keyCode == NKCODE_ESCAPE) {
+			searchFilter.clear();
+			ApplySearchFilter(viewGroup, false);
 			retval = true;
 
 			// TODO: Restore focus state here.
@@ -590,56 +599,54 @@ bool GameBrowser::Key(const KeyInput &input) {
 }
 
 void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFocus) {
-	searchFilter_ = filter;
+	search_.searchFilter = filter;
 	// We don't refresh because game info loads asynchronously anyway.
-	ApplySearchFilter(setKeyboardFocus);
+	search_.ApplySearchFilter(gameList_, setKeyboardFocus);
 }
 
-void GameBrowser::ApplySearchFilter(bool setKeyboardFocus) {
-	if (searchBar_) {
-		searchBar_->SetSearchFilter(searchFilter_);
-		searchBar_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
+void SearchEngine::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus) {
+	if (searchBar) {
+		searchBar->SetSearchFilter(searchFilter);
+		searchBar->SetVisibility(searchFilter.empty() ? UI::V_GONE : UI::V_VISIBLE);
 	}
 
-	if (searchFilter_.empty() && searchStates_.empty()) {
+	if (searchFilter.empty() && searchStates.empty()) {
 		// We haven't hidden anything, and we're not searching, so do nothing.
-		searchPending_ = false;
+		searchPending = false;
 		return;
 	}
 
-	std::string filter = NormalizeForSearch(searchFilter_);
+	std::string filter = NormalizeForSearch(searchFilter);
 
-	searchPending_ = false;
+	searchPending = false;
 	// By default, everything is matching.
-	searchStates_.resize(gameList_->GetNumSubviews(), SearchState::MATCH);
-
+	searchStates.resize(viewGroup->GetNumSubviews(), SearchState::MATCH);
 	if (filter.empty()) {
 		// Just quickly mark anything we hid as visible again.
-		for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
-			UI::View *v = gameList_->GetViewByIndex(i);
-			if (searchStates_[i] != SearchState::MATCH)
+		for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
+			UI::View *v = viewGroup->GetViewByIndex(i);
+			if (searchStates[i] != SearchState::MATCH)
 				v->SetVisibility(UI::V_VISIBLE);
 		}
 
-		searchStates_.clear();
+		searchStates.clear();
 		return;
 	}
 
-	View *firstMatch = nullptr;
+	UI::View *firstMatch = nullptr;
 
-	for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
-		UI::View *v = gameList_->GetViewByIndex(i);
+	for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
+		UI::View *v = viewGroup->GetViewByIndex(i);
 		std::string label = v->DescribeText();
-		// TODO: Maybe we should just save the gameButtons list, though nice to search dirs too?
 		// This is a bit of a hack to recognize a pending game title.
 		if (label == "...") {
-			searchPending_ = true;
+			searchPending = true;
 			// Hide anything pending while, we'll pop-in search results as they match.
 			// Note: we leave it at MATCH if gone before, so we don't show it again.
 			if (v->GetVisibility() == UI::V_VISIBLE) {
-				if (searchStates_[i] == SearchState::MATCH)
+				if (searchStates[i] == SearchState::MATCH)
 					v->SetVisibility(UI::V_GONE);
-				searchStates_[i] = SearchState::PENDING;
+				searchStates[i] = SearchState::PENDING;
 			}
 			continue;
 		}
@@ -649,13 +656,13 @@ void GameBrowser::ApplySearchFilter(bool setKeyboardFocus) {
 		if (match && !firstMatch) {
 			firstMatch = v;
 		}
-		if (match && searchStates_[i] != SearchState::MATCH) {
+		if (match && searchStates[i] != SearchState::MATCH) {
 			// It was previously visible and force hidden, so show it again.
 			v->SetVisibility(UI::V_VISIBLE);
-			searchStates_[i] = SearchState::MATCH;
-		} else if (!match && searchStates_[i] == SearchState::MATCH && v->GetVisibility() == UI::V_VISIBLE) {
+			searchStates[i] = SearchState::MATCH;
+		} else if (!match && searchStates[i] == SearchState::MATCH && v->GetVisibility() == UI::V_VISIBLE) {
 			v->SetVisibility(UI::V_GONE);
-			searchStates_[i] = SearchState::MISMATCH;
+			searchStates[i] = SearchState::MISMATCH;
 		}
 	}
 
@@ -762,8 +769,8 @@ void GameBrowser::Update() {
 		Refresh();
 		refreshPending_ = false;
 	}
-	if (searchPending_) {
-		ApplySearchFilter(false);
+	if (search_.searchPending) {
+		search_.ApplySearchFilter(gameList_, false);
 	}
 }
 
@@ -801,52 +808,9 @@ void GameBrowser::Draw(UIContext &dc) {
 	}
 }
 
-void SearchBar::Draw(UIContext &dc) {
-	using namespace UI;
-
-	dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
-
-	const ImageID searchIcon = ImageID("I_SEARCH");
-	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
-	int leftMargin = 10;
-	if (image) {
-		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
-		leftMargin += image->w + 10;
-	}
-	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-}
-
-void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = 0;
-	h = 0;
-	const ImageID searchIcon = ImageID("I_SEARCH");
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, searchFilter_, &w, &h);
-	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
-	if (image) {
-		w += image->w + 10;
-		h = std::max(h, (float)image->h);
-	}
-	w += 20;  // Padding
-	h += 24;
-}
-
-bool SearchBar::Touch(const TouchInput &input) {
-	bool retval = UI::InertView::Touch(input);
-	// Search bar has a simple touch-to-cancel functionality,
-	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
-	if (input.flags & TouchInputFlags::DOWN) {
-		if (bounds_.Contains(input.x, input.y)) {
-			UI::EventParams params{this};
-			OnCancel.Trigger(params);
-			return true;
-		}
-	}
-	return retval;
-}
-
 void GameBrowser::SetSearchBar(SearchBar *searchBar) {
-	searchBar_ = searchBar;
-	searchBar_->OnCancel.Add([this](UI::EventParams &) {
+	search_.searchBar = searchBar;
+	search_.searchBar->OnCancel.Add([this](UI::EventParams &) {
 		SetSearchFilter("", false);
 	});
 }
@@ -880,7 +844,7 @@ void GameBrowser::Refresh() {
 
 	// Kill all the contents
 	Clear();
-	searchStates_.clear();
+	search_.searchStates.clear();
 
 	Add(new Spacer(1.0f));
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);

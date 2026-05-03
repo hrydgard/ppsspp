@@ -307,3 +307,46 @@ void SettingHint::Draw(UIContext &dc) {
 	dc.FillRect(style.background, bounds_);
 	UI::TextView::Draw(dc);
 }
+
+void SearchBar::Draw(UIContext &dc) {
+	using namespace UI;
+
+	dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
+
+	const ImageID searchIcon = ImageID("I_SEARCH");
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
+	int leftMargin = 10;
+	if (image) {
+		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
+		leftMargin += image->w + 10;
+	}
+	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+}
+
+void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0;
+	h = 0;
+	const ImageID searchIcon = ImageID("I_SEARCH");
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, searchFilter_, &w, &h);
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
+	if (image) {
+		w += image->w + 10;
+		h = std::max(h, (float)image->h);
+	}
+	w += 20;  // Padding
+	h += 24;
+}
+
+bool SearchBar::Touch(const TouchInput &input) {
+	bool retval = UI::InertView::Touch(input);
+	// Search bar has a simple touch-to-cancel functionality,
+	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
+	if (input.flags & TouchInputFlags::DOWN) {
+		if (bounds_.Contains(input.x, input.y)) {
+			UI::EventParams params{this};
+			OnCancel.Trigger(params);
+			return true;
+		}
+	}
+	return retval;
+}

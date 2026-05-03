@@ -99,3 +99,19 @@ private:
 };
 
 void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text);
+
+class SearchBar : public UI::InertView {
+public:
+	SearchBar(UI::LayoutParams *params) : UI::InertView(params) { SetVisibility(UI::Visibility::V_GONE); }
+	void Draw(UIContext &dc) override;
+
+	bool Touch(const TouchInput &input) override;
+	void SetSearchFilter(std::string_view filter) {
+		searchFilter_ = filter;
+	}
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+	UI::Event OnCancel;
+private:
+	std::string searchFilter_ = "N/A";
+};

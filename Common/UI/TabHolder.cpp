@@ -340,7 +340,7 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 				if (selected_ > 0) {
 					SetSelection(selected_ - 1, true);
 				} else if (!choices_.empty()) {
-					SetSelection(choices_.size() - 1, true);
+					SetSelection((int)choices_.size() - 1, true);
 				}
 			} else {
 				if (selected_ < (int)choices_.size() - 1) {
