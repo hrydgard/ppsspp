@@ -21,7 +21,7 @@
 #include <iterator>
 #include "Common/CommonTypes.h"
 
-
+// NOTE: This is currently only used in MIPSTracer.
 template <typename T>
 struct CyclicBuffer {
 	std::vector<T> buffer;
@@ -36,7 +36,7 @@ struct CyclicBuffer {
 	void push_back(T&& value);
 
 	void clear();
-	void resize(u32 new_capacity);
+	void resize(u32 new_capacity);  // This also clears.
 
 	std::vector<T> get_content() const;
 };
@@ -83,5 +83,7 @@ void CyclicBuffer<T>::clear() {
 
 template <typename T>
 void CyclicBuffer<T>::resize(u32 new_capacity) {
+	overflow = false;
+	current_index = 0;
 	buffer.resize(new_capacity);
 }
