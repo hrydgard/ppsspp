@@ -328,7 +328,7 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 		CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
 		gameSection->Header()->SetUnderline(false);
 		for (const AdhocGroup &group : game.groups) {
-			std::string groupName = group.name;
+			std::string groupName(StripSpaces(group.name));
 			if (groupName.empty()) {
 				groupName = "???";
 			}
@@ -357,9 +357,15 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 				}
 			} else {
 				// Show each group on a single line.
-				std::string groupString = "  " + group.name + ApplySafeSubstitutions("(%1):", group.usercount);
+				std::string groupString = "  " + groupName + ApplySafeSubstitutions(" (%1):", group.usercount);
+				bool first = true;
 				for (const AdhocUser &user : group.users) {
-					groupString.push_back(' ');
+					if (first) {
+						groupString += " ";
+						first = false;
+					} else {
+						groupString += ", ";
+					}
 					groupString += user.name;
 				}
 				gameSection->Add(new TextView(groupString))->SetTextSize(TextSize::Small)->SetWordWrap();

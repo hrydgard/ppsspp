@@ -11,8 +11,6 @@
 #include "Common/Audio/AudioBackend.h"
 #include "XAudioSoundStream.h"
 
-const size_t BUFSIZE = 32 * 1024;
-
 class XAudioBackend : public AudioBackend {
 public:
 	XAudioBackend();
@@ -45,7 +43,7 @@ private:
 
 	WAVEFORMATEX format_;
 
-	int sampleRate_ = 44100;
+	int sampleRate_ = 48000;
 	int periodFrames_ = 0;
 
 	enum {
@@ -61,9 +59,6 @@ private:
 	std::thread thread_;
 	std::atomic<bool> running_{};
 };
-
-// TODO: Get rid of this
-static XAudioBackend *g_dsound;
 
 XAudioBackend::XAudioBackend() {
 	format_.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
@@ -85,10 +80,18 @@ void XAudioBackend::Stop() {
 		thread_.join();
 	}
 
+	if (sourceVoice_) {
+		sourceVoice_->Stop(0, XAUDIO2_COMMIT_NOW);
+		sourceVoice_->DestroyVoice();
+		sourceVoice_ = nullptr;
+	}
+	if (masterVoice_) {
+		masterVoice_->DestroyVoice();
+		masterVoice_ = nullptr;
+	}
 	if (xaudioDevice) {
 		xaudioDevice->Release();
 		xaudioDevice = nullptr;
-		sourceVoice_ = nullptr;
 	}
 }
 
@@ -114,6 +117,8 @@ bool XAudioBackend::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	}
 
 	if FAILED(xaudioDevice->CreateSourceVoice(&sourceVoice_, &format_, 0, 1.0, nullptr, nullptr, nullptr)) {
+		masterVoice_->DestroyVoice();
+		masterVoice_ = nullptr;
 		xaudioDevice->Release();
 		xaudioDevice = nullptr;
 		return false;
@@ -124,6 +129,10 @@ bool XAudioBackend::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	cursor_ = 0;
 
 	if FAILED(sourceVoice_->Start(0, XAUDIO2_COMMIT_NOW)) {
+		sourceVoice_->DestroyVoice();
+		sourceVoice_ = nullptr;
+		masterVoice_->DestroyVoice();
+		masterVoice_ = nullptr;
 		xaudioDevice->Release();
 		xaudioDevice = nullptr;
 		return false;

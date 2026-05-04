@@ -1292,7 +1292,7 @@ bool NativeKey(const KeyInput &key) {
 #if PPSSPP_PLATFORM(UWP)
 	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
-	if (IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
+	if (key.deviceId == DEVICE_ID_KEYBOARD && IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
 		return false;
 	}
 #endif

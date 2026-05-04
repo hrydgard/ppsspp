@@ -49,9 +49,9 @@ During this cycle, I've mostly focused on UX improvements.
   - Basic deep link support on iOS ([#21615])
   - Fix file picker problems on some Android devices (regression) ([#21614])
   - Fix crash in text edit fields on Mac/iOS ([#21601])
-  - PSP DVD prototypes can now load directly ([#21599, [#21601]])
+  - PSP DVD prototypes can now load directly ([#21599], [#21601])
   - Cheat UI has been cleaned up and supports titles and comments natively ([#21590])
-  - Instant type-to-search in game browser ([#21559, [#21565], [#21630]])
+  - Instant type-to-search in game browser ([#21559], [#21565], [#21630])
   - RetroAchievements subset display improvements ([#21536])
 
 - Other
