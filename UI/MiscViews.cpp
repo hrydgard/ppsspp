@@ -325,6 +325,10 @@ void SearchBar::Draw(UIContext &dc) {
 	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 }
 
+SearchBar::SearchBar(UI::LayoutParams *params) : UI::InertView(params) {
+	SetVisibility(UI::Visibility::V_GONE);
+}
+
 void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 0;
 	h = 0;
@@ -439,7 +443,6 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 		const int unichar = input.keyCode;
 		if (unichar >= 0x20 && unichar != 127) {  // 127 gets produced from Ctrl+Backspace on Windows for some reason.
 			// TODO: Save focus state here.
-
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';

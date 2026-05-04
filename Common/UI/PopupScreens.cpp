@@ -949,6 +949,15 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 	return scrollView;
 }
 
+TextEditPopupScreen::TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value), placeholder_(placeholder), maxLen_(maxLen) {
+	if (!value_) {
+		// Point it to our temporary.
+		value_ = &textEditValue_;
+	}
+}
+
+
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();

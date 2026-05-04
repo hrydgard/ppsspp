@@ -113,6 +113,7 @@ public:
 	virtual bool isTopLevel() const { return false; }
 
 	virtual TouchInput transformTouch(const TouchInput &touch) { return touch; }
+	virtual bool WantsTextInput() const { return false; }
 
 protected:
 	int GetRequesterToken();

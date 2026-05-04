@@ -15,8 +15,22 @@
 void Screen::focusChanged(ScreenFocusChange focusChange) {
 	const char *eventName = "";
 	switch (focusChange) {
-	case ScreenFocusChange::FOCUS_LOST_TOP: eventName = "FOCUS_LOST_TOP"; break;
-	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
+	case ScreenFocusChange::FOCUS_LOST_TOP:
+	#if !defined(MOBILE_DEVICE)
+		if (WantsTextInput()) {
+			System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+		}
+	#endif
+		eventName = "FOCUS_LOST_TOP";
+		break;
+	case ScreenFocusChange::FOCUS_BECAME_TOP:
+	#if !defined(MOBILE_DEVICE)
+		if (WantsTextInput()) {
+			System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+		}
+	#endif
+		eventName = "FOCUS_BECAME_TOP";
+		break;
 	}
 	DEBUG_LOG(Log::UI, "Screen %s got %s", this->tag(), eventName);
 }
