@@ -386,24 +386,33 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 
 	for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
 		UI::View *v = viewGroup->GetViewByIndex(i);
-		std::string label = v->DescribeText();
-		// This is a bit of a hack to recognize a pending game title.
-		if (label == "...") {
-			searchPending = true;
-			// Hide anything pending while, we'll pop-in search results as they match.
-			// Note: we leave it at MATCH if gone before, so we don't show it again.
-			if (v->GetVisibility() == UI::V_VISIBLE) {
-				if (searchStates[i] == SearchState::MATCH)
-					v->SetVisibility(UI::V_GONE);
-				searchStates[i] = SearchState::PENDING;
-			}
-			continue;
-		}
 
-		label = NormalizeForSearch(label);
-		bool match = v->CanBeFocused() && label.find(filter) != label.npos;
-		if (match && !firstMatch) {
-			firstMatch = v;
+		bool match = false;
+		if (v->AlwaysVisibleInSearch()) {
+			match = true;
+			if (v->CanBeFocused() && !firstMatch) {
+				firstMatch = v;
+			}
+		} else {
+			std::string label = v->DescribeText();
+			// This is a bit of a hack to recognize a pending game title.
+			if (label == "...") {
+				searchPending = true;
+				// Hide anything pending while, we'll pop-in search results as they match.
+				// Note: we leave it at MATCH if gone before, so we don't show it again.
+				if (v->GetVisibility() == UI::V_VISIBLE) {
+					if (searchStates[i] == SearchState::MATCH)
+						v->SetVisibility(UI::V_GONE);
+					searchStates[i] = SearchState::PENDING;
+				}
+				continue;
+			}
+
+			label = NormalizeForSearch(label);
+			match = v->CanBeFocused() && label.find(filter) != label.npos;
+			if (match && !firstMatch) {
+				firstMatch = v;
+			}
 		}
 		if (match && searchStates[i] != SearchState::MATCH) {
 			// It was previously visible and force hidden, so show it again.
@@ -418,8 +427,8 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 	if (firstMatch) {
 		if (setKeyboardFocus) {
 			UI::EnableFocusMovement(true);
+			UI::SetFocusedView(firstMatch);
 		}
-		UI::SetFocusedView(firstMatch);
 	}
 }
 

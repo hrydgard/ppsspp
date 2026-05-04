@@ -114,6 +114,17 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	leftColumn->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
 
 	leftColumn->Add(new ItemHeader(di->T("Options")));
+	Choice *searchChoice = leftColumn->Add(new Choice(di->T("Search"), ImageID("I_SEARCH")));
+	searchChoice->OnClick.Add([this, searchChoice, screenManager = screenManager(), token = GetRequesterToken()](UI::EventParams &) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		AskForInput(screenManager, token, searchChoice, di->T("Search"), [this](const std::string &text, bool success) {
+			if (!success) {
+				return;
+			}
+			search_.searchFilter = text;
+			search_.ApplySearchFilter(cheatList_, false);
+		});
+	});
 #if !defined(MOBILE_DEVICE)
 	leftColumn->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
@@ -130,6 +141,10 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 	UI::LinearLayout *rightSide = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.5f)));
 	search_.searchFilter.clear();
 	search_.searchBar = rightSide->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	search_.searchBar->OnCancel.Add([this](UI::EventParams &) {
+		search_.searchFilter.clear();
+		search_.ApplySearchFilter(cheatList_, false);
+	});
 
 	UI::ScrollView *rightScroll = rightSide->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
 	rightScroll->SetTag("CwCheats");
@@ -156,6 +171,7 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 			// Title.
 			TextView *titleView = rightColumn->Add(new TextView(text, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, UI::Margins(8, 8, 8, 0))));
 			titleView->SetTextSize(UI::TextSize::Big);
+			titleView->SetAlwaysVisibleInSearch(true);
 			prevIsTitle = true;
 			prev = nullptr;
 		} else if (fileInfo_[i].IsPostComment(&text)) {
@@ -273,7 +289,7 @@ void CwCheatScreen::ImportAndReport(const Path &cheatFile) {
 		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 		// Show an error message?
 		errorLevel_ = NoticeLevel::INFO;
-		errorMessage_ = cw->T("No cheats found for this game");
+		errorMessage_ = cw->T("No new cheats found for this game");
 		errorDetails_.clear();
 	} else {
 		auto cw = GetI18NCategory(I18NCat::CWCHEATS);

@@ -360,6 +360,7 @@ bool StickyChoice::Touch(const TouchInput &touch) {
 				SetFocusedView(this);
 			ClickInternal();
 			dragging_ = false;
+			down_ = true;
 			return true;
 		}
 		dragging_ = false;

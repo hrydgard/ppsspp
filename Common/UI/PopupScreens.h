@@ -545,6 +545,8 @@ private:
 	StringRestriction restriction_;
 };
 
+void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *sourceView, std::string_view title, std::function<void(const std::string &, bool)> callback);
+
 class ChoiceWithValueDisplay : public AbstractChoiceWithValueDisplay {
 public:
 	ChoiceWithValueDisplay(int *value, std::string_view text, LayoutParams *layoutParams = 0)

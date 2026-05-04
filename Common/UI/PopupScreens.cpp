@@ -332,12 +332,12 @@ void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
 	AlignPopup(parent);
 }
 
-std::string ChopTitle(const std::string &title) {
+static std::string ChopTitle(std::string_view title) {
 	size_t pos = title.find('\n');
 	if (pos != title.npos) {
-		return title.substr(0, pos);
+		return std::string(title.substr(0, pos));
 	}
-	return title;
+	return std::string(title);
 }
 
 PopupMultiChoice::PopupMultiChoice(int *value, std::string_view text, const char **choices, int minVal, int numChoices,
@@ -783,6 +783,31 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	} else {
 		*value_ = originalValue_;
 	}
+}
+
+// General utility, if you don't want to use a choice with a string.
+void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *sourceView, std::string_view title, std::function<void(const std::string &, bool)> callback) {
+	// Choose method depending on platform capabilities.
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(token, title, "", false, [callback](const std::string &enteredValue, int) {
+			callback(SanitizeString(StripSpaces(enteredValue), StringRestriction::None, 0, 0), true);
+		});
+		return;
+	}
+
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(nullptr, "", ChopTitle(title), -1);
+	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
+		popupScreen->SetAlignTop(true);
+	}
+	popupScreen->OnChange.Add([callback, sourceView](EventParams &e) {
+		callback(SanitizeString(StripSpaces(*(std::string *)e.v), StringRestriction::None, 0, 0), true);
+		if (sourceView) {
+			SetFocusedView(sourceView);
+		}
+	});
+	if (sourceView)
+		popupScreen->SetPopupOrigin(sourceView);
+	screenManager->push(popupScreen);
 }
 
 PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *value, std::string_view title, std::string_view placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
