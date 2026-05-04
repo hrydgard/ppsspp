@@ -630,14 +630,13 @@ namespace MainWindow {
 			return true;
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		if (!actionIsReset) {
 			confirmExitMessage += '\n';
 			confirmExitMessage += di->T("Are you sure you want to exit?");
 		} else {
 			// Reset is bit rarer, let's just omit the extra message for now.
 		}
-		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
+		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(di->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{

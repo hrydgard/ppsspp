@@ -275,6 +275,7 @@ private:
 void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (portrait) {
 		parent->Add(new Spacer(1.0f, new LinearLayoutParams(1.0f)));
 	}
@@ -314,7 +315,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 #endif
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	if (showExitButton) {
-		parent->Add(new Choice(mm->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
+		parent->Add(new Choice(di->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
 			// Let's make sure the config was saved, since it may not have been.
 			if (!g_Config.Save("MainScreen::OnExit")) {
 				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
