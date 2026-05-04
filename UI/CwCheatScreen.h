@@ -50,6 +50,8 @@ public:
 
 	const char *tag() const override { return "CwCheat"; }
 
+	bool WantsTextInput() const override { return true; }
+
 protected:
 	void BeforeCreateViews() override;
 	void CreateSettingsViews(UI::ViewGroup *) override;

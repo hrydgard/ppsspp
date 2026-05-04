@@ -75,6 +75,7 @@ public:
 	virtual UI::Margins RootMargins() const { return UI::Margins(0); }
 
 	virtual void focusChanged(ScreenFocusChange focusChange) override {
+		Screen::focusChanged(focusChange);
 		modifiersPressed_ = Modifier::NONE;
 	}
 

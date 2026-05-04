@@ -103,7 +103,7 @@ void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool
 
 class SearchBar : public UI::InertView {
 public:
-	SearchBar(UI::LayoutParams *params) : UI::InertView(params) { SetVisibility(UI::Visibility::V_GONE); }
+	SearchBar(UI::LayoutParams *params);
 	void Draw(UIContext &dc) override;
 
 	bool Touch(const TouchInput &input) override;

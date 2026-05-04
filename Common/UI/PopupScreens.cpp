@@ -800,7 +800,7 @@ void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *s
 		popupScreen->SetAlignTop(true);
 	}
 	popupScreen->OnChange.Add([callback, sourceView](EventParams &e) {
-		callback(SanitizeString(StripSpaces(*(std::string *)e.v), StringRestriction::None, 0, 0), true);
+		callback(SanitizeString(StripSpaces(e.s), StringRestriction::None, 0, 0), true);
 		if (sourceView) {
 			SetFocusedView(sourceView);
 		}
@@ -838,6 +838,7 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 		*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
 		EventParams params{};
 		params.v = this;
+		params.s = *value_;
 		OnChange.Trigger(params);
 		if (restoreFocus_) {
 			SetFocusedView(this);
@@ -949,6 +950,15 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 	return scrollView;
 }
 
+TextEditPopupScreen::TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value), placeholder_(placeholder), maxLen_(maxLen) {
+	if (!value_) {
+		// Point it to our temporary.
+		value_ = &textEditValue_;
+	}
+}
+
+
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
@@ -982,6 +992,7 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 		*value_ = StripSpaces(edit_->GetText());
 		EventParams e{};
 		e.v = edit_;
+		e.s = *value_;
 		OnChange.Trigger(e);
 	}
 }
