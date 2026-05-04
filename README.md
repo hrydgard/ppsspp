@@ -38,7 +38,7 @@ During this cycle, I've mostly focused on UX improvements.
 
 - Texture upscaling
   - Fix old bug causing some textures to get stuck unscales on some hardware when using GPU texture upscaling ([#21533])
-  - Improved performance of MMPX_adv upscaler ([#21555])
+  - Improved performance of MMPX-adv upscaler ([#21555])
   - NNEDI3 and Spline36 GPU texture scaling ([#21527])
 
 - Rendering fixes
@@ -49,10 +49,10 @@ During this cycle, I've mostly focused on UX improvements.
   - Basic deep link support on iOS ([#21615])
   - Fix file picker problems on some Android devices (regression) ([#21614])
   - Fix crash in text edit fields on Mac/iOS ([#21601])
-  - PSP DVD prototypes can now load directly ([#21599, #21601])
+  - PSP DVD prototypes can now load directly ([#21599, [#21601]])
   - Cheat UI has been cleaned up and supports titles and comments natively ([#21590])
-  - Instant type-to-search in game browser ([#21559, #21565])
-  - RetroAchievement subset display improvements ([#21536])
+  - Instant type-to-search in game browser ([#21559, [#21565], [#21630]])
+  - RetroAchievements subset display improvements ([#21536])
 
 - Other
   - More plugin zip files can now auto-install ([#21556])
@@ -525,3 +525,12 @@ See [history.md](history.md).
 [#21493]: https://github.com/hrydgard/ppsspp/issues/21493 "Initial 7z support"
 [#21491]: https://github.com/hrydgard/ppsspp/issues/21491 "IniFile: Disallow section headers from starting at other line offsets than the start"
 [#21490]: https://github.com/hrydgard/ppsspp/issues/21490 "Atrac3: Allow sending 0xFFFFFFFF as data size (Death JR music looping)"
+[#21625]: https://github.com/hrydgard/ppsspp/issues/21625 "Soft keyboard work, checkboxes to enable/disable control input sources"
+[#21615]: https://github.com/hrydgard/ppsspp/issues/21615 "Add deep link support on iOS"
+[#21614]: https://github.com/hrydgard/ppsspp/issues/21614 "Use a proxy activity for Android file pickers, simplify handling of Vblank events"
+[#21601]: https://github.com/hrydgard/ppsspp/issues/21601 "Mac/iOS: Crash and logic fixes for special characters in TextEdit"
+[#21599]: https://github.com/hrydgard/ppsspp/issues/21599 "Support loading PSP prototype DVD-R disc dumps directly"
+[#21590]: https://github.com/hrydgard/ppsspp/issues/21590 "UI improvements: CwCheat titles/comments, easier to scroll tabs"
+[#21559]: https://github.com/hrydgard/ppsspp/issues/21559 "UI: Instant type-to-search in game browsers"
+[#21565]: https://github.com/hrydgard/ppsspp/issues/21565 "Improve search to support full-width chars and to clear search on navigation"
+[#21630]: https://github.com/hrydgard/ppsspp/issues/21630 "Refactor type-to-search code for reuse, use in cheats dialog"
