@@ -32,17 +32,17 @@ protected:
 	std::map<FontStyle, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 
 	// Direct2D drawing components.
-	ID2D1Factory5*        m_d2dFactory;
-	ID2D1Device4*         m_d2dDevice;
-	ID2D1DeviceContext4*  m_d2dContext;
-	ID2D1SolidColorBrush* m_d2dWhiteBrush;
+	ID2D1Factory5*        m_d2dFactory = nullptr;
+	ID2D1Device4*         m_d2dDevice = nullptr;
+	ID2D1DeviceContext4*  m_d2dContext = nullptr;
+	ID2D1SolidColorBrush* m_d2dWhiteBrush = nullptr;
 
 	// DirectWrite drawing components.
-	IDWriteFactory5*        m_dwriteFactory;
-	IDWriteFontSet*         m_fontSet;
-	IDWriteFontSetBuilder1* m_fontSetBuilder;
-	IDWriteFontCollection1* m_fontCollection;
-	IDWriteInMemoryFontFileLoader *m_inMemoryLoader;
+	IDWriteFactory5*        m_dwriteFactory = nullptr;
+	IDWriteFontSet*         m_fontSet = nullptr;
+	IDWriteFontSetBuilder1* m_fontSetBuilder = nullptr;
+	IDWriteFontCollection1* m_fontCollection = nullptr;
+	IDWriteInMemoryFontFileLoader *m_inMemoryLoader = nullptr;
 	std::vector<Microsoft::WRL::ComPtr<IDWriteFontFile>> m_fontFiles;
 };
 

@@ -102,6 +102,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	// Create D2D Device and DeviceContext.
 	// TODO: We have one sitting right in DX::DeviceResource, there might be a way to use that instead.
 	hr = m_d2dFactory->CreateDevice(dxgiDevice, &m_d2dDevice);
+	dxgiDevice->Release();
 	if (FAILED(hr)) _assert_msg_(false, "D2D CreateDevice failed");
 	hr = m_d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_d2dContext);
 	if (FAILED(hr)) _assert_msg_(false, "D2D CreateDeviceContext failed");
@@ -122,6 +123,10 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	for (const auto &fname : fontFilenames) {
 		size_t size;
 		uint8_t *data = g_VFS.ReadFile((fname + ".ttf").c_str(), &size);
+		if (!data) {
+			ERROR_LOG(Log::G3D, "Failed to load font file: %s.ttf", fname.c_str());
+			continue;
+		}
 
 		ComPtr<IDWriteFontFile> fontFile;
 		hr = m_inMemoryLoader->CreateInMemoryFontFileReference(
@@ -132,9 +137,14 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 			&fontFile
 		);
 
-		m_fontSetBuilder->AddFontFile(fontFile.Get());
-
 		delete[] data;
+
+		if (FAILED(hr)) {
+			ERROR_LOG(Log::G3D, "CreateInMemoryFontFileReference failed for: %s.ttf", fname.c_str());
+			continue;
+		}
+
+		m_fontSetBuilder->AddFontFile(fontFile.Get());
 		m_fontFiles.push_back(fontFile);
 	}
 
@@ -206,9 +216,6 @@ TextDrawerUWP::~TextDrawerUWP() {
 	m_dwriteFactory->UnregisterFontFileLoader(m_inMemoryLoader);
 	m_fontCollection->Release();
 	m_fontSet->Release();
-	for (auto file : m_fontFiles) {
-		file->Release();
-	}
 	m_fontFiles.clear();
 	m_fontSetBuilder->Release();
 	m_dwriteFactory->Release();
@@ -244,8 +251,8 @@ void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float 
 
 	format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 		
-	IDWriteTextLayout* layout;
-	m_dwriteFactory->CreateTextLayout(
+	IDWriteTextLayout* layout = nullptr;
+	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
 		(int)wstr.size(),
 		format,
@@ -253,6 +260,7 @@ void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float 
 		MAX_TEXT_HEIGHT,
 		&layout
 	);
+	if (FAILED(hr) || !layout) return;
 
 	DWRITE_TEXT_METRICS metrics;
 	layout->GetMetrics(&metrics);
@@ -288,8 +296,8 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	else if (align & ALIGN_RIGHT)
 		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
 
-	IDWriteTextLayout *layout;
-	m_dwriteFactory->CreateTextLayout(
+	IDWriteTextLayout *layout = nullptr;
+	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
 		(int)wstr.size(),
 		format,
@@ -297,6 +305,10 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		MAX_TEXT_HEIGHT,
 		&layout
 	);
+	if (FAILED(hr) || !layout) {
+		bitmapData.clear();
+		return false;
+	}
 
 	DWRITE_TEXT_METRICS metrics;
 	layout->GetMetrics(&metrics);
@@ -339,7 +351,11 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	D2D1_RECT_U srcR = D2D1::RectU(0, 0, entry.bmWidth, entry.bmHeight);
 	D2D1_MAPPED_RECT map;
 	ctx_->mirror_bmp->CopyFromBitmap(&dstP, ctx_->bitmap, &srcR);
-	ctx_->mirror_bmp->Map(D2D1_MAP_OPTIONS_READ, &map);
+	hr = ctx_->mirror_bmp->Map(D2D1_MAP_OPTIONS_READ, &map);
+	if (FAILED(hr)) {
+		bitmapData.clear();
+		return false;
+	}
 
 	// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 	// because we need white. Well, we could using swizzle, but not all our backends support that.
@@ -398,9 +414,6 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 }
 
 void TextDrawerUWP::ClearFonts() {
-	for (auto &iter : fontMap_) {
-		iter.second->dpiScale = dpiScale_;
-	}
 	fontMap_.clear();
 }
 
