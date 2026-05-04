@@ -207,7 +207,7 @@ void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, std::string_view sourc
 	destSize -= 1;  // account for the \0.
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
 	MultiByteToWideChar(CP_UTF8, 0, source.data(), len, dest, std::min((int)destSize, size));
-	dest[size] = 0;
+	dest[std::min(size, (int)destSize)] = 0;
 }
 
 std::wstring ConvertUTF8ToWString(const std::string_view source) {
