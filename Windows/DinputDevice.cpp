@@ -135,8 +135,7 @@ DinputDevice::DinputDevice(int devnum) {
 	}
 
 	getDevices(needsCheck_);
-	if ( (devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
-	{
+	if ((devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL))) {
 		return;
 	}
 
@@ -193,7 +192,7 @@ DinputDevice::~DinputDevice() {
 }
 
 void DinputDevice::ReleaseAllKeys() {
-	KeyInput key;
+	KeyInput key{};
 	key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 	key.flags = KeyInputFlags::UP;
 	for (int i = 0; i < ARRAY_SIZE(dinput_buttons); ++i) {
@@ -236,7 +235,7 @@ void DinputDevice::ReleaseAllKeys() {
 
 void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis axisId) {
 	if (value != lastValue && g_Config.bAllowDInput) {
-		AxisInput axis;
+		AxisInput axis{};
 		axis.deviceId = deviceId;
 		axis.axisId = axisId;
 		axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
@@ -258,16 +257,17 @@ static LONG *ValueForAxisId(DIJOYSTATE2 &js, int axisId) {
 }
 
 int DinputDevice::UpdateState() {
-	if (!pJoystick) return -1;
+	if (!pJoystick)
+		return -1;
 
-	DIJOYSTATE2 js;
+	DIJOYSTATE2 js{};
 
 	if (FAILED(pJoystick->Poll())) {
 		if(pJoystick->Acquire() == DIERR_INPUTLOST)
 			return -1;
 	}
 
-	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
+	if (FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
 		return -1;
 
 	ApplyButtons(js);
@@ -359,8 +359,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 	}
 }
 
-size_t DinputDevice::getNumPads()
-{
+size_t DinputDevice::getNumPads() {
 	getDevices(needsCheck_);
 	needsCheck_ = false;
 	return devices.size();
