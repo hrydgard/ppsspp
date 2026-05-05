@@ -125,6 +125,12 @@ MainScreen::~MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
 }
 
+bool MainScreen::WantsTextInput() const {
+	// We don't want to pop a software keyboard on the main screen, just for type-to-search.
+	return !System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT);
+}
+
+
 #if PPSSPP_PLATFORM(IOS)
 constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
 constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
