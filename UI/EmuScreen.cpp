@@ -1568,14 +1568,16 @@ ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 }
 
 void EmuScreen::darken() {
-	if (!screenManager()->topScreen()->wantBrightBackground()) {
-		UIContext &dc = *screenManager()->getUIContext();
-		uint32_t color = GetBackgroundColorWithAlpha(dc);
-		dc.Begin();
-		dc.RebindTexture();
-		dc.FillRect(UI::Drawable(color), dc.GetBounds());
-		dc.Flush();
+	if (screenManager()->topScreen()->wantBrightBackground()) {
+		return;
 	}
+
+	UIContext &dc = *screenManager()->getUIContext();
+	uint32_t color = GetBackgroundColorWithAlpha(dc);
+	dc.Begin();
+	dc.RebindTexture();
+	dc.FillRect(UI::Drawable(color), dc.GetBounds());
+	dc.Flush();
 }
 
 void EmuScreen::HandleFlip() {

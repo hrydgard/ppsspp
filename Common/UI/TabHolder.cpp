@@ -140,7 +140,7 @@ void TabHolder::SetInitialTab(int tab) {
 }
 
 bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
-	if (tab >= (int)tabs_.size()) {
+	if (tab < 0 || tab >= (int)tabs_.size()) {
 		// Ignore
 		return false;
 	}
@@ -152,11 +152,14 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		created = EnsureTab(tab);
 	}
 
-	auto setupTween = [&](View *view, AnchorTranslateTween *&tween) {
+	auto setupTween = [this](View *view, AnchorTranslateTween *&tween) {
 		_dbg_assert_(view != nullptr);
-		if (tween)
+		if (!view) {
 			return;
-
+		}
+		if (tween) {
+			return;
+		}
 		tween = new AnchorTranslateTween(0.15f, bezierEaseInOut);
 		tween->Finish.Add([&](EventParams &e) {
 			e.v->SetVisibility(tabs_[currentTab_] == e.v ? V_VISIBLE : V_GONE);
@@ -239,7 +242,6 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 void TabHolder::EnableTab(int tab, bool enabled) {
 	tabStrip_->EnableChoice(tab, enabled);
 }
-
 
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 	: LinearLayout(orientation, layoutParams) {
