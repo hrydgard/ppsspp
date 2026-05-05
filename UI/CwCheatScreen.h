@@ -26,6 +26,7 @@
 #include "UI/BaseScreens.h"
 #include "UI/SimpleDialogScreen.h"
 #include "UI/MiscViews.h"
+#include "Common/Net/HTTPClient.h"
 
 struct CheatFileInfo;
 class CWCheatEngine;
@@ -58,6 +59,8 @@ protected:
 	void CreateContentViews(UI::ViewGroup *) override;
 	std::string_view GetTitle() const override;
 
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
 private:
 	void OnCheckBox(int index);
 	bool ImportCheats(const Path &cheatFile, int *cheatsFound);
@@ -80,4 +83,6 @@ private:
 
 	UI::ViewGroup *cheatList_ = nullptr;
 	ViewSearch search_;
+
+	std::shared_ptr<http::Request> downloadRequest_;
 };

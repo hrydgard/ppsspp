@@ -1,0 +1,9 @@
+{
+	"databases": [
+		{
+			"name": "CWCheat-Database-Plus",
+			"maintainer": "Saramagrean",
+			"url": "https://raw.githubusercontent.com/Saramagrean/CWCheat-Database-Plus-/refs/heads/master/cheat.db"
+		}
+	]
+}

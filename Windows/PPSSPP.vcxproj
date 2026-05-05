@@ -1185,6 +1185,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="..\assets\cheats.json" />
     <None Include="..\assets\compat.ini" />
     <None Include="..\assets\compatvr.ini" />
     <None Include="..\assets\infra-dns.json">
