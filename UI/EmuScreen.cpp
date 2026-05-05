@@ -1418,7 +1418,7 @@ void EmuScreen::OpenChat(bool focus) {
 			UI::EnableFocusMovement(true);
 			root_->SetDefaultFocusView(chatMenu_);
 
-			chatMenu_->SetFocus();
+			chatMenu_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 			UI::View *focused = UI::GetFocusedView();
 			if (focused) {
 				root_->SubviewFocused(focused);

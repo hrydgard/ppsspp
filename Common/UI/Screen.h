@@ -62,7 +62,6 @@ enum class ScreenRenderFlags {
 };
 ENUM_CLASS_BITOPS(ScreenRenderFlags);
 
-
 enum class ScreenRenderRole {
 	NONE = 0,
 	CAN_BE_BACKGROUND = 1,

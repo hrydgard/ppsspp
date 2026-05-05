@@ -101,13 +101,13 @@ View *GetFocusedView() {
 	return focusedView;
 }
 
-void SetFocusedView(View *view, bool force) {
+void SetFocusedView(View *view, FocusFlags cause, bool force) {
 	if (focusedView) {
-		focusedView->FocusChanged(FF_LOSTFOCUS);
+		focusedView->FocusChanged(FocusFlags::LOST_FOCUS | cause);
 	}
 	focusedView = view;
 	if (focusedView) {
-		focusedView->FocusChanged(FF_GOTFOCUS);
+		focusedView->FocusChanged(FocusFlags::GOT_FOCUS | cause);
 		if (force) {
 			focusForced = true;
 		}
@@ -119,7 +119,7 @@ void EnableFocusMovement(bool enable) {
 	focusMovementEnabled = enable;
 	if (!enable) {
 		if (focusedView) {
-			focusedView->FocusChanged(FF_LOSTFOCUS);
+			focusedView->FocusChanged(FocusFlags::LOST_FOCUS | FocusFlags::CAUSE_KB_FOCUS_DISABLED);
 		}
 		focusMoves.clear();
 		heldKeys.clear();
@@ -152,7 +152,7 @@ static void MoveFocus(ViewGroup *root, FocusMove direction) {
 	View *focusedView = GetFocusedView();
 	if (!focusedView) {
 		// Nothing was focused when we got in here. Focus the first non-group in the hierarchy.
-		root->SetFocus();
+		root->SetFocus(FocusFlags::CAUSE_FOCUS_MOVE);
 		return;
 	}
 
@@ -162,7 +162,7 @@ static void MoveFocus(ViewGroup *root, FocusMove direction) {
 
 	NeighborResult neigh = root->FindNeighbor(focusedView, direction, NeighborResult());
 	if (neigh.view) {
-		neigh.view->SetFocus();
+		neigh.view->SetFocus(FocusFlags::CAUSE_FOCUS_MOVE);
 		root->SubviewFocused(neigh.view);
 
 		// INFO_LOG(Log::UI, "Focus moved from %s to %s", focusedView->DescribeText().c_str(), neigh.view->DescribeText().c_str());
@@ -398,9 +398,9 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 			View *defaultView = root->GetDefaultFocusView();
 			// Can't focus what you can't see.
 			if (defaultView && defaultView->GetVisibility() == V_VISIBLE) {
-				root->GetDefaultFocusView()->SetFocus();
+				root->GetDefaultFocusView()->SetFocus(UI::FocusFlags::CAUSE_FOCUS_MOVE);
 			} else {
-				root->SetFocus();
+				root->SetFocus(UI::FocusFlags::CAUSE_FOCUS_MOVE);
 			}
 			root->SubviewFocused(GetFocusedView());
 		} else {

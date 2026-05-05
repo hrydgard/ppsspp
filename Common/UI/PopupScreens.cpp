@@ -416,7 +416,7 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		OnChoice.Trigger(e);
 
 		if (restoreFocus_) {
-			SetFocusedView(this);
+			SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 		}
 	}
 }
@@ -489,7 +489,7 @@ void PopupSliderChoice::HandleChange(EventParams &e) {
 	OnChange.Trigger(e);
 
 	if (restoreFocus_) {
-		SetFocusedView(this);
+		SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 	}
 }
 
@@ -552,7 +552,7 @@ void PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 	OnChange.Trigger(e);
 
 	if (restoreFocus_) {
-		SetFocusedView(this);
+		SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 	}
 }
 
@@ -665,7 +665,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
 
 	if (IsFocusMovementEnabled())
-		UI::SetFocusedView(slider_);
+		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
 }
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -706,7 +706,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
-		UI::SetFocusedView(slider_);
+		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
 }
 
 void SliderFloatPopupScreen::OnDecrease(EventParams &params) {
@@ -802,7 +802,7 @@ void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *s
 	popupScreen->OnChange.Add([callback, sourceView](EventParams &e) {
 		callback(SanitizeString(StripSpaces(e.s), StringRestriction::None, 0, 0), true);
 		if (sourceView) {
-			SetFocusedView(sourceView);
+			SetFocusedView(sourceView, FocusFlags::CAUSE_SCREEN_CHANGE);
 		}
 	});
 	if (sourceView)
@@ -841,7 +841,7 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 		params.s = *value_;
 		OnChange.Trigger(params);
 		if (restoreFocus_) {
-			SetFocusedView(this);
+			SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 		}
 	});
 	if (e.v)
@@ -984,7 +984,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		});
 	}
 
-	UI::SetFocusedView(edit_);
+	UI::SetFocusedView(edit_, FocusFlags::CAUSE_SCREEN_CHANGE);
 }
 
 void TextEditPopupScreen::OnCompleted(DialogResult result) {

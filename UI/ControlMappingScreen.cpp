@@ -153,15 +153,16 @@ void SingleControlMapper::Refresh() {
 void SingleControlMapper::OnReplace(UI::EventParams &params) {
 	const int index = atoi(params.v->Tag().c_str());
 	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this, index](KeyMap::MultiInputMapping mapping) {
+		using namespace UI;
 		if (mapping.empty())
 			return;
 		bool success = KeyMap::ReplaceSingleKeyMapping(pspKey_, index, mapping);
 		if (!success) {
-			replaceAllButton_->SetFocus(); // Last got removed as a duplicate
+			replaceAllButton_->SetFocus(FocusFlags::CAUSE_FORCED); // Last got removed as a duplicate
 		} else if (index < (int)rows_.size()) {
-			rows_[index]->SetFocus();
+			rows_[index]->SetFocus(FocusFlags::CAUSE_FORCED);
 		} else {
-			SetFocus();
+			SetFocus(FocusFlags::CAUSE_FORCED);
 		}
 		KeyMap::UpdateNativeMenuKeys();
 		g_IsMappingMouseInput = false;
@@ -173,7 +174,7 @@ void SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
 		if (mapping.empty())
 			return;
 		KeyMap::SetInputMapping(pspKey_, mapping, true);
-		replaceAllButton_->SetFocus();
+		replaceAllButton_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 		KeyMap::UpdateNativeMenuKeys();
 		g_IsMappingMouseInput = false;
 	}, I18NCat::KEYMAPPING));
@@ -184,7 +185,7 @@ void SingleControlMapper::OnAdd(UI::EventParams &params) {
 		if (mapping.empty())
 			return;
 		KeyMap::SetInputMapping(pspKey_, mapping, false);
-		addButton_->SetFocus();
+		addButton_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 		KeyMap::UpdateNativeMenuKeys();
 		g_IsMappingMouseInput = false;
 	}, I18NCat::KEYMAPPING));
@@ -196,7 +197,7 @@ void SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 		if (mapping.empty())
 			return;
 		KeyMap::SetInputMapping(pspKey_, mapping, false);
-		addButton_->SetFocus();
+		addButton_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 		KeyMap::UpdateNativeMenuKeys();
 		g_IsMappingMouseInput = false;
 	}, I18NCat::KEYMAPPING));
@@ -206,9 +207,9 @@ void SingleControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::DeleteNthMapping(pspKey_, index);
 	if (index + 1 < (int)rows_.size())
-		rows_[index]->SetFocus();
+		rows_[index]->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 	else
-		SetFocus();
+		SetFocus(UI::FocusFlags::CAUSE_FORCED);
 }
 
 struct BindingCategory {
@@ -807,7 +808,7 @@ void MockPSP::SelectButton(int btn) {
 void MockPSP::FocusButton(int btn) {
 	MockButton *view = buttons_[btn];
 	if (view) {
-		view->SetFocus();
+		view->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 	} else {
 		labelView_->SetVisibility(UI::V_GONE);
 	}

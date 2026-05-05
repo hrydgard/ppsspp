@@ -46,7 +46,7 @@ void UIScreen::DoRecreateViews() {
 	CreateViews();
 	UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
 	if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
-		defaultView->SetFocus();
+		defaultView->SetFocus(UI::FocusFlags::CAUSE_OTHER);
 	}
 	recreateViews_ = false;
 
