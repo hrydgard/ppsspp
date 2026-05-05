@@ -7,6 +7,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 
 #include "Common/Net/SocketCompat.h"
 #include "Common/Net/Resolve.h"
@@ -631,6 +632,16 @@ void HTTPRequest::Do() {
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
+}
+
+std::string RemoveHttpsIfNeeded(std::string_view url) {
+	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		// Try with http. Needed on Linux installs currently.
+		if (startsWith(url, "https://")) {
+			return "http://" + std::string(url.substr(8));
+		}
+	}
+	return std::string(url);
 }
 
 }  // namespace http

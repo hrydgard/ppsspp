@@ -9,13 +9,14 @@
 namespace UI {
 
 struct Margins;
+enum class FocusFlags;
 
 // The ONLY global is the currently focused item.
 // Can be and often is null.
 void EnableFocusMovement(bool enable);
 bool IsFocusMovementEnabled();
 View *GetFocusedView();
-void SetFocusedView(View *view, bool force = false);
+void SetFocusedView(View *view, FocusFlags cause, bool force = false);
 void RemoveQueuedEventsByEvent(Event *e);
 void RemoveQueuedEventsByView(View * v);
 

@@ -51,16 +51,6 @@ static int ParsePortValue(const rapidjson::Value &v) {
 	return -1;
 }
 
-static std::string RemoveHttpsIfNeeded(std::string_view url) {
-	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
-		// Try with http. Needed on Linux installs currently.
-		if (startsWith(url, "https://")) {
-			return "http://" + std::string(url.substr(8));
-		}
-	}
-	return std::string(url);
-}
-
 std::vector<AdhocGame> ParseStatusXML(const std::string& xmlInput) {
 	pugi::xml_document doc;
 	pugi::xml_parse_result result = doc.load_string(xmlInput.c_str());
@@ -301,9 +291,9 @@ AdhocServerInfoScreen::AdhocServerInfoScreen(const AdhocServerListEntry &entry)
 
 	std::string dataUrl;
 	if (!entry.dataJsonUrl.empty()) {
-		dataUrl = RemoveHttpsIfNeeded(entry.dataJsonUrl);
+		dataUrl = http::RemoveHttpsIfNeeded(entry.dataJsonUrl);
 	} else if (!entry.statusXmlUrl.empty()) {
-		dataUrl = RemoveHttpsIfNeeded(entry.statusXmlUrl);
+		dataUrl = http::RemoveHttpsIfNeeded(entry.statusXmlUrl);
 	}
 
 	if (!dataUrl.empty()) {

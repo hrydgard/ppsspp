@@ -172,7 +172,7 @@ public:
 		}
 	}
 
-	void FocusChanged(int focusFlags) override {
+	void FocusChanged(UI::FocusFlags focusFlags) override {
 		UI::Clickable::FocusChanged(focusFlags);
 		TriggerOnHighlight(focusFlags);
 	}
@@ -189,11 +189,11 @@ private:
 		down_ = false;
 		OnHoldClick.Trigger(e);
 	}
-	void TriggerOnHighlight(int focusFlags) {
+	void TriggerOnHighlight(UI::FocusFlags focusFlags) {
 		UI::EventParams e{};
 		e.v = this;
 		e.s = gamePath_.ToString();
-		e.a = focusFlags;
+		e.a = (u32)focusFlags;
 		OnHighlight.Trigger(e);
 	}
 
@@ -925,7 +925,7 @@ void GameBrowser::Refresh() {
 		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
 
 		if (!focusGamePath_.empty() && b->GamePath() == focusGamePath_) {
-			b->SetFocus();
+			b->SetFocus(FocusFlags::CAUSE_RESTORE);
 		}
 	}
 

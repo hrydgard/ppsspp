@@ -266,10 +266,10 @@ void ViewGroup::Update() {
 	}
 }
 
-bool ViewGroup::SetFocus() {
+bool ViewGroup::SetFocus(FocusFlags cause) {
 	if (!CanBeFocused() && !views_.empty()) {
 		for (View *view : views_) {
-			if (view->SetFocus())
+			if (view->SetFocus(cause))
 				return true;
 		}
 	}

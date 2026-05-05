@@ -1418,7 +1418,7 @@ void EmuScreen::OpenChat(bool focus) {
 			UI::EnableFocusMovement(true);
 			root_->SetDefaultFocusView(chatMenu_);
 
-			chatMenu_->SetFocus();
+			chatMenu_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 			UI::View *focused = UI::GetFocusedView();
 			if (focused) {
 				root_->SubviewFocused(focused);
@@ -1568,14 +1568,16 @@ ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 }
 
 void EmuScreen::darken() {
-	if (!screenManager()->topScreen()->wantBrightBackground()) {
-		UIContext &dc = *screenManager()->getUIContext();
-		uint32_t color = GetBackgroundColorWithAlpha(dc);
-		dc.Begin();
-		dc.RebindTexture();
-		dc.FillRect(UI::Drawable(color), dc.GetBounds());
-		dc.Flush();
+	if (screenManager()->topScreen()->wantBrightBackground()) {
+		return;
 	}
+
+	UIContext &dc = *screenManager()->getUIContext();
+	uint32_t color = GetBackgroundColorWithAlpha(dc);
+	dc.Begin();
+	dc.RebindTexture();
+	dc.FillRect(UI::Drawable(color), dc.GetBounds());
+	dc.Flush();
 }
 
 void EmuScreen::HandleFlip() {

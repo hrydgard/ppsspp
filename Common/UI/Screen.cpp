@@ -150,7 +150,7 @@ void ScreenManager::switchToNext() {
 	stack_.push_back(nextStack_.front());
 	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
 	delete temp.screen;
-	UI::SetFocusedView(nullptr);
+	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 
 	// When will this ever happen? Should handle focus here too?
 	for (size_t i = 1; i < nextStack_.size(); ++i) {
@@ -378,7 +378,7 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	}
 
 	// Release touches and unfocus.
-	UI::SetFocusedView(nullptr);
+	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 	TouchInput input{};
 	input.x = -50000.0f;
 	input.y = -50000.0f;

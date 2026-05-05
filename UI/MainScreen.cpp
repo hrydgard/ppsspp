@@ -671,12 +671,14 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 
 	Path path(e.s);
 
-	if (path == highlightedGamePath_ && e.a == FF_GOTFOCUS) {
+	const FocusFlags focusFlags = (FocusFlags)e.a;
+
+	if (path == highlightedGamePath_ && (focusFlags & FocusFlags::GOT_FOCUS)) {
 		// Already highlighted, nothing to do.
 		return;
 	}
 
-	if (e.a == FF_LOSTFOCUS) {
+	if (focusFlags & FocusFlags::LOST_FOCUS) {
 		// Lost focus, so we want to fade out the background.
 
 		// Trigger fadeouts on any active highlights.
@@ -686,7 +688,10 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 			}
 		}
 		highlightedGamePath_.clear();
-		g_BackgroundAudio.SetGame(Path());
+		if ((focusFlags & FocusFlags::CAUSE_FOCUS_MOVE) || (focusFlags & FocusFlags::CAUSE_KB_FOCUS_DISABLED)) {
+			// Focus moved to another game, so we want to fade out so we can fade in the new one.
+			g_BackgroundAudio.SetGame(Path());
+		}
 		return;
 	}
 
@@ -701,7 +706,7 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 
 	// Add a new entry to the highlight list.
 	highlightedBackgrounds_.push_back({path, time_now_d(), -1.0});
-	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_) {
+	if ((!highlightedGamePath_.empty() || (focusFlags & FocusFlags::LOST_FOCUS)) && !lockBackgroundAudio_) {
 		g_BackgroundAudio.SetGame(highlightedGamePath_);
 	}
 

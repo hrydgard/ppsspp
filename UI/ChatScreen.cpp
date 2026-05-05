@@ -104,7 +104,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 void ChatMenu::OnSubmitMessage(UI::EventParams &e) {
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
-	chatEdit_->SetFocus();
+	chatEdit_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 	sendChat(chat);
 }
 

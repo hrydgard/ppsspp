@@ -85,8 +85,10 @@ Event::~Event() {
 }
 
 View::~View() {
-	if (HasFocus())
-		SetFocusedView(0);
+	if (HasFocus()) {
+		// The view with focus was destroyed.
+		SetFocusedView(nullptr, FocusFlags::CAUSE_VIEW_REMOVED);
+	}
 	RemoveQueuedEventsByView(this);
 
 	// Could use unique_ptr, but then we have to include tween everywhere.
@@ -150,7 +152,7 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 		break;
 	case UI::PERSIST_RESTORE:
 		if (storage.find(focusedKey) != storage.end()) {
-			SetFocus();
+			SetFocus(UI::FocusFlags::CAUSE_RESTORE);
 		}
 		break;
 	}
@@ -184,10 +186,10 @@ Point2D CollapsibleHeader::GetFocusPosition(FocusMove dir) const {
 	}
 }
 
-bool View::SetFocus() {
+bool View::SetFocus(FocusFlags cause) {
 	if (IsFocusMovementEnabled()) {
 		if (CanBeFocused()) {
-			SetFocusedView(this);
+			SetFocusedView(this, cause);
 			return true;
 		}
 	}
@@ -225,8 +227,8 @@ void Clickable::ClickInternal() {
 	OnClick.Trigger(e);
 };
 
-void Clickable::FocusChanged(int focusFlags) {
-	if (focusFlags & FF_LOSTFOCUS) {
+void Clickable::FocusChanged(FocusFlags focusFlags) {
+	if (focusFlags & FocusFlags::LOST_FOCUS) {
 		down_ = false;
 		dragging_ = false;
 	}
@@ -248,8 +250,10 @@ bool Clickable::Touch(const TouchInput &input) {
 
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
-			if (IsFocusMovementEnabled())
-				SetFocusedView(this);
+			if (IsFocusMovementEnabled()) {
+				// Can this even happen? Touch cancels focus movement.
+				SetFocusedView(this, UI::FocusFlags::CAUSE_OTHER);
+			}
 			dragging_ = true;
 			down_ = true;
 		} else {
@@ -356,8 +360,10 @@ bool StickyChoice::Touch(const TouchInput &touch) {
 	}
 	if (touch.flags & TouchInputFlags::UP) {
 		if (dragging_ && contains && !(touch.flags & TouchInputFlags::CANCEL)) {
-			if (IsFocusMovementEnabled())
-				SetFocusedView(this);
+			if (IsFocusMovementEnabled()) {
+				// Can this even happen? Touch cancels focus movement.
+				SetFocusedView(this, UI::FocusFlags::CAUSE_OTHER);
+			}
 			ClickInternal();
 			dragging_ = false;
 			down_ = true;
@@ -385,7 +391,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 	return false;
 }
 
-void StickyChoice::FocusChanged(int focusFlags) {
+void StickyChoice::FocusChanged(FocusFlags focusFlags) {
 	// Override Clickable's FocusChanged to do nothing.
 }
 
@@ -1186,8 +1192,10 @@ bool ClickableTextView::Touch(const TouchInput &input) {
 
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
-			if (IsFocusMovementEnabled())
-				SetFocusedView(this);
+			if (IsFocusMovementEnabled()) {
+				// Can this even happen? Touch cancels focus movement.
+				SetFocusedView(this, UI::FocusFlags::CAUSE_OTHER);
+			}
 			dragging_ = true;
 			down_ = true;
 		} else {
@@ -1246,11 +1254,11 @@ TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_vi
 	caret_ = (int)text_.size();
 }
 
-void TextEdit::FocusChanged(int focusFlags) {
-	if (focusFlags == FF_GOTFOCUS) {
+void TextEdit::FocusChanged(FocusFlags focusFlags) {
+	if (focusFlags & FocusFlags::GOT_FOCUS) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
 	}
-	else {
+	if (focusFlags & FocusFlags::LOST_FOCUS) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
 	}
 }
@@ -1352,7 +1360,7 @@ static std::string FirstLine(const std::string &text) {
 bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(touch.x, touch.y)) {
-			SetFocusedView(this, true);
+			SetFocusedView(this, UI::FocusFlags::CAUSE_FORCED, true);
 			Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
 			if (textBounds.Contains(touch.x, touch.y)) {
 				int relativeX = touch.x - textBounds.x + scrollPos_;
