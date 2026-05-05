@@ -105,7 +105,7 @@ void GLProfiler::BeginFrame() {
 		static const char * const indent[4] = { "", "  ", "    ", "      " };
 
 		if (!scopes_.empty()) {
-			INFO_LOG(Log::G3D, "OpenGL profiling events this frame:");
+			VERBOSE_LOG(Log::G3D, "OpenGL profiling events this frame:");
 		}
 
 		// Log results
@@ -122,7 +122,7 @@ void GLProfiler::BeginFrame() {
 			// Times are in nanoseconds, convert to milliseconds
 			double milliseconds = (double)(endTime - startTime) / 1000000.0;
 
-			INFO_LOG(Log::G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name, milliseconds);
+			VERBOSE_LOG(Log::G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name, milliseconds);
 		}
 	}
 

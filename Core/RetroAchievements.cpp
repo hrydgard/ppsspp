@@ -661,6 +661,7 @@ void Initialize() {
 		// Custom host, only useful for debugging against non-prod RA environments.
 		rc_client_set_host(g_rcClient, g_Config.sAchievementsHost.c_str());
 	} else if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		INFO_LOG(Log::Achievements, "Falling back to HTTP host, no HTTPS support detected");
 		// Disable SSL if not supported by our platform implementation.
 		rc_client_set_host(g_rcClient, "http://retroachievements.org");
 	}
