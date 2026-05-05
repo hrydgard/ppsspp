@@ -111,7 +111,9 @@ void DinputDevice::getDevices(bool refresh) {
 		// We don't want duplicate reporting from XInput devices through DInput.
 		ignoreDevices_ = DetectXInputVIDPIDs();
 		HidInputDevice::AddSupportedDevices(&ignoreDevices_);
-		getPDI()->EnumDevices(DI8DEVCLASS_GAMECTRL, &DinputDevice::DevicesCallback, NULL, DIEDFL_ATTACHEDONLY);
+		if (getPDI()) {
+			getPDI()->EnumDevices(DI8DEVCLASS_GAMECTRL, &DinputDevice::DevicesCallback, NULL, DIEDFL_ATTACHEDONLY);
+		}
 	}
 }
 
@@ -135,8 +137,7 @@ DinputDevice::DinputDevice(int devnum) {
 	}
 
 	getDevices(needsCheck_);
-	if ( (devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
-	{
+	if ((devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL))) {
 		return;
 	}
 
@@ -193,7 +194,7 @@ DinputDevice::~DinputDevice() {
 }
 
 void DinputDevice::ReleaseAllKeys() {
-	KeyInput key;
+	KeyInput key{};
 	key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 	key.flags = KeyInputFlags::UP;
 	for (int i = 0; i < ARRAY_SIZE(dinput_buttons); ++i) {
@@ -236,7 +237,7 @@ void DinputDevice::ReleaseAllKeys() {
 
 void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis axisId) {
 	if (value != lastValue && g_Config.bAllowDInput) {
-		AxisInput axis;
+		AxisInput axis{};
 		axis.deviceId = deviceId;
 		axis.axisId = axisId;
 		axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
@@ -258,25 +259,22 @@ static LONG *ValueForAxisId(DIJOYSTATE2 &js, int axisId) {
 }
 
 int DinputDevice::UpdateState() {
-	if (!pJoystick) return -1;
+	if (!pJoystick)
+		return -1;
 
-	DIJOYSTATE2 js;
+	DIJOYSTATE2 js{};
 
 	if (FAILED(pJoystick->Poll())) {
-		if(pJoystick->Acquire() == DIERR_INPUTLOST)
+		if (FAILED(pJoystick->Acquire()))
 			return -1;
 	}
 
-	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
+	if (FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
 		return -1;
 
 	ApplyButtons(js);
 
 	if (analog)	{
-		// TODO: Use the batched interface.
-		AxisInput axis;
-		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
-
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);
@@ -300,7 +298,6 @@ int DinputDevice::UpdateState() {
 void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 	const bool sendInput = g_Config.bAllowDInput;
 
-	BYTE *buttons = state.rgbButtons;
 	u32 downMask = 0x80;
 
 	for (int i = 0; i < ARRAY_SIZE(dinput_buttons); ++i) {
@@ -359,8 +356,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 	}
 }
 
-size_t DinputDevice::getNumPads()
-{
+size_t DinputDevice::getNumPads() {
 	getDevices(needsCheck_);
 	needsCheck_ = false;
 	return devices.size();
@@ -394,7 +390,7 @@ static std::set<u32> DetectXInputVIDPIDs() {
 			VARIANT var{};
 			if (SUCCEEDED(pDevices[i]->Get(L"DeviceID", 0, &var, nullptr, nullptr)))
 			{
-				if (wcsstr(var.bstrVal, L"IG_"))
+				if (var.vt == VT_BSTR && var.bstrVal != nullptr && wcsstr(var.bstrVal, L"IG_"))
 				{
 					DWORD vid = 0, pid = 0;
 					const WCHAR *strVid = wcsstr(var.bstrVal, L"VID_");

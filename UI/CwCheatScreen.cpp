@@ -49,6 +49,11 @@ CwCheatScreen::~CwCheatScreen() {
 	delete engine_;
 }
 
+bool CwCheatScreen::WantsTextInput() const {
+	// We don't want to pop a software keyboard on the cheat screen, just for type-to-search.
+	return !System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT);
+}
+
 bool CwCheatScreen::TryLoadCheatInfo() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 	std::string gameID;

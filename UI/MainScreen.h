@@ -52,7 +52,7 @@ public:
 
 	bool key(const KeyInput &touch) override;
 
-	bool WantsTextInput() const override { return true; }
+	bool WantsTextInput() const override;
 protected:
 	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::IgnoreBottomInset; }
 

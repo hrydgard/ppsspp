@@ -50,7 +50,7 @@ public:
 
 	const char *tag() const override { return "CwCheat"; }
 
-	bool WantsTextInput() const override { return true; }
+	bool WantsTextInput() const override;
 
 protected:
 	void BeforeCreateViews() override;
