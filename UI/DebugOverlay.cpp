@@ -245,12 +245,12 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 		break;
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
 	case DebugOverlay::GPU_PROFILE:
-		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
 			DrawGPUProfilerVis(ctx, gpu);
 		}
 		break;
 	case DebugOverlay::GPU_ALLOCATOR:
-		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
 			DrawGPUMemoryVis(ctx, gpu);
 		}
 		break;
