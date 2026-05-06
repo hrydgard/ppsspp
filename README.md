@@ -59,7 +59,7 @@ During this cycle, I've mostly focused on UX improvements.
   - Pause on lost-focus on Linux ([#21517])
   - Frameskipping no longer breaks analog stick auto-rotation in GoW, however manual rotation still broken ([#21508])
   - Android: Restore "Landscape Auto" ([#21482]), the "Auto" screen rotation mode now overrides the user rotation lock ([#21507])
-  - Contribution by Irzlin: Loongarch improvements ([#21499])
+  - Contribution by lrzlin: Loongarch improvements ([#21499], [#21595])
   - Basic support for extracting ISO from 7zip files ([#21493])
   - Fix a bug that prevented loading certain texture packs ([#21491])
   - Fix music looping in Death JR ([#21490])
@@ -534,3 +534,4 @@ See [history.md](history.md).
 [#21559]: https://github.com/hrydgard/ppsspp/issues/21559 "UI: Instant type-to-search in game browsers"
 [#21565]: https://github.com/hrydgard/ppsspp/issues/21565 "Improve search to support full-width chars and to clear search on navigation"
 [#21630]: https://github.com/hrydgard/ppsspp/issues/21630 "Refactor type-to-search code for reuse, use in cheats dialog"
+[#21595]: https://github.com/hrydgard/ppsspp/issues/21595 "loongarch: Fix Jit_WeightsU16Skin in VertexDecoderLoongArch64.cpp"
