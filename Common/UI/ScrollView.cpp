@@ -12,6 +12,15 @@ namespace UI {
 float ScrollView::lastScrollPosX = 0;
 float ScrollView::lastScrollPosY = 0;
 
+ScrollView::ScrollView(Orientation orientation, LayoutParams *layoutParams)
+	: ViewGroup(layoutParams), orientation_(orientation) {
+	if (orientation == ORIENT_HORIZONTAL) {
+		gesture_.SetGestureMask(GESTURE_DRAG_HORIZONTAL);
+	} else {
+		gesture_.SetGestureMask(GESTURE_DRAG_VERTICAL);
+	}
+}
+
 ScrollView::~ScrollView() {
 	lastScrollPosX = 0;
 	lastScrollPosY = 0;
