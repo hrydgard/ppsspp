@@ -129,8 +129,8 @@ void WebSocketGPUStatsState::FlipListener() {
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
 	if (valid > 0) {
-		memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
-		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(double) * valid);
+		memcpy(&stats.frameTimes[0], history, sizeof(float) * valid);
+		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(float) * valid);
 	}
 
 	sendNext_ = false;
