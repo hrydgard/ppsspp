@@ -216,15 +216,30 @@ void BreakpointManager::ClearTemporaryBreakPoints()
 {
 	if (!anyBreakPoints_)
 		return;
+
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
-	for (int i = (int)breakPoints_.size()-1; i >= 0; --i)
-	{
-		if (breakPoints_[i].temporary)
-		{
-			breakPoints_.erase(breakPoints_.begin() + i);
-			Update();
+
+	std::vector<u32> addrsToUpdate;
+
+	for (auto it = breakPoints_.begin(); it != breakPoints_.end(); ) {
+		if (it->temporary) {
+			addrsToUpdate.push_back(it->addr);
+			it = breakPoints_.erase(it);
+		} else {
+			++it;
 		}
 	}
+
+	if (addrsToUpdate.size() == 1) {
+		// We can use the proper mechanism to update just one address.
+		// If there are any temp breakpoints, there's normally just one, so this is better
+		// than Update().
+		Update(addrsToUpdate[0]);
+	} else if (!addrsToUpdate.empty()) {
+		Update();
+	}
+
+	anyBreakPoints_ = !breakPoints_.empty();
 }
 
 void BreakpointManager::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
