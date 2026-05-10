@@ -145,8 +145,9 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		return false;
 	}
 
-	if (currentTab_ < 0 || currentTab_ >= (int)tabs_.size() || !tabs_[currentTab_]) {
-		_dbg_assert_(false);
+	if (currentTab_ < 0 || currentTab_ >= (int)tabs_.size()) {
+		EnsureTab(tab);
+		_dbg_assert_(tabs_[tab]);
 		// No current tab, so just switch immediately.
 		currentTab_ = tab;
 		tabStrip_->SetSelection(tab, false);

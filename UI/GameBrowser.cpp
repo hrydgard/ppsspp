@@ -713,6 +713,7 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 		return false;
 
 	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+
 	PBPReader pbp(loader.get());
 	std::vector<u8> sfoData;
 	if (!pbp.GetSubFile(PBP_PARAM_SFO, &sfoData))
@@ -861,7 +862,7 @@ void GameBrowser::Refresh() {
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;
-			// Check if eboot directory
+			// Check if eboot directory. TODO: Should ideally be done off-thread somehow.
 			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(path_.GetPath() / fileInfo[i].name / "EBOOT.PBP", true))
 				isGame = true;
 			else if (!isGame && File::Exists(path_.GetPath() / fileInfo[i].name / "PSP_GAME/SYSDIR"))
