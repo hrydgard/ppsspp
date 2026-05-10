@@ -200,15 +200,19 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction result) {
 	}
 }
 
-void BreakpointManager::ClearAllBreakPoints()
-{
+// This is not actually called, currently.
+void BreakpointManager::ClearAllBreakPoints() {
 	if (!anyBreakPoints_)
 		return;
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
-	if (!breakPoints_.empty())
-	{
+	if (!breakPoints_.empty()) {
+		// Same strategy as ClearTemporaryBreakPoints - if there's only one, we can update just that one.
+		if (breakPoints_.size() == 1) {
+			Update(breakPoints_[0].addr);
+		} else {
+			Update(0);
+		}
 		breakPoints_.clear();
-		Update();
 	}
 }
 
@@ -236,7 +240,7 @@ void BreakpointManager::ClearTemporaryBreakPoints()
 		// than Update().
 		Update(addrsToUpdate[0]);
 	} else if (!addrsToUpdate.empty()) {
-		Update();
+		Update(0);
 	}
 
 	anyBreakPoints_ = !breakPoints_.empty();
@@ -331,7 +335,7 @@ int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, B
 		if (!hadAny) {
 			MemBlockOverrideDetailed();
 		}
-		Update();
+		Update(0);  // Memchecks are not per-address, so just update everything.
 		return (int)memChecks_.size() - 1;
 	} else {
 		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
@@ -340,7 +344,7 @@ int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, B
 		if (!hadAny) {
 			MemBlockOverrideDetailed();
 		}
-		Update();
+		Update(0);
 		return (int)mc;
 	}
 }
@@ -356,7 +360,7 @@ void BreakpointManager::RemoveMemCheck(u32 start, u32 end)
 		bool hadAny = anyMemChecks_.exchange(!memChecks_.empty());
 		if (hadAny)
 			MemBlockReleaseDetailed();
-		Update();
+		Update(0);
 	}
 }
 
@@ -368,7 +372,7 @@ void BreakpointManager::ChangeMemCheck(u32 start, u32 end, MemCheckCondition con
 	{
 		memChecks_[mc].cond = cond;
 		memChecks_[mc].result = result;
-		Update();
+		Update(0);
 	}
 }
 
@@ -382,7 +386,7 @@ void BreakpointManager::ClearAllMemChecks()
 		bool hadAny = anyMemChecks_.exchange(false);
 		if (hadAny)
 			MemBlockReleaseDetailed();
-		Update();
+		Update(0);
 	}
 }
 
@@ -394,7 +398,7 @@ void BreakpointManager::ChangeMemCheckAddCond(u32 start, u32 end, const BreakPoi
 		memChecks_[mc].hasCondition = true;
 		memChecks_[mc].condition = cond;
 		// No need to update jit for a condition add/remove, they're not baked in.
-		Update(-1);
+		Update(INVALID_ADDRESS);
 	}
 }
 
@@ -404,7 +408,7 @@ void BreakpointManager::ChangeMemCheckRemoveCond(u32 start, u32 end) {
 	if (mc != INVALID_MEMCHECK) {
 		memChecks_[mc].hasCondition = false;
 		// No need to update jit for a condition add/remove, they're not baked in.
-		Update(-1);
+		Update(INVALID_ADDRESS);
 	}
 }
 
@@ -421,7 +425,7 @@ void BreakpointManager::ChangeMemCheckLogFormat(u32 start, u32 end, const std::s
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK) {
 		memChecks_[mc].logFormat = fmt;
-		Update();
+		Update(0);  // wipe the jit.
 	}
 }
 
@@ -611,7 +615,7 @@ void BreakpointManager::Frame() {
 	}
 
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
-	if (MIPSComp::jit && updateAddr_ != -1) {
+	if (MIPSComp::jit && updateAddr_ != INVALID_ADDRESS) {
 		// In case this is a delay slot, clear the previous instruction too.
 		if (updateAddr_ != 0)
 			mipsr4k.InvalidateICache(updateAddr_ - 4, 8);
@@ -619,7 +623,7 @@ void BreakpointManager::Frame() {
 			mipsr4k.ClearJitCache();
 	}
 
-	if (anyMemChecks_ && updateAddr_ != -1)
+	if (anyMemChecks_ && updateAddr_ != INVALID_ADDRESS)
 		UpdateCachedMemCheckRanges();
 
 	// Redraw in order to show the breakpoint.
