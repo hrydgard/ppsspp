@@ -145,11 +145,15 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		return false;
 	}
 
-	bool created = false;
-
-	if (tab != currentTab_) {
-		_dbg_assert_(tabs_[currentTab_]);  // we should always have a tab to switch *from*.
-		created = EnsureTab(tab);
+	if (currentTab_ < 0 || currentTab_ >= (int)tabs_.size()) {
+		_dbg_assert_(false);
+		// No current tab, so just switch immediately.
+		currentTab_ = tab;
+		tabStrip_->SetSelection(tab, false);
+		if (tabs_[tab]) {
+			tabs_[tab]->SetVisibility(V_VISIBLE);
+		}
+		return true;
 	}
 
 	auto setupTween = [this](View *view, AnchorTranslateTween *&tween) {
@@ -161,13 +165,18 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 			return;
 		}
 		tween = new AnchorTranslateTween(0.15f, bezierEaseInOut);
-		tween->Finish.Add([&](EventParams &e) {
+		tween->Finish.Add([this](EventParams &e) {
 			e.v->SetVisibility(tabs_[currentTab_] == e.v ? V_VISIBLE : V_GONE);
 		});
 		view->AddTween(tween)->Persist();
 	};
 
+	bool created = false;
+
 	if (tab != currentTab_) {
+		_dbg_assert_(tabs_[currentTab_]);  // we should always have a tab to switch *from*.
+		created = EnsureTab(tab);
+
 		Orientation orient = Opposite(orientation_);
 		// Direction from which the new tab will come.
 		float dir = tab < currentTab_ ? -1.0f : 1.0f;

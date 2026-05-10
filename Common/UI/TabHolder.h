@@ -66,7 +66,7 @@ private:
 	TabHolderFlags flags_ = TabHolderFlags::Default;
 	int currentTab_ = 0;
 	std::vector<ViewGroup *> tabs_;
-	std::vector<AnchorTranslateTween *> tabTweens_;
+	std::vector<AnchorTranslateTween *> tabTweens_;  // NOTE: The tweens are actually owned by the tabs.
 	std::vector<std::function<ViewGroup *()>> createFuncs_;
 };
 
