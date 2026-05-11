@@ -147,7 +147,18 @@ public class ImageResultProxyActivity extends AppCompatActivity {
 		// the ActivityResultRegistry will handle delivering the pending result to the launcher.
 		if (savedInstanceState == null) {
 			if (pickerIntent != null) {
-				launcher.launch(pickerIntent);
+				try {
+					launcher.launch(pickerIntent);
+				} catch (Exception e) {
+					NativeApp.reportException(e, "ImageResultProxy: failed to launch picker intent " + pickerIntent.getAction());
+					// Return to main activity with an error result.
+					Intent returnIntent = new Intent(this, PpssppActivity.class);
+					returnIntent.putExtra("result_code", NativeApp.RESULT_ERROR_ACTIVITY_NOT_FOUND);
+					returnIntent.putExtra("request_id", requestId);
+					returnIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+					startActivity(returnIntent);
+					finish();
+				}
 			} else {
 				Log.e(TAG, "No picker intent provided");
 				finish();

@@ -67,7 +67,7 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 					auto di = GetI18NCategory(I18NCat::DIALOG);
 					g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("GoldThankYou", "Thank you for supporting the PPSSPP project!"), 3.0f);
 					RecreateViews();
-				}, []() {
+				}, [](int responseValue) {
 					WARN_LOG(Log::System, "Purchase failed or cancelled!");
 				});
 			} else {
@@ -93,8 +93,8 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 			System_IAPRestorePurchases(requesterToken, [this](const char *responseString, int) {
 				INFO_LOG(Log::System, "Successfully restored purchases!");
 				RecreateViews();
-			}, []() {
-				WARN_LOG(Log::System, "Failed restoring purchases");
+			}, [](int responseValue) {
+				WARN_LOG(Log::System, "Failed restoring purchases: %d", responseValue);
 			});
 		});
 		rightColumnItems->Add(restorePurchases);

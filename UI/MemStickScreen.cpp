@@ -429,8 +429,8 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 			return;
 		}
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
-	}, [this]() {
-		WARN_LOG(Log::System, "Folder browse cancelled");
+	}, [this](int responseValue) {
+		WARN_LOG(Log::System, "Folder browse cancelled: %d", responseValue);
 	});
 }
 
