@@ -20,7 +20,7 @@
 #include <ctime>
 #include <mutex>
 #include <set>
-#include <sstream>
+#include <cstdio>
 #include <thread>
 
 #include "ppsspp_config.h"
@@ -150,23 +150,19 @@ int DefaultDepthRaster() {
 }
 
 std::string CreateRandMAC() {
-	std::stringstream randStream;
+	char randStr[18];
 	srand(time(nullptr));
+	int offset = 0;
 	for (int i = 0; i < 6; i++) {
 		u32 value = rand() % 256;
 		if (i == 0) {
 			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 			value &= 0xfc;
 		}
-		if (value <= 15)
-			randStream << '0' << std::hex << value;
-		else
-			randStream << std::hex << value;
-		if (i < 5) {
-			randStream << ':'; //we need a : between every octet
-		}
+		const char *format = (i < 5) ? "%02x:" : "%02x";
+		offset += snprintf(randStr + offset, sizeof(randStr) - offset, format, value);
 	}
-	return randStream.str();
+	return std::string(randStr);
 }
 
 static int DefaultCpuCore() {

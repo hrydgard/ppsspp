@@ -45,7 +45,6 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetResolver.h"
 
-#include <iostream>
 #include <mutex>
 
 #include "Core/HLE/sceNet.h"

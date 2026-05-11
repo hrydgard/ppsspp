@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
-#include <iostream>
 #include <png.h>
 #include <vector>
 

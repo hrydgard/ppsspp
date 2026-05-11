@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
+#include <cstdio>
 
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
@@ -522,7 +522,7 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 			}
 		}
 		if (!found) {
-			std::cout << "Cannot find layer: " << layer_names[i] << std::endl;
+			fprintf(stderr, "Cannot find layer: %s\n", layer_names[i]);
 			return false;
 		}
 	}
