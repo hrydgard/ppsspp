@@ -1,6 +1,7 @@
 package org.ppsspp.ppsspp;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,6 +14,18 @@ import androidx.documentfile.provider.DocumentFile;
 
 public class DocumentResultProxyActivity extends AppCompatActivity {
 	public static final String TAG = "PPSSPP";
+
+	private void returnWithResult(int resultCode, int requestId, String resultPath) {
+		Intent returnIntent = new Intent(this, PpssppActivity.class);
+		returnIntent.putExtra("result_code", resultCode);
+		returnIntent.putExtra("request_id", requestId);
+		if (resultPath != null) {
+			returnIntent.putExtra("result_path", resultPath);
+		}
+		returnIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		startActivity(returnIntent);
+		finish();
+	}
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -29,7 +42,7 @@ public class DocumentResultProxyActivity extends AppCompatActivity {
 			result -> {
 				Log.i(TAG, "DocumentResultProxy: Packing return intent, requestId = " + requestId);
 
-				Intent returnIntent = new Intent(this, PpssppActivity.class);
+				String resultPath = null;
 				if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
 					Uri uri = result.getData().getData();
 					if (uri != null) {
@@ -48,25 +61,31 @@ public class DocumentResultProxyActivity extends AppCompatActivity {
 						} catch (Exception e) {
 							Log.w(TAG, "DocumentResultProxy: Exception getting permissions or DocumentFile: " + e);
 						}
-						returnIntent.putExtra("result_path", uri.toString());
+						resultPath = uri.toString();
 					} else {
 						Log.w(TAG, "DocumentResultProxy: URI is null in result data");
 					}
 				}
 
-				returnIntent.putExtra("result_code", result.getResultCode());
-				returnIntent.putExtra("request_id", requestId);
-
-				// This flag is key: it finds the existing instance of your main activity
-				returnIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-				startActivity(returnIntent);
-				finish();
+				returnWithResult(result.getResultCode(), requestId, resultPath);
 			}
 		);
 
+		// Only launch the picker if we are starting fresh. If we're being recreated (e.g. rotation),
+		// the ActivityResultRegistry will handle delivering the pending result to the launcher
+		// automatically, and we don't want to launch the picker a second time.
 		if (savedInstanceState == null) {
 			if (pickerIntent != null) {
-				launcher.launch(pickerIntent);
+				try {
+					// throw new ActivityNotFoundException();  // Use this for testing the fallback.
+					launcher.launch(pickerIntent);
+				} catch (ActivityNotFoundException e) {
+					NativeApp.reportException(e, "DocumentResultProxy: failed to launch picker intent, activity not found: " + pickerIntent.getAction());
+					returnWithResult(NativeApp.RESULT_ERROR_ACTIVITY_NOT_FOUND, requestId, null);
+				} catch (Exception e) {
+					NativeApp.reportException(e, "DocumentResultProxy: failed to launch picker intent, other error: " + pickerIntent.getAction());
+					returnWithResult(NativeApp.RESULT_ERROR_OTHER_ACTIVITY_ERROR, requestId, null);
+				}
 			} else {
 				Log.e(TAG, "DocumentResultProxy: No picker intent provided");
 				finish();

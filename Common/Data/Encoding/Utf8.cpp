@@ -387,7 +387,13 @@ std::string NormalizeForSearch(std::string_view input) {
 	while (index < size) {
 		uint32_t codepoint = u8_nextchar(input.data(), &index, size);
 
+		// Skip spaces and control characters.
+		if (codepoint <= 0x20) {
+			continue;
+		}
+
 		// 1. Convert Fullwidth Roman/Numbers to ASCII
+		// These are common in Japanese game names.
 		// Range: U+FF01 (！) to U+FF5E (～)
 		if (codepoint >= 0xFF01 && codepoint <= 0xFF5E) {
 			codepoint -= 0xFEE0;

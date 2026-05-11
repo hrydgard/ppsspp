@@ -23,6 +23,12 @@ public class NativeApp {
 	public static final int DEVICE_TYPE_DESKTOP = 2;
 	public static final int DEVICE_TYPE_VR = 3;
 
+	// These are matched with the C++ RequestManager result codes, and also Activity.RESULT_OK/RESULT_CANCELED.
+	public static final int RESULT_OK = -1;
+	public static final int RESULT_CANCELED = 0;
+	public static final int RESULT_ERROR_ACTIVITY_NOT_FOUND = 1;
+	public static final int RESULT_ERROR_OTHER_ACTIVITY_ERROR = 2;
+
 	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, String installerName, int androidVersion, String board);
 	public static native void audioInit();
 	public static native void audioShutdown();

@@ -92,7 +92,6 @@ protected:
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
-	bool searchKeyModifier_ = false;
 	bool searchChanged_ = false;
 	std::string searchFilter_;
 

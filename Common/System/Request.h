@@ -12,12 +12,15 @@
 class Path;
 
 typedef std::function<void(const char *responseString, int responseValue)> RequestCallback;
-typedef std::function<void()> RequestFailedCallback;
+typedef std::function<void(int responseValue)> RequestFailedCallback;
 
 typedef int RequesterToken;
 
 #define NO_REQUESTER_TOKEN -1
 #define NON_EPHEMERAL_TOKEN -2
+
+// Used on Android for file browsing requests and similar.
+#define NO_ACTIVITY_AVAILABLE 1
 
 // Platforms often have to process requests asynchronously, on wildly different threads,
 // and then somehow pass a response back to the main thread (especially Android...)
@@ -35,7 +38,7 @@ public:
 
 	// Called by the platform implementation, when it's finished with a request.
 	void PostSystemSuccess(int requestId, std::string_view responseString, int responseValue = 0);
-	void PostSystemFailure(int requestId);
+	void PostSystemFailure(int requestId, int responseValue = 0);
 
 	// This must be called every frame from the beginning of NativeFrame().
 	// This will call the callback of any finished requests.
@@ -69,6 +72,7 @@ private:
 
 	struct PendingFailure {
 		RequestFailedCallback failedCallback;
+		int responseValue;  // can have error codes for example.
 	};
 
 	// Let's start at 10 to get a recognizably valid ID in logs.

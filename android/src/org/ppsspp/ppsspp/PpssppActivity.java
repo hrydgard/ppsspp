@@ -1881,10 +1881,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (intent.hasExtra("request_id")) {
 			logIntentExtras(intent);
 			int requestId = intent.getIntExtra("request_id", -1);
-			int resultCode = intent.getIntExtra("result_code", RESULT_CANCELED);
+			int resultCode = intent.getIntExtra("result_code", NativeApp.RESULT_CANCELED);
 			String path = intent.getStringExtra("result_path");
 
-			if (resultCode == RESULT_OK && path != null) {
+			if (resultCode == NativeApp.RESULT_OK && path != null) {
 				Log.i(TAG, "Received valid proxied result: path='" + path + "' requestId=" + requestId);
 				NativeApp.sendRequestResult(requestId, true, path, 0);
 			} else {

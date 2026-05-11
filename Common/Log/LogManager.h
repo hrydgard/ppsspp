@@ -123,6 +123,12 @@ public:
 		}
 	}
 
+	void SetAllLogEnable(bool enable) {
+		for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
+			g_log[i].enabled = enable;
+		}
+	}
+
 	void SetEnabled(Log type, bool enable) {
 		g_log[(size_t)type].enabled = enable;
 	}
