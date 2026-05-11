@@ -13,7 +13,9 @@ Discord: https://discord.gg/5NJB6dD
 
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
-To contribute, see [the development page](https://www.ppsspp.org/docs/development/).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
+To contribute, see [Introduction to development](https://www.ppsspp.org/docs/development/getting-started). This page also includes our new AI policy.
+
+Help with testing, investigating, or fixing bugs is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
 For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
@@ -64,6 +66,7 @@ During this cycle, I've mostly focused on UX improvements.
   - Fix a bug that prevented loading certain texture packs ([#21491])
   - Fix music looping in Death JR ([#21490])
   - Hide the save-load indicator in the corner by default ([#21528])
+  - Fix crash in the remote debugger, by Nemoumbra ([#21652])
 
 What's new in 1.20.3
 --------------------
