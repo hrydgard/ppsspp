@@ -212,6 +212,7 @@ void UpdateNativeMenuKeys() {
 	RemoveKeyboardLetterKeys(tabRight);
 	RemoveKeyboardLetterKeys(confirmKeys);
 	RemoveKeyboardLetterKeys(cancelKeys);
+	RemoveKeyboardLetterKeys(infoKeys);
 
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
