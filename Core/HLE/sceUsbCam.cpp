@@ -354,11 +354,10 @@ int Camera::startCapture() {
 		if (winCamera) {
 			if (winCamera->isShutDown()) {
 				delete winCamera;
-				winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
-				winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+				winCamera = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::VIDEO);
 			}
 			void* resolution = static_cast<void*>(new std::vector<int>({ width, height }));
-			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::START, resolution });
+			winCamera->sendMessage({ CAPTUREDEVICE_COMMAND::START, resolution });
 		}
 	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
 		char command[40] = {0};
@@ -378,7 +377,7 @@ int Camera::stopCapture() {
 	INFO_LOG(Log::HLE, "%s", __FUNCTION__);
 	#ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
-			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
+			winCamera->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
 		}
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
 		System_CameraCommand("stopVideo");

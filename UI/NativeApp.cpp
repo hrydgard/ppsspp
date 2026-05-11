@@ -832,10 +832,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (IsWin7OrHigher()) {
-		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
-		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
-		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::Audio);
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::VIDEO);
+		winMic = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::AUDIO);
 	}
 #endif
 
