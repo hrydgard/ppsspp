@@ -183,6 +183,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			}
 		});
 	}
+
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
@@ -486,12 +487,13 @@ void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
+	auto nw = GetI18NCategory(I18NCat::NETWORKING);
 	list->Add(new ItemHeader(ms->T("Networking")));
 	list->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
-	list->Add(new CheckBox(&g_Config.bAdhocServerShowPlayerPorts, dev->T("Show player ports in adhoc server status")));
 	// This is shared between RemoteISO and the remote debugger.
-	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
-	list->Add(portChoice);
+	list->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager()));
+	list->Add(new ItemHeader(nw->T("AdHoc server")));
+	list->Add(new CheckBox(&g_Config.bAdhocServerShowPlayerPorts, nw->T("Show player port numbers")));
 }
 
 // TODO: Make this generic
