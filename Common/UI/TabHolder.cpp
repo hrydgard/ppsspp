@@ -145,11 +145,21 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		return false;
 	}
 
-	bool created = false;
+	if (currentTab_ < 0 || currentTab_ >= (int)tabs_.size()) {
+		EnsureTab(tab);
+		_dbg_assert_(tabs_[tab]);
+		// No current tab, so just switch immediately.
+		currentTab_ = tab;
+		tabStrip_->SetSelection(tab, false);
+		if (tabs_[tab]) {
+			tabs_[tab]->SetVisibility(V_VISIBLE);
+		}
+		return true;
+	}
 
-	if (tab != currentTab_) {
-		_dbg_assert_(tabs_[currentTab_]);  // we should always have a tab to switch *from*.
-		created = EnsureTab(tab);
+	if (tab == currentTab_) {
+		tabStrip_->SetSelection(tab, false);
+		return false;
 	}
 
 	auto setupTween = [this](View *view, AnchorTranslateTween *&tween) {
@@ -161,45 +171,44 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 			return;
 		}
 		tween = new AnchorTranslateTween(0.15f, bezierEaseInOut);
-		tween->Finish.Add([&](EventParams &e) {
+		tween->Finish.Add([this](EventParams &e) {
 			e.v->SetVisibility(tabs_[currentTab_] == e.v ? V_VISIBLE : V_GONE);
 		});
 		view->AddTween(tween)->Persist();
 	};
 
-	if (tab != currentTab_) {
-		Orientation orient = Opposite(orientation_);
-		// Direction from which the new tab will come.
-		float dir = tab < currentTab_ ? -1.0f : 1.0f;
+	bool created = EnsureTab(tab);
 
-		// First, setup any missing tweens.
-		setupTween(tabs_[currentTab_], tabTweens_[currentTab_]);
-		setupTween(tabs_[tab], tabTweens_[tab]);
+	Orientation orient = Opposite(orientation_);
+	// Direction from which the new tab will come.
+	float dir = tab < currentTab_ ? -1.0f : 1.0f;
 
-		// Currently displayed, so let's reset it.
-		if (skipTween) {
-			tabs_[currentTab_]->SetVisibility(V_GONE);
-			tabTweens_[tab]->Reset(Point2D(0.0f, 0.0f));
-			tabTweens_[tab]->Apply(tabs_[tab]);
+	// First, setup any missing tweens.
+	setupTween(tabs_[currentTab_], tabTweens_[currentTab_]);
+	setupTween(tabs_[tab], tabTweens_[tab]);
+
+	// Currently displayed, so let's reset it.
+	if (skipTween) {
+		tabs_[currentTab_]->SetVisibility(V_GONE);
+		tabTweens_[tab]->Reset(Point2D(0.0f, 0.0f));
+		tabTweens_[tab]->Apply(tabs_[tab]);
+	} else {
+		tabTweens_[currentTab_]->Reset(Point2D(0.0f, 0.0f));
+
+		if (orient == ORIENT_HORIZONTAL) {
+			tabTweens_[tab]->Reset(Point2D(bounds_.w * dir, 0.0f));
+			tabTweens_[currentTab_]->Divert(Point2D(bounds_.w * -dir, 0.0f));
 		} else {
-			tabTweens_[currentTab_]->Reset(Point2D(0.0f, 0.0f));
-
-			if (orient == ORIENT_HORIZONTAL) {
-				tabTweens_[tab]->Reset(Point2D(bounds_.w * dir, 0.0f));
-				tabTweens_[currentTab_]->Divert(Point2D(bounds_.w * -dir, 0.0f));
-			} else {
-				tabTweens_[tab]->Reset(Point2D(0.0f, bounds_.h * dir));
-				tabTweens_[currentTab_]->Divert(Point2D(0.0f, bounds_.h * -dir));
-			}
-			// Actually move it to the initial position now, just to avoid any flicker.
-			tabTweens_[tab]->Apply(tabs_[tab]);
-			tabTweens_[tab]->Divert(Point2D(0.0f, 0.0f));
+			tabTweens_[tab]->Reset(Point2D(0.0f, bounds_.h * dir));
+			tabTweens_[currentTab_]->Divert(Point2D(0.0f, bounds_.h * -dir));
 		}
-		tabs_[tab]->SetVisibility(V_VISIBLE);
-
-		currentTab_ = tab;
+		// Actually move it to the initial position now, just to avoid any flicker.
+		tabTweens_[tab]->Apply(tabs_[tab]);
+		tabTweens_[tab]->Divert(Point2D(0.0f, 0.0f));
 	}
-	tabStrip_->SetSelection(tab, false);
+	tabs_[tab]->SetVisibility(V_VISIBLE);
+
+	currentTab_ = tab;
 
 	return created;
 }
@@ -208,7 +217,7 @@ void TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
-		EnsureTab(e.a);
+		// SetCurrentTab calls EnsureTab if needed.
 		SetCurrentTab((int)e.a);
 	}
 }

@@ -220,8 +220,6 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_SET_MANUAL, ms->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		// TODO: Show current folder here if we have one set.
 	}
-	errorNoticeView_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("Cancelled - try again"), ""));
-	errorNoticeView_->SetVisibility(UI::V_GONE);
 
 	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
 		UI::View *extraView = nullptr;
@@ -419,7 +417,7 @@ void MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 
 void MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [=](const std::string &value, int) {
+	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [this](const std::string &value, int) {
 		Path pendingMemStickFolder = Path(value);
 		INFO_LOG(Log::System, "Got folder: '%s' (old: %s)", pendingMemStickFolder.c_str(), g_Config.memStickDirectory.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.
@@ -430,11 +428,9 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 			done_ = true;
 			return;
 		}
-		errorNoticeView_->SetVisibility(UI::V_GONE);
-
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
-	}, [=]() {
-		errorNoticeView_->SetVisibility(UI::V_VISIBLE);
+	}, [this]() {
+		WARN_LOG(Log::System, "Folder browse cancelled");
 	});
 }
 

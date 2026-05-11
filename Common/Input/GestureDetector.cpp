@@ -48,7 +48,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 
 	const float dragThreshold = 5.0f / g_display.dpi_scale_y;
 
-	if (p.distanceY > p.distanceX) {
+	if ((gestureMask_ & GESTURE_DRAG_VERTICAL) && p.distanceY > p.distanceX) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
 			if (!p.active && p.distanceY > dragThreshold) {
@@ -63,7 +63,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		}
 	}
 
-	if (p.distanceX > p.distanceY) {
+	if ((gestureMask_ & GESTURE_DRAG_HORIZONTAL) && p.distanceX > p.distanceY) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
 			if (!p.active && p.distanceX > dragThreshold) {
