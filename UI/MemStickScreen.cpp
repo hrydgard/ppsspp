@@ -190,7 +190,7 @@ void MemStickScreen::CreateViews() {
 	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	subColumns->Add(leftColumn);
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(220, FILL_PARENT, actionMenuMargins));
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250, FILL_PARENT, actionMenuMargins));
 	subColumns->Add(rightColumnItems);
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
@@ -271,7 +271,7 @@ void MemStickScreen::CreateViews() {
 		rightColumnItems->Add(new UI::Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
-		rightColumnItems->Add(new UI::Choice(ms->T("WhatsThis", "What's this?")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
+		rightColumnItems->Add(new UI::Choice(ms->T("WhatsThis", "What's this?"), ImageID("I_LINK_OUT_QUESTION")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 	}
 
 	INFO_LOG(Log::System, "MemStickScreen: initialSetup=%d", (int)initialSetup_);

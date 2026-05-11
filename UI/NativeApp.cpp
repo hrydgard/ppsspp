@@ -390,6 +390,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
+#ifdef _DEBUG
+	g_logManager.SetAllLogLevels(LogLevel::LINFO);
+	g_logManager.SetAllLogEnable(true);
+	g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+	INFO_LOG(Log::System, "Logging test");
+#endif
+
 	// In Android 12 with scoped storage, due to the above, the external directory
 	// is no longer the plain root of external storage, but it's an app specific directory
 	// on external storage (g_extFilesDir).
