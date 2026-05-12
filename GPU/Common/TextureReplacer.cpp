@@ -929,7 +929,16 @@ static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(co
 	// Anything with this data hash (a little dangerous.)
 	key.cachekey = 0;
 	key.hash = hash;
-	return map.find(key);
+	alias = map.find(key);
+	if (alias != map.end())
+		return alias;
+
+	if (!ignoreAddress) {
+		// Address Only.
+		key.cachekey = cachekey & ~0xFFFFFFFFULL;
+		key.hash = 0;
+		return map.find(key);
+	}
 }
 
 bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering) {
