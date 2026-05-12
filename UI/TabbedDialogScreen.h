@@ -31,8 +31,7 @@ ENUM_CLASS_BITOPS(TabFlags);
 class UITabbedBaseDialogScreen : public UIBaseDialogScreen {
 public:
 	// currentTabSetting can be null if you don't want to persist the current tab.
-	UITabbedBaseDialogScreen(const Path &gamePath, int *currentTabSetting = nullptr, TabDialogFlags flags = TabDialogFlags::Default) : UIBaseDialogScreen(gamePath), currentTabSetting_(currentTabSetting), flags_(flags) {}
-	~UITabbedBaseDialogScreen() override;
+	UITabbedBaseDialogScreen(const Path &gamePath, int *currentTabSetting = nullptr, TabDialogFlags flags = TabDialogFlags::Default);
 	void AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default);
 	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default) {
 		AddTab(tag, title, ImageID::invalid(), createCallback, flags);
