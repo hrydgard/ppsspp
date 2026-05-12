@@ -209,7 +209,10 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 	tabs_[tab]->SetVisibility(V_VISIBLE);
 
 	currentTab_ = tab;
-
+	UI::EventParams e{};
+	e.v = this;
+	e.a = currentTab_;
+	OnChangeTab.Trigger(e);
 	return created;
 }
 
