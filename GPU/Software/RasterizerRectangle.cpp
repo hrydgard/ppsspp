@@ -172,6 +172,8 @@ static bool UseDrawSinglePixel(const PixelFuncID &pixelID) {
 		if (pixelID.AlphaBlendDst() != PixelBlendFactor::INVSRCALPHA)
 			return false;
 	}
+	if (pixelID.depthWrite || pixelID.applyFog)
+		return false;
 	if (pixelID.dithering || pixelID.applyLogicOp || pixelID.applyColorWriteMask)
 		return false;
 
