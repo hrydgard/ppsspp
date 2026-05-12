@@ -52,6 +52,8 @@ public:
 	}
 	bool EnsureTab(int index);  // return true if it actually created a tab.
 
+	Event OnChangeTab;
+
 private:
 	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
 	void OnTabClick(EventParams &e);

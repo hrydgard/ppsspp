@@ -394,6 +394,10 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 	if (buf.IsBackBuffer()) {
 		w = buf.GetStride();
 		h = buf.GetHeight();
+	} else if (maxRes < 0 && buf.GetScaleFactor() > 0) {
+		// Normal case. Crop to the current screen size if it's larger (some games render to large buffers and display a subset).
+		w = 480 * buf.GetScaleFactor();
+		h = 272 * buf.GetScaleFactor();
 	} else {
 		w = maxRes > 0 ? 480 * maxRes : buf.GetStride();
 		h = maxRes > 0 ? 272 * maxRes : buf.GetHeight();
@@ -491,7 +495,7 @@ bool Save8888RGBAScreenshot(std::vector<uint8_t> &bufferPNG, const u8 *bufferRGB
 	return success;
 }
 
-void TakeUserScreenshotImpl() {
+void TakeUserScreenshot() {
 	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	// Make sure the screenshot directory exists.
 	File::CreateDir(path);
@@ -551,11 +555,5 @@ void TakeUserScreenshotImpl() {
 			WARN_LOG(Log::System, "Failed to take screenshot.");
 		}
 		// TODO: What to do about ScreenshotNotPossible?
-	});
-}
-
-void TakeUserScreenshot() {
-	System_RunOnMainThread([]() {
-		TakeUserScreenshotImpl();
 	});
 }

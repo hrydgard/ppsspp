@@ -31,6 +31,10 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 		*image = ImageID("I_NAVIGATE_BACK");
 	} else if (buttonText == di->T("Exit")) {
 		*image = ImageID("I_EXIT");
+	} else if (buttonText == di->T("More info")) {
+		*image = ImageID("I_LINK_OUT_QUESTION");
+	} else {
+		*image = ImageID();
 	}
 }
 

@@ -23,6 +23,7 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
@@ -289,7 +290,6 @@ void MemStickScreen::OnChoiceClick(UI::EventParams &params) {
 	RecreateViews();
 }
 
-
 void MemStickScreen::OnConfirmClick(UI::EventParams &params) {
 	switch (choice_) {
 	case CHOICE_SET_MANUAL:
@@ -431,6 +431,20 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
 	}, [this](int responseValue) {
 		WARN_LOG(Log::System, "Folder browse cancelled: %d", responseValue);
+
+		if (responseValue == 1) {
+			// Show a message box explaining what went wrong.
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+			auto nw = GetI18NCategory(I18NCat::NETWORKING);
+			screenManager()->push(new UI::MessagePopupScreen(
+				nw->T("Error"),  // from the networking category of strings.
+				ms->T("MissingFileBrowserError", "This device is missing a file/folder browser. If you disabled the 'Files' app, please enable it and try again."),
+				di->T("More info"), di->T("Cancel"), [](bool ok) {
+					System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/cant-pick-folder/");
+				}
+			));
+		}
 	});
 }
 

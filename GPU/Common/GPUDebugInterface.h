@@ -123,6 +123,7 @@ struct GPUDebugBuffer {
 		stride_ = other.stride_;
 		flipped_ = other.flipped_;
 		isBackBuffer_ = other.isBackBuffer_;
+		scaleFactor_ = other.scaleFactor_;
 		fmt_ = other.fmt_;
 		other.alloc_ = false;
 		other.data_ = nullptr;
@@ -142,6 +143,7 @@ struct GPUDebugBuffer {
 			flipped_ = other.flipped_;
 			fmt_ = other.fmt_;
 			isBackBuffer_ = other.isBackBuffer_;
+			scaleFactor_ = other.scaleFactor_;
 			other.alloc_ = false;
 			other.data_ = nullptr;
 		}
@@ -186,6 +188,8 @@ struct GPUDebugBuffer {
 
 	void SetIsBackbuffer(bool isBackBuffer) { isBackBuffer_ = isBackBuffer; }
 	bool IsBackBuffer() const { return isBackBuffer_; }
+	void SetScaleFactor(int scaleFactor) { scaleFactor_ = scaleFactor; }
+	int GetScaleFactor() const { return scaleFactor_; }
 
 private:
 	bool alloc_ = false;
@@ -195,6 +199,7 @@ private:
 	GPUDebugBufferFormat fmt_ = GPU_DBG_FORMAT_INVALID;
 	bool flipped_ = false;
 	bool isBackBuffer_ = false;
+	int scaleFactor_ = 0;
 };
 
 struct GPUDebugVertex {
