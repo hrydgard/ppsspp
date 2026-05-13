@@ -114,27 +114,33 @@ void TabHolder::EnsureAllCreated() {
 	}
 }
 
+// Returns true if this created a tab.
 bool TabHolder::EnsureTab(int index) {
-	_dbg_assert_(index >= 0 && index < createFuncs_.size());
+	_assert_(index >= 0 && index < createFuncs_.size());
 
-	if (!tabs_[index]) {
-		_dbg_assert_(index < createFuncs_.size());
-		_dbg_assert_(createFuncs_[index]);
-		std::function<UI::ViewGroup * ()> func;
-		createFuncs_[index].swap(func);
-
-		ViewGroup *tabContents = func();
-		tabs_[index] = tabContents;
-		contents_->Add(tabContents);
-
-		tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
-		return true;
-	} else {
+	if (tabs_[index]) {
+		// Tab already created.
 		return false;
 	}
+
+	_dbg_assert_(index < createFuncs_.size());
+	_dbg_assert_(createFuncs_[index]);
+	std::function<UI::ViewGroup * ()> func;
+	createFuncs_[index].swap(func);
+
+	ViewGroup *tabContents = func();
+	tabs_[index] = tabContents;
+	contents_->Add(tabContents);
+
+	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	return true;
 }
 
 void TabHolder::SetInitialTab(int tab) {
+	if (tab < 0 || tab >= (int)tabs_.size()) {
+		return;
+	}
+	EnsureTab(tab);
 	currentTab_ = tab;
 	tabStrip_->SetSelection(tab, false);
 }
@@ -176,6 +182,10 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		});
 		view->AddTween(tween)->Persist();
 	};
+
+	// Ensure both tabs are created before setting up tweens.
+	bool createdCurrent = EnsureTab(currentTab_);
+	_dbg_assert_msg_(!createdCurrent, "Current should already have been created before EnsureTab!");
 
 	bool created = EnsureTab(tab);
 
@@ -304,13 +314,16 @@ void ChoiceStrip::OnChoiceClick(EventParams &e) {
 }
 
 void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
+	if (sel < 0 || sel >= (int)choices_.size()) {
+		return;
+	}
 	int prevSelected = selected_;
-	if (selected_ < choices_.size()) {
+	if (selected_ >= 0 && selected_ < (int)choices_.size()) {
 		StickyChoice *prevChoice = choices_[selected_];
 		prevChoice->Release();
 	}
 	selected_ = sel;
-	if (selected_ < choices_.size()) {
+	if (selected_ >= 0 && selected_ < (int)choices_.size()) {
 		StickyChoice *newChoice = choices_[selected_];
 		newChoice->Press();
 		if (topTabs_ && prevSelected != selected_) {
