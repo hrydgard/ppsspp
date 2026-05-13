@@ -302,11 +302,10 @@ public:
 		return queueFamilyProperties_[family];
 	}
 
-	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> *extensions);
 	VkResult GetInstanceLayerProperties();
 
-	VkResult GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
-	VkResult GetDeviceLayerProperties();
+	VkResult GetDeviceExtensionList(std::vector<VkExtensionProperties> *extensions);
 
 	const std::vector<VkExtensionProperties> &GetDeviceExtensionsAvailable() const {
 		return device_extension_properties_;
@@ -478,9 +477,6 @@ private:
 
 	std::vector<const char *> instance_extensions_enabled_;
 	std::vector<VkExtensionProperties> instance_extension_properties_;
-
-	std::vector<const char *> device_layer_names_;
-	std::vector<LayerProperties> device_layer_properties_;
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
