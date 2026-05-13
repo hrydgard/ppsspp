@@ -114,24 +114,26 @@ void TabHolder::EnsureAllCreated() {
 	}
 }
 
+// Returns true if this created a tab.
 bool TabHolder::EnsureTab(int index) {
-	_dbg_assert_(index >= 0 && index < createFuncs_.size());
+	_assert_(index >= 0 && index < createFuncs_.size());
 
-	if (!tabs_[index]) {
-		_dbg_assert_(index < createFuncs_.size());
-		_dbg_assert_(createFuncs_[index]);
-		std::function<UI::ViewGroup * ()> func;
-		createFuncs_[index].swap(func);
-
-		ViewGroup *tabContents = func();
-		tabs_[index] = tabContents;
-		contents_->Add(tabContents);
-
-		tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
-		return true;
-	} else {
+	if (tabs_[index]) {
+		// Tab already created.
 		return false;
 	}
+
+	_dbg_assert_(index < createFuncs_.size());
+	_dbg_assert_(createFuncs_[index]);
+	std::function<UI::ViewGroup * ()> func;
+	createFuncs_[index].swap(func);
+
+	ViewGroup *tabContents = func();
+	tabs_[index] = tabContents;
+	contents_->Add(tabContents);
+
+	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	return true;
 }
 
 void TabHolder::SetInitialTab(int tab) {
@@ -176,6 +178,10 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 		});
 		view->AddTween(tween)->Persist();
 	};
+
+	// Ensure both tabs are created before setting up tweens.
+	bool createdCurrent = EnsureTab(currentTab_);
+	_dbg_assert_msg_(!createdCurrent, false, "Current should already be created here!");
 
 	bool created = EnsureTab(tab);
 

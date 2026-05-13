@@ -447,6 +447,7 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	}
 }
 
+// Will clear contents on failure.
 static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::string *contents, std::mutex *mtx) {
 	std::string fn(filename);
 	PSPFileInfo info = fs->GetFileInfo(fn);
@@ -463,16 +464,18 @@ static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::st
 		data.resize(info.size);
 		size_t readSize = fs->ReadFile(handle, (u8 *)data.data(), info.size);
 		fs->CloseFile(handle);
+		std::lock_guard<std::mutex> lock(*mtx);
 		if (readSize != info.size) {
+			contents->clear();
 			return false;
 		}
-		std::lock_guard<std::mutex> lock(*mtx);
 		*contents = std::move(data);
 	} else {
 		contents->resize(info.size);
 		size_t readSize = fs->ReadFile(handle, (u8 *)contents->data(), info.size);
 		fs->CloseFile(handle);
 		if (readSize != info.size) {
+			contents->clear();
 			return false;
 		}
 	}
