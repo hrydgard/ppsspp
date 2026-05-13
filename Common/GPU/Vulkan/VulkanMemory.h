@@ -21,7 +21,9 @@ VK_DEFINE_HANDLE(VmaAllocation);
 // NOT thread safe! Can only be used from one thread (our main thread).
 class VulkanPushPool : public GPUMemoryManager {
 public:
-	VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage);
+	// Slack is reserved space at the end of each block, which can be useful if you do things like writing a vec3 with a vec4 store,
+	// which can be faster when using SIMD, or decode two vertices in parallel.
+	VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, size_t slack, VkBufferUsageFlags usage);
 	~VulkanPushPool();
 
 	void Destroy();
@@ -40,7 +42,7 @@ public:
 		Block &block = blocks_[curBlockIndex_];
 
 		VkDeviceSize offset = (block.used + (alignment - 1)) & ~(alignment - 1);
-		if (offset + numBytes <= block.size) {
+		if (offset + numBytes + slack_ <= block.size) {
 			block.used = offset + numBytes;
 			*vkbuf = block.buffer;
 			*bindOffset = (uint32_t)offset;
@@ -76,7 +78,7 @@ private:
 		VkDeviceSize size;
 		VkDeviceSize used;
 
-		int frameIndex;
+		int frameIndex;  // -1 means that it's "common", it can be grabbed by any frame as needed.
 		bool original;  // these blocks aren't garbage collected.
 		double lastUsed;
 
@@ -92,6 +94,7 @@ private:
 	std::vector<Block> blocks_;
 	VkBufferUsageFlags usage_;
 	int curBlockIndex_ = -1;
+	VkDeviceSize slack_;
 	const char *name_;
 };
 

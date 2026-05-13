@@ -366,6 +366,9 @@ public:
 
 	const DecVtxFormat &GetDecVtxFmt() const { return decFmt; }
 
+	// WARNING: This may write up to a full extra vertex plus 16 bytes (in practice less, but let's define it that way to be future proof) extra bytes after
+	// the end of the buffer, so make sure you have some extra space there (that you can safely overwrite after Decode).
+	// In VulkanPushBuffer / GLPushBuffer, use the slack parameter. Why not 256, that should cover every case.
 	void DecodeVerts(u8 *decoded, const u8 *startPtr, const UVScale *uvScaleOffset, int count) const;
 
 	int VertexSize() const { return size; }  // PSP format size

@@ -31,8 +31,8 @@ using namespace PPSSPP_VK;
 // Always keep around push buffers at least this long (seconds).
 static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
 
-VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage)
-	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage) {
+VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, size_t slack, VkBufferUsageFlags usage)
+	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage), slack_(slack) {
 	RegisterGPUMemoryManager(this);
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {

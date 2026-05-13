@@ -496,7 +496,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 	}
 
 	if (rhashvalue == 0) {
-		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, reducehashvalue can't be 0", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid reducehashrange %s = %s, reducehashvalue can't be 0", key.c_str(), value.c_str());
 		return;
 	}
 
