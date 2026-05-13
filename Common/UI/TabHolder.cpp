@@ -137,6 +137,10 @@ bool TabHolder::EnsureTab(int index) {
 }
 
 void TabHolder::SetInitialTab(int tab) {
+	if (tab < 0 || tab >= (int)tabs_.size()) {
+		return;
+	}
+	EnsureTab(tab);
 	currentTab_ = tab;
 	tabStrip_->SetSelection(tab, false);
 }
@@ -181,7 +185,7 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 
 	// Ensure both tabs are created before setting up tweens.
 	bool createdCurrent = EnsureTab(currentTab_);
-	_dbg_assert_msg_(!createdCurrent, false, "Current should already be created here!");
+	_dbg_assert_msg_(!createdCurrent, "Current should already have been created before EnsureTab!");
 
 	bool created = EnsureTab(tab);
 
@@ -310,13 +314,16 @@ void ChoiceStrip::OnChoiceClick(EventParams &e) {
 }
 
 void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
+	if (sel < 0 || sel >= (int)choices_.size()) {
+		return;
+	}
 	int prevSelected = selected_;
-	if (selected_ < choices_.size()) {
+	if (selected_ >= 0 && selected_ < (int)choices_.size()) {
 		StickyChoice *prevChoice = choices_[selected_];
 		prevChoice->Release();
 	}
 	selected_ = sel;
-	if (selected_ < choices_.size()) {
+	if (selected_ >= 0 && selected_ < (int)choices_.size()) {
 		StickyChoice *newChoice = choices_[selected_];
 		newChoice->Press();
 		if (topTabs_ && prevSelected != selected_) {
