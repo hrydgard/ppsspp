@@ -45,18 +45,20 @@ During this cycle, I've mostly focused on UX improvements.
 
 - Rendering fixes
   - Fix a bug in lens flare occlusion for the Syphon Filter games ([#21511])
+  - Fix a bug in the software renderer ([#21648])
   
 - Misc UI improvements
-  - Soft keyboard has more symbols ([#21625])
-  - Basic deep link support on iOS ([#21615])
-  - Fix file picker problems on some Android devices (regression) ([#21614])
+  - Instant type-to-search in game browser ([#21559], [#21565], [#21630])
+  - Fix file picker problems on some Android devices (regression) ([#21614], [#21656])
   - Fix crash in text edit fields on Mac/iOS ([#21601])
   - PSP DVD prototypes can now load directly ([#21599], [#21601])
   - Cheat UI has been cleaned up and supports titles and comments natively ([#21590])
-  - Instant type-to-search in game browser ([#21559], [#21565], [#21630])
   - RetroAchievements subset display improvements ([#21536])
+  - Basic deep link support on iOS ([#21615])
+  - Soft keyboard has more symbols ([#21625])
 
 - Other
+  - Fix important (but mostly rare) crash bug affecting games that draw a lot ([#21669])
   - More plugin zip files can now auto-install ([#21556])
   - Pause on lost-focus on Linux ([#21517])
   - Frameskipping no longer breaks analog stick auto-rotation in GoW, however manual rotation still broken ([#21508])
@@ -67,6 +69,8 @@ During this cycle, I've mostly focused on UX improvements.
   - Fix music looping in Death JR ([#21490])
   - Hide the save-load indicator in the corner by default ([#21528])
   - Fix crash in the remote debugger, by Nemoumbra ([#21652])
+  - Fix screenshot cropping bug ([#21665])
+  - mfplat.dll is no longer required on Windows unless you need camera/microphone ([#21660])
 
 What's new in 1.20.3
 --------------------
@@ -538,3 +542,9 @@ See [history.md](history.md).
 [#21565]: https://github.com/hrydgard/ppsspp/issues/21565 "Improve search to support full-width chars and to clear search on navigation"
 [#21630]: https://github.com/hrydgard/ppsspp/issues/21630 "Refactor type-to-search code for reuse, use in cheats dialog"
 [#21595]: https://github.com/hrydgard/ppsspp/issues/21595 "loongarch: Fix Jit_WeightsU16Skin in VertexDecoderLoongArch64.cpp"
+[#21648]: https://github.com/hrydgard/ppsspp/issues/21648 "Remove 2 cases for fast path for soft gpu"
+[#21656]: https://github.com/hrydgard/ppsspp/issues/21656 "Fix the java exception reporting for Android file picker errors, fix some search issues"
+[#21669]: https://github.com/hrydgard/ppsspp/issues/21669 "Add \"allocation slack\" to our pushbuffers. Fixes a memory overwrite bug"
+[#21652]: https://github.com/hrydgard/ppsspp/issues/21652 "Critical bug in the remote debugger"
+[#21665]: https://github.com/hrydgard/ppsspp/issues/21665 "Raw screenshot cropping fix"
+[#21660]: https://github.com/hrydgard/ppsspp/issues/21660 "Remove the mfplat.dll hard dependency (now fully dynamic)."
