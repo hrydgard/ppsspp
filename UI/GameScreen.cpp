@@ -347,6 +347,18 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 		if (!info_->errorString.empty()) {
 			mainGameInfo->Add(new NoticeView(NoticeLevel::WARN, info_->errorString, ""));
 		}
+
+		// Add information about extra memory (used by some mods).
+		auto keys = info_->GetParamSFO().GetKeys();
+		for (auto &iter : keys) {
+			if (iter == "MEMSIZE") {
+				mainGameInfo->Add(new TextView(iter + StringFromFormat(": %d", info_->GetParamSFO().GetValueInt(iter))))->SetTextSize(UI::TextSize::Small);
+			}
+			// We already show the version elsewhere.
+			// else if (iter == "DISC_VERSION") {
+			// 	mainGameInfo->Add(new TextView(iter + ": " + info_->GetParamSFO().GetValueString(iter)));
+			// }
+		}
 	}
 
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
