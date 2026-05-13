@@ -542,14 +542,14 @@ GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, b
 
 void GameBrowser::FocusGame(const Path &gamePath) {
 	focusGamePath_ = gamePath;
-	Refresh();
+	refreshPending_ = true;
 	focusGamePath_.clear();
 }
 
 void GameBrowser::SetPath(const Path &path) {
 	path_.SetPath(path);
 	g_Config.currentDirectory = path_.GetPath();
-	Refresh();
+	refreshPending_ = true;
 }
 
 bool GameBrowser::Key(const KeyInput &input) {
@@ -569,7 +569,7 @@ void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFoc
 
 void GameBrowser::LayoutChange(UI::EventParams &e) {
 	*gridStyle_ = e.a == 0 ? true : false;
-	Refresh();
+	refreshPending_ = true;
 }
 
 void GameBrowser::LastClick(UI::EventParams &e) {
@@ -579,8 +579,8 @@ void GameBrowser::LastClick(UI::EventParams &e) {
 void GameBrowser::BrowseClick(UI::EventParams &e) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	System_BrowseForFolder(token_, mm->T("Choose folder"), path_.GetPath(), [this](const std::string &filename, int) {
-		this->SetPath(Path(filename));
-		});
+		SetPath(Path(filename));
+	});
 }
 
 void GameBrowser::StorageClick(UI::EventParams &e) {
@@ -635,7 +635,7 @@ void GameBrowser::PinToggleClick(UI::EventParams &e) {
 	} else {
 		pinnedPaths.push_back(path);
 	}
-	Refresh();
+	refreshPending_ = true;
 }
 
 bool GameBrowser::DisplayTopBar() {
@@ -671,7 +671,7 @@ void GameBrowser::Draw(UIContext &dc) {
 	using namespace UI;
 
 	if (lastScale_ != g_Config.fGameGridScale || lastLayoutWasGrid_ != *gridStyle_) {
-		Refresh();
+		refreshPending_ = true;
 	}
 
 	if (hasDropShadow_) {
@@ -810,8 +810,8 @@ void GameBrowser::Refresh() {
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		topBar->Add(new Choice(ImageID("I_ROTATE_LEFT"), new LayoutParams(64.0f, 64.0f)))->OnClick.Add([=](UI::EventParams &e) {
 			path_.Refresh();
-			Refresh();
-			});
+			refreshPending_ = true;
+		});
 		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 		if (*gridStyle_) {
@@ -1022,7 +1022,7 @@ void GameBrowser::NavigateClick(UI::EventParams &e) {
 	// Clear the search filter. This allow for smooth directory navigation using search
 	// (although there's no good way of going up...)
 	SetSearchFilter("", false);
-	Refresh();
+	refreshPending_ = true;
 }
 
 void GameBrowser::GridSettingsClick(UI::EventParams &e) {
