@@ -30,11 +30,11 @@
 // This unescapes # signs.
 // NOTE: These parse functions can make better use of the string_view - the pos argument should not be needed, for example.
 static bool ParseLineKey(std::string_view line, size_t &pos, std::string *keyOut) {
-	std::string key = "";
+	std::string key;
 
 	while (pos < line.size()) {
 		size_t next = line.find_first_of("=#", pos);
-		if (next == line.npos || next == 0) {
+		if (next == std::string::npos || next == 0) {
 			// Key never ended or empty, invalid.
 			return false;
 		} else if (line[next] == '#') {
@@ -68,14 +68,14 @@ static bool ParseLineValue(std::string_view line, size_t &pos, std::string *valu
 	if (strippedLine.size() >= 2 && strippedLine[0] == '"' && strippedLine[strippedLine.size() - 1] == '"') {
 		// Don't remove comment if is surrounded by " "
 		value += line.substr(pos);
-		pos = line.npos; // Won't enter the while below
+		pos = std::string_view::npos; // Won't enter the while below
 	}
 
 	while (pos < line.size()) {
 		size_t next = line.find('#', pos);
-		if (next == line.npos) {
+		if (next == std::string_view::npos) {
 			value += line.substr(pos);
-			pos = line.npos;
+			pos = std::string_view::npos;
 			break;
 		} else if (line[next - 1] != '\\') {
 			// It wasn't escaped, so finish before the #.
@@ -148,9 +148,9 @@ static std::string EscapeHash(std::string_view value) {
 
 	for (size_t pos = 0; pos < value.size(); ) {
 		size_t next = value.find('#', pos);
-		if (next == value.npos) {
+		if (next == std::string_view::npos) {
 			result += value.substr(pos);
-			pos = value.npos;
+			pos = std::string_view::npos;
 		} else {
 			result += value.substr(pos, next - pos);
 			result += "\\#";

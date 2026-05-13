@@ -992,7 +992,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 				auto mm = GetI18NCategory(I18NCat::MAINMENU);
 				confirmExitMessage += '\n';
 				confirmExitMessage += di->T("Are you sure you want to exit?");
-				screenManager()->push(new UI::MessagePopupScreen(mm->T("Exit"), confirmExitMessage, di->T("Yes"), di->T("No"), [=](bool result) {
+				screenManager()->push(new UI::MessagePopupScreen(di->T("Exit"), confirmExitMessage, di->T("Yes"), di->T("No"), [](bool result) {
 					if (result) {
 						System_ExitApp();
 					}
@@ -1469,7 +1469,7 @@ void EmuScreen::update() {
 		UpdateUIState(coreState != CORE_RUNTIME_ERROR ? UISTATE_INGAME : UISTATE_EXCEPTION);
 	}
 
-	if (errorMessage_.size()) {
+	if (!errorMessage_.empty()) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::string errLoadingFile = GetFriendlyPath(gamePath_) + "\n\n";
@@ -1542,7 +1542,7 @@ bool EmuScreen::checkPowerDown() {
 }
 
 ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
-	auto CanBeBackground = [&]() -> bool {
+	auto CanBeBackground = [this, isTop]() -> bool {
 		if (skipBufferEffects_) {
 			return isTop || (g_Config.bTransparentBackground && ShouldRunBehind());
 		}

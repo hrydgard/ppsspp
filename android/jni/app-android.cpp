@@ -1197,7 +1197,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 	std::string value = jvalue ? GetJavaString(env, jvalue) : "(no value)";
 	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
 	if (result) {
-		g_requestManager.PostSystemSuccess(jrequestID, value.c_str(), jintValue);
+		g_requestManager.PostSystemSuccess(jrequestID, value, jintValue);
 	} else {
 		g_requestManager.PostSystemFailure(jrequestID, jintValue);
 	}
