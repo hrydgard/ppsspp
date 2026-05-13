@@ -84,8 +84,8 @@ void DrawEngineGLES::InitDeviceObjects() {
 	_assert_msg_(render_ != nullptr, "Render manager must be set");
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 2048 * 1024, "game_vertex");
-		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024, "game_index");
+		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 2 * 1024 * 1024, 256, "game_vertex");
+		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024, 64, "game_index");
 	}
 
 	int stride = sizeof(TransformedVertex);

@@ -74,7 +74,9 @@ public:
 		size_t size;
 	};
 
-	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag);
+	// Slack is reserved space at the end of each block, which can be useful if you do things like writing a vec3 with a vec4 store,
+	// which can be faster when using SIMD. It probably never has to be larger than 32 bytes.
+	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, int slack, const char *tag);
 	~GLPushBuffer();
 
 	void Reset() { offset_ = 0; }
@@ -116,7 +118,7 @@ public:
 	// again, call Rewind (see below).
 	uint8_t *Allocate(uint32_t numBytes, uint32_t alignment, GLRBuffer **buf, uint32_t *bindOffset) {
 		uint32_t offset = ((uint32_t)offset_ + alignment - 1) & ~(alignment - 1);
-		if (offset + numBytes <= nextBufferSize_) {
+		if (offset + numBytes + slack_ <= nextBufferSize_) {
 			// Common path.
 			offset_ = offset + numBytes;
 			*buf = buffers_[buf_].buffer;
@@ -132,7 +134,8 @@ public:
 		return writePtr_;
 	}
 
-	// For convenience if all you'll do is to copy.
+	// NOTE: If you can avoid this by writing the data directly into memory returned from Allocate,
+	// do so. Savings from avoiding memcpy can be significant.
 	uint32_t Push(const void *data, uint32_t numBytes, int alignment, GLRBuffer **buf) {
 		uint32_t bindOffset;
 		uint8_t *ptr = Allocate(numBytes, alignment, buf, &bindOffset);
@@ -179,5 +182,6 @@ private:
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
 	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
+	int slack_;
 	const char *tag_;
 };

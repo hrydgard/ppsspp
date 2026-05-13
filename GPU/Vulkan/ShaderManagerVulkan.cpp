@@ -28,6 +28,8 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
+
 #include "GPU/GPUState.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/VertexShaderGenerator.h"

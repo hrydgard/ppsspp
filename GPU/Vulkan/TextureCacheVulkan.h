@@ -23,7 +23,6 @@
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "GPU/Vulkan/VulkanMemory.h"
 
 struct VirtualFramebuffer;
 struct TextureShaderInfo;
