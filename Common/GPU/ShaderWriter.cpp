@@ -361,6 +361,9 @@ void ShaderWriter::EndVSMain(Slice<VaryingDef> varyings) {
 		if (strlen(lang_.viewportYSign)) {
 			F("  gl_Position.y *= %s1.0;\n", lang_.viewportYSign);
 		}
+		if (lang_.depthMinusOneToOne) {
+			F("  gl_Position.z = gl_Position.z * 2.0 - gl_Position.w;\n");  // homogenous math... looks confusing.
+		}
 		C("  vs_out.pos = gl_Position;\n");
 		for (auto &varying : varyings) {
 			F("  vs_out.%s = %s;\n", varying.name, varying.name);
