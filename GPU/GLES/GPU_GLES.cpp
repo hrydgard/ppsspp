@@ -190,6 +190,11 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}
+
+	if (!g_Config.bSkipBufferEffects) {
+		features |= GPU_USE_BUFFERED_FLIP;
+	}
+
 	return features;
 }
 
