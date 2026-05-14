@@ -65,27 +65,15 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], bool flippedY) {
-	// We use the transformed tl/br coordinates to figure out whether they're flipped or not.
-	float ySign = flippedY ? -1.0 : 1.0;
-
+static void RotateUV(TransformedVertex v[4]) {
 	const float x1 = v[2].x;
 	const float x2 = v[0].x;
-	const float y1 = v[2].y * ySign;
-	const float y2 = v[0].y * ySign;
+	const float y1 = v[2].y;
+	const float y2 = v[0].y;
 
-	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
+	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
 		SwapUVs(v[1], v[3]);
-}
-
-static void RotateUVThrough(TransformedVertex v[4]) {
-	float x1 = v[2].x;
-	float x2 = v[0].x;
-	float y1 = v[2].y;
-	float y2 = v[0].y;
-
-	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2))
-		SwapUVs(v[1], v[3]);
+	}
 }
 
 // Clears on the PSP are best done by drawing a series of vertical strips
@@ -658,11 +646,7 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 		trans[3].v = transVtxBR.v * vscale;
 
 		// That's the four corners. Now process UV rotation.
-		if (throughmode) {
-			RotateUVThrough(trans);
-		} else {
-			RotateUV(trans, params_.flippedY);
-		}
+		RotateUV(trans);
 
 		// Triangle: BR-TR-TL
 		indsOut[0] = i * 2 + 0;

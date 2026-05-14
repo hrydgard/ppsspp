@@ -191,8 +191,8 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		}
 	}
 
-	if (!g_Config.bSkipBufferEffects) {
-		features |= GPU_USE_BUFFERED_FLIP;
+	if (g_Config.bSkipBufferEffects) {
+		features |= GPU_USE_NONBUFFERED_FLIP;
 	}
 
 	return features;

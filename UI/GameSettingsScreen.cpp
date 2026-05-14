@@ -488,6 +488,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		}
 
 		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	});
 	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 

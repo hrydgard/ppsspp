@@ -1276,6 +1276,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
+	bool flipY = strlen(compat.viewportYSign) > 0;
+	if (gstate_c.Use(GPU_USE_NONBUFFERED_FLIP)) {
+		flipY = !flipY;
+	}
+	if (flipY) {
+		WRITE(p, "  outPos.y *= -1.0;\n");
+	}
+
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
