@@ -7,6 +7,9 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_syswm.h"
 #include "SDL2/SDL_mouse.h"
+#elif defined(USE_SDL3)
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_mouse.h>
 #else
 #include "SDL.h"
 #include "SDL_syswm.h"
@@ -71,6 +74,8 @@ SDLJoystick *joystick = NULL;
 
 #if PPSSPP_PLATFORM(MAC)
 #include "SDL2/SDL_vulkan.h"
+#elif defined(USE_SDL3)
+#include <SDL3/SDL_vulkan.h>
 #else
 #include "SDL_vulkan.h"
 #endif

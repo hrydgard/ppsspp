@@ -325,18 +325,14 @@ if(USING_EGL)
 	list(APPEND OPENGL_LIBRARIES ${EGL_LIBRARIES})
 endif()
 
-if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
-	find_package(SDL2)
-	find_package(SDL2_ttf)
-	find_package(Fontconfig)
+set(SDL_LIB_TARGET "")
 
-	# TODO: this can be removed once CI supports newer SDL2_ttf
-	if (NOT SDL2_ttf_FOUND)
-		find_package(PkgConfig)
-		if(PkgConfig_FOUND)
-			pkg_check_modules(SDL2_ttf_PKGCONFIG IMPORTED_TARGET SDL2_ttf)
-		endif()
-	endif()
+if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
+	find_package(SDL3 REQUIRED)
+	set(SDL_LIB_TARGET SDL3::SDL3)
+	add_compile_definitions(SDL_ENABLE_OLD_NAMES)
+	add_compile_definitions(USE_SDL3)
+	message(STATUS "Using SDL3")
 endif()
 
 if(MACOSX AND NOT IOS)
@@ -1495,13 +1491,13 @@ elseif(USING_QT_UI)
 	set(TargetBin PPSSPPQt)
 
 	# Enable SDL joystick if SDL is found
-	if(SDL2_FOUND)
+	if(SDL_LIB_TARGET)
 		add_compile_definitions(SDL)
 		list(APPEND nativeExtra
 			SDL/SDLJoystick.h
 			SDL/SDLJoystick.cpp
 		)
-		list(APPEND nativeExtraLibs SDL2::SDL2)
+		list(APPEND nativeExtraLibs ${SDL_LIB_TARGET})
 	endif()
 
 elseif(WIN32)
@@ -1509,13 +1505,26 @@ elseif(WIN32)
 	set(TargetBin PPSSPPWindows)
 elseif(LIBRETRO)
 else()
-	if(SDL2_FOUND OR SDL2Fwk)
-		if(GOLD)
-			set(TargetBin PPSSPPGold)
-		else()
-			set(TargetBin PPSSPPSDL)
-		endif()
-		add_compile_definitions(SDL)
+	if(GOLD)
+		set(TargetBin PPSSPPGold)
+	else()
+		set(TargetBin PPSSPPSDL)
+	endif()
+	# Require SDL
+	add_compile_definitions(SDL)
+	list(APPEND nativeExtra
+		SDL/SDLJoystick.h
+		SDL/SDLJoystick.cpp
+		SDL/SDLMain.cpp
+		SDL/SDLGLGraphicsContext.cpp
+	)
+	if(NOT USE_LIBNX)
+		list(APPEND nativeExtra
+			SDL/SDLVulkanGraphicsContext.cpp
+		)
+	endif()
+	# SDL2_ttf integration is disabled while migrating to SDL3-only.
+	if(APPLE)
 		list(APPEND nativeExtra
 			SDL/SDLJoystick.h
 			SDL/SDLJoystick.cpp
@@ -1584,6 +1593,10 @@ else()
 		endif()
 	elseif(NOT CMAKE_CROSSCOMPILING)
 		message(FATAL_ERROR "SDL2 not found - required for this platform")
+	elseif(USING_EGL)
+		list(APPEND nativeExtraLibs pthread ${SDL_LIB_TARGET})
+	else()
+		list(APPEND nativeExtraLibs ${SDL_LIB_TARGET})
 	endif()
 endif()
 

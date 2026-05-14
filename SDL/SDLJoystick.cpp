@@ -13,10 +13,17 @@
 
 using namespace std;
 
+#if defined(USE_SDL3)
+static bool SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event) {
+	static_cast<SDLJoystick *>(userdata)->ProcessInput(*event);
+	return true;
+}
+#else
 static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event) {
 	static_cast<SDLJoystick *>(userdata)->ProcessInput(*event);
 	return 0;
 }
+#endif
 
 SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");

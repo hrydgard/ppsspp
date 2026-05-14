@@ -14,7 +14,11 @@
 #if PPSSPP_PLATFORM(MAC)
 #include "SDL2/SDL_vulkan.h"
 #else
+#if defined(USE_SDL3)
+#include <SDL3/SDL_vulkan.h>
+#else
 #include "SDL_vulkan.h"
+#endif
 #endif
 #include "SDLVulkanGraphicsContext.h"
 
@@ -81,6 +85,46 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 		return VkExtent2D {(uint32_t)w, (uint32_t)h};
 	});
 
+	#if defined(USE_SDL3)
+	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
+	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+	if (x11Display != nullptr) {
+		intptr_t x11Window = (intptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, x11Display, (void *)x11Window);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+		vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void *)XGetXCBConnection((Display *)x11Display), (void *)x11Window);
+#endif
+	} else {
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+		void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+		void *waylandSurface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+		if (waylandDisplay != nullptr && waylandSurface != nullptr) {
+			vulkan_->InitSurface(WINDOWSYSTEM_WAYLAND, waylandDisplay, waylandSurface);
+		} else
+#endif
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+#if PPSSPP_PLATFORM(MAC)
+		{
+			void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+			if (cocoaWindow != nullptr) {
+				vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(cocoaWindow), nullptr);
+			} else
+#else
+		{
+			void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+			if (uikitWindow != nullptr) {
+				vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(uikitWindow), nullptr);
+			} else
+#endif
+			{
+				fprintf(stderr, "Unable to determine Vulkan window system from SDL3 window properties\n");
+				exit(1);
+			}
+		}
+#endif
+	}
+#else
 	SDL_SysWMinfo sys_info{};
 	SDL_VERSION(&sys_info.version); //Set SDL version
 	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
@@ -127,6 +171,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 		exit(1);
 		break;
 	}
+	#endif
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
 	if (g_Config.iInflightFrames == 1) {

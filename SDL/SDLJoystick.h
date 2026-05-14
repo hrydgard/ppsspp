@@ -5,7 +5,11 @@
 #if PPSSPP_PLATFORM(MAC)
 #include "SDL2/SDL.h"
 #else
+#if defined(USE_SDL3)
+#include <SDL3/SDL.h>
+#else
 #include "SDL.h"
+#endif
 #endif
 #endif
 #include <map>

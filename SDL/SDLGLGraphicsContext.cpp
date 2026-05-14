@@ -88,6 +88,36 @@ static int8_t EGL_Open(SDL_Window *window) {
 	g_Window = (EGLNativeWindowType)nullptr;
 #else
 	// Get the SDL window native handle
+	#if defined(USE_SDL3)
+	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
+	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+	if (x11Display != nullptr) {
+		g_Display = (EGLNativeDisplayType)x11Display;
+		g_Window = (EGLNativeWindowType)(uintptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+	} else {
+		void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+		void *waylandEGLWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_EGL_WINDOW_POINTER, nullptr);
+		if (waylandDisplay != nullptr && waylandEGLWindow != nullptr) {
+			g_Display = (EGLNativeDisplayType)waylandDisplay;
+			g_Window = (EGLNativeWindowType)waylandEGLWindow;
+		} else {
+			fprintf(stderr, "ERROR: Unable to retrieve native window properties\n");
+			g_Display = (EGLNativeDisplayType)XOpenDisplay(nullptr);
+			g_XDisplayOpen = g_Display != nullptr;
+			if (!g_XDisplayOpen)
+				EGL_ERROR("Unable to get display!", false);
+			g_Window = (EGLNativeWindowType)nullptr;
+		}
+	}
+
+	if (!EGL_OpenInit()) {
+		g_Display = (EGLNativeDisplayType)XOpenDisplay(nullptr);
+		g_XDisplayOpen = g_Display != nullptr;
+		if (!g_XDisplayOpen)
+			EGL_ERROR("Unable to get display!", false);
+		g_Window = (EGLNativeWindowType)nullptr;
+	}
+	#else
 	SDL_SysWMinfo sysInfo{};
 	SDL_VERSION(&sysInfo.version);
 	if (!SDL_GetWindowWMInfo(window, &sysInfo)) {
@@ -132,6 +162,7 @@ static int8_t EGL_Open(SDL_Window *window) {
 			g_Window = (EGLNativeWindowType)nullptr;
 		}
 	}
+	#endif
 
 #endif
 	if (g_eglDisplay == EGL_NO_DISPLAY)
