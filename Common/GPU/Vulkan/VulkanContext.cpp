@@ -125,12 +125,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	}
 
 	instance_layer_names_.clear();
-	device_layer_names_.clear();
 
 	// We can get the list of layers and extensions without an instance so we can use this information
 	// to enable the extensions we need that are available.
 	GetInstanceLayerProperties();
-	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
+	GetInstanceLayerExtensionList(nullptr, &instance_extension_properties_);
 
 	if (!IsInstanceExtensionAvailable(VK_KHR_SURFACE_EXTENSION_NAME)) {
 		// Cannot create a Vulkan display without VK_KHR_SURFACE_EXTENSION.
@@ -176,7 +175,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
 				instance_layer_names_.push_back(validationLayers[i]);
-				device_layer_names_.push_back(validationLayers[i]);
 			}
 			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			extensionsLookup_.EXT_debug_utils = true;
@@ -234,7 +232,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			WARN_LOG(Log::G3D, "Validation on but instance layer not available - dropping layers");
 			// Drop the validation layers and try again.
 			instance_layer_names_.clear();
-			device_layer_names_.clear();
 			inst_info.enabledLayerCount = 0;
 			inst_info.ppEnabledLayerNames = nullptr;
 			res = vkCreateInstance(&inst_info, nullptr, &instance_);
@@ -403,7 +400,7 @@ void VulkanContext::DestroySurface() {
 	}
 }
 
-VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
+VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> *extensions) {
 	VkResult res;
 	do {
 		uint32_t instance_extension_count;
@@ -412,8 +409,8 @@ VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std
 			return res;
 		if (instance_extension_count == 0)
 			return VK_SUCCESS;
-		extensions.resize(instance_extension_count);
-		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, extensions.data());
+		extensions->resize(instance_extension_count);
+		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, extensions->data());
 	} while (res == VK_INCOMPLETE);
 	return res;
 }
@@ -445,10 +442,11 @@ VkResult VulkanContext::GetInstanceLayerProperties() {
 	} while (res == VK_INCOMPLETE);
 
 	// Now gather the extension list for each instance layer.
+	// (TODO: Is this meaningful, or used for anything?)
 	for (uint32_t i = 0; i < instance_layer_count; i++) {
 		LayerProperties layer_props;
 		layer_props.properties = vk_props[i];
-		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
+		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, &layer_props.extensions);
 		if (res != VK_SUCCESS)
 			return res;
 		instance_layer_properties_.push_back(layer_props);
@@ -456,57 +454,18 @@ VkResult VulkanContext::GetInstanceLayerProperties() {
 	return res;
 }
 
-// Pass layerName == nullptr to get the extension list for the device.
-VkResult VulkanContext::GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
+VkResult VulkanContext::GetDeviceExtensionList(std::vector<VkExtensionProperties> *extensions) {
 	VkResult res;
 	do {
 		uint32_t device_extension_count;
-		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], layerName, &device_extension_count, nullptr);
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], nullptr, &device_extension_count, nullptr);
 		if (res != VK_SUCCESS)
 			return res;
 		if (!device_extension_count)
 			return VK_SUCCESS;
-		extensions.resize(device_extension_count);
-		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], layerName, &device_extension_count, extensions.data());
+		extensions->resize(device_extension_count);
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], nullptr, &device_extension_count, extensions->data());
 	} while (res == VK_INCOMPLETE);
-	return res;
-}
-
-VkResult VulkanContext::GetDeviceLayerProperties() {
-	/*
-	 * It's possible, though very rare, that the number of
-	 * instance layers could change. For example, installing something
-	 * could include new layers that the loader would pick up
-	 * between the initial query for the count and the
-	 * request for VkLayerProperties. The loader indicates that
-	 * by returning a VK_INCOMPLETE status and will update the
-	 * the count parameter.
-	 * The count parameter will be updated with the number of
-	 * entries loaded into the data pointer - in case the number
-	 * of layers went down or is smaller than the size given.
-	 */
-	uint32_t device_layer_count;
-	std::vector<VkLayerProperties> vk_props;
-	VkResult res;
-	do {
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[physical_device_], &device_layer_count, nullptr);
-		if (res != VK_SUCCESS)
-			return res;
-		if (device_layer_count == 0)
-			return VK_SUCCESS;
-		vk_props.resize(device_layer_count);
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[physical_device_], &device_layer_count, vk_props.data());
-	} while (res == VK_INCOMPLETE);
-
-	// Gather the list of extensions for each device layer.
-	for (uint32_t i = 0; i < device_layer_count; i++) {
-		LayerProperties layer_props;
-		layer_props.properties = vk_props[i];
-		res = GetDeviceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
-		if (res != VK_SUCCESS)
-			return res;
-		device_layer_properties_.push_back(layer_props);
-	}
 	return res;
 }
 
@@ -609,11 +568,6 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 
 	vulkanDeviceApiVersion_ = physicalDeviceProperties_[physical_device].properties.apiVersion;
 
-	GetDeviceLayerProperties();
-	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
-		WARN_LOG(Log::G3D, "CheckLayers for device %d failed", physical_device);
-	}
-
 	queue_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	_dbg_assert_(queue_count >= 1);
@@ -662,7 +616,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
 	}
 
-	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
+	GetDeviceExtensionList(&device_extension_properties_);
 
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
@@ -824,8 +778,8 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
-	device_info.enabledLayerCount = (uint32_t)device_layer_names_.size();
-	device_info.ppEnabledLayerNames = device_info.enabledLayerCount ? device_layer_names_.data() : nullptr;
+	device_info.enabledLayerCount = 0;
+	device_info.ppEnabledLayerNames = nullptr;
 	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
 	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
 

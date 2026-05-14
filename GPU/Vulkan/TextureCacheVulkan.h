@@ -121,7 +121,7 @@ private:
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 
-	void CompileScalingShader(VkCommandBuffer cmdInit);
+	void CompileScalingShader();
 	bool CompileMultipassShader(VulkanContext *vulkan, const TextureShaderInfo &shaderInfo, std::string *error);
 	void ClearScalingShaders(VulkanContext *vulkan);
 	bool HasScalingShader() const;

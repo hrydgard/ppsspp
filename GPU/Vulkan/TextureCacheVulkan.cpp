@@ -256,16 +256,14 @@ void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
 	VkResult res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &samplerNearest_);
 	_assert_(res == VK_SUCCESS);
 
-	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	CompileScalingShader(cmdInit);
+	CompileScalingShader();
 
 	computeShaderManager_.DeviceRestore(draw);
 }
 
 void TextureCacheVulkan::NotifyConfigChanged() {
 	TextureCacheCommon::NotifyConfigChanged();
-	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	CompileScalingShader(cmdInit);
+	CompileScalingShader();
 }
 
 static std::string ReadShaderSrc(const Path &filename) {
@@ -364,7 +362,7 @@ bool TextureCacheVulkan::CompileMultipassShader(VulkanContext *vulkan, const Tex
 	return true;
 }
 
-void TextureCacheVulkan::CompileScalingShader(VkCommandBuffer cmdInit) {
+void TextureCacheVulkan::CompileScalingShader() {
 	if (!draw_) {
 		// Something is very wrong.
 		return;
