@@ -1264,12 +1264,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		// Apply rotation from the uniform.
-		WRITE(p, "  mat2 displayRotation = mat2(\n");
-		WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
-		WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0)\n");
-		WRITE(p, "  );\n");
-
-		WRITE(p, "  outPos.xy = mul(displayRotation, outPos.xy);\n");
+		// NOTE: This is only needed on platforms that support pre-rotation.
+		WRITE(p, "  outPos.xy = mul(mat2(u_rotation), outPos.xy);\n");
 	}
 
 	bool flipY = strlen(compat.viewportYSign) > 0;
