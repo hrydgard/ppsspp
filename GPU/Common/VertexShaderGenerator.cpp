@@ -363,6 +363,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		WRITE(p, "};\n");
 	} else {
+		// Non-Vulkan GLSL.
 		if (enableBones) {
 			const char * const * boneWeightDecl = boneWeightAttrDecl;
 			if (!strcmp(compat.attribute, "in")) {
@@ -479,8 +480,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 				*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
 			}
-		} else {
-			WRITE(p, "uniform lowp float u_rotation;\n");
 		}
 
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -749,24 +748,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// The proj_through matrix already has the rotation, if needed.
 			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
-			if (compat.shaderLanguage == GLSL_VULKAN) {
-				// Apply rotation from the uniform.
-				WRITE(p, "  mat2 displayRotation = mat2(\n");
-				WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
-				WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0)\n");
-				WRITE(p, "  );\n");
-
-				WRITE(p, "  vec4 pos = position;\n");
-				WRITE(p, "  pos.xy = mul(displayRotation, pos.xy);\n");
-			} else {
-				WRITE(p, "  vec4 pos = position;\n");
-			}
-
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(pos);\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(position);\n");
 			} else {
-				WRITE(p, "  vec4 outPos = pos;\n");
+				WRITE(p, "  vec4 outPos = position;\n");
 			}
 		}
 	} else {
@@ -1274,6 +1260,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull1);
 			WRITE(p, "  }\n");
 		}
+	}
+
+	if (compat.shaderLanguage == GLSL_VULKAN) {
+		// Apply rotation from the uniform.
+		WRITE(p, "  mat2 displayRotation = mat2(\n");
+		WRITE(p, "    u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0), u_rotation == 1.0 ? 1.0 : (u_rotation == 3.0 ? -1.0 : 0.0),\n");
+		WRITE(p, "    u_rotation == 3.0 ? 1.0 : (u_rotation == 1.0 ? -1.0 : 0.0), u_rotation == 0.0 ? 1.0 : (u_rotation == 2.0 ? -1.0 : 0.0)\n");
+		WRITE(p, "  );\n");
+
+		WRITE(p, "  outPos.xy = mul(displayRotation, outPos.xy);\n");
 	}
 
 	bool flipY = strlen(compat.viewportYSign) > 0;

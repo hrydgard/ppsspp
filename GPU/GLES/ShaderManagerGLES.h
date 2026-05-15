@@ -68,7 +68,6 @@ public:
 	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
 	int u_cullRangeMin;
 	int u_cullRangeMax;
-	int u_rotation;
 	int u_mipBias;
 	int u_scaleX;
 	int u_scaleY;

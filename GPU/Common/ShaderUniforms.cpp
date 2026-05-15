@@ -128,11 +128,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
 		FlipProjMatrix(flippedMatrix);
-
 		ConvertProjMatrixToZeroToOneDepth(flippedMatrix);
-		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
-			flippedMatrix = flippedMatrix * g_display.rot_matrix;
-		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
 
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
@@ -141,9 +137,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
 		proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
-		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
-			proj_through = proj_through * g_display.rot_matrix;
-		}
 
 		// Negative RT offsets come from split framebuffers (Killzone)
 		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
@@ -152,6 +145,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		}
 
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
+
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
 	// Transform
