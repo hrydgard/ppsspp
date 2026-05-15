@@ -326,17 +326,21 @@ if(USING_EGL)
 endif()
 
 set(SDL_LIB_TARGET "")
+set(SDL_TTF_LIB_TARGET "")
 
 if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL3 REQUIRED)
 	set(SDL_LIB_TARGET SDL3::SDL3)
+	find_package(SDL3_ttf REQUIRED)
+	set(SDL_TTF_LIB_TARGET SDL3_ttf::SDL3_ttf)
+	add_compile_definitions(USE_SDL3_TTF)
 	message(STATUS "Using SDL3")
 endif()
 
 if(MACOSX AND NOT IOS)
 	if(USE_SYSTEM_LIBSDL2)
 		find_package(SDL2)
-		find_package(SDL2_ttf)
+		find_package(SDL3_ttf QUIET)
 	else()
 		find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
 		message(STATUS "found SDL2Fwk=${SDL2Fwk}")
@@ -1521,7 +1525,9 @@ else()
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
-	# SDL2_ttf integration is disabled while migrating to SDL3-only.
+	if(SDL_TTF_LIB_TARGET)
+		list(APPEND nativeExtraLibs ${SDL_TTF_LIB_TARGET})
+	endif()
 	if(APPLE)
 		list(APPEND nativeExtra
 			SDL/SDLJoystick.h
