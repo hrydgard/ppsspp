@@ -958,14 +958,6 @@ void UpdateCursor() {
 }
 
 static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputStateTracker *inputTracker) {
-	// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
-	// provided (through --dpi, it is equal to system DPI if unspecified):
-	// - SDL gives us motion events in "system DPI" points
-	// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
-	// - The UI code expects motion events in "logical DPI" points
-	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
-	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
-
 	switch (event.type) {
 	case SDL_EVENT_QUIT:
 		g_QuitRequested = 1;
@@ -1179,6 +1171,13 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
+				// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
+				// provided (through --dpi, it is equal to system DPI if unspecified):
+				// - SDL gives us motion events in "system DPI" points
+				// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
+				// - The UI code expects motion events in "logical DPI" points
+				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
 				inputTracker->mouseDown |= 1;
 				TouchInput input{};
 				input.x = mx;
@@ -1193,6 +1192,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
+				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
 				inputTracker->mouseDown |= 2;
 				TouchInput input{};
 				input.x = mx;
@@ -1254,6 +1255,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		}
 	case SDL_EVENT_MOUSE_MOTION:
 		{
+			float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
+			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
@@ -1270,6 +1273,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
+				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
 				inputTracker->mouseDown &= ~1;
 				TouchInput input{};
 				input.x = mx;
@@ -1283,6 +1288,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
+				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
 				inputTracker->mouseDown &= ~2;
 				// Right button only emits mouse move events. This is weird,
 				// but consistent with Windows. Needs cleanup.
@@ -1492,6 +1499,7 @@ int main(int argc, char *argv[]) {
 	// Produce a new set of arguments with the ones we skip.
 	int remain_argc = 1;
 	const char *remain_argv[256] = { argv[0] };
+	constexpr int remain_argv_cap = (int)(sizeof(remain_argv) / sizeof(remain_argv[0]));
 
 	// Option to force a specific OpenGL version (42="4.2",
 	// etc.; -1 means "try them all").
@@ -1547,9 +1555,14 @@ int main(int argc, char *argv[]) {
 				force_gl_version = int(10.0 * val + 0.5);
 			}
 		} else {
-			remain_argv[remain_argc++] = argv[i];
+			if (remain_argc < remain_argv_cap - 1) {
+				remain_argv[remain_argc++] = argv[i];
+			} else {
+				fprintf(stderr, "Too many command-line arguments, ignoring: %s\n", argv[i]);
+			}
 		}
 	}
+	remain_argv[remain_argc] = nullptr;
 
 	std::string app_name;
 	std::string app_name_nice;
@@ -1647,7 +1660,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Mac / Linux
-	char path[2048];
+	char path[2048] = {};
 #if PPSSPP_PLATFORM(SWITCH)
 	strcpy(path, "/switch/ppsspp/");
 #else
@@ -1658,10 +1671,10 @@ int main(int argc, char *argv[]) {
 			the_path = pwd->pw_dir;
 	}
 	if (the_path)
-		strcpy(path, the_path);
+		snprintf(path, sizeof(path), "%s", the_path);
 #endif
-	if (strlen(path) > 0 && path[strlen(path) - 1] != '/')
-		strcat(path, "/");
+	if (path[0] != '\0' && path[strlen(path) - 1] != '/')
+		strncat(path, "/", sizeof(path) - strlen(path) - 1);
 
 #if PPSSPP_PLATFORM(MAC)
 	std::string external_dir_str;
@@ -1950,6 +1963,13 @@ int main(int argc, char *argv[]) {
 	graphicsContext->ShutdownFromRenderThread();
 	graphicsContext->Shutdown();
 	delete graphicsContext;
+
+	for (int i = 0; i < SDL_SYSTEM_CURSOR_COUNT; ++i) {
+		if (g_builtinCursors[i]) {
+			SDL_DestroyCursor(g_builtinCursors[i]);
+			g_builtinCursors[i] = nullptr;
+		}
+	}
 
 	StopSDLAudioDevice();
 	SDL_Quit();
