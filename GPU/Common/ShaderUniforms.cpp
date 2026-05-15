@@ -146,7 +146,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		FlipProjMatrix(flippedMatrix);
 		ConvertProjMatrixToZeroToOneDepth(flippedMatrix);
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
-		UpdateRotation(ub->rotation, useBufferedRendering);  // TODO: This can be done a lot less often.
+
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -160,7 +161,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		}
 
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
-		UpdateRotation(ub->rotation, useBufferedRendering);  // TODO: This can be done a lot less often.
+
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
 	// Transform

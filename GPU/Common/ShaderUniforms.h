@@ -25,7 +25,6 @@ struct alignas(16) UB_VS_FS_Base {
 	float view[12];
 	float world[12];
 	float tex[12];
-	float rotation[4];
 	float uvScaleOffset[4];
 	float depthRange[4];
 	float matAmbient[4];
@@ -40,11 +39,11 @@ struct alignas(16) UB_VS_FS_Base {
 	float texClamp[4];
 	float texClampOffset[2]; float fogCoef[2];
 	float blendFixA[3]; float stencilReplaceValue;
-	float blendFixB[3]; float padding3;
+	float blendFixB[3]; float rotation;
 	// VR stuff is to go here, later. For normal drawing, we can then get away
 	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
-static_assert(sizeof(UB_VS_FS_Base) == 496, "UB_VS_FS_Base should be 496 bytes");
+static_assert(sizeof(UB_VS_FS_Base) == 480, "UB_VS_FS_Base should be 480 bytes");
 
 static const char * const ub_baseStr =
 R"(  mat4 u_proj;
@@ -52,7 +51,6 @@ R"(  mat4 u_proj;
   mat3x4 u_view;
   mat3x4 u_world;
   mat3x4 u_texmtx;
-  vec4 u_rotation;
   vec4 u_uvscaleoffset;
   vec4 u_depthRange;
   vec4 u_matambientalpha;
@@ -68,7 +66,7 @@ R"(  mat4 u_proj;
   vec4 u_texclamp;
   vec2 u_texclampoff; vec2 u_fogcoef;
   vec3 u_blendFixA; float u_stencilReplaceValue;
-  vec3 u_blendFixB; float pad3;
+  vec3 u_blendFixB; float u_rotation;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand
