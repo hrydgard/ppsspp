@@ -6,13 +6,7 @@
 */
 
 #include "ppsspp_config.h"
-#if PPSSPP_PLATFORM(MAC)
-#include "SDL2/SDL.h"
-#elif defined(USE_SDL3)
 #include <SDL3/SDL.h>
-#else
-#include "SDL.h"
-#endif
 #include "SDLMain.h"
 #include "Common/Profiler/Profiler.h"
 #include <signal.h>

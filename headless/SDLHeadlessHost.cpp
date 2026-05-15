@@ -20,13 +20,7 @@
 #include <cstdio>
 
 #include "ppsspp_config.h"
-#if PPSSPP_PLATFORM(MAC)
-#include "SDL2/SDL.h"
-#elif defined(USE_SDL3)
 #include <SDL3/SDL.h>
-#else
-#include "SDL.h"
-#endif
 
 #include "headless/SDLHeadlessHost.h"
 #include "Common/GPU/OpenGL/GLCommon.h"

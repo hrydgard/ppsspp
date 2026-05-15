@@ -330,8 +330,6 @@ set(SDL_LIB_TARGET "")
 if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL3 REQUIRED)
 	set(SDL_LIB_TARGET SDL3::SDL3)
-	add_compile_definitions(SDL_ENABLE_OLD_NAMES)
-	add_compile_definitions(USE_SDL3)
 	message(STATUS "Using SDL3")
 endif()
 
