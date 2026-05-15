@@ -641,6 +641,11 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	int renderX2 = std::min(clipX + clipWidth - x, glyph.w + (xFrac > 0 ? 1 : 0));
 	int renderY2 = std::min(clipY + clipHeight - y, glyph.h + (yFrac > 0 ? 1 : 0));
 
+	if (gpu && renderX1 < renderX2 && renderY1 < renderY2) {
+		// The game may reuse this glyph buffer as a texture immediately after drawing it.
+		gpu->Flush();
+	}
+
 	if (xFrac == 0 && yFrac == 0) {
 		for (int yy = renderY1; yy < renderY2; ++yy) {
 			for (int xx = renderX1; xx < renderX2; ++xx) {

@@ -540,6 +540,12 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		}
 
 		// This is where we actually create the framebuffer. The true is "force".
+		// ResizeFramebufFBO() makes this framebuffer current, so save first-frame
+		// data from the previous render target before the switch.
+		VirtualFramebuffer *previousRenderVfb = currentRenderVfb_;
+		if (useBufferedRendering_ && previousRenderVfb) {
+			DownloadFramebufferOnSwitch(previousRenderVfb);
+		}
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
@@ -1022,8 +1028,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 	if (!useBufferedRendering_) {
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-	} else if (currentRenderVfb_) {
-		DownloadFramebufferOnSwitch(currentRenderVfb_);
 	}
 
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);

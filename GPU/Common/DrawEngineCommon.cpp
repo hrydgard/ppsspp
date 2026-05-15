@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
@@ -588,6 +589,70 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 		_dbg_assert_(false);
 		return true;
 	}
+}
+
+bool DrawEngineCommon::EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight) {
+	if (prim != GE_PRIM_RECTANGLES && prim != GE_PRIM_TRIANGLES) {
+		return false;
+	}
+	if ((vertType & GE_VTYPE_THROUGH_MASK) == 0 || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) != 0) {
+		return false;
+	}
+
+	const int stride = dec->VertexSize();
+	const int posOffset = dec->posoff;
+	IndexConverter conv(vertType, inds);
+
+	float minX = FLT_MAX;
+	float minY = FLT_MAX;
+	float maxX = -FLT_MAX;
+	float maxY = -FLT_MAX;
+
+	for (int i = 0; i < vertexCount; ++i) {
+		const u8 *posPtr = (const u8 *)verts + conv(i) * stride + posOffset;
+		float x;
+		float y;
+
+		switch (vertType & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_8BIT:
+			x = 0.0f;
+			y = 0.0f;
+			break;
+		case GE_VTYPE_POS_16BIT:
+		{
+			const s16_le *pos = (const s16_le *)posPtr;
+			x = (float)pos[0];
+			y = (float)pos[1];
+			break;
+		}
+		case GE_VTYPE_POS_FLOAT:
+		{
+			const float_le *pos = (const float_le *)posPtr;
+			x = pos[0];
+			y = pos[1];
+			break;
+		}
+		default:
+			return false;
+		}
+
+		minX = std::min(minX, x);
+		minY = std::min(minY, y);
+		maxX = std::max(maxX, x);
+		maxY = std::max(maxY, y);
+	}
+
+	const int scissorX1 = gstate.getScissorX1();
+	const int scissorY1 = gstate.getScissorY1();
+	const int scissorX2 = gstate.getScissorX2() + 1;
+	const int scissorY2 = gstate.getScissorY2() + 1;
+	if (maxX <= scissorX1 || maxY <= scissorY1 || minX >= scissorX2 || minY >= scissorY2) {
+		return false;
+	}
+
+	*safeWidth = std::clamp((int)ceilf(maxX), 0, scissorX2);
+	*safeHeight = std::clamp((int)ceilf(maxY), 0, scissorY2);
+	return *safeWidth > 0 && *safeHeight > 0;
 }
 
 void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
