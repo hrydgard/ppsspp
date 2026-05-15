@@ -1262,9 +1262,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
-	if (compat.shaderLanguage == GLSL_VULKAN) {
+	if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Use(GPU_USE_PRE_ROTATION)) {
 		// Apply rotation from the uniform.
-		// NOTE: This is only needed on platforms that support pre-rotation.
+		// TODO: This is only needed on platforms that support pre-rotation, and only in skip buffer effects mode.
 		WRITE(p, "  outPos.xy = mul(mat2(u_rotation), outPos.xy);\n");
 	}
 

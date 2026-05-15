@@ -244,6 +244,10 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		break;
 	}
 
+	if (vulkan->SupportsPreRotation() && g_Config.bSkipBufferEffects) {
+		features |= GPU_USE_PRE_ROTATION;
+	}
+
 	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
 	// if (!g_Config.bEnableVendorBugChecks)
 	// 	features |= GPU_USE_ACCURATE_DEPTH;

@@ -85,7 +85,7 @@ static inline void FlipProjMatrix(Matrix4x4 & in) {
 }
 
 void UpdateRotation(float rotMatrix[4], bool useBufferedRendering) {
-	if (useBufferedRendering) {
+	if (!gstate_c.Use(GPU_USE_PRE_ROTATION) || useBufferedRendering) {
 		rotMatrix[0] = 1.0f;
 		rotMatrix[1] = 0.0f;
 		rotMatrix[2] = 0.0f;
