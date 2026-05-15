@@ -182,7 +182,7 @@
 			"location-emoji": "🇧🇷",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
-			"status_data_json": ""
+			"status_data_json": "https://status-brazil-01.sprawl-relay.link?format=aemu"
 		}
 	]
 }
