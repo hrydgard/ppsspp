@@ -233,7 +233,7 @@ uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
 	uint32_t missingGlyph = 0;
 	while (!utf8Decoded.end()) {
 		uint32_t glyph = utf8Decoded.next();
-		if (!TTF_GetGlyphMetrics(font, glyph, nullptr, nullptr, nullptr, nullptr, nullptr)) {
+		if (!TTF_FontHasGlyph(font, glyph)) {
 			missingGlyph = glyph;
 			break;
 		}
@@ -252,7 +252,7 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	// If we encounter a missing glyph, try to use one of already loaded fallback fonts.
 	for (int i = 0; i < fallbackFonts_.size(); i++) {
 		TTF_Font *fallbackFont = fallbackFonts_[i];
-		if (TTF_GetGlyphMetrics(fallbackFont, missingGlyph, nullptr, nullptr, nullptr, nullptr, nullptr)) {
+		if (TTF_FontHasGlyph(fallbackFont, missingGlyph)) {
 			glyphFallbackFontIndex_[missingGlyph] = i;
 			return i;
 		}
@@ -266,7 +266,7 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 
 		TTF_Font *font = OpenFontFace(fontPath, static_cast<float>(ptSize), faceIndex);
 
-		if (font && TTF_GetGlyphMetrics(font, missingGlyph, nullptr, nullptr, nullptr, nullptr, nullptr)) {
+		if (font && TTF_FontHasGlyph(font, missingGlyph)) {
 			fallbackFonts_.push_back(font);
 			return fallbackFonts_.size() - 1;
 		} else {
