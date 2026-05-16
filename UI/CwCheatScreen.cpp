@@ -224,7 +224,7 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new ItemHeader(cw->T("Import Cheats")));
 
-	leftColumn->Add(new Choice(cw->T("Download database")))->OnClick.Add([this](UI::EventParams &) {
+	leftColumn->Add(new Choice(cw->T("Download cheat database")))->OnClick.Add([this](UI::EventParams &) {
 		screenManager()->push(new CwCheatDownloadPopupScreen());
 	});
 
