@@ -65,13 +65,13 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	// To install the recommended Droid Sans fallback font in Ubuntu:
 	// sudo apt install fonts-droid-fallback
 	const char *hardcodedNames[] = {
-		"Droid Sans Medium",
+		"Droid Sans",
 		"Droid Sans Fallback",
-		"Source Han Sans Medium",
-		"Noto Sans CJK Medium",
-		"Noto Sans Hebrew Medium",
-		"Noto Sans Lao Medium",
-		"Noto Sans Thai Medium",
+		"Source Han Sans",
+		"Noto Sans CJK",
+		"Noto Sans Hebrew",
+		"Noto Sans Lao",
+		"Noto Sans Thai",
 		"DejaVu Sans Condensed",
 		"DejaVu Sans",
 		"Meera Regular",
@@ -110,22 +110,51 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	for (int i = 0; i < names.size(); i++) {
 		// printf("trying font name %s\n", names[i]);
 		FcPattern *name = FcNameParse((const FcChar8 *)names[i]);
+		FcPatternAddInteger(name, FC_WEIGHT, FC_WEIGHT_NORMAL);
+		FcPatternAddInteger(name, FC_SLANT, FC_SLANT_ROMAN);
 		FcFontSet *foundFonts = FcFontList(config, name, os);
+
+		std::vector<std::pair<std::string, int>> preferredFonts;
+		std::vector<std::pair<std::string, int>> otherFonts;
 
 		for (int j = 0; foundFonts && j < foundFonts->nfont; ++j) {
 			FcPattern* font = foundFonts->fonts[j];
 			FcChar8 *path;
 			int fontIndex;
+			int fontWeight = FC_WEIGHT_NORMAL;
 
 			if (FcPatternGetInteger(font, FC_INDEX, 0, &fontIndex) != FcResultMatch) {
 				fontIndex = 0; // The 0th face is guaranteed to exist
 			}
 
+			if (FcPatternGetInteger(font, FC_WEIGHT, 0, &fontWeight) != FcResultMatch) {
+				fontWeight = FC_WEIGHT_NORMAL;
+			}
+
 			if (FcPatternGetString(font, FC_FILE, 0, &path) == FcResultMatch) {
 				std::string path_str((const char*)path);
-				// printf("fallback font: %s\n", path_str.c_str());
-				fallbackFontPaths_.push_back(std::make_pair(path_str, fontIndex));
+				if (fontWeight <= FC_WEIGHT_NORMAL) {
+					preferredFonts.push_back(std::make_pair(path_str, fontIndex));
+				} else {
+					otherFonts.push_back(std::make_pair(path_str, fontIndex));
+				}
 			}
+		}
+
+		auto addFallbackUnique = [&](const std::pair<std::string, int> &candidate) {
+			for (const auto &existing : fallbackFontPaths_) {
+				if (existing.first == candidate.first && existing.second == candidate.second) {
+					return;
+				}
+			}
+			fallbackFontPaths_.push_back(candidate);
+		};
+
+		for (const auto &candidate : preferredFonts) {
+			addFallbackUnique(candidate);
+		}
+		for (const auto &candidate : otherFonts) {
+			addFallbackUnique(candidate);
 		}
 
 		if (foundFonts) {
