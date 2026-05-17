@@ -2026,15 +2026,13 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	for (unsigned i = 0; i < parts; ++i)
 	{
-		if (use_movz && upload_part[i])
-		{
-			MOVZ(Rd, (imm >> (i * 16)) & 0xFFFF, (ShiftAmount)i);
-			use_movz = false;
-		}
-		else
-		{
-			if (upload_part[i] || !optimize)
+		if (upload_part[i] || !optimize) {
+			if (use_movz) {
+				MOVZ(Rd, (imm >> (i * 16)) & 0xFFFF, (ShiftAmount)i);
+				use_movz = false;
+			} else {
 				MOVK(Rd, (imm >> (i * 16)) & 0xFFFF, (ShiftAmount)i);
+			}
 		}
 	}
 }
