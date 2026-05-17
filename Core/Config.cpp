@@ -1596,7 +1596,7 @@ void Config::PostLoadCleanup() {
 
 	// Remove a legacy value.
 	if (g_Config.sCustomDriver == "Default") {
-		g_Config.sCustomDriver = "";
+		g_Config.sCustomDriver.clear();
 	}
 
 	// Squash unsupported screen rotations.

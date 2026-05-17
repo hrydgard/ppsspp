@@ -194,7 +194,7 @@ void ImStructViewer::WatchForm::Clear() {
 	memset(name, 0, sizeof(name));
 	memset(expression, 0, sizeof(expression));
 	dynamic = false;
-	error = "";
+	error.clear();
 	typeFilter.Clear();
 	// Not clearing the actual selected type on purpose here, user will have to reselect one anyway and
 	// maybe there is a chance they will reuse the current one
@@ -213,7 +213,7 @@ void ImStructViewer::WatchForm::SetFrom(const std::unordered_map<std::string, Gh
 		snprintf(expression, sizeof(expression), "%s", watch.expression.c_str());
 	}
 	dynamic = !watch.expression.empty();
-	error = "";
+	error.clear();
 }
 
 static constexpr int COLUMN_NAME = 0;
