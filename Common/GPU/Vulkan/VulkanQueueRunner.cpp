@@ -1386,6 +1386,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 	VKRFramebuffer *src = step.copy.src;
 	VKRFramebuffer *dst = step.copy.dst;
+	_dbg_assert_(step.copy.src != step.copy.dst);
 
 	int layerCount = std::min(step.copy.src->numLayers, step.copy.dst->numLayers);
 	_dbg_assert_(step.copy.src->numLayers >= step.copy.dst->numLayers);
