@@ -237,7 +237,7 @@ void SimpleGLWindow::DrawChecker() {
 	const GLubyte indices[4] = {0,1,3,2};
 
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
+	ortho.setOrthoGL(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	if (vao_) {
 		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoords), nullptr, GL_DYNAMIC_DRAW);
@@ -429,7 +429,7 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	const float *texCoords = tflipped_ ? texCoordsFlipped : texCoordsNormal;
 
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
+	ortho.setOrthoGL(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	if (vao_) {
 		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoordsNormal), nullptr, GL_DYNAMIC_DRAW);

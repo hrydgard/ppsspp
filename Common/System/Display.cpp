@@ -138,7 +138,7 @@ Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordC
 		break;
 	case CoordConvention::OpenGL:
 	default:
-		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		ortho.setOrthoGL(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;
 	}
 	// Compensate for rotated display if needed.

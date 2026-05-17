@@ -153,7 +153,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		};
 
 		Lin::Matrix4x4 ortho;
-		ortho.setOrtho(-(float)gstate_c.curRTOffsetX, (primaryWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], primaryWindow->TexHeight() * scale[1], 0, -1, 1);
+		ortho.setOrthoGL(-(float)gstate_c.curRTOffsetX, (primaryWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], primaryWindow->TexHeight() * scale[1], 0, -1, 1);
 		glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 		if (previewVao != 0) {
 			glBindVertexArray(previewVao);
@@ -216,7 +216,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		}
 
 		Lin::Matrix4x4 ortho;
-		ortho.setOrtho(0.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, 0.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, -1.0f, 1.0f);
+		ortho.setOrthoGL(0.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, 0.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, -1.0f, 1.0f);
 		glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 		if (texPreviewVao != 0) {
 			glBindVertexArray(texPreviewVao);
