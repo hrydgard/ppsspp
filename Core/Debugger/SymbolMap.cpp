@@ -419,7 +419,7 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 
 	if (symmask & ST_DATA) {
 		dataAddress = GetDataStart(address);
-		
+
 		if (dataAddress != INVALID_ADDRESS) {
 			if (info != NULL) {
 				info->type = ST_DATA;
@@ -485,10 +485,13 @@ std::vector<SymbolEntry> SymbolMap::GetAllActiveSymbols(SymbolType symmask) {
 	if (symmask & ST_FUNCTION) {
 		std::lock_guard<std::recursive_mutex> guard(lock_);
 		for (auto it = activeFunctions.begin(); it != activeFunctions.end(); it++) {
+			const u32 address = it->first;
+			const FunctionEntry& funcEntry = it->second;
+
 			SymbolEntry entry;
-			entry.address = it->first;
-			entry.size = GetFunctionSize(entry.address);
-			const char* name = GetLabelName(entry.address);
+			entry.address = address;
+			entry.size = funcEntry.size;
+			const char* name = GetLabelName(address);
 			if (name)
 				entry.name = name;
 			result.push_back(entry);

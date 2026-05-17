@@ -584,7 +584,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 				delete[] cryptedData;
 				return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 			}
-		}	
+		}
 		delete[] cryptedData;
 	}
 
@@ -1121,6 +1121,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param) {
 	}
 	if (param->msData.IsValid())
 	{
+		auto& info = param->msData->info;
 		const SceUtilitySavedataMsDataInfo *msData = param->msData;
 		const std::string gameName(msData->gameName, strnlen(msData->gameName, sizeof(msData->gameName)));
 		const std::string saveName(msData->saveName, strnlen(msData->saveName, sizeof(msData->saveName)));
@@ -1129,29 +1130,29 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param) {
 		bool listingExists = false;
 		auto listing = pspFileSystem.GetDirListing(path, &listingExists);
 		if (listingExists) {
-			param->msData->info.usedClusters = 0;
+			info.usedClusters = 0;
 			for (auto &item : listing) {
-				param->msData->info.usedClusters += (item.size + (u32)MemoryStick_SectorSize() - 1) / (u32)MemoryStick_SectorSize();
+				info.usedClusters += (item.size + (u32)MemoryStick_SectorSize() - 1) / (u32)MemoryStick_SectorSize();
 			}
 
 			// The usedSpaceKB value is definitely based on clusters, not bytes or even KB.
 			// Fieldrunners expects 736 KB, even though the files add up to ~600 KB.
-			int total_size = param->msData->info.usedClusters * (u32)MemoryStick_SectorSize();
-			param->msData->info.usedSpaceKB = total_size / 0x400;
+			int total_size = info.usedClusters * (u32)MemoryStick_SectorSize();
+			info.usedSpaceKB = total_size / 0x400;
 			std::string spaceTxt = SavedataParam::GetSpaceText(total_size, true);
-			strncpy(param->msData->info.usedSpaceStr, spaceTxt.c_str(), sizeof(param->msData->info.usedSpaceStr));
+			strncpy(info.usedSpaceStr, spaceTxt.c_str(), sizeof(info.usedSpaceStr));
 
 			// TODO: What does this mean, then?  Seems to be the same.
-			param->msData->info.usedSpace32KB = param->msData->info.usedSpaceKB;
-			strncpy(param->msData->info.usedSpace32Str, spaceTxt.c_str(), sizeof(param->msData->info.usedSpace32Str));
+			info.usedSpace32KB = info.usedSpaceKB;
+			strncpy(info.usedSpace32Str, spaceTxt.c_str(), sizeof(info.usedSpace32Str));
 		}
 		else
 		{
-			param->msData->info.usedClusters = 0;
-			param->msData->info.usedSpaceKB = 0;
-			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));
-			param->msData->info.usedSpace32KB = 0;
-			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));
+			info.usedClusters = 0;
+			info.usedSpaceKB = 0;
+			strncpy(info.usedSpaceStr, "", sizeof(info.usedSpaceStr));
+			info.usedSpace32KB = 0;
+			strncpy(info.usedSpace32Str, "", sizeof(info.usedSpace32Str));
 			ret = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 		}
 		NotifyMemInfo(MemBlockFlags::WRITE, param->msData.ptr, sizeof(SceUtilitySavedataMsDataInfo), "SavedataGetSizes");
@@ -1553,7 +1554,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 		if (saveDataListCount > 0 && WouldHaveMultiSaveName(param)) {
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
-			
+
 			// get and stock file info for each file
 			int realCount = 0;
 
@@ -1569,7 +1570,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 					for (auto it = allSaves.begin(); it != allSaves.end(); ++it) {
 						if (it->name.compare(0, gameName.length(), gameName) == 0) {
 							std::string saveName = it->name.substr(gameName.length());
-							
+
 							if (IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;
 
@@ -1627,7 +1628,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 			saveNameListDataCount = realCount;
 		}
 	}
-	// Load info on only save 
+	// Load info on only save
 	if (!hasMultipleFileName) {
 		saveNameListData = 0;
 

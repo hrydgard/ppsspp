@@ -1034,12 +1034,13 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 	} else {
 		for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
 			u32 key = iter->first;
+			OpenFileEntry &entry = iter->second;
 			Do(p, key);
-			Do(p, iter->second.guestFilename);
-			Do(p, iter->second.access);
-			u32 position = (u32)iter->second.hFile.Seek(0, FILEMOVE_CURRENT);
+			Do(p, entry.guestFilename);
+			Do(p, entry.access);
+			u32 position = (u32)entry.hFile.Seek(0, FILEMOVE_CURRENT);
 			Do(p, position);
-			Do(p, iter->second.hFile.needsTrunc_);
+			Do(p, entry.hFile.needsTrunc_);
 		}
 	}
 }

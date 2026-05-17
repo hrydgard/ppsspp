@@ -266,7 +266,7 @@ int PSPSaveDialog::Init(int paramAddr) {
 			display = DS_NONE;
 			break;
 
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE: 
+		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
 			DEBUG_LOG(Log::sceUtility, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if (param.GetFilenameCount() == 0)
 				display = DS_DELETE_NODATA;
@@ -582,9 +582,10 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 		// TODO: Account for icon, etc., etc.
 		data_size = param.GetPspParam()->dataSize;
 	} else {
-		modif_time = param.GetFileInfo(currentSelectedSave).modif_time;
-		save_title = param.GetFileInfo(currentSelectedSave).saveTitle;
-		data_size = param.GetFileInfo(currentSelectedSave).size;
+		const SaveFileInfo &fileInfo = param.GetFileInfo(currentSelectedSave);
+		modif_time = fileInfo.modif_time;
+		save_title = fileInfo.saveTitle;
+		data_size = fileInfo.size;
 	}
 
 	char hour_time[32];
@@ -823,7 +824,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 		case DS_LOAD_LIST_CHOICE:
 			StartDraw();
-			
+
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
@@ -909,7 +910,7 @@ int PSPSaveDialog::Update(int animSpeed)
 				ioThread.join();
 			}
 			StartDraw();
-			
+
 			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
@@ -948,7 +949,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 		case DS_DELETE_LIST_CHOICE:
 			StartDraw();
-			
+
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
@@ -971,8 +972,8 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(di->T("DeleteConfirm", 
-						"This save data will be deleted.\nAre you sure you want to continue?"), 
+			DisplayMessage(di->T("DeleteConfirm",
+						"This save data will be deleted.\nAre you sure you want to continue?"),
 						true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
@@ -1033,7 +1034,7 @@ int PSPSaveDialog::Update(int animSpeed)
 				param.SetPspParam(param.GetPspParam());
 			}
 			StartDraw();
-			
+
 			DisplayMessage(di->T("Delete completed"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
@@ -1056,7 +1057,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		break;
 		case DS_DELETE_NODATA:
 			StartDraw();
-			
+
 			DisplayMessage(di->T("There is no data"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
@@ -1098,7 +1099,7 @@ int PSPSaveDialog::Update(int animSpeed)
 	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
 		Memory::Memcpy(requestAddr, &request, request.common.size, "SaveDialogParam");
 	param.ClearSFOCache();
-	
+
 	return 0;
 }
 

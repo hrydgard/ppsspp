@@ -124,7 +124,7 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 
 	// TODO: This should return error codes in some cases, like write failure.
 	// request.common.result must be updated for errors as well.
-	
+
 	if (readFiles < numFiles) {
 		if (currentInputFile != 0 && currentOutputFile != 0) {
 			// Continue copying, this will close once done automatically.
@@ -216,11 +216,13 @@ void PSPGamedataInstallDialog::WriteSfoFile() {
 		sfoFile.ReadSFO(sfoFileData);
 	}
 
+	const auto& sfoParam = param->sfoParam;
+
 	// Update based on the just-saved data.
-	sfoFile.SetValue("TITLE", param->sfoParam.title, 128);
-	sfoFile.SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
-	sfoFile.SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
-	sfoFile.SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
+	sfoFile.SetValue("TITLE", sfoParam.title, 128);
+	sfoFile.SetValue("SAVEDATA_TITLE", sfoParam.savedataTitle, 128);
+	sfoFile.SetValue("SAVEDATA_DETAIL", sfoParam.detail, 1024);
+	sfoFile.SetValue("PARENTAL_LEVEL", sfoParam.parentalLevel, 4);
 	// TODO: Verify category.
 	sfoFile.SetValue("CATEGORY", "MS", 4);
 	sfoFile.SetValue("SAVEDATA_DIRECTORY", std::string(param->gameName) + param->dataName, 64);
@@ -270,7 +272,7 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 	// We only should update progress[0] here as the max progress value is 100.
 	if (allFilesSize != 0)
 		progressValue = (int)((allReadSize * 100) / allFilesSize);
-	else 
+	else
 		progressValue = 100;
 
 	if (param->mode == PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS) {

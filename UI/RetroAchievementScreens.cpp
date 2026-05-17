@@ -636,8 +636,9 @@ static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view 
 	float availableWidth = maxWidth - iconSpace - 5.0f - 5.0f - 8.0f;
 
 	float titleWidth, titleHeight;
-	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, title, availableWidth, &titleWidth, &titleHeight, FLAG_ELLIPSIZE_TEXT);
-	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, description, availableWidth, w, h, FLAG_WRAP_TEXT);
+	const UI::Theme &theme = dc.GetTheme();
+	dc.MeasureTextRect(theme.uiFont, 1.0f, 1.0f, title, availableWidth, &titleWidth, &titleHeight, FLAG_ELLIPSIZE_TEXT);
+	dc.MeasureTextRect(theme.uiFontSmall, 1.0f, 1.0f, description, availableWidth, w, h, FLAG_WRAP_TEXT);
 	*h += 8.0f + titleHeight;
 	*w += 8.0f;
 }
@@ -679,13 +680,14 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 
 static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
-	UI::Drawable background = dc.GetTheme().itemStyle.background;
+	const UI::Theme &theme = dc.GetTheme();
+	UI::Drawable background = theme.itemStyle.background;
 	if (hasFocus) {
-		background = dc.GetTheme().itemFocusedStyle.background;
+		background = theme.itemFocusedStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(theme.itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -722,16 +724,17 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 
 static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
 	using namespace UI;
-	UI::Drawable background = dc.GetTheme().itemStyle.background;
+	const UI::Theme &theme = dc.GetTheme();
+	UI::Drawable background = theme.itemStyle.background;
 	if (hasFocus) {
-		background = dc.GetTheme().itemFocusedStyle.background;
+		background = theme.itemFocusedStyle.background;
 	}
 	if (isCurrentUser) {
-		background = dc.GetTheme().itemDownStyle.background;
+		background = theme.itemDownStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
-	uint32_t fgColor = alphaMul(dc.GetTheme().itemStyle.fgColor, alpha);
+	uint32_t fgColor = alphaMul(theme.itemStyle.fgColor, alpha);
 
 	float iconSize = 64.0f;
 	float numberSpace = 128.0f;

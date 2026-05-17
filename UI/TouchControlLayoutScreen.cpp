@@ -123,26 +123,27 @@ public:
 		int centerY = bounds_.centerY();
 
 		float spacing = spacing_ * baseActionButtonSpacing * layoutAreaScale;
+		DrawBuffer *draw = dc.Draw();
 		if (circleVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX + spacing, centerY, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(circleId_,  centerX + spacing, centerY, scale_, 0, color, false);
+			draw->DrawImageRotated(roundId_, centerX + spacing, centerY, scale_, 0, colorBg, false);
+			draw->DrawImageRotated(circleId_,  centerX + spacing, centerY, scale_, 0, color, false);
 		}
 
 		if (crossVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY + spacing, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(crossId_, centerX, centerY + spacing, scale_, 0, color, false);
+			draw->DrawImageRotated(roundId_, centerX, centerY + spacing, scale_, 0, colorBg, false);
+			draw->DrawImageRotated(crossId_, centerX, centerY + spacing, scale_, 0, color, false);
 		}
 
 		if (triangleVisible_) {
 			float y = centerY - spacing;
 			y -= 2.8f * scale_;
-			dc.Draw()->DrawImageRotated(roundId_, centerX, centerY - spacing, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(triangleId_, centerX, y, scale_, 0, color, false);
+			draw->DrawImageRotated(roundId_, centerX, centerY - spacing, scale_, 0, colorBg, false);
+			draw->DrawImageRotated(triangleId_, centerX, y, scale_, 0, color, false);
 		}
 
 		if (squareVisible_) {
-			dc.Draw()->DrawImageRotated(roundId_, centerX - spacing, centerY, scale_, 0, colorBg, false);
-			dc.Draw()->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
+			draw->DrawImageRotated(roundId_, centerX - spacing, centerY, scale_, 0, colorBg, false);
+			draw->DrawImageRotated(squareId_, centerX - spacing, centerY, scale_, 0, color, false);
 		}
 		scale_ = theScale_/layoutAreaScale;
 	};
@@ -253,6 +254,8 @@ public:
 
 		ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 
+		DrawBuffer *draw = dc.Draw();
+
 		for (int i = 0; i < 4; i++) {
 			float r = D_pad_Radius * spacing_ * layoutAreaScale;
 			float x = bounds_.centerX() + xoff[i] * r;
@@ -261,8 +264,8 @@ public:
 			float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
 			float angle = i * M_PI / 2;
 
-			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
-			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
+			draw->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
+			draw->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
 		scale_ = theScale_ / layoutAreaScale;
 	}
@@ -295,8 +298,9 @@ public:
 		const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 		const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
 
-		dc.Draw()->DrawImage(stickBg, bounds_.centerX(), bounds_.centerY(), scale_, colorBg, ALIGN_CENTER);
-		dc.Draw()->DrawImage(stickImage, bounds_.centerX(), bounds_.centerY(), scale_ * spacing_, colorBg, ALIGN_CENTER);
+		DrawBuffer *draw = dc.Draw();
+		draw->DrawImage(stickBg, bounds_.centerX(), bounds_.centerY(), scale_, colorBg, ALIGN_CENTER);
+		draw->DrawImage(stickImage, bounds_.centerX(), bounds_.centerY(), scale_ * spacing_, colorBg, ALIGN_CENTER);
 
 		scale_ = theScale_ / layoutAreaScale;
 	}
@@ -323,13 +327,14 @@ public:
 			float xOffset = bounds_.x;
 			float yOffset = bounds_.y;
 
-			dc.Draw()->Rect((x1+x2)/2 + xOffset - g_display.pixel_in_dps_x, y1 + yOffset, 3.0f * g_display.pixel_in_dps_x, y2-y1, col);
-			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - g_display.pixel_in_dps_y, x2-x1, 3.0f * g_display.pixel_in_dps_y, col);
+			DrawBuffer *draw = dc.Draw();
+			draw->Rect((x1+x2)/2 + xOffset - g_display.pixel_in_dps_x, y1 + yOffset, 3.0f * g_display.pixel_in_dps_x, y2-y1, col);
+			draw->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - g_display.pixel_in_dps_y, x2-x1, 3.0f * g_display.pixel_in_dps_y, col);
 
 			for (int x = x1 + (x1+x2)/2 % g_Config.iTouchSnapGridSize; x < x2; x += g_Config.iTouchSnapGridSize)
-				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
+				draw->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
 			for (int y = y1 + (y1+y2)/2 % g_Config.iTouchSnapGridSize; y < y2; y += g_Config.iTouchSnapGridSize)
-				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
+				draw->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
 
 			dc.Flush();
 			dc.Begin();

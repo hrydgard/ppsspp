@@ -549,13 +549,14 @@ enum class MultiPartResult {
 };
 
 static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, std::string boundary, const Path &uploadPath, ProgressTracker &progress) {
-	std::string firstBoundary = request.In()->ReadLine();
+	net::InputSink *input = request.In();
+	std::string firstBoundary = input->ReadLine();
 	if (firstBoundary != "--" + boundary) {
 		WARN_LOG(Log::HTTP, "Bad boundary: Expected --%s but got %s", boundary.c_str(), firstBoundary.c_str());
 		return MultiPartResult::RequestError;
 	}
 
-	std::string disposition = request.In()->ReadLine();
+	std::string disposition = input->ReadLine();
 
 	INFO_LOG(Log::HTTP, "Disposition: %s", disposition.c_str());
 	std::vector<std::string_view> parts;
@@ -593,8 +594,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		return MultiPartResult::RequestError;
 	}
 
-	std::string fileContentType = request.In()->ReadLine();
-	std::string secondBoundary = request.In()->ReadLine();
+	std::string fileContentType = input->ReadLine();
+	std::string secondBoundary = input->ReadLine();
 
 	Path destPath = uploadPath / filename;
 
@@ -625,7 +626,7 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 	char buffer[net::InputSink::BUFFER_SIZE];
 	while (true) {
 		bool terminatorFound = false;
-		size_t readBytes = request.In()->ReadBinaryUntilTerminator(buffer, sizeof(buffer), "\r\n--" + boundary, &terminatorFound);
+		size_t readBytes = input->ReadBinaryUntilTerminator(buffer, sizeof(buffer), "\r\n--" + boundary, &terminatorFound);
 		if (fp) {
 			if (fwrite(buffer, 1, readBytes, fp) != readBytes) {
 				ERROR_LOG(Log::HTTP, "Failed to write %d bytes to destination file '%s' - disk full?", (int)readBytes, destPath.ToVisualString().c_str());
@@ -655,14 +656,14 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 	// However if this is the last part, the boundary will have "--\r\n" after it, otherwise there will be a line break.
 	// So, let's read two more bytes, to see if it's "--" or "\r\n".
 	std::string ending(2, 'x');
-	request.In()->TakeExact(ending.data(), 2);
+	input->TakeExact(ending.data(), 2);
 
 	if (ending == "--") {
-		INFO_LOG(Log::HTTP, "Upload of '%s' complete, '--' encountered. %d bytes left in buffer.", filename.c_str(), (int)request.In()->ValidAmount());
+		INFO_LOG(Log::HTTP, "Upload of '%s' complete, '--' encountered. %d bytes left in buffer.", filename.c_str(), (int)input->ValidAmount());
 		// Read the final \r\n.
 		std::string finalCRLF;
 		finalCRLF.resize(2);
-		request.In()->TakeExact(finalCRLF.data(), 2);
+		input->TakeExact(finalCRLF.data(), 2);
 		if (finalCRLF != "\r\n") {
 			// Not a big deal, but log it.
 			WARN_LOG(Log::HTTP, "Expected final CRLF after ending '--', got '%02x %02x'", finalCRLF[0], finalCRLF[1]);

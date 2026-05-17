@@ -435,6 +435,7 @@ void Choice::ClickInternal() {
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	float totalW = 0.0f;
 	float totalH = 0.0f;
 	if (!text_.empty() && !hideTitle_) {
@@ -455,7 +456,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 			availWidth = layoutParams_->width;
 		float scale = dc.CalculateTextScale(text_, availWidth);
 		float textW = 0.0f, textH = 0.0f;
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(theme.uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 		textW += 4;  // We need a small fudge factor here, not sure why yet.
 		totalH = std::max(totalH, textH);
 		totalW += textW;
@@ -477,10 +478,11 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 }
 
 void Choice::Draw(UIContext &dc) {
-	Style style = dc.GetTheme().itemStyle;
-	if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
-	if (down_) style = dc.GetTheme().itemDownStyle;
-	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+	const Theme &theme = dc.GetTheme();
+	Style style = theme.itemStyle;
+	if (HasFocus()) style = theme.itemFocusedStyle;
+	if (down_) style = theme.itemDownStyle;
+	if (!IsEnabled()) style = theme.itemDisabledStyle;
 
 	DrawBG(dc, style);
 
@@ -491,7 +493,7 @@ void Choice::Draw(UIContext &dc) {
 			DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 		}
 	} else if (!text_.empty() && !hideTitle_) {
-		dc.SetFontStyle(dc.GetTheme().uiFont);
+		dc.SetFontStyle(theme.uiFont);
 
 		int paddingLeft = 12;
 		int paddingRight = 12;
@@ -552,14 +554,15 @@ InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutPara
 }
 
 void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	float w1, h1, w2, h2;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);
+	dc.MeasureText(theme.uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);
 
 	if (horiz.type == MeasureSpecType::AT_MOST) {
 		float availableWidth = horiz.size - w1 - 24;
-		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, rightText_, availableWidth, &w2, &h2, FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(theme.uiFont, 1.0f, 1.0f, rightText_, availableWidth, &w2, &h2, FLAG_WRAP_TEXT);
 	} else {
-		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, rightText_, &w2, &h2, 0);
+		dc.MeasureText(theme.uiFont, 1.0f, 1.0f, rightText_, &w2, &h2, 0);
 	}
 
 	// TODO: Make this more exact.
@@ -570,7 +573,8 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
-	UI::Style style = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().infoStyle;
+	const Theme &theme = dc.GetTheme();
+	UI::Style style = HasFocus() ? theme.itemFocusedStyle : theme.infoStyle;
 
 	dc.FillRect(style.background, bounds_);
 
@@ -578,9 +582,9 @@ void InfoItem::Draw(UIContext &dc) {
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
 
 	float leftWidth, leftHeight;
-	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, padBounds.w, &leftWidth, &leftHeight, ALIGN_VCENTER);
+	dc.MeasureTextRect(theme.uiFont, 1.0f, 1.0f, text_, padBounds.w, &leftWidth, &leftHeight, ALIGN_VCENTER);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
 
 	Bounds rightBounds(padBounds.x + leftWidth, padBounds.y, padBounds.w - leftWidth, padBounds.h);
@@ -599,22 +603,24 @@ ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 }
 
 void ItemHeader::Draw(UIContext &dc) {
-	dc.SetFontStyle(large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall);
+	const Theme &theme = dc.GetTheme();
+	dc.SetFontStyle(large_ ? theme.uiFont : theme.uiFontSmall);
 
-	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().headerStyle;
+	const UI::Style &style = popupStyle_ ? theme.popupStyle : theme.headerStyle;
 	dc.FillRect(style.background, bounds_);
 	dc.DrawText(text_, bounds_.x + 8, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
+	dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }
 
 void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	float availWidth = layoutParams_->width;
 	if (availWidth < 0) {
 		// If there's no size, let's grow as big as we want.
 		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
 	}
 	ApplyBoundBySpec(availWidth, horiz);
-	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.MeasureTextRect(theme.uiFontSmall, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 std::string ItemHeader::DescribeText() const {
@@ -629,19 +635,20 @@ CollapsibleHeader::CollapsibleHeader(bool *toggle, std::string_view text, Layout
 }
 
 void CollapsibleHeader::Draw(UIContext &dc) {
-	Style style = dc.GetTheme().collapsibleHeaderStyle;
-	if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
-	if (down_) style = dc.GetTheme().itemDownStyle;
-	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+	const Theme &theme = dc.GetTheme();
+	Style style = theme.collapsibleHeaderStyle;
+	if (HasFocus()) style = theme.itemFocusedStyle;
+	if (down_) style = theme.itemDownStyle;
+	if (!IsEnabled()) style = theme.itemDisabledStyle;
 
 	DrawBG(dc, style);
 
 	float xoff = 37.0f;
 
-	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
+	dc.SetFontStyle(theme.uiFontSmall);
 	dc.DrawText(text_, bounds_.x + 6 + xoff, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	if (underline_) {
-		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), style.fgColor);
+		dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), style.fgColor);
 	}
 	if (hasSubItems_) {
 		dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x + 20.0f, bounds_.y + 20.0f, 1.0f, *toggle_ ? -M_PI / 2 : M_PI, style.fgColor);
@@ -649,13 +656,14 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 }
 
 void CollapsibleHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	float availWidth = layoutParams_->width;
 	if (availWidth < 0) {
 		// If there's no size, let's grow as big as we want.
 		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
 	}
 	ApplyBoundBySpec(availWidth, horiz);
-	dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.MeasureTextRect(theme.uiFontSmall, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 void CollapsibleHeader::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -663,20 +671,21 @@ void CollapsibleHeader::GetContentDimensions(const UIContext &dc, float &w, floa
 }
 
 void BorderView::Draw(UIContext &dc) {
+	const Theme &theme = dc.GetTheme();
 	Color color = 0xFFFFFFFF;
 	if (style_ == BorderStyle::HEADER_FG)
-		color = dc.GetTheme().headerStyle.fgColor;
+		color = theme.headerStyle.fgColor;
 	else if (style_ == BorderStyle::ITEM_DOWN_BG)
-		color = dc.GetTheme().itemDownStyle.background.color;
+		color = theme.itemDownStyle.background.color;
 
 	if (borderFlags_ & BORDER_TOP)
-		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + size_, color);
+		dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + size_, color);
 	if (borderFlags_ & BORDER_LEFT)
-		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y, bounds_.x + size_, bounds_.y2(), color);
+		dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y, bounds_.x + size_, bounds_.y2(), color);
 	if (borderFlags_ & BORDER_BOTTOM)
-		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - size_, bounds_.x2(), bounds_.y2(), color);
+		dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y2() - size_, bounds_.x2(), bounds_.y2(), color);
 	if (borderFlags_ & BORDER_RIGHT)
-		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x2() - size_, bounds_.y, bounds_.x2(), bounds_.y2(), color);
+		dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x2() - size_, bounds_.y, bounds_.x2(), bounds_.y2(), color);
 }
 
 void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
@@ -695,11 +704,12 @@ void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 }
 
 void PopupHeader::Draw(UIContext &dc) {
+	const Theme &theme = dc.GetTheme();
 	const float paddingHorizontal = 12;
 	const float availableWidth = bounds_.w - paddingHorizontal * 2;
 
 	float tw, th;
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
 
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -715,11 +725,11 @@ void PopupHeader::Draw(UIContext &dc) {
 	}
 
 	// Header background
-	dc.FillRect(dc.GetTheme().popupTitleStyle.background, bounds_);
+	dc.FillRect(theme.popupTitleStyle.background, bounds_);
 	// Header title text
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), theme.popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	// Underline
-	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
+	dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), theme.popupTitleStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
@@ -750,26 +760,27 @@ void CheckBox::ClickInternal() {
 }
 
 void CheckBox::Draw(UIContext &dc) {
-	Style style = dc.GetTheme().itemStyle;
+	const Theme &theme = dc.GetTheme();
+	Style style = theme.itemStyle;
 	if (!IsEnabled()) {
-		style = dc.GetTheme().itemDisabledStyle;
+		style = theme.itemDisabledStyle;
 	}
-	ImageID image = Toggled() ? dc.GetTheme().checkOn : dc.GetTheme().checkOff;
+	ImageID image = Toggled() ? theme.checkOn : theme.checkOff;
 
 	// In image mode, light up instead of showing a checkbox.
 	if (imageID_.isValid()) {
 		image = imageID_;
 		if (Toggled()) {
 			if (HasFocus()) {
-				style = dc.GetTheme().itemDownStyle;
+				style = theme.itemDownStyle;
 			} else {
-				style = dc.GetTheme().itemFocusedStyle;
+				style = theme.itemFocusedStyle;
 			}
 		} else {
 			if (HasFocus()) {
-				style = dc.GetTheme().itemDownStyle;
+				style = theme.itemDownStyle;
 			} else {
-				style = dc.GetTheme().itemStyle;
+				style = theme.itemStyle;
 			}
 		}
 
@@ -779,14 +790,14 @@ void CheckBox::Draw(UIContext &dc) {
 
 	} else {
 		if (HasFocus()) {
-			style = dc.GetTheme().itemFocusedStyle;
+			style = theme.itemFocusedStyle;
 		}
 		if (down_) {
-			style = dc.GetTheme().itemDownStyle;
+			style = theme.itemDownStyle;
 		}
 	}
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 
 	DrawBG(dc, style);
 
@@ -815,7 +826,8 @@ std::string CheckBox::DescribeText() const {
 }
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	ImageID image = Toggled() ? dc.GetTheme().checkOn : dc.GetTheme().checkOff;
+	const Theme &theme = dc.GetTheme();
+	ImageID image = Toggled() ? theme.checkOn : theme.checkOff;
 	if (imageID_.isValid()) {
 		image = imageID_;
 	}
@@ -844,7 +856,7 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 		float scale = dc.CalculateTextScale(text_, availWidth);
 
 		float actualWidth, actualHeight;
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(theme.uiFont, scale, scale, text_, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		h = std::max(actualHeight, ITEM_HEIGHT);
 	} else {
 		h = std::max(imageH, ITEM_HEIGHT);
@@ -875,6 +887,7 @@ bool BitCheckBox::Toggled() const {
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	ImageID imageId;
 	if (imageFunc_) {
 		imageId = imageFunc_();
@@ -892,7 +905,7 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	if (!text_.empty() && !ignoreText_) {
 		float width = 0.0f;
 		float height = 0.0f;
-		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &width, &height);
+		dc.MeasureText(theme.uiFont, 1.0f, 1.0f, text_, &width, &height);
 
 		w += width;
 		if (imageId.isValid()) {
@@ -920,16 +933,17 @@ void Button::ClickInternal() {
 }
 
 void Button::Draw(UIContext &dc) {
-	Style style = dc.GetTheme().itemStyle;
+	const Theme &theme = dc.GetTheme();
+	Style style = theme.itemStyle;
 
-	if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
-	if (down_) style = dc.GetTheme().itemDownStyle;
-	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+	if (HasFocus()) style = theme.itemFocusedStyle;
+	if (down_) style = theme.itemDownStyle;
+	if (!IsEnabled()) style = theme.itemDisabledStyle;
 
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	DrawBG(dc, style);
 	float tw, th;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
+	dc.MeasureText(theme.uiFont, 1.0f, 1.0f, text_, &tw, &th);
 	tw *= scale_;
 	th *= scale_;
 
@@ -943,7 +957,7 @@ void Button::Draw(UIContext &dc) {
 	if (tw > bounds_.w || imageId.isValid()) {
 		dc.PushScissor(bounds_);
 	}
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 	dc.SetFontScale(scale_, scale_);
 	if (imageId.isValid() && (ignoreText_ || text_.empty())) {
 		dc.Draw()->DrawImage(imageId, bounds_.centerX(), bounds_.centerY(), scale_, style.fgColor, ALIGN_CENTER);
@@ -966,11 +980,12 @@ void Button::Draw(UIContext &dc) {
 }
 
 void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	w = 0.0f;
 	h = 0.0f;
 
 	if (!text_.empty()) {
-		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w, &h);
+		dc.MeasureText(theme.uiFont, 1.0f, 1.0f, text_, &w, &h);
 	}
 
 	// Add some internal padding to not look totally ugly
@@ -990,13 +1005,14 @@ void RadioButton::ClickInternal() {
 }
 
 void RadioButton::Draw(UIContext &dc) {
-	Style style = dc.GetTheme().itemStyle;
+	const Theme &theme = dc.GetTheme();
+	Style style = theme.itemStyle;
 
 	bool checked = *value_ == thisButtonValue_;
 
-	if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
-	if (down_) style = dc.GetTheme().itemDownStyle;
-	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+	if (HasFocus()) style = theme.itemFocusedStyle;
+	if (down_) style = theme.itemDownStyle;
+	if (!IsEnabled()) style = theme.itemDisabledStyle;
 
 	DrawBG(dc, style);
 
@@ -1010,13 +1026,13 @@ void RadioButton::Draw(UIContext &dc) {
 	dc.Begin();
 
 	float tw, th;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
+	dc.MeasureText(theme.uiFont, 1.0f, 1.0f, text_, &tw, &th);
 
 	if (tw > bounds_.w) {
 		dc.PushScissor(bounds_);
 	}
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 
 	if (!text_.empty()) {
 		float textX = bounds_.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
@@ -1055,36 +1071,40 @@ void ImageView::Draw(UIContext &dc) {
 const float bulletOffset = 25;
 
 void SimpleTextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	const Theme &theme = dc.GetTheme();
 	dc.MeasureText(*ComputeStyle(dc), 1.0f, 1.0f, text_, &w, &h, 0);
 }
 
 void SimpleTextView::Draw(UIContext &dc) {
-	uint32_t textColor = dc.GetTheme().itemStyle.fgColor;
+	const Theme &theme = dc.GetTheme();
+	uint32_t textColor = theme.itemStyle.fgColor;
 	dc.SetFontStyle(*ComputeStyle(dc));
 	dc.DrawText(text_, bounds_.x, bounds_.y, textColor, 0);
 }
 
 const FontStyle *SimpleTextView::ComputeStyle(const UIContext &dc) const {
+	const Theme &theme = dc.GetTheme();
 	if (small_) {
-		return &dc.GetTheme().uiFontSmall;
+		return &theme.uiFontSmall;
 	} else if (big_) {
-		return &dc.GetTheme().uiFontBig;
+		return &theme.uiFontBig;
 	} else {
-		return &dc.GetTheme().uiFont;
+		return &theme.uiFont;
 	}
 }
 
 const FontStyle *GetTextStyle(const UIContext &dc, TextSize size) {
-	const FontStyle *style = &dc.GetTheme().uiFont;
+	const Theme &theme = dc.GetTheme();
+	const FontStyle *style = &theme.uiFont;
 	switch (size) {
 	case TextSize::Tiny:
-		style = &dc.GetTheme().uiFontTiny;
+		style = &theme.uiFontTiny;
 		break;
 	case TextSize::Small:
-		style = &dc.GetTheme().uiFontSmall;
+		style = &theme.uiFontSmall;
 		break;
 	case TextSize::Big:
-		style = &dc.GetTheme().uiFontBig;
+		style = &theme.uiFontBig;
 		break;
 	default:
 		break;
@@ -1120,7 +1140,8 @@ TextView *TextView::SetWordWrap() {
 }
 
 void TextView::Draw(UIContext &dc) {
-	uint32_t textColor = hasTextColor_ ? textColor_ : (popupStyle_ ? dc.GetTheme().popupStyle.fgColor : dc.GetTheme().infoStyle.fgColor);
+	const Theme &theme = dc.GetTheme();
+	uint32_t textColor = hasTextColor_ ? textColor_ : (popupStyle_ ? theme.popupStyle.fgColor : theme.infoStyle.fgColor);
 	if (!(textColor & 0xFF000000))
 		return;
 
@@ -1138,7 +1159,7 @@ void TextView::Draw(UIContext &dc) {
 	}
 	// In case it's been made focusable.
 	if (HasFocus()) {
-		UI::Style style = dc.GetTheme().itemFocusedStyle;
+		UI::Style style = theme.itemFocusedStyle;
 		style.background.color &= 0x7fffffff;
 		dc.FillRect(style.background, bounds_);
 	}
@@ -1168,7 +1189,7 @@ void TextView::Draw(UIContext &dc) {
 	dc.DrawTextRect(text_, textBounds, textColor, textAlign_);
 	if (textSize_ != TextSize::Normal) {
 		// If we changed font style, reset it.
-		dc.SetFontStyle(dc.GetTheme().uiFont);
+		dc.SetFontStyle(theme.uiFont);
 	}
 	if (clip) {
 		dc.PopScissor();
@@ -1255,15 +1276,16 @@ void TextEdit::FocusChanged(int focusFlags) {
 }
 
 void TextEdit::Draw(UIContext &dc) {
+	const Theme &theme = dc.GetTheme();
 	Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 
 	// TODO: make background themeable?
 	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
 	dc.PushScissor(textBounds);
 	Bounds origTextBounds = textBounds;
-	uint32_t textColor = popupStyle_ ? dc.GetTheme().popupStyle.fgColor : dc.GetTheme().infoStyle.fgColor;
+	uint32_t textColor = popupStyle_ ? theme.popupStyle.fgColor : theme.infoStyle.fgColor;
 	float textX = textBounds.x;
 	float w, h;
 
@@ -1286,7 +1308,7 @@ void TextEdit::Draw(UIContext &dc) {
 	}
 
 	// Hack to find the caret position. Might want to find a better way...
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, caret_), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
+	dc.MeasureText(theme.uiFont, 1.0f, 1.0f, textToDisplay.substr(0, caret_), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
 	float caretX = w - scrollPos_;
 	if (caretX > origTextBounds.w) {
 		scrollPos_ += caretX - origTextBounds.w;
@@ -1300,7 +1322,7 @@ void TextEdit::Draw(UIContext &dc) {
 	if (selectAtX_ >= 0) {
 		caret_ = -1;
 		for (int i = 0; i <= text_.size(); ) {
-			dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, i), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
+			dc.MeasureText(theme.uiFont, 1.0f, 1.0f, textToDisplay.substr(0, i), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
 			float charX = w - scrollPos_;
 			if (charX >= selectAtX_ - 3) {
 				caret_ = i;
@@ -1325,7 +1347,8 @@ void TextEdit::Draw(UIContext &dc) {
 }
 
 void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, !text_.empty() ? text_ : "Wj", &w, &h, align_);
+	const Theme &theme = dc.GetTheme();
+	dc.MeasureText(theme.uiFont, 1.0f, 1.0f, !text_.empty() ? text_ : "Wj", &w, &h, align_);
 	w += padding_.horiz();
 	h += padding_.vert();
 }
@@ -1519,14 +1542,16 @@ void TextEdit::InsertAtCaret(const char *text) {
 }
 
 void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, "  100%  ", &w, &h);
+	const Theme &theme = dc.GetTheme();
+	dc.MeasureText(theme.uiFont, 1.0f, 1.0f, "  100%  ", &w, &h);
 }
 
 void ProgressBar::Draw(UIContext &dc) {
+	const Theme &theme = dc.GetTheme();
 	char temp[32];
 	snprintf(temp, sizeof(temp), "%d%%", (int)(progress_ * 100.0f));
-	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.Draw()->DrawImageCenterTexel(theme.whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
+	dc.SetFontStyle(theme.uiFont);
 	dc.DrawTextRect(temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
 }
 
@@ -1727,27 +1752,28 @@ void Slider::Clamp() {
 }
 
 void Slider::Draw(UIContext &dc) {
+	const Theme &theme = dc.GetTheme();
 	bool focus = HasFocus();
 	uint32_t sliderColor;
 
 	if (dragging_) {
-		sliderColor = popupStyle_ ? dc.GetTheme().popupSliderFocusedColor : dc.GetTheme().itemDownStyle.fgColor;
+		sliderColor = popupStyle_ ? theme.popupSliderFocusedColor : theme.itemDownStyle.fgColor;
 	} else if (focus) {
-		sliderColor = popupStyle_ ? dc.GetTheme().popupSliderFocusedColor : dc.GetTheme().itemFocusedStyle.fgColor;
+		sliderColor = popupStyle_ ? theme.popupSliderFocusedColor : theme.itemFocusedStyle.fgColor;
 	} else {
-		sliderColor = popupStyle_ ? dc.GetTheme().popupSliderColor : dc.GetTheme().itemStyle.fgColor;
+		sliderColor = popupStyle_ ? theme.popupSliderColor : theme.itemStyle.fgColor;
 	}
 
 	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
 	dc.FillRect(Drawable(sliderColor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
 	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, (bounds_.x + bounds_.w - paddingRight_ - knobX), 4));
-	dc.Draw()->DrawImage(dc.GetTheme().sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(theme.sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
 	char temp[64];
 	if (showPercent_)
 		snprintf(temp, sizeof(temp), "%d%%", *value_);
 	else
 		snprintf(temp, sizeof(temp), "%d", *value_);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 }
 
@@ -1887,24 +1913,25 @@ void SliderFloat::Clamp() {
 }
 
 void SliderFloat::Draw(UIContext &dc) {
+	const Theme &theme = dc.GetTheme();
 	bool focus = HasFocus();
 	uint32_t sliderColor;
 
 	if (down_) {
-		sliderColor = popupStyle_ ? dc.GetTheme().popupSliderFocusedColor : dc.GetTheme().itemDownStyle.fgColor;
+		sliderColor = popupStyle_ ? theme.popupSliderFocusedColor : theme.itemDownStyle.fgColor;
 	} else if (focus) {
-		sliderColor = popupStyle_ ? dc.GetTheme().popupSliderFocusedColor : dc.GetTheme().itemFocusedStyle.fgColor;
+		sliderColor = popupStyle_ ? theme.popupSliderFocusedColor : theme.itemFocusedStyle.fgColor;
 	} else {
-		sliderColor = popupStyle_ ? dc.GetTheme().popupSliderColor : dc.GetTheme().itemStyle.fgColor;
+		sliderColor = popupStyle_ ? theme.popupSliderColor : theme.itemStyle.fgColor;
 	}
 
 	float knobX = (*value_ - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
 	dc.FillRect(Drawable(sliderColor), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
 	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, (bounds_.x + bounds_.w - paddingRight_ - knobX), 4));
-	dc.Draw()->DrawImage(dc.GetTheme().sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(theme.sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%0.2f", *value_);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(theme.uiFont);
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER);
 }
 
@@ -1936,7 +1963,8 @@ void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 void Spacer::Draw(UIContext &dc) {
 	View::Draw(dc);
 	if (drawAsSeparator_) {
-		dc.FillRect(UI::Drawable(dc.GetTheme().itemDownStyle.background.color), bounds_);
+		const Theme &theme = dc.GetTheme();
+		dc.FillRect(UI::Drawable(theme.itemDownStyle.background.color), bounds_);
 	}
 }
 

@@ -844,6 +844,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		prim_type = (op >> 16) & 0x7;
 		count = op & 0xFFFF;
 	} else {
+		const auto& gstate = gpuDebug->GetGState();
 		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 		prim_type = primLookup[gstate.getPatchPrimitiveType()];
 		count_u = (op & 0x00FF) >> 0;
@@ -900,8 +901,9 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		indices = generatedInds;
 	}
 
+	const auto& gstate = gpuDebug->GetGState();
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertices, indices, count, gpuDebug->GetGState().isModeThrough());
+		ExpandRectangles(vertices, indices, count, gstate.isModeThrough());
 	}
 
 	// TODO: Probably there's a better way and place to do this.
@@ -929,10 +931,10 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		}
 	};
 
-	const float invTexWidth = 1.0f / gpuDebug->GetGState().getTextureWidth(0);
-	const float invTexHeight = 1.0f / gpuDebug->GetGState().getTextureHeight(0);
-	bool clampS = gpuDebug->GetGState().isTexCoordClampedS();
-	bool clampT = gpuDebug->GetGState().isTexCoordClampedT();
+	const float invTexWidth = 1.0f / gstate.getTextureWidth(0);
+	const float invTexHeight = 1.0f / gstate.getTextureHeight(0);
+	bool clampS = gstate.isTexCoordClampedS();
+	bool clampT = gstate.isTexCoordClampedT();
 	for (u16 i = minIndex; i <= maxIndex; ++i) {
 		vertices[i].u *= invTexWidth;
 		vertices[i].v *= invTexHeight;

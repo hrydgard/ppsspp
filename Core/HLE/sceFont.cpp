@@ -886,7 +886,7 @@ static void __LoadInternalFonts() {
 	}
 	if ((pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/zh_gb.pgf").exists) && (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/oldfont.prx").exists)) {
 		for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
-			const FontRegistryEntry &entry = fontRegistry[i];
+			const auto &entry = fontRegistry[i];
 			std::string fontFilename = gameFontPath + entry.fileName;
 			std::vector<u8> buffer;
 			if (pspFileSystem.ReadEntireFile(fontFilename, buffer) < 0) {
@@ -901,7 +901,7 @@ static void __LoadInternalFonts() {
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
-		const FontRegistryEntry &entry = fontRegistry[i];
+		const auto &entry = fontRegistry[i];
 		std::vector<u8> buffer;
 		bool bufferRead = false;
 
@@ -1349,20 +1349,21 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 		return hleLogDebug(Log::sceFont, 0);
 
 	u32 allocSize = charInfo->bitmapWidth * charInfo->bitmapHeight;
-	if (font->GetFontLib() && (charInfo->sfp26AdvanceH != 0 || charInfo->sfp26AdvanceV != 0)) {
-		if (font->GetFontLib()->GetCharInfoBitmapAddress() != 0) {
+	FontLib* fontLib = font->GetFontLib(); // Introduce local pointer
+	if (fontLib && (charInfo->sfp26AdvanceH != 0 || charInfo->sfp26AdvanceV != 0)) {
+		if (fontLib->GetCharInfoBitmapAddress() != 0) {
 			PostCharInfoFreeCallback *action = (PostCharInfoFreeCallback *)__KernelCreateAction(actionPostCharInfoFreeCallback);
-			action->SetFontLib(font->GetFontLib()->GetListID());
+			action->SetFontLib(fontLib->GetListID());
 			action->SetCharInfo(charInfo);
 
-			u32 args[2] = { font->GetFontLib()->userDataAddr(), font->GetFontLib()->GetCharInfoBitmapAddress() };
-			hleEnqueueCall(font->GetFontLib()->freeFuncAddr(), 2, args, action);
+			u32 args[2] = { fontLib->userDataAddr(), fontLib->GetCharInfoBitmapAddress() };
+			hleEnqueueCall(fontLib->freeFuncAddr(), 2, args, action);
 		} else {
 			PostCharInfoAllocCallback *action = (PostCharInfoAllocCallback *)__KernelCreateAction(actionPostCharInfoAllocCallback);
-			action->SetFontLib(font->GetFontLib()->GetListID());
+			action->SetFontLib(fontLib->GetListID());
 
-			u32 args[2] = { font->GetFontLib()->userDataAddr(), allocSize };
-			hleEnqueueCall(font->GetFontLib()->allocFuncAddr(), 2, args, action);
+			u32 args[2] = { fontLib->userDataAddr(), allocSize };
+			hleEnqueueCall(fontLib->allocFuncAddr(), 2, args, action);
 		}
 	}
 
