@@ -845,6 +845,9 @@
     <None Include="..\assets\shaders\defaultshaders.ini">
       <Filter>assets</Filter>
     </None>
+    <None Include="..\assets\cheats.json">
+      <Filter>assets</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

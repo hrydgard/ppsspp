@@ -18,27 +18,130 @@
 #include "ppsspp_config.h"
 #include "ext/xxhash.h"
 #include "Common/UI/UI.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Net/HTTPClient.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
-#include "Common/UI/PopupScreens.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-
+#undef new
+#ifdef SYSTEM_RAPIDJSON
+#include <rapidjson/document.h>
+#else
+#include "ext/rapidjson/include/rapidjson/document.h"
+#endif
+#include "Common/DbgNew.h"
 #include "UI/GameInfoCache.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/MiscViews.h"
 
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
+constexpr char g_cheatDBListUrl[] = "https://metadata.ppsspp.org/cheats.json";
+
 static Path GetGlobalCheatFilePath() {
 	return GetSysDirectory(DIRECTORY_CHEATS) / "cheat.db";
+}
+
+struct CheatDatabaseDownloadInfo {
+	std::string name;
+	std::string maintainer;
+	std::string url;
+};
+
+// Use rapidjson to parse the cheat database list.
+std::vector<CheatDatabaseDownloadInfo> ParseJson(std::string_view json) {
+	rapidjson::Document d;
+	d.Parse(json.data(), json.size());
+
+	std::vector<CheatDatabaseDownloadInfo> downloads;
+
+	if (d.HasParseError()) {
+		ERROR_LOG(Log::CwCheats, "Failed to parse cheat database list: %.*s", STR_VIEW(json));
+		return downloads;
+	}
+	if (!d.IsObject()) {
+		ERROR_LOG(Log::CwCheats, "1");
+		return downloads;
+	}
+	if (!d.HasMember("databases") || !d["databases"].IsArray()) {
+		ERROR_LOG(Log::CwCheats, "databases is not an array");
+		return downloads;
+	}
+
+	const auto& dbs = d["databases"];
+	for (auto& db : dbs.GetArray()) {
+		if (!db.IsObject())
+			continue;
+		CheatDatabaseDownloadInfo info;
+		if (!db.HasMember("name") || !db["name"].IsString())
+			continue;
+		info.name = db["name"].GetString();
+		if (!db.HasMember("maintainer") || !db["maintainer"].IsString())
+			continue;
+		info.maintainer = db["maintainer"].GetString();
+		if (!db.HasMember("url") || !db["url"].IsString())
+			continue;
+		info.url = db["url"].GetString();
+		downloads.push_back(info);
+	}
+	return downloads;
+}
+
+class CwCheatDownloadPopupScreen : public UI::PopupScreen {
+public:
+	CwCheatDownloadPopupScreen();
+
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	void update() override;
+
+	const char *tag() const override { return "CwCheatDownloadScreen"; }
+
+	const std::string &ChosenUrl() const { return chosenUrl_; }
+
+private:
+	std::shared_ptr<http::Request> cheatsRequest_;
+	std::string chosenUrl_;
+	std::vector<CheatDatabaseDownloadInfo> cheatDbs_;
+};
+
+CwCheatDownloadPopupScreen::CwCheatDownloadPopupScreen() : PopupScreen(T(I18NCat::DIALOG, "Back")) {
+	cheatsRequest_ = g_DownloadManager.StartDownload(g_cheatDBListUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "cheatdblist");
+}
+
+void CwCheatDownloadPopupScreen::update() {
+	UI::PopupScreen::update();
+	if (cheatsRequest_ && cheatsRequest_->Done()) {
+		std::string data;
+		cheatsRequest_->buffer().TakeAll(&data);
+		cheatDbs_ = ParseJson(data);
+		cheatsRequest_.reset();
+		RecreateViews();
+	}
+}
+
+void CwCheatDownloadPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+
+	if (File::Exists(GetGlobalCheatFilePath())) {
+		parent->Add(new NoticeView(NoticeLevel::WARN, cw->T("A cheat database already exists. Downloading a new one will overwrite it."), ""));
+	}
+
+	for (auto &db : cheatDbs_) {
+		parent->Add(new Choice(db.name + " - " + db.maintainer, ImageID("I_DOWNLOAD")))->OnClick.Add([this, url = db.url](UI::EventParams &) {
+			INFO_LOG(Log::CwCheats, "Chosen cheat database URL: %s", url.c_str());
+			chosenUrl_ = url;
+			TriggerFinish(DialogResult::DR_OK);
+		});
+	}
 }
 
 CwCheatScreen::CwCheatScreen(const Path &gamePath)
@@ -61,8 +164,7 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 		return false;
 	}
 	gameID = info->GetParamSFO().GetValueString("DISC_ID");
-	if ((info->id.empty() || !info->disc_total)
-		&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
+	if ((info->id.empty() || !info->disc_total)	&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
 		gameID = g_paramSFO.GenerateFakeID(gamePath_);
 	}
 
@@ -100,6 +202,19 @@ bool CwCheatScreen::key(const KeyInput &input) {
 	return UITwoPaneBaseDialogScreen::key(input);
 }
 
+void CwCheatScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (auto downloadScreen = dynamic_cast<const CwCheatDownloadPopupScreen *>(dialog)) {
+		if (downloadRequest_) {
+			ERROR_LOG(Log::CwCheats, "Download already in progress, ignoring new download request.");
+			return;
+		}
+		INFO_LOG(Log::CwCheats, "Starting download of cheat database from %s", downloadScreen->ChosenUrl().c_str());
+		downloadRequest_ = g_DownloadManager.StartDownload(downloadScreen->ChosenUrl(), GetGlobalCheatFilePath(), http::RequestFlags::ProgressBar, nullptr, "cheatdbdownload");
+	} else {
+		UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
+	}
+}
+
 void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	using namespace UI;
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
@@ -108,6 +223,10 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new ItemHeader(cw->T("Import Cheats")));
+
+	leftColumn->Add(new Choice(cw->T("Download cheat database")))->OnClick.Add([this](UI::EventParams &) {
+		screenManager()->push(new CwCheatDownloadPopupScreen());
+	});
 
 	Path cheatPath = GetGlobalCheatFilePath();
 
@@ -222,6 +341,16 @@ void CwCheatScreen::update() {
 		fileCheckCounter_ = 0;
 	}
 
+	if (downloadRequest_ && downloadRequest_->Done()) {
+		if (!downloadRequest_->Failed()) {
+			INFO_LOG(Log::CwCheats, "Cheat database downloaded successfully to %s.", GetGlobalCheatFilePath().ToVisualString().c_str());
+			RecreateViews();
+		} else {
+			ERROR_LOG(Log::CwCheats, "Failed to download cheat database");
+		}
+		downloadRequest_.reset();
+	}
+
 	UIBaseDialogScreen::update();
 }
 
@@ -313,7 +442,7 @@ void CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
 			return;
 		}
 		Path path(value);
-		INFO_LOG(Log::System, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
+		INFO_LOG(Log::CwCheats, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
 		int cheatsFound = 0;
 		ImportAndReport(path);
 	});
@@ -327,12 +456,12 @@ void CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 bool CwCheatScreen::ImportCheats(const Path &cheatFile, int *cheatsFound) {
 	FILE *in = File::OpenCFile(cheatFile, "rt");
 	if (!in) {
-		WARN_LOG(Log::Common, "Unable to open %s\n", cheatFile.c_str());
+		WARN_LOG(Log::CwCheats, "Unable to open %s\n", cheatFile.c_str());
 		return false;
 	}
 
 	if (gameID_.length() != 9 || !engine_) {
-		WARN_LOG(Log::Common, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
+		WARN_LOG(Log::CwCheats, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
 		return false;
 	}
 

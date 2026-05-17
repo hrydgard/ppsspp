@@ -34,9 +34,6 @@ public:
 		level_ = level;
 		text_ = text;
 	}
-	void SetSquishy(bool squishy) {
-		squishy_ = squishy;
-	}
 	void SetWrapText(bool wrapText) {
 		wrapText_ = wrapText;
 	}
@@ -53,8 +50,7 @@ private:
 	std::string iconName_;
 	NoticeLevel level_;
 	mutable float height1_ = 0.0f;
-	bool squishy_ = false;
-	bool wrapText_ = false;
+	bool wrapText_ = true;
 };
 
 ImageID GetOSDIcon(NoticeLevel level);

@@ -57,6 +57,7 @@ enum class Log {
 	GeDebugger,
 	UI,
 	IAP,
+	CwCheats,
 
 	sceAudio,
 	sceCtrl,

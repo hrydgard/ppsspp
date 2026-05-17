@@ -816,6 +816,7 @@ void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *s
 
 PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *value, std::string_view title, std::string_view placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen), token_(token), restriction_(StringRestriction::None) {
+	_dbg_assert_(value);
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 

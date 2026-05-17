@@ -439,10 +439,6 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 	ApplyBoundBySpec(layoutWidth, horiz);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
 	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_);
-	// Layout hack! Some weird problems with the layout that I can't figure out right now..
-	if (squishy_) {
-		w = 50.0;
-	}
 }
 
 void NoticeView::Draw(UIContext &dc) {
