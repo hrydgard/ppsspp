@@ -54,7 +54,7 @@ void SDLJoystick::setUpControllers() {
 
 void SDLJoystick::setUpController(int deviceIndex) {
 	static constexpr int cbGUID = 33;
-	char pszGUID[cbGUID];
+	char pszGUID[cbGUID]{};
 
 	if (!SDL_IsGameController(deviceIndex)) {
 		WARN_LOG(Log::System, "Control pad device %d not supported by SDL game controller database, attempting to create default mapping...", deviceIndex);

@@ -1570,7 +1570,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 	}
 
 	const u32 new_color = v1.color0;
-	u16 new_color16;
+	u16 new_color16 = 0;
 	switch (pixelID.FBFormat()) {
 	case GE_FORMAT_565:
 		new_color16 = RGBA8888ToRGB565(new_color);

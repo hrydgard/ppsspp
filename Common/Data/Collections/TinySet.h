@@ -43,7 +43,7 @@ struct TinySet {
 		}
 
 		// The slow lookup is also slow at adding.
-		T t;
+		T t{};
 		slowLookup_->push_back(t);
 		return *slowLookup_->back();
 	}

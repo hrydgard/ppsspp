@@ -1623,7 +1623,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Mac / Linux
-	char path[2048];
+	char path[2048]{};
 #if PPSSPP_PLATFORM(SWITCH)
 	strcpy(path, "/switch/ppsspp/");
 #else
