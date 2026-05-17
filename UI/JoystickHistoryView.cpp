@@ -1,10 +1,13 @@
 #include <algorithm>
+#include <cmath>
 
 #include "UI/JoystickHistoryView.h"
 
+#include "Common/Math/math_util.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UI.h"
 
+#include "Core/Config.h"
 #include "Core/ControlMapper.h"
 
 void JoystickHistoryView::Draw(UIContext &dc) {
@@ -20,6 +23,22 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	dc.Flush();
 	dc.BeginNoTex();
 	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
+
+	// Draw cross-shaped deadzone strip outlines on the raw input view (untextured geometry).
+	if (type_ == StickHistoryViewType::INPUT) {
+		float cx = bounds_.centerX();
+		float cy = bounds_.centerY();
+
+		// Cross-shaped (axial) deadzone strips.
+		if (g_Config.iAnalogDeadzoneShape == 2 && g_Config.fAnalogAxialDeadzone > 0.0f) {
+			float axialW = g_Config.fAnalogAxialDeadzone * minRadius;
+			// Vertical strip (X axis deadzone — zeroes X when |x| < threshold).
+			dc.Draw()->RectOutline(cx - axialW, cy - minRadius, axialW * 2.0f, minRadius * 2.0f, 0x604488FF);
+			// Horizontal strip (Y axis deadzone — zeroes Y when |y| < threshold).
+			dc.Draw()->RectOutline(cx - minRadius, cy - axialW, minRadius * 2.0f, axialW * 2.0f, 0x604488FF);
+		}
+	}
+
 	dc.Flush();
 	dc.Begin();
 
@@ -73,6 +92,44 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 		}
 	}
 
+
+	// Draw circular deadzone overlays on the raw input view (on top of the grid, textured context).
+	if (type_ == StickHistoryViewType::INPUT) {
+		float cx = bounds_.centerX();
+		float cy = bounds_.centerY();
+
+		// Inner deadzone circle.
+		float innerDZ = g_Config.fAnalogDeadzone;
+		if (innerDZ > 0.0f) {
+			float innerR = innerDZ * minRadius;
+			const int segments = 32;
+			for (int i = 0; i < segments; i++) {
+				float a1 = (float)i / (float)segments * 2.0f * (float)M_PI;
+				float a2 = (float)(i + 1) / (float)segments * 2.0f * (float)M_PI;
+				float x1 = cx + cosf(a1) * innerR;
+				float y1 = cy + sinf(a1) * innerR;
+				float x2 = cx + cosf(a2) * innerR;
+				float y2 = cy + sinf(a2) * innerR;
+				dc.Draw()->Line(dc.GetTheme().whiteImage, x1, y1, x2, y2, 1.5f, 0x60FF6666);
+			}
+		}
+
+		// Outer deadzone ring.
+		float outerDZ = g_Config.fAnalogOuterDeadzone;
+		if (outerDZ > 0.0f) {
+			float outerR = (1.0f - outerDZ) * minRadius;
+			const int segments = 32;
+			for (int i = 0; i < segments; i++) {
+				float a1 = (float)i / (float)segments * 2.0f * (float)M_PI;
+				float a2 = (float)(i + 1) / (float)segments * 2.0f * (float)M_PI;
+				float x1 = cx + cosf(a1) * outerR;
+				float y1 = cy + sinf(a1) * outerR;
+				float x2 = cx + cosf(a2) * outerR;
+				float y2 = cy + sinf(a2) * outerR;
+				dc.Draw()->Line(dc.GetTheme().whiteImage, x1, y1, x2, y2, 1.5f, 0x6066FF66);
+			}
+		}
+	}
 
 	int a = maxCount_ - (int)locations_.size();
 	for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {

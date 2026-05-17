@@ -1023,6 +1023,14 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogIsCircular", SETTING(g_Config, bAnalogIsCircular), false, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogAutoRotSpeed", SETTING(g_Config, fAnalogAutoRotSpeed), 8.0f, CfgFlag::PER_GAME),
 
+	// Advanced analog deadzone settings.
+	ConfigSetting("AnalogDeadzoneShape", SETTING(g_Config, iAnalogDeadzoneShape), 1, CfgFlag::PER_GAME),  // Default 1 (Square) matches legacy max-norm behavior
+	ConfigSetting("AnalogAxialDeadzone", SETTING(g_Config, fAnalogAxialDeadzone), 0.0f, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogOuterDeadzone", SETTING(g_Config, fAnalogOuterDeadzone), 0.0f, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogOutputAntiDeadzone", SETTING(g_Config, fAnalogOutputAntiDeadzone), 0.0f, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogOutputAntiDeadzoneBuffer", SETTING(g_Config, fAnalogOutputAntiDeadzoneBuffer), 0.0f, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogResponseCurve", SETTING(g_Config, iAnalogResponseCurve), 0, CfgFlag::PER_GAME),
+
 	ConfigSetting("AnalogLimiterDeadzone", SETTING(g_Config, fAnalogLimiterDeadzone), 0.6f, CfgFlag::DEFAULT),
 	ConfigSetting("AnalogTriggerThreshold", SETTING(g_Config, fAnalogTriggerThreshold), 0.75f, CfgFlag::DEFAULT),
 	ConfigSetting("AnalogStickThreshold", SETTING(g_Config, fAnalogStickThreshold), 0.75f, CfgFlag::DEFAULT),
