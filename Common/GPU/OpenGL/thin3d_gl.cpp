@@ -1363,12 +1363,13 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
-	if (curPipeline_->dynamicUniforms.uniformBufferSize != size) {
+	const auto &dynamicUniforms = curPipeline_->dynamicUniforms;
+	if (dynamicUniforms.uniformBufferSize != size) {
 		Crash();
 	}
 
-	for (size_t i = 0; i < curPipeline_->dynamicUniforms.uniforms.size(); ++i) {
-		const auto &uniform = curPipeline_->dynamicUniforms.uniforms[i];
+	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
+		const auto &uniform = dynamicUniforms.uniforms[i];
 		const GLint &loc = curPipeline_->locs_->dynamicUniformLocs_[i];
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {

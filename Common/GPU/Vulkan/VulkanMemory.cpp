@@ -118,8 +118,9 @@ void VulkanPushPool::BeginFrame() {
 	// Still, let's keep around a few big ones (6 - 3).
 	if (blocks_.size() > 6 && blocks_.back().lastUsed < now - PUSH_GARBAGE_COLLECTION_DELAY) {
 		double start = time_now_d();
-		size_t size = blocks_.back().size;
-		blocks_.back().Destroy(vulkan_);
+		Block &last = blocks_.back();
+		size_t size = last.size;
+		last.Destroy(vulkan_);
 		blocks_.pop_back();
 		DEBUG_LOG(Log::G3D, "%s: Garbage collected block of size %s in %0.2f ms", name_, NiceSizeFormat(size).c_str(), time_now_d() - start);
 	}
@@ -149,9 +150,10 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 
 	// We're still here and ran off the end of blocks. Create a new one.
 	blocks_.push_back(CreateBlock(newBlockSize));
-	blocks_.back().frameIndex = curFrameIndex;
-	blocks_.back().used = allocationSize;
-	blocks_.back().lastUsed = time_now_d();
+	Block &newBlock = blocks_.back();
+	newBlock.frameIndex = curFrameIndex;
+	newBlock.used = allocationSize;
+	newBlock.lastUsed = time_now_d();
 	// curBlockIndex_ is already set correctly here.
 	DEBUG_LOG(Log::G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
 }
