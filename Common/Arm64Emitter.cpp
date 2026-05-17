@@ -1953,7 +1953,7 @@ static int Count(const bool part[4]) {
 void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 {
 	unsigned int parts = Is64Bit(Rd) ? 4 : 2;
-	bool upload_part[4];
+	bool upload_part[4]{};
 
 	// Always start with a movz! Kills the dependency on the register.
 	bool use_movz = true;
