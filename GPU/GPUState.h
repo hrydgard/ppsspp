@@ -481,7 +481,7 @@ enum {
 	GPU_USE_CULL_DISTANCE = FLAG_BIT(25),
 	GPU_USE_SHADER_BLENDING = FLAG_BIT(26),  // This is set to false when skip buffer effects is enabled and GPU_USE_FRAMEBUFFER_FETCH is not.
 	GPU_USE_NONBUFFERED_FLIP = FLAG_BIT(27),  // We use a flip hack to pretend the coordinate system is right-side-up, except if buffered rendering is off.
-
+	GPU_USE_PRE_ROTATION = FLAG_BIT(28),
 	// VR flags (reserved or in-use)
 	GPU_USE_VIRTUAL_REALITY = FLAG_BIT(29),
 	GPU_USE_SINGLE_PASS_STEREO = FLAG_BIT(30),

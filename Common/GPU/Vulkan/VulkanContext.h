@@ -441,6 +441,10 @@ public:
 		return winsys_;
 	}
 
+	bool SupportsPreRotation() const {
+		return surfCapabilities_.supportedTransforms != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	}
+
 private:
 	bool ChooseQueue();
 

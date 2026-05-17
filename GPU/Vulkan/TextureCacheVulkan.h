@@ -152,7 +152,6 @@ private:
 	Path cbufferPath_;
 	VulkanBuffer textureScaleCBuffer_;
 	bool cbufferInited_ = true;
-	bool cbufferFailed_ = false;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);

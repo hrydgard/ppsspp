@@ -504,10 +504,15 @@ void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
+
+	// TODO: This one belongs under its own header. And this is Vulkan "pre-rotation" really.
+	vulkanFeatures->Add(new InfoItem(gr->T("Display rotation"), StringFromFormat("%d°", (int)g_display.rotation * 90)));
+
 	std::vector<std::string> features = draw->GetFeatureList();
 	for (const auto &feature : features) {
 		vulkanFeatures->Add(new TextView(feature, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
