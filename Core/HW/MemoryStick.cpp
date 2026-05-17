@@ -108,7 +108,7 @@ static uint64_t ComputeSizeOfSavedataForGame(const Path &saveFolder, const std::
 	return space;
 }
 
-u64 MemoryStick_FreeSpace(std::string gameID) {
+u64 MemoryStick_FreeSpace(const std::string& gameID) {
 	double start = time_now_d();
 	INFO_LOG(Log::IO, "Calculating free disk space (%s)", gameID.c_str());
 

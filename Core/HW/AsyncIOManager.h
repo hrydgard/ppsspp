@@ -97,7 +97,7 @@ public:
 		return threadEnabled_;
 	}
 
-	void ScheduleEvent(AsyncIOEvent ev) {
+	void ScheduleEvent(const AsyncIOEvent& ev) {
 		if (threadEnabled_) {
 			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			events_.push_back(ev);

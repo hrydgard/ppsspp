@@ -95,7 +95,7 @@ inline void System_InputBoxGetString(RequesterToken token, std::string_view titl
 // images with the file browser below. If you provide savePath, iOS will be able to
 // convert from HEIC as needed and then save to that path. If this happens, the intParam will
 // be set to 1. Other backends will probably ignore it and set the intParam to 0.
-inline void System_BrowseForImage(RequesterToken token, std::string_view title, Path savePath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+inline void System_BrowseForImage(RequesterToken token, std::string_view title, const Path& savePath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, token, callback, failedCallback, title, savePath.ToString(), 0);
 }
 

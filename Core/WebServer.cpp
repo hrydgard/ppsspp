@@ -548,7 +548,7 @@ enum class MultiPartResult {
 	Done,
 };
 
-static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, std::string boundary, const Path &uploadPath, ProgressTracker &progress) {
+static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, const std::string& boundary, const Path &uploadPath, ProgressTracker &progress) {
 	std::string firstBoundary = request.In()->ReadLine();
 	if (firstBoundary != "--" + boundary) {
 		WARN_LOG(Log::HTTP, "Bad boundary: Expected --%s but got %s", boundary.c_str(), firstBoundary.c_str());

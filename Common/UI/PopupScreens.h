@@ -320,7 +320,7 @@ public:
 	void SetChoiceIcon(int c, ImageID id) {
 		icons_[c] = id;
 	}
-	void SetChoiceIcons(std::map<int, ImageID> icons) {
+	void SetChoiceIcons(const std::map<int, ImageID> &icons) {
 		icons_ = icons;
 	}
 	void SetDefault(int defaultChoice) {

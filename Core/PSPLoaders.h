@@ -31,4 +31,4 @@ bool MountGameISO(FileLoader *fileLoader, std::string *errorString);
 bool LoadParamSFOFromDisc();
 bool LoadParamSFOFromPBP(FileLoader *fileLoader);
 void InitMemorySizeForGame();
-void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, Path destPath, std::string title);
+void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, const Path& destPath, std::string title);

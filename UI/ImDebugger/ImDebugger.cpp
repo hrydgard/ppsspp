@@ -599,7 +599,7 @@ void DrawParamSFO(ImConfig &cfg, ImControl &control) {
 }
 
 // TODO: Add popup menu, export file, export dir, etc...
-static void RecurseFileSystem(IFileSystem *fs, std::string path, RequesterToken token) {
+static void RecurseFileSystem(IFileSystem *fs, const std::string& path, RequesterToken token) {
 	std::vector<PSPFileInfo> fileInfo = fs->GetDirListing(path);
 	for (auto &file : fileInfo) {
 		if (file.type == FileType::FILETYPE_DIRECTORY) {

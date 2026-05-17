@@ -55,5 +55,5 @@ void MemoryStick_SetState(MemStickState state);
 void MemoryStick_SetFatState(MemStickFatState state);
 
 u64 MemoryStick_SectorSize();
-u64 MemoryStick_FreeSpace(std::string gameID);
+u64 MemoryStick_FreeSpace(const std::string& gameID);
 void MemoryStick_NotifyWrite();

@@ -63,7 +63,7 @@ static void UseLargeMem(int memsize) {
 	}
 }
 
-void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, Path destPath, std::string title) {
+void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, const Path& destPath, std::string title) {
 	NPDRMDemoBlockDevice *npdrmDemoBD = dynamic_cast<NPDRMDemoBlockDevice *>(bd.get());
 	if (npdrmDemoBD) {
 		INFO_LOG(Log::System, "Dumping NPDRM demo ISO... (%s)", destPath.c_str());

@@ -88,7 +88,7 @@ struct MIPSTracer {
 	void stop_tracing();
 
 	void prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks);
-	void set_logging_path(std::string path) {
+	void set_logging_path(const std::string& path) {
 		logging_path = Path(path);
 	}
 	std::string get_logging_path() const {

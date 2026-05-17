@@ -269,7 +269,7 @@ static UI::View *CreateInfoItemWithButton(std::string_view text, ImageID buttonI
 	return line;
 }
 
-static UI::View *CreateLinkButton(std::string url, std::string_view title = "") {
+static UI::View *CreateLinkButton(const std::string& url, std::string_view title = "") {
 	using namespace UI;
 
 	// steal strings from all over the place
