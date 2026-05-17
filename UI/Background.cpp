@@ -83,7 +83,7 @@ public:
 		const uint32_t color = colorAlpha(0xFFFFFFFF, alpha * 0.2f);
 		const float speed = 1.0;
 
-		Bounds bounds = dc.GetBounds();
+		const Bounds &bounds = dc.GetBounds();
 		dc.Flush();
 		dc.BeginNoTex();
 
@@ -92,6 +92,7 @@ public:
 		float step = (float)g_display.dp_xres / (float)steps;
 		t *= speed;
 
+		DrawBuffer *drawer = dc.Draw();
 		for (int n = 0; n < steps; n++) {
 			float x = (float)n * step;
 			float nextX = (float)(n + 1) * step;
@@ -99,12 +100,12 @@ public:
 
 			float wave0 = sin(i * 0.005 + t * 0.8) * 0.05 + sin(i * 0.002 + t * 0.25) * 0.02 + sin(i * 0.001 + t * 0.3) * 0.03 + 0.625;
 			float wave1 = sin(i * 0.0044 + t * 0.4) * 0.07 + sin(i * 0.003 + t * 0.1) * 0.02 + sin(i * 0.001 + t * 0.3) * 0.01 + 0.625;
-			dc.Draw()->RectVGradient(x, wave0 * bounds.h, nextX, bounds.h, color, 0x00000000);
-			dc.Draw()->RectVGradient(x, wave1 * bounds.h, nextX, bounds.h, color, 0x00000000);
+			drawer->RectVGradient(x, wave0 * bounds.h, nextX, bounds.h, color, 0x00000000);
+			drawer->RectVGradient(x, wave1 * bounds.h, nextX, bounds.h, color, 0x00000000);
 
 			// Add some "antialiasing"
-			dc.Draw()->RectVGradient(x, wave0 * bounds.h - 3.0f * g_display.pixel_in_dps_y, nextX, wave0 * bounds.h, 0x00000000, color);
-			dc.Draw()->RectVGradient(x, wave1 * bounds.h - 3.0f * g_display.pixel_in_dps_y, nextX, wave1 * bounds.h, 0x00000000, color);
+			drawer->RectVGradient(x, wave0 * bounds.h - 3.0f * g_display.pixel_in_dps_y, nextX, wave0 * bounds.h, 0x00000000, color);
+			drawer->RectVGradient(x, wave1 * bounds.h - 3.0f * g_display.pixel_in_dps_y, nextX, wave1 * bounds.h, 0x00000000, color);
 		}
 
 		dc.Flush();
@@ -119,8 +120,9 @@ public:
 	}
 
 	void Draw(UIContext &dc, double t, float alpha, Lin::Vec3 focus) override {
-		float xres = dc.GetBounds().w;
-		float yres = dc.GetBounds().h;
+		const Bounds &bounds = dc.GetBounds();
+		float xres = bounds.w;
+		float yres = bounds.h;
 
 		dc.Flush();
 		dc.Begin();
@@ -129,8 +131,8 @@ public:
 		}
 
 		for (size_t i = 0; i < base.size(); i++) {
-			const float x = base[i].x + dc.GetBounds().x;
-			const float y = base[i].y + dc.GetBounds().y + 40 * cosf(i * 7.2f + t * 1.3f);
+			const float x = base[i].x + bounds.x;
+			const float y = base[i].y + bounds.y + 40 * cosf(i * 7.2f + t * 1.3f);
 			const float angle = sinf(i + t);
 			int n = i & 3;
 			Color color = is_colored ? colorAlpha(COLORS[n], alpha * 0.25f) : colorAlpha(DEFAULT_COLOR, alpha * 0.1f);
@@ -263,15 +265,16 @@ public:
 		dc.Begin();
 
 		// Handle change in resolution.
-		float xres = dc.GetBounds().w;
-		float yres = dc.GetBounds().h;
+		const Bounds &bounds = dc.GetBounds();
+		float xres = bounds.w;
+		float yres = bounds.h;
 		if (last_xres != xres || last_yres != yres) {
 			Recalculate(xres, yres);
 		}
 
 		// Draw the image.
-		float xpos = xbase + dc.GetBounds().x;
-		float ypos = ybase + dc.GetBounds().y;
+		float xpos = xbase + bounds.x;
+		float ypos = ybase + bounds.y;
 		ImageID icon = !color_ix && System_GetPropertyBool(SYSPROP_APP_GOLD) ? ImageID("I_ICON_GOLD") : ImageID("I_ICON");
 		ui_draw2d.DrawImage(icon, xpos, ypos, scale, COLORS[color_ix], ALIGN_CENTER);
 		dc.Flush();

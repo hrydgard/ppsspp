@@ -192,13 +192,14 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			// The PSP only cares about the first loop start and end, it seems.
 			// Most likely can skip the rest of this data, but it's not hurting anyone.
 			for (int i = 0; i < checkNumLoops && 36 + (u32)i < chunkSize; i++, loopinfoOffset += 24) {
-				track->loopinfo[i].cuePointID = Read32(buffer, loopinfoOffset + 0);
-				track->loopinfo[i].type = Read32(buffer, loopinfoOffset + 4);
-				track->loopinfo[i].startSample = Read32(buffer, loopinfoOffset + 8);
-				track->loopinfo[i].endSample = Read32(buffer, loopinfoOffset + 12);
-				track->loopinfo[i].fraction = Read32(buffer, loopinfoOffset + 16);
-				track->loopinfo[i].playCount = Read32(buffer, loopinfoOffset + 20);
-				if (i == 0 && track->loopinfo[i].startSample >= track->loopinfo[i].endSample) {
+				AtracLoopInfo &loop = track->loopinfo[i]; // Introduce reference
+				loop.cuePointID = Read32(buffer, loopinfoOffset + 0);
+				loop.type = Read32(buffer, loopinfoOffset + 4);
+				loop.startSample = Read32(buffer, loopinfoOffset + 8);
+				loop.endSample = Read32(buffer, loopinfoOffset + 12);
+				loop.fraction = Read32(buffer, loopinfoOffset + 16);
+				loop.playCount = Read32(buffer, loopinfoOffset + 20);
+				if (i == 0 && loop.startSample >= loop.endSample) {
 					*error = "AnalyzeTrack: loop starts after it ends";
 					return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 				}

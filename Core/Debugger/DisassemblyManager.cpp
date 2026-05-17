@@ -160,14 +160,16 @@ std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,Disa
 	if (it != entries.end())
 	{
 		// it may be an exact match
-		if (isInInterval(it->second->getLineAddress(0),it->second->getTotalSize(),address))
+		DisassemblyEntry* entry = it->second;
+		if (isInInterval(entry->getLineAddress(0),entry->getTotalSize(),address))
 			return it;
 
 		// otherwise it may point to the next
 		if (it != entries.begin())
 		{
 			it--;
-			if (isInInterval(it->second->getLineAddress(0),it->second->getTotalSize(),address))
+			entry = it->second;
+			if (isInInterval(entry->getLineAddress(0),entry->getTotalSize(),address))
 				return it;
 		}
 	}
@@ -276,7 +278,7 @@ std::vector<BranchLine> DisassemblyManager::getBranchLines(u32 start, u32 size)
 	auto it = findDisassemblyEntry(entries,start,false);
 	if (it != entries.end())
 	{
-		do 
+		do
 		{
 			it->second->getBranchLines(start,size,result);
 			it++;
@@ -328,7 +330,7 @@ u32 DisassemblyManager::getStartAddress(u32 address)
 		if (it == entries.end())
 			return address;
 	}
-	
+
 	DisassemblyEntry* entry = it->second;
 	int line = entry->getLineNum(address,true);
 	return entry->getLineAddress(line);
@@ -354,10 +356,10 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 			n -= oldLineNum+1;
 			it = findDisassemblyEntry(entries,address,false);
 		}
-	
+
 		analyze(address-127,128);
 	}
-	
+
 	return (address - n * 4) & ~3;
 }
 
@@ -546,7 +548,7 @@ void DisassemblyFunction::generateBranchLines()
 			lines.push_back(line);
 		}
 	}
-			
+
 	std::sort(lines.begin(),lines.end());
 	for (size_t i = 0; i < lines.size(); i++)
 	{
@@ -614,7 +616,7 @@ void DisassemblyFunction::load()
 			}
 		}
 	}
-	
+
 	DebugInterface *cpu = g_disassemblyManager.getCpu();
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
@@ -648,7 +650,7 @@ void DisassemblyFunction::load()
 			std::lock_guard<std::recursive_mutex> guard(lock_);
 			entries[funcPos] = comment;
 			lineAddresses.push_back(funcPos);
-			
+
 			funcPos = nextPos;
 			opcodeSequenceStart = funcPos;
 			continue;
@@ -699,7 +701,7 @@ void DisassemblyFunction::load()
 				case 0x29:	// sh
 				case 0x2B:	// sw
 					macro = new DisassemblyMacro(opAddress);
-					
+
 					int dataSize = MIPSGetMemoryAccessSize(next);
 					if (dataSize == 0) {
 						delete macro;
@@ -831,7 +833,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 	{
 	case MACRO_LI:
 		dest.name = name;
-		
+
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
 			snprintf(buffer, sizeof(buffer), "%s,%s", MIPSDebugInterface::GetRegName(0, rt).c_str(), addressSymbol.c_str());
@@ -840,7 +842,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 		}
 
 		dest.params = buffer;
-		
+
 		dest.info.hasRelevantAddress = true;
 		dest.info.relevantAddress = immediate;
 		break;
@@ -947,7 +949,7 @@ void DisassemblyData::createLines()
 	u32 pos = address;
 	const u32 end = address+size;
 	const u32 maxChars = g_disassemblyManager.getMaxParamChars();
-	
+
 	std::string currentLine;
 	u32 currentLineStart = pos;
 
@@ -968,7 +970,7 @@ void DisassemblyData::createLines()
 					DataEntry entry = {currentLine,pos-1-currentLineStart,lineCount++};
 					lines[currentLineStart] = entry;
 					lineAddresses.push_back(currentLineStart);
-					
+
 					currentLine.clear();
 					currentLineStart = pos-1;
 					inString = false;
@@ -989,11 +991,11 @@ void DisassemblyData::createLines()
 				{
 					if (inString == true)
 						currentLine += "\"";
-					
+
 					DataEntry entry = {currentLine,pos-1-currentLineStart,lineCount++};
 					lines[currentLineStart] = entry;
 					lineAddresses.push_back(currentLineStart);
-					
+
 					currentLine.clear();
 					currentLineStart = pos-1;
 					inString = false;

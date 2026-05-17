@@ -894,7 +894,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 				gpuStats.numReinterpretCopies++;
 			}
-			
+
 			if (pipeline) {
 				tookActions = true;
 				// OK we have the pipeline, now just do the blit.
@@ -987,10 +987,11 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		return;
 	}
 
-	bool useCopy = draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported);
-	bool useBlit = draw_->GetDeviceCaps().framebufferDepthBlitSupported;
+	const Draw::DeviceCaps& caps = draw_->GetDeviceCaps();
+	bool useCopy = caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported);
+	bool useBlit = caps.framebufferDepthBlitSupported;
 
-	bool useRaster = draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported && draw_->GetDeviceCaps().textureDepthSupported;
+	bool useRaster = caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported;
 
 	if (src->fbo->MultiSampleLevel() > 0 && dst->fbo->MultiSampleLevel() > 0) {
 		// If multisampling, we want to copy depth properly so we get all the samples, to avoid aliased edges.
@@ -3517,8 +3518,9 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	bool useBlit = channel == RASTER_COLOR ? draw_->GetDeviceCaps().framebufferBlitSupported : false;
-	bool useCopy = channel == RASTER_COLOR ? draw_->GetDeviceCaps().framebufferCopySupported : false;
+	const Draw::DeviceCaps& caps = draw_->GetDeviceCaps();
+	bool useBlit = channel == RASTER_COLOR ? caps.framebufferBlitSupported : false;
+	bool useCopy = channel == RASTER_COLOR ? caps.framebufferCopySupported : false;
 	if (src != dst && (dst == currentRenderVfb_ || dst->fbo->MultiSampleLevel() != 0 || src->fbo->MultiSampleLevel() != 0)) {
 		// If already bound, using either a blit or a copy is unlikely to be an optimization.
 		// So we're gonna use a raster draw instead. Also multisampling has problems with copies currently.
@@ -3565,7 +3567,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 		if (sameSize && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
-			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, 
+			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1,
 				channel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, tag);
 			return;
 		}

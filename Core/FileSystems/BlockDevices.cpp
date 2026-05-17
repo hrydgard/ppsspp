@@ -1062,11 +1062,12 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 
 	impl_->chd = file;
 	impl_->header = chd_get_header(impl_->chd);
+	const chd_header *header = impl_->header;
 
-	readBuffer = new u8[impl_->header->hunkbytes];
+	readBuffer = new u8[header->hunkbytes];
 	currentHunk = -1;
-	blocksPerHunk = impl_->header->hunkbytes / impl_->header->unitbytes;
-	numBlocks = impl_->header->unitcount;
+	blocksPerHunk = header->hunkbytes / header->unitbytes;
+	numBlocks = header->unitcount;
 
 	_dbg_assert_(errorString_.empty());
 }
@@ -1083,6 +1084,7 @@ bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 		ERROR_LOG(Log::Loader, "ReadBlock: CHD not open. %s", fileLoader_->GetPath().c_str());
 		return false;
 	}
+	const chd_header *header = impl_->header;
 	if ((u32)blockNumber >= numBlocks) {
 		memset(outPtr, 0, GetBlockSize());
 		return false;
@@ -1098,7 +1100,7 @@ bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 		}
 		currentHunk = hunk;
 	}
-	memcpy(outPtr, readBuffer + blockInHunk * impl_->header->unitbytes, GetBlockSize());
+	memcpy(outPtr, readBuffer + blockInHunk * header->unitbytes, GetBlockSize());
 	return true;
 }
 

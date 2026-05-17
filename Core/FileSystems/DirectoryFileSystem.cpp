@@ -1165,12 +1165,13 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
-		if(iter->second.seekPos + size > iter->second.size)
-			size = iter->second.size - iter->second.seekPos;
+		OpenFileEntry &entry = iter->second;
+		if(entry.seekPos + size > entry.size)
+			size = entry.size - entry.seekPos;
 		if(size < 0) size = 0;
 		size_t bytesRead = size;
-		memcpy(pointer, iter->second.fileData + iter->second.seekPos, size);
-		iter->second.seekPos += size;
+		memcpy(pointer, entry.fileData + entry.seekPos, size);
+		entry.seekPos += size;
 		return bytesRead;
 	} else {
 		ERROR_LOG(Log::FileSystem,"Cannot read file that hasn't been opened: %08x", handle);
@@ -1191,12 +1192,13 @@ size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &us
 size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
+		OpenFileEntry &entry = iter->second;
 		switch (type) {
-		case FILEMOVE_BEGIN:    iter->second.seekPos = position; break;
-		case FILEMOVE_CURRENT:  iter->second.seekPos += position;  break;
-		case FILEMOVE_END:      iter->second.seekPos = iter->second.size + position; break;
+		case FILEMOVE_BEGIN:    entry.seekPos = position; break;
+		case FILEMOVE_CURRENT:  entry.seekPos += position;  break;
+		case FILEMOVE_END:      entry.seekPos = entry.size + position; break;
 		}
-		return iter->second.seekPos;
+		return entry.seekPos;
 	} else {
 		//This shouldn't happen...
 		ERROR_LOG(Log::FileSystem,"Cannot seek in file that hasn't been opened: %08x", handle);

@@ -311,12 +311,13 @@ void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
 		uint32_t h = state.samplerID.cached.sizes[i].h;
 		auto it = pendingReads_.find(state.texaddr[i]);
 		if (it != pendingReads_.end()) {
+			BinDirtyRange& currentRange = it->second;
 			uint32_t total = byteStride * (h - 1) + byteWidth;
-			uint32_t existing = it->second.strideBytes * (it->second.height - 1) + it->second.widthBytes;
+			uint32_t existing = currentRange.strideBytes * (currentRange.height - 1) + currentRange.widthBytes;
 			if (existing < total) {
-				it->second.strideBytes = std::max(it->second.strideBytes, byteStride);
-				it->second.widthBytes = std::max(it->second.widthBytes, byteWidth);
-				it->second.height = std::max(it->second.height, h);
+				currentRange.strideBytes = std::max(currentRange.strideBytes, byteStride);
+				currentRange.widthBytes = std::max(currentRange.widthBytes, byteWidth);
+				currentRange.height = std::max(currentRange.height, h);
 			}
 		} else {
 			auto &range = pendingReads_[state.texaddr[i]];

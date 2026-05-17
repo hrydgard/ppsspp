@@ -44,13 +44,14 @@ static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->Flush();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(.7f, .7f);
+	DrawBuffer *draw = ctx->Draw();
+	draw->SetFontScale(.7f, .7f);
 
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	draw->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
 }
@@ -63,17 +64,18 @@ static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->Flush();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	DrawBuffer *draw = ctx->Draw();
+	draw->SetFontScale(0.5f, 0.5f);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
 	float left = std::max(bounds.w / 2 - 20.0f, 500.0f);
 
 	__SasGetDebugStats(statbuf, sizeof(statbuf));
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 21, bounds.y + 31, bounds.w - left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 20, bounds.y + 30, bounds.w - left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 21, bounds.y + 31, bounds.w - left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 20, bounds.y + 30, bounds.w - left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	draw->SetFontScale(1.0f, 1.0f);
 
 	ctx->Flush();
 	ctx->RebindTexture();
@@ -87,10 +89,11 @@ static void DrawControlDebug(UIContext *ctx, const ControlMapper &mapper, const 
 
 	ctx->Flush();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	DrawBuffer *draw = ctx->Draw();
+	draw->SetFontScale(0.5f, 0.5f);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
 }
@@ -105,24 +108,25 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->Flush();
 	ctx->BeginNoTex();
+	DrawBuffer *draw = ctx->Draw();
 	int bottom = bounds.y2();
 	for (int i = 0; i < valid; ++i) {
 		double activeTime = history[i] - sleepHistory[i];
-		ctx->Draw()->vLine(bounds.x + i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
-		ctx->Draw()->vLine(bounds.x + i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
+		draw->vLine(bounds.x + i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
+		draw->vLine(bounds.x + i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
 	}
-	ctx->Draw()->vLine(bounds.x + pos, bottom, bottom - 512, 0xFFff3F3f);
+	draw->vLine(bounds.x + pos, bottom, bottom - 512, 0xFFff3F3f);
 
-	ctx->Draw()->hLine(bounds.x, bottom - 0.0333 * scale, bounds.x + width, 0xFF3f3Fff);
-	ctx->Draw()->hLine(bounds.x, bottom - 0.0167 * scale, bounds.x + width, 0xFF3f3Fff);
+	draw->hLine(bounds.x, bottom - 0.0333 * scale, bounds.x + width, 0xFF3f3Fff);
+	draw->hLine(bounds.x, bottom - 0.0167 * scale, bounds.x + width, 0xFF3f3Fff);
 
 	ctx->Flush();
 	ctx->Begin();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawText(ubuntu24, "33.3ms", bounds.x + width, bottom - 0.0333 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(ubuntu24, "16.7ms", bounds.x + width, bottom - 0.0167 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	draw->SetFontScale(0.5f, 0.5f);
+	draw->DrawText(ubuntu24, "33.3ms", bounds.x + width, bottom - 0.0333 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	draw->DrawText(ubuntu24, "16.7ms", bounds.x + width, bottom - 0.0167 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	draw->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
 }
@@ -132,11 +136,12 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	char statBuf[1024]{};
 
-	Draw::DrawContext *draw = ctx->GetDrawContext();
+	Draw::DrawContext *drawCtx = ctx->GetDrawContext();
 
 	ctx->Flush();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.5f, 0.5f);
+	DrawBuffer *draw = ctx->Draw();
+	draw->SetFontScale(0.5f, 0.5f);
 
 	// NOTE: This is not necessarily the same as the actual present mode.
 	snprintf(statBuf, sizeof(statBuf),
@@ -144,9 +149,9 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 		"Actual presentation mode: %s",
 		Draw::PresentModeToString(g_frameTiming.PresentMode()),
 		g_frameTiming.FastForwardNeedsSkipFlip() ? "true" : "false",
-		Draw::PresentModeToString(draw->GetCurrentPresentMode()));
+		Draw::PresentModeToString(drawCtx->GetCurrentPresentMode()));
 
-	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
 	for (int i = 0; i < 5; i++) {
 		size_t curIndex = i + 6;
@@ -191,9 +196,9 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 				presentStats
 			);
 		}
-		ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10 + i * 150, bounds.y + 150, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		draw->DrawTextRect(ubuntu24, statBuf, bounds.x + 10 + i * 150, bounds.y + 150, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	}
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	draw->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
 }
@@ -206,14 +211,15 @@ void DrawFramebufferList(UIContext *ctx, GPUDebugInterface *gpu, const Bounds &b
 	auto list = gpu->GetFramebufferList();
 	ctx->Flush();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.7f, 0.7f);
+	DrawBuffer *draw = ctx->Draw();
+	draw->SetFontScale(0.7f, 0.7f);
 
 	int i = 0;
 	for (const VirtualFramebuffer *vfb : list) {
 		char buf[512];
 		snprintf(buf, sizeof(buf), "%08x (Z %08x): %dx%d (stride %d, %d)",
 			vfb->fb_address, vfb->z_address, vfb->width, vfb->height, vfb->fb_stride, vfb->z_stride);
-		ctx->Draw()->DrawTextRect(ubuntu24, buf, bounds.x + 10, bounds.y + 20 + i * 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		draw->DrawTextRect(ubuntu24, buf, bounds.x + 10, bounds.y + 20 + i * 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 		i++;
 	}
 	ctx->Flush();
@@ -290,10 +296,11 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	int y = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 
 	ctx->Flush();
-	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
+	DrawBuffer *draw = ctx->Draw();
+	if (draw->GetFontAtlas()->getFont(ubuntu24))
 		ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(1.1f, 1.1f);
-	ctx->Draw()->DrawTextShadow(ubuntu24, sy->T_cstr("Game crashed"), x, y, 0xFFFFFFFF);
+	draw->SetFontScale(1.1f, 1.1f);
+	draw->DrawTextShadow(ubuntu24, sy->T_cstr("Game crashed"), x, y, 0xFFFFFFFF);
 
 	char statbuf[4096];
 	char versionString[256];
@@ -366,8 +373,8 @@ sysName.c_str(), sysVersion, GetCompilerABI(),
 crcStr
 );
 
-	ctx->Draw()->SetFontScale(.7f, .7f);
-	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	draw->SetFontScale(.7f, .7f);
+	draw->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 160;
 
 	if (info.type == MIPSExceptionType::MEMORY) {
@@ -380,7 +387,7 @@ info.address,
 info.accessSize,
 info.pc,
 info.info.c_str());
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		draw->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	} else if (info.type == MIPSExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -391,34 +398,34 @@ ExecExceptionTypeAsString(info.exec_type),
 info.address,
 info.pc,
 info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		draw->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	} else if (info.type == MIPSExceptionType::BREAK) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK
 PC: %08x
 )", info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		draw->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Invalid / Unknown (%d)
 )", (int)info.type);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		draw->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
 	}
 
 	std::string kernelState = __KernelStateSummary();
 
-	ctx->Draw()->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+	draw->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
 
 	y += 40;
 
-	ctx->Draw()->SetFontScale(.5f, .5f);
+	draw->SetFontScale(.5f, .5f);
 
-	ctx->Draw()->DrawTextShadow(ubuntu24, info.stackTrace.c_str(), x, y, 0xFFFFFFFF);
+	draw->DrawTextShadow(ubuntu24, info.stackTrace.c_str(), x, y, 0xFFFFFFFF);
 
-	ctx->Draw()->SetFontScale(.7f, .7f);
+	draw->SetFontScale(.7f, .7f);
 
 	ctx->PopScissor();
 
@@ -460,9 +467,9 @@ Invalid / Unknown (%d)
 		GetLockedCPUSpeedMhz(),
 		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N", activeFlags.c_str(), tips.c_str());
 
-	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	draw->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	ctx->Flush();
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	draw->SetFontScale(1.0f, 1.0f);
 	ctx->RebindTexture();
 }
 
@@ -500,10 +507,11 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 #endif
 
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.7f, 0.7f);
-	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - offset, bounds.y + 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(ubuntu24, w.as_view(), bounds.x2() - offset - 2, bounds.y + 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	DrawBuffer *draw = ctx->Draw();
+	draw->SetFontScale(0.7f, 0.7f);
+	draw->DrawText(ubuntu24, w.as_view(), bounds.x2() - offset, bounds.y + 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw->DrawText(ubuntu24, w.as_view(), bounds.x2() - offset - 2, bounds.y + 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
 }

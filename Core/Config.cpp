@@ -2000,9 +2000,10 @@ void PlayTimeTracker::Start(std::string_view gameId) {
 
 	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
-		if (iter->second.startTime == 0.0) {
-			iter->second.lastTimePlayed = time_now_unix_utc();
-			iter->second.startTime = time_now_d();
+		PlayTime& playTime = iter->second;
+		if (playTime.startTime == 0.0) {
+			playTime.lastTimePlayed = time_now_unix_utc();
+			playTime.startTime = time_now_d();
 		}
 		return;
 	}
@@ -2023,11 +2024,12 @@ void PlayTimeTracker::Stop(std::string_view gameId) {
 
 	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
-		if (iter->second.startTime != 0.0) {
-			iter->second.totalTimePlayed += time_now_d() - iter->second.startTime;
-			iter->second.startTime = 0.0;
+		PlayTime& playTime = iter->second;
+		if (playTime.startTime != 0.0) {
+			playTime.totalTimePlayed += time_now_d() - playTime.startTime;
+			playTime.startTime = 0.0;
 		}
-		iter->second.lastTimePlayed = time_now_unix_utc();
+		playTime.lastTimePlayed = time_now_unix_utc();
 		return;
 	}
 
