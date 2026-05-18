@@ -352,7 +352,7 @@ namespace MainWindow {
 		DrawMenuBar(hWnd);
 	}
 
-	void BrowseAndBootDone(std::string filename);
+	void BrowseAndBootDone(std::string_view filename);
 
 	void BrowseAndBoot(RequesterToken token, std::string defaultPath, bool browseDirectory) {
 		bool browsePauseAfter = false;
@@ -366,28 +366,29 @@ namespace MainWindow {
 		W32Util::MakeTopMost(GetHWND(), false);
 
 		if (browseDirectory) {
-			System_BrowseForFolder(token, mm->T("Load"), Path(), [](const std::string &value, int) {
+			System_BrowseForFolder(token, mm->T("Load"), Path(), [](std::string_view value, int) {
 				BrowseAndBootDone(value);
 			});
 		} else {
-			System_BrowseForFile(token, mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			System_BrowseForFile(token, mm->T("Load"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 				BrowseAndBootDone(value);
 			});
 		}
 	}
 
-	void BrowseAndBootDone(std::string filename) {
+	void BrowseAndBootDone(std::string_view filename) {
 		if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
 			Core_Resume();
 		}
-		filename = ReplaceAll(filename, "\\", "/");
-		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename);
+		std::string fileStr(filename);
+		fileStr = ReplaceAll(fileStr, "\\", "/");
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, fileStr);
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
 	}
 
 	static void UmdSwitchAction(RequesterToken token) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});

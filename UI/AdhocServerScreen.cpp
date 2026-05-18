@@ -861,7 +861,7 @@ void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(requestToken, n->T("Ad hoc server address"), g_Config.sProAdhocServer, false, [](const std::string &enteredValue, int) {
+		System_InputBoxGetString(requestToken, n->T("Ad hoc server address"), g_Config.sProAdhocServer, false, [](std::string_view enteredValue, int) {
 			EditServerName(enteredValue);
 		});
 		return;

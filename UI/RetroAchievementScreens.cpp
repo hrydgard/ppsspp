@@ -384,7 +384,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([this](UI::EventParams &) -> void {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
-				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](const std::string &value, int) {
+				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](std::string_view value, int) {
 					std::vector<std::string> parts;
 					SplitString(value, '\n', parts);
 					if (parts.size() == 2 && !parts[0].empty() && !parts[1].empty()) {

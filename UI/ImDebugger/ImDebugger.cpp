@@ -618,7 +618,7 @@ static void RecurseFileSystem(IFileSystem *fs, std::string path, RequesterToken 
 					std::string fullPath = path + "/" + file.name;
 					int size = file.size;
 					// save dialog
-					System_BrowseForFileSave(token, "Save file", file.name, BrowseFileType::ANY, [fullPath, fs, size](const char *responseString, int) {
+					System_BrowseForFileSave(token, "Save file", file.name, BrowseFileType::ANY, [fullPath, fs, size](std::string_view responseString, int) {
 						int fd = fs->OpenFile(fullPath, FILEACCESS_READ);
 						if (fd >= 0) {
 							std::string data;
@@ -1343,7 +1343,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 
 					if (ctx->BufferState() == ATRAC_STATUS_ALL_DATA_LOADED) {
 						if (ImGui::Button("Save to disk...")) {
-							System_BrowseForFileSave(cfg.requesterToken, "Save AT3 file", "song.at3", BrowseFileType::ATRAC3, [=](const std::string &filename, int) {
+							System_BrowseForFileSave(cfg.requesterToken, "Save AT3 file", "song.at3", BrowseFileType::ATRAC3, [&info](std::string_view filename, int) {
 								if (!Memory::IsValidRange(info.buffer, info.bufferByte)) {
 									return;
 								}
@@ -2182,7 +2182,7 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 	ImGui::InputText("File", atracPath_, sizeof(atracPath_));
 	ImGui::SameLine();
 	if (ImGui::Button("Choose...")) {
-		System_BrowseForFile(cfg.requesterToken, "Choose AT3 file", BrowseFileType::ATRAC3, [this](const std::string &filename, int) {
+		System_BrowseForFile(cfg.requesterToken, "Choose AT3 file", BrowseFileType::ATRAC3, [this](std::string_view filename, int) {
 			truncate_cpy(atracPath_, filename);
 			Load();
 		}, nullptr);
@@ -2205,7 +2205,7 @@ void ImAtracToolWindow::Draw(ImConfig &cfg) {
 	if (data_.size()) {
 		if (ImGui::Button("Dump 64 raw frames")) {
 			std::string firstFrames = data_.substr(track_->dataByteOffset, track_->bytesPerFrame * 64);
-			System_BrowseForFileSave(cfg.requesterToken, "Save .at3raw", "at3.raw", BrowseFileType::ANY, [firstFrames](const std::string &filename, int) {
+			System_BrowseForFileSave(cfg.requesterToken, "Save .at3raw", "at3.raw", BrowseFileType::ANY, [firstFrames](std::string_view filename, int) {
 				FILE *f = File::OpenCFile(Path(filename), "wb");
 				if (f) {
 					fwrite(firstFrames.data(), 1, firstFrames.size(), f);
@@ -2412,7 +2412,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 			ImGui::Separator();
 
 			if (ImGui::MenuItem("Load .ppmap...")) {
-				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
+				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [this](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->LoadSymbolMap(path)) {
 						ERROR_LOG(Log::Common, "Failed to load symbol map");
@@ -2421,7 +2421,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				});
 			}
 			if (ImGui::MenuItem("Save .ppmap...")) {
-				System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](const char *responseString, int) {
+				System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->SaveSymbolMap(path)) {
 						ERROR_LOG(Log::Common, "Failed to save symbol map");
@@ -2429,7 +2429,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				});
 			}
 			if (ImGui::MenuItem("Load No$ .sym...")) {
-				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [&](const char *responseString, int) {
+				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [this](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->LoadNocashSym(path)) {
 						ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
@@ -2438,7 +2438,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 				});
 			}
 			if (ImGui::MenuItem("Save No$ .sym...")) {
-				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](const char *responseString, int) {
+				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->SaveNocashSym(path)) {
 						ERROR_LOG(Log::Common, "Failed to save No$ symbol map");

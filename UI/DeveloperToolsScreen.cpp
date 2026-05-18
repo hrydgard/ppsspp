@@ -758,8 +758,8 @@ void DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
 		dev->T("Select the log file"),
 		"trace.txt",
 		BrowseFileType::ANY,
-		[this](const std::string &value, int) {
-			mipsTracer.set_logging_path(value);
+		[this](std::string_view value, int) {
+			mipsTracer.set_logging_path(std::string(value));
 			MIPSTracerPath_ = value;
 			MIPSTracerPath->SetRightText(MIPSTracerPath_);
 		}

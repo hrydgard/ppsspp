@@ -883,7 +883,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 * Send chat or get that
 * @param std::string ChatString 
 */
-void sendChat(const std::string &chatString);
+void sendChat(std::string_view chatString);
 std::vector<std::string> getChatLog();
 int GetChatChangeID();
 int GetChatMessageCount();

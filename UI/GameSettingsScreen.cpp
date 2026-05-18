@@ -105,8 +105,8 @@ extern AndroidAudioState *g_audioState;
 void SetMemStickDirDarwin(int requesterToken) {
 	auto initialPath = g_Config.memStickDirectory;
 	INFO_LOG(Log::System, "Current path: %s", initialPath.c_str());
-	System_BrowseForFolder(requesterToken, "", initialPath, [](const std::string &value, int) {
-		INFO_LOG(Log::System, "Selected path: %s", value.c_str());
+	System_BrowseForFolder(requesterToken, "", initialPath, [](std::string_view value, int) {
+		INFO_LOG(Log::System, "Selected path: %.*s", STR_VIEW(value));
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
 	});
 }
@@ -1628,7 +1628,7 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	}
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [=](const std::string &value, int converted) {
+	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [this](std::string_view value, int converted) {
 		if (converted == 1) {
 			// The platform code converted and saved the file to the desired path already.
 			INFO_LOG(Log::UI, "Converted file.");
@@ -1656,14 +1656,14 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 			}
 
 			if (!filename.empty()) {
-				Path src(value);
 				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-				File::Copy(src, dest);
-				if (src.FilePathContainsNoCase("temp_import.jpg")) {
-					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(src).c_str());
-					File::Delete(src);
+				File::Copy(path, dest);
+				if (path.FilePathContainsNoCase("temp_import.jpg")) {
+					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(path).c_str());
+					File::Delete(path);
 				}
 			} else {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
 			}
 		}
