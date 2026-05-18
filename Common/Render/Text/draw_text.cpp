@@ -10,7 +10,6 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_win.h"
 #include "Common/Render/Text/draw_text_cocoa.h"
-#include "Common/Render/Text/draw_text_uwp.h"
 #include "Common/Render/Text/draw_text_qt.h"
 #include "Common/Render/Text/draw_text_android.h"
 #include "Common/Render/Text/draw_text_sdl.h"
@@ -273,10 +272,8 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
 #if defined(__LIBRETRO__)
 	// No text drawer
-#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#elif defined(_WIN32) && !defined(USING_QT_UI)
 	drawer = new TextDrawerWin32(draw);
-#elif PPSSPP_PLATFORM(UWP)
-	drawer = new TextDrawerUWP(draw);
 #elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	drawer = new TextDrawerCocoa(draw);
 #elif defined(USING_QT_UI)

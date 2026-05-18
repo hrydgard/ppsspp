@@ -92,6 +92,7 @@ void XAudioBackend::Stop() {
 	if (xaudioDevice) {
 		xaudioDevice->Release();
 		xaudioDevice = nullptr;
+		sourceVoice_ = nullptr;
 	}
 }
 

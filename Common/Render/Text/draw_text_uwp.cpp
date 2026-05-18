@@ -1,5 +1,4 @@
 #include "ppsspp_config.h"
-
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
@@ -12,7 +11,8 @@
 #include "Common/StringUtils.h"
 #include "Common/File/Path.h"
 
-#if PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !defined(USING_QT_UI)
+
 #include <string>
 
 #include <d3d11.h>
@@ -70,19 +70,42 @@ public:
 };
 
 struct TextDrawerContext {
-	ID2D1Bitmap1 *bitmap;
-	ID2D1Bitmap1 *mirror_bmp;
+	ID2D1Bitmap1 *bitmap = nullptr;
+	ID2D1Bitmap1 *mirror_bmp = nullptr;
 };
 
 TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {
 	HRESULT hr;
-	// It's fine to assume we are using D3D11 in UWP
-	ID3D11Device* d3ddevice = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 
-	IDXGIDevice* dxgiDevice;
+#if PPSSPP_PLATFORM(UWP)
+	// On UWP we can assume D3D11 and reuse the existing device.
+	ID3D11Device *d3ddevice = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	IDXGIDevice *dxgiDevice;
 	hr = d3ddevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
 	if (FAILED(hr)) _assert_msg_(false, "ID3DDevice QueryInterface IDXGIDevice failed");
-	
+#else
+	// On non-UWP Win32 the draw context may use any backend (Vulkan, GL, etc.), so create
+	// an independent WARP (software) D3D11 device solely for D2D/DirectWrite rendering.
+	ID3D11Device *d3ddevice = nullptr;
+	D3D_FEATURE_LEVEL featureLevel;
+	hr = D3D11CreateDevice(
+		nullptr,
+		D3D_DRIVER_TYPE_WARP,
+		nullptr,
+		D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+		nullptr, 0,
+		D3D11_SDK_VERSION,
+		&d3ddevice,
+		&featureLevel,
+		nullptr
+	);
+	if (FAILED(hr)) _assert_msg_(false, "D3D11CreateDevice (WARP) for text rendering failed");
+	IDXGIDevice *dxgiDevice;
+	hr = d3ddevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
+	d3ddevice->Release();
+	if (FAILED(hr)) _assert_msg_(false, "WARP D3D11Device QueryInterface IDXGIDevice failed");
+#endif
+
 	// Initialize the Direct2D Factory.
 	D2D1_FACTORY_OPTIONS options = {};
 	D2D1CreateFactory(
@@ -100,7 +123,6 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	);
 
 	// Create D2D Device and DeviceContext.
-	// TODO: We have one sitting right in DX::DeviceResource, there might be a way to use that instead.
 	hr = m_d2dFactory->CreateDevice(dxgiDevice, &m_d2dDevice);
 	dxgiDevice->Release();
 	if (FAILED(hr)) _assert_msg_(false, "D2D CreateDevice failed");
@@ -118,6 +140,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	if (FAILED(hr)) {
 		_assert_msg_(false, "D2D RegisterFontFileLoader failed");
 	}
+
 	// Load our fonts.
 	const std::vector<std::string> fontFilenames = GetAllFontFilenames();
 	for (const auto &fname : fontFilenames) {
@@ -174,7 +197,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	}
 
 	ctx_ = new TextDrawerContext();
-	
+
 	D2D1_BITMAP_PROPERTIES1 properties{};
 	properties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	properties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
@@ -192,8 +215,8 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 		&ctx_->bitmap
 	);
 	m_d2dContext->SetTarget(ctx_->bitmap);
-	
-	// Create mirror bitmap for mapping
+
+	// Create mirror bitmap for CPU readback
 	properties.bitmapOptions = D2D1_BITMAP_OPTIONS_CANNOT_DRAW | D2D1_BITMAP_OPTIONS_CPU_READ;
 	m_d2dContext->CreateBitmap(
 		D2D1::SizeU(MAX_TEXT_WIDTH, MAX_TEXT_HEIGHT),
@@ -240,7 +263,7 @@ void TextDrawerUWP::SetOrCreateFont(const FontStyle &style) {
 }
 
 void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	IDWriteTextFormat* format = nullptr;
+	IDWriteTextFormat *format = nullptr;
 	auto iter = fontMap_.find(fontStyle_);
 	if (iter != fontMap_.end()) {
 		format = iter->second->textFmt;
@@ -250,8 +273,8 @@ void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float 
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
 	format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-		
-	IDWriteTextLayout* layout = nullptr;
+
+	IDWriteTextLayout *layout = nullptr;
 	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
 		(int)wstr.size(),
@@ -342,7 +365,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	m_d2dContext->BeginDraw();
 	m_d2dContext->Clear();
-	m_d2dContext->DrawTextLayout(D2D1::Point2F(0.0f, 0.0f), layout, m_d2dWhiteBrush, texFormat == Draw::DataFormat::R8G8B8A8_UNORM ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE);
+	m_d2dContext->DrawTextLayout(D2D1::Point2F(0.0f, 0.0f), layout, m_d2dWhiteBrush, fullColor ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE);
 	m_d2dContext->EndDraw();
 
 	layout->Release();
@@ -357,8 +380,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
-	// because we need white. Well, we could using swizzle, but not all our backends support that.
+	// Convert the bitmap to a Thin3D compatible array of pixels.
 	if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM || texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint32_t));
 		bool swap = texFormat == Draw::DataFormat::R8G8B8A8_UNORM;
@@ -418,3 +440,4 @@ void TextDrawerUWP::ClearFonts() {
 }
 
 #endif
+
