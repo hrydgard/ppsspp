@@ -672,7 +672,7 @@ void SavedataScreen::CreateExtraButtons(UI::ViewGroup *verticalLayout, int margi
 void SavedataScreen::OnSearch(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		System_InputBoxGetString(GetRequesterToken(), di->T("Filter"), searchFilter_, false, [](const std::string &value, int ivalue) {
+		System_InputBoxGetString(GetRequesterToken(), di->T("Filter"), searchFilter_, false, [](std::string_view value, int ivalue) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});
 	}

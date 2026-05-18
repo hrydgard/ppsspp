@@ -437,7 +437,7 @@ void CwCheatScreen::ImportAndReport(const Path &cheatFile) {
 }
 
 void CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
-	System_BrowseForFile(GetRequesterToken(), "Open cheat DB file", BrowseFileType::DB, [&](const std::string &value, int) {
+	System_BrowseForFile(GetRequesterToken(), "Open cheat DB file", BrowseFileType::DB, [this](std::string_view value, int) {
 		if (value.empty()) {
 			return;
 		}

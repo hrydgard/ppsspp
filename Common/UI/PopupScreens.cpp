@@ -793,7 +793,7 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *sourceView, std::string_view title, std::function<void(const std::string &, bool)> callback) {
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token, title, "", false, [callback](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token, title, "", false, [callback](std::string_view enteredValue, int) {
 			callback(SanitizeString(StripSpaces(enteredValue), StringRestriction::None, 0, 0), true);
 		});
 		return;
@@ -825,7 +825,7 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [this](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [this](std::string_view enteredValue, int) {
 			*value_ = SanitizeString(StripSpaces(enteredValue), restriction_, minLen_, maxLen_);
 			EventParams params{};
 			params.v = this;
@@ -1120,7 +1120,7 @@ std::string ChoiceWithValueDisplay::ValueText(bool *shadow) const {
 FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, std::string_view text, BrowseFileType fileType, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFile(token, text_, fileType, [=](const std::string &returnValue, int) {
+		System_BrowseForFile(token, text_, fileType, [=](std::string_view returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};
@@ -1144,7 +1144,7 @@ std::string FileChooserChoice::ValueText(bool *shadow) const {
 FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *value, std::string_view text, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), token_(token) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFolder(token_, text_, Path(*value), [=](const std::string &returnValue, int) {
+		System_BrowseForFolder(token_, text_, Path(*value), [=](std::string_view returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};

@@ -62,7 +62,7 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 		buyButton->OnClick.Add([this, requesterToken](UI::EventParams &) {
 			INFO_LOG(Log::System, "Showing purchase UI...");
 			if (useIAP_) {
-				System_IAPMakePurchase(requesterToken, "org.ppsspp.gold", [this](const char *responseString, int intValue) {
+				System_IAPMakePurchase(requesterToken, "org.ppsspp.gold", [this](std::string_view responseString, int intValue) {
 					INFO_LOG(Log::System, "PPSSPP Gold purchase successful!");
 					auto di = GetI18NCategory(I18NCat::DIALOG);
 					g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("GoldThankYou", "Thank you for supporting the PPSSPP project!"), 3.0f);
@@ -90,7 +90,7 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 		restorePurchases->OnClick.Add([this, requesterToken, restorePurchases](UI::EventParams &) {
 			restorePurchases->SetEnabled(false);
 			INFO_LOG(Log::System, "Requesting purchase restore");
-			System_IAPRestorePurchases(requesterToken, [this](const char *responseString, int) {
+			System_IAPRestorePurchases(requesterToken, [this](std::string_view responseString, int) {
 				INFO_LOG(Log::System, "Successfully restored purchases!");
 				RecreateViews();
 			}, [](int responseValue) {

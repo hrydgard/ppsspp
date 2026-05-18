@@ -307,11 +307,11 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 	// The old way, from before scoped storage. Write in the full path.
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	System_InputBoxGetString(GetRequesterToken(), sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), false, [&](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), false, [this](std::string_view value, int) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		std::string newPath = value;
+		std::string newPath(value);
 		size_t pos = newPath.find_last_not_of('/');
 		// Gotta have at least something but a /, and also needs to start with a /.
 		if (newPath.empty() || pos == std::string::npos || newPath[0] != '/') {
@@ -417,8 +417,8 @@ void MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 
 void MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [this](const std::string &value, int) {
-		Path pendingMemStickFolder = Path(value);
+	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [this](std::string_view value, int) {
+		Path pendingMemStickFolder(value);
 		INFO_LOG(Log::System, "Got folder: '%s' (old: %s)", pendingMemStickFolder.c_str(), g_Config.memStickDirectory.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.
 		if (!pendingMemStickFolder.empty() && pendingMemStickFolder == g_Config.memStickDirectory && File::IsDirectory(pendingMemStickFolder)) {

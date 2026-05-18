@@ -11,7 +11,7 @@
 
 class Path;
 
-typedef std::function<void(const char *responseString, int responseValue)> RequestCallback;
+typedef std::function<void(std::string_view responseString, int responseValue)> RequestCallback;
 typedef std::function<void(int responseValue)> RequestFailedCallback;
 
 typedef int RequesterToken;
