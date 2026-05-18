@@ -401,7 +401,7 @@ void PopupMultiChoice::UpdateText() {
 			}
 			valueText_ = std::move(text);
 		} else {
-			valueText_ = "";
+			valueText_.clear();
 		}
 	}
 }
