@@ -1076,7 +1076,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_breakpoints.Frame();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
-	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
+	// NOTE: We compensate for the Y convention in the shaders, so we can use the same matrices in all backends.
+	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention, false);
 
 	// Can be overridden by sceDisplay which may pass true for the second argument.
 	g_frameTiming.ComputePresentMode(g_draw, false);
