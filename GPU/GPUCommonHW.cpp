@@ -364,15 +364,15 @@ GPUCommonHW::GPUCommonHW(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPU
 
 	// Convert the command table to a faster format, and check for dupes.
 	std::set<u8> dupeCheck;
-	for (size_t i = 0; i < ARRAY_SIZE(commonCommandTable); i++) {
-		const u8 cmd = commonCommandTable[i].cmd;
+	for (const auto& entry : commonCommandTable) {
+		const u8 cmd = entry.cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
 			ERROR_LOG(Log::G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
 		} else {
 			dupeCheck.insert(cmd);
 		}
-		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commonCommandTable[i].func;
+		cmdInfo_[cmd].flags |= (uint64_t)entry.flags | (entry.dirty << 8);
+		cmdInfo_[cmd].func = entry.func;
 		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
 			// Can't have FLAG_EXECUTE commands without a function pointer to execute.
 			Crash();
@@ -555,7 +555,7 @@ void GPUCommonHW::DoState(PointerWrap &p) {
 
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
+	if (p.mode == PointerWrap::MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_->Clear(true);
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);

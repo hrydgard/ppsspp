@@ -1096,8 +1096,8 @@ void DrawTriangleSlice(
 							prim_color[i] = Interpolate(v0_c0, v1_c0, v2_c0, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
-					for (int i = 0; i < 4; ++i) {
-						prim_color[i] = v2_c0;
+					for (auto& color : prim_color) {
+						color = v2_c0;
 					}
 				}
 				Vec3<int> sec_color[4];
@@ -1107,8 +1107,8 @@ void DrawTriangleSlice(
 							sec_color[i] = Interpolate(v0_c1, v1_c1, v2_c1, w0[i], w1[i], w2[i], wsum_recip[i]);
 					}
 				} else {
-					for (int i = 0; i < 4; ++i) {
-						sec_color[i] = v2_c1;
+					for (auto& color : sec_color) {
+						color = v2_c1;
 					}
 				}
 
@@ -1326,8 +1326,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			Vec4<int> mask = scissor_mask;
 
 			Vec4<int> prim_color[4];
-			for (int i = 0; i < 4; ++i) {
-				prim_color[i] = c0;
+			for (auto& color : prim_color) {
+				color = c0;
 			}
 
 			if (state.pixelID.earlyZChecks) {
@@ -1352,11 +1352,11 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			}
 
 			if (!state.pixelID.clearMode) {
-				for (int i = 0; i < 4; ++i) {
+				for (auto& color : prim_color) {
 #if defined(_M_SSE)
 					// TODO: Tried making Vec4 do this, but things got slower.
 					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
-					prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
+					color.ivec = _mm_add_epi32(color.ivec, sec);
 #elif PPSSPP_ARCH(ARM64_NEON)
 					int32x4_t sec = vsetq_lane_s32(0, sec_color.ivec, 3);
 					prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);

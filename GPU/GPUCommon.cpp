@@ -53,8 +53,8 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
 
 	Reinitialize();
-	gstate.Reset();
-	gstate_c.Reset();
+	GPUgstate::Reset();
+	GPUStateCache::Reset();
 	gpuStats.Reset();
 
 	PPGeSetDrawContext(draw);
@@ -84,9 +84,9 @@ void GPUCommon::EndHostFrame() {
 
 void GPUCommon::Reinitialize() {
 	memset(dls, 0, sizeof(dls));
-	for (int i = 0; i < DisplayListMaxCount; ++i) {
-		dls[i].state = PSP_GE_DL_STATE_NONE;
-		dls[i].waitUntilTicks = 0;
+	for (auto& dl : dls) {
+		dl.state = PSP_GE_DL_STATE_NONE;
+		dl.waitUntilTicks = 0;
 	}
 
 	nextListID = 0;
@@ -188,9 +188,9 @@ u32 GPUCommon::DrawSync(int mode) {
 		if (drawCompleteTicks > CoreTiming::GetTicks()) {
 			__GeWaitCurrentThread(GPU_SYNC_DRAW, 1, "GeDrawSync");
 		} else {
-			for (int i = 0; i < DisplayListMaxCount; ++i) {
-				if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
-					dls[i].state = PSP_GE_DL_STATE_NONE;
+			for (auto& dl : dls) {
+				if (dl.state == PSP_GE_DL_STATE_COMPLETED) {
+					dl.state = PSP_GE_DL_STATE_NONE;
 				}
 			}
 		}
@@ -216,8 +216,8 @@ u32 GPUCommon::DrawSync(int mode) {
 
 void GPUCommon::CheckDrawSync() {
 	if (dlQueue.empty()) {
-		for (int i = 0; i < DisplayListMaxCount; ++i)
-			dls[i].state = PSP_GE_DL_STATE_NONE;
+		for (auto& dl : dls)
+			dl.state = PSP_GE_DL_STATE_NONE;
 	}
 }
 
@@ -371,14 +371,14 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
 		//numStacks = 0;
 		//stack = NULL;
-		for (int i = 0; i < DisplayListMaxCount; ++i) {
-			if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
+		for (auto& dl : dls) {
+			if (dl.state != PSP_GE_DL_STATE_NONE && dl.state != PSP_GE_DL_STATE_COMPLETED) {
 				// Logically, if the CPU has not interrupted yet, it hasn't seen the latest pc either.
 				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
-				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
+				if (dl.pc == listpc && !dl.pendingInterrupt) {
 					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
 					return 0x80000021;
-				} else if (stackAddr != 0 && dls[i].stackAddr == stackAddr && !dls[i].pendingInterrupt) {
+				} else if (stackAddr != 0 && dl.stackAddr == stackAddr && !dl.pendingInterrupt) {
 					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
 					if (!PSP_CoreParameter().compat.flags().IgnoreEnqueue) {
 						return 0x80000021;
@@ -553,10 +553,10 @@ u32 GPUCommon::Break(int mode) {
 	{
 		// Clear the queue
 		dlQueue.clear();
-		for (int i = 0; i < DisplayListMaxCount; ++i)
+		for (auto& dl : dls)
 		{
-			dls[i].state = PSP_GE_DL_STATE_NONE;
-			dls[i].signal = PSP_GE_SIGNAL_NONE;
+			dl.state = PSP_GE_DL_STATE_NONE;
+			dl.signal = PSP_GE_SIGNAL_NONE;
 		}
 
 		nextListID = 0;
@@ -1481,25 +1481,25 @@ void GPUCommon::DoState(PointerWrap &p) {
 			}
 		}
 	} else if (s >= 2) {
-		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
+		for (auto& dl : dls) {
 			DisplayList_v2 oldDL;
 			Do(p, oldDL);
 			// Copy over everything except the last, new member (stackAddr.)
-			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v2));
-			dls[i].stackAddr = 0;
+			memcpy(&dl, &oldDL, sizeof(DisplayList_v2));
+			dl.stackAddr = 0;
 		}
 	} else {
 		// Can only be in read mode here.
-		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
+		for (auto& dl : dls) {
 			DisplayList_v1 oldDL;
 			Do(p, oldDL);
 			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
-			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v1));
+			memcpy(&dl, &oldDL, sizeof(DisplayList_v1));
 			// Fix the other fields.  Let's hope context wasn't important, it was a pointer.
-			dls[i].context = 0;
-			dls[i].offsetAddr = oldDL.offsetAddr;
-			dls[i].bboxResult = oldDL.bboxResult;
-			dls[i].stackAddr = 0;
+			dl.context = 0;
+			dl.offsetAddr = oldDL.offsetAddr;
+			dl.bboxResult = oldDL.bboxResult;
+			dl.stackAddr = 0;
 		}
 	}
 	int currentID = 0;
@@ -1559,9 +1559,9 @@ void GPUCommon::InterruptEnd(int listid) {
 void GPUCommon::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
 	if (waitType == GPU_SYNC_DRAW && wokeThreads)
 	{
-		for (int i = 0; i < DisplayListMaxCount; ++i) {
-			if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
-				dls[i].state = PSP_GE_DL_STATE_NONE;
+		for (auto& dl : dls) {
+			if (dl.state == PSP_GE_DL_STATE_COMPLETED) {
+				dl.state = PSP_GE_DL_STATE_NONE;
 			}
 		}
 	}

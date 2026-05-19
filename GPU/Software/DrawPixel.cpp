@@ -770,7 +770,7 @@ SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner) {
 		return jitted;
 	}
 
-	return jitCache->GenericSingle(id);
+	return Rasterizer::PixelJitCache::GenericSingle(id);
 }
 
 SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {

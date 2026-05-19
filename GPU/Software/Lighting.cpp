@@ -155,8 +155,8 @@ void ComputeState(State *state, bool hasColor0) {
 	if (!state->colorForAmbient) {
 		state->material.ambientColorFactor = LightColorFactor(gstate.getMaterialAmbientRGBA(), ones);
 		if (!IsLargerThanHalf(state->material.ambientColorFactor) && anyAmbient) {
-			for (int i = 0; i < 4; ++i)
-				state->lights[i].ambient = false;
+			for (auto& light : state->lights)
+				light.ambient = false;
 		}
 	}
 
@@ -164,8 +164,8 @@ void ComputeState(State *state, bool hasColor0) {
 		state->material.diffuseColorFactor = LightColorFactor(gstate.getMaterialDiffuse(), ones);
 		if (!IsLargerThanHalf(state->material.diffuseColorFactor)) {
 			anyDiffuse = false;
-			for (int i = 0; i < 4; ++i)
-				state->lights[i].diffuse = false;
+			for (auto& light : state->lights)
+				light.diffuse = false;
 		}
 	}
 
@@ -173,8 +173,8 @@ void ComputeState(State *state, bool hasColor0) {
 		state->material.specularColorFactor = LightColorFactor(gstate.getMaterialSpecular(), ones);
 		if (!IsLargerThanHalf(state->material.specularColorFactor)) {
 			anySpecular = false;
-			for (int i = 0; i < 4; ++i)
-				state->lights[i].specular = false;
+			for (auto& light : state->lights)
+				light.specular = false;
 		}
 	}
 
@@ -301,8 +301,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 	Vec4<int> final_color = mec + ambient;
 	Vec4<int> specular_color = Vec4<int>::AssignToAll(0);
 
-	for (unsigned int light = 0; light < 4; ++light) {
-		const auto &lstate = state.lights[light];
+	for (const auto& lstate : state.lights) {
 		if (!lstate.enabled)
 			continue;
 

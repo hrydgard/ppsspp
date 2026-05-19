@@ -176,15 +176,15 @@ static void AddTriangleRect(const VertexData &v0, const VertexData &v1, BinManag
 	VertexData *bottomright = &buf[3];
 
 	// DrawTriangle always culls, so sort out the drawing order.
-	for (int i = 0; i < 4; ++i) {
-		if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
-			topleft = &buf[i];
-		if (buf[i].screenpos.x > topright->screenpos.x && buf[i].screenpos.y < topright->screenpos.y)
-			topright = &buf[i];
-		if (buf[i].screenpos.x < bottomleft->screenpos.x && buf[i].screenpos.y > bottomleft->screenpos.y)
-			bottomleft = &buf[i];
-		if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
-			bottomright = &buf[i];
+	for (auto& vdata : buf) {
+		if (vdata.screenpos.x < topleft->screenpos.x && vdata.screenpos.y < topleft->screenpos.y)
+			topleft = &vdata;
+		if (vdata.screenpos.x > topright->screenpos.x && vdata.screenpos.y < topright->screenpos.y)
+			topright = &vdata;
+		if (vdata.screenpos.x < bottomleft->screenpos.x && vdata.screenpos.y > bottomleft->screenpos.y)
+			bottomleft = &vdata;
+		if (vdata.screenpos.x > bottomright->screenpos.x && vdata.screenpos.y > bottomright->screenpos.y)
+			bottomright = &vdata;
 	}
 
 	RotateUV(v0, v1, *topright, *bottomleft);

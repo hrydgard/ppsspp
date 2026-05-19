@@ -402,15 +402,15 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Convert the command table to a faster format, and check for dupes.
 	std::set<u8> dupeCheck;
-	for (size_t i = 0; i < ARRAY_SIZE(softgpuCommandTable); i++) {
-		const u8 cmd = softgpuCommandTable[i].cmd;
+	for (const auto& table : softgpuCommandTable) {
+		const u8 cmd = table.cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
 			ERROR_LOG(Log::G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
 		} else {
 			dupeCheck.insert(cmd);
 		}
-		softgpuCmdInfo[cmd].flags |= (uint64_t)softgpuCommandTable[i].flags | ((uint64_t)softgpuCommandTable[i].dirty << 8);
-		softgpuCmdInfo[cmd].func = softgpuCommandTable[i].func;
+		softgpuCmdInfo[cmd].flags |= (uint64_t)table.flags | ((uint64_t)table.dirty << 8);
+		softgpuCmdInfo[cmd].func = table.func;
 		if ((softgpuCmdInfo[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !softgpuCmdInfo[cmd].func) {
 			// Can't have FLAG_EXECUTE commands without a function pointer to execute.
 			Crash();
@@ -1454,7 +1454,7 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 
 bool SoftGPU::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	gstate_c.UpdateUVScaleOffset();
-	return drawEngine_->transformUnit.GetCurrentDrawAsDebugVertices(count, vertices, indices);
+	return TransformUnit::GetCurrentDrawAsDebugVertices(count, vertices, indices);
 }
 
 bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {

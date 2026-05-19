@@ -164,8 +164,8 @@ BinManager::BinManager() {
 BinManager::~BinManager() {
 	delete waitable_;
 
-	for (int i = 0; i < MAX_POSSIBLE_TASKS; ++i) {
-		for (DrawBinItemsTask *task : taskLists_[i].tasks)
+	for (auto& taskList : taskLists_) {
+		for (DrawBinItemsTask *task : taskList.tasks)
 			delete task;
 	}
 }

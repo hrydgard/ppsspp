@@ -2030,8 +2030,8 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	}
 
 	const u8 *tablePtr = GetCodePointer();
-	for (int i = 0; i < 16; ++i) {
-		Write64((uintptr_t)tableValues[i]);
+	for (auto& val : tableValues) {
+		Write64((uintptr_t)val);
 	}
 
 	SetJumpTarget(skipTable);
