@@ -106,10 +106,10 @@ enum class OperationType {
 struct Operation {
 	// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
 	Operation(OperationType t, const Path &f, int slot_, Callback cb)
-		: type(t), filename(f), callback(cb), slot(slot_) {}
+		: type(t), path(f), callback(cb), slot(slot_) {}
 
 	OperationType type;
-	Path filename;
+	Path path;
 	Callback callback;
 	int slot;
 };
@@ -245,9 +245,6 @@ int g_screenshotFailures;
 	}
 
 	void Rewind(Callback callback) {
-		if (g_netInited) {
-			return;
-		}
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateRewind, 0);
 		Enqueue(Operation(OperationType::Rewind, Path(), -1, callback));
@@ -414,7 +411,7 @@ int g_screenshotFailures;
 				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
 				
 				std::string prefix(gamePrefix);
-				auto saveCallback = [prefix, fn, backup, slot, callback](Status status, std::string_view message) {
+				auto saveCallback = [prefix, fn, backup, slot, callback](Status status, std::string_view message, std::string_view metadata) {
 					if (status != Status::FAILURE) {
 						DeleteIfExists(backup);
 						File::Rename(backup.WithExtraExtension(".tmp"), backup);
@@ -438,7 +435,7 @@ int g_screenshotFailures;
 		} else {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."));
+				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), "");
 			}
 		}
 	}
@@ -451,7 +448,7 @@ int g_screenshotFailures;
 		if (g_Config.sStateLoadUndoGame != gamePrefix) {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"));
+				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"), "");
 			}
 			return false;
 		}
@@ -463,7 +460,7 @@ int g_screenshotFailures;
 		} else {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."));
+				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."), "");
 			}
 			return false;
 		}
@@ -480,7 +477,7 @@ int g_screenshotFailures;
 			Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
 
 			std::string prefix(gamePrefix);
-			auto renameCallback = [fn, fnUndo, prefix, slot, callback](Status status, std::string_view message) {
+			auto renameCallback = [fn, fnUndo, prefix, slot, callback](Status status, std::string_view message, std::string_view metadata) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
@@ -494,7 +491,7 @@ int g_screenshotFailures;
 					File::Rename(fn.WithExtraExtension(".tmp"), fn);
 				}
 				if (callback) {
-					callback(status, message);
+					callback(status, message, "");
 				}
 			};
 			// Let's also create a screenshot.
@@ -508,7 +505,7 @@ int g_screenshotFailures;
 		} else {
 			if (callback) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."));
+				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."), "");
 			}
 		}
 		Rescan(gamePrefix);
@@ -678,8 +675,7 @@ int g_screenshotFailures;
 		return oldestSlot;
 	}
 
-	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
-		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+	static std::string GetSaveFileDateAsString(const std::string &fn) {
 		auto iter = g_files.find(fn);
 		if (iter == g_files.end()) {
 			return "";
@@ -706,6 +702,11 @@ int g_screenshotFailures;
 		return buf;
 	}
 
+	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
+		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+		return GetSaveFileDateAsString(fn);
+	}
+
 	std::vector<Operation> Flush() {
 		std::lock_guard<std::mutex> guard(mutex);
 		std::vector<Operation> copy = g_pendingOperations;
@@ -714,7 +715,7 @@ int g_screenshotFailures;
 		return copy;
 	}
 
-	bool HandleLoadFailure(bool wasRewinding) {
+	static bool HandleLoadFailure(bool wasRewinding, std::string *metadata) {
 		if (wasRewinding) {
 			WARN_LOG(Log::SaveState, "HandleLoadFailure - trying a rewind state.");
 			// Okay, first, let's give the next rewind state a shot - maybe we can at least not reset entirely.
@@ -722,7 +723,7 @@ int g_screenshotFailures;
 			CChunkFileReader::Error result;
 			do {
 				std::string errorString;
-				result = rewindStates.Restore(&errorString);
+				result = rewindStates.Restore(&errorString, metadata);
 			} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
 
 			if (result == CChunkFileReader::ERROR_NONE) {
@@ -813,6 +814,7 @@ int g_screenshotFailures;
 			CChunkFileReader::Error result;
 			Status callbackResult;
 			std::string callbackMessage;
+			std::string callbackMetadata;
 			std::string title;
 
 			auto sc = GetI18NCategory(I18NCat::SCREEN);
@@ -824,12 +826,14 @@ int g_screenshotFailures;
 
 			switch (op.type) {
 			case OperationType::Load:
-				INFO_LOG(Log::SaveState, "Loading state from '%s'", op.filename.c_str());
+				INFO_LOG(Log::SaveState, "Loading state from '%s'", op.path.c_str());
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
-				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
+				result = CChunkFileReader::Load(op.path, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
 					callbackResult = TriggerLoadWarnings(callbackMessage);
+					callbackMetadata = SaveState::GetSaveFileDateAsString(op.path.GetFilename());
+
 					hasLoadedState = true;
 					Core_ResetException();
 
@@ -849,18 +853,18 @@ int g_screenshotFailures;
 #endif
 					g_lastSaveTime = time_now_d();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
-					HandleLoadFailure(false);
+					HandleLoadFailure(false, &callbackMetadata);
 					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
 					ERROR_LOG(Log::SaveState, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
+					callbackMessage = sc->T(errorString, i18nLoadFailure);
 					callbackResult = Status::FAILURE;
 				}
 				break;
 
 			case OperationType::Save:
-				INFO_LOG(Log::SaveState, "Saving state to '%s'", op.filename.c_str());
+				INFO_LOG(Log::SaveState, "Saving state to '%s'", op.path.c_str());
 				title = g_paramSFO.GetValueString("TITLE");
 				if (title.empty()) {
 					// Homebrew title
@@ -868,7 +872,7 @@ int g_screenshotFailures;
 					std::size_t lslash = title.find_last_of('/');
 					title = title.substr(lslash + 1);
 				}
-				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
+				result = CChunkFileReader::Save(op.path, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = slot_prefix + std::string(sc->T("Saved State"));
 					callbackResult = Status::SUCCESS;
@@ -909,7 +913,7 @@ int g_screenshotFailures;
 
 			case OperationType::Rewind:
 				INFO_LOG(Log::SaveState, "Rewinding to recent savestate snapshot");
-				result = rewindStates.Restore(&errorString);
+				result = rewindStates.Restore(&errorString, &callbackMetadata);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
@@ -917,7 +921,7 @@ int g_screenshotFailures;
 					Core_ResetException();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
-					if (HandleLoadFailure(true)) {
+					if (HandleLoadFailure(true, &callbackMetadata)) {
 						// Well, we did rewind, even if too much...
 						callbackMessage = sc->T("Loaded State");
 						callbackResult = Status::SUCCESS;
@@ -940,7 +944,7 @@ int g_screenshotFailures;
 			}
 
 			if (op.callback) {
-				op.callback(callbackResult, callbackMessage);
+				op.callback(callbackResult, callbackMessage, callbackMetadata);
 			}
 		}
 		if (operations.size()) {

@@ -248,14 +248,16 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 	if (!func(buf, &isFramebuffer)) {
 		return req.Fail("Could not download output");
 	}
-	_assert_(buf != nullptr);
+	if (!buf) {
+		return req.Fail("No output available");
+	}
 
 	if (type == "base64") {
 		StreamBufferToBase64(req, *buf, isFramebuffer);
 	} else if (type == "uri") {
 		StreamBufferToDataURI(req, *buf, isFramebuffer, includeAlpha, stackWidth);
 	} else {
-		_assert_(false);
+		return req.Fail("Unexpected output type");
 	}
 }
 

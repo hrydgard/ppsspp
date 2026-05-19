@@ -76,10 +76,10 @@
 void copyDeepLinkForPath(std::string_view filePath);
 #endif
 
-static void AfterSaveStateAction(SaveState::Status status, std::string_view message) {
-	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
+void ShowMessageAfterSaveStateAction(SaveState::Status status, std::string_view message, std::string_view metadata) {
+	if (!message.empty()) {
 		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
-			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+			message, metadata, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
@@ -153,7 +153,7 @@ private:
 void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::SaveSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
+		SaveState::SaveSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		TriggerFinish(DR_OK); //OK will close the pause screen as well
 	}
 }
@@ -161,7 +161,7 @@ void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
+		SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		TriggerFinish(DR_OK);
 	}
 }
@@ -303,7 +303,7 @@ void SaveSlotView::Draw(UIContext &dc) {
 void SaveSlotView::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
+		SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateLoaded.Trigger(e2);
@@ -313,7 +313,7 @@ void SaveSlotView::OnLoadState(UI::EventParams &e) {
 void SaveSlotView::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::SaveSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
+		SaveState::SaveSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateSaved.Trigger(e2);
@@ -426,7 +426,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
 		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
+			SaveState::UndoLoad(saveStatePrefix_, &ShowMessageAfterSaveStateAction);
 			TriggerFinish(DR_CANCEL);
 		});
 	}
@@ -435,7 +435,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::Rewind(&AfterSaveStateAction);
+			SaveState::Rewind(&ShowMessageAfterSaveStateAction);
 			TriggerFinish(DR_CANCEL);
 		});
 	}

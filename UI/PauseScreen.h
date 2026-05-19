@@ -23,6 +23,7 @@
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
+#include "Core/SaveState.h"
 #include "Core/ControlMapper.h"
 #include "UI/BaseScreens.h"
 #include "UI/Screen.h"
@@ -85,3 +86,4 @@ private:
 };
 
 std::string GetConfirmExitMessage();
+void ShowMessageAfterSaveStateAction(SaveState::Status status, std::string_view message, std::string_view metadata);
