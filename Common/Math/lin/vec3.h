@@ -39,7 +39,7 @@ public:
 		x+=other.x; y+=other.y; z+=other.z;
 	}
 	Vec3 operator -(const Vec3 &v) const {
-		return Vec3(x-v.x,y-v.y,z-v.z);
+		return Vec3(x-v.x, y-v.y, z-v.z);
 	}
 	void operator -= (const Vec3 &other)
 	{
@@ -48,9 +48,8 @@ public:
 	Vec3 operator -() const {
 		return Vec3(-x,-y,-z);
 	}
-
-	Vec3 operator * (const float f) const {
-		return Vec3(x*f,y*f,z*f);
+	Vec3 operator *(const float f) const {
+		return Vec3(x * f, y * f, z * f);
 	}
 	Vec3 operator / (const float f) const {
 		float invf = (1.0f/f);
@@ -60,9 +59,6 @@ public:
 	{
 		*this = *this / f;
 	}
-	float operator * (const Vec3 &other) const {
-		return x*other.x + y*other.y + z*other.z;
-	}
 	void operator *= (const float f) {
 		*this = *this * f;
 	}
@@ -71,9 +67,6 @@ public:
 	}
 	Vec3 scaledBy(const Vec3 &other) const {
 		return Vec3(x*other.x, y*other.y, z*other.z);
-	}
-	Vec3 scaledByInv(const Vec3 &other) const {
-		return Vec3(x/other.x, y/other.y, z/other.z);
 	}
 	Vec3 operator *(const Matrix4x4 &m) const;
 	void operator *=(const Matrix4x4 &m) {
@@ -90,7 +83,7 @@ public:
 		return sqrtf(length2());
 	}
 	void setLength(const float l) {
-		(*this) *= l/length();
+		(*this) *= l / length();
 	}
 	Vec3 withLength(const float l) const {
 		return (*this) * l / length();
@@ -116,11 +109,13 @@ public:
 		return (*this)*(1-t) + other*t;
 	}
 	void setZero() {
-		memset((void *)this,0,sizeof(float)*3);
+		x = 0.0f;
+		y = 0.0f;
+		z = 0.0f;
 	}
 };
 
-inline Vec3 operator * (const float f, const Vec3 &v) {return v * f;}
+inline Vec3 operator * (const float f, const Vec3 &v) { return v * f; }
 
 // In new code, prefer these to the operators.
 

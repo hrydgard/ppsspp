@@ -105,7 +105,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	queries.push_back({ &u_proj, "u_proj" });
 	queries.push_back({ &u_proj_lens, "u_proj_lens" });
-	queries.push_back({ &u_proj_through, "u_proj_through" });
+	queries.push_back({ &u_xywh, "u_xywh" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
@@ -443,15 +443,12 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
-		Matrix4x4 proj_through;
-		proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
-
-		// Negative RT offsets come from split framebuffers (Killzone)
-		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
-			proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
-			proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
-		}
-		render_->SetUniformM4x4(&u_proj_through, proj_through.getReadPtr());
+		float xywh[4];
+		xywh[0] = (float)gstate_c.curRTOffsetX;
+		xywh[1] = (float)gstate_c.curRTOffsetY;
+		xywh[2] = (float)gstate_c.curRTWidth;
+		xywh[3] = (float)gstate_c.curRTHeight;
+		SetFloatUniform4(render_, &u_xywh, xywh);
 	}
 	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);

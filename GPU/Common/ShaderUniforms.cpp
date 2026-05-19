@@ -151,16 +151,10 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
-		Matrix4x4 proj_through;
-		proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
-
-		// Negative RT offsets come from split framebuffers (Killzone)
-		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
-			proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
-			proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
-		}
-
-		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
+		ub->xywh[0] = (float)gstate_c.curRTOffsetX;
+		ub->xywh[1] = (float)gstate_c.curRTOffsetY;
+		ub->xywh[2] = (float)gstate_c.curRTWidth;
+		ub->xywh[3] = (float)gstate_c.curRTHeight;
 
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}

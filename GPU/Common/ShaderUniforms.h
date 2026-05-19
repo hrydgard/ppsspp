@@ -21,7 +21,7 @@ enum : uint64_t {
 // Every line here is a 4-float.
 struct alignas(16) UB_VS_FS_Base {
 	float proj[16];
-	float proj_through[16];
+	float xywh[4];  // later, we could invert w and h here to avoid division.
 	float view[12];
 	float world[12];
 	float tex[12];
@@ -43,11 +43,11 @@ struct alignas(16) UB_VS_FS_Base {
 	// VR stuff is to go here, later. For normal drawing, we can then get away
 	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
-static_assert(sizeof(UB_VS_FS_Base) == 480, "UB_VS_FS_Base should be 480 bytes");
+static_assert(sizeof(UB_VS_FS_Base) == 432, "UB_VS_FS_Base should be 432 bytes");
 
 static const char * const ub_baseStr =
 R"(  mat4 u_proj;
-  mat4 u_proj_through;
+  vec4 u_xywh;
   mat3x4 u_view;
   mat3x4 u_world;
   mat3x4 u_texmtx;

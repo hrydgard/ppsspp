@@ -410,7 +410,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		if (isModeThrough) {
-			WRITE(p, "uniform mat4 u_proj_through;\n");
+			WRITE(p, "uniform vec4 u_xywh;\n");
 			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 		} else if (useHWTransform) {
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -746,7 +746,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			// The proj_through matrix already has the rotation, if needed.
-			WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
+			// NOTE: In through mode, we can ignore W, it's always 1.0. However,
+			// this transform will later be applied in all modes.
+			WRITE(p, "  vec4 outPos;\n");
+			WRITE(p, "  outPos.xy = ((position.xy - u_xywh.xy * position.w) / u_xywh.zw) * 2.0 - 1.0;\n");
+			WRITE(p, "  outPos.zw = position.zw;\n");
+			// WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
