@@ -1,5 +1,6 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 #include "Core/SaveState.h"
 #include "Core/SaveStateRewind.h"
 #include "Core/Core.h"
@@ -64,11 +65,15 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 	*metadata = pa->T("Rewind");
 
 	if (states_[n].savedTime) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		metadata->append(" (");
+		metadata->append(ApplySafeSubstitutions(di->T("%1 seconds ago"), static_cast<int>(time_now_d() - states_[n].savedTime)));
+		/*
 		char buffer[26];
 		double unixTime = time_to_unix_utc(states_[n].savedTime);
 		FormatUnixTime(unixTime, buffer, sizeof(buffer), false);
 		metadata->append(buffer);
+		*/
 		metadata->append(")");
 	}
 
