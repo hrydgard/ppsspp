@@ -68,12 +68,6 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		metadata->append(" (");
 		metadata->append(ApplySafeSubstitutions(di->T("%1 seconds ago"), static_cast<int>(time_now_d() - states_[n].savedTime)));
-		/*
-		char buffer[26];
-		double unixTime = time_to_unix_utc(states_[n].savedTime);
-		FormatUnixTime(unixTime, buffer, sizeof(buffer), false);
-		metadata->append(buffer);
-		*/
 		metadata->append(")");
 	}
 

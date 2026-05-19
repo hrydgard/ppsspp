@@ -106,10 +106,10 @@ enum class OperationType {
 struct Operation {
 	// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
 	Operation(OperationType t, const Path &f, int slot_, Callback cb)
-		: type(t), filename(f), callback(cb), slot(slot_) {}
+		: type(t), path(f), callback(cb), slot(slot_) {}
 
 	OperationType type;
-	Path filename;
+	Path path;
 	Callback callback;
 	int slot;
 };
@@ -675,8 +675,7 @@ int g_screenshotFailures;
 		return oldestSlot;
 	}
 
-	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
-		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+	static std::string GetSaveFileDateAsString(const std::string &fn) {
 		auto iter = g_files.find(fn);
 		if (iter == g_files.end()) {
 			return "";
@@ -701,6 +700,11 @@ int g_screenshotFailures;
 			return "";
 		}
 		return buf;
+	}
+
+	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
+		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
+		return GetSaveFileDateAsString(fn);
 	}
 
 	std::vector<Operation> Flush() {
@@ -822,12 +826,14 @@ int g_screenshotFailures;
 
 			switch (op.type) {
 			case OperationType::Load:
-				INFO_LOG(Log::SaveState, "Loading state from '%s'", op.filename.c_str());
+				INFO_LOG(Log::SaveState, "Loading state from '%s'", op.path.c_str());
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
-				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &errorString);
+				result = CChunkFileReader::Load(op.path, &saveStateInitialGitVersion, state, &errorString);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
 					callbackResult = TriggerLoadWarnings(callbackMessage);
+					callbackMetadata = SaveState::GetSaveFileDateAsString(op.path.GetFilename().c_str());
+
 					hasLoadedState = true;
 					Core_ResetException();
 
@@ -858,7 +864,7 @@ int g_screenshotFailures;
 				break;
 
 			case OperationType::Save:
-				INFO_LOG(Log::SaveState, "Saving state to '%s'", op.filename.c_str());
+				INFO_LOG(Log::SaveState, "Saving state to '%s'", op.path.c_str());
 				title = g_paramSFO.GetValueString("TITLE");
 				if (title.empty()) {
 					// Homebrew title
@@ -866,7 +872,7 @@ int g_screenshotFailures;
 					std::size_t lslash = title.find_last_of('/');
 					title = title.substr(lslash + 1);
 				}
-				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
+				result = CChunkFileReader::Save(op.path, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = slot_prefix + std::string(sc->T("Saved State"));
 					callbackResult = Status::SUCCESS;
