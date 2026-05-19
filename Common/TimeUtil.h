@@ -34,7 +34,6 @@ void sleep_random(double minSeconds, double maxSeconds, const char *reason);
 void yield();
 
 void GetCurrentTimeFormatted(char formattedTime[13]);
-void FormatUnixTime(double unixTimeSeconds, char *formatted, int bufSize, bool includeDate = true);
 
 // Most accurate timer possible - no extra double conversions. Only for spans.
 class Instant {

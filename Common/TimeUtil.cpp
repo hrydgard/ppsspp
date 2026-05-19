@@ -385,61 +385,6 @@ void GetCurrentTimeFormatted(char formattedTime[13]) {
 #endif
 }
 
-void FormatUnixTime(double unixTimeSeconds, char *formatted, int bufSize, bool includeDate) {
-#ifdef _WIN32
-	ULARGE_INTEGER uli;
-	uli.QuadPart = (ULONGLONG)(unixTimeSeconds * TICKS_PER_SECOND) + UNIX_TIME_START; // Convert seconds to ticks and add the offset to get FILETIME ticks.
-	FILETIME ft;
-	ft.dwLowDateTime = uli.LowPart;
-	ft.dwHighDateTime = uli.HighPart;
-
-	// Convert UTC FILETIME to local FILETIME
-	FILETIME localFt;
-	FileTimeToLocalFileTime(&ft, &localFt);
-
-	SYSTEMTIME st;
-	FileTimeToSystemTime(&localFt, &st);
-
-	// Use system locale for date/time formatting
-	wchar_t dateStr[256];
-	wchar_t timeStr[256];
-
-	// Get localized date string (short date format)
-	GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, nullptr, dateStr, 256);
-
-	// Get localized time string (without seconds by default, but we'll add them)
-	GetTimeFormatW(LOCALE_USER_DEFAULT, 0, &st, nullptr, timeStr, 256);
-
-	// Convert to char and combine
-	char timeMb[256];
-	char dateMb[256];
-	WideCharToMultiByte(CP_UTF8, 0, timeStr, -1, timeMb, 256, nullptr, nullptr);
-
-	if (includeDate) {
-		WideCharToMultiByte(CP_UTF8, 0, dateStr, -1, dateMb, 256, nullptr, nullptr);
-		snprintf(formatted, bufSize, "%s %s", dateMb, timeMb);
-	} else {
-		snprintf(formatted, bufSize, "%s", timeMb);
-	}
-
-#else
-	struct timespec ts;
-	ts.tv_sec = (time_t)unixTimeSeconds;
-	ts.tv_nsec = (long)((unixTimeSeconds - ts.tv_sec) * 1000000000.0);
-	struct tm tm;
-	localtime_r(&ts.tv_sec, &tm);
-
-	// Use strftime with locale-specific formatting
-	if (includeDate) {
-		// %x is locale-specific date, %X is locale-specific time
-		strftime(formatted, bufSize, "%x %X", &tm);
-	} else {
-		// Just time
-		strftime(formatted, bufSize, "%X", &tm);
-	}
-#endif
-}
-
 // We don't even bother synchronizing this, it's fine if threads stomp a bit.
 static GMRng g_sleepRandom;
 
