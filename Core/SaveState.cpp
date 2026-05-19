@@ -832,7 +832,7 @@ int g_screenshotFailures;
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
 					callbackResult = TriggerLoadWarnings(callbackMessage);
-					callbackMetadata = SaveState::GetSaveFileDateAsString(op.path.GetFilename().c_str());
+					callbackMetadata = SaveState::GetSaveFileDateAsString(op.path.GetFilename());
 
 					hasLoadedState = true;
 					Core_ResetException();
@@ -858,7 +858,7 @@ int g_screenshotFailures;
 					ERROR_LOG(Log::SaveState, "Load state failure: %s", errorString.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					callbackMessage = sc->T(errorString.c_str(), i18nLoadFailure);
+					callbackMessage = sc->T(errorString, i18nLoadFailure);
 					callbackResult = Status::FAILURE;
 				}
 				break;

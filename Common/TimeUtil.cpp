@@ -385,7 +385,7 @@ void GetCurrentTimeFormatted(char formattedTime[13]) {
 #endif
 }
 
-void FormatUnixTime(double unixTimeSeconds, char *formatted, size_t bufSize, bool includeDate) {
+void FormatUnixTime(double unixTimeSeconds, char *formatted, int bufSize, bool includeDate) {
 #ifdef _WIN32
 	ULARGE_INTEGER uli;
 	uli.QuadPart = (ULONGLONG)(unixTimeSeconds * TICKS_PER_SECOND) + UNIX_TIME_START; // Convert seconds to ticks and add the offset to get FILETIME ticks.
