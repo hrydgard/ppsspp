@@ -245,9 +245,6 @@ int g_screenshotFailures;
 	}
 
 	void Rewind(Callback callback) {
-		if (g_netInited) {
-			return;
-		}
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateRewind, 0);
 		Enqueue(Operation(OperationType::Rewind, Path(), -1, callback));

@@ -41,6 +41,8 @@ public:
 	void Process();
 	void NotifyState();
 
+	double NextStateTimestamp() const;
+
 private:
 	const int BLOCK_SIZE = 8192;
 	const int REWIND_NUM_STATES = 20;
@@ -49,11 +51,19 @@ private:
 
 	typedef std::vector<u8> StateBuffer;
 
+	struct RewindState {
+		StateBuffer stateBuffer;
+		double savedTime;
+
+		bool empty() const { return stateBuffer.empty(); }
+		void clear() { stateBuffer.clear(); savedTime = 0.0; }
+	};
+
 	int first_ = 0;
 	int next_ = 0;
 	int size_;
 
-	std::vector<StateBuffer> states_;
+	std::vector<RewindState> states_;
 	StateBuffer bases_[2];
 	std::vector<int> baseMapping_;
 	std::mutex lock_;

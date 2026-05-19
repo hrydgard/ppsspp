@@ -34,10 +34,12 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 	} else
 		err = SaveToRam(buffer_);
 
-	if (err == CChunkFileReader::ERROR_NONE)
-		ScheduleCompress(&states_[n], compressBuffer, &bases_[base_]);
-	else
+	if (err == CChunkFileReader::ERROR_NONE) {
+		ScheduleCompress(&states_[n].stateBuffer, compressBuffer, &bases_[base_]);
+		states_[n].savedTime = time_now_d();
+	} else {
 		states_[n].clear();
+	}
 
 	baseMapping_[n] = base_;
 	return err;
@@ -57,9 +59,19 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
 	static std::vector<u8> buffer;
-	LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
+	LockedDecompress(buffer, states_[n].stateBuffer, bases_[baseMapping_[n]]);
 	CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
 	*metadata = pa->T("Rewind");
+
+	if (states_[n].savedTime) {
+		metadata->append(" (");
+		char buffer[26];
+		double unixTime = time_to_unix_utc(states_[n].savedTime);
+		FormatUnixTime(unixTime, buffer, sizeof(buffer), false);
+		metadata->append(buffer);
+		metadata->append(")");
+	}
+
 	rewindLastTime_ = time_now_d();
 	return error;
 }
@@ -103,16 +115,13 @@ void StateRingbuffer::LockedDecompress(std::vector<u8> &result, const std::vecto
 	result.clear();
 	result.reserve(base.size());
 	auto basePos = base.begin();
-	for (size_t i = 0; i < compressed.size(); )
-	{
-		if (compressed[i] == 0)
-		{
+	for (size_t i = 0; i < compressed.size(); ) {
+		if (compressed[i] == 0) {
 			++i;
 			int blockSize = std::min(BLOCK_SIZE, (int)(base.size() - result.size()));
 			result.insert(result.end(), basePos, basePos + blockSize);
 			basePos += blockSize;
-		} else
-		{
+		} else {
 			++i;
 			int blockSize = std::min(BLOCK_SIZE, (int)(compressed.size() - i));
 			result.insert(result.end(), compressed.begin() + i, compressed.begin() + i + blockSize);
@@ -169,6 +178,10 @@ void StateRingbuffer::Process() {
 void StateRingbuffer::NotifyState() {
 	// Prevent saving snapshots immediately after loading or saving a state.
 	rewindLastTime_ = time_now_d();
+}
+
+double StateRingbuffer::NextStateTimestamp() const {
+	return rewindLastTime_ + g_Config.iRewindSnapshotInterval;
 }
 
 }  // namespace SaveState

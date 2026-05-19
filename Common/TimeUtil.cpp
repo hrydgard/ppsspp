@@ -36,21 +36,32 @@
 constexpr double micros = 1000000.0;
 constexpr double nanos = 1000000000.0;
 
+
 #if PPSSPP_PLATFORM(WINDOWS)
+
+constexpr int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
+constexpr double TICKS_PER_SECOND = 10000000; //a tick is 100ns
 
 static LARGE_INTEGER frequency;
 static double frequencyMult;
 static LARGE_INTEGER startTime;
+static LARGE_INTEGER startFileTime;
 
 HANDLE Timer;
 int SchedulerPeriodMs = 10;
 INT64 QpcPerSecond;
 
 void TimeInit() {
+	FILETIME ft;
+	GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
+	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
+	startFileTime.LowPart = ft.dwLowDateTime;
+	startFileTime.HighPart = ft.dwHighDateTime;
+
 	QueryPerformanceFrequency(&frequency);
 	QueryPerformanceCounter(&startTime);
 	QpcPerSecond = frequency.QuadPart;
-	frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
+	frequencyMult = 1.0 / frequency.QuadPart;
 
 	// The timer will be automatically deleted on process destruction. Don't need to CloseHandle.
 	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
@@ -85,9 +96,6 @@ double from_time_raw_relative(uint64_t raw_time) {
 }
 
 double time_now_unix_utc() {
-	const int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
-	const double TICKS_PER_SECOND = 10000000; //a tick is 100ns
-
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
 	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
@@ -96,6 +104,15 @@ double time_now_unix_utc() {
 	li.HighPart = ft.dwHighDateTime;
 	//Convert ticks since 1/1/1970 into seconds
 	return (double)(li.QuadPart - UNIX_TIME_START) / TICKS_PER_SECOND;
+}
+
+// Adds the timestamp to startTime, and converts to seconds from the unix epoch.
+double time_to_unix_utc(double timestamp) {
+	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
+	LARGE_INTEGER li;
+	li.LowPart = startFileTime.LowPart;
+	li.HighPart = startFileTime.HighPart;
+	return (double)(li.QuadPart - UNIX_TIME_START + static_cast<int64_t>(timestamp * TICKS_PER_SECOND)) / TICKS_PER_SECOND;
 }
 
 void yield() {
@@ -225,6 +242,10 @@ void yield() {}
 
 double time_now_unix_utc() {
 	return time_now_raw();
+}
+
+double time_to_unix_utc(double t) {
+	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros) + t;
 }
 
 Instant::Instant() {
@@ -361,6 +382,61 @@ void GetCurrentTimeFormatted(char formattedTime[13]) {
 	struct tm tm;
 	localtime_r(&ts.tv_sec, &tm);
 	snprintf(formattedTime, 13, "%02d:%02d:%03d", tm.tm_min, tm.tm_sec, (int)(ts.tv_nsec / 1000000));
+#endif
+}
+
+void FormatUnixTime(double unixTimeSeconds, char *formatted, size_t bufSize, bool includeDate) {
+#ifdef _WIN32
+	ULARGE_INTEGER uli;
+	uli.QuadPart = (ULONGLONG)(unixTimeSeconds * TICKS_PER_SECOND) + UNIX_TIME_START; // Convert seconds to ticks and add the offset to get FILETIME ticks.
+	FILETIME ft;
+	ft.dwLowDateTime = uli.LowPart;
+	ft.dwHighDateTime = uli.HighPart;
+
+	// Convert UTC FILETIME to local FILETIME
+	FILETIME localFt;
+	FileTimeToLocalFileTime(&ft, &localFt);
+
+	SYSTEMTIME st;
+	FileTimeToSystemTime(&localFt, &st);
+
+	// Use system locale for date/time formatting
+	wchar_t dateStr[256];
+	wchar_t timeStr[256];
+
+	// Get localized date string (short date format)
+	GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, nullptr, dateStr, 256);
+
+	// Get localized time string (without seconds by default, but we'll add them)
+	GetTimeFormatW(LOCALE_USER_DEFAULT, 0, &st, nullptr, timeStr, 256);
+
+	// Convert to char and combine
+	char timeMb[256];
+	char dateMb[256];
+	WideCharToMultiByte(CP_UTF8, 0, timeStr, -1, timeMb, 256, nullptr, nullptr);
+
+	if (includeDate) {
+		WideCharToMultiByte(CP_UTF8, 0, dateStr, -1, dateMb, 256, nullptr, nullptr);
+		snprintf(formatted, bufSize, "%s %s", dateMb, timeMb);
+	} else {
+		snprintf(formatted, bufSize, "%s", timeMb);
+	}
+
+#else
+	struct timespec ts;
+	ts.tv_sec = (time_t)unixTimeSeconds;
+	ts.tv_nsec = (long)((unixTimeSeconds - ts.tv_sec) * 1000000000.0);
+	struct tm tm;
+	localtime_r(&ts.tv_sec, &tm);
+
+	// Use strftime with locale-specific formatting
+	if (includeDate) {
+		// %x is locale-specific date, %X is locale-specific time
+		strftime(formatted, bufSize, "%x %X", &tm);
+	} else {
+		// Just time
+		strftime(formatted, bufSize, "%X", &tm);
+	}
 #endif
 }
 

@@ -16,6 +16,7 @@ double from_time_raw_relative(uint64_t raw_time);
 
 // Seconds, Unix UTC time
 double time_now_unix_utc();
+double time_to_unix_utc(double timeNowSeconds);
 
 // Sleep for milliseconds. Does not necessarily have millisecond granularity, especially on Windows.
 // Requires a "reason" since sleeping generally should be very sparingly used. This
@@ -33,6 +34,7 @@ void sleep_random(double minSeconds, double maxSeconds, const char *reason);
 void yield();
 
 void GetCurrentTimeFormatted(char formattedTime[13]);
+void FormatUnixTime(double unixTimeSeconds, char *formatted, size_t bufSize, bool includeDate = true);
 
 // Most accurate timer possible - no extra double conversions. Only for spans.
 class Instant {
