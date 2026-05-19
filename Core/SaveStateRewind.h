@@ -28,7 +28,7 @@ public:
 	}
 
 	CChunkFileReader::Error Save();
-	CChunkFileReader::Error Restore(std::string *errorString);
+	CChunkFileReader::Error Restore(std::string *errorString, std::string *metadata);
 	void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base);
 	void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base);
 	void LockedDecompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base);

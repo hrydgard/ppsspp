@@ -45,6 +45,7 @@
 #include "Core/SaveState.h"
 #include "Core/Core.h"
 #include "Core/RetroAchievements.h"
+#include "UI/PauseScreen.h"
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 #include "ext/rcheevos/include/rc_client_raintegration.h"
@@ -394,10 +395,9 @@ namespace MainWindow {
 		});
 	}
 
-	static void SaveStateActionFinished(SaveState::Status status, std::string_view message) {
-		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-			g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
-		}
+	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, std::string_view metadata) {
+		// Reuse the message from the pause screen.
+		ShowMessageAfterSaveStateAction(status, message, metadata);
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 

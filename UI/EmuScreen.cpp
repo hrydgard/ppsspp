@@ -74,7 +74,6 @@ using namespace std::placeholders;
 #include "Core/Screenshot.h"
 #include "UI/ImDebugger/ImDebugger.h"
 #include "Core/HLE/__sceAudio.h"
-// #include "Core/HLE/proAdhoc.h"
 #include "Core/HW/Display.h"
 
 #include "UI/BackgroundAudio.h"
@@ -533,12 +532,6 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	lastImguiEnabled_ = false;
 }
 
-static void AfterSaveStateAction(SaveState::Status status, std::string_view message) {
-	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
-	}
-}
-
 void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 	Screen::focusChanged(focusChange);
 
@@ -609,7 +602,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		if (newGamePath.GetFileExtension() == ".ppst") {
 			// TODO: Should verify that it's for the correct game....
 			INFO_LOG(Log::Loader, "New game is a save state - just load it.");
-			SaveState::Load(newGamePath, -1, [](SaveState::Status status, std::string_view message) {
+			SaveState::Load(newGamePath, -1, [](SaveState::Status status, std::string_view message, std::string_view metadata) {
 				Core_Resume();
 				System_Notify(SystemNotification::DISASSEMBLY);
 			});
@@ -965,7 +958,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	case VIRTKEY_REWIND:
 		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			if (SaveState::CanRewind()) {
-				SaveState::Rewind(&AfterSaveStateAction);
+				SaveState::Rewind(&ShowMessageAfterSaveStateAction);
 			} else {
 				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0);
 			}
@@ -1058,12 +1051,12 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 
 	case VIRTKEY_SAVE_STATE:
 		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+			SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
 		}
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &AfterSaveStateAction);
+			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
 		}
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:
@@ -2053,8 +2046,8 @@ void EmuScreen::AutoLoadSaveState() {
 	}
 
 	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
-		SaveState::LoadSlot(gamePrefix, autoSlot, [this, autoSlot](SaveState::Status status, std::string_view message) {
-			AfterSaveStateAction(status, message);
+		SaveState::LoadSlot(gamePrefix, autoSlot, [this, autoSlot](SaveState::Status status, std::string_view message, std::string_view metadata) {
+			ShowMessageAfterSaveStateAction(status, message, metadata);
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 			if (status == SaveState::Status::FAILURE) {
 				autoLoadFailed_ = true;

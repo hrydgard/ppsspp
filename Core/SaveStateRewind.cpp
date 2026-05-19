@@ -1,4 +1,5 @@
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/SaveState.h"
 #include "Core/SaveStateRewind.h"
 #include "Core/Core.h"
@@ -42,7 +43,7 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 	return err;
 }
 
-CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString) {
+CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::string *metadata) {
 	std::lock_guard<std::mutex> guard(lock_);
 
 	// No valid states left.
@@ -53,9 +54,12 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString) {
 	if (states_[n].empty())
 		return CChunkFileReader::ERROR_BAD_FILE;
 
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+
 	static std::vector<u8> buffer;
 	LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
 	CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
+	*metadata = pa->T("Rewind");
 	rewindLastTime_ = time_now_d();
 	return error;
 }
