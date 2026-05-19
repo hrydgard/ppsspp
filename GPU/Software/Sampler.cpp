@@ -269,9 +269,9 @@ static inline int GetPixelDataOffset(uint32_t row_pitch_pixels, uint32_t u, uint
 	if (!swizzled)
 		return (v * (row_pitch_pixels * texel_size_bits >> 3)) + (u * texel_size_bits >> 3);
 
-	const uint32_t tile_size_bits = 32;
-	const uint32_t tiles_in_block_horizontal = 4;
-	const uint32_t tiles_in_block_vertical = 8;
+	constexpr uint32_t tile_size_bits = 32;
+	constexpr uint32_t tiles_in_block_horizontal = 4;
+	constexpr uint32_t tiles_in_block_vertical = 8;
 
 	constexpr uint32_t texels_per_tile = tile_size_bits / texel_size_bits;
 	uint32_t tile_u = u / texels_per_tile;
@@ -554,11 +554,11 @@ Vec4IntResult SOFTRAST_CALL GetTextureFunctionOutput(Vec4IntArg prim_color_in, V
 
 	case GE_TEXFUNC_BLEND:
 	{
-		const Vec3<int> const255(255, 255, 255);
+		constexpr Vec3<int> const255(255, 255, 255);
 		const Vec3<int> texenv = Vec3<int>::FromRGB(samplerID.cached.texBlendColor);
 
 		// Unlike the others (and even alpha), this one simply always rounds up.
-		const Vec3<int> roundup = Vec3<int>::AssignToAll(255);
+		constexpr Vec3<int> roundup = Vec3<int>::AssignToAll(255);
 		out_rgb = ((const255 - texcolor.rgb()) * prim_color.rgb() + texcolor.rgb() * texenv + roundup);
 		// Must divide by less to keep the precision for doubling to be accurate.
 		if (samplerID.useColorDoubling)

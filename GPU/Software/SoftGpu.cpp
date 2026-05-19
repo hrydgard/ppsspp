@@ -49,8 +49,8 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Record.h"
 
-const int FB_WIDTH = 480;
-const int FB_HEIGHT = 272;
+constexpr int FB_WIDTH = 480;
+constexpr int FB_HEIGHT = 272;
 
 uint8_t clut[1024];
 FormatBuffer fb;

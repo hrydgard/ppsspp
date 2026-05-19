@@ -1455,8 +1455,8 @@ void GPUCommon::DoState(PointerWrap &p) {
 	} else if (s >= 3) {
 		// This may have been saved with or without padding, depending on platform.
 		// We need to upconvert it to our consistently-padded struct.
-		static const size_t DisplayList_v3_size = 452;
-		static const size_t DisplayList_v4_size = 456;
+		static constexpr size_t DisplayList_v3_size = 452;
+		static constexpr size_t DisplayList_v4_size = 456;
 		static_assert(DisplayList_v4_size == sizeof(DisplayList), "Make sure to change here when updating DisplayList");
 
 		p.DoVoid(&dls[0], DisplayList_v3_size);
