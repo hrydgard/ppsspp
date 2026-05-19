@@ -558,7 +558,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const
 	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
 	minZValue = -maxZValue;
 	// Scale and offset the Z appropriately, since we baked that into a projection transform.
-	if (params_.usesHalfZ) {
+	if (true) {  // all backends are "use half z" now
 		maxZValue = maxZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
 		minZValue = minZValue * 0.5f + 0.5f + gstate_c.vpZOffset * 0.5f;
 	} else {
