@@ -308,9 +308,9 @@ static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
-static inline void ConvertProjMatrixToGL(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset);
-	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale);
+static void ConvertProjMatrixToZeroToOneDepth(Matrix4x4 &in) {
+	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
 
@@ -429,7 +429,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			UpdateVRParams(gstate.projMatrix);
 
 			FlipProjMatrix(vrProjection);
-			ConvertProjMatrixToGL(vrProjection);
+			ConvertProjMatrixToZeroToOneDepth(vrProjection);
 
 			render_->SetUniformM4x4(&u_proj_lens, vrProjection.m);
 		}
@@ -438,13 +438,19 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
 		FlipProjMatrix(flippedMatrix);
-		ConvertProjMatrixToGL(flippedMatrix);
+		ConvertProjMatrixToZeroToOneDepth(flippedMatrix);
 
 		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
-		proj_through.setOrthoGL(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
+		proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
+
+		// Negative RT offsets come from split framebuffers (Killzone)
+		if (gstate_c.curRTOffsetX < 0 || gstate_c.curRTOffsetY < 0) {
+			proj_through.wx += 2.0f * (float)gstate_c.curRTOffsetX / (float)gstate_c.curRTWidth;
+			proj_through.wy += 2.0f * (float)gstate_c.curRTOffsetY / (float)gstate_c.curRTHeight;
+		}
 		render_->SetUniformM4x4(&u_proj_through, proj_through.getReadPtr());
 	}
 	if (dirty & DIRTY_TEXENV) {
