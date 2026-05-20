@@ -240,13 +240,19 @@ TextureShaderScreen::TextureShaderScreen(std::string_view title) : ListPopupScre
 void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+	
 	shaders_ = GetAllTextureShaderInfo();
+	for (int i = 0; i < (int)shaders_.size(); ) {
+		if (shaders_[i].hidden) {
+			shaders_.erase(shaders_.begin() + i);
+		} else {
+			i++;
+		}
+	}
+
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
-		if (shaders_[i].hidden) {
-			continue;
-		}
 		if (shaders_[i].section == g_Config.sTextureShaderName)
 			selected = i;
 		items.emplace_back(ps->T(shaders_[i].section, shaders_[i].name));
