@@ -25,7 +25,7 @@ struct alignas(16) UB_VS_FS_Base {
 	float world[12];
 	float tex[12];
 	float xywh[4];  // later, we could invert w and h here to avoid division.
-	float vpScale[3]; float padding1;  // TODO Use padding1/2/3 for something.
+	float vpScale[3]; float NaN;
 	float vpOffset[3]; float padding2;
 	float rasterOffset[2]; float padding3[2];
 	float uvScaleOffset[4];
@@ -51,7 +51,7 @@ R"(  mat4 u_proj;
   mat3x4 u_world;
   mat3x4 u_texmtx;
   vec4 u_xywh;
-  vec4 u_vpScale;  // w = offsetX
+  vec3 u_vpScale; float u_NaN; // w = offsetX
   vec4 u_vpOffset; // w = offsetY
   vec2 u_rasterOffset; vec2 pad0;
   vec4 u_uvscaleoffset;

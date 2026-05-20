@@ -709,6 +709,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
+	WRITE(p, "  bool zClipped = false;\n");
+
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (texCoordInVec3) {
@@ -834,9 +836,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		// Perform the perspective projection and viewport transform. (We'll undo it later, after we applied the viewport).
-		// In software transform mode, this is performed in software.
+		// We're in clip space, so here we check for virtual clipping. We don't actually clip, but we check if the actual hardware would have clipped.
+		// If so, we skip the "range culling" (x and y out-of-bounds checks) since they wouldn't have happened, most likely.
+		WRITE(p, "  if (outPos.z < -outPos.w || outPos.z > outPos.w) {\n");
+		WRITE(p, "    zClipped = true;\n");
+		WRITE(p, "  }\n");
+
+		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
+		// In software transform mode, this is performed in on the CPU.
 		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
+
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -1194,6 +1203,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	if (!isModeThrough) {
+		// Cull against X and Y limits (unless the GPU has a certain driver bug).
+		// It's not clear what the limits should be in through mode though, although I'm sure they exist.
+		if (gstate_c.Use(GPU_USE_VS_RANGE_CULLING)) {
+			WRITE(p, "  if (!zClipped && (outPos.x < 0.0 || outPos.y < 0.0 || outPos.x >= 4096.0 || outPos.y >= 4096.0)) {\n");
+			// Discard the whole triangle by setting one vertex to NaN.
+			WRITE(p, "    outPos = vec4(u_NaN, u_NaN, u_NaN, u_NaN);\n");
+			// TODO: We could just return here. But we can also just keep going to avoid branching, the NaNs will propagate.
+			WRITE(p, "  }\n");
+		}
+
 		// Apply raster offset after the range culling.
 		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
 	}

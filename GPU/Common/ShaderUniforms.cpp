@@ -93,6 +93,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->vpScale[0] = gstate.getViewportXScale();
 		ub->vpScale[1] = gstate.getViewportYScale();
 		ub->vpScale[2] = gstate.getViewportZScale();
+		ub->NaN = std::numeric_limits<float>::quiet_NaN();  // Used in the shader for range culling.
 		ub->vpOffset[0] = gstate.getViewportXCenter();
 		ub->vpOffset[1] = gstate.getViewportYCenter();
 		ub->vpOffset[2] = gstate.getViewportZCenter();
