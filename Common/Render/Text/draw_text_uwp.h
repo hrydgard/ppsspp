@@ -5,7 +5,7 @@
 #include <map>
 #include "Common/Render/Text/draw_text.h"
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(_WIN32) && !defined(USING_QT_UI) && !defined(__LIBRETRO__)
 
 #include <d2d1_3.h>
 #include <dwrite_3.h>
