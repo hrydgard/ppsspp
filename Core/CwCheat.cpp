@@ -54,7 +54,8 @@ static inline std::string TrimString(std::string_view s) {
    return wsback > wsfront ? std::string(wsfront, wsback) : std::string();
 }
 
-CheatFileParser::CheatFileParser(const Path &filename, std::string_view gameID) {
+CheatFileParser::CheatFileParser(const Path &filename, std::string_view gameID)
+	: lastCheatInfo_() {
 	fp_ = File::OpenCFile(filename, "rt");
 	validGameID_ = ReplaceAll(gameID, "-", "");
 }

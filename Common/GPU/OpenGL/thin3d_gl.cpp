@@ -280,7 +280,7 @@ private:
 
 class OpenGLPipeline : public Pipeline {
 public:
-	OpenGLPipeline(GLRenderManager *render) : render_(render) {}
+	OpenGLPipeline(GLRenderManager *render) : dynamicUniforms(), render_(render) {}
 	~OpenGLPipeline() {
 		for (auto &iter : shaders) {
 			iter->Release();

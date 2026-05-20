@@ -66,7 +66,7 @@ class VulkanRenderManager;
 
 class TessellationDataTransferVulkan : public TessellationDataTransfer  {
 public:
-	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
+	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan), push_(nullptr) {}
 
 	void SetPushPool(VulkanPushPool *push) { push_ = push; }
 	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.

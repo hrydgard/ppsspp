@@ -272,7 +272,8 @@ public:
 	};
 
 	// Used for save states.
-	PsmfStream() : videoWidth_(USE_PSMF), videoHeight_(USE_PSMF), audioChannels_(USE_PSMF), audioFrequency_(USE_PSMF) {
+	PsmfStream() : type_(INVALID), channel_(INVALID), videoWidth_(USE_PSMF), videoHeight_(USE_PSMF),
+		audioChannels_(USE_PSMF), audioFrequency_(USE_PSMF) {
 	}
 
 	PsmfStream(int type, int channel) : videoWidth_(INVALID), videoHeight_(INVALID), audioChannels_(INVALID), audioFrequency_(INVALID) {
@@ -409,7 +410,8 @@ Psmf::~Psmf() {
 	streamMap.clear();
 }
 
-PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
+PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data)
+	: tempbuf(), totalVideoStreams(), totalAudioStreams(), playerVersion(), videoWidth(0), videoHeight(0) {
 	videoCodec = -1;
 	videoStreamNum = -1;
 	audioCodec = -1;

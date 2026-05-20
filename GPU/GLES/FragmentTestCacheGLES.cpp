@@ -25,7 +25,7 @@
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
 static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
-FragmentTestCacheGLES::FragmentTestCacheGLES(Draw::DrawContext *draw) {
+FragmentTestCacheGLES::FragmentTestCacheGLES(Draw::DrawContext *draw) : textureCache_(nullptr) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
 

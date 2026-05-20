@@ -140,7 +140,7 @@ private:
 
 constexpr int BinManager::MAX_POSSIBLE_TASKS;
 
-BinManager::BinManager() {
+BinManager::BinManager() : stateIndex_(0), clutIndex_(0), scissor_() {
 	queueRange_.x1 = 0x7FFFFFFF;
 	queueRange_.y1 = 0x7FFFFFFF;
 	queueRange_.x2 = 0;

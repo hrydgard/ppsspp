@@ -366,7 +366,7 @@ void SevenZipFileReader::Free(ISzAllocPtr, void *address) {
 }
 
 SevenZipFileReader::SevenZipFileReader(const Path &archivePath, const std::string &inArchivePath)
-	: archivePath_(archivePath), inArchivePath_(inArchivePath) {
+	: archivePath_(archivePath), inArchivePath_(inArchivePath), lookStream_() {
 	if (!inArchivePath_.empty() && inArchivePath_.back() != '/') {
 		inArchivePath_.push_back('/');
 	}

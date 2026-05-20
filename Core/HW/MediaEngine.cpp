@@ -129,7 +129,7 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-MediaEngine::MediaEngine() {
+MediaEngine::MediaEngine() : m_ringbuffersize(0), m_mpegheader{0} {
 	m_bufSize = 0x2000;
 
 	m_mpegheaderSize = sizeof(m_mpegheader);

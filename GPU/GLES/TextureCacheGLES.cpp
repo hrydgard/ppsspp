@@ -35,7 +35,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
-	: TextureCacheCommon(draw, draw2D) {
+	: TextureCacheCommon(draw, draw2D), framebufferManagerGL_(nullptr), drawEngine_(nullptr) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	nextTexture_ = nullptr;

@@ -138,7 +138,7 @@ struct TransitionRequest {
 class VKRRenderPass;
 
 struct VKRStep {
-	VKRStep(VKRStepType _type) : stepType(_type) {}
+	VKRStep(VKRStepType _type) : stepType(_type), tag(nullptr) {}
 	~VKRStep() {}
 
 	VKRStepType stepType;

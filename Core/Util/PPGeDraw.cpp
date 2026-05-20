@@ -129,7 +129,7 @@ struct PPGeTextDrawerCacheKey {
 };
 
 struct PPGeTextDrawerImage {
-	PPGeTextDrawerImage() : entry(0) {}
+	PPGeTextDrawerImage() : entry(0), ptr(0) {}
 	TextStringEntry entry;
 	u32 ptr;
 };

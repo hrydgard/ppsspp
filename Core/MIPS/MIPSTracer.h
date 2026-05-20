@@ -103,7 +103,7 @@ struct MIPSTracer {
 
 	inline void print_stats() const;
 
-	MIPSTracer(): trace_info(), executed_blocks(), hash_to_storage_index(), storage(), logging_path() {}
+	MIPSTracer() : trace_info(), executed_blocks(), hash_to_storage_index(), storage(), logging_path(), output() {}
 };
 
 extern MIPSTracer mipsTracer;

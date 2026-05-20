@@ -154,7 +154,7 @@ void LogManager::Shutdown() {
 	initialized_ = false;
 }
 
-LogManager::LogManager() {
+LogManager::LogManager() : ringLog_() {
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
 	stdioUseColor_ = false;
 #elif defined(_MSC_VER)

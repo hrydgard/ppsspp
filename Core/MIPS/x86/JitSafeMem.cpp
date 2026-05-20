@@ -34,7 +34,8 @@ using namespace Gen;
 using namespace X64JitConstants;
 
 JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
-	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false), alignMask_(alignMask)
+	: jit_(jit), raddr_(raddr), offset_(offset), size_(0), needsCheck_(false), needsSkip_(false),
+		alignMask_(alignMask), xaddr_(), tooLow_(), tooHigh_(), skip_(), safe_(nullptr)
 {
 	// Mask out the kernel RAM bit, because we'll end up with a negative offset to MEMBASEREG.
 	if (jit_->gpr.IsImm(raddr_))

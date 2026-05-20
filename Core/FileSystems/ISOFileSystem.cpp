@@ -149,7 +149,8 @@ static std::string_view CleanISOFileName(std::string_view name) {
 
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice) {
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice)
+	: lastReadBlock_(0) {
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 

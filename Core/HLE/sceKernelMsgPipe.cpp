@@ -140,7 +140,7 @@ struct MsgPipe : public KernelObject
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mpipe; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Mpipe; }
 
-	MsgPipe() : buffer(0) {}
+	MsgPipe() : nmp(), buffer(0) {}
 	~MsgPipe() {
 		if (buffer != 0) {
 			BlockAllocator *alloc = BlockAllocatorFromAddr(buffer);
