@@ -174,10 +174,12 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 	}
 	curSamplesPerSec_ = format_->nSamplesPerSec;
 
-	// We only use AudioClient3 if we got the format we wanted (stereo float).
+	// AudioClient3 requires an exact format match because it doesn't support AUTOCONVERTPCM.
+	// Our callback always produces stereo float (see RenderCallback in AudioBackend.h),
+	// so we can only use AudioClient3 when the device's native format is stereo float.
+	// For other formats, we fall back to AudioClient which supports conversion via AUTOCONVERTPCM
+	// or manual conversion through tempBuf_.
 	if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
-		// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
-		// AudioClient3 with low latency audio with AUTOCONVERTPCM, you get the error 0x88890021.
 		INFO_LOG(Log::Audio, "AudioClient3: Got %d channels or non-float format, falling back to AudioClient", format_->nChannels);
 		audioClient3_.Reset();
 		// Free the format before falling through - AudioClient will allocate a new one
@@ -213,7 +215,9 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 		}
 		actualPeriodFrames_ = minPeriodFrames_;
 
-		hr = audioClient3_->GetBufferSize(&reportedBufferSize_);
+		UINT32 bufSize = 0;
+		hr = audioClient3_->GetBufferSize(&bufSize);
+		reportedBufferSize_.store(bufSize);
 		if (FAILED(hr)) {
 			audioClient3_.Reset();
 			CoTaskMemFree(format_);
@@ -328,7 +332,9 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 		return false;
 	}
 
-	hr = audioClient_->GetBufferSize(&reportedBufferSize_);
+	UINT32 bufSize = 0;
+	hr = audioClient_->GetBufferSize(&bufSize);
+	reportedBufferSize_.store(bufSize);
 	if (FAILED(hr)) {
 		audioClient_.Reset();
 		CoTaskMemFree(format_);
@@ -336,7 +342,7 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 		SetErrorString("AudioClient GetBufferSize failed", hr);
 		return false;
 	}
-	actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
+	actualPeriodFrames_.store(reportedBufferSize_.load());  // we don't have a better estimate.
 
 	hr = audioClient_->SetEventHandle(audioEvent_);
 	if (FAILED(hr)) {
@@ -357,7 +363,7 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 	}
 
 	if (createBuffer) {
-		tempBuf_ = std::make_unique<float[]>(reportedBufferSize_ * 2);
+		tempBuf_ = std::make_unique<float[]>(reportedBufferSize_.load() * 2);
 	}
 	return true;
 }
@@ -510,6 +516,12 @@ void WASAPIContext::AudioLoop() {
 			audioClient3_->Stop();
 			return;
 		}
+		// Check if buffer grew beyond what we allocated tempBuf_ for
+		if (tempBuf_ && available > reportedBufferSize_.load()) {
+			INFO_LOG(Log::Audio, "Buffer size grew from %d to %d, reallocating tempBuf_", reportedBufferSize_.load(), available);
+			tempBuf_ = std::make_unique<float[]>(available * 2);
+			reportedBufferSize_.store(available);
+		}
 	} else if (audioClient_) {
 		hr = audioClient_->Start();
 		if (FAILED(hr)) {
@@ -521,6 +533,12 @@ void WASAPIContext::AudioLoop() {
 			SetErrorString("AudioClient::GetBufferSize failed", hr);
 			audioClient_->Stop();
 			return;
+		}
+		// Check if buffer grew beyond what we allocated tempBuf_ for
+		if (tempBuf_ && available > reportedBufferSize_.load()) {
+			INFO_LOG(Log::Audio, "Buffer size grew from %d to %d, reallocating tempBuf_", reportedBufferSize_.load(), available);
+			tempBuf_ = std::make_unique<float[]>(available * 2);
+			reportedBufferSize_.store(available);
 		}
 	} else {
 		// No audio client, nothing to do.
@@ -552,7 +570,15 @@ void WASAPIContext::AudioLoop() {
 			audioClient_->GetCurrentPadding(&padding);
 		}
 
-		const UINT32 framesToWrite = available - padding;
+		UINT32 framesToWrite = available - padding;
+
+		// Safety: clamp framesToWrite to tempBuf_ capacity if using conversion path
+		const UINT32 bufCapacity = reportedBufferSize_.load();
+		if (tempBuf_ && framesToWrite > bufCapacity) {
+			WARN_LOG(Log::Audio, "framesToWrite (%d) exceeds buffer capacity (%d), clamping", framesToWrite, bufCapacity);
+			framesToWrite = bufCapacity;
+		}
+
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
 			if (!tempBuf_) {
@@ -646,11 +672,11 @@ void WASAPIContext::AudioLoop() {
 			}
 
 			renderClient_->ReleaseBuffer(framesToWrite, 0);
-		}
 
-		// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
-		if (audioClient_ && framesToWrite < actualPeriodFrames_) {
-			actualPeriodFrames_ = framesToWrite;
+			// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
+			if (audioClient_ && framesToWrite < actualPeriodFrames_.load()) {
+				actualPeriodFrames_.store(framesToWrite);
+			}
 		}
 	}
 
