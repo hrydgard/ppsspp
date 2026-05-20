@@ -125,7 +125,6 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 		}
 	}
 	inds_ += numTris * 3;
-	// wind doesn't need to be updated, an even number of triangles have been drawn.
 #elif PPSSPP_ARCH(ARM_NEON)
 	uint16x8_t ibase8 = vdupq_n_u16(indexOffset);
 	const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;

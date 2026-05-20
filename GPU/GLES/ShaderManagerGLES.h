@@ -72,6 +72,7 @@ public:
 	int u_scaleY;
 
 	int u_rasterOffset;
+	int u_minZmaxZ;
 
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones

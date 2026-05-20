@@ -27,7 +27,7 @@ struct alignas(16) UB_VS_FS_Base {
 	float xywh[4];  // later, we could invert w and h here to avoid division.
 	float vpScale[3]; float NaN;
 	float vpOffset[3]; float padding2;
-	float rasterOffset[2]; float padding3[2];
+	float rasterOffset[2]; float minZmaxZ[2];
 	float uvScaleOffset[4];
 	float matAmbient[4];
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
@@ -53,7 +53,7 @@ R"(  mat4 u_proj;
   vec4 u_xywh;
   vec3 u_vpScale; float u_NaN; // w = offsetX
   vec4 u_vpOffset; // w = offsetY
-  vec2 u_rasterOffset; vec2 pad0;
+  vec2 u_rasterOffset; vec2 u_minZmaxZ;
   vec4 u_uvscaleoffset;
   vec4 u_matambientalpha;
   uint u_spline_counts;

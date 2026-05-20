@@ -7,6 +7,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/vec3.h"
+#include "Common/TimeUtil.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -86,6 +87,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	if (dirtyUniforms & DIRTY_RASTER_OFFSET) {
 		ub->rasterOffset[0] = gstate.getOffsetX();
 		ub->rasterOffset[1] = gstate.getOffsetY();
+		ub->minZmaxZ[0] = gstate.getDepthRangeMin();
+		ub->minZmaxZ[1] = gstate.getDepthRangeMax();
+
+		// test sine wave
+		// ub->minZmaxZ[0] = (sin(time_now_d()) * 0.5f + 0.5f) * 65536.0;
 	}
 
 	if (dirtyUniforms & DIRTY_VIEWPORT_UNIFORMS) {

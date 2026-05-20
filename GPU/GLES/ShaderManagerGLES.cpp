@@ -109,6 +109,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_vpScale, "u_vpScale" });
 	queries.push_back({ &u_vpOffset, "u_vpOffset"});
 	queries.push_back({ &u_rasterOffset, "u_rasterOffset" });
+	queries.push_back({ &u_minZmaxZ, "u_minZmaxZ" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
@@ -570,6 +571,11 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			gstate.getOffsetY(),
 		};
 		render_->SetUniformF(&u_rasterOffset, 2, offset);
+		float minZmaxZ[2] = {
+			(float)gstate.getDepthRangeMin(),
+			(float)gstate.getDepthRangeMax(),
+		};
+		render_->SetUniformF(&u_minZmaxZ, 2, minZmaxZ);
 	}
 
 	if (dirty & DIRTY_VIEWPORT_UNIFORMS) {

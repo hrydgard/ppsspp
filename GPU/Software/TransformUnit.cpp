@@ -197,7 +197,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float y = coords.y * yScale / coords.w + yCenter;
 	float z = coords.z * zScale / coords.w + zCenter;
 
-	if (gstate.isDepthClampEnabled()) {
+	if (gstate.isDepthClipEnabled()) {
 		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
 	return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
@@ -315,7 +315,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	}
 
-	if (gstate.isDepthClampEnabled())
+	if (gstate.isDepthClipEnabled())
 		state->roundToScreen = &ClipToScreenInternal<true, false>;
 	else
 		state->roundToScreen = &ClipToScreenInternal<false, false>;

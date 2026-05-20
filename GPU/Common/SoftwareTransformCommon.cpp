@@ -483,7 +483,7 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 			// Now, for each primitive type, throw away the indices if:
 			//  - Depth clamp on, and ALL verts are outside *in the same direction*.
 			//  - Depth clamp off, and ANY vert is outside.
-			if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClampEnabled()) {
+			if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClipEnabled()) {
 				numTrans = 0;
 				for (int i = 0; i < vertexCount - 2; i += 3) {
 					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {

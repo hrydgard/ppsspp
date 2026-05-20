@@ -96,7 +96,7 @@ enum : uint64_t {
 	DIRTY_LIGHT_CONTROL = 1ULL << 38,
 	DIRTY_TEX_ALPHA_MUL = 1ULL << 39,
 
-	DIRTY_RASTER_OFFSET = 1ULL << 40,
+	DIRTY_RASTER_OFFSET = 1ULL << 40,  // Also includes minZmaxZ.
 
 	// Bits 41-42 are free for new uniforms (although the mask below needs updating). Then we're really out and need to start merging.
 	// Don't forget to update DIRTY_ALL_UNIFORMS when you start using them.

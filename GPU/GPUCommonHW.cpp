@@ -202,9 +202,9 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VIEWPORT_UNIFORMS },
 	{ GE_CMD_DEPTHCLAMPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE },
 
-	// Z clip
-	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE },
+	// Z range.
+	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_RASTER_OFFSET},
+	{ GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_RASTER_OFFSET},
 
 	// Region
 	{ GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE },
@@ -585,15 +585,13 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_BLEND_MINMAX;
 	}
 
-	/*
-	if (draw_->GetDeviceCaps().maxClipDistances >= 2) {
+	if (draw_->GetDeviceCaps().maxClipDistances >= 3) {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
 	if (draw_->GetDeviceCaps().maxCullDistances >= 1) {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
-	*/
 
 	if (draw_->GetDeviceCaps().textureDepthSupported) {
 		features |= GPU_USE_DEPTH_TEXTURE;
@@ -604,7 +602,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_DEPTH_CLAMP;
 	}
 
-	bool canClipOrCull = draw_->GetDeviceCaps().maxClipDistances >= 2 || draw_->GetDeviceCaps().maxCullDistances >= 1;
+	bool canClipOrCull = draw_->GetDeviceCaps().maxClipDistances >= 3 || draw_->GetDeviceCaps().maxCullDistances >= 1;
 	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.

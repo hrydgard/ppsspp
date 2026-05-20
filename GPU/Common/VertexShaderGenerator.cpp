@@ -412,6 +412,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "uniform vec4 u_xywh;\n");
 		*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 
+		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.
+
 		if (useHWTransform) {
 			WRITE(p, "uniform vec3 u_vpScale;\n");
 			WRITE(p, "uniform vec3 u_vpOffset;\n");
@@ -732,7 +735,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			WRITE(p, "  vec4 outPos = position;\n");
-			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This should be moved to the vertex decoders for through mode.
+			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This multiplication should be moved to the vertex decoders for through mode.
 			WRITE(p, "  outPos.w = 1.0;\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
@@ -1216,11 +1219,23 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Apply raster offset after the range culling.
 		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
+
+		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
+			// Cull against the Z=-W and Z=W planes.
+			WRITE(p, "  gl_CullDistance[0] = outPos.w + outPos.z; \n");
+			WRITE(p, "  gl_CullDistance[1] = outPos.z - outPos.w; \n");
+		}
+
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+			// We use clipping to implement min/max Z.
+			// 1.0 effectively disables the clip plane.
+			WRITE(p, "  gl_ClipDistance[0] = u_minZmaxZ.x > 0.0 ? outPos.z - u_minZmaxZ.x : 1.0;\n");
+			WRITE(p, "  gl_ClipDistance[1] = u_minZmaxZ.y < 65535.0 ? u_minZmaxZ.y - outPos.z : 1.0;\n");
+		}
 	}
 
 	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.
-	WRITE(p, "  outPos.x = ((outPos.x - u_xywh.x) / u_xywh.z) * 2.0 - 1.0;\n");
-	WRITE(p, "  outPos.y = ((outPos.y - u_xywh.y) / u_xywh.w) * 2.0 - 1.0;\n");
+	WRITE(p, "  outPos.xy = ((outPos.xy - u_xywh.xy) / u_xywh.zw) * 2.0 - 1.0;\n");
 
 	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 		WRITE(p, "  outPos.z = float(int(outPos.z));\n");

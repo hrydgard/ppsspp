@@ -62,7 +62,7 @@ struct GPUgstate {
 				region2,
 				lightingEnable,
 				lightEnable[4],
-				depthClampEnable,
+				depthClipEnable,
 				cullfaceEnable,
 				textureMapEnable,  // 0x1E GE_CMD_TEXTUREMAPENABLE
 				fogEnable,
@@ -389,7 +389,7 @@ struct GPUgstate {
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 
-	bool isDepthClampEnabled() const { return depthClampEnable & 1; }
+	bool isDepthClipEnabled() const { return depthClipEnable & 1; }
 
 	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
 	float getViewportXScale() const { return getFloat24(viewportxscale); }

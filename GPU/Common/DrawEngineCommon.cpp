@@ -306,7 +306,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		}
 	}
 
-	int countToCheck = gstate.isDepthClampEnabled() ? 6 : 4;
+	int countToCheck = gstate.isDepthClipEnabled() ? 6 : 4;
 #if 0
 	// For debugging, the exclusive check. This should make it obvious where the culling borders are in screen space.
 	for (int i = 0; i < countToCheck; i++) {
