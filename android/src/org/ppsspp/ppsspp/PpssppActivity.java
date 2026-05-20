@@ -1650,6 +1650,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// Workaround for issue #13363 to fix Split/Second game start - it requires text input
 			// but we don't support it on VR devices.
 			if (isVRDevice()) {
+				Log.w(TAG, "VR: Missing UI, supplying default string for text input request");
 				NativeApp.sendRequestResult(requestID, false, defString, 0);
 				return true;
 			}

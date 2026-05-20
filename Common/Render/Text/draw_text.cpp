@@ -1,5 +1,11 @@
 #include "ppsspp_config.h"
 
+#if defined(__linux__) && !defined(__ANDROID__)
+# include <dlfcn.h>
+#elif defined(_WIN32)
+# include <windows.h>
+#endif
+
 #include <algorithm>
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
@@ -13,7 +19,26 @@
 #include "Common/Render/Text/draw_text_qt.h"
 #include "Common/Render/Text/draw_text_android.h"
 #include "Common/Render/Text/draw_text_sdl.h"
+#include "Common/Render/Text/draw_text_uwp.h"
 #include "Common/StringUtils.h"
+
+
+// TODO: Move this to somewhere more appropriate.
+static bool IsRenderDocLoaded() {
+#if PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID)
+	return false;
+#elif defined(_WIN32)
+	return (GetModuleHandleA("renderdoc.dll") != nullptr);
+#elif defined(__linux__)
+	// Returns a pointer if loaded, otherwise null
+	void* handle = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
+	if (handle) {
+		dlclose(handle);
+		return true;
+	}
+	return false;
+#endif
+}
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -272,8 +297,16 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
 #if defined(__LIBRETRO__)
 	// No text drawer
+#elif PPSSPP_PLATFORM(UWP)
+	drawer = new TextDrawerUWP(draw);
 #elif defined(_WIN32) && !defined(USING_QT_UI)
-	drawer = new TextDrawerWin32(draw);
+	// If RenderDoc is active, we can't use the UWP drawer since it uses D3D11 to initialize D2D,
+	// and RenderDoc doesn't permit multiple graphics contexts.
+	if (IsRenderDocLoaded()) {
+		drawer = new TextDrawerWin32(draw);
+	} else {
+		drawer = new TextDrawerUWP(draw);
+	}
 #elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	drawer = new TextDrawerCocoa(draw);
 #elif defined(USING_QT_UI)
