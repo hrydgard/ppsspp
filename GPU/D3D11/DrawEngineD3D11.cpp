@@ -404,18 +404,6 @@ void DrawEngineD3D11::Flush() {
 			IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
 		}
 
-		// We need correct viewport values in gstate_c already.
-		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			ViewportAndScissor vpAndScissor;
-			ConvertViewportAndScissor(
-				framebufferManager_->GetDisplayLayoutConfigCopy(),
-				framebufferManager_->UseBufferedRendering(),
-				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-				vpAndScissor);
-			UpdateCachedViewportState(vpAndScissor);
-		}
-
 		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
 		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
 		// should clean up one day...

@@ -67,12 +67,11 @@ public:
 	int u_view;
 	int u_texmtx;
 	int u_world;
-	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
-	int u_cullRangeMin;
-	int u_cullRangeMax;
 	int u_mipBias;
 	int u_scaleX;
 	int u_scaleY;
+
+	int u_rasterOffset;
 
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones

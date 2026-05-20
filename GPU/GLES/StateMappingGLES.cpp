@@ -280,13 +280,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor_);
-		UpdateCachedViewportState(vpAndScissor_);
 
 		renderManager->SetScissor(GLRect2D{ vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH });
 		renderManager->SetViewport({
 			vpAndScissor_.viewportX, vpAndScissor_.viewportY,
-			vpAndScissor_.viewportW, vpAndScissor_.viewportH,
-			vpAndScissor_.depthRangeMin, vpAndScissor_.depthRangeMax });
+			vpAndScissor_.viewportW, vpAndScissor_.viewportH, 0.0f, 1.0f });
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);

@@ -1030,10 +1030,6 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
 }
 
-void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
-	GPUCommon::Execute_BoundingBox(op, diff);
-}
-
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 	// We assume depthbuf.data won't change while we're drawing.
 	if (diff) {

@@ -331,21 +331,14 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
-		UpdateCachedViewportState(vpAndScissor);
-
-		float depthMin = vpAndScissor.depthRangeMin;
-		float depthMax = vpAndScissor.depthRangeMax;
-
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
 
 		Draw::Viewport &vp = dynState_.viewport;
 		vp.TopLeftX = vpAndScissor.viewportX;
 		vp.TopLeftY = vpAndScissor.viewportY;
 		vp.Width = vpAndScissor.viewportW;
 		vp.Height = vpAndScissor.viewportH;
-		vp.MinDepth = depthMin;
-		vp.MaxDepth = depthMax;
+		vp.MinDepth = 0.0f;
+		vp.MaxDepth = 1.0f;
 
 		D3D11_RECT &scissor = dynState_.scissor;
 		scissor.left = vpAndScissor.scissorX;

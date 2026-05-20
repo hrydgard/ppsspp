@@ -10,7 +10,7 @@ enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_STENCILREPLACEVALUE |
-	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
+	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_MATAMBIENTALPHA |
 	DIRTY_BEZIERSPLINE | DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT_CONTROL | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
@@ -29,10 +29,7 @@ struct alignas(16) UB_VS_FS_Base {
 	float vpOffset[3]; float padding2;
 	float rasterOffset[2]; float padding3[2];
 	float uvScaleOffset[4];
-	float depthRange[4];
 	float matAmbient[4];
-	float cullRangeMin[4];
-	float cullRangeMax[4];
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
@@ -44,9 +41,9 @@ struct alignas(16) UB_VS_FS_Base {
 	float blendFixA[3]; float stencilReplaceValue;
 	float blendFixB[3]; float rotation;
 	// VR stuff is to go here, later. For normal drawing, we can then get away
-	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
+	// with just uploading the first X bytes of the struct (up to and including fogCoef).
 };
-static_assert(sizeof(UB_VS_FS_Base) == 480, "UB_VS_FS_Base should be 480 bytes");
+static_assert(sizeof(UB_VS_FS_Base) <= 432, "UB_VS_FS_Base should be 432 bytes");
 
 static const char * const ub_baseStr =
 R"(  mat4 u_proj;
@@ -58,10 +55,7 @@ R"(  mat4 u_proj;
   vec4 u_vpOffset; // w = offsetY
   vec2 u_rasterOffset; vec2 pad0;
   vec4 u_uvscaleoffset;
-  vec4 u_depthRange;
   vec4 u_matambientalpha;
-  vec4 u_cullRangeMin;
-  vec4 u_cullRangeMax;
   uint u_spline_counts;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
@@ -118,8 +112,6 @@ static_assert(sizeof(UB_VS_Bones) == 384);  // No way to optimize this further.
 static const char * const ub_vs_bonesStr =
 R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
-
-void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);

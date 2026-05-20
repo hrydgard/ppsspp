@@ -524,10 +524,6 @@ bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) 
 		return false;
 	}
 
-	if ((header.detectFlags & (uint32_t)VulkanCacheDetectFlags::EQUAL_DEPTH) != 0) {
-		drawEngine->SetEverUsedExactEqualDepth(true);
-	}
-
 	return true;
 }
 
@@ -629,8 +625,6 @@ void ShaderManagerVulkan::SaveCache(FILE *f, DrawEngineVulkan *drawEngine) {
 	header.version = CACHE_VERSION;
 	header.useFlags = gstate_c.GetUseFlags();
 	header.detectFlags = 0;
-	if (drawEngine->EverUsedExactEqualDepth())
-		header.detectFlags |= (uint32_t)VulkanCacheDetectFlags::EQUAL_DEPTH;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
 	header.numGeometryShaders = (int)gsCache_.size();

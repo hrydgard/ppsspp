@@ -147,7 +147,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	// Code checks this reg directly, not just the vtype ID.
 	if (!prevThrough) {
 		gstate.vertType |= GE_VTYPE_THROUGH;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 
 	int bytesRead;
@@ -160,7 +160,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 	if (!prevThrough) {
 		gstate.vertType &= ~GE_VTYPE_THROUGH;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 }
 
@@ -186,8 +186,9 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
+	}
 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.

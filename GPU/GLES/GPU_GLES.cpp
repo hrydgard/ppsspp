@@ -95,9 +95,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			File::IOFile f(shaderCachePath_, "rb");
 			if (f.IsOpen()) {
 				if (shaderManagerGL_->LoadCacheFlags(f, &drawEngine_)) {
-					if (drawEngineCommon_->EverUsedExactEqualDepth()) {
-						sawExactEqualDepth_ = true;
-					}
 					gstate_c.SetUseFlags(CheckGPUFeatures());
 					// We're compiling now, clear if they changed.
 					gstate_c.useFlagsChanged = false;

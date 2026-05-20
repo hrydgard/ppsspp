@@ -458,14 +458,14 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-#define FLAG_BIT(x) (1 << x)
+#define FLAG_BIT(x) (u32)(1U << x)
 
 // These flags are mainly to make sure that we make decisions on code path in a single
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
 // NOTE: Do not forget to update the string array at the end of GPUState.cpp!
-enum {
+enum : u32 {
 	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
 	GPU_USE_FRAGMENT_TEST_CACHE = FLAG_BIT(2),
@@ -483,11 +483,11 @@ enum {
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_USE_TEXTURE_LOD_CONTROL = FLAG_BIT(15),
 	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
-	GPU_USE_ACCURATE_DEPTH = FLAG_BIT(17),
+	// Free bit: 17
 	GPU_USE_GS_CULLING = FLAG_BIT(18),  // Geometry shader
 	GPU_USE_FRAMEBUFFER_ARRAYS = FLAG_BIT(19),
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
-	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
+	// Free bit: 21,
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),

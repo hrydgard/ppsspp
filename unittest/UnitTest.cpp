@@ -902,10 +902,7 @@ static bool TestDepthMath() {
 	// over in GPUStateUtils.cpp):
 	static const u32 useFlagsArray[] = {
 		0,
-		GPU_USE_ACCURATE_DEPTH,
-		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
-		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,
-		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  // Here, GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT should take precedence over USE_DEPTH_CLAMP.
+		GPU_USE_DEPTH_CLAMP,
 	};
 	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
 	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };

@@ -550,40 +550,12 @@ static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 // Any other combinations of these particular flags are bogus (like for example a lonely GPU_USE_DEPTH_CLAMP).
 
 float DepthSliceFactor(u32 useFlags) {
-	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
-		// Old style depth.
-		return 1.0f;
-	}
-	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
-		// Accurate depth but 16-bit resolution, so squish.
-		return DEPTH_SLICE_FACTOR_16BIT;
-	}
-	if (useFlags & GPU_USE_DEPTH_CLAMP) {
-		// Accurate depth, but we can use the full range since clamping is available.
-		return 1.0f;
-	}
-
-	// Standard accurate depth.
-	return DEPTH_SLICE_FACTOR_HIGH;
+	return 1.0f;
 }
 
 // See class DepthScaleFactors for how to apply.
 DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
-	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
-		return DepthScaleFactors(0.0f, 65535.0f);
-	}
-
-	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
-		const double offset = 0.5 * (DEPTH_SLICE_FACTOR_16BIT - 1.0) / DEPTH_SLICE_FACTOR_16BIT;
-		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
-		const double scale = 16777215.0;
-		return DepthScaleFactors(offset, scale);
-	} else if (useFlags & GPU_USE_DEPTH_CLAMP) {
-		return DepthScaleFactors(0.0f, 65535.0f);
-	} else {
-		const double offset = 0.5f * (DEPTH_SLICE_FACTOR_HIGH - 1.0f) * (1.0f / DEPTH_SLICE_FACTOR_HIGH);
-		return DepthScaleFactors(offset, (float)(DEPTH_SLICE_FACTOR_HIGH * 65535.0));
-	}
+	return DepthScaleFactors(0.0f, 65535.0f);
 }
 
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
@@ -635,64 +607,6 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
-	DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-
-	if (out.throughMode) {
-		out.depthRangeMin = depthScale.EncodeFromU16(0.0f);
-		out.depthRangeMax = depthScale.EncodeFromU16(65536.0f);
-	} else {
-		// For now, we keep the old depth logic.
-
-		// The depth viewport parameters are the same, but we handle it a bit differently.
-		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
-		// So, we apply the depth range as minz/maxz, and transform for the viewport.
-		float vpZScale = gstate.getViewportZScale();
-		float vpZCenter = gstate.getViewportZCenter();
-		// TODO: This clip the entire draw if minz > maxz.
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
-
-		if (gstate.isDepthClampEnabled() && (minz == 0 || maxz == 65535)) {
-			// Here, we should "clamp."  But clamping per fragment would be slow.
-			// So, instead, we just increase the available range and hope.
-			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
-			float fullDepthRange = 65535.0f * (depthScale.Scale() - 1.0f) * (1.0f / 2.0f);
-			if (minz == 0) {
-				minz -= fullDepthRange;
-			}
-			if (maxz == 65535) {
-				maxz += fullDepthRange;
-			}
-		} else if (maxz == 65535) {
-			// This means clamp isn't enabled, but we still want to allow values up to 65535.99.
-			// If DepthSliceFactor() is 1.0, though, this would make out.depthRangeMax exceed 1.
-			// Since that would clamp, it would make Z=1234 not match between draws when maxz changes.
-			if (depthScale.Scale() > 1.0f)
-				maxz = 65535.99f;
-		}
-
-		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
-		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
-		out.depthScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
-		// This adjusts the center from halfActualZRange to vpZCenter.
-		out.zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
-
-		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-			out.depthScale = 1.0f;
-			out.zOffset = 0.0f;
-			out.depthRangeMin = depthScale.EncodeFromU16(vpZCenter - vpZScale);
-			out.depthRangeMax = depthScale.EncodeFromU16(vpZCenter + vpZScale);
-		} else {
-			out.depthRangeMin = depthScale.EncodeFromU16(minz);
-			out.depthRangeMax = depthScale.EncodeFromU16(maxz);
-		}
-
-		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
-		// Of course, if this happens we've skewed out.depthScale/out.zOffset and may get z-fighting.
-		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
-		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
-	}
-
 	// If renderX/renderY are offset to compensate for a split framebuffer,
 	// applying the offset to the viewport isn't enough, since the viewport clips.
 	// We need to apply either directly to the vertices, or to the "through" projection matrix.
@@ -700,34 +614,6 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 	out.viewportY = displayOffsetY;
 	out.viewportW = curRTWidth * renderWidthFactor;
 	out.viewportH = curRTHeight * renderHeightFactor;
-
-	// Not really using these now.
-	out.widthScale = 1.0f;
-	out.heightScale = 1.0f;
-	out.xOffset = 0.0f;
-	out.yOffset = 0.0f;
-}
-
-void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor) {
-	if (vpAndScissor.throughMode)
-		return;
-
-	bool scaleChanged = gstate_c.vpWidthScale != vpAndScissor.widthScale || gstate_c.vpHeightScale != vpAndScissor.heightScale;
-	bool offsetChanged = gstate_c.vpXOffset != vpAndScissor.xOffset || gstate_c.vpYOffset != vpAndScissor.yOffset;
-	bool depthChanged = gstate_c.vpDepthScale != vpAndScissor.depthScale || gstate_c.vpZOffset != vpAndScissor.zOffset;
-	if (scaleChanged || offsetChanged || depthChanged) {
-		gstate_c.vpWidthScale = vpAndScissor.widthScale;
-		gstate_c.vpHeightScale = vpAndScissor.heightScale;
-		gstate_c.vpDepthScale = vpAndScissor.depthScale;
-		gstate_c.vpXOffset = vpAndScissor.xOffset;
-		gstate_c.vpYOffset = vpAndScissor.yOffset;
-		gstate_c.vpZOffset = vpAndScissor.zOffset;
-
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-		if (depthChanged) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
-		}
-	}
 }
 
 static const BlendFactor genericALookup[11] = {

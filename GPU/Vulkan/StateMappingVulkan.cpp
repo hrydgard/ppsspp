@@ -333,21 +333,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);
-		UpdateCachedViewportState(vpAndScissor);
-
-		float depthMin = vpAndScissor.depthRangeMin;
-		float depthMax = vpAndScissor.depthRangeMax;
-
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
-
 		VkViewport &vp = dynState.viewport;
 		vp.x = vpAndScissor.viewportX;
 		vp.y = vpAndScissor.viewportY;
 		vp.width = vpAndScissor.viewportW;
 		vp.height = vpAndScissor.viewportH;
-		vp.minDepth = vpAndScissor.depthRangeMin;
-		vp.maxDepth = vpAndScissor.depthRangeMax;
+		vp.minDepth = 0.0f;
+		vp.maxDepth = 1.0f;
 
 		ScissorRect &scissor = dynState.scissor;
 		scissor.x = vpAndScissor.scissorX;

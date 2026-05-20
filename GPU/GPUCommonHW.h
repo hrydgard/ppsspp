@@ -19,8 +19,6 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void BeginHostFrame(const DisplayLayoutConfig &config) override;
-
 	u32 CheckGPUFeatures() const override;
 
 	// From GPUDebugInterface.
@@ -107,7 +105,6 @@ protected:
 	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	int msaaLevel_ = 0;
-	bool sawExactEqualDepth_ = false;
 	ShaderManagerCommon *shaderManager_ = nullptr;
 	bool curFramebufferDirty_ = false;
 };

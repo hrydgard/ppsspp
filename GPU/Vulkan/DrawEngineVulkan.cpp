@@ -400,20 +400,6 @@ void DrawEngineVulkan::Flush() {
 
 		// At this point, the output is always an indexed triangle/line/point list, no strips/fans.
 
-		// We need to update the viewport early because it's checked for flipping in SoftwareTransform.
-		// We don't have a "DrawStateEarly" in vulkan, so...
-		// TODO: Probably should eventually refactor this and feed the vp size into SoftwareTransform directly (Unknown's idea).
-		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			ViewportAndScissor vpAndScissor;
-			ConvertViewportAndScissor(
-				framebufferManager_->GetDisplayLayoutConfigCopy(),
-				framebufferManager_->UseBufferedRendering(),
-				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-				vpAndScissor);
-			UpdateCachedViewportState(vpAndScissor);
-		}
-
 		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
 		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
 		// should clean up one day...

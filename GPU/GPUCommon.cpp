@@ -1355,7 +1355,7 @@ void GPUCommon::FlushImm() {
 		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)texturing;
 		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)fog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)dither;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET);
 	}
 
 	drawEngineCommon_->DispatchSubmitImm(immPrim_, immBuffer_, immCount_, cullMode, immFirstSent_);
@@ -1370,7 +1370,7 @@ void GPUCommon::FlushImm() {
 		gstate.textureMapEnable = (GE_CMD_TEXTUREMAPENABLE << 24) | (int)prevTexturing;
 		gstate.fogEnable = (GE_CMD_FOGENABLE << 24) | (int)prevFog;
 		gstate.ditherEnable = (GE_CMD_DITHERENABLE << 24) | (int)prevDither;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET);
 	}
 }
 

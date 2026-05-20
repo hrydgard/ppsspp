@@ -1037,7 +1037,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -1145,7 +1145,7 @@ void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int siz
 			const int bpp = BufferFormatBytesPerPixel(fmt);
 			ResizeFramebufFBO(vfb, stride, size / (bpp * stride));
 			// Resizing may change the viewport/etc.
-			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			vfb->fb_stride = stride;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
 			vfb->width = stride;
@@ -2877,7 +2877,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				dstRect.vfb->newHeight = std::max(dstRect.h, (int)dstRect.vfb->height);
 				dstRect.vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 				// Resizing may change the viewport/etc.
-				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			}
 			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
@@ -3115,12 +3115,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 
-	// Old code
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
-	} else {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
-	}
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
 	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
 	bool retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetDepthBuffer");
 	if (!retval) {

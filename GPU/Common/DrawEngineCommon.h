@@ -134,13 +134,6 @@ public:
 
 	virtual void NotifyConfigChanged();
 
-	bool EverUsedExactEqualDepth() const {
-		return everUsedExactEqualDepth_;
-	}
-	void SetEverUsedExactEqualDepth(bool v) {
-		everUsedExactEqualDepth_ = v;
-	}
-
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const;
 	int GetNumDrawCalls() const {
 		return numDrawVerts_;
