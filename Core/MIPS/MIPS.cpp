@@ -157,8 +157,7 @@ MIPSState::MIPSState() {
 	}
 }
 
-MIPSState::~MIPSState() {
-}
+MIPSState::~MIPSState() = default;
 
 void MIPSState::Shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);

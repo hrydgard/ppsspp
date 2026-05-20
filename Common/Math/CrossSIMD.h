@@ -16,7 +16,7 @@
 // The point of this, as opposed to a float4 array, is to almost force the compiler
 // to keep the matrix in registers, rather than loading on every access.
 struct Mat4F32 {
-	Mat4F32() {}
+	Mat4F32() = default;
 	Mat4F32(const float *matrix) {
 		col0 = _mm_loadu_ps(matrix);
 		col1 = _mm_loadu_ps(matrix + 4);

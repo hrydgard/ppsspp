@@ -113,7 +113,7 @@ class IniFile;
 namespace KeyMap {
 	// Combo of InputMappings.
 	struct MultiInputMapping {
-		MultiInputMapping() {}
+		MultiInputMapping() = default;
 		explicit MultiInputMapping(const InputMapping &mapping) {
 			mappings.push_back(mapping);
 		}

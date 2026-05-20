@@ -90,9 +90,7 @@ const char *VulkanImageLayoutToString(VkImageLayout imageLayout) {
 	}
 }
 
-VulkanContext::VulkanContext() {
-	// Do nothing here.
-}
+VulkanContext::VulkanContext() = default;
 
 VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (!vkCreateInstance) {
@@ -322,9 +320,13 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	return VK_SUCCESS;
 }
 
+#if defined(NDEBUG)
 VulkanContext::~VulkanContext() {
 	_dbg_assert_(instance_ == VK_NULL_HANDLE);
 }
+#else
+VulkanContext::~VulkanContext() = default;
+#endif
 
 void VulkanContext::DestroyInstance() {
 	if (extensionsLookup_.EXT_debug_utils) {

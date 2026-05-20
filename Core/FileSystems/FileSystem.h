@@ -110,8 +110,7 @@ private:
 };
 
 struct PSPFileInfo {
-	PSPFileInfo() {
-	}
+	PSPFileInfo() = default;
 
 	void DoState(PointerWrap &p);
 

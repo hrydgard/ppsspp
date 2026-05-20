@@ -207,7 +207,7 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	}
 }
 
-SavedataParam::SavedataParam() { }
+SavedataParam::SavedataParam() = default;
 
 void SavedataParam::Init() {
 	// If the folder already exists, this is a no-op.

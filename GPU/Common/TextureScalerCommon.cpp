@@ -540,12 +540,9 @@ void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int
 
 /////////////////////////////////////// Texture Scaler
 
-TextureScalerCommon::TextureScalerCommon() {
-	// initBicubicWeights() used to be here.
-}
+TextureScalerCommon::TextureScalerCommon() = default;
 
-TextureScalerCommon::~TextureScalerCommon() {
-}
+TextureScalerCommon::~TextureScalerCommon() = default;
 
 bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) {
 	u32 ref = data[0];

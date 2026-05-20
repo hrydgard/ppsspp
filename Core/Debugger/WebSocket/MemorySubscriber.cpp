@@ -45,7 +45,7 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 }
 
 struct AutoDisabledReplacements {
-	AutoDisabledReplacements() {}
+	AutoDisabledReplacements() = default;
 	AutoDisabledReplacements(AutoDisabledReplacements &&other);
 	AutoDisabledReplacements(const AutoDisabledReplacements &) = delete;
 	AutoDisabledReplacements &operator =(const AutoDisabledReplacements &) = delete;

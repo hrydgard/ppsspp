@@ -16,7 +16,7 @@
 // listing "/" will yield drives.
 class PathBrowser {
 public:
-	PathBrowser() {}
+	PathBrowser() = default;
 	~PathBrowser();
 
 	void SetPath(const Path &path);

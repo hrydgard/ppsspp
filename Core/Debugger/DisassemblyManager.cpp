@@ -392,8 +392,7 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 	return (address + n * 4) & ~3;
 }
 
-DisassemblyManager::~DisassemblyManager() {
-}
+DisassemblyManager::~DisassemblyManager() = default;
 
 void DisassemblyManager::clear()
 {

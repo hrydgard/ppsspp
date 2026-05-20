@@ -2039,7 +2039,7 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 	ImGui::End();
 }
 
-ImWatchWindow::ImWatchWindow() {}
+ImWatchWindow::ImWatchWindow() = default;
 
 void ImWatchWindow::Draw(ImConfig &cfg, ImControl &control, MIPSDebugInterface *mipsDebug) {
 	if (!ImGui::Begin("Watch", &cfg.watchOpen) || !g_symbolMap) {

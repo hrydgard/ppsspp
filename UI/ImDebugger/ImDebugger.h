@@ -159,7 +159,7 @@ private:
 
 class ImLogWindow {
 public:
-	ImLogWindow() {}
+	ImLogWindow() = default;
 	void Draw(ImConfig &cfg);
 
 private:

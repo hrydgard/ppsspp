@@ -95,8 +95,7 @@ inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDeb
 }
 
 struct GPUDebugBuffer {
-	GPUDebugBuffer() {
-	}
+	GPUDebugBuffer() = default;
 
 	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt, bool reversed = false)
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(GPUDebugBufferFormat(fmt)), flipped_(false) {

@@ -44,8 +44,7 @@ enum class PixelBlendFactor {
 #pragma pack(push, 1)
 
 struct PixelFuncID {
-	PixelFuncID() {
-	}
+	PixelFuncID() = default;
 
 	struct {
 		// Warning: these are not hashed or compared for equal.  Just cached values.

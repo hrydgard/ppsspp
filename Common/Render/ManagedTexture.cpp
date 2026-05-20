@@ -58,10 +58,14 @@ private:
 	ManagedTexture::LoadState *state_;
 };
 
+#if defined(NDEBUG)
 TempImage::~TempImage() {
 	// Make sure you haven't forgotten to call Free.
 	_dbg_assert_(levels[0] == nullptr);
 }
+#else
+TempImage::~TempImage() = default;
+#endif
 
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {

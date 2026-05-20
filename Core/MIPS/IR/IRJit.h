@@ -49,7 +49,7 @@ namespace MIPSComp {
 // TODO : Use arena allocators. For now let's just malloc.
 class IRBlock {
 public:
-	IRBlock() {}
+	IRBlock() = default;
 	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
 		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numIRInstructions_(numInstructions) {}
 	IRBlock(IRBlock &&b) noexcept {
@@ -63,7 +63,7 @@ public:
 		b.arenaOffset_ = 0xFFFFFFFF;
 	}
 
-	~IRBlock() {}
+	~IRBlock() = default;
 
 	u32 GetIRArenaOffset() const { return arenaOffset_; }
 	int GetNumIRInstructions() const { return numIRInstructions_; }

@@ -72,7 +72,7 @@ struct I18NEntry {
 
 class I18NCategory {
 public:
-	I18NCategory() {}
+	I18NCategory() = default;
 	explicit I18NCategory(const Section &section);
 
 	// Faster since the string lengths don't need to be recomputed.

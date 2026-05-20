@@ -96,7 +96,7 @@ class FPURegCache
 {
 public:
 	FPURegCache();
-	~FPURegCache() {}
+	~FPURegCache() = default;
 
 	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, bool useRip);
 	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);

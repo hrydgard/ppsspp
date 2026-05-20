@@ -264,7 +264,7 @@ private:
 class LoadedFont {
 public:
 	// For savestates only.
-	LoadedFont() {}
+	LoadedFont() = default;
 
 	LoadedFont(Font *font, FontOpenMode mode, u32 fontLibID, u32 handle)
 		: fontLibID_(fontLibID), font_(font), handle_(handle), mode_(mode), open_(true) {}
@@ -361,7 +361,7 @@ private:
 
 class PostAllocCallback : public PSPAction {
 public:
-	PostAllocCallback() {}
+	PostAllocCallback() = default;
 	static PSPAction *Create() { return new PostAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostAllocCallback", 1, 2);
@@ -387,7 +387,7 @@ private:
 
 class PostOpenCallback : public PSPAction {
 public:
-	PostOpenCallback() {}
+	PostOpenCallback() = default;
 	static PSPAction *Create() { return new PostOpenCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostOpenCallback", 1);
@@ -407,7 +407,7 @@ private:
 
 class PostOpenAllocCallback : public PSPAction {
 public:
-	PostOpenAllocCallback() {}
+	PostOpenAllocCallback() = default;
 	static PSPAction *Create() { return new PostOpenAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostOpenAllocCallback", 1);
@@ -432,7 +432,7 @@ private:
 
 class PostCharInfoAllocCallback : public PSPAction {
 public:
-	PostCharInfoAllocCallback() {}
+	PostCharInfoAllocCallback() = default;
 	static PSPAction *Create() { return new PostCharInfoAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostCharInfoAllocCallback", 1);
@@ -452,7 +452,7 @@ private:
 
 class PostCharInfoFreeCallback : public PSPAction {
 public:
-	PostCharInfoFreeCallback() {}
+	PostCharInfoFreeCallback() = default;
 	static PSPAction *Create() { return new PostCharInfoFreeCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostCharInfoFreeCallback", 1);
@@ -497,9 +497,8 @@ struct FontImageRect {
 // One can open either "internal" fonts or load custom fonts into a fontlib.
 class FontLib {
 public:
-	FontLib() {
-		// For save states only.
-	}
+	FontLib() = default;
+	// For save states only.
 
 	FontLib(FontNewLibParams *params, u32 errorCodePtr) {
 		params_ = *params;

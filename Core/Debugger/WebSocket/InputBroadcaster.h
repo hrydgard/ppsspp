@@ -26,8 +26,7 @@ class WebSocketServer;
 
 struct InputBroadcaster {
 public:
-	InputBroadcaster() {
-	}
+	InputBroadcaster() = default;
 
 	void Broadcast(net::WebSocketServer *ws);
 

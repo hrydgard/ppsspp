@@ -12,7 +12,7 @@ class Matrix4x4;
 class Vec4 {
 public:
 	float x,y,z,w;
-	Vec4(){}
+	Vec4() = default;
 	Vec4(float a, float b, float c, float d) {x=a;y=b;z=c;w=d;}
 };
 
@@ -20,7 +20,7 @@ class Vec3 {
 public:
 	float x,y,z;
 
-	Vec3() { }
+	Vec3() = default;
 	explicit Vec3(float f) {x=y=z=f;}
 
 	float operator [] (int i) const { return (&x)[i]; }

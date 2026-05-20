@@ -155,7 +155,7 @@ private:
 
 template <class T, int MaxSize>
 struct FixedVec {
-	~FixedVec() {}
+	~FixedVec() = default;
 	// WARNING: Can fail if you exceed MaxSize!
 	inline bool push_back(const T &t) {
 		if (count_ < MaxSize) {

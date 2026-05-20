@@ -14,7 +14,7 @@
 template<class T>
 class FastVec {
 public:
-	FastVec() {}
+	FastVec() = default;
 	FastVec(size_t initialCapacity) {
 		capacity_ = initialCapacity;
 		data_ = (T *)malloc(initialCapacity * sizeof(T));

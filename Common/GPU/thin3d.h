@@ -384,7 +384,7 @@ private:
 
 template <typename T>
 struct AutoRef {
-	AutoRef() {}
+	AutoRef() = default;
 	explicit AutoRef(T *p) {
 		ptr = p;
 		if (ptr)

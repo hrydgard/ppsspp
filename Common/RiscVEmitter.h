@@ -180,7 +180,7 @@ enum class VUseMask {
 };
 
 struct FixupBranch {
-	FixupBranch() {}
+	FixupBranch() = default;
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 	FixupBranch(FixupBranch &&other);
 	FixupBranch(const FixupBranch &) = delete;

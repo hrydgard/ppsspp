@@ -56,8 +56,7 @@
 
 GameManager g_GameManager;
 
-GameManager::GameManager() {
-}
+GameManager::GameManager() = default;
 
 Path GameManager::GetTempFilename() const {
 #ifdef _WIN32

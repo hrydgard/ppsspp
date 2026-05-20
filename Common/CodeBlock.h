@@ -61,7 +61,7 @@ private:
 	virtual void PoisonMemory(int offset) = 0;
 
 public:
-	CodeBlock() {}
+	CodeBlock() = default;
 	~CodeBlock() {
 		if (region)
 			FreeCodeSpace();

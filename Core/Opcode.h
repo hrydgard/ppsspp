@@ -24,8 +24,7 @@
 namespace Memory {
 
 struct Opcode {
-	Opcode() {
-	}
+	Opcode() = default;
 
 	explicit Opcode(u32 v) : encoding(v) {
 	}

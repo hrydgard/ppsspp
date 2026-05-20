@@ -342,7 +342,7 @@ struct GLRStep {
 
 class GLQueueRunner {
 public:
-	GLQueueRunner() {}
+	GLQueueRunner() = default;
 
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		errorCallback_ = callback;

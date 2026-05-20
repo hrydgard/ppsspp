@@ -136,7 +136,7 @@ private:
 	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
 
 	struct OpenFileEntry {
-		OpenFileEntry() {}
+		OpenFileEntry() = default;
 		OpenFileEntry(FileSystemFlags fileSystemFlags) {
 			hFile = DirectoryFileHandle(DirectoryFileHandle::SKIP_REPLAY, fileSystemFlags);
 		}

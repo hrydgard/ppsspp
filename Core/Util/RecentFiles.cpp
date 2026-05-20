@@ -15,7 +15,7 @@
 
 RecentFilesManager g_recentFiles;
 
-RecentFilesManager::RecentFilesManager() {}
+RecentFilesManager::RecentFilesManager() = default;
 
 RecentFilesManager::~RecentFilesManager() {
 	if (thread_.joinable()) {

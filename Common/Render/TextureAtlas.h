@@ -23,7 +23,7 @@ struct Atlas;
 
 struct ImageID {
 public:
-	ImageID() {}
+	ImageID() = default;
 	explicit ImageID(std::string_view _id) : id(_id) {}
 
 	static inline ImageID invalid() {

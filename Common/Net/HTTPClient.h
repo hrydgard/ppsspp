@@ -53,7 +53,7 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string
 
 class RequestParams {
 public:
-	RequestParams() {}
+	RequestParams() = default;
 	explicit RequestParams(const char *r) : resource(r) {}
 	RequestParams(const std::string &r, const char *a) : resource(r), acceptMime(a) {}
 

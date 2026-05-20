@@ -144,7 +144,7 @@ public:
 class KernelObjectPool {
 public:
 	KernelObjectPool();
-	~KernelObjectPool() {}
+	~KernelObjectPool() = default;
 
 	// Allocates a UID within the range and inserts the object into the map.
 	SceUID Create(KernelObject *obj, int rangeBottom = initialNextID, int rangeTop = 0x7fffffff);

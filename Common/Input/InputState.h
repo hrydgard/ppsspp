@@ -187,7 +187,7 @@ enum class KeyInputFlags {
 ENUM_CLASS_BITOPS(KeyInputFlags);
 
 struct KeyInput {
-	KeyInput() {}
+	KeyInput() = default;
 	KeyInput(InputDeviceID devId, InputKeyCode code, KeyInputFlags fl) : deviceId(devId), keyCode(code), flags(fl) {}
 	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KeyInputFlags::CHAR) {}
 	InputDeviceID deviceId;

@@ -509,7 +509,7 @@ private:
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
 
 	struct FrameData {
-		FrameData() {}
+		FrameData() = default;
 		VulkanDeleteList deleteList;
 		VulkanProfiler profiler;
 	};

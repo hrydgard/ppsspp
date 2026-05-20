@@ -25,7 +25,7 @@ enum class FontFamily : u8 {
 };
 
 struct FontStyle {
-	FontStyle() {}
+	FontStyle() = default;
 	constexpr FontStyle(FontFamily _family, int size, FontStyleFlags _flags) : family(_family), sizePts(size), flags(_flags) {}
 
 	u16 sizePts = 0;

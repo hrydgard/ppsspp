@@ -175,7 +175,7 @@ public:
 	}
 
 private:
-	Promise() {}
+	Promise() = default;
 
 	// Promise can only be constructed in Spawn (or AlreadyDone).
 	T data_{};

@@ -30,7 +30,7 @@ ImMemView::ImMemView() {
 	lastSelectReset_ = curAddress_;
 }
 
-ImMemView::~ImMemView() {}
+ImMemView::~ImMemView() = default;
 
 static uint32_t pickTagColor(std::string_view tag) {
 	uint32_t colors[6] = { 0xFF301010, 0xFF103030, 0xFF403010, 0xFF103000, 0xFF301030, 0xFF101030 };

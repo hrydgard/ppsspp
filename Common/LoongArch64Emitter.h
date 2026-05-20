@@ -118,7 +118,7 @@ static inline bool IsFCSR(LoongArch64FCSR fcsr) { return ((int)fcsr < 4); }
 inline LoongArch64Reg EncodeRegToV(LoongArch64Reg reg) { return (LoongArch64Reg)(DecodeReg(reg) + V0); }
 
 struct FixupBranch {
-	FixupBranch() {}
+	FixupBranch() = default;
 	FixupBranch(const u8 *p, FixupBranchType t) : ptr(p), type(t) {}
 	FixupBranch(FixupBranch &&other);
 	FixupBranch(const FixupBranch &) = delete;

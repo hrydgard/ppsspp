@@ -46,7 +46,7 @@ struct DirectoryFileHandle {
 	bool inGameDir_ = false;
 	FileSystemFlags fileSystemFlags_ = (FileSystemFlags)0;
 
-	DirectoryFileHandle() {}
+	DirectoryFileHandle() = default;
 
 	DirectoryFileHandle(Flags flags, FileSystemFlags fileSystemFlags)
 		: replay_(flags != SKIP_REPLAY), fileSystemFlags_(fileSystemFlags) {}

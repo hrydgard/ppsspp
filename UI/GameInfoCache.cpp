@@ -1,4 +1,3 @@
-
 // Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
@@ -946,8 +945,7 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
 };
 
-GameInfoCache::GameInfoCache() {
-}
+GameInfoCache::GameInfoCache() = default;
 
 GameInfoCache::~GameInfoCache() {
 	Clear();

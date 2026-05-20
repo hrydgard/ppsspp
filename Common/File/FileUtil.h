@@ -154,7 +154,7 @@ int64_t Ftell(FILE *file);
 // and make forgetting an fclose() harder
 class IOFile {
 public:
-	IOFile() {}
+	IOFile() = default;
 	IOFile(const Path &filename, const char openmode[]);
 	~IOFile();
 

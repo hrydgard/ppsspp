@@ -52,7 +52,7 @@ class Section {
 	friend class IniFile;
 
 public:
-	Section() {}
+	Section() = default;
 	Section(std::string_view name) : name_(name) {}
 
 	bool HasKey(std::string_view key) const;

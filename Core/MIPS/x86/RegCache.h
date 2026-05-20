@@ -68,7 +68,7 @@ class GPRRegCache
 {
 public:
 	GPRRegCache();
-	~GPRRegCache() {}
+	~GPRRegCache() = default;
 	void Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
