@@ -572,12 +572,34 @@ void WASAPIContext::AudioLoop() {
 							// Maybe some bluetooth speakers? Mixdown.
 							float sum = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
 							dest[i] = ClampFloatToS16(sum);
+						} else if (nChannels == 2) {
+							// Stereo output
+							dest[i * 2] = ClampFloatToS16(tempBuf_[i * 2]);
+							dest[i * 2 + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
 						} else {
-							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);
-							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
-							// Zero other channels.
-							for (int j = 2; j < nChannels; j++) {
-								dest[i * nChannels + j] = 0;
+							// Multi-channel output (e.g., 5.1, 7.1)
+							// Copy stereo to front L/R channels
+							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);      // Front Left
+							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);  // Front Right
+
+							// For 5.1/7.1 systems, also send audio to rear channels
+							if (nChannels >= 4) {
+								// Rear/Surround Left and Right at reduced volume
+								dest[i * nChannels + 2] = ClampFloatToS16(tempBuf_[i * 2] * 0.7f);
+								dest[i * nChannels + 3] = ClampFloatToS16(tempBuf_[i * 2 + 1] * 0.7f);
+							}
+							// Center and LFE (if present)
+							for (int j = 4; j < nChannels; j++) {
+								if (j == 4 && nChannels >= 6) {
+									// Center channel - mix of L+R at reduced volume
+									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.7f);
+								} else if (j == 5 && nChannels >= 6) {
+									// LFE channel - bass from L+R at reduced volume
+									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.5f);
+								} else {
+									// Any extra channels get zeroed
+									dest[i * nChannels + j] = 0;
+								}
 							}
 						}
 					}
@@ -588,12 +610,35 @@ void WASAPIContext::AudioLoop() {
 						if (nChannels == 1) {
 							// Maybe some bluetooth speakers? Mixdown.
 							dest[i] = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
+						} else if (nChannels == 2) {
+							// Stereo output
+							dest[i * 2] = tempBuf_[i * 2];
+							dest[i * 2 + 1] = tempBuf_[i * 2 + 1];
 						} else {
-							dest[i * nChannels] = tempBuf_[i * 2];
-							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];
-							// Zero other channels.
-							for (int j = 2; j < nChannels; j++) {
-								dest[i * nChannels + j] = 0;
+							// Multi-channel output (e.g., 5.1, 7.1)
+							// Copy stereo to front L/R channels
+							dest[i * nChannels] = tempBuf_[i * 2];      // Front Left
+							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];  // Front Right
+
+							// For 5.1/7.1 systems, also send audio to rear channels
+							// This prevents the "half silent" buffer issue that can cause crackling
+							if (nChannels >= 4) {
+								// Rear/Surround Left and Right at reduced volume
+								dest[i * nChannels + 2] = tempBuf_[i * 2] * 0.7f;      // Rear/Side Left
+								dest[i * nChannels + 3] = tempBuf_[i * 2 + 1] * 0.7f;  // Rear/Side Right
+							}
+							// Center and LFE (if present)
+							for (int j = 4; j < nChannels; j++) {
+								if (j == 4 && nChannels >= 6) {
+									// Center channel - mix of L+R at reduced volume
+									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.7f;
+								} else if (j == 5 && nChannels >= 6) {
+									// LFE channel - bass from L+R at reduced volume
+									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.5f;
+								} else {
+									// Any extra channels get zeroed
+									dest[i * nChannels + j] = 0;
+								}
 							}
 						}
 					}
