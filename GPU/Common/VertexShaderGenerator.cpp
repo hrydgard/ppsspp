@@ -732,6 +732,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
 			WRITE(p, "  vec4 outPos = position;\n");
+			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This should be moved to the vertex decoders for through mode.
 			WRITE(p, "  outPos.w = 1.0;\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
@@ -1206,7 +1207,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Cull against X and Y limits (unless the GPU has a certain driver bug).
 		// It's not clear what the limits should be in through mode though, although I'm sure they exist.
 		if (gstate_c.Use(GPU_USE_VS_RANGE_CULLING)) {
-			WRITE(p, "  if (!zClipped && (outPos.x < 0.0 || outPos.y < 0.0 || outPos.x >= 4096.0 || outPos.y >= 4096.0)) {\n");
+			WRITE(p, "  if (!zClipped && (outPos.x < 0.0 || outPos.y < 0.0 || outPos.x >= 4096.0 || outPos.y >= 4096.0 || outPos.w < -1.0)) {\n");
 			// Discard the whole triangle by setting one vertex to NaN.
 			WRITE(p, "    outPos = vec4(u_NaN, u_NaN, u_NaN, u_NaN);\n");
 			// TODO: We could just return here. But we can also just keep going to avoid branching, the NaNs will propagate.
@@ -1225,8 +1226,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  outPos.z = float(int(outPos.z));\n");
 	}
 
-	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");
+	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");  // Or 65536?
 
+	// Convert back to clip space coordinates. This is needed for all modern shader models.
 	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
 	WRITE(p, "  outPos.xyz *= outPos.w;\n");
 
