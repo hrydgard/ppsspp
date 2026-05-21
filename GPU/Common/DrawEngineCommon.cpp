@@ -434,11 +434,9 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	// y > -w -> y + w > 0
 	// y < w -> -y + w > 0
 
-	static const float planes[16] = {
+	static const float planes[8] = {
 		1, -1, 0, 0,
 		0, 0, 1, -1,
-		0, 0, 0, 0,
-		1, 1, 1, 1,
 	};
 
 #if PPSSPP_ARCH(SSE2)
@@ -448,8 +446,6 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	const __m128 worldW = _mm_loadu_ps(gstate_c.worldviewproj + 12);
 	const __m128 planeX = _mm_loadu_ps(planes);
 	const __m128 planeY = _mm_loadu_ps(planes + 4);
-	const __m128 planeZ = _mm_loadu_ps(planes + 8);
-	const __m128 planeW = _mm_loadu_ps(planes + 12);
 	__m128 inside = _mm_set1_ps(0.0f);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
@@ -468,17 +464,13 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		// We also later want to extract the Z component and take min/max.
 		__m128 posX = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(0, 0, 0, 0));
 		__m128 posY = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(1, 1, 1, 1));
-		__m128 posZ = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(2, 2, 2, 2));
 		__m128 posW = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(3, 3, 3, 3));
 		__m128 planeDist = _mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(planeX, posX),
 				_mm_mul_ps(planeY, posY)
 			),
-			_mm_add_ps(
-				_mm_mul_ps(planeZ, posZ),
-				_mm_mul_ps(planeW, posW)
-			)
+			posW
 		);
 		inside = _mm_or_ps(inside, _mm_cmpge_ps(planeDist, _mm_setzero_ps()));
 	}
