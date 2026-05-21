@@ -346,18 +346,18 @@ protected:
 	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.
 	uint64_t dirtyRequiresRecheck_ = 0;
 
-	ComputedPipelineState pipelineState_;
+	ComputedPipelineState pipelineState_{};
 
 	// Hardware tessellation
-	TessellationDataTransfer *tessDataTransfer;
+	TessellationDataTransfer *tessDataTransfer = nullptr;
 
 	// Culling
-	Plane8 planes_;
-	Vec2f minOffset_;
-	Vec2f maxOffset_;
-	bool offsetOutsideEdge_;
+	Plane8 planes_{};
+	Vec2f minOffset_{};
+	Vec2f maxOffset_{};
+	bool offsetOutsideEdge_ = false;
 
-	GPUCommon *gpuCommon_;
+	GPUCommon *gpuCommon_ = nullptr;
 
 	// Software depth raster
 	bool useDepthRaster_ = false;

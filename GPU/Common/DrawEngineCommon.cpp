@@ -360,15 +360,8 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
-
-	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
-	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
-	if (gstate_c.IsDirty(DIRTY_CULL_PLANES)) {
-		UpdatePlanes(gstate_c.viewproj);
-		gpuStats.numPlaneUpdates++;
-		gstate_c.Clean(DIRTY_CULL_PLANES);
 	}
 
 	// Also let's just bail if offsetOutsideEdge_ is set, instead of handling the cases.
@@ -430,15 +423,33 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
 	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
+
+	// Planes are now fixed. Maybe we can use that to optimize.
+	// x<-w x>w
+	// y<-w y>w
+
+	// NOTE: The planes are the columns.
+	// x > -w -> x + w > 0
+	// x < w -> -x + w > 0
+	// y > -w -> y + w > 0
+	// y < w -> -y + w > 0
+
+	static const float planes[16] = {
+		1, -1, 0, 0,
+		0, 0, 1, -1,
+		0, 0, 0, 0,
+		1, 1, 1, 1,
+	};
+
 #if PPSSPP_ARCH(SSE2)
-	const __m128 worldX = _mm_loadu_ps(gstate.worldMatrix);
-	const __m128 worldY = _mm_loadu_ps(gstate.worldMatrix + 3);
-	const __m128 worldZ = _mm_loadu_ps(gstate.worldMatrix + 6);
-	const __m128 worldW = _mm_loadu_ps(gstate.worldMatrix + 9);
-	const __m128 planeX = _mm_loadu_ps(planes_.x);
-	const __m128 planeY = _mm_loadu_ps(planes_.y);
-	const __m128 planeZ = _mm_loadu_ps(planes_.z);
-	const __m128 planeW = _mm_loadu_ps(planes_.w);
+	const __m128 worldX = _mm_loadu_ps(gstate_c.worldviewproj);
+	const __m128 worldY = _mm_loadu_ps(gstate_c.worldviewproj + 4);
+	const __m128 worldZ = _mm_loadu_ps(gstate_c.worldviewproj + 8);
+	const __m128 worldW = _mm_loadu_ps(gstate_c.worldviewproj + 12);
+	const __m128 planeX = _mm_loadu_ps(planes);
+	const __m128 planeY = _mm_loadu_ps(planes + 4);
+	const __m128 planeZ = _mm_loadu_ps(planes + 8);
+	const __m128 planeW = _mm_loadu_ps(planes + 12);
 	__m128 inside = _mm_set1_ps(0.0f);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
@@ -452,11 +463,13 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 				worldW
 			)
 		);
-		// OK, now we check it against the four planes.
-		// This is really curiously similar to a matrix multiplication (well, it is one).
+		// OK, we got the clip space homogenous coordinate.
+		// Check it against the four planes in parallel.
+		// We also later want to extract the Z component and take min/max.
 		__m128 posX = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(0, 0, 0, 0));
 		__m128 posY = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(1, 1, 1, 1));
 		__m128 posZ = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(2, 2, 2, 2));
+		__m128 posW = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(3, 3, 3, 3));
 		__m128 planeDist = _mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(planeX, posX),
@@ -464,7 +477,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 			),
 			_mm_add_ps(
 				_mm_mul_ps(planeZ, posZ),
-				planeW
+				_mm_mul_ps(planeW, posW)
 			)
 		);
 		inside = _mm_or_ps(inside, _mm_cmpge_ps(planeDist, _mm_setzero_ps()));
