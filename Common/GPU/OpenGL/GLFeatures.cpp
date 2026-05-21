@@ -598,12 +598,20 @@ bool CheckGLExtensions() {
 
 	gl_extensions.maxClipDistances = 0;
 	gl_extensions.maxCullDistances = 0;
+
+#if PPSSPP_PLATFORM(IOS)
+	if (clipDistanceSupported) {
+		glGetIntegerv(GL_MAX_CLIP_DISTANCES_APPLE, &gl_extensions.maxClipDistances);
+	}
+	// Apple doesn't support cull distances.
+#else
 	if (clipDistanceSupported) {
 		glGetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &gl_extensions.maxClipDistances);
 	}
 	if (cullDistanceSupported) {
 		glGetIntegerv(GL_MAX_CULL_DISTANCES_EXT, &gl_extensions.maxCullDistances);
 	}
+#endif
 
 	// Check the old query API. It doesn't seem to be very reliable (can miss stuff).
 	GLint numCompressedFormats = 0;
