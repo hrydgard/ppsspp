@@ -428,24 +428,21 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	// x<-w x>w
 	// y<-w y>w
 
-	// NOTE: The planes are the columns.
+	// NOTE: The planes are the columns. We only need the first members.
 	// x > -w -> x + w > 0
 	// x < w -> -x + w > 0
 	// y > -w -> y + w > 0
 	// y < w -> -y + w > 0
 
-	static const float planes[8] = {
-		1, -1, 0, 0,
-		0, 0, 1, -1,
-	};
-
 #if PPSSPP_ARCH(SSE2)
+
+	static const float alignas(16) sse_planes[8] = { 1, -1, 1, -1 };
+
 	const __m128 worldX = _mm_loadu_ps(gstate_c.worldviewproj);
 	const __m128 worldY = _mm_loadu_ps(gstate_c.worldviewproj + 4);
 	const __m128 worldZ = _mm_loadu_ps(gstate_c.worldviewproj + 8);
 	const __m128 worldW = _mm_loadu_ps(gstate_c.worldviewproj + 12);
-	const __m128 planeX = _mm_loadu_ps(planes);
-	const __m128 planeY = _mm_loadu_ps(planes + 4);
+	const __m128 planesXY = _mm_load_ps(sse_planes);
 	__m128 inside = _mm_set1_ps(0.0f);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
@@ -462,22 +459,19 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		// OK, we got the clip space homogenous coordinate.
 		// Check it against the four planes in parallel.
 		// We also later want to extract the Z component and take min/max.
-		__m128 posX = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(0, 0, 0, 0));
-		__m128 posY = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(1, 1, 1, 1));
+		__m128 posXY = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(1, 1, 0, 0));
 		__m128 posW = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(3, 3, 3, 3));
-		__m128 planeDist = _mm_add_ps(
-			_mm_add_ps(
-				_mm_mul_ps(planeX, posX),
-				_mm_mul_ps(planeY, posY)
-			),
-			posW
-		);
+		__m128 planeDist = _mm_add_ps(_mm_mul_ps(posXY, planesXY), posW);
 		inside = _mm_or_ps(inside, _mm_cmpge_ps(planeDist, _mm_setzero_ps()));
 	}
 	// 0xF means that we found at least one vertex inside every one of the planes.
 	// We don't bother with counts, though it wouldn't be hard if we had a use for them.
 	return _mm_movemask_ps(inside) == 0xF;
 #elif PPSSPP_ARCH(ARM_NEON)
+	static const float alignas(16) planes[8] = {
+		1, -1, 0, 0,
+		0, 0, 1, -1,
+	};
 	const float32x4_t worldX = vld1q_f32(gstate.worldMatrix);
 	const float32x4_t worldY = vld1q_f32(gstate.worldMatrix + 3);
 	const float32x4_t worldZ = vld1q_f32(gstate.worldMatrix + 6);
