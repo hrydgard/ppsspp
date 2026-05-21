@@ -436,7 +436,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 
 #if PPSSPP_ARCH(SSE2)
 
-	static const float alignas(16) sse_planes[8] = { 1, -1, 1, -1 };
+	alignas(16) static const float sse_planes[8] = { 1, -1, 1, -1 };
 
 	const __m128 worldX = _mm_loadu_ps(gstate_c.worldviewproj);
 	const __m128 worldY = _mm_loadu_ps(gstate_c.worldviewproj + 4);
@@ -468,38 +468,66 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	// We don't bother with counts, though it wouldn't be hard if we had a use for them.
 	return _mm_movemask_ps(inside) == 0xF;
 #elif PPSSPP_ARCH(ARM_NEON)
-	static const float alignas(16) planes[8] = {
-		1, -1, 0, 0,
-		0, 0, 1, -1,
-	};
-	const float32x4_t worldX = vld1q_f32(gstate.worldMatrix);
-	const float32x4_t worldY = vld1q_f32(gstate.worldMatrix + 3);
-	const float32x4_t worldZ = vld1q_f32(gstate.worldMatrix + 6);
-	const float32x4_t worldW = vld1q_f32(gstate.worldMatrix + 9);
-	const float32x4_t planeX = vld1q_f32(planes);
-	const float32x4_t planeY = vld1q_f32(planes + 4);
+	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
+	const float32x4_t worldX = vld1q_f32(gstate_c.worldviewproj);
+	const float32x4_t worldY = vld1q_f32(gstate_c.worldviewproj + 4);
+	const float32x4_t worldZ = vld1q_f32(gstate_c.worldviewproj + 8);
+	const float32x4_t worldW = vld1q_f32(gstate_c.worldviewproj + 12);
+	const float32x4_t planesMul = vld1q_f32(planesXY);
 	uint32x4_t inside = vdupq_n_u32(0);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
-		float32x4_t objpos = vld1q_f32(pos);
-		float32x4_t clippos = vaddq_f32(
-			vmlaq_laneq_f32(
-				vmulq_laneq_f32(worldX, objpos, 0),
-				worldY, objpos, 1),
-			vmlaq_laneq_f32(worldW, worldZ, objpos, 2)
+		float32x4_t clippos = vmlaq_n_f32(
+			vmlaq_n_f32(
+				vmlaq_n_f32(worldW, worldX, pos[0]),
+				worldY, pos[1]
+			),
+			worldZ, pos[2]
 		);
-		// OK, now we check it against the four planes.
-		// This is really curiously similar to a matrix multiplication (well, it is one).
-		float32x4_t planeDist = vaddq_f32(
-			vmlaq_laneq_f32(
-				vmulq_laneq_f32(planeX, clippos, 0),
-				planeY, clippos, 1),
-			clippos
-		);
-		inside = vorrq_u32(inside, vcgezq_f32(planeDist));
+		// OK, we got the clip space homogenous coordinate.
+		// Check it against the four planes in parallel.
+		// Build [x, x, y, y] using vdup_lane
+		float32x2_t xy = vget_low_f32(clippos);
+		float32x4_t posXY = vcombine_f32(vdup_lane_f32(xy, 0), vdup_lane_f32(xy, 1));  // [x, x, y, y]
+		float32x4_t posW = vdupq_lane_f32(vget_high_f32(clippos), 1);  // [w, w, w, w]
+		float32x4_t planeDist = vmlaq_f32(posW, posXY, planesMul);
+		inside = vorrq_u32(inside, vcgeq_f32(planeDist, vdupq_n_f32(0.0f)));
 	}
 	uint64_t insideBits = vget_lane_u64(vreinterpret_u64_u16(vmovn_u32(inside)), 0);
-	return ~insideBits == 0;  // InsideBits all ones means that we found at least one vertex inside every one of the planes. We don't bother with counts, though it wouldn't be hard.
+	return ~insideBits == 0;
+#elif 0 && PPSSPP_ARCH(LOONGARCH64_LSX)
+	// NOTE: Untested
+	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
+	const __m128 worldX = (__m128)__lsx_vld(gstate_c.worldviewproj, 0);
+	const __m128 worldY = (__m128)__lsx_vld(gstate_c.worldviewproj + 4, 0);
+	const __m128 worldZ = (__m128)__lsx_vld(gstate_c.worldviewproj + 8, 0);
+	const __m128 worldW = (__m128)__lsx_vld(gstate_c.worldviewproj + 12, 0);
+	const __m128 planesMul = (__m128)__lsx_vld(planesXY, 0);
+	__m128 inside = (__m128)__lsx_vreplfr2vr_s(0.0f);
+	for (int i = 0; i < vertexCount; i++) {
+		const float *pos = verts + i * vertStride;
+		// clippos = worldX * pos[0] + worldY * pos[1] + worldZ * pos[2] + worldW
+		__m128 clippos = (__m128)__lsx_vfadd_s(
+			(__m128)__lsx_vfadd_s(
+				(__m128)__lsx_vfmul_s(worldX, (__m128)__lsx_vreplfr2vr_s(pos[0])),
+				(__m128)__lsx_vfmul_s(worldY, (__m128)__lsx_vreplfr2vr_s(pos[1]))
+			),
+			(__m128)__lsx_vfadd_s(
+				(__m128)__lsx_vfmul_s(worldZ, (__m128)__lsx_vreplfr2vr_s(pos[2])),
+				worldW
+			)
+		);
+		// OK, we got the clip space homogenous coordinate.
+		// Check it against the four planes in parallel.
+		// Build [x, x, y, y] using __lsx_vshuf4i_w
+		__m128 posXY = (__m128)__lsx_vshuf4i_w(clippos, 0b01010000);  // [x, x, y, y]
+		__m128 posW = (__m128)__lsx_vshuf4i_w(clippos, 0b11111111);   // [w, w, w, w]
+		__m128 planeDist = (__m128)__lsx_vfmadd_s(planesMul, posXY, posW);
+		inside = (__m128)__lsx_vor_v(inside, (__m128)__lsx_vfcmp_cle_s((__m128)__lsx_vreplfr2vr_s(0.0f), planeDist));
+	}
+	// Check if all 4 lanes are set
+	__m128i mask = (__m128i)__lsx_vseqi_w((__m128i)inside, 0);
+	return __lsx_bz_v(mask);
 #else
 	int inside[4]{};
 	for (int i = 0; i < vertexCount; i++) {
