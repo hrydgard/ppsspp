@@ -253,7 +253,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	}
 
 	// TODO: How accurate should we be?
-	int insideCount[5] = {0};
+	int insideCount[6] = {0};
 	for (int i = 0; i < vertexCount; i++) {
 		// Complete the transform to see if the vertex should be ignored. Not sure if we need to go to these lengths...
 		const float *objpos = verts + i * 3;
@@ -261,8 +261,11 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		float projpos[4]{};
 		Vec3ByMatrix44(projpos, objpos, gstate_c.worldviewproj);
 
-		if (projpos[2] > -projpos[3] && projpos[2] < projpos[3]) {
+		if (projpos[2] >= -projpos[3]) {
 			insideCount[4]++;
+		}
+		if (projpos[2] <= projpos[3]) {
+			insideCount[5]++;
 		}
 
 		float invW = 1.0f / projpos[3];
@@ -275,32 +278,33 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		const float drawX = screenpos[0] - gstate.getOffsetX();
 		const float drawY = screenpos[1] - gstate.getOffsetY();
 
-		const int regionX2 = gstate.getRegionX2();
-		const int regionY2 = gstate.getRegionY2();
-		if (drawX > 0.0f) {
+		const int regionX2 = gstate.getRegionX2() + 1;
+		const int regionY2 = gstate.getRegionY2() + 1;
+		if (drawX >= 0.0f) {
 			insideCount[0]++;
 		}
-		if (drawX < regionX2) {
+		if (drawX <= regionX2) {
 			insideCount[1]++;
 		}
-		if (drawY > 0.0f) {
+		if (drawY >= 0.0f) {
 			insideCount[2]++;
 		}
-		if (drawY < regionY2) {
+		if (drawY <= regionY2) {
 			insideCount[3]++;
 		}
 	}
 
+	int countToCheck = gstate.isDepthClampEnabled() ? 6 : 4;
 #if 0
 	// For debugging, the exclusive check. This should make it obvious where the culling borders are in screen space.
-	for (int i = 0; i < ARRAY_SIZE(insideCount); i++) {
+	for (int i = 0; i < countToCheck; i++) {
 		if (insideCount[i] != vertexCount) {
 			return false;
 		}
 	}
 #endif
 
-	for (int i = 0; i < ARRAY_SIZE(insideCount); i++) {
+	for (int i = 0; i < countToCheck; i++) {
 		if (insideCount[i] == 0) {
 			return false;
 		}
