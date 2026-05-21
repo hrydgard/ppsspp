@@ -648,6 +648,13 @@ public:
 	float vpHeightScale;
 	float vpDepthScale;
 
+	// Cached 4x4 products of the matrices.
+	// Useful for culling and extracing the final Z from vertices (so we can check if clipping is needed).
+	// Most often, world changes the most.
+	// We recompute viewproj when view or proj changes, and worldviewproj when world, view, or proj changes.
+	float viewproj[16];
+	float worldviewproj[16];
+
 	KnownVertexBounds vertBounds;
 
 	GEBufferFormat framebufFormat;

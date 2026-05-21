@@ -268,6 +268,8 @@ protected:
 	// While debugging is active, these may block.
 	void NotifyDisplay(u32 framebuf, u32 stride, int format);
 
+	void UpdateMatrixProducts();
+
 	bool NeedsSlowInterpreter() const;
 	GPUDebug::NotifyResult NotifyCommand(u32 pc, GPUBreakpoints *breakpoints);
 

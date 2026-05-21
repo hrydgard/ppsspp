@@ -916,6 +916,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	PROFILE_THIS_SCOPE("execprim");
 
 	FlushImm();
+	UpdateMatrixProducts();
 
 	// Upper bits are ignored.
 	const GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
@@ -1301,6 +1302,8 @@ bail:
 }
 
 void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
+	UpdateMatrixProducts();
+
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
@@ -1377,6 +1380,8 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
+	UpdateMatrixProducts();
+
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
@@ -1528,7 +1533,7 @@ void GPUCommonHW::Execute_WorldMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_WORLDMATRIX);
+				gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX);
 			}
 			if (++i >= end) {
 				break;
@@ -1551,7 +1556,7 @@ void GPUCommonHW::Execute_WorldMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.worldMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_WORLDMATRIX);
+		gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX);
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
@@ -1581,7 +1586,7 @@ void GPUCommonHW::Execute_ViewMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_CULL_PLANES);
+				gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_PLANES);
 			}
 			if (++i >= end) {
 				break;
@@ -1604,7 +1609,7 @@ void GPUCommonHW::Execute_ViewMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.viewMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_CULL_PLANES);
+		gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_PLANES);
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
@@ -1634,7 +1639,7 @@ void GPUCommonHW::Execute_ProjMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_CULL_PLANES);
+				gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_PLANES);
 			}
 			if (++i >= end) {
 				break;
@@ -1657,7 +1662,7 @@ void GPUCommonHW::Execute_ProjMtxData(u32 op, u32 diff) {
 	if (num < 16 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_CULL_PLANES);
+		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_PLANES);
 	}
 	num++;
 	if (num <= 16)

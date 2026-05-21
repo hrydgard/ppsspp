@@ -1220,6 +1220,8 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
+	UpdateMatrixProducts();
+
 	// Test if the bounding box is within the drawing region.
 	// The PSP only seems to vary the result based on a single range of 0x100.
 	if (count > 0x200) {
@@ -2186,5 +2188,21 @@ bool GPUCommon::SetRestrictPrims(std::string_view rule) {
 		return true;
 	} else {
 		return false;
+	}
+}
+
+void GPUCommon::UpdateMatrixProducts() {
+	// Compute any dirty product matrices.
+	if (gstate_c.IsDirty(DIRTY_VIEW_PROJ_MATRIX)) {
+		float view[4 * 4];
+		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+		Matrix4ByMatrix4(gstate_c.viewproj, view, gstate.projMatrix);
+		gstate_c.Clean(DIRTY_VIEW_PROJ_MATRIX);
+	}
+	if (gstate_c.IsDirty(DIRTY_WORLD_VIEW_PROJ_MATRIX)) {
+		float world[4 * 4];
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		Matrix4ByMatrix4(gstate_c.worldviewproj, world, gstate_c.viewproj);
+		gstate_c.Clean(DIRTY_WORLD_VIEW_PROJ_MATRIX);
 	}
 }
