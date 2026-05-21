@@ -579,7 +579,6 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	}
 
 	caps_.maxTextureSize = gl_extensions.maxTextureSize;
-	caps_.maxClipPlanes = gl_extensions.IsGLES ? 0 : gl_extensions.maxClipPlanes;
 	caps_.coordConvention = CoordConvention::OpenGL;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
@@ -592,13 +591,9 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
 	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
-	if (gl_extensions.IsGLES) {
-		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
-		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
-	} else {
-		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
-		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
-	}
+	caps_.maxClipDistances = gl_extensions.maxClipDistances;
+	caps_.maxCullDistances = gl_extensions.maxCullDistances;
+
 	caps_.textureNPOTFullySupported =
 		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||
 		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||

@@ -196,6 +196,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		}
 	}
 	gpuInfo->Add(new InfoItem(si->T("Depth buffer format"), DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)));
+	gpuInfo->Add(new InfoItem(si->T("Clip/cull distances (depth clamp)"), StringFromFormat("%d/%d (%s)", draw->GetDeviceCaps().maxClipDistances, draw->GetDeviceCaps().maxCullDistances, draw->GetDeviceCaps().depthClampSupported ? "true" : "false")));
 
 	std::string texCompressionFormats;
 	// Simple non-detailed summary of supported tex compression formats.

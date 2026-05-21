@@ -262,7 +262,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	// Checking accurate depth here because the old depth path is uncommon and not well tested for this.
 	if (draw_->GetDeviceCaps().geometryShaderSupported && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
+		const bool vertexSupported = draw_->GetDeviceCaps().maxClipDistances >= 2 && draw_->GetDeviceCaps().maxCullDistances >= 1;
 		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
 			// Switch to culling via the geometry shader if not fully supported in vertex.
 			features |= GPU_USE_GS_CULLING;

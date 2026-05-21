@@ -558,6 +558,9 @@ InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutPara
 	// We set the colors later once we have a UIContext.
 }
 
+InfoItem::InfoItem(std::string_view text, int rightValue, LayoutParams *layoutParams)
+	: InfoItem(text, std::to_string(rightValue), layoutParams) {}
+
 void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	float w1, h1, w2, h2;
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);

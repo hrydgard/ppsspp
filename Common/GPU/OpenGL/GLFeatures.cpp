@@ -208,9 +208,6 @@ bool CheckGLExtensions() {
 	gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
 
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &gl_extensions.maxTextureSize);
-#ifndef USING_GLES2
-	glGetIntegerv(GL_MAX_CLIP_PLANES, &gl_extensions.maxClipPlanes);
-#endif
 
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
@@ -238,7 +235,6 @@ bool CheckGLExtensions() {
 			parsed[0] = lastDigit;
 		}
 	}
-
 
 	if (!gl_extensions.IsGLES) { // For desktop GL
 		gl_extensions.ver[0] = parsed[0];
@@ -582,12 +578,40 @@ bool CheckGLExtensions() {
 		}
 	}
 
-	// Force off clip for a cmomon buggy Samsung version.
+	// Force off clip for a common buggy Samsung version.
 	if (!strcmp(versionStr, "OpenGL ES 3.2 ANGLE git hash: aa8f94c52952")) {
 		// Maybe could use bugs, but for now let's just force it back off.
 		// Seeing errors that gl_ClipDistance is undefined.
 		gl_extensions.EXT_clip_cull_distance = false;
 	}
+
+	bool clipDistanceSupported = false;
+	bool cullDistanceSupported = false;
+
+	if (gl_extensions.IsGLES) {
+		clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
+		cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
+	} else {
+		clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
+		cullDistanceSupported = gl_extensions.ARB_cull_distance;
+	}
+
+	gl_extensions.maxClipDistances = 0;
+	gl_extensions.maxCullDistances = 0;
+
+#if PPSSPP_PLATFORM(IOS)
+	if (clipDistanceSupported) {
+		glGetIntegerv(GL_MAX_CLIP_DISTANCES_APPLE, &gl_extensions.maxClipDistances);
+	}
+	// Apple doesn't support cull distances.
+#else
+	if (clipDistanceSupported) {
+		glGetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &gl_extensions.maxClipDistances);
+	}
+	if (cullDistanceSupported) {
+		glGetIntegerv(GL_MAX_CULL_DISTANCES_EXT, &gl_extensions.maxCullDistances);
+	}
+#endif
 
 	// Check the old query API. It doesn't seem to be very reliable (can miss stuff).
 	GLint numCompressedFormats = 0;

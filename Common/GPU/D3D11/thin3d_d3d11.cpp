@@ -316,14 +316,15 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 		caps_.maxTextureSize = 2048;
 		break;
 	}
-	caps_.maxClipPlanes = 8;
 
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	caps_.depthClampSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	// SV_ClipDistance# seems to be 10+.
-	caps_.clipDistanceSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
-	caps_.cullDistanceSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
+	if (featureLevel_ >= D3D_FEATURE_LEVEL_10_0) {
+		caps_.maxClipDistances = 8;
+		caps_.maxCullDistances = 8;
+	}
 
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
