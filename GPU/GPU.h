@@ -90,7 +90,6 @@ struct GPUStatistics {
 		numTextureDataBytesHashed = 0;
 		numFlushes = 0;
 		numBBOXJumps = 0;
-		numPlaneUpdates = 0;
 		numTexturesDecoded = 0;
 		numFramebufferEvaluations = 0;
 		numFBOsCreated = 0;
@@ -132,7 +131,6 @@ struct GPUStatistics {
 	int numListSyncs;
 	int numFlushes;
 	int numBBOXJumps;
-	int numPlaneUpdates;
 	int numVertsSubmitted;
 	int numVertsDecoded;
 	int numUncachedVertsDrawn;

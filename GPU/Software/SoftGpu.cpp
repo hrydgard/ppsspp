@@ -1038,7 +1038,6 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 }
 
 void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_CULL_PLANES | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
 	GPUCommon::Execute_BoundingBox(op, diff);
 }
 
@@ -1094,7 +1093,7 @@ void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_CULL_PLANES | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
 		}
 	}
 
@@ -1115,7 +1114,7 @@ void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_CULL_PLANES | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
 		}
 	}
 
@@ -1136,7 +1135,7 @@ void SoftGPU::Execute_ProjMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_CULL_PLANES | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
 		}
 	}
 

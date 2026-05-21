@@ -102,7 +102,7 @@ enum : uint64_t {
 	DIRTY_VIEW_PROJ_MATRIX = 1ULL << 40,
 	DIRTY_WORLD_VIEW_PROJ_MATRIX = 1ULL << 41,
 	// Free non-uniform bit 42.
-	DIRTY_CULL_PLANES = 1ULL << 43,
+	// Free non-uniform bit 43.
 	DIRTY_FRAMEBUF = 1ULL << 44,
 	DIRTY_TEXTURE_IMAGE = 1ULL << 45,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
 	DIRTY_TEXTURE_PARAMS = 1ULL << 46,

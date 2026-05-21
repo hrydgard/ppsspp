@@ -169,7 +169,6 @@ public:
 
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
-	void UpdatePlanes(const float viewproj[16]);
 
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
@@ -352,7 +351,6 @@ protected:
 	TessellationDataTransfer *tessDataTransfer = nullptr;
 
 	// Culling
-	Plane8 planes_{};
 	Vec2f minOffset_{};
 	Vec2f maxOffset_{};
 	bool offsetOutsideEdge_ = false;

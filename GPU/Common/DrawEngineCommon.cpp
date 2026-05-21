@@ -163,47 +163,6 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	}
 }
 
-// Gated by DIRTY_CULL_PLANES
-void DrawEngineCommon::UpdatePlanes(const float viewproj[16]) {
-	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
-	// Note that the PSP does not clip against the viewport.
-	const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
-	// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.
-	minOffset_ = baseOffset + Vec2f(std::max(gstate.getRegionRateX() - 0x100, gstate.getScissorX1()), std::max(gstate.getRegionRateY() - 0x100, gstate.getScissorY1())) - Vec2f(1.0f, 1.0f);
-	maxOffset_ = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2())) + Vec2f(1.0f, 1.0f);
-
-	// Let's not handle these special cases in the fast culler.
-	offsetOutsideEdge_ = maxOffset_.x >= 4096.0f || minOffset_.x < 1.0f || minOffset_.y < 1.0f || maxOffset_.y >= 4096.0f;
-
-	// Now let's apply the viewport to our scissor/region + offset range.
-	Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
-	Vec2f minViewport = (minOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
-	Vec2f maxViewport = (maxOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
-
-	Vec2f viewportInvSize = Vec2f(1.0f / (maxViewport.x - minViewport.x), 1.0f / (maxViewport.y - minViewport.y));
-
-	Lin::Matrix4x4 applyViewport{};
-	// Scale to the viewport's size.
-	applyViewport.xx = 2.0f * viewportInvSize.x;
-	applyViewport.yy = 2.0f * viewportInvSize.y;
-	applyViewport.zz = 1.0f;
-	applyViewport.ww = 1.0f;
-	// And offset to the viewport's centers.
-	applyViewport.wx = -(maxViewport.x + minViewport.x) * viewportInvSize.x;
-	applyViewport.wy = -(maxViewport.y + minViewport.y) * viewportInvSize.y;
-
-	float mtx[16];
-	Matrix4ByMatrix4(mtx, viewproj, applyViewport.m);
-	// I'm sure there's some fairly optimized way to set these. If we make a version of Matrix4ByMatrix4
-	// that returns a transpose, it looks like these will be more straightforward.
-	planes_.Set(0, mtx[3] - mtx[0], mtx[7] - mtx[4], mtx[11] - mtx[8],  mtx[15] - mtx[12]);  // Right
-	planes_.Set(1, mtx[3] + mtx[0], mtx[7] + mtx[4], mtx[11] + mtx[8],  mtx[15] + mtx[12]);  // Left
-	planes_.Set(2, mtx[3] + mtx[1], mtx[7] + mtx[5], mtx[11] + mtx[9],  mtx[15] + mtx[13]);  // Bottom
-	planes_.Set(3, mtx[3] - mtx[1], mtx[7] - mtx[5], mtx[11] - mtx[9],  mtx[15] - mtx[13]);  // Top
-	planes_.Set(4, mtx[3] + mtx[2], mtx[7] + mtx[6], mtx[11] + mtx[10], mtx[15] + mtx[14]);  // Near
-	planes_.Set(5, mtx[3] - mtx[2], mtx[7] - mtx[6], mtx[11] - mtx[10], mtx[15] - mtx[14]);  // Far
-}
-
 // This code has plenty of potential for optimization.
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
@@ -228,14 +187,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
 		return true;
-
-	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
-	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
-	if (gstate_c.IsDirty(DIRTY_CULL_PLANES)) {
-		UpdatePlanes(gstate_c.viewproj);
-		gpuStats.numPlaneUpdates++;
-		gstate_c.Clean(DIRTY_CULL_PLANES);
-	}
 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
@@ -301,51 +252,60 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		}
 	}
 
-	// Pretransform the verts in-place so we don't have to do it inside the loop.
-	// We do this differently in the fast version below since we skip the max/minOffset checks there
-	// making it easier to get the whole thing ready for SIMD.
+	// TODO: How accurate should we be?
+	int insideCount[5] = {0};
 	for (int i = 0; i < vertexCount; i++) {
-		float worldpos[3];
-		Vec3ByMatrix43(worldpos, &verts[i * 3], gstate.worldMatrix);
-		memcpy(&verts[i * 3], worldpos, 12);
-	}
+		// Complete the transform to see if the vertex should be ignored. Not sure if we need to go to these lengths...
+		const float *objpos = verts + i * 3;
 
-	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
-	int totalPlanes = gstate.isDepthClampEnabled() ? 6 : 4;
-	for (int plane = 0; plane < totalPlanes; plane++) {
-		int inside = 0;
-		int out = 0;
-		for (int i = 0; i < vertexCount; i++) {
-			// Test against the frustum planes, and count.
-			// TODO: We should test 4 vertices at a time using SIMD.
-			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			const float *worldpos = verts + i * 3;
-			float value = planes_.Test(plane, worldpos);
-			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
-				out++;
-			else
-				inside++;
+		float projpos[4]{};
+		Vec3ByMatrix44(projpos, objpos, gstate_c.worldviewproj);
+
+		if (projpos[2] > -projpos[3] && projpos[2] < projpos[3]) {
+			insideCount[4]++;
 		}
 
-		// No vertices inside this one plane? Don't need to draw.
-		if (inside == 0) {
-			// All out - but check for X and Y if the offset was near the cullbox edge.
-			bool outsideEdge = false;
-			switch (plane) {
-			case 0: outsideEdge = maxOffset_.x >= 4096.0f; break;
-			case 1: outsideEdge = minOffset_.x < 1.0f; break;
-			case 2: outsideEdge = minOffset_.y < 1.0f; break;
-			case 3: outsideEdge = maxOffset_.y >= 4096.0f; break;
-			}
+		float invW = 1.0f / projpos[3];
+		const float screenpos[3] = {
+			projpos[0] * gstate.getViewportXScale() * invW + gstate.getViewportXCenter(),
+			projpos[1] * gstate.getViewportYScale() * invW + gstate.getViewportYCenter(),
+			projpos[2] * gstate.getViewportZScale() * invW + gstate.getViewportZCenter(),
+		};
 
-			// Only consider this outside if offset + scissor/region is fully inside the cullbox.
-			if (!outsideEdge)
-				return false;
+		const float drawX = screenpos[0] - gstate.getOffsetX();
+		const float drawY = screenpos[1] - gstate.getOffsetY();
+
+		const int regionX2 = gstate.getRegionX2();
+		const int regionY2 = gstate.getRegionY2();
+		if (drawX > 0.0f) {
+			insideCount[0]++;
 		}
-
-		// Any out. For testing that the planes are in the right locations.
-		// if (out != 0) return false;
+		if (drawX < regionX2) {
+			insideCount[1]++;
+		}
+		if (drawY > 0.0f) {
+			insideCount[2]++;
+		}
+		if (drawY < regionY2) {
+			insideCount[3]++;
+		}
 	}
+
+#if 0
+	// For debugging, the exclusive check. This should make it obvious where the culling borders are in screen space.
+	for (int i = 0; i < ARRAY_SIZE(insideCount); i++) {
+		if (insideCount[i] != vertexCount) {
+			return false;
+		}
+	}
+#endif
+
+	for (int i = 0; i < ARRAY_SIZE(insideCount); i++) {
+		if (insideCount[i] == 0) {
+			return false;
+		}
+	}
+
 	return true;
 }
 
