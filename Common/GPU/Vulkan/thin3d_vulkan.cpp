@@ -924,11 +924,12 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
 
 	caps_.maxTextureSize = vulkan->GetPhysicalDeviceProperties().properties.limits.maxImageDimension2D;
-	caps_.maxClipPlanes = vulkan->GetPhysicalDeviceProperties().properties.limits.maxClipDistances;
-
-	// Comment out these two to test geometry shader culling on any geometry shader-supporting hardware.
-	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance != 0;
-	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderCullDistance != 0;
+	if (vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance) {
+		caps_.maxClipDistances = vulkan->GetPhysicalDeviceProperties().properties.limits.maxClipDistances;
+	}
+	if (vulkan->GetDeviceFeatures().enabled.standard.shaderCullDistance) {
+		caps_.maxCullDistances = vulkan->GetPhysicalDeviceProperties().properties.limits.maxCullDistances;
+	}
 
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;

@@ -595,11 +595,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_BLEND_MINMAX;
 	}
 
-	if (draw_->GetDeviceCaps().clipDistanceSupported) {
+	if (draw_->GetDeviceCaps().maxClipDistances >= 2) {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
-	if (draw_->GetDeviceCaps().cullDistanceSupported) {
+	if (draw_->GetDeviceCaps().maxCullDistances >= 1) {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
 
@@ -612,7 +612,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH;
 	}
 
-	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
+	bool canClipOrCull = draw_->GetDeviceCaps().maxClipDistances >= 2 || draw_->GetDeviceCaps().maxCullDistances >= 1;
 	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.

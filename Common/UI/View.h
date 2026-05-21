@@ -839,6 +839,7 @@ protected:
 class InfoItem : public Item {
 public:
 	InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams = nullptr);
+	InfoItem(std::string_view text, int rightValue, LayoutParams *layoutParams = nullptr);
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;

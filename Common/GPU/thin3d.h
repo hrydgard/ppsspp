@@ -595,12 +595,16 @@ struct DeviceCaps {
 	uint32_t deviceID;  // use caution!
 
 	uint32_t maxTextureSize;  // largest side.
-	uint32_t maxClipPlanes;
+
+	// You can check these for > 0 to see if they're supported.
+	uint32_t maxClipDistances;
+	uint32_t maxCullDistances;
 
 	CoordConvention coordConvention;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;
+
 	bool anisoSupported;
 	bool depthRangeMinusOneToOne;  // OpenGL style depth
 	bool geometryShaderSupported;
@@ -608,8 +612,6 @@ struct DeviceCaps {
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;
-	bool clipDistanceSupported;
-	bool cullDistanceSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;

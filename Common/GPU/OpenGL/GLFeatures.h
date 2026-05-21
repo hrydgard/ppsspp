@@ -45,7 +45,8 @@ struct GLExtensions {
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	int maxTextureSize;
-	int maxClipPlanes;
+	int maxClipDistances;
+	int maxCullDistances;
 
 	// OES
 	bool OES_depth24;
@@ -73,6 +74,7 @@ struct GLExtensions {
 	bool ARB_texture_float;
 	bool ARB_draw_instanced;
 	bool ARB_buffer_storage;
+	bool ARB_clip_distance;
 	bool ARB_cull_distance;
 	bool ARB_depth_clamp;
 	bool ARB_uniform_buffer_object;
