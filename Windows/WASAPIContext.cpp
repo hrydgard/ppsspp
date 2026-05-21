@@ -174,10 +174,12 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 	}
 	curSamplesPerSec_ = format_->nSamplesPerSec;
 
-	// We only use AudioClient3 if we got the format we wanted (stereo float).
+	// AudioClient3 requires an exact format match because it doesn't support AUTOCONVERTPCM.
+	// Our callback always produces stereo float (see RenderCallback in AudioBackend.h),
+	// so we can only use AudioClient3 when the device's native format is stereo float.
+	// For other formats, we fall back to AudioClient which supports conversion via AUTOCONVERTPCM
+	// or manual conversion through tempBuf_.
 	if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
-		// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
-		// AudioClient3 with low latency audio with AUTOCONVERTPCM, you get the error 0x88890021.
 		INFO_LOG(Log::Audio, "AudioClient3: Got %d channels or non-float format, falling back to AudioClient", format_->nChannels);
 		audioClient3_.Reset();
 		// Free the format before falling through - AudioClient will allocate a new one
@@ -213,7 +215,9 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 		}
 		actualPeriodFrames_ = minPeriodFrames_;
 
-		hr = audioClient3_->GetBufferSize(&reportedBufferSize_);
+		UINT32 bufSize = 0;
+		hr = audioClient3_->GetBufferSize(&bufSize);
+		reportedBufferSize_.store(bufSize);
 		if (FAILED(hr)) {
 			audioClient3_.Reset();
 			CoTaskMemFree(format_);
@@ -328,7 +332,9 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 		return false;
 	}
 
-	hr = audioClient_->GetBufferSize(&reportedBufferSize_);
+	UINT32 bufSize = 0;
+	hr = audioClient_->GetBufferSize(&bufSize);
+	reportedBufferSize_.store(bufSize);
 	if (FAILED(hr)) {
 		audioClient_.Reset();
 		CoTaskMemFree(format_);
@@ -336,7 +342,7 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 		SetErrorString("AudioClient GetBufferSize failed", hr);
 		return false;
 	}
-	actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
+	actualPeriodFrames_.store(reportedBufferSize_.load());  // we don't have a better estimate.
 
 	hr = audioClient_->SetEventHandle(audioEvent_);
 	if (FAILED(hr)) {
@@ -357,7 +363,7 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 	}
 
 	if (createBuffer) {
-		tempBuf_ = std::make_unique<float[]>(reportedBufferSize_ * 2);
+		tempBuf_ = std::make_unique<float[]>(reportedBufferSize_.load() * 2);
 	}
 	return true;
 }
@@ -510,6 +516,12 @@ void WASAPIContext::AudioLoop() {
 			audioClient3_->Stop();
 			return;
 		}
+		// Check if buffer grew beyond what we allocated tempBuf_ for
+		if (tempBuf_ && available > reportedBufferSize_.load()) {
+			INFO_LOG(Log::Audio, "Buffer size grew from %d to %d, reallocating tempBuf_", reportedBufferSize_.load(), available);
+			tempBuf_ = std::make_unique<float[]>(available * 2);
+			reportedBufferSize_.store(available);
+		}
 	} else if (audioClient_) {
 		hr = audioClient_->Start();
 		if (FAILED(hr)) {
@@ -521,6 +533,12 @@ void WASAPIContext::AudioLoop() {
 			SetErrorString("AudioClient::GetBufferSize failed", hr);
 			audioClient_->Stop();
 			return;
+		}
+		// Check if buffer grew beyond what we allocated tempBuf_ for
+		if (tempBuf_ && available > reportedBufferSize_.load()) {
+			INFO_LOG(Log::Audio, "Buffer size grew from %d to %d, reallocating tempBuf_", reportedBufferSize_.load(), available);
+			tempBuf_ = std::make_unique<float[]>(available * 2);
+			reportedBufferSize_.store(available);
 		}
 	} else {
 		// No audio client, nothing to do.
@@ -552,7 +570,15 @@ void WASAPIContext::AudioLoop() {
 			audioClient_->GetCurrentPadding(&padding);
 		}
 
-		const UINT32 framesToWrite = available - padding;
+		UINT32 framesToWrite = available - padding;
+
+		// Safety: clamp framesToWrite to tempBuf_ capacity if using conversion path
+		const UINT32 bufCapacity = reportedBufferSize_.load();
+		if (tempBuf_ && framesToWrite > bufCapacity) {
+			WARN_LOG(Log::Audio, "framesToWrite (%d) exceeds buffer capacity (%d), clamping", framesToWrite, bufCapacity);
+			framesToWrite = bufCapacity;
+		}
+
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
 			if (!tempBuf_) {
@@ -572,12 +598,34 @@ void WASAPIContext::AudioLoop() {
 							// Maybe some bluetooth speakers? Mixdown.
 							float sum = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
 							dest[i] = ClampFloatToS16(sum);
+						} else if (nChannels == 2) {
+							// Stereo output
+							dest[i * 2] = ClampFloatToS16(tempBuf_[i * 2]);
+							dest[i * 2 + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
 						} else {
-							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);
-							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
-							// Zero other channels.
-							for (int j = 2; j < nChannels; j++) {
-								dest[i * nChannels + j] = 0;
+							// Multi-channel output (e.g., 5.1, 7.1)
+							// Copy stereo to front L/R channels
+							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);      // Front Left
+							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);  // Front Right
+
+							// For 5.1/7.1 systems, also send audio to rear channels
+							if (nChannels >= 4) {
+								// Rear/Surround Left and Right at reduced volume
+								dest[i * nChannels + 2] = ClampFloatToS16(tempBuf_[i * 2] * 0.7f);
+								dest[i * nChannels + 3] = ClampFloatToS16(tempBuf_[i * 2 + 1] * 0.7f);
+							}
+							// Center and LFE (if present)
+							for (int j = 4; j < nChannels; j++) {
+								if (j == 4 && nChannels >= 6) {
+									// Center channel - mix of L+R at reduced volume
+									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.7f);
+								} else if (j == 5 && nChannels >= 6) {
+									// LFE channel - bass from L+R at reduced volume
+									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.5f);
+								} else {
+									// Any extra channels get zeroed
+									dest[i * nChannels + j] = 0;
+								}
 							}
 						}
 					}
@@ -588,12 +636,35 @@ void WASAPIContext::AudioLoop() {
 						if (nChannels == 1) {
 							// Maybe some bluetooth speakers? Mixdown.
 							dest[i] = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
+						} else if (nChannels == 2) {
+							// Stereo output
+							dest[i * 2] = tempBuf_[i * 2];
+							dest[i * 2 + 1] = tempBuf_[i * 2 + 1];
 						} else {
-							dest[i * nChannels] = tempBuf_[i * 2];
-							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];
-							// Zero other channels.
-							for (int j = 2; j < nChannels; j++) {
-								dest[i * nChannels + j] = 0;
+							// Multi-channel output (e.g., 5.1, 7.1)
+							// Copy stereo to front L/R channels
+							dest[i * nChannels] = tempBuf_[i * 2];      // Front Left
+							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];  // Front Right
+
+							// For 5.1/7.1 systems, also send audio to rear channels
+							// This prevents the "half silent" buffer issue that can cause crackling
+							if (nChannels >= 4) {
+								// Rear/Surround Left and Right at reduced volume
+								dest[i * nChannels + 2] = tempBuf_[i * 2] * 0.7f;      // Rear/Side Left
+								dest[i * nChannels + 3] = tempBuf_[i * 2 + 1] * 0.7f;  // Rear/Side Right
+							}
+							// Center and LFE (if present)
+							for (int j = 4; j < nChannels; j++) {
+								if (j == 4 && nChannels >= 6) {
+									// Center channel - mix of L+R at reduced volume
+									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.7f;
+								} else if (j == 5 && nChannels >= 6) {
+									// LFE channel - bass from L+R at reduced volume
+									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.5f;
+								} else {
+									// Any extra channels get zeroed
+									dest[i * nChannels + j] = 0;
+								}
 							}
 						}
 					}
@@ -601,11 +672,11 @@ void WASAPIContext::AudioLoop() {
 			}
 
 			renderClient_->ReleaseBuffer(framesToWrite, 0);
-		}
 
-		// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
-		if (audioClient_ && framesToWrite < actualPeriodFrames_) {
-			actualPeriodFrames_ = framesToWrite;
+			// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
+			if (audioClient_ && framesToWrite < actualPeriodFrames_.load()) {
+				actualPeriodFrames_.store(framesToWrite);
+			}
 		}
 	}
 
