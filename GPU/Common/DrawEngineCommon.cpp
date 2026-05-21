@@ -449,7 +449,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	__m128 inside = _mm_set1_ps(0.0f);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
-		__m128 worldpos = _mm_add_ps(
+		__m128 clippos = _mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(worldX, _mm_set1_ps(pos[0])),
 				_mm_mul_ps(worldY, _mm_set1_ps(pos[1]))
@@ -462,9 +462,9 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		// OK, we got the clip space homogenous coordinate.
 		// Check it against the four planes in parallel.
 		// We also later want to extract the Z component and take min/max.
-		__m128 posX = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(0, 0, 0, 0));
-		__m128 posY = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(1, 1, 1, 1));
-		__m128 posW = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(3, 3, 3, 3));
+		__m128 posX = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(0, 0, 0, 0));
+		__m128 posY = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(1, 1, 1, 1));
+		__m128 posW = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(3, 3, 3, 3));
 		__m128 planeDist = _mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(planeX, posX),
@@ -482,15 +482,13 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	const float32x4_t worldY = vld1q_f32(gstate.worldMatrix + 3);
 	const float32x4_t worldZ = vld1q_f32(gstate.worldMatrix + 6);
 	const float32x4_t worldW = vld1q_f32(gstate.worldMatrix + 9);
-	const float32x4_t planeX = vld1q_f32(planes_.x);
-	const float32x4_t planeY = vld1q_f32(planes_.y);
-	const float32x4_t planeZ = vld1q_f32(planes_.z);
-	const float32x4_t planeW = vld1q_f32(planes_.w);
+	const float32x4_t planeX = vld1q_f32(planes);
+	const float32x4_t planeY = vld1q_f32(planes + 4);
 	uint32x4_t inside = vdupq_n_u32(0);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
 		float32x4_t objpos = vld1q_f32(pos);
-		float32x4_t worldpos = vaddq_f32(
+		float32x4_t clippos = vaddq_f32(
 			vmlaq_laneq_f32(
 				vmulq_laneq_f32(worldX, objpos, 0),
 				worldY, objpos, 1),
@@ -500,9 +498,9 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		// This is really curiously similar to a matrix multiplication (well, it is one).
 		float32x4_t planeDist = vaddq_f32(
 			vmlaq_laneq_f32(
-				vmulq_laneq_f32(planeX, worldpos, 0),
-				planeY, worldpos, 1),
-			vmlaq_laneq_f32(planeW, planeZ, worldpos, 2)
+				vmulq_laneq_f32(planeX, clippos, 0),
+				planeY, clippos, 1),
+			clippos
 		);
 		inside = vorrq_u32(inside, vcgezq_f32(planeDist));
 	}
@@ -512,12 +510,19 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	int inside[4]{};
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
-		float worldpos[3];
-		Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
-		for (int plane = 0; plane < 4; plane++) {
-			float value = planes_.Test(plane, worldpos);
-			if (value >= 0.0f)
-				inside[plane]++;
+		float clippos[4];
+		Vec3ByMatrix44(clippos, pos, gstate_c.worldviewproj);
+		if (clippos[0] > -clippos[3]) { //  x > -w
+			inside[0]++;
+		}
+		if (clippos[0] < clippos[3]) {  //  x < w
+			inside[1]++;
+		}
+		if (clippos[1] > -clippos[3]) { //  y > -w
+			inside[2]++;
+		}
+		if (clippos[1] < clippos[3]) {  //  y < w
+			inside[3]++;
 		}
 	}
 
