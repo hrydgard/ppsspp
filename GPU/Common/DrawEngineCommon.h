@@ -169,7 +169,7 @@ public:
 
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
-	void UpdatePlanes();
+	void UpdatePlanes(const float viewproj[16]);
 
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();

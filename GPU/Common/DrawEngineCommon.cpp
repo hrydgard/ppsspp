@@ -164,12 +164,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 }
 
 // Gated by DIRTY_CULL_PLANES
-void DrawEngineCommon::UpdatePlanes() {
-	float view[16];
-	float viewproj[16];
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(viewproj, view, gstate.projMatrix);
-
+void DrawEngineCommon::UpdatePlanes(const float viewproj[16]) {
 	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
 	// Note that the PSP does not clip against the viewport.
 	const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
@@ -237,7 +232,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
 	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
 	if (gstate_c.IsDirty(DIRTY_CULL_PLANES)) {
-		UpdatePlanes();
+		UpdatePlanes(gstate_c.viewproj);
 		gpuStats.numPlaneUpdates++;
 		gstate_c.Clean(DIRTY_CULL_PLANES);
 	}
@@ -371,7 +366,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
 	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
 	if (gstate_c.IsDirty(DIRTY_CULL_PLANES)) {
-		UpdatePlanes();
+		UpdatePlanes(gstate_c.viewproj);
 		gpuStats.numPlaneUpdates++;
 		gstate_c.Clean(DIRTY_CULL_PLANES);
 	}
