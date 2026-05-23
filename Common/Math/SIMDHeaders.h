@@ -66,6 +66,15 @@ static inline float32x4_t vmlaq_laneq_f32(float32x4_t a, float32x4_t b, float32x
 	}
 }
 
+static inline float32x4_t vdupq_laneq_f32(float32x4_t vec, int lane) {
+	switch (lane & 3) {
+	case 0: return vdupq_lane_f32(vget_low_f32(vec), 0);
+	case 1: return vdupq_lane_f32(vget_low_f32(vec), 1);
+	case 2: return vdupq_lane_f32(vget_high_f32(vec), 0);
+	default: return vdupq_lane_f32(vget_high_f32(vec), 1);
+	}
+}
+
 #define vfmaq_laneq_f32 vmlaq_laneq_f32
 
 static inline uint32x4_t vcgezq_f32(float32x4_t v) {

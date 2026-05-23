@@ -328,7 +328,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // corners. That way we can cull more draws quite cheaply.
 // We could take the min/max during the regular vertex decode, and just skip the draw call if it's trivially culled.
 // This would help games like Midnight Club (that one does a lot of out-of-bounds drawing) immensely.
-bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
 
@@ -346,13 +346,47 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	// TODO: Possibly do the plane tests directly against the source formats instead of converting.
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
+	{
+#if PPSSPP_ARCH(SSE2)
+		__m128 scaleFactor = _mm_set1_ps(1.0f / 128.0f);
+		for (int i = 0; i < vertexCount; i++) {
+			const s8 *data = (const s8 *)vdata + i * stride + offset;
+			// Load 4 bytes (only first 3 will be used, 4th doesn't matter)
+			int32_t temp;
+			memcpy(&temp, data, sizeof(temp));
+			__m128i bits8 = _mm_cvtsi32_si128(temp);
+			// Unpack 8->16 and 16->32, placing the original bytes in the high byte of each 32-bit lane
+			bits8 = _mm_unpacklo_epi8(bits8, bits8);
+			__m128i bits32 = _mm_unpacklo_epi16(bits8, bits8);
+			// Sign extend with a single shift right by 24
+			bits32 = _mm_srai_epi32(bits32, 24);
+			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits32), scaleFactor);
+			_mm_storeu_ps(verts + i * 3, pos);
+		}
+#elif PPSSPP_ARCH(ARM_NEON)
+		for (int i = 0; i < vertexCount; i++) {
+			const s8 *data = (const s8 *)vdata + i * stride + offset;
+			// Load 4 bytes (only first 3 will be used, 4th doesn't matter)
+			int32_t temp;
+			memcpy(&temp, data, sizeof(temp));
+			int32x2_t data32x2 = vdup_n_s32(temp);
+			int8x8_t data8 = vreinterpret_s8_s32(data32x2);
+			// Sign extend 8-bit to 16-bit, then to 32-bit
+			int16x8_t data16 = vmovl_s8(data8);
+			int32x4_t data32 = vmovl_s16(vget_low_s16(data16));
+			float32x4_t pos = vcvtq_n_f32_s32(data32, 7);  // >> 7 = division by 128.0f
+			vst1q_f32(verts + i * 3, pos);
+		}
+#else
 		for (int i = 0; i < vertexCount; i++) {
 			const s8 *data = (const s8 *)vdata + i * stride + offset;
 			for (int j = 0; j < 3; j++) {
 				verts[i * 3 + j] = data[j] * (1.0f / 128.0f);
 			}
 		}
+#endif
 		break;
+	}
 	case GE_VTYPE_POS_16BIT:
 	{
 #if PPSSPP_ARCH(SSE2)
@@ -389,6 +423,50 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		break;
 	}
 
+	// Modify the transform matrix to take the viewport into account before culling. This is not necessary
+	// for most games, but there are games that rely on outside-viewport draws (such as Dante's Inferno)'s post
+	// processing effects, and we don't want to cull those.
+	// Potentially we should cache this transform matrix too, but hopefully this is not a bottleneck.
+	// I guess we could also do this directly when computing worldviewproj...
+
+	const float vpXCenter = gstate.getViewportXCenter();
+	const float vpYCenter = gstate.getViewportYCenter();
+	const float vpXScale = gstate.getViewportXScale();
+	const float vpYScale = gstate.getViewportYScale();
+	const int scissorX2 = gstate.getScissorX2();
+	const int scissorY2 = gstate.getScissorY2();
+
+	// Check for weird scaling that can make graphics extend beyond the viewport.
+	// NOTE: These checks are not bullet proof.
+	float mtx[16];
+	if (vpXCenter != 2048.0f || vpYCenter != 2048.0f || vpXScale < ((scissorX2 + 1) >> 1) && vpYScale < ((scissorY2 + 1) >> 1)) {
+		// Note that the PSP does not clip against the viewport.
+		const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
+		// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.
+		Vec2f minOffset = baseOffset + Vec2f(std::max(gstate.getRegionX1(), gstate.getScissorX1()), std::max(gstate.getRegionY1(), gstate.getScissorY1()));
+		Vec2f maxOffset = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2()));
+
+		// Now let's apply the viewport to our scissor/region + offset range.
+		Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
+		Vec2f minViewport = (minOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+		Vec2f maxViewport = (maxOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+
+		Vec2f viewportInvSize = Vec2f(1.0f / (maxViewport.x - minViewport.x), 1.0f / (maxViewport.y - minViewport.y));
+
+		Lin::Matrix4x4 applyViewport{};
+		// Scale to the viewport's size.
+		applyViewport.xx = 2.0f * viewportInvSize.x;
+		applyViewport.yy = 2.0f * viewportInvSize.y;
+		applyViewport.zz = 1.0f;
+		applyViewport.ww = 1.0f;
+		// And offset to the viewport's centers.
+		applyViewport.wx = -(maxViewport.x + minViewport.x) * viewportInvSize.x;
+		applyViewport.wy = -(maxViewport.y + minViewport.y) * viewportInvSize.y;
+
+		// TODO: Optimize.
+		Matrix4ByMatrix4(mtx, worldViewProj, applyViewport.m);
+	}
+
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
 	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
@@ -407,10 +485,10 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 
 	alignas(16) static const float sse_planes[8] = { 1, -1, 1, -1 };
 
-	const __m128 worldX = _mm_loadu_ps(gstate_c.worldviewproj);
-	const __m128 worldY = _mm_loadu_ps(gstate_c.worldviewproj + 4);
-	const __m128 worldZ = _mm_loadu_ps(gstate_c.worldviewproj + 8);
-	const __m128 worldW = _mm_loadu_ps(gstate_c.worldviewproj + 12);
+	const __m128 worldX = _mm_loadu_ps(worldViewProj);
+	const __m128 worldY = _mm_loadu_ps(worldViewProj + 4);
+	const __m128 worldZ = _mm_loadu_ps(worldViewProj + 8);
+	const __m128 worldW = _mm_loadu_ps(worldViewProj + 12);
 	const __m128 planesXY = _mm_load_ps(sse_planes);
 	__m128 inside = _mm_set1_ps(0.0f);
 	for (int i = 0; i < vertexCount; i++) {
@@ -438,10 +516,10 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	return _mm_movemask_ps(inside) == 0xF;
 #elif PPSSPP_ARCH(ARM_NEON)
 	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
-	const float32x4_t worldX = vld1q_f32(gstate_c.worldviewproj);
-	const float32x4_t worldY = vld1q_f32(gstate_c.worldviewproj + 4);
-	const float32x4_t worldZ = vld1q_f32(gstate_c.worldviewproj + 8);
-	const float32x4_t worldW = vld1q_f32(gstate_c.worldviewproj + 12);
+	const float32x4_t worldX = vld1q_f32(worldViewProj);
+	const float32x4_t worldY = vld1q_f32(worldViewProj + 4);
+	const float32x4_t worldZ = vld1q_f32(worldViewProj + 8);
+	const float32x4_t worldW = vld1q_f32(worldViewProj + 12);
 	const float32x4_t planesMul = vld1q_f32(planesXY);
 	uint32x4_t inside = vdupq_n_u32(0);
 	for (int i = 0; i < vertexCount; i++) {
@@ -458,7 +536,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 		// Build [x, x, y, y] using vdup_lane
 		float32x2_t xy = vget_low_f32(clippos);
 		float32x4_t posXY = vcombine_f32(vdup_lane_f32(xy, 0), vdup_lane_f32(xy, 1));  // [x, x, y, y]
-		float32x4_t posW = vdupq_lane_f32(vget_high_f32(clippos), 1);  // [w, w, w, w]
+		float32x4_t posW = vdupq_laneq_f32(clippos, 3);  // [w, w, w, w]
 		float32x4_t planeDist = vmlaq_f32(posW, posXY, planesMul);
 		inside = vorrq_u32(inside, vcgeq_f32(planeDist, vdupq_n_f32(0.0f)));
 	}
@@ -467,10 +545,10 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 #elif 0 && PPSSPP_ARCH(LOONGARCH64_LSX)
 	// NOTE: Untested
 	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
-	const __m128 worldX = (__m128)__lsx_vld(gstate_c.worldviewproj, 0);
-	const __m128 worldY = (__m128)__lsx_vld(gstate_c.worldviewproj + 4, 0);
-	const __m128 worldZ = (__m128)__lsx_vld(gstate_c.worldviewproj + 8, 0);
-	const __m128 worldW = (__m128)__lsx_vld(gstate_c.worldviewproj + 12, 0);
+	const __m128 worldX = (__m128)__lsx_vld(worldViewProj, 0);
+	const __m128 worldY = (__m128)__lsx_vld(worldViewProj + 4, 0);
+	const __m128 worldZ = (__m128)__lsx_vld(worldViewProj + 8, 0);
+	const __m128 worldW = (__m128)__lsx_vld(worldViewProj + 12, 0);
 	const __m128 planesMul = (__m128)__lsx_vld(planesXY, 0);
 	__m128 inside = (__m128)__lsx_vreplfr2vr_s(0.0f);
 	for (int i = 0; i < vertexCount; i++) {
