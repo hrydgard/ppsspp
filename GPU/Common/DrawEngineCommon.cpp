@@ -252,13 +252,25 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		}
 	}
 
+	// Unclear why the top/left is off by a pixel.
+	const int left = gstate.getOffsetX() + std::max(gstate.getRegionX1(), gstate.getScissorX1()) - 1;
+	const int top = gstate.getOffsetY() + std::max(gstate.getRegionY1(), gstate.getScissorY1()) - 1;
+	const int right = gstate.getOffsetX() + std::min(gstate.getRegionX2(), gstate.getScissorX2()) + 1;
+	const int bottom = gstate.getOffsetY() + std::min(gstate.getRegionY2(), gstate.getScissorY2()) + 1;
+
+	// This is strange, it seems if the draw box is at all outside the 4096x4096 coordinate space, all checks pass.
+	// It seems very odd that the hardware would have checks for this.
+	if (right >= 4096 || bottom >= 4096 || left < 1.0f || top < 1.0f) {
+		return true;
+	}
+
 	// TODO: How accurate should we be?
 	int insideCount[6] = {0};
 	for (int i = 0; i < vertexCount; i++) {
 		// Complete the transform to see if the vertex should be ignored. Not sure if we need to go to these lengths...
 		const float *objpos = verts + i * 3;
 
-		float projpos[4]{};
+		float projpos[4];
 		Vec3ByMatrix44(projpos, objpos, gstate_c.worldviewproj);
 
 		if (projpos[2] >= -projpos[3]) {
@@ -268,28 +280,26 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			insideCount[5]++;
 		}
 
-		float invW = 1.0f / projpos[3];
+		const float invW = 1.0f / projpos[3];
 		const float screenpos[3] = {
 			projpos[0] * gstate.getViewportXScale() * invW + gstate.getViewportXCenter(),
 			projpos[1] * gstate.getViewportYScale() * invW + gstate.getViewportYCenter(),
 			projpos[2] * gstate.getViewportZScale() * invW + gstate.getViewportZCenter(),
 		};
 
-		const float drawX = screenpos[0] - gstate.getOffsetX();
-		const float drawY = screenpos[1] - gstate.getOffsetY();
+		const float drawX = screenpos[0];
+		const float drawY = screenpos[1];
 
-		const int regionX2 = gstate.getRegionX2() + 1;
-		const int regionY2 = gstate.getRegionY2() + 1;
-		if (drawX >= 0.0f) {
+		if (drawX >= left) {
 			insideCount[0]++;
 		}
-		if (drawX <= regionX2) {
+		if (drawX <= right) {
 			insideCount[1]++;
 		}
-		if (drawY >= 0.0f) {
+		if (drawY >= top) {
 			insideCount[2]++;
 		}
-		if (drawY <= regionY2) {
+		if (drawY <= bottom) {
 			insideCount[3]++;
 		}
 	}
@@ -327,11 +337,6 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, c
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
 	}
-
-	// Also let's just bail if offsetOutsideEdge_ is set, instead of handling the cases.
-	// NOTE: This is written to in UpdatePlanes so can't check it before.
-	if (offsetOutsideEdge_)
-		return true;
 
 	// Simple, most common case.
 	int stride = dec->VertexSize();

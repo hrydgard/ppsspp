@@ -350,11 +350,6 @@ protected:
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer = nullptr;
 
-	// Culling
-	Vec2f minOffset_{};
-	Vec2f maxOffset_{};
-	bool offsetOutsideEdge_ = false;
-
 	GPUCommon *gpuCommon_ = nullptr;
 
 	// Software depth raster
