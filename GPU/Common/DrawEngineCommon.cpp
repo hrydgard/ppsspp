@@ -499,7 +499,7 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	}
 	uint64_t insideBits = vget_lane_u64(vreinterpret_u64_u16(vmovn_u32(inside)), 0);
 	return ~insideBits == 0;
-#elif 0 && PPSSPP_ARCH(LOONGARCH64_LSX)
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
 	// NOTE: Untested
 	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
 	const __m128 worldX = (__m128)__lsx_vld(worldViewProj, 0);
