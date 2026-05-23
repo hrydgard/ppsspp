@@ -141,6 +141,7 @@
 			"location-emoji": "🇨🇳",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice"
+			"status_data_json": "https://adhoc.cvn-play.top/data.json"
 		},
 		{
 			"name": "NT Arena Brasil",
