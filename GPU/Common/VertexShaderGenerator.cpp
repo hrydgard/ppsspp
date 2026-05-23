@@ -175,6 +175,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 	bool needsZWHack = bugs.Has(Draw::Bugs::EQUAL_WZ_CORRUPTS_DEPTH) && g_Config.bVendorBugChecksEnabled;
+	bool nanBug = bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL) && g_Config.bVendorBugChecksEnabled;
+
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
@@ -236,10 +238,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 	bool texCoordInVec3 = false;
 
-	bool vertexRangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING) && !isModeThrough;
-	bool clipClampedDepth = !isModeThrough && gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-	const char *clipClampedDepthSuffix = "[0]";
-	const char *vertexRangeClipSuffix = clipClampedDepth ? "[1]" : "[0]";
+	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;
+	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
+
+	// bool clipClampedDepth = !isModeThrough && gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
+	const char *zClipPlaneSuffix = "[0]";
+	const char *minZClipPlaneSuffix = "[1]";
+	const char *maxZClipPlaneSuffix = "[2]";
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -347,19 +352,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		{
 			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-			bool clipRange = vertexRangeCulling && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-			if (clipClampedDepth && clipRange) {
-				WRITE(p, "  float2 gl_ClipDistance : SV_ClipDistance;\n");
-				clipClampedDepthSuffix = ".x";
-				vertexRangeClipSuffix = ".y";
-			} else if (clipClampedDepth || clipRange) {
-				WRITE(p, "  float gl_ClipDistance : SV_ClipDistance;\n");
-				clipClampedDepthSuffix = "";
-				vertexRangeClipSuffix = "";
-			}
-			if (vertexRangeCulling && gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
-				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
-			}
+			zClipPlaneSuffix = ".x";
+			minZClipPlaneSuffix = ".y";
+			maxZClipPlaneSuffix = ".z";
+			bool clipRange = gstate_c.Use(GPU_USE_CLIP_DISTANCE);
+			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
+			WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
 		}
 		WRITE(p, "};\n");
 	} else {
@@ -840,11 +838,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		// We're in clip space, so here we check for virtual clipping. We don't actually clip, but we check if the actual hardware would have clipped.
+		// We're in clip space, so here we check for clipping. We check if the actual hardware will clip.
 		// If so, we skip the "range culling" (x and y out-of-bounds checks) since they wouldn't have happened, most likely.
-		WRITE(p, "  if (outPos.z < -outPos.w || outPos.z > outPos.w) {\n");
+		WRITE(p, "  if (outPos.z < -outPos.w) {\n");
 		WRITE(p, "    zClipped = true;\n");
 		WRITE(p, "  }\n");
+		// Then we actually add the clip plane.
+		WRITE(p, "  gl_ClipDistance%s = outPos.z + outPos.w;\n", zClipPlaneSuffix);
+
+		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
+			// Not quite understanding this one.
+			// WRITE(p, "  gl_CullDistance[0] = outPos.z + outPos.w;\n");
+			// WRITE(p, "  gl_CullDistance[1] = outPos.w - outPos.z;\n");
+		}
 
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
 		// In software transform mode, this is performed in on the CPU.
@@ -1209,7 +1215,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (!isModeThrough) {
 		// Cull against X and Y limits (unless the GPU has a certain driver bug).
 		// It's not clear what the limits should be in through mode though, although I'm sure they exist.
-		if (gstate_c.Use(GPU_USE_VS_RANGE_CULLING)) {
+		if (!nanBug && rangeCulling) {
 			WRITE(p, "  if (!zClipped && (outPos.x < 0.0 || outPos.y < 0.0 || outPos.x >= 4096.0 || outPos.y >= 4096.0 || outPos.w < -1.0)) {\n");
 			// Discard the whole triangle by setting one vertex to NaN.
 			WRITE(p, "    outPos = vec4(u_NaN, u_NaN, u_NaN, u_NaN);\n");
@@ -1220,17 +1226,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Apply raster offset after the range culling.
 		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
 
-		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
-			// Cull against the Z=-W and Z=W planes.
-			WRITE(p, "  gl_CullDistance[0] = outPos.w + outPos.z; \n");
-			WRITE(p, "  gl_CullDistance[1] = outPos.z - outPos.w; \n");
-		}
-
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			// We use clipping to implement min/max Z.
 			// 1.0 effectively disables the clip plane.
-			WRITE(p, "  gl_ClipDistance[0] = u_minZmaxZ.x > 0.0 ? outPos.z - u_minZmaxZ.x : 1.0;\n");
-			WRITE(p, "  gl_ClipDistance[1] = u_minZmaxZ.y < 65535.0 ? u_minZmaxZ.y - outPos.z : 1.0;\n");
+			// TODO: Should we move this to homogenous coordinates after the multiplication by w?
+			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? outPos.z - u_minZmaxZ.x : 1.0;\n", minZClipPlaneSuffix);
+			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? u_minZmaxZ.y - outPos.z : 1.0;\n", maxZClipPlaneSuffix);
 		}
 	}
 

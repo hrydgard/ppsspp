@@ -1407,7 +1407,7 @@ static const StateItem g_rasterState[] = {
 	{true, GE_CMD_NOP, "Clipping/Clamping"},
 	{false, GE_CMD_MINZ},
 	{false, GE_CMD_MAXZ},
-	{false, GE_CMD_DEPTHCLAMPENABLE},
+	{false, GE_CMD_DEPTHCLIPENABLE},
 
 	{true, GE_CMD_NOP, "Other raster state"},
 	{false, GE_CMD_MASKRGB},

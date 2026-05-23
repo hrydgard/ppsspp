@@ -17,6 +17,8 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
 	if (id.Bit(VS_BIT_IS_THROUGH)) desc << "THR ";
+	if (id.Bit(VS_BIT_CLIP_ENABLE)) desc << "Clip ";
+	if (id.Bit(VS_BIT_MINMAX_DISCARD)) desc << "ZClip ";
 	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc << "HWX ";
 	if (id.Bit(VS_BIT_HAS_COLOR)) desc << "C ";
 	if (id.Bit(VS_BIT_HAS_TEXCOORD)) desc << "T ";
@@ -91,6 +93,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	id.SetBit(VS_BIT_LMODE, lmode);
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_HAS_COLOR, vtypeHasColor);
+	id.SetBit(VS_BIT_CLIP_ENABLE, gstate.isDepthClipEnabled());
 	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
 
 	if (!isModeThrough && gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {

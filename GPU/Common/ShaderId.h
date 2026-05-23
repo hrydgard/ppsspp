@@ -13,10 +13,10 @@ enum VShaderBit : uint8_t {
 	VS_BIT_IS_THROUGH = 1,
 	// bit 2 is free.
 	VS_BIT_HAS_COLOR = 3,
-	// bit 4 is free.
+	VS_BIT_CLIP_ENABLE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
 	VS_BIT_SIMPLE_STEREO = 6,
-	// 7 is free.
+	VS_BIT_MINMAX_DISCARD = 7,  // Do min/max in the fragment shader.
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
 	VS_BIT_NORM_REVERSE = 10,
@@ -83,7 +83,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
 	FS_BIT_ENABLE_FOG = 21,  // Not used with FS_BIT_UBERSHADER
 	FS_BIT_DO_TEXTURE_PROJ = 22,
-	// 1 free bit
+	FS_BIT_MINMAX_DISCARD = 23,
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
 	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
 	FS_BIT_SIMULATE_LOGIC_OP_TYPE = 30,  // 2 bits

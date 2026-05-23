@@ -353,6 +353,8 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	Mat4F32 worldViewProjMat(worldViewProj);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
+	Vec4F32 minClipPos = Vec4F32::Splat(INFINITY);
+	Vec4F32 maxClipPos = Vec4F32::Splat(-INFINITY);
 	Vec4S32 insideMask = Vec4S32::Zero();
 	const s8 *data = (const s8 *)vdata + offset;
 	for (int i = 0; i < vertexCount; i++, data += stride) {
@@ -368,14 +370,35 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 			objPos = Vec4F32::Load((const float *)data);
 			break;
 		}
-		Vec4F32 clippos = objPos.AsVec3ByMatrix44(worldViewProjMat);
-		Vec4F32 posXY = clippos.ShuffleXXYY();
-		Vec4F32 posW = clippos.ShuffleWWWW();
+		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat);
+		minClipPos = minClipPos.Min(clipPos);
+		maxClipPos = maxClipPos.Max(clipPos);
+		Vec4F32 posXY = clipPos.ShuffleXXYY();
+		Vec4F32 posW = clipPos.ShuffleWWWW();
 		Vec4F32 planeDist = posXY * planesXY + posW;
 		insideMask |= planeDist.CompareGe(Vec4F32::Zero());
 	}
-	// At least one vertex is inside one of the planes.
-	return AllCompareBitsSet(insideMask);
+
+	const float maxZ = maxClipPos[2];
+	const float maxW = maxClipPos[3];
+	const float minZ = minClipPos[2];
+	const float minW = minClipPos[3];
+
+	if (AllCompareBitsSet(insideMask)) {
+		// At least one vertex is inside each one of the planes.
+		// Process min/max. Z is in minProj[2]/maxProj[2], W is in minProj[3]/maxProj[3].
+		// Here we can perform the culling that happens if all vertices are closer than the near plane, or farther than the far plane.
+		// Technically this should happen per-primitive, which we try to do with cull planes or software vertex processing if available, but this is still valid
+		// for groups of primitives, avoiding detailed checking, and is a good fallback for games that rely on the min/max culling
+		// behavior (like LocoRoco2's Tropuca level). The question is, do the inequalities really work like that properly? It seem
+		// s like they should.
+		if (maxZ < -maxW || minZ > maxW) {
+			passesCull = false;
+		}
+		return passesCull;
+	} else {
+		return false;
+	}
 }
 
 bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
@@ -383,6 +406,8 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
+	} else if (vertexCount == 0) {
+		return false;
 	}
 
 	// Modify the transform matrix to take the viewport into account before culling. This is not necessary

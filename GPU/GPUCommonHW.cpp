@@ -200,7 +200,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VIEWPORT_UNIFORMS },
 	{ GE_CMD_VIEWPORTZSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VIEWPORT_UNIFORMS },
 	{ GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VIEWPORT_UNIFORMS },
-	{ GE_CMD_DEPTHCLAMPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE },
+	{ GE_CMD_DEPTHCLIPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
 	// Z range.
 	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_RASTER_OFFSET},
@@ -600,13 +600,6 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	if (draw_->GetDeviceCaps().depthClampSupported) {
 		// Some backends always do GPU_USE_ACCURATE_DEPTH, but it's required for depth clamp.
 		features |= GPU_USE_DEPTH_CLAMP;
-	}
-
-	bool canClipOrCull = draw_->GetDeviceCaps().maxClipDistances >= 3 || draw_->GetDeviceCaps().maxCullDistances >= 1;
-	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
-	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
-		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
-		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
