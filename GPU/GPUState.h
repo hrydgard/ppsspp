@@ -375,8 +375,14 @@ struct GPUgstate {
 	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
 	int getScissorX2() const { return scissor2 & 0x3FF; }
 	int getScissorY2() const { return (scissor2 >> 10) & 0x3FF; }
+
+	// When drawing, these registers do weird stuff. Must be set to 0 for normal behavior.
 	int getRegionRateX() const { return 0x100 + (region1 & 0x3FF); }
 	int getRegionRateY() const { return 0x100 + ((region1 >> 10) & 0x3FF); }
+
+	// However when testing for bbox culling, these do act like X1/X2.
+	int getRegionX1() const { return (region1 & 0x3FF); }
+	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 

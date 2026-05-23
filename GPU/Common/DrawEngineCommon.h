@@ -104,7 +104,7 @@ public:
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
-	bool TestBoundingBoxFast(const void *control_points, int vertexCount, const VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBoxFast(const float *worldViewProj, const void *control_points, int vertexCount, const VertexDecoder *dec, u32 vertType);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead);
 
 	void FlushPartialDecode() {
@@ -169,7 +169,6 @@ public:
 
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
-	void UpdatePlanes(const float viewproj[16]);
 
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
@@ -346,18 +345,12 @@ protected:
 	// Sometimes, unusual situations mean we need to reset dirty flags after state calc finishes.
 	uint64_t dirtyRequiresRecheck_ = 0;
 
-	ComputedPipelineState pipelineState_;
+	ComputedPipelineState pipelineState_{};
 
 	// Hardware tessellation
-	TessellationDataTransfer *tessDataTransfer;
+	TessellationDataTransfer *tessDataTransfer = nullptr;
 
-	// Culling
-	Plane8 planes_;
-	Vec2f minOffset_;
-	Vec2f maxOffset_;
-	bool offsetOutsideEdge_;
-
-	GPUCommon *gpuCommon_;
+	GPUCommon *gpuCommon_ = nullptr;
 
 	// Software depth raster
 	bool useDepthRaster_ = false;
