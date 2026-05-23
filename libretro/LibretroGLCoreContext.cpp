@@ -24,6 +24,13 @@ void LibretroGLCoreContext::CreateDrawContext() {
 		}
 #endif
 		glewInitDone = true;
+		// We requested RETRO_HW_CONTEXT_OPENGL_CORE; tell GLFeatures so the
+		// Core-profile workaround in CheckGLExtensions (which force-enables
+		// ARB_framebuffer_object / ARB_vertex_array_object) fires. Apple's
+		// Core driver doesn't list these as extensions, so without this both
+		// stay false and glBindFramebuffer(default) silently no-ops in
+		// GLQueueRunner::fbo_unbind on macOS → black screen.
+		SetGLCoreContext(true);
 		CheckGLExtensions();
 	}
 	draw_ = Draw::T3DCreateGLContext(false);
