@@ -134,32 +134,21 @@ static float ApplyAxialAntiDeadzone(float v, float antiDZ) {
 }
 
 // This is applied on the circular radius, not directly on the axes.
-// Now includes outer deadzone, response curve, and output anti-deadzone stages.
+// Adds a response curve stage on top of the legacy inner-deadzone + sensitivity processing.
 
 static float MapAxisValue(float v) {
 	const float deadzone = g_Config.fAnalogDeadzone;
 	const float invDeadzone = g_Config.fAnalogInverseDeadzone;
 	const float sensitivity = g_Config.fAnalogSensitivity;
-	const float outerDeadzone = g_Config.fAnalogOuterDeadzone;
-	const float outputAntiDZ = g_Config.fAnalogOutputAntiDeadzone;
-	const float outputADBuffer = g_Config.fAnalogOutputAntiDeadzoneBuffer;
 	const int responseCurve = g_Config.iAnalogResponseCurve;
 	const float sign = v >= 0.0f ? 1.0f : -1.0f;
 
 	float absV = fabsf(v);
 
 	// Stage 1: Apply inner deadzone and rescale to [0, 1].
-	// The effective range is [deadzone, 1 - outerDeadzone].
-	float effectiveMax = 1.0f - outerDeadzone;
-	float effectiveRange = effectiveMax - deadzone;
-	if (effectiveRange <= 0.0f) {
-		// Degenerate case: deadzone + outerDeadzone >= 1.0. Output is either 0 or 1.
-		absV = (absV > deadzone) ? 1.0f : 0.0f;
-	} else {
-		absV = Clamp((absV - deadzone) / effectiveRange, 0.0f, 1.0f);
-	}
+	absV = Clamp((absV - deadzone) / (1.0f - deadzone), 0.0f, 1.0f);
 
-	// Stage 2: Apply sensitivity (legacy, works the same as before when new settings are at defaults).
+	// Stage 2: Apply sensitivity (legacy, matches prior behavior when response curve is Linear).
 	if (absV != 0.0f) {
 		absV = Clamp(invDeadzone + absV * (sensitivity - invDeadzone), 0.0f, 1.0f);
 	}
@@ -167,20 +156,6 @@ static float MapAxisValue(float v) {
 	// Stage 3: Apply response curve.
 	if (absV != 0.0f) {
 		absV = ApplyResponseCurve(absV, responseCurve);
-	}
-
-	// Stage 4: Apply output anti-deadzone with buffer.
-	// Anti-deadzone sets a minimum output floor so that even the smallest
-	// stick input past the deadzone produces enough signal to overcome
-	// game-internal deadzones. The buffer re-adds a small safe zone so
-	// resting your thumb on the stick doesn't cause unintended drift.
-	if (absV != 0.0f && outputAntiDZ > 0.0f) {
-		// Remap [0, 1] -> [outputAntiDZ, 1]
-		absV = outputAntiDZ + absV * (1.0f - outputAntiDZ);
-	}
-	if (outputADBuffer > 0.0f && absV > 0.0f && absV < outputAntiDZ + outputADBuffer) {
-		// Within the buffer zone past the anti-deadzone floor: zero it out.
-		absV = 0.0f;
 	}
 
 	return sign * Clamp(absV, 0.0f, 1.0f);

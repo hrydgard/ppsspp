@@ -569,13 +569,6 @@ void AnalogCalibrationScreen::CreateSettingsViews(UI::ViewGroup *scrollContents)
 		return g_Config.iAnalogDeadzoneShape == 2;  // Only enabled for Cross shape
 	});
 
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogOuterDeadzone, 0.0f, 0.3f, 0.0f, co->T("Outer deadzone"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogOutputAntiDeadzone, 0.0f, 0.5f, 0.0f, co->T("Output anti-deadzone"), 0.01f, screenManager(), "/ 1.0"));
-	PopupSliderChoiceFloat *adBuffer = scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogOutputAntiDeadzoneBuffer, 0.0f, 0.2f, 0.0f, co->T("Anti-deadzone buffer"), 0.01f, screenManager(), "/ 1.0"));
-	adBuffer->SetEnabledFunc([] {
-		return g_Config.fAnalogOutputAntiDeadzone > 0.0f;  // Buffer only makes sense with anti-deadzone active
-	});
-
 	static const char *responseCurves[] = { "Linear", "Aggressive", "Relaxed", "Wide" };
 	scrollContents->Add(new PopupMultiChoice(&g_Config.iAnalogResponseCurve, co->T("Response curve"), responseCurves, 0, ARRAY_SIZE(responseCurves), I18NCat::CONTROLS, screenManager()));
 
@@ -604,9 +597,6 @@ void AnalogCalibrationScreen::OnResetToDefaults(UI::EventParams &e) {
 	// Advanced settings
 	g_Config.iAnalogDeadzoneShape = 1;  // Square (matches legacy default)
 	g_Config.fAnalogAxialDeadzone = 0.0f;
-	g_Config.fAnalogOuterDeadzone = 0.0f;
-	g_Config.fAnalogOutputAntiDeadzone = 0.0f;
-	g_Config.fAnalogOutputAntiDeadzoneBuffer = 0.0f;
 	g_Config.iAnalogResponseCurve = 0;
 }
 

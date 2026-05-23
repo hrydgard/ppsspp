@@ -521,12 +521,6 @@ public:
 	// Cross-shaped axial anti-deadzone. Boosts small off-axis values past this threshold,
 	// making the output skip the zone near each cardinal axis to prevent axis snapping.
 	float fAnalogAxialDeadzone;
-	// Outer deadzone: defines where 100% output is reached. Shrinks the effective stick range.
-	float fAnalogOuterDeadzone;
-	// Output anti-deadzone: minimum output floor to bypass game-internal deadzones.
-	float fAnalogOutputAntiDeadzone;
-	// Anti-deadzone buffer: re-adds a small safe zone after anti-deadzone is applied.
-	float fAnalogOutputAntiDeadzoneBuffer;
 	// Response curve type: 0 = Linear, 1 = Aggressive, 2 = Relaxed, 3 = Wide
 	int iAnalogResponseCurve;
 
