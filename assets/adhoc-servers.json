@@ -112,15 +112,6 @@
 			"status_data_json": "http://sayaakanlawan.my.id/data.json"
 		},
 		{
-			"name": "Retroverze Relay Beta",
-			"host": "psp.retroverze.my.id",
-			"discord": "",
-			"web": "https://retroverze.my.id/beta",
-			"location": "Unknown",
-			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
-		},
-		{
 			"name": "Games Nexus",
 			"host": "adhoc.gamesnexus.ovh",
 			"discord": "",
