@@ -153,8 +153,6 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 
 template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
-	ScreenCoords ret;
-
 	// Account for rounding for X and Y.
 	// TODO: Validate actual rounding range.
 	constexpr float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);

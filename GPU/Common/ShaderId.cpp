@@ -61,7 +61,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_HAS_TEXCOORD_TESS)) desc << "TessT ";
 	if (id.Bit(VS_BIT_HAS_NORMAL_TESS)) desc << "TessN ";
 	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
-	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "Cull ";
+	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "RangeCull ";
 
 	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
 

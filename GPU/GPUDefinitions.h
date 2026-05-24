@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "Common/Common.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Core/MemMap.h"
 
 
@@ -216,5 +217,20 @@ struct TransformedVertex {
 		this->x = other.x + xoff;
 		this->y = other.y + yoff;
 		memcpy(&this->z, &other.z, sizeof(*this) - sizeof(float) * 2);
+	}
+
+	static void Lerp(TransformedVertex *dest, TransformedVertex &a, TransformedVertex &b, float t) {
+		dest->x = a.x + (b.x - a.x) * t;
+		dest->y = a.y + (b.y - a.y) * t;
+		dest->z = a.z + (b.z - a.z) * t;
+		dest->pos_w = a.pos_w + (b.pos_w - a.pos_w) * t;
+		dest->u = a.u + (b.u - a.u) * t;
+		dest->v = a.v + (b.v - a.v) * t;
+		dest->uv_w = a.uv_w + (b.uv_w - a.uv_w) * t;
+		dest->fog = a.fog + (b.fog - a.fog) * t;
+
+		// note: colorBlend is backwards.
+		dest->color0_32 = colorBlend(b.color0_32, a.color0_32, t);
+		dest->color1_32 = colorBlend(b.color1_32, a.color1_32, t);
 	}
 };

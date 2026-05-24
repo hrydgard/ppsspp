@@ -624,6 +624,10 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		features |= GPU_USE_VS_RANGE_CULLING;
+	}
+
 	return features;
 }
 
@@ -1801,7 +1805,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	w.F(
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
-		"Vertices: %d dec: %d drawn: %d\n"
+		"Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
 		"FBOs active: %d (evaluations: %d, created %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB, clut %d\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
@@ -1823,6 +1827,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numVertsSubmitted,
 		gpuStats.perFrame.numVertsDecoded,
 		gpuStats.perFrame.numUncachedVertsDrawn,
+		gpuStats.perFrame.numSoftClippedTriangles,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.perFrame.numFramebufferEvaluations,
 		gpuStats.perFrame.numFBOsCreated,

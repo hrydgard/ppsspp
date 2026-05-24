@@ -43,10 +43,9 @@ enum class CullType {
 	OFF = 2,
 };
 
-struct ScreenCoords
-{
-	ScreenCoords() {}
-	ScreenCoords(int x, int y, u16 z) : x(x), y(y), z(z) {}
+struct ScreenCoords {
+	ScreenCoords() = default;
+	ScreenCoords(int _x, int _y, u16 _z) : x(_x), y(_y), z(_z) {}
 
 	int x;
 	int y;
@@ -54,24 +53,21 @@ struct ScreenCoords
 
 	Vec2<int> xy() const { return Vec2<int>(x, y); }
 
-	ScreenCoords operator * (const float t) const
-	{
+	ScreenCoords operator * (const float t) const {
 		return ScreenCoords((int)(x * t), (int)(y * t), (u16)(z * t));
 	}
 
-	ScreenCoords operator / (const int t) const
-	{
+	ScreenCoords operator / (const int t) const {
 		return ScreenCoords(x / t, y / t, z / t);
 	}
 
-	ScreenCoords operator + (const ScreenCoords& oth) const
-	{
+	ScreenCoords operator + (const ScreenCoords& oth) const {
 		return ScreenCoords(x + oth.x, y + oth.y, z + oth.z);
 	}
 };
 
 struct DrawingCoords {
-	DrawingCoords() {}
+	DrawingCoords() = default;
 	DrawingCoords(s16 x, s16 y) : x(x), y(y) {}
 
 	s16 x;

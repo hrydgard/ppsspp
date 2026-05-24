@@ -68,6 +68,7 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 class SoftwareTransform {
 public:
 	// indsSize is in indices, not bytes.
+	// NOTE: In case of clipping, this might write extra vertices after params.transformed.
 	static SoftwareTransformAction Transform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 protected:
