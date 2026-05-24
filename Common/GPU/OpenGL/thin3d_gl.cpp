@@ -594,11 +594,6 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	caps_.maxClipDistances = gl_extensions.maxClipDistances;
 	caps_.maxCullDistances = gl_extensions.maxCullDistances;
 
-	caps_.textureNPOTFullySupported =
-		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||
-		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||
-		gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
-
 	if (gl_extensions.IsGLES) {
 		caps_.fragmentShaderDepthWriteSupported = gl_extensions.GLES3;
 		// There's also GL_EXT_frag_depth but it's rare along with 2.0. Most chips that support it are simply 3.0 chips.
@@ -1262,15 +1257,8 @@ void OpenGLContext::ApplySamplers() {
 		} else {
 			continue;
 		}
-		GLenum wrapS;
-		GLenum wrapT;
-		if (tex->canWrap) {
-			wrapS = samp->wrapU;
-			wrapT = samp->wrapV;
-		} else {
-			wrapS = GL_CLAMP_TO_EDGE;
-			wrapT = GL_CLAMP_TO_EDGE;
-		}
+		GLenum wrapS = samp->wrapU;
+		GLenum wrapT = samp->wrapV;
 		GLenum magFilt = samp->magFilt;
 		GLenum minFilt = tex->numMips > 1 ? samp->mipMinFilt : samp->minFilt;
 		renderManager_.SetTextureSampler(i, wrapS, wrapT, magFilt, minFilt, 0.0f);

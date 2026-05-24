@@ -20,11 +20,6 @@
 std::thread::id renderThreadId;
 
 GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips) {
-	if (caps.textureNPOTFullySupported) {
-		canWrap = true;
-	} else {
-		canWrap = isPowerOf2(width) && isPowerOf2(height);
-	}
 	w = width;
 	h = height;
 	d = depth;

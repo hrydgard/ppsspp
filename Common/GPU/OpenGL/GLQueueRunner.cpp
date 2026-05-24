@@ -1263,15 +1263,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				break;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
-			if (tex->canWrap) {
-				if (tex->wrapS != c.textureSampler.wrapS) {
-					glTexParameteri(tex->target, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
-					tex->wrapS = c.textureSampler.wrapS;
-				}
-				if (tex->wrapT != c.textureSampler.wrapT) {
-					glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
-					tex->wrapT = c.textureSampler.wrapT;
-				}
+			if (tex->wrapS != c.textureSampler.wrapS) {
+				glTexParameteri(tex->target, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+				tex->wrapS = c.textureSampler.wrapS;
+			}
+			if (tex->wrapT != c.textureSampler.wrapT) {
+				glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+				tex->wrapT = c.textureSampler.wrapT;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->magFilter != c.textureSampler.magFilter) {

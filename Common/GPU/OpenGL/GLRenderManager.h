@@ -45,7 +45,6 @@ public:
 	GLenum magFilter = 0xFFFF;
 	GLenum minFilter = 0xFFFF;
 	uint8_t numMips = 0;
-	bool canWrap = true;
 	float anisotropy = -100000.0f;
 	float minLod = -1000.0f;
 	float maxLod = 1000.0f;
