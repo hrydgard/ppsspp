@@ -1,0 +1,64 @@
+name: Build LoongArch64
+
+on:
+  push:
+    branches:
+    - master
+    - actions
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+  pull_request:
+    branches:
+    - master
+    paths-ignore:
+    - '*.{txt,md}'
+    - 'Tools/**'
+    - '.{editorconfig,gitattributes,gitignore}'
+    - 'appveyor.yml'
+
+jobs:
+  build-loongarch64:
+    name: LoongArch64 (QEMU chroot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Set up QEMU for LoongArch64
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: linux/loong64
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
+      with:
+        key: loongarch64
+
+    - name: Build and test (LoongArch64 via QEMU chroot)
+      run: |
+        docker run --rm --platform linux/loong64 \
+          -v "${{ github.workspace }}:/work" \
+          -v "$HOME/.ccache:/root/.ccache" \
+          -e CCACHE_DIR=/root/.ccache \
+          --shm-size=1g \
+          -w /work \
+          loong64/debian:sid \
+          bash -c "
+            set -e
+            apt-get update -qq
+            apt-get install -y -q --no-install-recommends \
+              build-essential cmake python3 \
+              libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev \
+              libsdl2-ttf-dev libfontconfig1-dev ccache
+            export USE_CCACHE=1
+            export PATH=/usr/lib/ccache:\$PATH
+            export CCACHE_SLOPPINESS=time_macros
+            ./b.sh --headless --unittest
+            ./build/PPSSPPUnitTest ALL
+          "
