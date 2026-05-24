@@ -142,9 +142,9 @@ static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription at
 	if (needsUV) {
 		VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, offsetof(TransformedVertex, uv), PspAttributeLocation::TEXCOORD);
 	}
-	VertexAttribSetup(&attrs[count++], DEC_U8_4, offsetof(TransformedVertex, color0), PspAttributeLocation::COLOR0);
+	VertexAttribSetup(&attrs[count++], DEC_U8_4, offsetof(TransformedVertex, color0_32), PspAttributeLocation::COLOR0);
 	if (needsColor1) {
-		VertexAttribSetup(&attrs[count++], DEC_U8_4, offsetof(TransformedVertex, color1), PspAttributeLocation::COLOR1);
+		VertexAttribSetup(&attrs[count++], DEC_U8_4, offsetof(TransformedVertex, color1_32), PspAttributeLocation::COLOR1);
 	}
 	if (needsFog) {
 		VertexAttribSetup(&attrs[count++], DEC_FLOAT_1, offsetof(TransformedVertex, fog), PspAttributeLocation::NORMAL);

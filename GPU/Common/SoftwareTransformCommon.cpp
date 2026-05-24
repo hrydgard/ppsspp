@@ -431,7 +431,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				// Take the bottom right alpha value of the first rect as the stencil value.
 				// Technically, each rect could individually fill its stencil, but most of the
 				// time they use the same one.
-				result->stencilValue = transformed[inds[1]].color0[3];
+				result->stencilValue = (u8)(transformed[inds[1]].color0_32 >> 24);
 			} else {
 				result->stencilValue = 0;
 			}

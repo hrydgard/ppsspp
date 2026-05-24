@@ -208,14 +208,9 @@ struct TransformedVertex {
 		float uv[3];
 	};
 	float fog;
-	union {
-		u8 color0[4];   // prelit
-		u32 color0_32;
-	};
-	union {
-		u8 color1[4];   // prelit
-		u32 color1_32;
-	};
+	// These are RGBA values, 4x u8.
+	u32 color0_32;
+	u32 color1_32;
 
 	void CopyFromWithOffset(const TransformedVertex &other, float xoff, float yoff) {
 		this->x = other.x + xoff;
