@@ -621,7 +621,6 @@ struct DeviceCaps {
 	bool framebufferFetchSupported;
 	bool texture3DSupported;
 	bool fragmentShaderInt32Supported;
-	bool textureNPOTFullySupported;
 	bool fragmentShaderDepthWriteSupported;
 	bool fragmentShaderStencilWriteSupported;
 	bool textureDepthSupported;

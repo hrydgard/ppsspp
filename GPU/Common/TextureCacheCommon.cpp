@@ -1323,14 +1323,6 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor = g_Config.iTexScalingLevel;
 
-	if (!gstate_c.Use(GPU_USE_TEXTURE_NPOT)) {
-		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
-		// TODO: In addition we should probably remove these options from the UI in this case.
-		while ((scaleFactor & (scaleFactor - 1)) != 0) {
-			--scaleFactor;
-		}
-	}
-
 	// Just in case, small display with auto resolution or something.
 	if (scaleFactor <= 0) {
 		scaleFactor = 1;

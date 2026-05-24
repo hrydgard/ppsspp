@@ -583,9 +583,6 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	if (draw_->GetDeviceCaps().anisoSupported) {
 		features |= GPU_USE_ANISOTROPY;
 	}
-	if (draw_->GetDeviceCaps().textureNPOTFullySupported) {
-		features |= GPU_USE_TEXTURE_NPOT;
-	}
 	if (draw_->GetDeviceCaps().dualSourceBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_USE_DUALSOURCE_BLEND;
