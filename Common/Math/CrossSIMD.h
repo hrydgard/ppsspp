@@ -814,14 +814,13 @@ struct Mat4F32 {
 	// The last two loads overlap.
 	static Mat4F32 Load4x3(const float *m) {
 		Mat4F32 result;
-		__m128 mask1110 = (__m128)__lsx_vreplgr2vr_w(0xFFFFFFFF);
-		mask1110 = (__m128)__lsx_vinsgr2vr_w((__m128i)mask1110, 0, 3);
+		__m128 mask1110 = (__m128)__lsx_vbsrl_v(__lsx_vldi(-1), 4);
 		result.col0 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m, 0), (__m128i)mask1110);
 		result.col1 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 3, 0), (__m128i)mask1110);
 		result.col2 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 6, 0), (__m128i)mask1110);
 		__m128 lastCol = (__m128)__lsx_vld(m + 8, 0);
 		// Shuffle to get [m[9], m[10], m[11], x] then mask and add 1.0f to lane 3
-		lastCol = (__m128)__lsx_vshuf4i_w((__m128i)lastCol, 0b11100100);  // [1, 2, 3, 3]
+		lastCol = (__m128)__lsx_vshuf4i_w((__m128i)lastCol, 0b11111001);  // [1, 2, 3, 3]
 		result.col3 = (__m128)__lsx_vand_v((__m128i)lastCol, (__m128i)mask1110);
 		result.col3 = (__m128)__lsx_vfadd_s(result.col3, (__m128)__lsx_vinsgr2vr_w(__lsx_vldi(0), *(int *)&(float){1.0f}, 3));
 		return result;
@@ -926,7 +925,7 @@ struct Vec4S32 {
 	Vec4S32 operator |(Vec4S32 other) const { return Vec4S32{ __lsx_vor_v(v, other.v) }; }
 	Vec4S32 operator &(Vec4S32 other) const { return Vec4S32{ __lsx_vand_v(v, other.v) }; }
 	Vec4S32 operator ^(Vec4S32 other) const { return Vec4S32{ __lsx_vxor_v(v, other.v) }; }
-	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ __lsx_vand_v(v, __lsx_vnor_v(inverted.v, inverted.v)) }; }
+	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ __lsx_vandn_v(inverted.v, v) }; }
 	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_w(v, other.v) }; }
 	void operator &=(Vec4S32 other) { v = __lsx_vand_v(v, other.v); }
 
@@ -950,49 +949,30 @@ struct Vec4F32 {
 
 	static Vec4F32 Load(const float *src) { return Vec4F32{ (__m128)__lsx_vld(src, 0) }; }
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
-		int32_t temp;
-		memcpy(&temp, src, sizeof(temp));
-		__m128i value = __lsx_vinsgr2vr_w(__lsx_vldi(0), temp, 0);
-		// Sign extend 8->16->32
-		value = __lsx_vilvl_b(value, value);
-		value = __lsx_vsrai_h(value, 8);
-		value = __lsx_vilvl_h(value, value);
-		value = __lsx_vsrai_w(value, 16);
-		return Vec4F32 { (__m128)__lsx_vffint_s_w(__lsx_vsrai_w(value, 7)) };
+		return LoadConvertS8(src) * (1.0f / 128.0f);
 	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
-		__m128i value = __lsx_vldrepl_d(src, 0);
-		// Sign extend 16-bit to 32-bit
-		value = __lsx_vilvl_h(value, value);
-		value = __lsx_vsrai_w(value, 16);
-		return Vec4F32 { (__m128)__lsx_vffint_s_w(__lsx_vsrai_w(value, 15)) };
+		return LoadConvertS16(src) * (1.0f / 32768.0f);
 	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ (__m128)__lsx_vld(src, 0) }; }
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		__m128i value = __lsx_vldrepl_d(src, 0);
-		// Sign extend 16-bit to 32-bit
-		value = __lsx_vilvl_h(value, value);
-		value = __lsx_vsrai_w(value, 16);
+		value = __lsx_vsllwil_w_h(value, 0);
 		return Vec4F32{ (__m128)__lsx_vffint_s_w(value) };
 	}
 
 	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
-		__m128i value = __lsx_vldrepl_d(src, 0);
-		// Sign extend 8->16->32
-		value = __lsx_vilvl_b(value, value);
-		value = __lsx_vsrai_h(value, 8);
-		value = __lsx_vilvl_h(value, value);
-		value = __lsx_vsrai_w(value, 16);
+		__m128i value = __lsx_vldrepl_w(src, 0);
+		value = __lsx_vsllwil_h_b(value, 0);
+		value = __lsx_vsllwil_w_h(value, 0);
 		return Vec4F32{ (__m128)__lsx_vffint_s_w(value) };
 	}
 
 	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
-		__m128i value = __lsx_vldrepl_d(src, 0);
-		__m128i zero = __lsx_vldi(0);
-		// Zero extend 8->16->32
-		value = __lsx_vilvl_b(zero, value);
-		value = __lsx_vilvl_h(zero, value);
+		__m128i value = __lsx_vldrepl_w(src, 0);
+		value = __lsx_vsllwil_hu_bu(value, 0);
+		value = __lsx_vsllwil_wu_hu(value, 0);
 		return Vec4F32{ (__m128)__lsx_vffint_s_w(value) };
 	}
 
@@ -1015,7 +995,7 @@ struct Vec4F32 {
 		__lsx_vstelm_w((__m128i)v, dst, 8, 2);
 	}
 	void StoreConvertToU8(uint8_t *dest) {
-		__m128i ivalue32 = __lsx_vftint_w_s(v);
+		__m128i ivalue32 = __lsx_vftintrz_w_s(v);
 		__m128i ivalue16 = __lsx_vssrlrni_hu_w(ivalue32, ivalue32, 0);
 		__m128i ivalue8 = __lsx_vssrlrni_bu_h(ivalue16, ivalue16, 0);
 		uint32_t value = __lsx_vpickve2gr_wu(ivalue8, 0);
@@ -1109,7 +1089,7 @@ struct Vec4F32 {
 	}
 };
 
-inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ __lsx_vftint_w_s(f.v) }; }
+inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ __lsx_vftintrz_w_s(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ (__m128)__lsx_vffint_s_w(s.v) }; }
 
 // Make sure the W component of scale is 1.0f.
@@ -1129,18 +1109,13 @@ inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translat
 }
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
-	// Check if any lane has sign bit not set (i.e., >= 0)
-	__m128i sign_mask = __lsx_vsrai_w(value.v, 31);
-	// All lanes should have sign bit set for false, otherwise true
-	int mask = __lsx_bz_v(sign_mask);
-	return mask == 0;  // If all zeros, no sign bits set
+	int mask = __lsx_vmskltz_w(value.v);
+	return mask != 0xF;
 }
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
-	__m128i ival = (__m128i)value.v;
-	__m128i sign_mask = __lsx_vsrai_w(ival, 31);
-	int mask = __lsx_bz_v(sign_mask);
-	return mask == 0;
+	int mask = __lsx_vmskltz_w((__m128i)value.v);
+	return mask != 0xF;
 }
 
 struct Vec4U16 {
@@ -1173,14 +1148,14 @@ struct Vec4U16 {
 
 	Vec4U16 AndNot(Vec4U16 inverted) {
 		return Vec4U16{
-			__lsx_vand_v(v, __lsx_vnor_v(inverted.v, inverted.v))
+			__lsx_vandn_v(inverted.v, v)
 		};
 	}
 };
 
 inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	__m128i sign_mask = __lsx_vsrai_w(v.v, 31);
-	__m128i result = __lsx_vssrlrni_h_w(sign_mask, sign_mask, 0);
+	__m128i result = __lsx_vpickev_h(sign_mask, sign_mask);
 	return Vec4U16{ result };
 }
 
