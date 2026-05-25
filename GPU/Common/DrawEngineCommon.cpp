@@ -329,100 +329,10 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // We could take the min/max during the regular vertex decode, and just skip the draw call if it's trivially culled.
 // This would help games like Midnight Club (that one does a lot of out-of-bounds drawing) immensely.
 template<u32 posFmt>
-static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, u8 *decoded) {
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	float *verts = (float *)(decoded + 65536 * 18);
-
-	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
-	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		return true;
-	}
-
+static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded) {
 	// Simple, most common case.
 	const int stride = dec->VertexSize();
 	const int offset = dec->posoff;
-	int vertStride = 3;
-
-	// TODO: Possibly do the plane tests directly against the source formats instead of converting.
-	switch (vertType & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_8BIT:
-	{
-#if PPSSPP_ARCH(SSE2)
-		__m128 scaleFactor = _mm_set1_ps(1.0f / 128.0f);
-		for (int i = 0; i < vertexCount; i++) {
-			const s8 *data = (const s8 *)vdata + i * stride + offset;
-			// Load 4 bytes (only first 3 will be used, 4th doesn't matter)
-			int32_t temp;
-			memcpy(&temp, data, sizeof(temp));
-			__m128i bits8 = _mm_cvtsi32_si128(temp);
-			// Unpack 8->16 and 16->32, placing the original bytes in the high byte of each 32-bit lane
-			bits8 = _mm_unpacklo_epi8(bits8, bits8);
-			__m128i bits32 = _mm_unpacklo_epi16(bits8, bits8);
-			// Sign extend with a single shift right by 24
-			bits32 = _mm_srai_epi32(bits32, 24);
-			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits32), scaleFactor);
-			_mm_storeu_ps(verts + i * 3, pos);
-		}
-#elif PPSSPP_ARCH(ARM_NEON)
-		for (int i = 0; i < vertexCount; i++) {
-			const s8 *data = (const s8 *)vdata + i * stride + offset;
-			// Load 4 bytes (only first 3 will be used, 4th doesn't matter)
-			int32_t temp;
-			memcpy(&temp, data, sizeof(temp));
-			int32x2_t data32x2 = vdup_n_s32(temp);
-			int8x8_t data8 = vreinterpret_s8_s32(data32x2);
-			// Sign extend 8-bit to 16-bit, then to 32-bit
-			int16x8_t data16 = vmovl_s8(data8);
-			int32x4_t data32 = vmovl_s16(vget_low_s16(data16));
-			float32x4_t pos = vcvtq_n_f32_s32(data32, 7);  // >> 7 = division by 128.0f
-			vst1q_f32(verts + i * 3, pos);
-		}
-#else
-		for (int i = 0; i < vertexCount; i++) {
-			const s8 *data = (const s8 *)vdata + i * stride + offset;
-			for (int j = 0; j < 3; j++) {
-				verts[i * 3 + j] = data[j] * (1.0f / 128.0f);
-			}
-		}
-#endif
-		break;
-	}
-	case GE_VTYPE_POS_16BIT:
-	{
-#if PPSSPP_ARCH(SSE2)
-		__m128 scaleFactor = _mm_set1_ps(1.0f / 32768.0f);
-		for (int i = 0; i < vertexCount; i++) {
-			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			__m128i bits = _mm_loadl_epi64((const __m128i*)data);
-			// Sign extension. Hacky without SSE4.
-			bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
-			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits), scaleFactor);
-			_mm_storeu_ps(verts + i * 3, pos);  // TODO: use stride 4 to avoid clashing writes?
-		}
-#elif PPSSPP_ARCH(ARM_NEON)
-		for (int i = 0; i < vertexCount; i++) {
-			const s16 *dataPtr = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			int32x4_t data = vmovl_s16(vld1_s16(dataPtr));
-			float32x4_t pos = vcvtq_n_f32_s32(data, 15);  // >> 15 = division by 32768.0f
-			vst1q_f32(verts + i * 3, pos);
-		}
-#else
-		for (int i = 0; i < vertexCount; i++) {
-			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			for (int j = 0; j < 3; j++) {
-				verts[i * 3 + j] = data[j] * (1.0f / 32768.0f);
-			}
-		}
-#endif
-		break;
-	}
-	case GE_VTYPE_POS_FLOAT:
-		// No need to copy in this case, we can just read directly from the source format with a stride.
-		verts = (float *)((uint8_t *)vdata + offset);
-		vertStride = stride / 4;
-		break;
-	}
 
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
@@ -442,9 +352,20 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
 	Vec4S32 insideMask = Vec4S32::Zero();
-	for (int i = 0; i < vertexCount; i++) {
-		const float *pos = verts + i * vertStride;
-		Vec4F32 objPos = Vec4F32::Load(pos);
+	const s8 *data = (const s8 *)vdata + offset;
+	for (int i = 0; i < vertexCount; i++, data += stride) {
+		Vec4F32 objPos;
+		switch (posFmt) {
+		case GE_VTYPE_POS_8BIT:
+			objPos = Vec4F32::LoadS8Norm(data);
+			break;
+		case GE_VTYPE_POS_16BIT:
+			objPos = Vec4F32::LoadS16Norm((const s16 *)data);
+			break;
+		default:
+			objPos = Vec4F32::Load((const float *)data);
+			break;
+		}
 		Vec4F32 clippos = objPos.AsVec3ByMatrix44(worldViewProjMat);
 		Vec4F32 posXY = clippos.ShuffleXXYY();
 		Vec4F32 posW = clippos.ShuffleWWWW();
@@ -456,6 +377,12 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 }
 
 bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		return true;
+	}
+
 	// Modify the transform matrix to take the viewport into account before culling. This is not necessary
 	// for most games, but there are games that rely on outside-viewport draws (such as Dante's Inferno)'s post
 	// processing effects, and we don't want to cull those.
@@ -503,11 +430,11 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(worldViewProj, vdata, vertexCount, dec, vertType, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(worldViewProj, vdata, vertexCount, dec, decoded_);
 	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(worldViewProj, vdata, vertexCount, dec, vertType, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(worldViewProj, vdata, vertexCount, dec, decoded_);
 	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(worldViewProj, vdata, vertexCount, dec, vertType, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(worldViewProj, vdata, vertexCount, dec, decoded_);
 	default:
 		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
