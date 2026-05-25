@@ -814,7 +814,7 @@ struct Mat4F32 {
 	// The last two loads overlap.
 	static Mat4F32 Load4x3(const float *m) {
 		Mat4F32 result;
-		__m128 mask1110 = (__m128)__lsx_vbsrl_v(__lsx_vldi(-1), 4);
+		__m128 mask1110 = (__m128)__lsx_vbsrl_v(__lsx_vldi(0b11111111), 4);
 		result.col0 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m, 0), (__m128i)mask1110);
 		result.col1 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 3, 0), (__m128i)mask1110);
 		result.col2 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 6, 0), (__m128i)mask1110);
