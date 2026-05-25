@@ -22,7 +22,7 @@ fi
 # GL headers are platform-independent C headers; copy from the host.
 echo "Installing GL headers into sysroot..."
 mkdir -p $SYSROOT/include/GL
-for h in gl.h glext.h glcorearb.h; do
+for h in gl.h glext.h glcorearb.h glu.h; do
     [ -f /usr/include/GL/$h ] && cp /usr/include/GL/$h $SYSROOT/include/GL/ && echo "  $h"
 done
 

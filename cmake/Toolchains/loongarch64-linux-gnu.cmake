@@ -14,15 +14,15 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 # No X11 in the sysroot; disable the X11 Vulkan path to avoid include-dir errors.
 set(USING_X11_VULKAN OFF CACHE BOOL "" FORCE)
 
-# Bypass find_package(OpenGL REQUIRED).  A stub libGL.so is required so that
-# GLEW's static archive can be linked via PLT entries (direct B26 branches to
-# address 0 would overflow on LoongArch).
-#
-# Primary: run cmake/scripts/setup-loongarch64-cross.sh (sudo) once — it
-#          installs the stub + GL headers into the sysroot.
-# Fallback: the stub can also sit in <build-dir>/stublibs/libGL.so;
-#           b.sh --loongarch64 creates this automatically on first run.
-set(OPENGL_LIBRARIES GL CACHE STRING "" FORCE)
+# Use legacy GL preference so find_package(OpenGL) looks for a single libGL.so
+# rather than the GLVND split (libOpenGL.so + libGLX.so), which we don't have.
+# A stub libGL.so + GL headers must be present in the sysroot; they are placed
+# there by cmake/scripts/setup-loongarch64-cross.sh (run once with sudo, or
+# automatically by the CI install step).
+set(OpenGL_GL_PREFERENCE LEGACY CACHE STRING "" FORCE)
+
+# b.sh also creates a stub in <build-dir>/stublibs/ as a local fallback so the
+# linker can resolve GL/GLX calls from GLEW's static archive via PLT entries.
 set(CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} -L${CMAKE_BINARY_DIR}/stublibs"
     CACHE STRING "" FORCE)
