@@ -1232,7 +1232,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
 
 		if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-			// Vertex range culling doesn't happen when Z clips, note sign of w is important.
+			// Vertex range culling always happens, even when Z clips - but since we let the host GPU clip
+			// here afterwards, and never actually perform the clipping, we have to disable range culling here if we
+			// detect clipping, otherwise we're checking unclipped coordinates.
 			WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
 			const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
 			const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
