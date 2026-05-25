@@ -242,6 +242,8 @@ void DrawEngineVulkan::Flush() {
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
 
+	// TODO: Here we can check depths_ to see if we need to fall back to software transform for clipping.
+
 	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
 	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
 	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
@@ -299,14 +301,14 @@ void DrawEngineVulkan::Flush() {
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
-				ResetAfterDraw();
+				ResetAfterSkippedDraw();
 				return;
 			}
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 
 			if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
 				renderManager->ReportBadStateForDraw();
-				ResetAfterDraw();
+				ResetAfterSkippedDraw();
 				return;
 			}
 			if (pipeline != lastPipeline_) {
@@ -467,14 +469,14 @@ void DrawEngineVulkan::Flush() {
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
-					ResetAfterDraw();
+					ResetAfterSkippedDraw();
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 
 				if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
 					renderManager->ReportBadStateForDraw();
-					ResetAfterDraw();
+					ResetAfterSkippedDraw();
 					return;
 				}
 				if (pipeline != lastPipeline_) {
@@ -557,7 +559,7 @@ void DrawEngineVulkan::Flush() {
 	gpuCommon_->NotifyFlush();
 }
 
-void DrawEngineVulkan::ResetAfterDraw() {
+void DrawEngineVulkan::ResetAfterSkippedDraw() {
 	indexGen.Reset();
 	numDecodedVerts_ = 0;
 	numDrawVerts_ = 0;

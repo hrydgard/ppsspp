@@ -575,8 +575,10 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), applySkinInDecode_);
 	int generatedBytesRead;
-	if (output.count)
-		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead);
+	if (output.count) {
+		BoundingDepths depths;
+		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead, depths);
+	}
 
 	if (flushOnParams_)
 		Flush();

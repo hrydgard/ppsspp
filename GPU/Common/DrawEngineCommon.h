@@ -107,9 +107,9 @@ public:
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
-	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths) {
 		VertexDecoder *dec = GetVertexDecoder(vertTypeID);
-		SubmitPrim(verts, inds, prim, vertexCount, dec, vertTypeID, clockwise, bytesRead);
+		SubmitPrim(verts, inds, prim, vertexCount, dec, vertTypeID, clockwise, bytesRead, depths);
 	}
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
@@ -133,9 +133,9 @@ public:
 		}
 	}
 
-	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
-	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead);
-	void SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, int *bytesRead);
+	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, const BoundingDepths &depths);
+	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths);
+	void SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, int *bytesRead);
 
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
@@ -237,6 +237,7 @@ protected:
 		seenPrims_ = 0;
 		anyCCWOrIndexed_ = false;
 		gstate_c.vertexFullAlpha = true;
+		depths_ = BoundingDepths();
 
 		// Now seems as good a time as any to reset the min/max coords, which we may examine later.
 		gstate_c.vertBounds.minU = 512;
@@ -367,6 +368,9 @@ protected:
 	float *depthTransformed_ = nullptr;
 	int *depthScreenVerts_ = nullptr;
 	uint16_t *depthIndices_ = nullptr;
+
+	// Depth tracking
+	BoundingDepths depths_;
 
 	// Queue
 	int depthVertexCount_ = 0;

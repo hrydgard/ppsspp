@@ -216,6 +216,7 @@ struct GPUDebugVertex {
 
 class StringWriter;
 
+// TODO: This interface is somewhat pointless. GPUCommon could be the base class.
 class GPUDebugInterface {
 public:
 	virtual ~GPUDebugInterface() = default;

@@ -1018,11 +1018,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 #endif
 
+	BoundingDepths depths;
+
 	// If certain conditions are true, do frustum culling.
 	bool passCulling = PASSES_CULLING;
 	if (!passCulling) {
 		// Do software culling.
-		BoundingDepths depths;
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType, &depths)) {
 			passCulling = true;
 		} else {
@@ -1036,13 +1037,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Cuts down on checking, while not losing that much efficiency.
 	bool onePassed = false;
 	if (passCulling) {
-		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead)) {
+		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead, depths)) {
 			canExtend = false;
 		}
 		onePassed = true;
 	} else {
 		// Still need to advance bytesRead.
-		drawEngineCommon_->SkipPrim(prim, count, decoder, vertTypeID, &bytesRead);
+		drawEngineCommon_->SkipPrim(prim, count, decoder, &bytesRead);
 		canExtend = false;
 	}
 
@@ -1084,7 +1085,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
 				// are consecutive in memory. We also ignore culling here.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle);
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, depths);
 				if (!commandsExecuted) {
 					goto bail;
 				}
@@ -1121,14 +1122,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				}
 			}
 			if (passCulling) {
-				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead)) {
+				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead, depths)) {
 					canExtend = false;
 				}
 				// As soon as one passes, assume we don't need to check the rest of this batch.
 				onePassed = true;
 			} else {
 				// Still need to advance bytesRead.
-				drawEngineCommon_->SkipPrim(newPrim, count, decoder, vertTypeID, &bytesRead);
+				drawEngineCommon_->SkipPrim(newPrim, count, decoder, &bytesRead);
 				canExtend = false;
 			}
 			AdvanceVerts(vertexType, count, bytesRead);

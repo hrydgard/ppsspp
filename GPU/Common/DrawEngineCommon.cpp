@@ -155,7 +155,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
-	SubmitPrim(&temp[0], nullptr, prim, vertexCount, dec, vertTypeID, clockwise, &bytesRead);
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, dec, vertTypeID, clockwise, &bytesRead, BoundingDepths());
 	Flush();
 
 	if (!prevThrough) {
@@ -462,6 +462,20 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 	}
 }
 
+void DrawEngineCommon::ComputeBoundingDepths(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depths) {
+	switch (vertType & GE_VTYPE_POS_MASK) {
+	case GE_VTYPE_POS_8BIT:
+		::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, false>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
+	case GE_VTYPE_POS_16BIT:
+		::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, false>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
+	case GE_VTYPE_POS_FLOAT:
+		::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, false>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
+	default:
+		// Shouldn't end up here with the checks outside this function.
+		_dbg_assert_(false);
+	}
+}
+
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions. TODO: Add more float formats.
 bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead) {
@@ -606,7 +620,9 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization.
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, const BoundingDepths &depths) {
+	depths_.Merge(depths);
+
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
@@ -654,7 +670,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 	return cmd - start;
 }
 
-void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, int *bytesRead) {
+void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim)) {
 		Flush();
 	}
@@ -674,10 +690,13 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, const Ver
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		Flush();
 	}
+
+	depths_.Merge(depths);
+
 	_dbg_assert_(numDrawVerts_ < MAX_DEFERRED_DRAW_VERTS);
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
 

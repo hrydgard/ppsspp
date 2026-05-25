@@ -165,7 +165,7 @@ private:
 
 	void UpdateUBOs();
 
-	NO_INLINE void ResetAfterDraw();
+	NO_INLINE void ResetAfterSkippedDraw();
 
 	Draw::DrawContext *draw_;
 
