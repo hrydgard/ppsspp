@@ -1152,7 +1152,7 @@ void DrawTriangleSlice(
 						int32x4_t sec = vsetq_lane_s32(0, sec_color[i].ivec, 3);
 						prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);
 #else
-						prim_color[i] += Vec4<int>(sec_color[i], 0);
+						prim_color[i] = Vec4<int>(sec_color[i], 0);
 #endif
 					}
 				}

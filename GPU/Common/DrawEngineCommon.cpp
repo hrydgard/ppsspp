@@ -527,7 +527,7 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		__m128 posXY = (__m128)__lsx_vshuf4i_w(clippos, 0b01010000);  // [x, x, y, y]
 		__m128 posW = (__m128)__lsx_vshuf4i_w(clippos, 0b11111111);   // [w, w, w, w]
 		__m128 planeDist = (__m128)__lsx_vfmadd_s(planesMul, posXY, posW);
-		inside = (__m128)__lsx_vor_v(inside, (__m128)__lsx_vfcmp_cle_s((__m128)__lsx_vreplfr2vr_s(0.0f), planeDist));
+		inside = (__m128)__lsx_vor_v((__m128i)inside, (__m128i)__lsx_vfcmp_cle_s((__m128)__lsx_vreplfr2vr_s(0.0f), planeDist));
 	}
 	// Check if all 4 lanes are set
 	__m128i mask = (__m128i)__lsx_vseqi_w((__m128i)inside, 0);
@@ -578,7 +578,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 	// Check for weird scaling that can make graphics extend beyond the viewport.
 	// NOTE: These checks are not bullet proof.
 	float mtx[16];
-	if (vpXCenter != 2048.0f || vpYCenter != 2048.0f || vpXScale < ((scissorX2 + 1) >> 1) && vpYScale < ((scissorY2 + 1) >> 1)) {
+	if (vpXCenter != 2048.0f || vpYCenter != 2048.0f || vpXScale < ((scissorX2 + 1) >> 1) || vpYScale < ((scissorY2 + 1) >> 1)) {
 		// Note that the PSP does not clip against the viewport.
 		const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
 		// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.

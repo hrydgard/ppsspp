@@ -814,6 +814,7 @@ struct Mat4F32 {
 	// The last two loads overlap.
 	static Mat4F32 Load4x3(const float *m) {
 		Mat4F32 result;
+		constexpr int kOneF32Bits = 0x3F800000;
 		__m128 mask1110 = (__m128)__lsx_vbsrl_v(__lsx_vldi(0b11111111), 4);
 		result.col0 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m, 0), (__m128i)mask1110);
 		result.col1 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 3, 0), (__m128i)mask1110);
@@ -822,7 +823,7 @@ struct Mat4F32 {
 		// Shuffle to get [m[9], m[10], m[11], x] then mask and add 1.0f to lane 3
 		lastCol = (__m128)__lsx_vshuf4i_w((__m128i)lastCol, 0b11111001);  // [1, 2, 3, 3]
 		result.col3 = (__m128)__lsx_vand_v((__m128i)lastCol, (__m128i)mask1110);
-		result.col3 = (__m128)__lsx_vfadd_s(result.col3, (__m128)__lsx_vinsgr2vr_w(__lsx_vldi(0), *(int *)&(float){1.0f}, 3));
+		result.col3 = (__m128)__lsx_vfadd_s(result.col3, (__m128)__lsx_vinsgr2vr_w(__lsx_vldi(0), kOneF32Bits, 3));
 		return result;
 	}
 
@@ -977,9 +978,10 @@ struct Vec4F32 {
 	}
 
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
+		constexpr int kOneF32Bits = 0x3F800000;
 		__m128i value = __lsx_vslli_w(__lsx_vld(src, 0), 8);
 		// Set lane 3 to 1.0f
-		value = __lsx_vinsgr2vr_w(value, *(int *)&(float){1.0f}, 3);
+		value = __lsx_vinsgr2vr_w(value, kOneF32Bits, 3);
 		return Vec4F32{ (__m128)value };
 	}
 
@@ -1044,7 +1046,8 @@ struct Vec4F32 {
 	}
 
 	Vec4F32 WithLane3One() const {
-		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, *(int *)&(float){1.0f}, 3) };
+		constexpr int kOneF32Bits = 0x3F800000;
+		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, kOneF32Bits, 3) };
 	}
 
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_ceq_s(v, other.v) }; }
@@ -1109,12 +1112,12 @@ inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translat
 }
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
-	int mask = __lsx_vmskltz_w(value.v);
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w(value.v), 0);
 	return mask != 0xF;
 }
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
-	int mask = __lsx_vmskltz_w((__m128i)value.v);
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
 	return mask != 0xF;
 }
 
