@@ -1499,78 +1499,81 @@ elseif(WIN32)
 	set(TargetBin PPSSPPWindows)
 elseif(LIBRETRO)
 else()
-	if(GOLD)
-		set(TargetBin PPSSPPGold)
-	else()
-		set(TargetBin PPSSPPSDL)
-	endif()
-	# Require SDL
-	add_compile_definitions(SDL)
-	list(APPEND nativeExtra
-		SDL/SDLJoystick.h
-		SDL/SDLJoystick.cpp
-		SDL/SDLMain.cpp
-		SDL/SDLGLGraphicsContext.cpp
-	)
-	if(NOT USE_LIBNX)
-		list(APPEND nativeExtra
-			SDL/SDLVulkanGraphicsContext.cpp
-		)
-	endif()
-	if(SDL2_ttf_FOUND OR
-		(SDL2_ttf_PKGCONFIG_FOUND AND
-			SDL2_ttf_PKGCONFIG_VERSION VERSION_GREATER_EQUAL "2.0.18"))
-		add_compile_definitions(USE_SDL2_TTF)
-		if(FONTCONFIG_FOUND)
-			add_compile_definitions(USE_SDL2_TTF_FONTCONFIG)
-			list(APPEND nativeExtraLibs Fontconfig::Fontconfig)
+	if(SDL2_FOUND OR SDL2Fwk)
+		if(GOLD)
+			set(TargetBin PPSSPPGold)
+		else()
+			set(TargetBin PPSSPPSDL)
 		endif()
-	elseif(SDL2_ttf_PKGCONFIG_FOUND)
-		message(WARNING "Found SDL2_ttf <2.0.18 - this is too old, falling back to atlas")
-	endif()
-	if(SDL2_ttf_FOUND)
-		list(APPEND nativeExtraLibs SDL2_ttf::SDL2_ttf)
-	elseif(SDL2_ttf_PKGCONFIG_FOUND)
-		list(APPEND nativeExtraLibs PkgConfig::SDL2_ttf_PKGCONFIG)
-	endif()
-	if(APPLE)
+		add_compile_definitions(SDL)
 		list(APPEND nativeExtra
-		SDL/SDLMain.h
-		SDL/SDLMain.mm
-		SDL/SDLCocoaMetalLayer.h
-		SDL/SDLCocoaMetalLayer.mm
-		SDL/CocoaBarItems.mm
-		SDL/CocoaBarItems.h
-		SDL/PPSSPPAboutViewController.m
-		SDL/PPSSPPAboutViewController.h
-		SDL/MacCameraHelper.mm
-		Common/Battery/AppleBatteryClient.m
-		UI/PSPNSApplicationDelegate.mm
-		UI/PSPNSApplicationDelegate.h)
-
-		# TODO
-		# set_source_files_properties(SDL/SDLMain.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-
-		set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
-			UI/PSPNSApplicationDelegate.mm
-			SDL/CocoaMetalLayer.mm
+			SDL/SDLJoystick.h
+			SDL/SDLJoystick.cpp
+			SDL/SDLMain.cpp
+			SDL/SDLGLGraphicsContext.cpp
+		)
+		if(NOT USE_LIBNX)
+			list(APPEND nativeExtra
+				SDL/SDLVulkanGraphicsContext.cpp
+			)
+		endif()
+		if(SDL2_ttf_FOUND OR
+			(SDL2_ttf_PKGCONFIG_FOUND AND
+				SDL2_ttf_PKGCONFIG_VERSION VERSION_GREATER_EQUAL "2.0.18"))
+			add_compile_definitions(USE_SDL2_TTF)
+			if(FONTCONFIG_FOUND)
+				add_compile_definitions(USE_SDL2_TTF_FONTCONFIG)
+				list(APPEND nativeExtraLibs Fontconfig::Fontconfig)
+			endif()
+		elseif(SDL2_ttf_PKGCONFIG_FOUND)
+			message(WARNING "Found SDL2_ttf <2.0.18 - this is too old, falling back to atlas")
+		endif()
+		if(SDL2_ttf_FOUND)
+			list(APPEND nativeExtraLibs SDL2_ttf::SDL2_ttf)
+		elseif(SDL2_ttf_PKGCONFIG_FOUND)
+			list(APPEND nativeExtraLibs PkgConfig::SDL2_ttf_PKGCONFIG)
+		endif()
+		if(APPLE)
+			list(APPEND nativeExtra
+			SDL/SDLMain.h
+			SDL/SDLMain.mm
+			SDL/SDLCocoaMetalLayer.h
+			SDL/SDLCocoaMetalLayer.mm
 			SDL/CocoaBarItems.mm
+			SDL/CocoaBarItems.h
 			SDL/PPSSPPAboutViewController.m
+			SDL/PPSSPPAboutViewController.h
 			SDL/MacCameraHelper.mm
 			Common/Battery/AppleBatteryClient.m
-			Common/Render/Text/draw_text_cocoa.mm
-			PROPERTIES COMPILE_FLAGS -fobjc-arc)
-		list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+			UI/PSPNSApplicationDelegate.mm
+			UI/PSPNSApplicationDelegate.h)
 
-		if(USE_SYSTEM_LIBSDL2)
-			list(APPEND nativeExtraLibs SDL2::SDL2)
+			# TODO
+			# set_source_files_properties(SDL/SDLMain.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
+			set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
+				UI/PSPNSApplicationDelegate.mm
+				SDL/CocoaMetalLayer.mm
+				SDL/CocoaBarItems.mm
+				SDL/PPSSPPAboutViewController.m
+				SDL/MacCameraHelper.mm
+				Common/Battery/AppleBatteryClient.m
+				Common/Render/Text/draw_text_cocoa.mm
+				PROPERTIES COMPILE_FLAGS -fobjc-arc)
+			list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+
+			if(USE_SYSTEM_LIBSDL2)
+				list(APPEND nativeExtraLibs SDL2::SDL2)
+			else()
+				list(APPEND nativeExtraLibs ${SDL2Fwk})
+			endif()
+		elseif(USING_EGL)
+			list(APPEND nativeExtraLibs pthread SDL2::SDL2)
 		else()
-			list(APPEND nativeExtraLibs ${SDL2Fwk})
+			list(APPEND nativeExtraLibs SDL2::SDL2)
 		endif()
-	elseif(USING_EGL)
-		list(APPEND nativeExtraLibs pthread SDL2::SDL2)
-	else()
-		list(APPEND nativeExtraLibs SDL2::SDL2)
+	elseif(NOT CMAKE_CROSSCOMPILING)
+		message(FATAL_ERROR "SDL2 not found - required for this platform")
 	endif()
 endif()
 

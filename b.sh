@@ -38,6 +38,11 @@ do
 		--rpi64)
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv8.cmake ${CMAKE_ARGS}"
 			;;
+		--loongarch64)
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/loongarch64-linux-gnu.cmake -DHEADLESS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
+			TARGET_OS=loongarch64
+			LOONGARCH64_BUILD=1
+			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
 			TARGET_OS=Android
 			PACKAGE=1
@@ -121,6 +126,33 @@ set -e
 echo Building with $CORES_COUNT threads
 
 mkdir -p ${BUILD_DIR}
+
+# For loongarch64 cross-compilation, build a comprehensive GL/GLX stub into
+# <build>/stublibs/libGL.so so GLEW's static archive can resolve its symbols
+# via PLT entries (a direct B26 branch to address 0 overflows on LoongArch).
+# This stub is always (re)generated to pick up any new needed symbols.
+if [ ! -z "$LOONGARCH64_BUILD" ]; then
+	STUB_DIR=${BUILD_DIR}/stublibs
+	STUB_GL=${STUB_DIR}/libGL.so
+	mkdir -p "${STUB_DIR}"
+	STUB_C=$(mktemp /tmp/gl_stub_XXXXXX.c)
+	echo "/* Loongarch64 GL/GLX stub - cross-compilation only */" > "$STUB_C"
+	# Collect all T (exported) symbols from GL/GLX libs, deduplicate, emit stubs
+	{
+		for lib in /usr/lib/x86_64-linux-gnu/libGL.so.1 \
+		           /usr/lib/x86_64-linux-gnu/libGLX.so.0 \
+		           /usr/lib/x86_64-linux-gnu/libGLdispatch.so.0; do
+			[ -f "$lib" ] && nm -D "$lib" 2>/dev/null | awk '/^[0-9a-f]+ T /{ print $3 }'
+		done
+		# Always include the minimal GLX symbols GLEW directly references
+		printf '%s\n' glXGetProcAddressARB glXGetClientString glXQueryVersion \
+		              glBindTexture glGetString glGetIntegerv
+	} | sort -u | awk '{ print "void "$1"(void){}" }' >> "$STUB_C"
+	loongarch64-linux-gnu-gcc-14 -shared -fPIC -Wno-implicit-function-declaration \
+		-o "${STUB_GL}" "$STUB_C"
+	rm "$STUB_C"
+fi
+
 pushd ${BUILD_DIR}
 
 cmake $CMAKE_ARGS ..
