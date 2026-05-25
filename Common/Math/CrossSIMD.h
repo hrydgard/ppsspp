@@ -313,7 +313,7 @@ struct Vec4F32 {
 	}
 
 	// Useful shuffles.
-	Vec4F32 ShuffleYYXX() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 0, 0))}; }
+	Vec4F32 ShuffleXXYY() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 0, 0))}; }
 	Vec4F32 ShuffleZZWW() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 2, 2))}; }
 	Vec4F32 ShuffleXXXX() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 0, 0, 0))}; }
 	Vec4F32 ShuffleYYYY() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1))}; }
