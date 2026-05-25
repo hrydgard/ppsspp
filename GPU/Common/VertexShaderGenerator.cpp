@@ -355,9 +355,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			zClipPlaneSuffix = ".x";
 			minZClipPlaneSuffix = ".y";
 			maxZClipPlaneSuffix = ".z";
-			bool clipRange = gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
-			WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
+			if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+				WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
+				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
+			}
 		}
 		WRITE(p, "};\n");
 	} else {
@@ -734,16 +735,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (isModeThrough)	{
 			WRITE(p, "  vec4 outPos = position;\n");
 			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This multiplication should be moved to the vertex decoders for through mode.
-			WRITE(p, "  outPos.w = 1.0;\n");
 		} else {
-			// The viewport is used in this case, so need to compensate for that.
-			if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(position);\n");
-			} else {
-				WRITE(p, "  vec4 outPos = position;\n");
-			}
-
-			// Here we need to apply the viewport and also range culling, just like with the hardware transform below.
+			// The viewport has already been applied here.
+			WRITE(p, "  vec4 outPos = position;\n");
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -822,20 +816,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// Final view and projection transforms.
-		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens, viewPos));\n");
-				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
-			} else {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
-			}
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+			WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
+			WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
 		} else {
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
-				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
-			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
-			}
+			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
 
 		// We're in clip space, so here we check for clipping. We check if the actual hardware will clip.
@@ -855,7 +840,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
 		// In software transform mode, this is performed in on the CPU.
 		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
-
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -1227,11 +1211,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
 
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-			// We use clipping to implement min/max Z.
-			// 1.0 effectively disables the clip plane.
-			// TODO: Should we move this to homogenous coordinates after the multiplication by w?
-			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? outPos.z - u_minZmaxZ.x : 1.0;\n", minZClipPlaneSuffix);
-			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? u_minZmaxZ.y - outPos.z : 1.0;\n", maxZClipPlaneSuffix);
+			// We use clipping, where available, to implement min/max Z.
+			// 1.0 is used to disable the clip plane (should we generate more shaders instead? how costly are they?)
+			// Note: outPos.z need to be multiplied by outPos.w to undo the division, which shouldn't be in effect here.
+			// We should probably store the undivided outPos in a variable.
+			// We apply a small offset here, it's needed to break some ties, like in the map in Test Drive Unlimited.
+			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (outPos.z + 0.5 - u_minZmaxZ.x) * outPos.w : 1.0;\n", minZClipPlaneSuffix);
+			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - (outPos.z + 0.5)) * outPos.w : 1.0;\n", maxZClipPlaneSuffix);
 		}
 	}
 

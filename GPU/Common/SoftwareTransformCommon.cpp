@@ -368,7 +368,8 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 			Vec3ByMatrix44(xyzw, v, projMtx);
 
 			// Here we also need to apply the viewport.
-			Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(xyzw[0] / xyzw[3], xyzw[1] / xyzw[3], xyzw[2] / xyzw[3]));
+			float recip = 1.0f / xyzw[3];
+			Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(xyzw[0] * recip, xyzw[1] * recip, xyzw[2] * recip));
 			transformed[index].x = xyz.x;
 			transformed[index].y = xyz.y;
 			transformed[index].z = xyz.z;
