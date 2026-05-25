@@ -173,13 +173,20 @@ struct Vec4S32 {
 	// NOTE: This uses a CrossSIMD wrapper if we don't compile with SSE4 support, and is thus slow.
 	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ _mm_mullo_epi32_SSE2(v, other.v) }; }  // (ab3,ab2,ab1,ab0)
 
-	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ _mm_cmpeq_epi32(v, other.v) }; }
-	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(v, other.v) }; }
-	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(v, other.v) }; }
+	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ _mm_cmpeq_epi32(v, other.v)}; }
+	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(v, other.v)}; }
+	Vec4S32 CompareLe(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(other.v, v) }; }
+	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(v, other.v)}; }
+	Vec4S32 CompareGe(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(other.v, v) }; }
 };
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
 	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) != 0xF;
+}
+
+// These are for evaluating compare masks.
+inline bool AllCompareBitsSet(Vec4S32 value) {
+	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) == 0xF;
 }
 
 struct Vec4F32 {
@@ -254,6 +261,9 @@ struct Vec4F32 {
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ _mm_add_ps(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ _mm_sub_ps(v, other.v) }; }
 	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ _mm_mul_ps(v, other.v) }; }
+	Vec4F32 operator &(Vec4S32 other) const { return Vec4F32{ _mm_and_ps(v, _mm_castsi128_ps(other.v))}; }
+	Vec4F32 operator |(Vec4S32 other) const { return Vec4F32{ _mm_or_ps(v, _mm_castsi128_ps(other.v))}; }
+	Vec4F32 operator ^(Vec4S32 other) const { return Vec4F32{ _mm_xor_ps(v, _mm_castsi128_ps(other.v))}; }
 	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ _mm_min_ps(v, other.v) }; }
 	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ _mm_max_ps(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = _mm_add_ps(v, other.v); }
@@ -261,6 +271,8 @@ struct Vec4F32 {
 	void operator *=(Vec4F32 other) { v = _mm_mul_ps(v, other.v); }
 	void operator /=(Vec4F32 other) { v = _mm_div_ps(v, other.v); }
 	void operator &=(Vec4S32 other) { v = _mm_and_ps(v, _mm_castsi128_ps(other.v)); }
+	void operator |=(Vec4S32 other) { v = _mm_or_ps(v, _mm_castsi128_ps(other.v)); }
+	void operator ^=(Vec4S32 other) { v = _mm_xor_ps(v, _mm_castsi128_ps(other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{_mm_mul_ps(v, _mm_set1_ps(f))}; }
 	void operator *=(float f) { v = _mm_mul_ps(v, _mm_set1_ps(f)); }
 	// NOTE: May be slow.
@@ -300,6 +312,14 @@ struct Vec4F32 {
 		};
 	}
 
+	// Useful shuffles.
+	Vec4F32 ShuffleYYXX() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 0, 0))}; }
+	Vec4F32 ShuffleZZWW() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 2, 2))}; }
+	Vec4F32 ShuffleXXXX() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 0, 0, 0))}; }
+	Vec4F32 ShuffleYYYY() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1))}; }
+	Vec4F32 ShuffleZZZZ() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2))}; }
+	Vec4F32 ShuffleWWWW() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 3, 3))}; }
+
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
 		_MM_TRANSPOSE4_PS(col0.v, col1.v, col2.v, col3.v);
 	}
@@ -315,7 +335,9 @@ struct Vec4F32 {
 
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpeq_ps(v, other.v)) }; }
 	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmplt_ps(v, other.v)) }; }
-	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpgt_ps(v, other.v)) }; }
+	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{_mm_castps_si128(_mm_cmpgt_ps(v, other.v))}; }
+	Vec4S32 CompareGe(Vec4F32 other) const { return Vec4S32{_mm_castps_si128(_mm_cmpge_ps(v, other.v))}; }
+	Vec4S32 CompareLe(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmple_ps(v, other.v)) }; }
 
 	template<int i> float GetLane() const {
 		return _mm_cvtss_f32(_mm_shuffle_ps(v, v, _MM_SHUFFLE(i, i, i, i)));
@@ -327,6 +349,9 @@ inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) 
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
 	return _mm_movemask_ps(value.v) != 0xF;
+}
+inline bool AllCompareBitsSet(Vec4F32 value) {
+	return _mm_movemask_ps(value.v) == 0xF;
 }
 
 // Make sure the W component of scale is 1.0f.
@@ -523,6 +548,8 @@ struct Vec4S32 {
 	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ vandq_s32(v, vmvnq_s32(inverted.v))}; }
 	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
 	void operator &=(Vec4S32 other) { v = vandq_s32(v, other.v); }
+	void operator |=(Vec4S32 other) { v = vorrq_s32(v, other.v); }
+	void operator ^=(Vec4S32 other) { v = veorq_s32(v, other.v); }
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ vshlq_n_s32(v, imm) }; }
@@ -603,7 +630,10 @@ struct Vec4F32 {
 
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ vaddq_f32(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ vsubq_f32(v, other.v) }; }
-	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ vmulq_f32(v, other.v) }; }
+	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ vmulq_f32(v, other.v)}; }
+	Vec4F32 operator &(Vec4S32 other) const { return Vec4F32{ vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v))}; }
+	Vec4F32 operator |(Vec4S32 other) const { return Vec4F32{ vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(v), other.v))}; }
+	Vec4F32 operator ^(Vec4S32 other) const { return Vec4F32{ vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(v), other.v))}; }
 	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ vminq_f32(v, other.v) }; }
 	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ vmaxq_f32(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = vaddq_f32(v, other.v); }
@@ -616,6 +646,8 @@ struct Vec4F32 {
 	void operator /=(Vec4F32 other) { v = vmulq_f32(v, other.Recip().v); }
 #endif
 	void operator &=(Vec4S32 other) { v = vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v)); }
+	void operator |=(Vec4S32 other) { v = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(v), other.v)); }
+	void operator ^=(Vec4S32 other) { v = vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(v), other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 	void operator *=(float f) { v = vmulq_f32(v, vdupq_n_f32(f)); }
 
@@ -650,6 +682,22 @@ struct Vec4F32 {
 	Vec4F32 WithLane3One() const {
 		return Vec4F32{ vsetq_lane_f32(1.0f, v, 3) };
 	}
+
+	Vec4F32 ShuffleXXYY() const {
+		float32x2_t low = vget_low_f32(v);  // {X, Y} pair
+		// Combine them into {X, X, Y, Y}
+		return Vec4F32{vcombine_f32(vdup_lane_f32(low, 0), vdup_lane_f32(low, 1))};
+	}
+	Vec4F32 ShuffleZZWW() const {
+		float32x2_t high = vget_high_f32(v);  // {Z, W} pair
+		// Combine them into {Z, Z, W, W}
+		return Vec4F32{vcombine_f32(vdup_lane_f32(high, 0), vdup_lane_f32(high, 1))};
+	}
+
+	Vec4F32 ShuffleXXXX() const { return Vec4F32{vdupq_lane_f32(vget_low_f32(v), 0)}; }
+	Vec4F32 ShuffleYYYY() const { return Vec4F32{vdupq_lane_f32(vget_low_f32(v), 1)}; }
+	Vec4F32 ShuffleZZZZ() const { return Vec4F32{vdupq_lane_f32(vget_high_f32(v), 0)}; }
+	Vec4F32 ShuffleWWWW() const { return Vec4F32{vdupq_lane_f32(vget_high_f32(v), 1)}; }
 
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vceqq_f32(v, other.v)) }; }
 	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcltq_f32(v, other.v)) }; }
@@ -734,6 +782,17 @@ inline bool AnyZeroSignBit(Vec4S32 value) {
 	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return (mask & 0x80000000) == 0;
+#endif
+}
+
+inline bool AllCompareBitsSet(Vec4S32 value) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return vminvq_u32(vreinterpretq_u32_s32(value.v)) == 0xFFFFFFFF;
+#else
+	// Very suboptimal, let's optimize later.
+	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return mask == 0xFFFFFFFF;
 #endif
 }
 
@@ -929,6 +988,8 @@ struct Vec4S32 {
 	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ __lsx_vandn_v(inverted.v, v) }; }
 	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_w(v, other.v) }; }
 	void operator &=(Vec4S32 other) { v = __lsx_vand_v(v, other.v); }
+	void operator |=(Vec4S32 other) { v = __lsx_vor_v(v, other.v); }
+	void operator ^=(Vec4S32 other) { v = __lsx_vxor_v(v, other.v); }
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ __lsx_vslli_w(v, imm) }; }
@@ -1009,7 +1070,10 @@ struct Vec4F32 {
 
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfadd_s(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfsub_s(v, other.v) }; }
-	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, other.v) }; }
+	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, other.v)}; }
+	Vec4F32 operator &(Vec4S32 other) const { return Vec4F32{ (__m128)__lsx_vand_v((__m128i)v, other.v)}; }
+	Vec4F32 operator |(Vec4S32 other) const { return Vec4F32{(__m128)__lsx_vor_v((__m128i)v, other.v)}; }
+	Vec4F32 operator ^(Vec4S32 other) const { return Vec4F32{ (__m128)__lsx_vxor_v((__m128i)v, other.v) }; }
 	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmin_s(v, other.v) }; }
 	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmax_s(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = (__m128)__lsx_vfadd_s(v, other.v); }
@@ -1017,6 +1081,7 @@ struct Vec4F32 {
 	void operator *=(Vec4F32 other) { v = (__m128)__lsx_vfmul_s(v, other.v); }
 	void operator /=(Vec4F32 other) { v = (__m128)__lsx_vfdiv_s(v, other.v); }
 	void operator &=(Vec4S32 other) { v = (__m128)__lsx_vand_v((__m128i)v, other.v); }
+
 	Vec4F32 operator *(float f) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)) }; }
 	void operator *=(float f) { v = (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)); }
 
@@ -1055,6 +1120,38 @@ struct Vec4F32 {
 	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_clt_s(other.v, v) }; }
 	Vec4S32 CompareLe(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_cle_s(v, other.v) }; }
 	Vec4S32 CompareGe(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_cle_s(other.v, v) }; }
+
+	Vec4F32 ShuffleXXYY() const {
+		// __builtin_lsx_vilvl_w interleaves the lower 32-bit elements of two vectors.
+		// Interleaving 'v' with itself pairs X with X and Y with Y -> {X, X, Y, Y}
+		return Vec4F32{(__m128)__lsx_vilvl_w((__m128i)v, (__m128i)v)};
+	}
+
+	Vec4F32 ShuffleZZWW() const {
+		// __builtin_lsx_vilvh_w interleaves the higher 32-bit elements of two vectors.
+		// Interleaving 'v' with itself pairs Z with Z and W with W -> {Z, Z, W, W}
+		return Vec4F32{(__m128)__lsx_vilvh_w((__m128i)v, (__m128i)v)};
+	}
+
+	Vec4F32 ShuffleXXXX() const {
+		// Replicate/splat lane 0 (X) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 0)};
+	}
+
+	Vec4F32 ShuffleYYYY() const {
+		// Replicate/splat lane 1 (Y) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 1)};
+	}
+
+	Vec4F32 ShuffleZZZZ() const {
+		// Replicate/splat lane 2 (Z) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 2)};
+	}
+
+	Vec4F32 ShuffleWWWW() const {
+		// Replicate/splat lane 3 (W) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 3)};
+	}
 
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
 		// Transpose 4x4 matrix using interleave operations
@@ -1119,6 +1216,11 @@ inline bool AnyZeroSignBit(Vec4S32 value) {
 inline bool AnyZeroSignBit(Vec4F32 value) {
 	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
 	return mask != 0xF;
+}
+
+inline bool AllCompareBitsSet(Vec4S32 value) {
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
+	return mask == 0xF;
 }
 
 struct Vec4U16 {
@@ -1286,6 +1388,8 @@ struct Vec4S32 {
 	Vec4S32 Mul(Vec4S32 other) const { return *this * other; }
 
 	void operator &=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] &= other.v[i]; }
+	void operator |=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] |= other.v[i]; }
+	void operator ^=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] ^= other.v[i]; }
 	void operator +=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] += other.v[i]; }
 	void operator -=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] -= other.v[i]; }
 
@@ -1509,6 +1613,29 @@ struct Vec4F32 {
 		}
 		return temp;
 	}
+	Vec4F32 ShuffleXXYY() const {
+		return Vec4F32{{ v[0], v[0], v[1], v[1] }};
+	}
+
+	Vec4F32 ShuffleZZWW() const {
+		return Vec4F32{{ v[2], v[2], v[3], v[3] }};
+	}
+
+	Vec4F32 ShuffleXXXX() const {
+		return Vec4F32{{ v[0], v[0], v[0], v[0] }};
+	}
+
+	Vec4F32 ShuffleYYYY() const {
+		return Vec4F32{{ v[1], v[1], v[1], v[1] }};
+	}
+
+	Vec4F32 ShuffleZZZZ() const {
+		return Vec4F32{{ v[2], v[2], v[2], v[2] }};
+	}
+
+	Vec4F32 ShuffleWWWW() const {
+		return Vec4F32{{ v[3], v[3], v[3], v[3] }};
+	}
 
 	// In-place transpose.
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
@@ -1556,6 +1683,11 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 		}
 	}
 	return false;
+}
+
+inline bool AllCompareBitsSet(Vec4S32 value) {
+	if (value.v[0] != 0xFFFFFFFF || value.v[1] != 0xFFFFFFFF || value.v[2] != 0xFFFFFFFF || value.v[3] != 0xFFFFFFFF) return false;
+	return true;
 }
 
 struct Vec4U16 {
