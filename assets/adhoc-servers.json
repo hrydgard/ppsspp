@@ -79,13 +79,11 @@
 			"data_mode": "AemuPostoffice"
 		},
 		{
-			"name": "ArenaAnywhere Dubai",
-			"host": "relay-dubai.arenaanywhere.site",
+			"name": "ArenaAnywhere US",
+			"host": "relay-usa.arenaanywhere.site",
 			"discord": "https://discord.gg/GdsXWmNHq5",
-			"ip": "34.165.197.39",
 			"web": "https://arenaanywhere.site/lobby-status.html",
-			"location": "Dubai",
-			"location-emoji": "🇦🇪",
+			"location": "US",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice"
 		},
@@ -131,7 +129,7 @@
 			"location": "China",
 			"location-emoji": "🇨🇳",
 			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"data_mode": "AemuPostoffice",
 			"status_data_json": "https://adhoc.cvn-play.top/data.json"
 		},
 		{
