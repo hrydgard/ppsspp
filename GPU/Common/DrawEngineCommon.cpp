@@ -329,100 +329,10 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // We could take the min/max during the regular vertex decode, and just skip the draw call if it's trivially culled.
 // This would help games like Midnight Club (that one does a lot of out-of-bounds drawing) immensely.
 template<u32 posFmt>
-static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, u8 *decoded) {
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	float *verts = (float *)(decoded + 65536 * 18);
-
-	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
-	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		return true;
-	}
-
+static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded) {
 	// Simple, most common case.
 	const int stride = dec->VertexSize();
 	const int offset = dec->posoff;
-	int vertStride = 3;
-
-	// TODO: Possibly do the plane tests directly against the source formats instead of converting.
-	switch (vertType & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_8BIT:
-	{
-#if PPSSPP_ARCH(SSE2)
-		__m128 scaleFactor = _mm_set1_ps(1.0f / 128.0f);
-		for (int i = 0; i < vertexCount; i++) {
-			const s8 *data = (const s8 *)vdata + i * stride + offset;
-			// Load 4 bytes (only first 3 will be used, 4th doesn't matter)
-			int32_t temp;
-			memcpy(&temp, data, sizeof(temp));
-			__m128i bits8 = _mm_cvtsi32_si128(temp);
-			// Unpack 8->16 and 16->32, placing the original bytes in the high byte of each 32-bit lane
-			bits8 = _mm_unpacklo_epi8(bits8, bits8);
-			__m128i bits32 = _mm_unpacklo_epi16(bits8, bits8);
-			// Sign extend with a single shift right by 24
-			bits32 = _mm_srai_epi32(bits32, 24);
-			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits32), scaleFactor);
-			_mm_storeu_ps(verts + i * 3, pos);
-		}
-#elif PPSSPP_ARCH(ARM_NEON)
-		for (int i = 0; i < vertexCount; i++) {
-			const s8 *data = (const s8 *)vdata + i * stride + offset;
-			// Load 4 bytes (only first 3 will be used, 4th doesn't matter)
-			int32_t temp;
-			memcpy(&temp, data, sizeof(temp));
-			int32x2_t data32x2 = vdup_n_s32(temp);
-			int8x8_t data8 = vreinterpret_s8_s32(data32x2);
-			// Sign extend 8-bit to 16-bit, then to 32-bit
-			int16x8_t data16 = vmovl_s8(data8);
-			int32x4_t data32 = vmovl_s16(vget_low_s16(data16));
-			float32x4_t pos = vcvtq_n_f32_s32(data32, 7);  // >> 7 = division by 128.0f
-			vst1q_f32(verts + i * 3, pos);
-		}
-#else
-		for (int i = 0; i < vertexCount; i++) {
-			const s8 *data = (const s8 *)vdata + i * stride + offset;
-			for (int j = 0; j < 3; j++) {
-				verts[i * 3 + j] = data[j] * (1.0f / 128.0f);
-			}
-		}
-#endif
-		break;
-	}
-	case GE_VTYPE_POS_16BIT:
-	{
-#if PPSSPP_ARCH(SSE2)
-		__m128 scaleFactor = _mm_set1_ps(1.0f / 32768.0f);
-		for (int i = 0; i < vertexCount; i++) {
-			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			__m128i bits = _mm_loadl_epi64((const __m128i*)data);
-			// Sign extension. Hacky without SSE4.
-			bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
-			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits), scaleFactor);
-			_mm_storeu_ps(verts + i * 3, pos);  // TODO: use stride 4 to avoid clashing writes?
-		}
-#elif PPSSPP_ARCH(ARM_NEON)
-		for (int i = 0; i < vertexCount; i++) {
-			const s16 *dataPtr = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			int32x4_t data = vmovl_s16(vld1_s16(dataPtr));
-			float32x4_t pos = vcvtq_n_f32_s32(data, 15);  // >> 15 = division by 32768.0f
-			vst1q_f32(verts + i * 3, pos);
-		}
-#else
-		for (int i = 0; i < vertexCount; i++) {
-			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
-			for (int j = 0; j < 3; j++) {
-				verts[i * 3 + j] = data[j] * (1.0f / 32768.0f);
-			}
-		}
-#endif
-		break;
-	}
-	case GE_VTYPE_POS_FLOAT:
-		// No need to copy in this case, we can just read directly from the source format with a stride.
-		verts = (float *)((uint8_t *)vdata + offset);
-		vertStride = stride / 4;
-		break;
-	}
 
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
@@ -438,130 +348,41 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	// y > -w -> y + w > 0
 	// y < w -> -y + w > 0
 
-#if PPSSPP_ARCH(SSE2)
-
-	alignas(16) static const float sse_planes[8] = { 1, -1, 1, -1 };
-
-	const __m128 worldX = _mm_loadu_ps(worldViewProj);
-	const __m128 worldY = _mm_loadu_ps(worldViewProj + 4);
-	const __m128 worldZ = _mm_loadu_ps(worldViewProj + 8);
-	const __m128 worldW = _mm_loadu_ps(worldViewProj + 12);
-	const __m128 planesXY = _mm_load_ps(sse_planes);
-	__m128 inside = _mm_set1_ps(0.0f);
-	for (int i = 0; i < vertexCount; i++) {
-		const float *pos = verts + i * vertStride;
-		__m128 clippos = _mm_add_ps(
-			_mm_add_ps(
-				_mm_mul_ps(worldX, _mm_set1_ps(pos[0])),
-				_mm_mul_ps(worldY, _mm_set1_ps(pos[1]))
-			),
-			_mm_add_ps(
-				_mm_mul_ps(worldZ, _mm_set1_ps(pos[2])),
-				worldW
-			)
-		);
-		// OK, we got the clip space homogenous coordinate.
-		// Check it against the four planes in parallel.
-		// We also later want to extract the Z component and take min/max.
-		__m128 posXY = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(1, 1, 0, 0));
-		__m128 posW = _mm_shuffle_ps(clippos, clippos, _MM_SHUFFLE(3, 3, 3, 3));
-		__m128 planeDist = _mm_add_ps(_mm_mul_ps(posXY, planesXY), posW);
-		inside = _mm_or_ps(inside, _mm_cmpge_ps(planeDist, _mm_setzero_ps()));
-	}
-	// 0xF means that we found at least one vertex inside every one of the planes.
-	// We don't bother with counts, though it wouldn't be hard if we had a use for them.
-	return _mm_movemask_ps(inside) == 0xF;
-#elif PPSSPP_ARCH(ARM_NEON)
-	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
-	const float32x4_t worldX = vld1q_f32(worldViewProj);
-	const float32x4_t worldY = vld1q_f32(worldViewProj + 4);
-	const float32x4_t worldZ = vld1q_f32(worldViewProj + 8);
-	const float32x4_t worldW = vld1q_f32(worldViewProj + 12);
-	const float32x4_t planesMul = vld1q_f32(planesXY);
-	uint32x4_t inside = vdupq_n_u32(0);
-	for (int i = 0; i < vertexCount; i++) {
-		const float *pos = verts + i * vertStride;
-		float32x4_t clippos = vmlaq_n_f32(
-			vmlaq_n_f32(
-				vmlaq_n_f32(worldW, worldX, pos[0]),
-				worldY, pos[1]
-			),
-			worldZ, pos[2]
-		);
-		// OK, we got the clip space homogenous coordinate.
-		// Check it against the four planes in parallel.
-		// Build [x, x, y, y] using vdup_lane
-		float32x2_t xy = vget_low_f32(clippos);
-		float32x4_t posXY = vcombine_f32(vdup_lane_f32(xy, 0), vdup_lane_f32(xy, 1));  // [x, x, y, y]
-		float32x4_t posW = vdupq_laneq_f32(clippos, 3);  // [w, w, w, w]
-		float32x4_t planeDist = vmlaq_f32(posW, posXY, planesMul);
-		inside = vorrq_u32(inside, vcgeq_f32(planeDist, vdupq_n_f32(0.0f)));
-	}
-	uint64_t insideBits = vget_lane_u64(vreinterpret_u64_u16(vmovn_u32(inside)), 0);
-	return ~insideBits == 0;
-#elif PPSSPP_ARCH(LOONGARCH64_LSX)
-	// NOTE: Untested
-	alignas(16) static const float planesXY[4] = { 1, -1, 1, -1 };
-	const __m128 worldX = (__m128)__lsx_vld(worldViewProj, 0);
-	const __m128 worldY = (__m128)__lsx_vld(worldViewProj + 4, 0);
-	const __m128 worldZ = (__m128)__lsx_vld(worldViewProj + 8, 0);
-	const __m128 worldW = (__m128)__lsx_vld(worldViewProj + 12, 0);
-	const __m128 planesMul = (__m128)__lsx_vld(planesXY, 0);
-	__m128 inside = (__m128)__lsx_vreplfr2vr_s(0.0f);
-	for (int i = 0; i < vertexCount; i++) {
-		const float *pos = verts + i * vertStride;
-		// clippos = worldX * pos[0] + worldY * pos[1] + worldZ * pos[2] + worldW
-		__m128 clippos = (__m128)__lsx_vfadd_s(
-			(__m128)__lsx_vfadd_s(
-				(__m128)__lsx_vfmul_s(worldX, (__m128)__lsx_vreplfr2vr_s(pos[0])),
-				(__m128)__lsx_vfmul_s(worldY, (__m128)__lsx_vreplfr2vr_s(pos[1]))
-			),
-			(__m128)__lsx_vfadd_s(
-				(__m128)__lsx_vfmul_s(worldZ, (__m128)__lsx_vreplfr2vr_s(pos[2])),
-				worldW
-			)
-		);
-		// OK, we got the clip space homogenous coordinate.
-		// Check it against the four planes in parallel.
-		// Build [x, x, y, y] using __lsx_vshuf4i_w
-		__m128 posXY = (__m128)__lsx_vshuf4i_w(clippos, 0b01010000);  // [x, x, y, y]
-		__m128 posW = (__m128)__lsx_vshuf4i_w(clippos, 0b11111111);   // [w, w, w, w]
-		__m128 planeDist = (__m128)__lsx_vfmadd_s(planesMul, posXY, posW);
-		inside = (__m128)__lsx_vor_v((__m128i)inside, (__m128i)__lsx_vfcmp_cle_s((__m128)__lsx_vreplfr2vr_s(0.0f), planeDist));
-	}
-	// Check if all 4 lanes are set
-	__m128i mask = (__m128i)__lsx_vseqi_w((__m128i)inside, 0);
-	return __lsx_bz_v(mask);
-#else
-	int inside[4]{};
-	for (int i = 0; i < vertexCount; i++) {
-		const float *pos = verts + i * vertStride;
-		float clippos[4];
-		Vec3ByMatrix44(clippos, pos, gstate_c.worldviewproj);
-		if (clippos[0] > -clippos[3]) { //  x > -w
-			inside[0]++;
+	Mat4F32 worldViewProjMat(worldViewProj);
+	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
+	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
+	Vec4S32 insideMask = Vec4S32::Zero();
+	const s8 *data = (const s8 *)vdata + offset;
+	for (int i = 0; i < vertexCount; i++, data += stride) {
+		Vec4F32 objPos;
+		switch (posFmt) {
+		case GE_VTYPE_POS_8BIT:
+			objPos = Vec4F32::LoadS8Norm(data);
+			break;
+		case GE_VTYPE_POS_16BIT:
+			objPos = Vec4F32::LoadS16Norm((const s16 *)data);
+			break;
+		default:
+			objPos = Vec4F32::Load((const float *)data);
+			break;
 		}
-		if (clippos[0] < clippos[3]) {  //  x < w
-			inside[1]++;
-		}
-		if (clippos[1] > -clippos[3]) { //  y > -w
-			inside[2]++;
-		}
-		if (clippos[1] < clippos[3]) {  //  y < w
-			inside[3]++;
-		}
+		Vec4F32 clippos = objPos.AsVec3ByMatrix44(worldViewProjMat);
+		Vec4F32 posXY = clippos.ShuffleXXYY();
+		Vec4F32 posW = clippos.ShuffleWWWW();
+		Vec4F32 planeDist = posXY * planesXY + posW;
+		insideMask |= planeDist.CompareGe(Vec4F32::Zero());
 	}
-
-	for (int plane = 0; plane < 4; plane++) {
-		if (inside[plane] == 0) {
-			return false;
-		}
-	}
-#endif
-	return true;
+	// At least one vertex is inside one of the planes.
+	return AllCompareBitsSet(insideMask);
 }
 
 bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		return true;
+	}
+
 	// Modify the transform matrix to take the viewport into account before culling. This is not necessary
 	// for most games, but there are games that rely on outside-viewport draws (such as Dante's Inferno)'s post
 	// processing effects, and we don't want to cull those.
@@ -609,11 +430,11 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(worldViewProj, vdata, vertexCount, dec, vertType, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(worldViewProj, vdata, vertexCount, dec, decoded_);
 	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(worldViewProj, vdata, vertexCount, dec, vertType, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(worldViewProj, vdata, vertexCount, dec, decoded_);
 	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(worldViewProj, vdata, vertexCount, dec, vertType, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(worldViewProj, vdata, vertexCount, dec, decoded_);
 	default:
 		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
