@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <d3d11_1.h>
 

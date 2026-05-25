@@ -325,37 +325,25 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	return true;
 }
 
-// NOTE: This doesn't handle through-mode, indexing, morph, or skinning.
-// TODO: For high vertex counts, we should just take the min/max of all the verts, and test the resulting six cube
-// corners. That way we can cull more draws quite cheaply.
-// We could take the min/max during the regular vertex decode, and just skip the draw call if it's trivially culled.
-// This would help games like Midnight Club (that one does a lot of out-of-bounds drawing) immensely.
-template<u32 posFmt>
-static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded) {
-	// Simple, most common case.
-	const int stride = dec->VertexSize();
-	const int offset = dec->posoff;
-
-	// We only check the 4 sides. Near/far won't likely make a huge difference.
-	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
-	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
-
-	// Planes are now fixed. Maybe we can use that to optimize.
-	// x<-w x>w
-	// y<-w y>w
-
-	// NOTE: The planes are the columns. We only need the first members.
-	// x > -w -> x + w > 0
-	// x < w -> -x + w > 0
-	// y > -w -> y + w > 0
-	// y < w -> -y + w > 0
-
+// This optionally culls collections of points against the four side planes, and always computes the min and max of Z and W.
+// The result of that can be used to determine if we need to drop down to software transform+clip or we can hand
+// off to hardware, with whatever capabilities are available.
+//
+// NOTE: This doesn't handle through-mode or indexing (morph or skinning are handled if they're implemented in software during decode).
+template<u32 posFmt, bool cull>
+static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded, BoundingDepths *depths) {
 	Mat4F32 worldViewProjMat(worldViewProj);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
 	Vec4F32 minClipPos = Vec4F32::Splat(INFINITY);
 	Vec4F32 maxClipPos = Vec4F32::Splat(-INFINITY);
 	Vec4S32 insideMask = Vec4S32::Zero();
+	// Used to reduce the Z precision. This effectively implements the small offsets where Z can be very slightly outside -1..1.
+	// In reality we should probably affect X and Y too, but meh.
+	alignas(16) static const u32 vertexMaskData[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFF00, 0xFFFFFFFF};
+	Vec4S32 vertexMask = Vec4S32::LoadAligned((const int *)vertexMaskData);
+	const int stride = dec->VertexSize();
+	const int offset = dec->posoff;
 	const s8 *data = (const s8 *)vdata + offset;
 	for (int i = 0; i < vertexCount; i++, data += stride) {
 		Vec4F32 objPos;
@@ -370,21 +358,22 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 			objPos = Vec4F32::Load((const float *)data);
 			break;
 		}
-		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat);
+		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;
 		minClipPos = minClipPos.Min(clipPos);
 		maxClipPos = maxClipPos.Max(clipPos);
-		Vec4F32 posXY = clipPos.ShuffleXXYY();
-		Vec4F32 posW = clipPos.ShuffleWWWW();
-		Vec4F32 planeDist = posXY * planesXY + posW;
-		insideMask |= planeDist.CompareGe(Vec4F32::Zero());
+		if (cull) {
+			Vec4F32 posXY = clipPos.ShuffleXXYY();
+			Vec4F32 posW = clipPos.ShuffleWWWW();
+			Vec4F32 planeDist = posXY * planesXY + posW;
+			insideMask |= planeDist.CompareGe(Vec4F32::Zero());
+		}
 	}
 
-	const float maxZ = maxClipPos[2];
-	const float maxW = maxClipPos[3];
-	const float minZ = minClipPos[2];
-	const float minW = minClipPos[3];
-
-	if (AllCompareBitsSet(insideMask)) {
+	if (!cull || AllCompareBitsSet(insideMask)) {
+		const float maxZ = maxClipPos[2];
+		const float maxW = maxClipPos[3];
+		const float minZ = minClipPos[2];
+		const float minW = minClipPos[3];
 		// At least one vertex is inside each one of the planes.
 		// Process min/max. Z is in minProj[2]/maxProj[2], W is in minProj[3]/maxProj[3].
 		// Here we can perform the culling that happens if all vertices are closer than the near plane, or farther than the far plane.
@@ -393,15 +382,19 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		// behavior (like LocoRoco2's Tropuca level). The question is, do the inequalities really work like that properly? It seem
 		// s like they should.
 		if (maxZ < -maxW || minZ > maxW) {
-			passesCull = false;
+			return false;
 		}
-		return passesCull;
+		depths->minZ = minZ;
+		depths->maxZ = maxZ;
+		depths->minW = minW;
+		depths->maxW = maxW;
+		return true;
 	} else {
 		return false;
 	}
 }
 
-bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depths) {
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -457,11 +450,11 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(worldViewProj, vdata, vertexCount, dec, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, true>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
 	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(worldViewProj, vdata, vertexCount, dec, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, true>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
 	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(worldViewProj, vdata, vertexCount, dec, decoded_);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, true>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
 	default:
 		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
@@ -470,7 +463,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 }
 
 // 2D bounding box test against scissor. No indexing yet.
-// Only supports non-indexed draws with float positions.
+// Only supports non-indexed draws with float positions. TODO: Add more float formats.
 bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
 	if (vertexCount > 16) {
@@ -493,8 +486,8 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	bool allOutsideBottom = true;
 	const float left = gstate.getScissorX1();
 	const float top = gstate.getScissorY1();
-	const float right = gstate.getScissorX2();
-	const float bottom = gstate.getScissorY2();
+	const float right = gstate.getScissorX2() + 1;
+	const float bottom = gstate.getScissorY2() + 1;
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_FLOAT:
@@ -507,13 +500,13 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 			if (x >= left) {
 				allOutsideLeft = false;
 			}
-			if (x <= right + 1) {
+			if (x <= right) {
 				allOutsideRight = false;
 			}
 			if (y >= top) {
 				allOutsideTop = false;
 			}
-			if (y <= bottom + 1) {
+			if (y <= bottom) {
 				allOutsideBottom = false;
 			}
 		}

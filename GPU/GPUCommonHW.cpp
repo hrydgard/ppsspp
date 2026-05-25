@@ -979,6 +979,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
+	// This is the check from #21678 for Evangelion JO.
+	// TODO: Make this less specific.
 	if (gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
 			gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
 		int safeWidth;
@@ -1020,7 +1022,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	bool passCulling = PASSES_CULLING;
 	if (!passCulling) {
 		// Do software culling.
-		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType)) {
+		BoundingDepths depths;
+		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType, &depths)) {
 			passCulling = true;
 		} else {
 			gpuStats.perFrame.numCulledDraws++;
@@ -1110,7 +1113,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			if (!passCulling) {
 				// Do software culling.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType)) {
+				BoundingDepths depths;
+				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType, &depths)) {
 					passCulling = true;
 				} else {
 					gpuStats.perFrame.numCulledDraws++;

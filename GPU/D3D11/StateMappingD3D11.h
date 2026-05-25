@@ -1,11 +1,11 @@
 #pragma once
 
 #include <cstdint>
+
+#include "Common/CommonWindows.h"
 #include <d3d11.h>
 
 #include "Common/GPU/thin3d.h"
-
-// TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
 
 struct D3D11BlendKey {
 	union {

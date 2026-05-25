@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -71,6 +72,19 @@ struct alignas(16) Plane8 {
 	float Test(int i, const float f[3]) const { return x[i] * f[0] + y[i] * f[1] + z[i] * f[2] + w[i]; }
 };
 
+struct BoundingDepths {
+	float minZ = INFINITY;
+	float maxZ = -INFINITY;
+	float minW = INFINITY;
+	float maxW = -INFINITY;
+	void Merge(const BoundingDepths &other) {
+		minZ = std::min(minZ, other.minZ);
+		maxZ = std::max(maxZ, other.maxZ);
+		minW = std::min(minW, other.minW);
+		maxW = std::max(maxW, other.maxW);
+	}
+};
+
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
@@ -104,9 +118,10 @@ public:
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
-	bool TestBoundingBoxFast(const float *worldViewProj, const void *control_points, int vertexCount, const VertexDecoder *dec, u32 vertType);
+	bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depth);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead);
 	bool EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight);
+	void ComputeBoundingDepths(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depth);
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);
