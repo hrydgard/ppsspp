@@ -133,7 +133,7 @@ void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool 
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result) {
+void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -408,9 +408,13 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			result->safeHeight = std::min(scissorY2, (int)transformed[1].y);
 		}
 	}
+
+	_dbg_assert_(result->action == SW_NOT_READY);
+
+	ProjectClipAndExpand(prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
 }
 
-void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
+void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -687,7 +691,8 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize) {
 		break;
 	case GE_PRIM_TRIANGLES:
 		// Rotate the triangle so the last becomes the first, without changing the winding order.
-		// This could be done with a series of pshufb.
+		// This could be done with a series of pshufb, although with some "interesting"
+		// boundary conditions since 16 is not divisible by 3.
 		for (int i = 0; i < indsSize - 2; i += 3) {
 			u16 temp = inds[i + 2];
 			inds[i + 2] = inds[i + 1];
