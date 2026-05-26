@@ -74,7 +74,6 @@ enum class OutputFlags {
 	NEAREST = 0x0001,
 	RB_SWIZZLE = 0x0002,
 	BACKBUFFER_FLIPPED = 0x0004,  // Viewport/scissor coordinates are y-flipped.
-	POSITION_FLIPPED = 0x0008,    // Vertex position in the shader is y-flipped relative to the screen.
 	PILLARBOX = 0x0010,           // Squeeze the image horizontally. Used for the DarkStalkers hack.
 };
 ENUM_CLASS_BITOPS(OutputFlags);

@@ -630,15 +630,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 
 	fbTex = draw_->CreateTexture(desc);
 
-	switch (GetGPUBackend()) {
-	case GPUBackend::OPENGL:
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
-		break;
-	case GPUBackend::DIRECT3D11:
-		outputFlags |= OutputFlags::POSITION_FLIPPED;
-		break;
-	case GPUBackend::VULKAN:
-		break;
 	}
 
 	presentation_->SourceTexture(fbTex, desc.width, desc.height);

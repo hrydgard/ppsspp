@@ -1551,10 +1551,6 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 	if (needBackBufferYSwap_) {
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
-	// CopyToOutput reverses these, probably to match "up".
-	if (GetGPUBackend() == GPUBackend::DIRECT3D11) {
-		flags |= OutputFlags::POSITION_FLIPPED;
-	}
 
 	constexpr float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	constexpr float v0 = 0.0f, v1 = 1.0f;
@@ -1724,10 +1720,6 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 		OutputFlags flags = config.iDisplayFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
 		if (needBackBufferYSwap_) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;
-		}
-		// DrawActiveTexture reverses these, probably to match "up".
-		if (GetGPUBackend() == GPUBackend::DIRECT3D11) {
-			flags |= OutputFlags::POSITION_FLIPPED;
 		}
 
 		int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
