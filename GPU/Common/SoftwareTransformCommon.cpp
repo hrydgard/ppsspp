@@ -197,6 +197,47 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			// Ignore color1 and fog, never used in throughmode anyway.
 			// The w of uv is also never used (hardcoded to 1.0.)
 		}
+
+		// Here's the best opportunity to try to detect rectangles used to clear the screen, and
+		// replace them with real clears. This can provide a speedup on certain mobile chips.
+		//
+		// An alternative option is to simply ditch all the verts except the first and last to create a single
+		// rectangle out of many. Quite a small optimization though.
+		// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
+		// TODO: Allow creating a depth clear and a color draw.
+		bool reallyAClear = false;
+		if (numDecodedVerts > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
+			int scissorX2 = gstate.getScissorX2() + 1;
+			int scissorY2 = gstate.getScissorY2() + 1;
+			reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
+
+			if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
+				result->setSafeSize = true;
+				result->safeWidth = scissorX2;
+				result->safeHeight = scissorY2;
+			}
+		}
+		if (params_.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
+			// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
+			bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
+			bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
+			bool matchingComponents = params_.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
+			bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
+			if (matchingComponents && stencilNotMasked) {
+				DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+				// Need to rescale from a [0, 1] float.  This is the final transformed value.
+				float depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
+				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
+				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
+				if (!(params_.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
+					result->color = transformed[1].color0_32;
+					result->depth = depth;
+					result->action = SW_CLEAR;
+					gpuStats.numClears++;
+					return;
+				}
+			}
+		}
 	} else {
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
@@ -351,41 +392,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 		}
 	}
 
-	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
-	// replace them with real clears. This can provide a speedup on certain mobile chips.
-	//
-	// An alternative option is to simply ditch all the verts except the first and last to create a single
-	// rectangle out of many. Quite a small optimization though.
-	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
-	// TODO: Allow creating a depth clear and a color draw.
-	bool reallyAClear = false;
-	if (numDecodedVerts > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
-		int scissorX2 = gstate.getScissorX2() + 1;
-		int scissorY2 = gstate.getScissorY2() + 1;
-		reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
-		if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
-			result->setSafeSize = true;
-			result->safeWidth = scissorX2;
-			result->safeHeight = scissorY2;
-		}
-	}
-	if (params_.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
-		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
-		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
-		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
-		bool matchingComponents = params_.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
-		bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
-		if (matchingComponents && stencilNotMasked) {
-			DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-			result->color = transformed[1].color0_32;
-			// Need to rescale from a [0, 1] float.  This is the final transformed value.
-			result->depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
-			result->action = SW_CLEAR;
-			gpuStats.numClears++;
-			return;
-		}
-	}
-
+	// TODO: This doesn't seem to be a very good check, but let's leave it for now.
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
 	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && numDecodedVerts == 2 && throughmode) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());

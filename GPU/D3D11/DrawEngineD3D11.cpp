@@ -396,17 +396,8 @@ void DrawEngineD3D11::Flush() {
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 		VERBOSE_LOG(Log::G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
-		u16 *inds = decIndex_;
-		SoftwareTransformResult result{};
-		SoftwareTransformParams params{};
-		params.decoded = decoded_;
-		params.transformed = transformed_;
-		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
-		params.allowClear = true;
-		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 
+		u16 *inds = decIndex_;
 		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
 			// We need to rotate the index buffer to simulate a different provoking vertex.
 			// We do this before line expansion etc.
@@ -432,6 +423,17 @@ void DrawEngineD3D11::Flush() {
 			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
 		}
 
+		SoftwareTransformResult result{};
+		SoftwareTransformParams params{};
+		params.everUsedEqualDepth = everUsedEqualDepth_;
+		params.decoded = decoded_;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
+		params.fbman = framebufferManager_;
+		params.texCache = textureCache_;
+		params.allowClear = true;
+		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
+
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
@@ -439,25 +441,20 @@ void DrawEngineD3D11::Flush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
 		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
-		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
-		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
-		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
-			result.action = SW_NOT_READY;
-
-		if (textureNeedsApply) {
-			gstate_c.pixelMapped = result.pixelMapped;
-			textureCache_->ApplyTexture();
-			gstate_c.pixelMapped = false;
-		}
-
-		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
-		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
 			swTransform.BuildDrawingParams(prim, vertexCount, swDec->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
+		// TODO: This should be after BuildDrawingParams!
+		if (textureNeedsApply) {
+			gstate_c.pixelMapped = result.pixelMapped;
+			textureCache_->ApplyTexture();
+			gstate_c.pixelMapped = false;
+		}
+		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
+		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		if (result.action == SW_DRAW_INDEXED) {

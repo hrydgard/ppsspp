@@ -398,28 +398,7 @@ void DrawEngineVulkan::Flush() {
 		gpuStats.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
-		// At this point, the output is always an index triangle/line/point list, no strips/fans.
-
-		u16 *inds = decIndex_;
-		SoftwareTransformResult result{};
-		SoftwareTransformParams params{};
-		params.decoded = decoded_;
-		params.transformed = transformed_;
-		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
-		// In Vulkan, we have to force drawing of primitives if !framebufferManager_->UseBufferedRendering() because Vulkan clears
-		// do not respect scissor rects.
-		params.allowClear = framebufferManager_->UseBufferedRendering();
-		params.allowSeparateAlphaClear = false;
-
-		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
-			if (!renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
-				// If we can't have the hardware do it, we need to rotate the index buffer to simulate a different provoking vertex.
-				// We do this before line expansion etc.
-				IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
-			}
-		}
+		// At this point, the output is always an indexed triangle/line/point list, no strips/fans.
 
 		// We need to update the viewport early because it's checked for flipping in SoftwareTransform.
 		// We don't have a "DrawStateEarly" in vulkan, so...
@@ -442,6 +421,29 @@ void DrawEngineVulkan::Flush() {
 			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
 		}
 
+		u16 *inds = decIndex_;
+
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			if (!renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+				// If we can't have the hardware do it, we need to rotate the index buffer to simulate a different provoking vertex.
+				// We do this before line expansion etc.
+				IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
+			}
+		}
+
+		SoftwareTransformResult result{};
+		SoftwareTransformParams params{};
+		params.decoded = decoded_;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
+		params.fbman = framebufferManager_;
+		params.texCache = textureCache_;
+		// In Vulkan, we have to force drawing of primitives if !framebufferManager_->UseBufferedRendering() because Vulkan clears
+		// do not respect scissor rects.
+		params.allowClear = framebufferManager_->UseBufferedRendering();
+		params.allowSeparateAlphaClear = false;
+		params.everUsedEqualDepth = everUsedEqualDepth_;
+
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
@@ -449,11 +451,6 @@ void DrawEngineVulkan::Flush() {
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
 		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
-
-		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
-		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
-		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
-			result.action = SW_NOT_READY;
 
 		if (result.action == SW_NOT_READY) {
 			// decIndex_ here is always equal to inds currently, but it may not be in the future.
