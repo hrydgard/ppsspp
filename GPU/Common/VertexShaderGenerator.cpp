@@ -350,15 +350,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
-		{
-			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-			zClipPlaneSuffix = ".x";
-			minZClipPlaneSuffix = ".y";
-			maxZClipPlaneSuffix = ".z";
-			if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-				WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
-				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
-			}
+		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
+		zClipPlaneSuffix = ".x";
+		minZClipPlaneSuffix = ".y";
+		maxZClipPlaneSuffix = ".z";
+		if (!isModeThrough && gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
+			WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
 		}
 		WRITE(p, "};\n");
 	} else {
@@ -414,20 +412,20 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
 		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.
 
+		if (!isModeThrough) {
+			WRITE(p, "uniform vec2 u_rasterOffset;\n");
+			*uniformMask |= DIRTY_RASTER_OFFSET;
+		}
+
 		if (useHWTransform) {
 			WRITE(p, "uniform vec3 u_vpScale;\n");
 			WRITE(p, "uniform vec3 u_vpOffset;\n");
-			WRITE(p, "uniform vec2 u_rasterOffset;\n");
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 				WRITE(p, "uniform mat4 u_proj_lens;\n");
 			}
 			WRITE(p, "uniform mat4 u_proj;\n");
-			*uniformMask |= DIRTY_RASTER_OFFSET | DIRTY_VIEWPORT_UNIFORMS | DIRTY_PROJMATRIX;
-		}
-
-		if (useHWTransform) {
-			// When transforming by hardware, we need a great deal more uniforms...
-			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
+			*uniformMask |= DIRTY_VIEWPORT_UNIFORMS | DIRTY_PROJMATRIX;
+			// TODO: Use 4x3 matrices where possible (world and view and maybe tex, not proj).
 			WRITE(p, "uniform mat4 u_world;\n");
 			WRITE(p, "uniform mat4 u_view;\n");
 			*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
@@ -829,12 +827,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    zClipped = true;\n");
 		WRITE(p, "  }\n");
 		// Then we actually add the clip plane.
-		WRITE(p, "  gl_ClipDistance%s = outPos.z + outPos.w;\n", zClipPlaneSuffix);
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+			WRITE(p, "  gl_ClipDistance%s = outPos.z + outPos.w;\n", zClipPlaneSuffix);
+		}
 
 		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
-			// Not quite understanding this one.
-			// WRITE(p, "  gl_CullDistance[0] = outPos.z + outPos.w;\n");
-			// WRITE(p, "  gl_CullDistance[1] = outPos.w - outPos.z;\n");
+			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
+			WRITE(p, "  gl_CullDistance[0] = outPos.z + outPos.w;\n");
+			WRITE(p, "  gl_CullDistance[1] = outPos.w - outPos.z;\n");
 		}
 
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
