@@ -36,43 +36,35 @@
 // primitives correctly without geometry shaders, and may be easier to use for
 // debugging than the hardware transform pipeline.
 
-// There's code here that simply expands transformed RECTANGLES into plain triangles.
+// Additionally, it performs some culling, clipping and clamping which it can do more accurately than the normal
+// hardware pipeline can.
+
+// There's code here that simply expands transformed RECTANGLES into plain triangles, additionally LINEs and POINTs get expanded
+// to produce more PSP-like behavior.
 
 // We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
-// Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
-// this code.
-
-// Actually, if we find the camera-relative right and down vectors, it might even be possible to add the extra points in pre-transformed
-// space and thus make decent use of hardware transform.
-
-// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
-// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-//
 
 // The verts are in the order:  BR BL TL TR
-static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
-	float tempu = a.u;
-	float tempv = a.v;
-	a.u = b.u;
-	a.v = b.v;
-	b.u = tempu;
-	b.v = tempv;
-}
-
 // 2   3       3   2        0   3          2   1
 //        to           to            or
 // 1   0       0   1        1   2          3   0
 
 // Note: 0 is BR and 2 is TL.
 
+// The PSP has a funky mechanism where the UV direction of screen-space rectangles is decided by the relative positioning
+// of the two corners defining the rectangle.
 static void RotateUV(TransformedVertex v[4]) {
 	const float x1 = v[2].x;
 	const float x2 = v[0].x;
 	const float y1 = v[2].y;
 	const float y2 = v[0].y;
-
 	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
-		SwapUVs(v[1], v[3]);
+		float tempu = v[1].u;
+		float tempv = v[1].v;
+		v[1].u = v[3].u;
+		v[1].v = v[3].v;
+		v[3].u = tempu;
+		v[3].v = tempv;
 	}
 }
 
@@ -107,9 +99,11 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 		}
 	}
 
-	// The last vertical strip often extends outside the drawing area.
-	if (transformed[numVerts - 1].x < x2)
+	// The last vertical strip often extends outside the drawing area so we don't want an equality check.
+	// But make sure it at least fully covers it.
+	if (transformed[numVerts - 1].x < x2) {
 		return false;
+	}
 
 	return true;
 }
@@ -138,12 +132,13 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
 	// Same fixup as in ShaderManagerGLES.cpp
+	// Not really sure what a sensible value might be, but let's try 64k.
+	constexpr float largeFogValue = 65535.0f;
 	if (my_isnanorinf(fog_end)) {
-		// Not really sure what a sensible value might be, but let's try 64k.
-		fog_end = std::signbit(fog_end) ? -65535.0f : 65535.0f;
+		fog_end = std::signbit(fog_end) ? -largeFogValue : largeFogValue;
 	}
 	if (my_isnanorinf(fog_slope)) {
-		fog_slope = std::signbit(fog_slope) ? -65535.0f : 65535.0f;
+		fog_slope = std::signbit(fog_slope) ? -largeFogValue : largeFogValue;
 	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
@@ -238,9 +233,13 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 			Vec3f worldnormal(0, 0, 1);
 			reader.ReadPosNonThrough(pos);
 
-			float ruv[2] = { 0.0f, 0.0f };
+			float ruv[2];
 			if (reader.hasUV())
 				reader.ReadUV(ruv);
+			else {
+				ruv[0] = 0.0f;
+				ruv[1] = 0.0f;
+			}
 
 			Vec4f unlitColor;
 			if (reader.hasColor0())
@@ -363,11 +362,12 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
-			// TODO: Write to a flexible buffer, we don't always need all four components.
+			// Then transform by the projection.
 			float xyzw[4];
 			Vec3ByMatrix44(xyzw, v, projMtx);
 
-			// Here we also need to apply the viewport.
+			// Here we also need to do the perspective device and apply the viewport.
+			// TODO: Move this to ProjectClipAndExpand.
 			float recip = 1.0f / xyzw[3];
 			Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(xyzw[0] * recip, xyzw[1] * recip, xyzw[2] * recip));
 			transformed[index].x = xyz.x;
@@ -464,18 +464,16 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 			u16 *newInds = inds + vertexCount;
 			u16 *indsOut = newInds;
 
-			float minZValue, maxZValue;
-			CalcCullParams(minZValue, maxZValue);
-
 			std::vector<int> outsideZ;
 			outsideZ.resize(vertexCount);
 
 			// First, check inside/outside directions for each index.
 			for (int i = 0; i < vertexCount; ++i) {
-				float z = transformed[indsIn[i]].z / transformed[indsIn[i]].pos_w;
-				if (z > maxZValue)
+				float z = truncateToFloat24(transformed[indsIn[i]].z);
+				float w = transformed[indsIn[i]].pos_w;
+				if (z > w)
 					outsideZ[i] = 1;
-				else if (z < minZValue)
+				else if (z < -w)
 					outsideZ[i] = -1;
 				else
 					outsideZ[i] = 0;
@@ -553,21 +551,6 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 
 	result->action = SW_DRAW_INDEXED;
 	result->drawNumTrans = numTrans;
-}
-
-void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const {
-	// TODO: The below is probably completely bogus now.
-
-	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
-	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
-	maxZValue = 1.000030517578125f * gstate.getViewportZScale();
-	minZValue = -maxZValue;
-	// Scale and offset the Z appropriately, since we baked that into a projection transform.
-	maxZValue = maxZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
-	minZValue = minZValue * 0.5f + 0.5f + gstate.getViewportZCenter() * 0.5f;
-	// In case scale was negative, flip.
-	if (minZValue > maxZValue)
-		std::swap(minZValue, maxZValue);
 }
 
 bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const {
