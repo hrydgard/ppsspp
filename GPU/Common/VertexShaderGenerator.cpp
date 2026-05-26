@@ -240,8 +240,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;
 	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
+	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough;
 
-	// bool clipClampedDepth = !isModeThrough && gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
 	const char *zClipPlaneSuffix = "[0]";
 	const char *minZClipPlaneSuffix = "[1]";
 	const char *maxZClipPlaneSuffix = "[2]";
@@ -356,6 +356,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		maxZClipPlaneSuffix = ".z";
 		if (!isModeThrough && gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
+		}
+		if (depthCullEnable) {
 			WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
 		}
 		WRITE(p, "};\n");
@@ -828,13 +830,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  }\n");
 		// Then we actually add the clip plane.
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-			WRITE(p, "  gl_ClipDistance%s = outPos.z + outPos.w;\n", zClipPlaneSuffix);
+			WRITE(p, "  %sgl_ClipDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, zClipPlaneSuffix);
 		}
 
-		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
+		if (depthCullEnable) {
 			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
-			WRITE(p, "  gl_CullDistance[0] = outPos.z + outPos.w;\n");
-			WRITE(p, "  gl_CullDistance[1] = outPos.w - outPos.z;\n");
+			WRITE(p, "  %sgl_CullDistance[0] = outPos.z + outPos.w;\n", compat.vsOutPrefix);
+			WRITE(p, "  %sgl_CullDistance[1] = outPos.w - outPos.z;\n", compat.vsOutPrefix);
 		}
 
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
@@ -1216,8 +1218,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			// Note: outPos.z need to be multiplied by outPos.w to undo the division, which shouldn't be in effect here.
 			// We should probably store the undivided outPos in a variable.
 			// We apply a small offset here, it's needed to break some ties, like in the map in Test Drive Unlimited.
-			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (outPos.z + 0.5 - u_minZmaxZ.x) * outPos.w : 1.0;\n", minZClipPlaneSuffix);
-			WRITE(p, "  gl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - (outPos.z + 0.5)) * outPos.w : 1.0;\n", maxZClipPlaneSuffix);
+			WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (outPos.z + 0.5 - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+			WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - (outPos.z + 0.5)) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
+		}
+	} else {
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+			// In through mode we output a dummy clip distance.
+			WRITE(p, "  %sgl_ClipDistance%s = 1.0f;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+			WRITE(p, "  %sgl_ClipDistance%s = 1.0f;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 		}
 	}
 
