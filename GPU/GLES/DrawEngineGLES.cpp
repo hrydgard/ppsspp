@@ -340,18 +340,6 @@ void DrawEngineGLES::Flush() {
 		gpuStats.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
-		u16 *inds = decIndex_;
-		SoftwareTransformResult result{};
-		// TODO: Keep this static?  Faster than repopulating?
-		SoftwareTransformParams params{};
-		params.decoded = decoded_;
-		params.transformed = transformed_;
-		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
-		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
-		params.allowSeparateAlphaClear = true;
-
 		// We need correct viewport values in gstate_c already.
 		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 			ConvertViewportAndScissor(
@@ -381,17 +369,26 @@ void DrawEngineGLES::Flush() {
 			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
 		}
 
+		u16 *inds = decIndex_;
+		SoftwareTransformResult result{};
+		SoftwareTransformParams params{};
+		params.everUsedEqualDepth = everUsedEqualDepth_;
+		params.decoded = decoded_;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
+		params.fbman = framebufferManager_;
+		params.texCache = textureCache_;
+		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
+		params.allowSeparateAlphaClear = true;
+
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset);
 		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale);
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
-
-		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
-		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
-		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
-		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
-			result.action = SW_NOT_READY;
+		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
+		if (result.setSafeSize)
+			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
 		if (textureNeedsApply) {
 			gstate_c.pixelMapped = result.pixelMapped;
@@ -405,12 +402,6 @@ void DrawEngineGLES::Flush() {
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
-
-		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, vertexCount, swDec->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
-		if (result.setSafeSize)
-			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
-
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());

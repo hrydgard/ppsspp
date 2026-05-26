@@ -133,7 +133,7 @@ void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool 
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result) {
+void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -196,6 +196,47 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 			// Ignore color1 and fog, never used in throughmode anyway.
 			// The w of uv is also never used (hardcoded to 1.0.)
+		}
+
+		// Here's the best opportunity to try to detect rectangles used to clear the screen, and
+		// replace them with real clears. This can provide a speedup on certain mobile chips.
+		//
+		// An alternative option is to simply ditch all the verts except the first and last to create a single
+		// rectangle out of many. Quite a small optimization though.
+		// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
+		// TODO: Allow creating a depth clear and a color draw.
+		bool reallyAClear = false;
+		if (numDecodedVerts > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
+			int scissorX2 = gstate.getScissorX2() + 1;
+			int scissorY2 = gstate.getScissorY2() + 1;
+			reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
+
+			if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
+				result->setSafeSize = true;
+				result->safeWidth = scissorX2;
+				result->safeHeight = scissorY2;
+			}
+		}
+		if (params_.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
+			// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
+			bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
+			bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
+			bool matchingComponents = params_.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
+			bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
+			if (matchingComponents && stencilNotMasked) {
+				DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+				// Need to rescale from a [0, 1] float.  This is the final transformed value.
+				float depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
+				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
+				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
+				if (!(params_.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
+					result->color = transformed[1].color0_32;
+					result->depth = depth;
+					result->action = SW_CLEAR;
+					gpuStats.numClears++;
+					return;
+				}
+			}
 		}
 	} else {
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
@@ -351,41 +392,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 		}
 	}
 
-	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
-	// replace them with real clears. This can provide a speedup on certain mobile chips.
-	//
-	// An alternative option is to simply ditch all the verts except the first and last to create a single
-	// rectangle out of many. Quite a small optimization though.
-	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
-	// TODO: Allow creating a depth clear and a color draw.
-	bool reallyAClear = false;
-	if (numDecodedVerts > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
-		int scissorX2 = gstate.getScissorX2() + 1;
-		int scissorY2 = gstate.getScissorY2() + 1;
-		reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
-		if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
-			result->setSafeSize = true;
-			result->safeWidth = scissorX2;
-			result->safeHeight = scissorY2;
-		}
-	}
-	if (params_.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
-		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
-		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
-		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
-		bool matchingComponents = params_.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
-		bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
-		if (matchingComponents && stencilNotMasked) {
-			DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-			result->color = transformed[1].color0_32;
-			// Need to rescale from a [0, 1] float.  This is the final transformed value.
-			result->depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
-			result->action = SW_CLEAR;
-			gpuStats.numClears++;
-			return;
-		}
-	}
-
+	// TODO: This doesn't seem to be a very good check, but let's leave it for now.
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
 	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && numDecodedVerts == 2 && throughmode) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
@@ -401,9 +408,13 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			result->safeHeight = std::min(scissorY2, (int)transformed[1].y);
 		}
 	}
+
+	_dbg_assert_(result->action == SW_NOT_READY);
+
+	ProjectClipAndExpand(prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
 }
 
-void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
+void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -680,7 +691,8 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize) {
 		break;
 	case GE_PRIM_TRIANGLES:
 		// Rotate the triangle so the last becomes the first, without changing the winding order.
-		// This could be done with a series of pshufb.
+		// This could be done with a series of pshufb, although with some "interesting"
+		// boundary conditions since 16 is not divisible by 3.
 		for (int i = 0; i < indsSize - 2; i += 3) {
 			u16 temp = inds[i + 2];
 			inds[i + 2] = inds[i + 1];
