@@ -745,7 +745,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		}
 
 		// If we flipped, we rotate the other way.
-		if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
+		if ((flags & OutputFlags::BACKBUFFER_FLIPPED)) {
 			if ((rotation & 1) != 0)
 				rotation ^= 2;
 		}
@@ -784,7 +784,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	}
 
 	// Finally, we compensate the y vertex positions for the backbuffer for any flipping.
-	if ((flags & OutputFlags::POSITION_FLIPPED) || (flags & OutputFlags::BACKBUFFER_FLIPPED)) {
+	if (flags & OutputFlags::BACKBUFFER_FLIPPED) {
 		for (int i = 0; i < 4; i++) {
 			verts[i].y = -verts[i].y;
 		}
@@ -831,11 +831,8 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 
 	if (usePostShader) {
 		// When we render to temp framebuffers during post, we switch position, not UV.
-		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
-		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
-		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
-		float y0 = flipped ? 1.0f : -1.0f;
-		float y1 = flipped ? -1.0f : 1.0f;
+		float y0 = -1.0f;
+		float y1 = 1.0f;
 		verts[4] = {-1.0f, y0, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF}; // TL
 		verts[5] = {1.0f, y0, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF}; // TR
 		verts[6] = {-1.0f, y1, 0.0f, 0.0f, 1.0f, 0xFFFFFFFF}; // BL
