@@ -433,14 +433,14 @@ void DrawEngineVulkan::Flush() {
 		params.everUsedEqualDepth = everUsedEqualDepth_;
 
 		SoftwareTransform swTransform(params);
-		swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
+		const SoftwareTransformAction action = swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
-		if (result.action == SW_DRAW_INDEXED) {
+		if (action == SW_DRAW_INDEXED) {
 			if (textureNeedsApply) {
 				gstate_c.pixelMapped = result.pixelMapped;
 				gstate_c.dstSquared = false;
@@ -528,7 +528,7 @@ void DrawEngineVulkan::Flush() {
 			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
 			u32 ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
 			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
-		} else if (result.action == SW_CLEAR) {
+		} else if (action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
 			bool clearColor = gstate.isClearModeColorMask();
 			bool clearAlpha = gstate.isClearModeAlphaMask();  // and stencil

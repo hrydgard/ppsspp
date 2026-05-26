@@ -585,11 +585,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_BLEND_MINMAX;
 	}
 
-	if (draw_->GetDeviceCaps().maxClipDistances >= 3) {
+	if (draw_->GetDeviceCaps().maxClipDistances >= 3 && g_Config.bHardwareTransform) {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
-	if (draw_->GetDeviceCaps().maxCullDistances >= 1) {
+	if (draw_->GetDeviceCaps().maxCullDistances >= 1 && g_Config.bHardwareTransform) {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
 

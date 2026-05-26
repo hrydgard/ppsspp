@@ -28,13 +28,12 @@ class FramebufferManagerCommon;
 class TextureCacheCommon;
 
 enum SoftwareTransformAction {
-	SW_NOT_READY,
 	SW_DRAW_INDEXED,
 	SW_CLEAR,
+	SW_CULLED,  // don't draw
 };
 
 struct SoftwareTransformResult {
-	SoftwareTransformAction action;
 	u32 color;
 	float depth;
 
@@ -71,11 +70,13 @@ public:
 	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
 
 	// indsSize is in indices, not bytes.
-	void Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
+	SoftwareTransformAction Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 protected:
 	// NOTE: The viewport must be up to date!
-	void ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
+	SoftwareTransformAction ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
+
+	static void ProjectVertices(TransformedVertex *transformed, int vertexCount);
 	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
 	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;

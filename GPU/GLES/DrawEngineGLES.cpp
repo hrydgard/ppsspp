@@ -371,7 +371,7 @@ void DrawEngineGLES::Flush() {
 		params.allowSeparateAlphaClear = true;
 
 		SoftwareTransform swTransform(params);
-		swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
+		const SoftwareTransformAction action = swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
@@ -396,13 +396,13 @@ void DrawEngineGLES::Flush() {
 			goto bail;
 		}
 
-		if (result.action == SW_DRAW_INDEXED) {
+		if (action == SW_DRAW_INDEXED) {
 			vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vertexBuffer);
 			indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 			render_->DrawIndexed(
 				softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
 				glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
-		} else if (result.action == SW_CLEAR) {
+		} else if (action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
 

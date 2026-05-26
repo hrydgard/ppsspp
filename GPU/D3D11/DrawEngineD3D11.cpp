@@ -423,7 +423,7 @@ void DrawEngineD3D11::Flush() {
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 
 		SoftwareTransform swTransform(params);
-		swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
+		const SoftwareTransformAction action = swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
@@ -439,7 +439,7 @@ void DrawEngineD3D11::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		if (result.action == SW_DRAW_INDEXED) {
+		if (action == SW_DRAW_INDEXED) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
 			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
@@ -474,7 +474,7 @@ void DrawEngineD3D11::Flush() {
 			pushInds_->EndPush(context_);
 			context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 			context_->DrawIndexed(result.drawNumTrans, 0, 0);
-		} else if (result.action == SW_CLEAR) {
+		} else if (action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
 

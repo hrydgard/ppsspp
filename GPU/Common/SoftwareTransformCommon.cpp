@@ -109,7 +109,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 }
 
 // At the end, this calls ProjectClipAndExpand which will expand rectangles as necessary, or apply culling.
-void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
+SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -209,9 +209,8 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 				if (!(params_.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
 					result->color = transformed[1].color0_32;
 					result->depth = depth;
-					result->action = SW_CLEAR;
 					gpuStats.perFrame.numClears++;
-					return;
+					return SW_CLEAR;
 				}
 			}
 		}
@@ -363,22 +362,14 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// Then transform by the projection.
-			float xyzw[4];
-			Vec3ByMatrix44(xyzw, v, projMtx);
-
-			// Here we also need to do the perspective device and apply the viewport.
-			// TODO: Move this to ProjectClipAndExpand.
-			float recip = 1.0f / xyzw[3];
-			Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(xyzw[0] * recip, xyzw[1] * recip, xyzw[2] * recip));
-			transformed[index].x = xyz.x;
-			transformed[index].y = xyz.y;
-			transformed[index].z = xyz.z;
-			transformed[index].pos[3] = xyzw[3];
+			Vec3ByMatrix44(transformed[index].pos, v, projMtx);
 
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
+
+			// Projection happens later in ProjectClipAndExpand.
 
 			// Vertex depth rounding is done in the shader, to simulate the 16-bit depth buffer.
 		}
@@ -401,12 +392,28 @@ void SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Li
 		}
 	}
 
-	_dbg_assert_(result->action == SW_NOT_READY);
-
-	ProjectClipAndExpand(prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
+	return ProjectClipAndExpand(prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
 }
 
-void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
+// Modifies the vertices in-place. Applies viewport and projection.
+// TODO: SIMD.
+void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vertexCount) {
+	Lin::Vec3 vpOffset(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
+	Lin::Vec3 vpScale(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
+
+	for (int i = 0; i < vertexCount; i++) {
+		// Here we also need to do the perspective device and apply the viewport.
+		// TODO: Move this to ProjectClipAndExpand.
+		const float w = transformed[i].pos_w;
+		const float recip = 1.0f / w;
+		Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(transformed[i].x * recip, transformed[i].y * recip, transformed[i].z * recip));
+		transformed[i].x = xyz.x;
+		transformed[i].y = xyz.y;
+		transformed[i].z = xyz.z;
+	}
+}
+
+SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -419,10 +426,15 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
+		// TODO: We're now able to cull here.
+		if (!throughmode) {
+			ProjectVertices(transformed, numDecodedVerts);
+		}
+
 		if (!ExpandRectangles(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped)) {
 			result->drawNumTrans = 0;
 			result->pixelMapped = false;
-			return;
+			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
 
@@ -440,26 +452,71 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
+		if (!throughmode) {
+			ProjectVertices(transformed, numDecodedVerts);
+		}
+
 		result->pixelMapped = false;
 		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
 			result->drawNumTrans = 0;
-			return;
+			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
 	} else if (prim == GE_PRIM_LINES) {
+		if (!throughmode) {
+			ProjectVertices(transformed, numDecodedVerts);
+		}
+
 		result->pixelMapped = false;
 		if (!ExpandLines(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
 			result->drawNumTrans = 0;
-			return;
+			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
-	} else {
-		// We can simply draw the unexpanded buffer.
+	} else if (prim == GE_PRIM_TRIANGLES) {
+		// Triangles. We can simply draw the unexpanded buffer, although we do also take the opportunity to perform culling.
 		numTrans = vertexCount;
 		result->pixelMapped = false;
 
-		// If we don't support custom cull in the shader, process it here.
-		if (!gstate_c.Use(GPU_USE_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
+		if (throughmode) {
+			// Nothing to do, pass the vertices right through as-is. Well, we can go look for pixel mapping, but we don't do any culling or clipping.
+			if (g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
+				// We check some common cases for pixel mapping.
+				// TODO: It's not really optimal that some previous step has removed the triangle strip.
+				if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
+					// It's enough to check UV deltas vs pos deltas between vertex pairs:
+					// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
+					// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
+					// so the operations are exact.
+					bool pixelMapped = true;
+					const u16 *indsIn = (const u16 *)inds;
+					const float uscale = gstate_c.curTextureWidth;
+					const float vscale = gstate_c.curTextureHeight;
+					for (int t = 0; t < vertexCount; t += 3) {
+						struct { int a; int b; } pairs[] = {{0, 1}, {1, 2}, {2, 0}};
+						for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
+							int a = indsIn[t + pairs[i].a];
+							int b = indsIn[t + pairs[i].b];
+							float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
+							float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
+							float dx = fabsf(transformed[a].x - transformed[b].x);
+							float dy = fabsf(transformed[a].y - transformed[b].y);
+							if (du != dx || dv != dy) {
+								pixelMapped = false;
+							}
+						}
+						if (!pixelMapped) {
+							break;
+						}
+					}
+					result->pixelMapped = pixelMapped;
+				}
+			}
+		} else {
+			// Culling and clipping needs to be done here, it doesn't happen in the shader in the case of software transform.
+			// However, fast culling should already have taken care of the Z<-W and Z>W culling, but we check for it on a per-triangle
+			// basis here anyway.
+
 			const u16 *indsIn = (const u16 *)inds;
 			u16 *newInds = inds + vertexCount;
 			u16 *indsOut = newInds;
@@ -468,28 +525,34 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 			outsideZ.resize(vertexCount);
 
 			// First, check inside/outside directions for each index.
+			// We are still in clip space here, so we can cull aggressively in Z.
+			// TODO: This is so cheap now that we can probably avoid the buffer and just do the work below.
 			for (int i = 0; i < vertexCount; ++i) {
-				float z = truncateToFloat24(transformed[indsIn[i]].z);
+				float z = transformed[indsIn[i]].z;
 				float w = transformed[indsIn[i]].pos_w;
-				if (z > w)
+				if (z > w) {
 					outsideZ[i] = 1;
-				else if (z < -w)
+				} else if (z < -w) {
 					outsideZ[i] = -1;
-				else
+				} else {
 					outsideZ[i] = 0;
+				}
 			}
 
-			// Now, for each primitive type, throw away the indices if:
-			//  - Depth clamp on, and ALL verts are outside *in the same direction*.
-			//  - Depth clamp off, and ANY vert is outside.
-			if (prim == GE_PRIM_TRIANGLES && gstate.isDepthClipEnabled()) {
+			u16 *origInds = inds;
+
+			// TODO: We should either merge the two loops, or avoid the second loop if no culling is needed.
+
+			// Now, for each triangle, throw away the indices if:
+			//  - Depth clip/clamp on, and ALL verts are outside *in the same direction*.
+			//  - Depth clip/clamp off, and ANY vert is outside.
+			if (gstate.isDepthClipEnabled()) {
 				numTrans = 0;
 				for (int i = 0; i < vertexCount - 2; i += 3) {
 					if (outsideZ[i + 0] != 0 && outsideZ[i + 0] == outsideZ[i + 1] && outsideZ[i + 0] == outsideZ[i + 2]) {
 						// All outside, and all the same direction.  Nuke this triangle.
 						continue;
 					}
-
 					memcpy(indsOut, indsIn + i, 3 * sizeof(uint16_t));
 					indsOut += 3;
 					numTrans += 3;
@@ -511,46 +574,47 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 
 				inds = newInds;
 			}
-		} else if (throughmode && g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
-			// We check some common cases for pixel mapping.
-			// TODO: It's not really optimal that some previous step has removed the triangle strip.
-			if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
-				// It's enough to check UV deltas vs pos deltas between vertex pairs:
-				// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
-				// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
-				// so the operations are exact.
-				bool pixelMapped = true;
-				const u16 *indsIn = (const u16 *)inds;
-				const float uscale = gstate_c.curTextureWidth;
-				const float vscale = gstate_c.curTextureHeight;
-				for (int t = 0; t < vertexCount; t += 3) {
-					struct { int a; int b; } pairs[] = { {0, 1}, {1, 2}, {2, 0} };
-					for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
-						int a = indsIn[t + pairs[i].a];
-						int b = indsIn[t + pairs[i].b];
-						float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
-						float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
-						float dx = fabsf(transformed[a].x - transformed[b].x);
-						float dy = fabsf(transformed[a].y - transformed[b].y);
-						if (du != dx || dv != dy) {
-							pixelMapped = false;
-						}
-					}
-					if (!pixelMapped) {
-						break;
+
+			// Now that we're done culling and generating clipped vertices if needed (not yet implemented), we go ahead and project.
+			ProjectVertices(transformed, numDecodedVerts);
+
+			// Alright! Now, we can clamp the far plane, if the hardware lacks support for doing it for us.
+			// Now, this can only be done exactly if all vertices in a triangle are beyond the far plane. If not
+			// we need to cut it in two parts to clamp accurately. However, in most cases that matter, this is fine.
+			if (!gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate.isDepthClipEnabled() && gstate.getDepthRangeMax() == 0xFFFF) {
+				for (int i = 0; i < vertexCount - 2; i += 3) {
+					bool v0InFront = transformed[indsIn[i]].z < 0.0f;
+					bool v1InFront = transformed[indsIn[i + 1]].z < 0.0f;
+					bool v2InFront = transformed[indsIn[i + 2]].z < 0.0f;
+
+					bool v0Beyond = transformed[indsIn[i]].z >= 65535.0f;
+					bool v1Beyond = transformed[indsIn[i + 1]].z >= 65535.0f;
+					bool v2Beyond = transformed[indsIn[i + 2]].z >= 65535.0f;
+
+					// Clamp the Z when we detect it's safe to do so.
+					// Fixes the sky problem in Shadow of Destiny (#9545)
+					if (v0Beyond && v1Beyond && v2Beyond) {
+						transformed[indsIn[i]].z = 65535.0f;
+						transformed[indsIn[i + 1]].z = 65535.0f;
+						transformed[indsIn[i + 2]].z = 65535.0f;
+					} else if (v0InFront && v1InFront && v2InFront) {
+						transformed[indsIn[i]].z = 0.0f;
+						transformed[indsIn[i + 1]].z = 0.0f;
+						transformed[indsIn[i + 2]].z = 0.0f;
 					}
 				}
-				result->pixelMapped = pixelMapped;
 			}
 		}
+	} else {
+		_dbg_assert_(false);
 	}
 
 	if (gstate.isModeClear()) {
 		gpuStats.perFrame.numClears++;
 	}
 
-	result->action = SW_DRAW_INDEXED;
 	result->drawNumTrans = numTrans;
+	return SW_DRAW_INDEXED;
 }
 
 bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const {
