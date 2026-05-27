@@ -1805,7 +1805,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	w.F(
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
-		"Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
+		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
 		"FBOs active: %d (evaluations: %d, created %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB, clut %d\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
@@ -1824,6 +1824,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numFlushes,
 		gpuStats.perFrame.numClears,
 		gpuStats.perFrame.numBBOXJumps,
+		gpuStats.perFrame.numSoftTransformedDraws,
 		gpuStats.perFrame.numVertsSubmitted,
 		gpuStats.perFrame.numVertsDecoded,
 		gpuStats.perFrame.numUncachedVertsDrawn,

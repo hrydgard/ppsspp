@@ -242,6 +242,18 @@ void DrawEngineVulkan::Flush() {
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
 
+	if (useHWTransform && boundingDepths_.valid) {
+		if (boundingDepths_.hitClipSpaceZW) {
+			// Revert to software so we can clip more accurately.
+			useHWTransform = false;
+		}
+	}
+
+	if (useHWTransform != lastUseHwTransform_) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		lastUseHwTransform_ = useHWTransform;
+	}
+
 	// TODO: Here we can check depths_ to see if we need to fall back to software transform for clipping.
 
 	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
@@ -377,6 +389,8 @@ void DrawEngineVulkan::Flush() {
 			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
 		}
 	} else {
+		gpuStats.perFrame.numSoftTransformedDraws++;
+
 		PROFILE_THIS_SCOPE("soft");
 		const VertexDecoder *swDec = dec_;
 		if (swDec->nweights != 0) {

@@ -349,8 +349,8 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	const int offset = dec->posoff;
 	const s8 *data = (const s8 *)vdata + offset;
 
-	float vpZOffset = gstate.getViewportZCenter();
-	float vpZScale = gstate.getViewportZScale();
+	const float vpZOffset = gstate.getViewportZCenter();
+	const float vpZScale = gstate.getViewportZScale();
 
 	for (int i = 0; i < vertexCount; i++, data += stride) {
 		Vec4F32 objPos;
@@ -366,14 +366,6 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 			break;
 		}
 		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;
-		const float projZ = vpZScale * clipPos[2] / clipPos[3];
-		if (projZ < minProjZ) {
-			minProjZ = projZ;
-		}
-		if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
-			maxProjZ = projZ;
-		}
-
 		Vec4F32 posW = clipPos.ShuffleWWWW();
 		if (cull) {
 			Vec4F32 posXY = clipPos.ShuffleXXYY();
@@ -386,9 +378,17 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		if (cull) {
 			insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
 		}
+		const float projZ = vpZScale * clipPos[2] / clipPos[3];
+		if (projZ < minProjZ) {
+			minProjZ = projZ;
+		}
+		if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
+			maxProjZ = projZ;
+		}
 	}
 
 	if (!cull || (AllCompareBitsSet(insideMaskXY) && AllCompareBitsSet(insideMaskZ))) {
+		depths->valid = true;
 		depths->hitClipSpaceZW = AnyCompareBitsSet(anyOutsideMaskZ);
 		// Before checking later, we apply a viewport to the projZ, so we can later compare against minZ/maxZ or the outer bounds.
 		// But to save operations we don't do it here.
@@ -449,7 +449,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 		applyViewport.wx = -(maxViewport.x + minViewport.x) * viewportInvSize.x;
 		applyViewport.wy = -(maxViewport.y + minViewport.y) * viewportInvSize.y;
 
-		// TODO: Optimize.
+		// TODO: Optimize. It's possible to scale/offset a matrix in a quicker way.
 		Matrix4ByMatrix4(mtx, worldViewProj, applyViewport.m);
 		worldViewProj = mtx;
 	}

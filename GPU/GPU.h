@@ -98,6 +98,7 @@ struct GPUStatsPerFrame {
 	int numDrawSyncs;
 	int numListSyncs;
 	int numFlushes;
+	int numSoftTransformedDraws;
 	int numSoftClippedTriangles;
 	int numBBOXJumps;
 	int numVertsSubmitted;

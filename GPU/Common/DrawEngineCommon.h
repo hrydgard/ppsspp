@@ -73,10 +73,15 @@ struct alignas(16) Plane8 {
 };
 
 struct BoundingDepths {
+	bool valid = false;
 	bool hitClipSpaceZW = false;
 	float minProjZ = FLT_MAX;
 	float maxProjZ = -FLT_MAX;
 	void Merge(const BoundingDepths &other) {
+		if (!valid) {
+			*this = other;
+			return;
+		}
 		hitClipSpaceZW |= other.hitClipSpaceZW;
 		if (other.minProjZ < minProjZ) {
 			minProjZ = other.minProjZ;
@@ -380,4 +385,6 @@ protected:
 	std::vector<DepthDraw> depthDraws_;
 
 	double rasterTimeStart_ = 0.0;
+
+	bool lastUseHwTransform_ = true;
 };
