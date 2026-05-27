@@ -1013,6 +1013,16 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
+	if (gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
+			gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
+		int safeWidth;
+		int safeHeight;
+		// First-frame readback can happen before queued draws reach backend transform.
+		if (drawEngineCommon_->EstimateThroughPrimSafeSize(verts, inds, prim, count, decoder, vertexType, &safeWidth, &safeHeight)) {
+			framebufferManager_->SetSafeSize(safeWidth, safeHeight);
+		}
+	}
+
 	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
 	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
 		int bytesRead = 0;

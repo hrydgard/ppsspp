@@ -106,6 +106,7 @@ public:
 	// Doesn't support indexing.
 	bool TestBoundingBoxFast(const float *worldViewProj, const void *control_points, int vertexCount, const VertexDecoder *dec, u32 vertType);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead);
+	bool EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight);
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);
