@@ -70,6 +70,7 @@ public:
 	int u_mipBias;
 	int u_scaleX;
 	int u_scaleY;
+	int u_NaN;
 
 	int u_rasterOffset;
 	int u_minZmaxZ;

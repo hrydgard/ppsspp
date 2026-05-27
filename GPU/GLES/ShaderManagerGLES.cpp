@@ -120,6 +120,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_blendFixA, "u_blendFixA" });
 	queries.push_back({ &u_blendFixB, "u_blendFixB" });
 	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
+	queries.push_back({ &u_NaN, "u_NaN" });
 
 	// Transform
 	queries.push_back({ &u_view, "u_view" });
@@ -436,6 +437,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		xywh[2] = (float)gstate_c.curRTWidth;
 		xywh[3] = (float)gstate_c.curRTHeight;
 		SetFloatUniform4(render_, &u_xywh, xywh);
+		float nan = std::numeric_limits<float>::quiet_NaN();
+		render_->SetUniformF1(&u_NaN, nan);
 	}
 	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
@@ -1138,6 +1141,9 @@ void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngi
 	if (linkedShaderCache_.empty()) {
 		return;
 	}
+
+	// TODO: We shouldn't save the cache if we're just running a frame dump.
+
 	INFO_LOG(Log::G3D, "Saving the shader cache to '%s'", filename.c_str());
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f) {

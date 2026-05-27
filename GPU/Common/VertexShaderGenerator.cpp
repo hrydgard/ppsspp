@@ -131,20 +131,29 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
+	const bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
+	const bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
+
+	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;  // this is the PSP clip flag, which has some various consequences.
+	const bool clipNearPlane = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && useHWTransform;
+	const bool clipMinMax = gstate_c.Use(GPU_USE_CLIP_DISTANCE);  // If clip planes are available, we want to use them for min/max. We skip the min/max culling in software transform (not yet implemented).
+
+	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
+	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough && rangeCulling && useHWTransform;  // Range culling is gated on draw type, we don't want to do this culling for splines apparently.
+
 	std::vector<const char*> extensions;
 	extensions.reserve(6);
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
 			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
-		bool useClamp = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
-		if (gl_extensions.EXT_clip_cull_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
+		if (gl_extensions.EXT_clip_cull_distance && (depthCullEnable || clipMinMax || clipNearPlane)) {
 			extensions.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
-		if (gl_extensions.APPLE_clip_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
+		if (gl_extensions.APPLE_clip_distance && (clipMinMax || clipNearPlane)) {
 			extensions.push_back("#extension GL_APPLE_clip_distance : enable");
 		}
-		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+		if (gl_extensions.ARB_cull_distance && depthCullEnable) {
 			extensions.push_back("#extension GL_ARB_cull_distance : enable");
 		}
 	}
@@ -163,7 +172,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	p.F("// %s\n", VertexShaderDesc(id).c_str());
 
-	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
@@ -179,7 +187,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
-	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
@@ -238,13 +245,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 	bool texCoordInVec3 = false;
 
-	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;
-	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
-	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough && rangeCulling;  // Range culling is gated on draw type, we don't want to do this culling for splines apparently.
+	const char *minZClipPlaneSuffix = "[0]";
+	const char *maxZClipPlaneSuffix = "[1]";
+	const char *zClipPlaneSuffix = "[2]";
 
-	const char *zClipPlaneSuffix = "[0]";
-	const char *minZClipPlaneSuffix = "[1]";
-	const char *maxZClipPlaneSuffix = "[2]";
+	const char *cullDistanceNearSuffix = "[0]";
+	const char *cullDistanceFarSuffix = "[1]";
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -351,11 +357,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-		zClipPlaneSuffix = ".x";
-		minZClipPlaneSuffix = ".y";
-		maxZClipPlaneSuffix = ".z";
-		if (!isModeThrough && gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+		minZClipPlaneSuffix = ".x";
+		maxZClipPlaneSuffix = ".y";
+		zClipPlaneSuffix = ".z";
+		if (clipMinMax && clipNearPlane) {
 			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
+		} else if (clipMinMax) {
+			WRITE(p, "  float2 gl_ClipDistance : SV_ClipDistance;\n");
+		} else if (clipNearPlane) {
+			_dbg_assert_(false);  // not an allowed combination
 		}
 		if (depthCullEnable) {
 			WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
@@ -409,6 +419,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "uniform vec4 u_xywh;\n");
+		WRITE(p, "uniform float u_NaN;\n");
 		*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 
 		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
@@ -829,15 +840,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "    zClipped = true;\n");
 		WRITE(p, "  }\n");
 		// Then we actually add the clip plane.
-		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+		if (clipNearPlane) {
 			WRITE(p, "  %sgl_ClipDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, zClipPlaneSuffix);
 		}
 
 		if (depthCullEnable) {
 			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
 			// NOTE: This volume is very slightly too small. It's unclear to me how to allow hex 0x3F8000XX (1.0000.. + epsilon) where XX are arbitrary.
-			WRITE(p, "  %sgl_CullDistance[0] = outPos.z + outPos.w;\n", compat.vsOutPrefix);
-			WRITE(p, "  %sgl_CullDistance[1] = outPos.w - outPos.z;\n", compat.vsOutPrefix);
+			WRITE(p, "  %sgl_CullDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, cullDistanceNearSuffix);
+			WRITE(p, "  %sgl_CullDistance%s = outPos.w - outPos.z;\n", compat.vsOutPrefix, cullDistanceFarSuffix);
 		}
 
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
@@ -1212,22 +1223,17 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Apply raster offset after the range culling.
 		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
+	}
 
-		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-			// We use clipping, where available, to implement min/max Z.
-			// 1.0 is used to disable the clip plane (should we generate more shaders instead? how costly are they?)
-			// Note: outPos.z need to be multiplied by outPos.w to undo the division, which shouldn't be in effect here.
-			// We should probably store the undivided outPos in a variable.
-			// We apply a small offset here, it's needed to break some ties, like in the map in Test Drive Unlimited.
-			WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (outPos.z + 0.5 - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
-			WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - (outPos.z + 0.5)) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
-		}
-	} else {
-		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-			// In through mode we output a dummy clip distance.
-			WRITE(p, "  %sgl_ClipDistance%s = 1.0f;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
-			WRITE(p, "  %sgl_ClipDistance%s = 1.0f;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
-		}
+	// I think we should use min/max clipping for through-mode as well, right?
+	if (clipMinMax) {
+		// We use clipping, where available, to implement min/max Z.
+		// 1.0 is used to disable the clip plane (should we generate more shaders instead? how costly are they?)
+		// Note: outPos.z need to be multiplied by outPos.w to undo the division, which shouldn't be in effect here.
+		// We should probably store the undivided outPos in a variable.
+		// We apply a small offset here, it's needed to break some ties, like in the map in Test Drive Unlimited.
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (outPos.z + 0.5 - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - (outPos.z + 0.5)) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
 
 	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.

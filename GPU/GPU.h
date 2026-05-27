@@ -142,6 +142,7 @@ struct GPUStatsPerFrame {
 };
 
 struct GPUStatsTotals {
+	// Flip count. Doesn't really belong here.
 	int numFlips;
 };
 
