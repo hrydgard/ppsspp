@@ -1009,7 +1009,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-#define MAX_CULL_CHECK_COUNT 6
+#define MAX_CULL_CHECK_COUNT 64
 
 // For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
@@ -1115,10 +1115,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			}
 
 			bool passCulling = onePassed || PASSES_CULLING;
+			BoundingDepths depths;
 			if (!passCulling) {
 				// Do software culling.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				BoundingDepths depths;
 				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType, &depths)) {
 					passCulling = true;
 				} else {
