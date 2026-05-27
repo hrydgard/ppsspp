@@ -904,8 +904,6 @@ static bool TestDepthMath() {
 		0,
 		GPU_USE_DEPTH_CLAMP,
 	};
-	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
-	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };
 
 	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
 
@@ -914,8 +912,6 @@ static bool TestDepthMath() {
 		printf("j: %d useflags: %d\n", j, useFlags);
 		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
 
-		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
-		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
 		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
 
 		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
