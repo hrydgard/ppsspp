@@ -441,7 +441,9 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int ve
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		// TODO: We're now able to cull here.
+		// TODO: We should cull rectangles outzide -W<Z<W here if *both* points are outside in the same direction,
+		// like we do with triangles.
+
 		if (!throughmode) {
 			ProjectVertices(transformed, numDecodedVerts);
 		}
@@ -467,6 +469,8 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int ve
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
+		// TODO: We should cull points here if they are outside -W<Z<W.
+
 		if (!throughmode) {
 			ProjectVertices(transformed, numDecodedVerts);
 		}
@@ -478,6 +482,9 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int ve
 		}
 		result->drawBuffer = transformedExpanded;
 	} else if (prim == GE_PRIM_LINES) {
+		// TODO: We should cull rectangles outzide -W<Z<W here if *both* points are outside in the same direction,
+		// like we do with triangles.
+
 		if (!throughmode) {
 			ProjectVertices(transformed, numDecodedVerts);
 		}
@@ -593,29 +600,39 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int ve
 			// Now that we're done culling and generating clipped vertices if needed (not yet implemented), we go ahead and project.
 			ProjectVertices(transformed, numDecodedVerts);
 
-			// Alright! Now, we can clamp the far plane, if the hardware lacks support for doing it for us.
-			// Now, this can only be done exactly if all vertices in a triangle are beyond the far plane. If not
-			// we need to cut it in two parts to clamp accurately. However, in most cases that matter, this is fine.
-			if (!gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate.isDepthClipEnabled() && gstate.getDepthRangeMax() == 0xFFFF) {
+			// Alright! Now, we can approximate Z-clamping, if the hardware lacks support for doing it for us.
+			// Now, this can only be done exactly if all vertices in a triangle are beyond the far plane.
+			// If not we technically need to cut it in two parts to clamp accurately.
+			// However, in most cases that matter (such as missing skies, etc), this is fine.
+			const int maxZInt = gstate.getDepthRangeMax();
+			float maxZ = maxZInt / 65535.0f;
+			const int minZInt = gstate.getDepthRangeMin();
+			float minZ = minZInt / 65535.0f;
+			// We only need to clamp if minZ and maxZ aren't at the extreme in each direction, as otherwise
+			// minZ and maxZ will cut things off.
+			if (!gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate.isDepthClipEnabled() && (maxZInt == 0 || maxZInt == 65535)) {
 				for (int i = 0; i < vertexCount - 2; i += 3) {
-					bool v0InFront = transformed[indsIn[i]].z < 0.0f;
-					bool v1InFront = transformed[indsIn[i + 1]].z < 0.0f;
-					bool v2InFront = transformed[indsIn[i + 2]].z < 0.0f;
+					if (minZInt == 0) {
+						bool v0InFront = transformed[indsIn[i]].z < 0.0f;
+						bool v1InFront = transformed[indsIn[i + 1]].z < 0.0f;
+						bool v2InFront = transformed[indsIn[i + 2]].z < 0.0f;
+						if (v0InFront && v1InFront && v2InFront) {
+							transformed[indsIn[i]].z = 0.0f;
+							transformed[indsIn[i + 1]].z = 0.0f;
+							transformed[indsIn[i + 2]].z = 0.0f;
+						}
+					}
 
-					bool v0Beyond = transformed[indsIn[i]].z >= 65535.0f;
-					bool v1Beyond = transformed[indsIn[i + 1]].z >= 65535.0f;
-					bool v2Beyond = transformed[indsIn[i + 2]].z >= 65535.0f;
+					if (maxZInt == 65535) {
+						bool v0Beyond = transformed[indsIn[i]].z >= 65535.0f;
+						bool v1Beyond = transformed[indsIn[i + 1]].z >= 65535.0f;
+						bool v2Beyond = transformed[indsIn[i + 2]].z >= 65535.0f;
 
-					// Clamp the Z when we detect it's safe to do so.
-					// Fixes the sky problem in Shadow of Destiny (#9545)
-					if (v0Beyond && v1Beyond && v2Beyond) {
-						transformed[indsIn[i]].z = 65535.0f;
-						transformed[indsIn[i + 1]].z = 65535.0f;
-						transformed[indsIn[i + 2]].z = 65535.0f;
-					} else if (v0InFront && v1InFront && v2InFront) {
-						transformed[indsIn[i]].z = 0.0f;
-						transformed[indsIn[i + 1]].z = 0.0f;
-						transformed[indsIn[i + 2]].z = 0.0f;
+						if (v0Beyond && v1Beyond && v2Beyond) {
+							transformed[indsIn[i]].z = 65535.0f;
+							transformed[indsIn[i + 1]].z = 65535.0f;
+							transformed[indsIn[i + 2]].z = 65535.0f;
+						}
 					}
 				}
 			}
@@ -680,6 +697,14 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 			}
 		}
 
+		float z = transVtxBR.z;
+		// Apply Z clamping. It appears clipping does not affect rectangles, see #12058.
+		if (z > 65535.0f) {
+			z = 65535.0f;
+		} else if (z < 0.0f) {
+			z = 0.0f;
+		}
+
 		// We have to turn the rectangle into two triangles, so 6 points.
 		// This is 4 verts + 6 indices.
 
@@ -687,12 +712,14 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 		trans[0] = transVtxBR;
 		trans[0].u = transVtxBR.u * uscale;
 		trans[0].v = transVtxBR.v * vscale;
+		trans[0].z = z;
 
 		// top right
 		trans[1] = transVtxBR;
 		trans[1].y = transVtxTL.y;
 		trans[1].u = transVtxBR.u * uscale;
 		trans[1].v = transVtxTL.v * vscale;
+		trans[1].z = z;
 
 		// top left
 		trans[2] = transVtxBR;
@@ -700,12 +727,14 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 		trans[2].y = transVtxTL.y;
 		trans[2].u = transVtxTL.u * uscale;
 		trans[2].v = transVtxTL.v * vscale;
+		trans[2].z = z;
 
 		// bottom left
 		trans[3] = transVtxBR;
 		trans[3].x = transVtxTL.x;
 		trans[3].u = transVtxTL.u * uscale;
 		trans[3].v = transVtxBR.v * vscale;
+		trans[3].z = z;
 
 		// That's the four corners. Now process UV rotation.
 		RotateUV(trans);
