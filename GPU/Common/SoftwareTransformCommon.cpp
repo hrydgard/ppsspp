@@ -532,7 +532,9 @@ void ClipTrianglesAgainstNearPlane(
 
 					// Force exact intersection to eliminate precision creeping down the pipeline
 					newVertex.z = -newVertex.pos_w;
-					newVertex.color0_32 = 0xFFFF00FF;
+
+					// These can be used for debugging.
+					// newVertex.color0_32 = 0xFFFF00FF;
 					// a.color0_32 = 0xFFFF00FF;
 					// b.color0_32 = 0xFFFF00FF;
 
