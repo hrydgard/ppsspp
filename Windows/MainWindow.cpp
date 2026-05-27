@@ -198,7 +198,7 @@ namespace MainWindow {
 		wcex.hInstance = hInstance;
 		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
 		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);  // or NULL?
-		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
+		wcex.lpszMenuName = g_Config.bShowMenuBar ? (LPCWSTR)IDR_MENU1 : NULL;
 		wcex.lpszClassName = szWindowClass;
 		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
 		wcex.hIconSm = (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
@@ -375,7 +375,9 @@ namespace MainWindow {
 
 			// Transitioning to Windowed
 			SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
-			SetMenu(hWnd, g_hMenu);
+			if (g_Config.bShowMenuBar) {
+				SetMenu(hWnd, g_hMenu);
+			}
 
 			WINDOWPLACEMENT wp = {sizeof(WINDOWPLACEMENT)};
 			wp.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
@@ -529,7 +531,10 @@ namespace MainWindow {
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
-		MainMenuInit(hwndMain, g_hMenu);
+		if (!g_Config.bShowMenuBar) {
+			MainMenuInit(hwndMain, g_hMenu);
+			SetMenu(hwndMain, NULL);
+		}
 
 		// Accept dragged files.
 		DragAcceptFiles(hwndMain, TRUE);
@@ -909,7 +914,7 @@ namespace MainWindow {
 						// and recalculate window decorations without actually changing the size of the window).
 						if (pos->cx != monWidth || pos->cy != monHeight) {
 							g_Config.bFullScreen = false;
-							if (GetMenu(hWnd) == NULL) {
+							if (GetMenu(hWnd) == NULL && g_Config.bShowMenuBar) {
 								SetMenu(hWnd, g_hMenu);
 							}
 							const DWORD style = GetWindowLong(hWnd, GWL_STYLE);
