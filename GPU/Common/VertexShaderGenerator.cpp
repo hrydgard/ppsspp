@@ -1229,11 +1229,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (clipMinMax) {
 		// We use clipping, where available, to implement min/max Z.
 		// 1.0 is used to disable the clip plane (should we generate more shaders instead? how costly are they?)
+
 		// Note: outPos.z need to be multiplied by outPos.w to undo the division, which shouldn't be in effect here.
 		// We should probably store the undivided outPos in a variable.
-		// We apply a small offset here, it's needed to break some ties, like in the map in Test Drive Unlimited.
-		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (outPos.z + 0.5 - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
-		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - (outPos.z + 0.5)) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
+		// We round to nearest 15-bit value for the check - this seems to match some of [Unknown]'s test, and PSP GPU floats
+		// often have a 15-bit mantissa.
+
+		WRITE(p, "  float clipZ = float(int(outPos.z + 1) & 0xFFFE);\n");
+
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZ - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZ) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
 
 	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.
