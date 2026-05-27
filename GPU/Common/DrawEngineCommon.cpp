@@ -330,7 +330,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // off to hardware, with whatever capabilities are available.
 //
 // NOTE: This doesn't handle through-mode or indexing (morph or skinning can be handled if they're implemented in software during decode).
-template<u32 posFmt, bool cull>
+template<u32 posFmt>
 static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded, BoundingDepths *depths) {
 	Mat4F32 worldViewProjMat(worldViewProj);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
@@ -367,17 +367,13 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		}
 		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;
 		Vec4F32 posW = clipPos.ShuffleWWWW();
-		if (cull) {
-			Vec4F32 posXY = clipPos.ShuffleXXYY();
-			Vec4F32 planeDistXY = posXY * planesXY + posW;
-			insideMaskXY |= planeDistXY.CompareGe(Vec4F32::Zero());
-		}
+		Vec4F32 posXY = clipPos.ShuffleXXYY();
+		Vec4F32 planeDistXY = posXY * planesXY + posW;
+		insideMaskXY |= planeDistXY.CompareGe(Vec4F32::Zero());
 		Vec4F32 posZ = clipPos.ShuffleZZZZ();
 		Vec4F32 planeDistZ = posZ * planesXY + posW;
 		anyOutsideMaskZ |= planeDistZ.CompareLt(Vec4F32::Zero());
-		if (cull) {
-			insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
-		}
+		insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
 		const float projZ = vpZScale * clipPos[2] / clipPos[3];
 		if (projZ < minProjZ) {
 			minProjZ = projZ;
@@ -387,7 +383,7 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		}
 	}
 
-	if (!cull || (AllCompareBitsSet(insideMaskXY) && AllCompareBitsSet(insideMaskZ))) {
+	if (AllCompareBitsSet(insideMaskXY) && AllCompareBitsSet(insideMaskZ)) {
 		depths->valid = true;
 		depths->hitClipSpaceZW = AnyCompareBitsSet(anyOutsideMaskZ);
 		// Before checking later, we apply a viewport to the projZ, so we can later compare against minZ/maxZ or the outer bounds.
@@ -456,29 +452,15 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, true>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
 	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, true>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
 	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, true>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
 	default:
 		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
 		return true;
-	}
-}
-
-void DrawEngineCommon::ComputeBoundingDepths(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depths) {
-	switch (vertType & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_8BIT:
-		::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, false>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
-	case GE_VTYPE_POS_16BIT:
-		::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, false>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
-	case GE_VTYPE_POS_FLOAT:
-		::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, false>(worldViewProj, vdata, vertexCount, dec, decoded_, depths);
-	default:
-		// Shouldn't end up here with the checks outside this function.
-		_dbg_assert_(false);
 	}
 }
 

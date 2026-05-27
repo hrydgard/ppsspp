@@ -585,11 +585,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_BLEND_MINMAX;
 	}
 
-	if (draw_->GetDeviceCaps().maxClipDistances >= 3 && g_Config.bHardwareTransform) {
+	if (draw_->GetDeviceCaps().maxClipDistances >= 3) {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
-	if (draw_->GetDeviceCaps().maxCullDistances >= 1 && g_Config.bHardwareTransform) {
+	if (draw_->GetDeviceCaps().maxCullDistances >= 1) {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
 
@@ -1009,7 +1009,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-#define MAX_CULL_CHECK_COUNT 512
+#define MAX_CULL_CHECK_COUNT 2500
 
 // For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
