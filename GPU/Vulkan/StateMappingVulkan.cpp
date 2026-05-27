@@ -28,7 +28,7 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 
 // These tables all fit into u8s.
-static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
+static constexpr VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	VK_BLEND_FACTOR_ZERO,
 	VK_BLEND_FACTOR_ONE,
 	VK_BLEND_FACTOR_SRC_COLOR,
@@ -50,7 +50,7 @@ static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	VK_BLEND_FACTOR_MAX_ENUM,
 };
 
-static const VkBlendOp vkBlendEqLookup[(size_t)BlendEq::COUNT] = {
+static constexpr VkBlendOp vkBlendEqLookup[(size_t)BlendEq::COUNT] = {
 	VK_BLEND_OP_ADD,
 	VK_BLEND_OP_SUBTRACT,
 	VK_BLEND_OP_REVERSE_SUBTRACT,
@@ -58,12 +58,12 @@ static const VkBlendOp vkBlendEqLookup[(size_t)BlendEq::COUNT] = {
 	VK_BLEND_OP_MAX,
 };
 
-static const VkCullModeFlagBits cullingMode[] = {
+static constexpr VkCullModeFlagBits cullingMode[] = {
 	VK_CULL_MODE_BACK_BIT,
 	VK_CULL_MODE_FRONT_BIT,
 };
 
-static const VkCompareOp compareOps[] = {
+static constexpr VkCompareOp compareOps[] = {
 	VK_COMPARE_OP_NEVER,
 	VK_COMPARE_OP_ALWAYS,
 	VK_COMPARE_OP_EQUAL,
@@ -74,7 +74,7 @@ static const VkCompareOp compareOps[] = {
 	VK_COMPARE_OP_GREATER_OR_EQUAL,
 };
 
-static const VkStencilOp stencilOps[] = {
+static constexpr VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_KEEP,
 	VK_STENCIL_OP_ZERO,
 	VK_STENCIL_OP_REPLACE,
@@ -85,7 +85,7 @@ static const VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_KEEP, // reserved
 };
 
-static const VkPrimitiveTopology primToVulkan[8] = {
+static constexpr VkPrimitiveTopology primToVulkan[8] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert points to triangles.
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert lines to triangles.
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert line strips to triangles.
@@ -96,7 +96,7 @@ static const VkPrimitiveTopology primToVulkan[8] = {
 };
 
 // These are actually the same exact values/order/etc. as the GE ones, but for clarity...
-static const VkLogicOp logicOps[] = {
+static constexpr VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_CLEAR,
 	VK_LOGIC_OP_AND,
 	VK_LOGIC_OP_AND_REVERSE,

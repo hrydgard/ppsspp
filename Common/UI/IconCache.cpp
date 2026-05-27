@@ -14,7 +14,7 @@
 #define MAX_RUNTIME_CACHE_SIZE (1024 * 1024 * 4)
 #define MAX_SAVED_CACHE_SIZE (1024 * 1024 * 1)
 
-const uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
+constexpr uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
 
 IconCache g_iconCache;
 

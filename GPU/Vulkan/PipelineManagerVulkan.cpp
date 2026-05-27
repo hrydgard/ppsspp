@@ -422,7 +422,7 @@ std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderTyp
 	return ids;
 }
 
-static const char *const topologies[8] = {
+static constexpr const char * topologies[8] = {
 	"POINTS",
 	"LINES",
 	"LINESTRIP",
@@ -431,7 +431,7 @@ static const char *const topologies[8] = {
 	"TRIFAN",
 };
 
-static const char *const blendOps[8] = {
+static constexpr const char * blendOps[8] = {
 	"ADD",
 	"SUB",
 	"RSUB",
@@ -439,7 +439,7 @@ static const char *const blendOps[8] = {
 	"MAX",
 };
 
-static const char *const compareOps[8] = {
+static constexpr const char * compareOps[8] = {
 	"NEVER",
 	"<",
 	"==",
@@ -450,7 +450,7 @@ static const char *const compareOps[8] = {
 	"ALWAYS",
 };
 
-static const char *const logicOps[] = {
+static constexpr const char * logicOps[] = {
 	"CLEAR",
 	"AND",
 	"AND_REV",
@@ -469,7 +469,7 @@ static const char *const logicOps[] = {
 	"SET",
 };
 
-static const char *const stencilOps[8] = {
+static constexpr const char * stencilOps[8] = {
 	"KEEP",
 	"ZERO",
 	"REPL",
@@ -480,7 +480,7 @@ static const char *const stencilOps[8] = {
 	"DEC_WRAP",
 };
 
-static const char *const blendFactors[19] = {
+static constexpr const char * blendFactors[19] = {
 	"ZERO",
 	"ONE",
 	"SRC_COL",

@@ -77,7 +77,7 @@ static Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	return Draw::DataFormat::UNDEFINED;
 }
 
-static const GLuint MinFiltGL[8] = {
+static constexpr GLuint MinFiltGL[8] = {
 	GL_NEAREST,
 	GL_LINEAR,
 	GL_NEAREST,
@@ -88,7 +88,7 @@ static const GLuint MinFiltGL[8] = {
 	GL_LINEAR_MIPMAP_LINEAR,
 };
 
-static const GLuint MagFiltGL[2] = {
+static constexpr GLuint MagFiltGL[2] = {
 	GL_NEAREST,
 	GL_LINEAR
 };

@@ -24,7 +24,7 @@
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "Common/GPU/ShaderWriter.h"
 
-static const InputDef vs_inputs[] = {
+static constexpr InputDef vs_inputs[] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION },
 };
 
@@ -34,7 +34,7 @@ struct DepthUB {
 	float u_depthTo8[4];
 };
 
-const UniformDef depthUniforms[] = {
+constexpr UniformDef depthUniforms[] = {
 	{ "vec4", "u_depthFactor", 0 },
 	{ "vec4", "u_depthShift", 1},
 	{ "vec4", "u_depthTo8", 2},
@@ -46,15 +46,15 @@ const UniformBufferDesc depthUBDesc{ sizeof(DepthUB), {
 	{ "u_depthTo8", -1, -1, UniformType::FLOAT4, 32 },
 } };
 
-static const SamplerDef samplers[] = {
+static constexpr SamplerDef samplers[] = {
 	{ 0, "tex" },
 };
 
-static const VaryingDef varyings[] = {
+static constexpr VaryingDef varyings[] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
-static const char * const stencil_dl_fs = R"(
+static constexpr const char * stencil_dl_fs = R"(
 #ifdef GL_ES
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -77,7 +77,7 @@ void main() {
 }
 )";
 
-static const char * const stencil_vs = R"(
+static constexpr const char * stencil_vs = R"(
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -141,7 +141,7 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	draw_->BindPipeline(stencilReadbackPipeline_);
 
 	// Fullscreen triangle coordinates.
-	static const float positions[6] = {
+	static constexpr float positions[6] = {
 		0.0, 0.0,
 		1.0, 0.0,
 		0.0, 1.0,

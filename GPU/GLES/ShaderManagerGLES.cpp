@@ -137,7 +137,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
 #else
-	static const char * const boneNames[8] = { "u_bone0", "u_bone1", "u_bone2", "u_bone3", "u_bone4", "u_bone5", "u_bone6", "u_bone7", };
+	static constexpr const char * boneNames[8] = { "u_bone0", "u_bone1", "u_bone2", "u_bone3", "u_bone4", "u_bone5", "u_bone6", "u_bone7", };
 	for (int i = 0; i < 8; i++) {
 		queries.push_back({ &u_bone[i], boneNames[i] });
 	}
@@ -156,20 +156,20 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_lightControl, "u_lightControl" });
 
 	for (int i = 0; i < 4; i++) {
-		static const char * const lightPosNames[4] = { "u_lightpos0", "u_lightpos1", "u_lightpos2", "u_lightpos3", };
+		static constexpr const char * lightPosNames[4] = { "u_lightpos0", "u_lightpos1", "u_lightpos2", "u_lightpos3", };
 		queries.push_back({ &u_lightpos[i], lightPosNames[i] });
-		static const char * const lightdir_names[4] = { "u_lightdir0", "u_lightdir1", "u_lightdir2", "u_lightdir3", };
+		static constexpr const char * lightdir_names[4] = { "u_lightdir0", "u_lightdir1", "u_lightdir2", "u_lightdir3", };
 		queries.push_back({ &u_lightdir[i], lightdir_names[i] });
-		static const char * const lightatt_names[4] = { "u_lightatt0", "u_lightatt1", "u_lightatt2", "u_lightatt3", };
+		static constexpr const char * lightatt_names[4] = { "u_lightatt0", "u_lightatt1", "u_lightatt2", "u_lightatt3", };
 		queries.push_back({ &u_lightatt[i], lightatt_names[i] });
-		static const char * const lightangle_spotCoef_names[4] = { "u_lightangle_spotCoef0", "u_lightangle_spotCoef1", "u_lightangle_spotCoef2", "u_lightangle_spotCoef3", };
+		static constexpr const char * lightangle_spotCoef_names[4] = { "u_lightangle_spotCoef0", "u_lightangle_spotCoef1", "u_lightangle_spotCoef2", "u_lightangle_spotCoef3", };
 		queries.push_back({ &u_lightangle_spotCoef[i], lightangle_spotCoef_names[i] });
 
-		static const char * const lightambient_names[4] = { "u_lightambient0", "u_lightambient1", "u_lightambient2", "u_lightambient3", };
+		static constexpr const char * lightambient_names[4] = { "u_lightambient0", "u_lightambient1", "u_lightambient2", "u_lightambient3", };
 		queries.push_back({ &u_lightambient[i], lightambient_names[i] });
-		static const char * const lightdiffuse_names[4] = { "u_lightdiffuse0", "u_lightdiffuse1", "u_lightdiffuse2", "u_lightdiffuse3", };
+		static constexpr const char * lightdiffuse_names[4] = { "u_lightdiffuse0", "u_lightdiffuse1", "u_lightdiffuse2", "u_lightdiffuse3", };
 		queries.push_back({ &u_lightdiffuse[i], lightdiffuse_names[i] });
-		static const char * const lightspecular_names[4] = { "u_lightspecular0", "u_lightspecular1", "u_lightspecular2", "u_lightspecular3", };
+		static constexpr const char * lightspecular_names[4] = { "u_lightspecular0", "u_lightspecular1", "u_lightspecular2", "u_lightspecular3", };
 		queries.push_back({ &u_lightspecular[i], lightspecular_names[i] });
 	}
 

@@ -231,11 +231,11 @@ void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, Cm
 
 	case CMD_FMT_STENCILOP:
 	{
-		static const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT" };
+		static constexpr const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT" };
 		const u8 sfail = (value >> 0) & 0xFF;
 		const u8 zfail = (value >> 8) & 0xFF;
 		const u8 pass = (value >> 16) & 0xFF;
-		const u8 totalValid = (u8)ARRAY_SIZE(stencilOps);
+		constexpr u8 totalValid = (u8)ARRAY_SIZE(stencilOps);
 		if (sfail < totalValid && zfail < totalValid && pass < totalValid) {
 			snprintf(dest, destSize, "fail=%s, pass/depthfail=%s, pass=%s", stencilOps[sfail], stencilOps[zfail], stencilOps[pass]);
 		} else {
@@ -431,13 +431,13 @@ void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, Cm
 
 	case CMD_FMT_TEXMAPMODE:
 	{
-		static const char *const uvGenModes[] = {
+		static constexpr const char * uvGenModes[] = {
 			"tex coords",
 			"tex matrix",
 			"tex env map",
 			"unknown (tex coords?)",
 		};
-		static const char *const uvProjModes[] = {
+		static constexpr const char * uvProjModes[] = {
 			"pos",
 			"uv",
 			"normalized normal",
@@ -475,13 +475,13 @@ void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, Cm
 
 	case CMD_FMT_LIGHTTYPE:
 	{
-		static const char * const lightComputations[] = {
+		static constexpr const char * lightComputations[] = {
 			"diffuse",
 			"diffuse + spec",
 			"pow(diffuse)",
 			"unknown (diffuse?)",
 		};
-		static const char * const lightTypes[] = {
+		static constexpr const char * lightTypes[] = {
 			"directional",
 			"point",
 			"spot",
@@ -509,7 +509,7 @@ void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, Cm
 
 	case CMD_FMT_PATCHPRIMITIVE:
 	{
-		static const char * const patchPrims[] = {
+		static constexpr const char * patchPrims[] = {
 			"triangles",
 			"lines",
 			"points",
@@ -844,7 +844,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		prim_type = (op >> 16) & 0x7;
 		count = op & 0xFFFF;
 	} else {
-		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
+		constexpr GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 		prim_type = primLookup[gstate.getPatchPrimitiveType()];
 		count_u = (op & 0x00FF) >> 0;
 		count_v = (op & 0xFF00) >> 8;

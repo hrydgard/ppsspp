@@ -157,7 +157,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 
 	// Account for rounding for X and Y.
 	// TODO: Validate actual rounding range.
-	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
+	constexpr float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
 
 	// This matches hardware tests - depth is clamped when this flag is on.
 	if constexpr (depthClamp) {

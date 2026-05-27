@@ -22,8 +22,8 @@
 #include "GPU/Common/GPUStateUtils.h"
 
 // These are small, let's give them plenty of frames.
-static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
-static const int FRAGTEST_DECIMATION_INTERVAL = 113;
+static constexpr int FRAGTEST_TEXTURE_OLD_AGE = 307;
+static constexpr int FRAGTEST_DECIMATION_INTERVAL = 113;
 
 FragmentTestCacheGLES::FragmentTestCacheGLES(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

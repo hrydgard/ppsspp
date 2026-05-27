@@ -27,9 +27,9 @@
 // Disable this on x64 android, causes problems.
 
 #if defined(_DEBUG) && !(PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(AMD64))
-static const bool g_Validate = true;
+static constexpr bool g_Validate = true;
 #else
-static const bool g_Validate = false;
+static constexpr bool g_Validate = false;
 #endif
 
 using namespace PPSSPP_VK;
@@ -39,7 +39,7 @@ const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMP
 const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY };
 const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 
-static const BindingType g_bindingTypes[] = {
+static constexpr BindingType g_bindingTypes[] = {
 	BindingType::STORAGE_IMAGE_COMPUTE,
 	BindingType::STORAGE_BUFFER_COMPUTE,
 	BindingType::STORAGE_BUFFER_COMPUTE,
