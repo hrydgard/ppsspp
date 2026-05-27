@@ -240,7 +240,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;
 	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
-	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough;
+	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough && rangeCulling;  // Range culling is gated on draw type, we don't want to do this culling for splines apparently.
 
 	const char *zClipPlaneSuffix = "[0]";
 	const char *minZClipPlaneSuffix = "[1]";
@@ -835,6 +835,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (depthCullEnable) {
 			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
+			// NOTE: This volume is very slightly too small. It's unclear to me how to allow hex 0x3F8000XX (1.0000.. + epsilon) where XX are arbitrary.
 			WRITE(p, "  %sgl_CullDistance[0] = outPos.z + outPos.w;\n", compat.vsOutPrefix);
 			WRITE(p, "  %sgl_CullDistance[1] = outPos.w - outPos.z;\n", compat.vsOutPrefix);
 		}

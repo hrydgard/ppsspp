@@ -1009,7 +1009,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-#define MAX_CULL_CHECK_COUNT 64
+#define MAX_CULL_CHECK_COUNT 512
 
 // For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)

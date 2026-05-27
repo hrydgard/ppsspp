@@ -743,17 +743,18 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 			// minZ and maxZ will cut things off.
 
 			// If gstate_c.Use(GPU_USE_DEPTH_CLAMP), we can theoretically skip this. However, to keep behavior the same regardless of the flag, we won't.
-			if (gstate.isDepthClipEnabled() && (maxZInt == 0 || maxZInt == 65535)) {
+			if (gstate.isDepthClipEnabled() && (minZInt == 0 || maxZInt == 65535)) {
 				for (int i = 0; i < numTrans - 2; i += 3) {
-					TransformedVertex &v0 = transformed[indsIn[i]];
-					TransformedVertex &v1 = transformed[indsIn[i + 1]];
-					TransformedVertex &v2 = transformed[indsIn[i + 2]];
+					TransformedVertex &v0 = transformed[newInds[i]];
+					TransformedVertex &v1 = transformed[newInds[i + 1]];
+					TransformedVertex &v2 = transformed[newInds[i + 2]];
 					if (v0.x < 0.0f || v0.x > 4096.0f ||
 						v1.x < 0.0f || v1.y > 4096.0f ||
 						v2.x < 0.0f || v2.y > 4096.0f) {
 						// If it's outside the viewport, we might as well skip the clamping, as it won't be visible anyway.
 						// continue;
 					}
+
 					if (minZInt == 0) {
 						bool v0InFront = v0.z < 0.0f;
 						bool v1InFront = v1.z < 0.0f;

@@ -222,14 +222,15 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 		keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
 
+		// In D3D11, depth clamping is on by default, we have to enable clipping. This is the opposite from the
+		// other APIs.
 		if (gstate.isModeClear() || gstate.isModeThrough()) {
 			// TODO: Might happen in clear mode if not through...
 			keys_.raster.depthClipEnable = 1;
 		} else {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
-				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
-				// But the alternate is not clamping in either direction...
-				keys_.raster.depthClipEnable = !gstate.isDepthClipEnabled() || !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+				// We get some extra clamping behavior if clipping is enabled.
+				keys_.raster.depthClipEnable = !(gstate.isDepthClipEnabled() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP));
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				keys_.raster.depthClipEnable = 1;
