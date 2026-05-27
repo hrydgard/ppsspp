@@ -327,6 +327,8 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 						frameData.AcquireNextImage(vulkan_);
 						if (frameData.hasAcquired && frameData.curSwapchainImage != (uint32_t)-1) {
 							SetBackbuffer(framebuffers_[frameData.curSwapchainImage], frameDataShared.swapchainImages_[frameData.curSwapchainImage].image);
+						} else {
+							perform = false;
 						}
 					}
 
