@@ -45,7 +45,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 ViewLayoutMode UITwoPaneBaseDialogScreen::LayoutMode() const {
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 	if (portrait) {
-		if ((flags_ & TwoPaneFlags::SettingsCanScroll) || (flags_ & TwoPaneFlags::ContentsCanScroll)) {
+		if (((flags_ & TwoPaneFlags::SettingsCanScroll) && !(flags_ & TwoPaneFlags::SettingsToTheRight)) || (flags_ & TwoPaneFlags::ContentsCanScroll)) {
 			return ViewLayoutMode::IgnoreBottomInset;
 		} else {
 			return ViewLayoutMode::ApplyInsets;
