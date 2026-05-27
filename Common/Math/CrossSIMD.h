@@ -189,6 +189,10 @@ inline bool AllCompareBitsSet(Vec4S32 value) {
 	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) == 0xF;
 }
 
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) != 0;
+}
+
 struct Vec4F32 {
 	__m128 v;
 
@@ -239,6 +243,12 @@ struct Vec4F32 {
 
 		__m128 value = _mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8));
 		return Vec4F32{ _mm_or_ps(_mm_and_ps(value, _mm_load_ps((const float *)mask)), _mm_load_ps(onelane3)) };
+	}
+
+	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+		alignas(16) static const uint32_t mask[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+
+		return Vec4F32{_mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8))};
 	}
 
 	void Store(float *dst) { _mm_storeu_ps(dst, v); }
@@ -299,6 +309,12 @@ struct Vec4F32 {
 		return Vec4F32{ _mm_or_ps(_mm_and_ps(v, _mm_load_ps((const float *)mask)), _mm_load_ps((const float *)onelane3)) };
 	}
 
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		alignas(16) static const uint32_t mask[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+		__m128 maskVec = _mm_load_ps((const float *)mask);
+		return Vec4F32{_mm_or_ps(_mm_and_ps(maskVec, v), _mm_andnot_ps(maskVec, other.v))};
+	}
+
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 		return Vec4F32{ _mm_add_ps(
 			_mm_add_ps(
@@ -352,6 +368,9 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 }
 inline bool AllCompareBitsSet(Vec4F32 value) {
 	return _mm_movemask_ps(value.v) == 0xF;
+}
+inline bool AnyCompareBitsSet(Vec4F32 value) {
+	return _mm_movemask_ps(value.v) != 0;
 }
 
 // Make sure the W component of scale is 1.0f.
@@ -600,6 +619,9 @@ struct Vec4F32 {
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
 		return Vec4F32{ vsetq_lane_f32(1.0f, vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8)), 3) };
 	}
+	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+		return Vec4F32{vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8))};
+	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) {
 		return Vec4F32{ vcvtq_f32_s32(other.v) };
@@ -681,6 +703,10 @@ struct Vec4F32 {
 
 	Vec4F32 WithLane3One() const {
 		return Vec4F32{ vsetq_lane_f32(1.0f, v, 3) };
+	}
+
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		return Vec4F32{vsetq_lane_f32(vgetq_lane_f32(other.v, 3), v, 3)};
 	}
 
 	Vec4F32 ShuffleXXYY() const {
@@ -793,6 +819,17 @@ inline bool AllCompareBitsSet(Vec4S32 value) {
 	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return mask == 0xFFFFFFFF;
+#endif
+}
+
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return vmaxvq_u32(vreinterpretq_u32_s32(value.v)) != 0;
+#else
+	// Very suboptimal, let's optimize later.
+	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return mask != 0;
 #endif
 }
 
@@ -1045,6 +1082,9 @@ struct Vec4F32 {
 		value = __lsx_vinsgr2vr_w(value, kOneF32Bits, 3);
 		return Vec4F32{ (__m128)value };
 	}
+	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+		return Vec4F32{(__m128)__lsx_vslli_w(__lsx_vld(src, 0), 8)};
+	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) {
 		return Vec4F32{ (__m128)__lsx_vffint_s_w(other.v) };
@@ -1113,6 +1153,13 @@ struct Vec4F32 {
 	Vec4F32 WithLane3One() const {
 		constexpr int kOneF32Bits = 0x3F800000;
 		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, kOneF32Bits, 3) };
+	}
+
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		// Use vinsgr2vr_w to insert just the lane 3
+		// Extract lane 3 from other as an integer, then insert it into v
+		int lane3 = __lsx_vpickve2gr_w((__m128i)other.v, 3);
+		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, lane3, 3) };
 	}
 
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_ceq_s(v, other.v) }; }
@@ -1221,6 +1268,11 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 inline bool AllCompareBitsSet(Vec4S32 value) {
 	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
 	return mask == 0xF;
+}
+
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
+	return mask != 0;
 }
 
 struct Vec4U16 {
@@ -1476,6 +1528,10 @@ struct Vec4F32 {
 		Vec4F32 temp;
 		memcpy(temp.v, shifted, sizeof(temp.v));
 		return temp;
+	}
+
+	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+		return LoadR24x3_One(src);
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 src) {
