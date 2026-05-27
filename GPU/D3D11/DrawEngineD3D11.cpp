@@ -422,8 +422,7 @@ void DrawEngineD3D11::Flush() {
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 
-		SoftwareTransform swTransform(params);
-		const SoftwareTransformAction action = swTransform.Transform(gstate.projMatrix, gstate.getViewportScale(), gstate.getViewportOffset(), prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
+		const SoftwareTransformAction action = SoftwareTransform::Transform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);

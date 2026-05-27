@@ -111,9 +111,9 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 }
 
 // At the end, this calls ProjectClipAndExpand which will expand rectangles as necessary, or apply culling.
-SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
-	u8 *decoded = params_.decoded;
-	TransformedVertex *transformed = params_.transformed;
+SoftwareTransformAction SoftwareTransform::Transform(SoftwareTransformParams &params, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
+	u8 *decoded = params.decoded;
+	TransformedVertex *transformed = params.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -196,11 +196,11 @@ SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Li
 				result->safeHeight = scissorY2;
 			}
 		}
-		if (params_.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
+		if (params.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
 			// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
 			bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
 			bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
-			bool matchingComponents = params_.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
+			bool matchingComponents = params.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
 			bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
 			if (matchingComponents && stencilNotMasked) {
 				DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
@@ -208,7 +208,7 @@ SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Li
 				float depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
 				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
-				if (!(params_.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
+				if (!(params.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
 					result->color = transformed[1].color0_32;
 					result->depth = depth;
 					gpuStats.perFrame.numClears++;
@@ -364,7 +364,7 @@ SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Li
 			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// Then transform by the projection.
-			Vec3ByMatrix44(transformed[index].pos, v, projMtx);
+			Vec3ByMatrix44(transformed[index].pos, v, gstate.projMatrix);
 
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
@@ -394,7 +394,7 @@ SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Li
 		}
 	}
 
-	return ProjectClipAndExpand(prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
+	return ProjectClipAndExpand(params, prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
 }
 
 // Modifies the vertices in-place. Applies viewport and projection.
@@ -428,16 +428,16 @@ void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vert
 #endif
 }
 
-SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
-	TransformedVertex *transformed = params_.transformed;
-	TransformedVertex *transformedExpanded = params_.transformedExpanded;
+SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
+	TransformedVertex *transformed = params.transformed;
+	TransformedVertex *transformedExpanded = params.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// Step 2: expand and process primitives.
 	result->drawBuffer = transformed;
 	int numTrans = 0;
 
-	FramebufferManagerCommon *fbman = params_.fbman;
+	FramebufferManagerCommon *fbman = params.fbman;
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
@@ -649,7 +649,7 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int ve
 	return SW_DRAW_INDEXED;
 }
 
-bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const {
+bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
 	// Before we start, do a sanity check - does the output fit?
 	if ((vertexCount / 2) * 6 > indsSize) {
 		// Won't fit, kill the draw.
@@ -661,6 +661,7 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 	}
 
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
+
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];

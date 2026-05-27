@@ -67,21 +67,17 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 
 class SoftwareTransform {
 public:
-	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
-
 	// indsSize is in indices, not bytes.
-	SoftwareTransformAction Transform(const float projMtx[16], Lin::Vec3 vpScale, Lin::Vec3 vpOffset, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
+	static SoftwareTransformAction Transform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 protected:
 	// NOTE: The viewport must be up to date!
-	SoftwareTransformAction ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
+	static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
 	static void ProjectVertices(TransformedVertex *transformed, int vertexCount);
-	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
+	static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly);
 	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
-
-	const SoftwareTransformParams &params_;
 };
 
 class DrawEngineCommon;
