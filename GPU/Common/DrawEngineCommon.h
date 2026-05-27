@@ -73,15 +73,17 @@ struct alignas(16) Plane8 {
 };
 
 struct BoundingDepths {
-	float minZ = INFINITY;
-	float maxZ = -INFINITY;
-	float minW = INFINITY;
-	float maxW = -INFINITY;
+	bool hitClipSpaceZW = false;
+	float minProjZ = FLT_MAX;
+	float maxProjZ = -FLT_MAX;
 	void Merge(const BoundingDepths &other) {
-		minZ = std::min(minZ, other.minZ);
-		maxZ = std::max(maxZ, other.maxZ);
-		minW = std::min(minW, other.minW);
-		maxW = std::max(maxW, other.maxW);
+		hitClipSpaceZW |= other.hitClipSpaceZW;
+		if (other.minProjZ < minProjZ) {
+			minProjZ = other.minProjZ;
+		}
+		if (other.maxProjZ > maxProjZ) {
+			maxProjZ = other.maxProjZ;
+		}
 	}
 };
 
@@ -237,7 +239,7 @@ protected:
 		seenPrims_ = 0;
 		anyCCWOrIndexed_ = false;
 		gstate_c.vertexFullAlpha = true;
-		depths_ = BoundingDepths();
+		boundingDepths_ = BoundingDepths();
 
 		// Now seems as good a time as any to reset the min/max coords, which we may examine later.
 		gstate_c.vertBounds.minU = 512;
@@ -370,7 +372,7 @@ protected:
 	uint16_t *depthIndices_ = nullptr;
 
 	// Depth tracking
-	BoundingDepths depths_;
+	BoundingDepths boundingDepths_;
 
 	// Queue
 	int depthVertexCount_ = 0;

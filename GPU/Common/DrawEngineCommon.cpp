@@ -329,15 +329,18 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // The result of that can be used to determine if we need to drop down to software transform+clip or we can hand
 // off to hardware, with whatever capabilities are available.
 //
-// NOTE: This doesn't handle through-mode or indexing (morph or skinning are handled if they're implemented in software during decode).
+// NOTE: This doesn't handle through-mode or indexing (morph or skinning can be handled if they're implemented in software during decode).
 template<u32 posFmt, bool cull>
 static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded, BoundingDepths *depths) {
 	Mat4F32 worldViewProjMat(worldViewProj);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
-	Vec4F32 minClipPos = Vec4F32::Splat(INFINITY);
-	Vec4F32 maxClipPos = Vec4F32::Splat(-INFINITY);
-	Vec4S32 insideMask = Vec4S32::Zero();
+	Vec4S32 insideMaskXY = Vec4S32::Zero();
+	Vec4S32 insideMaskZ = Vec4S32::Zero();  // Note: This does some duplicate computation. We could avoid it on ARM32 using Vec2S32 but not really worth it.
+	Vec4S32 anyOutsideMaskZ = Vec4S32::Zero();
+	float minProjZ = FLT_MAX;
+	float maxProjZ = -FLT_MAX;
+
 	// Used to reduce the Z precision. This effectively implements the small offsets where Z can be very slightly outside -1..1.
 	// In reality we should probably affect X and Y too, but meh.
 	alignas(16) static const u32 vertexMaskData[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFF00, 0xFFFFFFFF};
@@ -345,6 +348,10 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	const int stride = dec->VertexSize();
 	const int offset = dec->posoff;
 	const s8 *data = (const s8 *)vdata + offset;
+
+	float vpZOffset = gstate.getViewportZCenter();
+	float vpZScale = gstate.getViewportZScale();
+
 	for (int i = 0; i < vertexCount; i++, data += stride) {
 		Vec4F32 objPos;
 		switch (posFmt) {
@@ -359,35 +366,34 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 			break;
 		}
 		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;
-		minClipPos = minClipPos.Min(clipPos);
-		maxClipPos = maxClipPos.Max(clipPos);
+		const float projZ = vpZScale * clipPos[2] / clipPos[3];
+		if (projZ < minProjZ) {
+			minProjZ = projZ;
+		}
+		if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
+			maxProjZ = projZ;
+		}
+
+		Vec4F32 posW = clipPos.ShuffleWWWW();
 		if (cull) {
 			Vec4F32 posXY = clipPos.ShuffleXXYY();
-			Vec4F32 posW = clipPos.ShuffleWWWW();
-			Vec4F32 planeDist = posXY * planesXY + posW;
-			insideMask |= planeDist.CompareGe(Vec4F32::Zero());
+			Vec4F32 planeDistXY = posXY * planesXY + posW;
+			insideMaskXY |= planeDistXY.CompareGe(Vec4F32::Zero());
+		}
+		Vec4F32 posZ = clipPos.ShuffleZZZZ();
+		Vec4F32 planeDistZ = posZ * planesXY + posW;
+		anyOutsideMaskZ |= planeDistZ.CompareLt(Vec4F32::Zero());
+		if (cull) {
+			insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
 		}
 	}
 
-	if (!cull || AllCompareBitsSet(insideMask)) {
-		const float maxZ = maxClipPos[2];
-		const float maxW = maxClipPos[3];
-		const float minZ = minClipPos[2];
-		const float minW = minClipPos[3];
-		// At least one vertex is inside each one of the planes.
-		// Process min/max. Z is in minProj[2]/maxProj[2], W is in minProj[3]/maxProj[3].
-		// Here we can perform the culling that happens if all vertices are closer than the near plane, or farther than the far plane.
-		// Technically this should happen per-primitive, which we try to do with cull planes or software vertex processing if available, but this is still valid
-		// for groups of primitives, avoiding detailed checking, and is a good fallback for games that rely on the min/max culling
-		// behavior (like LocoRoco2's Tropuca level). The question is, do the inequalities really work like that properly? It seem
-		// s like they should.
-		if (maxZ < -maxW || minZ > maxW) {
-			return false;
-		}
-		depths->minZ = minZ;
-		depths->maxZ = maxZ;
-		depths->minW = minW;
-		depths->maxW = maxW;
+	if (!cull || (AllCompareBitsSet(insideMaskXY) && AllCompareBitsSet(insideMaskZ))) {
+		depths->hitClipSpaceZW = AnyCompareBitsSet(anyOutsideMaskZ);
+		// Before checking later, we apply a viewport to the projZ, so we can later compare against minZ/maxZ or the outer bounds.
+		// But to save operations we don't do it here.
+		depths->minProjZ = minProjZ + vpZOffset;
+		depths->maxProjZ = maxProjZ + vpZOffset;
 		return true;
 	} else {
 		return false;
@@ -621,7 +627,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization.
 int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, const BoundingDepths &depths) {
-	depths_.Merge(depths);
+	boundingDepths_.Merge(depths);
 
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
@@ -695,7 +701,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		Flush();
 	}
 
-	depths_.Merge(depths);
+	boundingDepths_.Merge(depths);
 
 	_dbg_assert_(numDrawVerts_ < MAX_DEFERRED_DRAW_VERTS);
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
