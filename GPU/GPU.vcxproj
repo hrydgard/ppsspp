@@ -333,6 +333,7 @@
     <ClInclude Include="GPUCommonHW.h" />
     <ClInclude Include="GPUDefinitions.h" />
     <ClInclude Include="GPUState.h" />
+    <ClInclude Include="GPUStateSIMDUtil.h" />
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Software\BinManager.h" />
     <ClInclude Include="Software\Clipper.h" />

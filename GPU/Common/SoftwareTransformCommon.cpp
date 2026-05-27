@@ -21,10 +21,12 @@
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
+#include "GPU/GPUStateSIMDUtil.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
@@ -398,6 +400,7 @@ SoftwareTransformAction SoftwareTransform::Transform(const float projMtx[16], Li
 // Modifies the vertices in-place. Applies viewport and projection.
 // TODO: SIMD.
 void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vertexCount) {
+#if 0
 	Lin::Vec3 vpOffset(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	Lin::Vec3 vpScale(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
 
@@ -411,6 +414,18 @@ void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vert
 		transformed[i].y = xyz.y;
 		transformed[i].z = xyz.z;
 	}
+#else
+	const Vec4F32 vpOffset = GetViewportOffsetVec(gstate);
+	const Vec4F32 vpScale = GetViewportScaleVec(gstate);
+	// CrossSIMD implementation.
+	for (int i = 0; i < vertexCount; i++) {
+		Vec4F32 xyzw = Vec4F32::Load(&transformed[i].x);
+		Vec4F32 wRecip = Vec4F32::Splat(1.0f / transformed[i].pos_w);
+		Vec4F32 projected = xyzw * wRecip * vpScale + vpOffset;
+		// Now, we need to restore the W value as we'll still need it later.
+		projected.WithLane3From(xyzw).Store(&transformed[i].x);
+	}
+#endif
 }
 
 SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
@@ -1065,7 +1080,7 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 }
 
 // clip space to screen space
-Vec3f ClipToScreen(const Vec4f& coords) {
+static Vec3f ClipToScreen(const Vec4f& coords) {
 	float xScale = gstate.getViewportXScale();
 	float xCenter = gstate.getViewportXCenter();
 	float yScale = gstate.getViewportYScale();

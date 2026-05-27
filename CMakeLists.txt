@@ -2087,6 +2087,7 @@ set(GPU_SOURCES
 	GPU/GPUCommonHW.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
+	GPU/GPUStateSIMDUtil.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
 	GPU/Software/BinManager.cpp
