@@ -76,7 +76,6 @@ struct ViewportAndScissor {
 	float viewportY;
 	float viewportW;
 	float viewportH;
-	bool throughMode;
 };
 
 // config is only used for non-buffered rendering.

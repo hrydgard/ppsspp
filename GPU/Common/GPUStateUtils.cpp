@@ -559,8 +559,6 @@ DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
 }
 
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
-	out.throughMode = gstate.isModeThrough();
-
 	float renderWidthFactor, renderHeightFactor;
 	float renderX = 0.0f, renderY = 0.0f;
 	float displayOffsetX, displayOffsetY;

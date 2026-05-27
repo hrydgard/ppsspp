@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <cfloat>
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
