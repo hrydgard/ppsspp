@@ -136,7 +136,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;  // this is the PSP clip flag, which has some various consequences.
 	const bool clipNearPlane = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && useHWTransform;
-	const bool clipMinMax = gstate_c.Use(GPU_USE_CLIP_DISTANCE);  // If clip planes are available, we want to use them for min/max. We skip the min/max culling in software transform (not yet implemented).
+	const bool clipMinMax = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && !isModeThrough;  // If clip planes are available, we want to use them for min/max. We skip the min/max culling in software transform (not yet implemented).
 
 	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
 	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough && rangeCulling && useHWTransform;  // Range culling is gated on draw type, we don't want to do this culling for splines apparently.
