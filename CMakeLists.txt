@@ -1277,6 +1277,7 @@ add_library(7zip STATIC
 	ext/lzma-sdk/Bcj2.c
 	ext/lzma-sdk/Bra.c
 	ext/lzma-sdk/Bra86.c
+	ext/lzma-sdk/CpuArch.c
 	ext/lzma-sdk/Delta.c
 	ext/lzma-sdk/Lzma2Dec.c
 	ext/lzma-sdk/LzmaDec.c
