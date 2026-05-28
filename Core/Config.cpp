@@ -767,6 +767,8 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TexScalingLevel", SETTING(g_Config, iTexScalingLevel), 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexScalingType", SETTING(g_Config, iTexScalingType), 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexDeposterize", SETTING(g_Config, bTexDeposterize), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("UIButtonSharpen", SETTING(g_Config, bUIButtonSharpen), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("UIButtonDownscaleFilter", SETTING(g_Config, iUIButtonDownscaleFilter), 2, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexHardwareScaling", SETTING(g_Config, bTexHardwareScaling), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VerticalSync", SETTING(g_Config, bVSync), true, CfgFlag::PER_GAME),
 	ConfigSetting("LowLatencyPresent", SETTING(g_Config, bLowLatencyPresent), true, CfgFlag::PER_GAME),

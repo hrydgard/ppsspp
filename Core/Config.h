@@ -337,6 +337,10 @@ public:
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
+	// Sharpen downscaled UI button PNG overrides when packing into atlas.
+	bool bUIButtonSharpen = true;
+	// 0 = Linear, 1 = Bicubic, 2 = Hybrid (area sampling + optional sharpen)
+	int iUIButtonDownscaleFilter = 2;
 	bool bTexHardwareScaling;
 	int iFpsLimit1;
 	int iFpsLimit2;

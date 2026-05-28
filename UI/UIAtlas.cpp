@@ -511,6 +511,103 @@ static int LoadButtonsPNGOverrides(const Path &textureDir, const std::unordered_
 		return r | (g << 8) | (b << 16) | (a << 24);
 	};
 
+	// Bicubic sample at fractional coordinates (Catmull-Rom style)
+	auto bicubicSample = [&](const Image &img, float x, float y) {
+		auto cubic = [](float v0, float v1, float v2, float v3, float t) {
+			float a0 = -0.5f*v0 + 1.5f*v1 - 1.5f*v2 + 0.5f*v3;
+			float a1 = v0 - 2.5f*v1 + 2.0f*v2 - 0.5f*v3;
+			float a2 = -0.5f*v0 + 0.5f*v2;
+			float a3 = v1;
+			return ((a0 * t + a1) * t + a2) * t + a3;
+		};
+		const int w = img.width();
+		const int h = img.height();
+		float fx = std::clamp(x, 0.0f, (float)(w - 1));
+		float fy = std::clamp(y, 0.0f, (float)(h - 1));
+		int ix = (int)std::floor(fx);
+		int iy = (int)std::floor(fy);
+		float tx = fx - ix;
+		float ty = fy - iy;
+		int vals[4];
+		int chvals[4];
+		int outc[4] = {0,0,0,0};
+		for (int c = 0; c < 4; c++) {
+			float col_y[4];
+			for (int m = -1; m <= 2; m++) {
+				for (int n = -1; n <= 2; n++) {
+					int sx = std::clamp(ix + n, 0, w - 1);
+					int sy = std::clamp(iy + m, 0, h - 1);
+					u32 cc = img.get1(sx, sy);
+					chvals[n + 1] = (cc >> (c * 8)) & 0xFF;
+				}
+				col_y[m + 1] = cubic(chvals[0], chvals[1], chvals[2], chvals[3], tx);
+			}
+			float finalc = cubic(col_y[0], col_y[1], col_y[2], col_y[3], ty);
+			int ic = (int)std::lround(finalc);
+			outc[c] = std::clamp(ic, 0, 255);
+		}
+		return (u32)outc[0] | ((u32)outc[1] << 8) | ((u32)outc[2] << 16) | ((u32)outc[3] << 24);
+	};
+
+	// Simple unsharp mask to restore apparent sharpness after downsampling.
+	// amount: 0..1 roughly how strong the effect is. radius currently fixed to 1 (3x3 gaussian).
+	auto unsharpMask = [&](Image &img, float amount) {
+		if (amount <= 0.0f) return;
+		const int w = img.width();
+		const int h = img.height();
+		if (w <= 1 || h <= 1) return;
+		std::vector<u32> blurred((size_t)w * h);
+		// 3x3 gaussian kernel: 1 2 1 / 2 4 2 / 1 2 1 -> sum = 16
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int sum[4] = {0,0,0,0};
+				int ksum = 0;
+				for (int oy = -1; oy <= 1; oy++) {
+					int yy = std::clamp(y + oy, 0, h - 1);
+					for (int ox = -1; ox <= 1; ox++) {
+						int xx = std::clamp(x + ox, 0, w - 1);
+						int weight = 1;
+						if (oy == 0 && ox == 0) weight = 4; else if (oy == 0 || ox == 0) weight = 2;
+						const u32 c = img.get1(xx, yy);
+						sum[0] += (c & 0xFF) * weight;
+						sum[1] += ((c >> 8) & 0xFF) * weight;
+						sum[2] += ((c >> 16) & 0xFF) * weight;
+						sum[3] += ((c >> 24) & 0xFF) * weight;
+						ksum += weight;
+					}
+				}
+				const u32 r = (u32)((sum[0] + ksum/2) / ksum);
+				const u32 g = (u32)((sum[1] + ksum/2) / ksum);
+				const u32 b = (u32)((sum[2] + ksum/2) / ksum);
+				const u32 a = (u32)((sum[3] + ksum/2) / ksum);
+				blurred[y * w + x] = r | (g << 8) | (b << 16) | (a << 24);
+			}
+		}
+		// Apply unsharp: out = orig + amount*(orig - blurred)
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				const u32 orig = img.get1(x, y);
+				const u32 blur = blurred[y * w + x];
+				int orc = (orig & 0xFF);
+				int ogc = ((orig >> 8) & 0xFF);
+				int obc = ((orig >> 16) & 0xFF);
+				int oac = ((orig >> 24) & 0xFF);
+				int brc = (blur & 0xFF);
+				int bgc = ((blur >> 8) & 0xFF);
+				int bbc = ((blur >> 16) & 0xFF);
+				int bac = ((blur >> 24) & 0xFF);
+				int nrc = orc + (int)std::lround((orc - brc) * amount);
+				int ngc = ogc + (int)std::lround((ogc - bgc) * amount);
+				int nbc = obc + (int)std::lround((obc - bbc) * amount);
+				int nac = oac; // keep alpha as original
+				nrc = std::clamp(nrc, 0, 255);
+				ngc = std::clamp(ngc, 0, 255);
+				nbc = std::clamp(nbc, 0, 255);
+				img.set1(x, y, (u32)nrc | ((u32)ngc << 8) | ((u32)nbc << 16) | ((u32)nac << 24));
+			}
+		}
+	};
+
 	int loaded = 0;
 	for (int i = 0; i < (int)imageCount; i++) {
 		std::string pngName = PNGNameFromID(imageIDs[i].id);
@@ -560,17 +657,40 @@ static int LoadButtonsPNGOverrides(const Path &textureDir, const std::unordered_
 				for (int x = 0; x < fitW; x++) {
 						const float srcX0 = (float)x * (float)srcW / (float)fitW;
 						const float srcX1 = (float)(x + 1) * (float)srcW / (float)fitW;
-						if (srcW > fitW || srcH > fitH) {
-							fitted.set1(offsetX + x, offsetY + y, sampleArea(loadedImage, srcX0, srcY0, srcX1, srcY1));
-						} else {
-							const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
-							const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
-							fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
-						}
+							if (srcW > fitW || srcH > fitH) {
+								// Downscaling: choose algorithm from config
+								switch (g_Config.iUIButtonDownscaleFilter) {
+								case 0: { // Linear (bilinear sample at pixel center)
+									const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+									const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+									fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+									break;
+								}
+								case 1: { // Bicubic
+									const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+									const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+									fitted.set1(offsetX + x, offsetY + y, bicubicSample(loadedImage, srcX, srcY));
+									break;
+								}
+								case 2: // Hybrid: area sampling
+								default:
+									fitted.set1(offsetX + x, offsetY + y, sampleArea(loadedImage, srcX0, srcY0, srcX1, srcY1));
+									break;
+								}
+							} else {
+								const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+								const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+								fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+							}
 				}
 			}
 
+			bool wasDownscaled = (srcW > fitW || srcH > fitH);
 			loadedImage = std::move(fitted);
+			if (wasDownscaled && g_Config.bUIButtonSharpen) {
+				// Subtle sharpening to counteract downsample blur.
+				unsharpMask(loadedImage, 0.6f);
+			}
 		}
 
 		loadedImage.ConvertToPremultipliedAlpha();
@@ -753,7 +873,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	desc.width = g_cachedUIAtlasImage.width();
 	desc.height = g_cachedUIAtlasImage.height();
 	desc.depth = 1;
+	// Let the backend generate mipmaps for better sampling at different scales.
 	desc.mipLevels = 1;
+	desc.generateMips = true;
 	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	desc.type = Draw::TextureType::LINEAR2D;
 	desc.initData.push_back((const u8 *)g_cachedUIAtlasImage.data());
