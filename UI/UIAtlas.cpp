@@ -488,6 +488,28 @@ static int LoadButtonsPNGOverrides(const Path &textureDir, const std::unordered_
 		const u32 a = interpChannel(24);
 		return r | (g << 8) | (b << 16) | (a << 24);
 	};
+	auto sampleArea = [&](const Image &img, float x0, float y0, float x1, float y1) {
+		constexpr int kSamplesPerAxis = 4;
+		uint64_t sums[4] = {};
+		for (int sy = 0; sy < kSamplesPerAxis; sy++) {
+			const float py = y0 + ((float)sy + 0.5f) * (y1 - y0) / (float)kSamplesPerAxis;
+			for (int sx = 0; sx < kSamplesPerAxis; sx++) {
+				const float px = x0 + ((float)sx + 0.5f) * (x1 - x0) / (float)kSamplesPerAxis;
+				const u32 col = bilinearSample(img, px, py);
+				sums[0] += col & 0xFF;
+				sums[1] += (col >> 8) & 0xFF;
+				sums[2] += (col >> 16) & 0xFF;
+				sums[3] += (col >> 24) & 0xFF;
+			}
+		}
+
+		const uint32_t sampleCount = kSamplesPerAxis * kSamplesPerAxis;
+		const u32 r = (u32)((sums[0] + sampleCount / 2) / sampleCount);
+		const u32 g = (u32)((sums[1] + sampleCount / 2) / sampleCount);
+		const u32 b = (u32)((sums[2] + sampleCount / 2) / sampleCount);
+		const u32 a = (u32)((sums[3] + sampleCount / 2) / sampleCount);
+		return r | (g << 8) | (b << 16) | (a << 24);
+	};
 
 	int loaded = 0;
 	for (int i = 0; i < (int)imageCount; i++) {
@@ -533,10 +555,18 @@ static int LoadButtonsPNGOverrides(const Path &textureDir, const std::unordered_
 			fitted.scale = targetImage.scale;
 
 			for (int y = 0; y < fitH; y++) {
-				const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+					const float srcY0 = (float)y * (float)srcH / (float)fitH;
+					const float srcY1 = (float)(y + 1) * (float)srcH / (float)fitH;
 				for (int x = 0; x < fitW; x++) {
-					const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
-					fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+						const float srcX0 = (float)x * (float)srcW / (float)fitW;
+						const float srcX1 = (float)(x + 1) * (float)srcW / (float)fitW;
+						if (srcW > fitW || srcH > fitH) {
+							fitted.set1(offsetX + x, offsetY + y, sampleArea(loadedImage, srcX0, srcY0, srcX1, srcY1));
+						} else {
+							const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+							const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+							fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+						}
 				}
 			}
 
