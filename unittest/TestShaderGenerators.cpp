@@ -139,9 +139,14 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 		case ShaderStage::Vertex: programType = "vs_4_0"; break;
 		case ShaderStage::Fragment: programType = "ps_4_0"; break;
 		case ShaderStage::Geometry: programType = "gs_4_0"; break;
-		default: return false;
+		default:
+			*errorMessage = "Unknown shader stage";
+			return false;
 		}
-		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), programType, 0);
+		auto output = CompileShaderToBytecodeD3D11(buffer, strlen(buffer), programType, 0, errorMessage);
+		if (output.empty() && errorMessage->empty()) {
+			*errorMessage = "Error compiling HLSL shader: bytecode empty";
+		}
 		return !output.empty();
 	}
 #endif
@@ -153,6 +158,7 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 	case ShaderLanguage::GLSL_3xx:
 		return GLSLtoSPV(StageToVulkan(stage), buffer, GLSLVariant::GLES300, spirv, errorMessage);
 	default:
+		*errorMessage = "Unknown shader language";
 		return false;
 	}
 }
@@ -422,7 +428,7 @@ bool TestVertexShaders() {
 			if (generateSuccess[j]) {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Vertex, &errorMessage)) {
-					printf("Error compiling vertex shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					printf("Error compiling vertex shader %d:\n\n%s\n\nERROR: %s\n\n(end of error)\n\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					for (int i = 0; i < numLanguages; i++) {
 						delete[] buffer[i];
 					}
@@ -496,7 +502,7 @@ bool TestFragmentShaders() {
 			if (generateSuccess[j]) {
 				std::string errorMessage;
 				if (!TestCompileShader(buffer[j], languages[j], ShaderStage::Fragment, &errorMessage)) {
-					printf("Error compiling fragment shader:\n\n%s\n\n%s\n", LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
+					printf("Error compiling fragment shader %d:\n\n%s\n\nERROR: %s\n\n(end of error)\n\n", (int)j, LineNumberString(buffer[j]).c_str(), errorMessage.c_str());
 					for (int i = 0; i < numLanguages; i++) {
 						delete[] buffer[i];
 					}

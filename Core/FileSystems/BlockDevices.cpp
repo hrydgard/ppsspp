@@ -357,7 +357,7 @@ UDFFileBlockDevice::UDFFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	INFO_LOG(Log::Loader, "Detected PSP DVD-R wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
+	DEBUG_LOG(Log::Loader, "Detected PSP DVD-R wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
 		layer0_.numBlocks, layer0_.startBlock, layer1_.numBlocks, layer1_.startBlock);
 }
 
@@ -436,7 +436,7 @@ ISOContainerFileBlockDevice::ISOContainerFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	INFO_LOG(Log::Loader, "Detected PSP ISO wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
+	DEBUG_LOG(Log::Loader, "Detected PSP ISO wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
 		layer0_.numBlocks, layer0_.startBlock, layer1_.numBlocks, layer1_.startBlock);
 }
 

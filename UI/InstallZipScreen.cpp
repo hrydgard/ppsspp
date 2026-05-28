@@ -393,6 +393,11 @@ void InstallZipScreen::update() {
 			}
 			MainScreen::showHomebrewTab = returnToHomebrew_;
 		}
+
+		if (zipFileInfo_.contents == ZipFileContents::FRAME_DUMP) {
+			// For frame dumps, just launch them immediately.
+			screenManager()->switchScreen(new EmuScreen(zipPath_));
+		}
 	}
 
 	if (existingSaveView_) {

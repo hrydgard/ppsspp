@@ -42,7 +42,9 @@ protected:
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	std::string_view GetTitle() const override;
-
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
 private:
 	void OnInstall(UI::EventParams &params);
 	void OnPlay(UI::EventParams &params);
