@@ -218,18 +218,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
-	// Fall back to geometry shader culling if we can't do vertex range culling.
-	// Checking accurate depth here because the old depth path is uncommon and not well tested for this.
-	if (draw_->GetDeviceCaps().geometryShaderSupported) {
-		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		const bool vertexSupported = draw_->GetDeviceCaps().maxClipDistances >= 2 && draw_->GetDeviceCaps().maxCullDistances >= 1;
-		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
-			// Switch to culling via the geometry shader if not fully supported in vertex.
-			features |= GPU_USE_GS_CULLING;
-			features &= ~GPU_USE_VS_RANGE_CULLING;
-		}
-	}
-
 	if (!draw_->GetBugs().Has(Draw::Bugs::PVR_BAD_16BIT_TEXFORMATS)) {
 		// These are VULKAN_4444_FORMAT and friends.
 		// Note that we are now using the correct set of formats - the only cases where some may be missing
@@ -247,12 +235,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
-
-		if (features & GPU_USE_GS_CULLING) {
-			// Many devices that support stereo and GS don't support GS during stereo.
-			features &= ~GPU_USE_GS_CULLING;
-			features |= GPU_USE_VS_RANGE_CULLING;
-		}
 	}
 
 	// Attempt to workaround #17386
