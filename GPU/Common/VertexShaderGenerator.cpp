@@ -846,9 +846,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (depthCullEnable) {
 			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
-			// NOTE: This volume is very slightly too small. It's unclear to me how to allow hex 0x3F8000XX (1.0000.. + epsilon) where XX are arbitrary.
-			WRITE(p, "  %sgl_CullDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, cullDistanceNearSuffix);
-			WRITE(p, "  %sgl_CullDistance%s = outPos.w - outPos.z;\n", compat.vsOutPrefix, cullDistanceFarSuffix);
+			// NOTE: This volume is very slightly too small. It's unclear to me how to allow hex 0x3F8000XX (up to 1.0000304) where XX are arbitrary.
+			WRITE(p, "  %sgl_CullDistance%s = outPos.z + outPos.w + 0.0000304 / outPos.w;\n", compat.vsOutPrefix, cullDistanceNearSuffix);
+			WRITE(p, "  %sgl_CullDistance%s = outPos.w - outPos.z + 0.0000304 / outPos.w;\n", compat.vsOutPrefix, cullDistanceFarSuffix);
 		}
 
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
