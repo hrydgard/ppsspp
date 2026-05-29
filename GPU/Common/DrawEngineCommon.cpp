@@ -32,6 +32,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DepthRaster.h"
+#include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
@@ -462,6 +463,35 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 		_dbg_assert_(false);
 		return true;
 	}
+}
+
+bool DrawEngineCommon::CheckBoundingDepths(bool useHWTransform) const {
+	if (useHWTransform && boundingDepths_.valid) {
+		if (boundingDepths_.hitClipSpaceZW) {
+			// Revert to software transform so we can clip more accurately.
+			//
+			// This is only really needed for two known games: Flatout (water) and Sengoku Cannon (pink geometry). But there may
+			// be some more.
+			return false;
+		}
+
+		if (needFragmentMinMaxClipping()) {
+			if ((boundingDepths_.minProjZ < gstate.getDepthRangeMin() || boundingDepths_.maxProjZ > gstate.getDepthRangeMax())) {
+				// Revert to software transform so we can clamp more accurately.
+				return false;
+			}
+		}
+
+		if (needFragmentDepthClamp()) {
+			if ((boundingDepths_.minProjZ < 0 || boundingDepths_.maxProjZ > 65535)) {
+				// Revert to software transform so we can clamp more accurately.
+				return false;
+			}
+		}
+		// Also handle clamping in software if it's not supported in hardware (or always?)
+		return true;
+	}
+	return useHWTransform;
 }
 
 // 2D bounding box test against scissor. No indexing yet.

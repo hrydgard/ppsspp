@@ -241,17 +241,7 @@ void DrawEngineVulkan::Flush() {
 		provokingVertexOk = true;
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
-	if (useHWTransform && boundingDepths_.valid) {
-		if (boundingDepths_.hitClipSpaceZW) {
-			// Revert to software transform so we can clip more accurately.
-			useHWTransform = false;
-		}
-		if ((boundingDepths_.minProjZ < gstate.getDepthRangeMin() || boundingDepths_.maxProjZ > gstate.getDepthRangeMax()) && !gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
-			// Revert to software transform so we can clamp more accurately.
-			useHWTransform = false;
-		}
-		// Also handle clamping in software if it's not supported in hardware (or always?)
-	}
+	useHWTransform = CheckBoundingDepths(useHWTransform);
 
 	if (useHWTransform != lastUseHwTransform_) {
 		// Need to re-evaluate software transform fallbacks.

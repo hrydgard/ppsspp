@@ -186,6 +186,8 @@ public:
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 
+	bool CheckBoundingDepths(bool useHwTransform) const;
+
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
 

@@ -5,6 +5,20 @@
 #include <cstdint>
 
 #include "Common/CommonFuncs.h"
+#include "GPU/GPUState.h"
+
+
+// Shared ID checks for when the vertex and fragment shaders (and host code) need to coordinate.
+
+// NOTE: Both of these assume non - through - mode.Don't check these if in through mode.
+inline bool needFragmentMinMaxClipping() {
+	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
+}
+
+inline bool needFragmentDepthClamp() {
+	// If gstate.isDepthClipEnabled is false, clamping does not happen, instead fragments are culled as normal.
+	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+}
 
 // VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
 // sent to the shader and processed there. This cuts down the number of shaders ("ubershader approach").

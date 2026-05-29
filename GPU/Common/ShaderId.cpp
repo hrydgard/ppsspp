@@ -13,18 +13,6 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-
-// Shared ID checks for when the vertex and fragment shaders need to coordinate.
-
-// NOTE: Both of these assume non - through - mode.Don't check these if in through mode.
-static bool needFragmentMinMaxClipping() {
-	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-}
-static bool needFragmentDepthClamp() {
-	// If gstate.isDepthClipEnabled is false, clamping does not happen, instead fragments are culled as normal.
-	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
-}
-
 std::string VertexShaderDesc(const VShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);

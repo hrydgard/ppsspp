@@ -409,7 +409,7 @@ void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vert
 		// TODO: Move this to ProjectClipAndExpand.
 		const float w = transformed[i].pos_w;
 		const float recip = 1.0f / w;
-		Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(transformed[i].x * recip, transformed[i].y * recip, transformed[i].z * recip));
+		Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(transformed[i].x, transformed[i].y, transformed[i].z)) * recip;
 		transformed[i].x = xyz.x;
 		transformed[i].y = xyz.y;
 		transformed[i].z = xyz.z;
@@ -421,7 +421,7 @@ void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vert
 	for (int i = 0; i < vertexCount; i++) {
 		Vec4F32 xyzw = Vec4F32::Load(&transformed[i].x);
 		Vec4F32 wRecip = Vec4F32::Splat(1.0f / transformed[i].pos_w);
-		Vec4F32 projected = xyzw * wRecip * vpScale + vpOffset;
+		Vec4F32 projected = xyzw * vpScale * wRecip + vpOffset;
 		// Now, we need to restore the W value as we'll still need it later.
 		projected.WithLane3From(xyzw).Store(&transformed[i].x);
 	}
