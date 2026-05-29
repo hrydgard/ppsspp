@@ -6,6 +6,7 @@
 #include "Common/System/Request.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/UI/Accessibility.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Screen.h"
@@ -13,6 +14,35 @@
 #include "Common/Render/DrawBuffer.h"
 
 static constexpr bool ClickDebug = false;
+
+static UI::AccessibilityRole AccessibilityRoleForView(UI::View *view) {
+	if (dynamic_cast<UI::Button *>(view)) {
+		return UI::AccessibilityRole::Button;
+	}
+	if (dynamic_cast<UI::CheckBox *>(view)) {
+		return UI::AccessibilityRole::Checkbox;
+	}
+	if (dynamic_cast<UI::Slider *>(view) || dynamic_cast<UI::SliderFloat *>(view)) {
+		return UI::AccessibilityRole::Slider;
+	}
+	if (dynamic_cast<UI::TextEdit *>(view)) {
+		return UI::AccessibilityRole::TextField;
+	}
+	if (dynamic_cast<UI::ProgressBar *>(view)) {
+		return UI::AccessibilityRole::Progress;
+	}
+	if (dynamic_cast<UI::ItemHeader *>(view) || dynamic_cast<UI::PopupHeader *>(view)) {
+		return UI::AccessibilityRole::Heading;
+	}
+	if (dynamic_cast<UI::TriggerButton *>(view)) {
+		return UI::AccessibilityRole::GamepadControl;
+	}
+	if (dynamic_cast<UI::Choice *>(view) || dynamic_cast<UI::RadioButton *>(view) ||
+		dynamic_cast<UI::ClickableItem *>(view) || dynamic_cast<UI::ClickableTextView *>(view)) {
+		return UI::AccessibilityRole::Choice;
+	}
+	return UI::AccessibilityRole::StaticText;
+}
 
 UIScreen::UIScreen() : Screen() {
 	lastOrientation_ = GetDeviceOrientation();
@@ -287,6 +317,37 @@ void UIScreen::TriggerFinish(DialogResult result) {
 	// From here on, this dialog cannot receive input.
 	ignoreInput_ = true;
 	screenManager()->finishDialog(this, result);
+}
+
+void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) {
+	if (!root_) {
+		return;
+	}
+
+	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
+	root_->Recurse([&](UI::View *view) {
+		if (!view || view->GetVisibility() != UI::V_VISIBLE) {
+			return;
+		}
+		std::string label = view->DescribeText();
+		if (label.empty()) {
+			return;
+		}
+		const Bounds &bounds = view->GetBounds();
+		if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+			return;
+		}
+		if (view->IsViewGroup() && !view->CanBeFocused()) {
+			return;
+		}
+
+		UI::AccessibilityElementInfo info;
+		info.label = label;
+		info.bounds = bounds;
+		info.role = AccessibilityRoleForView(view);
+		info.enabled = view->IsEnabled();
+		elements.push_back(info);
+	});
 }
 
 bool UIDialogScreen::key(const KeyInput &key) {

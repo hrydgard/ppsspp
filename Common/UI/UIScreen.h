@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string>
 #include <deque>
+#include <vector>
 
 #include "Common/Math/lin/vec3.h"
 #include "Common/UI/Screen.h"
@@ -15,6 +16,9 @@ enum class ViewLayoutMode;
 class I18NCategory;
 namespace Draw {
 	class DrawContext;
+}
+namespace UI {
+	struct AccessibilityElementInfo;
 }
 
 enum class QueuedEventType : u8 {
@@ -78,6 +82,8 @@ public:
 		Screen::focusChanged(focusChange);
 		modifiersPressed_ = Modifier::NONE;
 	}
+
+	void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements);
 
 protected:
 	virtual void CreateViews() = 0;
