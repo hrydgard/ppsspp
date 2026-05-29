@@ -33,6 +33,7 @@ typedef NS_ENUM(NSInteger, PPSSPPAccessibilityAction) {
 @interface PPSSPPAccessibilityBridge () {
 	__weak UIView *_view;
 	NSMutableArray *_elements;
+	NSTimer *_refreshTimer;
 	NSString *_lastSignature;
 	InputKeyCode _lastShoulderKey;
 	InputKeyCode _heldShoulderKey;
@@ -127,17 +128,25 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 		view.isAccessibilityElement = NO;
 		view.accessibilityElements = _elements;
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(voiceOverStatusChanged:) name:UIAccessibilityVoiceOverStatusDidChangeNotification object:nil];
+		_refreshTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(periodicRefresh:) userInfo:nil repeats:YES];
 	}
 	return self;
 }
 
 - (void)dealloc {
+	[_refreshTimer invalidate];
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	[self releaseHeldShoulder];
 }
 
 - (void)voiceOverStatusChanged:(NSNotification *)notification {
 	[self scheduleRefresh];
+}
+
+- (void)periodicRefresh:(NSTimer *)timer {
+	if (UIAccessibilityIsVoiceOverRunning()) {
+		[self scheduleRefresh];
+	}
 }
 
 - (void)scheduleRefresh {
