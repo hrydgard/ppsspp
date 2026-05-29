@@ -33,10 +33,10 @@ typedef NS_ENUM(NSInteger, PPSSPPAccessibilityAction) {
 @interface PPSSPPAccessibilityBridge () {
 	__weak UIView *_view;
 	NSMutableArray *_elements;
-	NSTimer *_refreshTimer;
 	NSString *_lastSignature;
 	InputKeyCode _lastShoulderKey;
 	InputKeyCode _heldShoulderKey;
+	BOOL _refreshQueued;
 }
 - (BOOL)activateElement:(PPSSPPAccessibilityElement *)element;
 - (BOOL)scrollElement:(PPSSPPAccessibilityElement *)element direction:(UIAccessibilityScrollDirection)direction;
@@ -127,26 +127,28 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 		view.isAccessibilityElement = NO;
 		view.accessibilityElements = _elements;
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(voiceOverStatusChanged:) name:UIAccessibilityVoiceOverStatusDidChangeNotification object:nil];
-		_refreshTimer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(periodicRefresh:) userInfo:nil repeats:YES];
-		[self refresh];
 	}
 	return self;
 }
 
 - (void)dealloc {
-	[_refreshTimer invalidate];
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	[self releaseHeldShoulder];
 }
 
 - (void)voiceOverStatusChanged:(NSNotification *)notification {
-	[self refresh];
+	[self scheduleRefresh];
 }
 
-- (void)periodicRefresh:(NSTimer *)timer {
-	if (UIAccessibilityIsVoiceOverRunning()) {
-		[self refresh];
+- (void)scheduleRefresh {
+	if (_refreshQueued) {
+		return;
 	}
+	_refreshQueued = YES;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		self->_refreshQueued = NO;
+		[self refresh];
+	});
 }
 
 - (CGRect)uiFrameFromDPBounds:(const Bounds &)bounds {
@@ -223,6 +225,12 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	if (!view) {
 		return;
 	}
+	if (!UIAccessibilityIsVoiceOverRunning()) {
+		[_elements removeAllObjects];
+		_lastSignature = nil;
+		view.accessibilityElements = _elements;
+		return;
+	}
 	NSMutableArray *newElements = [[NSMutableArray alloc] init];
 	NSMutableString *signature = [[NSMutableString alloc] init];
 	NSMutableArray *oldElements = _elements;
@@ -245,7 +253,7 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	}
 
 	[self releaseHeldShoulder];
-	if (g_screenManager) {
+	if (g_screenManager && g_screenManager->getUIContext() && g_display.dp_xres > 0 && g_display.dp_yres > 0) {
 		std::vector<UI::AccessibilityElementInfo> snapshot = UI::BuildAccessibilitySnapshot(g_screenManager);
 		for (const UI::AccessibilityElementInfo &info : snapshot) {
 			NSString *label = [NSString stringWithUTF8String:info.label.c_str()];
@@ -294,7 +302,7 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	if (GetUIState() != UISTATE_INGAME) {
 		[self releaseHeldShoulder];
 	}
-	[self refresh];
+	[self scheduleRefresh];
 }
 
 - (void)willResignActive {

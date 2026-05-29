@@ -7,6 +7,7 @@
 @interface PPSSPPAccessibilityBridge : NSObject
 
 - (instancetype)initWithView:(UIView *)view;
+- (void)scheduleRefresh;
 - (void)refresh;
 - (void)reset;
 - (void)uiStateChanged;

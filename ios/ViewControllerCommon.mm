@@ -549,7 +549,7 @@ extern float g_safeInsetBottom;
 	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 
 	NativeResized();
-	[self.accessibilityBridge refresh];
+	[self.accessibilityBridge scheduleRefresh];
 
 	NSLog(@"Updated display resolution: (%d, %d) @%.1fx",
 		  g_display.pixel_xres, g_display.pixel_yres, (float)scale);
