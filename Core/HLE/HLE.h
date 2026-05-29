@@ -190,11 +190,8 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 
 template <bool leave, bool convert_code, typename T>
 [[nodiscard]]
-#ifdef __GNUC__
-__attribute__((format(printf, 7, 8)))
-#endif
 NO_INLINE
-T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, const char *reasonFmt, ...) {
+ATTR_FORMAT_PRINTF(7, 8) T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, MSVC_FORMAT_PRINTF const char *reasonFmt, ...) {
 	if (!GenericLogEnabled(t, level)) {
 		if (leave) {
 			hleLeave();

@@ -518,7 +518,7 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		// Still good for backface culling early and pretty cheap to compute.
 		Vec4F32 doubleTriArea = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) - Vec4F32::Splat((float)(MIN_TWICE_TRI_AREA));
 		if (!AnyZeroSignBit(doubleTriArea)) {
-			gpuStats.numDepthRasterEarlySize += 4;
+			gpuStats.perFrame.numDepthRasterEarlySize += 4;
 			continue;
 		}
 
@@ -560,8 +560,8 @@ int DepthRasterClipIndexedTriangles(int *tx, int *ty, float *tz, const float *tr
 		}
 	}
 
-	gpuStats.numDepthRasterZCulled += planeCulled;
-	gpuStats.numDepthEarlyBoxCulled += boxCulled;
+	gpuStats.perFrame.numDepthRasterZCulled += planeCulled;
+	gpuStats.perFrame.numDepthEarlyBoxCulled += boxCulled;
 	return outCount;
 }
 
@@ -578,7 +578,7 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 			// We remove the subpixel information here.
 			DepthRasterRect(depth, depthStride, scissor, tx[i], ty[i], tx[i + 1], ty[i + 1], z, draw.compareMode);
 		}
-		gpuStats.numDepthRasterPrims += count / 2;
+		gpuStats.perFrame.numDepthRasterPrims += count / 2;
 		break;
 	case GE_PRIM_TRIANGLES:
 	{
@@ -633,9 +633,9 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 			}
 			}
 		}
-		gpuStats.numDepthRasterNoPixels += stats[(int)TriangleStat::NoPixels];
-		gpuStats.numDepthRasterTooSmall += stats[(int)TriangleStat::SmallOrBackface];
-		gpuStats.numDepthRasterPrims += stats[(int)TriangleStat::OK];
+		gpuStats.perFrame.numDepthRasterNoPixels += stats[(int)TriangleStat::NoPixels];
+		gpuStats.perFrame.numDepthRasterTooSmall += stats[(int)TriangleStat::SmallOrBackface];
+		gpuStats.perFrame.numDepthRasterPrims += stats[(int)TriangleStat::OK];
 		break;
 	}
 	default:

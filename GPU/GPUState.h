@@ -17,6 +17,8 @@
 
 #pragma once
 
+// Note: GPU statistics are in GPU.h.
+
 #include "ppsspp_config.h"
 
 #include "Common/CommonTypes.h"

@@ -55,7 +55,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	Reinitialize();
 	gstate.Reset();
 	gstate_c.Reset();
-	gpuStats.Reset();
+	gpuStats.ResetFrame();
 
 	PPGeSetDrawContext(draw);
 	ResetMatrices();
@@ -172,7 +172,7 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	gpuStats.numDrawSyncs++;
+	gpuStats.perFrame.numDrawSyncs++;
 
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
@@ -222,7 +222,7 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
-	gpuStats.numListSyncs++;
+	gpuStats.perFrame.numListSyncs++;
 
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
@@ -737,7 +737,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 		}
 	}
 
-	TimeCollector collectStat(&gpuStats.msProcessingDisplayLists, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, coreCollectDebugStats);
 
 	auto GetNextListIndex = [&]() -> int {
 		if (dlQueue.empty())
@@ -866,7 +866,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 	currentList = nullptr;
 
 	if (coreCollectDebugStats) {
-		gpuStats.otherGPUCycles += cyclesExecuted;
+		gpuStats.perFrame.otherGPUCycles += cyclesExecuted;
 	}
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
@@ -915,7 +915,7 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 	if (!currentList->bboxResult) {
 		// bounding box jump.
 		const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
-		gpuStats.numBBOXJumps++;
+		gpuStats.perFrame.numBBOXJumps++;
 		if (Memory::IsValidAddress(target)) {
 			UpdatePC(currentList->pc, target - 4);
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
@@ -1400,7 +1400,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
 
 	if (coreCollectDebugStats) {
-		gpuStats.otherGPUCycles += 2 * 14;
+		gpuStats.perFrame.otherGPUCycles += 2 * 14;
 	}
 }
 
@@ -1720,7 +1720,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	int bpp = gstate.getTransferBpp();
 
 	DEBUG_LOG(Log::G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-	gpuStats.numBlockTransfers++;
+	gpuStats.perFrame.numBlockTransfers++;
 
 	// For VRAM, we wrap around when outside valid memory (mirrors still work.)
 	if ((srcBasePtr & 0x04800000) == 0x04800000)
@@ -2090,10 +2090,10 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 
 	u32 op = Memory::ReadUnchecked_U32(pc);
 	u32 cmd = op >> 24;
-	if (thisFlipNum_ != gpuStats.numFlips) {
+	if (thisFlipNum_ != gpuStats.totals.numFlips) {
 		primsLastFrame_ = primsThisFrame_;
 		primsThisFrame_ = 0;
-		thisFlipNum_ = gpuStats.numFlips;
+		thisFlipNum_ = gpuStats.totals.numFlips;
 	}
 
 	bool isPrim = false;

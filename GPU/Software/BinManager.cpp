@@ -21,6 +21,7 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/TimeUtil.h"
 #include "Core/System.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -185,8 +186,8 @@ void BinManager::UpdateState() {
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
 	}
 
-	if (lastFlipstats_ != gpuStats.numFlips) {
-		lastFlipstats_ = gpuStats.numFlips;
+	if (lastFlipstats_ != gpuStats.totals.numFlips) {
+		lastFlipstats_ = gpuStats.totals.numFlips;
 		ResetStats();
 	}
 
@@ -672,7 +673,7 @@ bool BinManager::HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uin
 	return false;
 }
 
-void BinManager::GetStats(char *buffer, size_t bufsize) {
+void BinManager::GetStats(StringWriter &w) {
 	double allTotal = 0.0;
 	double slowestTotalTime = 0.0;
 	const char *slowestTotalReason = nullptr;
@@ -695,9 +696,7 @@ void BinManager::GetStats(char *buffer, size_t bufsize) {
 		}
 		recentTotal += it.second;
 	}
-
-	snprintf(buffer, bufsize,
-		"Slowest individual flush: %s (%0.4f)\n"
+	w.F("Slowest individual flush: %s (%0.4f)\n"
 		"Slowest frame flush: %s (%0.4f)\n"
 		"Slowest recent flush: %s (%0.4f)\n"
 		"Total flush time: %0.4f (%05.2f%%, last 2: %05.2f%%)\n"

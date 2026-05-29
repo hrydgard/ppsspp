@@ -6,6 +6,7 @@
 
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/StringUtils.h"
 
 // Not strictly a parser...

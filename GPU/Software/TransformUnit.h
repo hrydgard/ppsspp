@@ -111,6 +111,7 @@ class VertexReader;
 
 class SoftwareDrawEngine;
 class SoftwareVertexReader;
+class StringWriter;
 
 class TransformUnit {
 public:
@@ -141,7 +142,7 @@ public:
 	void FlushIfOverlap(GPUCommon *common, const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h);
 	void NotifyClutUpdate(const void *src);
 
-	void GetStats(char *buffer, size_t bufsize);
+	void GetStats(StringWriter &w);
 
 	void SetDirty(SoftDirty flags);
 	SoftDirty GetDirty();

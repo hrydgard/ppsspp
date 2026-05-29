@@ -135,7 +135,7 @@ bool Recorder::BeginRecording() {
 	nextFrame = false;
 	lastTextures.clear();
 	lastRenderTargets.clear();
-	flipLastAction = gpuStats.numFlips;
+	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 
 	u32 ptr = (u32)pushbuf.size();
@@ -575,7 +575,7 @@ void Recorder::EmitBezierSpline(u32 op) {
 
 bool Recorder::RecordNextFrame(const std::function<void(const Path &)> callback) {
 	if (!nextFrame) {
-		flipLastAction = gpuStats.numFlips;
+		flipLastAction = gpuStats.totals.numFlips;
 		flipFinishAt = -1;
 		writeCallback = callback;
 		nextFrame = true;
@@ -597,7 +597,7 @@ void Recorder::FinishRecording() {
 
 	NOTICE_LOG(Log::System, "Recording finished");
 	active = false;
-	flipLastAction = gpuStats.numFlips;
+	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 	lastEdramTrans = 0x400;
 
@@ -785,9 +785,9 @@ void Recorder::NotifyDisplay(u32 framebuf, int stride, int fmt) {
 }
 
 void Recorder::NotifyBeginFrame() {
-	const bool noDisplayAction = flipLastAction + 4 < gpuStats.numFlips;
+	const bool noDisplayAction = flipLastAction + 4 < gpuStats.totals.numFlips;
 	// We do this only to catch things that don't call NotifyDisplay.
-	if (active && HasDrawCommands() && (noDisplayAction || gpuStats.numFlips == flipFinishAt)) {
+	if (active && HasDrawCommands() && (noDisplayAction || gpuStats.totals.numFlips == flipFinishAt)) {
 		NOTICE_LOG(Log::System, "Recording complete on frame");
 
 		CheckEdramTrans();
@@ -813,7 +813,7 @@ void Recorder::NotifyBeginFrame() {
 		NOTICE_LOG(Log::System, "Recording starting on frame...");
 		BeginRecording();
 		// If we began on a BeginFrame, end on a BeginFrame.
-		flipFinishAt = gpuStats.numFlips + 1;
+		flipFinishAt = gpuStats.totals.numFlips + 1;
 	}
 }
 

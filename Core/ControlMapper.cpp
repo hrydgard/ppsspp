@@ -3,6 +3,7 @@
 
 #include "Common/Math/math_util.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 
@@ -765,21 +766,20 @@ void ControlMapper::onVKey(VirtKey vkey, bool down) {
 	}
 }
 
-void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
-	std::stringstream str;
+void ControlMapper::GetDebugString(StringWriter &w) const {
 	for (auto &iter : curInput_) {
 		char temp[256];
 		iter.first.FormatDebug(temp, sizeof(temp));
-		str << temp << ": " << iter.second.value << std::endl;
+		w.F("%s: %f\n", temp, iter.second.value);
 	}
 	for (int i = 0; i < ARRAY_SIZE(virtKeys_); i++) {
 		int vkId = VIRTKEY_FIRST + i;
 		if ((vkId >= VIRTKEY_AXIS_X_MIN && vkId <= VIRTKEY_AXIS_Y_MAX) || vkId == VIRTKEY_ANALOG_LIGHTLY || vkId == VIRTKEY_SPEED_ANALOG) {
-			str << KeyMap::GetPspButtonName(vkId) << ": " << virtKeys_[i] << std::endl;
+			w.F("%s: %f\n", KeyMap::GetPspButtonName(vkId).c_str(), virtKeys_[i]);
 		}
 	}
-	str << "Lstick: " << converted_[0][0] << ", " << converted_[0][1] << std::endl;
-	truncate_cpy(buffer, bufSize, str.str().c_str());
+	w.F("Lstick: %f, %f\n", converted_[0][0], converted_[0][1]);
+	w.F("Rstick: %f, %f\n", converted_[1][0], converted_[1][1]);
 }
 
 void ControlMapper::RemoveListener(ControlListener *listener) {

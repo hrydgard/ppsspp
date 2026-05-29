@@ -25,6 +25,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/StringWriter.h"
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -468,26 +469,17 @@ void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
 	InitDeviceObjects();
 }
 
-void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
-	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
-	buffer += offset;
-	bufsize -= offset;
-	if ((int)bufsize < 0)
-		return;
+void GPU_Vulkan::GetStats(StringWriter &w) {
 	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
-	char texStats[256];
-	textureCacheVulkan_->GetStats(texStats, sizeof(texStats));
-	snprintf(buffer, bufsize,
-		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
-		"Pushbuffer space used: Vtx %d, Idx %d\n"
-		"%s\n",
+	w.F("Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
+		"Pushbuffer space used: Vtx %d, Idx %d\n",
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),
 		drawStats.pushVertexSpaceUsed,
-		drawStats.pushIndexSpaceUsed,
-		texStats
-	);
+		drawStats.pushIndexSpaceUsed);
+	textureCacheVulkan_->GetStats(w);
+	FormatGPUStatsCommon(w);
 }
 
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {

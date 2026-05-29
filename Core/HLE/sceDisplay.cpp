@@ -28,6 +28,7 @@
 #endif
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -273,7 +274,7 @@ void __DisplayDoState(PointerWrap &p) {
 	gstate_c.DoState(p);
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
-		// It's unlikely to overlap with the first value in gpuStats.
+		// It's unlikely to overlap with the first value in gpuStats.perFrame.
 		int gpuVendorTemp = 0;
 		p.ExpectVoid(&gpuVendorTemp, sizeof(gpuVendorTemp));
 	}
@@ -395,7 +396,8 @@ static void DoFrameDropLogging(float scaledTimestep) {
 		const double actualTimestep = curFrameTime - lastFrameTime;
 
 		char stats[4096];
-		__DisplayGetDebugStats(stats, sizeof(stats));
+		StringWriter w(stats);
+		__DisplayGetDebugStats(w);
 		NOTICE_LOG(Log::sceDisplay, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
 	}
 }
@@ -674,7 +676,7 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	if (fbDirty) {
-		gpuStats.numFlips++;
+		gpuStats.totals.numFlips++;
 	}
 
 	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;

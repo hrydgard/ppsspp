@@ -479,8 +479,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
 				vfb->newHeight = drawing_height;
-				vfb->lastFrameNewSize = gpuStats.numFlips;
-			} else if (vfb->lastFrameNewSize + FBO_OLD_AGE < gpuStats.numFlips) {
+				vfb->lastFrameNewSize = gpuStats.totals.numFlips;
+			} else if (vfb->lastFrameNewSize + FBO_OLD_AGE < gpuStats.totals.numFlips) {
 				// Okay, it's changed for a while (and stayed that way.)  Let's start over.
 				// But only if we really need to, to avoid blinking.
 				bool needsRecreate = vfb->bufferWidth > params.fb_stride;
@@ -502,7 +502,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			}
 		} else {
 			// It's not different, let's keep track of that too.
-			vfb->lastFrameNewSize = gpuStats.numFlips;
+			vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 		}
 
 		if (!resized && renderScaleFactor_ != 1 && vfb->renderScaleFactor == 1) {
@@ -530,7 +530,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		vfb->height = drawing_height;
 		vfb->newWidth = drawing_width;
 		vfb->newHeight = drawing_height;
-		vfb->lastFrameNewSize = gpuStats.numFlips;
+		vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 		vfb->fb_format = params.fb_format;
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
@@ -557,8 +557,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 		INFO_LOG(Log::FrameBuf, "Creating FBO for %08x (z: %08x) : %d x %d x %s", vfb->fb_address, vfb->z_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format));
 
-		vfb->last_frame_render = gpuStats.numFlips;
-		frameLastFramebufUsed_ = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.totals.numFlips;
+		frameLastFramebufUsed_ = gpuStats.totals.numFlips;
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
 
@@ -577,8 +577,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		// Use it as a render target.
 		DEBUG_LOG(Log::FrameBuf, "Switching render target to FBO for %08x: %d x %d x %d ", vfb->fb_address, vfb->width, vfb->height, vfb->fb_format);
 		vfb->usageFlags |= FB_USAGE_RENDER_COLOR;
-		vfb->last_frame_render = gpuStats.numFlips;
-		frameLastFramebufUsed_ = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.totals.numFlips;
+		frameLastFramebufUsed_ = gpuStats.totals.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
@@ -593,8 +593,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	} else {
 		// Something changed, but we still got the same framebuffer we were already rendering to.
 		// Might not be a lot to do here, we check in NotifyRenderFramebufferUpdated
-		vfb->last_frame_render = gpuStats.numFlips;
-		frameLastFramebufUsed_ = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.totals.numFlips;
+		frameLastFramebufUsed_ = gpuStats.totals.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
@@ -715,8 +715,8 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 		if (source.channel == RASTER_DEPTH) {
 			// Good old depth->depth copy.
 			BlitFramebufferDepth(source.vfb, dest);
-			gpuStats.numDepthCopies++;
-			dest->last_frame_depth_updated = gpuStats.numFlips;
+			gpuStats.perFrame.numDepthCopies++;
+			dest->last_frame_depth_updated = gpuStats.totals.numFlips;
 		} else if (source.channel == RASTER_COLOR && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			VirtualFramebuffer *src = source.vfb;
 			if (src->fb_format != GE_FORMAT_565) {
@@ -730,7 +730,7 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 				shader = DRAW2D_565_TO_DEPTH_DESWIZZLE;
 			}
 
-			gpuStats.numReinterpretCopies++;
+			gpuStats.perFrame.numReinterpretCopies++;
 			src->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 			dest->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 
@@ -879,7 +879,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 			const char *pass_name = "N/A";
 			float scaleFactorX = 1.0f;
 			if (src->fb_format == dst->fb_format) {
-				gpuStats.numColorCopies++;
+				gpuStats.perFrame.numColorCopies++;
 				pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
 				pass_name = "copy_color";
 			} else {
@@ -898,7 +898,7 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 				pass_name = reinterpretStrings[(int)src->fb_format][(int)dst->fb_format];
 
-				gpuStats.numReinterpretCopies++;
+				gpuStats.perFrame.numReinterpretCopies++;
 			}
 			
 			if (pipeline) {
@@ -1137,7 +1137,7 @@ void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int siz
 	VirtualFramebuffer *vfb = ResolveVFB(addr, stride, fmt);
 	if (vfb) {
 		// Let's count this as a "render".  This will also force us to use the correct format.
-		vfb->last_frame_render = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.totals.numFlips;
 		vfb->colorBindSeq = GetBindSeqCount();
 
 		if (vfb->fb_stride < stride) {
@@ -1173,7 +1173,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 
 			if (useBufferedRendering_ && vfb->fbo) {
 				GEBufferFormat fmt = vfb->fb_format;
-				if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
+				if (vfb->last_frame_render + 1 < gpuStats.totals.numFlips && isDisplayBuf) {
 					// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
 					// TODO: This doesn't seem quite right anymore.
 					fmt = displayFormat_;
@@ -1307,7 +1307,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			if (!partial && (flags & BINDFBCOLOR_UNCACHED) == 0) {
 				currentFramebufferCopy_ = renderCopy;
 			}
-			gpuStats.numCopiesForSelfTex++;
+			gpuStats.perFrame.numCopiesForSelfTex++;
 		} else {
 			// Failed to get temp FBO? Weird.
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::Aspect::COLOR_BIT, layer);
@@ -1487,7 +1487,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	for (auto &iter : drawPixelsCache_) {
 		if (iter.contentsHash == imageHash && iter.tex->Width() == width && iter.tex->Height() == height && iter.tex->Format() == texFormat) {
 			iter.frameNumber = frameNumber;
-			gpuStats.numCachedUploads++;
+			gpuStats.perFrame.numCachedUploads++;
 			return iter.tex;
 		}
 	}
@@ -1499,7 +1499,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		}
 
 		// OK, current one seems good, let's use it (and mark it used).
-		gpuStats.numUploads++;
+		gpuStats.perFrame.numUploads++;
 		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
 		// NOTE: numFlips is no good - this is called every frame when paused sometimes!
 		iter.frameNumber = frameNumber;
@@ -1536,7 +1536,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 
 	DrawPixelsEntry entry{ tex, imageHash, frameNumber };
 	drawPixelsCache_.push_back(entry);
-	gpuStats.numUploads++;
+	gpuStats.perFrame.numUploads++;
 	return tex;
 }
 
@@ -1677,7 +1677,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
-	vfb->last_frame_displayed = gpuStats.numFlips;
+	vfb->last_frame_displayed = gpuStats.totals.numFlips;
 	vfb->dirtyAfterDisplay = false;
 	vfb->reallyDirtyAfterDisplay = false;
 
@@ -1874,7 +1874,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		}
 		return;
 	}
-	if (!old.fbo && vfb->last_frame_failed != 0 && vfb->last_frame_failed - gpuStats.numFlips < 63) {
+	if (!old.fbo && vfb->last_frame_failed != 0 && vfb->last_frame_failed - gpuStats.totals.numFlips < 63) {
 		// Don't constantly retry FBOs which failed to create.
 		return;
 	}
@@ -1883,7 +1883,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	char tag[128];
 	size_t len = FormatFramebufferName(vfb, tag, sizeof(tag));
 
-	gpuStats.numFBOsCreated++;
+	gpuStats.perFrame.numFBOsCreated++;
 
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel_, true, tag });
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
@@ -1915,7 +1915,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	if (!vfb->fbo) {
 		ERROR_LOG(Log::FrameBuf, "Error creating FBO during resize! %dx%d", vfb->renderWidth, vfb->renderHeight);
-		vfb->last_frame_failed = gpuStats.numFlips;
+		vfb->last_frame_failed = gpuStats.totals.numFlips;
 	}
 }
 
@@ -2024,7 +2024,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 				continue;
 			}
 
-			if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
+			if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.totals.numFlips) {
 				// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
 				// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
 				// Probably no point to give it a bad score and let it pass to sorting, as we're pretty sure here.
@@ -2165,7 +2165,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 	}
 	if (dstBuffer) {
-		dstBuffer->last_frame_used = gpuStats.numFlips;
+		dstBuffer->last_frame_used = gpuStats.totals.numFlips;
 		if (channel == RASTER_DEPTH && !srcBuffer)
 			dstBuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 	}
@@ -2185,7 +2185,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		return false;
 	} else if (dstBuffer) {
 		if (flags & GPUCopyFlag::MEMSET) {
-			gpuStats.numClears++;
+			gpuStats.perFrame.numClears++;
 			WARN_LOG_N_TIMES(btucpy, 5, Log::FrameBuf, "Memcpy fbo memset-clear %08x (size: %x)", dst, size);
 		} else {
 			WARN_LOG_N_TIMES(btucpy, 5, Log::FrameBuf, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
@@ -2411,7 +2411,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->height = height;
 	vfb->newWidth = vfb->width;
 	vfb->newHeight = vfb->height;
-	vfb->lastFrameNewSize = gpuStats.numFlips;
+	vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 	vfb->renderScaleFactor = renderScaleFactor_;
 	vfb->renderWidth = (u16)(vfb->width * renderScaleFactor_);
 	vfb->renderHeight = (u16)(vfb->height * renderScaleFactor_);
@@ -2496,7 +2496,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	}
 
 	nvfb->usageFlags |= FB_USAGE_RENDER_COLOR;
-	nvfb->last_frame_render = gpuStats.numFlips;
+	nvfb->last_frame_render = gpuStats.totals.numFlips;
 	nvfb->dirtyAfterDisplay = true;
 
 	return nvfb;
@@ -2657,7 +2657,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	}
 
 	if (dstBuffer) {
-		dstRect.vfb->last_frame_used = gpuStats.numFlips;
+		dstRect.vfb->last_frame_used = gpuStats.totals.numFlips;
 		// Mark the destination as fresh.
 		if (dstRect.channel == RASTER_COLOR) {
 			dstRect.vfb->colorBindSeq = GetBindSeqCount();
@@ -2760,7 +2760,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				srcX1 /= scaleFactorX;
 				srcX2 /= scaleFactorX;
 
-				gpuStats.numReinterpretCopies++;
+				gpuStats.perFrame.numReinterpretCopies++;
 				FlushBeforeCopy();
 				BlitUsingRaster(src->fbo, srcX1, srcY1, srcX2, srcY2,
 					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, dst->renderScaleFactor, pipeline, pass_name);
@@ -2875,7 +2875,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				// Make sure we don't flop back and forth.
 				dstRect.vfb->newWidth = std::max(dstRect.w_bytes / bpp, (int)dstRect.vfb->width);
 				dstRect.vfb->newHeight = std::max(dstRect.h, (int)dstRect.vfb->height);
-				dstRect.vfb->lastFrameNewSize = gpuStats.numFlips;
+				dstRect.vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 				// Resizing may change the viewport/etc.
 				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 			}
@@ -2979,7 +2979,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	u64 key = ((u64)reason << 48) | ((u32)w << 16) | h;
 	auto it = tempFBOs_.find(key);
 	if (it != tempFBOs_.end()) {
-		it->second.last_frame_used = gpuStats.numFlips;
+		it->second.last_frame_used = gpuStats.totals.numFlips;
 		return it->second.fbo;
 	}
 
@@ -2992,7 +2992,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 		return nullptr;
 	}
 
-	const TempFBOInfo info = { fbo, gpuStats.numFlips };
+	const TempFBOInfo info = { fbo, gpuStats.totals.numFlips };
 	tempFBOs_[key] = info;
 	return fbo;
 }
@@ -3255,9 +3255,9 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 	NotifyMemInfo(MemBlockFlags::WRITE, fb_address + dstByteOffset, dstSize, tag, len);
 
 	if (mode == Draw::ReadbackMode::BLOCK) {
-		gpuStats.numBlockingReadbacks++;
+		gpuStats.perFrame.numBlockingReadbacks++;
 	} else {
-		gpuStats.numReadbacks++;
+		gpuStats.perFrame.numReadbacks++;
 	}
 }
 
@@ -3294,8 +3294,8 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		static int frameLastCopy = 0;
 		static u32 bufferLastCopy = 0;
 		static int copiesThisFrame = 0;
-		if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-			frameLastCopy = gpuStats.numFlips;
+		if (frameLastCopy != gpuStats.totals.numFlips || bufferLastCopy != vfb->fb_address) {
+			frameLastCopy = gpuStats.totals.numFlips;
 			bufferLastCopy = vfb->fb_address;
 			copiesThisFrame = 0;
 		}

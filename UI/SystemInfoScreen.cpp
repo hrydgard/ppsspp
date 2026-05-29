@@ -13,7 +13,7 @@
 #include "Common/File/AndroidStorage.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/System/Request.h"

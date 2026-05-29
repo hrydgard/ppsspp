@@ -35,6 +35,7 @@ enum class ShaderWriterFlags {
 };
 ENUM_CLASS_BITOPS(ShaderWriterFlags);
 
+// TODO: Somehow merge with StringWriter from Parsers.h
 class ShaderWriter {
 public:
 	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).

@@ -3,6 +3,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/System/System.h"
+#include "Common/Data/Text/StringWriter.h"
 
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -770,9 +771,9 @@ void GPUCommonHW::CheckDepthUsage(VirtualFramebuffer *vfb) {
 		if (isWritingDepth || isReadingDepth) {
 			gstate_c.usingDepth = true;
 			gstate_c.clearingDepth = isClearingDepth;
-			vfb->last_frame_depth_render = gpuStats.numFlips;
+			vfb->last_frame_depth_render = gpuStats.totals.numFlips;
 			if (isWritingDepth) {
-				vfb->last_frame_depth_updated = gpuStats.numFlips;
+				vfb->last_frame_depth_updated = gpuStats.totals.numFlips;
 			}
 			framebufferManager_->SetDepthFrameBuffer(isClearingDepth);
 		}
@@ -980,7 +981,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		// Rough estimate, not sure what's correct.
 		cyclesExecuted += vertexCost_ * count;
 		if (gstate.isModeClear()) {
-			gpuStats.numClears++;
+			gpuStats.perFrame.numClears++;
 		}
 		return;
 	}
@@ -1027,9 +1028,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
 		int bytesRead = 0;
 		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, decoder, vertexType, &bytesRead)) {
-			gpuStats.numCulledDraws++;
+			gpuStats.perFrame.numCulledDraws++;
 			int cycles = vertexCost_ * count;
-			gpuStats.vertexGPUCycles += cycles;
+			gpuStats.perFrame.vertexGPUCycles += cycles;
 			cyclesExecuted += cycles;
 			// NOTE! We still have to advance vertex pointers!
 			gstate_c.vertexAddr += bytesRead;   // We know from the above check that it's not an indexed draw.
@@ -1057,7 +1058,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType)) {
 			passCulling = true;
 		} else {
-			gpuStats.numCulledDraws++;
+			gpuStats.perFrame.numCulledDraws++;
 		}
 	}
 
@@ -1147,7 +1148,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType)) {
 					passCulling = true;
 				} else {
-					gpuStats.numCulledDraws++;
+					gpuStats.perFrame.numCulledDraws++;
 				}
 			}
 			if (passCulling) {
@@ -1301,7 +1302,7 @@ bail:
 	}
 
 	int cycles = vertexCost_ * totalVertCount;
-	gpuStats.vertexGPUCycles += cycles;
+	gpuStats.perFrame.vertexGPUCycles += cycles;
 
 	if (!PSP_CoreParameter().compat.flags().FastEmulatedGPU) {
 		cyclesExecuted += cycles;
@@ -1825,9 +1826,9 @@ int GPUCommonHW::ListSync(int listid, int mode) {
 	return GPUCommon::ListSync(listid, mode);
 }
 
-size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-	return snprintf(buffer, size,
+void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
+	float vertexAverageCycles = gpuStats.perFrame.numVertsSubmitted > 0 ? (float)gpuStats.perFrame.vertexGPUCycles / (float)gpuStats.perFrame.numVertsSubmitted : 0.0f;
+	w.F(
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
 		"Vertices: %d dec: %d drawn: %d\n"
@@ -1840,52 +1841,52 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"GPU cycles: %d (%0.1f per vertex)\n"
 		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
 		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
-		gpuStats.msProcessingDisplayLists * 1000.0f,
-		gpuStats.numDrawSyncs,
-		gpuStats.numListSyncs,
-		gpuStats.numDrawCalls,
-		gpuStats.numVertexDecodes,
-		gpuStats.numCulledDraws,
-		gpuStats.numFlushes,
-		gpuStats.numClears,
-		gpuStats.numBBOXJumps,
-		gpuStats.numVertsSubmitted,
-		gpuStats.numVertsDecoded,
-		gpuStats.numUncachedVertsDrawn,
+		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
+		gpuStats.perFrame.numDrawSyncs,
+		gpuStats.perFrame.numListSyncs,
+		gpuStats.perFrame.numDrawCalls,
+		gpuStats.perFrame.numVertexDecodes,
+		gpuStats.perFrame.numCulledDraws,
+		gpuStats.perFrame.numFlushes,
+		gpuStats.perFrame.numClears,
+		gpuStats.perFrame.numBBOXJumps,
+		gpuStats.perFrame.numVertsSubmitted,
+		gpuStats.perFrame.numVertsDecoded,
+		gpuStats.perFrame.numUncachedVertsDrawn,
 		(int)framebufferManager_->NumVFBs(),
-		gpuStats.numFramebufferEvaluations,
-		gpuStats.numFBOsCreated,
+		gpuStats.perFrame.numFramebufferEvaluations,
+		gpuStats.perFrame.numFBOsCreated,
 		(int)textureCache_->NumLoadedTextures(),
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numTextureDataBytesHashed / 1024,
-		gpuStats.numClutTextures,
-		gpuStats.numBlockingReadbacks,
-		gpuStats.numReadbacks,
-		gpuStats.numUploads,
-		gpuStats.numCachedUploads,
-		gpuStats.numDepal,
-		gpuStats.numBlockTransfers,
-		gpuStats.numReplacerTrackedTex,
-		gpuStats.numCachedReplacedTextures,
-		gpuStats.numDepthCopies,
-		gpuStats.numColorCopies,
-		gpuStats.numReinterpretCopies,
-		gpuStats.numCopiesForShaderBlend,
-		gpuStats.numCopiesForSelfTex,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		gpuStats.perFrame.numTexturesDecoded,
+		gpuStats.perFrame.numTextureInvalidations,
+		gpuStats.perFrame.numTextureDataBytesHashed / 1024,
+		gpuStats.perFrame.numClutTextures,
+		gpuStats.perFrame.numBlockingReadbacks,
+		gpuStats.perFrame.numReadbacks,
+		gpuStats.perFrame.numUploads,
+		gpuStats.perFrame.numCachedUploads,
+		gpuStats.perFrame.numDepal,
+		gpuStats.perFrame.numBlockTransfers,
+		gpuStats.perFrame.numReplacerTrackedTex,
+		gpuStats.perFrame.numCachedReplacedTextures,
+		gpuStats.perFrame.numDepthCopies,
+		gpuStats.perFrame.numColorCopies,
+		gpuStats.perFrame.numReinterpretCopies,
+		gpuStats.perFrame.numCopiesForShaderBlend,
+		gpuStats.perFrame.numCopiesForSelfTex,
+		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
 		vertexAverageCycles,
-		gpuStats.msPrepareDepth * 1000.0,
-		gpuStats.msCullDepth * 1000.0,
-		gpuStats.msRasterizeDepth * 1000.0,
-		(gpuStats.msPrepareDepth + gpuStats.msCullDepth + gpuStats.msRasterizeDepth) * 1000.0,
-		gpuStats.msRasterTimeAvailable * 1000.0,
-		gpuStats.numDepthRasterPrims,
-		gpuStats.numDepthRasterNoPixels,
-		gpuStats.numDepthRasterTooSmall,
-		gpuStats.numDepthRasterEarlySize,
-		gpuStats.numDepthRasterZCulled,
-		gpuStats.numDepthEarlyBoxCulled,
+		gpuStats.perFrame.msPrepareDepth * 1000.0,
+		gpuStats.perFrame.msCullDepth * 1000.0,
+		gpuStats.perFrame.msRasterizeDepth * 1000.0,
+		(gpuStats.perFrame.msPrepareDepth + gpuStats.perFrame.msCullDepth + gpuStats.perFrame.msRasterizeDepth) * 1000.0,
+		gpuStats.perFrame.msRasterTimeAvailable * 1000.0,
+		gpuStats.perFrame.numDepthRasterPrims,
+		gpuStats.perFrame.numDepthRasterNoPixels,
+		gpuStats.perFrame.numDepthRasterTooSmall,
+		gpuStats.perFrame.numDepthRasterEarlySize,
+		gpuStats.perFrame.numDepthRasterZCulled,
+		gpuStats.perFrame.numDepthEarlyBoxCulled,
 		debugRecording_ ? "(debug-recording)" : ""
 	);
 }

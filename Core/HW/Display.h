@@ -21,6 +21,7 @@
 #include <functional>
 
 class PointerWrap;
+class StringWriter;
 
 typedef void (*FlipCallback)(void *userdata);
 void __DisplayListenFlip(FlipCallback callback, void *userdata);
@@ -35,7 +36,7 @@ uint32_t __DisplayGetCurrentHcount();
 uint32_t __DisplayGetAccumulatedHcount();
 void DisplayAdjustAccumulatedHcount(uint32_t diff);
 
-void __DisplayGetDebugStats(char *stats, size_t bufsize);
+void __DisplayGetDebugStats(StringWriter &w);
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
 void __DisplayGetVPS(float *out_vps);

@@ -715,6 +715,7 @@ add_library(Common STATIC
 	Common/Data/Text/I18n.h
 	Common/Data/Text/Parsers.cpp
 	Common/Data/Text/Parsers.h
+	Common/Data/Text/StringWriter.h
 	Common/Data/Text/WrapText.cpp
 	Common/Data/Text/WrapText.h
 	Common/Data/Random/Rng.h

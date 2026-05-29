@@ -59,7 +59,7 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 
 	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
-		oldtex->second->lastFrame = gpuStats.numFlips;
+		oldtex->second->lastFrame = gpuStats.totals.numFlips;
 		return *oldtex->second;
 	}
 
@@ -132,7 +132,7 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 	}
 
 	tex->texture = draw_->CreateTexture(desc);
-	tex->lastFrame = gpuStats.numFlips;
+	tex->lastFrame = gpuStats.totals.numFlips;
 
 	texCache_[clutId] = tex;
 	return *tex;
@@ -187,7 +187,7 @@ Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
 
 void TextureShaderCache::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
-		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.totals.numFlips) {
 			tex->second->texture->Release();
 			delete tex->second;
 			texCache_.erase(tex++);
@@ -195,7 +195,7 @@ void TextureShaderCache::Decimate() {
 			++tex;
 		}
 	}
-	gpuStats.numClutTextures = (int)texCache_.size();
+	gpuStats.perFrame.numClutTextures = (int)texCache_.size();
 }
 
 Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal, u32 depthUpperBits) {

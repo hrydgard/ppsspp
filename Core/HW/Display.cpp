@@ -23,6 +23,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -79,10 +80,10 @@ static void CalculateFPS() {
 		actualFps = (float)(actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
-		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.numFlips - lastNumFlips) / frames);
+		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.totals.numFlips - lastNumFlips) / frames);
 
 		lastFpsFrame = numVBlanks;
-		lastNumFlips = gpuStats.numFlips;
+		lastNumFlips = gpuStats.totals.numFlips;
 		lastActualFlips = actualFlips;
 		lastFpsTime = now;
 
@@ -187,24 +188,12 @@ void DisplayNotifySleep(double t, int pos) {
 	frameSleepHistory[pos] += t;
 }
 
-void __DisplayGetDebugStats(char *stats, size_t bufsize) {
-	char statbuf[4096];
+void __DisplayGetDebugStats(StringWriter &w) {
 	if (!gpu) {
-		snprintf(stats, bufsize, "N/A");
+		w.C("No GPU stats available").endl();
 		return;
 	}
-	gpu->GetStats(statbuf, sizeof(statbuf));
-
-	snprintf(stats, bufsize,
-		"Kernel processing time: %0.2f ms\n"
-		"Slowest syscall: %s : %0.2f ms\n"
-		"Most active syscall: %s : %0.2f ms\n%s",
-		kernelStats.msInSyscalls * 1000.0f,
-		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
-		kernelStats.slowestSyscallTime * 1000.0f,
-		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
-		kernelStats.summedSlowestSyscallTime * 1000.0f,
-		statbuf);
+	gpu->GetStats(w);
 }
 
 // On like 90hz, 144hz, etc, we return 60.0f as the framerate target. We only target other

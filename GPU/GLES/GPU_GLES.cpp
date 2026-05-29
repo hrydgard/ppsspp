@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/GraphicsContext.h"
 #include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
@@ -248,7 +249,7 @@ void GPU_GLES::BeginHostFrame(const DisplayLayoutConfig &config) {
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
 
 	constexpr int saveShaderCacheFrameInterval = 32767;  // power of 2 - 1. About every 10 minutes at 60fps.
-	if (shaderCachePath_.Valid() && !(gpuStats.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING_CPU) {
+	if (shaderCachePath_.Valid() && !(gpuStats.totals.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING_CPU) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
 	shaderManagerGL_->DirtyLastShader();
@@ -278,16 +279,11 @@ void GPU_GLES::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
-	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
-	buffer += offset;
-	bufsize -= offset;
-	if ((int)bufsize < 0)
-		return;
-	snprintf(buffer, bufsize,
-		"Vertex, Fragment, Programs loaded: %d, %d, %d\n",
+void GPU_GLES::GetStats(StringWriter &w) {
+	w.F("Vertex, Fragment, Programs loaded: %d, %d, %d\n",
 		shaderManagerGL_->GetNumVertexShaders(),
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
+	FormatGPUStatsCommon(w);
 }

@@ -182,6 +182,7 @@ struct BinDirtyRange {
 	void Expand(uint32_t newBase, uint32_t bpp, uint32_t stride, const DrawingCoords &tl, const DrawingCoords &br);
 };
 
+class StringWriter;
 class BinManager {
 public:
 	BinManager();
@@ -207,7 +208,7 @@ public:
 	// Assumes you've also checked for a write (writes are partial so are automatically reads.)
 	bool HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 
-	void GetStats(char *buffer, size_t bufsize);
+	void GetStats(StringWriter &w);
 	void ResetStats();
 
 	void SetDirty(SoftDirty flags) {

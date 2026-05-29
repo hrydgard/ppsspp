@@ -485,7 +485,7 @@ protected:
 		}
 		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
 
-		gpuStats.numTextureDataBytesHashed += sizeInRAM;
+		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
 
 		if (Memory::IsValidAddress(addr + sizeInRAM)) {
 			return StableQuickTexHash(checkp, sizeInRAM);
