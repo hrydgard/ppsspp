@@ -234,7 +234,7 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
-			BaseUpdateUniforms(&uniforms_->ub_base, dirty, false, useBufferedRendering);
+			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&uniforms_->ub_lights, dirty);
 		if (dirty & DIRTY_BONE_UNIFORMS)

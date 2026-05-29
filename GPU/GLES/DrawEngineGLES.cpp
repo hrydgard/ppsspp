@@ -322,7 +322,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
@@ -408,7 +408,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
+		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_);
 		if (!linked) {
 			// Not much we can do here. Let's skip drawing.
 			goto bail;

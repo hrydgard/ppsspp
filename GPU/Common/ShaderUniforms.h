@@ -113,7 +113,8 @@ static const char * const ub_vs_bonesStr =
 R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
 )";
 
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering);
+// useBufferedRendering is only used to determine the rotation uniform.
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 

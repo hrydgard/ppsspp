@@ -373,7 +373,7 @@ void LinkedShader::use(const ShaderID &VSID) const {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage) {
+void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc &shaderLanguage) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
@@ -808,7 +808,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -826,7 +826,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	}
 
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
+		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
 		return lastShader_;
 	}
 
@@ -876,7 +876,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
+	ls->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
 
 	lastShader_ = ls;
 	return ls;

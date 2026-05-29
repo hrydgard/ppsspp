@@ -31,7 +31,7 @@ void UpdateRotation(float rotMatrix[4], bool useBufferedRendering) {
 	}
 }
 
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering) {
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
 	}

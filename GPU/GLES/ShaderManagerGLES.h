@@ -41,7 +41,7 @@ public:
 	~LinkedShader();
 
 	void use(const ShaderID &VSID) const;
-	void UpdateUniforms(const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
+	void UpdateUniforms(const ShaderID &VSID, const ShaderLanguageDesc &shaderLanguage);
 	void Delete();
 
 	GLRenderManager *render_;
@@ -171,7 +171,7 @@ public:
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
 	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
-	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering);
+	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState);
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
