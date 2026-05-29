@@ -731,10 +731,18 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 			// Now that we're done culling and generating clipped vertices if needed (not yet implemented), we go ahead and project.
 			ProjectVertices(transformed, numDecodedVerts);
 
+#if 0
+			// NOTE! This code is effectively obsolete now that we have implemented depth clamp in the fragment shader,
+			// However, this can be an alternate partial solution for low-performance hardware in the future.
+
 			// Alright! Now, we can approximate Z-clamping, if the hardware lacks support for doing it for us.
 			// Now, this can only be done exactly if all vertices in a triangle are beyond the far plane.
 			// If not we technically need to cut it in two parts to clamp accurately.
+
 			// However, in most cases that matter (such as missing skies, etc), this is fine.
+			// We could be aggressive and clamp every individual vertex, but this takes the safer (but not 100% safe) route and only clamps vertices
+			// that are part of a triangle where all three are beyond the same plane.
+
 			const int maxZInt = gstate.getDepthRangeMax();
 			// float maxZ = maxZInt / 65535.0f;
 			const int minZInt = gstate.getDepthRangeMin();
@@ -742,7 +750,6 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 			// We only need to clamp if minZ and maxZ aren't at the extreme in each direction, as otherwise
 			// minZ and maxZ will cut things off.
 
-			// If gstate_c.Use(GPU_USE_DEPTH_CLAMP), we can theoretically skip this. However, to keep behavior the same regardless of the flag, we won't.
 			if (gstate.isDepthClipEnabled() && (minZInt == 0 || maxZInt == 65535)) {
 				for (int i = 0; i < numTrans - 2; i += 3) {
 					TransformedVertex &v0 = transformed[newInds[i]];
@@ -779,6 +786,7 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 					}
 				}
 			}
+#endif
 		}
 	} else {
 		_dbg_assert_(false);

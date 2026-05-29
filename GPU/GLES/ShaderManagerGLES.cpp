@@ -808,7 +808,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useHwTransform) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -820,7 +820,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), useHwTransform);
 	} else {
 		FSID = lastFSID_;
 	}
@@ -862,6 +862,8 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	if (ls == nullptr) {
 		_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+		_dbg_assert_(FSID.Bit(FS_BIT_MINMAX_DISCARD) == VSID.Bit(VS_BIT_FS_MINMAX_DISCARD));
+		_dbg_assert_(FSID.Bit(FS_BIT_DEPTH_CLAMP) == VSID.Bit(VS_BIT_FS_DEPTH_CLAMP));
 
 		if (vs == nullptr || fs == nullptr) {
 			// Can't draw. This shouldn't really happen (but can happen if fragment shader generation fails)

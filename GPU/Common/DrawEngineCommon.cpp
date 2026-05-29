@@ -421,7 +421,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *worldViewProj, const voi
 	// Check for weird scaling that can make graphics extend beyond the viewport.
 	// NOTE: These checks are not bullet proof.
 	float mtx[16];
-	if (vpXCenter != 2048.0f || vpYCenter != 2048.0f || vpXScale < ((scissorX2 + 1) >> 1) || vpYScale < ((scissorY2 + 1) >> 1)) {
+	if (vpXCenter != 2048.0f || vpYCenter != 2048.0f || vpXScale < ((scissorX2 + 1) >> 1) || fabsf(vpYScale) < ((scissorY2 + 1) >> 1)) {
 		// Note that the PSP does not clip against the viewport.
 		const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
 		// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.

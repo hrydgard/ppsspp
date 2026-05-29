@@ -274,12 +274,14 @@ void DrawEngineGLES::Flush() {
 
 	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, useHWTessellation_, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, &vsid);
 
+	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back. However, this can no longer really happen... Need to fix this.
+
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
 	uint32_t vertexBufferOffset = 0;
 	uint32_t indexBufferOffset = 0;
 
-	if (vshader->UseHWTransform()) {
+	if (useHWTransform) {
 		if (applySkinInDecode_ && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(dec_, decoded_);
@@ -322,7 +324,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, true);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
@@ -408,7 +410,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_);
+		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, false);
 		if (!linked) {
 			// Not much we can do here. Let's skip drawing.
 			goto bail;

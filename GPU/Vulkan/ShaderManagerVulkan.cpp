@@ -249,8 +249,11 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertexType, VulkanVertexShade
 
 	VShaderID VSID;
 	VulkanVertexShader *vs = nullptr;
+	bool recomputedVS = false;
+	bool recomputedFS = false;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
+		recomputedVS = true;
 		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
 		if (VSID == lastVSID_) {
 			_dbg_assert_(lastVShader_ != nullptr);
@@ -281,7 +284,8 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertexType, VulkanVertexShade
 	VulkanFragmentShader *fs = nullptr;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), useHWTransform);
+		recomputedFS = true;
 		if (FSID == lastFSID_) {
 			_dbg_assert_(lastFShader_ != nullptr);
 			fs = lastFShader_;
@@ -305,8 +309,12 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertexType, VulkanVertexShade
 	}
 	*fshader = fs;
 
+	// If you hit these, look at recomputedVS and recomputedFS to determine if it's a dirty-flag problem
+	// or an ID generation problem (if any of them are false, it's a dirty-flag problem).
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+	_dbg_assert_(FSID.Bit(FS_BIT_MINMAX_DISCARD) == VSID.Bit(VS_BIT_FS_MINMAX_DISCARD));
+	_dbg_assert_(FSID.Bit(FS_BIT_DEPTH_CLAMP) == VSID.Bit(VS_BIT_FS_DEPTH_CLAMP));
 
 	_dbg_assert_msg_((*vshader)->UseHWTransform() == useHWTransform, "Bad vshader was computed");
 }

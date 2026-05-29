@@ -241,13 +241,12 @@ void DrawEngineVulkan::Flush() {
 		provokingVertexOk = true;
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
-
 	if (useHWTransform && boundingDepths_.valid) {
 		if (boundingDepths_.hitClipSpaceZW) {
 			// Revert to software transform so we can clip more accurately.
 			useHWTransform = false;
 		}
-		if ((boundingDepths_.minProjZ < 0.0 || boundingDepths_.maxProjZ > 65535.0) && !gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
+		if ((boundingDepths_.minProjZ < gstate.getDepthRangeMin() || boundingDepths_.maxProjZ > gstate.getDepthRangeMax()) && !gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 			// Revert to software transform so we can clamp more accurately.
 			useHWTransform = false;
 		}
@@ -255,7 +254,8 @@ void DrawEngineVulkan::Flush() {
 	}
 
 	if (useHWTransform != lastUseHwTransform_) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_RASTER_STATE);
+		// Need to re-evaluate software transform fallbacks.
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 		lastUseHwTransform_ = useHWTransform;
 	}
 

@@ -16,7 +16,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_CLIP_ENABLE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
 	VS_BIT_SIMPLE_STEREO = 6,
-	VS_BIT_MINMAX_DISCARD = 7,  // Do min/max in the fragment shader.
+	// bit 7 is free,
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
 	VS_BIT_NORM_REVERSE = 10,
@@ -54,6 +54,8 @@ enum VShaderBit : uint8_t {
 	VS_BIT_LIGHTING_ENABLE = 56,
 	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
 	// 59 - 61 are free.
+	VS_BIT_FS_MINMAX_DISCARD = 59, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
+	VS_BIT_FS_DEPTH_CLAMP = 60, // Do depth clamp in the fragment shader.
 	VS_BIT_FLATSHADE = 62, // 1 bit
 	VS_BIT_BEZIER = 63, // 1 bit
 	// No more free
@@ -103,6 +105,8 @@ enum FShaderBit : uint8_t {
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 	FS_BIT_UBERSHADER = 60,
 	FS_BIT_DEPTH_TEST_NEVER = 61,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
+	FS_BIT_DEPTH_CLAMP = 62,  // These both are connected to VS_BIT_MINMAX_DISCARD_OR_DEPTH_CLAMP in the vertex shader.
+	// Free bit: 63
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
@@ -249,7 +253,7 @@ void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, boo
 std::string VertexShaderDesc(const VShaderID &id);
 
 struct ComputedPipelineState;
-void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs);
+void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform);
 std::string FragmentShaderDesc(const FShaderID &id);
 
 // For sanity checking.

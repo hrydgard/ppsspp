@@ -222,6 +222,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
+	// Should we do the min/max discard in the shader and/or or use depth clamping?
+	// In both cases we need to just forward
+	const bool fsMinmaxDiscard = id.Bit(VS_BIT_FS_MINMAX_DISCARD);
+	const bool fsDepthClamp = id.Bit(VS_BIT_FS_DEPTH_CLAMP);
+
 	const char *shading = "";
 	if (compat.glslES30 || compat.shaderLanguage == GLSL_VULKAN)
 		shading = doFlatShading ? "flat " : "";
@@ -298,6 +303,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "layout (location = 4) out highp vec2 v_zw;\n");
+		}
+
 		WRITE(p, "invariant gl_Position;\n");
 	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		// Note: These two share some code after this hellishly large if/else.
@@ -356,6 +365,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+		}
+		// gl_Position must be last for D3D11.
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
 		minZClipPlaneSuffix = ".x";
 		maxZClipPlaneSuffix = ".y";
@@ -387,7 +400,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform)
 			WRITE(p, "%s vec3 position;\n", compat.attribute);
 		else
-			WRITE(p, "%s vec4 position;\n", compat.attribute);  // need to pass the fog coord in w
+			WRITE(p, "%s vec4 position;\n", compat.attribute);  // XYZW clip space coordinate.
 		*attrMask |= 1 << ATTR_POSITION;
 
 		if (useHWTransform && hasNormal) {
@@ -522,6 +535,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
 		} else {
 			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
+		}
+
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_vs);
 		}
 	}
 
@@ -747,8 +764,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  vec4 outPos = position;\n");
 			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This multiplication should be moved to the vertex decoders for through mode.
 		} else {
-			// The viewport has already been applied here.
+			// The viewport has already been applied here, along with the division.
 			WRITE(p, "  vec4 outPos = position;\n");
+		}
+
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -836,6 +857,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// We're in clip space, so here we check for clipping. We check if the actual hardware will clip.
 		// If so, we skip the "range culling" (x and y out-of-bounds checks) since they wouldn't have happened, most likely.
+		// NOTE: There are some games that depend on clipping already having been done when checking the range culling.
+		// We can't handle that here, we use the software transform pipeline for that.
 		WRITE(p, "  if (outPos.z < -outPos.w) {\n");
 		WRITE(p, "    zClipped = true;\n");
 		WRITE(p, "  }\n");
@@ -846,7 +869,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		if (depthCullEnable) {
 			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
-			// NOTE: This volume is very slightly too small. It's unclear to me how to allow hex 0x3F8000XX (up to 1.0000304) where XX are arbitrary.
+			// NOTE: We add a small offset to the clip distance to allow hex 0x3F8000XX (up to 1.0000304) where XX are arbitrary.
 			WRITE(p, "  %sgl_CullDistance%s = outPos.z + outPos.w + 0.0000304 / outPos.w;\n", compat.vsOutPrefix, cullDistanceNearSuffix);
 			WRITE(p, "  %sgl_CullDistance%s = outPos.w - outPos.z + 0.0000304 / outPos.w;\n", compat.vsOutPrefix, cullDistanceFarSuffix);
 		}
@@ -854,6 +877,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
 		// In software transform mode, this is performed in on the CPU.
 		WRITE(p, "  outPos.xyz = (outPos.xyz / outPos.w) * u_vpScale.xyz + u_vpOffset.xyz;\n");
+
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
+		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -1284,6 +1311,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
+	}
+
+	if (fsDepthClamp) {
+		// Overwrite Z with a value that will not be clipped.
+		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
+		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * 0.5 * (1.0 / 65536.0);\n", compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
 	if (compat.depthMinusOneToOne) {

@@ -13,12 +13,23 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
+
+// Shared ID checks for when the vertex and fragment shaders need to coordinate.
+
+// NOTE: Both of these assume non - through - mode.Don't check these if in through mode.
+static bool needFragmentMinMaxClipping() {
+	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
+}
+static bool needFragmentDepthClamp() {
+	// If gstate.isDepthClipEnabled is false, clamping does not happen, instead fragments are culled as normal.
+	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+}
+
 std::string VertexShaderDesc(const VShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
 	if (id.Bit(VS_BIT_IS_THROUGH)) desc << "THR ";
 	if (id.Bit(VS_BIT_CLIP_ENABLE)) desc << "Clip ";
-	if (id.Bit(VS_BIT_MINMAX_DISCARD)) desc << "ZClip ";
 	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc << "HWX ";
 	if (id.Bit(VS_BIT_HAS_COLOR)) desc << "C ";
 	if (id.Bit(VS_BIT_HAS_TEXCOORD)) desc << "T ";
@@ -37,6 +48,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 
 	if (uvgMode) desc << uvgModes[uvgMode];
 	if (id.Bit(VS_BIT_ENABLE_BONES)) desc << "Bones:" << (id.Bits(VS_BIT_BONES, 3) + 1) << " ";
+
 	// Lights
 	if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
 		desc << "Light: ";
@@ -64,12 +76,15 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "RangeCull ";
 
 	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
+	if (id.Bit(VS_BIT_FS_MINMAX_DISCARD)) desc << "FSMinMax ";
+	if (id.Bit(VS_BIT_FS_DEPTH_CLAMP)) desc << "FSDepthClamp ";
 
 	return desc.str();
 }
 
 void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
-	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
+	const bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
+	const bool isSoftwareFallback = !isModeThrough && !useHWTransform && g_Config.bHardwareTransform;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
@@ -106,6 +121,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	}
 
 	if (useHWTransform) {
+		_dbg_assert_(!isModeThrough);
 		id.SetBit(VS_BIT_USE_HW_TRANSFORM);
 		id.SetBit(VS_BIT_HAS_NORMAL, vtypeHasNormal);
 
@@ -159,6 +175,16 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 				id.SetBit(VS_BIT_HAS_NORMAL_TESS, (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled());
 			}
 			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
+		}
+	} else {  // !useHwTransform
+		// Various conditions that require per-pixel depth manipulation (very expensive!)
+		if (!isModeThrough) {
+			if (needFragmentDepthClamp()) {
+				id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
+			}
+			if (needFragmentMinMaxClipping()) {
+				id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
+			}
 		}
 	}
 
@@ -267,6 +293,8 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
 	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
 	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
+	if (id.Bit(FS_BIT_MINMAX_DISCARD)) desc << "FragMinMaxDiscard ";
+	if (id.Bit(FS_BIT_DEPTH_CLAMP)) desc << "FragDepthClamp ";
 	return desc.str();
 }
 
@@ -285,13 +313,26 @@ inline u32 SanitizeBlendMode(GEBlendMode mode) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs) {
+void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform) {
 	FShaderID id;
+	bool isModeThrough = gstate.isModeThrough();
+
+	// We exclude hwTransform mode here, although we could absolutely do this in hwtransform as well, because we detect
+	// draws that needs this and use software transform as the fallback for them. That logic will have to change if we change that.
+	// NOTE: This check MUST be identical to the one in ComputeVertexShaderID, otherwise we might get mismatches between VS and FS and end up with no shader at all.
+	if (!useHwTransform && !isModeThrough) {
+		if (needFragmentDepthClamp()) {
+			id.SetBit(FS_BIT_DEPTH_CLAMP);
+		}
+		if (needFragmentMinMaxClipping()) {
+			id.SetBit(FS_BIT_MINMAX_DISCARD);
+		}
+	}
+
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id.SetBit(FS_BIT_CLEARMODE);
 	} else {
-		bool isModeThrough = gstate.isModeThrough();
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
 		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
@@ -403,6 +444,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 				}
 			}
 		}
+
+		// Various conditions that require per-pixel depth manipulation (very expensive!)
+		bool needMinMaxClipping = gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF && !isModeThrough;
 
 		// Forcibly disable NEVER + depth-write on Mali.
 		// TODO: Take this from computed depth test instead of directly from the gstate.
