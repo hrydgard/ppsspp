@@ -68,61 +68,8 @@ inline unsigned int toFloat24(float f) {
 	return i >> 8;
 }
 
-// The ToString function lives in GPUCommonHW.cpp.
-struct GPUStatistics {
-	void Reset() {
-		ResetFrame();
-		numFlips = 0;
-	}
-
-	void ResetFrame() {
-		numDrawCalls = 0;
-		numVertexDecodes = 0;
-		numCulledDraws = 0;
-		numDrawSyncs = 0;
-		numListSyncs = 0;
-		numVertsSubmitted = 0;
-		numVertsDecoded = 0;
-		numUncachedVertsDrawn = 0;
-		numTextureInvalidations = 0;
-		numTextureInvalidationsByFramebuffer = 0;
-		numTexturesHashed = 0;
-		numTextureDataBytesHashed = 0;
-		numFlushes = 0;
-		numBBOXJumps = 0;
-		numTexturesDecoded = 0;
-		numFramebufferEvaluations = 0;
-		numFBOsCreated = 0;
-		numBlockingReadbacks = 0;
-		numReadbacks = 0;
-		numUploads = 0;
-		numCachedUploads = 0;
-		numDepal = 0;
-		numClears = 0;
-		numDepthCopies = 0;
-		numReinterpretCopies = 0;
-		numColorCopies = 0;
-		numCopiesForShaderBlend = 0;
-		numCopiesForSelfTex = 0;
-		numBlockTransfers = 0;
-		numReplacerTrackedTex = 0;
-		numCachedReplacedTextures = 0;
-		numClutTextures = 0;
-		msProcessingDisplayLists = 0;
-		msPrepareDepth = 0.0;
-		msCullDepth = 0.0;
-		msRasterizeDepth = 0.0;
-		msRasterTimeAvailable = 0.0;
-		numDepthRasterPrims = 0;
-		numDepthRasterEarlySize = 0;
-		numDepthRasterNoPixels = 0;
-		numDepthRasterTooSmall = 0;
-		numDepthRasterZCulled = 0;
-		numDepthEarlyBoxCulled = 0;
-		vertexGPUCycles = 0;
-		otherGPUCycles = 0;
-	}
-
+// TODO: Possibly use macros to disable expensive parts of stats tracking in release builds.
+struct GPUStatsPerFrame {
 	// Per frame statistics
 	int numDrawCalls;
 	int numVertexDecodes;
@@ -169,8 +116,26 @@ struct GPUStatistics {
 	int numDepthRasterTooSmall;
 	int numDepthRasterZCulled;
 	int numDepthEarlyBoxCulled;
-	// Flip count. Doesn't really belong here.
+};
+
+struct GPUStatsTotals {
 	int numFlips;
+};
+
+// The ToString function lives in GPUCommonHW.cpp.
+struct GPUStatistics {
+	void Reset() {
+		ResetFrame();
+		totals = {};
+	}
+
+	void ResetFrame() {
+		perFrame = {};
+	}
+
+	// Flip count. Doesn't really belong here.
+	GPUStatsPerFrame perFrame;
+	GPUStatsTotals totals;
 };
 
 extern GPUStatistics gpuStats;

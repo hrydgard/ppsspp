@@ -33,6 +33,7 @@ class DrawEngineVulkan;
 
 class VulkanContext;
 class VulkanTexture;
+class StringWriter;
 
 class SamplerCache {
 public:
@@ -76,7 +77,7 @@ public:
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 
-	void GetStats(char *ptr, size_t size);
+	void GetStats(StringWriter &w);
 
 	std::vector<std::string> DebugGetSamplerIDs() const;
 	std::string DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType);

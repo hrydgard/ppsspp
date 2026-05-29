@@ -213,11 +213,11 @@ protected:
 	}
 
 	inline void ResetAfterDrawInline() {
-		gpuStats.numFlushes++;
-		gpuStats.numDrawCalls += numDrawInds_;
-		gpuStats.numVertexDecodes += numDrawVerts_;
-		gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
-		gpuStats.numVertsDecoded += numDecodedVerts_;
+		gpuStats.perFrame.numFlushes++;
+		gpuStats.perFrame.numDrawCalls += numDrawInds_;
+		gpuStats.perFrame.numVertexDecodes += numDrawVerts_;
+		gpuStats.perFrame.numVertsSubmitted += vertexCountInDrawCalls_;
+		gpuStats.perFrame.numVertsDecoded += numDecodedVerts_;
 
 		indexGen.Reset();
 		numDecodedVerts_ = 0;

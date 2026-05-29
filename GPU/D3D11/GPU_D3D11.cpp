@@ -20,6 +20,7 @@
 #include "Common/Log.h"
 #include "Common/GraphicsContext.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Data/Text/StringWriter.h"
 
 #include "GPU/GPUState.h"
 
@@ -140,14 +141,9 @@ void GPU_D3D11::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
-	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
-	buffer += offset;
-	bufsize -= offset;
-	if ((int)bufsize < 0)
-		return;
-	snprintf(buffer, bufsize,
-		"Vertex, Fragment shaders loaded: %d, %d\n",
+void GPU_D3D11::GetStats(StringWriter &w) {
+	FormatGPUStatsCommon(w);
+	w.F("Vertex, Fragment shaders loaded: %d, %d\n",
 		shaderManagerD3D11_->GetNumVertexShaders(),
 		shaderManagerD3D11_->GetNumFragmentShaders()
 	);

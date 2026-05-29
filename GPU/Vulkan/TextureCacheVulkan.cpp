@@ -1111,9 +1111,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	return true;
 }
 
-void TextureCacheVulkan::GetStats(char *ptr, size_t size) {
-	snprintf(ptr, size, "N/A");
-}
+void TextureCacheVulkan::GetStats(StringWriter &w) {}
 
 std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {
 	return samplerCache_.DebugGetSamplerIDs();

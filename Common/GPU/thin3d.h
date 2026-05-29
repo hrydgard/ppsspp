@@ -896,7 +896,7 @@ public:
 	// Not very elegant, but more elegant than the old passId hack.
 	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
 
-	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
+	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.totals.numFlips
 	virtual int GetFrameCount() = 0;
 
 	virtual std::string GetGpuProfileString() const {

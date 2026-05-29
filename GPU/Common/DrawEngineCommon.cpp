@@ -571,7 +571,7 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
 		*fboTexState = FBO_TEX_READ_FRAMEBUFFER;
 	} else {
-		gpuStats.numCopiesForShaderBlend++;
+		gpuStats.perFrame.numCopiesForShaderBlend++;
 		*fboTexState = FBO_TEX_COPY_BIND_TEX;
 	}
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
@@ -1037,7 +1037,7 @@ void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDe
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.msPrepareDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, coreCollectDebugStats);
 
 	// Decode.
 	int numDecoded = 0;
@@ -1079,7 +1079,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.msPrepareDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, coreCollectDebugStats);
 
 	// Make sure these have already been indexed away.
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
@@ -1112,7 +1112,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 
 void DrawEngineCommon::FlushQueuedDepth() {
 	if (rasterTimeStart_ != 0.0) {
-		gpuStats.msRasterTimeAvailable += time_now_d() - rasterTimeStart_;
+		gpuStats.perFrame.msRasterTimeAvailable += time_now_d() - rasterTimeStart_;
 		rasterTimeStart_ = 0.0;
 	}
 
@@ -1131,7 +1131,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 		DepthScissor tileScissor = draw.scissor.Tile(0, 1);
 
 		{
-			TimeCollector collectStat(&gpuStats.msCullDepth, collectStats);
+			TimeCollector collectStat(&gpuStats.perFrame.msCullDepth, collectStats);
 			switch (draw.prim) {
 			case GE_PRIM_RECTANGLES:
 				outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw, tileScissor);
@@ -1145,7 +1145,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 			}
 		}
 		if (outVertCount > 0) {
-			TimeCollector collectStat(&gpuStats.msRasterizeDepth, collectStats);
+			TimeCollector collectStat(&gpuStats.perFrame.msRasterizeDepth, collectStats);
 			if (!Memory::IsValid4AlignedAddress(draw.depthAddr)) {
 				continue;
 			}

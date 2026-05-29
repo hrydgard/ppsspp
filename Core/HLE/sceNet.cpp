@@ -22,6 +22,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"

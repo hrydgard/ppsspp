@@ -28,6 +28,7 @@
 class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
 class TextureCacheD3D11;
+class StringWriter;
 
 class GPU_D3D11 : public GPUCommonHW {
 public:
@@ -36,7 +37,7 @@ public:
 
 	u32 CheckGPUFeatures() const override;
 
-	void GetStats(char *buffer, size_t bufsize) override;
+	void GetStats(StringWriter &w) override;
 	void DeviceLost() override;  // Destroy all device objects.
 	void DeviceRestore(Draw::DrawContext *draw) override;
 

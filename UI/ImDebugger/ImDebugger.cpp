@@ -7,7 +7,7 @@
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/IniFile.h"
-#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
@@ -2273,7 +2273,7 @@ void DrawHLEModules(ImConfig &config) {
 							break;
 						}
 					}
-					w.F("%s 0x%08x %d %s", func.name, func.ID, strlen(func.argmask), amask.c_str()).endl();
+					w.F("%s 0x%08x %d %s", func.name, func.ID, (int)strlen(func.argmask), amask.c_str()).endl();
 				}
 				System_CopyStringToClipboard(w.as_view());
 				delete[] buffer;

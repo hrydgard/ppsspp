@@ -892,9 +892,9 @@ void TransformUnit::Flush(GPUCommon *common, const char *reason) {
 	hasDraws_ = false;
 }
 
-void TransformUnit::GetStats(char *buffer, size_t bufsize) {
+void TransformUnit::GetStats(StringWriter &w) {
 	// TODO: More stats?
-	binner_->GetStats(buffer, bufsize);
+	binner_->GetStats(w);
 }
 
 void TransformUnit::FlushIfOverlap(GPUCommon *common, const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h) {

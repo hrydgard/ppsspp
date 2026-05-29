@@ -3,6 +3,7 @@
 #include "ext/imgui/imgui_extras.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImDebugger.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -33,7 +34,7 @@ void DrawFramebuffersWindow(ImConfig &cfg, FramebufferManagerCommon *framebuffer
 		return;
 	}
 
-	ImGui::Text("Cur frame: %d seq: %d", gpuStats.numFlips, framebufferManager->PeekBindSeqCount());
+	ImGui::Text("Cur frame: %d seq: %d", gpuStats.totals.numFlips, framebufferManager->PeekBindSeqCount());
 
 	ImGui::BeginTable("framebuffers", 7);
 	ImGui::TableSetupColumn("Tag", ImGuiTableColumnFlags_WidthFixed);
@@ -282,7 +283,8 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 		return;
 	}
 	char statbuf[4096];
-	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
+	StringWriter w(statbuf);
+	__DisplayGetDebugStats(w);
 	ImGui::TextUnformatted(statbuf);
 	ImGui::End();
 }

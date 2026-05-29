@@ -21,6 +21,8 @@ public:
 	virtual void SetRawAnalog(int stick, float x, float y) {}
 };
 
+class StringWriter;
+
 // Utilities for mapping input events to PSP inputs and virtual keys.
 // Main use is of course from EmuScreen.cpp, but also useful from control settings etc.
 class ControlMapper {
@@ -56,7 +58,7 @@ public:
 	// Call when the emu screen gets pushed behind some other screen, like the pause screen, to release all "down" inputs.
 	void ReleaseAll();
 
-	void GetDebugString(char *buffer, size_t bufSize) const;
+	void GetDebugString(StringWriter &w) const;
 
 	struct InputSample {
 		float value;

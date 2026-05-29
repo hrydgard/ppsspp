@@ -233,7 +233,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 					result->color = transformed[1].color0_32;
 					result->depth = depth;
 					result->action = SW_CLEAR;
-					gpuStats.numClears++;
+					gpuStats.perFrame.numClears++;
 					return;
 				}
 			}
@@ -556,7 +556,7 @@ void SoftwareTransform::ProjectClipAndExpand(int prim, int vertexCount, u32 vert
 	}
 
 	if (gstate.isModeClear()) {
-		gpuStats.numClears++;
+		gpuStats.perFrame.numClears++;
 	}
 
 	result->action = SW_DRAW_INDEXED;

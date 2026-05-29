@@ -337,7 +337,7 @@ void DrawEngineGLES::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += vertexCount;
+		gpuStats.perFrame.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		// We need correct viewport values in gstate_c already.

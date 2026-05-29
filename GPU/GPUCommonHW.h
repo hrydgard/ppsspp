@@ -2,6 +2,8 @@
 
 #include "GPUCommon.h"
 
+class StringWriter;
+
 // Shared GPUCommon implementation for the HW backends.
 // Things that are irrelevant for SoftGPU should live here.
 class GPUCommonHW : public GPUCommon {
@@ -88,7 +90,7 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 
 protected:
-	size_t FormatGPUStatsCommon(char *buf, size_t size);
+	void FormatGPUStatsCommon(StringWriter &w);
 	void UpdateCmdInfo() override;
 
 	void PreExecuteOp(u32 op, u32 diff) override;

@@ -1273,8 +1273,8 @@ u32 SoftGPU::DrawSync(int mode) {
 	return GPUCommon::DrawSync(mode);
 }
 
-void SoftGPU::GetStats(char *buffer, size_t bufsize) {
-	drawEngine_->transformUnit.GetStats(buffer, bufsize);
+void SoftGPU::GetStats(StringWriter &w) {
+	drawEngine_->transformUnit.GetStats(w);
 }
 
 void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
