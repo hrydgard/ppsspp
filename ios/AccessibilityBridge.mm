@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Common/Input/InputState.h"
+#include "Common/Log.h"
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/UI/Accessibility.h"
@@ -344,6 +345,8 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	}
 	NSLog(@"PPSSPPAccessibility refresh reason=%@ state=%d version=%llu count=%lu labels=[%@]",
 		reason, _lastUIState, (unsigned long long)snapshotVersion, (unsigned long)elementCount, labels);
+	NOTICE_LOG(Log::UI, "PPSSPPAccessibility refresh reason=%s state=%d version=%llu count=%lu",
+		[reason UTF8String], _lastUIState, (unsigned long long)snapshotVersion, (unsigned long)elementCount);
 }
 
 - (void)releaseHeldShoulder {

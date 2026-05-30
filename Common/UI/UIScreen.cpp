@@ -46,6 +46,23 @@ static UI::AccessibilityRole AccessibilityRoleForView(UI::View *view) {
 	return UI::AccessibilityRole::StaticText;
 }
 
+static bool ShouldIncludeAccessibilityView(UI::AccessibilityRole role) {
+	switch (role) {
+	case UI::AccessibilityRole::Button:
+	case UI::AccessibilityRole::Choice:
+	case UI::AccessibilityRole::Checkbox:
+	case UI::AccessibilityRole::Slider:
+	case UI::AccessibilityRole::TextField:
+	case UI::AccessibilityRole::Progress:
+	case UI::AccessibilityRole::Heading:
+	case UI::AccessibilityRole::GamepadControl:
+		return true;
+	case UI::AccessibilityRole::StaticText:
+	default:
+		return false;
+	}
+}
+
 static bool IsUsefulAccessibilityLabel(const std::string &label) {
 	return !label.empty() && label != "button" && label != "choice" && label != "radio button" && label != "text field";
 }
@@ -356,11 +373,15 @@ void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo
 			if (view->IsViewGroup() && !view->CanBeFocused()) {
 				return;
 			}
+			UI::AccessibilityRole role = AccessibilityRoleForView(view);
+			if (!ShouldIncludeAccessibilityView(role)) {
+				return;
+			}
 
 			UI::AccessibilityElementInfo info;
 			info.label = label;
 			info.bounds = bounds;
-			info.role = AccessibilityRoleForView(view);
+			info.role = role;
 			info.enabled = view->IsEnabled();
 			elements.push_back(info);
 		} catch (const std::exception &e) {
