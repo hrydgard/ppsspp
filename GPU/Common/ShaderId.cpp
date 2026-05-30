@@ -299,20 +299,20 @@ inline u32 SanitizeBlendMode(GEBlendMode mode) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform, ClipInfoFlags clipInfoFlags) {
+void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, ClipInfoFlags clipInfoFlags) {
 	FShaderID id;
 	bool isModeThrough = gstate.isModeThrough();
 
-	// We exclude hwTransform mode here, although we could absolutely do this in hwtransform as well, because we detect
-	// draws that needs this and use software transform as the fallback for them. That logic will have to change if we change that.
 	// NOTE: This check MUST be identical to the one in ComputeVertexShaderID, otherwise we might get mismatches between VS and FS and end up with no shader at all.
-	if (!useHwTransform && !isModeThrough) {
+	if (!isModeThrough) {
 		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
 			id.SetBit(FS_BIT_DEPTH_CLAMP);
 		}
 		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
 			id.SetBit(FS_BIT_MINMAX_DISCARD);
 		}
+	} else {
+		_dbg_assert_(0 == (clipInfoFlags & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)));
 	}
 
 	if (gstate.isModeClear()) {

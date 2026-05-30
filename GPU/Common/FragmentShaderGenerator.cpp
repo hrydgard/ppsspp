@@ -186,7 +186,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) && !forceDepthWritesOff) || fsDepthClamp;
+	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff;
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
 // on hardware that can do proper bit math in fragment shaders.
@@ -1180,36 +1180,26 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (fsMinmaxDiscard) {
 		// See the vertex shader generator for the explanation for this.
 		WRITE(p, "  float clipZ = floor(projZ * 0.5 + 0.5) * 2.0;\n");
-		WRITE(p, "  if (u_minZmaxZ.x > 0 && clipZ < u_minZmaxZ.x) DISCARD;\n");
-		WRITE(p, "  if (u_minZmaxZ.y < 65535 && clipZ > u_minZmaxZ.y) DISCARD;\n");
+		WRITE(p, "  if (u_minZmaxZ.x > 0.0 && clipZ < u_minZmaxZ.x) DISCARD;\n");
+		WRITE(p, "  if (u_minZmaxZ.y < 65535.0 && clipZ > u_minZmaxZ.y) DISCARD;\n");
 	}
 
-	if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-
-		const double scale = depthScale.ScaleU16();
-
-		if (fsDepthClamp) {
-			WRITE(p, "  highp float z = clamp(projZ, 0.0, 65536.0) / 65536.0;\n");
-		} else {
-			WRITE(p, "  highp float z = gl_FragCoord.z;\n");
+	if (writeDepth) {
+		if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+			if (fsDepthClamp) {
+				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65536.0) / 65536.0;\n");
+			} else {
+				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z) / 65536.0;\n");
+			}
+		} else if (fsDepthClamp) {
+			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65536.0) / 65536.0;\n");
+		} else if (useDiscardStencilBugWorkaround) {
+			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+			// when only stencil is used. The exact situation seems to vary by driver.
+			// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+			// This doesn't make a ton of sense, but empirically does work.
+			WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 		}
-		// We center the depth with an offset, but only its fraction matters.
-		// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
-		if (((int)(depthScale.Scale() - 1.0f) & 1) == 1) {
-			WRITE(p, "  z = (floor((z * %f) - (1.0 / 2.0)) + (1.0 / 2.0)) * (1.0 / %f);\n", scale, scale);
-		} else {
-			WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
-		}
-		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (fsDepthClamp) {
-		WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65536.0) / 65536.0;\n");
-	} else if (useDiscardStencilBugWorkaround) {
-		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
-		// when only stencil is used. The exact situation seems to vary by driver.
-		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
-		// This doesn't make a ton of sense, but empirically does work.
-		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

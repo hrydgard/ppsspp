@@ -18,7 +18,7 @@ inline bool needFragmentMinMaxClipping() {
 
 inline bool needFragmentDepthClamp() {
 	// If gstate.isDepthClipEnabled is false, clamping does not happen, instead fragments are culled as normal.
-	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled();
 }
 
 // VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
@@ -268,7 +268,7 @@ void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, boo
 std::string VertexShaderDesc(const VShaderID &id);
 
 struct ComputedPipelineState;
-void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform, ClipInfoFlags clipInfoFlags);
+void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, ClipInfoFlags clipInfoFlags);
 std::string FragmentShaderDesc(const FShaderID &id);
 
 // For sanity checking.

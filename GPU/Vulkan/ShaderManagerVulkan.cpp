@@ -284,7 +284,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertexType, VulkanVertexShade
 	VulkanFragmentShader *fs = nullptr;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), useHWTransform, clipInfoFlags);
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), clipInfoFlags);
 		recomputedFS = true;
 		if (FSID == lastFSID_) {
 			_dbg_assert_(lastFShader_ != nullptr);

@@ -241,8 +241,10 @@ void DrawEngineVulkan::Flush() {
 		provokingVertexOk = true;
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
-	if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
-		useHWTransform = false;
+	if (clipInfoFlags_ & ClipInfoFlags::Valid) {
+		if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
+			useHWTransform = false;
+		}
 	}
 
 	// Is this still needed?

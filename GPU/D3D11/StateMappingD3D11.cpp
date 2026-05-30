@@ -230,7 +230,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		} else {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// We get some extra clamping behavior if clipping is enabled.
-				keys_.raster.depthClipEnable = !(gstate.isDepthClipEnabled() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP));
+				const bool clamp = gstate.isDepthClipEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+				keys_.raster.depthClipEnable = !clamp;
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				keys_.raster.depthClipEnable = 1;

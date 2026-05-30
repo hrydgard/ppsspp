@@ -254,8 +254,10 @@ void DrawEngineGLES::Flush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
-	if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
-		useHWTransform = false;
+	if (clipInfoFlags_ & ClipInfoFlags::Valid) {
+		if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
+			useHWTransform = false;
+		}
 	}
 
 	if (useHWTransform != lastUseHwTransform_) {
@@ -315,7 +317,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, true, clipInfoFlags_);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
@@ -401,7 +403,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, false, clipInfoFlags_);
+		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_);
 		if (!linked) {
 			// Not much we can do here. Let's skip drawing.
 			goto bail;
