@@ -602,7 +602,9 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 // This is just a performance optimization. NOTE: This isn't compatible with really accurate culling,
 // unless we refactor things a bit.
 int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, ClipInfoFlags clipInfoFlags) {
-	clipInfoFlags_ |= clipInfoFlags;
+	if (clipInfoFlags & ClipInfoFlags::Valid) {
+		clipInfoFlags_ |= clipInfoFlags;
+	}
 
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
@@ -676,13 +678,12 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		Flush();
 	}
 
-	// TODO: Flush on clipinfoflags change?
-	clipInfoFlags_ |= clipInfoFlags;
-
-	// if (clipInfoFlags_ != clipInfoFlags) {
-	// 	Flush();
-	// }
-	// clipInfoFlags_ = clipInfoFlags;
+	if (clipInfoFlags & ClipInfoFlags::Valid) {
+		if (clipInfoFlags_ != clipInfoFlags) {
+			Flush();
+		}
+		clipInfoFlags_ = clipInfoFlags;
+	}
 
 	_dbg_assert_(numDrawVerts_ < MAX_DEFERRED_DRAW_VERTS);
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
