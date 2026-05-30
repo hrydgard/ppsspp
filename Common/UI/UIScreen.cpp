@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <exception>
 
 #include "Common/Log.h"
 #include "Common/System/Display.h"
@@ -326,27 +327,33 @@ void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo
 
 	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
 	root_->Recurse([&](UI::View *view) {
-		if (!view || view->GetVisibility() != UI::V_VISIBLE) {
-			return;
-		}
-		std::string label = view->DescribeText();
-		if (label.empty()) {
-			return;
-		}
-		const Bounds &bounds = view->GetBounds();
-		if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
-			return;
-		}
-		if (view->IsViewGroup() && !view->CanBeFocused()) {
-			return;
-		}
+		try {
+			if (!view || view->GetVisibility() != UI::V_VISIBLE) {
+				return;
+			}
+			std::string label = view->DescribeText();
+			if (label.empty()) {
+				return;
+			}
+			const Bounds &bounds = view->GetBounds();
+			if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+				return;
+			}
+			if (view->IsViewGroup() && !view->CanBeFocused()) {
+				return;
+			}
 
-		UI::AccessibilityElementInfo info;
-		info.label = label;
-		info.bounds = bounds;
-		info.role = AccessibilityRoleForView(view);
-		info.enabled = view->IsEnabled();
-		elements.push_back(info);
+			UI::AccessibilityElementInfo info;
+			info.label = label;
+			info.bounds = bounds;
+			info.role = AccessibilityRoleForView(view);
+			info.enabled = view->IsEnabled();
+			elements.push_back(info);
+		} catch (const std::exception &e) {
+			WARN_LOG(Log::UI, "Skipping accessibility element after exception: %s", e.what());
+		} catch (...) {
+			WARN_LOG(Log::UI, "Skipping accessibility element after unknown exception");
+		}
 	});
 }
 
