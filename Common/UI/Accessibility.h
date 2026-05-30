@@ -29,5 +29,8 @@ struct AccessibilityElementInfo {
 };
 
 std::vector<AccessibilityElementInfo> BuildAccessibilitySnapshot(ScreenManager *screenManager);
+void UpdateCachedAccessibilitySnapshot(ScreenManager *screenManager);
+std::vector<AccessibilityElementInfo> GetCachedAccessibilitySnapshot();
+void ClearCachedAccessibilitySnapshot();
 
 }  // namespace UI

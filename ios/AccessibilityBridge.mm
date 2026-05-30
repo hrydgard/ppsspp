@@ -6,10 +6,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/UI/Accessibility.h"
-#include "Common/UI/Screen.h"
 #include "Core/System.h"
-
-extern ScreenManager *g_screenManager;
 
 @class PPSSPPAccessibilityBridge;
 
@@ -262,8 +259,8 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	}
 
 	[self releaseHeldShoulder];
-	if (g_screenManager && g_screenManager->getUIContext() && g_display.dp_xres > 0 && g_display.dp_yres > 0) {
-		std::vector<UI::AccessibilityElementInfo> snapshot = UI::BuildAccessibilitySnapshot(g_screenManager);
+	if (g_display.dp_xres > 0 && g_display.dp_yres > 0) {
+		std::vector<UI::AccessibilityElementInfo> snapshot = UI::GetCachedAccessibilitySnapshot();
 		for (const UI::AccessibilityElementInfo &info : snapshot) {
 			NSString *label = [NSString stringWithUTF8String:info.label.c_str()];
 			CGRect frame = [self uiFrameFromDPBounds:info.bounds];

@@ -54,6 +54,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/Accessibility.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/IconCache.h"
@@ -916,6 +917,9 @@ void NativeShutdownGraphics() {
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
+#if PPSSPP_PLATFORM(IOS)
+	UI::ClearCachedAccessibilitySnapshot();
+#endif
 	g_iconCache.ClearTextures();
 
 	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
@@ -1084,6 +1088,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	// All actual rendering (and also emulation) happens in here.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
+#if PPSSPP_PLATFORM(IOS)
+	UI::UpdateCachedAccessibilitySnapshot(g_screenManager);
+#endif
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
