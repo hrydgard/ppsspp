@@ -80,7 +80,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 endif()
 
 # the libraries in the ffmpeg/ directory are not compatible with mingw
-if(MINGW AND NOT USE_SYSTEM_FFMPEG)
+if(MINGW AND NOT USE_SYSTEM_FFMPEG AND NOT BUILD_BUNDLED_FFMPEG)
 	set(USE_SYSTEM_FFMPEG ON)
 endif()
 
@@ -202,6 +202,7 @@ option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+option(BUILD_BUNDLED_FFMPEG "Build bundled ffmpeg module" ${BUILD_BUNDLED_FFMPEG} ON)
 option(USE_SYSTEM_FREETYPE "Dynamically link against system freetype" ${USE_SYSTEM_FREETYPE})
 option(USE_SYSTEM_LIBCHDR "Dynamically link against system libchdr" ${USE_SYSTEM_LIBCHDR})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
@@ -996,81 +997,86 @@ add_library(vma STATIC
 )
 
 if(USE_FFMPEG)
-	if(NOT FFMPEG_DIR)
-		if(NOT USE_SYSTEM_FFMPEG)
-			if(ANDROID)
-				if(ARMV7)
-					set(PLATFORM_ARCH "android/armv7")
-				elseif(ARM64)
-					set(PLATFORM_ARCH "android/arm64")
-				elseif(X86_64)
-					set(PLATFORM_ARCH "android/x86_64")
-				elseif(X86)
-					set(PLATFORM_ARCH "android/x86")
+	if(NOT BUILD_BUNDLED_FFMPEG)
+		if(NOT FFMPEG_DIR)
+			if(NOT USE_SYSTEM_FFMPEG)
+				if(ANDROID)
+					if(ARMV7)
+						set(PLATFORM_ARCH "android/armv7")
+					elseif(ARM64)
+						set(PLATFORM_ARCH "android/arm64")
+					elseif(X86_64)
+						set(PLATFORM_ARCH "android/x86_64")
+					elseif(X86)
+						set(PLATFORM_ARCH "android/x86")
+					endif()
+				elseif(IOS)
+					if(IOS_PLATFORM STREQUAL "TVOS")
+						set(PLATFORM_ARCH "tvos/arm64")
+					else()
+						set(PLATFORM_ARCH "ios/universal")
+					endif()
+				elseif(MACOSX)
+					set(PLATFORM_ARCH "macosx/universal")
+				elseif(LINUX)
+					if(ARMV7)
+						set(PLATFORM_ARCH "linux/armv7")
+					elseif(ARM64)
+						set(PLATFORM_ARCH "linux/aarch64")
+					elseif(ARM)
+						set(PLATFORM_ARCH "linux/arm")
+					elseif(MIPS)
+						set(PLATFORM_ARCH "linux/mips32")
+					elseif(RISCV64)
+						set(PLATFORM_ARCH "linux/riscv64")
+					elseif(LOONGARCH64)
+						set(PLATFORM_ARCH "linux/loongarch64")
+					elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+						set(PLATFORM_ARCH "linux/x86_64")
+					elseif(X86)
+						set(PLATFORM_ARCH "linux/x86")
+					endif()
+				elseif(WIN32)
+					if(X86_64)
+						set(PLATFORM_ARCH "Windows/x86_64")
+					elseif(X86)
+						set(PLATFORM_ARCH "Windows/x86")
+					endif()
 				endif()
-			elseif(IOS)
-				if(IOS_PLATFORM STREQUAL "TVOS")
-					set(PLATFORM_ARCH "tvos/arm64")
+				if(WEBOS AND ARMV7)
+					set(PLATFORM_ARCH "linux/webos")
+				endif()
+				if(PLATFORM_ARCH)
+					set(FFMPEG_DIR "ffmpeg/${PLATFORM_ARCH}")
 				else()
-					set(PLATFORM_ARCH "ios/universal")
+					message("Couldn't find an internal FFmpeg build, using system FFmpeg instead")
 				endif()
-			elseif(MACOSX)
-				set(PLATFORM_ARCH "macosx/universal")
-			elseif(LINUX)
-				if(ARMV7)
-					set(PLATFORM_ARCH "linux/armv7")
-				elseif(ARM64)
-					set(PLATFORM_ARCH "linux/aarch64")
-				elseif(ARM)
-					set(PLATFORM_ARCH "linux/arm")
-				elseif(MIPS)
-					set(PLATFORM_ARCH "linux/mips32")
-				elseif(RISCV64)
-					set(PLATFORM_ARCH "linux/riscv64")
-				elseif(LOONGARCH64)
-					set(PLATFORM_ARCH "linux/loongarch64")
-				elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-					set(PLATFORM_ARCH "linux/x86_64")
-				elseif(X86)
-					set(PLATFORM_ARCH "linux/x86")
-				endif()
-			elseif(WIN32)
-				if(X86_64)
-					set(PLATFORM_ARCH "Windows/x86_64")
-				elseif(X86)
-					set(PLATFORM_ARCH "Windows/x86")
-				endif()
-			endif()
-			if(WEBOS AND ARMV7)
-				set(PLATFORM_ARCH "linux/webos")
-			endif()
-			if(PLATFORM_ARCH)
-				set(FFMPEG_DIR "ffmpeg/${PLATFORM_ARCH}")
-			else()
-				message("Couldn't find an internal FFmpeg build, using system FFmpeg instead")
 			endif()
 		endif()
+	
+		find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
+		# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
+		# Check if we need to use const AVCodec
+		set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
+		set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
+		set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
+		check_cxx_source_compiles("extern \"C\" {
+			#include <libavcodec/avcodec.h>
+			#include <libavformat/avformat.h>
+			}
+			static AVCodecContext *s_codec_context = NULL;
+			int main() {
+				const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
+				return 0;
+			}
+			" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
+	
+		# Check if we need to use avcodec_alloc_context3 instead of stream->codec
+		# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
 	endif()
-
-	find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
-	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
-	# Check if we need to use const AVCodec
-	set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
-	set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
-	set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
-	check_cxx_source_compiles("extern \"C\" {
-		#include <libavcodec/avcodec.h>
-		#include <libavformat/avformat.h>
-		}
-		static AVCodecContext *s_codec_context = NULL;
-		int main() {
-			const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
-			return 0;
-		}
-		" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
-
-	# Check if we need to use avcodec_alloc_context3 instead of stream->codec
-	# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
+	if(BUILD_BUNDLED_FFMPEG)
+		set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
+	endif()
 endif(USE_FFMPEG)
 
 find_package(ZLIB)
@@ -2663,6 +2669,17 @@ if(FFmpeg_FOUND)
 		FFmpeg::avutil
 		FFmpeg::swresample
 		FFmpeg::swscale
+		${ZLIB_LIBRARY}
+	)
+elseif(BUILD_BUNDLED_FFMPEG)
+	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
+	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
+	target_link_libraries(${CoreLibName}
+		avcodec
+		avformat
+		avutil
+		swresample
+		swscale
 		${ZLIB_LIBRARY}
 	)
 endif()
