@@ -668,6 +668,7 @@ public:
 	float viewproj[16];
 	float worldviewproj[16];
 	float cullMatrix[16];
+	bool viewportNearPlaneMatchesOutput;
 
 	KnownVertexBounds vertBounds;
 

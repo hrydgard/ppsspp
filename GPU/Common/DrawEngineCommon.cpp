@@ -30,6 +30,7 @@
 #include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/GPUStateSIMDUtil.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DepthRaster.h"
 #include "GPU/Common/ShaderId.h"
@@ -368,12 +369,12 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 			objPos = Vec4F32::Load((const float *)data);
 			break;
 		}
-		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;
+		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;  // Not sure we should do the vertex mask thing.
 		Vec4F32 posW = clipPos.ShuffleWWWW();
 		Vec4F32 posXY = clipPos.ShuffleXXYY();
 		Vec4F32 planeDistXY = posXY * planesXY + posW;
 		insideMaskXY |= planeDistXY.CompareGe(Vec4F32::Zero());
-		Vec4F32 posZ = clipPos.ShuffleZZZZ();
+		Vec4F32 posZ = clipPos.ShuffleZZZZ();  // This means that we compute the Z sides twice. Oh well.
 		Vec4F32 planeDistZ = posZ * planesXY + posW;
 		anyOutsideMaskZ |= planeDistZ.CompareLt(Vec4F32::Zero());
 		insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
@@ -386,17 +387,25 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		}
 	}
 
-	if (AllCompareBitsSet(insideMaskXY) && AllCompareBitsSet(insideMaskZ)) {
-		depths->valid = true;
-		depths->hitClipSpaceZW = AnyCompareBitsSet(anyOutsideMaskZ);
-		// Before checking later, we apply a viewport to the projZ, so we can later compare against minZ/maxZ or the outer bounds.
-		// But to save operations we don't do it here.
-		depths->minProjZ = minProjZ + vpZOffset;
-		depths->maxProjZ = maxProjZ + vpZOffset;
-		return true;
-	} else {
+	if (!AllCompareBitsSet(insideMaskXY) || !AllCompareBitsSet(insideMaskZ)) {
+		// All vertices were outside one side of the clipping cube. We can skip the draw entirely.
 		return false;
 	}
+
+	depths->valid = true;
+	depths->hitClipSpaceZW = AnyCompareBitsSet(anyOutsideMaskZ);
+
+	// If the W=-Z plane was intersected, here we can go through the vertices again, and check for X/Y bounds for range culling.
+	// However! We need to find a valid way to do so by "backprojecting" the range culling into clip space, which may be a little tricky.
+	//
+	// If nothing is outside the box, the "inversion" cases (vertices hit the boundary after clipping like Flatout, Sengoku Cannon)
+	// cannot happen, and soft clipping is only needed if the viewport is smaller than the valid Z range.
+
+	// Before checking later, we apply a viewport to the projZ, so we can later compare against minZ/maxZ or the outer bounds.
+	// But to save operations we don't do it here.
+	depths->minProjZ = minProjZ + vpZOffset;
+	depths->maxProjZ = maxProjZ + vpZOffset;
+	return true;
 }
 
 bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depths) {

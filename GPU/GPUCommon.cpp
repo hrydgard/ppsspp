@@ -2252,6 +2252,16 @@ void GPUCommon::UpdateMatrixProducts() {
 			// No funny business, just use worldviewproj for culling.
 			memcpy(gstate_c.cullMatrix, gstate_c.worldviewproj, sizeof(float) * 16);
 		}
+
+		// Now, check the Z range. If the viewport matches the limits of Z, we can avoid the need to do near clipping in many cases
+		// since the host hardware will take care of it automatically.
+		const float absZScale = fabsf(gstate.getViewportZScale());
+		const float zCenter = gstate.getViewportZCenter();
+		const float zMin = gstate.getDepthRangeMin();
+		const float frontPlane = zCenter - absZScale;
+		if (frontPlane == zMin || frontPlane == zMin + 1.0f) {
+			gstate_c.viewportNearPlaneMatchesOutput = true;
+		}
 	}
 	// It's just a bit operation, cheaper to clean all three together.
 	gstate_c.Clean(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
