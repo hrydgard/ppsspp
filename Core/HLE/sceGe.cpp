@@ -569,7 +569,7 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest, 0))
 		return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
 
-	return hleLogInfo(Log::sceGe, 0);
+	return hleLogDebug(Log::sceGe, 0);
 }
 
 static u32 sceGeGetCmd(int cmd) {
@@ -599,7 +599,7 @@ static u32 sceGeGetCmd(int cmd) {
 		default:
 			break;
 		}
-		return hleLogInfo(Log::sceGe, val);
+		return hleLogDebug(Log::sceGe, val);
 	}
 	return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX);
 }

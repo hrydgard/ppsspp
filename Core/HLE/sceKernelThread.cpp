@@ -1219,6 +1219,7 @@ int sceKernelGetThreadExitStatus(SceUID threadID) {
 	// Some return values don't deserve to be considered errors for logging.
 	switch ((PSPErrorCode)status) {
 	case SCE_KERNEL_ERROR_NOT_DORMANT:
+	case SCE_KERNEL_ERROR_DORMANT:
 		return hleLogDebug(Log::sceKernel, status);
 	default:
 		return hleLogDebugOrError(Log::sceKernel, status);
