@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,7 @@ struct AccessibilityElementInfo {
 std::vector<AccessibilityElementInfo> BuildAccessibilitySnapshot(ScreenManager *screenManager);
 void UpdateCachedAccessibilitySnapshot(ScreenManager *screenManager);
 std::vector<AccessibilityElementInfo> GetCachedAccessibilitySnapshot();
+uint64_t GetCachedAccessibilitySnapshotVersion();
 void ClearCachedAccessibilitySnapshot();
 
 }  // namespace UI

@@ -1,5 +1,6 @@
 #import "ios/AccessibilityBridge.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "Common/Input/InputState.h"
@@ -32,9 +33,15 @@ typedef NS_ENUM(NSInteger, PPSSPPAccessibilityAction) {
 	NSMutableArray *_elements;
 	NSTimer *_refreshTimer;
 	NSString *_lastSignature;
+	uint64_t _lastSnapshotVersion;
+	int _lastUIState;
+	CGRect _lastViewBounds;
+	float _lastDPXRes;
+	float _lastDPYRes;
 	InputKeyCode _lastShoulderKey;
 	InputKeyCode _heldShoulderKey;
 	BOOL _refreshQueued;
+	BOOL _hasBuiltElements;
 }
 - (BOOL)activateElement:(PPSSPPAccessibilityElement *)element;
 - (BOOL)scrollElement:(PPSSPPAccessibilityElement *)element direction:(UIAccessibilityScrollDirection)direction;
@@ -120,6 +127,11 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	if (self) {
 		_view = view;
 		_elements = [[NSMutableArray alloc] init];
+		_lastSnapshotVersion = 0;
+		_lastUIState = -1;
+		_lastViewBounds = CGRectNull;
+		_lastDPXRes = 0.0f;
+		_lastDPYRes = 0.0f;
 		_lastShoulderKey = NKCODE_UNKNOWN;
 		_heldShoulderKey = NKCODE_UNKNOWN;
 		view.isAccessibilityElement = NO;
@@ -234,15 +246,23 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	if (!UIAccessibilityIsVoiceOverRunning()) {
 		[_elements removeAllObjects];
 		_lastSignature = nil;
+		_hasBuiltElements = NO;
 		view.accessibilityElements = _elements;
 		return;
 	}
-	NSMutableArray *newElements = [[NSMutableArray alloc] init];
-	NSMutableString *signature = [[NSMutableString alloc] init];
-	NSMutableArray *oldElements = _elements;
-	_elements = newElements;
+	const int uiState = (int)GetUIState();
+	const CGRect viewBounds = view.bounds;
+	const bool geometryChanged = !CGRectEqualToRect(_lastViewBounds, viewBounds) ||
+		_lastDPXRes != g_display.dp_xres || _lastDPYRes != g_display.dp_yres;
 
-	if (GetUIState() == UISTATE_INGAME) {
+	if (uiState == UISTATE_INGAME) {
+		if (_hasBuiltElements && _lastUIState == uiState && !geometryChanged) {
+			return;
+		}
+		NSMutableArray *newElements = [[NSMutableArray alloc] init];
+		NSMutableString *signature = [[NSMutableString alloc] init];
+		NSMutableArray *oldElements = _elements;
+		_elements = newElements;
 		[self addInGameControls];
 		[signature appendString:@"ingame"];
 		for (PPSSPPAccessibilityElement *element in _elements) {
@@ -255,10 +275,23 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 		} else {
 			_elements = oldElements;
 		}
+		_hasBuiltElements = YES;
+		_lastUIState = uiState;
+		_lastViewBounds = viewBounds;
+		_lastDPXRes = g_display.dp_xres;
+		_lastDPYRes = g_display.dp_yres;
 		return;
 	}
 
 	[self releaseHeldShoulder];
+	const uint64_t snapshotVersion = UI::GetCachedAccessibilitySnapshotVersion();
+	if (_hasBuiltElements && _lastUIState == uiState && !geometryChanged && _lastSnapshotVersion == snapshotVersion) {
+		return;
+	}
+	NSMutableArray *newElements = [[NSMutableArray alloc] init];
+	NSMutableString *signature = [[NSMutableString alloc] init];
+	NSMutableArray *oldElements = _elements;
+	_elements = newElements;
 	if (g_display.dp_xres > 0 && g_display.dp_yres > 0) {
 		std::vector<UI::AccessibilityElementInfo> snapshot = UI::GetCachedAccessibilitySnapshot();
 		for (const UI::AccessibilityElementInfo &info : snapshot) {
@@ -285,6 +318,12 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	} else {
 		_elements = oldElements;
 	}
+	_hasBuiltElements = YES;
+	_lastSnapshotVersion = snapshotVersion;
+	_lastUIState = uiState;
+	_lastViewBounds = viewBounds;
+	_lastDPXRes = g_display.dp_xres;
+	_lastDPYRes = g_display.dp_yres;
 }
 
 - (void)releaseHeldShoulder {
@@ -299,6 +338,7 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	_lastShoulderKey = NKCODE_UNKNOWN;
 	[_elements removeAllObjects];
 	_lastSignature = nil;
+	_hasBuiltElements = NO;
 	if (_view) {
 		_view.accessibilityElements = _elements;
 	}
