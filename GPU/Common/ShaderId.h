@@ -7,12 +7,13 @@
 #include "Common/CommonFuncs.h"
 #include "GPU/GPUState.h"
 
+enum class ClipInfoFlags;
 
 // Shared ID checks for when the vertex and fragment shaders (and host code) need to coordinate.
 
-// NOTE: Both of these assume non - through - mode.Don't check these if in through mode.
+// NOTE: Both of these assume non-through-mode. Don't check these if in through mode.
 inline bool needFragmentMinMaxClipping() {
-	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
+	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF;
 }
 
 inline bool needFragmentDepthClamp() {
@@ -261,13 +262,13 @@ namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);
 
 struct ComputedPipelineState;
-void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform);
+void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform, ClipInfoFlags clipInfoFlags);
 std::string FragmentShaderDesc(const FShaderID &id);
 
 // For sanity checking.

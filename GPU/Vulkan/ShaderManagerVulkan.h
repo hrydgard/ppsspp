@@ -92,6 +92,8 @@ struct Uniforms {
 	UB_VS_Bones ub_bones{};
 };
 
+enum class ClipInfoFlags;
+
 class ShaderManagerVulkan : public ShaderManagerCommon {
 public:
 	ShaderManagerVulkan(Draw::DrawContext *draw);
@@ -100,7 +102,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
 	void ClearShaders() override;
 	void DirtyLastShader() override;
 

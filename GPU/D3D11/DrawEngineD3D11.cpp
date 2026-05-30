@@ -294,7 +294,9 @@ void DrawEngineD3D11::Flush() {
 	// Always use software for flat shading to fix the provoking index.
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
-	useHWTransform = CheckBoundingDepths(useHWTransform);
+	if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
+		useHWTransform = false;
+	}
 
 	if (useHWTransform != lastUseHwTransform_) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
@@ -333,7 +335,7 @@ void DrawEngineD3D11::Flush() {
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
+		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
 		ID3D11InputLayout *inputLayout;
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
@@ -447,7 +449,7 @@ void DrawEngineD3D11::Flush() {
 		if (action == SW_DRAW_INDEXED) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());

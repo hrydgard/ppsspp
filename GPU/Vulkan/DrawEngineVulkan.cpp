@@ -241,8 +241,11 @@ void DrawEngineVulkan::Flush() {
 		provokingVertexOk = true;
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
-	useHWTransform = CheckBoundingDepths(useHWTransform);
+	if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
+		useHWTransform = false;
+	}
 
+	// Is this still needed?
 	if (useHWTransform != lastUseHwTransform_) {
 		// Need to re-evaluate software transform fallbacks.
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
@@ -302,7 +305,7 @@ void DrawEngineVulkan::Flush() {
 			VulkanVertexShader *vshader = nullptr;
 			VulkanFragmentShader *fshader = nullptr;
 
-			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
+			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
@@ -470,7 +473,7 @@ void DrawEngineVulkan::Flush() {
 				VulkanVertexShader *vshader = nullptr;
 				VulkanFragmentShader *fshader = nullptr;
 
-				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {

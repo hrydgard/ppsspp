@@ -157,7 +157,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
-	SubmitPrim(&temp[0], nullptr, prim, vertexCount, dec, vertTypeID, clockwise, &bytesRead, BoundingDepths());
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, dec, vertTypeID, clockwise, &bytesRead, clipInfoFlags_);
 	Flush();
 
 	if (!prevThrough) {
@@ -330,20 +330,19 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 }
 
 // This optionally culls collections of points against the four side planes, and always computes the min and max of Z and W.
-// The result of that can be used to determine if we need to drop down to software transform+clip or we can hand
+//
+// The result of that is then used to determine if we need to drop down to software transform+clip or we can hand
 // off to hardware, with whatever capabilities are available.
 //
 // NOTE: This doesn't handle through-mode or indexing (morph or skinning can be handled if they're implemented in software during decode).
 template<u32 posFmt>
-static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded, BoundingDepths *depths) {
+static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded, ClipInfoFlags *clipInfoFlags) {
 	Mat4F32 worldViewProjMat(worldViewProj);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
 	Vec4S32 insideMaskXY = Vec4S32::Zero();
 	Vec4S32 insideMaskZ = Vec4S32::Zero();  // Note: This does some duplicate computation. We could avoid it on ARM32 using Vec2S32 but not really worth it.
 	Vec4S32 anyOutsideMaskZ = Vec4S32::Zero();
-	float minProjZ = FLT_MAX;
-	float maxProjZ = -FLT_MAX;
 
 	// Used to reduce the Z precision. This effectively implements the small offsets where Z can be very slightly outside -1..1.
 	// In reality we should probably affect X and Y too, but meh.
@@ -353,8 +352,10 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	const int offset = dec->posoff;
 	const s8 *data = (const s8 *)vdata + offset;
 
-	const float vpZOffset = gstate.getViewportZCenter();
 	const float vpZScale = gstate.getViewportZScale();
+
+	float minProjZ = FLT_MAX;
+	float maxProjZ = -FLT_MAX;
 
 	for (int i = 0; i < vertexCount; i++, data += stride) {
 		Vec4F32 objPos;
@@ -392,23 +393,47 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		return false;
 	}
 
-	depths->valid = true;
-	depths->hitClipSpaceZW = AnyCompareBitsSet(anyOutsideMaskZ);
+	const float vpZOffset = gstate.getViewportZCenter();
+	minProjZ += vpZOffset;
+	maxProjZ += vpZOffset;
+
+	ClipInfoFlags flags = ClipInfoFlags::Valid;
 
 	// If the W=-Z plane was intersected, here we can go through the vertices again, and check for X/Y bounds for range culling.
 	// However! We need to find a valid way to do so by "backprojecting" the range culling into clip space, which may be a little tricky.
 	//
 	// If nothing is outside the box, the "inversion" cases (vertices hit the boundary after clipping like Flatout, Sengoku Cannon)
 	// cannot happen, and soft clipping is only needed if the viewport is smaller than the valid Z range.
+	//
+	// Alternatively, we just do a compat flag for the affected games until we can solve this.
 
-	// Before checking later, we apply a viewport to the projZ, so we can later compare against minZ/maxZ or the outer bounds.
-	// But to save operations we don't do it here.
-	depths->minProjZ = minProjZ + vpZOffset;
-	depths->maxProjZ = maxProjZ + vpZOffset;
+	if (needFragmentMinMaxClipping() && (minProjZ < gstate.getDepthRangeMin() || maxProjZ > gstate.getDepthRangeMax())) {
+		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+			flags |= ClipInfoFlags::MinMaxZDiscard;
+		} else {
+			flags |= ClipInfoFlags::MinMaxZClip;
+		}
+	}
+
+	if (AnyCompareBitsSet(anyOutsideMaskZ) || !gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
+		// Some vertices were outside the Z clipping planes. Clip againt Z=-W in software (and do culling, too).
+		// TODO: With a compat flag for Flatout/Sengoku, we'll be able to avoid this in many cases.
+		flags |= ClipInfoFlags::SoftClipCull;
+	}
+
+	if (needFragmentDepthClamp() && (minProjZ < 0 || maxProjZ > 65535)) {
+		if (gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
+			flags |= ClipInfoFlags::DepthClamp;
+		} else {
+			flags |= ClipInfoFlags::DepthClampFragment;
+		}
+	}
+
+	*clipInfoFlags = flags;
 	return true;
 }
 
-bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depths) {
+bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags) {
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -419,45 +444,16 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(cullMatrix, vdata, vertexCount, dec, decoded_, depths);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(cullMatrix, vdata, vertexCount, dec, decoded_, flags);
 	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(cullMatrix, vdata, vertexCount, dec, decoded_, depths);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(cullMatrix, vdata, vertexCount, dec, decoded_, flags);
 	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(cullMatrix, vdata, vertexCount, dec, decoded_, depths);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(cullMatrix, vdata, vertexCount, dec, decoded_, flags);
 	default:
 		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);
 		return true;
 	}
-}
-
-bool DrawEngineCommon::CheckBoundingDepths(bool useHWTransform) const {
-	if (useHWTransform && boundingDepths_.valid) {
-		if (boundingDepths_.hitClipSpaceZW) {
-			// Revert to software transform so we can clip more accurately.
-			//
-			// This is only really needed for two known games: Flatout (water) and Sengoku Cannon (pink geometry). But there may
-			// be some more.
-			return false;
-		}
-
-		if (needFragmentMinMaxClipping()) {
-			if ((boundingDepths_.minProjZ < gstate.getDepthRangeMin() || boundingDepths_.maxProjZ > gstate.getDepthRangeMax())) {
-				// Revert to software transform so we can clamp more accurately.
-				return false;
-			}
-		}
-
-		if (needFragmentDepthClamp()) {
-			if ((boundingDepths_.minProjZ < 0 || boundingDepths_.maxProjZ > 65535)) {
-				// Revert to software transform so we can clamp more accurately.
-				return false;
-			}
-		}
-		// Also handle clamping in software if it's not supported in hardware (or always?)
-		return true;
-	}
-	return useHWTransform;
 }
 
 // 2D bounding box test against scissor. No indexing yet.
@@ -603,9 +599,10 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 }
 
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
-// This is just a performance optimization.
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, const BoundingDepths &depths) {
-	boundingDepths_.Merge(depths);
+// This is just a performance optimization. NOTE: This isn't compatible with really accurate culling,
+// unless we refactor things a bit.
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, ClipInfoFlags clipInfoFlags) {
+	clipInfoFlags_ |= clipInfoFlags;
 
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
@@ -674,12 +671,18 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, const Ver
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		Flush();
 	}
 
-	boundingDepths_.Merge(depths);
+	// TODO: Flush on clipinfoflags change?
+	clipInfoFlags_ |= clipInfoFlags;
+
+	// if (clipInfoFlags_ != clipInfoFlags) {
+	// 	Flush();
+	// }
+	// clipInfoFlags_ = clipInfoFlags;
 
 	_dbg_assert_(numDrawVerts_ < MAX_DEFERRED_DRAW_VERTS);
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);

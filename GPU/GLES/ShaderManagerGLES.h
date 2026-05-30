@@ -161,6 +161,8 @@ private:
 
 class VertexDecoder;
 
+enum class ClipInfoFlags;
+
 class ShaderManagerGLES : public ShaderManagerCommon {
 public:
 	ShaderManagerGLES(Draw::DrawContext *draw);
@@ -170,8 +172,8 @@ public:
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
-	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useHWTransform);
+	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID);
+	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useHWTransform, ClipInfoFlags clipInfoFlags);
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;

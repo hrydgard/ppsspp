@@ -73,25 +73,15 @@ struct alignas(16) Plane8 {
 	float Test(int i, const float f[3]) const { return x[i] * f[0] + y[i] * f[1] + z[i] * f[2] + w[i]; }
 };
 
-struct BoundingDepths {
-	bool valid = false;
-	bool hitClipSpaceZW = false;
-	float minProjZ = FLT_MAX;
-	float maxProjZ = -FLT_MAX;
-	void Merge(const BoundingDepths &other) {
-		if (!valid) {
-			*this = other;
-			return;
-		}
-		hitClipSpaceZW |= other.hitClipSpaceZW;
-		if (other.minProjZ < minProjZ) {
-			minProjZ = other.minProjZ;
-		}
-		if (other.maxProjZ > maxProjZ) {
-			maxProjZ = other.maxProjZ;
-		}
-	}
+enum class ClipInfoFlags {
+	Valid = 1,
+	SoftClipCull = 2,
+	DepthClamp = 8,
+	DepthClampFragment = 16,
+	MinMaxZClip = 32,
+	MinMaxZDiscard = 64,
 };
+ENUM_CLASS_BITOPS(ClipInfoFlags);
 
 class DrawEngineCommon {
 public:
@@ -115,9 +105,9 @@ public:
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
-	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths) {
+	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) {
 		VertexDecoder *dec = GetVertexDecoder(vertTypeID);
-		SubmitPrim(verts, inds, prim, vertexCount, dec, vertTypeID, clockwise, bytesRead, depths);
+		SubmitPrim(verts, inds, prim, vertexCount, dec, vertTypeID, clockwise, bytesRead, clipInfoFlags);
 	}
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
@@ -126,7 +116,7 @@ public:
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
-	bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, BoundingDepths *depth);
+	bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *clipInfoFlags);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead);
 	bool EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight);
 
@@ -140,8 +130,8 @@ public:
 		}
 	}
 
-	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, const BoundingDepths &depths);
-	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths);
+	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, ClipInfoFlags clipInfoFlags);
+	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags);
 	void SkipPrim(GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, int *bytesRead);
 
 	template<class Surface>
@@ -186,7 +176,7 @@ public:
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 
-	bool CheckBoundingDepths(bool useHwTransform) const;
+	bool CheckClipFlags(bool useHwTransform) const;
 
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
@@ -246,7 +236,7 @@ protected:
 		seenPrims_ = 0;
 		anyCCWOrIndexed_ = false;
 		gstate_c.vertexFullAlpha = true;
-		boundingDepths_ = BoundingDepths();
+		clipInfoFlags_ = {};
 
 		// Now seems as good a time as any to reset the min/max coords, which we may examine later.
 		gstate_c.vertBounds.minU = 512;
@@ -379,7 +369,7 @@ protected:
 	uint16_t *depthIndices_ = nullptr;
 
 	// Depth tracking
-	BoundingDepths boundingDepths_;
+	ClipInfoFlags clipInfoFlags_{};
 
 	// Queue
 	int depthVertexCount_ = 0;

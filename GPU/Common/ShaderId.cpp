@@ -12,6 +12,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"  // Just for ClipInfoFlags
 
 std::string VertexShaderDesc(const VShaderID &id) {
 	std::stringstream desc;
@@ -70,7 +71,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
 	const bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	const bool isSoftwareFallback = !isModeThrough && !useHWTransform && g_Config.bHardwareTransform;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -164,16 +165,13 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 			}
 			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
 		}
-	} else {  // !useHwTransform
-		// Various conditions that require per-pixel depth manipulation (very expensive!)
-		if (!isModeThrough) {
-			if (needFragmentDepthClamp()) {
-				id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
-			}
-			if (needFragmentMinMaxClipping()) {
-				id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
-			}
-		}
+	}
+
+	if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+		id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
+	}
+	if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+		id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
@@ -301,7 +299,7 @@ inline u32 SanitizeBlendMode(GEBlendMode mode) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform) {
+void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, bool useHwTransform, ClipInfoFlags clipInfoFlags) {
 	FShaderID id;
 	bool isModeThrough = gstate.isModeThrough();
 
@@ -309,10 +307,10 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 	// draws that needs this and use software transform as the fallback for them. That logic will have to change if we change that.
 	// NOTE: This check MUST be identical to the one in ComputeVertexShaderID, otherwise we might get mismatches between VS and FS and end up with no shader at all.
 	if (!useHwTransform && !isModeThrough) {
-		if (needFragmentDepthClamp()) {
+		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
 			id.SetBit(FS_BIT_DEPTH_CLAMP);
 		}
-		if (needFragmentMinMaxClipping()) {
+		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
 			id.SetBit(FS_BIT_MINMAX_DISCARD);
 		}
 	}

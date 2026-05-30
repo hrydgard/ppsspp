@@ -68,7 +68,7 @@ void SoftwareDrawEngine::Flush() {
 	transformUnit.Flush(gpuCommon_, "debug");
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, const BoundingDepths &depths) {
+void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) {
 	_assert_msg_(clockwise, "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }

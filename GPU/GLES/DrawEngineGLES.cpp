@@ -254,14 +254,16 @@ void DrawEngineGLES::Flush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
-	useHWTransform = CheckBoundingDepths(useHWTransform);
+	if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
+		useHWTransform = false;
+	}
 
 	if (useHWTransform != lastUseHwTransform_) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 		lastUseHwTransform_ = useHWTransform;
 	}
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, useHWTessellation_, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, useHWTessellation_, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, clipInfoFlags_, &vsid);
 
 	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back. However, this can no longer really happen... Need to fix this.
 
@@ -313,7 +315,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, true);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, true, clipInfoFlags_);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
@@ -399,7 +401,7 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, false);
+		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, false, clipInfoFlags_);
 		if (!linked) {
 			// Not much we can do here. Let's skip drawing.
 			goto bail;

@@ -989,7 +989,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// This is the check from #21678 for Evangelion JO.
 	// TODO: Make this less specific.
 	if (gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
-			gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
+		gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
 		int safeWidth;
 		int safeHeight;
 		// First-frame readback can happen before queued draws reach backend transform.
@@ -1014,7 +1014,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 #define MAX_CULL_CHECK_COUNT 2500
 
-// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
+	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
 
 #define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK | GE_VTYPE_IDX_MASK)) || count > MAX_CULL_CHECK_COUNT)
@@ -1025,13 +1025,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 #endif
 
-	BoundingDepths depths;
+	ClipInfoFlags flags{};
 
 	// If certain conditions are true, do frustum culling.
 	bool passCulling = PASSES_CULLING;
 	if (!passCulling) {
 		// Do software culling.
-		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, count, decoder, vertexType, &depths)) {
+		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, count, decoder, vertexType, &flags)) {
 			passCulling = true;
 		} else {
 			gpuStats.perFrame.numCulledDraws++;
@@ -1044,7 +1044,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Cuts down on checking, while not losing that much efficiency.
 	bool onePassed = false;
 	if (passCulling) {
-		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead, depths)) {
+		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead, flags)) {
 			canExtend = false;
 		}
 		onePassed = true;
@@ -1090,9 +1090,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 			if (canExtend) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
-				// are consecutive in memory. We also ignore culling here.
+				// are consecutive in memory. We also ignore culling here which is not ideal.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, depths);
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, flags);
 				if (!commandsExecuted) {
 					goto bail;
 				}
@@ -1118,18 +1118,18 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			}
 
 			bool passCulling = onePassed || PASSES_CULLING;
-			BoundingDepths depths;
+			ClipInfoFlags flags{};
 			if (!passCulling) {
 				// Do software culling.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, count, decoder, vertexType, &depths)) {
+				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, count, decoder, vertexType, &flags)) {
 					passCulling = true;
 				} else {
 					gpuStats.perFrame.numCulledDraws++;
 				}
 			}
 			if (passCulling) {
-				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead, depths)) {
+				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead, flags)) {
 					canExtend = false;
 				}
 				// As soon as one passes, assume we don't need to check the rest of this batch.

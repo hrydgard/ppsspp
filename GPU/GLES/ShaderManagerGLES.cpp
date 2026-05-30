@@ -764,10 +764,10 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode, clipInfoFlags);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -800,7 +800,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 
 		// Can still work with software transform.
 		VShaderID vsidTemp;
-		ComputeVertexShaderID(&vsidTemp, vertexType, false, false, weightsAsFloat, true);
+		ComputeVertexShaderID(&vsidTemp, vertexType, false, false, weightsAsFloat, true, clipInfoFlags);
 		vs = CompileVertexShader(vsidTemp);
 	}
 
@@ -808,7 +808,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useHwTransform) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useHwTransform, ClipInfoFlags clipInfoFlags) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -820,7 +820,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), useHwTransform);
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), useHwTransform, clipInfoFlags);
 	} else {
 		FSID = lastFSID_;
 	}
