@@ -370,6 +370,7 @@ protected:
 
 	// Depth tracking
 	ClipInfoFlags clipInfoFlags_{};
+	ClipInfoFlags lastClipInfoFlags_{};  // Flags at the last flush. For dirtying.
 
 	// Queue
 	int depthVertexCount_ = 0;

@@ -299,6 +299,13 @@ void DrawEngineD3D11::Flush() {
 			useHWTransform = false;
 		}
 	}
+	if (clipInfoFlags_ != lastClipInfoFlags_) {
+		ClipInfoFlags changed = (ClipInfoFlags)((u32)clipInfoFlags_ ^ (u32)lastClipInfoFlags_);
+		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
+			gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+		}
+		lastClipInfoFlags_ = clipInfoFlags_;
+	}
 
 	if (useHWTransform != lastUseHwTransform_) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);

@@ -598,6 +598,8 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 	return sum;
 }
 
+
+
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization. NOTE: This isn't compatible with really accurate culling,
 // unless we refactor things a bit.
