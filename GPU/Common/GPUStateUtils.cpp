@@ -518,37 +518,9 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	return REPLACE_BLEND_STANDARD;
 }
 
-static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
-static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
-
 // The supported flag combinations. TODO: Maybe they should be distilled down into an enum.
-//
-// 0 - "Old"-style GL depth.
-//     Or "Non-accurate depth" : effectively ignore minz / maxz. Map Z values based on viewport, which clamps.
-//     This skews depth in many instances. Depth can be inverted in this mode if viewport says.
-//     This is completely wrong, but works in some cases (probably because some game devs assumed it was how it worked)
-//     and avoids some depth clamp issues.
-//
-// GPU_USE_ACCURATE_DEPTH:
-//     Accurate depth: Z in the framebuffer matches the range of Z used on the PSP linearly in some way. We choose
-//     a centered range, to simulate clamping by letting otherwise out-of-range pixels survive the 0 and 1 cutoffs.
-//     Clip depth based on minz/maxz, and viewport is just a means to scale and center the value, not clipping or mapping to stored values.
-//
-// GPU_USE_ACCURATE_DEPTH | GPU_USE_DEPTH_CLAMP:
-//     Variant of GPU_USE_ACCURATE_DEPTH, just the range is the nice and convenient 0-1 since we can use
-//     hardware depth clamp. only viable in accurate depth mode, clamps depth and therefore uses the full 0-1 range. Using the full 0-1 range is not what accurate means, it's implied by depth clamp (which also means we're clamping.)
-//
-// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT:
-// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT | GPU_USE_DEPTH_CLAMP:
-//     Only viable in accurate depth mode, means to use a range of the 24-bit depth values available
-//     from the GPU to represent the 16-bit values the PSP had, to try to make everything round and
-//     z-fight (close to) the same way as on hardware, cheaply (cheaper than rounding depth in fragment shader).
-//     We automatically switch to this if Z tests for equality are used.
-//     Depth clamp has no effect on the depth scaling here if set, though will still be enabled
-//     and clamp wildly out of line values.
-//
-// Any other combinations of these particular flags are bogus (like for example a lonely GPU_USE_DEPTH_CLAMP).
-
+// Currently obsolete. We may reintroduce squeezing 24-bit depth into a 16-bit range, although that
+// will mess with hardware depth clamp, so likely not worth it anymore.
 float DepthSliceFactor(u32 useFlags) {
 	return 1.0f;
 }
@@ -602,12 +574,6 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 	int curRTWidth = gstate_c.curRTWidth;
 	int curRTHeight = gstate_c.curRTHeight;
 
-	float offsetX = gstate.getOffsetX();
-	float offsetY = gstate.getOffsetY();
-
-	// If renderX/renderY are offset to compensate for a split framebuffer,
-	// applying the offset to the viewport isn't enough, since the viewport clips.
-	// We need to apply either directly to the vertices, or to the "through" projection matrix.
 	out.viewportX = displayOffsetX;
 	out.viewportY = displayOffsetY;
 	out.viewportW = curRTWidth * renderWidthFactor;
