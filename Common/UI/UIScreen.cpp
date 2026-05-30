@@ -362,10 +362,6 @@ void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo
 			if (!view || view->GetVisibility() != UI::V_VISIBLE) {
 				return;
 			}
-			std::string label = TrimAccessibilityLabel(view->DescribeText());
-			if (!IsUsefulAccessibilityLabel(label)) {
-				return;
-			}
 			const Bounds &bounds = view->GetBounds();
 			if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
 				return;
@@ -375,6 +371,10 @@ void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo
 			}
 			UI::AccessibilityRole role = AccessibilityRoleForView(view);
 			if (!ShouldIncludeAccessibilityView(role)) {
+				return;
+			}
+			std::string label = TrimAccessibilityLabel(view->DescribeText());
+			if (!IsUsefulAccessibilityLabel(label)) {
 				return;
 			}
 

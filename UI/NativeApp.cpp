@@ -1090,7 +1090,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	ScreenRenderFlags renderFlags = g_screenManager->render();
 #if PPSSPP_PLATFORM(IOS)
 	static double lastAccessibilitySnapshotTime = 0.0;
-	if (startTime - lastAccessibilitySnapshotTime >= 0.25) {
+	if (startTime - lastAccessibilitySnapshotTime >= 1.0) {
 		UI::UpdateCachedAccessibilitySnapshot(g_screenManager);
 		lastAccessibilitySnapshotTime = startTime;
 	}
