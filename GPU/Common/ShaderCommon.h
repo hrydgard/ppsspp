@@ -108,18 +108,18 @@ enum : uint64_t {
 	// Other dirty elements that aren't uniforms
 	DIRTY_VIEW_PROJ_MATRIX = 1ULL << 42,
 	DIRTY_WORLD_VIEW_PROJ_MATRIX = 1ULL << 43,
-	DIRTY_FRAMEBUF = 1ULL << 44,
-	DIRTY_TEXTURE_IMAGE = 1ULL << 45,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
-	DIRTY_TEXTURE_PARAMS = 1ULL << 46,
+	DIRTY_CULL_MATRIX = 1ULL << 44,  // This could also compute parameters to decide if we need hardware clipping, etc.
+	DIRTY_FRAMEBUF = 1ULL << 45,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 46,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
+	DIRTY_TEXTURE_PARAMS = 1ULL << 47,
 
 	// Render State
-	DIRTY_BLEND_STATE = 1ULL << 47,
 	DIRTY_DEPTHSTENCIL_STATE = 1ULL << 48,
 	DIRTY_RASTER_STATE = 1ULL << 49,
 	DIRTY_VIEWPORTSCISSOR_STATE = 1ULL << 50,
 	DIRTY_VERTEXSHADER_STATE = 1ULL << 51,
 	DIRTY_FRAGMENTSHADER_STATE = 1ULL << 52,
-	// Free bit 53,
+	DIRTY_BLEND_STATE = 1ULL << 53,
 
 	// Note that the top 8 bits (54-63) cannot be dirtied through the commonCommandTable due to packing of other flags.
 

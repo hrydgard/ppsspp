@@ -667,6 +667,7 @@ public:
 	// We recompute viewproj when view or proj changes, and worldviewproj when world, view, or proj changes.
 	float viewproj[16];
 	float worldviewproj[16];
+	float cullMatrix[16];
 
 	KnownVertexBounds vertBounds;
 

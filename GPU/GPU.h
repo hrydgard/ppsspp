@@ -74,7 +74,7 @@ inline float roundToFloat24(float f) {
 	unsigned int i;
 	memcpy(&i, &f, 4);
 	i &= 0xFFFFFF00;
-	i += 0x80;
+	i += 0x80;  // TODO: Subtract for negative numbers?
 	float retval;
 	memcpy(&retval, &i, 4);
 	return retval;
