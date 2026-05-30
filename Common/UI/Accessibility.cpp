@@ -1,7 +1,9 @@
 #include "Common/UI/Accessibility.h"
 
+#include <exception>
 #include <mutex>
 
+#include "Common/Log.h"
 #include "Common/UI/Screen.h"
 #include "Common/UI/UIScreen.h"
 
@@ -27,7 +29,14 @@ std::vector<AccessibilityElementInfo> BuildAccessibilitySnapshot(ScreenManager *
 }
 
 void UpdateCachedAccessibilitySnapshot(ScreenManager *screenManager) {
-	std::vector<AccessibilityElementInfo> snapshot = BuildAccessibilitySnapshot(screenManager);
+	std::vector<AccessibilityElementInfo> snapshot;
+	try {
+		snapshot = BuildAccessibilitySnapshot(screenManager);
+	} catch (const std::exception &e) {
+		WARN_LOG(Log::UI, "Accessibility snapshot failed: %s", e.what());
+	} catch (...) {
+		WARN_LOG(Log::UI, "Accessibility snapshot failed with unknown exception");
+	}
 	std::lock_guard<std::mutex> guard(g_accessibilitySnapshotLock);
 	g_accessibilitySnapshot = std::move(snapshot);
 }
