@@ -1089,7 +1089,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	// All actual rendering (and also emulation) happens in here.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
 #if PPSSPP_PLATFORM(IOS)
-	UI::UpdateCachedAccessibilitySnapshot(g_screenManager);
+	static double lastAccessibilitySnapshotTime = 0.0;
+	if (startTime - lastAccessibilitySnapshotTime >= 0.25) {
+		UI::UpdateCachedAccessibilitySnapshot(g_screenManager);
+		lastAccessibilitySnapshotTime = startTime;
+	}
 #endif
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();

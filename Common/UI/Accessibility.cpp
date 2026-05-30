@@ -59,6 +59,8 @@ void UpdateCachedAccessibilitySnapshot(ScreenManager *screenManager) {
 	if (!AccessibilitySnapshotsEqual(g_accessibilitySnapshot, snapshot)) {
 		g_accessibilitySnapshot = std::move(snapshot);
 		++g_accessibilitySnapshotVersion;
+		INFO_LOG(Log::UI, "Accessibility snapshot updated: version=%llu elements=%zu",
+			(unsigned long long)g_accessibilitySnapshotVersion, g_accessibilitySnapshot.size());
 	}
 }
 

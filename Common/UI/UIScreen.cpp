@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cctype>
 #include <exception>
 
 #include "Common/Log.h"
@@ -43,6 +44,19 @@ static UI::AccessibilityRole AccessibilityRoleForView(UI::View *view) {
 		return UI::AccessibilityRole::Choice;
 	}
 	return UI::AccessibilityRole::StaticText;
+}
+
+static bool IsUsefulAccessibilityLabel(const std::string &label) {
+	return !label.empty() && label != "button" && label != "choice" && label != "radio button" && label != "text field";
+}
+
+static std::string TrimAccessibilityLabel(std::string label) {
+	const auto begin = std::find_if(label.begin(), label.end(), [](unsigned char c) { return !std::isspace(c); });
+	const auto end = std::find_if(label.rbegin(), label.rend(), [](unsigned char c) { return !std::isspace(c); }).base();
+	if (begin >= end) {
+		return "";
+	}
+	return std::string(begin, end);
 }
 
 UIScreen::UIScreen() : Screen() {
@@ -331,8 +345,8 @@ void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo
 			if (!view || view->GetVisibility() != UI::V_VISIBLE) {
 				return;
 			}
-			std::string label = view->DescribeText();
-			if (label.empty()) {
+			std::string label = TrimAccessibilityLabel(view->DescribeText());
+			if (!IsUsefulAccessibilityLabel(label)) {
 				return;
 			}
 			const Bounds &bounds = view->GetBounds();

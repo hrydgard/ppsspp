@@ -46,6 +46,7 @@ typedef NS_ENUM(NSInteger, PPSSPPAccessibilityAction) {
 - (BOOL)activateElement:(PPSSPPAccessibilityElement *)element;
 - (BOOL)scrollElement:(PPSSPPAccessibilityElement *)element direction:(UIAccessibilityScrollDirection)direction;
 - (void)adjustElement:(PPSSPPAccessibilityElement *)element increment:(BOOL)increment;
+- (void)logRefreshWithReason:(NSString *)reason elementCount:(NSUInteger)elementCount snapshotVersion:(uint64_t)snapshotVersion;
 @end
 
 @implementation PPSSPPAccessibilityElement
@@ -272,6 +273,7 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 			_lastSignature = [signature copy];
 			view.accessibilityElements = _elements;
 			UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+			[self logRefreshWithReason:@"ingame" elementCount:_elements.count snapshotVersion:_lastSnapshotVersion];
 		} else {
 			_elements = oldElements;
 		}
@@ -315,6 +317,7 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 		_lastSignature = [signature copy];
 		view.accessibilityElements = _elements;
 		UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+		[self logRefreshWithReason:@"ui" elementCount:_elements.count snapshotVersion:snapshotVersion];
 	} else {
 		_elements = oldElements;
 	}
@@ -324,6 +327,23 @@ static UIAccessibilityTraits TraitsForRole(UI::AccessibilityRole role) {
 	_lastViewBounds = viewBounds;
 	_lastDPXRes = g_display.dp_xres;
 	_lastDPYRes = g_display.dp_yres;
+}
+
+- (void)logRefreshWithReason:(NSString *)reason elementCount:(NSUInteger)elementCount snapshotVersion:(uint64_t)snapshotVersion {
+	NSMutableString *labels = [[NSMutableString alloc] init];
+	const NSUInteger limit = MIN(elementCount, (NSUInteger)20);
+	for (NSUInteger i = 0; i < limit; ++i) {
+		PPSSPPAccessibilityElement *element = [_elements objectAtIndex:i];
+		NSString *label = element.accessibilityLabel ?: @"<nil>";
+		if (label.length == 0) {
+			label = @"<empty>";
+		}
+		[labels appendFormat:@"%@%@",
+			i == 0 ? @"" : @", ",
+			label];
+	}
+	NSLog(@"PPSSPPAccessibility refresh reason=%@ state=%d version=%llu count=%lu labels=[%@]",
+		reason, _lastUIState, (unsigned long long)snapshotVersion, (unsigned long)elementCount, labels);
 }
 
 - (void)releaseHeldShoulder {
