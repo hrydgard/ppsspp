@@ -585,6 +585,8 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_BLEND_MINMAX;
 	}
 
+	// The next three (clipDistance, cullDistance, depthClamp) are the critical features that let us correctly emulate PSP behavior without fallbacks.
+	// This is except for the case of clipped polygons still reaching outside the guardband, where we still need to software-clip if detected.
 	if (draw_->GetDeviceCaps().maxClipDistances >= 3) {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
@@ -593,13 +595,13 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
 
-	if (draw_->GetDeviceCaps().textureDepthSupported) {
-		features |= GPU_USE_DEPTH_TEXTURE;
-	}
-
 	if (draw_->GetDeviceCaps().depthClampSupported) {
 		// Some backends always do GPU_USE_ACCURATE_DEPTH, but it's required for depth clamp.
 		features |= GPU_USE_DEPTH_CLAMP;
+	}
+
+	if (draw_->GetDeviceCaps().textureDepthSupported) {
+		features |= GPU_USE_DEPTH_TEXTURE;
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {

@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/lin/vec3.h"
 #include "Common/TimeUtil.h"
 #include "GPU/GPUState.h"
@@ -87,8 +88,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	if (dirtyUniforms & DIRTY_RASTER_OFFSET) {
 		ub->rasterOffset[0] = gstate.getOffsetX();
 		ub->rasterOffset[1] = gstate.getOffsetY();
-		ub->minZmaxZ[0] = gstate.getDepthRangeMin();
-		ub->minZmaxZ[1] = gstate.getDepthRangeMax();
+		ub->minZmaxZ[0] = (float)gstate.getDepthRangeMin();
+		ub->minZmaxZ[1] = (float)gstate.getDepthRangeMax();
 
 		// test sine wave
 		// ub->minZmaxZ[0] = (sin(time_now_d()) * 0.5f + 0.5f) * 65536.0;
@@ -96,17 +97,17 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 
 	if (dirtyUniforms & DIRTY_VIEWPORT_UNIFORMS) {
 		// TODO: This should be a couple of SIMD instructions.
-		ub->vpScale[0] = gstate.getViewportXScale();
-		ub->vpScale[1] = gstate.getViewportYScale();
-		ub->vpScale[2] = gstate.getViewportZScale();
+		Vec4F32 vpScale = Vec4F32::LoadF24x3_DontCare(&gstate.viewportxscale);
+		Vec4F32 vpOffset = Vec4F32::LoadF24x3_DontCare(&gstate.viewportxcenter);
+		vpScale.Store(ub->vpScale);
+		vpOffset.Store(ub->vpOffset);
 		ub->NaN = std::numeric_limits<float>::quiet_NaN();  // Used in the shader for range culling.
-		ub->vpOffset[0] = gstate.getViewportXCenter();
-		ub->vpOffset[1] = gstate.getViewportYCenter();
-		ub->vpOffset[2] = gstate.getViewportZCenter();
 	}
 
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
+		// TODO: We could change the shader to directly read these "malformed" matrices, but we'd
+		// be doing the matrix multiplication manually.
 		ConvertMatrix4x3To3x4Transposed(ub->world, gstate.worldMatrix);
 	}
 	if (dirtyUniforms & DIRTY_VIEWMATRIX) {

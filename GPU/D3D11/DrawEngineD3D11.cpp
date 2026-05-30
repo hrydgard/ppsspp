@@ -297,7 +297,7 @@ void DrawEngineD3D11::Flush() {
 	useHWTransform = CheckBoundingDepths(useHWTransform);
 
 	if (useHWTransform != lastUseHwTransform_) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_RASTER_STATE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 		lastUseHwTransform_ = useHWTransform;
 	}
 

@@ -399,6 +399,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform float u_mipBias;\n");
 		}
 
+		if (fsMinmaxDiscard) {
+			*uniformMask |= DIRTY_RASTER_OFFSET;  // they're updated together
+			WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		}
+
+		// Varyings
+
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
 		if (lmode) {
 			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
