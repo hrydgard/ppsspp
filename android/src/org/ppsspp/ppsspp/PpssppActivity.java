@@ -172,6 +172,22 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	public static boolean libraryLoaded = false;
 
+	public static void applyAchievementsHostOverride(String host) {
+		if (!initialized || !libraryLoaded || host == null || host.isEmpty()) {
+			return;
+		}
+
+		NativeApp.setAchievementsHostOverride(host);
+	}
+
+	public static void clearAchievementsHostOverride() {
+		if (!initialized || !libraryLoaded) {
+			return;
+		}
+
+		NativeApp.clearAchievementsHostOverride();
+	}
+
 	public static void CheckABIAndLoadLibrary() {
 		try {
 			System.loadLibrary("ppsspp_jni");
@@ -705,6 +721,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (shortcutParam != null) {
 			Log.i(TAG, "Found Shortcut Parameter in data, passing on: " + shortcutParam);
 			setShortcutParam(shortcutParam);
+		}
+
+		String achievementsHostOverride = AchievementsHostOverrideReceiver.getAchievementsHostOverride(this);
+		if (achievementsHostOverride != null && !achievementsHostOverride.isEmpty()) {
+			NativeApp.setAchievementsHostOverride(achievementsHostOverride);
+			Log.i(TAG, "Found achievements host override");
 		}
 
 		lifeCycle.onCreate();

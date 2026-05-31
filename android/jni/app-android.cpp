@@ -870,6 +870,15 @@ retry:
 	}
 }
 
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_setAchievementsHostOverride(JNIEnv *env, jclass, jstring jhost) {
+	std::string host = GetJavaString(env, jhost);
+	NativeSetAchievementsHostOverride(host);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_clearAchievementsHostOverride(JNIEnv *, jclass) {
+	NativeClearAchievementsHostOverride();
+}
+
 AudioBackend *System_CreateAudioBackend() {
 	// Use legacy mechanisms.
 	return nullptr;

@@ -71,6 +71,8 @@ public class NativeApp {
 	public static native void mouseDelta(float x, float y);
 	public static native void sendMessageFromJava(String msg, String arg);
 	public static native void sendRequestResult(int seqID, boolean result, String value, int iValue);
+	public static native void setAchievementsHostOverride(String host);
+	public static native void clearAchievementsHostOverride();
 	public static native String queryConfig(String queryName);
 
 	public static native int getSelectedCamera();
