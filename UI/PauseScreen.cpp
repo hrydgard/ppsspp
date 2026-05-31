@@ -410,7 +410,8 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 			int slotNum = v->GetSlot();
 			auto doLoad = [this, slotNum]() {
 				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
-				TriggerFinish(DR_CANCEL);
+				finishNextFrame_ = true;
+				finishNextFrameResult_ = DR_CANCEL;
 			};
 			if (g_Config.bConfirmLoadState) {
 				auto pa = GetI18NCategory(I18NCat::PAUSE);
