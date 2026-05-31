@@ -518,16 +518,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_disable_range_culling",
-      "Disable Culling",
-      NULL,
-      "",
-      NULL,
-      "hacks",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
       "ppsspp_skip_gpu_readbacks",
       "Skip GPU Readbacks",
       NULL,

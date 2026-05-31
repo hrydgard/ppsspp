@@ -780,15 +780,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bSkipBufferEffects = true;
    }
 
-   var.key = "ppsspp_disable_range_culling";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bDisableRangeCulling = false;
-      else
-         g_Config.bDisableRangeCulling = true;
-   }
-
    var.key = "ppsspp_skip_gpu_readbacks";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
