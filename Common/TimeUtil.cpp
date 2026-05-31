@@ -245,6 +245,8 @@ double time_now_unix_utc() {
 }
 
 double time_to_unix_utc(double t) {
+	struct timeval tv;
+	gettimeofday(&tv, nullptr);
 	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros) + t;
 }
 
