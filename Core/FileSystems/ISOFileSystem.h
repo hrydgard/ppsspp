@@ -58,6 +58,8 @@ public:
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "ISO"); }  // TODO: Ask the fileLoader about the origins
 
 	std::shared_ptr<BlockDevice> GetBlockDevice() override { return blockDevice; }
+
+	const std::string &Error() const { return errorString_; }
 private:
 	struct TreeEntry {
 		~TreeEntry();
@@ -91,12 +93,13 @@ private:
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
-	IHandleAllocator *hAlloc;
-	TreeEntry *treeroot;
+	IHandleAllocator *hAlloc = nullptr;
+	TreeEntry *treeroot = nullptr;
 	std::shared_ptr<BlockDevice> blockDevice;
-	mutable u32 lastReadBlock_;
+	mutable u32 lastReadBlock_ = 0;
 
-	TreeEntry entireISO;
+	TreeEntry entireISO{};
+	std::string errorString_;
 
 	void ReadDirectory(TreeEntry *root) const;
 	const TreeEntry *GetFromPath(std::string_view path, bool catchError = true);
