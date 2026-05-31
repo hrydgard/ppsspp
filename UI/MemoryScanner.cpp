@@ -24,6 +24,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/TabHolder.h"
 #include "Common/Data/Text/I18n.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -150,29 +151,35 @@ void MemoryScannerScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto se = GetI18NCategory(I18NCat::SEARCH);
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
-	root_->Add(new ItemHeader("Memory Scanner"));
+	root_->Add(new ItemHeader(se->T("Memory Scanner")));
 
-	searchValueEdit_ = root_->Add(new TextEdit(g_MemoryScanner.searchValue, "Value to search", "Enter value", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	searchValueEdit_ = root_->Add(new TextEdit(g_MemoryScanner.searchValue, se->T("Value to search"), se->T("Enter value"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	searchValueEdit_->OnTextChange.Add([this](EventParams &e) {
 		g_MemoryScanner.searchValue = searchValueEdit_->GetText();
 	});
 
 	LinearLayout *typeRow = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
-	typeRow->Add(new TextView("Value Type: ", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+	typeRow->Add(new TextView(se->T("Value Type"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 
-	typeRow->Add(new Choice("8-bit"))->OnClick.Add([](EventParams &) { g_MemoryScanner.valueType = ScanValueType::U8; });
-	typeRow->Add(new Choice("16-bit"))->OnClick.Add([](EventParams &) { g_MemoryScanner.valueType = ScanValueType::U16; });
-	typeRow->Add(new Choice("32-bit"))->OnClick.Add([](EventParams &) { g_MemoryScanner.valueType = ScanValueType::U32; });
+	ChoiceStrip *typeStrip = typeRow->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+	typeStrip->AddChoice(se->T("8-bit"));
+	typeStrip->AddChoice(se->T("16-bit"));
+	typeStrip->AddChoice(se->T("32-bit"));
+	typeStrip->SetSelection((int)g_MemoryScanner.valueType, false);
+	typeStrip->OnChoice.Add([](EventParams &e) {
+		g_MemoryScanner.valueType = (ScanValueType)e.a;
+	});
 
 	LinearLayout *buttonRow = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
-	buttonRow->Add(new Button("First Scan"))->OnClick.Handle(this, &MemoryScannerScreen::OnFirstScan);
-	buttonRow->Add(new Button("Next Scan"))->OnClick.Handle(this, &MemoryScannerScreen::OnNextScan);
-	buttonRow->Add(new Button("Clear"))->OnClick.Handle(this, &MemoryScannerScreen::OnClear);
+	buttonRow->Add(new Button(se->T("First Scan")))->OnClick.Handle(this, &MemoryScannerScreen::OnFirstScan);
+	buttonRow->Add(new Button(se->T("Next Scan")))->OnClick.Handle(this, &MemoryScannerScreen::OnNextScan);
+	buttonRow->Add(new Button(di->T("Clear")))->OnClick.Handle(this, &MemoryScannerScreen::OnClear);
 
-	countText_ = root_->Add(new TextView("Results: 0", new LinearLayoutParams(Margins(10, 10))));
+	countText_ = root_->Add(new TextView(se->T("Results: 0"), new LinearLayoutParams(Margins(10, 10))));
 	countText_->SetShadow(true);
 	countText_->SetBig(true);
 
@@ -190,7 +197,8 @@ void MemoryScannerScreen::update() {
 	UIScreen::update();
 	if (countText_) {
 		const auto &results = g_MemoryScanner.GetResults();
-		countText_->SetText(StringFromFormat("Results: %d", (int)results.size()));
+		auto se = GetI18NCategory(I18NCat::SEARCH);
+		countText_->SetText(StringFromFormat(se->T_cstr("Results: %d"), (int)results.size()));
 	}
 	if (resultsList_) {
 		resultsList_->SetVisibility(g_MemoryScanner.HasScanDone() ? UI::V_VISIBLE : UI::V_GONE);
@@ -214,6 +222,7 @@ void MemoryScannerScreen::RebuildResultsList() {
 	if (!resultsList_)
 		return;
 	using namespace UI;
+	auto se = GetI18NCategory(I18NCat::SEARCH);
 	resultsList_->Clear();
 	valueChoices_.clear();
 	resultAddresses_.clear();
@@ -225,13 +234,16 @@ void MemoryScannerScreen::RebuildResultsList() {
 		return;
 
 	LinearLayout *header = resultsList_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	auto *addrHeader = header->Add(new TextView("Address", new LinearLayoutParams(200.0f, WRAP_CONTENT)));
+	auto *addrHeader = header->Add(new TextView(se->T("Address"), new LinearLayoutParams(200.0f, WRAP_CONTENT)));
 	addrHeader->SetShadow(true);
 	addrHeader->SetPadding(Margins(16, 0));
-	auto *valHeader = header->Add(new TextView("Value", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	auto *valHeader = header->Add(new TextView(se->T("Value"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	valHeader->SetShadow(true);
 	valHeader->SetPadding(Margins(16, 0));
-	auto *lockHeader = header->Add(new TextView("Lock", new LinearLayoutParams(100.0f, WRAP_CONTENT)));
+	auto *typeHeader = header->Add(new TextView(se->T("Value Type"), new LinearLayoutParams(150.0f, WRAP_CONTENT)));
+	typeHeader->SetShadow(true);
+	typeHeader->SetPadding(Margins(16, 0));
+	auto *lockHeader = header->Add(new TextView(se->T("Lock"), new LinearLayoutParams(100.0f, WRAP_CONTENT)));
 	lockHeader->SetShadow(true);
 	lockHeader->SetPadding(Margins(16, 0));
 
@@ -257,6 +269,16 @@ void MemoryScannerScreen::RebuildResultsList() {
 		valueChoices_.push_back(valChoice);
 		resultAddresses_.push_back(addr);
 		resultTypes_.push_back(type);
+
+		std::string typeStr;
+		switch (type) {
+		case ScanValueType::U8: typeStr = se->T("8-bit"); break;
+		case ScanValueType::U16: typeStr = se->T("16-bit"); break;
+		case ScanValueType::U32: typeStr = se->T("32-bit"); break;
+		}
+		auto *typeView = row->Add(new TextView(typeStr, new LinearLayoutParams(150.0f, WRAP_CONTENT)));
+		typeView->SetShadow(true);
+		typeView->SetPadding(Margins(16, 0));
 
 		auto *lockCheck = row->Add(new CheckBox(&results[i].locked, "", "", new LinearLayoutParams(100.0f, WRAP_CONTENT)));
 		lockCheck->OnClick.Add([i](EventParams &e) {
@@ -292,7 +314,8 @@ void MemoryScannerScreen::OnValueClick(uint32_t addr, ScanValueType type) {
 	case ScanValueType::U32: currentVal = StringFromFormat("%u", Memory::Read_U32(addr)); break;
 	}
 
-	UI::AskForInput(screenManager(), NON_EPHEMERAL_TOKEN, nullptr, "Edit Value", [addr, type](const std::string &value, bool ok) {
+	auto se = GetI18NCategory(I18NCat::SEARCH);
+	UI::AskForInput(screenManager(), NON_EPHEMERAL_TOKEN, nullptr, se->T("Edit Value"), [addr, type](const std::string &value, bool ok) {
 		if (ok) {
 			try {
 				auto val = (uint32_t)std::stoul(value, nullptr, 0);
