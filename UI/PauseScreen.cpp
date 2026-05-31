@@ -471,6 +471,7 @@ void GamePauseScreen::CreateViews() {
 	auto nw = GetI18NCategory(I18NCat::NETWORKING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto se = GetI18NCategory(I18NCat::SEARCH);
 
 	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
 
@@ -677,7 +678,7 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
-		rightColumnItems->Add(new Choice("Memory Scanner", ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+		rightColumnItems->Add(new Choice(se->T("Memory Scanner"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new MemoryScannerScreen(gamePath_));
 		});
 	}
