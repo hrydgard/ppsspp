@@ -76,21 +76,11 @@ struct ViewportAndScissor {
 	float viewportY;
 	float viewportW;
 	float viewportH;
-	float depthRangeMin;
-	float depthRangeMax;
-	float widthScale;
-	float heightScale;
-	float depthScale;
-	float xOffset;
-	float yOffset;
-	float zOffset;
-	bool throughMode;
 };
 
 // config is only used for non-buffered rendering.
 struct DisplayLayoutConfig;
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
-void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor);
 
 // NOTE: See the .cpp file for detailed comment about how the use flags are interpreted.
 class DepthScaleFactors {

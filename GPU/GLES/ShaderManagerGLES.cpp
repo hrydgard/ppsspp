@@ -106,6 +106,10 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_proj, "u_proj" });
 	queries.push_back({ &u_proj_lens, "u_proj_lens" });
 	queries.push_back({ &u_xywh, "u_xywh" });
+	queries.push_back({ &u_vpScale, "u_vpScale" });
+	queries.push_back({ &u_vpOffset, "u_vpOffset"});
+	queries.push_back({ &u_rasterOffset, "u_rasterOffset" });
+	queries.push_back({ &u_minZmaxZ, "u_minZmaxZ" });
 	queries.push_back({ &u_texenv, "u_texenv" });
 	queries.push_back({ &u_fogcolor, "u_fogcolor" });
 	queries.push_back({ &u_fogcoef, "u_fogcoef" });
@@ -116,6 +120,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_blendFixA, "u_blendFixA" });
 	queries.push_back({ &u_blendFixB, "u_blendFixB" });
 	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
+	queries.push_back({ &u_NaN, "u_NaN" });
 
 	// Transform
 	queries.push_back({ &u_view, "u_view" });
@@ -126,9 +131,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
 	else
 		numBones = 0;
-	queries.push_back({ &u_depthRange, "u_depthRange" });
-	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
-	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 
 	// These two are only used for VR, but let's always query them for simplicity.
 	queries.push_back({ &u_scaleX, "u_scaleX" });
@@ -308,12 +310,6 @@ static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
-static void ConvertProjMatrixToZeroToOneDepth(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
-	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
-	in.translateAndScale(trans, scale);
-}
-
 static inline void FlipProjMatrix(Matrix4x4 &in) {
 	const bool invertedY = gstate_c.vpHeight < 0;
 	if (invertedY) {
@@ -377,7 +373,7 @@ void LinkedShader::use(const ShaderID &VSID) const {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage) {
+void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc &shaderLanguage) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
@@ -427,20 +423,12 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 				UpdateVRProjection(gstate.projMatrix, vrProjection.m);
 			}
 			UpdateVRParams(gstate.projMatrix);
-
-			FlipProjMatrix(vrProjection);
-			ConvertProjMatrixToZeroToOneDepth(vrProjection);
-
 			render_->SetUniformM4x4(&u_proj_lens, vrProjection.m);
 		}
 
-		Matrix4x4 flippedMatrix;
-		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-		FlipProjMatrix(flippedMatrix);
-		ConvertProjMatrixToZeroToOneDepth(flippedMatrix);
-
-		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
+		Matrix4x4 matrix;
+		memcpy(&matrix, gstate.projMatrix, 16 * sizeof(float));
+		render_->SetUniformM4x4(&u_proj, matrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
 		float xywh[4];
@@ -449,6 +437,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 		xywh[2] = (float)gstate_c.curRTWidth;
 		xywh[3] = (float)gstate_c.curRTHeight;
 		SetFloatUniform4(render_, &u_xywh, xywh);
+		float nan = std::numeric_limits<float>::quiet_NaN();
+		render_->SetUniformF1(&u_NaN, nan);
 	}
 	if (dirty & DIRTY_TEXENV) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
@@ -577,31 +567,33 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
 	}
-	if (dirty & DIRTY_DEPTHRANGE) {
-		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
-		float vpZScale = gstate.getViewportZScale();
-		float vpZCenter = gstate.getViewportZCenter();
 
-		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = InfToZero(gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f);
-		float inverseDepthScale = InfToZero(gstate_c.vpDepthScale != 0.0f ? 1.0f / gstate_c.vpDepthScale : 0.0f);
-		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
-		float viewZScale = halfActualZRange;
-		float viewZCenter = minz + halfActualZRange;
-
-		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-			viewZScale = vpZScale;
-			viewZCenter = vpZCenter;
-		}
-
-		float data[4] = { viewZScale, viewZCenter, gstate_c.vpZOffset, inverseDepthScale };
-		SetFloatUniform4(render_, &u_depthRange, data);
+	if (dirty & DIRTY_RASTER_OFFSET) {
+		float offset[2] = {
+			gstate.getOffsetX(),
+			gstate.getOffsetY(),
+		};
+		render_->SetUniformF(&u_rasterOffset, 2, offset);
+		float minZmaxZ[2] = {
+			(float)gstate.getDepthRangeMin(),
+			(float)gstate.getDepthRangeMax(),
+		};
+		render_->SetUniformF(&u_minZmaxZ, 2, minZmaxZ);
 	}
-	if (dirty & DIRTY_CULLRANGE) {
-		float minValues[4], maxValues[4];
-		CalcCullRange(minValues, maxValues, !useBufferedRendering, true);
-		SetFloatUniform4(render_, &u_cullRangeMin, minValues);
-		SetFloatUniform4(render_, &u_cullRangeMax, maxValues);
+
+	if (dirty & DIRTY_VIEWPORT_UNIFORMS) {
+		float center[3] = {
+			gstate.getViewportXCenter(),
+			gstate.getViewportYCenter(),
+			gstate.getViewportZCenter(),
+		};
+		float scale[3] = {
+			gstate.getViewportXScale(),
+			gstate.getViewportYScale(),
+			gstate.getViewportZScale(),
+		};
+		render_->SetUniformF(&u_vpOffset, 3, center);
+		render_->SetUniformF(&u_vpScale, 3, scale);
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
@@ -772,10 +764,10 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode, clipInfoFlags);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -808,7 +800,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 
 		// Can still work with software transform.
 		VShaderID vsidTemp;
-		ComputeVertexShaderID(&vsidTemp, vertexType, false, false, weightsAsFloat, true);
+		ComputeVertexShaderID(&vsidTemp, vertexType, false, false, weightsAsFloat, true, clipInfoFlags);
 		vs = CompileVertexShader(vsidTemp);
 	}
 
@@ -816,7 +808,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -828,13 +820,13 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), clipInfoFlags);
 	} else {
 		FSID = lastFSID_;
 	}
 
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
+		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
 		return lastShader_;
 	}
 
@@ -870,6 +862,8 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	if (ls == nullptr) {
 		_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+		_dbg_assert_(FSID.Bit(FS_BIT_MINMAX_DISCARD) == VSID.Bit(VS_BIT_FS_MINMAX_DISCARD));
+		_dbg_assert_(FSID.Bit(FS_BIT_DEPTH_CLAMP) == VSID.Bit(VS_BIT_FS_DEPTH_CLAMP));
 
 		if (vs == nullptr || fs == nullptr) {
 			// Can't draw. This shouldn't really happen (but can happen if fragment shader generation fails)
@@ -884,7 +878,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(VSID, useBufferedRendering, draw_->GetShaderLanguageDesc());
+	ls->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
 
 	lastShader_ = ls;
 	return ls;
@@ -965,11 +959,11 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 enum class CacheDetectFlags {
-	EQUAL_DEPTH = 1,
+	EQUAL_DEPTH_UNUSED = 1,
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 38
+#define CACHE_VERSION 39
 
 struct CacheHeader {
 	uint32_t magic;
@@ -988,10 +982,6 @@ bool ShaderManagerGLES::LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngi
 	}
 	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION) {
 		return false;
-	}
-
-	if ((header.detectFlags & (uint32_t)CacheDetectFlags::EQUAL_DEPTH) != 0) {
-		drawEngine->SetEverUsedExactEqualDepth(true);
 	}
 
 	return true;
@@ -1153,6 +1143,9 @@ void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngi
 	if (linkedShaderCache_.empty()) {
 		return;
 	}
+
+	// TODO: We shouldn't save the cache if we're just running a frame dump.
+
 	INFO_LOG(Log::G3D, "Saving the shader cache to '%s'", filename.c_str());
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f) {
@@ -1163,8 +1156,6 @@ void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngi
 	header.magic = CACHE_HEADER_MAGIC;
 	header.version = CACHE_VERSION;
 	header.detectFlags = 0;
-	if (drawEngine->EverUsedExactEqualDepth())
-		header.detectFlags |= (uint32_t)CacheDetectFlags::EQUAL_DEPTH;
 	header.useFlags = gstate_c.GetUseFlags();
 	header.numVertexShaders = GetNumVertexShaders();
 	header.numFragmentShaders = GetNumFragmentShaders();

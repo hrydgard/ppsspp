@@ -58,7 +58,6 @@ struct CompatFlags {
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
 	bool RequireDefaultCPUClock;
-	bool DisableAccurateDepth;
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
 	bool BlockTransferAllowCreateFB;

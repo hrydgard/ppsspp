@@ -2019,8 +2019,6 @@ set(GPU_SOURCES
 	GPU/Common/FragmentShaderGenerator.h
 	GPU/Common/VertexShaderGenerator.cpp
 	GPU/Common/VertexShaderGenerator.h
-	GPU/Common/GeometryShaderGenerator.cpp
-	GPU/Common/GeometryShaderGenerator.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
@@ -2093,6 +2091,7 @@ set(GPU_SOURCES
 	GPU/GPUCommonHW.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
+	GPU/GPUStateSIMDUtil.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
 	GPU/Software/BinManager.cpp

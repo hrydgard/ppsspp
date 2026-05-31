@@ -68,7 +68,7 @@ void SoftwareDrawEngine::Flush() {
 	transformUnit.Flush(gpuCommon_, "debug");
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) {
 	_assert_msg_(clockwise, "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
@@ -153,8 +153,6 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 
 template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
-	ScreenCoords ret;
-
 	// Account for rounding for X and Y.
 	// TODO: Validate actual rounding range.
 	constexpr float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
@@ -197,7 +195,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float y = coords.y * yScale / coords.w + yCenter;
 	float z = coords.z * zScale / coords.w + zCenter;
 
-	if (gstate.isDepthClampEnabled()) {
+	if (gstate.isDepthClipEnabled()) {
 		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
 	return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
@@ -315,7 +313,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	}
 
-	if (gstate.isDepthClampEnabled())
+	if (gstate.isDepthClipEnabled())
 		state->roundToScreen = &ClipToScreenInternal<true, false>;
 	else
 		state->roundToScreen = &ClipToScreenInternal<false, false>;

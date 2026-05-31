@@ -157,7 +157,7 @@ uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {
 	if (dirty != 0) {
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
-			BaseUpdateUniforms(&ub_base, dirty, true, useBufferedRendering);
+			BaseUpdateUniforms(&ub_base, dirty, useBufferedRendering);
 			context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_base, sizeof(ub_base));
 			context_->Unmap(push_base.Get(), 0);
@@ -186,20 +186,20 @@ void ShaderManagerD3D11::BindUniforms() {
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 
-void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
+void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
 	VShaderID VSID;
 	FShaderID FSID;
 
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode, clipInfoFlags);
 	} else {
 		VSID = lastVSID_;
 	}
 
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
+		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), clipInfoFlags);
 	} else {
 		FSID = lastFSID_;
 	}
@@ -222,6 +222,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader 
 		VertexShaderFlags flags;
 		GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString);
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
+		// OutputDebugStringA(codeBuffer_);
 		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, useHWTransform);
 		vsCache_[VSID] = vs;
 	} else {
@@ -238,6 +239,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader 
 		FragmentShaderFlags flags;
 		GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
+		// OutputDebugStringA(codeBuffer_);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
@@ -245,6 +247,11 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader 
 	}
 
 	lastFSID_ = FSID;
+
+	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+	_dbg_assert_(FSID.Bit(FS_BIT_MINMAX_DISCARD) == VSID.Bit(VS_BIT_FS_MINMAX_DISCARD));
+	_dbg_assert_(FSID.Bit(FS_BIT_DEPTH_CLAMP) == VSID.Bit(VS_BIT_FS_DEPTH_CLAMP));
 
 	lastVShader_ = vs;
 	lastFShader_ = fs;

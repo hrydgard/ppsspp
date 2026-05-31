@@ -560,7 +560,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
-  $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
   $(SRC)/GPU/Common/TextureReplacer.cpp \
   $(SRC)/GPU/Common/ReplacedTexture.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \

@@ -223,9 +223,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			depthClampEnable = false;
 		} else {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
-				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
-				// But the alternate is not clamping in either direction...
-				depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+				// We get some extra clamping behavior if clipping is enabled.
+				depthClampEnable = gstate.isDepthClipEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				depthClampEnable = false;
@@ -280,13 +279,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor_);
-		UpdateCachedViewportState(vpAndScissor_);
 
 		renderManager->SetScissor(GLRect2D{ vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH });
 		renderManager->SetViewport({
 			vpAndScissor_.viewportX, vpAndScissor_.viewportY,
-			vpAndScissor_.viewportW, vpAndScissor_.viewportH,
-			vpAndScissor_.depthRangeMin, vpAndScissor_.depthRangeMax });
+			vpAndScissor_.viewportW, vpAndScissor_.viewportH, 0.0f, 1.0f });
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);

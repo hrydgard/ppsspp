@@ -85,32 +85,14 @@ protected:
 	VertexShaderFlags flags_;
 };
 
-class VulkanGeometryShader {
-public:
-	VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, const char *code);
-	~VulkanGeometryShader();
-
-	const std::string &source() const { return source_; }
-
-	std::string GetShaderString(DebugShaderStringType type) const;
-
-	Promise<VkShaderModule> *GetModule() const { return module_; }
-	const GShaderID &GetID() { return id_; }
-
-protected:
-	Promise<VkShaderModule> *module_ = nullptr;
-
-	VulkanContext *vulkan_;
-	std::string source_;
-	GShaderID id_;
-};
-
 struct Uniforms {
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base{};
 	UB_VS_Lights ub_lights{};
 	UB_VS_Bones ub_bones{};
 };
+
+enum class ClipInfoFlags;
 
 class ShaderManagerVulkan : public ShaderManagerCommon {
 public:
@@ -120,22 +102,19 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
 	void ClearShaders() override;
 	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
-	int GetNumGeometryShaders() const { return (int)gsCache_.size(); }
 
 	// Used for saving/loading the cache. Don't need to be particularly fast.
 	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { return vsCache_.GetOrNull(id); }
 	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { return fsCache_.GetOrNull(id); }
-	VulkanGeometryShader *GetGeometryShaderFromID(GShaderID id) { return gsCache_.GetOrNull(id); }
 
 	VulkanVertexShader *GetVertexShaderFromModule(VkShaderModule module);
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
-	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
@@ -174,9 +153,6 @@ private:
 	typedef DenseHashMap<VShaderID, VulkanVertexShader *> VSCache;
 	VSCache vsCache_;
 
-	typedef DenseHashMap<GShaderID, VulkanGeometryShader *> GSCache;
-	GSCache gsCache_;
-
 	char *codeBuffer_;
 
 	uint64_t uboAlignment_;
@@ -185,9 +161,7 @@ private:
 
 	VulkanFragmentShader *lastFShader_ = nullptr;
 	VulkanVertexShader *lastVShader_ = nullptr;
-	VulkanGeometryShader *lastGShader_ = nullptr;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;
-	GShaderID lastGSID_;
 };

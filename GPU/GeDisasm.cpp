@@ -323,7 +323,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
-	case GE_CMD_DEPTHCLAMPENABLE:
+	case GE_CMD_DEPTHCLIPENABLE:
 		snprintf(buffer, bufsize, "Depth clamp enable: %i", data);
 		break;
 

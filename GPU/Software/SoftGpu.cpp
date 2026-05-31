@@ -228,7 +228,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_VIEWPORTYCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTZSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTZCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
-	{ GE_CMD_DEPTHCLAMPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_DEPTHCLIPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
 
 	// Z clipping.
 	{ GE_CMD_MINZ, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
@@ -1028,10 +1028,6 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
 	if (diff)
 		drawEngine_->transformUnit.Flush(this, "framebuf");
-}
-
-void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
-	GPUCommon::Execute_BoundingBox(op, diff);
 }
 
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {

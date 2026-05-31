@@ -422,7 +422,7 @@ static u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, in
 	bool overVolume = abs(leftVol) > PSP_SAS_VOL_MAX || abs(rightVol) > PSP_SAS_VOL_MAX;
 	overVolume = overVolume || abs(effectLeftVol) > PSP_SAS_VOL_MAX || abs(effectRightVol) > PSP_SAS_VOL_MAX;
 	if (overVolume) {
-		return hleLogError(Log::sceSas, SCE_SAS_ERROR_INVALID_VOLUME);
+		return hleLogWarning(Log::sceSas, SCE_SAS_ERROR_INVALID_VOLUME, "invalid volume");
 	}
 
 	__SasDrain();

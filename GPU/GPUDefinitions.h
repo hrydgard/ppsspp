@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "Common/Common.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Core/MemMap.h"
 
 

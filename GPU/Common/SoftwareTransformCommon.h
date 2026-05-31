@@ -28,13 +28,12 @@ class FramebufferManagerCommon;
 class TextureCacheCommon;
 
 enum SoftwareTransformAction {
-	SW_NOT_READY,
 	SW_DRAW_INDEXED,
 	SW_CLEAR,
+	SW_CULLED,  // don't draw
 };
 
 struct SoftwareTransformResult {
-	SoftwareTransformAction action;
 	u32 color;
 	float depth;
 
@@ -68,23 +67,18 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 
 class SoftwareTransform {
 public:
-	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
-
-	void SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
-	void Transform(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
+	// indsSize is in indices, not bytes.
+	// NOTE: In case of clipping, this might write extra vertices after params.transformed.
+	static SoftwareTransformAction Transform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 protected:
 	// NOTE: The viewport must be up to date!
-	// indsSize is in indices, not bytes.
-	void ProjectClipAndExpand(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
+	static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
-	void CalcCullParams(float &minZValue, float &maxZValue) const;
-	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
+	static void ProjectVertices(TransformedVertex *transformed, int vertexCount);
+	static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly);
 	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
-
-	const SoftwareTransformParams &params_;
-	Lin::Matrix4x4 projMatrix_;
 };
 
 class DrawEngineCommon;

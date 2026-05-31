@@ -111,7 +111,7 @@ public:
 	void Layout() override;
 };
 
-const float NONE = -FLT_MAX;
+constexpr float NONE = -FLT_MAX;
 
 enum class Centering {
 	None = 0,

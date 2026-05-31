@@ -498,7 +498,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	SimpleBufferManager managedBuf(decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);
 
-	int num_points = surface.num_points_u * surface.num_points_v;
+	const int num_points = surface.num_points_u * surface.num_points_v;
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = num_points - 1;
 	IndexConverter ConvertIndex(vertType, indices);
@@ -523,7 +523,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		return;
 	}
 
-	u32 origVertType = vertType;
+	const u32 origVertType = vertType;
 	vertType = ::NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, origVDecoder, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
@@ -547,7 +547,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	output.indices = decIndex_;
 	output.count = 0;
 
-	int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;
+	const int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;
 
 	surface.Init(maxVerts);
 
@@ -575,13 +575,16 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), applySkinInDecode_);
 	int generatedBytesRead;
-	if (output.count)
-		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead);
+	if (output.count) {
+		ClipInfoFlags flags{};  // Don't need any special processing.
+		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead, flags);
+	}
 
 	if (flushOnParams_)
 		Flush();
 
 	if (origVertType & GE_VTYPE_TC_MASK) {
+		// If analysis says this is uninitialized, it's wrong.
 		gstate_c.uv = prevUVScale;
 	}
 }

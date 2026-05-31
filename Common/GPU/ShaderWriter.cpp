@@ -36,6 +36,8 @@ const char * const hlsl_preamble_fs =
 "#define fract frac\n"
 "#define mod(x, y) fmod(x, y)\n"
 "#define inversesqrt rsqrt\n"
+"#define floatBitsToUint asuint\n"
+"#define uintBitsToFloat asfloat\n"
 "\n";
 
 static const char * const hlsl_d3d11_preamble_fs =
@@ -65,6 +67,8 @@ static const char * const hlsl_preamble_gs =
 "#define mediump\n"
 "#define highp\n"
 "#define inversesqrt rsqrt\n"
+"#define floatBitsToUint asuint\n"
+"#define uintBitsToFloat asfloat\n"
 "\n";
 
 static const char * const vulkan_glsl_preamble_gs =
@@ -92,6 +96,8 @@ static const char * const hlsl_preamble_vs =
 "#define fract frac\n"
 "#define mod(x, y) fmod(x, y)\n"
 "#define inversesqrt rsqrt\n"
+"#define floatBitsToUint asuint\n"
+"#define uintBitsToFloat asfloat\n"
 "\n";
 
 static const char * const semanticNames[] = {

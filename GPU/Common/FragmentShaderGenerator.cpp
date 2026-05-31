@@ -58,6 +58,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool highpTexcoord = false;
 	bool enableFragmentTestCache = gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE);
 
+	const bool fsMinmaxDiscard = id.Bit(FS_BIT_MINMAX_DISCARD);
+	const bool fsDepthClamp = id.Bit(FS_BIT_DEPTH_CLAMP);
+
 	if (compat.gles) {
 		// PowerVR needs highp to do the fog in MHU correctly.
 		// Others don't, and some can't handle highp in the fragment shader.
@@ -183,7 +186,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) && !forceDepthWritesOff;
+	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff;
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
 // on hardware that can do proper bit math in fragment shaders.
@@ -224,6 +227,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "layout (location = 4) in highp vec2 v_zw;\n");
 		}
 
 		if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -290,6 +296,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
 			}
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
 		}
 		WRITE(p, "};\n");
 
@@ -390,6 +399,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform float u_mipBias;\n");
 		}
 
+		if (fsMinmaxDiscard) {
+			*uniformMask |= DIRTY_RASTER_OFFSET;  // they're updated together
+			WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		}
+
+		// Varyings
+
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
 		if (lmode) {
 			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
@@ -401,6 +417,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "%s vec2 v_zw;\n", compat.varying_fs);
 		}
 
 		if (!enableFragmentTestCache) {
@@ -498,6 +517,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  vec2 v_zw = In.v_zw;\n");
 		}
 	}
 
@@ -1151,30 +1173,33 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", compat.fragColor0, compat.fragColor0);
 	}
 
-	if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+	if (fsDepthClamp || fsMinmaxDiscard) {
+		WRITE(p, "  highp float projZ = v_zw.x / v_zw.y;\n");
+	}
 
-		const double scale = depthScale.ScaleU16();
+	if (fsMinmaxDiscard) {
+		// See the vertex shader generator for the explanation for this.
+		WRITE(p, "  float clipZ = floor(projZ * 0.5 + 0.5) * 2.0;\n");
+		WRITE(p, "  if (u_minZmaxZ.x > 0.0 && clipZ < u_minZmaxZ.x) DISCARD;\n");
+		WRITE(p, "  if (u_minZmaxZ.y < 65535.0 && clipZ > u_minZmaxZ.y) DISCARD;\n");
+	}
 
-		WRITE(p, "  highp float z = gl_FragCoord.z;\n");
-		if (gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-			// We center the depth with an offset, but only its fraction matters.
-			// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
-			if (((int)(depthScale.Scale() - 1.0f) & 1) == 1) {
-				WRITE(p, "  z = (floor((z * %f) - (1.0 / 2.0)) + (1.0 / 2.0)) * (1.0 / %f);\n", scale, scale);
+	if (writeDepth) {
+		if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+			if (fsDepthClamp) {
+				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65536.0) / 65536.0;\n");
 			} else {
-				WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
+				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z) / 65536.0;\n");
 			}
-		} else {
-			WRITE(p, "  z = (1.0 / 65535.0) * floor(z * 65535.0);\n");
+		} else if (fsDepthClamp) {
+			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65536.0) / 65536.0;\n");
+		} else if (useDiscardStencilBugWorkaround) {
+			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+			// when only stencil is used. The exact situation seems to vary by driver.
+			// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+			// This doesn't make a ton of sense, but empirically does work.
+			WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 		}
-		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (useDiscardStencilBugWorkaround) {
-		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
-		// when only stencil is used. The exact situation seems to vary by driver.
-		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
-		// This doesn't make a ton of sense, but empirically does work.
-		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

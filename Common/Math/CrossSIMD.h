@@ -184,7 +184,7 @@ inline bool AnyZeroSignBit(Vec4S32 value) {
 	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) != 0xF;
 }
 
-// These are for evaluating compare masks.
+// These are for evaluating compare masks. On some archs it might just check the upper bit.
 inline bool AllCompareBitsSet(Vec4S32 value) {
 	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) == 0xF;
 }

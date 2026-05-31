@@ -131,20 +131,29 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
+	const bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
+	const bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
+
+	const bool clipEnable = id.Bit(VS_BIT_CLIP_ENABLE) && !isModeThrough;  // this is the PSP clip flag, which has some various consequences.
+	const bool clipNearPlane = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && useHWTransform;
+	const bool clipMinMax = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && !isModeThrough;  // If clip planes are available, we want to use them for min/max. We skip the min/max culling in software transform (not yet implemented).
+
+	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
+	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough && rangeCulling && useHWTransform;  // Range culling is gated on draw type, we don't want to do this culling for splines apparently.
+
 	std::vector<const char*> extensions;
 	extensions.reserve(6);
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
 			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
 		}
-		bool useClamp = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !id.Bit(VS_BIT_IS_THROUGH);
-		if (gl_extensions.EXT_clip_cull_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
+		if (gl_extensions.EXT_clip_cull_distance && (depthCullEnable || clipMinMax || clipNearPlane)) {
 			extensions.push_back("#extension GL_EXT_clip_cull_distance : enable");
 		}
-		if (gl_extensions.APPLE_clip_distance && (id.Bit(VS_BIT_VERTEX_RANGE_CULLING) || useClamp)) {
+		if (gl_extensions.APPLE_clip_distance && (clipMinMax || clipNearPlane)) {
 			extensions.push_back("#extension GL_APPLE_clip_distance : enable");
 		}
-		if (gl_extensions.ARB_cull_distance && id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
+		if (gl_extensions.ARB_cull_distance && depthCullEnable) {
 			extensions.push_back("#extension GL_ARB_cull_distance : enable");
 		}
 	}
@@ -163,7 +172,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	p.F("// %s\n", VertexShaderDesc(id).c_str());
 
-	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
@@ -175,9 +183,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
 	bool needsZWHack = bugs.Has(Draw::Bugs::EQUAL_WZ_CORRUPTS_DEPTH) && g_Config.bVendorBugChecksEnabled;
+	bool nanBug = bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL) && g_Config.bVendorBugChecksEnabled;
+
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
-	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
@@ -213,6 +222,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
+	// Should we do the min/max discard in the shader and/or or use depth clamping?
+	// In both cases we need to just forward
+	const bool fsMinmaxDiscard = id.Bit(VS_BIT_FS_MINMAX_DISCARD);
+	const bool fsDepthClamp = id.Bit(VS_BIT_FS_DEPTH_CLAMP);
+
 	const char *shading = "";
 	if (compat.glslES30 || compat.shaderLanguage == GLSL_VULKAN)
 		shading = doFlatShading ? "flat " : "";
@@ -236,10 +250,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 	bool texCoordInVec3 = false;
 
-	bool vertexRangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING) && !isModeThrough;
-	bool clipClampedDepth = !isModeThrough && gstate_c.Use(GPU_USE_DEPTH_CLAMP) && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-	const char *clipClampedDepthSuffix = "[0]";
-	const char *vertexRangeClipSuffix = clipClampedDepth ? "[1]" : "[0]";
+	const char *minZClipPlaneSuffix = "[0]";
+	const char *maxZClipPlaneSuffix = "[1]";
+	const char *zClipPlaneSuffix = "[2]";
+
+	const char *cullDistanceNearSuffix = "[0]";
+	const char *cullDistanceFarSuffix = "[1]";
 
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
@@ -286,6 +302,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
+
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "layout (location = 4) out highp vec2 v_zw;\n");
+		}
 
 		WRITE(p, "invariant gl_Position;\n");
 	} else if (compat.shaderLanguage == HLSL_D3D11) {
@@ -345,21 +365,23 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
-		{
-			WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-			bool clipRange = vertexRangeCulling && gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-			if (clipClampedDepth && clipRange) {
-				WRITE(p, "  float2 gl_ClipDistance : SV_ClipDistance;\n");
-				clipClampedDepthSuffix = ".x";
-				vertexRangeClipSuffix = ".y";
-			} else if (clipClampedDepth || clipRange) {
-				WRITE(p, "  float gl_ClipDistance : SV_ClipDistance;\n");
-				clipClampedDepthSuffix = "";
-				vertexRangeClipSuffix = "";
-			}
-			if (vertexRangeCulling && gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
-				WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
-			}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+		}
+		// gl_Position must be last for D3D11.
+		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
+		minZClipPlaneSuffix = ".x";
+		maxZClipPlaneSuffix = ".y";
+		zClipPlaneSuffix = ".z";
+		if (clipMinMax && clipNearPlane) {
+			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
+		} else if (clipMinMax) {
+			WRITE(p, "  float2 gl_ClipDistance : SV_ClipDistance;\n");
+		} else if (clipNearPlane) {
+			_dbg_assert_(false);  // not an allowed combination
+		}
+		if (depthCullEnable) {
+			WRITE(p, "  float2 gl_CullDistance : SV_CullDistance0;\n");
 		}
 		WRITE(p, "};\n");
 	} else {
@@ -378,7 +400,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform)
 			WRITE(p, "%s vec3 position;\n", compat.attribute);
 		else
-			WRITE(p, "%s vec4 position;\n", compat.attribute);  // need to pass the fog coord in w
+			WRITE(p, "%s vec4 position;\n", compat.attribute);  // XYZW clip space coordinate.
 		*attrMask |= 1 << ATTR_POSITION;
 
 		if (useHWTransform && hasNormal) {
@@ -409,20 +431,27 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		if (isModeThrough) {
-			WRITE(p, "uniform vec4 u_xywh;\n");
-			*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
-		} else if (useHWTransform) {
+		WRITE(p, "uniform vec4 u_xywh;\n");
+		WRITE(p, "uniform float u_NaN;\n");
+		*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
+
+		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.
+
+		if (!isModeThrough) {
+			WRITE(p, "uniform vec2 u_rasterOffset;\n");
+			*uniformMask |= DIRTY_RASTER_OFFSET;
+		}
+
+		if (useHWTransform) {
+			WRITE(p, "uniform vec3 u_vpScale;\n");
+			WRITE(p, "uniform vec3 u_vpOffset;\n");
 			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 				WRITE(p, "uniform mat4 u_proj_lens;\n");
 			}
 			WRITE(p, "uniform mat4 u_proj;\n");
-			*uniformMask |= DIRTY_PROJMATRIX;
-		}
-
-		if (useHWTransform) {
-			// When transforming by hardware, we need a great deal more uniforms...
-			// TODO: Use 4x3 matrices where possible. Though probably doesn't matter much.
+			*uniformMask |= DIRTY_VIEWPORT_UNIFORMS | DIRTY_PROJMATRIX;
+			// TODO: Use 4x3 matrices where possible (world and view and maybe tex, not proj).
 			WRITE(p, "uniform mat4 u_world;\n");
 			WRITE(p, "uniform mat4 u_view;\n");
 			*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
@@ -494,13 +523,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 		*uniformMask |= DIRTY_FOGCOEF;
 
-		if (!isModeThrough) {
-			WRITE(p, "uniform highp vec4 u_depthRange;\n");
-			WRITE(p, "uniform highp vec4 u_cullRangeMin;\n");
-			WRITE(p, "uniform highp vec4 u_cullRangeMax;\n");
-			*uniformMask |= DIRTY_DEPTHRANGE | DIRTY_CULLRANGE;
-		}
-
 		WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
 		if (lmode) {
 			WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying_vs);
@@ -514,18 +536,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
 		}
-	}
 
-	// See comment above this function (GenerateVertexShader).
-	if (!isModeThrough && gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
-		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
-		WRITE(p, "  float z = v.z / v.w;\n");
-		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
-		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
-		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
-		WRITE(p, "}\n\n");
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_vs);
+		}
 	}
 
 	// Hardware tessellation
@@ -725,6 +739,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
+	WRITE(p, "  bool zClipped = false;\n");
+
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (texCoordInVec3) {
@@ -745,20 +761,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 		if (isModeThrough)	{
-			// The proj_through matrix already has the rotation, if needed.
-			// NOTE: In through mode, we can ignore W, it's always 1.0. However,
-			// this transform will later be applied in all modes.
-			WRITE(p, "  vec4 outPos;\n");
-			WRITE(p, "  outPos.xy = ((position.xy - u_xywh.xy * position.w) / u_xywh.zw) * 2.0 - 1.0;\n");
-			WRITE(p, "  outPos.zw = position.zw;\n");
-			// WRITE(p, "  vec4 outPos = mul(u_proj_through, vec4(position.xyz, 1.0));\n");
+			WRITE(p, "  vec4 outPos = position;\n");
+			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This multiplication should be moved to the vertex decoders for through mode.
 		} else {
-			// The viewport is used in this case, so need to compensate for that.
-			if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(position);\n");
-			} else {
-				WRITE(p, "  vec4 outPos = position;\n");
-			}
+			// The viewport has already been applied here, along with the division.
+			WRITE(p, "  vec4 outPos = position;\n");
+		}
+
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -837,20 +848,39 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// Final view and projection transforms.
-		if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj_lens, viewPos));\n");
-				WRITE(p, "  vec4 orgPos = depthRoundZVP(mul(u_proj, viewPos));\n");
-			} else {
-				WRITE(p, "  vec4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
-			}
+		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+			WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
+			WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
 		} else {
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
-				WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
-			} else {
-				WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
-			}
+			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
+		}
+
+		// We're in clip space, so here we check for clipping. We check if the actual hardware will clip.
+		// If so, we skip the "range culling" (x and y out-of-bounds checks) since they wouldn't have happened, most likely.
+		// NOTE: There are some games that depend on clipping already having been done when checking the range culling.
+		// We can't handle that here, we use the software transform pipeline for that.
+		WRITE(p, "  if (outPos.z < -outPos.w) {\n");
+		WRITE(p, "    zClipped = true;\n");
+		WRITE(p, "  }\n");
+		// Then we actually add the clip plane.
+		if (clipNearPlane) {
+			WRITE(p, "  %sgl_ClipDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, zClipPlaneSuffix);
+		}
+
+		if (depthCullEnable) {
+			// Before the viewport, discard any primitives that are fully outside the clipping volume in Z.
+			// NOTE: We add a small offset to the clip distance to allow hex 0x3F8000XX (up to 1.0000304) where XX are arbitrary.
+			WRITE(p, "  %sgl_CullDistance%s = outPos.z + outPos.w + 0.0000304 / outPos.w;\n", compat.vsOutPrefix, cullDistanceNearSuffix);
+			WRITE(p, "  %sgl_CullDistance%s = outPos.w - outPos.z + 0.0000304 / outPos.w;\n", compat.vsOutPrefix, cullDistanceFarSuffix);
+		}
+
+		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
+		// In software transform mode, this is performed in on the CPU.
+		WRITE(p, "  float recip = 1.0 / outPos.w;\n");
+		WRITE(p, "  outPos.xyz = outPos.xyz * u_vpScale.xyz * recip + u_vpOffset.xyz;\n");
+
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -1208,66 +1238,49 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
-	if (clipClampedDepth) {
-		// This should clip against minz, but only when it's above zero.
-		if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-			// On OpenGL/GLES, these values account for the -1 -> 1 range.
-			WRITE(p, "  if (u_depthRange.y - u_depthRange.x >= 1.0) {\n");
-			WRITE(p, "    %sgl_ClipDistance%s = outPos.w + outPos.z;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
-		} else {
-			// Everywhere else, it's 0 -> 1, simpler.
-			WRITE(p, "  if (u_depthRange.y >= 1.0) {\n");
-			WRITE(p, "    %sgl_ClipDistance%s = outPos.z;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
+	if (!isModeThrough) {
+		// Cull against X and Y limits (unless the GPU has a certain driver bug).
+		// It's not clear what the limits should be in through mode though, although I'm sure they exist.
+		if (!nanBug && rangeCulling) {
+			WRITE(p, "  if (!zClipped && (outPos.x < 0.0 || outPos.y < 0.0 || outPos.x >= 4096.0 || outPos.y >= 4096.0 || outPos.w < -1.0)) {\n");
+			// Discard the whole triangle by setting one vertex to NaN.
+			WRITE(p, "    outPos = vec4(u_NaN, u_NaN, u_NaN, u_NaN);\n");
+			// TODO: We could just return here. But we can also just keep going to avoid branching, the NaNs will propagate.
+			WRITE(p, "  }\n");
 		}
-		// This is similar, but for maxz when it's below 65535.0.  -1/0 don't matter here.
-		WRITE(p, "  } else if (u_depthRange.x + u_depthRange.y <= 65534.0) {\n");
-		WRITE(p, "    %sgl_ClipDistance%s = outPos.w - outPos.z;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
-		WRITE(p, "  } else {\n");
-		WRITE(p, "    %sgl_ClipDistance%s = 0.0;\n", compat.vsOutPrefix, clipClampedDepthSuffix);
-		WRITE(p, "  }\n");
+
+		// Apply raster offset after the range culling.
+		WRITE(p, "  outPos.xy -= u_rasterOffset.xy;\n");
 	}
 
-	if (vertexRangeCulling) {
-		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
-		WRITE(p, "  float projZ = (projPos.z - u_depthRange.z) * u_depthRange.w;\n");
+	// I think we should use min/max clipping for through-mode as well, right?
+	if (clipMinMax) {
+		// We use clipping, where available, to implement min/max Z.
+		// 1.0 is used to disable the clip plane (should we generate more shaders instead? how costly are they?)
 
-		if (!bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
-			// Vertex range culling always happens, even when Z clips - but since we let the host GPU clip
-			// here afterwards, and never actually perform the clipping, we have to disable range culling here if we
-			// detect clipping, otherwise we're checking unclipped coordinates.
-			WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || projZ * outPos.w > -outPos.w) {\n");
-			const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y";
-			const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y";
-			WRITE(p, "    if ((%s) || (%s)) {\n", outMin, outMax);
-			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-			WRITE(p, "    }\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "  if (u_cullRangeMin.w <= 0.0) {\n");
-			WRITE(p, "    if (projPos.z < u_cullRangeMin.z || projPos.z > u_cullRangeMax.z) {\n");
-			WRITE(p, "      outPos.xyzw = u_cullRangeMax.wwww;\n");
-			WRITE(p, "    }\n");
-			WRITE(p, "  }\n");
-		}
+		// Note: outPos.z need to be multiplied by outPos.w to undo the division, which shouldn't be in effect here.
+		// We should probably store the undivided outPos in a variable.
 
-		const char *cull0 = compat.shaderLanguage == HLSL_D3D11 ? ".x" : "[0]";
-		const char *cull1 = compat.shaderLanguage == HLSL_D3D11 ? ".y" : "[1]";
-		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-			// TODO: Ignore triangles from GE_PRIM_RECTANGLES in transform mode, which should not clip to neg z.
-			// We add a small amount to prevent error as in #15816 (PSP Z is only 16-bit fixed point, anyway.)
-			WRITE(p, "  %sgl_ClipDistance%s = projZ * outPos.w + outPos.w + %f;\n", compat.vsOutPrefix, vertexRangeClipSuffix, 0.0625 / 65536.0);
-		}
-		if (gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
-			// Cull any triangle fully outside in the same direction when depth clamp enabled.
-			// We check u_depthRange in case depthScale was zero - in that case we can't work out the cull distance.
-			WRITE(p, "  if (u_cullRangeMin.w > 0.0 && u_depthRange.w != 0.0f) {\n");
-			WRITE(p, "    %sgl_CullDistance%s = projPos.z - u_cullRangeMin.z;\n", compat.vsOutPrefix, cull0);
-			WRITE(p, "    %sgl_CullDistance%s = u_cullRangeMax.z - projPos.z;\n", compat.vsOutPrefix, cull1);
-			WRITE(p, "  } else {\n");
-			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull0);
-			WRITE(p, "    %sgl_CullDistance%s = 0.0;\n", compat.vsOutPrefix, cull1);
-			WRITE(p, "  }\n");
-		}
+		// We round to nearest 15-bit value for the check - this seems to match some of [Unknown]'s test, and PSP GPU floats
+		// often have a 15-bit mantissa.
+		WRITE(p, "  float clipZ = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
+
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZ - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZ) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
+
+	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.
+	WRITE(p, "  outPos.xy = ((outPos.xy - u_xywh.xy) / u_xywh.zw) * 2.0 - 1.0;\n");
+
+	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
+		WRITE(p, "  outPos.z = float(int(outPos.z));\n");
+	}
+
+	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");  // Or 65536?
+
+	// Convert back to clip space coordinates. This is needed for all modern shader models.
+	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
+	WRITE(p, "  outPos.xyz *= outPos.w;\n");
 
 	if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Use(GPU_USE_PRE_ROTATION)) {
 		// Apply rotation from the uniform.
@@ -1299,6 +1312,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
+	}
+
+	if (fsDepthClamp) {
+		// Overwrite Z with a value that will not be clipped.
+		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
+		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * 0.5 * (1.0 / 65536.0);\n", compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
 	if (compat.depthMinusOneToOne) {

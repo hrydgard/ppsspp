@@ -27,6 +27,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/lin/vec3.h"
 
 class PointerWrap;
 
@@ -61,7 +62,7 @@ struct GPUgstate {
 				region2,
 				lightingEnable,
 				lightEnable[4],
-				depthClampEnable,
+				depthClipEnable,
 				cullfaceEnable,
 				textureMapEnable,  // 0x1E GE_CMD_TEXTUREMAPENABLE
 				fogEnable,
@@ -388,15 +389,19 @@ struct GPUgstate {
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 
-	bool isDepthClampEnabled() const { return depthClampEnable & 1; }
+	bool isDepthClipEnabled() const { return depthClipEnable & 1; }
 
 	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
 	float getViewportXScale() const { return getFloat24(viewportxscale); }
 	float getViewportYScale() const { return getFloat24(viewportyscale); }
 	float getViewportZScale() const { return getFloat24(viewportzscale); }
+	// TODO: Rename to offset?
 	float getViewportXCenter() const { return getFloat24(viewportxcenter); }
 	float getViewportYCenter() const { return getFloat24(viewportycenter); }
 	float getViewportZCenter() const { return getFloat24(viewportzcenter); }
+
+	Lin::Vec3 getViewportScale() const { return Lin::Vec3(getViewportXScale(), getViewportYScale(), getViewportZScale()); }
+	Lin::Vec3 getViewportOffset() const { return Lin::Vec3(getViewportXCenter(), getViewportYCenter(), getViewportZCenter()); }
 
 	// Fixed 12.4 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
@@ -453,14 +458,14 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-#define FLAG_BIT(x) (1 << x)
+#define FLAG_BIT(x) (u32)(1U << x)
 
 // These flags are mainly to make sure that we make decisions on code path in a single
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
 // NOTE: Do not forget to update the string array at the end of GPUState.cpp!
-enum {
+enum : u32 {
 	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
 	GPU_USE_FRAGMENT_TEST_CACHE = FLAG_BIT(2),
@@ -478,11 +483,11 @@ enum {
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_USE_TEXTURE_LOD_CONTROL = FLAG_BIT(15),
 	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
-	GPU_USE_ACCURATE_DEPTH = FLAG_BIT(17),
-	GPU_USE_GS_CULLING = FLAG_BIT(18),  // Geometry shader
+	// Free bit: 17
+	// Free bit: 18
 	GPU_USE_FRAMEBUFFER_ARRAYS = FLAG_BIT(19),
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
-	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
+	// Free bit: 21,
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
@@ -662,6 +667,8 @@ public:
 	// We recompute viewproj when view or proj changes, and worldviewproj when world, view, or proj changes.
 	float viewproj[16];
 	float worldviewproj[16];
+	float cullMatrix[16];
+	bool viewportNearPlaneMatchesOutput;
 
 	KnownVertexBounds vertBounds;
 

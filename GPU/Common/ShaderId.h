@@ -5,6 +5,21 @@
 #include <cstdint>
 
 #include "Common/CommonFuncs.h"
+#include "GPU/GPUState.h"
+
+enum class ClipInfoFlags;
+
+// Shared ID checks for when the vertex and fragment shaders (and host code) need to coordinate.
+
+// NOTE: Both of these assume non-through-mode. Don't check these if in through mode.
+inline bool needFragmentMinMaxClipping() {
+	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF;
+}
+
+inline bool needFragmentDepthClamp() {
+	// If gstate.isDepthClipEnabled is false, clamping does not happen, instead fragments are culled as normal.
+	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled();
+}
 
 // VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
 // sent to the shader and processed there. This cuts down the number of shaders ("ubershader approach").
@@ -13,10 +28,10 @@ enum VShaderBit : uint8_t {
 	VS_BIT_IS_THROUGH = 1,
 	// bit 2 is free.
 	VS_BIT_HAS_COLOR = 3,
-	// bit 4 is free.
+	VS_BIT_CLIP_ENABLE = 4,
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
 	VS_BIT_SIMPLE_STEREO = 6,
-	// 7 is free.
+	// bit 7 is free,
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
 	VS_BIT_NORM_REVERSE = 10,
@@ -54,6 +69,8 @@ enum VShaderBit : uint8_t {
 	VS_BIT_LIGHTING_ENABLE = 56,
 	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
 	// 59 - 61 are free.
+	VS_BIT_FS_MINMAX_DISCARD = 59, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
+	VS_BIT_FS_DEPTH_CLAMP = 60, // Do depth clamp in the fragment shader.
 	VS_BIT_FLATSHADE = 62, // 1 bit
 	VS_BIT_BEZIER = 63, // 1 bit
 	// No more free
@@ -83,7 +100,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
 	FS_BIT_ENABLE_FOG = 21,  // Not used with FS_BIT_UBERSHADER
 	FS_BIT_DO_TEXTURE_PROJ = 22,
-	// 1 free bit
+	FS_BIT_MINMAX_DISCARD = 23,
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
 	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
 	FS_BIT_SIMULATE_LOGIC_OP_TYPE = 30,  // 2 bits
@@ -103,22 +120,12 @@ enum FShaderBit : uint8_t {
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 	FS_BIT_UBERSHADER = 60,
 	FS_BIT_DEPTH_TEST_NEVER = 61,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
+	FS_BIT_DEPTH_CLAMP = 62,  // These both are connected to VS_BIT_MINMAX_DISCARD_OR_DEPTH_CLAMP in the vertex shader.
+	// Free bit: 63
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
 	return FShaderBit((int)bit + i);
-}
-
-// Some of these bits are straight from FShaderBit, since they essentially enable attributes directly.
-enum GShaderBit : uint8_t {
-	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
-	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
-	GS_BIT_LMODE = 2,
-	GS_BIT_CURVE = 3,       // curve, which means don't do range culling.
-};
-
-static inline GShaderBit operator +(GShaderBit bit, int i) {
-	return GShaderBit((int)bit + i);
 }
 
 struct ShaderID {
@@ -251,46 +258,18 @@ struct FShaderID : ShaderID {
 	}
 };
 
-struct GShaderID : ShaderID {
-	GShaderID() : ShaderID() {
-	}
-
-	explicit GShaderID(ShaderID &src) {
-		memcpy(d, src.d, sizeof(d));
-	}
-
-	bool Bit(GShaderBit bit) const {
-		return ShaderID::Bit((int)bit);
-	}
-
-	int Bits(GShaderBit bit, int count) const {
-		return ShaderID::Bits((int)bit, count);
-	}
-
-	void SetBit(GShaderBit bit, bool value = true) {
-		ShaderID::SetBit((int)bit, value);
-	}
-
-	void SetBits(GShaderBit bit, int count, int value) {
-		ShaderID::SetBits((int)bit, count, value);
-	}
-};
-
 namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);
 
 struct ComputedPipelineState;
-void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs);
+void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, ClipInfoFlags clipInfoFlags);
 std::string FragmentShaderDesc(const FShaderID &id);
-
-void ComputeGeometryShaderID(GShaderID *id, const Draw::Bugs &bugs, int prim);
-std::string GeometryShaderDesc(const GShaderID &id);
 
 // For sanity checking.
 bool FragmentIdNeedsFramebufferRead(const FShaderID &id);

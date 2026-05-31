@@ -358,8 +358,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		Do(p, savedContextVersion);
 	}
 
-	if (p.GetMode() == PointerWrap::MODE_READ)
+	if (p.GetMode() == PointerWrap::MODE_READ) {
 		gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+	}
 }
 
 static constexpr const char * g_gpuUseFlagNames[32] = {
