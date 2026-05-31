@@ -1633,6 +1633,8 @@ list(APPEND NativeAppSource
 	UI/IAPScreen.h
 	UI/MainScreen.h
 	UI/MainScreen.cpp
+	UI/MemoryScanner.h
+	UI/MemoryScanner.cpp
 	UI/GameBrowser.h
 	UI/GameBrowser.cpp
 	UI/MiscScreens.h

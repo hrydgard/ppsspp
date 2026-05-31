@@ -88,6 +88,9 @@
     <ClCompile Include="..\..\UI\MemStickScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\MemoryScanner.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\MiscScreens.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -226,6 +229,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\MemStickScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\MemoryScanner.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\MiscScreens.h">

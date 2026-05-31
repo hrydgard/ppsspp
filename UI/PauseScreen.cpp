@@ -56,6 +56,7 @@
 #include "GPU/GPUState.h"
 
 #include "UI/EmuScreen.h"
+#include "UI/MemoryScanner.h"
 #include "UI/PauseScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/ReportScreen.h"
@@ -675,6 +676,9 @@ void GamePauseScreen::CreateViews() {
 	if (g_Config.bEnableCheats && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
+		});
+		rightColumnItems->Add(new Choice("Memory Scanner", ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new MemoryScannerScreen(gamePath_));
 		});
 	}
 

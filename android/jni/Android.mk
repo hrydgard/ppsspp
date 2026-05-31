@@ -946,6 +946,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/RemoteISOScreen.cpp \
   $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/PauseScreen.cpp \
+  $(SRC)/UI/MemoryScanner.cpp \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/SystemInfoScreen.cpp \

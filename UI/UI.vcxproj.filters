@@ -16,6 +16,9 @@
     <ClCompile Include="MainScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="MemoryScanner.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="MiscScreens.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -164,6 +167,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MainScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MemoryScanner.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MiscScreens.h">
