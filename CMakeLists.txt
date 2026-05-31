@@ -1671,6 +1671,8 @@ list(APPEND NativeAppSource
 	UI/GamepadEmu.cpp
 	UI/JoystickHistoryView.h
 	UI/JoystickHistoryView.cpp
+	UI/LoadStateConfirmScreen.h
+	UI/LoadStateConfirmScreen.cpp
 	UI/OnScreenDisplay.h
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.h
