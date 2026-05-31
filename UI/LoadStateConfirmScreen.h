@@ -12,8 +12,7 @@ public:
 	LoadStateConfirmScreen(std::string_view saveStatePrefix, int slot, std::function<void(bool)> callback);
 	const char *tag() const override { return "LoadStateConfirm"; }
 	void CreatePopupContents(UI::ViewGroup *parent) override;
-protected:
-	void OnCompleted(DialogResult result) override;
+	void TriggerFinish(DialogResult result) override;
 private:
 	std::string saveStatePrefix_;
 	int slot_;

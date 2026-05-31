@@ -28,6 +28,10 @@ void LoadStateConfirmScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 8))));
 }
 
-void LoadStateConfirmScreen::OnCompleted(DialogResult result) {
-	if (callback_) callback_(result == DR_OK);
+void LoadStateConfirmScreen::TriggerFinish(DialogResult result) {
+	if (callback_) {
+		callback_(result == DR_OK);
+		callback_ = nullptr;
+	}
+	UI::PopupScreen::TriggerFinish(DR_CANCEL);
 }

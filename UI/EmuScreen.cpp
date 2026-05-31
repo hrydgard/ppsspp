@@ -509,7 +509,7 @@ EmuScreen::~EmuScreen() {
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	std::string_view tag = dialog->tag();
-	if (tag == "TextEditPopup" || tag == "LoadStateConfirm") {
+	if (tag == "TextEditPopup") {
 		// Chat message finished.
 		return;
 	}
