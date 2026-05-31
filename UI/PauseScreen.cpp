@@ -57,6 +57,7 @@
 
 #include "UI/EmuScreen.h"
 #include "UI/PauseScreen.h"
+#include "UI/LoadStateConfirmScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/ReportScreen.h"
 #include "UI/CwCheatScreen.h"
@@ -162,9 +163,7 @@ void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		if (g_Config.bConfirmLoadState) {
-			auto pa = GetI18NCategory(I18NCat::PAUSE);
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			screenManager()->push(new UI::MessagePopupScreen(pa->T("Load State"), di->T("ConfirmLoadState"), pa->T("Load State"), di->T("Cancel"), [this](bool result) {
+			screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slot_, [this](bool result) {
 				if (result) {
 					SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 					TriggerFinish(DR_OK);
@@ -414,9 +413,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 				finishNextFrameResult_ = DR_CANCEL;
 			};
 			if (g_Config.bConfirmLoadState) {
-				auto pa = GetI18NCategory(I18NCat::PAUSE);
-				auto di = GetI18NCategory(I18NCat::DIALOG);
-				screenManager()->push(new UI::MessagePopupScreen(pa->T("Load State"), di->T("ConfirmLoadState"), pa->T("Load State"), di->T("Cancel"), [doLoad](bool result) {
+				screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slotNum, [doLoad](bool result) {
 					if (result) doLoad();
 				}));
 			} else {
@@ -832,7 +829,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	} else {
 		if (tag == "Game") {
 			g_BackgroundAudio.SetGame(Path());
-		} else if (tag != "MessagePopupScreen" && tag != "Prompt" && tag != "ContextMenuPopup" && tag != "ContextMenuCallbackPopup" && tag != "Report" && tag != "listpopup") {
+		} else if (tag != "MessagePopupScreen" && tag != "Prompt" && tag != "ContextMenuPopup" && tag != "ContextMenuCallbackPopup" && tag != "Report" && tag != "listpopup" && tag != "LoadStateConfirm") {
 			// Maybe should invert the logic here, so many cases..
 			// There may have been changes to our savestates, so let's recreate.
 			SaveState::Rescan(saveStatePrefix_);

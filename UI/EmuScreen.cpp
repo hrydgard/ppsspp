@@ -76,10 +76,10 @@ using namespace std::placeholders;
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/Display.h"
 
-#include "Common/UI/PopupScreens.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
+#include "UI/LoadStateConfirmScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/Background.h"
 #include "UI/EmuScreen.h"
@@ -509,7 +509,7 @@ EmuScreen::~EmuScreen() {
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	std::string_view tag = dialog->tag();
-	if (tag == "TextEditPopup") {
+	if (tag == "TextEditPopup" || tag == "LoadStateConfirm") {
 		// Chat message finished.
 		return;
 	}
@@ -1058,16 +1058,9 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 	case VIRTKEY_LOAD_STATE:
 		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 			if (g_Config.bConfirmLoadState) {
-				auto pa = GetI18NCategory(I18NCat::PAUSE);
-				auto di = GetI18NCategory(I18NCat::DIALOG);
 				std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
 				int slot = g_Config.iCurrentStateSlot;
-				std::string message(di->T("ConfirmLoadState"));
-				std::string dateStr = SaveState::GetSlotDateAsString(prefix, slot);
-				if (!dateStr.empty()) {
-					message += "\n\n" + dateStr;
-				}
-				screenManager()->push(new UI::MessagePopupScreen(pa->T("Load State"), message, pa->T("Load State"), di->T("Cancel"), [prefix, slot](bool result) {
+				screenManager()->push(new LoadStateConfirmScreen(prefix, slot, [prefix, slot](bool result) {
 					if (result) {
 						SaveState::LoadSlot(prefix, slot, &ShowMessageAfterSaveStateAction);
 					}
