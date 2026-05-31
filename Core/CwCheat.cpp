@@ -12,7 +12,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
-#include "UI/MemoryScanner.h"
+#include "Core/MemoryScanner.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"

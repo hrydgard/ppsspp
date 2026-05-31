@@ -9,6 +9,7 @@
     <ClCompile Include="..\..\Core\Core.cpp" />
     <ClCompile Include="..\..\Core\CoreTiming.cpp" />
     <ClCompile Include="..\..\Core\CwCheat.cpp" />
+    <ClCompile Include="..\..\Core\MemoryScanner.cpp" />
     <ClCompile Include="..\..\Core\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\Core\Debugger\DisassemblyManager.cpp" />
     <ClCompile Include="..\..\Core\Debugger\MemBlockInfo.cpp" />
@@ -422,6 +423,7 @@
     <ClInclude Include="..\..\Core\CoreParameter.h" />
     <ClInclude Include="..\..\Core\CoreTiming.h" />
     <ClInclude Include="..\..\Core\CwCheat.h" />
+    <ClInclude Include="..\..\Core\MemoryScanner.h" />
     <ClInclude Include="..\..\Core\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\Core\Debugger\DebugInterface.h" />
     <ClInclude Include="..\..\Core\Debugger\DisassemblyManager.h" />

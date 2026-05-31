@@ -59,7 +59,7 @@
     <ClCompile Include="JitCompareScreen.cpp" />
     <ClCompile Include="JoystickHistoryView.cpp" />
     <ClCompile Include="MainScreen.cpp" />
-    <ClCompile Include="MemoryScanner.cpp" />
+    <ClCompile Include="MemoryScannerScreen.cpp" />
     <ClCompile Include="MemStickScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="MiscViews.cpp" />
@@ -119,7 +119,7 @@
     <ClInclude Include="JitCompareScreen.h" />
     <ClInclude Include="JoystickHistoryView.h" />
     <ClInclude Include="MainScreen.h" />
-    <ClInclude Include="MemoryScanner.h" />
+    <ClInclude Include="MemoryScannerScreen.h" />
     <ClInclude Include="MemStickScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="MiscViews.h" />

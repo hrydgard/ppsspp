@@ -56,7 +56,7 @@
 #include "GPU/GPUState.h"
 
 #include "UI/EmuScreen.h"
-#include "UI/MemoryScanner.h"
+#include "UI/MemoryScannerScreen.h"
 #include "UI/PauseScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/ReportScreen.h"
