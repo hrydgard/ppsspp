@@ -76,6 +76,7 @@ using namespace std::placeholders;
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/Display.h"
 
+#include "Common/UI/PopupScreens.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
@@ -1056,7 +1057,24 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			if (g_Config.bConfirmLoadState) {
+				auto pa = GetI18NCategory(I18NCat::PAUSE);
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
+				int slot = g_Config.iCurrentStateSlot;
+				std::string message(di->T("ConfirmLoadState"));
+				std::string dateStr = SaveState::GetSlotDateAsString(prefix, slot);
+				if (!dateStr.empty()) {
+					message += "\n\n" + dateStr;
+				}
+				screenManager()->push(new UI::MessagePopupScreen(pa->T("Load State"), message, pa->T("Load State"), di->T("Cancel"), [prefix, slot](bool result) {
+					if (result) {
+						SaveState::LoadSlot(prefix, slot, &ShowMessageAfterSaveStateAction);
+					}
+				}));
+			} else {
+				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			}
 		}
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:
