@@ -409,9 +409,10 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 
 	if (needFragmentMinMaxClipping() && (minProjZ < gstate.getDepthRangeMin() || maxProjZ > gstate.getDepthRangeMax())) {
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-			flags |= ClipInfoFlags::MinMaxZDiscard;
-		} else {
 			flags |= ClipInfoFlags::MinMaxZClip;
+		} else {
+			// Implement min/max in the fragment shader.
+			flags |= ClipInfoFlags::MinMaxZDiscard;
 		}
 	}
 
