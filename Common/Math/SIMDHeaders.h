@@ -31,8 +31,8 @@
 #endif
 #endif
 
-#if PPSSPP_ARCH(LOONGARCH64)
-#if PPSSPP_ARCH(LOONGARCH64_LSX)
+#if PPSSPP_ARCH(LOONGARCH64) && PPSSPP_ARCH(LOONGARCH64_LSX)
+
 #include <lsxintrin.h>
 
 static inline __m128 __lsx_vreplfr2vr_s(float val) {
@@ -45,16 +45,15 @@ static inline __m128 zero_nans_lsx(__m128 val) {
 	// vfcmp.ceq.s compares each float lane.
 	// NaN == NaN is false, so NaNs result in 0x00000000.
 	// Numbers result in 0xFFFFFFFF.
-	__m128 mask = __lsx_vfcmp_ceq_s(val, val);
+	__m128i mask = (__m128i)__lsx_vfcmp_ceq_s(val, val);
 	// Bitwise AND to keep non-NaNs and turn NaNs into 0.0f
-	return __lsx_vand_v(val, mask);
+	return (__m128)__lsx_vand_v((__m128i)val, mask);
 }
 
 static inline __m128 clean_nan_inf_lsx(__m128 val) {
-#if 0
 	// Strip sign bit
 	__m128i sign_mask = __lsx_vreplgr2vr_w(0x7FFFFFFF);
-	__m128i abs_x = __lsx_vand_v(x, sign_mask);
+	__m128i abs_x = __lsx_vand_v((__m128i)val, sign_mask);
 
 	// Infinity threshold
 	__m128i inf_val = __lsx_vreplgr2vr_w(0x7F800000);
@@ -62,27 +61,8 @@ static inline __m128 clean_nan_inf_lsx(__m128 val) {
 	// Compare: Is |x| < Inf? (using signed comparison since 0x7F800000 fits)
 	__m128i finite_mask = __lsx_vslt_w(abs_x, inf_val);
 
-	return __lsx_vand_v(x, finite_mask);
-#else
-	// 1. Broadcast the floating-point limits
-	// (Compilers will typically optimize these to a single vector load)
-	__m128 max_finite = (__m128)__lsx_vreplgr2vr_w(0x7F7FFFFF); // FLT_MAX bits
-	__m128 min_finite = (__m128)__lsx_vreplgr2vr_w(0xFF7FFFFF); // -FLT_MAX bits
-
-	// 2. Clear NaNs and clamp positive infinity
-	__m128 upper_clamped = __lsx_vfmin_s((__m128)x, max_finite);
-
-	// 3. Clamp negative infinity
-	return (__m128i)__lsx_vfmax_s(upper_clamped, min_finite);
-#endif
+	return (__m128)__lsx_vand_v((__m128i)val, finite_mask);
 }
-
-#endif
-#endif
-
-// Basic types
-
-#if PPSSPP_ARCH(LOONGARCH64) && PPSSPP_ARCH(LOONGARCH64_LSX)
 
 static inline __m128i zero_nans_lsx(__m128i x) {
 	// vfcmp.ceq.s compares each float lane.
@@ -93,10 +73,11 @@ static inline __m128i zero_nans_lsx(__m128i x) {
 	return __lsx_vand_v(x, mask);
 }
 
-__m128 zero_nan_inf_lsx(__m128 x) {
-	// 1. Take absolute value of the single-precision float vector
-	// Emits: vfabs.s vr, vr
-	__m128 x_abs = __lsx_vfabs_s(x);
+static inline __m128 zero_nan_inf_lsx(__m128 x) {
+	// 1. Take absolute value by masking off the sign bit
+	// LSX doesn't have __lsx_vfabs_s, so we compute |x| manually
+	__m128i sign_mask = __lsx_vreplgr2vr_w(0x7FFFFFFF);
+	__m128 x_abs = (__m128)__lsx_vand_v((__m128i)x, sign_mask);
 
 	// 2. Load the Positive Infinity bit pattern (0x7F800000)
 	// Emits: vreplgr2vr.w to duplicate the GPR value into all SIMD lanes
