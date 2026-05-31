@@ -79,6 +79,7 @@ using namespace std::placeholders;
 #include "UI/BackgroundAudio.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
+#include "UI/LoadStateConfirmScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/Background.h"
 #include "UI/EmuScreen.h"
@@ -1056,7 +1057,17 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			if (g_Config.bConfirmLoadState) {
+				std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
+				int slot = g_Config.iCurrentStateSlot;
+				screenManager()->push(new LoadStateConfirmScreen(prefix, slot, [prefix, slot](bool result) {
+					if (result) {
+						SaveState::LoadSlot(prefix, slot, &ShowMessageAfterSaveStateAction);
+					}
+				}));
+			} else {
+				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			}
 		}
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:

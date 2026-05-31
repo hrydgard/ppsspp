@@ -117,6 +117,7 @@
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JitCompareScreen.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
+    <ClInclude Include="..\..\UI\LoadStateConfirmScreen.h" />
     <ClInclude Include="..\..\UI\MiscViews.h" />
     <ClInclude Include="..\..\UI\SystemInfoScreen.h" />
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
@@ -174,6 +175,7 @@
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
+    <ClCompile Include="..\..\UI\LoadStateConfirmScreen.cpp" />
     <ClCompile Include="..\..\UI\MiscViews.cpp" />
     <ClCompile Include="..\..\UI\SystemInfoScreen.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />

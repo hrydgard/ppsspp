@@ -950,6 +950,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SystemInfoScreen.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/JoystickHistoryView.cpp \
+  $(SRC)/UI/LoadStateConfirmScreen.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/UploadScreen.cpp \

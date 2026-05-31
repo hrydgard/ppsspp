@@ -57,6 +57,7 @@
 
 #include "UI/EmuScreen.h"
 #include "UI/PauseScreen.h"
+#include "UI/LoadStateConfirmScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/ReportScreen.h"
 #include "UI/CwCheatScreen.h"
@@ -161,8 +162,17 @@ void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
-		TriggerFinish(DR_OK);
+		if (g_Config.bConfirmLoadState) {
+			screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slot_, [this](bool result) {
+				if (result) {
+					SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+					TriggerFinish(DR_OK);
+				}
+			}));
+		} else {
+			SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+			TriggerFinish(DR_OK);
+		}
 	}
 }
 
@@ -218,6 +228,7 @@ public:
 	UI::Event OnStateSaved;
 	UI::Event OnScreenshotClicked;
 	UI::Event OnSelected;
+	UI::Event OnLoadRequested;
 
 private:
 	void OnSaveState(UI::EventParams &e);
@@ -303,10 +314,9 @@ void SaveSlotView::Draw(UIContext &dc) {
 void SaveSlotView::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
-		OnStateLoaded.Trigger(e2);
+		OnLoadRequested.Trigger(e2);
 	}
 }
 
@@ -394,6 +404,22 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(saveStatePrefix_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
+		slot->OnLoadRequested.Add([this](UI::EventParams &e) {
+			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+			int slotNum = v->GetSlot();
+			auto doLoad = [this, slotNum]() {
+				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
+				finishNextFrame_ = true;
+				finishNextFrameResult_ = DR_CANCEL;
+			};
+			if (g_Config.bConfirmLoadState) {
+				screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slotNum, [doLoad](bool result) {
+					if (result) doLoad();
+				}));
+			} else {
+				doLoad();
+			}
+		});
 		slot->OnScreenshotClicked.Add([this](UI::EventParams &e) {
 			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
 			int slot = v->GetSlot();
