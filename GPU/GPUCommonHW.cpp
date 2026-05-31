@@ -596,7 +596,6 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	}
 
 	if (draw_->GetDeviceCaps().depthClampSupported) {
-		// Some backends always do GPU_USE_ACCURATE_DEPTH, but it's required for depth clamp.
 		features |= GPU_USE_DEPTH_CLAMP;
 	}
 

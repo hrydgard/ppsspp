@@ -416,9 +416,10 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 		}
 	}
 
-	if (AnyCompareBitsSet(anyOutsideMaskZ) || !gstate_c.Use(GPU_USE_CULL_DISTANCE)) {
+	if (AnyCompareBitsSet(anyOutsideMaskZ)) {
 		// Some vertices were outside the Z clipping planes. Clip againt Z=-W in software (and do culling, too).
-		// TODO: With a compat flag for Flatout/Sengoku, we'll be able to avoid this in many cases.
+		// TODO: With a compat flag for Flatout/Sengoku, we'll be able to avoid this in many cases, unless
+		// GPU_USE_CULL_DISTANCE is missing, in which case we need it for culling.
 		flags |= ClipInfoFlags::SoftClipCull;
 	}
 
