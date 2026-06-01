@@ -61,7 +61,7 @@ struct DisplayRect {
 void RotateRectToDisplay(DisplayRect<float> &rect, float rtWidth, float rtHeight);
 void RotateRectToDisplay(DisplayRect<int> &rect, int rtWidth, int rtHeight);
 
-Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention, bool compensateYFlip);
+Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention);
 
 // Take this and run through translation. Returns "Portrait", "Landscape" or later "Square" (the latter being the square shape you get when you open a foldable phone).
 std::string_view DeviceOrientationToString(DeviceOrientation orientation);

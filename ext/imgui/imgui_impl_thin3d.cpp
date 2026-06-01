@@ -73,7 +73,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	viewport.MaxDepth = 1.0f;
 	draw->SetViewport(viewport);
 
-	Lin::Matrix4x4 mtx = ComputeOrthoMatrix(draw_data->DisplaySize.x, draw_data->DisplaySize.y, draw->GetDeviceCaps().coordConvention, true);
+	Lin::Matrix4x4 mtx = ComputeOrthoMatrix(draw_data->DisplaySize.x, draw_data->DisplaySize.y, draw->GetDeviceCaps().coordConvention);
 
 	Draw::VsTexColUB ub{};
 	memcpy(ub.WorldViewProj, mtx.getReadPtr(), sizeof(Lin::Matrix4x4));

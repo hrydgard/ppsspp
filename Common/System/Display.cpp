@@ -116,28 +116,18 @@ void DisplayProperties::Print() {
 	rot_matrix.print();
 }
 
-Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention, bool compensateYFlip) {
+// Y-flip compensation is done elsewhere now.
+Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention) {
 	using namespace Lin;
-	// TODO: Should be able to share the y-flip logic here with the one in postprocessing/presentation, for example.
 	Matrix4x4 ortho;
 	switch (coordConvention) {
 	case CoordConvention::Vulkan:
-		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
-		break;
 	case CoordConvention::Direct3D11:
-		if (compensateYFlip) {
-			ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		} else {
-			ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
-		}
+		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
 		break;
 	case CoordConvention::OpenGL:
 	default:
-		if (compensateYFlip) {
-			ortho.setOrthoGL(0.0f, xres, 0, yres, -1.0f, 1.0f);
-		} else {
-			ortho.setOrthoGL(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		}
+		ortho.setOrthoGL(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;
 	}
 	// Compensate for rotated display if needed.
