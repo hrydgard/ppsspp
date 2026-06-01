@@ -116,6 +116,14 @@
 		<activity android:name=".DocumentResultProxyActivity"
 			android:theme="@style/Theme.ProxyTransparent"
 			android:launchMode="standard" />
+		<receiver
+			android:name=".AchievementsHostOverrideReceiver"
+			android:exported="true">
+			<intent-filter>
+				<action android:name="org.ppsspp.ppsspp.action.SET_ACHIEVEMENTS_HOST_OVERRIDE" />
+				<action android:name="org.ppsspp.ppsspp.action.CLEAR_ACHIEVEMENTS_HOST_OVERRIDE" />
+			</intent-filter>
+		</receiver>
         <profileable android:shell="true" android:enabled="true" />
     </application>
 
