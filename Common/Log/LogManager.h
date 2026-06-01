@@ -57,10 +57,17 @@ class RingbufferLog {
 public:
 	void Log(const LogMessage &msg);
 	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
-	std::string_view TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg; }
-	LogLevel LevelAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level; }
+	std::string TextAt(int i) const {
+		std::lock_guard<std::mutex> lock(ringLock_);
+		return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg;
+	}
+	LogLevel LevelAt(int i) const {
+		std::lock_guard<std::mutex> lock(ringLock_);
+		return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level;
+	}
 
 	void Clear() {
+		std::lock_guard<std::mutex> lock(ringLock_);
 		curMessage_ = 0;
 		count_ = 0;
 	}
@@ -70,6 +77,7 @@ private:
 	LogMessage messages_[MAX_LOGS];
 	int curMessage_ = 0;
 	int count_ = 0;
+	mutable std::mutex ringLock_;
 };
 
 class Section;

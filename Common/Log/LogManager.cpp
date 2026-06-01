@@ -355,6 +355,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 }
 
 void RingbufferLog::Log(const LogMessage &message) {
+	std::lock_guard<std::mutex> lock(ringLock_);
 	messages_[curMessage_] = message;
 	curMessage_++;
 	if (curMessage_ >= MAX_LOGS)
