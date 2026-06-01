@@ -202,17 +202,33 @@ private:
 	int scaleFactor_ = 0;
 };
 
+// TODO: Replace with TransformedVertex?
 struct GPUDebugVertex {
 	float u;
 	float v;
+
 	float x;
 	float y;
 	float z;
-	u8 c[4];
+	float w;
+
+	union {
+		u8 c[4];
+		u32 color0_32;
+	};
+
+	float fog;
+
 	float nx;
 	float ny;
 	float nz;
 };
+
+enum class DebugVertexFlags {
+	Transformed = 1 << 0,
+	Clipped = 1 << 1,
+};
+ENUM_CLASS_BITOPS(DebugVertexFlags);
 
 class StringWriter;
 class GPUCommon;

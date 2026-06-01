@@ -96,9 +96,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	static std::vector<GPUDebugVertex> vertices;
 	static std::vector<u16> indices;
 
-	int count = 0;
 	GEPrimitiveType prim;
-	if (!GetPrimPreview(op, prim, vertices, indices, count)) {
+	int previewIndexOffset;
+	bool previewTransformed;
+	if (!GetPrimPreview(op, prim, vertices, indices, &previewIndexOffset, &previewTransformed)) {
 		return;
 	}
 
@@ -163,9 +164,9 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		}
 
 		if (indices.empty()) {
-			glDrawArrays(glprim[prim], 0, count);
+			glDrawArrays(glprim[prim], 0, (GLsizei)vertices.size());
 		} else {
-			glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, previewVao != 0 ? 0 : indices.data());
+			glDrawElements(glprim[prim], (GLsizei)indices.size(), GL_UNSIGNED_SHORT, previewVao != 0 ? 0 : indices.data());
 		}
 
 		if (previewVao == 0) {
@@ -230,9 +231,9 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		}
 
 		if (indices.empty()) {
-			glDrawArrays(glprim[prim], 0, count);
+			glDrawArrays(glprim[prim], 0, vertices.size());
 		} else {
-			glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
+			glDrawElements(glprim[prim], indices.size(), GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
 		}
 
 		if (texPreviewVao == 0) {

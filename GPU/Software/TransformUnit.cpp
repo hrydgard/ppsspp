@@ -909,9 +909,8 @@ void TransformUnit::NotifyClutUpdate(const void *src) {
 	binner_->UpdateClut(src);
 }
 
-// TODO: This probably is not the best interface.
-// Also, we should try to merge this into the similar function in DrawEngineCommon.
-bool TransformUnit::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+// We should try to merge this into the similar function in SoftwareTransformCommon. It's really backend-independent (or should be...)
+bool TransformUnit::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, DebugVertexFlags flags) {
 	// This is always for the current vertices.
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;

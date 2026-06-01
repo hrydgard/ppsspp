@@ -172,7 +172,7 @@ public:
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-	bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
+	bool GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 

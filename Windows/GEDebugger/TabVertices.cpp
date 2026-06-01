@@ -169,8 +169,10 @@ int CtrlVertexList::GetRowCount() {
 	// TODO: Maybe there are smarter ways?  Also, is this the best place to recalc?
 	auto state = gpu->GetGState();
 
-	rowCount_ = gpu->GetCurrentPrimCount();
-	if (!gpu->GetCurrentDrawAsDebugVertices(rowCount_, vertices, indices)) {
+	GEPrimitiveType prim;
+	rowCount_ = gpu->GetCurrentPrimCount(&prim);
+
+	if (!gpu->GetCurrentDrawAsDebugVertices(prim, &prim, rowCount_, vertices, indices, &previewIndexOffset_, nullptr, DebugVertexFlags::Transformed)) {
 		rowCount_ = 0;
 	}
 	VertexDecoderOptions options{};

@@ -245,9 +245,7 @@ struct Vec4F32 {
 		return Vec4F32{ _mm_or_ps(_mm_and_ps(value, _mm_load_ps((const float *)mask)), _mm_load_ps(onelane3)) };
 	}
 
-	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
-		alignas(16) static const uint32_t mask[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
-
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
 		return Vec4F32{_mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8))};
 	}
 
@@ -619,7 +617,7 @@ struct Vec4F32 {
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
 		return Vec4F32{ vsetq_lane_f32(1.0f, vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8)), 3) };
 	}
-	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
 		return Vec4F32{vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8))};
 	}
 
@@ -1082,7 +1080,7 @@ struct Vec4F32 {
 		value = __lsx_vinsgr2vr_w(value, kOneF32Bits, 3);
 		return Vec4F32{ (__m128)value };
 	}
-	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
 		return Vec4F32{(__m128)__lsx_vslli_w(__lsx_vld(src, 0), 8)};
 	}
 
@@ -1530,7 +1528,7 @@ struct Vec4F32 {
 		return temp;
 	}
 
-	static Vec4F32 LoadF24x3_DontCare(const uint32_t *src) {
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
 		return LoadR24x3_One(src);
 	}
 

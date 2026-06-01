@@ -418,8 +418,8 @@ static void ProjectVertices(const GPUgstate &gstate, TransformedVertex *transfor
 		transformed[i].z = xyz.z;
 	}
 #else
-	const Vec4F32 vpOffset = GetViewportOffsetVec(gstate);
-	const Vec4F32 vpScale = GetViewportScaleVec(gstate);
+	const Vec4F32 vpOffset = LoadViewportOffsetVec(gstate);
+	const Vec4F32 vpScale = LoadViewportScaleVec(gstate);
 	// CrossSIMD implementation.
 	for (int i = 0; i < vertexCount; i++) {
 		Vec4F32 xyzw = Vec4F32::Load(&transformed[i].x);
@@ -461,9 +461,8 @@ inline void LerpTransformedVertex(TransformedVertex *dest, TransformedVertex &a,
 static void ClipTrianglesAgainstNearPlane(
 	TransformedVertex *transformed, int &transformedCount, int maxTransformed,
 	u16 *indicesIn, int numIndicesIn,
-	u16 *indicesOut, int &numIndicesOut, int maxIndicesOut
+	u16 *indicesOut, int &numIndicesOut, int maxIndicesOut, TransformStats *stats
 ) {
-	int clipCount = 0;
 	// Process one triangle (3 indices) at a time
 	for (size_t i = 0; i < numIndicesIn; i += 3) {
 		const u16 idx0 = indicesIn[i];
@@ -494,16 +493,18 @@ static void ClipTrianglesAgainstNearPlane(
 		// Case 2: Entirely clipped / behind near plane
 		else if (insideCount == 0) {
 			// Cull, no clipping needed.
+			stats->culledTrianglesNear++;
 			continue;
 		}
 		// Case 3: Entirely beyond far plane
 		else if (insideFarCount == 0) {
 			// All are beyond the far plane. Cull.
+			stats->culledTrianglesFar++;
 			continue;
 		}
 		// Case 3: Partially clipped
 		else {
-			clipCount++;
+			stats->clippedTriangles++;
 
 			// We need to organize vertices cleanly to calculate intersections.
 			// We will create a local polygon array of the inside/outside states.
@@ -591,7 +592,6 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// Step 2: expand and process primitives.
-	result->drawBuffer = transformed;
 	int drawIndexCount = 0;
 
 	// NOTE: ExpandRectanges/lines/etc should do clipping while they're at it.
@@ -607,6 +607,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 			result->drawVertexCount = 0;
 			result->drawIndexCount = 0;
 			result->pixelMapped = false;
+			result->drawBuffer = nullptr;
 			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
@@ -635,6 +636,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, &drawIndexCount, throughmode)) {
 			result->drawVertexCount = 0;
 			result->drawIndexCount = 0;
+			result->drawBuffer = nullptr;
 			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
@@ -650,16 +652,21 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 		if (!ExpandLines(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, &drawIndexCount, throughmode)) {
 			result->drawVertexCount = 0;
 			result->drawIndexCount = 0;
+			result->drawBuffer = nullptr;
 			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
 	} else if (prim == GE_PRIM_TRIANGLES) {
 		// Triangles. We can simply draw the unexpanded buffer, although we do also take the opportunity to perform culling.
+		result->drawBuffer = transformed;
+		// We might actually write more vertics at the end of transformed.
+
 		drawIndexCount = vertexCount;
 		result->pixelMapped = false;
 
 		if (throughmode) {
-			// Nothing to do, pass the vertices right through as-is. Well, we can go look for pixel mapping, but we don't do any culling or clipping.
+			// Nothing to do, pass the vertices right through as-is. Well, we can go look for pixel mapping,
+			// but we don't do any projection, culling or clipping.
 			if (g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
 				// We check some common cases for pixel mapping.
 				// TODO: It's not really optimal that some previous step has removed the triangle strip.
@@ -711,7 +718,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 			if (gstate.isDepthClipEnabled()) {
 				const u16 *indsIn = (const u16 *)inds;
 				int newIndexCount = 0;
-				ClipTrianglesAgainstNearPlane(transformed, numDecodedVerts, 65536, inds, vertexCount, indsOut, newIndexCount, 65336);
+				ClipTrianglesAgainstNearPlane(transformed, numDecodedVerts, 65536, inds, vertexCount, indsOut, newIndexCount, 65336, &result->stats);
 				drawIndexCount = newIndexCount;
 			} else {
 				std::vector<int> outsideZ;
@@ -1300,127 +1307,202 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	return ret;
 }
 
-// TODO: This probably is not the best interface.
 // drawEngine is just for the vertex decoder lookup.
 // This is really just for vertex preview in the debugger, not for actual rendering!
-bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+// TODO: Support tessellation!! That's currently entirely broken (I guess maybe we'll draw the control points as something).
+// count is the input vertex count (describes the draw together with prim).
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &debugVertices, std::vector<u16> &debugIndices, int *outLowerIndexBound, TransformStats *stats, DebugVertexFlags flags) {
 	// This is always for the current vertices.
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
 
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr) || count == 0)
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr) || count == 0) {
 		return false;
+	}
 
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE && !Memory::IsValidAddress(gstate_c.indexAddr)) {
+		return false;
+	}
+
+	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
 	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
 
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
-		const u16_le *inds16 = (const u16_le *)inds;
-		const u32_le *inds32 = (const u32_le *)inds;
+	// Points is the only primitive that generates 6x as many vertices as input indices (2 triangles per point).
+	std::vector<u16> indexTemp;
+	indexTemp.resize(65536); // (prim == GEPrimitiveType::GE_PRIM_POINTS ? count * 6 : count * 3) * 4);
 
-		if (inds) {
-			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
-			indices.resize(count);
-			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			case GE_VTYPE_IDX_8BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds[i];
-				}
-				break;
-			case GE_VTYPE_IDX_16BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds16[i];
-				}
-				break;
-			case GE_VTYPE_IDX_32BIT:
-				for (int i = 0; i < count; ++i) {
-					// These are rare. Only the bottom 16 bits are used.
-					indices[i] = (u16)inds32[i];
-				}
-				break;
-			}
+	// First, inspect the indices to find the range we need to decode.
+	const u8 *indsPtr = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	if ((vertTypeID & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		const u16_le *inds16 = (const u16_le *)indsPtr;
+		const u32_le *inds32 = (const u32_le *)indsPtr;
+		if (indsPtr) {
+			GetIndexBounds(indsPtr, count, vertTypeID, &indexLowerBound, &indexUpperBound);
 		} else {
-			indices.clear();
+			// Bad index buffer.
+			return false;
 		}
 	} else {
-		indices.clear();
+		// No indices, so we just use the count as the upper bound.
+		indexUpperBound = count - 1;
+		indexLowerBound = 0;
 	}
 
-	static std::vector<u32> temp_buffer;
-	static std::vector<SimpleVertex> simpleVertices;
-	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
-	simpleVertices.resize(indexUpperBound + 1);
+	int verticesToDecode = indexUpperBound + 1 - indexLowerBound;
 
-	// We always want "applyskinindecode" here, faster than letting NormalizeVertices handle it.
-	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
+	const u8 *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+
+	std::vector<u8> vertsTemp;
+
+	// Next, run the vertex decoder. We enforce software skinning here.
 	VertexDecoder *dec = drawEngine->GetVertexDecoder(vertTypeID);
-	NormalizeVertices(&simpleVertices[0], (u8 *)(&temp_buffer[0]), Memory::GetPointerUnchecked(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, dec, gstate.vertType);
+	const int stride = (int)dec->GetDecVtxFmt().stride;
+	vertsTemp.resize(stride * verticesToDecode + 32);  // Add some padding bytes for "over-writes".
 
-	float world[16];
-	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+	UVScale uvScale{};
+	LoadUVScaleOffsetVec(gstate).Store(&uvScale.uScale);
 
-	// This transforms the vertices.
-	// NOTE: We really should just run the full software transform?
+	const u8 *startPos = verts + indexLowerBound * dec->VertexSize();
+	dec->DecodeVerts(vertsTemp.data(), startPos, &uvScale, verticesToDecode);
 
-	vertices.resize(indexUpperBound + 1);
-	uint32_t vertType = gstate.vertType;
-	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
-		const SimpleVertex &vert = simpleVertices[i];
+	int numDecodedVerts = verticesToDecode;
+	u16 *inds = indexTemp.data();
 
-		if ((vertType & GE_VTYPE_THROUGH) != 0) {
-			if (vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0];
-				vertices[i].v = vert.uv[1];
+	if (!(flags & DebugVertexFlags::Transformed)) {
+		// Output the untransformed vertices (although with skinning and morph baked-in from decode),
+		// and the original indices. Might be interesting to look at.
+		debugVertices.resize(verticesToDecode);
+		VertexReader reader(vertsTemp.data(), dec->GetDecVtxFmt(), vertTypeID);
+
+		const u8 defaultColor[4] = {
+			(u8)gstate.getMaterialAmbientR(),
+			(u8)gstate.getMaterialAmbientG(),
+			(u8)gstate.getMaterialAmbientB(),
+			(u8)gstate.getMaterialAmbientA(),
+		};
+
+		for (int i = 0; i < verticesToDecode; i++) {
+			reader.Goto(i);
+			GPUDebugVertex &sv = debugVertices[i];
+			if (vertTypeID & GE_VTYPE_TC_MASK) {
+				reader.ReadUV(&sv.u);
 			} else {
-				vertices[i].u = 0.0f;
-				vertices[i].v = 0.0f;
+				sv.u = 0.0f;
+				sv.v = 0.0f;
 			}
-			vertices[i].x = vert.pos.x;
-			vertices[i].y = vert.pos.y;
-			vertices[i].z = vert.pos.z;
-			if (vertType & GE_VTYPE_COL_MASK) {
-				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+			if (vertTypeID & GE_VTYPE_COL_MASK) {
+				sv.color0_32 = reader.ReadColor0_8888();
 			} else {
-				memset(vertices[i].c, 0, sizeof(vertices[i].c));
+				memcpy(sv.c, defaultColor, 4);
 			}
-			vertices[i].nx = 0.0f;  // No meaningful normals in through mode
-			vertices[i].ny = 0.0f;
-			vertices[i].nz = 1.0f;
-		} else {
-			float clipPos[4];
-			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
-			Vec3f screenPos = ClipToScreen(clipPos);
-			Vec3f drawPos = ScreenToDrawing(screenPos);
 
-			if (vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
-				vertices[i].v = vert.uv[1] * (float)gstate.getTextureHeight(0);
+			if (vertTypeID & GE_VTYPE_NRM_MASK) {
+				reader.ReadNrm((float *)&sv.nx);
 			} else {
-				vertices[i].u = 0.0f;
-				vertices[i].v = 0.0f;
+				sv.nx = 0.0f;
+				sv.ny = 0.0f;
+				sv.nz = 1.0f;
 			}
-			// Should really have separate coordinates for before and after transform.
-			vertices[i].x = drawPos.x;
-			vertices[i].y = drawPos.y;
-			vertices[i].z = drawPos.z;
-			if (vertType & GE_VTYPE_COL_MASK) {
-				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
-			} else {
-				memset(vertices[i].c, 0, sizeof(vertices[i].c));
-			}
-			vertices[i].nx = vert.nrm.x;
-			vertices[i].ny = vert.nrm.y;
-			vertices[i].nz = vert.nrm.z;
+			reader.ReadPosAuto((float *)&sv.x);
 		}
+
+		// Output the indices straight
+		switch (vertTypeID & GE_VTYPE_IDX_MASK) {
+		case GE_VTYPE_IDX_NONE:
+			debugIndices.clear();  // it's just a sequence, effectively.
+			break;
+		case GE_VTYPE_IDX_8BIT:
+			debugIndices.resize(verticesToDecode);
+			for (int i = 0; i < verticesToDecode; i++) {
+				debugIndices[i] = ((const u8 *)indsPtr)[i];
+			}
+			break;
+		case GE_VTYPE_IDX_16BIT:
+			debugIndices.resize(verticesToDecode);
+			for (int i = 0; i < verticesToDecode; i++) {
+				debugIndices[i] = ((const u16_le *)indsPtr)[i];
+			}
+			break;
+		case GE_VTYPE_IDX_32BIT:
+			debugIndices.resize(verticesToDecode);
+			for (int i = 0; i < verticesToDecode; i++) {
+				debugIndices[i] = ((const u32_le *)indsPtr)[i];
+			}
+			break;
+		}
+
+		*outLowerIndexBound = indexLowerBound;
+		*outPrim = prim;  // before it changes.
+		return true;
 	}
+
+	IndexGenerator indexGen;
+	indexGen.Setup(indexTemp.data());
+	const int indexOffset = -indexLowerBound;
+
+	// This corresponds to DecodeInds in DrawEngineCommon.
+	const bool clockwise = true;
+	switch ((vertTypeID & GE_VTYPE_IDX_MASK)) {
+	case GE_VTYPE_IDX_NONE:
+		indexGen.AddPrim(prim, count, indexOffset, true);
+		break;
+	case GE_VTYPE_IDX_8BIT:
+		indexGen.TranslatePrim(prim, count, (const u8 *)indsPtr, indexOffset, clockwise);
+		break;
+	case GE_VTYPE_IDX_16BIT:
+		indexGen.TranslatePrim(prim, count, (const u16_le *)indsPtr, indexOffset, clockwise);
+		break;
+	case GE_VTYPE_IDX_32BIT:
+		indexGen.TranslatePrim(prim, count, (const u32_le *)indsPtr, indexOffset, clockwise);
+		break;
+	}
+
+	int generatedIndices = indexGen.VertexCount();
+
+	// We need two temp buffers, transformed and transformedExpanded (the latter is only used for non-triangle primitives).
+	std::vector<TransformedVertex> transformed(65536);
+	std::vector<TransformedVertex> transformedExpanded(65536);
+	// OK, time to run the software transform on these.
+	SoftwareTransformParams params{};
+	SoftwareTransformResult result{};
+	params.allowClear = false;
+	params.decoded = vertsTemp.data();
+	params.transformed = transformed.data();
+	params.transformedExpanded = transformedExpanded.data();
+
+	RunSoftwareTransform(params, prim, verticesToDecode, dec->GetDecVtxFmt(), numDecodedVerts, 65536, generatedIndices, inds, (int)indexTemp.size(), &result);
+
+	// Output of software transform is always triangles.
+	prim = GE_PRIM_TRIANGLES;
+
+	if (stats) {
+		*stats = result.stats;
+	}
+	// Convert the transformed outputs.
 
 	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 
+	// Supply indices in a correctly-sized vector.
+	debugIndices.resize(result.drawIndexCount);
+	memcpy(debugIndices.data(), inds, result.drawIndexCount * sizeof(u16));
+
+	// Convert the transformed vertices to the debug vertex format.
+	debugVertices.resize(result.drawVertexCount);
+	for (int i = 0; i < result.drawVertexCount; i++) {
+		const TransformedVertex &vtx = result.drawBuffer[i];
+		GPUDebugVertex &dv = debugVertices[i];
+		dv.x = vtx.x;
+		dv.y = vtx.y;
+		dv.z = vtx.z;
+		dv.w = vtx.pos_w;
+		dv.u = vtx.u;
+		dv.v = vtx.v;
+		dv.fog = vtx.fog;
+		dv.c[0] = (vtx.color0_32 >> 24) & 0xFF;
+		dv.c[1] = (vtx.color0_32 >> 16) & 0xFF;
+		dv.c[2] = (vtx.color0_32 >> 8) & 0xFF;
+		dv.c[3] = vtx.color0_32 & 0xFF;
+	}
+	*outPrim = prim;
 	return true;
 }

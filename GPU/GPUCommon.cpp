@@ -1569,7 +1569,7 @@ void GPUCommon::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
 	}
 }
 
-bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
+bool GPUCommon::GetCurrentDisplayList(DisplayList &list) const {
 	if (!currentList) {
 		return false;
 	}
@@ -1577,25 +1577,31 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 	return true;
 }
 
-int GPUCommon::GetCurrentPrimCount() {
+int GPUCommon::GetCurrentPrimCount(GEPrimitiveType *prim) const {
 	DisplayList list;
+	u32 cmd;
 	if (GetCurrentDisplayList(list)) {
-		u32 cmd = Memory::Read_U32(list.pc);
-		if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
-			return cmd & 0xFFFF;
-		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
-			u32 u = (cmd & 0x00FF) >> 0;
-			u32 v = (cmd & 0xFF00) >> 8;
-			return u * v;
-		}
-		return true;
+		cmd = Memory::Read_U32(list.pc);
 	} else {
 		// Current prim value.
-		return gstate.cmdmem[GE_CMD_PRIM] & 0xFFFF;
+		cmd = gstate.cmdmem[GE_CMD_PRIM];
+	}
+
+	if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
+		*prim = GEPrimitiveType((cmd >> 16) & 7);
+		return cmd & 0xFFFF;
+	} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
+		*prim = GE_PRIM_TRIANGLES;  // no correct answer
+		u32 u = (cmd & 0x00FF) >> 0;
+		u32 v = (cmd & 0xFF00) >> 8;
+		return u * v;
+	} else {
+		// Unknown primitive.
+		return 0;
 	}
 }
 
-std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
+std::vector<DisplayList> GPUCommon::ActiveDisplayLists() const {
 	std::vector<DisplayList> result;
 	result.reserve(dlQueue.size());
 
@@ -2020,9 +2026,8 @@ bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil f
 	return false;
 }
 
-bool GPUCommon::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	gstate_c.UpdateUVScaleOffset();
-	return ::GetCurrentDrawAsDebugVertices(drawEngineCommon_, count, vertices, indices);
+bool GPUCommon::GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const {
+	return ::GetCurrentDrawAsDebugVertices(drawEngineCommon_, prim, outPrim, count, vertices, indices, lowerIndexBound, stats, flags);
 }
 
 bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {

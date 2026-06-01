@@ -310,13 +310,13 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, size_t destSize, int row, int
 			}
 
 			const auto info = GECmdInfoByCmd(rows_[row]);
-			const auto state = gpu->GetGState();
+			const auto &state = gpu->GetGState();
 			const bool enabled = info.enableCmd == 0 || (state.cmdmem[info.enableCmd] & 1) == 1;
 			const u32 value = state.cmdmem[info.cmd] & 0xFFFFFF;
 			const u32 otherValue = state.cmdmem[info.otherCmd] & 0xFFFFFF;
 			const u32 otherValue2 = state.cmdmem[info.otherCmd2] & 0xFFFFFF;
 			char temp[256];
-			FormatStateRow(gpu, temp, sizeof(temp), info.fmt, value, enabled, otherValue, otherValue2);
+			FormatStateRow(temp, sizeof(temp), info.fmt, value, enabled, otherValue, otherValue2);
 			ConvertUTF8ToWString(dest, destSize, temp);
 			break;
 		}
@@ -444,7 +444,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		const u32 otherValue2 = state.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
 		char dest[512];
-		FormatStateRow(gpu, dest, sizeof(dest), info.fmt, value, enabled, otherValue, otherValue2);
+		FormatStateRow(dest, sizeof(dest), info.fmt, value, enabled, otherValue, otherValue2);
 		System_CopyStringToClipboard(dest);
 		break;
 	}

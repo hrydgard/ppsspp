@@ -52,6 +52,7 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 	return prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES;
 }
 
+struct TransformStats;
 class GPUCommon {
 public:
 	// The constructor might run on the loader thread.
@@ -72,9 +73,10 @@ public:
 	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
 	virtual bool GetCurrentClut(GPUDebugBuffer &buffer) { return false;}
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) { return false; }
-	bool GetCurrentDisplayList(DisplayList &list);
-	virtual bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-	int GetCurrentPrimCount();
+
+	bool GetCurrentDisplayList(DisplayList &list) const;
+	virtual bool GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const;
+	int GetCurrentPrimCount(GEPrimitiveType *prim) const;
 
 	// FinishInitOnMainThread runs on the main thread, of course.
 	virtual void FinishInitOnMainThread() {}
@@ -207,7 +209,7 @@ public:
 
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
-	std::vector<DisplayList> ActiveDisplayLists();
+	std::vector<DisplayList> ActiveDisplayLists() const;
 	void ResetListPC(int listID, u32 pc);
 	void ResetListStall(int listID, u32 stall);
 	void ResetListState(int listID, DisplayListState state);

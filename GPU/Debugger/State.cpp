@@ -12,7 +12,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "Core/System.h"
 
-void FormatStateRow(GPUCommon *gpudebug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
+void FormatStateRow(char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
 	value &= 0xFFFFFF;
 	otherValue &= 0xFFFFFF;
 	otherValue2 &= 0xFFFFFF;
@@ -545,6 +545,7 @@ void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int 
 	case VERTEXLIST_COL_X: snprintf(dest, destSize, "%f", vert.x); break;
 	case VERTEXLIST_COL_Y: snprintf(dest, destSize, "%f", vert.y); break;
 	case VERTEXLIST_COL_Z: snprintf(dest, destSize, "%f", vert.z); break;
+	case VERTEXLIST_COL_W: snprintf(dest, destSize, "%f", vert.w); break;
 	case VERTEXLIST_COL_U: snprintf(dest, destSize, "%f", vert.u); break;
 	case VERTEXLIST_COL_V: snprintf(dest, destSize, "%f", vert.v); break;
 	case VERTEXLIST_COL_COLOR:
@@ -553,6 +554,7 @@ void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int 
 	case VERTEXLIST_COL_NX: snprintf(dest, destSize, "%f", vert.nx); break;
 	case VERTEXLIST_COL_NY: snprintf(dest, destSize, "%f", vert.ny); break;
 	case VERTEXLIST_COL_NZ: snprintf(dest, destSize, "%f", vert.nz); break;
+	case VERTEXLIST_COL_FOG: snprintf(dest, destSize, "%f", vert.fog); break;
 
 	default:
 		truncate_cpy(dest, destSize, "Invalid");
@@ -834,10 +836,12 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	FreeAlignedMemory(cpoints.col);
 }
 
-bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int &count) {
+bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, bool transformed) {
 	u32 prim_type = GE_PRIM_INVALID;
 	int count_u = 0;
 	int count_v = 0;
+
+	int count = 0;
 
 	const u32 cmd = op >> 24;
 	if (cmd == GE_CMD_PRIM) {
@@ -865,10 +869,34 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 
 	prim = static_cast<GEPrimitiveType>(prim_type);
 
-	if (!gpu->GetCurrentDrawAsDebugVertices(count, vertices, indices)) {
+	DebugVertexFlags flags{};
+	if (cmd == GE_CMD_PRIM) {
+		flags |= DebugVertexFlags::Clipped;
+		if (transformed) {
+			flags |= DebugVertexFlags::Transformed;
+		}
+	} else {
+		flags = DebugVertexFlags::Transformed;
+	}
+
+	GEPrimitiveType outPrim;
+	if (!gpu->GetCurrentDrawAsDebugVertices(prim, &outPrim, count, vertices, indices, lowerIndexBound, nullptr, flags)) {
 		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
 		return false;
 	}
+
+	// Sanity check the output (for debugging)
+	if (indices.size()) {
+		for (int i = 0; i < indices.size(); ++i) {
+			int offsetIndex = indices[i] - *lowerIndexBound;
+			if (offsetIndex >= vertices.size() || offsetIndex < 0) {
+				ERROR_LOG(Log::G3D, "Invalid vertex index %d (%d) (vertex count %d)", indices[i], offsetIndex, (int)vertices.size());
+				return false;
+			}
+		}
+	}
+
+	prim = outPrim;
 
 	if (cmd != GE_CMD_PRIM) {
 		static std::vector<SimpleVertex> generatedVerts;
@@ -882,7 +910,8 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 			simpleVerts[i].uv[1] = vertices[i].v;
 			simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
 		}
-
+		
+		*lowerIndexBound = 0;
 		if (cmd == GE_CMD_BEZIER) {
 			ExpandBezier(count, op, simpleVerts, indices, generatedVerts, generatedInds);
 		} else if (cmd == GE_CMD_SPLINE) {
@@ -900,26 +929,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		indices = generatedInds;
 	}
 
-	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertices, indices, count, gpu->GetGState().isModeThrough());
-	}
-
-	// TODO: Probably there's a better way and place to do this.
-	u16 minIndex = 0;
-	u16 maxIndex = count - 1;
-	if (!indices.empty()) {
-		minIndex = 0xFFFF;
-		maxIndex = 0;
-		for (int i = 0; i < std::min((size_t)count, indices.size()); ++i) {
-			if (minIndex > indices[i]) {
-				minIndex = indices[i];
-			}
-			if (maxIndex < indices[i]) {
-				maxIndex = indices[i];
-			}
-		}
-	}
-
+	/*
 	auto wrapCoord = [](float &coord) {
 		if (coord < 0.0f) {
 			coord += ceilf(-coord);
@@ -941,7 +951,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		if (!clampT)
 			wrapCoord(vertices[i].v);
 	}
-
+	*/
 	return true;
 }
 
