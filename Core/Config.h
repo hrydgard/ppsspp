@@ -291,7 +291,6 @@ public:
 
 	// Speedhacks (more will be moved here):
 	bool bSkipBufferEffects;
-	bool bDisableRangeCulling;
 	int iDepthRasterMode;
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality

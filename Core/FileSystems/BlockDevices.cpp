@@ -411,6 +411,11 @@ ISOContainerFileBlockDevice::ISOContainerFileBlockDevice(FileLoader *fileLoader)
 
 	SequentialHandleAllocator alloc;
 	ISOFileSystem iso(&alloc, outerBlockDevice_);
+	if (!iso.Error().empty()) {
+		errorString_ = iso.Error();
+		outerBlockDevice_.reset();
+		return;
+	}
 
 	PSPFileInfo layer0Info = iso.GetFileInfo("/USER_L0.IMG");
 	if (!layer0Info.exists) {
