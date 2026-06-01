@@ -51,6 +51,8 @@ bool NativeIsRestarting();
 void NativeTouch(const TouchInput &touch);
 bool NativeKey(const KeyInput &key);
 void NativeAxis(const AxisInput *axis, size_t count);
+bool NativeAccessibilityFocus(int id);
+bool NativeAccessibilityClick(int id);
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ);
 void NativeMouseDelta(float dx, float dy);
 

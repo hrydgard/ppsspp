@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="accessibility_release_all">Release all held controls</string>
+	<string name="accessibility_all_released">All held controls released</string>
+	<string name="accessibility_hold_toggled">%1$s hold toggled</string>
+</resources>

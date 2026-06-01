@@ -32,6 +32,7 @@ using namespace std::placeholders;
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
 #include "Common/UI/AsyncImageFileView.h"
+#include "Common/UI/Accessibility.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -1366,6 +1367,19 @@ void EmuScreen::CreateViews() {
 	});
 	// Will become visible along with the loadingView.
 	loadingBG->SetVisibility(V_INVISIBLE);
+}
+
+void EmuScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) {
+	UIScreen::GetAccessibilityElements(elements);
+	if (GetUIState() != UISTATE_INGAME || !screenManager() || !screenManager()->getUIContext()) {
+		return;
+	}
+	UI::AccessibilityElementInfo viewport;
+	viewport.id = 90000;
+	viewport.label = "Game view";
+	viewport.bounds = GetLayoutBounds(*screenManager()->getUIContext());
+	viewport.role = UI::AccessibilityRole::Image;
+	elements.insert(elements.begin(), std::move(viewport));
 }
 
 void EmuScreen::deviceLost() {

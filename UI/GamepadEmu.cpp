@@ -24,6 +24,7 @@
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Math/math_util.h"
 #include "Common/UI/Context.h"
+#include "Common/UI/Accessibility.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -90,6 +91,27 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
+static int AccessibilityGamepadId(std::string_view label) {
+	uint32_t hash = 2166136261u;
+	for (char c : label) {
+		hash = (hash ^ (uint8_t)c) * 16777619u;
+	}
+	return 100000 + (int)(hash & 0x3fffffff);
+}
+
+static void AddAccessibilityTouchElement(std::vector<UI::AccessibilityElementInfo> &elements, std::string label, const Bounds &bounds, float touchX, float touchY, bool longClickable = true) {
+	UI::AccessibilityElementInfo info;
+	info.id = AccessibilityGamepadId(label);
+	info.label = std::move(label);
+	info.bounds = bounds;
+	info.role = UI::AccessibilityRole::GamepadControl;
+	info.clickable = true;
+	info.longClickable = longClickable;
+	info.touchX = touchX;
+	info.touchY = touchY;
+	elements.push_back(std::move(info));
+}
+
 GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
 static void rotateTouchHelper(float &dx, float &dy) {
@@ -113,6 +135,13 @@ static void rotateTouchHelper(float &dx, float &dy) {
 
 std::string GamepadComponent::DescribeText() const {
 	return key_;
+}
+
+void GamepadComponent::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) const {
+	if (!g_Config.bAccessibleTouchControls) {
+		return;
+	}
+	AddAccessibilityTouchElement(elements, key_, bounds_, bounds_.centerX(), bounds_.centerY());
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -494,6 +523,20 @@ void PSPDpad::Draw(UIContext &dc) {
 	}
 }
 
+void PSPDpad::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) const {
+	if (!g_Config.bAccessibleTouchControls) {
+		return;
+	}
+	const float x = bounds_.centerX();
+	const float y = bounds_.centerY();
+	const float r = D_pad_Radius * spacing_;
+	const float size = std::max(32.0f, r);
+	AddAccessibilityTouchElement(elements, "D-pad up", Bounds::FromCenter(x, y - r, size * 0.5f), x, y - r);
+	AddAccessibilityTouchElement(elements, "D-pad down", Bounds::FromCenter(x, y + r, size * 0.5f), x, y + r);
+	AddAccessibilityTouchElement(elements, "D-pad left", Bounds::FromCenter(x - r, y, size * 0.5f), x - r, y);
+	AddAccessibilityTouchElement(elements, "D-pad right", Bounds::FromCenter(x + r, y, size * 0.5f), x + r, y);
+}
+
 PSPStick::PSPStick(ImageID bgImg, std::string_view key, ImageID stickImg, ImageID stickDownImg, int stick, float scale, UI::LayoutParams *layoutParams)
 	: GamepadComponent(key, layoutParams), bgImg_(bgImg), stickImageIndex_(stickImg), stickDownImg_(stickDownImg), stick_(stick), scale_(scale) {
 	stick_size_ = 50;
@@ -537,6 +580,20 @@ void PSPStick::Draw(UIContext &dc) {
 	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2 && stickDownImg_ != stickImageIndex_)
 		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, downBg, ALIGN_CENTER);
 	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_ * headScale, colorBg, ALIGN_CENTER);
+}
+
+void PSPStick::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) const {
+	if (!g_Config.bAccessibleTouchControls) {
+		return;
+	}
+	const float x = bounds_.centerX();
+	const float y = bounds_.centerY();
+	const float r = stick_size_ * scale_;
+	const float size = std::max(32.0f, r);
+	AddAccessibilityTouchElement(elements, key_ + " up", Bounds::FromCenter(x, y - r, size * 0.5f), x, y - r);
+	AddAccessibilityTouchElement(elements, key_ + " down", Bounds::FromCenter(x, y + r, size * 0.5f), x, y + r);
+	AddAccessibilityTouchElement(elements, key_ + " left", Bounds::FromCenter(x - r, y, size * 0.5f), x - r, y);
+	AddAccessibilityTouchElement(elements, key_ + " right", Bounds::FromCenter(x + r, y, size * 0.5f), x + r, y);
 }
 
 bool PSPStick::Touch(const TouchInput &input) {

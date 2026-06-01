@@ -55,6 +55,18 @@ void ViewGroup::Recurse(std::function<void(View *)> func) {
 	}
 }
 
+void ViewGroup::RecurseVisible(std::function<void(View *)> func) {
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_VISIBLE) {
+			continue;
+		}
+		func(view);
+		if (ViewGroup *group = dynamic_cast<ViewGroup *>(view)) {
+			group->RecurseVisible(func);
+		}
+	}
+}
+
 void ViewGroup::RemoveSubview(View *subView) {
 	// loop counter needed, so can't convert loop.
 	for (size_t i = 0; i < views_.size(); i++) {

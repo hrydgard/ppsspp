@@ -25,6 +25,7 @@ enum class QueuedEventType : u8 {
 	KEY,
 	AXIS,
 	TOUCH,
+	ACCESSIBILITY_ACTIVATE,
 };
 
 struct QueuedEvent {
@@ -33,6 +34,7 @@ struct QueuedEvent {
 		TouchInput touch;
 		KeyInput key;
 		AxisInput axis;
+		int accessibilityId;
 	};
 };
 
@@ -66,6 +68,7 @@ public:
 	bool UnsyncTouch(const TouchInput &touch) override;
 	bool UnsyncKey(const KeyInput &key) override;
 	void UnsyncAxis(const AxisInput *axes, size_t count) override;
+	void UnsyncAccessibilityActivate(int id);
 
 	TouchInput transformTouch(const TouchInput &touch) override;
 
@@ -83,7 +86,9 @@ public:
 		modifiersPressed_ = Modifier::NONE;
 	}
 
-	void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements);
+	virtual void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements);
+	bool FocusAccessibilityElement(int id);
+	bool ActivateAccessibilityElement(int id);
 
 protected:
 	virtual void CreateViews() = 0;

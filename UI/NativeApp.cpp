@@ -917,7 +917,7 @@ void NativeShutdownGraphics() {
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(ANDROID)
 	UI::ClearCachedAccessibilitySnapshot();
 #endif
 	g_iconCache.ClearTextures();
@@ -1088,9 +1088,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	// All actual rendering (and also emulation) happens in here.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(ANDROID)
 	static double lastAccessibilitySnapshotTime = 0.0;
-	if (startTime - lastAccessibilitySnapshotTime >= 1.0) {
+	if (UI::IsAccessibilityEnabled() && startTime - lastAccessibilitySnapshotTime >= 0.5) {
 		UI::UpdateCachedAccessibilitySnapshot(g_screenManager);
 		lastAccessibilitySnapshotTime = startTime;
 	}
@@ -1272,6 +1272,22 @@ void NativeTouch(const TouchInput &touch) {
 		return;
 	}
 	g_screenManager->touch(touch);
+}
+
+bool NativeAccessibilityFocus(int id) {
+	return UI::FocusAccessibilityElement(g_screenManager, id);
+}
+
+bool NativeAccessibilityClick(int id) {
+	if (!g_screenManager) {
+		return false;
+	}
+	UIScreen *screen = dynamic_cast<UIScreen *>(g_screenManager->topScreen());
+	if (!screen) {
+		return false;
+	}
+	screen->UnsyncAccessibilityActivate(id);
+	return true;
 }
 
 // up, down
