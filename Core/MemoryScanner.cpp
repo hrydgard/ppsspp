@@ -21,6 +21,7 @@
 #include "Core/MemoryScanner.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Common/StringUtils.h"
 
 MemoryScanner g_MemoryScanner;
@@ -36,6 +37,16 @@ void MemoryScanner::FirstScan(ScanValueType type, const std::string &filter) {
 
 	uint32_t startAddr = 0x08000000;
 	uint32_t endAddr = startAddr + Memory::g_MemorySize;
+
+	SceUID mainModuleID = __KernelGetMainModuleId();
+	if (mainModuleID != 0) {
+		u32 error;
+		auto *mainModule = kernelObjects.Get<PSPModule>(mainModuleID, error);
+		if (mainModule) {
+			startAddr = mainModule->GetDataAddr();
+			endAddr = startAddr + mainModule->nm.data_size + mainModule->nm.bss_size;
+		}
+	}
 
 	for (uint32_t addr = startAddr; addr < endAddr; ) {
 		bool match = false;
