@@ -66,20 +66,9 @@ struct SoftwareTransformParams {
 // TODO: We could do this already during index decode.
 void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 
-class SoftwareTransform {
-public:
-	// indsSize is in indices, not bytes.
-	// NOTE: In case of clipping, this might write extra vertices after params.transformed.
-	static SoftwareTransformAction Transform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
-
-protected:
-	// NOTE: The viewport must be up to date!
-	static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
-
-	static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly);
-	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
-	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
-};
+// indsSize is in indices, not bytes.
+// NOTE: In case of clipping, this might write extra vertices after params.transformed.
+SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 class DrawEngineCommon;
 
