@@ -594,9 +594,6 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 	result->drawBuffer = transformed;
 	int drawIndexCount = 0;
 
-	FramebufferManagerCommon *fbman = params.fbman;
-	bool useBufferedRendering = fbman->UseBufferedRendering();
-
 	// NOTE: ExpandRectanges/lines/etc should do clipping while they're at it.
 	if (prim == GE_PRIM_RECTANGLES) {
 		// TODO: We should cull rectangles outzide -W<Z<W here if *both* points are outside in the same direction,

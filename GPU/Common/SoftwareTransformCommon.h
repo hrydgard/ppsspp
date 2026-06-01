@@ -54,8 +54,6 @@ struct SoftwareTransformParams {
 	u8 *decoded;
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
-	FramebufferManagerCommon *fbman;
-	TextureCacheCommon *texCache;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
 	bool everUsedEqualDepth;

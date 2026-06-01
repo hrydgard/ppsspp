@@ -434,8 +434,6 @@ void DrawEngineD3D11::Flush() {
 		params.decoded = decoded_;
 		params.transformed = transformed_;
 		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 

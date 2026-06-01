@@ -386,8 +386,6 @@ void DrawEngineGLES::Flush() {
 		params.decoded = decoded_;
 		params.transformed = transformed_;
 		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
 		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
 

@@ -444,8 +444,6 @@ void DrawEngineVulkan::Flush() {
 		params.decoded = decoded_;
 		params.transformed = transformed_;
 		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
 		// In Vulkan, we have to force drawing of primitives if !framebufferManager_->UseBufferedRendering() because Vulkan clears
 		// do not respect scissor rects.
 		params.allowClear = framebufferManager_->UseBufferedRendering();
