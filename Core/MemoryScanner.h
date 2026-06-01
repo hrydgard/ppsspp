@@ -65,6 +65,9 @@ public:
 	int GetActiveIndex() const { return activeScanner_; }
 	void SetActiveIndex(int index);
 
+	bool IsAddressLocked(uint32_t addr) const {
+		return HasLockedAddress(addr, nullptr, (size_t)-1);
+	}
 	bool HasLockedAddress(uint32_t addr, const MemoryScanner *excludeScanner, size_t excludeIndex) const;
 
 	void AddScanner();

@@ -227,6 +227,25 @@ void MemoryScannerScreen::OnClear(UI::EventParams &e) {
 }
 
 void MemoryScannerScreen::OnValueClick(uint32_t addr, ScanValueType type) {
+	auto se = GetI18NCategory(I18NCat::SEARCH);
+
+	// Global Respect: If the address is locked in ANY tab, we should be careful.
+	// If it's locked in the CURRENT tab, we allow editing but must update the lock value.
+	// If it's locked in ANOTHER tab, we should block it to respect that lock.
+	MemoryScanner *scanner = g_MemoryScanner.GetActive();
+	bool lockedHere = false;
+	for (const auto &res : scanner->GetResults()) {
+		if (res.address == addr && res.locked) {
+			lockedHere = true;
+			break;
+		}
+	}
+
+	if (!lockedHere && g_MemoryScanner.IsAddressLocked(addr)) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, se->T("Address locked in another tab"), 3.0f);
+		return;
+	}
+
 	std::string currentVal;
 	switch (type) {
 	case ScanValueType::U8: currentVal = StringFromFormat("%d", (int)Memory::Read_U8(addr)); break;
@@ -234,7 +253,6 @@ void MemoryScannerScreen::OnValueClick(uint32_t addr, ScanValueType type) {
 	case ScanValueType::U32: currentVal = StringFromFormat("%u", Memory::Read_U32(addr)); break;
 	}
 
-	auto se = GetI18NCategory(I18NCat::SEARCH);
 	UI::AskForInput(screenManager(), NON_EPHEMERAL_TOKEN, nullptr, se->T("Edit Value"), [addr, type](const std::string &value, bool ok) {
 		if (ok) {
 			try {
@@ -245,15 +263,10 @@ void MemoryScannerScreen::OnValueClick(uint32_t addr, ScanValueType type) {
 				case ScanValueType::U32: Memory::Write_U32(val, addr); break;
 				}
 
-				// Also update lock value if locked in ALL scanners.
-				// For simplicity, we can just iterate all results in the active one, or ALL scanners if we want it global.
-				// The requirement "add/remove tab for a search" suggests independent searches, but locking might be expected to be global if it's the same address.
-				// Actually, if it's the same address, it will be updated by the scanner that has it locked.
-				// If multiple scanners have it locked to different values, it will flicker.
-				// Let's just update the current scanner's results.
+				// Also update lock value if locked in the active scanner.
 				MemoryScanner *scanner = g_MemoryScanner.GetActive();
 				for (auto &res : scanner->GetResults()) {
-					if (res.address == addr && res.type == type && res.locked) {
+					if (res.address == addr && res.locked) {
 						res.lockValue = val;
 					}
 				}
