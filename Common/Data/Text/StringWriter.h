@@ -5,7 +5,6 @@
 
 #include "Common/CommonFuncs.h"
 
-// Not a parser, needs a better location.
 // Simplified version of ShaderWriter. Would like to have that inherit from this but can't figure out how
 // due to the return value chaining. Maybe with the curiously recurring template pattern?
 // TODO: We actually also have Buffer, with .Printf(), which is almost as convenient. Should maybe improve that instead?
@@ -39,8 +38,8 @@ public:
 		p_ += T - 1;
 		return *this;
 	}
-	// Assumes the input is zero-terminated.
-	// C: Copies a string literal (which always are zero-terminated, the count includes the zero) directly to the stream.
+
+	// B: Writes a bool as string.
 	StringWriter &B(bool b) {
 		return W(b ? "true" : "false");
 	}
@@ -59,6 +58,8 @@ public:
 	// F: Formats into the buffer.
 	// This one is implemented in Parsers.cpp.
 	StringWriter &F(MSVC_FORMAT_PRINTF const char *format, ...) ATTR_FORMAT_PRINTF(2, 3);
+
+	// Adds a line ending, sometimes convenient.
 	StringWriter &endl() {
 		const size_t remainder = bufSize_ - (p_ - start_);
 		if (remainder <= 2)
@@ -69,6 +70,9 @@ public:
 
 	void Rewind(size_t offset) {
 		p_ -= offset;
+		if (p_ < start_) {
+			p_ = start_;
+		}
 	}
 
 private:

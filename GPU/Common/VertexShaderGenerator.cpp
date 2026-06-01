@@ -877,7 +877,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
 		// In software transform mode, this is performed in on the CPU.
 		WRITE(p, "  float recip = 1.0 / outPos.w;\n");
-		WRITE(p, "  outPos.xyz = outPos.xyz * u_vpScale.xyz * recip + u_vpOffset.xyz;\n");
+		WRITE(p, "  outPos.xyz = (outPos.xyz * u_vpScale.xyz) * recip + u_vpOffset.xyz;\n");
 
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);

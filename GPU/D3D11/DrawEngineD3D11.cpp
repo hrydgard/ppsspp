@@ -477,19 +477,19 @@ void DrawEngineD3D11::Flush() {
 
 			UINT stride = sizeof(TransformedVertex);
 			UINT vOffset = 0;
-			int vSize = numDecodedVerts_ * stride;
+			int vSize = result.drawVertexCount * stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
 			memcpy(vptr, result.drawBuffer, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
 			UINT iOffset;
-			int iSize = sizeof(uint16_t) * result.drawNumTrans;
+			int iSize = sizeof(uint16_t) * result.drawIndexCount;
 			uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
 			memcpy(iptr, inds, iSize);
 			pushInds_->EndPush(context_);
 			context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-			context_->DrawIndexed(result.drawNumTrans, 0, 0);
+			context_->DrawIndexed(result.drawIndexCount, 0, 0);
 		} else if (action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;

@@ -399,14 +399,12 @@ SoftwareTransformAction SoftwareTransform::Transform(SoftwareTransformParams &pa
 
 // Modifies the vertices in-place. Applies viewport and projection.
 // TODO: SIMD.
-void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vertexCount) {
+static void ProjectVertices(const GPUgstate &gstate, TransformedVertex *transformed, int vertexCount) {
 #if 0
 	Lin::Vec3 vpOffset(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	Lin::Vec3 vpScale(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
 
 	for (int i = 0; i < vertexCount; i++) {
-		// Here we also need to do the perspective device and apply the viewport.
-		// TODO: Move this to ProjectClipAndExpand.
 		const float w = transformed[i].pos_w;
 		const float recip = 1.0f / w;
 		Lin::Vec3 xyz = vpOffset + vpScale.scaledBy(Lin::Vec3(transformed[i].x, transformed[i].y, transformed[i].z)) * recip;
@@ -421,7 +419,7 @@ void SoftwareTransform::ProjectVertices(TransformedVertex *transformed, int vert
 	for (int i = 0; i < vertexCount; i++) {
 		Vec4F32 xyzw = Vec4F32::Load(&transformed[i].x);
 		Vec4F32 wRecip = Vec4F32::Splat(1.0f / transformed[i].pos_w);
-		Vec4F32 projected = xyzw * vpScale * wRecip + vpOffset;
+		Vec4F32 projected = (xyzw * vpScale) * wRecip + vpOffset;
 		// Now, we need to restore the W value as we'll still need it later.
 		projected.WithLane3From(xyzw).Store(&transformed[i].x);
 	}
@@ -600,11 +598,12 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 		// like we do with triangles.
 
 		if (!throughmode) {
-			ProjectVertices(transformed, numDecodedVerts);
+			ProjectVertices(gstate, transformed, numDecodedVerts);
 		}
 
 		if (!ExpandRectangles(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped)) {
-			result->drawNumTrans = 0;
+			result->drawVertexCount = 0;
+			result->drawIndexCount = 0;
 			result->pixelMapped = false;
 			return SW_CULLED;
 		}
@@ -627,12 +626,13 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 		// TODO: We should cull points here if they are outside -W<Z<W.
 
 		if (!throughmode) {
-			ProjectVertices(transformed, numDecodedVerts);
+			ProjectVertices(gstate, transformed, numDecodedVerts);
 		}
 
 		result->pixelMapped = false;
 		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
-			result->drawNumTrans = 0;
+			result->drawVertexCount = 0;
+			result->drawIndexCount = 0;
 			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
@@ -641,12 +641,13 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 		// like we do with triangles.
 
 		if (!throughmode) {
-			ProjectVertices(transformed, numDecodedVerts);
+			ProjectVertices(gstate, transformed, numDecodedVerts);
 		}
 
 		result->pixelMapped = false;
 		if (!ExpandLines(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
-			result->drawNumTrans = 0;
+			result->drawVertexCount = 0;
+			result->drawIndexCount = 0;
 			return SW_CULLED;
 		}
 		result->drawBuffer = transformedExpanded;
@@ -745,7 +746,7 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 			inds = newInds;
 
 			// Now that we're done culling and generating clipped vertices if needed (not yet implemented), we go ahead and project.
-			ProjectVertices(transformed, numDecodedVerts);
+			ProjectVertices(gstate, transformed, numDecodedVerts);
 
 #if 0
 			// NOTE! This code is effectively obsolete now that we have implemented depth clamp in the fragment shader,
@@ -812,7 +813,8 @@ SoftwareTransformAction SoftwareTransform::ProjectClipAndExpand(SoftwareTransfor
 		gpuStats.perFrame.numClears++;
 	}
 
-	result->drawNumTrans = numTrans;
+	result->drawIndexCount = numTrans;
+	result->drawVertexCount = numDecodedVerts;
 	return SW_DRAW_INDEXED;
 }
 

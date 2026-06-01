@@ -543,9 +543,9 @@ void DrawEngineVulkan::Flush() {
 			PROFILE_THIS_SCOPE("renderman_q");
 
 			VkBuffer vbuf, ibuf;
-			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
-			u32 ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
-			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
+			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, result.drawVertexCount * sizeof(TransformedVertex), 4, &vbuf);
+			u32 ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawIndexCount, 4, &ibuf);
+			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawIndexCount, 1);
 		} else if (action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
 			bool clearColor = gstate.isClearModeColorMask();

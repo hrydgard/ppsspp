@@ -45,7 +45,8 @@ struct SoftwareTransformResult {
 	u32 safeHeight;
 
 	TransformedVertex *drawBuffer;
-	int drawNumTrans;
+	int drawVertexCount;
+	int drawIndexCount;
 	bool pixelMapped;
 };
 
@@ -75,7 +76,6 @@ protected:
 	// NOTE: The viewport must be up to date!
 	static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
-	static void ProjectVertices(TransformedVertex *transformed, int vertexCount);
 	static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly);
 	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;

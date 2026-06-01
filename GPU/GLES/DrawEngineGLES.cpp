@@ -417,11 +417,11 @@ void DrawEngineGLES::Flush() {
 		}
 
 		if (action == SW_DRAW_INDEXED) {
-			vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vertexBuffer);
-			indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
+			vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawVertexCount * sizeof(TransformedVertex), 4, &vertexBuffer);
+			indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawIndexCount, 2, &indexBuffer);
 			render_->DrawIndexed(
 				softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
-				glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
+				glprim[prim], result.drawIndexCount, GL_UNSIGNED_SHORT);
 		} else if (action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
