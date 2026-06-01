@@ -42,13 +42,13 @@ public:
 	void NextScan(ScanValueType type, const std::string &filter);
 	void Clear();
 	void Update();
-	void SetLocked(size_t index, bool locked);
+	bool SetLocked(size_t index, bool locked);
 
 	[[nodiscard]] const std::vector<ScanResult> &GetResults() const { return results_; }
 	std::vector<ScanResult> &GetResults() { return results_; }
 	[[nodiscard]] bool HasScanDone() const { return firstScanDone_; }
 
-	ScanValueType valueType = ScanValueType::U32;
+	ScanValueType valueType = ScanValueType::U16;
 	std::string searchValue = "0";
 
 private:
@@ -56,4 +56,24 @@ private:
 	bool firstScanDone_ = false;
 };
 
-extern MemoryScanner g_MemoryScanner;
+class MemoryScannerManager {
+public:
+	MemoryScannerManager();
+	void Update();
+
+	MemoryScanner *GetActive() { return scanners_[activeScanner_]; }
+	int GetActiveIndex() const { return activeScanner_; }
+	void SetActiveIndex(int index);
+
+	bool HasLockedAddress(uint32_t addr, const MemoryScanner *excludeScanner, size_t excludeIndex) const;
+
+	void AddScanner();
+	void RemoveScanner(int index);
+	int GetCount() const { return (int)scanners_.size(); }
+
+private:
+	std::vector<MemoryScanner *> scanners_;
+	int activeScanner_ = 0;
+};
+
+extern MemoryScannerManager g_MemoryScanner;

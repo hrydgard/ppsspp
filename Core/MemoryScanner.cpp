@@ -24,7 +24,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Common/StringUtils.h"
 
-MemoryScanner g_MemoryScanner;
+MemoryScannerManager g_MemoryScanner;
 
 void MemoryScanner::FirstScan(ScanValueType type, const std::string &filter) {
 	results_.clear();
@@ -126,10 +126,13 @@ void MemoryScanner::Update() {
 	}
 }
 
-void MemoryScanner::SetLocked(size_t index, bool locked) {
+bool MemoryScanner::SetLocked(size_t index, bool locked) {
 	if (index < results_.size()) {
-		results_[index].locked = locked;
-		if (results_[index].locked) {
+		if (locked) {
+			if (g_MemoryScanner.HasLockedAddress(results_[index].address, this, index)) {
+				results_[index].locked = false;
+				return false;
+			}
 			// Capture current value to lock it to.
 			switch (results_[index].type) {
 			case ScanValueType::U8:
@@ -142,6 +145,56 @@ void MemoryScanner::SetLocked(size_t index, bool locked) {
 				results_[index].lockValue = Memory::Read_U32(results_[index].address);
 				break;
 			}
+		}
+		results_[index].locked = locked;
+		return true;
+	}
+	return false;
+}
+
+MemoryScannerManager::MemoryScannerManager() {
+	scanners_.push_back(new MemoryScanner());
+}
+
+void MemoryScannerManager::Update() {
+	for (auto scanner : scanners_) {
+		scanner->Update();
+	}
+}
+
+void MemoryScannerManager::SetActiveIndex(int index) {
+	if (index >= 0 && index < (int)scanners_.size()) {
+		activeScanner_ = index;
+	}
+}
+
+bool MemoryScannerManager::HasLockedAddress(uint32_t addr, const MemoryScanner *excludeScanner, size_t excludeIndex) const {
+	for (auto scanner : scanners_) {
+		const auto &results = scanner->GetResults();
+		for (size_t i = 0; i < results.size(); ++i) {
+			if (scanner == excludeScanner && i == excludeIndex)
+				continue;
+			if (results[i].locked && results[i].address == addr)
+				return true;
+		}
+	}
+	return false;
+}
+
+void MemoryScannerManager::AddScanner() {
+	scanners_.push_back(new MemoryScanner());
+	activeScanner_ = (int)scanners_.size() - 1;
+}
+
+void MemoryScannerManager::RemoveScanner(int index) {
+	if (scanners_.size() <= 1) {
+		return;
+	}
+	if (index >= 0 && index < (int)scanners_.size()) {
+		delete scanners_[index];
+		scanners_.erase(scanners_.begin() + index);
+		if (activeScanner_ >= (int)scanners_.size()) {
+			activeScanner_ = (int)scanners_.size() - 1;
 		}
 	}
 }

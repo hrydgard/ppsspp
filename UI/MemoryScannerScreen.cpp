@@ -45,9 +45,40 @@ void MemoryScannerScreen::CreateViews() {
 
 	root_->Add(new ItemHeader(se->T("Memory Scanner")));
 
-	searchValueEdit_ = root_->Add(new TextEdit(g_MemoryScanner.searchValue, se->T("Value to search"), se->T("Enter value"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	searchValueEdit_->OnTextChange.Add([this](EventParams &e) {
-		g_MemoryScanner.searchValue = searchValueEdit_->GetText();
+	LinearLayout *tabRow = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	ChoiceStrip *tabs = tabRow->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f)));
+	for (int i = 0; i < g_MemoryScanner.GetCount(); ++i) {
+		tabs->AddChoice(StringFromFormat("%d", i + 1));
+	}
+	// Make all choices in the ChoiceStrip expand equally.
+	for (int i = 0; i < tabs->GetNumSubviews(); ++i) {
+		View *v = tabs->GetViewByIndex(i);
+		if (v) {
+			v->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
+		}
+	}
+	tabs->SetSelection(g_MemoryScanner.GetActiveIndex(), false);
+	tabs->OnChoice.Add([this](EventParams &e) {
+		g_MemoryScanner.SetActiveIndex((int)e.a);
+		RecreateViews();
+	});
+
+	tabRow->Add(new Button("+", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](EventParams &e) {
+		g_MemoryScanner.AddScanner();
+		RecreateViews();
+	});
+	if (g_MemoryScanner.GetCount() > 1) {
+		tabRow->Add(new Button("-", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](EventParams &e) {
+			g_MemoryScanner.RemoveScanner(g_MemoryScanner.GetActiveIndex());
+			RecreateViews();
+		});
+	}
+
+	MemoryScanner *scanner = g_MemoryScanner.GetActive();
+
+	searchValueEdit_ = root_->Add(new TextEdit(scanner->searchValue, se->T("Value to search"), se->T("Enter value"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	searchValueEdit_->OnTextChange.Add([scanner, this](EventParams &e) {
+		scanner->searchValue = searchValueEdit_->GetText();
 	});
 
 	LinearLayout *typeRow = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
@@ -57,9 +88,9 @@ void MemoryScannerScreen::CreateViews() {
 	typeStrip->AddChoice(se->T("8-bit"));
 	typeStrip->AddChoice(se->T("16-bit"));
 	typeStrip->AddChoice(se->T("32-bit"));
-	typeStrip->SetSelection((int)g_MemoryScanner.valueType, false);
-	typeStrip->OnChoice.Add([](EventParams &e) {
-		g_MemoryScanner.valueType = (ScanValueType)e.a;
+	typeStrip->SetSelection((int)scanner->valueType, false);
+	typeStrip->OnChoice.Add([scanner](EventParams &e) {
+		scanner->valueType = (ScanValueType)e.a;
 	});
 
 	LinearLayout *buttonRow = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
@@ -76,33 +107,41 @@ void MemoryScannerScreen::CreateViews() {
 
 	root_->Add(new Button(di->T("Back")))->OnClick.Add([this](EventParams &) { TriggerFinish(DR_BACK); });
 
-	if (g_MemoryScanner.HasScanDone()) {
+	if (scanner->HasScanDone()) {
 		RebuildResultsList();
 	}
 }
 
 void MemoryScannerScreen::update() {
 	UIScreen::update();
+	MemoryScanner *scanner = g_MemoryScanner.GetActive();
 	if (countText_) {
-		const auto &results = g_MemoryScanner.GetResults();
+		const auto &results = scanner->GetResults();
 		auto se = GetI18NCategory(I18NCat::SEARCH);
 		countText_->SetText(StringFromFormat(se->T_cstr("Results: %d"), (int)results.size()));
 	}
 	if (resultsList_) {
-		resultsList_->SetVisibility(g_MemoryScanner.HasScanDone() ? UI::V_VISIBLE : UI::V_GONE);
+		resultsList_->SetVisibility(scanner->HasScanDone() ? UI::V_VISIBLE : UI::V_GONE);
 	}
 
 	// Update live values in the list.
-	for (size_t i = 0; i < valueChoices_.size(); ++i) {
-		uint32_t addr = resultAddresses_[i];
-		ScanValueType type = resultTypes_[i];
-		std::string valStr;
-		switch (type) {
-		case ScanValueType::U8: valStr = StringFromFormat("%d", (int)Memory::Read_U8(addr)); break;
-		case ScanValueType::U16: valStr = StringFromFormat("%d", (int)Memory::Read_U16(addr)); break;
-		case ScanValueType::U32: valStr = StringFromFormat("%u", Memory::Read_U32(addr)); break;
+	// Only update if the UI is in sync with the current scanner results.
+	const auto &results = scanner->GetResults();
+	if (valueChoices_.size() == std::min((size_t)100, results.size())) {
+		for (size_t i = 0; i < valueChoices_.size(); ++i) {
+			uint32_t addr = resultAddresses_[i];
+			ScanValueType type = resultTypes_[i];
+			std::string valStr;
+			switch (type) {
+			case ScanValueType::U8: valStr = StringFromFormat("%d", (int)Memory::Read_U8(addr)); break;
+			case ScanValueType::U16: valStr = StringFromFormat("%d", (int)Memory::Read_U16(addr)); break;
+			case ScanValueType::U32: valStr = StringFromFormat("%u", Memory::Read_U32(addr)); break;
+			}
+			valueChoices_[i]->SetText(valStr);
 		}
-		valueChoices_[i]->SetText(valStr);
+	} else if (scanner->HasScanDone()) {
+		// If out of sync, trigger a rebuild.
+		RebuildResultsList();
 	}
 }
 
@@ -116,7 +155,8 @@ void MemoryScannerScreen::RebuildResultsList() {
 	resultAddresses_.clear();
 	resultTypes_.clear();
 
-	auto &results = g_MemoryScanner.GetResults();
+	MemoryScanner *scanner = g_MemoryScanner.GetActive();
+	auto &results = scanner->GetResults();
 
 	if (results.empty())
 		return;
@@ -156,8 +196,11 @@ void MemoryScannerScreen::RebuildResultsList() {
 		resultTypes_.push_back(type);
 
 		auto *lockCheck = row->Add(new CheckBox(&results[i].locked, "", "", new LinearLayoutParams(100.0f, WRAP_CONTENT)));
-		lockCheck->OnClick.Add([i](EventParams &e) {
-			g_MemoryScanner.SetLocked(i, g_MemoryScanner.GetResults()[i].locked);
+		lockCheck->OnClick.Add([scanner, i](EventParams &e) {
+			if (!scanner->SetLocked(i, scanner->GetResults()[i].locked)) {
+				auto se = GetI18NCategory(I18NCat::SEARCH);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, se->T("Address already locked"), 3.0f);
+			}
 		});
 
 		if (++count > 100) break; // Limit UI items
@@ -165,19 +208,21 @@ void MemoryScannerScreen::RebuildResultsList() {
 }
 
 void MemoryScannerScreen::OnFirstScan(UI::EventParams &e) {
-	g_MemoryScanner.FirstScan(g_MemoryScanner.valueType, g_MemoryScanner.searchValue);
+	MemoryScanner *scanner = g_MemoryScanner.GetActive();
+	scanner->FirstScan(scanner->valueType, scanner->searchValue);
 	RebuildResultsList();
 }
 
 void MemoryScannerScreen::OnNextScan(UI::EventParams &e) {
-	if (g_MemoryScanner.HasScanDone()) {
-		g_MemoryScanner.NextScan(g_MemoryScanner.valueType, g_MemoryScanner.searchValue);
+	MemoryScanner *scanner = g_MemoryScanner.GetActive();
+	if (scanner->HasScanDone()) {
+		scanner->NextScan(scanner->valueType, scanner->searchValue);
 		RebuildResultsList();
 	}
 }
 
 void MemoryScannerScreen::OnClear(UI::EventParams &e) {
-	g_MemoryScanner.Clear();
+	g_MemoryScanner.GetActive()->Clear();
 	RebuildResultsList();
 }
 
@@ -200,8 +245,14 @@ void MemoryScannerScreen::OnValueClick(uint32_t addr, ScanValueType type) {
 				case ScanValueType::U32: Memory::Write_U32(val, addr); break;
 				}
 
-				// Also update lock value if locked.
-				for (auto &res : g_MemoryScanner.GetResults()) {
+				// Also update lock value if locked in ALL scanners.
+				// For simplicity, we can just iterate all results in the active one, or ALL scanners if we want it global.
+				// The requirement "add/remove tab for a search" suggests independent searches, but locking might be expected to be global if it's the same address.
+				// Actually, if it's the same address, it will be updated by the scanner that has it locked.
+				// If multiple scanners have it locked to different values, it will flicker.
+				// Let's just update the current scanner's results.
+				MemoryScanner *scanner = g_MemoryScanner.GetActive();
+				for (auto &res : scanner->GetResults()) {
 					if (res.address == addr && res.type == type && res.locked) {
 						res.lockValue = val;
 					}
