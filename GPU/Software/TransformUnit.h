@@ -19,7 +19,7 @@
 
 #include "CommonTypes.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Math3D.h"
 

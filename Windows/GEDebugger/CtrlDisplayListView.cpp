@@ -157,7 +157,7 @@ void CtrlDisplayListView::redraw()
 
 void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	if (!validDisplayList || !gpuDebug)
+	if (!validDisplayList || !gpu)
 		return;
 
 	PAINTSTRUCT ps;
@@ -179,7 +179,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 	
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
 
-	auto disasm = gpuDebug->DisassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
+	auto disasm = gpu->DisassembleOpRange(windowStart, windowStart + (visibleRows + 2) * instructionSize);
 
 	for (int i = 0; i < visibleRows+2; i++)
 	{
@@ -216,7 +216,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 		DeleteObject(backgroundPen);
 
 		// display address/symbol
-		if (gpuDebug->GetBreakpoints()->IsAddressBreakpoint(address))
+		if (gpu->GetBreakpoints()->IsAddressBreakpoint(address))
 		{
 			textColor = 0x0000FF;
 			int yOffset = std::max(-1,(rowHeight-14+1)/2);
@@ -268,18 +268,18 @@ void CtrlDisplayListView::toggleBreakpoint()
 
 void CtrlDisplayListView::PromptBreakpointCond() {
 	std::string expression;
-	gpuDebug->GetBreakpoints()->GetAddressBreakpointCond(curAddress, &expression);
+	gpu->GetBreakpoints()->GetAddressBreakpointCond(curAddress, &expression);
 	if (!InputBox_GetString(GetModuleHandle(NULL), wnd, L"Expression", expression, expression))
 		return;
 
 	std::string error;
-	if (!gpuDebug->GetBreakpoints()->SetAddressBreakpointCond(curAddress, expression, &error))
+	if (!gpu->GetBreakpoints()->SetAddressBreakpointCond(curAddress, expression, &error))
 		MessageBox(wnd, ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
 }
 
 void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
-	if (!validDisplayList || !gpuDebug) {
+	if (!validDisplayList || !gpu) {
 		return;
 	}
 
@@ -310,14 +310,14 @@ void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
-	if (!validDisplayList || !gpuDebug) {
+	if (!validDisplayList || !gpu) {
 		return;
 	}
 
 	if (button == 2)
 	{
 		HMENU menu = GetContextMenu(ContextMenuID::DISPLAYLISTVIEW);
-		EnableMenuItem(menu, ID_GEDBG_SETCOND, gpuDebug->GetBreakpoints()->IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu, ID_GEDBG_SETCOND, gpu->GetBreakpoints()->IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
 
 		switch (TriggerContextMenu(ContextMenuID::DISPLAYLISTVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{
@@ -341,7 +341,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
 				{
 					u32 opcode = Memory::Read_U32(pos);
-					GPUDebugOp op = gpuDebug->DisassembleOp(pos, opcode);
+					GPUDebugOp op = gpu->DisassembleOp(pos, opcode);
 					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
 				}
 
@@ -358,14 +358,14 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_SETPCTOHERE:
 			{
-				gpuDebug->ResetListPC(list.id,curAddress);
+				gpu->ResetListPC(list.id,curAddress);
 				list.pc = curAddress;
 				redraw();
 			}
 			break;
 		case ID_GEDBG_SETSTALLADDR:
 			{
-				gpuDebug->ResetListStall(list.id,curAddress);
+				gpu->ResetListStall(list.id,curAddress);
 				list.stall = curAddress;
 				redraw();
 			}
@@ -401,7 +401,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					break;
 				}
 				uint32_t newAddress = curAddress;
-				if (!GPUDebugExecExpression(gpuDebug, expression.c_str(), newAddress)) {
+				if (!GPUDebugExecExpression(gpu, expression.c_str(), newAddress)) {
 					MessageBox(wnd, ConvertUTF8ToWString(getExpressionError()).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
 					break;
 				}

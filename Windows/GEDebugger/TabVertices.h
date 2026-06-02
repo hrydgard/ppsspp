@@ -18,7 +18,7 @@
 #pragma once
 
 #include <vector>
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/Misc.h"
 

@@ -4,7 +4,7 @@
 #include "Windows/MainWindow.h"
 #include "Windows/main.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 #include <windowsx.h>
@@ -228,9 +228,9 @@ void TabDisplayLists::UpdateSize(WORD width, WORD height)
 
 void TabDisplayLists::Update()
 {
-	if (gpuDebug != NULL)
+	if (gpu != NULL)
 	{
-		lists = gpuDebug->ActiveDisplayLists();
+		lists = gpu->ActiveDisplayLists();
 	}
 
 	if (activeList != -1)

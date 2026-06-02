@@ -6,7 +6,7 @@
 #include "Common/Data/Text/StringWriter.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImDebugger.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -289,7 +289,7 @@ void DrawDebugStatsWindow(ImConfig &cfg) {
 	ImGui::End();
 }
 
-void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+void ImGePixelViewerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug, Draw::DrawContext *draw) {
 	ImGui::SetNextWindowSize(ImVec2(600, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("Pixel Viewer", &cfg.pixelViewerOpen)) {
 		ImGui::End();
@@ -404,7 +404,7 @@ void ImGePixelViewer::DeviceLost() {
 	}
 }
 
-bool ImGePixelViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
+bool ImGePixelViewer::Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, float zoom) {
 	if (dirty_) {
 		UpdateTexture(draw);
 		dirty_ = false;
@@ -597,7 +597,7 @@ void ImGeReadbackViewer::DeviceLost() {
 	}
 }
 
-bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom) {
+bool ImGeReadbackViewer::Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, float zoom) {
 	FramebufferManagerCommon *fbMan = gpuDebug->GetFramebufferManagerCommon();
 	VirtualFramebuffer *vfb = GetVFB(fbMan);
 
@@ -683,7 +683,7 @@ bool ImGeReadbackViewer::Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *dr
 }
 
 bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) const {
-	FramebufferManagerCommon *fbMan = gpuDebug->GetFramebufferManagerCommon();
+	FramebufferManagerCommon *fbMan = gpu->GetFramebufferManagerCommon();
 	VirtualFramebuffer *vfb = GetVFB(fbMan);
 	if (!vfb || !vfb->fbo || !data_) {
 		snprintf(buf, bufSize, "N/A");
@@ -723,7 +723,7 @@ void ImGeDisasmView::NotifyStep() {
 	}
 }
 
-void ImGeDisasmView::Draw(GPUDebugInterface *gpuDebug) {
+void ImGeDisasmView::Draw(GPUCommon *gpuDebug) {
 	const u32 branchColor = 0xFFA0FFFF;
 	const u32 gteColor = 0xFFFFEFA0;
 
@@ -1012,7 +1012,7 @@ void ImGeDebuggerWindow::NotifyStep() {
 		break;
 	}
 
-	FramebufferManagerCommon *fbman = gpuDebug->GetFramebufferManagerCommon();
+	FramebufferManagerCommon *fbman = gpu->GetFramebufferManagerCommon();
 	if (fbman) {
 		rbViewer_.fbAddr = gstate.getFrameBufAddress();
 		rbViewer_.fbStride = gstate.FrameBufStride();
@@ -1022,7 +1022,7 @@ void ImGeDebuggerWindow::NotifyStep() {
 	rbViewer_.Snapshot();
 }
 
-void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug, Draw::DrawContext *draw) {
 	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Title(), &cfg.geDebuggerOpen)) {
 		ImGui::End();
@@ -1542,7 +1542,7 @@ void ImGeStateWindow::Snapshot() {
 }
 
 // TODO: Separate window or merge into Ge debugger?
-void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
+void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE State", &cfg.geStateOpen)) {
 		ImGui::End();
@@ -1675,7 +1675,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface 
 	ImGui::End();
 }
 
-void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug) {
+void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug) {
 	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE Vertices", &cfg.geVertsOpen)) {
 		ImGui::End();

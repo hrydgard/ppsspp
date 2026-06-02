@@ -19,7 +19,7 @@
 
 #include "Common/Common.h"
 #include "Common/CommonWindows.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"

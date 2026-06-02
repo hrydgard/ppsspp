@@ -29,7 +29,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/Debugger/State.h"
@@ -161,16 +161,16 @@ int CtrlVertexList::GetRowCount() {
 		return 0;
 	}
 
-	if (!gpuDebug || !Memory::IsValidAddress(gpuDebug->GetVertexAddress())) {
+	if (!gpu || !Memory::IsValidAddress(gpu->GetVertexAddress())) {
 		rowCount_ = 0;
 		return rowCount_;
 	}
 
 	// TODO: Maybe there are smarter ways?  Also, is this the best place to recalc?
-	auto state = gpuDebug->GetGState();
+	auto state = gpu->GetGState();
 
-	rowCount_ = gpuDebug->GetCurrentPrimCount();
-	if (!gpuDebug->GetCurrentDrawAsDebugVertices(rowCount_, vertices, indices)) {
+	rowCount_ = gpu->GetCurrentPrimCount();
+	if (!gpu->GetCurrentDrawAsDebugVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}
 	VertexDecoderOptions options{};
@@ -244,7 +244,7 @@ CtrlMatrixList::CtrlMatrixList(HWND hwnd)
 }
 
 bool CtrlMatrixList::OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) {
-	const auto state = gpuDebug->GetGState();
+	const auto state = gpu->GetGState();
 	const auto lastState = GPUStepping::LastState();
 
 	bool changed = false;
@@ -288,7 +288,7 @@ bool CtrlMatrixList::ColChanged(const GPUgstate &lastState, const GPUgstate &sta
 }
 
 bool CtrlMatrixList::GetValue(const GPUgstate &state, int row, int col, float &val) {
-	if (!gpuDebug || row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT)
+	if (!gpu || row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT)
 		return false;
 
 	if (col < MATRIXLIST_COL_0)
@@ -335,7 +335,7 @@ void CtrlMatrixList::GetColumnText(wchar_t *dest, size_t destSize, int row, int 
 	}
 
 	float val;
-	if (!GetValue(gpuDebug->GetGState(), row, col, val)) {
+	if (!GetValue(gpu->GetGState(), row, col, val)) {
 		wcscpy(dest, L"Invalid");
 		return;
 	}
@@ -400,7 +400,7 @@ void CtrlMatrixList::GetColumnText(wchar_t *dest, size_t destSize, int row, int 
 }
 
 int CtrlMatrixList::GetRowCount() {
-	if (!gpuDebug) {
+	if (!gpu) {
 		return 0;
 	}
 
@@ -437,16 +437,16 @@ void CtrlMatrixList::ToggleBreakpoint(int row) {
 		return;
 
 	// Okay, this command is in range.  Toggle the actual breakpoint.
-	bool state = !gpuDebug->GetBreakpoints()->IsCmdBreakpoint(info->cmd);
+	bool state = !gpu->GetBreakpoints()->IsCmdBreakpoint(info->cmd);
 	if (state) {
-		gpuDebug->GetBreakpoints()->AddCmdBreakpoint(info->cmd);
+		gpu->GetBreakpoints()->AddCmdBreakpoint(info->cmd);
 	} else {
-		if (gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info->cmd, nullptr)) {
+		if (gpu->GetBreakpoints()->GetCmdBreakpointCond(info->cmd, nullptr)) {
 			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			if (ret != IDYES)
 				return;
 		}
-		gpuDebug->GetBreakpoints()->RemoveCmdBreakpoint(info->cmd);
+		gpu->GetBreakpoints()->RemoveCmdBreakpoint(info->cmd);
 	}
 
 	for (int r = info->row; r < (info + 1)->row; ++r) {
@@ -460,12 +460,12 @@ void CtrlMatrixList::PromptBreakpointCond(int row) {
 		return;
 
 	std::string expression;
-	gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info->cmd, &expression);
+	gpu->GetBreakpoints()->GetCmdBreakpointCond(info->cmd, &expression);
 	if (!InputBox_GetString(GetModuleHandle(NULL), GetHandle(), L"Expression", expression, expression))
 		return;
 
 	std::string error;
-	if (!gpuDebug->GetBreakpoints()->SetCmdBreakpointCond(info->cmd, expression, &error))
+	if (!gpu->GetBreakpoints()->SetCmdBreakpointCond(info->cmd, expression, &error))
 		MessageBox(GetHandle(), ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
 }
 
@@ -479,7 +479,7 @@ void CtrlMatrixList::OnDoubleClick(int row, int column) {
 	}
 
 	float val;
-	if (!GetValue(gpuDebug->GetGState(), row, column, val))
+	if (!GetValue(gpu->GetGState(), row, column, val))
 		return;
 
 	std::string strvalue = StringFromFormat("%f", val);
@@ -488,7 +488,7 @@ void CtrlMatrixList::OnDoubleClick(int row, int column) {
 		return;
 
 	if (sscanf(strvalue.c_str(), "%f", &val) == 1) {
-		auto prevState = gpuDebug->GetGState();
+		auto prevState = gpu->GetGState();
 		auto setCmdValue = [&](u32 op) {
 			SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, 0);
 		};
@@ -531,7 +531,7 @@ void CtrlMatrixList::OnRightClick(int row, int column, const POINT &point) {
 
 	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_MATRIX);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
-	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, info && gpuDebug->GetBreakpoints()->IsCmdBreakpoint(info->cmd) ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, info && gpu->GetBreakpoints()->IsCmdBreakpoint(info->cmd) ? MF_ENABLED : MF_GRAYED);
 
 	switch (TriggerContextMenu(ContextMenuID::GEDBG_MATRIX, GetHandle(), ContextPoint::FromClient(point))) {
 	case ID_DISASM_TOGGLEBREAKPOINT:
@@ -546,7 +546,7 @@ void CtrlMatrixList::OnRightClick(int row, int column, const POINT &point) {
 	{
 		// Not really copy instruction, more like copy a float.
 		float val;
-		if (GetValue(gpuDebug->GetGState(), row, column, val)) {
+		if (GetValue(gpu->GetGState(), row, column, val)) {
 			char dest[128];
 			snprintf(dest, sizeof(dest), "%f", val);
 			W32Util::CopyTextToClipboard(GetHandle(), dest);

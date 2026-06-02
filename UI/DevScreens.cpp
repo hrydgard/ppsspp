@@ -112,10 +112,10 @@ void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
 }
 
 void SaveFrameDump() {
-	if (!gpuDebug) {
+	if (!gpu) {
 		return;
 	}
-	gpuDebug->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
+	gpu->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
 		NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			System_ShowFileInFolder(dumpPath);

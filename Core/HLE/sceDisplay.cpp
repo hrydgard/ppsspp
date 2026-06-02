@@ -692,7 +692,7 @@ void __DisplayFlip(int cyclesLate) {
 		// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
 		maxFrameskip = frameSkipNum;
 	}
-	if (numSkippedFrames >= maxFrameskip || gpuDebug->GetRecorder()->IsActivePending()) {
+	if (numSkippedFrames >= maxFrameskip || gpu->GetRecorder()->IsActivePending()) {
 		skipFrame = false;
 	}
 

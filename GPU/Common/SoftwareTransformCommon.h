@@ -22,7 +22,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;

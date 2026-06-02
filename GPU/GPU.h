@@ -24,7 +24,7 @@
 enum GPUCore : int;
 
 class GPUCommon;
-class GPUDebugInterface;
+class GPUCommon;
 class GraphicsContext;
 
 // PSP rasterization has two outputs, color and depth. Stencil is packed
@@ -164,7 +164,7 @@ struct GPUStatistics {
 
 extern GPUStatistics gpuStats;
 extern GPUCommon *gpu;
-extern GPUDebugInterface *gpuDebug;
+extern GPUCommon *gpu;
 
 namespace Draw {
 	class DrawContext;

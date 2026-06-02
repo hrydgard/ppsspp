@@ -37,7 +37,7 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 
 #include "GPU/GPUState.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"

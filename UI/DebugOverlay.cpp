@@ -210,7 +210,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void DrawFramebufferList(UIContext *ctx, GPUDebugInterface *gpu, const Bounds &bounds) {
+void DrawFramebufferList(UIContext *ctx, GPUCommon *gpu, const Bounds &bounds) {
 	if (!gpu) {
 		return;
 	}

@@ -31,7 +31,7 @@
 // * If windows/objects need state, prefix the class name with Im and just store straight in parent struct
 
 class MIPSDebugInterface;
-class GPUDebugInterface;
+class GPUCommon;
 struct ImConfig;
 
 // Snapshot of the MIPS CPU and other things we want to show diffs off.
@@ -171,12 +171,12 @@ public:
 	ImDebugger();
 	~ImDebugger();
 
-	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw::DrawContext *draw);
 
 	// Should be called just before starting a step or run, so that things can
 	// save state that they can later compare with, to highlight changes.
 	void Snapshot(MIPSState *mips);
-	void SnapshotGPU(GPUDebugInterface *mips);
+	void SnapshotGPU(GPUCommon *mips);
 
 	// Call from the outside.
 	void PostCmd(ImCommand cmd) {

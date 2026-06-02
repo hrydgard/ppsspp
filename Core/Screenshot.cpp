@@ -39,7 +39,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/Core.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GPUCommon.h"
 
@@ -374,7 +374,7 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 	}
 
 	GPUDebugBuffer buf;
-	if (!gpuDebug) {
+	if (!gpu) {
 		ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
 		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
 		g_pendingScreenshot = {};
@@ -383,7 +383,7 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 
 	const int maxRes = g_pendingScreenshot.maxRes;
 
-	if (!gpuDebug->GetCurrentFramebuffer(buf, g_pendingScreenshot.type == ScreenshotType::Render ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
+	if (!gpu->GetCurrentFramebuffer(buf, g_pendingScreenshot.type == ScreenshotType::Render ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
 		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
 		g_pendingScreenshot = {};
 		return false;

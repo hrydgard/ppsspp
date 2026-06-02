@@ -21,7 +21,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/Core.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 namespace GPUStepping {

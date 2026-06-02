@@ -32,7 +32,7 @@
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GPU/WindowsGLContext.h"

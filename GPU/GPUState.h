@@ -717,7 +717,7 @@ public:
 };
 
 class GPUInterface;
-class GPUDebugInterface;
+class GPUCommon;
 
 extern GPUStateCache gstate_c;
 
