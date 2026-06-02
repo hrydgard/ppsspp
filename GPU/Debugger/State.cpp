@@ -12,6 +12,38 @@
 #include "GPU/Common/SplineCommon.h"
 #include "Core/System.h"
 
+const char *const g_vertexListDecodedColNames[] = {
+	"X",
+	"Y",
+	"Z",
+	"U",
+	"V",
+	"Color",
+	"NX",
+	"NY",
+	"NZ",
+	"W0",
+	"W1",
+	"W2",
+	"W3",
+	"W4",
+	"W5",
+	"W6",
+	"W7",
+};
+
+const char *const g_vertexListTransformedColNames[] = {
+	"X",
+	"Y",
+	"Z",
+	"W",
+	"U",
+	"V",
+	"Color0",
+	"Color1",
+	"Fog",
+};
+
 void FormatStateRow(char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
 	value &= 0xFFFFFF;
 	otherValue &= 0xFFFFFF;
@@ -540,121 +572,58 @@ void FormatStateRow(char *dest, size_t destSize, CmdFormatType fmt, u32 value, b
 	}
 }
 
-void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int col) {
+void FormatVertColTransformed(char *dest, size_t destSize, const GPUDebugVertex &vert, VertexListTransformedCol col) {
 	switch (col) {
-	case VERTEXLIST_COL_X: snprintf(dest, destSize, "%f", vert.x); break;
-	case VERTEXLIST_COL_Y: snprintf(dest, destSize, "%f", vert.y); break;
-	case VERTEXLIST_COL_Z: snprintf(dest, destSize, "%f", vert.z); break;
-	case VERTEXLIST_COL_W: snprintf(dest, destSize, "%f", vert.w); break;
-	case VERTEXLIST_COL_U: snprintf(dest, destSize, "%f", vert.u); break;
-	case VERTEXLIST_COL_V: snprintf(dest, destSize, "%f", vert.v); break;
-	case VERTEXLIST_COL_COLOR:
-		snprintf(dest, destSize, "%02x%02x%02x%02x", vert.c[0], vert.c[1], vert.c[2], vert.c[3]);
+	case VertexListTransformedCol::X: snprintf(dest, destSize, "%f", vert.x); break;
+	case VertexListTransformedCol::Y: snprintf(dest, destSize, "%f", vert.y); break;
+	case VertexListTransformedCol::Z: snprintf(dest, destSize, "%f", vert.z); break;
+	case VertexListTransformedCol::W: snprintf(dest, destSize, "%f", vert.w); break;
+	case VertexListTransformedCol::U: snprintf(dest, destSize, "%f", vert.u); break;
+	case VertexListTransformedCol::V: snprintf(dest, destSize, "%f", vert.v); break;
+	case VertexListTransformedCol::COLOR0:
+		snprintf(dest, destSize, "%02x%02x%02x%02x", vert.c0[0], vert.c0[1], vert.c0[2], vert.c0[3]);
 		break;
-	case VERTEXLIST_COL_NX: snprintf(dest, destSize, "%f", vert.nx); break;
-	case VERTEXLIST_COL_NY: snprintf(dest, destSize, "%f", vert.ny); break;
-	case VERTEXLIST_COL_NZ: snprintf(dest, destSize, "%f", vert.nz); break;
-	case VERTEXLIST_COL_FOG: snprintf(dest, destSize, "%f", vert.fog); break;
-
+	case VertexListTransformedCol::COLOR1:
+		snprintf(dest, destSize, "%02x%02x%02x%02x", vert.c1[0], vert.c1[1], vert.c1[2], vert.c1[3]);
+		break;
+	case VertexListTransformedCol::FOG: snprintf(dest, destSize, "%f", vert.fog); break;
 	default:
 		truncate_cpy(dest, destSize, "Invalid");
 		break;
 	}
 }
 
-static void FormatVertColRawType(char *dest, size_t destSize, const void *data, int type, int offset);
-static void FormatVertColRawColor(char *dest, size_t destSize, const void *data, int type);
-
-void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int row, int col) {
+void FormatVertColDecoded(char *dest, size_t destSize, const GPUDebugVertex &vert, VertexListDecodedCol col) {
 	if (PSP_GetBootState() != BootState::Complete) {
 		truncate_cpy(dest, destSize, "Invalid");
 		return;
 	}
 
-	// We could use the vertex decoder and reader, but those already do some minor adjustments.
-	// There's only a few values - let's just go after them directly.
-	const u8 *vert = Memory::GetPointer(gpu->GetVertexAddress()) + row * decoder->size;
-	const u8 *pos = vert + decoder->posoff;
-	const u8 *tc = vert + decoder->tcoff;
-	const u8 *color = vert + decoder->coloff;
-	const u8 *norm = vert + decoder->nrmoff;
-
 	switch (col) {
-	case VERTEXLIST_COL_X:
-		FormatVertColRawType(dest, destSize, pos, decoder->pos, 0);
+	case VertexListDecodedCol::X: snprintf(dest, destSize, "%f", vert.x); break;
+	case VertexListDecodedCol::Y: snprintf(dest, destSize, "%f", vert.y); break;
+	case VertexListDecodedCol::Z: snprintf(dest, destSize, "%f", vert.z); break;
+	case VertexListDecodedCol::U: snprintf(dest, destSize, "%f", vert.u); break;
+	case VertexListDecodedCol::V: snprintf(dest, destSize, "%f", vert.v); break;
+	case VertexListDecodedCol::COLOR:
+		snprintf(dest, destSize, "%02x%02x%02x%02x", vert.c0[0], vert.c0[1], vert.c0[2], vert.c0[3]);
 		break;
-	case VERTEXLIST_COL_Y:
-		FormatVertColRawType(dest, destSize, pos, decoder->pos, 1);
-		break;
-	case VERTEXLIST_COL_Z:
-		FormatVertColRawType(dest, destSize, pos, decoder->pos, 2);
-		break;
-	case VERTEXLIST_COL_U:
-		FormatVertColRawType(dest, destSize, tc, decoder->tc, 0);
-		break;
-	case VERTEXLIST_COL_V:
-		FormatVertColRawType(dest, destSize, tc, decoder->tc, 1);
-		break;
-	case VERTEXLIST_COL_COLOR:
-		FormatVertColRawColor(dest, destSize, color, decoder->col);
-		break;
-
-	case VERTEXLIST_COL_NX: FormatVertColRawType(dest, destSize, norm, decoder->nrm, 0); break;
-	case VERTEXLIST_COL_NY: FormatVertColRawType(dest, destSize, norm, decoder->nrm, 1); break;
-	case VERTEXLIST_COL_NZ: FormatVertColRawType(dest, destSize, norm, decoder->nrm, 2); break;
-
+	case VertexListDecodedCol::NX: snprintf(dest, destSize, "%f", vert.nx); break;
+	case VertexListDecodedCol::NY: snprintf(dest, destSize, "%f", vert.ny); break;
+	case VertexListDecodedCol::NZ: snprintf(dest, destSize, "%f", vert.nz); break;
+	case VertexListDecodedCol::W0: snprintf(dest, destSize, "%f", vert.weights[0]); break;
+	case VertexListDecodedCol::W1: snprintf(dest, destSize, "%f", vert.weights[1]); break;
+	case VertexListDecodedCol::W2: snprintf(dest, destSize, "%f", vert.weights[2]); break;
+	case VertexListDecodedCol::W3: snprintf(dest, destSize, "%f", vert.weights[3]); break;
+	case VertexListDecodedCol::W4: snprintf(dest, destSize, "%f", vert.weights[4]); break;
+	case VertexListDecodedCol::W5: snprintf(dest, destSize, "%f", vert.weights[5]); break;
+	case VertexListDecodedCol::W6: snprintf(dest, destSize, "%f", vert.weights[6]); break;
+	case VertexListDecodedCol::W7: snprintf(dest, destSize, "%f", vert.weights[7]); break;
 	default:
 		truncate_cpy(dest, destSize, "Invalid");
 		break;
 	}
 }
-
-static void FormatVertColRawType(char *dest, size_t destSize, const void *data, int type, int offset) {
-	switch (type) {
-	case 0:
-		truncate_cpy(dest, destSize, "-");
-		break;
-
-	case 1: // 8-bit
-		snprintf(dest, destSize, "%02x", ((const u8 *)data)[offset]);
-		break;
-
-	case 2: // 16-bit
-		snprintf(dest, destSize, "%04x", ((const u16_le *)data)[offset]);
-		break;
-
-	case 3: // float
-		snprintf(dest, destSize, "%f", ((const float *)data)[offset]);
-		break;
-
-	default:
-		truncate_cpy(dest, destSize, "Invalid");
-		break;
-	}
-}
-
-static void FormatVertColRawColor(char *dest, size_t destSize, const void *data, int type) {
-	switch (type) {
-	case GE_VTYPE_COL_NONE >> GE_VTYPE_COL_SHIFT:
-		truncate_cpy(dest, destSize, "-");
-		break;
-
-	case GE_VTYPE_COL_565 >> GE_VTYPE_COL_SHIFT:
-	case GE_VTYPE_COL_5551 >> GE_VTYPE_COL_SHIFT:
-	case GE_VTYPE_COL_4444 >> GE_VTYPE_COL_SHIFT:
-		snprintf(dest, destSize, "%04x", *(const u16_le *)data);
-		break;
-
-	case GE_VTYPE_COL_8888 >> GE_VTYPE_COL_SHIFT:
-		snprintf(dest, destSize, "%08x", *(const u32_le *)data);
-		break;
-
-	default:
-		truncate_cpy(dest, destSize, "Invalid");
-		break;
-	}
-}
-
 
 static void SwapUVs(GPUDebugVertex &a, GPUDebugVertex &b) {
 	float tempu = a.u;

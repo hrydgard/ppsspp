@@ -1709,85 +1709,91 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 		return;
 	}
 
-	ImGui::Checkbox("Transformed", &cfg.vertexListTransformed);
-	ImGui::SameLine();
+	if (gstate.isModeThrough()) {
+		ImGui::BeginDisabled();
+	}
 	ImGui::Checkbox("Clipped", &cfg.vertexListClipped);
+	if (gstate.isModeThrough()) {
+		ImGui::EndDisabled();
+	}
 
 	const ImGuiTableFlags tableFlags =
 		ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
 
 	if (ImGui::BeginTabBar("vertexmode", ImGuiTabBarFlags_None)) {
 		auto state = gpuDebug->GetGState();
-		char fmtTemp[256];
-		FormatStateRow(fmtTemp, sizeof(fmtTemp), CMD_FMT_VERTEXTYPE, state.vertType, true, false, false);
-		ImGui::TextUnformatted(fmtTemp);
+		auto buildVertexTable = [&](bool transformed) {
+			// Let's see if it's fast enough to just do all this each frame.
+			GEPrimitiveType prim;
+			std::vector<GPUDebugVertex> vertices;
+			std::vector<u16> indices;
+			int indexOffset = 0;
 
-		// Let's see if it's fast enough to just do all this each frame.
-		GEPrimitiveType prim;
-		int rowCount_ = gpuDebug->GetCurrentPrimCount(&prim);
-		std::vector<GPUDebugVertex> vertices;
-		std::vector<u16> indices;
-		int previewIndexOffset_ = 0;
+			DebugVertexFlags flags{};
+			if (transformed) {
+				flags |= DebugVertexFlags::Transformed | DebugVertexFlags::DrawCoords;
+			}
+			if (cfg.vertexListClipped && !gstate.isModeThrough()) {
+				flags |= DebugVertexFlags::Clipped;
+			}
 
-		DebugVertexFlags flags{};
-		if (cfg.vertexListTransformed) {
-			flags |= DebugVertexFlags::Transformed;
-		}
-		if (cfg.vertexListClipped) {
-			flags |= DebugVertexFlags::Clipped;
-		}
+			int inputVertexCount = gpuDebug->GetCurrentPrimCount(&prim);
 
-		// This performs software transform, if transformed is checked. We might want to cache it? Although, it's only for a single draw...
-		TransformStats stats;
-		if (!gpuDebug->GetCurrentDrawAsDebugVertices(prim, &prim, rowCount_, vertices, indices, &previewIndexOffset_, &stats, flags)) {
-			rowCount_ = 0;
-		}
-		auto buildVertexTable = [&](bool raw) {
-			// Ignore indices for now.
-			if (ImGui::BeginTable("rawverts", VERTEXLIST_COL_COUNT + 1, tableFlags)) {
-				static VertexDecoder decoder;
-				u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);
-				VertexDecoderOptions options{};
-				decoder.SetVertexType(vertTypeID, options);
+			// This performs software transform, if transformed is checked. We might want to cache it? Although, it's only for a single draw...
+			TransformStats stats;
+			if (!gpuDebug->GetCurrentDrawAsDebugVertices(prim, &prim, inputVertexCount, vertices, indices, &indexOffset, &stats, flags)) {
+				inputVertexCount = 0;
+			}
 
-				static const char * const colNames[] = {
-					"Index",
-					"X",
-					"Y",
-					"Z",
-					"W",
-					"U",
-					"V",
-					"Color",
-					"NX",
-					"NY",
-					"NZ",
-					"Fog",
-				};
-				for (int i = 0; i < ARRAY_SIZE(colNames); i++) {
-					ImGui::TableSetupColumn(colNames[i], ImGuiTableColumnFlags_WidthFixed, 0.0f, i);
+			const int rowCount = indices.empty() ? (int)vertices.size() : (int)indices.size();
+
+			char statusLine[256];
+			StringWriter w(statusLine);
+			w.F("%s: ", GePrimTypeToString(prim));
+			char fmtTemp[256];
+			FormatStateRow(fmtTemp, sizeof(fmtTemp), CMD_FMT_VERTEXTYPE, state.vertType, true, false, false);
+			w.F("%s", fmtTemp);
+			if (gstate.isModeClear()) {
+				w.C(" (clearmode)");
+			}
+			ImGui::TextUnformatted(w.begin(), w.end());
+
+			if (transformed) {
+				ImGui::Text("Culled far: %d near: %d Clipped: %d", stats.culledTrianglesFar, stats.culledTrianglesNear, stats.clippedTriangles);
+			}
+
+			const int colCount = transformed ? (int)VertexListTransformedCol::COUNT : (int)VertexListDecodedCol::COUNT;
+
+			// + 1 for the index column.
+			if (ImGui::BeginTable("rawverts", colCount + 1, tableFlags)) {
+				const char *const *colNames = transformed ? g_vertexListTransformedColNames : g_vertexListDecodedColNames;
+
+				ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed, 0.0f, 0);
+				for (int i = 0; i < colCount; i++) {
+					ImGui::TableSetupColumn(colNames[i], ImGuiTableColumnFlags_WidthFixed, 0.0f, i + 1);
 				}
 				ImGui::TableSetupScrollFreeze(0, 1); // Make header row always visible
 				ImGui::TableHeadersRow();
 
 				ImGuiListClipper clipper;
-				_dbg_assert_(rowCount_ >= 0);
-				clipper.Begin(rowCount_);
+				_dbg_assert_(rowCount >= 0);
+				clipper.Begin(rowCount);
 				while (clipper.Step()) {
 					for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
-						int index = indices.empty() ? i : indices[i];
+						int index = indices.empty() ? i : (indices[i] - indexOffset);
+						ImGui::PushID(i);
+
 						ImGui::TableNextRow();
 						ImGui::TableNextColumn();
 
-						ImGui::PushID(i);
 						ImGui::Text("%d", index);
-						for (int column = 0; column < VERTEXLIST_COL_COUNT; column++) {
+						for (int column = 0; column < colCount; column++) {
 							ImGui::TableNextColumn();
 							char temp[36];
-							if (raw) {
-								FormatVertColRaw(&decoder, temp, sizeof(temp), index, column);
+							if (transformed) {
+								FormatVertColTransformed(temp, sizeof(temp), vertices[index], (VertexListTransformedCol)column);
 							} else {
-								FormatVertCol(temp, sizeof(temp), vertices[index], column);
+								FormatVertColDecoded(temp, sizeof(temp), vertices[index], (VertexListDecodedCol)column);
 							}
 							ImGui::TextUnformatted(temp);
 						}
@@ -1800,13 +1806,12 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 			}
 		};
 
-		if (ImGui::BeginTabItem("Raw")) {
-			buildVertexTable(true);
+		if (ImGui::BeginTabItem("Decoded")) {
+			buildVertexTable(false);
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Transformed")) {
-			ImGui::Text("Culled far: %d near: %d Clipped: %d", stats.culledTrianglesFar, stats.culledTrianglesNear, stats.clippedTriangles);
-			buildVertexTable(false);
+			buildVertexTable(true);
 			ImGui::EndTabItem();
 		}
 		// TODO: Let's not include columns for which we have no data.

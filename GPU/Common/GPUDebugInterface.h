@@ -202,7 +202,7 @@ private:
 	int scaleFactor_ = 0;
 };
 
-// TODO: Replace with TransformedVertex?
+// This is used to represent both pre- and post transformed vertices, so is a bit of a mess.
 struct GPUDebugVertex {
 	float u;
 	float v;
@@ -213,8 +213,12 @@ struct GPUDebugVertex {
 	float w;
 
 	union {
-		u8 c[4];
+		u8 c0[4];
 		u32 color0_32;
+	};
+	union {
+		u8 c1[4];
+		u32 color1_32;
 	};
 
 	float fog;
@@ -222,11 +226,14 @@ struct GPUDebugVertex {
 	float nx;
 	float ny;
 	float nz;
+
+	float weights[8];
 };
 
 enum class DebugVertexFlags {
 	Transformed = 1 << 0,
 	Clipped = 1 << 1,
+	DrawCoords = 1 << 2,  // if not set, output X/Y will be in screen coords.
 };
 ENUM_CLASS_BITOPS(DebugVertexFlags);
 

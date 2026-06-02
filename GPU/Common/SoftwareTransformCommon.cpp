@@ -1325,7 +1325,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	}
 
 	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
-	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
+	const bool throughMode = (vertTypeID & GE_VTYPE_THROUGH) != 0;
 
 	// Points is the only primitive that generates 6x as many vertices as input indices (2 triangles per point).
 	std::vector<u16> indexTemp;
@@ -1363,7 +1363,10 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	LoadUVScaleOffsetVec(gstate).Store(&uvScale.uScale);
 
 	const u8 *startPos = verts + indexLowerBound * dec->VertexSize();
+
+	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
 	dec->DecodeVerts(vertsTemp.data(), startPos, &uvScale, verticesToDecode);
+	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 
 	int numDecodedVerts = verticesToDecode;
 	u16 *inds = indexTemp.data();
@@ -1384,6 +1387,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 		for (int i = 0; i < verticesToDecode; i++) {
 			reader.Goto(i);
 			GPUDebugVertex &sv = debugVertices[i];
+			sv = {};
 			if (vertTypeID & GE_VTYPE_TC_MASK) {
 				reader.ReadUV(&sv.u);
 			} else {
@@ -1393,7 +1397,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 			if (vertTypeID & GE_VTYPE_COL_MASK) {
 				sv.color0_32 = reader.ReadColor0_8888();
 			} else {
-				memcpy(sv.c, defaultColor, 4);
+				memcpy(sv.c0, defaultColor, 4);
 			}
 
 			if (vertTypeID & GE_VTYPE_NRM_MASK) {
@@ -1403,6 +1407,11 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 				sv.ny = 0.0f;
 				sv.nz = 1.0f;
 			}
+
+			if (vertTypeID & GE_VTYPE_WEIGHT_MASK) {
+				reader.ReadWeights(sv.weights);
+			}
+
 			reader.ReadPosAuto((float *)&sv.x);
 		}
 
@@ -1470,7 +1479,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	params.transformed = transformed.data();
 	params.transformedExpanded = transformedExpanded.data();
 
-	RunSoftwareTransform(params, prim, verticesToDecode, dec->GetDecVtxFmt(), numDecodedVerts, 65536, generatedIndices, inds, (int)indexTemp.size(), &result);
+	RunSoftwareTransform(params, prim, vertTypeID, dec->GetDecVtxFmt(), numDecodedVerts, 65536, generatedIndices, inds, (int)indexTemp.size(), &result);
 
 	// Output of software transform is always triangles.
 	prim = GE_PRIM_TRIANGLES;
@@ -1486,22 +1495,31 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	debugIndices.resize(result.drawIndexCount);
 	memcpy(debugIndices.data(), inds, result.drawIndexCount * sizeof(u16));
 
+
+	const bool applyOffset = (flags & DebugVertexFlags::DrawCoords) && !throughMode;
+	const float offsetX = applyOffset ? -gstate.getOffsetX() : 0.0f;
+	const float offsetY = applyOffset ? -gstate.getOffsetY() : 0.0f;
+
 	// Convert the transformed vertices to the debug vertex format.
 	debugVertices.resize(result.drawVertexCount);
 	for (int i = 0; i < result.drawVertexCount; i++) {
 		const TransformedVertex &vtx = result.drawBuffer[i];
 		GPUDebugVertex &dv = debugVertices[i];
-		dv.x = vtx.x;
-		dv.y = vtx.y;
+		dv.x = vtx.x + offsetX;
+		dv.y = vtx.y + offsetY;
 		dv.z = vtx.z;
 		dv.w = vtx.pos_w;
 		dv.u = vtx.u;
 		dv.v = vtx.v;
 		dv.fog = vtx.fog;
-		dv.c[0] = (vtx.color0_32 >> 24) & 0xFF;
-		dv.c[1] = (vtx.color0_32 >> 16) & 0xFF;
-		dv.c[2] = (vtx.color0_32 >> 8) & 0xFF;
-		dv.c[3] = vtx.color0_32 & 0xFF;
+		dv.c0[0] = (vtx.color0_32 >> 24) & 0xFF;
+		dv.c0[1] = (vtx.color0_32 >> 16) & 0xFF;
+		dv.c0[2] = (vtx.color0_32 >> 8) & 0xFF;
+		dv.c0[3] = vtx.color0_32 & 0xFF;
+		dv.c1[0] = (vtx.color1_32 >> 24) & 0xFF;
+		dv.c1[1] = (vtx.color1_32 >> 16) & 0xFF;
+		dv.c1[2] = (vtx.color1_32 >> 8) & 0xFF;
+		dv.c1[3] = vtx.color1_32 & 0xFF;
 	}
 	*outPrim = prim;
 	return true;

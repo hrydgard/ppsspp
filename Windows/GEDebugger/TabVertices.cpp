@@ -138,19 +138,18 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, size_t destSize, int row, int 
 			swprintf(dest, destSize, L"Invalid index %d", row);
 			return;
 		}
-		row = indices[row];
+		row = indices[row - previewIndexOffset_];
 	}
 
 	char temp[256];
 	if (raw_) {
-		FormatVertColRaw(decoder, temp, sizeof(temp), row, col);
+		FormatVertColDecoded(temp, sizeof(temp), vertices[row], (VertexListDecodedCol)col);
 	} else {
 		if (row >= (int)vertices.size()) {
 			swprintf(dest, destSize, L"Invalid vertex %d", row);
 			return;
 		}
-
-		FormatVertCol(temp, sizeof(temp), vertices[row], col);
+		FormatVertColTransformed(temp, sizeof(temp), vertices[row], (VertexListTransformedCol)col);
 	}
 	ConvertUTF8ToWString(dest, destSize, temp);
 }

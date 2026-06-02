@@ -1016,9 +1016,9 @@ bool TransformUnit::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebu
 		}
 
 		if (gstate.vertType & GE_VTYPE_COL_MASK) {
-			memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
+			memcpy(vertices[i].c0, vert.color, sizeof(vertices[i].c0));
 		} else {
-			memset(vertices[i].c, 0, sizeof(vertices[i].c));
+			memset(vertices[i].c0, 0, sizeof(vertices[i].c0));
 		}
 		vertices[i].nx = vert.nrm.x;
 		vertices[i].ny = vert.nrm.y;

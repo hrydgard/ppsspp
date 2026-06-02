@@ -121,7 +121,6 @@ struct ImConfig {
 	int requesterToken;
 
 	bool sasShowAllVoices = false;
-	bool vertexListTransformed = false;
 	bool vertexListClipped = false;
 
 	float fbViewerZoom = 1.0f;
