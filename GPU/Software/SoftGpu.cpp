@@ -1440,15 +1440,6 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return true;
 }
 
-bool SoftGPU::GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const {
-	gstate_c.UpdateUVScaleOffset();
-
-	// We just pad out the vertex array here.
-	*lowerIndexBound = 0;
-	*outPrim = prim;
-	return drawEngine_->transformUnit.GetCurrentDrawAsDebugVertices(count, vertices, indices, flags);
-}
-
 bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	std::string subname;
 	if (Sampler::DescribeCodePtr(ptr, subname)) {

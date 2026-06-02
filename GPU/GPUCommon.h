@@ -75,7 +75,7 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) { return false; }
 
 	bool GetCurrentDisplayList(DisplayList &list) const;
-	virtual bool GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const;
+	bool GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const;
 	int GetCurrentPrimCount(GEPrimitiveType *prim) const;
 
 	// FinishInitOnMainThread runs on the main thread, of course.

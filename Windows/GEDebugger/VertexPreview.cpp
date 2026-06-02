@@ -231,9 +231,9 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		}
 
 		if (indices.empty()) {
-			glDrawArrays(glprim[prim], 0, vertices.size());
+			glDrawArrays(glprim[prim], 0, (GLsizei)vertices.size());
 		} else {
-			glDrawElements(glprim[prim], indices.size(), GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
+			glDrawElements(glprim[prim], (GLsizei)indices.size(), GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
 		}
 
 		if (texPreviewVao == 0) {
