@@ -744,9 +744,6 @@ BootState PollBootState() {
 }
 
 void PSP_Shutdown(bool success) {
-	// Reduce the risk for weird races with the Windows GE debugger.
-	gpu = nullptr;
-
 	// Do nothing if we never inited.
 	if (g_bootState == BootState::Off) {
 		ERROR_LOG(Log::Loader, "Unexpected PSP_Shutdown");
