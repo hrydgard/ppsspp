@@ -595,6 +595,8 @@ enum GEPrimitiveType : int8_t {
 	GE_PRIM_INVALID = -1,
 };
 
+const char *GePrimTypeToString(GEPrimitiveType prim);
+
 enum GELogicOp : uint8_t {
 	GE_LOGIC_CLEAR = 0,
 	GE_LOGIC_AND = 1,

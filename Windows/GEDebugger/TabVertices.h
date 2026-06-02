@@ -43,6 +43,7 @@ private:
 	std::vector<GPUDebugVertex> vertices;
 	std::vector<u16> indices;
 	int rowCount_;
+	int previewIndexOffset_;
 	bool raw_;
 	VertexDecoder *decoder;
 };

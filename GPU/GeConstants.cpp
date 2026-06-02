@@ -1,5 +1,22 @@
 #include "GPU/ge_constants.h"
 
+const char *GePrimTypeToString(GEPrimitiveType prim) {
+	static constexpr const char * primTypes[8] = {
+		"POINTS",
+		"LINES",
+		"LINE_STRIP",
+		"TRI_LIST",
+		"TRI_STRIP",
+		"TRI_FAN",
+		"RECTS",
+		"CONTINUE_PREV",
+	};
+	const int p = static_cast<int>(prim);
+	if (p < 0 || p >= 8)
+		return "INVALID";
+	return primTypes[p];
+}
+
 const char *GeBufferFormatToString(GEBufferFormat fmt) {
 	switch (fmt) {
 	case GE_FORMAT_4444: return "4444";

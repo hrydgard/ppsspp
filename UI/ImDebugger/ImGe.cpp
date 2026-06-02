@@ -10,6 +10,7 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
@@ -889,88 +890,110 @@ static const char *DLStateToString(DisplayListState state) {
 	}
 }
 
-static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int count, bool uvToPos, float sx = 1.0f, float sy = 1.0f) {
-	if (count) {
-		auto x = [sx, uvToPos](const GPUDebugVertex &vert) {
-			return sx * (uvToPos ? vert.u : vert.x);
-		};
-		auto y = [sy, uvToPos](const GPUDebugVertex &vert) {
-			return sy * (uvToPos ? vert.v : vert.y);
-		};
+// TODO: Backport this to the Win32 debugger (ugh).
+static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int indexOffset, bool transformed, bool uvToPos, float sx, float sy) {
+	// These wrappers are to either draw using the positions or the UV coordinates.
+	auto x = [sx, uvToPos](const GPUDebugVertex &vert) {
+		return sx * (uvToPos ? vert.u : vert.x);
+	};
+	auto y = [sy, uvToPos](const GPUDebugVertex &vert) {
+		return sy * (uvToPos ? vert.v : vert.y);
+	};
 
-		// TODO: Maybe not the best idea to use the heavy AddTriangleFilled API instead of just adding raw triangles.
-		switch (prim) {
-		case GE_PRIM_TRIANGLES:
-		case GE_PRIM_RECTANGLES:
-		{
-			for (int i = 0; i < count - 2; i += 3) {
-				const auto &v1 = indices.empty() ? verts[i] : verts[indices[i]];
-				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
-				const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[i + 2]];
-				drawList->AddTriangleFilled(
-					ImVec2(p0.x + x(v1), p0.y + y(v1)),
-					ImVec2(p0.x + x(v2), p0.y + y(v2)),
-					ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(0x600000FF));
-			}
-			break;
+	// TODO: Maybe not the best idea to use the heavy AddTriangleFilled API instead of just adding raw triangles.
+		
+	// TODO: If vertices are transformed, we can look for clipped triangles (by checking if any point equals w=-z)
+	// and color them differently.
+
+	// TODO: If untransformed, we can apply a transformation here so we can let the user spin around the untransformed mesh data
+	// if desired.
+
+	constexpr u32 defaultColor = 0x600000FF;
+	constexpr u32 clippedColor = 0x60FF0000;
+
+	int count = indices.empty() ? (int)verts.size() : (int)indices.size();
+
+	switch (prim) {
+	case GE_PRIM_TRIANGLES:
+	{
+		for (int i = 0; i < count - 2; i += 3) {
+			const auto &v1 = indices.empty() ? verts[i + 0] : verts[indices[indexOffset + i + 0]];
+			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
+			drawList->AddTriangleFilled(
+				ImVec2(p0.x + x(v1), p0.y + y(v1)),
+				ImVec2(p0.x + x(v2), p0.y + y(v2)),
+				ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(defaultColor));
 		}
-		case GE_PRIM_TRIANGLE_FAN:
-		{
-			for (int i = 0; i < count - 2; i++) {
-				const auto &v1 = indices.empty() ? verts[0] : verts[indices[0]];
-				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
-				const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[i + 2]];
-				drawList->AddTriangleFilled(
-					ImVec2(p0.x + x(v1), p0.y + y(v1)),
-					ImVec2(p0.x + x(v2), p0.y + y(v2)),
-					ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(0x600000FF));
-			}
-			break;
+		break;
+	}
+	case GE_PRIM_RECTANGLES:
+	{
+		for (int i = 0; i < count - 2; i += 3) {
+			const auto &tl = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
+			const auto &br = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			drawList->AddRectFilled(
+				ImVec2(p0.x + x(tl), p0.y + y(tl)),
+				ImVec2(p0.x + x(br), p0.y + y(br)), ImColor(defaultColor));
 		}
-		case GE_PRIM_TRIANGLE_STRIP:
-		{
-			int t = 2;
-			for (int i = 0; i < count - 2; i++) {
-				int i0 = i;
-				int i1 = i + t;
-				int i2 = i + (t ^ 3);
-				const auto &v1 = indices.empty() ? verts[i0] : verts[indices[i0]];
-				const auto &v2 = indices.empty() ? verts[i1] : verts[indices[i1]];
-				const auto &v3 = indices.empty() ? verts[i2] : verts[indices[i2]];
-				drawList->AddTriangleFilled(
-					ImVec2(p0.x + x(v1), p0.y + y(v1)),
-					ImVec2(p0.x + x(v2), p0.y + y(v2)),
-					ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(0x600000FF));
-				t ^= 3;
-			}
-			break;
+		break;
+	}
+	case GE_PRIM_TRIANGLE_FAN:
+	{
+		for (int i = 0; i < count - 2; i++) {
+			const auto &v1 = indices.empty() ? verts[0] : verts[indices[indexOffset + 0]];
+			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
+			drawList->AddTriangleFilled(
+				ImVec2(p0.x + x(v1), p0.y + y(v1)),
+				ImVec2(p0.x + x(v2), p0.y + y(v2)),
+				ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(defaultColor));
 		}
-		case GE_PRIM_LINES:
-		{
-			for (int i = 0; i < count - 1; i += 2) {
-				const auto &v1 = indices.empty() ? verts[i] : verts[indices[i]];
-				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
-				drawList->AddLine(
-					ImVec2(p0.x + x(v1), p0.y + y(v1)),
-					ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(0x600000FF));
-			}
-			break;
+		break;
+	}
+	case GE_PRIM_TRIANGLE_STRIP:
+	{
+		int t = 2;
+		for (int i = 0; i < count - 2; i++) {
+			int i0 = i;
+			int i1 = i + t;
+			int i2 = i + (t ^ 3);
+			const auto &v1 = indices.empty() ? verts[i0] : verts[indices[indexOffset + i0]];
+			const auto &v2 = indices.empty() ? verts[i1] : verts[indices[indexOffset + i1]];
+			const auto &v3 = indices.empty() ? verts[i2] : verts[indices[indexOffset + i2]];
+			drawList->AddTriangleFilled(
+				ImVec2(p0.x + x(v1), p0.y + y(v1)),
+				ImVec2(p0.x + x(v2), p0.y + y(v2)),
+				ImVec2(p0.x + x(v3), p0.y + y(v3)), ImColor(defaultColor));
+			t ^= 3;
 		}
-		case GE_PRIM_LINE_STRIP:
-		{
-			for (int i = 0; i < count - 2; i++) {
-				const auto &v1 = indices.empty() ? verts[i] : verts[indices[i]];
-				const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[i + 1]];
-				drawList->AddLine(
-					ImVec2(p0.x + x(v1), p0.y + y(v1)),
-					ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(0x600000FF));
-			}
-			break;
+		break;
+	}
+	case GE_PRIM_LINES:
+	{
+		for (int i = 0; i < count - 1; i += 2) {
+			const auto &v1 = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
+			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			drawList->AddLine(
+				ImVec2(p0.x + x(v1), p0.y + y(v1)),
+				ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(defaultColor));
 		}
-		default:
-			// TODO: Support lines etc.
-			break;
+		break;
+	}
+	case GE_PRIM_LINE_STRIP:
+	{
+		for (int i = 0; i < count - 2; i++) {
+			const auto &v1 = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
+			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			drawList->AddLine(
+				ImVec2(p0.x + x(v1), p0.y + y(v1)),
+				ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(defaultColor));
 		}
+		break;
+	}
+	default:
+		// TODO: Support lines etc.
+		break;
 	}
 }
 
@@ -1197,7 +1220,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 		case GE_CMD_PRIM:
 			isOnPrim = true;
 			if (reloadPreview_) {
-				GetPrimPreview(op, previewPrim_, previewVertices_, previewIndices_, previewCount_);
+				GetPrimPreview(op, previewPrim_, previewVertices_, previewIndices_, &previewIndexOffset_, previewTransformed_);
 				reloadPreview_ = false;
 			}
 			break;
@@ -1206,7 +1229,10 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			break;
 		default:
 			// Disable the current preview.
-			previewCount_ = 0;
+			previewVertices_.clear();
+			previewIndices_.clear();
+			previewIndexOffset_ = 0;
+			previewTransformed_ = true;
 			break;
 		}
 
@@ -1291,7 +1317,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			}
 
 			// Draw vertex preview on top!
-			DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, false, scale * previewZoom_, scale * previewZoom_);
+			if (!previewVertices_.empty()) {
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, false, scale * previewZoom_, scale * previewZoom_);
+			}
 
 			drawList->PopClipRect();
 
@@ -1340,7 +1368,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 					drawList->PushClipRect(p0, p1, true);
 
 					ImGui::Image(texId, ImVec2(texW, texH));
-					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewCount_, true, texW, texH);
+
+					// Show the preview as texcoords. TODO: We should probably use unclipped data here?
+					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, true, texW, texH);
 
 					drawList->PopClipRect();
 
@@ -1604,11 +1634,11 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebu
 								ImGui::SameLine();
 								ImGui::Text("w=%d", otherValue & 0xFFFF);
 							} else {
-								FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, true, otherValue, gstate.cmdmem[info.otherCmd2]);
+								FormatStateRow(temp, sizeof(temp), info.fmt, value, true, otherValue, gstate.cmdmem[info.otherCmd2]);
 								ImGui::TextUnformatted(temp);
 							}
 							if (diff && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
-								FormatStateRow(gpuDebug, temp2, sizeof(temp2), info.fmt, lastState.cmdmem[info.cmd], true, lastState.cmdmem[info.otherCmd], lastState.cmdmem[info.otherCmd2]);
+								FormatStateRow(temp2, sizeof(temp2), info.fmt, lastState.cmdmem[info.cmd], true, lastState.cmdmem[info.otherCmd], lastState.cmdmem[info.otherCmd2]);
 								ImGui::SetTooltip("Previous: %s", temp2);
 							}
 						}
@@ -1681,64 +1711,92 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 		ImGui::End();
 		return;
 	}
+
+	if (gstate.isModeThrough()) {
+		ImGui::BeginDisabled();
+	}
+	ImGui::Checkbox("Clipped", &cfg.vertexListClipped);
+	if (gstate.isModeThrough()) {
+		ImGui::EndDisabled();
+	}
+
 	const ImGuiTableFlags tableFlags =
 		ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
+
 	if (ImGui::BeginTabBar("vertexmode", ImGuiTabBarFlags_None)) {
 		auto state = gpuDebug->GetGState();
-		char fmtTemp[256];
-		FormatStateRow(gpuDebug, fmtTemp, sizeof(fmtTemp), CMD_FMT_VERTEXTYPE, state.vertType, true, false, false);
-		ImGui::TextUnformatted(fmtTemp);
-		// Let's see if it's fast enough to just do all this each frame.
-		int rowCount_ = gpuDebug->GetCurrentPrimCount();
-		std::vector<GPUDebugVertex> vertices;
-		std::vector<u16> indices;
-		if (!gpuDebug->GetCurrentDrawAsDebugVertices(rowCount_, vertices, indices)) {
-			rowCount_ = 0;
-		}
-		auto buildVertexTable = [&](bool raw) {
-			// Ignore indices for now.
-			if (ImGui::BeginTable("rawverts", VERTEXLIST_COL_COUNT + 1, tableFlags)) {
-				static VertexDecoder decoder;
-				u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);
-				VertexDecoderOptions options{};
-				decoder.SetVertexType(vertTypeID, options);
+		auto buildVertexTable = [&](bool transformed) {
+			// Let's see if it's fast enough to just do all this each frame.
+			GEPrimitiveType prim;
+			std::vector<GPUDebugVertex> vertices;
+			std::vector<u16> indices;
+			int indexOffset = 0;
 
-				static const char * const colNames[] = {
-					"Index",
-					"X",
-					"Y",
-					"Z",
-					"U",
-					"V",
-					"Color",
-					"NX",
-					"NY",
-					"NZ",
-				};
-				for (int i = 0; i < ARRAY_SIZE(colNames); i++) {
-					ImGui::TableSetupColumn(colNames[i], ImGuiTableColumnFlags_WidthFixed, 0.0f, i);
+			DebugVertexFlags flags{};
+			if (transformed) {
+				flags |= DebugVertexFlags::Transformed | DebugVertexFlags::DrawCoords;
+			}
+			if (cfg.vertexListClipped && !gstate.isModeThrough()) {
+				flags |= DebugVertexFlags::Clipped;
+			}
+
+			int inputVertexCount = gpuDebug->GetCurrentPrimCount(&prim);
+
+			// This performs software transform, if transformed is checked. We might want to cache it? Although, it's only for a single draw...
+			TransformStats stats;
+			if (!gpuDebug->GetCurrentDrawAsDebugVertices(prim, &prim, inputVertexCount, vertices, indices, &indexOffset, &stats, flags)) {
+				inputVertexCount = 0;
+			}
+
+			const int rowCount = indices.empty() ? (int)vertices.size() : (int)indices.size();
+
+			char statusLine[256];
+			StringWriter w(statusLine);
+			w.F("%s: ", GePrimTypeToString(prim));
+			char fmtTemp[256];
+			FormatStateRow(fmtTemp, sizeof(fmtTemp), CMD_FMT_VERTEXTYPE, state.vertType, true, false, false);
+			w.F("%s", fmtTemp);
+			if (gstate.isModeClear()) {
+				w.C(" (clearmode)");
+			}
+			ImGui::TextUnformatted(w.begin(), w.end());
+
+			if (transformed) {
+				ImGui::Text("Culled far: %d near: %d Clipped: %d", stats.culledTrianglesFar, stats.culledTrianglesNear, stats.clippedTriangles);
+			}
+
+			const int colCount = transformed ? (int)VertexListTransformedCol::COUNT : (int)VertexListDecodedCol::COUNT;
+
+			// + 1 for the index column.
+			if (ImGui::BeginTable("rawverts", colCount + 1, tableFlags)) {
+				const char *const *colNames = transformed ? g_vertexListTransformedColNames : g_vertexListDecodedColNames;
+
+				ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed, 0.0f, 0);
+				for (int i = 0; i < colCount; i++) {
+					ImGui::TableSetupColumn(colNames[i], ImGuiTableColumnFlags_WidthFixed, 0.0f, i + 1);
 				}
 				ImGui::TableSetupScrollFreeze(0, 1); // Make header row always visible
 				ImGui::TableHeadersRow();
 
 				ImGuiListClipper clipper;
-				_dbg_assert_(rowCount_ >= 0);
-				clipper.Begin(rowCount_);
+				_dbg_assert_(rowCount >= 0);
+				clipper.Begin(rowCount);
 				while (clipper.Step()) {
 					for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
-						int index = indices.empty() ? i : indices[i];
+						int index = indices.empty() ? i : (indices[i] - indexOffset);
+						ImGui::PushID(i);
+
 						ImGui::TableNextRow();
 						ImGui::TableNextColumn();
 
-						ImGui::PushID(i);
 						ImGui::Text("%d", index);
-						for (int column = 0; column < VERTEXLIST_COL_COUNT; column++) {
+						for (int column = 0; column < colCount; column++) {
 							ImGui::TableNextColumn();
 							char temp[36];
-							if (raw) {
-								FormatVertColRaw(&decoder, temp, sizeof(temp), index, column);
+							if (transformed) {
+								FormatVertColTransformed(temp, sizeof(temp), vertices[index], (VertexListTransformedCol)column);
 							} else {
-								FormatVertCol(temp, sizeof(temp), vertices[index], column);
+								FormatVertColDecoded(temp, sizeof(temp), vertices[index], (VertexListDecodedCol)column);
 							}
 							ImGui::TextUnformatted(temp);
 						}
@@ -1751,12 +1809,12 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 			}
 		};
 
-		if (ImGui::BeginTabItem("Raw")) {
-			buildVertexTable(true);
+		if (ImGui::BeginTabItem("Decoded")) {
+			buildVertexTable(false);
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Transformed")) {
-			buildVertexTable(false);
+			buildVertexTable(true);
 			ImGui::EndTabItem();
 		}
 		// TODO: Let's not include columns for which we have no data.

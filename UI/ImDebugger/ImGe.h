@@ -161,7 +161,8 @@ private:
 	GEPrimitiveType previewPrim_ = GEPrimitiveType::GE_PRIM_TRIANGLES;
 	std::vector<u16> previewIndices_;
 	std::vector<GPUDebugVertex> previewVertices_;
-	int previewCount_ = 0;
+	int previewIndexOffset_ = 0;
+	bool previewTransformed_ = true;
 	Draw::Aspect selectedAspect_;
 	float previewZoom_ = 1.0f;
 };

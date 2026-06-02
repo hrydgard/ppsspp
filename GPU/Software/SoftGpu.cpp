@@ -1440,11 +1440,6 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return true;
 }
 
-bool SoftGPU::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	gstate_c.UpdateUVScaleOffset();
-	return drawEngine_->transformUnit.GetCurrentDrawAsDebugVertices(count, vertices, indices);
-}
-
 bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	std::string subname;
 	if (Sampler::DescribeCodePtr(ptr, subname)) {
