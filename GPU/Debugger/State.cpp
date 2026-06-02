@@ -838,7 +838,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 
 	prim = static_cast<GEPrimitiveType>(prim_type);
 
-	DebugVertexFlags flags{};
+	DebugVertexFlags flags = DebugVertexFlags::DrawCoords;
 	if (cmd == GE_CMD_PRIM) {
 		flags |= DebugVertexFlags::Clipped;
 		if (transformed) {

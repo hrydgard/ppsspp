@@ -27,6 +27,7 @@
 #include "Windows/GEDebugger/TabVertices.h"
 #include "Windows/W32Util/ContextMenu.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPUCommon.h"
@@ -34,21 +35,51 @@
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/Debugger/State.h"
 
-static const GenericListViewColumn vertexListCols[] = {
+// TODO: We can't (easily) make the cols dynamic like in imgui, so we'll just show them all. Ugh.
+static const GenericListViewColumn g_vertexListCols[] = {
 	{ L"X", 0.1f },
 	{ L"Y", 0.1f },
 	{ L"Z", 0.1f },
+	{ L"W", 0.1f },
 	{ L"U", 0.1f },
 	{ L"V", 0.1f },
-	{ L"Color", 0.1f },
+	{ L"Color0", 0.1f },
+	{ L"Color1", 0.1f },
 	{ L"NX", 0.1f },
 	{ L"NY", 0.1f },
 	{ L"NZ", 0.1f },
-	// TODO: weight, morph?
+	// TODO: weights
 };
 
-GenericListViewDef vertexListDef = {
-	vertexListCols,	ARRAY_SIZE(vertexListCols),	NULL,	false
+static const VertexListTransformedCol g_transformedCols[] = {
+	VertexListTransformedCol::X,
+	VertexListTransformedCol::Y,
+	VertexListTransformedCol::Z,
+	VertexListTransformedCol::W,
+	VertexListTransformedCol::U,
+	VertexListTransformedCol::V,
+	VertexListTransformedCol::COLOR0,
+	VertexListTransformedCol::COUNT,  // it's missing so use COUNT as a marker.
+	VertexListTransformedCol::COUNT,
+	VertexListTransformedCol::COUNT,
+};
+
+static const VertexListDecodedCol g_decodedCols[] = {
+	VertexListDecodedCol::X,
+	VertexListDecodedCol::Y,
+	VertexListDecodedCol::Z,
+	VertexListDecodedCol::COUNT,
+	VertexListDecodedCol::U,
+	VertexListDecodedCol::V,
+	VertexListDecodedCol::COLOR,
+	VertexListDecodedCol::COUNT,
+	VertexListDecodedCol::NX,
+	VertexListDecodedCol::NY,
+	VertexListDecodedCol::NZ,
+};
+
+static const GenericListViewDef vertexListDef = {
+	g_vertexListCols, ARRAY_SIZE(g_vertexListCols), NULL, false
 };
 
 static const GenericListViewColumn matrixListCols[] = {
@@ -60,8 +91,8 @@ static const GenericListViewColumn matrixListCols[] = {
 	{ L"3", 0.19f },
 };
 
-GenericListViewDef matrixListDef = {
-	matrixListCols,	ARRAY_SIZE(matrixListCols),	NULL,	false
+static const GenericListViewDef matrixListDef = {
+	matrixListCols, ARRAY_SIZE(matrixListCols), NULL, false
 };
 
 enum MatrixListCols {
@@ -143,13 +174,13 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, size_t destSize, int row, int 
 
 	char temp[256];
 	if (raw_) {
-		FormatVertColDecoded(temp, sizeof(temp), vertices[row], (VertexListDecodedCol)col);
+		FormatVertColDecoded(temp, sizeof(temp), vertices[row], g_decodedCols[col]);
 	} else {
 		if (row >= (int)vertices.size()) {
 			swprintf(dest, destSize, L"Invalid vertex %d", row);
 			return;
 		}
-		FormatVertColTransformed(temp, sizeof(temp), vertices[row], (VertexListTransformedCol)col);
+		FormatVertColTransformed(temp, sizeof(temp), vertices[row], g_transformedCols[col]);
 	}
 	ConvertUTF8ToWString(dest, destSize, temp);
 }
@@ -171,9 +202,29 @@ int CtrlVertexList::GetRowCount() {
 	GEPrimitiveType prim;
 	rowCount_ = gpu->GetCurrentPrimCount(&prim);
 
-	if (!gpu->GetCurrentDrawAsDebugVertices(prim, &prim, rowCount_, vertices, indices, &previewIndexOffset_, nullptr, DebugVertexFlags::Transformed)) {
+	previewIndexOffset_ = 0;
+
+	DebugVertexFlags flags = DebugVertexFlags::DrawCoords;
+	if (!raw_) {
+		flags |= DebugVertexFlags::Transformed;
+		if (!gstate.isModeThrough()) {
+			flags |= DebugVertexFlags::Clipped;
+		}
+	}
+
+	TransformStats stats;
+	if (!gpu->GetCurrentDrawAsDebugVertices(prim, &prim, rowCount_, vertices, indices, &previewIndexOffset_, &stats, flags)) {
 		rowCount_ = 0;
 	}
+
+	if (vertices.empty()) {
+		rowCount_ = 0;
+	} else if (indices.empty()) {
+		rowCount_ = (int)vertices.size();
+	} else {
+		rowCount_ = (int)indices.size();
+	}
+
 	VertexDecoderOptions options{};
 	// TODO: Maybe an option?
 	u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);

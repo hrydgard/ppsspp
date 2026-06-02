@@ -118,6 +118,9 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 
 // At the end, this calls ProjectClipAndExpand which will expand rectangles as necessary, or apply culling.
 SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
+	// These primitive are not handled.
+	_dbg_assert_(prim != GE_PRIM_KEEP_PREVIOUS && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_LINE_STRIP);
+
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -1307,7 +1310,7 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	return ret;
 }
 
-// drawEngine is just for the vertex decoder lookup.
+// TODO: drawEngine is just for the vertex decoder lookup. See if we can clean that up.
 // This is really just for vertex preview in the debugger, not for actual rendering!
 // TODO: Support tessellation!! That's currently entirely broken (I guess maybe we'll draw the control points as something).
 // count is the input vertex count (describes the draw together with prim).
@@ -1466,6 +1469,17 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 		break;
 	}
 
+	// After this, strips and fans have been collapsed to triangles.
+	switch (prim) {
+	case GE_PRIM_LINE_STRIP:
+		prim = GE_PRIM_LINES;
+		break;
+	case GE_PRIM_TRIANGLE_FAN:
+	case GE_PRIM_TRIANGLE_STRIP:
+		prim = GE_PRIM_TRIANGLES;
+		break;
+	}
+
 	int generatedIndices = indexGen.VertexCount();
 
 	// We need two temp buffers, transformed and transformedExpanded (the latter is only used for non-triangle primitives).
@@ -1481,7 +1495,14 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 
 	RunSoftwareTransform(params, prim, vertTypeID, dec->GetDecVtxFmt(), numDecodedVerts, 65536, generatedIndices, inds, (int)indexTemp.size(), &result);
 
-	// Output of software transform is always triangles.
+	// Output of software transform is always an indexed triangle list (or nothing).
+	if (result.drawIndexCount == 0) {
+		// Not a failue, but everything got culled.
+		debugVertices.clear();
+		debugIndices.clear();
+		return true;
+	}
+
 	prim = GE_PRIM_TRIANGLES;
 
 	if (stats) {
@@ -1494,7 +1515,6 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	// Supply indices in a correctly-sized vector.
 	debugIndices.resize(result.drawIndexCount);
 	memcpy(debugIndices.data(), inds, result.drawIndexCount * sizeof(u16));
-
 
 	const bool applyOffset = (flags & DebugVertexFlags::DrawCoords) && !throughMode;
 	const float offsetX = applyOffset ? -gstate.getOffsetX() : 0.0f;
@@ -1522,5 +1542,6 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 		dv.c1[3] = vtx.color1_32 & 0xFF;
 	}
 	*outPrim = prim;
+	*outLowerIndexBound = indexLowerBound;
 	return true;
 }

@@ -891,7 +891,8 @@ static const char *DLStateToString(DisplayListState state) {
 }
 
 // TODO: Backport this to the Win32 debugger (ugh).
-static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int indexOffset, bool transformed, bool uvToPos, float sx = 1.0f, float sy = 1.0f) {
+static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int indexOffset, bool transformed, bool uvToPos, float sx, float sy) {
+	// These wrappers are to either draw using the positions or the UV coordinates.
 	auto x = [sx, uvToPos](const GPUDebugVertex &vert) {
 		return sx * (uvToPos ? vert.u : vert.x);
 	};
@@ -910,12 +911,12 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveTyp
 	constexpr u32 defaultColor = 0x600000FF;
 	constexpr u32 clippedColor = 0x60FF0000;
 
-	int count = indices.empty() ? verts.size() : indices.size();
+	int count = indices.empty() ? (int)verts.size() : (int)indices.size();
 
 	switch (prim) {
 	case GE_PRIM_TRIANGLES:
 	{
-		for (int i = 0; i < count; i += 3) {
+		for (int i = 0; i < count - 2; i += 3) {
 			const auto &v1 = indices.empty() ? verts[i + 0] : verts[indices[indexOffset + i + 0]];
 			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
 			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
@@ -1316,7 +1317,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			}
 
 			// Draw vertex preview on top!
-			DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, scale * previewZoom_, scale * previewZoom_);
+			if (!previewVertices_.empty()) {
+				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, false, scale * previewZoom_, scale * previewZoom_);
+			}
 
 			drawList->PopClipRect();
 
@@ -1367,7 +1370,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 					ImGui::Image(texId, ImVec2(texW, texH));
 
 					// Show the preview as texcoords. TODO: We should probably use unclipped data here?
-					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, texW, texH);
+					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, true, texW, texH);
 
 					drawList->PopClipRect();
 
