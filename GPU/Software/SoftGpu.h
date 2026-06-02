@@ -20,7 +20,7 @@
 #include <cstdint>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Common/GPU/thin3d.h"
 
 struct FormatBuffer {

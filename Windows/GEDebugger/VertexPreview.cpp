@@ -23,7 +23,7 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/State.h"
 #include "GPU/GPUState.h"
@@ -76,7 +76,7 @@ static void BindPreviewProgram(GLSLProgram *&prog) {
 
 u32 CGEDebugger::PrimPreviewOp() {
 	DisplayList list;
-	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
+	if (gpu != nullptr && gpu->GetCurrentDisplayList(list)) {
 		const u32 op = Memory::Read_U32(list.pc);
 		const u32 cmd = op >> 24;
 		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {

@@ -8,7 +8,7 @@
 
 #include "GPU/Debugger/GECommandTable.h"
 #include "GPU/Common/SplineCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 enum VertexListCols {
 	VERTEXLIST_COL_X,
@@ -23,7 +23,7 @@ enum VertexListCols {
 	VERTEXLIST_COL_COUNT,
 };
 
-class GPUDebugInterface;
+class GPUCommon;
 
 extern const GECommand g_stateFlagsRows[];
 extern const GECommand g_stateLightingRows[];
@@ -37,7 +37,7 @@ extern const size_t g_stateSettingsRowsSize;
 struct GPUDebugVertex;
 class VertexDecoder;
 
-void FormatStateRow(GPUDebugInterface *debug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2);
+void FormatStateRow(GPUCommon *debug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2);
 void FormatVertCol(char *dest, size_t destSize, const GPUDebugVertex &vert, int col);
 void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int row, int col);
 

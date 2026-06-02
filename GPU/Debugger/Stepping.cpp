@@ -22,7 +22,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Core.h"
 #include "Core/HW/Display.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUState.h"
 
@@ -111,35 +111,35 @@ static void RunPauseAction() {
 		break;
 
 	case PAUSE_GETOUTPUTBUF:
-		bufferResult = gpuDebug->GetOutputFramebuffer(bufferFrame);
+		bufferResult = gpu->GetOutputFramebuffer(bufferFrame);
 		break;
 
 	case PAUSE_GETFRAMEBUF:
-		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame, bufferType);
+		bufferResult = gpu->GetCurrentFramebuffer(bufferFrame, bufferType);
 		break;
 
 	case PAUSE_GETDEPTHBUF:
-		bufferResult = gpuDebug->GetCurrentDepthbuffer(bufferDepth);
+		bufferResult = gpu->GetCurrentDepthbuffer(bufferDepth);
 		break;
 
 	case PAUSE_GETSTENCILBUF:
-		bufferResult = gpuDebug->GetCurrentStencilbuffer(bufferStencil);
+		bufferResult = gpu->GetCurrentStencilbuffer(bufferStencil);
 		break;
 
 	case PAUSE_GETTEX:
-		bufferResult = gpuDebug->GetCurrentTexture(bufferTex, bufferLevel, &lastWasFramebuffer);
+		bufferResult = gpu->GetCurrentTexture(bufferTex, bufferLevel, &lastWasFramebuffer);
 		break;
 
 	case PAUSE_GETCLUT:
-		bufferResult = gpuDebug->GetCurrentClut(bufferClut);
+		bufferResult = gpu->GetCurrentClut(bufferClut);
 		break;
 
 	case PAUSE_SETCMDVALUE:
-		gpuDebug->SetCmdValue(pauseSetCmdValue);
+		gpu->SetCmdValue(pauseSetCmdValue);
 		break;
 
 	case PAUSE_FLUSHDRAW:
-		gpuDebug->Flush();
+		gpu->Flush();
 		break;
 
 	default:
@@ -159,7 +159,7 @@ void WaitForPauseAction() {
 }
 
 bool ProcessStepping() {
-	_dbg_assert_(gpuDebug);
+	_dbg_assert_(gpu);
 
 	std::unique_lock<std::mutex> guard(pauseLock);
 	if (coreState != CORE_STEPPING_GE) {
@@ -183,7 +183,7 @@ bool ProcessStepping() {
 }
 
 bool EnterStepping(CoreState coreState) {
-	_dbg_assert_(gpuDebug);
+	_dbg_assert_(gpu);
 
 	std::unique_lock<std::mutex> guard(pauseLock);
 	if (coreState == CORE_STEPPING_GE) {

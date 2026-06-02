@@ -153,7 +153,7 @@ static bool HitBreakpointCond(GPUBreakpoints::BreakpointInfo &bp, u32 op) {
 	gstate.cmdmem[cmd] ^= diff;
 
 	u32 result = 1;
-	if (!GPUDebugExecExpression(gpuDebug, bp.expression, result))
+	if (!GPUDebugExecExpression(gpu, bp.expression, result))
 		result = 0;
 
 	gstate.cmdmem[cmd] ^= diff;
@@ -435,7 +435,7 @@ void GPUBreakpoints::RemoveTextureChangeTempBreakpoint() {
 static bool SetupCond(GPUBreakpoints::BreakpointInfo &bp, const std::string &expression, std::string *error) {
 	bool success = true;
 	if (expression.length() != 0) {
-		if (GPUDebugInitExpression(gpuDebug, expression.c_str(), bp.expression)) {
+		if (GPUDebugInitExpression(gpu, expression.c_str(), bp.expression)) {
 			bp.isConditional = true;
 			bp.expressionString = expression;
 		} else {

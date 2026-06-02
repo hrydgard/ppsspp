@@ -37,7 +37,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -147,7 +147,7 @@ bool Recorder::BeginRecording() {
 
 	// Also save the initial CLUT.
 	GPUDebugBuffer clut;
-	if (gpuDebug->GetCurrentClut(clut)) {
+	if (gpu->GetCurrentClut(clut)) {
 		sz = clut.GetStride() * clut.PixelSize();
 		_assert_msg_(sz == 1024, "CLUT should be 1024 bytes");
 		ptr = (u32)pushbuf.size();
@@ -525,7 +525,7 @@ void Recorder::EmitClut(u32 op) {
 	// Hardware rendering may be using a framebuffer as CLUT.
 	// To get at this, we first run the command (normally we're called right before it has run.)
 	if (Memory::IsVRAMAddress(addr))
-		gpuDebug->SetCmdValue(op);
+		gpu->SetCmdValue(op);
 
 	// Actually should only be 0x3F, but we allow enhanced CLUTs.  See #15727.
 	u32 blocks = (op & 0x7F) == 0x40 ? 0x40 : (op & 0x3F);
@@ -608,10 +608,10 @@ void Recorder::FinishRecording() {
 }
 
 void Recorder::CheckEdramTrans() {
-	if (!gpuDebug)
+	if (!gpu)
 		return;
 
-	uint32_t value = gpuDebug->GetAddrTranslation();
+	uint32_t value = gpu->GetAddrTranslation();
 	if (value == lastEdramTrans)
 		return;
 	lastEdramTrans = value;

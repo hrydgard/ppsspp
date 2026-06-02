@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 // GE-related windows of the ImDebugger
 
@@ -20,7 +20,7 @@ void DrawDebugStatsWindow(ImConfig &cfg);
 
 class ImGeDisasmView {
 public:
-	void Draw(GPUDebugInterface *gpuDebug);
+	void Draw(GPUCommon *gpuDebug);
 
 	bool followPC_ = true;
 
@@ -46,11 +46,11 @@ private:
 
 class ImGeStateWindow {
 public:
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+	void Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug);
 	void Snapshot();
 };
 
-void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug);
 
 namespace Draw {
 class Texture;
@@ -67,7 +67,7 @@ public:
 
 struct ImGePixelViewer : public PixelLookup {
 	~ImGePixelViewer();
-	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom);
+	bool Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, float zoom);
 	void Snapshot() {
 		dirty_ = true;
 	}
@@ -93,7 +93,7 @@ private:
 struct ImGeReadbackViewer : public PixelLookup {
 	ImGeReadbackViewer();
 	~ImGeReadbackViewer();
-	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom);
+	bool Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, float zoom);
 	void Snapshot() {
 		dirty_ = true;
 	}
@@ -120,7 +120,7 @@ private:
 
 class ImGePixelViewerWindow {
 public:
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug, Draw::DrawContext *draw);
 	void Snapshot() {
 		viewer_.Snapshot();
 	}
@@ -142,7 +142,7 @@ private:
 class ImGeDebuggerWindow {
 public:
 	ImGeDebuggerWindow();
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug, Draw::DrawContext *draw);
 	ImGeDisasmView &View() {
 		return disasmView_;
 	}

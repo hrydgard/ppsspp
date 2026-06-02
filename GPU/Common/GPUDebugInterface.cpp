@@ -19,7 +19,7 @@
 #include "Common/Math/expression_parser.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Debugger/GECommandTable.h"
 #include "GPU/GPUState.h"
@@ -511,7 +511,7 @@ static constexpr GECmdConstant constantNames[] = {
 
 class GEExpressionFunctions : public IExpressionFunctions {
 public:
-	GEExpressionFunctions(GPUDebugInterface *gpu) : gpu_(gpu) {}
+	GEExpressionFunctions(GPUCommon *gpu) : gpu_(gpu) {}
 
 	bool parseReference(char *str, uint32_t &referenceIndex) override;
 	bool parseSymbol(char *str, uint32_t &symbolValue) override;
@@ -524,7 +524,7 @@ private:
 	static uint32_t getFieldValue(GECmdFormat fmt, GECmdField field, uint32_t value);
 	static ExpressionType getFieldType(GECmdFormat fmt, GECmdField field);
 
-	GPUDebugInterface *gpu_;
+	GPUCommon *gpu_;
 };
 
 bool GEExpressionFunctions::parseReference(char *str, uint32_t &referenceIndex) {
@@ -951,17 +951,17 @@ bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t 
 	return false;
 }
 
-bool GPUDebugInitExpression(GPUDebugInterface *g, const char *str, PostfixExpression &exp) {
+bool GPUDebugInitExpression(GPUCommon *g, const char *str, PostfixExpression &exp) {
 	GEExpressionFunctions funcs(g);
 	return initPostfixExpression(str, &funcs, exp);
 }
 
-bool GPUDebugExecExpression(GPUDebugInterface *g, PostfixExpression &exp, uint32_t &result) {
+bool GPUDebugExecExpression(GPUCommon *g, PostfixExpression &exp, uint32_t &result) {
 	GEExpressionFunctions funcs(g);
 	return parsePostfixExpression(exp, &funcs, result);
 }
 
-bool GPUDebugExecExpression(GPUDebugInterface *g, const char *str, uint32_t &result) {
+bool GPUDebugExecExpression(GPUCommon *g, const char *str, uint32_t &result) {
 	GEExpressionFunctions funcs(g);
 	return parseExpression(str, &funcs, result);
 }

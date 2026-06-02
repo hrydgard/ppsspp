@@ -20,7 +20,7 @@
 #include "Common/StringUtils.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "headless/Compare.h"
 #include "headless/HeadlessHost.h"
 
@@ -36,7 +36,7 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
-	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
+	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
 
 	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);

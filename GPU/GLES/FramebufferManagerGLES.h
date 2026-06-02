@@ -19,7 +19,7 @@
 
 #include "Common/GPU/thin3d.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:

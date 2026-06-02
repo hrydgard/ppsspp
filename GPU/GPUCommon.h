@@ -13,6 +13,8 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/GPUDefinitions.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Debugger/Debugger.h"
+#include "GPU/ge_constants.h"
 
 #if defined(__ANDROID__)
 #include <atomic>
@@ -36,6 +38,7 @@ namespace Draw {
 class DrawContext;
 }
 
+class StringWriter;
 struct DisplayLayoutConfig;
 
 inline bool IsTrianglePrim(GEPrimitiveType prim) {
@@ -49,15 +52,32 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 	return prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES;
 }
 
-class GPUCommon : public GPUDebugInterface {
+class GPUCommon {
 public:
 	// The constructor might run on the loader thread.
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
+	virtual ~GPUCommon() = default;
+
+	virtual void GetStats(StringWriter &w) = 0;
+	virtual std::vector<const VirtualFramebuffer *> GetFramebufferList() const = 0;
+		
+	// Needs to be called from the GPU thread, so on the same thread as a notification is fine.
+	// Calling from a separate thread (e.g. UI) may fail.
+	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) {
+		// False means unsupported.
+		return false;
+	}
+	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) { return false; }
+	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) { return false; }
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
+	virtual bool GetCurrentClut(GPUDebugBuffer &buffer) { return false;}
+	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) { return false; }
+	bool GetCurrentDisplayList(DisplayList &list);
+	virtual bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	int GetCurrentPrimCount();
 
 	// FinishInitOnMainThread runs on the main thread, of course.
 	virtual void FinishInitOnMainThread() {}
-
-	virtual ~GPUCommon() {}
 
 	Draw::DrawContext *GetDrawContext() {
 		return draw_;
@@ -117,8 +137,8 @@ public:
 	// For example, a debugger is active.
 	bool ShouldSplitOverGe() const;
 
-	uint32_t SetAddrTranslation(uint32_t value) override;
-	uint32_t GetAddrTranslation() override;
+	uint32_t SetAddrTranslation(uint32_t value);
+	uint32_t GetAddrTranslation();
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
 	virtual void SetCurFramebufferDirty(bool dirty) = 0;
@@ -162,7 +182,7 @@ public:
 
 	static int EstimatePerVertexCost();
 
-	void Flush() override;
+	virtual void Flush();
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -177,46 +197,38 @@ public:
 #define new DBG_NEW
 #endif
 
-	// From GPUDebugInterface.
-	bool GetCurrentDisplayList(DisplayList &list) override;
-	bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-	int GetCurrentPrimCount() override;
-	FramebufferManagerCommon *GetFramebufferManagerCommon() override {
-		return nullptr;
-	}
+	virtual FramebufferManagerCommon *GetFramebufferManagerCommon() { return nullptr; }
+	virtual TextureCacheCommon *GetTextureCacheCommon() { return nullptr; }
 
-	TextureCacheCommon *GetTextureCacheCommon() override {
-		return nullptr;
-	}
-
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
-	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
+	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) { return std::vector<std::string>(); };
+	virtual std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) {
 		return "N/A";
 	}
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
-	std::vector<DisplayList> ActiveDisplayLists() override;
-	void ResetListPC(int listID, u32 pc) override;
-	void ResetListStall(int listID, u32 stall) override;
-	void ResetListState(int listID, DisplayListState state) override;
+	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
-	GPUDebugOp DisassembleOp(u32 pc, u32 op) override;
-	std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) override;
+	std::vector<DisplayList> ActiveDisplayLists();
+	void ResetListPC(int listID, u32 pc);
+	void ResetListStall(int listID, u32 stall);
+	void ResetListState(int listID, DisplayListState state);
 
-	u32 GetRelativeAddress(u32 data) override;
-	u32 GetVertexAddress() override;
-	u32 GetIndexAddress() override;
-	const GPUgstate &GetGState() override;
-	void SetCmdValue(u32 op) override;
+	GPUDebugOp DisassembleOp(u32 pc, u32 op);
+	std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc);
+
+	u32 GetRelativeAddress(u32 data);
+	u32 GetVertexAddress();
+	u32 GetIndexAddress();
+	const GPUgstate &GetGState();
+	void SetCmdValue(u32 op);
 
 	DisplayList* getList(int listid) {
 		return &dls[listid];
 	}
 
-	const std::list<int> &GetDisplayListQueue() override {
+	const std::list<int> &GetDisplayListQueue() {
 		return dlQueue;
 	}
-	const DisplayList &GetDisplayList(int index) override {
+	const DisplayList &GetDisplayList(int index) {
 		return dls[index];
 	}
 
@@ -234,31 +246,31 @@ public:
 
 	void PSPFrame();
 
-	GPURecord::Recorder *GetRecorder() override {
+	GPURecord::Recorder *GetRecorder() {
 		return &recorder_;
 	}
-	GPUBreakpoints *GetBreakpoints() override {
+	GPUBreakpoints *GetBreakpoints() {
 		return &breakpoints_;
 	}
 
-	void ClearBreakNext() override;
-	void SetBreakNext(GPUDebug::BreakNext next) override;
-	void SetBreakCount(int c, bool relative = false) override;
-	GPUDebug::BreakNext GetBreakNext() const override {
+	void ClearBreakNext();
+	void SetBreakNext(GPUDebug::BreakNext next);
+	void SetBreakCount(int c, bool relative = false);
+	GPUDebug::BreakNext GetBreakNext() const {
 		return breakNext_;
 	}
-	int GetBreakCount() const override {
+	int GetBreakCount() const {
 		return breakAtCount_;
 	}
-	bool SetRestrictPrims(std::string_view rule) override;
-	std::string_view GetRestrictPrims() override {
+	bool SetRestrictPrims(std::string_view rule);
+	std::string_view GetRestrictPrims() {
 		return restrictPrimRule_;
 	}
 
-	int PrimsThisFrame() const override {
+	int PrimsThisFrame() const {
 		return primsThisFrame_;
 	}
-	int PrimsLastFrame() const override {
+	int PrimsLastFrame() const {
 		return primsLastFrame_;
 	}
 

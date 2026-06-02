@@ -1929,7 +1929,7 @@ void EmuScreen::runImDebugger() {
 					1.f
 				);
 			}
-			imDebugger_->Frame(currentDebugMIPS, gpuDebug, draw);
+			imDebugger_->Frame(currentDebugMIPS, gpu, draw);
 
 			// Convert to drawlists.
 			ImGui::Render();

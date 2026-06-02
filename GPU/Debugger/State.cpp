@@ -6,13 +6,13 @@
 #include "GPU/Debugger/State.h"
 #include "GPU/GPU.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "Core/System.h"
 
-void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
+void FormatStateRow(GPUCommon *gpudebug, char *dest, size_t destSize, CmdFormatType fmt, u32 value, bool enabled, u32 otherValue, u32 otherValue2) {
 	value &= 0xFFFFFF;
 	otherValue &= 0xFFFFFF;
 	otherValue2 &= 0xFFFFFF;
@@ -188,15 +188,15 @@ void FormatStateRow(GPUDebugInterface *gpudebug, char *dest, size_t destSize, Cm
 	break;
 
 	case CMD_FMT_OFFSETADDR:
-		snprintf(dest, destSize, "%08x", gpuDebug->GetRelativeAddress(0));
+		snprintf(dest, destSize, "%08x", gpu->GetRelativeAddress(0));
 		break;
 
 	case CMD_FMT_VADDR:
-		snprintf(dest, destSize, "%08x", gpuDebug->GetVertexAddress());
+		snprintf(dest, destSize, "%08x", gpu->GetVertexAddress());
 		break;
 
 	case CMD_FMT_IADDR:
-		snprintf(dest, destSize, "%08x", gpuDebug->GetIndexAddress());
+		snprintf(dest, destSize, "%08x", gpu->GetIndexAddress());
 		break;
 
 	case CMD_FMT_MATERIALUPDATE:
@@ -571,7 +571,7 @@ void FormatVertColRaw(VertexDecoder *decoder, char *dest, size_t destSize, int r
 
 	// We could use the vertex decoder and reader, but those already do some minor adjustments.
 	// There's only a few values - let's just go after them directly.
-	const u8 *vert = Memory::GetPointer(gpuDebug->GetVertexAddress()) + row * decoder->size;
+	const u8 *vert = Memory::GetPointer(gpu->GetVertexAddress()) + row * decoder->size;
 	const u8 *pos = vert + decoder->posoff;
 	const u8 *tc = vert + decoder->tcoff;
 	const u8 *color = vert + decoder->coloff;
@@ -855,7 +855,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		ERROR_LOG(Log::G3D, "Unsupported prim type: %x", op);
 		return false;
 	}
-	if (!gpuDebug) {
+	if (!gpu) {
 		ERROR_LOG(Log::G3D, "Invalid debugging environment, shutting down?");
 		return false;
 	}
@@ -865,7 +865,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 
 	prim = static_cast<GEPrimitiveType>(prim_type);
 
-	if (!gpuDebug->GetCurrentDrawAsDebugVertices(count, vertices, indices)) {
+	if (!gpu->GetCurrentDrawAsDebugVertices(count, vertices, indices)) {
 		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
 		return false;
 	}
@@ -901,7 +901,7 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 	}
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertices, indices, count, gpuDebug->GetGState().isModeThrough());
+		ExpandRectangles(vertices, indices, count, gpu->GetGState().isModeThrough());
 	}
 
 	// TODO: Probably there's a better way and place to do this.
@@ -929,10 +929,10 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		}
 	};
 
-	const float invTexWidth = 1.0f / gpuDebug->GetGState().getTextureWidth(0);
-	const float invTexHeight = 1.0f / gpuDebug->GetGState().getTextureHeight(0);
-	bool clampS = gpuDebug->GetGState().isTexCoordClampedS();
-	bool clampT = gpuDebug->GetGState().isTexCoordClampedT();
+	const float invTexWidth = 1.0f / gpu->GetGState().getTextureWidth(0);
+	const float invTexHeight = 1.0f / gpu->GetGState().getTextureHeight(0);
+	bool clampS = gpu->GetGState().isTexCoordClampedS();
+	bool clampT = gpu->GetGState().isTexCoordClampedT();
 	for (u16 i = minIndex; i <= maxIndex; ++i) {
 		vertices[i].u *= invTexWidth;
 		vertices[i].v *= invTexHeight;
