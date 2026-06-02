@@ -16,6 +16,8 @@
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
+#include "UnitTest.h"
+
 #if PPSSPP_PLATFORM(WINDOWS)
 #include <wrl/client.h>
 #include "GPU/D3D11/D3D11Util.h"
@@ -191,7 +193,9 @@ bool TestReinterpretShaders() {
 	bool failed = false;
 
 	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
-		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+		if (g_testLog) {
+			printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+		}
 
 		ShaderLanguageDesc desc(languages[k]);
 
@@ -211,7 +215,9 @@ bool TestReinterpretShaders() {
 					printf("Error compiling reinterpret fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
 					failed = true;
 				} else {
-					printf("===\n%s\n===\n", buffer);
+					if (g_testLog) {
+						printf("===\n%s\n===\n", buffer);
+					}
 				}
 			}
 		}
@@ -237,7 +243,9 @@ bool TestStencilShaders() {
 	bool failed = false;
 
 	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
-		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+		if (g_testLog) {
+			printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+		}
 
 		ShaderLanguageDesc desc(languages[k]);
 		std::string errorMessage;
@@ -255,7 +263,9 @@ bool TestStencilShaders() {
 				printf("Error compiling stencil shader (useExport=%d):\n\n%s\n\n%s\n", useExport, LineNumberString(buffer).c_str(), errorMessage.c_str());
 				failed = true;
 			} else {
-				printf("===\n%s\n===\n", buffer);
+				if (g_testLog) {
+					printf("===\n%s\n===\n", buffer);
+				}
 			}
 		}
 
@@ -268,7 +278,9 @@ bool TestStencilShaders() {
 			printf("Error compiling stencil shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
 			failed = true;
 		} else {
-			printf("===\n%s\n===\n", buffer);
+			if (g_testLog) {
+				printf("===\n%s\n===\n", buffer);
+			}
 		}
 	}
 
@@ -291,7 +303,9 @@ bool TestDepalShaders() {
 	char *buffer = new char[65536];
 
 	for (int k = 0; k < ARRAY_SIZE(languages); k++) {
-		printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+		if (g_testLog) {
+			printf("=== %s ===\n\n", ShaderLanguageToString(languages[k]));
+		}
 
 		ShaderLanguageDesc desc(languages[k]);
 		std::string errorMessage;
@@ -319,7 +333,9 @@ bool TestDepalShaders() {
 			delete[] buffer;
 			return false;
 		} else {
-			printf("===\n%s\n===\n", buffer);
+			if (g_testLog) {
+				printf("===\n%s\n===\n", buffer);
+			}
 		}
 	}
 
@@ -379,7 +395,9 @@ bool TestVertexShaders() {
 		for (int j = 0; j < numLanguages; j++) {
 			generateSuccess[j] = GenerateVShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
-				printf("%s\n", genErrorString[j].c_str());
+				if (g_testLog) {
+					printf("%s\n", genErrorString[j].c_str());
+				}
 			}
 		}
 
@@ -410,7 +428,9 @@ bool TestVertexShaders() {
 		}
 	}
 
-	printf("%d/%d vertex shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+	if (g_testLog) {
+		printf("%d/%d vertex shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+	}
 
 	for (int i = 0; i < numLanguages; i++) {
 		delete[] buffer[i];
@@ -452,7 +472,9 @@ bool TestFragmentShaders() {
 		for (int j = 0; j < numLanguages; j++) {
 			generateSuccess[j] = GenerateFShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
-				printf("%s\n", genErrorString[j].c_str());
+				if (g_testLog) {
+					printf("%s\n", genErrorString[j].c_str());
+				}
 			}
 			// We ignore the contents of the error string here, not even gonna try to compile if it errors.
 		}
@@ -484,7 +506,9 @@ bool TestFragmentShaders() {
 		}
 	}
 
-	printf("%d/%d fragment shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+	if (g_testLog) {
+		printf("%d/%d fragment shaders generated (it's normal that it's not all, there are invalid bit combos)\n", successes, count * numLanguages);
+	}
 
 	for (int i = 0; i < numLanguages; i++) {
 		delete[] buffer[i];

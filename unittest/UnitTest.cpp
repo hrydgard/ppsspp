@@ -99,6 +99,8 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+// Set to true for more verbose unit tests.
+bool g_testLog = false;
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
@@ -312,7 +314,9 @@ bool TestSinCos() {
 		float slowsin = sinf(f * M_PI_2), slowcos = cosf(f * M_PI_2);
 		float fastsin, fastcos;
 		fastsincos(f, fastsin, fastcos);
-		printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+		if (g_testLog) {
+			printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+		}
 	}
 	return true;
 }
@@ -323,7 +327,9 @@ bool TestAsin() {
 		float f = i / 100.0f;
 		float slowval = asinf(f) / M_PI_2;
 		float fastval = fastasin5(f) / M_PI_2;
-		printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		if (g_testLog) {
+			printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		}
 		float diff = fabsf(slowval - fastval);
 		// EXPECT_TRUE(diff < 0.0001f);
 	}
@@ -466,7 +472,9 @@ bool TestVFPUSinCos() {
 		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
 		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
 
-		printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+		if (g_testLog) {
+			printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+		}
 	}
 	return true;
 }
@@ -1446,12 +1454,14 @@ int main(int argc, const char *argv[]) {
 	if (allTests) {
 		int passes = 0;
 		int fails = 0;
+		std::vector<const char *> failedTests;
 		for (const auto &f : availableTests) {
 			printf("\n**** Running test %s ****\n", f.name);
 			if (f.func()) {
 				++passes;
 			} else {
 				printf("%s: FAILED\n", f.name);
+				failedTests.push_back(f.name);
 				++fails;
 			}
 		}
@@ -1460,6 +1470,9 @@ int main(int argc, const char *argv[]) {
 		}
 		if (fails > 0) {
 			printf("%d tests failed!\n", fails);
+			for (auto testName : failedTests) {
+				printf("  * %s\n", testName);
+			}
 			return 2;
 		}
 	} else if (!testFunc) {
