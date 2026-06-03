@@ -203,7 +203,8 @@ struct Vec4F32 {
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
 		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
-		__m128i value32 = _mm_unpacklo_epi16(_mm_unpacklo_epi8(value, value), value);
+		__m128i value16 = _mm_unpacklo_epi8(value, value);
+		__m128i value32 = _mm_unpacklo_epi16(value16, value16);
 		// Sign extension. A bit ugly without SSE4.
 		value32 = _mm_srai_epi32(value32, 24);
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f)) };
