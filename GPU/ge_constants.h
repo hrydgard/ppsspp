@@ -306,7 +306,7 @@ const char *GeCmdToString(GECommand cmd);
 #define GE_VTYPE_NRM_MASK  (3<<5)
 #define GE_VTYPE_NRM_SHIFT 5
 
-//#define GE_VTYPE_POSITION_NONE  (0<<5)
+// No NONE, there is always a position.
 #define GE_VTYPE_POS_8BIT  (1<<7)
 #define GE_VTYPE_POS_16BIT (2<<7)
 #define GE_VTYPE_POS_FLOAT (3<<7)

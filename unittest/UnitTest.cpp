@@ -1219,6 +1219,14 @@ bool TestCrossSIMD() {
 		return false;
 	}
 
+	s8 values[4] = {-1, -128, 127, 45};
+	float fvalues[4];
+	Vec4F32::LoadS8Norm(values).Store(fvalues);
+	static const float known_s8norm_result[4] = {(float)values[0]/128.0f, (float)values[1]/128.0f, (float)values[2]/128.0f, (float)values[3]/128.0f,};
+	if (!CompareFloats(fvalues, known_s8norm_result, ARRAY_SIZE(known_s8norm_result), __LINE__)) {
+		return false;
+	}
+
 	// PrintFloats(result, 16);
 
 	return true;
