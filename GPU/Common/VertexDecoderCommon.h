@@ -125,6 +125,8 @@ class VertexReader {
 public:
 	VertexReader(const u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
+	// TODO: Only reason we might want to still keep the separation of ReadPosThrough and ReadPosNonThrough is
+	// in case we need to do some rounding for through mode. I doubt it's needed though.
 	void ReadPosAuto(float pos[3]) const {
 		// Only DEC_FLOAT_3 is supported.
 		const float *f = (const float *)(data_ + decFmt_.posoff);
@@ -134,7 +136,7 @@ public:
 			pos[2] = f[2];
 		} else {
 			// Integer value passed in a float. Clamped to 0, 65535.
-			pos[2] = (int)f[2] * (1.0f / 65535.0f);
+			pos[2] = f[2];
 		}
 	}
 
@@ -143,17 +145,11 @@ public:
 		const float *f = (const float *)(data_ + decFmt_.posoff);
 		pos[0] = f[0];
 		pos[1] = f[1];
-		// Integer value passed in a float. Clamped to 0, 65535.
-		pos[2] = (int)f[2] * (1.0f / 65535.0f);
+		// Integer value passed in a float. Clamped to 0, 65535 (but where?)
+		pos[2] = f[2];
 	}
 
 	void ReadPosNonThrough(float pos[3]) const {
-		// Only DEC_FLOAT_3 is supported.
-		const float *f = (const float *)(data_ + decFmt_.posoff);
-		memcpy(pos, f, 12);
-	}
-
-	void ReadPosThroughZ16(float pos[3]) const {
 		// Only DEC_FLOAT_3 is supported.
 		const float *f = (const float *)(data_ + decFmt_.posoff);
 		memcpy(pos, f, 12);
