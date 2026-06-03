@@ -7,6 +7,7 @@
 #include "Common/GraphicsContext.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
@@ -1232,6 +1233,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		int checkSize = count - 0x100;
 		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, checkSize, dec, vertType);
 	} else {
+		// This is the normal case that pretty much always happens, the others are esoteric.
 		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, vertType);
 	}
 	AdvanceVerts(gstate.vertType, count, bytesRead);
@@ -2197,18 +2199,21 @@ bool GPUCommon::SetRestrictPrims(std::string_view rule) {
 }
 
 void GPUCommon::UpdateMatrixProducts() {
+	// We clean the dirty flags at the end.
+
 	// Compute any dirty product matrices.
 	if (gstate_c.IsDirty(DIRTY_VIEW_PROJ_MATRIX)) {
-		float view[4 * 4];
-		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-		Matrix4ByMatrix4(gstate_c.viewproj, view, gstate.projMatrix);
-		gstate_c.Clean(DIRTY_VIEW_PROJ_MATRIX);
+		Mat4x3F32 view(gstate.viewMatrix);
+		Mat4F32 proj(gstate.projMatrix);
+		Mul4x3By4x4(view, proj).Store(gstate_c.viewproj);
 	}
+
 	if (gstate_c.IsDirty(DIRTY_WORLD_VIEW_PROJ_MATRIX)) {
-		float world[4 * 4];
-		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-		Matrix4ByMatrix4(gstate_c.worldviewproj, world, gstate_c.viewproj);
+		Mat4x3F32 world(gstate.worldMatrix);
+		Mat4F32 viewproj(gstate_c.viewproj);
+		Mul4x3By4x4(world, viewproj).Store(gstate_c.worldviewproj);
 	}
+
 	if (gstate_c.IsDirty(DIRTY_CULL_MATRIX)) {
 		// Modify the transform matrix to take the viewport into account before culling. This is not necessary
 		// for most games, but there are games that rely on outside-viewport draws (such as Dante's Inferno)'s post
