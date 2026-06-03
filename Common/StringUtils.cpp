@@ -267,7 +267,7 @@ void DataToHexString(int indent, uint32_t startAddr, const uint8_t* data, size_t
 			buffer.Printf("\n");
 		}
 		if (!(i & 15))
-			buffer.Printf("%*s%08x  ", indent, "", startAddr + i);
+			buffer.Printf("%*s%08x  ", indent, "", (u32)(startAddr + i));
 		buffer.Printf("%02x ", data[i]);
 	}
 	if (size & 15) {

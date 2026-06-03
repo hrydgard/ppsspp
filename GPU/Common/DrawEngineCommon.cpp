@@ -194,8 +194,15 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
+
+	// BBOX games:
+	// - Outrun 2006
+	// - Tekken 6  (FLOAT only)
+	// - Smash Court Tennis 3 (All formats)
+	// - Need for Speed Carbon
+
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
-		// Most games that use bbox use floating point bboxes (Outrun, Tekken 6 etc).
+		// Most games that use bbox use floating point bboxes (Outrun, Tekken 6, Smash Court Tennis 3, Need for Speed Carbon etc).
 		// memcpy(verts, vdata, sizeof(float) * 3 * vertexCount);
 		verts = (float *)vdata;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
@@ -213,6 +220,8 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 		u8 *temp_buffer = decoded_ + 65536 * 24;
 
 		if ((inds || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)))) {
+			// Need for Speed Carbon ends up on this path! With a single bone weight.
+
 			u16 indexLowerBound = 0;
 			u16 indexUpperBound = (u16)vertexCount - 1;
 
@@ -259,9 +268,9 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	}
 
 	// Unclear why the top/left is off by a pixel.
-	const int left = gstate.getOffsetX() + std::max(gstate.getRegionX1(), gstate.getScissorX1()) - 1;
-	const int top = gstate.getOffsetY() + std::max(gstate.getRegionY1(), gstate.getScissorY1()) - 1;
-	const int right = gstate.getOffsetX() + std::min(gstate.getRegionX2(), gstate.getScissorX2()) + 1;
+	const int left   = gstate.getOffsetX() + std::max(gstate.getRegionX1(), gstate.getScissorX1()) - 1;
+	const int top    = gstate.getOffsetY() + std::max(gstate.getRegionY1(), gstate.getScissorY1()) - 1;
+	const int right  = gstate.getOffsetX() + std::min(gstate.getRegionX2(), gstate.getScissorX2()) + 1;
 	const int bottom = gstate.getOffsetY() + std::min(gstate.getRegionY2(), gstate.getScissorY2()) + 1;
 
 	// This is strange, it seems if the draw box is at all outside the 4096x4096 coordinate space, all checks pass.
@@ -271,6 +280,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	}
 
 	// TODO: How accurate should we be?
+	// TODO: Use CrossSIMD.
 	int insideCount[6] = {0};
 	for (int i = 0; i < vertexCount; i++) {
 		// Complete the transform to see if the vertex should be ignored. Not sure if we need to go to these lengths...
@@ -286,26 +296,27 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			insideCount[5]++;
 		}
 
-		const float invW = 1.0f / projpos[3];
+		const float w = projpos[3];
+		// const float invW = 1.0f / w;
 		const float screenpos[3] = {
-			projpos[0] * gstate.getViewportXScale() * invW + gstate.getViewportXCenter(),
-			projpos[1] * gstate.getViewportYScale() * invW + gstate.getViewportYCenter(),
-			projpos[2] * gstate.getViewportZScale() * invW + gstate.getViewportZCenter(),
+			(projpos[0] * gstate.getViewportXScale()) + gstate.getViewportXCenter() * w,
+			(projpos[1] * gstate.getViewportYScale()) + gstate.getViewportYCenter() * w,
+			(projpos[2] * gstate.getViewportZScale()) + gstate.getViewportZCenter() * w,
 		};
 
 		const float drawX = screenpos[0];
 		const float drawY = screenpos[1];
 
-		if (drawX >= left) {
+		if (drawX >= left * w) {
 			insideCount[0]++;
 		}
-		if (drawX <= right) {
+		if (drawX <= right * w) {
 			insideCount[1]++;
 		}
-		if (drawY >= top) {
+		if (drawY >= top * w) {
 			insideCount[2]++;
 		}
-		if (drawY <= bottom) {
+		if (drawY <= bottom * w) {
 			insideCount[3]++;
 		}
 	}
@@ -329,7 +340,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	return true;
 }
 
-// This optionally culls collections of points against the four side planes, and always computes the min and max of Z and W.
+// This optionally culls collections of points against the six planes, and always computes the min and max of Z and W.
 //
 // The result of that is then used to determine if we need to drop down to software transform+clip or we can hand
 // off to hardware, with whatever capabilities are available.
