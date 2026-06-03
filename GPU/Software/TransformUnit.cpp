@@ -350,7 +350,8 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	ClipVertexData vertex;
 
 	ModelCoords pos;
-	vreader.ReadPosThrough(pos.AsArray());
+	// VertexDecoder normally scales z, but we want it unscaled.
+	vreader.ReadPosThroughZ16(pos.AsArray());
 
 	static Vec3Packedf lastTC;
 	if (state.readUV) {
