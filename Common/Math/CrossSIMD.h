@@ -313,6 +313,15 @@ struct Vec4F32 {
 		return Vec4F32{_mm_or_ps(_mm_and_ps(maskVec, v), _mm_andnot_ps(maskVec, other.v))};
 	}
 
+	Vec4F32 ZeroNaNs() const {
+		return Vec4F32{ zero_nans_sse(v) };
+	}
+
+	// The output becomes something that when multiplied by zero, yields 0.
+	Vec4F32 CleanNaNInfs() const {
+		return Vec4F32{ clean_nan_inf_sse(v) };
+	}
+
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 		return Vec4F32{ _mm_add_ps(
 			_mm_add_ps(
@@ -705,6 +714,14 @@ struct Vec4F32 {
 
 	Vec4F32 WithLane3From(Vec4F32 other) const {
 		return Vec4F32{vsetq_lane_f32(vgetq_lane_f32(other.v, 3), v, 3)};
+	}
+
+	Vec4F32 ZeroNaNs() const {
+		return Vec4F32{ zero_nans_neon(v)};
+	}
+
+	Vec4F32 CleanNaNInfs() const {
+		return Vec4F32{ clean_inf_and_nan_neon(v)};
 	}
 
 	Vec4F32 ShuffleXXYY() const {
@@ -1144,6 +1161,14 @@ struct Vec4F32 {
 		};
 	}
 
+	Vec4F32 ZeroNaNs() const {
+		return Vec4F32{ zero_nans_lsx(v) };
+	}
+
+	Vec4F32 CleanNaNInfs() const {
+		return Vec4F32{ clean_nan_inf_lsx(v) };
+	}
+
 	Vec4F32 WithLane3Zero() const {
 		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, 0, 3) };
 	}
@@ -1541,6 +1566,22 @@ struct Vec4F32 {
 	}
 
 	float operator[](size_t index) const { return v[index]; }
+
+	Vec4F32 ZeroNaNs() const {
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = isnan(v[i]) ? 0.0f : v[i];
+		}
+		return temp;
+	}
+
+	Vec4F32 CleanNaNInfs() {
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (isnan(v[i]) || isinf(v[i])) ? 0.0f : v[i];
+		}
+		return temp;
+	}
 
 	Vec4F32 operator +(Vec4F32 other) const {
 		return Vec4F32{ { v[0] + other.v[0], v[1] + other.v[1], v[2] + other.v[2], v[3] + other.v[3], } };
