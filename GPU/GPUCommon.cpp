@@ -1579,23 +1579,29 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) const {
 	return true;
 }
 
-int GPUCommon::GetCurrentPrimCount(GEPrimitiveType *prim) const {
+int GPUCommon::GetCurrentPrim(GEPrimitiveType *prim, GECommand *outCmd) const {
 	DisplayList list;
-	u32 cmd;
+	u32 cmdWord;
 	if (GetCurrentDisplayList(list)) {
-		cmd = Memory::Read_U32(list.pc);
+		cmdWord = Memory::Read_U32(list.pc);
 	} else {
 		// Current prim value.
-		cmd = gstate.cmdmem[GE_CMD_PRIM];
+		cmdWord = gstate.cmdmem[GE_CMD_PRIM];
 	}
 
-	if ((cmd >> 24) == GE_CMD_PRIM || (cmd >> 24) == GE_CMD_BOUNDINGBOX) {
-		*prim = GEPrimitiveType((cmd >> 16) & 7);
-		return cmd & 0xFFFF;
-	} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
+	GECommand cmd = static_cast<GECommand>(cmdWord >> 24);
+	*outCmd = cmd;
+
+	if (cmd == GE_CMD_PRIM) {
+		*prim = GEPrimitiveType((cmdWord >> 16) & 7);
+		return cmdWord & 0xFFFF;
+	} else if (cmd == GE_CMD_BOUNDINGBOX) {
+		*prim = GE_PRIM_POINTS;
+		return cmdWord & 0xFFFF;
+	} else if (cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
 		*prim = GE_PRIM_TRIANGLES;  // no correct answer
-		u32 u = (cmd & 0x00FF) >> 0;
-		u32 v = (cmd & 0xFF00) >> 8;
+		u32 u = (cmdWord & 0x00FF) >> 0;
+		u32 v = (cmdWord & 0xFF00) >> 8;
 		return u * v;
 	} else {
 		// Unknown primitive.
@@ -2028,8 +2034,8 @@ bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil f
 	return false;
 }
 
-bool GPUCommon::GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const {
-	return ::GetCurrentDrawAsDebugVertices(drawEngineCommon_, prim, outPrim, count, vertices, indices, lowerIndexBound, stats, flags);
+bool GPUCommon::GetCurrentDrawAsDebugVertices(GECommand cmd, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const {
+	return ::GetCurrentDrawAsDebugVertices(drawEngineCommon_, cmd, prim, outPrim, count, vertices, indices, lowerIndexBound, stats, flags);
 }
 
 bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
@@ -2057,6 +2063,7 @@ void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 		break;
 	case GPUDebug::BreakNext::PRIM:
 	case GPUDebug::BreakNext::COUNT:
+		breakpoints_.AddCmdBreakpoint(GE_CMD_BOUNDINGBOX, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_PRIM, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		breakpoints_.AddCmdBreakpoint(GE_CMD_SPLINE, true);
@@ -2106,7 +2113,9 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	bool isPrim = false;
 
 	bool process = true;  // Process is only for the restrictPrimRanges functionality
-	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP || cmd == GE_CMD_TRANSFERSTART) {  // VAP is immediate mode prims.
+
+	// NOTE: We now consider BBOX a PRIM command.
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE || cmd == GE_CMD_VAP || cmd == GE_CMD_TRANSFERSTART || cmd == GE_CMD_BOUNDINGBOX) {  // VAP is immediate mode prims.
 		isPrim = true;
 		primsThisFrame_++;
 

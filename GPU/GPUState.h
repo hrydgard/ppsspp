@@ -651,16 +651,6 @@ public:
 	int curTextureYOffset;
 	bool curTextureIs3D;
 
-	float vpWidth;
-	float vpHeight;
-
-	float vpXOffset;
-	float vpYOffset;
-	float vpZOffset;
-	float vpWidthScale;
-	float vpHeightScale;
-	float vpDepthScale;
-
 	// Cached 4x4 products of the matrices.
 	// Useful for culling and extracing the final Z from vertices (so we can check if clipping is needed).
 	// Most often, world changes the most.

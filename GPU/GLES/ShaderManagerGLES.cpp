@@ -310,23 +310,6 @@ static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
-static inline void FlipProjMatrix(Matrix4x4 &in) {
-	const bool invertedY = gstate_c.vpHeight < 0;
-	if (invertedY) {
-		in[1] = -in[1];
-		in[5] = -in[5];
-		in[9] = -in[9];
-		in[13] = -in[13];
-	}
-	const bool invertedX = gstate_c.vpWidth < 0;
-	if (invertedX) {
-		in[0] = -in[0];
-		in[4] = -in[4];
-		in[8] = -in[8];
-		in[12] = -in[12];
-	}
-}
-
 static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 
 	bool hud = true;

@@ -116,7 +116,7 @@ void GPUgstate::Reset() {
 
 	savedContextVersion = 1;
 
-	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 }
 
 void GPUgstate::Save(u32_le *ptr) {
@@ -248,7 +248,7 @@ void GPUgstate::Restore(const u32_le *ptr) {
 	if (gpu)
 		gpu->ResetMatrices();
 
-	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 }
 
 bool vertTypeIsSkinningEnabled(u32 vertType) {
@@ -341,8 +341,11 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	Do(p, actualTextureHeight);
 	// curTextureXOffset and curTextureYOffset don't need to be saved.  Well, the above don't either...
 
-	Do(p, vpWidth);
-	Do(p, vpHeight);
+	// previously vpWidth, vpHeight. Remove in future versions.
+	float dummy = 0.0f;
+	Do(p, dummy);
+	Do(p, dummy);
+
 	if (s == 4) {
 		float oldDepth = 1.0f;
 		Do(p, oldDepth);
@@ -359,7 +362,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	}
 
 	if (p.GetMode() == PointerWrap::MODE_READ) {
-		gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+		gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 	}
 }
 

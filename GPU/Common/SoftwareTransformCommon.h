@@ -65,6 +65,7 @@ struct SoftwareTransformParams {
 	bool allowClear;
 	bool allowSeparateAlphaClear;
 	bool everUsedEqualDepth;
+	float pointScale = 1.0f;  // Useful to increase these for debug views of bounding box corners.
 };
 
 // Converts an index buffer to make the provoking vertex the last.
@@ -86,4 +87,4 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 // In the returned data, you should subtract the value of lowerIndexBound from the indices to get the actual vertex index in the vertices array.
 // This is because some draws in some games use very large indices, but they only use a small range of them in each PRIM submission.
 // Additionally, if the transformed flag is set in flags, the indices will be transformed into "generic" types (triangles instead of strips), etc.
-bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags);
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags);

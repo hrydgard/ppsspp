@@ -158,6 +158,7 @@ private:
 	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;
+	GECommand previewCmd_{};
 	GEPrimitiveType previewPrim_ = GEPrimitiveType::GE_PRIM_TRIANGLES;
 	std::vector<u16> previewIndices_;
 	std::vector<GPUDebugVertex> previewVertices_;

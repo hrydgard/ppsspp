@@ -75,8 +75,8 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) { return false; }
 
 	bool GetCurrentDisplayList(DisplayList &list) const;
-	bool GetCurrentDrawAsDebugVertices(GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const;
-	int GetCurrentPrimCount(GEPrimitiveType *prim) const;
+	bool GetCurrentDrawAsDebugVertices(GECommand cmd, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const;
+	int GetCurrentPrim(GEPrimitiveType *prim, GECommand *outCmd) const;  // Return value has the count.
 
 	// FinishInitOnMainThread runs on the main thread, of course.
 	virtual void FinishInitOnMainThread() {}
@@ -201,6 +201,7 @@ public:
 
 	virtual FramebufferManagerCommon *GetFramebufferManagerCommon() { return nullptr; }
 	virtual TextureCacheCommon *GetTextureCacheCommon() { return nullptr; }
+	const DrawEngineCommon *GetDrawEngineCommon() const { return drawEngineCommon_; }
 
 	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) { return std::vector<std::string>(); };
 	virtual std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) {

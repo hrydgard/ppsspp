@@ -179,18 +179,14 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 //   - Only requires six plane evaluations then.
 bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType) {
 	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
-	if (vertexCount > 1024) {
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (vertexCount > 1024 || gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
 	}
 
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
-
-	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
-	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		return true;
-	}
 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
@@ -333,6 +329,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	for (int i = 0; i < countToCheck; i++) {
 		if (insideCount[i] == 0) {
+			// All verts were outside one side.
 			return false;
 		}
 	}
@@ -347,8 +344,8 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 //
 // NOTE: This doesn't handle through-mode or indexing (morph or skinning can be handled if they're implemented in software during decode).
 template<u32 posFmt>
-static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, int vertexCount, const VertexDecoder *dec, u8 *decoded, ClipInfoFlags *clipInfoFlags) {
-	Mat4F32 worldViewProjMat(worldViewProj);
+static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, ClipInfoFlags *clipInfoFlags) {
+	Mat4F32 cullMat(cullMatrix);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
 	Vec4S32 insideMaskXY = Vec4S32::Zero();
@@ -358,10 +355,8 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 	// Used to reduce the Z precision. This effectively implements the small offsets where Z can be very slightly outside -1..1.
 	// In reality we should probably affect X and Y too, but meh.
 	alignas(16) static const u32 vertexMaskData[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFF00, 0xFFFFFFFF};
-	Vec4S32 vertexMask = Vec4S32::LoadAligned((const int *)vertexMaskData);
 	const int stride = dec->VertexSize();
-	const int offset = dec->posoff;
-	const s8 *data = (const s8 *)vdata + offset;
+	const s8 *data = (const s8 *)vdata + dec->posoff;
 
 	const float vpZScale = gstate.getViewportZScale();
 
@@ -381,7 +376,7 @@ static bool TestBoundingBoxFast(const float *worldViewProj, const void *vdata, i
 			objPos = Vec4F32::Load((const float *)data);
 			break;
 		}
-		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(worldViewProjMat) & vertexMask;  // Not sure we should do the vertex mask thing.
+		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(cullMat);
 		Vec4F32 posW = clipPos.ShuffleWWWW();
 		Vec4F32 posXY = clipPos.ShuffleXXYY();
 		Vec4F32 planeDistXY = posXY * planesXY + posW;
@@ -457,11 +452,11 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(cullMatrix, vdata, vertexCount, dec, decoded_, flags);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(cullMatrix, vdata, vertexCount, dec, flags);
 	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(cullMatrix, vdata, vertexCount, dec, decoded_, flags);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(cullMatrix, vdata, vertexCount, dec, flags);
 	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(cullMatrix, vdata, vertexCount, dec, decoded_, flags);
+		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(cullMatrix, vdata, vertexCount, dec, flags);
 	default:
 		// Shouldn't end up here with the checks outside this function.
 		_dbg_assert_(false);

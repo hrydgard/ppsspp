@@ -278,6 +278,8 @@ enum GECommand : uint8_t {
 	GE_CMD_NOP_FF = 0xFF,
 };
 
+const char *GeCmdToString(GECommand cmd);
+
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)
 #define GE_VTYPE_THROUGH_MASK (1<<23)
@@ -304,7 +306,7 @@ enum GECommand : uint8_t {
 #define GE_VTYPE_NRM_MASK  (3<<5)
 #define GE_VTYPE_NRM_SHIFT 5
 
-//#define GE_VTYPE_POSITION_NONE  (0<<5)
+// No NONE, there is always a position.
 #define GE_VTYPE_POS_8BIT  (1<<7)
 #define GE_VTYPE_POS_16BIT (2<<7)
 #define GE_VTYPE_POS_FLOAT (3<<7)

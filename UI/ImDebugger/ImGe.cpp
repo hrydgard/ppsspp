@@ -11,6 +11,7 @@
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
@@ -891,7 +892,7 @@ static const char *DLStateToString(DisplayListState state) {
 }
 
 // TODO: Backport this to the Win32 debugger (ugh).
-static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int indexOffset, bool transformed, bool uvToPos, float sx, float sy) {
+static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd, GEPrimitiveType prim, const std::vector<u16> &indices, const std::vector<GPUDebugVertex> &verts, int indexOffset, bool transformed, bool uvToPos, float sx, float sy) {
 	// These wrappers are to either draw using the positions or the UV coordinates.
 	auto x = [sx, uvToPos](const GPUDebugVertex &vert) {
 		return sx * (uvToPos ? vert.u : vert.x);
@@ -1208,34 +1209,25 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 
 	u32 op = 0;
 	DisplayList list;
-	bool isOnBlockTransfer = false;
 	if (gpuDebug->GetCurrentDisplayList(list)) {
 		_dbg_assert_(Memory::IsValid4AlignedAddress(list.pc));
 		op = Memory::ReadUnchecked_U32(list.pc);
 
+		GECommand cmd = static_cast<GECommand>(op >> 24);
+		previewCmd_ = cmd;
 		// TODO: Also add support for block transfer previews!
-
-		bool isOnPrim = false;
-		switch (op >> 24) {
-		case GE_CMD_PRIM:
-			isOnPrim = true;
+		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BOUNDINGBOX) {
 			if (reloadPreview_) {
-				GetPrimPreview(op, previewPrim_, previewVertices_, previewIndices_, &previewIndexOffset_, previewTransformed_);
+				GetPrimPreview(op, &previewPrim_, &previewVertices_, &previewIndices_, &previewIndexOffset_, previewTransformed_);
 				reloadPreview_ = false;
 			}
-			break;
-		case GE_CMD_TRANSFERSTART:
-			isOnBlockTransfer = true;
-			break;
-		default:
+		} else {
 			// Disable the current preview.
 			previewVertices_.clear();
 			previewIndices_.clear();
 			previewIndexOffset_ = 0;
 			previewTransformed_ = true;
-			break;
 		}
-
 	}
 
 	ImGui::BeginChild("texture/fb view");
@@ -1243,7 +1235,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 	ImDrawList *drawList = ImGui::GetWindowDrawList();
 
 	if (coreState == CORE_STEPPING_GE) {
-		if (isOnBlockTransfer) {
+		if (previewCmd_ == GE_CMD_TRANSFERSTART) {
 			ImGui::Text("Block transfer! Proper preview coming in the future.\n");
 			ImGui::Text("%08x -> %08x, %d bpp (strides: %d, %d)", gstate.getTransferSrcAddress(), gstate.getTransferDstAddress(), gstate.getTransferBpp(), gstate.getTransferSrcStride(), gstate.getTransferDstStride());
 			ImGui::Text("%dx%d pixels", gstate.getTransferWidth(), gstate.getTransferHeight());
@@ -1318,7 +1310,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 
 			// Draw vertex preview on top!
 			if (!previewVertices_.empty()) {
-				DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, false, scale * previewZoom_, scale * previewZoom_);
+				DrawPreviewPrimitive(drawList, p0, previewCmd_, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, false, scale * previewZoom_, scale * previewZoom_);
 			}
 
 			drawList->PopClipRect();
@@ -1347,7 +1339,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 				ImGui::Text("(clear mode - texturing not used)");
 			} else if (!gstate.isTextureMapEnabled()) {
 				ImGui::Text("(texturing not enabled");
-			} else {
+			} else {  // We don't bother with the texture if previewCmd is BOUNDING_BOX - no texturing happens there.
 				TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
 				TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
 				if (tex) {
@@ -1369,8 +1361,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 
 					ImGui::Image(texId, ImVec2(texW, texH));
 
-					// Show the preview as texcoords. TODO: We should probably use unclipped data here?
-					DrawPreviewPrimitive(drawList, p0, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, true, texW, texH);
+					// Don't bother with trying to preview bounding box here, it only has positions, no texcoords.
+					if (previewCmd_ == GE_CMD_PRIM || previewCmd_ == GE_CMD_BEZIER || previewCmd_ == GE_CMD_SPLINE) {
+						// Show the preview as texcoords. TODO: We should probably use unclipped data here?
+						DrawPreviewPrimitive(drawList, p0, previewCmd_, previewPrim_, previewIndices_, previewVertices_, previewIndexOffset_, previewTransformed_, true, texW, texH);
+					}
 
 					drawList->PopClipRect();
 
@@ -1705,7 +1700,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebu
 	ImGui::End();
 }
 
-void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug) {
+void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpu) {
 	ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GE Vertices", &cfg.geVertsOpen)) {
 		ImGui::End();
@@ -1724,7 +1719,7 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 		ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_ScrollY;
 
 	if (ImGui::BeginTabBar("vertexmode", ImGuiTabBarFlags_None)) {
-		auto state = gpuDebug->GetGState();
+		auto state = gpu->GetGState();
 		auto buildVertexTable = [&](bool transformed) {
 			// Let's see if it's fast enough to just do all this each frame.
 			GEPrimitiveType prim;
@@ -1740,11 +1735,14 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 				flags |= DebugVertexFlags::Clipped;
 			}
 
-			int inputVertexCount = gpuDebug->GetCurrentPrimCount(&prim);
+			GECommand cmd;
+			int inputVertexCount = gpu->GetCurrentPrim(&prim, &cmd);
+
+			// TODO: If cmd is BOUNDING_BOX, actually test the bounding box here and show the result.
 
 			// This performs software transform, if transformed is checked. We might want to cache it? Although, it's only for a single draw...
 			TransformStats stats;
-			if (!gpuDebug->GetCurrentDrawAsDebugVertices(prim, &prim, inputVertexCount, vertices, indices, &indexOffset, &stats, flags)) {
+			if (!gpu->GetCurrentDrawAsDebugVertices(cmd, prim, &prim, inputVertexCount, &vertices, &indices, &indexOffset, &stats, flags)) {
 				inputVertexCount = 0;
 			}
 
@@ -1752,7 +1750,7 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug)
 
 			char statusLine[256];
 			StringWriter w(statusLine);
-			w.F("%s: ", GePrimTypeToString(prim));
+			w.F("%s - %s: ", GeCmdToString(cmd), GePrimTypeToString(prim));
 			char fmtTemp[256];
 			FormatStateRow(fmtTemp, sizeof(fmtTemp), CMD_FMT_VERTEXTYPE, state.vertType, true, false, false);
 			w.F("%s", fmtTemp);

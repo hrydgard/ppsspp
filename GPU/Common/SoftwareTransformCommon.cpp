@@ -37,7 +37,7 @@
 
 static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, bool *pixelMappedExactly);
 static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode);
-static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode);
+static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, float pointScale);
 static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
 // This is the software transform pipeline, which is necessary for supporting RECT
@@ -636,7 +636,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 		}
 
 		result->pixelMapped = false;
-		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, &drawIndexCount, throughmode)) {
+		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, &drawIndexCount, throughmode, params.pointScale)) {
 			result->drawVertexCount = 0;
 			result->drawIndexCount = 0;
 			result->drawBuffer = nullptr;
@@ -1104,7 +1104,7 @@ static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u1
 	return true;
 }
 
-static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode) {
+static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, float pointScale) {
 	// Before we start, do a sanity check - does the output fit?
 	if (vertexCount * 6 > indsSize) {
 		// Won't fit, kill the draw.
@@ -1121,21 +1121,22 @@ static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&in
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
-	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
-	float du = 1.0f / gstate_c.curTextureWidth;
-	float dv = 1.0f / gstate_c.curTextureHeight;
+	const float offset = pointScale != 1.0f ? -pointScale * 0.5f : 0.0f;
 
-	if (throughmode) {
-		dx = 1.0f;
-		dy = 1.0f;
-	}
+	const float dx = 1.0f * pointScale;
+	const float dy = 1.0f * pointScale;
+
+	const float du = 1.0f / gstate_c.curTextureWidth;
+	const float dv = 1.0f / gstate_c.curTextureHeight;
 
 	maxIndex = 4 * vertexCount;
 	for (int i = 0; i < vertexCount; ++i) {
-		const TransformedVertex &transVtxTL = transformed[indsIn[i]];
+		TransformedVertex transVtxTL = transformed[indsIn[i]];
+		// Centering, if the logic below enables it.
+		transVtxTL.x += offset;
+		transVtxTL.y += offset;
 
-		// Create the bottom right version.
+		// Create the bottom right corner.
 		TransformedVertex transVtxBR = transVtxTL;
 		transVtxBR.x += dx;
 		transVtxBR.y += dy;
@@ -1173,6 +1174,7 @@ static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&in
 		indsOut[3] = i * 4 + 3;
 		indsOut[4] = i * 4 + 0;
 		indsOut[5] = i * 4 + 2;
+
 		trans += 4;
 		indsOut += 6;
 	}
@@ -1314,7 +1316,7 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 // This is really just for vertex preview in the debugger, not for actual rendering!
 // TODO: Support tessellation!! That's currently entirely broken (I guess maybe we'll draw the control points as something).
 // count is the input vertex count (describes the draw together with prim).
-bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> &debugVertices, std::vector<u16> &debugIndices, int *outLowerIndexBound, TransformStats *stats, DebugVertexFlags flags) {
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> *debugVertices, std::vector<u16> *debugIndices, int *outLowerIndexBound, TransformStats *stats, DebugVertexFlags flags) {
 	// This is always for the current vertices.
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
@@ -1377,7 +1379,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	if (!(flags & DebugVertexFlags::Transformed)) {
 		// Output the untransformed vertices (although with skinning and morph baked-in from decode),
 		// and the original indices. Might be interesting to look at.
-		debugVertices.resize(verticesToDecode);
+		debugVertices->resize(verticesToDecode);
 		VertexReader reader(vertsTemp.data(), dec->GetDecVtxFmt(), vertTypeID);
 
 		const u8 defaultColor[4] = {
@@ -1389,7 +1391,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 
 		for (int i = 0; i < verticesToDecode; i++) {
 			reader.Goto(i);
-			GPUDebugVertex &sv = debugVertices[i];
+			GPUDebugVertex &sv = (*debugVertices)[i];
 			sv = {};
 			if (vertTypeID & GE_VTYPE_TC_MASK) {
 				reader.ReadUV(&sv.u);
@@ -1421,24 +1423,24 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 		// Output the indices straight
 		switch (vertTypeID & GE_VTYPE_IDX_MASK) {
 		case GE_VTYPE_IDX_NONE:
-			debugIndices.clear();  // it's just a sequence, effectively.
+			debugIndices->clear();  // it's just a sequence, effectively.
 			break;
 		case GE_VTYPE_IDX_8BIT:
-			debugIndices.resize(verticesToDecode);
+			debugIndices->resize(verticesToDecode);
 			for (int i = 0; i < verticesToDecode; i++) {
-				debugIndices[i] = ((const u8 *)indsPtr)[i];
+				(*debugIndices)[i] = ((const u8 *)indsPtr)[i];
 			}
 			break;
 		case GE_VTYPE_IDX_16BIT:
-			debugIndices.resize(verticesToDecode);
+			debugIndices->resize(verticesToDecode);
 			for (int i = 0; i < verticesToDecode; i++) {
-				debugIndices[i] = ((const u16_le *)indsPtr)[i];
+				(*debugIndices)[i] = ((const u16_le *)indsPtr)[i];
 			}
 			break;
 		case GE_VTYPE_IDX_32BIT:
-			debugIndices.resize(verticesToDecode);
+			debugIndices->resize(verticesToDecode);
 			for (int i = 0; i < verticesToDecode; i++) {
-				debugIndices[i] = ((const u32_le *)indsPtr)[i];
+				(*debugIndices)[i] = ((const u32_le *)indsPtr)[i];
 			}
 			break;
 		}
@@ -1469,7 +1471,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 		break;
 	}
 
-	// After this, strips and fans have been collapsed to triangles.
+	// After index generation, strips and fans have been collapsed to triangles.
 	switch (prim) {
 	case GE_PRIM_LINE_STRIP:
 		prim = GE_PRIM_LINES;
@@ -1492,14 +1494,15 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	params.decoded = vertsTemp.data();
 	params.transformed = transformed.data();
 	params.transformedExpanded = transformedExpanded.data();
+	params.pointScale = cmd == GE_CMD_BOUNDINGBOX ? 4.0f : 1.0f;  // Just make them more visible, for eas of debugging.
 
 	RunSoftwareTransform(params, prim, vertTypeID, dec->GetDecVtxFmt(), numDecodedVerts, 65536, generatedIndices, inds, (int)indexTemp.size(), &result);
 
 	// Output of software transform is always an indexed triangle list (or nothing).
 	if (result.drawIndexCount == 0) {
 		// Not a failue, but everything got culled.
-		debugVertices.clear();
-		debugIndices.clear();
+		debugVertices->clear();
+		debugIndices->clear();
 		return true;
 	}
 
@@ -1513,18 +1516,18 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GEPrimitiveType
 	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 
 	// Supply indices in a correctly-sized vector.
-	debugIndices.resize(result.drawIndexCount);
-	memcpy(debugIndices.data(), inds, result.drawIndexCount * sizeof(u16));
+	debugIndices->resize(result.drawIndexCount);
+	memcpy(debugIndices->data(), inds, result.drawIndexCount * sizeof(u16));
 
 	const bool applyOffset = (flags & DebugVertexFlags::DrawCoords) && !throughMode;
 	const float offsetX = applyOffset ? -gstate.getOffsetX() : 0.0f;
 	const float offsetY = applyOffset ? -gstate.getOffsetY() : 0.0f;
 
 	// Convert the transformed vertices to the debug vertex format.
-	debugVertices.resize(result.drawVertexCount);
+	debugVertices->resize(result.drawVertexCount);
 	for (int i = 0; i < result.drawVertexCount; i++) {
 		const TransformedVertex &vtx = result.drawBuffer[i];
-		GPUDebugVertex &dv = debugVertices[i];
+		GPUDebugVertex &dv = (*debugVertices)[i];
 		dv.x = vtx.x + offsetX;
 		dv.y = vtx.y + offsetY;
 		dv.z = vtx.z;

@@ -805,26 +805,28 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	FreeAlignedMemory(cpoints.col);
 }
 
-bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, bool transformed) {
-	u32 prim_type = GE_PRIM_INVALID;
+bool GetPrimPreview(u32 op, GEPrimitiveType *prim, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, bool transformed) {
 	int count_u = 0;
 	int count_v = 0;
 
 	int count = 0;
 
-	const u32 cmd = op >> 24;
+	const GECommand cmd = static_cast<GECommand>(op >> 24);
 	if (cmd == GE_CMD_PRIM) {
-		prim_type = (op >> 16) & 0x7;
+		*prim = static_cast<GEPrimitiveType>((op >> 16) & 0x7);  // irrelevant for bbox
+		count = op & 0xFFFF;
+	} else if (cmd == GE_CMD_BOUNDINGBOX) {
+		*prim = GE_PRIM_POINTS;  // There's no set order for these, so drawing lines might look strange. Maybe if we draw lines from every vertex to every other...
 		count = op & 0xFFFF;
 	} else {
 		constexpr GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
-		prim_type = primLookup[gstate.getPatchPrimitiveType()];
+		*prim = primLookup[gstate.getPatchPrimitiveType()];
 		count_u = (op & 0x00FF) >> 0;
 		count_v = (op & 0xFF00) >> 8;
 		count = count_u * count_v;
 	}
 
-	if (prim_type >= 7) {
+	if (*prim >= 7) {
 		ERROR_LOG(Log::G3D, "Unsupported prim type: %x", op);
 		return false;
 	}
@@ -836,8 +838,6 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 		return false;
 	}
 
-	prim = static_cast<GEPrimitiveType>(prim_type);
-
 	DebugVertexFlags flags = DebugVertexFlags::DrawCoords;
 	if (cmd == GE_CMD_PRIM) {
 		flags |= DebugVertexFlags::Clipped;
@@ -845,57 +845,58 @@ bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &
 			flags |= DebugVertexFlags::Transformed;
 		}
 	} else {
-		flags = DebugVertexFlags::Transformed;
+		flags |= DebugVertexFlags::Transformed;
 	}
 
 	GEPrimitiveType outPrim;
-	if (!gpu->GetCurrentDrawAsDebugVertices(prim, &outPrim, count, vertices, indices, lowerIndexBound, nullptr, flags)) {
+	if (!gpu->GetCurrentDrawAsDebugVertices(cmd, *prim, &outPrim, count, vertices, indices, lowerIndexBound, nullptr, flags)) {
 		ERROR_LOG(Log::G3D, "Vertex preview not yet supported");
 		return false;
 	}
 
 	// Sanity check the output (for debugging)
-	if (indices.size()) {
-		for (int i = 0; i < indices.size(); ++i) {
-			int offsetIndex = indices[i] - *lowerIndexBound;
-			if (offsetIndex >= vertices.size() || offsetIndex < 0) {
-				ERROR_LOG(Log::G3D, "Invalid vertex index %d (%d) (vertex count %d)", indices[i], offsetIndex, (int)vertices.size());
+	if (indices->size()) {
+		for (int i = 0; i < indices->size(); ++i) {
+			int offsetIndex = (*indices)[i] - *lowerIndexBound;
+			if (offsetIndex >= vertices->size() || offsetIndex < 0) {
+				ERROR_LOG(Log::G3D, "Invalid vertex index %d (%d) (vertex count %d)", (*indices)[i], offsetIndex, (int)vertices->size());
 				return false;
 			}
 		}
 	}
 
-	prim = outPrim;
+	*prim = outPrim;
 
-	if (cmd != GE_CMD_PRIM) {
+	if (cmd != GE_CMD_PRIM && cmd != GE_CMD_BOUNDINGBOX) {
 		static std::vector<SimpleVertex> generatedVerts;
 		static std::vector<u16> generatedInds;
 
 		static std::vector<SimpleVertex> simpleVerts;
-		simpleVerts.resize(vertices.size());
-		for (size_t i = 0; i < vertices.size(); ++i) {
+		simpleVerts.resize(vertices->size());
+		for (size_t i = 0; i < vertices->size(); ++i) {
 			// For now, let's just copy back so we can use TessellateBezierPatch/TessellateSplinePatch...
-			simpleVerts[i].uv[0] = vertices[i].u;
-			simpleVerts[i].uv[1] = vertices[i].v;
-			simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
+			simpleVerts[i].uv[0] = (*vertices)[i].u;
+			simpleVerts[i].uv[1] = (*vertices)[i].v;
+			simpleVerts[i].pos = Vec3Packedf((*vertices)[i].x, (*vertices)[i].y, (*vertices)[i].z);
 		}
 		
 		*lowerIndexBound = 0;
 		if (cmd == GE_CMD_BEZIER) {
-			ExpandBezier(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+			ExpandBezier(count, op, simpleVerts, *indices, generatedVerts, generatedInds);
 		} else if (cmd == GE_CMD_SPLINE) {
-			ExpandSpline(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+			ExpandSpline(count, op, simpleVerts, *indices, generatedVerts, generatedInds);
 		}
 
-		vertices.resize(generatedVerts.size());
-		for (size_t i = 0; i < vertices.size(); ++i) {
-			vertices[i].u = generatedVerts[i].uv[0];
-			vertices[i].v = generatedVerts[i].uv[1];
-			vertices[i].x = generatedVerts[i].pos.x;
-			vertices[i].y = generatedVerts[i].pos.y;
-			vertices[i].z = generatedVerts[i].pos.z;
+		vertices->resize(generatedVerts.size());
+		for (size_t i = 0; i < vertices->size(); ++i) {
+			auto vertex = &(*vertices)[i];
+			vertex->u = generatedVerts[i].uv[0];
+			vertex->v = generatedVerts[i].uv[1];
+			vertex->x = generatedVerts[i].pos.x;
+			vertex->y = generatedVerts[i].pos.y;
+			vertex->z = generatedVerts[i].pos.z;
 		}
-		indices = generatedInds;
+		*indices = generatedInds;
 	}
 
 	/*

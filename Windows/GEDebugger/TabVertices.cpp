@@ -200,7 +200,8 @@ int CtrlVertexList::GetRowCount() {
 	auto state = gpu->GetGState();
 
 	GEPrimitiveType prim;
-	rowCount_ = gpu->GetCurrentPrimCount(&prim);
+	GECommand cmd;
+	rowCount_ = gpu->GetCurrentPrim(&prim, &cmd);
 
 	previewIndexOffset_ = 0;
 
@@ -213,7 +214,7 @@ int CtrlVertexList::GetRowCount() {
 	}
 
 	TransformStats stats;
-	if (!gpu->GetCurrentDrawAsDebugVertices(prim, &prim, rowCount_, vertices, indices, &previewIndexOffset_, &stats, flags)) {
+	if (!gpu->GetCurrentDrawAsDebugVertices(cmd, prim, &prim, rowCount_, &vertices, &indices, &previewIndexOffset_, &stats, flags)) {
 		rowCount_ = 0;
 	}
 
