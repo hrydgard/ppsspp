@@ -376,9 +376,13 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 bool GamePauseScreen::UnsyncKey(const KeyInput &key) {
-	int retval = UIScreen::UnsyncKey(key);
+	bool retval = UIScreen::UnsyncKey(key);
 	bool pauseTrigger = false;
-	return retval || g_controlMapper.Key(key, &pauseTrigger);
+	retval = g_controlMapper.Key(key, &pauseTrigger) || retval;
+	if (pauseTrigger) {
+		TriggerFinish(DR_BACK);
+	}
+	return retval;
 }
 
 void GamePauseScreen::UnsyncAxis(const AxisInput *axes, size_t count) {

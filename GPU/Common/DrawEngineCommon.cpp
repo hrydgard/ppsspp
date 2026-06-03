@@ -51,6 +51,12 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
 	transformedExpanded_ = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decoded_ = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+
+	_dbg_assert_(transformed_);
+	_dbg_assert_(transformedExpanded_);
+	_dbg_assert_(decoded_);
+	_dbg_assert_(decIndex_);
+
 	indexGen.Setup(decIndex_);
 
 	InitDepthRaster();
