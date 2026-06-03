@@ -278,6 +278,8 @@ enum GECommand : uint8_t {
 	GE_CMD_NOP_FF = 0xFF,
 };
 
+const char *GeCmdToString(GECommand cmd);
+
 #define GE_VTYPE_TRANSFORM (0<<23)
 #define GE_VTYPE_THROUGH   (1<<23)
 #define GE_VTYPE_THROUGH_MASK (1<<23)

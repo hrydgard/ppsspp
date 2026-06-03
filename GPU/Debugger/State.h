@@ -68,6 +68,6 @@ void FormatVertColDecoded(char *dest, size_t destSize, const GPUDebugVertex &ver
 void FormatVertColTransformed(char *dest, size_t destSize, const GPUDebugVertex &vert, VertexListTransformedCol col);
 
 // These are utilities used by the debugger vertex preview.
-bool GetPrimPreview(u32 op, GEPrimitiveType &prim, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices, int *lowerIndexBound, bool transformed);
+bool GetPrimPreview(u32 op, GEPrimitiveType *prim, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, bool transformed);
 void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);
 void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, char desc[256]);

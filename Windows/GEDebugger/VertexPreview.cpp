@@ -99,7 +99,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	GEPrimitiveType prim;
 	int previewIndexOffset;
 	bool previewTransformed;
-	if (!GetPrimPreview(op, prim, vertices, indices, &previewIndexOffset, &previewTransformed)) {
+	if (!GetPrimPreview(op, &prim, &vertices, &indices, &previewIndexOffset, &previewTransformed)) {
 		return;
 	}
 
