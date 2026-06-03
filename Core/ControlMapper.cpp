@@ -106,28 +106,66 @@ static bool IsSignedAxis(int axis) {
 	}
 }
 
+// Apply a response curve to a 0-1 magnitude value.
+static float ApplyResponseCurve(float v, int curveType) {
+	switch (curveType) {
+	case 1:  // Aggressive - fast response, reaches high output quickly
+		return sqrtf(v);
+	case 2:  // Relaxed - more range devoted to fine/slow movement
+		return v * v;
+	case 3:  // Wide - even more precision at low end
+		return v * v * v;
+	default: // Linear (0) - 1:1 mapping
+		return v;
+	}
+}
+
+// Apply axial anti-deadzone to a single axis value.
+// For non-zero inputs, boosts the output to at least the threshold value.
+// This makes the output "skip" the zone near each axis, preventing the stick
+// from lingering in the near-cardinal region. Pure cardinal (0.0) is still reachable.
+static float ApplyAxialAntiDeadzone(float v, float antiDZ) {
+	if (antiDZ <= 0.0f || v == 0.0f)
+		return v;
+	float sign = v >= 0.0f ? 1.0f : -1.0f;
+	float absV = fabsf(v);
+	// Remap (0, 1] -> [antiDZ, 1]: any non-zero input jumps past the anti-deadzone threshold.
+	float remapped = antiDZ + absV * (1.0f - antiDZ);
+	return sign * Clamp(remapped, 0.0f, 1.0f);
+}
+
 // This is applied on the circular radius, not directly on the axes.
-// TODO: Share logic with tilt?
+// Adds a response curve stage on top of the legacy inner-deadzone + sensitivity processing.
 
 static float MapAxisValue(float v) {
 	const float deadzone = g_Config.fAnalogDeadzone;
 	const float invDeadzone = g_Config.fAnalogInverseDeadzone;
 	const float sensitivity = g_Config.fAnalogSensitivity;
+	const int responseCurve = g_Config.iAnalogResponseCurve;
 	const float sign = v >= 0.0f ? 1.0f : -1.0f;
 
-	// Apply deadzone.
-	v = Clamp((fabsf(v) - deadzone) / (1.0f - deadzone), 0.0f, 1.0f);
+	float absV = fabsf(v);
 
-	// Apply sensitivity and inverse deadzone.
-	if (v != 0.0f) {
-		v = Clamp(invDeadzone + v * (sensitivity - invDeadzone), 0.0f, 1.0f);
+	// Stage 1: Apply inner deadzone and rescale to [0, 1].
+	absV = Clamp((absV - deadzone) / (1.0f - deadzone), 0.0f, 1.0f);
+
+	// Stage 2: Apply sensitivity (legacy, matches prior behavior when response curve is Linear).
+	if (absV != 0.0f) {
+		absV = Clamp(invDeadzone + absV * (sensitivity - invDeadzone), 0.0f, 1.0f);
 	}
 
-	return sign * v;
+	// Stage 3: Apply response curve.
+	if (absV != 0.0f) {
+		absV = ApplyResponseCurve(absV, responseCurve);
+	}
+
+	return sign * Clamp(absV, 0.0f, 1.0f);
 }
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
 	const bool isCircular = g_Config.bAnalogIsCircular;
+	const int deadzoneShape = g_Config.iAnalogDeadzoneShape;
+	const float axialDZ = g_Config.fAnalogAxialDeadzone;
 
 	float norm = std::max(fabsf(x), fabsf(y));
 	if (norm == 0.0f) {
@@ -136,17 +174,30 @@ void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
 		return;
 	}
 
-	if (isCircular) {
+	if (isCircular || deadzoneShape == 0) {
+		// Circle shape or legacy circular mode: use Euclidean norm.
 		float newNorm = sqrtf(x * x + y * y);
 		float factor = newNorm / norm;
 		x *= factor;
 		y *= factor;
 		norm = newNorm;
 	}
+	// deadzoneShape == 1 (Square) uses max norm (the default path, no conversion needed).
+	// deadzoneShape == 2 (Cross) also uses max norm for the radial processing.
 
 	float mappedNorm = MapAxisValue(norm);
 	*outX = Clamp(x / norm * mappedNorm, -1.0f, 1.0f);
 	*outY = Clamp(y / norm * mappedNorm, -1.0f, 1.0f);
+
+	// Final stage: Apply cross-shaped axial anti-deadzone.
+	// This boosts small non-zero axis values past the threshold, making the output
+	// "skip" the zone near each cardinal axis. This prevents the stick from lingering
+	// near cardinals and opens up the full diagonal range.
+	// Pure cardinals (0.0 on an axis) are still reachable.
+	if (deadzoneShape == 2 && axialDZ > 0.0f) {
+		*outX = ApplyAxialAntiDeadzone(*outX, axialDZ);
+		*outY = ApplyAxialAntiDeadzone(*outY, axialDZ);
+	}
 }
 
 void ControlMapper::SetPSPAxis(int device, int stick, char axis, float value) {

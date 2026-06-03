@@ -515,6 +515,15 @@ public:
 	// Auto rotation speed
 	float fAnalogAutoRotSpeed;
 
+	// Advanced analog deadzone settings (Steam Input-style).
+	// Deadzone shape: 0 = Circle, 1 = Square (default, matches legacy max-norm), 2 = Cross
+	int iAnalogDeadzoneShape;
+	// Cross-shaped axial anti-deadzone. Boosts small off-axis values past this threshold,
+	// making the output skip the zone near each cardinal axis to prevent axis snapping.
+	float fAnalogAxialDeadzone;
+	// Response curve type: 0 = Linear, 1 = Aggressive, 2 = Relaxed, 3 = Wide
+	int iAnalogResponseCurve;
+
 	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;
 
