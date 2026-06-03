@@ -760,13 +760,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
-		if (isModeThrough)	{
-			WRITE(p, "  vec4 outPos = position;\n");
-			WRITE(p, "  outPos.z *= 65536.0;\n");  // TODO: This multiplication should be moved to the vertex decoders for through mode.
-		} else {
-			// The viewport has already been applied here, along with the division.
-			WRITE(p, "  vec4 outPos = position;\n");
-		}
+
+		// If non-through, the viewport has already been applied here.
+		WRITE(p, "  vec4 outPos = position;\n");
 
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
