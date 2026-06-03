@@ -1121,15 +1121,11 @@ static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&in
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
-	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
+	float dx = 1.0f;
+	float dy = 1.0f;
+
 	float du = 1.0f / gstate_c.curTextureWidth;
 	float dv = 1.0f / gstate_c.curTextureHeight;
-
-	if (throughmode) {
-		dx = 1.0f;
-		dy = 1.0f;
-	}
 
 	maxIndex = 4 * vertexCount;
 	for (int i = 0; i < vertexCount; ++i) {
@@ -1173,6 +1169,7 @@ static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&in
 		indsOut[3] = i * 4 + 3;
 		indsOut[4] = i * 4 + 0;
 		indsOut[5] = i * 4 + 2;
+
 		trans += 4;
 		indsOut += 6;
 	}

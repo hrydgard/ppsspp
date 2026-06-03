@@ -341,8 +341,11 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	Do(p, actualTextureHeight);
 	// curTextureXOffset and curTextureYOffset don't need to be saved.  Well, the above don't either...
 
-	Do(p, vpWidth);
-	Do(p, vpHeight);
+	// previously vpWidth, vpHeight. Remove in future versions.
+	float dummy = 0.0f;
+	Do(p, dummy);
+	Do(p, dummy);
+
 	if (s == 4) {
 		float oldDepth = 1.0f;
 		Do(p, oldDepth);
