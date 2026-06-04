@@ -201,6 +201,8 @@ struct Vec4F32 {
 
 	static Vec4F32 Load(const float *src) { return Vec4F32{ _mm_loadu_ps(src) }; }
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
+	static Vec4F32 Load2(const float *src) { return Vec4F32{ _mm_castpd_ps(_mm_load_sd((const double *)src)) }; }
+
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
 		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
@@ -208,6 +210,15 @@ struct Vec4F32 {
 		// Sign extension. A bit ugly without SSE4.
 		value32 = _mm_srai_epi32(value32, 24);
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f)) };
+	}
+
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
+		__m128i value16 = _mm_unpacklo_epi8(value, value);
+		__m128i value32 = _mm_unpacklo_epi16(value16, value16);
+		// Sign extension. A bit ugly without SSE4.
+		value32 = _mm_srli_epi32(value32, 24);
+		return Vec4F32{_mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f))};
 	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		__m128i bits = _mm_loadl_epi64((const __m128i*)src);
@@ -621,10 +632,19 @@ struct Vec4F32 {
 		const int16x8_t value16 = vmovl_s8(value);
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vget_low_s16(value16)), 7) };
 	}
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		const uint8x8_t value = (uint8x8_t)vdup_n_u32(*((uint32_t *)src));
+		const uint16x8_t value16 = vmovl_u8(value);
+		return Vec4F32{ vmulq_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(value16))), vdupq_n_f32(1.0f / 255.0f))};
+	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vld1_s16(src)), 15) };
 	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
+	static Vec4F32 Load2(const float *src) {
+		float32x2_t two = vld1_f32(src);
+		return Vec4F32{ vcombine_f32(two, two) };
+	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		int16x4_t value = vld1_s16(src);
@@ -1113,10 +1133,17 @@ struct Vec4F32 {
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
 		return LoadConvertS8(src) * (1.0f / 128.0f);
 	}
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		return LoadConvertU8(src) * (1.0f / 255.0f);
+	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		return LoadConvertS16(src) * (1.0f / 32768.0f);
 	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ (__m128)__lsx_vld(src, 0) }; }
+	static Vec4F32 Load2(const float *src) {
+		// Not the safest. Alternatives are tricky though.
+		return Load(src);
+	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		__m128i value = __lsx_vldrepl_d(src, 0);
@@ -1319,10 +1346,10 @@ struct Vec4F32 {
 		__m128 masked = (__m128)__lsx_vinsgr2vr_w((__m128i)v, 0, 3);
 		__m128 mul = (__m128)__lsx_vfmul_s(masked, b.v);
 		// Sum all elements: horizontal add
-		__m128 shuf1 = (__m128)__lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
-		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, shuf1);
-		__m128 shuf2 = (__m128)__lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
-		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, shuf2);
+		__m128i shuf1 = __lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
+		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, (__m128)shuf1);
+		__m128i shuf2 = __lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
+		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, (__m128)shuf2);
 		float fval;
 		int ival = __lsx_vpickve2gr_w((__m128i)sum2, 0);
 		memcpy(&fval, &ival, sizeof(float));
@@ -1332,10 +1359,10 @@ struct Vec4F32 {
 	float Dot4(Vec4F32 b) {
 		__m128 mul = (__m128)__lsx_vfmul_s(v, b.v);
 		// Sum all elements: horizontal add
-		__m128 shuf1 = (__m128)__lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
-		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, shuf1);
-		__m128 shuf2 = (__m128)__lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
-		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, shuf2);
+		__m128i shuf1 = __lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
+		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, (__m128)shuf1);
+		__m128i shuf2 = __lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
+		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, (__m128)shuf2);
 		float fval;
 		int ival = __lsx_vpickve2gr_w((__m128i)sum2, 0);
 		memcpy(&fval, &ival, sizeof(float));
@@ -1607,6 +1634,13 @@ struct Vec4F32 {
 		}
 		return temp;
 	}
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (float)src[i] * (1.0f / 255.0f);
+		}
+		return temp;
+	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		Vec4F32 temp;
 		for (int i = 0; i < 4; i++) {
@@ -1614,6 +1648,8 @@ struct Vec4F32 {
 		}
 		return temp;
 	}
+	static Vec4F32 Load2(const float *src) { return Vec4F32{{ src[0], src[1], 0.0f, 0.0f }}; }
+
 	void Store(float *dst) { memcpy(dst, v, sizeof(v)); }
 	void Store2(float *dst) { memcpy(dst, v, sizeof(v[0]) * 2); }
 	void StoreAligned(float *dst) { memcpy(dst, v, sizeof(v)); }

@@ -32,13 +32,14 @@
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Software/Clipper.h"
 
 static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, bool *pixelMappedExactly);
 static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode);
 static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, float pointScale);
-static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
+static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly without geometry shaders, and may be easier to use for
@@ -117,38 +118,12 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 }
 
 // At the end, this calls ProjectClipAndExpand which will expand rectangles as necessary, or apply culling.
-SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
+SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	// These primitive are not handled.
 	_dbg_assert_(prim != GE_PRIM_KEEP_PREVIOUS && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_LINE_STRIP);
 
-	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
-
-	float uscale = 1.0f;
-	float vscale = 1.0f;
-	if (throughmode && prim != GE_PRIM_RECTANGLES) {
-		// For through rectangles, we do this scaling in Expand.
-		uscale /= gstate_c.curTextureWidth;
-		vscale /= gstate_c.curTextureHeight;
-	}
-
-	const int w = gstate.getTextureWidth(0);
-	const int h = gstate.getTextureHeight(0);
-	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
-	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
-
-	Lighter lighter(vertType);
-	float fog_end = getFloat24(gstate.fog1);
-	float fog_slope = getFloat24(gstate.fog2);
-	// Same fixup as in ShaderManagerGLES.cpp
-	// Not really sure what a sensible value might be, but let's try 64k.
-	constexpr float largeFogValue = 65535.0f;
-	if (my_isnanorinf(fog_end)) {
-		fog_end = std::signbit(fog_end) ? -largeFogValue : largeFogValue;
-	}
-	if (my_isnanorinf(fog_slope)) {
-		fog_slope = std::signbit(fog_slope) ? -largeFogValue : largeFogValue;
-	}
+	const bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	const bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	TransformedVertex *transformed = params.transformed;
 	VertexReader reader(params.decoded, decVtxFormat, vertType);
@@ -156,6 +131,15 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 		const u32 materialAmbientRGBA = gstate.getMaterialAmbientRGBA();
 		const bool hasColor = reader.hasColor0();
 		const bool hasUV = reader.hasUV();
+
+		float uscale = 1.0f;
+		float vscale = 1.0f;
+		if (prim != GE_PRIM_RECTANGLES) {
+			// For through rectangles, we do this scaling in Expand.
+			uscale /= gstate_c.curTextureWidth;
+			vscale /= gstate_c.curTextureHeight;
+		}
+
 		for (int index = 0; index < numDecodedVerts; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.Goto(index);
@@ -224,6 +208,24 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			}
 		}
 	} else {
+		Lighter lighter(vertType);
+		float fog_end = getFloat24(gstate.fog1);
+		float fog_slope = getFloat24(gstate.fog2);
+		// Same fixup as in ShaderManagerGLES.cpp
+		// Not really sure what a sensible value might be, but let's try 64k.
+		constexpr float largeFogValue = 65535.0f;
+		if (my_isnanorinf(fog_end)) {
+			fog_end = std::signbit(fog_end) ? -largeFogValue : largeFogValue;
+		}
+		if (my_isnanorinf(fog_slope)) {
+			fog_slope = std::signbit(fog_slope) ? -largeFogValue : largeFogValue;
+		}
+
+		const int texW = gstate.getTextureWidth(0);
+		const int texH = gstate.getTextureHeight(0);
+		const float widthFactor = (float)texW / (float)gstate_c.curTextureWidth;
+		const float heightFactor = (float)texH / (float)gstate_c.curTextureHeight;
+
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < numDecodedVerts; index++) {
@@ -380,7 +382,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 
 			// Projection happens later in ProjectClipAndExpand.
 
-			// Vertex depth rounding is done in the shader, to simulate the 16-bit depth buffer.
+			// Vertex depth rounding is done in the shader if enabled, to simulate the 16-bit depth buffer.
 		}
 	}
 
@@ -589,7 +591,7 @@ static void ClipTrianglesAgainstNearPlane(
 	gpuStats.perFrame.numSoftClippedTriangles++;
 }
 
-static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
+static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params.transformed;
 	TransformedVertex *transformedExpanded = params.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -1447,6 +1449,11 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 
 		*outLowerIndexBound = indexLowerBound;
 		*outPrim = prim;  // before it changes.
+
+		if (stats) {
+			// We're not running transform, so no stats.
+			*stats = {};
+		}
 		return true;
 	}
 
@@ -1500,9 +1507,12 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 
 	// Output of software transform is always an indexed triangle list (or nothing).
 	if (result.drawIndexCount == 0) {
-		// Not a failue, but everything got culled.
+		// Not a failure, but everything got culled.
 		debugVertices->clear();
 		debugIndices->clear();
+		if (stats) {
+			*stats = result.stats;
+		}
 		return true;
 	}
 

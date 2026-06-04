@@ -281,6 +281,7 @@
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Common\VertexDecoderHandwritten.h" />
+    <ClInclude Include="Common\VertexReader.h" />
     <ClInclude Include="Common\VertexShaderGenerator.h" />
     <ClInclude Include="D3D11\D3D11Util.h" />
     <ClInclude Include="D3D11\DrawEngineD3D11.h" />

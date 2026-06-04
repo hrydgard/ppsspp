@@ -49,7 +49,6 @@
 struct CompatFlags {
 	bool VertexDepthRounding;
 	bool PixelDepthRounding;
-	bool DepthRangeHack;
 	bool ClearToRAM;
 	bool Force04154000Download;
 	bool DrawSyncEatCycles;
@@ -80,7 +79,6 @@ struct CompatFlags {
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;
 	bool CenteredLines;
-	bool MaliDepthStencilBugWorkaround;
 	bool ZZT3SelectHack;
 	bool AllowLargeFBTextureOffsets;
 	bool AtracLoopHack;

@@ -77,7 +77,7 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 // NOTE: In case of clipping, this might write extra vertices after params.transformed.
 // NOTE: Does not handle line strips, triangle strips or triangle fans - generate indices for those beforehand.
 // NOTE2: The output is ALWAYS an indexed triangle list, no matter the input primitive.
-SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int &numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
+SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 class DrawEngineCommon;
 
