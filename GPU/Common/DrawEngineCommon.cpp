@@ -410,7 +410,11 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		Vec4F32 planeDistXY = posXY * planesXY + posW;
 		insideMaskXY |= planeDistXY.CompareGe(Vec4F32::Zero());
 		Vec4F32 posZ = clipPos.ShuffleZZZZ();  // This means that we compute the Z sides twice. Oh well.
-		Vec4F32 planeDistZ = posZ * planesXY + posW;
+		// We need to add the same culling epsilons as when setting up the cull distances in the vertex shader,
+		// so we don't over-cull here. We could also cull looser, but I can't figure out how to do so accurately.
+		// It's a bit unnecessary to take four reciprocals here, let's see if we can avoid that later.
+		Vec4F32 deltaZ = posW.RecipApprox() * 0.0000304f;
+		Vec4F32 planeDistZ = posZ * planesXY + posW + deltaZ;
 		anyOutsideMaskZ |= planeDistZ.CompareLt(Vec4F32::Zero());
 		insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
 		const float projZ = vpZScale * clipPos[2] / clipPos[3];
