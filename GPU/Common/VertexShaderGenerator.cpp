@@ -358,10 +358,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "struct VS_OUT {\n");
 		WRITE(p, "  vec3 v_texcoord : TEXCOORD0;\n");
-		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
+		const char *colorInterpolation = (doFlatShading && compat.shaderLanguage == HLSL_D3D11) ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0    : COLOR0;\n", colorInterpolation);
 		if (lmode) {
-			WRITE(p, "  vec3 v_color1    : COLOR1;\n");
+			WRITE(p, "  %svec3 v_color1    : COLOR1;\n", colorInterpolation);
 		}
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
@@ -370,9 +370,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		// gl_Position must be last for D3D11.
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
-		minZClipPlaneSuffix = ".x";
-		maxZClipPlaneSuffix = ".y";
-		zClipPlaneSuffix = ".z";
 		if (clipMinMax && clipNearPlane) {
 			WRITE(p, "  float3 gl_ClipDistance : SV_ClipDistance;\n");
 		} else if (clipMinMax) {
