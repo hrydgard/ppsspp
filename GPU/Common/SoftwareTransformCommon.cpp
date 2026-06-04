@@ -437,8 +437,8 @@ static void ProjectVertices(const GPUgstate &gstate, TransformedVertex *transfor
 #endif
 }
 
-// Helper to check if a vertex is inside the near plane (z >= -w)
-// We add a tiny epsilon to prevent floating-point precision issues at the exact boundary
+// Helper to check if a vertex is inside the near plane (z >= -w).
+// TODO: Should this somehow match the cull plane, which is at -3F8000FF (-1.0 minus an epsilon seemingly derived from a 15-bit mantissa).
 inline bool IsInsideNearPlane(const TransformedVertex& v) {
 	return v.z >= -v.pos_w;
 }
@@ -522,7 +522,8 @@ static void ClipTrianglesAgainstNearPlane(
 			int polyLength = 0;
 
 			for (int j = 0; j < 3; ++j) {
-				int next = (j + 1) % 3;
+				int next = j + 1;
+				if (next >= 3) next = 0;
 
 				u16 currIdx = triIdx[j];
 				u16 nextIdx = triIdx[next];
@@ -590,6 +591,129 @@ static void ClipTrianglesAgainstNearPlane(
 	}
 
 	gpuStats.perFrame.numSoftClippedTriangles++;
+}
+
+// Note: This modifies the U/V coordinates of transformed.
+static void ApplySpriteBorderFix(TransformedVertex *transformed, const u16 *quad, float uScale, float vScale, float spriteBorderFix) {
+	const float invUScale = 1.0f / uScale;
+	const float invVScale = 1.0f / vScale;
+
+	// We have two triangles, but the vertex order can really be anything. We just need to find the shared edge, and then check the opposite vertices.
+
+	// sharedA and sharedB are indices into transformed, picked from the quad array.
+	// We find shared indices between the two triangles through a double loop.
+	int sharedA = -1;
+	int sharedB = -1;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (quad[i] == quad[3 + j]) {
+				if (sharedA == -1) {
+					sharedA = quad[i];
+				} else if (quad[i] != sharedA) {
+					sharedB = quad[i];
+				}
+			}
+		}
+	}
+
+	if (sharedA == -1 || sharedB == -1) {
+		// For this detection method, we require two vertices to be shared between the two triangles.
+		// We'll miss sprites made from pure triangle lists, but let's look into that later.
+		return;
+	}
+
+	// Now, search for the two other corners.
+	int cornerA = -1;
+	int cornerB = -1;
+	for (int i = 0; i < 6; i++) {
+		if (quad[i] != sharedA && quad[i] != sharedB) {
+			if (cornerA == -1) {
+				cornerA = quad[i];
+			} else {
+				cornerB = quad[i];
+				break;
+			}
+		}
+	}
+
+	if (cornerA == cornerB) {
+		_dbg_assert_(false);
+		// This should never happen, but just in case.
+		return;
+	}
+	_dbg_assert_(cornerA != -1 && cornerB != -1 && sharedA != sharedB && sharedA != cornerA && sharedA != cornerB && sharedB != cornerA && sharedB != cornerB);
+
+	//  SharedA ---------------- CornerA
+	//      |   \                   |
+	//      |       \               |
+	//      |           \           |
+	//      |               \       |
+	//      |                   \   |
+	//  CornerB ---------------- SharedB
+
+	// The border fix will be to slightly move the UVs inward (and XY by a corresponding amount), so that on upscaled resolutions we can avoid unexpected filtering artifacts. They will
+	// be moved inward by `spriteBorderFix` texels.
+	// Now, how can we make that general... Probably should figure out a UV gradient.
+
+	TransformedVertex &vSharedA = transformed[sharedA];
+	TransformedVertex &vCornerA = transformed[cornerA];
+	TransformedVertex &vSharedB = transformed[sharedB];
+	TransformedVertex &vCornerB = transformed[cornerB];
+
+	bool validSprite = false;
+
+	// Now there's two possible orientations for the X/Y coordinates. Either the second corners shares the Y axis with the opposite vertices, or the X axis.
+	if (vSharedA.y == vCornerA.y && vSharedB.y == vCornerB.y) {
+		// Shared Y axis. Check that the X axis is correct.
+		if (vSharedA.x == vCornerB.x && vSharedB.x == vCornerA.x) {
+			validSprite = vSharedA.u == vCornerB.u && vSharedB.u == vCornerA.u &&
+				vSharedA.v == vCornerA.v && vSharedB.v == vCornerB.v;
+		}
+	} else if (vSharedA.x == vCornerA.x && vSharedB.x == vCornerB.x) {
+		// Shared X axis. Check that the Y axis is correct.
+		if (vSharedB.y == vCornerA.y && vSharedA.y == vCornerB.y) {
+			// validSprite = vSharedA.u == vCornerA.u && vSharedA.v == vCornerA.v &&
+			// 	vSharedB.u == vCornerB.u && vSharedB.v == vCornerB.v;
+		}
+	}
+
+	if (validSprite) {
+		// We have a valid sprite! Apply the border fix if needed.
+		if (spriteBorderFix != 0.0f) {
+			//spriteBorderFix *= 10.0f;
+			const float uBorderFix = spriteBorderFix * invUScale;
+			const float vBorderFix = spriteBorderFix * invVScale;
+			// Move the UVs inward by the border fix. We can just move them both in the same direction, since that will still keep them pixel aligned.
+			// Wait, this doesn't work. What if the corners are flipped? We need to figure out the direction of the gradient, and then apply the border fix in the correct direction.
+			const float dx = (vSharedB.x - vSharedA.x);
+			const float dy = (vSharedB.y - vSharedA.y);
+			// Avoid messing with full screen sprites.
+			const float du = (vSharedB.u - vSharedA.u);
+			const float dv = (vSharedB.v - vSharedA.v);
+			if (du != 0.0f && fabsf(dx) != 480.0f) {
+				const float uSign = (du > 0.0f ? 1.0f : -1.0f);
+				const float uAmount = uBorderFix * uSign;
+				const float xAmount = spriteBorderFix * uSign;
+				// vSharedA.u += uAmount;
+				// vCornerB.u += uAmount;
+				vCornerA.u -= uAmount;
+				vSharedB.u -= uAmount;
+				vCornerA.x -= xAmount;
+				vSharedB.x -= xAmount;
+			}
+			if (dv != 0.0f && fabsf(dy) != 272.0f) {
+				const float vSign = (dv > 0.0f ? 1.0f : -1.0f);
+				const float vAmount = vBorderFix * vSign;
+				const float yAmount = spriteBorderFix * vSign;
+				// vSharedA.v += vAmount;
+				// vCornerA.v += vAmount;
+				vCornerB.v -= vAmount;
+				vSharedB.v -= vAmount;
+				vCornerB.y -= yAmount;
+				vSharedB.y -= yAmount;
+			}
+		}
+	}
 }
 
 static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &params, int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
@@ -672,39 +796,50 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 		result->pixelMapped = false;
 
 		// Let's go look for pixel mapping.
-		bool lookForPixelMapping = throughmode;
-		if (!lookForPixelMapping) {
-			// If not throughmode, we can still have pixel mapping if the clip info is valid and flat Z, since that means no clipping or perspective correction will be applied.
-			if (((u32)params.clipInfoFlags & ((u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ))) == (u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ)) {
-				lookForPixelMapping = true;
-			}
-		}
+		const bool flat = ((u32)params.clipInfoFlags & ((u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ))) == (u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ);
+		const bool lookForPixelMapping = throughmode || flat;
 		if (lookForPixelMapping && g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
 			// We check some common cases for pixel mapping.
+			//
 			// It's enough to check UV deltas vs pos deltas between vertex pairs:
 			// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
 			// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
 			// so the operations are exact.
+			//
+			// Additionally, we check for sprite lists. These are used for example in GTA.
+			const float spriteBorderFix = PSP_CoreParameter().compat.flags().SpriteBorderFix;  // if != 0.0, apply border fix.
 			bool pixelMapped = true;
 			const u16 *indsIn = (const u16 *)inds;
-			const float uscale = gstate_c.curTextureWidth;
-			const float vscale = gstate_c.curTextureHeight;
+			const float uScale = gstate_c.curTextureWidth;
+			const float vScale = gstate_c.curTextureHeight;
+
+			// This assumes that we have a list of two-triangle sprites. If not the position checks will fail anyway.
+			bool firstTriangleInQuad = true;
 			for (int t = 0; t < vertexCount; t += 3) {
 				struct { int a; int b; } pairs[] = {{0, 1}, {1, 2}, {2, 0}};
 				for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
 					int a = indsIn[t + pairs[i].a];
 					int b = indsIn[t + pairs[i].b];
-					float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
-					float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
+					float du = fabsf((transformed[a].u - transformed[b].u) * uScale);
+					float dv = fabsf((transformed[a].v - transformed[b].v) * vScale);
 					float dx = fabsf(transformed[a].x - transformed[b].x);
 					float dy = fabsf(transformed[a].y - transformed[b].y);
 					if (du != dx || dv != dy) {
 						pixelMapped = false;
 					}
 				}
-				if (!pixelMapped) {
+				if (!pixelMapped && spriteBorderFix == 0.0f) {
+					// Early out. Later add an early out for sprite border fix too.
 					break;
 				}
+
+				if (!firstTriangleInQuad && spriteBorderFix != 1.0f) {
+					// The previous triangle started three vertices ago. Now, let's do some disgustingly hacky checks,
+					// to identify the type of sprite (if any) and move the UV coordinates inwards a bit.
+					const u16 *quad = indsIn + t - 3;
+					ApplySpriteBorderFix(transformed, quad, uScale, vScale, spriteBorderFix);
+				}
+				firstTriangleInQuad = !firstTriangleInQuad;
 			}
 			result->pixelMapped = pixelMapped;
 		}
