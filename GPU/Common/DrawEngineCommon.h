@@ -116,7 +116,7 @@ public:
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// Doesn't support indexing.
-	bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *clipInfoFlags);
+	bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *clipInfoFlags);
 	bool TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead);
 	bool EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight);
 
