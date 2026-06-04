@@ -737,12 +737,15 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 				// First, check inside/outside directions for each index.
 				// We are still in clip space here, so we can cull aggressively in Z.
 				// TODO: This is so cheap now that we can probably avoid the buffer and just do the work below.
+				// See the comment in VertexShader for the epsilons
+
 				for (int i = 0; i < vertexCount; ++i) {
 					float z = transformed[indsIn[i]].z;
 					float w = transformed[indsIn[i]].pos_w;
-					if (z > w) {
+					const float delta = 0.0000304f / w;
+					if (z > w + delta) {
 						outsideZ[i] = 1;
-					} else if (z < -w) {
+					} else if (z < -(w + delta)) {
 						outsideZ[i] = -1;
 					} else {
 						outsideZ[i] = 0;
