@@ -349,8 +349,8 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // off to hardware, with whatever capabilities are available.
 //
 // NOTE: This doesn't handle through-mode or indexing (morph or skinning can be handled if they're implemented in software during decode).
-template<u32 posFmt>
-static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, ClipInfoFlags *clipInfoFlags) {
+template<u32 posFmt, u32 idxFmt>
+static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, ClipInfoFlags *clipInfoFlags) {
 	Mat4F32 cullMat(cullMatrix);
 	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
 	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
@@ -362,14 +362,36 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int 
 	// In reality we should probably affect X and Y too, but meh.
 	alignas(16) static const u32 vertexMaskData[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFF00, 0xFFFFFFFF};
 	const int stride = dec->VertexSize();
-	const s8 *data = (const s8 *)vdata + dec->posoff;
+	const s8 *srcdata = (const s8 *)vdata + dec->posoff;
+	const s8 *data = srcdata;
 
 	const float vpZScale = gstate.getViewportZScale();
 
 	float minProjZ = FLT_MAX;
 	float maxProjZ = -FLT_MAX;
 
-	for (int i = 0; i < vertexCount; i++, data += stride) {
+	for (int i = 0; i < vertexCount; i++) {
+		switch (idxFmt) {
+		case GE_VTYPE_IDX_8BIT:
+		{
+			u8 idx = ((u8 *)idata)[i];
+			data = (const s8 *)srcdata + idx * stride;
+			break;
+		}
+		case GE_VTYPE_IDX_16BIT:
+		{
+			u16 idx = ((u16 *)idata)[i];
+			data = (const s8 *)srcdata + idx * stride;
+			break;
+		}
+		case GE_VTYPE_IDX_32BIT:
+		{
+			u32 idx = ((u32 *)idata)[i];
+			data = (const s8 *)srcdata + idx * stride;
+			break;
+		}
+		}
+
 		Vec4F32 objPos;
 		switch (posFmt) {
 		case GE_VTYPE_POS_8BIT:
@@ -397,6 +419,10 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int 
 		}
 		if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
 			maxProjZ = projZ;
+		}
+
+		if (idxFmt == GE_VTYPE_IDX_NONE) {
+			data += stride;
 		}
 	}
 
@@ -447,7 +473,7 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int 
 	return true;
 }
 
-bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags) {
+bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags) {
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -456,18 +482,50 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 		return false;
 	}
 
-	switch (vertType & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_8BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT>(cullMatrix, vdata, vertexCount, dec, flags);
-	case GE_VTYPE_POS_16BIT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT>(cullMatrix, vdata, vertexCount, dec, flags);
-	case GE_VTYPE_POS_FLOAT:
-		return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT>(cullMatrix, vdata, vertexCount, dec, flags);
+	// Dispatching like this is a bit ugly, but we want to avoid every possible overhead *inside* TestBoundingBoxFast.
+	// That said, I'm not 100% sure it's worth it..
+	switch (vertType & GE_VTYPE_IDX_MASK) {
+	case GE_VTYPE_IDX_NONE:
+		switch (vertType & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, flags);
+		default:
+			break;
+		}
+		break;
+	case GE_VTYPE_IDX_8BIT:
+		switch (vertType & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		default:
+			break;
+		}
+		break;
+	case GE_VTYPE_IDX_16BIT:
+		switch (vertType & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		default:
+			break;
+		}
+		break;
+	case GE_VTYPE_IDX_32BIT:
+		switch (vertType & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		default:
+			break;
+		}
+		break;
 	default:
-		// Shouldn't end up here with the checks outside this function.
-		_dbg_assert_(false);
-		return true;
+		break;
 	}
+	_dbg_assert_(false);
+	return true;
 }
 
 // 2D bounding box test against scissor. No indexing yet.
