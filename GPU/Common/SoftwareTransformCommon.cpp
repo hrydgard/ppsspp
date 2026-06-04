@@ -212,7 +212,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			if (matchingComponents && stencilNotMasked) {
 				DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 				// Need to rescale from a [0, 1] float.  This is the final transformed value.
-				float depth = depthScale.EncodeFromU16((float)(int)(transformed[1].z * 65535.0f));
+				float depth = depthScale.EncodeFromU16(transformed[1].z);
 				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 				if (!(params.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
