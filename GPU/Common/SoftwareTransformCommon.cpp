@@ -1447,6 +1447,11 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 
 		*outLowerIndexBound = indexLowerBound;
 		*outPrim = prim;  // before it changes.
+
+		if (stats) {
+			// We're not running transform, so no stats.
+			*stats = {};
+		}
 		return true;
 	}
 
@@ -1500,9 +1505,12 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 
 	// Output of software transform is always an indexed triangle list (or nothing).
 	if (result.drawIndexCount == 0) {
-		// Not a failue, but everything got culled.
+		// Not a failure, but everything got culled.
 		debugVertices->clear();
 		debugIndices->clear();
+		if (stats) {
+			*stats = result.stats;
+		}
 		return true;
 	}
 

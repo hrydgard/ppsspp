@@ -1741,7 +1741,7 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpu) {
 			// TODO: If cmd is BOUNDING_BOX, actually test the bounding box here and show the result.
 
 			// This performs software transform, if transformed is checked. We might want to cache it? Although, it's only for a single draw...
-			TransformStats stats;
+			TransformStats stats{};
 			if (!gpu->GetCurrentDrawAsDebugVertices(cmd, prim, &prim, inputVertexCount, &vertices, &indices, &indexOffset, &stats, flags)) {
 				inputVertexCount = 0;
 			}
