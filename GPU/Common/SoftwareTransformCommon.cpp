@@ -32,6 +32,7 @@
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Software/Clipper.h"
 

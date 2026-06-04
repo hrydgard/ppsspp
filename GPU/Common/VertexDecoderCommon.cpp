@@ -32,6 +32,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
