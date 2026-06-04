@@ -1255,7 +1255,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// We should probably store the undivided outPos in a variable.
 
 		// We round to nearest 15-bit value for the check - this seems to match some of [Unknown]'s test, and PSP GPU floats
-		// often have a 15-bit mantissa.
+		// often have a 15-bit mantissa. TODO: should we truncate or nearest?
 		WRITE(p, "  float clipZ = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
 
 		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZ - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
@@ -1266,10 +1266,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	WRITE(p, "  outPos.xy = ((outPos.xy - u_xywh.xy) / u_xywh.zw) * 2.0 - 1.0;\n");
 
 	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
-		WRITE(p, "  outPos.z = float(int(outPos.z));\n");
+		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
+		// Possibly this should only be 15-bit in transformed mode? Full 16 in through? needs hardware testing.
+		WRITE(p, "  outPos.z = floor(outPos.z * 0.5) * 2.0;\n");
 	}
 
-	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");  // Or 65536?
+	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");  // Or 65535?
 
 	// Convert back to clip space coordinates. This is needed for all modern shader models.
 	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
