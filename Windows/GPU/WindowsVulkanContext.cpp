@@ -128,7 +128,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
 #ifdef VK_EXT_full_screen_exclusive
-	vulkan_->SetFullScreenExclusiveMode(g_Config.bFullScreen && g_Config.bFullScreenExclusive
+	vulkan_->SetFullScreenExclusiveMode(g_Config.bFullScreen && g_Config.bAllowFullScreenExclusive
 		? VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT
 		: VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT);
 #endif
@@ -178,7 +178,7 @@ void WindowsVulkanContext::Resize() {
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
 #ifdef VK_EXT_full_screen_exclusive
-	vulkan_->SetFullScreenExclusiveMode(g_Config.bFullScreen && g_Config.bFullScreenExclusive
+	vulkan_->SetFullScreenExclusiveMode(g_Config.bFullScreen && g_Config.bAllowFullScreenExclusive
 		? VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT
 		: VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT);
 #endif
