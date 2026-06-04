@@ -26,6 +26,7 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
+#include "GPU/GPUDefinitions.h"
 #include "GPU/GPUStateSIMDUtil.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -667,44 +668,48 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 		// We might actually write more vertics at the end of transformed.
 
 		drawIndexCount = vertexCount;
+
 		result->pixelMapped = false;
 
-		if (throughmode) {
-			// Nothing to do, pass the vertices right through as-is. Well, we can go look for pixel mapping,
-			// but we don't do any projection, culling or clipping.
-			if (g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
-				// We check some common cases for pixel mapping.
-				// TODO: It's not really optimal that some previous step has removed the triangle strip.
-				if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
-					// It's enough to check UV deltas vs pos deltas between vertex pairs:
-					// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
-					// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
-					// so the operations are exact.
-					bool pixelMapped = true;
-					const u16 *indsIn = (const u16 *)inds;
-					const float uscale = gstate_c.curTextureWidth;
-					const float vscale = gstate_c.curTextureHeight;
-					for (int t = 0; t < vertexCount; t += 3) {
-						struct { int a; int b; } pairs[] = {{0, 1}, {1, 2}, {2, 0}};
-						for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
-							int a = indsIn[t + pairs[i].a];
-							int b = indsIn[t + pairs[i].b];
-							float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
-							float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
-							float dx = fabsf(transformed[a].x - transformed[b].x);
-							float dy = fabsf(transformed[a].y - transformed[b].y);
-							if (du != dx || dv != dy) {
-								pixelMapped = false;
-							}
-						}
-						if (!pixelMapped) {
-							break;
-						}
+		// Let's go look for pixel mapping.
+		bool lookForPixelMapping = throughmode;
+		if (!lookForPixelMapping) {
+			// If not throughmode, we can still have pixel mapping if the clip info is valid and flat Z, since that means no clipping or perspective correction will be applied.
+			if (((u32)params.clipInfoFlags & ((u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ))) == (u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ)) {
+				lookForPixelMapping = true;
+			}
+		}
+		if (lookForPixelMapping && g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
+			// We check some common cases for pixel mapping.
+			// It's enough to check UV deltas vs pos deltas between vertex pairs:
+			// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
+			// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
+			// so the operations are exact.
+			bool pixelMapped = true;
+			const u16 *indsIn = (const u16 *)inds;
+			const float uscale = gstate_c.curTextureWidth;
+			const float vscale = gstate_c.curTextureHeight;
+			for (int t = 0; t < vertexCount; t += 3) {
+				struct { int a; int b; } pairs[] = {{0, 1}, {1, 2}, {2, 0}};
+				for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
+					int a = indsIn[t + pairs[i].a];
+					int b = indsIn[t + pairs[i].b];
+					float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
+					float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
+					float dx = fabsf(transformed[a].x - transformed[b].x);
+					float dy = fabsf(transformed[a].y - transformed[b].y);
+					if (du != dx || dv != dy) {
+						pixelMapped = false;
 					}
-					result->pixelMapped = pixelMapped;
+				}
+				if (!pixelMapped) {
+					break;
 				}
 			}
-		} else {
+			result->pixelMapped = pixelMapped;
+		}
+
+		if (!throughmode) {
 			// Culling and clipping needs to be done here, it doesn't happen in the shader in the case of software transform.
 			// However, fast culling should already have taken care of the Z<-W and Z>W culling, but we check for it on a per-triangle
 			// basis here anyway.

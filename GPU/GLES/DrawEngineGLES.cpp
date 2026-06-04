@@ -388,6 +388,7 @@ void DrawEngineGLES::Flush() {
 		params.transformedExpanded = transformedExpanded_;
 		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
+		params.clipInfoFlags = clipInfoFlags_;
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 

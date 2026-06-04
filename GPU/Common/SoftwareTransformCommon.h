@@ -62,6 +62,7 @@ struct SoftwareTransformParams {
 	u8 *decoded;
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
+	ClipInfoFlags clipInfoFlags;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
 	bool everUsedEqualDepth;

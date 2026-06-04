@@ -73,16 +73,6 @@ struct alignas(16) Plane8 {
 	float Test(int i, const float f[3]) const { return x[i] * f[0] + y[i] * f[1] + z[i] * f[2] + w[i]; }
 };
 
-enum class ClipInfoFlags {
-	Valid = 1,
-	SoftClipCull = 2,
-	DepthClamp = 8,
-	DepthClampFragment = 16,
-	MinMaxZClip = 32,
-	MinMaxZDiscard = 64,
-};
-ENUM_CLASS_BITOPS(ClipInfoFlags);
-
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
