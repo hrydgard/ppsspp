@@ -461,6 +461,11 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		flags |= ClipInfoFlags::SoftClipCull;
 	}
 
+	if (minProjZ == maxProjZ) {
+		// Probably a 2D draw. Send it through software transform!
+		flags |= ClipInfoFlags::FlatZ | ClipInfoFlags::SoftClipCull;
+	}
+
 	if (needFragmentDepthClamp() && (minProjZ < 0 || maxProjZ > 65535)) {
 		if (gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
 			flags |= ClipInfoFlags::DepthClamp;

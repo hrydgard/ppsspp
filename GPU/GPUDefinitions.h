@@ -195,6 +195,17 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,  // NOTE: Either this or FLAG_EXECUTE*, not both!
 };
 
+enum class ClipInfoFlags {
+	Valid = 1,
+	SoftClipCull = 2,
+	FlatZ = 4,
+	DepthClamp = 8,
+	DepthClampFragment = 16,
+	MinMaxZClip = 32,
+	MinMaxZDiscard = 64,
+};
+ENUM_CLASS_BITOPS(ClipInfoFlags);
+
 struct TransformedVertex {
 	union {
 		struct {

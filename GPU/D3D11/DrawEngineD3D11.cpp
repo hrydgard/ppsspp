@@ -436,6 +436,7 @@ void DrawEngineD3D11::Flush() {
 		params.transformedExpanded = transformedExpanded_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
+		params.clipInfoFlags = clipInfoFlags_;
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 

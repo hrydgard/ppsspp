@@ -965,7 +965,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const bool isTriangle = IsTrianglePrim(prim);
 
 	bool canExtend = isTriangle;
-	u32 vertexType = gstate.vertType;
+	GEVertexType vertexType = (GEVertexType)gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
 		const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
@@ -1046,7 +1046,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead, flags)) {
 			canExtend = false;
 		}
-		onePassed = true;
+		// onePassed = true;
 	} else {
 		// Still need to advance bytesRead.
 		drawEngineCommon_->SkipPrim(prim, count, decoder, &bytesRead);
@@ -1131,7 +1131,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 					canExtend = false;
 				}
 				// As soon as one passes, assume we don't need to check the rest of this batch.
-				onePassed = true;
+				// onePassed = true;
 			} else {
 				// Still need to advance bytesRead.
 				drawEngineCommon_->SkipPrim(newPrim, count, decoder, &bytesRead);
@@ -1150,7 +1150,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 					goto bail;
 				drawEngineCommon_->FlushSkin();
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
-				vertexType = data;
+				vertexType = (GEVertexType)(data);
 				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 				decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 			}
