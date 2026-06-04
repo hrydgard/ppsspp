@@ -25,6 +25,7 @@ enum class ScanValueType {
 	U8,
 	U16,
 	U32,
+	FLOAT,
 };
 
 struct ScanResult {
@@ -62,17 +63,17 @@ public:
 	void Update();
 
 	MemoryScanner *GetActive() { return scanners_[activeScanner_]; }
-	int GetActiveIndex() const { return activeScanner_; }
+	[[nodiscard]] int GetActiveIndex() const { return activeScanner_; }
 	void SetActiveIndex(int index);
 
-	bool IsAddressLocked(uint32_t addr) const {
+	[[nodiscard]] bool IsAddressLocked(uint32_t addr) const {
 		return HasLockedAddress(addr, nullptr, (size_t)-1);
 	}
 	bool HasLockedAddress(uint32_t addr, const MemoryScanner *excludeScanner, size_t excludeIndex) const;
 
 	void AddScanner();
 	void RemoveScanner(int index);
-	int GetCount() const { return (int)scanners_.size(); }
+	[[nodiscard]] int GetCount() const { return (int)scanners_.size(); }
 
 private:
 	std::vector<MemoryScanner *> scanners_;

@@ -88,6 +88,7 @@ void MemoryScannerScreen::CreateViews() {
 	typeStrip->AddChoice(se->T("8-bit"));
 	typeStrip->AddChoice(se->T("16-bit"));
 	typeStrip->AddChoice(se->T("32-bit"));
+	typeStrip->AddChoice(se->T("Float"));
 	typeStrip->SetSelection((int)scanner->valueType, false);
 	typeStrip->OnChoice.Add([scanner](EventParams &e) {
 		scanner->valueType = (ScanValueType)e.a;
@@ -136,6 +137,7 @@ void MemoryScannerScreen::update() {
 			case ScanValueType::U8: valStr = StringFromFormat("%d", (int)Memory::Read_U8(addr)); break;
 			case ScanValueType::U16: valStr = StringFromFormat("%d", (int)Memory::Read_U16(addr)); break;
 			case ScanValueType::U32: valStr = StringFromFormat("%u", Memory::Read_U32(addr)); break;
+			case ScanValueType::FLOAT: valStr = StringFromFormat("%f", Memory::Read_Float(addr)); break;
 			}
 			valueChoices_[i]->SetText(valStr);
 		}
@@ -185,6 +187,7 @@ void MemoryScannerScreen::RebuildResultsList() {
 		case ScanValueType::U8: valStr = StringFromFormat("%d", (int)Memory::Read_U8(addr)); break;
 		case ScanValueType::U16: valStr = StringFromFormat("%d", (int)Memory::Read_U16(addr)); break;
 		case ScanValueType::U32: valStr = StringFromFormat("%u", Memory::Read_U32(addr)); break;
+		case ScanValueType::FLOAT: valStr = StringFromFormat("%f", Memory::Read_Float(addr)); break;
 		}
 
 		Choice *valChoice = row->Add(new Choice(valStr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
@@ -251,23 +254,37 @@ void MemoryScannerScreen::OnValueClick(uint32_t addr, ScanValueType type) {
 	case ScanValueType::U8: currentVal = StringFromFormat("%d", (int)Memory::Read_U8(addr)); break;
 	case ScanValueType::U16: currentVal = StringFromFormat("%d", (int)Memory::Read_U16(addr)); break;
 	case ScanValueType::U32: currentVal = StringFromFormat("%u", Memory::Read_U32(addr)); break;
+	case ScanValueType::FLOAT: currentVal = StringFromFormat("%f", Memory::Read_Float(addr)); break;
 	}
 
 	UI::AskForInput(screenManager(), NON_EPHEMERAL_TOKEN, nullptr, se->T("Edit Value"), [addr, type](const std::string &value, bool ok) {
 		if (ok) {
 			try {
-				auto val = (uint32_t)std::stoul(value, nullptr, 0);
-				switch (type) {
-				case ScanValueType::U8: Memory::Write_U8((uint8_t)val, addr); break;
-				case ScanValueType::U16: Memory::Write_U16((uint16_t)val, addr); break;
-				case ScanValueType::U32: Memory::Write_U32(val, addr); break;
-				}
+				if (type == ScanValueType::FLOAT) {
+					float fval = std::stof(value);
+					Memory::Write_Float(fval, addr);
 
-				// Also update lock value if locked in the active scanner.
-				MemoryScanner *scanner = g_MemoryScanner.GetActive();
-				for (auto &res : scanner->GetResults()) {
-					if (res.address == addr && res.locked) {
-						res.lockValue = val;
+					// Also update lock value if locked in the active scanner.
+					MemoryScanner *scanner = g_MemoryScanner.GetActive();
+					for (auto &res : scanner->GetResults()) {
+						if (res.address == addr && res.locked) {
+							memcpy(&res.lockValue, &fval, 4);
+						}
+					}
+				} else {
+					auto val = (uint32_t)std::stoul(value, nullptr, 0);
+					switch (type) {
+					case ScanValueType::U8: Memory::Write_U8((uint8_t)val, addr); break;
+					case ScanValueType::U16: Memory::Write_U16((uint16_t)val, addr); break;
+					case ScanValueType::U32: Memory::Write_U32(val, addr); break;
+					}
+
+					// Also update lock value if locked in the active scanner.
+					MemoryScanner *scanner = g_MemoryScanner.GetActive();
+					for (auto &res : scanner->GetResults()) {
+						if (res.address == addr && res.locked) {
+							res.lockValue = val;
+						}
 					}
 				}
 			} catch (...) {
