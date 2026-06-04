@@ -250,6 +250,25 @@ struct Vec4F32 {
 		return Vec4F32{_mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8))};
 	}
 
+	float Dot3(Vec4F32 b) {
+		// Zero out the W component before multiplying to ensure only X, Y, Z are summed
+		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		__m128 masked = _mm_and_ps(v, _mm_load_ps((const float *)mask));
+		__m128 mul = _mm_mul_ps(masked, b.v);
+		__m128 shuf1 = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 1, 0, 3));
+		__m128 sum1 = _mm_add_ps(mul, shuf1);
+		__m128 shuf2 = _mm_shuffle_ps(sum1, sum1, _MM_SHUFFLE(1, 0, 3, 2));
+		return _mm_cvtss_f32(_mm_add_ps(sum1, shuf2));
+	}
+
+	float Dot4(Vec4F32 b) {
+		__m128 mul = _mm_mul_ps(v, b.v);
+		__m128 shuf1 = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 1, 0, 3));
+		__m128 sum1 = _mm_add_ps(mul, shuf1);
+		__m128 shuf2 = _mm_shuffle_ps(sum1, sum1, _MM_SHUFFLE(1, 0, 3, 2));
+		return _mm_cvtss_f32(_mm_add_ps(sum1, shuf2));
+	}
+
 	void Store(float *dst) { _mm_storeu_ps(dst, v); }
 	void Store2(float *dst) { _mm_storel_epi64((__m128i *)dst, _mm_castps_si128(v)); }
 	void StoreAligned(float *dst) { _mm_store_ps(dst, v); }
@@ -791,6 +810,34 @@ struct Vec4F32 {
 		return Vec4F32{ sum };
 	}
 
+	float Dot3(Vec4F32 b) {
+		// Zero out the W component before multiplying to ensure only X, Y, Z are summed
+		float32x4_t masked = vsetq_lane_f32(0.0f, v, 3);
+		float32x4_t mul = vmulq_f32(masked, b.v);
+#if PPSSPP_ARCH(ARM64_NEON)
+		return vaddvq_f32(mul);
+#else
+		float32x2_t sum_low = vget_low_f32(mul);
+		float32x2_t sum_high = vget_high_f32(mul);
+		float32x2_t sum = vadd_f32(sum_low, sum_high);
+		sum = vpadd_f32(sum, sum);
+		return vget_lane_f32(sum, 0);
+#endif
+	}
+
+	float Dot4(Vec4F32 b) {
+		float32x4_t mul = vmulq_f32(v, b.v);
+#if PPSSPP_ARCH(ARM64_NEON)
+		return vaddvq_f32(mul);
+#else
+		float32x2_t sum_low = vget_low_f32(mul);
+		float32x2_t sum_high = vget_high_f32(mul);
+		float32x2_t sum = vadd_f32(sum_low, sum_high);
+		sum = vpadd_f32(sum, sum);
+		return vget_lane_f32(sum, 0);
+#endif
+	}
+
 	template<int i> float GetLane() const {
 		return vgetq_lane_f32(v, i);
 	}
@@ -1255,8 +1302,39 @@ struct Vec4F32 {
 		return Vec4F32{ sum };
 	}
 
+	float Dot3(Vec4F32 b) {
+		// Zero out the W component before multiplying to ensure only X, Y, Z are summed
+		__m128 masked = (__m128)__lsx_vinsgr2vr_w((__m128i)v, 0, 3);
+		__m128 mul = (__m128)__lsx_vfmul_s(masked, b.v);
+		// Sum all elements: horizontal add
+		__m128 shuf1 = (__m128)__lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
+		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, shuf1);
+		__m128 shuf2 = (__m128)__lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
+		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, shuf2);
+		float fval;
+		int ival = __lsx_vpickve2gr_w((__m128i)sum2, 0);
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
+
+	float Dot4(Vec4F32 b) {
+		__m128 mul = (__m128)__lsx_vfmul_s(v, b.v);
+		// Sum all elements: horizontal add
+		__m128 shuf1 = (__m128)__lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
+		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, shuf1);
+		__m128 shuf2 = (__m128)__lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
+		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, shuf2);
+		float fval;
+		int ival = __lsx_vpickve2gr_w((__m128i)sum2, 0);
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
+
 	template<int i> float GetLane() const {
-		return __lsx_vpickve2gr_w((__m128i)v, i);
+		int ival = __lsx_vpickve2gr_w((__m128i)v, i);
+		float fval;
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
 	}
 };
 
@@ -1756,6 +1834,15 @@ struct Vec4F32 {
 		float z = m.m[2] * v[0] + m.m[6] * v[1] + m.m[10] * v[2] + m.m[14];
 
 		return Vec4F32{ { x, y, z, 1.0f } };
+	}
+
+	float Dot3(Vec4F32 b) {
+		// Only sum the first three elements (X, Y, Z), ignore W
+		return v[0] * b.v[0] + v[1] * b.v[1] + v[2] * b.v[2];
+	}
+
+	float Dot4(Vec4F32 b) {
+		return v[0] * b.v[0] + v[1] * b.v[1] + v[2] * b.v[2] + v[3] * b.v[3];
 	}
 
 	template<int i> float GetLane() const {
