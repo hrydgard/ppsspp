@@ -1169,7 +1169,19 @@ struct Vec4F32 {
 	}
 
 	// NOTE: May be slow.
-	float operator[](size_t index) const { return ((float *)&v)[index]; }
+	float operator[](size_t index) const {
+		// index is a compile-time constant parameter to the intrinsic.
+		int ival;
+		switch (index) {
+		case 0: ival = __lsx_vpickve2gr_w((__m128i)v, 0);
+		case 1: ival = __lsx_vpickve2gr_w((__m128i)v, 1);
+		case 2: ival = __lsx_vpickve2gr_w((__m128i)v, 2);
+		default: ival = __lsx_vpickve2gr_w((__m128i)v, 3);
+		}
+		float fval;
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
 
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfadd_s(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfsub_s(v, other.v) }; }
