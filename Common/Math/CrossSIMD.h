@@ -1141,11 +1141,8 @@ struct Vec4F32 {
 	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ (__m128)__lsx_vld(src, 0) }; }
 	static Vec4F32 Load2(const float *src) {
-		// Load 2 floats and set the last two lanes to 0.0f
-		// NOTE: This is bad, it over-loads.
-		__m128 low = __lsx_vld(src, 0);
-		__m128 zero = __lsx_vldi(0);
-		return Vec4F32{ __lsx_vshuf4i_w(low, zero, 0b11111001) };
+		// Not the safest. Alternatives are tricky though.
+		return Load(src);
 	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
