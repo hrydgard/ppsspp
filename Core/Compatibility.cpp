@@ -44,6 +44,7 @@ void Compatibility::Load(const std::string &gameID) {
 		// This loads from assets.
 		if (compat.LoadFromVFS(g_VFS, "compat.ini")) {
 			CheckSettings(compat, gameID);
+			filesLoaded_.push_back("assets/compat.ini");
 		} else {
 			auto e = GetI18NCategory(I18NCat::ERRORS);
 			std::string msg = ApplySafeSubstitutions(e->T("File not found: %1"), "compat.ini");
@@ -57,6 +58,7 @@ void Compatibility::Load(const std::string &gameID) {
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
 		if (compat2.Load(path)) {
 			CheckSettings(compat2, gameID);
+			filesLoaded_.push_back(path.ToString());
 		}
 	}
 
@@ -67,6 +69,7 @@ void Compatibility::Load(const std::string &gameID) {
 			// This loads from assets.
 			if (compat.LoadFromVFS(g_VFS, "compatvr.ini")) {
 				CheckVRSettings(compat, gameID);
+				filesLoaded_.push_back("assets/compatvr.ini");
 			}
 		}
 
@@ -76,6 +79,7 @@ void Compatibility::Load(const std::string &gameID) {
 			Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
 			if (compat2.Load(path)) {
 				CheckVRSettings(compat2, gameID);
+				filesLoaded_.push_back(path.ToString());
 			}
 		}
 	}
@@ -85,6 +89,7 @@ void Compatibility::Clear() {
 	memset(&flags_, 0, sizeof(flags_));
 	memset(&vrCompat_, 0, sizeof(vrCompat_));
 	activeList_.clear();
+	filesLoaded_.clear();
 }
 
 void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
@@ -191,10 +196,14 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 		section->Get("ALL", &all);
 		if (all) {
 			*flag = true;
+		}
+
+		if (*flag) {
 			if (!activeList_.empty()) {
 				activeList_ += "\n";
 			}
 			activeList_ += option;
+			activeList_ += ": True";
 		}
 	}
 }
@@ -204,6 +213,11 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 	Section *section = iniFile.GetSection(option);
 	if (section && section->Get(gameID.c_str(), &value)) {
 		*flag = stof(value);
+
+		if (!activeList_.empty()) {
+			activeList_ += "\n";
+		}
+		activeList_ += std::string(option) + ": " + std::to_string(*flag);
 	}
 }
 
@@ -211,6 +225,11 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 	std::string value;
 	Section *section = iniFile.GetSection(option);
 	if (section && section->Get(gameID.c_str(), &value)) {
-		*flag = stof(value);
+		*flag = stoi(value);
+
+		if (!activeList_.empty()) {
+			activeList_ += ":" + std::to_string(*flag) + "\n";
+		}
+		activeList_ += std::string(option) + ": " + std::to_string(*flag);
 	}
 }

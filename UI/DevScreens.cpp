@@ -198,6 +198,28 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		});
 	}
 
+	items->Add(new Choice(dev->T("Compatibility flags")))->OnClick.Add([this](UI::EventParams &e) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::string activeFlags = PSP_CoreParameter().compat.GetActiveFlagsString();
+		std::string compatText = join(di->T("Enabled"), "\n");
+		compatText += activeFlags.empty() ? "None" : activeFlags;
+		compatText += "\n\n";
+		std::string ignored = g_Config.sIgnoreCompatSettings;
+		compatText += join(di->T("Ignored"), ":");
+		if (ignored.empty()) {
+			compatText += " None";
+		} else {
+			compatText += "\n" + ignored;
+		}
+		compatText += "\n\n";
+		compatText += "Loaded files: ";
+		for (const auto &file : PSP_CoreParameter().compat.filesLoaded()) {
+			compatText += "\n" + file;
+		}
+		screenManager()->push(new MessagePopupScreen(dev->T("Compatibility flags"), compatText, di->T("OK"), ""));
+	});
+
 	scroll->Add(items);
 	parent->Add(scroll);
 
