@@ -1271,7 +1271,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  outPos.z = floor(outPos.z * 0.5) * 2.0;\n");
 	}
 
-	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");  // Or 65536? No, I think 65535 makes more sense.
+	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
+	// So even if it seems like 65535 would make more sense, we divide by 65536 here.
+	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");
 
 	// Convert back to clip space coordinates. This is needed for all modern shader models.
 	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
