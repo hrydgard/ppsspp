@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <cstdint>
 #include <set>
 
@@ -152,6 +153,8 @@ public:
 	const std::string &GetActiveFlagsString() const {
 		return activeList_;
 	}
+	const std::vector<std::string> &filesLoaded() const { return filesLoaded_; }
+
 
 private:
 	void Clear();
@@ -165,4 +168,5 @@ private:
 	VRCompat vrCompat_{};
 	std::set<std::string> ignored_;
 	std::string activeList_;
+	std::vector<std::string> filesLoaded_;
 };

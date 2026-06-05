@@ -130,7 +130,7 @@ private:
 
 class MessagePopupScreen : public PopupScreen {
 public:
-	MessagePopupScreen(std::string_view title, std::string_view message, std::string_view button1, std::string_view button2, std::function<void(bool)> callback)
+	MessagePopupScreen(std::string_view title, std::string_view message, std::string_view button1, std::string_view button2, std::function<void(bool)> callback = nullptr)
 		: PopupScreen(title, button1, button2), message_(message), callback_(callback) {}
 
 	const char *tag() const override { return "MessagePopupScreen"; }
