@@ -1375,7 +1375,10 @@ static int sceMpegRingbufferAvailableSize(u32 ringbufferAddr) {
 		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_NOT_YET_INIT, "bad mpeg handle");
 	}
 
-	ctx->mpegRingbufferAddr = ringbufferAddr;
+	if (ctx->mediaengine) {
+		ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	}
+
 	hleEatCycles(2020);
 	hleReSchedule("mpeg ringbuffer avail");
 
@@ -1542,11 +1545,11 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	avcAu.read(auAddr);
 
 	if (ringbuffer->packetsRead == 0 || ringbuffer->packetsAvail == 0) {
-		avcAu.pts = -1;
-		avcAu.dts = -1;
+		avcAu.pts = 0;
+		avcAu.dts = 0;
 		avcAu.write(auAddr);
 		// TODO: Does this really reschedule?
-		return hleDelayResult(hleLogDebug(Log::Mpeg, SCE_MPEG_ERROR_NO_DATA), "mpeg get avc", mpegDecodeErrorDelayMs);
+		return hleDelayResult(hleLogDebug(Log::Mpeg, SCE_MPEG_ERROR_NO_DATA), "mpeg get avc", 2000);
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
@@ -1578,17 +1581,18 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(Log::Mpeg, "video end reach. pts: %i dts: %i", (int)avcAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		ringbuffer->packetsAvail = 0;
-
+		avcAu.dts = -1;
 		result = SCE_MPEG_ERROR_NO_DATA;
 	}
 
 	// The avcau struct may have been modified by mediaengine, write it back.
 	avcAu.write(auAddr);
 
-	// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error
-	if (Memory::IsValidAddress(attrAddr)) {
-		Memory::Write_U32(1, attrAddr);
+	if (result == 0) {
+		// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(1, attrAddr);
+		}
 	}
 
 	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
@@ -1643,6 +1647,9 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	// The audio can end earlier than the video does.
 	if (ringbuffer->packetsAvail == 0) {
+		atracAu.pts = 0;
+		atracAu.dts = 0;
+		atracAu.write(auAddr);
 		// TODO: Does this really delay?
 		return hleDelayResult(hleLogDebug(Log::Mpeg, SCE_MPEG_ERROR_NO_DATA), "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
@@ -1656,14 +1663,10 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	int result = 0;
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
+	atracAu.dts = atracAu.pts;
 
-	if (ctx->mediaengine->IsVideoEnd()) {
-		INFO_LOG(Log::Mpeg, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		ringbuffer->packetsAvail = 0;
-		// TODO: Is this correct?
-		if (!ctx->mediaengine->IsNoAudioData()) {
-			WARN_LOG_REPORT(Log::Mpeg, "Video end without audio end, potentially skipping some audio?");
-		}
+	if (ctx->mediaengine->IsNoAudioData()) {
+		atracAu.dts = -1;
 		result = SCE_MPEG_ERROR_NO_DATA;
 	}
 
@@ -1671,15 +1674,14 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG(Log::Mpeg, "Audio end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ctx->endOfAudioReached = true;
 	}
-	if (ctx->mediaengine->IsNoAudioData()) {
-		result = SCE_MPEG_ERROR_NO_DATA;
-	}
 
 	atracAu.write(auAddr);
 
-	// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error
-	if (Memory::IsValidAddress(attrAddr)) {
-		Memory::Write_U32(0, attrAddr);
+	if (result == 0) {
+		// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(0, attrAddr);
+		}
 	}
 
 	// TODO: Not clear on exactly when this delays.
@@ -1874,6 +1876,11 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 
 	atracAu.write(auAddr);
+
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (ringbuffer.IsValid()) {
+		ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	}
 
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg atrac decode", atracDecodeDelayMs);
 	//hleEatMicro(4000);
