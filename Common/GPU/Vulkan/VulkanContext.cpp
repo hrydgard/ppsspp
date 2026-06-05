@@ -670,7 +670,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	}
 
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
-
+#ifdef VK_EXT_full_screen_exclusive
+	extensionsLookup_.EXT_full_screen_exclusive = EnableDeviceExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME, 0);
+#endif
 	extensionsLookup_.KHR_present_mode_fifo_latest_ready = EnableDeviceExtension(VK_KHR_PRESENT_MODE_FIFO_LATEST_READY_EXTENSION_NAME, 0);
 	if (!extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 		// Enable the EXT extension instead if available, it's equivalent (was promoted).
@@ -1529,6 +1531,19 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		// This should be supported anywhere, and is the only thing supported on the SHIELD TV, for example.
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 	}
+
+#ifdef VK_EXT_full_screen_exclusive
+	VkSurfaceFullScreenExclusiveInfoEXT fullScreenInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT };
+	VkSurfaceFullScreenExclusiveWin32InfoEXT win32ExclusiveInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT };
+	if (extensionsLookup_.EXT_full_screen_exclusive) {
+		fullScreenInfo.fullScreenExclusive = fullScreenExclusiveMode_;
+		if (fullScreenExclusiveMode_ == VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT) {
+			win32ExclusiveInfo.hmonitor = MonitorFromWindow((HWND)winsysData2_, MONITOR_DEFAULTTONEAREST);
+			fullScreenInfo.pNext = &win32ExclusiveInfo;
+		}
+		swap_chain_info.pNext = &fullScreenInfo;
+	}
+#endif
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
 	if (res != VK_SUCCESS) {

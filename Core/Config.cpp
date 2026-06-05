@@ -748,6 +748,7 @@ static const ConfigSetting graphicsSettings[] = {
 
 #ifndef MOBILE_DEVICE
 	ConfigSetting("FullScreen", SETTING(g_Config, bFullScreen), false, CfgFlag::DEFAULT),
+	ConfigSetting("FullScreenExclusive", SETTING(g_Config, bAllowFullScreenExclusive), false, CfgFlag::DEFAULT),
 	ConfigSetting("FullScreenMulti", SETTING(g_Config, bFullScreenMulti), false, CfgFlag::DEFAULT),
 #endif
 
