@@ -55,6 +55,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
+#include "UI/DevScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/PauseScreen.h"
 #include "UI/LoadStateConfirmScreen.h"
@@ -795,7 +796,10 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 				finishNextFrame_ = true;
 			}
 		});
-
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		parent->Add(new Choice(dev->T("DevMenu"), ImageID("I_DEBUGGER")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new DevMenuScreen(gamePath_, I18NCat::DEVELOPER));
+		});
 		if (portrait) {
 			AddExtraOptions(parent);
 		}
