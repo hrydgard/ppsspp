@@ -121,6 +121,7 @@ struct CompatFlags {
 	bool FileCreatedTimeHack;
 	bool FastEmulatedGPU;
 	bool CorrectCullAfterClip;
+	float SpriteBorderFix;
 };
 
 struct VRCompat {

@@ -1271,7 +1271,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  outPos.z = floor(outPos.z * 0.5) * 2.0;\n");
 	}
 
-	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");  // Or 65535?
+	WRITE(p, "  outPos.z = outPos.z / 65535.0;\n");  // Or 65536? No, I think 65535 makes more sense.
 
 	// Convert back to clip space coordinates. This is needed for all modern shader models.
 	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.

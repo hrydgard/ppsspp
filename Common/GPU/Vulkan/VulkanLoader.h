@@ -251,7 +251,11 @@ extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
 
 // For fast extension-enabled checks.
 struct VulkanExtensions {
+	// Instance extensions
+	bool KHR_get_surface_capabilities2;
 	bool EXT_debug_utils;
+
+	// Device extensions
 	bool KHR_maintenance1; // required for KHR_create_renderpass2
 	bool KHR_maintenance2;
 	bool KHR_maintenance3;
