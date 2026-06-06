@@ -78,6 +78,10 @@ static void RotateUV(TransformedVertex v[4]) {
 	}
 }
 
+static bool ShouldApplySpriteBorderFix(const GPUgstate &gstate) {
+	return gstate.isAlphaBlendEnabled() && gstate.getBlendFuncA() != GE_SRCBLEND_FIXA;
+}
+
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
 static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, float x2, float y2) {
@@ -595,9 +599,6 @@ static void ClipTrianglesAgainstNearPlane(
 
 // Note: This modifies the U/V coordinates of transformed.
 static void ApplySpriteBorderFixTriangles(TransformedVertex *transformed, const u16 *quad, float uScale, float vScale, float spriteBorderFix) {
-	const float invUScale = 1.0f / uScale;
-	const float invVScale = 1.0f / vScale;
-
 	// We have two triangles, but the vertex order can really be anything. We just need to find the shared edge, and then check the opposite vertices.
 
 	// sharedA and sharedB are indices into transformed, picked from the quad array.
@@ -677,9 +678,14 @@ static void ApplySpriteBorderFixTriangles(TransformedVertex *transformed, const 
 		}
 	}
 
+	const float invUScale = 1.0f / uScale;
+	const float invVScale = 1.0f / vScale;
 	if (validSprite) {
 		// We have a valid sprite! Apply the border fix if needed.
 		if (spriteBorderFix != 0.0f) {
+			const bool topleft = spriteBorderFix < 0.0f;
+			spriteBorderFix = fabsf(spriteBorderFix);
+
 			//spriteBorderFix *= 10.0f;
 			const float uBorderFix = spriteBorderFix * invUScale;
 			const float vBorderFix = spriteBorderFix * invVScale;
@@ -693,24 +699,22 @@ static void ApplySpriteBorderFixTriangles(TransformedVertex *transformed, const 
 			if (du != 0.0f && fabsf(dx) != 480.0f) {
 				const float uSign = (du > 0.0f ? 1.0f : -1.0f);
 				const float uAmount = uBorderFix * uSign;
-				const float xAmount = spriteBorderFix * uSign;
-				// vSharedA.u += uAmount;
-				// vCornerB.u += uAmount;
+				if (topleft) {
+					vSharedA.u += uAmount;
+					vCornerB.u += uAmount;
+				}
 				vCornerA.u -= uAmount;
 				vSharedB.u -= uAmount;
-				vCornerA.x -= xAmount;
-				vSharedB.x -= xAmount;
 			}
 			if (dv != 0.0f && fabsf(dy) != 272.0f) {
 				const float vSign = (dv > 0.0f ? 1.0f : -1.0f);
 				const float vAmount = vBorderFix * vSign;
-				const float yAmount = spriteBorderFix * vSign;
-				// vSharedA.v += vAmount;
-				// vCornerA.v += vAmount;
+				if (topleft) {
+					vSharedA.v += vAmount;
+					vCornerA.v += vAmount;
+				}
 				vCornerB.v -= vAmount;
 				vSharedB.v -= vAmount;
-				vCornerB.y -= yAmount;
-				vSharedB.y -= yAmount;
 			}
 		}
 	}
@@ -835,15 +839,17 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 		}
 
 		// Apply the sprite border fix, but only if pixel mapping was not detected!
-		const float spriteBorderFix = PSP_CoreParameter().compat.flags().SpriteBorderFix;  // if != 0.0, apply border fix.
-		if (spriteBorderFix != 0.0f && flat) {
-			// This assumes that we have a list of two-triangle sprites. If not the position checks will fail anyway.
-			const u16 *indsIn = (const u16 *)inds;
-			for (int t = 0; t < vertexCount - 5; t += 6) {
-				// The previous triangle started three vertices ago. Now, let's do some disgustingly hacky checks,
-				// to identify the type of sprite (if any) and move the UV coordinates inwards a bit.
-				const u16 *quad = indsIn + t;
-				ApplySpriteBorderFixTriangles(transformed, quad, uScale, vScale, spriteBorderFix);
+		if (flat) {
+			const float spriteBorderFix = ShouldApplySpriteBorderFix(gstate) ? PSP_CoreParameter().compat.flags().SpriteBorderFix : 0.0f;  // if != 0.0, apply border fix.
+			if (spriteBorderFix != 0.0f) {
+				// This assumes that we have a list of two-triangle sprites. If not the position checks will fail anyway.
+				const u16 *indsIn = (const u16 *)inds;
+				for (int t = 0; t < vertexCount - 5; t += 6) {
+					// The previous triangle started three vertices ago. Now, let's do some disgustingly hacky checks,
+					// to identify the type of sprite (if any) and move the UV coordinates inwards a bit.
+					const u16 *quad = indsIn + t;
+					ApplySpriteBorderFixTriangles(transformed, quad, uScale, vScale, spriteBorderFix);
+				}
 			}
 		}
 
@@ -1000,14 +1006,35 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 
 	numDecodedVerts = 4 * (vertexCount / 2);
 
-	float uscale = 1.0f;
-	float vscale = 1.0f;
+	float uScale = 1.0f;
+	float vScale = 1.0f;
 	if (throughmode) {
-		uscale /= gstate_c.curTextureWidth;
-		vscale /= gstate_c.curTextureHeight;
+		uScale /= gstate_c.curTextureWidth;
+		vScale /= gstate_c.curTextureHeight;
 	}
 
 	bool pixelMapped = g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo;
+
+	float spriteBorderFixL = 0.0f;
+	float spriteBorderFixR = 0.0f;
+	float spriteBorderFixT = 0.0f;
+	float spriteBorderFixB = 0.0f;
+	float spriteBorderFix = PSP_CoreParameter().compat.flags().SpriteBorderFix;
+	if (spriteBorderFix && !ShouldApplySpriteBorderFix(gstate)) {
+		spriteBorderFix = 0.0f;
+	} else {
+		if (spriteBorderFix < 0.0f) {
+			spriteBorderFixL = (spriteBorderFix / uScale) / gstate_c.curTextureWidth;
+			spriteBorderFixT = (spriteBorderFix / vScale) / gstate_c.curTextureHeight;
+			spriteBorderFixR = (spriteBorderFix / uScale) / gstate_c.curTextureWidth;
+			spriteBorderFixB = (spriteBorderFix / vScale) / gstate_c.curTextureHeight;
+		} else if (spriteBorderFix > 0.0f) {
+			spriteBorderFixL = 0.0f;
+			spriteBorderFixR = (spriteBorderFix / uScale) / gstate_c.curTextureWidth;
+			spriteBorderFixT = 0.0f;
+			spriteBorderFixB = (spriteBorderFix / vScale) / gstate_c.curTextureHeight;
+		}
+	}
 
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
@@ -1028,6 +1055,7 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 
 		float z = transVtxBR.z;
 		// Apply Z clamping. It appears clipping/culling does not affect rectangles, see #12058.
+		// TODO: We might want to make this 65536.999. Since those will pass, and if a game mixes through and non-through...
 		if (z > 65535.0f) {
 			z = 65535.0f;
 		} else if (z < 0.0f) {
@@ -1039,33 +1067,34 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 
 		// bottom right
 		trans[0] = transVtxBR;
-		trans[0].u = transVtxBR.u * uscale;
-		trans[0].v = transVtxBR.v * vscale;
+		trans[0].u = (transVtxBR.u + spriteBorderFixR) * uScale;
+		trans[0].v = (transVtxBR.v + spriteBorderFixB) * vScale;
 		trans[0].z = z;
 
 		// top right
 		trans[1] = transVtxBR;
 		trans[1].y = transVtxTL.y;
-		trans[1].u = transVtxBR.u * uscale;
-		trans[1].v = transVtxTL.v * vscale;
+		trans[1].u = (transVtxBR.u + spriteBorderFixR) * uScale;
+		trans[1].v = (transVtxTL.v - spriteBorderFixT) * vScale;
 		trans[1].z = z;
 
 		// top left
 		trans[2] = transVtxBR;
 		trans[2].x = transVtxTL.x;
 		trans[2].y = transVtxTL.y;
-		trans[2].u = transVtxTL.u * uscale;
-		trans[2].v = transVtxTL.v * vscale;
+		trans[2].u = (transVtxTL.u - spriteBorderFixL) * uScale;
+		trans[2].v = (transVtxTL.v - spriteBorderFixT) * vScale;
 		trans[2].z = z;
 
 		// bottom left
 		trans[3] = transVtxBR;
 		trans[3].x = transVtxTL.x;
-		trans[3].u = transVtxTL.u * uscale;
-		trans[3].v = transVtxBR.v * vscale;
+		trans[3].u = (transVtxTL.u - spriteBorderFixL) * uScale;
+		trans[3].v = (transVtxBR.v + spriteBorderFixB) * vScale;
 		trans[3].z = z;
 
 		// That's the four corners. Now process UV rotation.
+		// TODO: Should we apply the sprite border fix before or after rotation? Likely after, right?
 		RotateUV(trans);
 
 		// Triangle: BR-TR-TL
