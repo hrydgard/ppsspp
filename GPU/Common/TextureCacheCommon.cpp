@@ -695,7 +695,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
-	gstate_c.SetTextureIsVideo(false);
+	gstate_c.SetTextureIsVideo((entry->status & TexCacheEntry::STATUS_VIDEO) != 0);
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);

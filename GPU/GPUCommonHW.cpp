@@ -997,10 +997,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
-	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
+	// Through mode early-out. Very beneficial for Fate Extra CCC (very beneficial there due to avoiding texture loads)
+	// Also we take the opportunity to check for flat draws, where we can detect sprites (to fix filter artifacts).
+	ClipInfoFlags flags{};
+	if (gstate.isModeThrough()) {
 		int bytesRead = 0;
-		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, decoder, vertexType, &bytesRead)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags)) {
 			gpuStats.perFrame.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
@@ -1023,8 +1025,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 #define PASSES_CULLING true
 
 #endif
-
-	ClipInfoFlags flags{};
 
 	// If certain conditions are true, do frustum culling.
 	bool passCulling = PASSES_CULLING;

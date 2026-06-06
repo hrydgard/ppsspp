@@ -65,6 +65,7 @@
 			"location": "South Africa",
 			"location-emoji": "🇿🇦",
 			"description": "For players looking to play any games",
+			"status_data_json": "https://relay-sa.arenaanywhere.site/data.json",
 			"data_mode": "AemuPostoffice"
 		},
 		{
@@ -76,6 +77,7 @@
 			"location": "Europe",
 			"location-emoji": "🇪🇺",
 			"description": "For players looking to play any games",
+			"status_data_json": "https://relay.arenaanywhere.site/data.json",
 			"data_mode": "AemuPostoffice"
 		},
 		{
@@ -84,6 +86,7 @@
 			"discord": "https://discord.gg/GdsXWmNHq5",
 			"web": "https://arenaanywhere.site/lobby-status.html",
 			"location": "US",
+			"location-emoji": "🇺🇸",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice"
 		},
@@ -96,6 +99,7 @@
 			"location": "Singapore",
 			"location-emoji": "🇸🇬",
 			"description": "For players looking to play any games",
+			"status_data_json": "https://relay-asia.arenaanywhere.site/data.json",
 			"data_mode": "AemuPostoffice"
 		},
 		{

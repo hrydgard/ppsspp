@@ -86,8 +86,8 @@ void Compatibility::Load(const std::string &gameID) {
 }
 
 void Compatibility::Clear() {
-	memset(&flags_, 0, sizeof(flags_));
-	memset(&vrCompat_, 0, sizeof(vrCompat_));
+	flags_ = {};
+	vrCompat_ = {};
 	activeList_.clear();
 	filesLoaded_.clear();
 }
