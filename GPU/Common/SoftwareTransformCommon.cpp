@@ -594,7 +594,7 @@ static void ClipTrianglesAgainstNearPlane(
 }
 
 // Note: This modifies the U/V coordinates of transformed.
-static void ApplySpriteBorderFix(TransformedVertex *transformed, const u16 *quad, float uScale, float vScale, float spriteBorderFix) {
+static void ApplySpriteBorderFixTriangles(TransformedVertex *transformed, const u16 *quad, float uScale, float vScale, float spriteBorderFix) {
 	const float invUScale = 1.0f / uScale;
 	const float invVScale = 1.0f / vScale;
 
@@ -797,8 +797,13 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 
 		// Let's go look for pixel mapping.
 		const bool flat = ((u32)params.clipInfoFlags & ((u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ))) == (u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ);
-		const bool lookForPixelMapping = throughmode || flat;
-		if (lookForPixelMapping && g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
+		const bool lookForPixelMapping = flat && gstate.isMagnifyFilteringEnabled();
+
+		// TODO: We should probably take uv scale into account?
+		const float uScale = gstate_c.curTextureWidth;
+		const float vScale = gstate_c.curTextureHeight;
+		bool pixelMapped = true;
+		if (lookForPixelMapping && !gstate_c.textureIsVideo) {
 			// We check some common cases for pixel mapping.
 			//
 			// It's enough to check UV deltas vs pos deltas between vertex pairs:
@@ -807,41 +812,39 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 			// so the operations are exact.
 			//
 			// Additionally, we check for sprite lists. These are used for example in GTA.
-			const float spriteBorderFix = PSP_CoreParameter().compat.flags().SpriteBorderFix;  // if != 0.0, apply border fix.
-			bool pixelMapped = true;
 			const u16 *indsIn = (const u16 *)inds;
-			const float uScale = gstate_c.curTextureWidth;
-			const float vScale = gstate_c.curTextureHeight;
-
-			// This assumes that we have a list of two-triangle sprites. If not the position checks will fail anyway.
-			bool firstTriangleInQuad = true;
 			for (int t = 0; t < vertexCount; t += 3) {
 				struct { int a; int b; } pairs[] = {{0, 1}, {1, 2}, {2, 0}};
 				for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
-					int a = indsIn[t + pairs[i].a];
-					int b = indsIn[t + pairs[i].b];
-					float du = fabsf((transformed[a].u - transformed[b].u) * uScale);
-					float dv = fabsf((transformed[a].v - transformed[b].v) * vScale);
-					float dx = fabsf(transformed[a].x - transformed[b].x);
-					float dy = fabsf(transformed[a].y - transformed[b].y);
+					const int a = indsIn[t + pairs[i].a];
+					const int b = indsIn[t + pairs[i].b];
+					const float du = fabsf((transformed[a].u - transformed[b].u) * uScale);
+					const float dv = fabsf((transformed[a].v - transformed[b].v) * vScale);
+					const float dx = fabsf(transformed[a].x - transformed[b].x);
+					const float dy = fabsf(transformed[a].y - transformed[b].y);
 					if (du != dx || dv != dy) {
 						pixelMapped = false;
 					}
 				}
-				if (!pixelMapped && spriteBorderFix == 0.0f) {
+				if (!pixelMapped) {
 					// Early out. Later add an early out for sprite border fix too.
 					break;
 				}
-
-				if (!firstTriangleInQuad && spriteBorderFix != 1.0f) {
-					// The previous triangle started three vertices ago. Now, let's do some disgustingly hacky checks,
-					// to identify the type of sprite (if any) and move the UV coordinates inwards a bit.
-					const u16 *quad = indsIn + t - 3;
-					ApplySpriteBorderFix(transformed, quad, uScale, vScale, spriteBorderFix);
-				}
-				firstTriangleInQuad = !firstTriangleInQuad;
 			}
 			result->pixelMapped = pixelMapped;
+		}
+
+		// Apply the sprite border fix, but only if pixel mapping was not detected!
+		const float spriteBorderFix = PSP_CoreParameter().compat.flags().SpriteBorderFix;  // if != 0.0, apply border fix.
+		if (spriteBorderFix != 0.0f && flat) {
+			// This assumes that we have a list of two-triangle sprites. If not the position checks will fail anyway.
+			const u16 *indsIn = (const u16 *)inds;
+			for (int t = 0; t < vertexCount - 5; t += 6) {
+				// The previous triangle started three vertices ago. Now, let's do some disgustingly hacky checks,
+				// to identify the type of sprite (if any) and move the UV coordinates inwards a bit.
+				const u16 *quad = indsIn + t;
+				ApplySpriteBorderFixTriangles(transformed, quad, uScale, vScale, spriteBorderFix);
+			}
 		}
 
 		if (!throughmode) {

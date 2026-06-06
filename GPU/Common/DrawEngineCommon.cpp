@@ -539,16 +539,15 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions. TODO: Add more float formats.
-bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead) {
-	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
-	if (vertexCount > 16) {
+bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags) {
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
 	}
 
-	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
-	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
-		return true;
+	// For through mode, we only check FlatZ.
+	*flags |= ClipInfoFlags::Valid;
 
 	const int stride = dec->VertexSize();
 	const int posOffset = dec->posoff;
@@ -564,37 +563,76 @@ bool DrawEngineCommon::TestBoundingBoxThrough(const void *vdata, int vertexCount
 	const float right = gstate.getScissorX2() + 1;
 	const float bottom = gstate.getScissorY2() + 1;
 
-	switch (vertType & GE_VTYPE_POS_MASK) {
-	case GE_VTYPE_POS_FLOAT:
-	{
-		// TODO: This can be SIMD'd, with some trickery.
-		for (int i = 0; i < vertexCount; i++) {
-			const float *pos = (const float*)((const u8 *)vdata + stride * i + posOffset);
-			const float x = pos[0];
-			const float y = pos[1];
-			if (x >= left) {
-				allOutsideLeft = false;
-			}
-			if (x <= right) {
-				allOutsideRight = false;
-			}
-			if (y >= top) {
-				allOutsideTop = false;
-			}
-			if (y <= bottom) {
-				allOutsideBottom = false;
-			}
+	float minZ = FLT_MAX;
+	float maxZ = -FLT_MAX;
+
+	IndexConverter conv(vertType, idata);
+	// TODO: This can be SIMD'd, with some trickery.
+	for (int i = 0; i < vertexCount; i++) {
+		int index = conv(i);
+
+		float x, y, z;
+		switch (vertType & GE_VTYPE_POS_MASK) {
+		case GE_VTYPE_POS_FLOAT:
+		{
+			const float *pos = (const float*)((const u8 *)vdata + stride * index + posOffset);
+			x = pos[0];
+			y = pos[1];
+			z = pos[2];
 		}
-		if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+		break;
+		case GE_VTYPE_POS_8BIT:
+		{
+			// Through mode doesn't really support 8-bit though.
+			const u8 *pos8 = (const u8 *)vdata + stride * index + posOffset;
+			x = pos8[0];
+			y = pos8[1];
+			z = pos8[2];
+			break;
+		}
+		case GE_VTYPE_POS_16BIT:
+		{
+			const s16 *pos16 = (const s16 *)((const u8 *)vdata + stride * index + posOffset);
+			x = pos16[0];
+			y = pos16[1];
+			z = (u16)pos16[2];
+			break;
+		}
+		default:
 			return false;
 		}
-		return true;
+		if (x >= left) {
+			allOutsideLeft = false;
+		}
+		if (x <= right) {
+			allOutsideRight = false;
+		}
+		if (y >= top) {
+			allOutsideTop = false;
+		}
+		if (y <= bottom) {
+			allOutsideBottom = false;
+		}
+
+		// If prim is rectangles, we only update minZ and maxZ for every second vertex,
+		// since the Z for the whole rect is taken from the 2nd.
+		if (prim != GE_PRIM_RECTANGLES || (i & 1) == 1) {
+			if (z < minZ) {
+				minZ = z;
+			}
+			if (z > maxZ) {
+				maxZ = z;
+			}
+		}
 	}
-	default:
-		// Shouldn't end up here with the checks outside this function.
-		_dbg_assert_(false);
-		return true;
+	if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+		return false;
 	}
+
+	if (minZ == maxZ) {
+		*flags |= ClipInfoFlags::FlatZ;
+	}
+	return true;
 }
 
 bool DrawEngineCommon::EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight) {
