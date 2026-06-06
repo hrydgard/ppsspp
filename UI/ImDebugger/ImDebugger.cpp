@@ -1608,7 +1608,7 @@ void ImLogWindow::Draw(ImConfig &cfg) {
 			for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
 				int n = ring.GetCount() - 1 - line_no;
 
-				const std::string_view line = ring.TextAt(n);
+				const std::string line = ring.TextAt(n);
 				const LogLevel level = ring.LevelAt(n);
 				const u32 color = 0xFF000000 | LogManager::GetLevelColor(level);
 				ImGui::PushStyleColor(ImGuiCol_Text, color);
