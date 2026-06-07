@@ -1376,7 +1376,12 @@ static int sceMpegRingbufferAvailableSize(u32 ringbufferAddr) {
 	}
 
 	ctx->mpegRingbufferAddr = ringbufferAddr;
-	if (ctx->mediaengine) {
+
+	// PPSSPP doesn't have a fully asynchronous Media Engine thread to constantly drain the buffer.
+	// Games like Ridge Racer 2 rely on this function to implicitly update the available size.
+	// However, we must NOT overwrite packetsAvail if the stream hasn't been initialized/analyzed yet.
+	// This protects manual struct modifications (like in the 'avail' test) prior to stream playback.
+	if (ctx->mediaengine && ctx->isAnalyzed) {
 		ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
 	}
 
