@@ -1,30 +1,39 @@
-/* MMPX.glc
-   Copyright 2020 Morgan McGuire & Mara Gagiu.
-   Provided under the Open Source MIT license https://opensource.org/licenses/MIT
-
-   MMPXEnhanced v3.0.1
-   This shader is an enhanced iteration of MMPX.glc 
-   It improves the visual quality while preserving the pixel-art aesthetic by 
-   identifying and analyzing specific geometric shapes, effectively resolving 
-   the artifacts found in the original algorithm.
-    © 2025-2026 by crashGG.
-
-*/
-
+/* =========================================================================
+ * MMPX
+ * by Morgan McGuire and Mara Gagiu
+ * https://casual-effects.com/research/McGuire2021PixelArt/
+ * License: MIT
+ * =========================================================================
+ * MMPX Advanced v3.2
+ * =========================================================================
+ * An optimized and heavily expanded derivative of the MMPX algorithm.
+ * 
+ * The baseline MMPX implementation relies on a minimalist rule-set, which 
+ * inherently suffers from topological conflicts at complex intersections, 
+ * manifesting as jarring structural artifacts, "bubbles," and "spurs." 
+ * 
+ * MMPX Advanced introduces comprehensive morphological analysis, utilizing a 
+ * vast array of high-precision conditional predicates to expand the 
+ * architectural logic by an order of magnitude. Through exhaustive conflict-
+ * scenario analysis and granular edge-case resolution, this refinement 
+ * completely eliminates morphological glitches. 
+ * 
+ * Furthermore, the integration of approximate pixel-matching logic effectively 
+ * addresses unmapped topological configurations overlooked by the baseline 
+ * specification, thereby delivering flawless detail reconstruction while 
+ * preserving the authentic pixel-art aesthetic.
+ * 
+ * Copyright (c) 2025-2026 by crashGG.
+ * ========================================================================= */
 // Performs 2x upscaling.
-
-/* If we took an image as input, we could use a sampler to do the clamping. But we decode
-   low-bpp texture data directly, so...
-
-   use readColoru to read uint format color data from texture/framebuffer.
-   in ppsspp ,readColorf(p) eq unpackUnorm4x8(readColoru(p)),It is not actually read directly.
-*/
+// If we took an image as input, we could use a sampler to do the clamping. But we decode
+// low-bpp texture data directly, so...
 
 precision mediump float;
 
 uint srcu(int x, int y) {
 
-	// First perform out-of-bounds check to determine if coordinates are within valid range. Return transparent color if out of bounds.
+	//* out-of-bounds check, return transparent color if coordinates are out of range
     return (x >= 0 && x < params.width && y >= 0 && y < params.height) 
            ? readColoru(uvec2(x, y)) 
            : 0u;
@@ -32,99 +41,107 @@ uint srcu(int x, int y) {
 
 #define src(c,d) unpackUnorm4x8(srcu(c,d))
 
-// RGB visual weight + alpha segmentation
+//* RGB luminance weight + alpha segmentation
 float luma(vec4 col) {
 
-	// Use the CRT-era BT.601 standard. Clamp the result to [0.0 - 0.999]
+	//* Adopt BT.601 standard used in CRT era. Clamp result to [0.0 - 0.999]
     float rgbsum =min(dot(col.rgb, vec3(0.299, 0.587, 0.114)), 0.999);
 
-	// Alpha weighting can be removed for subsequent fractional bit extraction
+	//* Alpha weighting can be omitted when taking fractional part later
     float alphafactor = 
-        (col.a > 0.854102) ? 0.0 :		// Upper segment of two short golden ratio divisions
-        (col.a > 0.618034) ? 2.0 :		// One golden ratio division
-        (col.a > 0.381966) ? 4.0 :		// Lower segment of one short golden ratio division
-        (col.a > 0.145898) ? 6.0 :		// Lower segment of two short golden ratio divisions
-        (col.a > 0.002) ? 8.0 : 10.0;	// Fully transparent
+        (col.a > 0.854102) ? 0.0 :
+        (col.a > 0.618034) ? 2.0 :
+        (col.a > 0.381966) ? 4.0 :
+        (col.a > 0.145898) ? 6.0 :
+        (col.a > 0.002) ? 8.0 : 10.0;
 
     return rgbsum + alphafactor;
 
 }
 
-/* Constant Definitions:
-0.145898	:			Two short golden ratio divisions of 1.0
-0.0638587	:		Squared value after two short golden ratio divisions of RGB Euclidean distance
-0.4377		:		Squared value after one short golden ratio division of RGB Euclidean distance
-0.75			:		Squared half of RGB Euclidean distance
-*/
+/* Constant Descriptions:
+ * 0.145898    : (~0.382) ^2
+ * 0.8541      : 1.0 -(~0.382) ^2
+ * 0.0638587   : (RGB Euclidean distance scaled by ~0.382 twice) ^2
+ * 0.75        : (RGB Euclidean distance scaled by  0.500) ^2
+ */
 
 bool simb(vec4 col1, vec4 col2) {
 
 	highp vec4 diff = col1 - col2;
 
-	float maxdiff = max(diff.r, max(diff.g, diff.b));
-	float mindiff = min(diff.r, min(diff.g, diff.b));
+	//* RGB color difference range (max_diff - min_diff)
+	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
 
-	// Luminance base weight: both colors must satisfy > 0.078 (0.234÷3)
-	float weight = step(0.234, min(col1.r+col1.g+col1.b, col2.r+col2.g+col2.b));
-	// Transparency base weight: both colors must be fully opaque	// xxx.alpha
-	float weight2 = step(0.998, min(col1.a, col2.a));
+	highp float dot_diff = dot(diff.rgb, diff.rgb);
 
-	// Find the most opposite channel: if one positive and one negative, take the one with the smallest absolute value; 0 for same sign
-	// Filter same-sign cases using max(0.0, ...)
-	// Skip team_rebel if either pixel has luminance < 0.078 or is not fully opaque
-	float team_rebel = min(max(0.0, maxdiff), max(0.0, -mindiff)) * weight * weight2;	// xxx.alpha
-	float finaldist = (maxdiff - mindiff) + team_rebel;
+	//* Equivalent to (delta_range ÷ 0.145898 )²
+	highp float factor = (delta_range * delta_range) * 46.9787;
 
-	highp float dot_diff = dot(diff.rgb, diff.rgb);	//xxx.alpha
+	//* Return false if alpha difference between two pixels exceeds threshold
+	float alpha_match_mask = step(0.381966, abs(diff.a));
 
-	// Equivalent to (finaldist ÷ 0.145898 )²
-	highp float factor = (finaldist * finaldist) * 46.9787;
+	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0;
+}
 
-	// Mask = 0.0 when two alphas are close, dot_diff[0-3] is valid at this time
-	float alpha_match_mask = step(0.145898, abs(diff.a));
+bool simc(vec4 col1, vec4 col2) {
 
-	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0; // xxx.alpha
+	highp vec4 diff = col1 - col2;
+
+	//* RGB color difference range (max_diff - min_diff)
+	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
+
+	highp float dot_diff = dot(diff.rgb, diff.rgb);
+
+	//* Equivalent to (delta_range ÷ 0.145898 )²
+	highp float factor = (delta_range * delta_range) * 46.9787;
+
+	//* Return true unconditionally if both pixels are nearly transparent
+	float both_near_trans = step(max(col1.a, col2.a), 0.381966);
+	//* Return false if alpha difference between two pixels exceeds threshold
+	float alpha_match_mask = step(0.381966, abs(diff.a));
+
+	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0 + both_near_trans*10.0;
 }
 
 bool sim(vec4 col1, vec4 col2) {
 
 	highp vec4 diff = col1 - col2;
 
-	// RGB color difference variation range (max_diff - min_diff)
 	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
 
-	highp float dot_diff = dot(diff.rgb, diff.rgb);	//xxx.alpha 
+	highp float dot_diff = dot(diff.rgb, diff.rgb);
 
-	// Equivalent to (delta_range ÷ 0.382 )²
+	//* Equivalent to (delta_range ÷ 0.382 )²
 	highp float factor = (delta_range * delta_range) * 6.8541;
 
-	// Both near transparent: both_near_trans=1.0, return true unconditionally
+	//* Return true unconditionally if both pixels are nearly transparent
 	float both_near_trans = step(max(col1.a, col2.a), 0.381966);
-	// Mask = 0.0 when two alphas are close, dot_diff[0-3]< mix() takes effect at this time
+	//* Return false if alpha difference between two pixels exceeds threshold
 	float alpha_match_mask = step(0.381966, abs(diff.a));
 
-	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0 + both_near_trans*10.0; // xxx.alpha
+	return dot_diff < mix(0.0638587, 0.0, factor) - alpha_match_mask*5.0 + both_near_trans*10.0;
 }
 
 float mixGate(vec4 col1, vec4 col2) {
 
 	highp vec4 diff = col1 - col2;
 
-	// RGB color difference variation range (max_diff - min_diff)
+	// RGB color difference range (max_diff - min_diff)
 	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
 
-	highp float dot_diff = dot(diff.rgb, diff.rgb);	//xxx.alpha
+	highp float dot_diff = dot(diff.rgb, diff.rgb);
 
-	// Equivalent to (delta_range ÷ 0.618 )²
+	//* Equivalent to (delta_range ÷ 0.618 )²
 	highp float factor = (delta_range * delta_range) * 2.618034;
 
-	// Mask = 0.0 when alpha difference < 0.5, dot_diff[0-3]< mix() takes effect at this time
+	//* Disable blending directly if alpha difference exceeds half
 	float alpha_match_mask = step(0.5, abs(diff.a));
 
-	return step(dot_diff , mix(0.75, 0.0, factor) - alpha_match_mask*5.0);		// xxx.alpha
+	return step(dot_diff , mix(0.75, 0.0, factor) - alpha_match_mask*5.0);
 }
 
-
+//* Allows per-channel int2 tolerance for RGB
 #define eq(a,b) all(lessThan(abs(a-b), vec4(0.01, 0.01, 0.01, 0.145898)))
 
 #define neq(a,b) !eq(a,b)
@@ -140,22 +157,10 @@ float mixGate(vec4 col1, vec4 col2) {
 
 #define any_eq2(a, b1, b2) (eq(a,b1)||eq(a,b2))
 #define any_eq3(a, b1, b2, b3) (eq(a,b1)||eq(a,b2)||eq(a,b3))
-// Better than a!=b1 && a!=b2
 #define none_eq2(a, b1, b2) !any_eq2(a, b1, b2)
 
 
-// Total int2 difference allowed for three channels
-//#define vec_neq(a,b) (dot(abs(a-b), vec4(1.0)) > 0.01)
-// Int2 difference allowed per channel for three channels
-//#define vec_eq(a,b) all(lessThan(abs(a-b), vec4(0.01)))
-#define vec_neq(a, b) !eq(a,b)
-
-
 // Pre-define
-//const vec4 testcolor  = vec4(1.0, 0.0, 1.0, 1.0);  // Magenta
-//const vec4 testcolor2 = vec4(0.0, 1.0, 1.0, 1.0);  // Cyan
-//const vec4 testcolor3 = vec4(1.0, 1.0, 0.0, 1.0);  // Yellow
-//const vec4 testcolor4 = vec4(1.0, 1.0, 1.0, 1.0);  // White
 const vec4 slopOFF   = vec4(2.0);
 const vec4 slopeBAD  = vec4(4.0);
 const vec4 theEXIT   = vec4(8.0);
@@ -163,37 +168,27 @@ const vec4 theEXIT   = vec4(8.0);
 #define mixXE mix(vX,vE,mixFactor)
 #define mixXEoff mixXE+slopOFF
 #define Xoff vX+slopOFF
-//#define checkblack(col) ((col).g < 0.078 && (col).r < 0.1 && (col).b < 0.1)
 #define checkblack(col) all(lessThan((col).rgb, vec3(0.1, 0.078, 0.1)))
 #define checkwhite(col) all(greaterThan((col).rgb, vec3(0.92, 0.92, 0.92)))
 
-//pin zz
-// Concave + Cross weak mixing (weak blend / no blend)
+
+
 vec4 admixC(vec4 vX, vec4 vE) {
-	// Weak blending. Mix enabled? 0.618 if true, else 1.0
+	// Weak blend. Use 0.618 if blendable, otherwise 1.0
 	float mixFactor = mixGate(vX, vE) * (-0.381966) + 1.0;
 
 	return mixXE;
 }
 
-// K-type forced weak blending
+
 vec4 admixK(vec4 vX, vec4 vE) {
     vec4 diff = vX - vE;
-	// mixFactor slides from 0.5 to 1.0 based on point set distance, quadratic curve, steeper closer to 1.0
-	float mixFactor = dot(diff.rgb, diff.rgb) * 0.16666 + 0.5;	// xxx.alpha
-	// mixFactor slides linearly from 0.5 to 1.0 based on Euclidean distance
-	//float mixFactor = distance(vX, vE) * 0.28867 + 0.5;
+	float mixFactor = dot(diff.rgb, diff.rgb) * 0.16666 + 0.5;
 	return mixXE;
 }
 
-// L-type 2:1 slope, extension of main corner
-// Practice: This rule requires 4 pixels on the strict slope to be identical. Otherwise, various glitches will occur!
-vec4 admixL(vec4 vX, vec4 vE, vec4 vS) {
 
-    // The original eqX,E check would catch many duplicate pixels, now the main thread has been filtered by slopeok.
-
-	// If target X is different from reference S (sample), it means it has been blended once, return directly without re-blending
-	if (vec_neq(vX, vS)) return vX;
+vec4 admixL(vec4 vE, vec4 vX) {
 
 	float mixFactor = 0.381966 * mixGate(vX,vE);
 
@@ -210,26 +205,25 @@ vec4 admixL(vec4 vX, vec4 vE, vec4 vS) {
 #define vG G
 #define vI I
 
-/**************************************************************************************************************************************
- * 												main slope + X cross-processing mechanism						                *
- ******************************************************************************************************************************** zz  */
+//**************************************************************************************************************************************
+//* 												main slope + X cross-processing mechanism						                *
+//******************************************************************************************************************************** zz  *
 vec4 admixX( vec4 A, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec4 I
 		  , vec4 P, vec4 PA, vec4 PC, vec4 Q, vec4 QA, vec4 QG, vec4 R, vec4 RC, vec4 RI, vec4 S, vec4 SG, vec4 SI, vec4 AA, vec4 CC, vec4 GG
 		  , float El, float Bl, float Dl, float Fl, float Hl
-		  //, vec4 vE, vec4 vB, vec4 vD, vec4 vC, vec4 vG
 		  ) {
 
 
 	bool eq_B_C = eq(B,C);
 	bool eq_D_G = eq(D,G);
 
-    // Exit if clamped by bilateral straight walls
+
     if (eq_B_C && eq_D_G) return slopeBAD;
 
 
-	//Pre-declare
-	bool eq_B_P;		bool eq_B_PA;	bool eq_B_PC;
-	bool eq_D_Q;		bool eq_D_QA;	bool eq_D_QG;
+	// Pre-declare
+	bool eq_B_P;		bool eq_B_PA;		bool eq_B_PC;
+	bool eq_D_Q;		bool eq_D_QA;		bool eq_D_QG;
 	bool eq_E_F;		bool eq_E_H;		bool eq_A_AA;
 
 	vec4 vX;
@@ -242,135 +236,110 @@ vec4 admixX( vec4 A, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec
     bool comboE3 = eq_E_C && eq_E_G;
     bool comboA3 = eq_A_P && eq_A_Q;
 
-/*=========================================
-                    B != D
-  ==================================== zz */
+//* =========================================
+//*                    B != D
+//* ==================================== zz =
 if (neq(B,D)){
 
-	// E-A equality violates preset logic, exit
+	// Exit if E and A are identical, violates preset logic
 	if (eq(E,A)) return slopeBAD;
 
-	// B-D unconnected? Removed
-
-	// B and D are different, and the difference is larger than either side to center E, exit
 	float diffBD = abs(Bl-Dl);
 	if (diffBD > El-Bl || diffBD > El-Dl) return slopeBAD;
 
 
-	// X is the blend of B and D
 	vX = mix(vB, vD, 0.5);
-	vX.a = min(vB.a, vD.a);	// xxx.alpha
+	vX.a = min(vB.a, vD.a);
 
-	mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);	// xxx.alpha
+	mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);
 
 	eq_B_PC = eq(B,PC);
 	eq_D_QG = eq(D,QG);
  
-	// Strong trend collection
     if (none_eq2(A,B,D)){
 		if (comboA3) return mixXEoff;
 		if ( eq_A_P && eq_B_PC && !eq_B_C ) return mixXEoff;
 		if ( eq_A_Q && eq_D_QG && !eq_D_G ) return mixXEoff;
 
-		// Double slope clamping BD, note the matching direction
 		if ( eq_A_P && eq_E_G ) return mixXEoff;
 		if ( eq_A_Q && eq_E_C ) return mixXEoff;
 
-		// Hollow L inner curve
 		if ( eq_E_C && eq_D_G ) return mixXEoff;
 		if ( eq_E_G && eq_B_C ) return mixXEoff;
 
 }
-    // E-side three-pixel alignment
     if ( comboE3 ) return mixXEoff;
 
-	// Original rule, add a slope condition
     if ( eq_E_C && eq_B_PC && neq(B,P)) return mixXEoff;
 	if ( eq_E_G && eq_D_QG && neq(D,Q)) return mixXEoff;
 
 	eq_E_F = eq(E,F);
 
-	// F - H
 	if (eq(F,H)) {
 
-		// Double slope (exclude single pixel surrounded by C, BD different colors, loose connection)
 		if ( eq_E_C && !eq_D_G && (!eq_E_F||neq(E,P)) ) return mixXEoff;
 		if ( eq_E_G && !eq_B_C && (!eq_E_F||neq(E,Q)) ) return mixXEoff;
 
-		// F+ H+ extension
 		if ( !eq_E_F && eq_B_PC && eq(F,RC) ) return mixXEoff;
 		if ( !eq_E_F && eq_D_QG && eq(H,SG) ) return mixXEoff;
 	}
 
     return slopeBAD;
-} // B != D
+} //* B != D
 
 
-						/*********  B == D  *********/
+						//*********  B == D  *********
 
-	// Remove alpha channel weighting	xxx.alpha
 	Bl = fract(Bl);
 	Dl = fract(Dl);
 	El = fract(El);
 	Fl = fract(Fl);
 	Hl = fract(Hl);
   
-	// Avoid font edges being squeezed by black background on three sides
+
 	bool Xisblack = checkblack(vB);
 	if ( Xisblack && El >0.5 && (Fl<0.078 || Hl<0.078) ) return theEXIT;
 
 	vX = vB;
-	vX.a = min(vB.a, vD.a);	// xxx.alpha
+	vX.a = min(vB.a, vD.a);
 
-	mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);	// xxx.alpha
+	mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);
 
 	bool B_slope;	bool B_tower;	bool B_wall;
     bool D_slope;	bool D_tower;	bool D_wall;
 	bool En3;
     #define En4square En3&&eq(E,I)
 
-/*===================================================
-                    E - A Cross
-  ============================================== zz */
+//* ===================================================
+//*                   E - A  x cross
+//* =========================================== zz ====
 if (eq(E,A)) {
-
-    // Special pattern: Dithering pattern
-    // Target: Forced blending
 
 	eq_E_F = eq(E,F);
 	eq_E_H = eq(E,H);
 
 	bool Eisblack = checkblack(vE);
 
-	// 1. Dithering pattern center
+
     if ( comboE3 && !eq_E_F && !eq_E_H && eq(E,I) ) {
 
-		// Exit if center E is black (The King of Fighters '96 energy gauge, The Punisher's belt) to avoid excessive contrast blending
 		if (Eisblack) return theEXIT;
-		// Practice 1: Do not catch black B points, that is normal logic entry
-		// Mix enabled? 0.381966 if true, else 0.618034
 		mixFactor = 0.618034 * (1.0 - mixFactor);
 		return mixXEoff;
 	}
 
 	eq_A_AA = eq(A,AA);
 
-	// 2. Dithering pattern edge
+
     if ( comboA3 && eq_A_AA && none_eq2(A,PA,QA) )  {	
 		if (Eisblack) return theEXIT;
-		// Mix enabled? 0.381966 if true, else 0.618034
 		mixFactor = 0.618034 * (1.0 - mixFactor);
-        // Layered gradient edges, use strong blending
-		if ( neq(B,PA) && eq(PA,QA) ) return mixXEoff;
-        // Remaining perfect cross, must be dithering edge, use weak blending.
-		// Practice: No need to specify health bar border cases separately.
-        // Base weak blending. Mix enabled? 0.618 if true, else 0.854
-		// Note: mixFactor has been modified once in the upper layer
+        if ( neq(B,PA) && eq(PA,QA) ) return mixXEoff;
 		mixFactor += 0.236068;
 		return mixXEoff;
 	}
 
-	// xxx.alpha
+	// Use default connection if center is fully transparent and X is not black
 	if (vE.a<0.002 && !Xisblack) return vX;
 
     eq_B_PC = eq(B,PC);
@@ -378,22 +347,17 @@ if (eq(E,A)) {
     eq_D_QG = eq(D,QG);
     eq_D_QA = eq(D,QA);
 
-	// No need to judge Eisblack for the following two
-	// 3. Semi-dithering, usually shadow expression on outline edges, use weak blending
-
 	if ( comboE3 && comboA3 &&
 		(eq_B_PC || eq_D_QG) && eq_D_QA && eq_B_PA) {
-        // Base weak blending. Mix enabled? 0.618 if true, else 0.854
 		mixFactor = mixFactor * (-0.618034) + 0.8541;
         return mixXEoff;
 	}
 
-    // 4. Quarter dithering, easy to cause ugly small tail effect (Guile's plane in SF2, Dino Crisis select screen)
-
+    // 4. Quarter-dot pattern, prevents ugly small artifacts
 	if ( comboE3 && eq_A_P
 		 && eq_B_PA && eq_D_QA && eq_D_QG
 		 && eq_E_H
-		) {// Base weak blending. Mix enabled? 0.618 if true, else 0.854
+		) {
 		mixFactor = mixFactor * (-0.618034) + 0.8541;
         return mixXEoff;
 		}
@@ -401,16 +365,14 @@ if (eq(E,A)) {
 	if ( comboE3 && eq_A_Q
 		 && eq_B_PA && eq_D_QA && eq_B_PC
 		 && eq_E_F
-		) {// Base weak blending. Mix enabled? 0.618 if true, else 0.854
+		) {
 		mixFactor = mixFactor * (-0.618034) + 0.8541;
         return mixXEoff;
 		}
 
 
-    // A-side three-pixel alignment, strong pattern, must come after dithering rules.
-	if (comboA3) return Xoff;
+    if (comboA3) return Xoff;
 
-    // E-side three-pixel alignment (must come after comboA3)
     if (comboE3) return mixXEoff;
 
 	eq_B_P = eq(B, P);
@@ -419,8 +381,8 @@ if (eq(E,A)) {
 	B_slope = eq_B_PC && !eq_B_P && !eq_B_C && !eq_B_PA;
 	D_slope = eq_D_QG && !eq_D_Q && !eq_D_G && !eq_D_QA;
 
-	B_wall = eq_B_C && !eq_B_PC && !eq_B_P;	// Remove one misalignment check
-	D_wall = eq_D_G && !eq_D_QG && !eq_D_Q;	// Remove one misalignment check
+	B_wall = eq_B_C && !eq_B_PC && !eq_B_P;
+	D_wall = eq_D_G && !eq_D_QG && !eq_D_Q;
 	
 	B_tower = eq_B_P && !eq_B_PC && !eq_B_C && !eq_B_PA;
 	D_tower = eq_D_Q && !eq_D_QG && !eq_D_G && !eq_D_QA;
@@ -430,11 +392,11 @@ if (eq(E,A)) {
 	if ( D_slope && eq_E_C ) return mixXEoff;
 
 
-// E B D regional chessboard scoring rules
+//* E B D region checkerboard scoring rule
 
     float scoreE = 0.0; float scoreB = 0.0; float scoreD = 0.0; float scoreZ = 0.0;
 
-//	E Zone
+//*	E Zone
     if (eq_E_C) {
 		scoreE += 1.0 +float(eq(F,H)) +float(B_slope);
 		scoreE -= float(all_eq2(E,P,PC)&&!D_wall);
@@ -445,51 +407,40 @@ if (eq(E,A)) {
 		scoreE -= float(all_eq2(E,Q,QG)&&!B_wall);
     }
 
-	// Higher priority than rectangle
 	scoreE += float(B_slope && eq_A_Q || D_slope && eq_A_P);
 
     En3 = eq_E_F && eq_E_H;
 
-	// Clear 4/6 rectangle, exit early, not participate in final Z long slope judgment
+	// Early exit for clean 4/6 rectangles, skip long slope evaluation
 	if ( scoreE<0.1 && mixFactor<0.1 && En4square && eq(E,S)==eq(E,SI) && eq(E,R)==eq(E,RI) ) return theEXIT;
 
-	// No points for En3
-	//if ( scoreE==0 && En3 ) scoreE += 1;
-
-	// Single bar
 	if ( scoreE<0.1 && !En3 && neq(E,I) ) {
 		if ( B_wall && eq_E_F ) return theEXIT;
 		if ( D_wall && eq_E_H ) return theEXIT;
     }
 
-	// Lower priority than single bar
 	scoreE += float(B_slope && eq_A_P || D_slope && eq_A_Q);
 
     if ( !En3 && eq(F,H) ) {
-		if (Eisblack) return slopeBAD;		//Single black pixel
-		// slope+ eq_F_H combination cannot be used, it will create bubbles with inner L in BD area
-		//scoreE += float(B_slope&&neq(C,F))+float(D_slope&&neq(G,H));
-
+		if (Eisblack) return slopeBAD;
 		bool condZ1 = B_wall && (eq(F,R) || eq(F,RC) || eq(G,H) || eq(F,I));
 		bool condZ2 = D_wall && (eq(C,F) || eq(H,SG) || eq(H,S) || eq(F,I));
 		scoreZ = float(condZ1 || condZ2);
     }
 
 
-//	B Zone
+//*	B Zone
 
     if (eq_B_PA) {
 		scoreB -= 1.0 +float(eq(P,C)) +float(eq_A_AA);
 	}
 
 	if (eq(P,C)){
-		scoreB -= float(eq_A_AA); 
-		// Important. Prevent clone patterns on this side caused by Z bonus only from F==H!
-		// Equivalent: if (scoreE==0) scoreZ = 0;
+		scoreB -= float(eq_A_AA);
 		scoreZ *= float(scoreE < 0.1);
 	}
 
-//  D Zone
+//*  D Zone
 
     if (eq_D_QA) {
 		scoreD -= 1.0 +float(eq(G,Q)) +float(eq_A_AA);
@@ -497,26 +448,23 @@ if (eq(E,A)) {
 
 	if (eq(G,Q)){
 		scoreD -= float(eq_A_AA);
-		// Same logic as B zone
 		scoreZ *= float(scoreE < 0.1);
 	}
 
     float scoreFinal = scoreE + scoreB + scoreD + scoreZ ;
 
-	// Long slope pattern: return vX without blending when forming a long gentle slope with no deductions in B and D zones
+	// Disable blending for long slope patterns with no penalties on B/D zone
 	scoreFinal += float(min(scoreB,scoreD) > -0.1 && (B_wall && D_tower || B_tower && D_wall)) *2.0;
 
-	// Set mixFactor to 0 and return vX without blending if scoreFinal >= 2
 	mixFactor *= (1.0 - step(1.9, scoreFinal));
-	// Return mixXE if scoreFinal >= 1, else slopeBAD
 	return mixXE + slopeBAD*(1.0 - step(0.9, scoreFinal));
 
-}	// E == A
+}	//* E == A
 
 	
-/*===============================================
-                 Main Rule	E - C - G 
-  ========================================== zz */
+//* ===============================================
+//*              	E - C - G     main rules
+//* ========================================= zz ==
 
     if (eq_E_C ) {
 		if (comboA3) return vX;
@@ -533,17 +481,11 @@ if (eq(E,A)) {
 	}
 
 
-/*=========================================================
-                   F - H / B+ D+ Extension New Rules
-  ==================================================== zz */
+//* =======================================================
+//*                  F - H / B+ D+  extended rules
+//* ================================================= zz ==
 
-	// This section is the remainder after the previous filtering, the central En4square and BD are naturally wall-isolated logically
-    // B-D unconnected? No longer needed after the new "double slope rule" processing.
-	// Experience 1: Hollow L(1+2) flattens the inner side but not the outer side
-	// Experience 2: "厂" shape edges flatten the outer side but not the inner side
-
-	// No need to participate in subsequent calculations if E is hollow and has no diagonal connection
-	if (vE.a<0.002) return theEXIT;		// xxx.alpha
+	if (vE.a<0.002) return theEXIT;
 
     bool eq_A_B = eq(A,B);
     bool eq_F_H = eq(F,H);
@@ -566,8 +508,6 @@ if (eq(E,A)) {
 //	1. B-D hollow slope
     if (!eq_A_B) {
 
-        // A-side three-pixel alignment, high priority
-		// Note: comboA3 cannot be used without A!=B in this section
         if (comboA3) return Xoff;
 
         if ( (B_slope||B_tower) && (D_slope||D_tower) ) return Xoff;
@@ -590,19 +530,16 @@ if (eq(E,A)) {
 	bool sim_EC = sim(vE, vC);
 	bool sim_EG = sim(vE, vG);
 
-	// Exit if center E is a single high-contrast pixel
-	// Tighten threshold if E is bright
+	// Exit for high contrast isolated center pixel
 	float E_lumDiff = mix(0.381966, 0.145898, max((El - 0.8541),0.0) * 6.8541);
 
-	// Large difference from surroundings (lower priority than slope detection)	// xxx.alpha
     if ( mixFactor<0.1 && !sim_EC && !sim_EG && E.a>0.381966 && neq(E,I) && abs(El-Fl)>E_lumDiff && abs(El-Hl)>E_lumDiff ) return slopeBAD;
 
 
 	eq_E_F = eq(E,F);
 	eq_E_H = eq(E,H);
 
-    // long slope special trend
-    // Note: let squares pass, judged by subsequent En4square
+    // long slope special pattern
 	if ( eq_B_C && eq_D_Q ) {
 		if ( eq(P,PC) && eq(A,QA) && !eq_D_QG && eq_E_F && !eq_E_H && eq(H,I)) return theEXIT;
 		if ( eq_A_B ) return slopeBAD;
@@ -620,44 +557,34 @@ if (eq(E,A)) {
 
     En3 = eq_E_F && eq_E_H;
 
-    // Wall-enclosed 4-pixel square (En3 && eq(E,I))
-	if ( En4square ) {  // This square detection needs to be placed after the previous rule
-        // Exit for solid L inner enclosure (some font edges, building corners)
-        // L inner enclosure (hollow corner) / high-contrast independent clear 4-pixel square / 6-pixel rectangle (no need to judge eq(G,H), eq(C,F) for rectangle edges, impossible)
+	// Enclosed 4-cell rectangle
+	if ( En4square ) {
         if ( ( eq_B_C || eq_D_G) && eq_A_B) return theEXIT;
         if ( ( eq_B_C || eq_D_G || mixFactor<0.1) && (eq(E,S) == eq(E, SI) && eq(E,R) == eq(E, RI)) ) return theEXIT;
         return mixXEoff;
     }
 
-	// xxx.alpha
 	if (vE.a<0.381966) return mixXEoff;
 
-	// BD-side solid non-wall pattern
+	// B-D solid non-wall region
 	if (!eq_B_C && !eq_D_G ) {
-		 // BD-side semi-solid 1 F-H required
-		if ( comboA3 && eq_F_H ) return Xoff;
+		 if ( comboA3 && eq_F_H ) return Xoff;
 
-		// BD-side semi-solid 2 (add a "definitely round" trend judgment)
 		if ( comboA3&&eq_B_PC&&eq(C,CC) ) return Xoff;
 		if ( comboA3&&eq_D_QG&&eq(G,GG) ) return Xoff;
 
-		// BD unconnected and non-En3, exit (Practice: required for this branch section)
 		if ( !eq_B_P && !eq_B_PC && !eq_D_Q && !eq_D_QG && !En3 ) return slopeBAD;
 
-		// 3 diagonal gradients after excluding the above
 		if (eq_A_Q&&sim_EC) return mixXEoff;
 		if (eq_A_P&&sim_EG) return mixXEoff;
 		if (sim_EC&&sim_EG ) return mixXEoff;
 	}
 	
-    // Wall-enclosed triangle (remove one solid corner, leave the rest to the next rule)
+ 	// Wall-enclosed triangle
  	if ( En3 && eq_A_B) return theEXIT;
 
-    // F - H
-	// Principle: Connect L inner curve, not L outer curve
 	if (eq_F_H) {
 
-		// F-H three-pixel pattern, huge boost! Prioritize A==B
 		if ( eq_B_PC&&eq(F,RC) || eq_D_QG&&eq(H,SG) ) return mixXEoff;
 
 		if (eq_A_B) return slopeBAD;
@@ -669,38 +596,27 @@ if (eq(E,A)) {
 
 	return slopeBAD;
 
-}	// admixX
+}	//* admixX
 
 
 vec4 admixS( vec4 A, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec4 I
 		   , vec4 R, vec4 RC, vec4 RI, vec4 S, vec4 SG, vec4 SI, vec4 II, vec4 CC
-		   //, vec4 vE, vec4 vF, vec4 vC
 		   ) {
-
-			//                                   Ａ B Ｃ .
-			//                                 ＱＤ 🄴 🅵 🆁       Zone 4
-			//                                   🅶 🅷 Ｉ
-			//                                      S
-
 
     if (any_eq2(F,C,I)) return vE;
 
-	// Exclude contralateral damage patterns
 	if ( (eq(F,RI) || eq(G,S) || eq(R, RI)) && neq(R,I) ) return vE;
 
     if (eq(H, S) && none_eq2(H,I,SG)) return vE;
 
     if ( eq(R, RC) || eq(G,SG) ) return vE;
 
-	// D==E==C pattern, need to extend one more pixel in the trend direction when E is white (Guile's face in Street Fighter 2)
+	// Extend pattern for white center with D==E==C
 	if ( checkwhite(vE) && all_eq2(E,C,D) && none_eq2(E,RC,CC)) return vE;
-
-	// Old contralateral trend judgment
-	// if ( none_eq2(I,H,S) && (neq(SI,RI) || eq(I,II)) ) return vE;
 
 
 	#define vX vF
-	float mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);	// xxx.alpha
+	float mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);
 
 	if ( eq(E,C) && (eq(E,D)||eq(B,D)) ) return mixXE;
 
@@ -712,8 +628,7 @@ vec4 admixS( vec4 A, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec
 
     return vE;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////// zz
+//*///////////////////////////////////////////////////////////////////////////////////////////////////// zz //
 
 void applyScaling(uvec2 xy) {
     int srcX = int(xy.x);
@@ -734,12 +649,12 @@ void applyScaling(uvec2 xy) {
     bool eq_B_H = eq(B,H);
     bool eq_D_F = eq(D,F);
 
-// Skip horizontal/vertical 3x1 lines
+//* skip 3x1
 bool skiprest = (eq_E_D && eq_E_F) || (eq_E_B && eq_E_H) || (eq_B_H && eq_D_F);
 if (!skiprest) {
 
 
-    // Fetch 5x5 pixels
+    //*	 5x5
     vec4 A = src(srcX-1, srcY-1);
     vec4 C = src(srcX+1, srcY-1);
     vec4 G = src(srcX-1, srcY+1);
@@ -753,43 +668,37 @@ if (!skiprest) {
     vec4 PA = src(srcX-1, srcY-2);
     vec4 PC = src(srcX+1, srcY-2);
     vec4 QA = src(srcX-2, srcY-1);
-    vec4 QG = src(srcX-2, srcY+1); //             AA    PA    [P]   PC    CC
-    vec4 RC = src(srcX+2, srcY-1); //                ┌──┬──┬──┐
-    vec4 RI = src(srcX+2, srcY+1); //             QA │  A │  B │ C  │ RC
-    vec4 SG = src(srcX-1, srcY+2); //                ├──┼──┼──┤
-    vec4 SI = src(srcX+1, srcY+2); //            [Q] │  D │  E │ F  │ [R]
-    vec4 AA = src(srcX-2, srcY-2); //                ├──┼──┼──┤
-    vec4 CC = src(srcX+2, srcY-2); //             QG │  G │  H │ I  │ RI
-    vec4 GG = src(srcX-2, srcY+2); //                └──┴──┴──┘
-    vec4 II = src(srcX+2, srcY+2); //             GG    SG    [S]   SI    II
+    vec4 QG = src(srcX-2, srcY+1);
+    vec4 RC = src(srcX+2, srcY-1);
+    vec4 RI = src(srcX+2, srcY+1);
+    vec4 SG = src(srcX-1, srcY+2);
+    vec4 SI = src(srcX+1, srcY+2);
+    vec4 AA = src(srcX-2, srcY-2);
+    vec4 CC = src(srcX+2, srcY-2);
+    vec4 GG = src(srcX-2, srcY+2);
+    vec4 II = src(srcX+2, srcY+2);
 
 
-// Precompute luminance
+	//*	pre-cal luma
     float Bl = luma(vB);
     float Dl = luma(vD);
     float El = luma(vE);
     float Fl = luma(vF);
     float Hl = luma(vH);
 
-
-// 	Pre-cal
-    bool eq_B_D = eq(B,D);
+	//* pre-cal
+	bool eq_B_D = eq(B,D);
     bool eq_B_F = eq(B,F);
     bool eq_D_H = eq(D,H);
     bool eq_F_H = eq(F,H);
 
-    // Any mirror block encloses the center pixel
-    bool oppoPix =  eq_B_H || eq_D_F;
-	// Flag for entering adminxX function, caught by 1:1 slope rule
+	//*  1:1 slope
+	bool oppoPix =  eq_B_H || eq_D_F;
     bool slope1 = false;    bool slope2 = false;    bool slope3 = false;    bool slope4 = false;
-	// Standard pixel returned normally after passing 1:1 slope rule
     bool slope1ok = false;  bool slope2ok = false;  bool slope3ok = false;  bool slope4ok = false;
     bool slope1end = false;  bool slope2end = false;  bool slope3end = false;  bool slope4end = false;
-	// slopeBAD: entered admixX but returned E point (at least one of JKLM)
-    // slopOFF: returned with OFF mark, not participate in long slope calculation later
 
-
-// B - D
+	//*  B - D
 	if ( (vB.a>0.002 && vD.a>0.002) && // xxx.alpha
 		(!eq_E_B && !eq_E_D && !oppoPix) && (!eq_D_H && !eq_B_F)
 	 && (eq(E,A) || El>=Dl&&El>=Bl) && ( (El<Dl&&El<Bl) || none_eq2(A,B,D) || neq(E,P) || neq(E,Q) )
@@ -798,36 +707,36 @@ if (!skiprest) {
 		J=admixX(A,B,C,D,E,F,G,H,I
 				,P,PA,PC,Q,QA,QG,R,RC,RI,S,SG,SI,AA,CC,GG
 				,El, Bl, Dl, Fl, Hl
-				//,vE, vB, vD, vC, vG
 				);
-		slope1 = true;			// Mark on entry
-		slope1ok = (J.b < 1.1);	// Normal pixel
-		slope1end = (J.b < 3.1);	// Modified, no slope long needed later, mostly simBD
-		skiprest = (J.b > 7.1);	// theEXIT
-		J = (J.b > 3.1) ? vE :		// Restore vE for slopeBAD、theEXIT
-			(J.b > 1.1) ? (J - 2.0) :// slopeoff
-			J;					// Normal pixel [0-1.0]
+		slope1 = true;
+		slope1ok = (J.b < 1.1);
+		slope1end = (J.b < 3.1);
+		skiprest = (J.b > 7.1);
+		J = (J.b > 3.1) ? vE :
+			(J.b > 1.1) ? (J - 2.0) :
+			J;
 	}
-// B - F
+
+	//*  B - F
 	if ( !slope1 && (vB.a>0.002 && vF.a>0.002)
 	 && (!eq_E_B && !eq_E_F && !oppoPix) && (!eq_B_D && !eq_F_H)
 	 && (eq(E,C) || El>=Bl&&El>=Fl) && ( (El<Bl&&El<Fl) || none_eq2(C,B,F) || neq(E,P) || neq(E,R) )
-	 && ( eq_B_F &&(eq(E,C)||eq(B,PA)||eq(F,RI)||sim(vE,vA)||sim(vE,vI)) || simb(vB,vF)&&(eq_D_H||eq(E,A)||eq(E,I)) ) 
+	 && ( eq_B_F &&(eq(E,C)||eq(B,PA)||eq(F,RI)||sim(vE,vA)||sim(vE,vI)) || simb(vB,vF)&&(eq_D_H||eq(E,A)||eq(E,I)) )
 	 ) {
 		K=admixX(C,F,I,B,E,H,A,D,G
 				,R,RC,RI,P,PC,PA,S,SI,SG,Q,QA,QG,CC,II,AA
 				,El,Fl,Bl,Hl,Dl
-				//,vE,vF,vB,vI,vA
 				);
 		slope2 = true;
 		slope2ok = (K.b < 1.1);
 		slope2end = (K.b < 3.1);
 		skiprest = (K.b > 7.1);
-		K = (K.b > 3.1) ? vE :	
+		K = (K.b > 3.1) ? vE :
 			(K.b > 1.1) ? (K - 2.0) :
 			K;
 	}
-// D - H
+
+	//*  D - H
 	if ( !slope1 && !skiprest && (vD.a>0.002 && vH.a>0.002)
 	 && (!eq_E_D && !eq_E_H && !oppoPix) && (!eq_F_H && !eq_B_D)
 	 && (eq(E,G) || El>=Hl&&El>=Dl)  &&  ((El<Hl&&El<Dl) || none_eq2(G,D,H) || neq(E,S) || neq(E,Q))
@@ -836,17 +745,17 @@ if (!skiprest) {
 		L=admixX(G,D,A,H,E,B,I,F,C
 				,Q,QG,QA,S,SG,SI,P,PA,PC,R,RI,RC,GG,AA,II
 				,El,Dl,Hl,Bl,Fl
-				//,vE,vD,vH,vA,vI
 				);
 		slope3 = true;
 		slope3ok = (L.b < 1.1);
 		slope3end = (L.b < 3.1);
 		skiprest = (L.b > 7.1);
-		L = (L.b > 3.1) ? vE :	
+		L = (L.b > 3.1) ? vE :
 			(L.b > 1.1) ? (L - 2.0) :
 			L;
 	}
-// F - H
+
+	//* F - H
 	if ( !slope2 && !slope3 && !skiprest && (vF.a>0.002 && vH.a>0.002)
 	 && (!eq_E_F && !eq_E_H && !oppoPix) && (!eq_B_F && !eq_D_H)
 	 && (eq(E,I) || El>=Fl&&El>=Hl)  &&  ((El<Fl&&El<Hl) || none_eq2(I,F,H) || neq(E,R) || neq(E,S))
@@ -855,253 +764,262 @@ if (!skiprest) {
 		M=admixX(I,H,G,F,E,D,C,B,A
 				,S,SI,SG,R,RI,RC,Q,QG,QA,P,PC,PA,II,GG,CC
 				,El,Hl,Fl,Dl,Bl
-				//,vE,vH,vF,vG,vC
 				);
 		slope4 = true;
 		slope4ok = (M.b < 1.1);
 		slope4end = (M.b < 3.1);
 		skiprest = (M.b > 7.1);
-		M = (M.b > 3.1) ? vE :	
+		M = (M.b > 3.1) ? vE :
 			(M.b > 1.1) ? (M - 2.0) :
 			M;
 	}
 
 
-//  long gentle 2:1 slope  (P100)
-
-	if (slope4ok) { //zone4 long slope
-		// Original rule extension 1. Pass adjacent pixel comparison as the third parameter of adminxL to ensure no double blending
-		// Original rule extension 2. No L pattern can appear again within the interval of opposite two pixels unless forming a wall
-		if (all_eq2(R,F,G) && neq(R, RC) && (neq(Q,G)||eq(Q, QA))) {L=admixL(M,L,vH); skiprest = true;}
-		// vertical
-		if (all_eq2(S,H,C) && neq(S, SG) && (neq(P,C)||eq(P, PA))) {K=admixL(M,K,vF); skiprest = true;}
+	//*	2:1 long stepped slope  (P100)
+	if (slope4ok) {
+		if (all_eq2(R,F,G) && neq(R, RC) && (neq(Q,G)||eq(Q, QA))) {L=admixL(vE,vH); skiprest = true;}
+		if (all_eq2(S,H,C) && neq(S, SG) && (neq(P,C)||eq(P, PA))) {K=admixL(vE,vF); skiprest = true;}
 	}
 
-	if (slope3ok) { //zone3 long slope
-		// horizontal
-		if (all_eq2(Q,D,I) && neq(Q, QA) && (neq(R,I)||eq(R, RC))) {M=admixL(L,M,vH); skiprest = true;}
-		// vertical
-		if (all_eq2(S,H,A) && neq(S, SI) && (neq(A,P)||eq(P, PC))) {J=admixL(L,J,vD); skiprest = true;}
+	if (slope3ok) {
+		if (all_eq2(Q,D,I) && neq(Q, QA) && (neq(R,I)||eq(R, RC))) {M=admixL(vE,vH); skiprest = true;}
+		if (all_eq2(S,H,A) && neq(S, SI) && (neq(A,P)||eq(P, PC))) {J=admixL(vE,vD); skiprest = true;}
 	}
 
-	if (slope2ok) { //zone2 long slope
-		// horizontal
-		if (all_eq2(R,F,A) && neq(R, RI) && (neq(A,Q)||eq(Q, QG))) {J=admixL(K,J,vB); skiprest = true;}
-		// vertical
-		if (all_eq2(P,B,I) && neq(P, PA) && (neq(I,S)||eq(S, SG))) {M=admixL(K,M,vF); skiprest = true;}
+	if (slope2ok) {
+		if (all_eq2(R,F,A) && neq(R, RI) && (neq(A,Q)||eq(Q, QG))) {J=admixL(vE,vB); skiprest = true;}
+		if (all_eq2(P,B,I) && neq(P, PA) && (neq(I,S)||eq(S, SG))) {M=admixL(vE,vF); skiprest = true;}
 	}
 
-	if (slope1ok) { //zone1 long slope
-		// horizontal
-		if (all_eq2(Q,D,C) && neq(Q, QG) && (neq(C,R)||eq(R, RI))) {K=admixL(J,K,vB); skiprest = true;}
-		// vertical
-		if (all_eq2(P,B,G) && neq(P, PC) && (neq(G,S)||eq(S, SI))) {L=admixL(J,L,vD); skiprest = true;}
+	if (slope1ok) {
+		if (all_eq2(Q,D,C) && neq(Q, QG) && (neq(C,R)||eq(R, RI))) {K=admixL(vE,vB); skiprest = true;}
+		if (all_eq2(P,B,G) && neq(P, PC) && (neq(G,S)||eq(S, SI))) {L=admixL(vE,vD); skiprest = true;}
 	}
 
-// Longslope can exit after forming, basically no sawslope will form on the diagonal
-// Note: sawslope entry cannot exclude diagonal slope (including slopeok)
+	//*   2:1 staggered slope  (new rule) 
 if (!skiprest && !oppoPix) {
 
 
-        // horizontal bottom
     if (!eq_E_H && none_eq2(H,A,C)) {
 
-        //                                    A B Ｃ ・
-        //                                  Q D 🄴 🅵 🆁       Zone 4
-        //					                🅶🅷 I
-        //					                  Ｓ
-        // (!slope3 && D!=H) needs to be connected like this to completely exclude the trend
         if ( (!slope2 && !eq_B_F) && (!slope3 && !eq_D_H) && (!slope4end && !eq_F_H) && vF.a>0.002 &&
             !eq_E_F && eq(R,H) && eq(F,G) ) {
             M = admixS( A, B, C, D, E, F, G, H, I
                       , R, RC, RI, S, SG, SI, II, CC
-                      //, vE, vF, vC
                       );
             skiprest = true;}
 
-        //                                  ・  A Ｂ C
-        //                                  🆀 🅳 🄴 Ｆ R       Zone 3
-        //                                     G 🅷 🅸
-        //					                   Ｓ
         if ( !skiprest && (!slope1 && !eq_B_D) && (!slope4 && !eq_F_H) && (!slope3end && !eq_D_H) && vD.a>0.002 &&
              !eq_E_D && eq(Q,H) && eq(D,I) ) {
             L = admixS( C, B, A, F, E, D, I, H, G
                       , Q, QA, QG, S, SI, SG, GG, AA
-                      //, vE, vD, vA
                       );
             skiprest = true;}
     }
 
-    // horizontal up
     if ( !skiprest && !eq_E_B && none_eq2(B,G,I)) {
 
-        //					                   Ｐ
-        //                                    🅐 🅑 Ｃ
-        //                                  ＱＤ 🄴 🅵 🆁       Zone 2
-        //                                    Ｇ H  I  .
         if ( (!slope1 && !eq_B_D)  && (!slope4 && !eq_F_H) && (!slope2end && !eq_B_F) && vF.a>0.002 &&
               !eq_E_F && eq(B,R) && eq(A,F) ) {
             K = admixS( G, H, I, D, E, F, A, B, C
                       , R, RI, RC, P, PA, PC, CC, II
-                      //, vE, vF, vI
                       );
             skiprest = true;}
 
-        //					                  Ｐ
-        //                                    A 🅑 🅲
-        //                                 🆀 🅳 🄴 Ｆ R        Zone 1
-        //                                  . G Ｈ I
         if ( !skiprest && (!slope2 && !eq_B_F) && (!slope3 && !eq_D_H) && (!slope1end && !eq_B_D) && vD.a>0.002 &&
              !eq_E_D && eq(B,Q) && eq(C,D) ) {
             J = admixS( I, H, G, F, E, D, C, B, A
                       , Q, QG, QA, P, PC, PA, AA, GG
-                      //, vE, vD, vG
                       );
             skiprest = true;}
 
     }
 
-    // vertical left
+
     if ( !skiprest && !eq_E_D && none_eq2(D,C,I) ) {
 
-        //                                    🅐 B Ｃ
-        //                                  Q 🅳 🄴 Ｆ R
-        //                                    Ｇ 🅷 I        Zone 3
-        //                                       🆂 ・
         if ( (!slope1 && !eq_B_D) && (!slope4 && !eq_F_H) && (!slope3end && !eq_D_H) && vH.a>0.002 &&
               !eq_E_H && eq(D,S) && eq(A,H) ) {
             L = admixS( C, F, I, B, E, H, A, D, G
                       , S, SI, SG, Q, QA, QG, GG, II
-                      //, vE, vH, vI
                       );
             skiprest = true;}
 
-        //                                      🅟 ・
-        //                                    A 🅑 C
-        //                                  Q 🅳 🄴 F R       Zone 1
-        //                                    🅶 ＨＩ
         if ( !skiprest && (!slope3 && !eq_D_H) && (!slope2 && !eq_B_F) && (!slope1end && !eq_B_D) && vB.a>0.002 &&
-              !eq_E_B && eq(P,D) && eq(B,G) ) {
+             !eq_E_B && eq(P,D) && eq(B,G) ) {
             J = admixS( I, F, C, H, E, B, G, D, A
                       , P, PC, PA, Q, QG, QA, AA, CC
-                      //, vE, vB, vC
                       );
             skiprest = true;}
 
     }
 
-    // vertical right
-    if ( !skiprest && !eq_E_F && none_eq2(F,A,G) ) { // right
+    if ( !skiprest && !eq_E_F && none_eq2(F,A,G) ) {
 
-        //                                    A B 🅲
-        //                                  Q D 🄴 🅵 R
-        //                                    G 🅷 I        Zone 4
-        //                                    . 🆂
         if ( (!slope2 && !eq_B_F) && (!slope3 && !eq_D_H) && (!slope4end && !eq_F_H) && vH.a>0.002 &&
               !eq_E_H && eq(S,F) && eq(H,C) ) {
-            M = admixS( A, D, G, B, E, H, C, F
-                      , I, S, SG, SI, R, RC, RI, II, GG
-                      //, vE, vH, vG
+            M = admixS( A, D, G, B, E, H, C, F, I
+                      , S, SG, SI, R, RC, RI, II, GG
                       );
             skiprest = true;}
 
-        //                                    ・ 🅟
-        //                                    A 🅑 C
-        //                                  Q D 🄴 🅵 R        Zone 2
-        //                                    G H 🅸
         if ( !skiprest && (!slope1 && !eq_B_D) && (!slope4 && !eq_F_H) && (!slope2end && !eq_B_F) && vB.a>0.002 &&
              !eq_E_B && eq(P,F) && eq(B,I) ) {
             K = admixS( G, D, A, H, E, B, I, F, C
                       , P, PA, PC, R, RI, RC, CC, AA
-                      //, vE, vB, vA
                       );
             skiprest = true;}
 
     } // vertical right
-} // sawslope
+} // staggered slope
 
-// Sawslope can exit after forming, old scheme: skiprest||slopeBAD (will also use slopeOFF (weak pattern) and slopok (strong pattern) but the effect is average)
 skiprest = skiprest||slope1||slope2||slope3||slope4||vE.a<0.002||vB.a<0.002||vD.a<0.002||vF.a<0.002||vH.a<0.002;
 
-/**************************************************
-       "Concave + Cross" Shape（P100）	   
- *************************************************/
-// Use approximate pixels at the far end of the cross star, useful for some horizontal line + jagged and layered gradient patterns. E.g. glowing text in Street Fighter III 3rd Strike opening, Japanese-style houses in SFZ3MIX, opening of Garou: Mark of the Wolves
-
-vec4 vT;		// Temporary T
+//* =======================================================
+//*            О✕✕
+//*          ООО✕
+//*            О✕✕		Concave + Cross （P100）
+//* ================================================= zz ==
+vec4 vT;		float maxl;
 
 if (!skiprest &&
-    Bl<El && !eq_E_D && !eq_E_F && eq_E_H && none_eq2(E,A,C) && all_eq2(G,H,I) && sim(E,S) ) { // TOP
+    Bl<El && !eq_E_D && !eq_E_F && eq_E_H && none_eq2(E,A,C) && all_eq2(E,G,I) && simc(vE,S) ) {
 
-    if (eq_B_D||eq_B_F) { J=admixC(vB,J);    K=J;
-        if (eq_D_F) { L=mix(J,L, 0.61804);   M=L; }
-    } else { vT = El-Bl < abs(El-Dl) ? vB : vD;  J=admixC(vT,J);
-            if (eq_D_F) { K=J;  L=mix(J,L, 0.61804);    M=L; }
-            else {vT = El-Bl < abs(El-Fl) ? vB : vF; 		K=admixC(vT,K); }
-           }
+	float B1 = float(eq(B, A));
+	float B2 = float(eq(B, C));
+	float DD = float(eq(A, D));
+	float FF = float(eq(C, F));
+
+	float sideFactor = eq_B_D && DD!=FF ? 1.0 : -0.145898;
+
+	Bl = fract(Bl) - (B1 +B2 +B1*B2) *0.381966;
+	Dl = fract(Dl) - step(El, Dl) + DD*sideFactor;
+	Fl = fract(Fl) - step(El, Fl) + FF*sideFactor;
+
+	maxl = max(Bl, max(Dl, Fl));
+
+	vT = eq_B_D || eq_B_F ? vB :
+		 maxl <= Dl      ? vD :
+		 maxl <= Fl      ? vF :
+						   vB ;
+	vT = admixC(vT,vE);
+
+	bool nolink = !eq_D_F && (DD==0.0) && (FF==0.0);
+	J = Dl<0.0&&nolink ? vE : vT;
+    K = Fl<0.0&&nolink ? vE : vT;
+	L = mix(vE, J, 0.381966*float(eq_D_F));
+	M = L;
+
+   skiprest = true;
+}
+if (!skiprest &&
+    Hl<El && !eq_E_D && !eq_E_F && eq_E_B && none_eq2(E,G,I) && all_eq2(E,A,C) && simc(vE,P) ) {
+
+	float H1 = float(eq(H, G));
+	float H2 = float(eq(H, I));
+	float DD = float(eq(D, G));
+	float FF = float(eq(F, I));
+
+	float sideFactor = eq_B_D && DD!=FF ? 1.0 : -0.145898;
+
+	Hl = fract(Hl) - (H1+H2+H1*H2) *0.381966;
+	Dl = fract(Dl) - step(El, Dl) + DD*sideFactor;
+	Fl = fract(Fl) - step(El, Fl) + FF*sideFactor;
+
+	maxl = max(Hl, max(Dl, Fl));
+
+	vT = eq_D_H || eq_F_H ? vH :
+		 maxl <= Dl      ? vD :
+		 maxl <= Fl      ? vF :
+						   vH ;
+	vT=admixC(vT,vE);
+
+	bool nolink = !eq_D_F && (DD==0.0) && (FF==0.0);
+
+	L = Dl<0.0&&nolink ? vE : vT;
+    M = Fl<0.0&&nolink ? vE : vT;
+	J = mix(vE, L, 0.381966*float(eq_D_F));
+	K = J;
+
+   skiprest = true;
+}
+if (!skiprest &&
+    Fl<El && !eq_E_B && !eq_E_H && eq_E_D && none_eq2(E,C,I) && all_eq2(E,A,G) && simc(vE,Q) ) {
+
+	float F1 = float(eq(F, C));
+	float F2 = float(eq(F, I));
+	float BB = float(eq(B, C));
+	float HH = float(eq(H, I));
+
+	float sideFactor = eq_B_H && BB!=HH ? 1.0 : -0.145898;
+
+	Fl = fract(Fl) - (F1+F2+F1*F2) *0.381966;
+	Bl = fract(Bl) - step(El, Bl) + BB*sideFactor;
+	Hl = fract(Hl) - step(El, Hl) + HH*sideFactor;
+
+	maxl = max(Fl, max(Bl, Hl));
+
+	vT = eq_B_F || eq_F_H ? vF :
+		 maxl <= Bl      ? vB :
+		 maxl <= Hl      ? vH :
+						   vF ;
+	vT=admixC(vT,vE);
+
+	bool nolink =  !eq_B_H && (BB==0.0) && (HH==0.0);
+
+	K = Bl<0.0&&nolink ? vE : vT;
+    M = Hl<0.0&&nolink ? vE : vT;
+	J = mix(vE, K, 0.381966*float(eq_B_H));
+	L = J;
+
+   skiprest = true;
+}
+if (!skiprest &&
+    Dl<El && !eq_E_B && !eq_E_H && eq_E_F && none_eq2(E,A,G) && all_eq2(E,C,I) && simc(vE,R) ) {
+
+	float D1 = float(eq(D, A));
+	float D2 = float(eq(D, G));
+	float BB = float(eq(B, A));
+	float HH = float(eq(H, G));
+
+	float sideFactor = eq_B_H && BB!=HH ? 1.0 : -0.145898;
+
+	Dl = fract(Dl) - (D1+D2+D1*D2) *0.381966;
+	Bl = fract(Bl) - step(El, Bl) + BB*sideFactor;
+	Hl = fract(Hl) - step(El, Hl) + HH*sideFactor;
+
+	maxl = max(Dl, max(Bl, Hl));
+
+	vT = eq_B_D || eq_D_H ? vD :
+		 maxl <= Bl      ? vB :
+		 maxl <= Hl      ? vH :
+						   vD ;
+	vT=admixC(vT,vE);
+
+	bool nolink =  !eq_B_H && (BB==0.0) && (HH==0.0);
+
+	J = Bl<0.0&&nolink ? vE : vT;
+    L = Hl<0.0&&nolink ? vE : vT;
+	K = mix(vE, J, 0.381966*float(eq_B_H));
+	M = K;
 
    skiprest = true;
 }
 
-if (!skiprest &&
-    Hl<El && !eq_E_D && !eq_E_F && eq_E_B && none_eq2(E,G,I) && all_eq2(A,B,C) && sim(E,P) ) { // BOTTOM
-
-    if (eq_D_H||eq_F_H) { L=admixC(vH,L);    M=L;
-        if (eq_D_F) { J=mix(L,J, 0.61804);   K=J; }
-    } else { vT = El-Hl < abs(El-Dl) ? vH : vD;  L=admixC(vT,L);
-            if (eq_D_F) { M=L;  J=mix(L,J, 0.61804);    K=J; }
-            else { vT = El-Hl < abs(El-Fl) ? vH : vF;    M=admixC(vT,M); }
-           }
-
-   skiprest = true;
+//* =======================================================
+//*            ✕О
+//*        ООО✕
+//*            ✕О    K - type
+//* ================================================= zz ==
+if (!skiprest && !eq_E_F&&eq_E_D&&eq_B_F&&eq_F_H && all_eq2(E,C,I) && (eq(E,Q)||El>Fl) && neq(F,src(srcX+3, srcY)) ) {K=admixK(vF,vE); M=K;skiprest=true;}	//* RIGHT
+if (!skiprest && !eq_E_D&&eq_E_F&&eq_B_D&&eq_D_H && all_eq2(E,A,G) && (eq(E,R)||El>Dl) && neq(D,src(srcX-3, srcY)) ) {J=admixK(vD,vE); L=J;skiprest=true;}		//* LEFT
+if (!skiprest && !eq_E_H&&eq_E_B&&eq_D_H&&eq_F_H && all_eq2(E,G,I) && (eq(E,P)||El>Hl) && neq(H,src(srcX, srcY+3)) ) {L=admixK(vH,vE); M=L;skiprest=true;}	//* BOTTOM
+if (!skiprest && !eq_E_B&&eq_E_H&&eq_B_D&&eq_B_F && all_eq2(E,A,C) && (eq(E,S)||El>Bl) && neq(B,src(srcX, srcY-3)) ) {J=admixK(vB,vE); K=J;}					//* TOP
 }
-
-if (!skiprest &&
-    Fl<El && !eq_E_B && !eq_E_H && eq_E_D && none_eq2(E,C,I) && all_eq2(A,D,G) && sim(E,Q) ) { // RIGHT
-
-    if (eq_B_F||eq_F_H) { K=admixC(vF,K);    M=K;
-        if (eq_B_H) { J=mix(K,J, 0.61804);   L=J; }
-    } else { vT = El-Fl < abs(El-Bl) ? vF : vB;  K=admixC(vT,K);
-            if (eq_B_H) { M=K;  J=mix(K,J, 0.61804);    L=J; }
-            else { vT = El-Fl < abs(El-Hl) ? vF : vH;    M=admixC(vT,M); }
-           }
-
-   skiprest = true;
-}
-
-if (!skiprest &&
-    Dl<El && !eq_E_B && !eq_E_H && eq_E_F && none_eq2(E,A,G) && all_eq2(C,F,I) && sim(E,R) ) { // LEFT
-
-    if (eq_B_D||eq_D_H) { J=admixC(vD,J);    L=J;
-        if (eq_B_H) { K=mix(J,K, 0.61804);   M=K; }
-    } else { vT = El-Dl < abs(El-Bl) ? vD : vB;  J=admixC(vT,J);
-            if (eq_B_H) { L=J;   K=mix(J,K, 0.61804);    M=K; }
-            else { vT = El-Dl < abs(El-Hl) ? vD : vH;    L=admixC(vT,L); }
-           }
-
-   skiprest = true;
-}
-
-/*
-     ✕О
- ООО✕
-     ✕О    Scorpion Shape (P99). Looks like the tracker bugs in The Matrix. Can smooth some regular staggered pixels.
-*/
-// Practice: 1. Do not use approximate pixels, easy to cause graphic glitches
-// Practice: 2. Higher center luminance, remove one grid from scorpion tail to catch more patterns.
-// The four scorpion patterns are exclusive, they will not appear if caught by the previous rules (entered)
-
-if (!skiprest && !eq_E_F&&eq_E_D&&eq_B_F&&eq_F_H && all_eq2(E,C,I) && (eq(E,Q)||El>Fl) && neq(F,src(srcX+3, srcY)) ) {K=admixK(vF,K); M=K;skiprest=true;}	// RIGHT
-if (!skiprest && !eq_E_D&&eq_E_F&&eq_B_D&&eq_D_H && all_eq2(E,A,G) && (eq(E,R)||El>Dl) && neq(D,src(srcX-3, srcY)) ) {J=admixK(vD,J); L=J;skiprest=true;}	// LEFT
-if (!skiprest && !eq_E_H&&eq_E_B&&eq_D_H&&eq_F_H && all_eq2(E,G,I) && (eq(E,P)||El>Hl) && neq(H,src(srcX, srcY+3)) ) {L=admixK(vH,L); M=L;skiprest=true;}	// BOTTOM
-if (!skiprest && !eq_E_B&&eq_E_H&&eq_B_D&&eq_B_F && all_eq2(E,A,C) && (eq(E,S)||El>Bl) && neq(B,src(srcX, srcY-3)) ) {J=admixK(vB,J); K=J;}				// TOP
-
-}
-	//final write
+	//* final write
     ivec2 destXY = ivec2(xy) * 2;
     writeColorf(destXY, J);
     writeColorf(destXY + ivec2(1, 0), K);
     writeColorf(destXY + ivec2(0, 1), L);
     writeColorf(destXY + ivec2(1, 1), M);
-
 }
