@@ -609,7 +609,7 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
     uint32_t p[4];
     int32_t val = 0;
     int has_inf = 0;
-    for(int i=0; i < 4; ++i) {
+    for (int i = 0; i < 4; i++) {
         uint32_t x, y;
         memcpy(&x, a + i, sizeof(x));
         memcpy(&y, b + i, sizeof(y));
@@ -644,7 +644,7 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
         if(!(ex && ey)) {e[i] = -2*127; p[i] = 0;} // subnormals -> zero
         if(e[i] > ehi) ehi = e[i];
     }
-    if(has_inf) {
+    if (has_inf) {
         uint32_t bits = (has_inf < 0 ? 0xFF800000 : 0x7F800000);
         float ret;
         memcpy(&ret, &bits, sizeof(bits));
@@ -654,7 +654,7 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
     // the intermediate sum.
     // Uses round-to-zero (i.e. truncation) to align; the
     // sum afterwards is integer (and therefore exact).
-    for(int i=0;i<4;++i) {
+    for (int i = 0; i < 4; i++) {
         int32_t d = ehi - e[i];
         if(d > 28) d = 28;
         uint32_t v = (p[i] >> d);
@@ -666,7 +666,7 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
     // Adjust significand to 1.xxxxxxxxxxxxxxxxxxxxxxx
     // (i.e. 2^23 <= m < 2^24), unless 0. Rounding, if any,
     // is done via round-to-nearest-ties-to-even.
-    if(m) {
+    if (m != 0) {
         int b = int(8 - clz32_nonzero(m));
         ehi += b;
         if(b > 0) {
@@ -677,8 +677,8 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
         _dbg_assert_msg_(m >= I && m < 2 * I, "Significand wrong: %08X", m);
     }
     else ehi = -128;
-    if(ehi <= -127) {ehi = -127; m = 0;} // subnormals -> zero
-    if(ehi >= +128) {ehi = +128; m = 0;} // inf
+    if (ehi <= -127) {ehi = -127; m = 0;} // subnormals -> zero
+    if (ehi >= +128) {ehi = +128; m = 0;} // inf
     uint32_t bits = (uint32_t(val < 0) << 31) |
                     (uint32_t(ehi + 127) << 23) |
                     uint32_t(m & 0x007FFFFF);
