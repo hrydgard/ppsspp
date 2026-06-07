@@ -53,6 +53,10 @@ void FormatStateRow(char *dest, size_t destSize, CmdFormatType fmt, u32 value, b
 		snprintf(dest, destSize, "%06x", value);
 		break;
 
+	case CMD_FMT_HEX_AND_INT:
+		snprintf(dest, destSize, "%06x (%d)", value, value);
+		break;
+
 	case CMD_FMT_NUM:
 		snprintf(dest, destSize, "%d", value);
 		break;
