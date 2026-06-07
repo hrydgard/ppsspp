@@ -390,6 +390,9 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 			data = (const s8 *)srcdata + idx * stride;
 			break;
 		}
+		default:
+			// We just increment data at the end of the loop.
+			break;
 		}
 
 		Vec4F32 objPos;

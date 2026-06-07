@@ -1248,6 +1248,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// I think we should use min/max clipping for through-mode as well, right?
 	if (clipMinMax) {
+		// NOTE: When changing this test, don't forget to change the test in the fragment shader fallback too.
+
 		// We use clipping, where available, to implement min/max Z.
 		// 1.0 is used to disable the clip plane (should we generate more shaders instead? how costly are they?)
 
@@ -1256,10 +1258,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// We round to nearest 15-bit value for the check - this seems to match some of [Unknown]'s test, and PSP GPU floats
 		// often have a 15-bit mantissa. TODO: should we truncate or nearest?
-		WRITE(p, "  float clipZ = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
+		// Due to us having a bit too much precision, we round the value up for the min check and down for the max check.
+		// Will test this on hardware more carefully soon.
+		// The min check rounded down fixes the Test Drive map problem, and the max check rounded down fixes Taiko no Tatsujin.
+		WRITE(p, "  float clipZNear = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
+		WRITE(p, "  float clipZFar = floor(outPos.z * 0.5) * 2.0;\n");
 
-		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZ - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
-		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZ) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZNear - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZFar) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
 
 	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.

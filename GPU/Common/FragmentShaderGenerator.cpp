@@ -1178,10 +1178,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (fsMinmaxDiscard) {
-		// See the vertex shader generator for the explanation for this.
-		WRITE(p, "  float clipZ = floor(projZ * 0.5 + 0.5) * 2.0;\n");
-		WRITE(p, "  if (u_minZmaxZ.x > 0.0 && clipZ < u_minZmaxZ.x) DISCARD;\n");
-		WRITE(p, "  if (u_minZmaxZ.y < 65535.0 && clipZ > u_minZmaxZ.y) DISCARD;\n");
+		// See the vertex shader generator for the explanation for this - and don't forget to update both
+		// places if you change this.
+		WRITE(p, "  float clipZNear = floor(projZ * 0.5 + 0.5) * 2.0;\n");
+		WRITE(p, "  float clipZFar = floor(projZ * 0.5) * 2.0;\n");
+		WRITE(p, "  if (u_minZmaxZ.x > 0.0 && clipZNear < u_minZmaxZ.x) DISCARD;\n");
+		WRITE(p, "  if (u_minZmaxZ.y < 65535.0 && clipZFar > u_minZmaxZ.y) DISCARD;\n");
 	}
 
 	if (writeDepth) {
