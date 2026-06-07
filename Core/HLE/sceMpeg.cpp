@@ -1375,6 +1375,7 @@ static int sceMpegRingbufferAvailableSize(u32 ringbufferAddr) {
 		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_NOT_YET_INIT, "bad mpeg handle");
 	}
 
+	ctx->mpegRingbufferAddr = ringbufferAddr;
 	if (ctx->mediaengine) {
 		ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
 	}
