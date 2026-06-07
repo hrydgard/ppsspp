@@ -801,7 +801,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 
 		// Let's go look for pixel mapping.
 		const bool flat = ((u32)params.clipInfoFlags & ((u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ))) == (u32)(ClipInfoFlags::Valid | ClipInfoFlags::FlatZ);
-		const bool lookForPixelMapping = flat && gstate.isMagnifyFilteringEnabled();
+		const bool lookForPixelMapping = flat && gstate.isMagnifyFilteringEnabled() && g_Config.bSmart2DTexFiltering;
 
 		// TODO: We should probably take uv scale into account?
 		const float uScale = gstate_c.curTextureWidth;
