@@ -214,11 +214,9 @@ struct Vec4F32 {
 
 	static Vec4F32 LoadU8Norm(const uint8_t *src) {
 		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
-		__m128i value16 = _mm_unpacklo_epi8(value, value);
-		__m128i value32 = _mm_unpacklo_epi16(value16, value16);
-		// Sign extension. A bit ugly without SSE4.
-		value32 = _mm_srli_epi32(value32, 24);
-		return Vec4F32{_mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f))};
+		__m128i value16 = _mm_unpacklo_epi8(value, _mm_setzero_si128());
+		__m128i value32 = _mm_unpacklo_epi16(value16, _mm_setzero_si128());
+		return Vec4F32{_mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 255.0f))};
 	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		__m128i bits = _mm_loadl_epi64((const __m128i*)src);
