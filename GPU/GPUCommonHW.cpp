@@ -573,7 +573,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	if (draw_->GetDeviceCaps().logicOpSupported) {
 		features |= GPU_USE_LOGIC_OP;
 	}
-	if (draw_->GetDeviceCaps().anisoSupported) {
+	if (draw_->GetDeviceCaps().anisoSupported && g_Config.iAnisotropyLevel > 0) {
 		features |= GPU_USE_ANISOTROPY;
 	}
 	if (draw_->GetDeviceCaps().dualSourceBlend) {

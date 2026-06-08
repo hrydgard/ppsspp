@@ -245,7 +245,7 @@ void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBa
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
+void TextureCacheD3D11::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry) {
 		ID3D11ShaderResourceView *textureView = nullptr;
 		context_->PSSetShaderResources(0, 1, &textureView);
@@ -257,7 +257,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture_ = textureView;
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ComPtr<ID3D11SamplerState> state;
 	samplerCache_.GetOrCreateSampler(device_, samplerKey, &state);
 	context_->PSSetSamplers(0, 1, state.GetAddressOf());
@@ -499,7 +499,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture();
+	ApplyTexture(true, false);
 
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
 	if (!texture)

@@ -176,15 +176,9 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	__m128i row1 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8);
 	__m128i row2 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 4)), 8);
 	__m128i row3 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 8)), 8);
-	if ((num & 0x3) == 0) {
-		_mm_store_si128((__m128i *)dst, row1);
-		_mm_store_si128((__m128i *)(dst + 4), row2);
-		_mm_store_si128((__m128i *)(dst + 8), row3);
-	} else {
-		_mm_storeu_si128((__m128i *)dst, row1);
-		_mm_storeu_si128((__m128i *)(dst + 4), row2);
-		_mm_storeu_si128((__m128i *)(dst + 8), row3);
-	}
+	_mm_storeu_si128((__m128i *)dst, row1);
+	_mm_storeu_si128((__m128i *)(dst + 4), row2);
+	_mm_storeu_si128((__m128i *)(dst + 8), row3);
 #elif PPSSPP_ARCH(ARM_NEON)
 	const uint32x4_t row1 = vshlq_n_u32(vld1q_u32(src), 8);
 	const uint32x4_t row2 = vshlq_n_u32(vld1q_u32(src + 4), 8);
