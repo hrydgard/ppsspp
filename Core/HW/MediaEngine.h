@@ -69,7 +69,7 @@ public:
 
 	bool setVideoStream(int streamNum, bool force = false);
 	// TODO: Return false if the stream doesn't exist.
-	bool setAudioStream(int streamNum) { m_audioStream = streamNum; return true; }
+	bool setAudioStream(int streamNum);
 
 	u8 *getFrameImage();
 	int getRemainSize();
