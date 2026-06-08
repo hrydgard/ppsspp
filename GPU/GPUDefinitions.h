@@ -196,6 +196,7 @@ enum {
 };
 
 enum class ClipInfoFlags {
+	Empty = 0,
 	Valid = 1,
 	SoftClipCull = 2,
 	FlatZ = 4,

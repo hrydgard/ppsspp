@@ -105,7 +105,7 @@ public:
 	void ReadColor0(float color[4]) const {
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
-			Uint8x4ToFloat4(color, *(const u32 *)(data_ + decFmt_.c0off));
+			Vec4F32::LoadU8Norm(data_ + decFmt_.c0off).Store(color);
 			break;
 		case DEC_FLOAT_4:
 			memcpy(color, data_ + decFmt_.c0off, 16);
@@ -119,7 +119,7 @@ public:
 	Vec4F32 ReadColorF32() const {
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
-			return Vec4F32::LoadU8Norm((const u8 *)(data_ + decFmt_.c0off));
+			return Vec4F32::LoadU8Norm(data_ + decFmt_.c0off);
 		case DEC_FLOAT_4:
 			return Vec4F32::Load((const float *)(data_ + decFmt_.c0off));
 		default:

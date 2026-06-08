@@ -182,7 +182,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry) {
+SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ) {
 	SamplerCacheKey key{};
 
 	int minFilt = gstate.texfilter & 0x7;
@@ -224,7 +224,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
 				key.aniso = true;
 			}
 			break;
@@ -260,7 +260,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
 				key.aniso = true;
 			}
 		}
@@ -294,7 +294,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		case TEX_FILTER_AUTO_MAX_QUALITY:
 		default:
 			forceFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
 				key.aniso = true;
 			}
 			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
@@ -339,7 +339,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 }
 
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	SamplerCacheKey key = GetSamplingParams(0, nullptr);
+	SamplerCacheKey key = GetSamplingParams(0, nullptr, true);
 
 	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
 	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
@@ -2129,14 +2129,14 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	}
 }
 
-void TextureCacheCommon::ApplyTexture(bool doBind) {
+void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
 		ForgetLastTexture();
 		if (failedTexture_) {
 			// Backends should handle this by binding a black texture with 0 alpha.
-			BindTexture(nullptr);
+			BindTexture(nullptr, flatZ);
 		} else if (nextFramebufferTexture_) {
 			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
@@ -2211,7 +2211,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind) {
 	} else {
 		entry->lastFrame = gpuStats.totals.numFlips;
 		if (doBind) {
-			BindTexture(entry);
+			BindTexture(entry, flatZ);
 		}
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);

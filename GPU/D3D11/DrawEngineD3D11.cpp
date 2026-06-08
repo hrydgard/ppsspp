@@ -304,6 +304,9 @@ void DrawEngineD3D11::Flush() {
 		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
 			gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 		}
+		if (changed & ClipInfoFlags::FlatZ) {
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		}
 		lastClipInfoFlags_ = clipInfoFlags_;
 	}
 
@@ -332,7 +335,7 @@ void DrawEngineD3D11::Flush() {
 
 		if (textureNeedsApply) {
 			gstate_c.dstSquared = false;
-			textureCache_->ApplyTexture();
+			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 			if (gstate_c.dstSquared) {
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
@@ -446,7 +449,7 @@ void DrawEngineD3D11::Flush() {
 		// TODO: This should be after BuildDrawingParams!
 		if (textureNeedsApply) {
 			gstate_c.pixelMapped = result.pixelMapped;
-			textureCache_->ApplyTexture();
+			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 			gstate_c.pixelMapped = false;
 		}
 

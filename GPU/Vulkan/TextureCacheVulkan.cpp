@@ -632,14 +632,14 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
+void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry || !entry->vkTex) {
 		Unbind();
 		return;
 	}
 
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	imageView_ = entry->vkTex->GetImageView();
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE, false);
@@ -1060,7 +1060,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture();
+	ApplyTexture(true, false);
 
 	if (!entry->vkTex)
 		return false;

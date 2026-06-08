@@ -191,7 +191,7 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
 		lastBoundTexture = nullptr;
@@ -202,7 +202,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = entry->textureName;
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ApplySamplingParams(samplerKey);
 	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
@@ -388,7 +388,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-	ApplyTexture(false);
+	ApplyTexture(false, false);
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
