@@ -180,7 +180,7 @@ MpegContext::~MpegContext() {
 	delete mediaengine;
 }
 void MpegContext::DoState(PointerWrap &p) {
-	auto s = p.Section("MpegContext", 1, 3);
+	auto s = p.Section("MpegContext", 1, 4);
 	if (!s)
 		return;
 	if (s >= 3)
@@ -215,6 +215,21 @@ void MpegContext::DoState(PointerWrap &p) {
 	Do(p, ignoreAvc);
 	Do(p, isAnalyzed);
 	Do<u32, StreamInfo>(p, streamMap);
+	if (s >= 4) {
+		Do(p, streamIgnoreMap);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		streamIgnoreMap.clear();
+		for (auto const &it : streamMap) {
+			if (it.second.type == MPEG_AVC_STREAM)
+				streamIgnoreMap[it.first] = ignoreAvc;
+			else if (it.second.type == MPEG_ATRAC_STREAM || it.second.type == MPEG_AUDIO_STREAM)
+				streamIgnoreMap[it.first] = ignoreAtrac;
+			else if (it.second.type == MPEG_PCM_STREAM)
+				streamIgnoreMap[it.first] = ignorePcm;
+			else
+				streamIgnoreMap[it.first] = false;
+		}
+	}
 	DoClass(p, mediaengine);
 	ringbufferNeedsReverse = s < 2;
 }
@@ -660,6 +675,7 @@ static int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	info.sid = sid;
 	info.needsReset = true;
 	ctx->streamMap[sid] = info;
+	ctx->streamIgnoreMap[sid] = false;
 	return hleLogInfo(Log::Mpeg, sid);
 }
 
@@ -1563,6 +1579,17 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		return hleLogWarning(Log::Mpeg, -1, "invalid video stream %08x", streamId);
 	}
 
+	if (ctx->streamIgnoreMap[streamId]) {
+		avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
+		avcAu.dts = avcAu.pts - videoTimestampStep;
+		avcAu.esBuffer = streamInfo->second.num;
+		avcAu.write(auAddr);
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(1, attrAddr);
+		}
+		return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg get avc ignore", 100);
+	}
+
 	if (streamInfo->second.needsReset) {
 		avcAu.pts = 0;
 		streamInfo->second.needsReset = false;
@@ -1651,6 +1678,17 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// TODO: Why was this changed to not return an error?
 	}
 
+	if (streamInfo != ctx->streamMap.end() && ctx->streamIgnoreMap[streamId]) {
+		atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
+		atracAu.dts = atracAu.pts;
+		atracAu.esBuffer = streamInfo->second.num;
+		atracAu.write(auAddr);
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(0, attrAddr);
+		}
+		return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg get atrac ignore", 100);
+	}
+
 	// The audio can end earlier than the video does.
 	if (ringbuffer->packetsAvail == 0) {
 		atracAu.pts = 0;
@@ -1726,34 +1764,8 @@ static u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_INVALID_VALUE, "UNIMPL / unknown streamID");
 	} else {
 		StreamInfo &info = stream->second;
-		DEBUG_LOG(Log::Mpeg, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): changing type=%d", mpeg, streamUid, mode, info.type);
-		switch (info.type) {
-		case MPEG_AVC_STREAM:
-			if (mode == MPEG_AU_MODE_DECODE) {
-				ctx->ignoreAvc = false;
-			} else if (mode == MPEG_AU_MODE_SKIP) {
-				ctx->ignoreAvc = true;
-			}
-			break;
-		case MPEG_AUDIO_STREAM:
-		case MPEG_ATRAC_STREAM:
-			if (mode == MPEG_AU_MODE_DECODE) {
-				ctx->ignoreAtrac = false;
-			} else if (mode == MPEG_AU_MODE_SKIP) {
-				ctx->ignoreAtrac = true;
-			}
-			break;
-		case MPEG_PCM_STREAM:
-			if (mode == MPEG_AU_MODE_DECODE) {
-				ctx->ignorePcm = false;
-			} else if (mode == MPEG_AU_MODE_SKIP) {
-				ctx->ignorePcm = true;
-			}
-			break;
-		default:
-			ERROR_LOG(Log::Mpeg, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): unknown streamID", mpeg, streamUid, mode);
-			break;
-		}
+		DEBUG_LOG(Log::Mpeg, "sceMpegChangeGetAuMode(%08x, %i, %i): changing type=%d", mpeg, streamUid, mode, info.type);
+		ctx->streamIgnoreMap[streamUid] = (mode == MPEG_AU_MODE_SKIP);
 	}
 	return hleNoLog(0);
 }
