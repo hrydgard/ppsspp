@@ -52,7 +52,8 @@
 #define TEXTURE_KILL_AGE_LOWMEM 60
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
-// Used when there are multiple CLUT variants of a texture.
+// Used when there are multiple CLUT variants of a texture, to avoid blowing up memory. See #10418
+// We should change this to do shader-based palette expansion.
 #define TEXTURE_KILL_AGE_CLUT 6
 
 #define TEXTURE_CLUT_VARIANTS_MIN 6
@@ -62,6 +63,9 @@
 
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+
+static bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, bool useBufferedRendering, FramebufferMatchInfo *matchInfo);
+static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context);
 
 // Just for reference
 
@@ -339,6 +343,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 }
 
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+	// TODO: This call is pretty pointless, we overwrite most of it.
 	SamplerCacheKey key = GetSamplingParams(0, nullptr, true);
 
 	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
@@ -358,6 +363,7 @@ SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	if (w != bufferWidth || h != bufferHeight) {
+		// Actually, maybe we should always do this?
 		key.sClamp = true;
 		key.tClamp = true;
 	}
@@ -626,7 +632,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.bufw = bufw;
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, 0, &bestCandidate, "texture")) {
+	if (GetBestFramebufferCandidate(framebufferManager_, def, 0, &bestCandidate, "texture")) {
 		// If we had a texture entry here, let's get rid of it.
 		if (entryIter != cache_.end()) {
 			DeleteTexture(entryIter);
@@ -709,20 +715,22 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	return entry;
 }
 
-bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) const {
+static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) {
 	gpuStats.perFrame.numFramebufferEvaluations++;
 
 	TinySet<AttachCandidate, 6> candidates;
 
-	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
+	const std::vector<VirtualFramebuffer *> &framebuffers = fbManager->Framebuffers();
+
+	const bool useBufferedRendering = fbManager->UseBufferedRendering();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match{};
-		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, useBufferedRendering, &match)) {
 			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_COLOR });
 		}
 		match = {};
-		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, useBufferedRendering, &match)) {
 			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_DEPTH });
 		}
 	}
@@ -768,7 +776,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		// Avoid binding as texture the framebuffer we're rendering to.
 		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
 		// which this avoids completely.
-		if (kzCompat && candidate.fb == framebufferManager_->GetCurrentRenderVFB()) {
+		if (kzCompat && candidate.fb == fbManager->GetCurrentRenderVFB()) {
 			continue;
 		}
 
@@ -829,8 +837,8 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 				++iter;
 				continue;
 			}
-			bool hasClut = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
-			int killAge = hasClut ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
+			bool hasClutVariants = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
+			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
 				DeleteTexture(iter++);
 			} else {
@@ -853,7 +861,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			// In low memory mode, we kill them all since secondary cache is disabled.
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
-				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(iter->second.get());
+				secondCacheSizeEstimate_ -= iter->second->EstimateTexMemoryUsage();
 				iter = secondCache_.erase(iter);
 			} else {
 				++iter;
@@ -863,11 +871,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
 	}
 
-	DecimateVideos();
-	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
-}
-
-void TextureCacheCommon::DecimateVideos() {
+	// Decimate known videos.
 	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
 		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.totals.numFlips) {
 			iter = videos_.erase(iter);
@@ -875,6 +879,8 @@ void TextureCacheCommon::DecimateVideos() {
 			++iter;
 		}
 	}
+
+	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
 }
 
 bool TextureCacheCommon::IsVideo(u32 texaddr) const {
@@ -891,7 +897,7 @@ bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 }
 
 void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+	cacheSizeEstimate_ -= entry->EstimateTexMemoryUsage();
 	entry->numInvalidated++;
 	gpuStats.perFrame.numTextureInvalidations++;
 	DEBUG_LOG(Log::G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
@@ -980,9 +986,8 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 	}
 }
 
-bool TextureCacheCommon::MatchFramebuffer(
-	const TextureDefinition &entry,
-	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const {
+static bool MatchFramebuffer(const TextureDefinition &entry,
+	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, bool useBufferedRendering, FramebufferMatchInfo *matchInfo) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
@@ -1052,12 +1057,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
 			return false;
 		}
+	} else if (!useBufferedRendering) {
+		return false;
 	} else {
-		// Apply to buffered mode only.
-		if (!framebufferManager_->UseBufferedRendering()) {
-			return false;
-		}
-
 		// Check works for D16 too.
 		// These are combinations that we have special-cased handling for. There are more
 		// ones possible, but rare - we'll add them as we find them used.
@@ -1275,7 +1277,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	def.dim = gstate.getTextureDimension(0);
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate, "offsetTexture")) {
+	if (GetBestFramebufferCandidate(framebufferManager_, def, texaddrOffset, &bestCandidate, "offsetTexture")) {
 		SetTextureFramebuffer(bestCandidate);
 		return true;
 	} else {
@@ -1547,14 +1549,13 @@ bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 }
 
 // Host memory usage, not PSP memory usage.
-u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
-	const u16 dim = entry->dim;
+u32 TexCacheEntry::EstimateTexMemoryUsage() const {
 	// TODO: This does not take into account the HD remaster's larger textures.
 	const u8 dimW = ((dim >> 0) & 0xf);
 	const u8 dimH = ((dim >> 8) & 0xf);
 
 	u32 pixelSize = 2;
-	switch (entry->format) {
+	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
 	case GE_TFMT_CLUT16:
@@ -2579,7 +2580,7 @@ void TextureCacheCommon::Clear(bool delete_them) {
 
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 	ReleaseTexture(it->second.get(), true);
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(it->second.get());
+	cacheSizeEstimate_ -= it->second->EstimateTexMemoryUsage();
 	cache_.erase(it);
 }
 
@@ -2644,7 +2645,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
 				// Let's save this in the secondary cache in case it gets used again.
 				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-				secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+				secondCacheSizeEstimate_ += entry->EstimateTexMemoryUsage();
 
 				// If the entry already exists in the secondary texture cache, drop it nicely.
 				auto oldIter = secondCache_.find(secondKey);
@@ -2773,7 +2774,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	gpuStats.perFrame.numTexturesDecoded++;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+	cacheSizeEstimate_ += entry->EstimateTexMemoryUsage();
 
 	plan.badMipSizes = false;
 	// maxLevel here is the max level to upload. Not the count.
@@ -2912,9 +2913,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (plan.scaleFactor > 1) {
 		plan.levelsToLoad = 1;
 
-		bool enableVideoUpscaling = false;
-
-		if (!enableVideoUpscaling && plan.isVideo) {
+		if (plan.isVideo) {
+			// No upscaling for video textures.
 			plan.scaleFactor = 1;
 			plan.levelsToCreate = 1;
 		}

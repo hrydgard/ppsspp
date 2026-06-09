@@ -130,6 +130,7 @@ struct TextureDefinition {
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
 
+
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
@@ -235,6 +236,7 @@ struct TexCacheEntry {
 	bool Matches(u16 dim2, u8 format2, u8 maxLevel2) const;
 	u64 CacheKey() const;
 	static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
+	u32 EstimateTexMemoryUsage() const;
 };
 
 std::string TexStatusToString(TexCacheEntry::TexStatus status);
@@ -443,22 +445,17 @@ protected:
 		return (const T *)clutBufRaw_;
 	}
 
-	static u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
-
+	// These need to be member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
+
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
-
-	bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const;
-
-	bool GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) const;
 
 	void SetTextureFramebuffer(const AttachCandidate &candidate);
 	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
 
 	virtual void BoundFramebufferTexture() {}
 
-	void DecimateVideos();
 	bool IsVideo(u32 texaddr) const;
 
 	static CheckAlphaResult CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);

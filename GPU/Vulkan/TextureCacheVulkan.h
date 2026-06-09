@@ -154,5 +154,3 @@ private:
 	VulkanBuffer textureScaleCBuffer_;
 	bool cbufferInited_ = true;
 };
-
-VkFormat getClutDestFormatVulkan(GEPaletteFormat format);

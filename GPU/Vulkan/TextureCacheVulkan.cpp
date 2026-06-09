@@ -570,20 +570,6 @@ void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) 
 	entry->vkTex = nullptr;
 }
 
-VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
-	switch (format) {
-	case GE_CMODE_16BIT_ABGR4444:
-		return VULKAN_4444_FORMAT;
-	case GE_CMODE_16BIT_ABGR5551:
-		return VULKAN_1555_FORMAT;
-	case GE_CMODE_16BIT_BGR5650:
-		return VULKAN_565_FORMAT;
-	case GE_CMODE_32BIT_ABGR8888:
-		return VULKAN_8888_FORMAT;
-	}
-	return VK_FORMAT_UNDEFINED;
-}
-
 static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_NEAREST,
 	VK_FILTER_LINEAR
@@ -833,18 +819,18 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	copyBatch.reserve(levels);
 
 	for (int i = 0; i < levels; i++) {
-		int mipUnscaledWidth = gstate.getTextureWidth(i);
-		int mipUnscaledHeight = gstate.getTextureHeight(i);
+		const int mipUnscaledWidth = gstate.getTextureWidth(i);
+		const int mipUnscaledHeight = gstate.getTextureHeight(i);
 
 		int mipWidth;
 		int mipHeight;
 		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
-		int bpp = VkFormatBytesPerPixel(actualFmt);
+		const int bpp = VkFormatBytesPerPixel(actualFmt);
 		// RoundToNextPowerOf2 is probably not necessary as the optimal alignment is gonna be a power of 2.
-		int optimalStrideAlignment = RoundToNextPowerOf2(std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment));
-		int byteStride = RoundUpToMultipleOf(mipWidth * bpp, optimalStrideAlignment);  // output stride
-		int pixelStride = byteStride / bpp;
+		const int optimalStrideAlignment = RoundToNextPowerOf2(std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment));
+		const int byteStride = RoundUpToMultipleOf(mipWidth * bpp, optimalStrideAlignment);  // output stride
+		const int pixelStride = byteStride / bpp;
 		int uploadSize = byteStride * mipHeight;
 
 		uint32_t bufferOffset;
@@ -968,7 +954,18 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	case GE_TFMT_CLUT8:
 	case GE_TFMT_CLUT16:
 	case GE_TFMT_CLUT32:
-		return getClutDestFormatVulkan(clutFormat);
+		switch (clutFormat) {
+		case GE_CMODE_16BIT_ABGR4444:
+			return VULKAN_4444_FORMAT;
+		case GE_CMODE_16BIT_ABGR5551:
+			return VULKAN_1555_FORMAT;
+		case GE_CMODE_16BIT_BGR5650:
+			return VULKAN_565_FORMAT;
+		case GE_CMODE_32BIT_ABGR8888:
+			return VULKAN_8888_FORMAT;
+		default:
+			return VK_FORMAT_UNDEFINED;
+		}
 	case GE_TFMT_4444:
 		return VULKAN_4444_FORMAT;
 	case GE_TFMT_5551:
