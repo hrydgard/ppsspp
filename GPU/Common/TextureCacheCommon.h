@@ -137,7 +137,7 @@ enum class TexHashStatus : u8 {
 	Unreliable,      // Always recheck hash.
 };
 
-enum class TexStatus : u32 {
+enum class TexStatus : u16 {
 	VIDEO = (1 << 0),
 	BGRA = (1 << 1),
 	ALPHA_SOLID = (1 << 2),      // Has no alpha channel, or always solid (==1.0) alpha.
@@ -171,14 +171,16 @@ struct TexCacheEntry {
 
 	// TexStatus enum flag combination.
 	TexStatus status;
-
-	u32 addr;
-	u32 minihash;
 	GETextureFormat format;
 	u8 maxLevel;
+	u32 addr;
+	u32 minihash;
 	u16 dim;
 	u16 bufw;
+	u16 maxSeenV;
 	TexHashStatus hashStatus;
+	s16 invalidHint;
+	s16 numInvalidated;
 
 	union {
 		GLRTexture *textureName;
@@ -188,14 +190,11 @@ struct TexCacheEntry {
 #ifdef _WIN32
 	void *textureView;  // Used by D3D11 only for the shader resource view.
 #endif
-	s16 invalidHint;
 	int lastFrame;
 	int numFrames;
-	int numInvalidated;
 	u32 framesUntilNextFullHash;
 	u32 fullhash;
 	u32 cluthash;
-	u16 maxSeenV;
 	ReplacedTexture *replacedTexture;
 
 	TextureAlpha GetAlphaStatus() {
@@ -226,11 +225,15 @@ struct TexCacheEntry {
 	u32 EstimateTexMemoryUsage() const;
 };
 
+// TODO: Work on shrinking it further.
+static_assert(sizeof(TexCacheEntry) <= 72, "TexCacheEntry is too big");
+
 const char *TexHashStatusToString(TexHashStatus status);
 std::string TexStatusToString(TexStatus status);
 
 // Can't be unordered_map, we use lower_bound ... although for some reason that (used to?) compiles on MSVC.
 // Would really like to replace this with DenseHashMap but can't as long as we need lower_bound.
+// Additionally, TexCacheEntry is not that big, maybe it's beneficial to remove the unique_ptr indirection.
 typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
 // Urgh.
