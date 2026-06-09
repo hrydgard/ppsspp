@@ -30,6 +30,7 @@
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/TextureShaderCommon.h"
 #include "GPU/Common/TextureReplacer.h"
+#include "GPU/Common/ImageCommon.h"
 #include "GPU/GPUDefinitions.h"
 
 class Draw2D;
@@ -204,22 +205,15 @@ struct TexCacheEntry {
 	u16 maxSeenV;
 	ReplacedTexture *replacedTexture;
 
-	TexStatus GetAlphaStatus() {
-		return TexStatus(status & STATUS_ALPHA_MASK);
+	TextureAlpha GetAlphaStatus() {
+		return (status & STATUS_ALPHA_MASK) == STATUS_ALPHA_FULL ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
-	void SetAlphaStatus(TexStatus newStatus) {
-		status = (status & ~STATUS_ALPHA_MASK) | newStatus;
+	void SetAlphaStatus(TextureAlpha newStatus) {
+		status = (status & ~STATUS_ALPHA_MASK) | (newStatus == TextureAlpha::Solid ? STATUS_ALPHA_FULL : STATUS_ALPHA_UNKNOWN);
 	}
-	void SetAlphaStatus(TexStatus newStatus, int level) {
+	void SetAlphaStatus(TextureAlpha newStatus, int level) {
 		// For non-level zero, only set more restrictive.
-		if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
-			SetAlphaStatus(newStatus);
-		}
-	}
-	void SetAlphaStatus(CheckAlphaResult alphaResult, int level) {
-		TexStatus newStatus = (TexStatus)alphaResult;
-		// For non-level zero, only set more restrictive.
-		if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
+		if (newStatus == TextureAlpha::Any || level == 0) {
 			SetAlphaStatus(newStatus);
 		}
 	}
@@ -423,9 +417,9 @@ protected:
 
 	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
 
-	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags);
+	TextureAlpha DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags);
 	static void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
-	CheckAlphaResult ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
+	TextureAlpha ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
 	ReplacedTexture *FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d);
 	void PollReplacement(TexCacheEntry *entry, int *w, int *h, int *d);
 
@@ -455,7 +449,7 @@ protected:
 
 	bool IsVideo(u32 texaddr) const;
 
-	static CheckAlphaResult CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
+	static TextureAlpha CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
 	static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
 		if (replacer.Enabled()) {

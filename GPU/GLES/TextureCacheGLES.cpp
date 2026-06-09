@@ -351,7 +351,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 	}
 }
 

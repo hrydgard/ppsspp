@@ -1694,7 +1694,7 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 }
 
 template <typename DXTBlock, int n>
-static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
+static TextureAlpha DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
 	int w, int h, int bufw, bool reverseColors) {
 
 	int minw = std::min(bufw, w);
@@ -1730,10 +1730,10 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	}
 
 	if constexpr (n == 1) {
-		return alphaSum == 1 ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+		return alphaSum == 1 ? TextureAlpha::Solid : TextureAlpha::Any;
 	} else {
 		// Just report that we don't have full alpha, since these formats are made for that.
-		return CHECKALPHA_ANY;
+		return TextureAlpha::Any;
 	}
 }
 
@@ -1768,7 +1768,7 @@ static void Expand4To8Bits(u8 *dest, const u8 *src, int srcWidth) {
 	}
 }
 
-CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
+TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
 
@@ -1819,7 +1819,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				Expand4To8Bits((u8 *)out + outPitch * y, texptr + (bufw * y) / 2, w);
 			}
 			// We can't know anything about alpha.
-			return CHECKALPHA_ANY;
+			return TextureAlpha::Any;
 		}
 
 		switch (clutformat) {
@@ -1869,7 +1869,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 
 			if (clutformat == GE_CMODE_16BIT_BGR5650) {
 				// Our formula at the end of the function can't handle this cast so we return early.
-				return CHECKALPHA_FULL;
+				return TextureAlpha::Solid;
 			}
 		}
 		break;
@@ -1886,7 +1886,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 
 		default:
 			ERROR_LOG_REPORT(Log::G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return CHECKALPHA_ANY;
+			return TextureAlpha::Any;
 		}
 	}
 	break;
@@ -1903,7 +1903,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				memcpy((u8 *)out + outPitch * y, texptr + (bufw * y), w);
 			}
 			// We can't know anything about alpha.
-			return CHECKALPHA_ANY;
+			return TextureAlpha::Any;
 		}
 		return ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, reverseColors, expandTo32bit);
 
@@ -1970,7 +1970,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			}
 		}
 		if (format == GE_TFMT_5650) {
-			return CHECKALPHA_FULL;
+			return TextureAlpha::Solid;
 		}
 		break;
 
@@ -2026,10 +2026,10 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		break;
 	}
 
-	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? TextureAlpha::Solid : TextureAlpha::Any;
 }
 
-CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
+TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -2124,9 +2124,9 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	}
 
 	if (palFormat == GE_CMODE_16BIT_BGR5650) {
-		return CHECKALPHA_FULL;
+		return TextureAlpha::Solid;
 	} else {
-		return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+		return AlphaSumIsFull(alphaSum, fullAlphaMask) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
 }
 
@@ -2214,7 +2214,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		if (doBind) {
 			BindTexture(entry, flatZ);
 		}
-		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
+		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TextureAlpha::Solid);
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
@@ -2359,8 +2359,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+			TextureAlpha alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
+			gstate_c.SetTextureFullAlpha(alphaStatus == TextureAlpha::Solid);
 
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 			return;
@@ -2434,8 +2434,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+		TextureAlpha alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
+		gstate_c.SetTextureFullAlpha(alphaStatus == TextureAlpha::Solid);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		shaderManager_->DirtyLastShader();
@@ -3045,7 +3045,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, texDecFlags);
+		TextureAlpha alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, texDecFlags);
 		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		int scaledW = w, scaledH = h;
@@ -3082,7 +3082,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 	}
 }
 
-CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFormat, int w) {
+TextureAlpha TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFormat, int w) {
 	switch (clutFormat) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
@@ -3090,7 +3090,7 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
 	case GE_CMODE_16BIT_BGR5650:
 		// Never has any alpha.
-		return CHECKALPHA_FULL;
+		return TextureAlpha::Solid;
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}

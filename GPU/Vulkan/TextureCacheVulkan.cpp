@@ -941,7 +941,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 	}
 }
 
@@ -1015,7 +1015,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 		decPitch = rowPitch;
 	}
 
-	CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, texDecFlags);
+	TextureAlpha alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, texDecFlags);
 	entry.SetAlphaStatus(alphaResult, level);
 
 	if (scaleFactor > 1) {

@@ -440,7 +440,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 
 		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
 			entry->status |= TexCacheEntry::STATUS_BGRA;

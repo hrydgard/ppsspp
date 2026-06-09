@@ -136,7 +136,7 @@ void ReplacedTexture::PurgeIfNotUsedSinceTime(double t) {
 	data_.clear();
 	levels_.clear();
 	fmt = Draw::DataFormat::UNDEFINED;
-	alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+	alphaStatus_ = TextureAlpha::Any;
 
 	// This means we have to reload.  If we never purge any, there's no need.
 	SetState(ReplacementState::UNLOADED);
@@ -482,7 +482,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		basist::transcoder_texture_format transcoderFormat;
 		if (transcoder.is_etc1s()) {
 			// We only support opaque colors with this compression method.
-			alphaStatus_ = ReplacedTextureAlpha::FULL;
+			alphaStatus_ = TextureAlpha::Solid;
 			// Let's pick a suitable compatible format.
 			if (desc_.formatSupport.bc123) {
 				transcoderFormat = basist::transcoder_texture_format::cTFBC1;
@@ -498,7 +498,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 		} else if (transcoder.is_uastc()) {
 			// TODO: Try to recover some indication of alpha from the actual data blocks.
-			alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+			alphaStatus_ = TextureAlpha::Any;
 			// Let's pick a suitable compatible format.
 			if (desc_.formatSupport.bc7) {
 				transcoderFormat = basist::transcoder_texture_format::cTFBC7_RGBA;
@@ -562,7 +562,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		return LoadLevelResult::DONE;  // don't read more levels
 	} else if (imageType == ReplacedImageType::DDS) {
 		// TODO: Do better with alphaStatus, it's possible.
-		alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+		alphaStatus_ = TextureAlpha::Any;
 
 		DDSHeader header;
 		DDSHeaderDXT10 header10{};
@@ -640,9 +640,9 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 			free(image);
 
-			CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], level.w, w, h, 0xFF000000);
-			if (res == CHECKALPHA_ANY || mipLevel == 0) {
-				alphaStatus_ = ReplacedTextureAlpha(res);
+			const TextureAlpha res = CheckAlpha32Rect((u32 *)&out[0], level.w, w, h, 0xFF000000);
+			if (res == TextureAlpha::Any || mipLevel == 0) {
+				alphaStatus_ = res;
 			}
 			levels_.push_back(level);
 		} else {
@@ -672,7 +672,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
 			// Well, we know for sure it doesn't have alpha.
 			if (mipLevel == 0) {
-				alphaStatus_ = ReplacedTextureAlpha::FULL;
+				alphaStatus_ = TextureAlpha::Solid;
 			}
 			checkedAlpha = true;
 		}
@@ -690,9 +690,9 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		if (!checkedAlpha) {
 			// This will only check the hashed bits.
-			CheckAlphaResult res = CheckAlpha32Rect((u32 *)&out[0], level.w, png.width, png.height, 0xFF000000);
-			if (res == CHECKALPHA_ANY || mipLevel == 0) {
-				alphaStatus_ = ReplacedTextureAlpha(res);
+			const TextureAlpha res = CheckAlpha32Rect((u32 *)&out[0], level.w, png.width, png.height, 0xFF000000);
+			if (res == TextureAlpha::Any || mipLevel == 0) {
+				alphaStatus_ = res;
 			}
 		}
 
