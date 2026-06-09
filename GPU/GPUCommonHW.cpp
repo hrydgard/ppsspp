@@ -1804,7 +1804,8 @@ int GPUCommonHW::ListSync(int listid, int mode) {
 void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	float vertexAverageCycles = gpuStats.perFrame.numVertsSubmitted > 0 ? (float)gpuStats.perFrame.vertexGPUCycles / (float)gpuStats.perFrame.numVertsSubmitted : 0.0f;
 	w.F(
-		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
+		"DL processing time: %0.2f ms\n"
+		"%d enqueue, %d updatestall, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
 		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
 		"FBOs active: %d (evaluations: %d, created %d)\n"
@@ -1817,6 +1818,8 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
 		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
 		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
+		gpuStats.perFrame.numEnqueue,
+		gpuStats.perFrame.numUpdateStall,
 		gpuStats.perFrame.numDrawSyncs,
 		gpuStats.perFrame.numListSyncs,
 		gpuStats.perFrame.numDrawCalls,
