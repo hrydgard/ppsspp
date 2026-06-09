@@ -201,7 +201,6 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 				} else {
 					ImGui::Text("Not replaced");
 				}
-				ImGui::Text("Frames until next full hash: %08x", entry->framesUntilNextFullHash);  // TODO: Show the flags
 			} else {
 				cfg.selectedTexAddr = 0;
 			}

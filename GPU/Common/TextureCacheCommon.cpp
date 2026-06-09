@@ -524,27 +524,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			entry->status &= ~TexStatus::FORCE_REBUILD;
 		}
 
-		if (match) {
-			if (entry->lastFrame != gpuStats.totals.numFlips) {
-				u32 diff = gpuStats.totals.numFlips - entry->lastFrame;
-				entry->numFrames++;
-
-				if (entry->framesUntilNextFullHash < diff) {
-					// Exponential backoff up to 512 frames.  Textures are often reused.
-					if (entry->numFrames > 32) {
-						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						// textureName is unioned with texturePtr and vkTex so will work for the other backends.
-						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (((intptr_t)(entry->textureName) >> 12) & 15);
-					} else {
-						entry->framesUntilNextFullHash = entry->numFrames;
-					}
-					rehash = true;
-				} else {
-					entry->framesUntilNextFullHash -= diff;
-				}
-			}
-		}
-
 		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
 			match = false;
@@ -905,8 +884,6 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 			}
 		}
 	}
-
-	entry->numFrames = 0;
 }
 
 void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
@@ -2628,58 +2605,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 }
 
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	// They could invalidate inside the texture, let's just give a bit of leeway.
-	// TODO: Keep track of the largest texture size in bytes, and use that instead of this
-	// humongous unrealistic value.
-
-	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
-
-	addr &= 0x3FFFFFFF;
-	const u32 addr_end = addr + size;
-
-	if (type == GPU_INVALIDATE_ALL) {
-		// This is an active signal from the game that something in the texture cache may have changed.
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-	} else {
-		// Do a quick check to see if the current texture could potentially be in range.
-		const u32 currentAddr = gstate.getTextureAddress(0);
-		// TODO: This can be made tighter.
-		if (addr_end >= currentAddr && addr < currentAddr + LARGEST_TEXTURE_SIZE) {
-			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		}
-	}
-
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (type != GPU_INVALIDATE_FORCE) {
-		return;
-	}
-
-	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
-	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
-	if (endKey < startKey) {
-		endKey = (u64)-1;
-	}
-
-	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
-		auto &entry = iter->second;
-		u32 texAddr = entry->addr;
-		// Intentional underestimate here.
-		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
-
-		// Quick check for overlap. Yes the check is right.
-		if (addr < texEnd && addr_end > texAddr) {
-			if (type == GPU_INVALIDATE_FORCE) {
-				// Just random values to force the hash not to match.
-				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
-			}
-			if (type != GPU_INVALIDATE_ALL) {
-				gpuStats.perFrame.numTextureInvalidations++;
-				// Start it over from 0 (unless it's safe.)
-				entry->numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
-				entry->framesUntilNextFullHash = 0;
-			}
-		}
-	}
+	// We don't really do anything here right now.
 }
 
 void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {

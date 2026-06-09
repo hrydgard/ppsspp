@@ -171,24 +171,21 @@ struct TexCacheEntry {
 	u16 bufw;
 	u16 maxSeenV;
 	s16 numInvalidated;
-
+	u32 fullhash;
+	u32 cluthash;
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
 		VulkanTexture *vkTex;
 	};
+	ReplacedTexture *replacedTexture;
 #ifdef _WIN32
-	void *textureView;  // Used by D3D11 only for the shader resource view.
+	void *textureView;  // Used by D3D11 only for the shader resource view. We could also just point to a struct of the two, similar to VulkanTexture.
 #endif
 	int lastFrame;
-	int numFrames;
 	int lastSyncDomain;
-	u32 framesUntilNextFullHash;
-	u32 fullhash;
-	u32 cluthash;
-	ReplacedTexture *replacedTexture;
 
-	TextureAlpha GetAlphaStatus() {
+	TextureAlpha GetAlphaStatus() const {
 		return (status & TexStatus::ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
 	void SetAlphaStatus(TextureAlpha newStatus) {
