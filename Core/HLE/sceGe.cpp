@@ -319,7 +319,7 @@ static bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList 
 	for (int threadID : waitingThreads)
 		wokeThreads |= HLEKernel::ResumeFromWait(threadID, waitType, waitId, 0);
 	waitingThreads.clear();
-	gstate_c.curSyncDomain++;
+	gstate_c.textureSyncTimeDomain++;
 	return wokeThreads;
 }
 
@@ -424,7 +424,7 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 // 0 : wait for completion. 1:check and return
 int sceGeListSync(u32 displayListID, u32 mode) {
 	hleEatCycles(220);  // Fudged without measuring, copying sceGeContinue.
-	gstate_c.curSyncDomain++;
+	gstate_c.textureSyncTimeDomain++;
 	return hleLogDebug(Log::sceGe, gpu->ListSync(LIST_ID_MAGIC ^ displayListID, mode));
 }
 
@@ -434,7 +434,7 @@ static u32 sceGeDrawSync(u32 mode) {
 		hleEatCycles(500000); //HACK(?) : Potential fix for Crash Tag Team Racing and a few Gundam games
 	else if (!PSP_CoreParameter().compat.flags().DrawSyncInstant)
 		hleEatCycles(1240);
-	gstate_c.curSyncDomain++;
+	gstate_c.textureSyncTimeDomain++;
 	return hleLogDebug(Log::sceGe, gpu->DrawSync(mode));
 }
 

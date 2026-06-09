@@ -499,11 +499,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		// NOTE: Reliable is just for the font texture now.
 		bool rehash = (entry->status & TexStatus::RELIABLE) == 0;
 
-		if (entry->lastSyncDomain == gstate_c.curSyncDomain) {
+		if (entry->lastSyncDomain == gstate_c.textureSyncTimeDomain) {
 			// The texture was last used in the same sync domain.
 			rehash = false;
 		} else {
-			entry->lastSyncDomain = gstate_c.curSyncDomain;
+			entry->lastSyncDomain = gstate_c.textureSyncTimeDomain;
 			// We don't set rehash = true here, the declaration above did it properly.
 		}
 
