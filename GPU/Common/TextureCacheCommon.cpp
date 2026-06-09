@@ -498,7 +498,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			match = false;
 		}
 
-		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
+		bool rehash = entry->hashStatus == TexHashStatus::Unreliable;
 
 		// First let's see if another texture with the same address had a hashfail.
 		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
@@ -545,7 +545,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			if (minihash != entry->minihash) {
 				match = false;
 				reason = "minihash";
-			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
+			} else if (entry->hashStatus == TexHashStatus::Reliable) {
 				rehash = false;
 			}
 		}
@@ -651,14 +651,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		VERBOSE_LOG(Log::G3D, "No texture in cache for %08x, decoding...", texaddr);
 		entry = new TexCacheEntry{};
 		cache_[cachekey].reset(entry);
-
+		entry->status = {};
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
-			entry->status = TexCacheEntry::STATUS_RELIABLE;
+			entry->hashStatus = TexHashStatus::Reliable;
 		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
-			entry->status = TexCacheEntry::STATUS_HASHING;
+			entry->hashStatus = TexHashStatus::Hashing;
 		} else {
-			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+			entry->hashStatus = TexHashStatus::Unreliable;
 		}
 
 		if (hasClutGPU) {
@@ -908,8 +908,8 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	}
 
 	// Mark as hashing, if marked as reliable.
-	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+	if (entry->hashStatus == TexHashStatus::Reliable) {
+		entry->hashStatus = TexHashStatus::Hashing;
 	}
 
 	// Also, mark any textures with the same address but different clut.  They need rechecking.
@@ -2605,9 +2605,9 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 
 	if (fullhash == entry->fullhash) {
 		if (g_Config.bTextureBackoffCache && !isVideo) {
-			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+			if (entry->hashStatus != TexHashStatus::Hashing && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 				// Reset to STATUS_HASHING.
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+				entry->hashStatus = TexHashStatus::Hashing;
 				entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 			}
 		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
@@ -2620,7 +2620,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache) {
 		// Don't forget this one was unreliable (in case we match a secondary entry.)
-		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
+		entry->hashStatus = TexHashStatus::Unreliable;
 
 		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 		// In that case, skip.
@@ -2710,8 +2710,8 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 
 		// Quick check for overlap. Yes the check is right.
 		if (addr < texEnd && addr_end > texAddr) {
-			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+			if (entry->hashStatus == TexHashStatus::Reliable) {
+				entry->hashStatus = TexHashStatus::Hashing;
 			}
 			if (type == GPU_INVALIDATE_FORCE) {
 				// Just random values to force the hash not to match.
@@ -2748,11 +2748,11 @@ void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 	}
 	timesInvalidatedAllThisFrame_++;
 
-	for (TexCache::iterator iter = cache_.begin(), end = cache_.end(); iter != end; ++iter) {
-		if (iter->second->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-			iter->second->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+	for (auto &[key, e] : cache_) {
+		if (e->hashStatus == TexHashStatus::Reliable) {
+			e->hashStatus = TexHashStatus::Hashing;
 		}
-		iter->second->invalidHint++;
+		e->invalidHint++;
 	}
 }
 
@@ -3096,19 +3096,21 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 	}
 }
 
+const char *TexHashStatusToString(TexHashStatus status) {
+	switch (status) {
+	case TexHashStatus::Hashing:
+		return "Hashing";
+	case TexHashStatus::Reliable:
+		return "Reliable";
+	case TexHashStatus::Unreliable:
+		return "Unreliable";
+	default:
+		return "Unknown";
+	}
+}
+
 std::string TexStatusToString(TexCacheEntry::TexStatus status) {
 	std::string result;
-	switch (status & TexCacheEntry::STATUS_MASK) {
-	case TexCacheEntry::STATUS_HASHING:
-		result += "HASHING ";
-		break;
-	case TexCacheEntry::STATUS_RELIABLE:
-		result += "RELIABLE ";
-		break;
-	case TexCacheEntry::STATUS_UNRELIABLE:
-		result += "UNRELIABLE ";
-		break;
-	}
 	if (status & TexCacheEntry::STATUS_ALPHA_MASK) {
 		result += "ALPHA";
 	}
@@ -3120,9 +3122,6 @@ std::string TexStatusToString(TexCacheEntry::TexStatus status) {
 	}
 	if (status & TexCacheEntry::STATUS_CHANGE_FREQUENT) {
 		result += "FREQ ";
-	}
-	if (status & TexCacheEntry::STATUS_UNRELIABLE) {
-		result += "UNREL ";
 	}
 	if (status & TexCacheEntry::STATUS_TO_SCALE) {
 		result += "TOSCALE ";

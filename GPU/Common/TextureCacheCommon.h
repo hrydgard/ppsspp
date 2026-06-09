@@ -130,6 +130,11 @@ struct TextureDefinition {
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
 
+enum class TexHashStatus : u8 {
+	Hashing = 0,
+	Reliable,        // Don't bother rehashing.
+	Unreliable,      // Always recheck hash.
+};
 
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
@@ -141,11 +146,6 @@ struct TexCacheEntry {
 	const static int FRAMES_REGAIN_TRUST = 1000;
 
 	enum TexStatus {
-		STATUS_HASHING = 0x00,
-		STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
-		STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
-		STATUS_MASK = 0x03,
-
 		STATUS_ALPHA_UNKNOWN = 0x04,
 		STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
 		STATUS_ALPHA_MASK = 0x04,
@@ -184,6 +184,8 @@ struct TexCacheEntry {
 	u8 maxLevel;
 	u16 dim;
 	u16 bufw;
+	TexHashStatus hashStatus;
+
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
@@ -202,12 +204,6 @@ struct TexCacheEntry {
 	u16 maxSeenV;
 	ReplacedTexture *replacedTexture;
 
-	TexStatus GetHashStatus() {
-		return TexStatus(status & STATUS_MASK);
-	}
-	void SetHashStatus(TexStatus newStatus) {
-		status = (status & ~STATUS_MASK) | newStatus;
-	}
 	TexStatus GetAlphaStatus() {
 		return TexStatus(status & STATUS_ALPHA_MASK);
 	}
@@ -239,6 +235,7 @@ struct TexCacheEntry {
 	u32 EstimateTexMemoryUsage() const;
 };
 
+const char *TexHashStatusToString(TexHashStatus status);
 std::string TexStatusToString(TexCacheEntry::TexStatus status);
 
 // Can't be unordered_map, we use lower_bound ... although for some reason that (used to?) compiles on MSVC.
