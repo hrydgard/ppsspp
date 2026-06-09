@@ -190,7 +190,7 @@ vec4 admixK(vec4 vX, vec4 vE) {
 
 vec4 admixL(vec4 vE, vec4 vX) {
 
-	float mixFactor = 0.381966 * mixGate(vX,vE);
+	float mixFactor = 0.381966 * mixGate(vX,vE) * step(0.002, vE.a);
 
     return mixXE;
 }
