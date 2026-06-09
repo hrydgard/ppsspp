@@ -466,8 +466,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
-	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
-
 	TexCache::iterator entryIter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
 
@@ -500,6 +498,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		// !!! Here we will do the check for "sync domain"
 		// NOTE: Reliable is just for the font texture now.
 		bool rehash = (entry->status & TexStatus::RELIABLE) == 0;
+
+		if (entry->lastSyncDomain == gstate_c.curSyncDomain) {
+			// The texture was last used in the same sync domain.
+			rehash = false;
+		} else {
+			entry->lastSyncDomain = gstate_c.curSyncDomain;
+			// We don't set rehash = true here, the declaration above did it properly.
+		}
 
 		// First let's see if another texture with the same address had a hashfail.
 		if (entry->status & TexStatus::CLUT_RECHECK) {
@@ -536,17 +542,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				} else {
 					entry->framesUntilNextFullHash -= diff;
 				}
-			}
-
-			// If it's not huge or has been invalidated many times, recheck the whole texture.
-			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && (dim >> 8) < 9 && (dim & 0xF) < 9)) {
-				entry->invalidHint = 0;
-				rehash = true;
-			}
-
-			if (minihash != entry->minihash) {
-				match = false;
-				reason = "minihash";
 			}
 		}
 
@@ -683,7 +678,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
-	entry->minihash = minihash;
 	entry->dim = dim;
 	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
@@ -893,7 +887,7 @@ bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
 	cacheSizeEstimate_ -= entry->EstimateTexMemoryUsage();
 	entry->numInvalidated++;
-	gpuStats.perFrame.numTextureInvalidations++;
+	gpuStats.perFrame.numTexturesChanged++;
 	DEBUG_LOG(Log::G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
 	if (doDelete) {
 		ForgetLastTexture();
@@ -2677,15 +2671,12 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 			if (type == GPU_INVALIDATE_FORCE) {
 				// Just random values to force the hash not to match.
 				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
-				entry->minihash = (entry->minihash ^ 0x89ABCDEF) + 89;
 			}
 			if (type != GPU_INVALIDATE_ALL) {
 				gpuStats.perFrame.numTextureInvalidations++;
 				// Start it over from 0 (unless it's safe.)
 				entry->numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
 				entry->framesUntilNextFullHash = 0;
-			} else {
-				entry->invalidHint++;
 			}
 		}
 	}

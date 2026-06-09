@@ -167,11 +167,9 @@ struct TexCacheEntry {
 	GETextureFormat format;
 	u8 maxLevel;
 	u32 addr;
-	u32 minihash;
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
-	s16 invalidHint;
 	s16 numInvalidated;
 
 	union {
@@ -184,6 +182,7 @@ struct TexCacheEntry {
 #endif
 	int lastFrame;
 	int numFrames;
+	int lastSyncDomain;
 	u32 framesUntilNextFullHash;
 	u32 fullhash;
 	u32 cluthash;
