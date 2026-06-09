@@ -624,7 +624,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {
 		return;
 	}
 
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
+	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	imageView_ = entry->vkTex->GetImageView();
@@ -905,7 +905,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.hash = entry->fullhash;
 				replacedInfo.addr = entry->addr;
 				replacedInfo.isVideo = IsVideo(entry->addr);
-				replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+				replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
 				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, stride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
@@ -937,11 +937,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Signal that we support depth textures so use it as one.
 	if (plan.depth > 1) {
-		entry->status |= TexCacheEntry::STATUS_3D;
+		entry->status |= TexStatus::IS_3D;
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 	}
 }
 
@@ -1001,7 +1001,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
 	}
-	if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
+	if (entry.status & TexStatus::CLUT_GPU) {
 		texDecFlags |= TexDecodeFlags::TO_CLUT8;
 	}
 
@@ -1015,7 +1015,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 		decPitch = rowPitch;
 	}
 
-	CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, texDecFlags);
+	TextureAlpha alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, texDecFlags);
 	entry.SetAlphaStatus(alphaResult, level);
 
 	if (scaleFactor > 1) {

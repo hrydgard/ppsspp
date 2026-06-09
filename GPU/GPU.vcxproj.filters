@@ -267,6 +267,9 @@
     <ClInclude Include="Common\VertexReader.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ImageCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">

@@ -256,6 +256,7 @@
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\DepthRaster.h" />
+    <ClInclude Include="Common\ImageCommon.h" />
     <ClInclude Include="Common\ReplacedTexture.h" />
     <ClInclude Include="Common\TextureReplacer.h" />
     <ClInclude Include="Common\TextureShaderCommon.h" />
