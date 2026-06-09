@@ -139,6 +139,7 @@ enum class TexStatus : u16 {
 	MANY_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
 	RELIABLE = (1 << 4),    // Hash will never change. This only really applies to the font texture.
 	CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
+	HASH_RECHECK = (1 << 6),   // Hash failed, but addr is the same, so we want to check again next time.
 	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
 	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
 	TO_REPLACE = (1 << 9),    // Pending texture replacement.
@@ -372,8 +373,8 @@ public:
 	const TexCache &Cache() const { return cache_; }
 	const TexCache &SecondCache() const { return secondCache_; }
 
-	const size_t CacheSizeEstimate() const { return cacheSizeEstimate_; }
-	const size_t SecondCacheSizeEstimate() const { return secondCacheSizeEstimate_; }
+	const size_t CacheSizeEstimate() const;
+	const size_t SecondCacheSizeEstimate() const;
 
 	struct VideoInfo {
 		u32 addr;
@@ -491,11 +492,10 @@ protected:
 	// Recomputed once per frame. Depends FPS and soon also config.
 	double replacementFrameBudgetSeconds_ = 0.5 / 60.0;
 
+	// The primary cache uses the texture address along with the clut hash as the key.
 	TexCache cache_;
-	u32 cacheSizeEstimate_ = 0;
-
+	// The secondary cache uses the texture hash and clut hash as the key.
 	TexCache secondCache_;
-	u32 secondCacheSizeEstimate_ = 0;
 
 	std::vector<VideoInfo> videos_;
 

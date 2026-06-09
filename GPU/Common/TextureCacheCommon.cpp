@@ -507,15 +507,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			// We don't set rehash = true here, the declaration above did it properly.
 		}
 
-		// First let's see if another texture with the same address had a hashfail.
-		if (entry->status & TexStatus::CLUT_RECHECK) {
-			// Always rehash in this case, if one changed the rest all probably did.
+		if (entry->status & (TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK)) {
+			// If it's reliable, we can skip the sync domain check, since it won't change under us.
 			rehash = true;
-			entry->status &= ~TexStatus::CLUT_RECHECK;
-		} else if (!gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE)) {
-			// TODO: This check looks bad.
-			// Okay, just some parameter change - the data didn't change, no need to rehash.
-			rehash = false;
+			entry->status &= ~(TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK);
 		}
 
 		// Do we need to recreate?
@@ -794,8 +789,10 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 		return;
 	}
 
-	if (forcePressure || cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
+	// Compute the cache size.
+	s64 cacheSizeEstimate = CacheSizeEstimate();
+	if (forcePressure || cacheSizeEstimate >= TEXCACHE_MIN_PRESSURE) {
+		const u32 had = cacheSizeEstimate;
 
 		ForgetLastTexture();
 		int killAgeBase = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
@@ -813,12 +810,13 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
+		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate, cacheSizeEstimate);
 	}
 
+	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
 	// If enabled, we also need to clear the secondary cache.
-	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
-		const u32 had = secondCacheSizeEstimate_;
+	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate >= TEXCACHE_SECOND_MIN_PRESSURE)) {
+		const u32 had = secondCacheSizeEstimate;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
 			if (iter->second.get() == exceptThisOne) {
@@ -828,14 +826,14 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			// In low memory mode, we kill them all since secondary cache is disabled.
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
-				secondCacheSizeEstimate_ -= iter->second->EstimateTexMemoryUsage();
+				secondCacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				iter = secondCache_.erase(iter);
 			} else {
 				++iter;
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
+		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate, secondCacheSizeEstimate);
 	}
 
 	// Decimate known videos.
@@ -864,7 +862,6 @@ bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 }
 
 void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	cacheSizeEstimate_ -= entry->EstimateTexMemoryUsage();
 	entry->numInvalidated++;
 	gpuStats.perFrame.numTexturesChanged++;
 	DEBUG_LOG(Log::G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
@@ -1532,6 +1529,22 @@ u32 TexCacheEntry::EstimateTexMemoryUsage() const {
 
 	// This in other words multiplies by w and h.
 	return pixelSize << (dimW + dimH);
+}
+
+const size_t TextureCacheCommon::CacheSizeEstimate() const {
+	s64 cacheSizeEstimate = 0;
+	for (auto &[_ , value] : cache_) {
+		cacheSizeEstimate += value->EstimateTexMemoryUsage();
+	}
+	return cacheSizeEstimate;
+}
+
+const size_t TextureCacheCommon::SecondCacheSizeEstimate() const {
+	s64 cacheSizeEstimate = 0;
+	for (auto &[_, value] : secondCache_) {
+		cacheSizeEstimate += value->EstimateTexMemoryUsage();
+	}
+	return cacheSizeEstimate;
 }
 
 ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d) {
@@ -2516,8 +2529,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		INFO_LOG(Log::G3D, "Texture cached cleared from %i textures", (int)(cache_.size() + secondCache_.size()));
 		cache_.clear();
 		secondCache_.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
 	}
 	videos_.clear();
 
@@ -2533,7 +2544,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 	ReleaseTexture(it->second.get(), true);
-	cacheSizeEstimate_ -= it->second->EstimateTexMemoryUsage();
 	cache_.erase(it);
 }
 
@@ -2580,7 +2590,6 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
 				// Let's save this in the secondary cache in case it gets used again.
 				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-				secondCacheSizeEstimate_ += entry->EstimateTexMemoryUsage();
 
 				// If the entry already exists in the secondary texture cache, drop it nicely.
 				auto oldIter = secondCache_.find(secondKey);
@@ -2604,8 +2613,48 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	return false;
 }
 
+// One type of texture update can happen without the involvement of the CPU: Block transfers.
+// This is done for example for the text rendering in Gran Turismo, where it only uses a single letter
+// worth of texture memory, and for each letter drawn, it just replaces it and then draws.
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	// We don't really do anything here right now.
+	// They could invalidate inside the texture, let's just give a bit of leeway.
+	// TODO: Keep track of the largest texture size in bytes, and use that instead of this
+	// humongous unrealistic value.
+
+	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
+
+	addr &= 0x3FFFFFFF;
+	const u32 addr_end = addr + size;
+
+	if (type == GPU_INVALIDATE_ALL) {
+		// This is an active signal from the game that something in the texture cache may have changed.
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	} else {
+		// Do a quick check to see if the current texture could potentially be in range.
+		const u32 currentAddr = gstate.getTextureAddress(0);
+		// TODO: This can be made tighter.
+		if (addr_end >= currentAddr && addr < currentAddr + LARGEST_TEXTURE_SIZE) {
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+		}
+	}
+
+	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
+	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
+	if (endKey < startKey) {
+		endKey = (u64)-1;
+	}
+
+	// We just loop through all textures in range, and tell them to rehash.
+	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
+		auto &entry = iter->second;
+		u32 texAddr = entry->addr;
+		// Intentional underestimate here.
+		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
+		// Quick check for overlap. Yes the check is right.
+		if (addr < texEnd && addr_end > texAddr) {
+			entry->status |= TexStatus::HASH_RECHECK;
+		}
+	}
 }
 
 void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
@@ -2628,9 +2677,6 @@ std::string AttachCandidate::ToString() const {
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
 	gpuStats.perFrame.numTexturesDecoded++;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += entry->EstimateTexMemoryUsage();
 
 	plan.badMipSizes = false;
 	// maxLevel here is the max level to upload. Not the count.
