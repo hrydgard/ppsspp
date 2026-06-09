@@ -137,6 +137,29 @@ enum class TexHashStatus : u8 {
 	Unreliable,      // Always recheck hash.
 };
 
+enum class TexStatus : u32 {
+	VIDEO = (1 << 0),
+	BGRA = (1 << 1),
+	ALPHA_SOLID = (1 << 2),      // Has no alpha channel, or always solid (==1.0) alpha.
+
+	CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
+	CHANGE_FREQUENT = (1 << 4), // Changes often (less than 6 frames in between.)
+	CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
+	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
+	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
+	TO_REPLACE = (1 << 9),    // Pending texture replacement.
+	// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
+	// is commonly the only part accessed.  If access is made above 272, we hash the entire
+	// texture, and set this flag to allow scaling the texture just once for the new hash.
+	FREE_CHANGE = (1 << 10),   // Allow one change before marking "frequent".
+	NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
+	FRAMEBUFFER_OVERLAP = (1 << 12),
+	FORCE_REBUILD = (1 << 13),
+	IS_3D = (1 << 14),
+	CLUT_GPU = (1 << 15),
+};
+ENUM_CLASS_BITOPS(TexStatus);
+
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
@@ -146,34 +169,12 @@ struct TexCacheEntry {
 	// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 	const static int FRAMES_REGAIN_TRUST = 1000;
 
-	enum TexStatus {
-		STATUS_VIDEO = (1 << 0),
-		STATUS_BGRA = (1 << 1),
-		STATUS_ALPHA_SOLID = (1 << 2),      // Has no alpha channel, or always solid (==1.0) alpha.
-
-		STATUS_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
-		STATUS_CHANGE_FREQUENT = (1 << 4), // Changes often (less than 6 frames in between.)
-		STATUS_CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
-		STATUS_TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
-		STATUS_IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
-		STATUS_TO_REPLACE = (1 << 9),    // Pending texture replacement.
-		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
-		// is commonly the only part accessed.  If access is made above 272, we hash the entire
-		// texture, and set this flag to allow scaling the texture just once for the new hash.
-		STATUS_FREE_CHANGE = (1 << 10),   // Allow one change before marking "frequent".
-		STATUS_NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
-		STATUS_FRAMEBUFFER_OVERLAP = (1 << 12),
-		STATUS_FORCE_REBUILD = (1 << 13),
-		STATUS_3D = (1 << 14),
-		STATUS_CLUT_GPU = (1 << 15),
-	};
-
 	// TexStatus enum flag combination.
-	u32 status;
+	TexStatus status;
 
 	u32 addr;
 	u32 minihash;
-	u8 format;  // GeTextureFormat
+	GETextureFormat format;
 	u8 maxLevel;
 	u16 dim;
 	u16 bufw;
@@ -187,7 +188,7 @@ struct TexCacheEntry {
 #ifdef _WIN32
 	void *textureView;  // Used by D3D11 only for the shader resource view.
 #endif
-	int invalidHint;
+	s16 invalidHint;
 	int lastFrame;
 	int numFrames;
 	int numInvalidated;
@@ -198,13 +199,13 @@ struct TexCacheEntry {
 	ReplacedTexture *replacedTexture;
 
 	TextureAlpha GetAlphaStatus() {
-		return (status & STATUS_ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
+		return (status & TexStatus::ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
 	void SetAlphaStatus(TextureAlpha newStatus) {
 		if (newStatus == TextureAlpha::Solid) {
-			status |= STATUS_ALPHA_SOLID;
+			status |= TexStatus::ALPHA_SOLID;
 		} else {
-			status &= ~STATUS_ALPHA_SOLID;
+			status &= ~TexStatus::ALPHA_SOLID;
 		}
 	}
 	void SetAlphaStatus(TextureAlpha newStatus, int level) {
@@ -226,7 +227,7 @@ struct TexCacheEntry {
 };
 
 const char *TexHashStatusToString(TexHashStatus status);
-std::string TexStatusToString(TexCacheEntry::TexStatus status);
+std::string TexStatusToString(TexStatus status);
 
 // Can't be unordered_map, we use lower_bound ... although for some reason that (used to?) compiles on MSVC.
 // Would really like to replace this with DenseHashMap but can't as long as we need lower_bound.

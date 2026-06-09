@@ -395,7 +395,7 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 			} else if (gstate_c.vertBounds.maxV > entry->maxSeenV) {
 				// The max height changed, so we're better off hashing the entire thing.
 				entry->maxSeenV = 512;
-				entry->status |= TexCacheEntry::STATUS_FREE_CHANGE;
+				entry->status |= TexStatus::FREE_CHANGE;
 			}
 		} else {
 			// Otherwise, we need to reset to ensure we use the whole thing.
@@ -485,35 +485,35 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		const char *reason = "different params";
 
 		// Check for dynamic CLUT status
-		if (((entry->status & TexCacheEntry::STATUS_CLUT_GPU) != 0) != hasClutGPU) {
+		if (((entry->status & TexStatus::CLUT_GPU) != 0) != hasClutGPU) {
 			// Need to recreate, suddenly a CLUT GPU texture was used without it, or vice versa.
 			// I think this can only happen on a clut hash collision with the marker value, so highly unlikely.
 			match = false;
 		}
 
 		// Check for FBO changes.
-		if (entry->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) {
+		if (entry->status & TexStatus::FRAMEBUFFER_OVERLAP) {
 			// Fall through to the end where we'll delete the entry if there's a framebuffer.
-			entry->status &= ~TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+			entry->status &= ~TexStatus::FRAMEBUFFER_OVERLAP;
 			match = false;
 		}
 
 		bool rehash = entry->hashStatus == TexHashStatus::Unreliable;
 
 		// First let's see if another texture with the same address had a hashfail.
-		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
+		if (entry->status & TexStatus::CLUT_RECHECK) {
 			// Always rehash in this case, if one changed the rest all probably did.
 			rehash = true;
-			entry->status &= ~TexCacheEntry::STATUS_CLUT_RECHECK;
+			entry->status &= ~TexStatus::CLUT_RECHECK;
 		} else if (!gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE)) {
 			// Okay, just some parameter change - the data didn't change, no need to rehash.
 			rehash = false;
 		}
 
 		// Do we need to recreate?
-		if (entry->status & TexCacheEntry::STATUS_FORCE_REBUILD) {
+		if (entry->status & TexStatus::FORCE_REBUILD) {
 			match = false;
-			entry->status &= ~TexCacheEntry::STATUS_FORCE_REBUILD;
+			entry->status &= ~TexStatus::FORCE_REBUILD;
 		}
 
 		if (match) {
@@ -550,15 +550,15 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+			if ((entry->status & TexStatus::CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
 				reason = "scaling";
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
+		if (match && (entry->status & TexStatus::TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
@@ -570,7 +570,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				case ReplacementState::NOT_FOUND:
 					// Didn't find a replacement, so stop looking.
 					// DEBUG_LOG(Log::G3D, "No replacement for texture %dx%d", w0, h0);
-					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+					entry->status &= ~TexStatus::TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
 						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
 						match = false;
@@ -595,9 +595,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
 			gstate_c.SetTextureIsVideo(false);
-			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+			gstate_c.SetTextureIs3D(entry->status & TexStatus::IS_3D);
 			gstate_c.SetTextureIsArray(false);
-			gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
+			gstate_c.SetTextureIsBGRA(entry->status & TexStatus::BGRA);
 			gstate_c.SetTextureIsFramebuffer(false);
 
 			if (rehash) {
@@ -663,7 +663,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 		if (hasClutGPU) {
 			WARN_LOG_N_TIMES(clutUseRender, 5, Log::G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-			entry->status |= TexCacheEntry::STATUS_CLUT_GPU;
+			entry->status |= TexStatus::CLUT_GPU;
 		}
 
 		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
@@ -677,10 +677,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 			if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
 				for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-					it->second->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
+					it->second->status |= TexStatus::CLUT_VARIANTS;
 				}
 
-				entry->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
+				entry->status |= TexStatus::CLUT_VARIANTS;
 			}
 		}
 
@@ -693,7 +693,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->dim = dim;
 	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
-	entry->status &= ~TexCacheEntry::STATUS_BGRA;
+	entry->status &= ~TexStatus::BGRA;
 
 	entry->bufw = bufw;
 
@@ -701,8 +701,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
-	gstate_c.SetTextureIsVideo((entry->status & TexCacheEntry::STATUS_VIDEO) != 0);
-	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
 
@@ -837,7 +837,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 				++iter;
 				continue;
 			}
-			bool hasClutVariants = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
+			bool hasClutVariants = (iter->second->status & TexStatus::CLUT_VARIANTS) != 0;
 			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
 				DeleteTexture(iter++);
@@ -904,7 +904,7 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	if (doDelete) {
 		ForgetLastTexture();
 		ReleaseTexture(entry, true);
-		entry->status &= ~(TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED | TexCacheEntry::STATUS_TO_REPLACE);
+		entry->status &= ~(TexStatus::IS_SCALED_OR_REPLACED | TexStatus::TO_REPLACE);
 	}
 
 	// Mark as hashing, if marked as reliable.
@@ -918,16 +918,16 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
 		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
 			if (it->second->cluthash != entry->cluthash) {
-				it->second->status |= TexCacheEntry::STATUS_CLUT_RECHECK;
+				it->second->status |= TexStatus::CLUT_RECHECK;
 			}
 		}
 	}
 
 	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-		if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
-			entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
+		if (entry->status & TexStatus::FREE_CHANGE) {
+			entry->status &= ~TexStatus::FREE_CHANGE;
 		} else {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+			entry->status |= TexStatus::CHANGE_FREQUENT;
 		}
 	}
 	entry->numFrames = 0;
@@ -961,7 +961,7 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 		// Color - no need to look in the mirrors.
 		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-			it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+			it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
 			gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 		}
 
@@ -971,11 +971,11 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 			cacheKey = (u64)z_addr << 32;
 			cacheKeyEnd = (u64)z_endAddr << 32;
 			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
 				gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 			}
 			for (auto it = cache_.lower_bound(cacheKey | 0x600000), end = cache_.upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
 				gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 			}
 		}
@@ -1594,7 +1594,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 		return nullptr;
 	}
 
-	if ((entry->status & TexCacheEntry::STATUS_VIDEO) && !replacer_.AllowVideo()) {
+	if ((entry->status & TexStatus::VIDEO) && !replacer_.AllowVideo()) {
 		return nullptr;
 	}
 
@@ -1604,7 +1604,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
 		// TODO: Remove the flag here?
-		// entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+		// entry->status &= ~TexStatus::TO_REPLACE;
 		return nullptr;
 	}
 	entry->replacedTexture = replaced;  // we know it's non-null here.
@@ -1629,11 +1629,11 @@ void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, i
 		if (entry->replacedTexture->State() == ReplacementState::ACTIVE) {
 			entry->replacedTexture->GetSize(0, w, h);
 			// Consider it already "scaled.".
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED;
+			entry->status |= TexStatus::IS_SCALED_OR_REPLACED;
 		}
 
 		// Remove the flag, even if it was invalid.
-		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+		entry->status &= ~TexStatus::TO_REPLACE;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 
@@ -1641,7 +1641,7 @@ void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, i
 	case ReplacementState::UNLOADED:
 	case ReplacementState::PENDING:
 		// Make sure we keep polling.
-		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+		entry->status |= TexStatus::TO_REPLACE;
 		break;
 	default:
 		break;
@@ -2157,9 +2157,9 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
 		// This prevents temporary scaling perf hits on the first second of video.
 		if (IsVideo(entry->addr)) {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT | TexCacheEntry::STATUS_VIDEO;
+			entry->status |= TexStatus::CHANGE_FREQUENT | TexStatus::VIDEO;
 		} else {
-			entry->status &= ~TexCacheEntry::STATUS_VIDEO;
+			entry->status &= ~TexStatus::VIDEO;
 		}
 
 		if (nextNeedsRehash_) {
@@ -2200,8 +2200,8 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		ForgetLastTexture();
 	}
 
-	gstate_c.SetTextureIsVideo((entry->status & TexCacheEntry::STATUS_VIDEO) != 0);
-	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
+	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	if (entry->status & TexStatus::CLUT_GPU) {
 		// Special process.
 		ApplyTextureDepal(entry);
 		entry->lastFrame = gpuStats.totals.numFlips;
@@ -2214,10 +2214,10 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		if (doBind) {
 			BindTexture(entry, flatZ);
 		}
-		gstate_c.SetTextureSolidAlpha((entry->status & TexCacheEntry::STATUS_ALPHA_SOLID) != 0);
-		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
+		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
+		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
-		gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
+		gstate_c.SetTextureIsBGRA((entry->status & TexStatus::BGRA) != 0);
 		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 	}
 }
@@ -2608,10 +2608,10 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 			if (entry->hashStatus != TexHashStatus::Hashing && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 				// Reset to STATUS_HASHING.
 				entry->hashStatus = TexHashStatus::Hashing;
-				entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
+				entry->status &= ~TexStatus::CHANGE_FREQUENT;
 			}
 		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
-			entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
+			entry->status &= ~TexStatus::CHANGE_FREQUENT;
 		}
 
 		return true;
@@ -2726,7 +2726,7 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 					u32 diff = gpuStats.totals.numFlips - entry->lastFrame;
 					// We still need to mark if the texture is frequently changing, even if it's safely changing.
 					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-						entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+						entry->status |= TexStatus::CHANGE_FREQUENT;
 					}
 				}
 				entry->framesUntilNextFullHash = 0;
@@ -2889,19 +2889,19 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = 1;
 	}
 
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
+	if ((entry->status & TexStatus::CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
 		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+		entry->status |= TexStatus::TO_SCALE;
 		plan.scaleFactor = 1;
 	}
 
 	if (plan.scaleFactor != 1) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && plan.slowScaler) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+			entry->status |= TexStatus::TO_SCALE;
 			plan.scaleFactor = 1;
 		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED;
+			entry->status &= ~TexStatus::TO_SCALE;
+			entry->status |= TexStatus::IS_SCALED_OR_REPLACED;
 			texelsScaledThisFrame_ += plan.w * plan.h;
 		}
 	}
@@ -2921,7 +2921,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	bool canReplace = !isPPGETexture;
-	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
+	if (entry->status & TexStatus::CLUT_GPU) {
 		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
 		plan.decodeToClut8 = true;
 		// We only support 1 mip level when doing CLUT on GPU for now.
@@ -2964,7 +2964,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			replacedInfo.cachekey = entry->CacheKey();
 			replacedInfo.hash = entry->fullhash;
 			replacedInfo.addr = entry->addr;
-			replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 			replacedInfo.isVideo = plan.isVideo;
 			replacedInfo.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			plan.saveTexture = replacer_.WillSave(replacedInfo);
@@ -2999,9 +2999,9 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (plan.levelsToCreate == 1) {
-		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+		entry->status |= TexStatus::NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
+		entry->status &= ~TexStatus::NO_MIPS;
 	}
 
 	// Will be filled in again during decode.
@@ -3041,7 +3041,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 		if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
 		}
-		if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
+		if (entry.status & TexStatus::CLUT_GPU) {
 			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
 
@@ -3073,7 +3073,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			replacedInfo.hash = entry.fullhash;
 			replacedInfo.addr = entry.addr;
 			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.isFinal = (entry.status & TexStatus::TO_SCALE) == 0;
 			replacedInfo.fmt = dstFmt;
 
 			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
@@ -3109,42 +3109,42 @@ const char *TexHashStatusToString(TexHashStatus status) {
 	}
 }
 
-std::string TexStatusToString(TexCacheEntry::TexStatus status) {
+std::string TexStatusToString(TexStatus status) {
 	std::string result;
-	if (status & TexCacheEntry::STATUS_ALPHA_SOLID) {
+	if (status & TexStatus::ALPHA_SOLID) {
 		result += "SOLID_ALPHA ";
 	}
-	if (status & TexCacheEntry::STATUS_CLUT_VARIANTS) {
+	if (status & TexStatus::CLUT_VARIANTS) {
 		result += "CLUTVARIANTS ";
 	}
-	if (status & TexCacheEntry::STATUS_CLUT_RECHECK) {
+	if (status & TexStatus::CLUT_RECHECK) {
 		result += "CLUT_RECHECK ";
 	}
-	if (status & TexCacheEntry::STATUS_CHANGE_FREQUENT) {
+	if (status & TexStatus::CHANGE_FREQUENT) {
 		result += "FREQ ";
 	}
-	if (status & TexCacheEntry::STATUS_TO_SCALE) {
+	if (status & TexStatus::TO_SCALE) {
 		result += "TOSCALE ";
 	}
-	if (status & TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED) {
+	if (status & TexStatus::IS_SCALED_OR_REPLACED) {
 		result += "SCALED/REPL ";
 	}
-	if (status & TexCacheEntry::STATUS_NO_MIPS) {
+	if (status & TexStatus::NO_MIPS) {
 		result += "NO_MIPS ";
 	}
-	if (status & TexCacheEntry::STATUS_CLUT_GPU) {
+	if (status & TexStatus::CLUT_GPU) {
 		result += "CLUT_GPU ";
 	}
-	if (status & TexCacheEntry::STATUS_FORCE_REBUILD) {
+	if (status & TexStatus::FORCE_REBUILD) {
 		result += "FORCE_REBUILD ";
 	}
-	if (status & TexCacheEntry::STATUS_3D) {
+	if (status & TexStatus::IS_3D) {
 		result += "3D ";
 	}
-	if (status & TexCacheEntry::STATUS_VIDEO) {
+	if (status & TexStatus::VIDEO) {
 		result += "VIDEO ";
 	}
-	if (status & TexCacheEntry::STATUS_BGRA) {
+	if (status & TexStatus::BGRA) {
 		result += "BGRA ";
 	}
 	return result.empty() ? "None" : result;
