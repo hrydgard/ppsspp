@@ -743,7 +743,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AnisotropyLevel", SETTING(g_Config, iAnisotropyLevel), 4, CfgFlag::PER_GAME),
 	ConfigSetting("MultiSampleLevel", SETTING(g_Config, iMultiSampleLevel), 0, CfgFlag::PER_GAME),  // Number of samples is 1 << iMultiSampleLevel
 
-	ConfigSetting("TextureBackoffCache", SETTING(g_Config, bTextureBackoffCache), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VertexDecJit", SETTING(g_Config, bVertexDecoderJit), &DefaultCodeGen, CfgFlag::DONT_SAVE | CfgFlag::REPORT),
 
 #ifndef MOBILE_DEVICE
