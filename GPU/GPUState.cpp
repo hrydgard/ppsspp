@@ -256,7 +256,7 @@ struct GPUStateCache_v0 {
 	u32 offsetAddr;
 
 	bool textureChanged;
-	bool textureFullAlpha;
+	bool textureSolidAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
 
@@ -281,7 +281,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		indexAddr = old.indexAddr;
 		offsetAddr = old.offsetAddr;
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureFullAlpha = old.textureFullAlpha;
+		textureSolidAlpha = old.textureSolidAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
 		uv = old.uv;
@@ -295,7 +295,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		uint8_t textureChanged = 0;
 		Do(p, textureChanged);  // legacy
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		Do(p, textureFullAlpha);
+		Do(p, textureSolidAlpha);
 		Do(p, vertexFullAlpha);
 		bool framebufChanged = false;  // legacy
 		Do(p, framebufChanged);

@@ -2205,7 +2205,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		// Special process.
 		ApplyTextureDepal(entry);
 		entry->lastFrame = gpuStats.totals.numFlips;
-		gstate_c.SetTextureFullAlpha(false);
+		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA(false);
@@ -2214,7 +2214,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		if (doBind) {
 			BindTexture(entry, flatZ);
 		}
-		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TextureAlpha::Solid);
+		gstate_c.SetTextureSolidAlpha((entry->status & TexCacheEntry::STATUS_ALPHA_SOLID) != 0);
 		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
@@ -2360,7 +2360,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 			TextureAlpha alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-			gstate_c.SetTextureFullAlpha(alphaStatus == TextureAlpha::Solid);
+			gstate_c.SetTextureSolidAlpha(alphaStatus == TextureAlpha::Solid);
 
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 			return;
@@ -2435,7 +2435,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
 		TextureAlpha alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-		gstate_c.SetTextureFullAlpha(alphaStatus == TextureAlpha::Solid);
+		gstate_c.SetTextureSolidAlpha(alphaStatus == TextureAlpha::Solid);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		shaderManager_->DirtyLastShader();
@@ -2445,7 +2445,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		BoundFramebufferTexture();
 
 		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
+		gstate_c.SetTextureSolidAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
@@ -2537,7 +2537,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
 	// We don't know about alpha at all.
-	gstate_c.SetTextureFullAlpha(false);
+	gstate_c.SetTextureSolidAlpha(false);
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	shaderManager_->DirtyLastShader();
@@ -3005,7 +3005,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	// Will be filled in again during decode.
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
+	entry->SetAlphaStatus(TextureAlpha::Any);
 	return true;
 }
 
@@ -3111,8 +3111,8 @@ const char *TexHashStatusToString(TexHashStatus status) {
 
 std::string TexStatusToString(TexCacheEntry::TexStatus status) {
 	std::string result;
-	if (status & TexCacheEntry::STATUS_ALPHA_MASK) {
-		result += "ALPHA";
+	if (status & TexCacheEntry::STATUS_ALPHA_SOLID) {
+		result += "SOLID_ALPHA ";
 	}
 	if (status & TexCacheEntry::STATUS_CLUT_VARIANTS) {
 		result += "CLUTVARIANTS ";

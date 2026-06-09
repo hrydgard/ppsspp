@@ -147,33 +147,25 @@ struct TexCacheEntry {
 	const static int FRAMES_REGAIN_TRUST = 1000;
 
 	enum TexStatus {
-		STATUS_ALPHA_UNKNOWN = 0x04,
-		STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
-		STATUS_ALPHA_MASK = 0x04,
+		STATUS_VIDEO = (1 << 0),
+		STATUS_BGRA = (1 << 1),
+		STATUS_ALPHA_SOLID = (1 << 2),      // Has no alpha channel, or always solid (==1.0) alpha.
 
-		STATUS_CLUT_VARIANTS = 0x08,   // Has multiple CLUT variants.
-		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
-		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
-		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
-		STATUS_IS_SCALED_OR_REPLACED = 0x100,  // Has been scaled already (ignored for replacement checks).
-		STATUS_TO_REPLACE = 0x0200,    // Pending texture replacement.
+		STATUS_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
+		STATUS_CHANGE_FREQUENT = (1 << 4), // Changes often (less than 6 frames in between.)
+		STATUS_CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
+		STATUS_TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
+		STATUS_IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
+		STATUS_TO_REPLACE = (1 << 9),    // Pending texture replacement.
 		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
 		// is commonly the only part accessed.  If access is made above 272, we hash the entire
 		// texture, and set this flag to allow scaling the texture just once for the new hash.
-		STATUS_FREE_CHANGE = 0x0400,   // Allow one change before marking "frequent".
-
-		STATUS_NO_MIPS = 0x0800,      // Has bad or unusable mipmap levels.
-
-		STATUS_FRAMEBUFFER_OVERLAP = 0x1000,
-
-		STATUS_FORCE_REBUILD = 0x2000,
-
-		STATUS_3D = 0x4000,
-
-		STATUS_CLUT_GPU = 0x8000,
-
-		STATUS_VIDEO = 0x10000,
-		STATUS_BGRA = 0x20000,
+		STATUS_FREE_CHANGE = (1 << 10),   // Allow one change before marking "frequent".
+		STATUS_NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
+		STATUS_FRAMEBUFFER_OVERLAP = (1 << 12),
+		STATUS_FORCE_REBUILD = (1 << 13),
+		STATUS_3D = (1 << 14),
+		STATUS_CLUT_GPU = (1 << 15),
 	};
 
 	// TexStatus enum flag combination.
@@ -206,10 +198,14 @@ struct TexCacheEntry {
 	ReplacedTexture *replacedTexture;
 
 	TextureAlpha GetAlphaStatus() {
-		return (status & STATUS_ALPHA_MASK) == STATUS_ALPHA_FULL ? TextureAlpha::Solid : TextureAlpha::Any;
+		return (status & STATUS_ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
 	void SetAlphaStatus(TextureAlpha newStatus) {
-		status = (status & ~STATUS_ALPHA_MASK) | (newStatus == TextureAlpha::Solid ? STATUS_ALPHA_FULL : STATUS_ALPHA_UNKNOWN);
+		if (newStatus == TextureAlpha::Solid) {
+			status |= STATUS_ALPHA_SOLID;
+		} else {
+			status &= ~STATUS_ALPHA_SOLID;
+		}
 	}
 	void SetAlphaStatus(TextureAlpha newStatus, int level) {
 		// For non-level zero, only set more restrictive.

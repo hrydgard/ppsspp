@@ -136,7 +136,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 
 	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+		if (gstate_c.textureSolidAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
 			doTextureAlpha = false;
 		}
 		ub->texNoAlpha = doTextureAlpha ? 0.0f : 1.0f;

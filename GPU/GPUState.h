@@ -546,9 +546,9 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
-	void SetTextureFullAlpha(bool fullAlpha) {
-		if (fullAlpha != textureFullAlpha) {
-			textureFullAlpha = fullAlpha;
+	void SetTextureSolidAlpha(bool solidAlpha) {
+		if (solidAlpha != textureSolidAlpha) {
+			textureSolidAlpha = solidAlpha;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
@@ -626,7 +626,7 @@ public:
 	bool usingDepth;  // For deferred depth copies.
 	bool clearingDepth;
 
-	bool textureFullAlpha;
+	bool textureSolidAlpha;
 	bool vertexFullAlpha;
 
 	int skipDrawReason;
