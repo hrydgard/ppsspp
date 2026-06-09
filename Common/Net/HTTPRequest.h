@@ -100,8 +100,6 @@ private:
 	std::function<void(Request &)> callback_;
 };
 
-using std::shared_ptr;
-
 class RequestManager {
 public:
 	~RequestManager() {
