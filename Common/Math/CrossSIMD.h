@@ -204,7 +204,7 @@ struct Vec4F32 {
 	static Vec4F32 Load2(const float *src) { return Vec4F32{ _mm_castpd_ps(_mm_load_sd((const double *)src)) }; }
 
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
-		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		__m128i value32 = _mm_unpacklo_epi16(value16, value16);
 		// Sign extension. A bit ugly without SSE4.
@@ -213,7 +213,7 @@ struct Vec4F32 {
 	}
 
 	static Vec4F32 LoadU8Norm(const uint8_t *src) {
-		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
 		__m128i value16 = _mm_unpacklo_epi8(value, _mm_setzero_si128());
 		__m128i value32 = _mm_unpacklo_epi16(value16, _mm_setzero_si128());
 		return Vec4F32{_mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 255.0f))};
@@ -225,22 +225,22 @@ struct Vec4F32 {
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(bits), _mm_set1_ps(1.0f / 32768.0f)) };
 	}
 
-	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes
+	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes (4*2)
 		__m128i value = _mm_loadl_epi64((const __m128i *)src);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value, value), 16)) };
 	}
 
-	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes
-		__m128i value = _mm_loadl_epi64((const __m128i *)src);
+	static Vec4F32 LoadConvertS8(const int8_t *src) {
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 24)) };
 	}
 
 	// NOTE: Does not normalize to 0..255 range.
-	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes
-		__m128i value = _mm_loadl_epi64((const __m128i *)src);
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
 		__m128i zero = _mm_setzero_si128();
 		__m128i value16 = _mm_unpacklo_epi8(value, zero);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend

@@ -52,7 +52,8 @@
 #define TEXTURE_KILL_AGE_LOWMEM 60
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
-// Used when there are multiple CLUT variants of a texture.
+// Used when there are multiple CLUT variants of a texture, to avoid blowing up memory. See #10418
+// We should change this to do shader-based palette expansion.
 #define TEXTURE_KILL_AGE_CLUT 6
 
 #define TEXTURE_CLUT_VARIANTS_MIN 6
@@ -836,8 +837,8 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 				++iter;
 				continue;
 			}
-			bool hasClut = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
-			int killAge = hasClut ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
+			bool hasClutVariants = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
+			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
 				DeleteTexture(iter++);
 			} else {
