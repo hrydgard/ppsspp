@@ -518,18 +518,6 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	return REPLACE_BLEND_STANDARD;
 }
 
-// The supported flag combinations. TODO: Maybe they should be distilled down into an enum.
-// Currently obsolete. We may reintroduce squeezing 24-bit depth into a 16-bit range, although that
-// will mess with hardware depth clamp, so likely not worth it anymore.
-float DepthSliceFactor(u32 useFlags) {
-	return 1.0f;
-}
-
-// See class DepthScaleFactors for how to apply.
-DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
-	return DepthScaleFactors(0.0f, 65535.0f);
-}
-
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	float renderWidthFactor, renderHeightFactor;
 	float renderX = 0.0f, renderY = 0.0f;

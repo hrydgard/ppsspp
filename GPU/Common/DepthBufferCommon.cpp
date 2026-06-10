@@ -31,21 +31,18 @@ static const InputDef vs_inputs[] = {
 };
 
 struct DepthUB {
-	float u_depthFactor[4];
 	float u_depthShift[4];
 	float u_depthTo8[4];
 };
 
 const UniformDef depthUniforms[] = {
-	{ "vec4", "u_depthFactor", 0 },
-	{ "vec4", "u_depthShift", 1},
-	{ "vec4", "u_depthTo8", 2},
+	{ "vec4", "u_depthShift", 0 },
+	{ "vec4", "u_depthTo8", 1 },
 };
 
 const UniformBufferDesc depthUBDesc{ sizeof(DepthUB), {
-	{ "u_depthFactor", -1, -1, UniformType::FLOAT4, 0 },
-	{ "u_depthShift", -1, -1, UniformType::FLOAT4, 16 },
-	{ "u_depthTo8", -1, -1, UniformType::FLOAT4, 32 },
+	{ "u_depthShift", -1, -1, UniformType::FLOAT4, 0 },
+	{ "u_depthTo8", -1, -1, UniformType::FLOAT4, 16 },
 } };
 
 static const SamplerDef samplers[] = {
@@ -59,9 +56,9 @@ static const VaryingDef varyings[] = {
 void GenerateDepthDownloadFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(depthUniforms, varyings);
-	writer.C("  float depth = ").SampleTexture2D("tex", "v_texcoord").C(".r; \n");
+	writer.C("  float depth = ").SampleTexture2D("tex", "v_texcoord").C(".r;\n");
 	// At this point, clamped maps [0, 1] to [0, 65535].
-	writer.C("  float clamped = clamp((depth - u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);\n");
+	writer.C("  float clamped = clamp(depth, 0.0, 1.0);\n");
 	writer.C("  vec4 enc = u_depthShift * clamped;\n");
 	writer.C("  enc = floor(mod(enc, 256.0)) * u_depthTo8;\n");
 	writer.C("  vec4 outColor = enc.yzww;\n"); // Let's ignore the bits outside 16 bit precision.
@@ -215,10 +212,6 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 		DepthUB ub{};
 
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
-		ub.u_depthFactor[0] = depthScale.Offset();
-		ub.u_depthFactor[1] = depthScale.Scale();
-
 		// These are for packing a float in u8x4 colors. We should support more suitable readback formats on APIs that can do it.
 		static constexpr float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
 		memcpy(ub.u_depthShift, shifts, sizeof(shifts));
@@ -265,17 +258,9 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		// We downloaded float values directly in this case.
 		uint16_t *dest = pixels;
 		const float *packedf = (float *)convBuf_;
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
 		for (int yp = 0; yp < destH; ++yp) {
 			for (int xp = 0; xp < destW; ++xp) {
-				float scaled = depthScale.DecodeToU16(packedf[xp]);
-				if (scaled <= 0.0f) {
-					dest[xp] = 0;
-				} else if (scaled >= 65535.0f) {
-					dest[xp] = 65535;
-				} else {
-					dest[xp] = (int)scaled;
-				}
+				dest[xp] = (u16)std::clamp(65535.0f * packedf[xp], 0.0f, 65535.0f);
 			}
 			dest += pixelsStride;
 			packedf += destW;

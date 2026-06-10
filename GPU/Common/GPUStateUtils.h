@@ -82,36 +82,6 @@ struct ViewportAndScissor {
 struct DisplayLayoutConfig;
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 
-// NOTE: See the .cpp file for detailed comment about how the use flags are interpreted.
-class DepthScaleFactors {
-public:
-	// This should only be used from GetDepthScaleFactors.
-	DepthScaleFactors(double offset, double scale) : offset_(offset), scale_(scale) {}
-
-	// Decodes a value from a depth buffer to a value of range 0..65536
-	float DecodeToU16(float z) const {
-		return (float)((z - offset_) * scale_);
-	}
-
-	// Encodes a value from the range 0..65536 to a normalized depth value (0-1), in the
-	// range that we write to the depth buffer.
-	float EncodeFromU16(float z_u16) const {
-		return (float)(((double)z_u16 / scale_) + offset_);
-	}
-
-	float Offset() const { return (float)offset_; }
-
-	float ScaleU16() const { return (float)scale_; }
-	float Scale() const { return (float)(scale_ / 65535.0); }
-
-private:
-	// Doubles hardly cost anything these days, and precision matters here.
-	double offset_;
-	double scale_;
-};
-
-DepthScaleFactors GetDepthScaleFactors(u32 useFlags);
-
 // These are common to all modern APIs and can be easily converted with a lookup table.
 enum class BlendFactor : uint8_t {
 	ZERO,

@@ -900,40 +900,6 @@ static bool TestSmallDataConvert() {
 	return true;
 }
 
-float DepthSliceFactor(u32 useFlags);
-
-static bool TestDepthMath() {
-	// These are in normalized space.
-	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
-
-	// Flag combinations that can happen (any combination not included here is invalid, see comment
-	// over in GPUStateUtils.cpp):
-	static const u32 useFlagsArray[] = {
-		0,
-		GPU_USE_DEPTH_CLAMP,
-	};
-
-	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
-
-	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
-		u32 useFlags = useFlagsArray[j];
-		printf("j: %d useflags: %d\n", j, useFlags);
-		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
-
-		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
-
-		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
-			float testValue = testValues[i] * 65535.0f;
-
-			float encoded = factors.EncodeFromU16(testValue);
-			float decodedU16 = factors.DecodeToU16(encoded);
-			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
-		}
-	}
-
-	return true;
-}
-
 bool TestInputMapping() {
 	InputMapping mapping;
 	mapping.deviceId = DEVICE_ID_PAD_0;
@@ -1412,7 +1378,6 @@ TestItem availableTests[] = {
 	TEST_ITEM(TinySet),
 	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
-	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
