@@ -28,7 +28,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_IS_THROUGH = 1,
 	// bit 2 is free.
 	VS_BIT_HAS_COLOR = 3,
-	VS_BIT_CLIP_ENABLE = 4,
+	// bit 4 is free.
 	VS_BIT_VERTEX_RANGE_CULLING = 5,
 	VS_BIT_SIMPLE_STEREO = 6,
 	// bit 7 is free,
