@@ -754,6 +754,22 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					WRITE(p, "    index3 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
 					WRITE(p, "  }\n");
 					break;
+				case GE_FORMAT_CLUT8:
+					WRITE(p, "  index0 = uint(t.r * 255.99);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    index1 = uint(t1.r * 255.99);\n");
+					WRITE(p, "    index2 = uint(t2.r * 255.99);\n");
+					WRITE(p, "    index3 = uint(t3.r * 255.99);\n");
+					WRITE(p, "  }\n");
+					break;
+				case GE_FORMAT_DEPTH16:
+					WRITE(p, "  index0 = uint(t.r * 65535.99);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    index1 = uint(t1.r * 65535.99);\n");
+					WRITE(p, "    index2 = uint(t2.r * 65535.99);\n");
+					WRITE(p, "    index3 = uint(t3.r * 65535.99);\n");
+					WRITE(p, "  }\n");
+					break;
 				}
 				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index0, 0)", 0).C(";\n");
