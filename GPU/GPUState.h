@@ -700,7 +700,7 @@ public:
 	int spline_num_points_u;
 
 	ShaderDepalMode shaderDepalMode;
-	GEBufferFormat depalFramebufferFormat;
+	GEBufferFormat depalTextureFormat;
 
 	u32 getRelativeAddress(u32 data) const {
 		u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;

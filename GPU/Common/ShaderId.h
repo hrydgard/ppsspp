@@ -88,7 +88,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_SHADER_TEX_CLAMP = 5,
 	FS_BIT_CLAMP_S = 6,
 	FS_BIT_CLAMP_T = 7,
-	// Free bits: 8-11
+	FS_BIT_SHADER_DEPAL_FORMAT = 8,  // 3 bits (GEBufferFormat), connected to FS_BIT_SHADER_DEPAL_MODE
 	FS_BIT_ALPHA_TEST = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,

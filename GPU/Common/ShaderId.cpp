@@ -202,12 +202,6 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc << "DepthNever ";
-	switch ((ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2)) {
-	case ShaderDepalMode::OFF: break;
-	case ShaderDepalMode::NORMAL: desc << "Depal ";  break;
-	case ShaderDepalMode::SMOOTHED: desc << "SmoothDepal "; break;
-	case ShaderDepalMode::CLUT8_8888: desc << "CLUT8From8888Depal"; break;
-	}
 	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
@@ -275,6 +269,20 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
 	if (id.Bit(FS_BIT_MINMAX_DISCARD)) desc << "FragMinMaxDiscard ";
 	if (id.Bit(FS_BIT_DEPTH_CLAMP)) desc << "FragDepthClamp ";
+
+	const ShaderDepalMode depalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
+	switch (depalMode) {
+	case ShaderDepalMode::OFF: break;
+	case ShaderDepalMode::NORMAL: desc << "Depal(";
+	{
+		const GEBufferFormat shaderDepalFormat = (GEBufferFormat)id.Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3);
+		desc << GeBufferFormatToString(shaderDepalFormat) << ") ";
+		break;
+	}
+	case ShaderDepalMode::SMOOTHED: desc << "SmoothDepal "; break;
+	case ShaderDepalMode::CLUT8_8888: desc << "CLUT8From8888Depal"; break;
+	}
+
 	return desc.str();
 }
 
@@ -324,6 +332,10 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		bool enableTexAlpha = gstate.isTextureAlphaUsed();
 
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
+		GEBufferFormat shaderDepalFormat = {};
+		if (shaderDepalMode == ShaderDepalMode::NORMAL) {
+			shaderDepalFormat = gstate_c.depalTextureFormat;
+		}
 
 		bool colorWriteMask = pipelineState.maskState.applyFramebufferRead;
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
@@ -343,6 +355,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
 			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
+			id.SetBits(FS_BIT_SHADER_DEPAL_FORMAT, 3, (int)shaderDepalFormat);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
 		}
 

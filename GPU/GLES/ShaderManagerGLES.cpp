@@ -377,7 +377,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		int indexMask = gstate.getClutIndexMask();
 		int indexShift = gstate.getClutIndexShift();
 		int indexOffset = gstate.getClutIndexStartPos() >> 4;
-		int format = gstate_c.depalFramebufferFormat;
+		int format = gstate_c.depalTextureFormat;
 		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
 		// Poke in a bilinear filter flag in the top bit.
 		val |= gstate.isMagnifyFilteringEnabled() << 31;

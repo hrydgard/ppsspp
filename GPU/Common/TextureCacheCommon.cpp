@@ -2319,9 +2319,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 				mode = ShaderDepalMode::SMOOTHED;
 			}
 
-			gstate_c.Dirty(DIRTY_DEPAL);
+			gstate_c.Dirty(DIRTY_DEPAL | DIRTY_FRAGMENTSHADER_STATE);
 			gstate_c.SetUseShaderDepal(mode);
-			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
+			gstate_c.depalTextureFormat = framebuffer->fb_format;
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
