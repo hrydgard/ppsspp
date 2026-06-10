@@ -220,7 +220,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 	config.smoothedDepal = smoothedDepal;
 	config.depthUpperBits = depthUpperBits;
 
-	Draw2DPipeline *ts = draw2D_->Create2DPipeline([=](ShaderWriter &writer) -> Draw2DPipelineInfo {
+	Draw2DPipeline *ts = draw2D_->Create2DPipeline([config](ShaderWriter &writer) -> Draw2DPipelineInfo {
 		GenerateDepalFs(writer, config);
 		return Draw2DPipelineInfo{
 			"depal",
@@ -237,8 +237,8 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 
 std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) {
 	std::vector<std::string> ids;
-	for (auto &iter : depalCache_) {
-		ids.push_back(StringFromFormat("%08x", iter.first));
+	for (auto &entry : depalCache_) {
+		ids.push_back(StringFromFormat("%08x", entry.first));
 	}
 	return ids;
 }

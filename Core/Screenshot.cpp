@@ -199,23 +199,6 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 		b = 0;
 		a = (src >> 24) & 0xFF;
 		break;
-	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
-		src = buf32[offset]& 0x00FFFFFF;
-		src = src - 0x800000 + 0x8000;
-		r = 255;
-		g = 0;
-		b = 0;
-		a = (src >> 8) & 0xFF;
-		break;
-	case GPU_DBG_FORMAT_FLOAT_DIV_256:
-		fsrc = fbuf[offset];
-		src = (int)(fsrc * 16777215.0);
-		src = src - 0x800000 + 0x8000;
-		r = 255;
-		g = 0;
-		b = 0;
-		a = (src >> 8) & 0xFF;
-		break;
 	default:
 		_assert_msg_(false, "Unsupported framebuffer format for screenshot: %d", fmt);
 		return false;

@@ -365,7 +365,6 @@ public:
 	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 	bool bUberShaderVertex;
-	bool bUberShaderFragment;
 	int iDefaultTab;
 	int iScreenshotMode;
 	bool bVulkanDisableImplicitLayers;
