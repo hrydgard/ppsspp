@@ -770,6 +770,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					WRITE(p, "    index3 = uint(t3.r * 65535.99);\n");
 					WRITE(p, "  }\n");
 					break;
+				default:
+					// Invalid, but the unit test can produce this inadvertently.
+					WRITE(p, "  index0 = 0u;\n");
+					WRITE(p, "  index1 = 0u;\n");
+					WRITE(p, "  index2 = 0u;\n");
+					WRITE(p, "  index3 = 0u;\n");
+					break;
 				}
 				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index0, 0)", 0).C(";\n");
