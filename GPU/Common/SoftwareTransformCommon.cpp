@@ -199,8 +199,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			bool matchingComponents = params.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
 			bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
 			if (matchingComponents && stencilNotMasked) {
-				// Need to rescale from a [0, 1] float.  This is the final transformed value.
-				float depth = 65535.0 * transformed[1].z;
+				float depth = std::clamp(transformed[1].z, 0.0f, 65535.0f) / 65535.0f;
 				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 				if (!(params.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
