@@ -320,7 +320,6 @@ public:
 	float fUITint;
 	float fUISaturation;
 
-	bool bTextureBackoffCache;
 	bool bVertexDecoderJit;
 	int iAppSwitchMode;
 	bool bFullScreen;

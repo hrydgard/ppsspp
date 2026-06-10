@@ -265,6 +265,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 	if (dl.waitUntilTicks > CoreTiming::GetTicks()) {
 		__GeWaitCurrentThread(GPU_SYNC_LIST, listid, "GeListSync");
 	}
+
 	return PSP_GE_LIST_COMPLETED;
 }
 
@@ -369,6 +370,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	u64 currentTicks = CoreTiming::GetTicks();
 	u32 stackAddr = args.IsValid() && args->size >= 16 ? (u32)args->stackAddr : 0;
 	// Check compatibility
+	// TODO: Figure out what games are affected by this...
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
 		//numStacks = 0;
 		//stack = NULL;
@@ -463,6 +465,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		// LATER: Wait, what? Please explain.
 		*runList = true;
 	}
+
+	gpuStats.perFrame.numEnqueue++;
+
 	return id;
 }
 
@@ -497,6 +502,8 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall, bool *runList) {
 		return SCE_KERNEL_ERROR_ALREADY;
 
 	dl.stall = newstall & 0x0FFFFFFF;
+
+	gpuStats.perFrame.numUpdateStall++;
 
 	*runList = true;
 	return 0;

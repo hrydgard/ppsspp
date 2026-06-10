@@ -131,27 +131,21 @@ struct TextureDefinition {
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
 
-enum class TexHashStatus : u8 {
-	Hashing = 0,
-	Reliable,        // Don't bother rehashing.
-	Unreliable,      // Always recheck hash.
-};
-
 enum class TexStatus : u16 {
 	VIDEO = (1 << 0),
 	BGRA = (1 << 1),
 	ALPHA_SOLID = (1 << 2),      // Has no alpha channel, or always solid (==1.0) alpha.
 
-	CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
-	CHANGE_FREQUENT = (1 << 4), // Changes often (less than 6 frames in between.)
+	MANY_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
+	RELIABLE = (1 << 4),    // Hash will never change. This only really applies to the font texture.
 	CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
+	HASH_RECHECK = (1 << 6),   // Hash failed, but addr is the same, so we want to check again next time.
 	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
 	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
 	TO_REPLACE = (1 << 9),    // Pending texture replacement.
 	// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
 	// is commonly the only part accessed.  If access is made above 272, we hash the entire
 	// texture, and set this flag to allow scaling the texture just once for the new hash.
-	FREE_CHANGE = (1 << 10),   // Allow one change before marking "frequent".
 	NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
 	FRAMEBUFFER_OVERLAP = (1 << 12),
 	FORCE_REBUILD = (1 << 13),
@@ -174,30 +168,25 @@ struct TexCacheEntry {
 	GETextureFormat format;
 	u8 maxLevel;
 	u32 addr;
-	u32 minihash;
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
-	TexHashStatus hashStatus;
-	s16 invalidHint;
 	s16 numInvalidated;
-
+	u32 fullhash;
+	u32 cluthash;
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
 		VulkanTexture *vkTex;
 	};
+	ReplacedTexture *replacedTexture;
 #ifdef _WIN32
-	void *textureView;  // Used by D3D11 only for the shader resource view.
+	void *textureView;  // Used by D3D11 only for the shader resource view. We could also just point to a struct of the two, similar to VulkanTexture.
 #endif
 	int lastFrame;
-	int numFrames;
-	u32 framesUntilNextFullHash;
-	u32 fullhash;
-	u32 cluthash;
-	ReplacedTexture *replacedTexture;
+	int lastSyncDomain;
 
-	TextureAlpha GetAlphaStatus() {
+	TextureAlpha GetAlphaStatus() const {
 		return (status & TexStatus::ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
 	void SetAlphaStatus(TextureAlpha newStatus) {
@@ -219,7 +208,7 @@ struct TexCacheEntry {
 		return (textureBitsPerPixel[format] * bufw * dimHeight(dim)) / 8;
 	}
 
-	bool Matches(u16 dim2, u8 format2, u8 maxLevel2) const;
+	bool MatchesProperties(u16 dim2, u8 format2, u8 maxLevel2) const;
 	u64 CacheKey() const;
 	static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
 	u32 EstimateTexMemoryUsage() const;
@@ -228,7 +217,6 @@ struct TexCacheEntry {
 // TODO: Work on shrinking it further.
 static_assert(sizeof(TexCacheEntry) <= 72, "TexCacheEntry is too big");
 
-const char *TexHashStatusToString(TexHashStatus status);
 std::string TexStatusToString(TexStatus status);
 
 // Can't be unordered_map, we use lower_bound ... although for some reason that (used to?) compiles on MSVC.
@@ -385,8 +373,8 @@ public:
 	const TexCache &Cache() const { return cache_; }
 	const TexCache &SecondCache() const { return secondCache_; }
 
-	const size_t CacheSizeEstimate() const { return cacheSizeEstimate_; }
-	const size_t SecondCacheSizeEstimate() const { return secondCacheSizeEstimate_; }
+	const size_t CacheSizeEstimate() const;
+	const size_t SecondCacheSizeEstimate() const;
 
 	struct VideoInfo {
 		u32 addr;
@@ -500,16 +488,14 @@ protected:
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_ = 0;
-	int timesInvalidatedAllThisFrame_ = 0;
 	double replacementTimeThisFrame_ = 0;
 	// Recomputed once per frame. Depends FPS and soon also config.
 	double replacementFrameBudgetSeconds_ = 0.5 / 60.0;
 
+	// The primary cache uses the texture address along with the clut hash as the key.
 	TexCache cache_;
-	u32 cacheSizeEstimate_ = 0;
-
+	// The secondary cache uses the texture hash and clut hash as the key.
 	TexCache secondCache_;
-	u32 secondCacheSizeEstimate_ = 0;
 
 	std::vector<VideoInfo> videos_;
 
@@ -554,7 +540,7 @@ protected:
 	u32 *expandClut_;
 };
 
-inline bool TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {
+inline bool TexCacheEntry::MatchesProperties(u16 dim2, u8 format2, u8 maxLevel2) const {
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
 }
 

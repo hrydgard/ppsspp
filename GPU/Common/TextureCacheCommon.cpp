@@ -125,7 +125,6 @@ TextureCacheCommon::~TextureCacheCommon() {
 void TextureCacheCommon::StartFrame() {
 	ForgetLastTexture();
 	textureShaderCache_->Decimate();
-	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
 
 	float fps;
@@ -370,6 +369,7 @@ SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth
 	return key;
 }
 
+// TODO: This should be called from the through mode bbox check.
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall...
 	if (entry->dim >= 0x900) {
@@ -395,7 +395,6 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 			} else if (gstate_c.vertBounds.maxV > entry->maxSeenV) {
 				// The max height changed, so we're better off hashing the entire thing.
 				entry->maxSeenV = 512;
-				entry->status |= TexStatus::FREE_CHANGE;
 			}
 		} else {
 			// Otherwise, we need to reset to ensure we use the whole thing.
@@ -467,8 +466,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
-	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
-
 	TexCache::iterator entryIter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
 
@@ -481,7 +478,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		entry = entryIter->second.get();
 
 		// Validate the texture still matches the cache entry.
-		bool match = entry->Matches(dim, texFormat, maxLevel);
+		bool match = entry->MatchesProperties(dim, texFormat, maxLevel);
 		const char *reason = "different params";
 
 		// Check for dynamic CLUT status
@@ -498,16 +495,22 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			match = false;
 		}
 
-		bool rehash = entry->hashStatus == TexHashStatus::Unreliable;
+		// !!! Here we will do the check for "sync domain"
+		// NOTE: Reliable is just for the font texture now.
+		bool rehash = (entry->status & TexStatus::RELIABLE) == 0;
 
-		// First let's see if another texture with the same address had a hashfail.
-		if (entry->status & TexStatus::CLUT_RECHECK) {
-			// Always rehash in this case, if one changed the rest all probably did.
-			rehash = true;
-			entry->status &= ~TexStatus::CLUT_RECHECK;
-		} else if (!gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE)) {
-			// Okay, just some parameter change - the data didn't change, no need to rehash.
+		if (entry->lastSyncDomain == gstate_c.textureSyncTimeDomain) {
+			// The texture was last used in the same sync domain.
 			rehash = false;
+		} else {
+			entry->lastSyncDomain = gstate_c.textureSyncTimeDomain;
+			// We don't set rehash = true here, the declaration above did it properly.
+		}
+
+		if (entry->status & (TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK)) {
+			// If it's reliable, we can skip the sync domain check, since it won't change under us.
+			rehash = true;
+			entry->status &= ~(TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK);
 		}
 
 		// Do we need to recreate?
@@ -516,46 +519,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			entry->status &= ~TexStatus::FORCE_REBUILD;
 		}
 
-		if (match) {
-			if (entry->lastFrame != gpuStats.totals.numFlips) {
-				u32 diff = gpuStats.totals.numFlips - entry->lastFrame;
-				entry->numFrames++;
-
-				if (entry->framesUntilNextFullHash < diff) {
-					// Exponential backoff up to 512 frames.  Textures are often reused.
-					if (entry->numFrames > 32) {
-						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						// textureName is unioned with texturePtr and vkTex so will work for the other backends.
-						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (((intptr_t)(entry->textureName) >> 12) & 15);
-					} else {
-						entry->framesUntilNextFullHash = entry->numFrames;
-					}
-					rehash = true;
-				} else {
-					entry->framesUntilNextFullHash -= diff;
-				}
-			}
-
-			// If it's not huge or has been invalidated many times, recheck the whole texture.
-			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && (dim >> 8) < 9 && (dim & 0xF) < 9)) {
-				entry->invalidHint = 0;
-				rehash = true;
-			}
-
-			if (minihash != entry->minihash) {
-				match = false;
-				reason = "minihash";
-			} else if (entry->hashStatus == TexHashStatus::Reliable) {
-				rehash = false;
-			}
-		}
-
 		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			if ((entry->status & TexStatus::CHANGE_FREQUENT) == 0) {
-				// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
-				match = false;
-				reason = "scaling";
-			}
+			// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
+			match = false;
+			reason = "scaling";
 		}
 
 		if (match && (entry->status & TexStatus::TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
@@ -654,11 +621,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		entry->status = {};
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
-			entry->hashStatus = TexHashStatus::Reliable;
-		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
-			entry->hashStatus = TexHashStatus::Hashing;
-		} else {
-			entry->hashStatus = TexHashStatus::Unreliable;
+			entry->status |= TexStatus::RELIABLE;
 		}
 
 		if (hasClutGPU) {
@@ -677,10 +640,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 			if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
 				for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-					it->second->status |= TexStatus::CLUT_VARIANTS;
+					it->second->status |= TexStatus::MANY_CLUT_VARIANTS;
 				}
 
-				entry->status |= TexStatus::CLUT_VARIANTS;
+				entry->status |= TexStatus::MANY_CLUT_VARIANTS;
 			}
 		}
 
@@ -689,7 +652,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
-	entry->minihash = minihash;
 	entry->dim = dim;
 	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
@@ -827,8 +789,10 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 		return;
 	}
 
-	if (forcePressure || cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
+	// Compute the cache size.
+	s64 cacheSizeEstimate = CacheSizeEstimate();
+	if (forcePressure || cacheSizeEstimate >= TEXCACHE_MIN_PRESSURE) {
+		const u32 had = cacheSizeEstimate;
 
 		ForgetLastTexture();
 		int killAgeBase = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
@@ -837,7 +801,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 				++iter;
 				continue;
 			}
-			bool hasClutVariants = (iter->second->status & TexStatus::CLUT_VARIANTS) != 0;
+			bool hasClutVariants = (iter->second->status & TexStatus::MANY_CLUT_VARIANTS) != 0;
 			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
 				DeleteTexture(iter++);
@@ -846,12 +810,13 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
+		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate, cacheSizeEstimate);
 	}
 
+	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
 	// If enabled, we also need to clear the secondary cache.
-	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
-		const u32 had = secondCacheSizeEstimate_;
+	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate >= TEXCACHE_SECOND_MIN_PRESSURE)) {
+		const u32 had = secondCacheSizeEstimate;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
 			if (iter->second.get() == exceptThisOne) {
@@ -861,14 +826,14 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			// In low memory mode, we kill them all since secondary cache is disabled.
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
-				secondCacheSizeEstimate_ -= iter->second->EstimateTexMemoryUsage();
+				secondCacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				iter = secondCache_.erase(iter);
 			} else {
 				++iter;
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
+		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate, secondCacheSizeEstimate);
 	}
 
 	// Decimate known videos.
@@ -897,19 +862,13 @@ bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 }
 
 void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	cacheSizeEstimate_ -= entry->EstimateTexMemoryUsage();
 	entry->numInvalidated++;
-	gpuStats.perFrame.numTextureInvalidations++;
+	gpuStats.perFrame.numTexturesChanged++;
 	DEBUG_LOG(Log::G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
 	if (doDelete) {
 		ForgetLastTexture();
 		ReleaseTexture(entry, true);
 		entry->status &= ~(TexStatus::IS_SCALED_OR_REPLACED | TexStatus::TO_REPLACE);
-	}
-
-	// Mark as hashing, if marked as reliable.
-	if (entry->hashStatus == TexHashStatus::Reliable) {
-		entry->hashStatus = TexHashStatus::Hashing;
 	}
 
 	// Also, mark any textures with the same address but different clut.  They need rechecking.
@@ -922,15 +881,6 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 			}
 		}
 	}
-
-	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-		if (entry->status & TexStatus::FREE_CHANGE) {
-			entry->status &= ~TexStatus::FREE_CHANGE;
-		} else {
-			entry->status |= TexStatus::CHANGE_FREQUENT;
-		}
-	}
-	entry->numFrames = 0;
 }
 
 void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
@@ -1581,6 +1531,22 @@ u32 TexCacheEntry::EstimateTexMemoryUsage() const {
 	return pixelSize << (dimW + dimH);
 }
 
+const size_t TextureCacheCommon::CacheSizeEstimate() const {
+	s64 cacheSizeEstimate = 0;
+	for (auto &[_ , value] : cache_) {
+		cacheSizeEstimate += value->EstimateTexMemoryUsage();
+	}
+	return cacheSizeEstimate;
+}
+
+const size_t TextureCacheCommon::SecondCacheSizeEstimate() const {
+	s64 cacheSizeEstimate = 0;
+	for (auto &[_, value] : secondCache_) {
+		cacheSizeEstimate += value->EstimateTexMemoryUsage();
+	}
+	return cacheSizeEstimate;
+}
+
 ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d) {
 	if (*d != 1) {
 		// We don't yet support replacing 3D textures.
@@ -2157,7 +2123,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
 		// This prevents temporary scaling perf hits on the first second of video.
 		if (IsVideo(entry->addr)) {
-			entry->status |= TexStatus::CHANGE_FREQUENT | TexStatus::VIDEO;
+			entry->status |= TexStatus::VIDEO;
 		} else {
 			entry->status &= ~TexStatus::VIDEO;
 		}
@@ -2563,8 +2529,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		INFO_LOG(Log::G3D, "Texture cached cleared from %i textures", (int)(cache_.size() + secondCache_.size()));
 		cache_.clear();
 		secondCache_.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
 	}
 	videos_.clear();
 
@@ -2580,7 +2544,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 	ReleaseTexture(it->second.get(), true);
-	cacheSizeEstimate_ -= it->second->EstimateTexMemoryUsage();
 	cache_.erase(it);
 }
 
@@ -2590,13 +2553,6 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	bool isVideo = IsVideo(entry->addr);
 	bool swizzled = gstate.isTextureSwizzled();
 
-	// Don't even check the texture, just assume it has changed.
-	if (isVideo && g_Config.bTextureBackoffCache) {
-		// Attempt to ensure the hash doesn't incorrectly match in if the video stops.
-		entry->fullhash = (entry->fullhash + 0xA535A535) * 11 + (entry->fullhash & 4);
-		return false;
-	}
-
 	u32 fullhash;
 	{
 		PROFILE_THIS_SCOPE("texhash");
@@ -2604,24 +2560,13 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	if (fullhash == entry->fullhash) {
-		if (g_Config.bTextureBackoffCache && !isVideo) {
-			if (entry->hashStatus != TexHashStatus::Hashing && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				// Reset to STATUS_HASHING.
-				entry->hashStatus = TexHashStatus::Hashing;
-				entry->status &= ~TexStatus::CHANGE_FREQUENT;
-			}
-		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
-			entry->status &= ~TexStatus::CHANGE_FREQUENT;
-		}
-
+		// All good!
 		return true;
 	}
 
-	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
+	// Don't give up just yet.
+	// Let's try the secondary cache if it's been invalidated before.
 	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache) {
-		// Don't forget this one was unreliable (in case we match a secondary entry.)
-		entry->hashStatus = TexHashStatus::Unreliable;
-
 		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 		// In that case, skip.
 		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
@@ -2631,7 +2576,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 			if (secondIter != secondCache_.end()) {
 				// Found it, but does it match our current params?  If not, abort.
 				TexCacheEntry *secondEntry = secondIter->second.get();
-				if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
+				if (secondEntry->MatchesProperties(entry->dim, entry->format, entry->maxLevel)) {
 					// Reset the numInvalidated value lower, we got a match.
 					if (entry->numInvalidated > 8) {
 						--entry->numInvalidated;
@@ -2645,7 +2590,6 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
 				// Let's save this in the secondary cache in case it gets used again.
 				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-				secondCacheSizeEstimate_ += entry->EstimateTexMemoryUsage();
 
 				// If the entry already exists in the secondary texture cache, drop it nicely.
 				auto oldIter = secondCache_.find(secondKey);
@@ -2669,6 +2613,9 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	return false;
 }
 
+// One type of texture update can happen without the involvement of the CPU: Block transfers.
+// This is done for example for the text rendering in Gran Turismo, where it only uses a single letter
+// worth of texture memory, and for each letter drawn, it just replaces it and then draws.
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	// They could invalidate inside the texture, let's just give a bit of leeway.
 	// TODO: Keep track of the largest texture size in bytes, and use that instead of this
@@ -2691,69 +2638,27 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		}
 	}
 
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache && type != GPU_INVALIDATE_FORCE) {
-		return;
-	}
-
 	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
 	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
 	if (endKey < startKey) {
 		endKey = (u64)-1;
 	}
 
+	// We just loop through all textures in range, and tell them to rehash.
 	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
 		auto &entry = iter->second;
 		u32 texAddr = entry->addr;
 		// Intentional underestimate here.
 		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
-
 		// Quick check for overlap. Yes the check is right.
 		if (addr < texEnd && addr_end > texAddr) {
-			if (entry->hashStatus == TexHashStatus::Reliable) {
-				entry->hashStatus = TexHashStatus::Hashing;
-			}
-			if (type == GPU_INVALIDATE_FORCE) {
-				// Just random values to force the hash not to match.
-				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
-				entry->minihash = (entry->minihash ^ 0x89ABCDEF) + 89;
-			}
-			if (type != GPU_INVALIDATE_ALL) {
-				gpuStats.perFrame.numTextureInvalidations++;
-				// Start it over from 0 (unless it's safe.)
-				entry->numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
-				if (type == GPU_INVALIDATE_SAFE) {
-					u32 diff = gpuStats.totals.numFlips - entry->lastFrame;
-					// We still need to mark if the texture is frequently changing, even if it's safely changing.
-					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-						entry->status |= TexStatus::CHANGE_FREQUENT;
-					}
-				}
-				entry->framesUntilNextFullHash = 0;
-			} else {
-				entry->invalidHint++;
-			}
+			entry->status |= TexStatus::HASH_RECHECK;
 		}
 	}
 }
 
 void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
-		return;
-	}
-
-	if (timesInvalidatedAllThisFrame_ > 5) {
-		return;
-	}
-	timesInvalidatedAllThisFrame_++;
-
-	for (auto &[key, e] : cache_) {
-		if (e->hashStatus == TexHashStatus::Reliable) {
-			e->hashStatus = TexHashStatus::Hashing;
-		}
-		e->invalidHint++;
-	}
+	// We don't really do anything here right now.
 }
 
 void TextureCacheCommon::ClearNextFrame() {
@@ -2772,9 +2677,6 @@ std::string AttachCandidate::ToString() const {
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
 	gpuStats.perFrame.numTexturesDecoded++;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += entry->EstimateTexMemoryUsage();
 
 	plan.badMipSizes = false;
 	// maxLevel here is the max level to upload. Not the count.
@@ -2886,12 +2788,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn && gstate.FrameBufStride() < 0x1E0) {
 		// A bit of an esoteric workaround - force off upscaling for static textures that participate directly in small-resolution framebuffer effects.
 		// This fixes the water in Outrun/DiRT 2 with upscaling enabled.
-		plan.scaleFactor = 1;
-	}
-
-	if ((entry->status & TexStatus::CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexStatus::TO_SCALE;
 		plan.scaleFactor = 1;
 	}
 
@@ -3096,32 +2992,16 @@ TextureAlpha TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPale
 	}
 }
 
-const char *TexHashStatusToString(TexHashStatus status) {
-	switch (status) {
-	case TexHashStatus::Hashing:
-		return "Hashing";
-	case TexHashStatus::Reliable:
-		return "Reliable";
-	case TexHashStatus::Unreliable:
-		return "Unreliable";
-	default:
-		return "Unknown";
-	}
-}
-
 std::string TexStatusToString(TexStatus status) {
 	std::string result;
 	if (status & TexStatus::ALPHA_SOLID) {
 		result += "SOLID_ALPHA ";
 	}
-	if (status & TexStatus::CLUT_VARIANTS) {
+	if (status & TexStatus::MANY_CLUT_VARIANTS) {
 		result += "CLUTVARIANTS ";
 	}
 	if (status & TexStatus::CLUT_RECHECK) {
 		result += "CLUT_RECHECK ";
-	}
-	if (status & TexStatus::CHANGE_FREQUENT) {
-		result += "FREQ ";
 	}
 	if (status & TexStatus::TO_SCALE) {
 		result += "TOSCALE ";

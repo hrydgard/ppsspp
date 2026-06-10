@@ -629,6 +629,11 @@ public:
 	bool textureSolidAlpha;
 	bool vertexFullAlpha;
 
+	// The PSP CPU can only safely modify textures *between* syncs, so we can safely cache textures without
+	// rehashing until the next sync. So for each texture we keep track which sync index we actually updated
+	// it on.
+	int textureSyncTimeDomain;
+
 	int skipDrawReason;
 
 	UVScale uv;

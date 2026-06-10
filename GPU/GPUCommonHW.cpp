@@ -1804,11 +1804,12 @@ int GPUCommonHW::ListSync(int listid, int mode) {
 void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	float vertexAverageCycles = gpuStats.perFrame.numVertsSubmitted > 0 ? (float)gpuStats.perFrame.vertexGPUCycles / (float)gpuStats.perFrame.numVertsSubmitted : 0.0f;
 	w.F(
-		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
+		"DL processing time: %0.2f ms\n"
+		"%d enqueue, %d updatestall, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
 		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
 		"FBOs active: %d (evaluations: %d, created %d)\n"
-		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB, clut %d\n"
+		"Textures: %d, dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
@@ -1817,6 +1818,8 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
 		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
 		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
+		gpuStats.perFrame.numEnqueue,
+		gpuStats.perFrame.numUpdateStall,
 		gpuStats.perFrame.numDrawSyncs,
 		gpuStats.perFrame.numListSyncs,
 		gpuStats.perFrame.numDrawCalls,
@@ -1836,6 +1839,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		(int)textureCache_->NumLoadedTextures(),
 		gpuStats.perFrame.numTexturesDecoded,
 		gpuStats.perFrame.numTextureInvalidations,
+		gpuStats.perFrame.numTexturesChanged,
 		gpuStats.perFrame.numTextureDataBytesHashed / 1024,
 		gpuStats.perFrame.numClutTextures,
 		gpuStats.perFrame.numBlockingReadbacks,
