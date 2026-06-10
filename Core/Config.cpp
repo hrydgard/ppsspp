@@ -792,7 +792,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("GpuLogProfiler", SETTING(g_Config, bGpuLogProfiler), false, CfgFlag::DEFAULT),
 
 	ConfigSetting("UberShaderVertex", SETTING(g_Config, bUberShaderVertex), true, CfgFlag::DEFAULT),
-	ConfigSetting("UberShaderFragment", SETTING(g_Config, bUberShaderFragment), true, CfgFlag::DEFAULT),
 
 	ConfigSetting("DisplayRefreshRate", SETTING(g_Config, iDisplayRefreshRate), g_Config.iDisplayRefreshRate, CfgFlag::PER_GAME),
 };

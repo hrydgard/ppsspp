@@ -200,13 +200,9 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
 	if (id.Bit(FS_BIT_DO_TEXTURE)) desc << (id.Bit(FS_BIT_3D_TEXTURE) ? "Tex3D " : "Tex ");
 	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
-	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
-	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
-	if (id.Bit(FS_BIT_DOUBLE_COLOR)) desc << "Double ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
-	if (id.Bit(FS_BIT_UBERSHADER)) desc << "FragUber ";
 	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc << "DepthNever ";
 	switch ((ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2)) {
 	case ShaderDepalMode::OFF: break;
@@ -329,8 +325,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		bool enableTexAlpha = gstate.isTextureAlphaUsed();
 
-		bool uberShader = gstate_c.Use(GPU_USE_FRAGMENT_UBERSHADER);
-
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
 
 		bool colorWriteMask = pipelineState.maskState.applyFramebufferRead;
@@ -373,13 +367,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 
 		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);  // TODO: Will be moved back to the ubershader.
-
-		id.SetBit(FS_BIT_UBERSHADER, uberShader);
-		if (!uberShader) {
-			id.SetBit(FS_BIT_TEXALPHA, enableTexAlpha);
-			id.SetBit(FS_BIT_DOUBLE_COLOR, enableColorDouble);
-		}
-
 		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 
 		// 2 bits

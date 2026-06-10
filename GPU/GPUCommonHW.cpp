@@ -495,13 +495,6 @@ void GPUCommonHW::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_LIGHT_CONTROL);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_VERTEXSHADER_STATE);
 	}
-
-	if (gstate_c.Use(GPU_USE_FRAGMENT_UBERSHADER)) {
-		// Texfunc controls both texalpha and doubling. The rest is not dynamic yet so can't remove fragment shader dirtying.
-		cmdInfo_[GE_CMD_TEXFUNC].AddDirty(DIRTY_TEX_ALPHA_MUL);
-	} else {
-		cmdInfo_[GE_CMD_TEXFUNC].RemoveDirty(DIRTY_TEX_ALPHA_MUL);
-	}
 }
 
 void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -618,11 +611,6 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
 		features |= GPU_USE_CLEAR_RAM_HACK;
-	}
-
-	// Some backends will turn this off again in the calling function.
-	if (g_Config.bUberShaderFragment) {
-		features |= GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
 	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {

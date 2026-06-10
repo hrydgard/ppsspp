@@ -167,11 +167,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features &= ~GPU_USE_VS_RANGE_CULLING;
 	}
 
-	if (!gl_extensions.GLES3) {
-		// Heuristic.
-		features &= ~GPU_USE_FRAGMENT_UBERSHADER;
-	}
-
 	features = CheckGPUFeaturesLate(features);
 
 	if (draw_->GetBugs().Has(Draw::Bugs::ADRENO_RESOURCE_DEADLOCK) && g_Config.bVendorBugChecksEnabled) {
