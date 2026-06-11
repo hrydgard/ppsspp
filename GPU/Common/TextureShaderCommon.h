@@ -63,8 +63,8 @@ public:
 	Draw::SamplerState *GetSampler(bool linearFilter);
 
 	void Clear();
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) const;
+	std::string DebugGetShaderString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType) const;
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);

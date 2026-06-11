@@ -539,12 +539,6 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
-	void SetUseShaderDepal(ShaderDepalMode mode) {
-		if (mode != shaderDepalMode) {
-			shaderDepalMode = mode;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
-		}
-	}
 	void SetTextureSolidAlpha(bool solidAlpha) {
 		if (solidAlpha != textureSolidAlpha) {
 			textureSolidAlpha = solidAlpha;
@@ -701,6 +695,14 @@ public:
 
 	ShaderDepalMode shaderDepalMode;
 	GEBufferFormat depalTextureFormat;
+
+	void SetShaderDepal(ShaderDepalMode mode, GEBufferFormat texFormat = {}) {
+		if (mode != shaderDepalMode || (mode != ShaderDepalMode::OFF && texFormat != depalTextureFormat)) {
+			shaderDepalMode = mode;
+			depalTextureFormat = texFormat;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 
 	u32 getRelativeAddress(u32 data) const {
 		u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;

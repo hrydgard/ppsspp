@@ -132,7 +132,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 	return ts->pipeline ? ts : nullptr;
 }
 
-std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) {
+std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) const {
 	std::vector<std::string> ids;
 	for (auto &entry : pipelineCache_) {
 		ids.push_back(StringFromFormat("%08x", entry.first));
@@ -140,9 +140,11 @@ std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType t
 	return ids;
 }
 
-std::string TextureShaderCache::DebugGetShaderString(const std::string &idstr, DebugShaderType type, DebugShaderStringType stringType) {
+std::string TextureShaderCache::DebugGetShaderString(const std::string &idstr, DebugShaderType type, DebugShaderStringType stringType) const {
 	uint32_t id = 0;
-	sscanf(idstr.c_str(), "%08x", &id);
+	if (sscanf(idstr.c_str(), "%08x", &id) == 0) {
+		return "";
+	}
 	auto iter = pipelineCache_.find(id);
 	if (iter == pipelineCache_.end())
 		return "";

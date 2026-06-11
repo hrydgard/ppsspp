@@ -462,6 +462,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 		return nullptr;
 	}
 
@@ -600,6 +601,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.SetTextureIsArray(false);
 			gstate_c.SetTextureIsBGRA(entry->status & TexStatus::BGRA);
 			gstate_c.SetTextureIsFramebuffer(false);
+			if (entry->status & TexStatus::CLUT8_INDEXED) {
+				gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+			} else {
+				gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
+			}
 
 			if (rehash) {
 				// Update in case any of these changed.
@@ -701,6 +707,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
+	if (entry->status & TexStatus::CLUT8_INDEXED) {
+		gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+	} else {
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
+	}
 
 	failedTexture_ = false;
 	nextTexture_ = entry;
@@ -1233,6 +1244,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	gstate_c.SetTextureIsVideo(false);
 	gstate_c.SetTextureIs3D(false);
 	gstate_c.SetTextureIsArray(true);
+	gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
 	nextNeedsRehash_ = false;
 	nextNeedsChange_ = false;
@@ -2218,7 +2230,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA((entry->status & TexStatus::BGRA) != 0);
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 	}
 }
 
@@ -2358,8 +2370,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			}
 
 			gstate_c.Dirty(DIRTY_DEPAL | DIRTY_FRAGMENTSHADER_STATE);
-			gstate_c.SetUseShaderDepal(mode);
-			gstate_c.depalTextureFormat = fbFormat;
+			gstate_c.SetShaderDepal(mode, fbFormat);
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -2373,7 +2384,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
 		textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 	}
 
 	if (textureShader) {
@@ -2448,7 +2459,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 		gstate_c.SetTextureSolidAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
@@ -2487,7 +2498,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 
 	Draw2DPipeline *textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+	gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
 	int texWidth = gstate.getTextureWidth(0);
 	int texHeight = gstate.getTextureHeight(0);
@@ -2987,7 +2998,8 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 		if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
 		}
-		if (entry.status & TexStatus::CLUT_GPU) {
+		if (entry.status & (TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED)) {
+			_dbg_assert_(entry.format == GE_TFMT_CLUT4 || entry.format == GE_TFMT_CLUT8);
 			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
 

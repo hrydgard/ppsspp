@@ -131,6 +131,10 @@ struct TextureDefinition {
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
 
+// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
+// is commonly the only part accessed.  If access is made above 272, we hash the entire
+// texture, and set this flag to allow scaling the texture just once for the new hash.
+
 enum class TexStatus : u16 {
 	VIDEO = (1 << 0),
 	BGRA = (1 << 1),
@@ -143,13 +147,11 @@ enum class TexStatus : u16 {
 	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
 	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
 	TO_REPLACE = (1 << 9),    // Pending texture replacement.
-	// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
-	// is commonly the only part accessed.  If access is made above 272, we hash the entire
-	// texture, and set this flag to allow scaling the texture just once for the new hash.
+	IS_3D = (1 << 10),
 	NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
 	FRAMEBUFFER_OVERLAP = (1 << 12),
 	FORCE_REBUILD = (1 << 13),
-	IS_3D = (1 << 14),
+	CLUT8_INDEXED = (1 << 14),  // Decoded as plain CLUT8 indices instead of all the way to colors.
 	CLUT_GPU = (1 << 15),
 };
 ENUM_CLASS_BITOPS(TexStatus);
@@ -338,7 +340,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
-	TextureShaderCache &GetTextureShaderCache() { return textureShaderCache_; }
+	const TextureShaderCache &GetTextureShaderCache() const { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
