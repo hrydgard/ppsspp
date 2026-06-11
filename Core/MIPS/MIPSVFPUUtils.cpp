@@ -598,93 +598,157 @@ float Float16ToFloat32(unsigned short l)
 	return f;
 }
 
+// Implementations of vmul and vdiv, assumed to
+// be bitwise-exact to PSP, see
+// https://github.com/hrydgard/ppsspp/issues/21070#issuecomment-4618120525
+// for details. These functions behave the same as
+// IEEE-755 multiplication/division with both
+// denoramls-are-zero (DAZ) and flush-to-zero (FTZ) enabled,
+// and specific bitpatterns used for NaN (which
+// would be sNaN on x86).
+// The threshold for FTZ is FLT_MIN-FLT_TRUE_MIN/4
+// (which seems to be the same as x86 FTZ threshold
+// on the machine tested; but may not be same elsewhere,
+// e.g. ARM).
+// Not currently used anywhere, just for reference purposes.
+
+static inline float vfpu_mul(float a, float b) {
+	uint32_t x, y, z;
+	memcpy(&x, &a, sizeof(x));
+	memcpy(&y, &b, sizeof(y));
+	// Subnormal inputs -> zero.
+	if (((x >> 23) & 255) == 0) x &= 0x80000000u;
+	if (((y >> 23) & 255) == 0) y &= 0x80000000u;
+	memcpy(&a, &x, sizeof(a));
+	memcpy(&b, &y, sizeof(b));
+	// IEEE-754 float32 round-to-nearest-ties-to-even multiplication.
+	float c = a * b;
+	memcpy(&z, &c, sizeof(z));
+	// Subnormal outputs -> zero.
+	if ((z & 0x7FFFFFFFu) <= 0x00800000u) {
+		double r = double(a) * double(b);
+		if (fabs(r) < 1.1754943157898259e-38) // double(FLT_MIN-0.25*FLT_TRUE_MIN)
+			z &= 0x80000000u;
+	}
+	// NaN bitpattern.
+	if ((z & 0x7FFFFFFFu) > 0x7F800000u)
+		z = ((x^y) & 0x80000000u) | 0x7F800001u;
+	memcpy(&c, &z, sizeof(c));
+	return c;
+}
+
+static inline float vfpu_div(float a, float b) {
+	uint32_t x, y, z;
+	memcpy(&x, &a, sizeof(x));
+	memcpy(&y, &b, sizeof(y));
+	// Subnormal inputs -> zero.
+	if (((x >> 23) & 255) == 0) x &= 0x80000000u;
+	if (((y >> 23) & 255) == 0) y &= 0x80000000u;
+	memcpy(&a, &x, sizeof(a));
+	memcpy(&b, &y, sizeof(b));
+	// IEEE-754 float32 round-to-nearest-ties-to-even division.
+	float c = a / b;
+	memcpy(&z, &c, sizeof(z));
+	// Subnormal outputs -> zero.
+	if ((z & 0x7FFFFFFFu) <= 0x00800000u) {
+		double r = double(a) / double(b);
+		if (fabs(r) < 1.1754943157898259e-38) // double(FLT_MIN-0.25*FLT_TRUE_MIN)
+			z &= 0x80000000u;
+	}
+	// NaN bitpattern.
+	if ((z & 0x7FFFFFFFu) > 0x7F800000u)
+		z = ((x^y) & 0x80000000u) | 0x7F800001u;
+	memcpy(&c, &z, sizeof(c));
+	return c;
+}
+
 // Implementation of vdot instruction. Assumed bitwise-exact
 // to PSP output on all inputs. For details see
 // https://github.com/hrydgard/ppsspp/issues/21070#issuecomment-4640382516
 // Reference C++ version.
 static float vfpu_dot_cpp(const float a[4], const float b[4]) {
-    int EXTRA_BITS = 2;
-    uint32_t I = uint32_t(1) << 23, J = uint32_t(1) << (23 - EXTRA_BITS);
-    int32_t s[4], e[4], ehi = -2*127;
-    uint32_t p[4];
-    int32_t val = 0;
-    int has_inf = 0;
-    for (int i = 0; i < 4; i++) {
-        uint32_t x, y;
-        memcpy(&x, a + i, sizeof(x));
-        memcpy(&y, b + i, sizeof(y));
-        int32_t ex = int32_t((x >> 23) & 255), ey = int32_t((y >> 23) & 255);
-        uint32_t mx = x & (I - 1), my = y & (I - 1);
-        if(ex == 255 || ey == 255) {
-            // Handle inf/nan.
-            float ret;
-            uint32_t bits = 0x7F800001;
-            memcpy(&ret, &bits, sizeof(ret));
-            int sgn=((x ^ y) >> 31 ? -1 : +1);
-            if(ex == 255 && mx != 0) return ret;      // x=nan
-            if(ey == 255 && my != 0) return ret;      // y=nan
-            if(ex == 255 && ey == 0) return ret;      // inf*0=nan
-            if(ey == 255 && ex == 0) return ret;      // 0*inf=nan
-            if(has_inf && has_inf != sgn) return ret; // inf-inf=nan
-            has_inf=sgn;
-        }
-        // Compute sign/exponent and intermediate product.
-        // Note that "exponent" here is basically ex+ey,
-        // even though IEEE-754 exponent of the product
-        // may be 1 higher (product of 2 numbers in [1;2)
-        // range is in [1;4) range).
-        // Note that product is computed in extra precision,
-        // and using round-to-odd mode (for details see
-        // https://github.com/hrydgard/ppsspp/issues/21070#issuecomment-4640372343).
-        s[i] = int32_t((x ^ y) >> 31);
-        e[i] = int32_t(ex + ey) - 2 * 127;
-        uint64_t v = uint64_t(I + mx) * uint64_t(I + my);
-        p[i] = uint32_t(v >> (23 - EXTRA_BITS));
-        if(v & (J - 1)) p[i] |= 1; // round-to-odd
-        if(!(ex && ey)) {e[i] = -2*127; p[i] = 0;} // subnormals -> zero
-        if(e[i] > ehi) ehi = e[i];
-    }
-    if (has_inf) {
-        uint32_t bits = (has_inf < 0 ? 0xFF800000 : 0x7F800000);
-        float ret;
-        memcpy(&ret, &bits, sizeof(bits));
-        return ret;
-    }
-    // Align the terms according to max. exponent and compute
-    // the intermediate sum.
-    // Uses round-to-zero (i.e. truncation) to align; the
-    // sum afterwards is integer (and therefore exact).
-    for (int i = 0; i < 4; i++) {
-        int32_t d = ehi - e[i];
-        if(d > 28) d = 28;
-        uint32_t v = (p[i] >> d);
-        val += (s[i] ? -1 : +1) * int32_t(v);
-    }
-    uint32_t m = uint32_t(val < 0 ? -val : +val);
-    // Remove the extra precision (using round-to-zero).
-    m >>= EXTRA_BITS;
-    // Adjust significand to 1.xxxxxxxxxxxxxxxxxxxxxxx
-    // (i.e. 2^23 <= m < 2^24), unless 0. Rounding, if any,
-    // is done via round-to-nearest-ties-to-even.
-    if (m != 0) {
-        int b = int(8 - clz32_nonzero(m));
-        ehi += b;
-        if(b > 0) {
-            uint32_t r = uint32_t(1) << (b - 1); // next-after-lsb bit
-            m = (m >> b)+((m & (2 * r - 1)) + ((m >> b) & 1) > r);
-        }
-        if(b < 0) m = m << -b;
-        _dbg_assert_msg_(m >= I && m < 2 * I, "Significand wrong: %08X", m);
-    }
-    else ehi = -128;
-    if (ehi <= -127) {ehi = -127; m = 0;} // subnormals -> zero
-    if (ehi >= +128) {ehi = +128; m = 0;} // inf
-    uint32_t bits = (uint32_t(val < 0) << 31) |
-                    (uint32_t(ehi + 127) << 23) |
-                    uint32_t(m & 0x007FFFFF);
-    float ret;
-    memcpy(&ret, &bits, sizeof(ret));
-    return ret;
+	int EXTRA_BITS = 2;
+	uint32_t I = uint32_t(1) << 23, J = uint32_t(1) << (23 - EXTRA_BITS);
+	int32_t s[4], e[4], ehi = -2*127;
+	uint32_t p[4];
+	int32_t val = 0;
+	int has_inf = 0;
+	for (int i = 0; i < 4; i++) {
+		uint32_t x, y;
+		memcpy(&x, a + i, sizeof(x));
+		memcpy(&y, b + i, sizeof(y));
+		int32_t ex = int32_t((x >> 23) & 255), ey = int32_t((y >> 23) & 255);
+		uint32_t mx = x & (I - 1), my = y & (I - 1);
+		if(ex == 255 || ey == 255) {
+			// Handle inf/nan.
+			float ret;
+			uint32_t bits = 0x7F800001;
+			memcpy(&ret, &bits, sizeof(ret));
+			int sgn=((x ^ y) >> 31 ? -1 : +1);
+			if(ex == 255 && mx != 0) return ret;      // x=nan
+			if(ey == 255 && my != 0) return ret;      // y=nan
+			if(ex == 255 && ey == 0) return ret;      // inf*0=nan
+			if(ey == 255 && ex == 0) return ret;      // 0*inf=nan
+			if(has_inf && has_inf != sgn) return ret; // inf-inf=nan
+			has_inf=sgn;
+		}
+		// Compute sign/exponent and intermediate product.
+		// Note that "exponent" here is basically ex+ey,
+		// even though IEEE-754 exponent of the product
+		// may be 1 higher (product of 2 numbers in [1;2)
+		// range is in [1;4) range).
+		// Note that product is computed in extra precision,
+		// and using round-to-odd mode (for details see
+		// https://github.com/hrydgard/ppsspp/issues/21070#issuecomment-4640372343).
+		s[i] = int32_t((x ^ y) >> 31);
+		e[i] = int32_t(ex + ey) - 2 * 127;
+		uint64_t v = uint64_t(I + mx) * uint64_t(I + my);
+		p[i] = uint32_t(v >> (23 - EXTRA_BITS));
+		if(v & (J - 1)) p[i] |= 1; // round-to-odd
+		if(!(ex && ey)) {e[i] = -2*127; p[i] = 0;} // subnormals -> zero
+		if(e[i] > ehi) ehi = e[i];
+	}
+	if (has_inf) {
+		uint32_t bits = (has_inf < 0 ? 0xFF800000 : 0x7F800000);
+		float ret;
+		memcpy(&ret, &bits, sizeof(bits));
+		return ret;
+	}
+	// Align the terms according to max. exponent and compute
+	// the intermediate sum.
+	// Uses round-to-zero (i.e. truncation) to align; the
+	// sum afterwards is integer (and therefore exact).
+	for (int i = 0; i < 4; i++) {
+		int32_t d = ehi - e[i];
+		if(d > 28) d = 28;
+		uint32_t v = (p[i] >> d);
+		val += (s[i] ? -1 : +1) * int32_t(v);
+	}
+	uint32_t m = uint32_t(val < 0 ? -val : +val);
+	// Remove the extra precision (using round-to-zero).
+	m >>= EXTRA_BITS;
+	// Adjust significand to 1.xxxxxxxxxxxxxxxxxxxxxxx
+	// (i.e. 2^23 <= m < 2^24), unless 0. Rounding, if any,
+	// is done via round-to-nearest-ties-to-even.
+	if (m != 0) {
+		int b = int(8 - clz32_nonzero(m));
+		ehi += b;
+		if(b > 0) {
+			uint32_t r = uint32_t(1) << (b - 1); // next-after-lsb bit
+			m = (m >> b)+((m & (2 * r - 1)) + ((m >> b) & 1) > r);
+		}
+		if(b < 0) m = m << -b;
+		_dbg_assert_msg_(m >= I && m < 2 * I, "Significand wrong: %08X", m);
+	}
+	else ehi = -128;
+	if (ehi <= -127) {ehi = -127; m = 0;} // subnormals -> zero
+	if (ehi >= +128) {ehi = +128; m = 0;} // inf
+	uint32_t bits = (uint32_t(val < 0) << 31) |
+		(uint32_t(ehi + 127) << 23) |
+		uint32_t(m & 0x007FFFFF);
+	float ret;
+	memcpy(&ret, &bits, sizeof(ret));
+	return ret;
 }
 
 float vfpu_dot(const float a[4], const float b[4]) {
