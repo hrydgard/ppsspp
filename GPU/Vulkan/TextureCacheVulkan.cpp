@@ -216,11 +216,9 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 }
 
 void TextureCacheVulkan::DeviceLost() {
-	textureShaderCache_->DeviceLost();
+	TextureCacheCommon::DeviceLost();
 	
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
-
-	Clear(true);
 
 	samplerCache_.DeviceLost();
 	if (samplerNearest_)
@@ -236,13 +234,11 @@ void TextureCacheVulkan::DeviceLost() {
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	_assert_(vulkan);
-
 	samplerCache_.DeviceRestore(vulkan);
-	textureShaderCache_->DeviceRestore(draw);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;

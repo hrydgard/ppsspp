@@ -338,7 +338,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
-	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
+	TextureShaderCache &GetTextureShaderCache() { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
@@ -364,8 +364,8 @@ public:
 
 	virtual void StartFrame();
 
-	virtual void DeviceLost() = 0;
-	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
+	virtual void DeviceLost();
+	virtual void DeviceRestore(Draw::DrawContext *draw);
 
 	// Accessors for the debugger.
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const = 0;
@@ -480,7 +480,8 @@ protected:
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
-	TextureShaderCache *textureShaderCache_;
+	TextureShaderCache textureShaderCache_;
+	ClutTextureCache clutTextureCache_;
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;

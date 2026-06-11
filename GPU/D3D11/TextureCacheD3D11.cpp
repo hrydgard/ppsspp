@@ -175,13 +175,13 @@ void TextureCacheD3D11::DestroyDeviceObjects() {
 }
 
 void TextureCacheD3D11::DeviceLost() {
-	Clear(false);
+	TextureCacheCommon::DeviceLost();
 	DestroyDeviceObjects();
 	draw_ = nullptr;
 }
 
 void TextureCacheD3D11::DeviceRestore(Draw::DrawContext *draw) { 
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 	InitDeviceObjects();
 }
 

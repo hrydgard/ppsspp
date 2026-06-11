@@ -413,16 +413,14 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 }
 
 void TextureCacheGLES::DeviceLost() {
-	textureShaderCache_->DeviceLost();
-	Clear(false);
+	TextureCacheCommon::DeviceLost();
 	draw_ = nullptr;
 	render_ = nullptr;
 }
 
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	textureShaderCache_->DeviceRestore(draw);
 }
 
 void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry, bool flat) const {

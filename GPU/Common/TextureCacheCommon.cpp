@@ -92,7 +92,7 @@ static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, con
 // These are Data::Format:: B4G4R4A4_PACK16, B5G6R6_PACK16, B5G5R5A1_PACK16, R8G8B8A8
 
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
-	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
+	: draw_(draw), draw2D_(draw2D), replacer_(draw), textureShaderCache_(draw, draw2D_) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
@@ -111,13 +111,9 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	// These buffers will grow if necessary, but most won't need more than this.
 	tmpTexBuf32_.resize(512 * 512);  // 1MB
 	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
-
-	textureShaderCache_ = new TextureShaderCache(draw, draw2D_);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
-	delete textureShaderCache_;
-
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
 	FreeAlignedMemory(expandClut_);
@@ -125,7 +121,7 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 void TextureCacheCommon::StartFrame() {
 	ForgetLastTexture();
-	textureShaderCache_->Decimate();
+	clutTextureCache_.Decimate();
 	replacementTimeThisFrame_ = 0.0;
 
 	float fps;
@@ -2323,7 +2319,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	if (need_depalettize) {
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
-			clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			clutTexture = clutTextureCache_.GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 			smoothedDepal = CanUseSmoothDepal(gstate, fbFormat, clutTexture);
 		} else {
 			// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
@@ -2376,7 +2372,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
+		textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
 		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 	}
 
@@ -2421,8 +2417,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		} else {
 			draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
 		}
-		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
-		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
+		Draw::SamplerState *nearest = textureShaderCache_.GetSampler(false);
+		Draw::SamplerState *clutSampler = textureShaderCache_.GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &clutSampler);
 
@@ -2490,7 +2486,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	framebufferManager_->BlitUsingRaster(
 		dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 
-	Draw2DPipeline *textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
+	Draw2DPipeline *textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
 	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 
 	int texWidth = gstate.getTextureWidth(0);
@@ -2523,8 +2519,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 
 	draw_->BindNativeTexture(0, GetNativeTextureView(entry, false));
 	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
-	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
-	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
+	Draw::SamplerState *nearest = textureShaderCache_.GetSampler(false);
+	Draw::SamplerState *clutSampler = textureShaderCache_.GetSampler(false);
 	draw_->BindSamplerStates(0, 1, &nearest);
 	draw_->BindSamplerStates(1, 1, &clutSampler);
 
@@ -2557,8 +2553,20 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
+void TextureCacheCommon::DeviceLost() {
+	textureShaderCache_.DeviceLost();
+	clutTextureCache_.DeviceLost();
+	Clear(false);
+}
+
+void TextureCacheCommon::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	textureShaderCache_.DeviceRestore(draw);
+	clutTextureCache_.DeviceRestore(draw);
+}
+
 void TextureCacheCommon::Clear(bool delete_them) {
-	textureShaderCache_->Clear();
+	textureShaderCache_.Clear();
 
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);

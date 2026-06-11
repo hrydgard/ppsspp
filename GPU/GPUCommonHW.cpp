@@ -651,7 +651,7 @@ std::vector<std::string> GPUCommonHW::DebugGetShaderIDs(DebugShaderType type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngineCommon_->DebugGetVertexLoaderIDs();
 	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
+		return textureCache_->GetTextureShaderCache().DebugGetShaderIDs(type);
 	default:
 		return shaderManager_->DebugGetShaderIDs(type);
 	}
@@ -662,7 +662,7 @@ std::string GPUCommonHW::DebugGetShaderString(std::string id, DebugShaderType ty
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngineCommon_->DebugGetVertexLoaderString(id, stringType);
 	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
+		return textureCache_->GetTextureShaderCache().DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManager_->DebugGetShaderString(id, type, stringType);
 	}
