@@ -156,7 +156,34 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 	}
 
 	if (!textureCache->SecondCache().empty()) {
-		ImGui::Text("Secondary Cache (%d): TODO", (int)textureCache->SecondCache().size());
+		ImGui::Text("Secondary Cache (%d):", (int)textureCache->SecondCache().size());
+
+		for (auto &iter : textureCache->SecondCache()) {
+			u64 id = iter.first;
+			const TexCacheEntry *entry = iter.second.get();
+			void *nativeView = textureCache->GetNativeTextureView(iter.second.get(), true);
+			int w = 128;
+			int h = 128;
+
+			if (entry->replacedTexture) {
+				replacementStateCounts[(int)entry->replacedTexture->State()]++;
+			}
+
+			ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
+			float last_button_x2 = ImGui::GetItemRectMax().x;
+			float next_button_x2 = last_button_x2 + style.ItemSpacing.x + w; // Expected position if next button was on same line
+			if (next_button_x2 < window_visible_x2)
+				ImGui::SameLine();
+
+			float x = ImGui::GetCursorPosX();
+			if (ImGui::Selectable(("##Image" + std::to_string(id)).c_str(), cfg.selectedTexAddr == id, 0, ImVec2(w, h))) {
+				cfg.selectedTexAddr = id; // Update the selected index if clicked
+			}
+
+			ImGui::SameLine();
+			ImGui::SetCursorPosX(x + 2.0f);
+			ImGui::Image(texId, ImVec2(128, 128));
+		}
 		// TODO
 	}
 

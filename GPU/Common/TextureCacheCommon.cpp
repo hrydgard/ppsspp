@@ -481,9 +481,19 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	bool hasClut = gstate.isTextureFormatIndexed();
 	bool hasClutGPU = false;
+	bool clutInShader = false;
 	u32 cluthash;
 	if (hasClut) {
-		if (clutRenderAddress_ != 0xFFFFFFFF) {
+		if (PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled() && (texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4)) {
+			if (clutLastFormat_ != gstate.clutformat) {
+				// We update here because the clut format can be specified after the load.
+				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
+				UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
+			}
+			// We computed clutHash_ (with underscore) above. But cluthash we set to 0, so the cache will collapse all the textures with various palettes.
+			cluthash = 0;
+			clutInShader = true;
+		} else if (clutRenderAddress_ != 0xFFFFFFFF) {
 			gstate_c.curTextureXOffset = 0.0f;
 			gstate_c.curTextureYOffset = 0.0f;
 			hasClutGPU = true;
@@ -706,13 +716,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	entry->cluthash = cluthash;
 
-	/*
-	if (entry->maxLevel == 0 && (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) &&
-		!(entry->status & TexStatus::TO_REPLACE) && !(entry->status & TexStatus::TO_SCALE) && !(entry->status & TexStatus::RELIABLE)) {
-		// Experiment with CLUT8 decoding for regular textures.
+	if (clutInShader) {
 		entry->status |= TexStatus::CLUT8_INDEXED;
 	}
-	*/
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;

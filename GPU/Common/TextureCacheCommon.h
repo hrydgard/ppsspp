@@ -358,10 +358,12 @@ public:
 	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 	void NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
 
-	size_t NumLoadedTextures() const {
-		return cache_.size();
+	int NumLoadedTextures() const {
+		return (int)cache_.size();
 	}
-
+	size_t NumSecondaryTextures() const {
+		return (int)secondCache_.size();
+	}
 	bool IsFakeMipmapChange() {
 		return PSP_CoreParameter().compat.flags().FakeMipmapChange && gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
 	}

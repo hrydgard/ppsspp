@@ -1797,7 +1797,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
 		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
 		"FBOs active: %d (evaluations: %d, created %d)\n"
-		"Textures: %d, dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
+		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
@@ -1825,6 +1825,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numFramebufferEvaluations,
 		gpuStats.perFrame.numFBOsCreated,
 		(int)textureCache_->NumLoadedTextures(),
+		(int)textureCache_->NumSecondaryTextures(),
 		gpuStats.perFrame.numTexturesDecoded,
 		gpuStats.perFrame.numTextureInvalidations,
 		gpuStats.perFrame.numTexturesChanged,
