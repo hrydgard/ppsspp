@@ -73,7 +73,6 @@ protected:
 
 private:
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 

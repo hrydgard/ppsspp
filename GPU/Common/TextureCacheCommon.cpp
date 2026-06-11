@@ -19,6 +19,7 @@
 
 #include <algorithm>
 
+#include "ext/xxhash.h"
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Collections/TinySet.h"
@@ -91,7 +92,7 @@ static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, con
 // These are Data::Format:: B4G4R4A4_PACK16, B5G6R6_PACK16, B5G5R5A1_PACK16, R8G8B8A8
 
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
-	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
+	: draw_(draw), draw2D_(draw2D), replacer_(draw), textureShaderCache_(draw, draw2D_) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
@@ -110,13 +111,9 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	// These buffers will grow if necessary, but most won't need more than this.
 	tmpTexBuf32_.resize(512 * 512);  // 1MB
 	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
-
-	textureShaderCache_ = new TextureShaderCache(draw, draw2D_);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
-	delete textureShaderCache_;
-
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
 	FreeAlignedMemory(expandClut_);
@@ -124,7 +121,7 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 void TextureCacheCommon::StartFrame() {
 	ForgetLastTexture();
-	textureShaderCache_->Decimate();
+	clutTextureCache_.Decimate();
 	replacementTimeThisFrame_ = 0.0;
 
 	float fps;
@@ -369,6 +366,46 @@ SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth
 	return key;
 }
 
+// NOTE: this is overridden in TextureCacheGLES, with some extra color conversion.
+void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
+	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
+	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
+	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
+	//
+	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
+	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
+	// unrelated old entries for small palettes.
+	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
+	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
+
+	if (replacer_.Enabled())
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	else
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
+	clutBuf_ = clutBufRaw_;
+
+	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
+	bool alphaLinear = false;
+	u16 alphaLinearColor = 0;
+	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
+		const u16 *clut = (const u16 *)(clutBuf_);
+		alphaLinear = true;
+		alphaLinearColor = clut[15] & 0x0FFF;
+		for (int i = 0; i < 16; ++i) {
+			u16 step = alphaLinearColor | (i << 12);
+			if (clut[i] != step) {
+				alphaLinear = false;
+				break;
+			}
+		}
+	}
+
+	clutProperties_.clutAlphaLinear = alphaLinear;
+	clutProperties_.clutAlphaLinearColor = alphaLinearColor;
+
+	clutLastFormat_ = gstate.clutformat;
+}
+
 // TODO: This should be called from the through mode bbox check.
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall...
@@ -428,6 +465,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 		return nullptr;
 	}
 
@@ -566,6 +604,11 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.SetTextureIsArray(false);
 			gstate_c.SetTextureIsBGRA(entry->status & TexStatus::BGRA);
 			gstate_c.SetTextureIsFramebuffer(false);
+			if (entry->status & TexStatus::CLUT8_INDEXED) {
+				gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+			} else {
+				gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
+			}
 
 			if (rehash) {
 				// Update in case any of these changed.
@@ -626,7 +669,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 		if (hasClutGPU) {
 			WARN_LOG_N_TIMES(clutUseRender, 5, Log::G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-			entry->status |= TexStatus::CLUT_GPU;
+			entry->status |= TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED;
 		}
 
 		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
@@ -648,6 +691,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		}
 
 		nextNeedsChange_ = false;
+	} else {
+		// We had an entry already, modify it.
 	}
 
 	// We have to decode it, let's setup the cache entry first.
@@ -661,18 +706,30 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	entry->cluthash = cluthash;
 
+	/*
+	if (entry->maxLevel == 0 && (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) &&
+		!(entry->status & TexStatus::TO_REPLACE) && !(entry->status & TexStatus::TO_SCALE) && !(entry->status & TexStatus::RELIABLE)) {
+		// Experiment with CLUT8 decoding for regular textures.
+		entry->status |= TexStatus::CLUT8_INDEXED;
+	}
+	*/
+
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
 	gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
+	if (entry->status & TexStatus::CLUT8_INDEXED) {
+		gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+	} else {
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
+	}
 
 	failedTexture_ = false;
 	nextTexture_ = entry;
 	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
-	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
 	return entry;
 }
@@ -1199,6 +1256,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	gstate_c.SetTextureIsVideo(false);
 	gstate_c.SetTextureIs3D(false);
 	gstate_c.SetTextureIsArray(true);
+	gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
 	nextNeedsRehash_ = false;
 	nextNeedsChange_ = false;
@@ -1795,23 +1853,23 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 		{
 			// The w > 1 check is to not need a case that handles a single pixel
 			// in DeIndexTexture4Optimal<u16>.
-			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit && w >= 4) {
-				// We don't bother with fullalpha here (clutAlphaLinear_)
+			if (clutProperties_.clutAlphaLinear && mipmapShareClut && !expandTo32bit && w >= 4) {
+				// We don't bother with fullalpha here (clutAlphaLinear)
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutProperties_.clutAlphaLinearColor);
 					}
 				} else {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutProperties_.clutAlphaLinearColor);
 					}
 				}
 			} else {
 				// Need to have the "un-reversed" (raw) CLUT here since we are using a generic conversion function.
 				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
-					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
+					const u16 *clut = (const u16 *)(clutBufRaw_) + clutSharingOffset;
 					const int clutStart = gstate.getClutIndexStartPos();
 					if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexMask() <= 16) {
 						ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
@@ -1825,7 +1883,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 					}
 				} else {
 					// If we're reversing colors, the CLUT was already reversed, no special handling needed.
-					const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
+					const u16 *clut = (const u16 *)(clutBuf_) + clutSharingOffset;
 					fullAlphaMask = ClutFormatToFullAlpha(clutformat, reverseColors);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -1842,7 +1900,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 		case GE_CMODE_32BIT_ABGR8888:
 		{
-			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
+			const u32 *clut = (const u32 *)(clutBuf_) + clutSharingOffset;
 			fullAlphaMask = 0xFF000000;
 			for (int y = 0; y < h; ++y) {
 				DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -2167,16 +2225,16 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	}
 
 	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	entry->lastFrame = gpuStats.totals.numFlips;
 	if (entry->status & TexStatus::CLUT_GPU) {
+		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
 		// Special process.
-		ApplyTextureDepal(entry);
-		entry->lastFrame = gpuStats.totals.numFlips;
+		ApplyTextureDepalFramebufferCLUT(entry);
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA(false);
 	} else {
-		entry->lastFrame = gpuStats.totals.numFlips;
 		if (doBind) {
 			BindTexture(entry, flatZ);
 		}
@@ -2184,7 +2242,15 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA((entry->status & TexStatus::BGRA) != 0);
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		if (entry->status & TexStatus::CLUT8_INDEXED) {
+			bool smoothedDepal = false;
+			u32 depthUpperBits = 0;
+			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBuf_);
+			BindAsClutTexture(clutTexture.texture, false);
+			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+		} else {
+			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		}
 	}
 }
 
@@ -2285,7 +2351,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	if (need_depalettize) {
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
-			clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			clutTexture = clutTextureCache_.GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
 			smoothedDepal = CanUseSmoothDepal(gstate, fbFormat, clutTexture);
 		} else {
 			// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
@@ -2324,8 +2390,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			}
 
 			gstate_c.Dirty(DIRTY_DEPAL | DIRTY_FRAGMENTSHADER_STATE);
-			gstate_c.SetUseShaderDepal(mode);
-			gstate_c.depalTextureFormat = fbFormat;
+			gstate_c.SetShaderDepal(mode, fbFormat);
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -2338,8 +2403,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 	}
 
 	if (textureShader) {
@@ -2383,8 +2448,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		} else {
 			draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
 		}
-		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
-		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
+		Draw::SamplerState *nearest = textureShaderCache_.GetSampler(false);
+		Draw::SamplerState *clutSampler = textureShaderCache_.GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &clutSampler);
 
@@ -2414,7 +2479,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 		gstate_c.SetTextureSolidAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
@@ -2426,7 +2491,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
-void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
+void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	switch (entry->format) {
@@ -2452,8 +2517,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	framebufferManager_->BlitUsingRaster(
 		dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 
-	Draw2DPipeline *textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+	Draw2DPipeline *textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
+	gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
 	int texWidth = gstate.getTextureWidth(0);
 	int texHeight = gstate.getTextureHeight(0);
@@ -2485,8 +2550,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 
 	draw_->BindNativeTexture(0, GetNativeTextureView(entry, false));
 	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
-	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
-	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
+	Draw::SamplerState *nearest = textureShaderCache_.GetSampler(false);
+	Draw::SamplerState *clutSampler = textureShaderCache_.GetSampler(false);
 	draw_->BindSamplerStates(0, 1, &nearest);
 	draw_->BindSamplerStates(1, 1, &clutSampler);
 
@@ -2519,8 +2584,20 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
+void TextureCacheCommon::DeviceLost() {
+	textureShaderCache_.DeviceLost();
+	clutTextureCache_.DeviceLost();
+	Clear(false);
+}
+
+void TextureCacheCommon::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	textureShaderCache_.DeviceRestore(draw);
+	clutTextureCache_.DeviceRestore(draw);
+}
+
 void TextureCacheCommon::Clear(bool delete_them) {
-	textureShaderCache_->Clear();
+	textureShaderCache_.Clear();
 
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
@@ -2821,7 +2898,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	bool canReplace = !isPPGETexture;
-	if (entry->status & TexStatus::CLUT_GPU) {
+	if (entry->status & TexStatus::CLUT8_INDEXED) {
 		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
 		plan.decodeToClut8 = true;
 		// We only support 1 mip level when doing CLUT on GPU for now.
@@ -2941,7 +3018,8 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 		if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
 		}
-		if (entry.status & TexStatus::CLUT_GPU) {
+		if (entry.status & TexStatus::CLUT8_INDEXED) {
+			_dbg_assert_(entry.format == GE_TFMT_CLUT4 || entry.format == GE_TFMT_CLUT8);
 			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
 
@@ -3018,6 +3096,9 @@ std::string TexStatusToString(TexStatus status) {
 	}
 	if (status & TexStatus::CLUT_GPU) {
 		result += "CLUT_GPU ";
+	}
+	if (status & TexStatus::CLUT8_INDEXED) {
+		result += "CLUT8_INDEXED ";
 	}
 	if (status & TexStatus::FORCE_REBUILD) {
 		result += "FORCE_REBUILD ";

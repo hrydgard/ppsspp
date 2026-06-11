@@ -685,7 +685,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x2Fu) != 0x0u;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x1Fu) != 0x0u;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -694,6 +694,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "    uv_round = uv;\n");
 				WRITE(p, "  }\n");
 
+				// TODO: Use fetch here when possible.
 				p.C("  highp vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  highp vec4 t1 = ").SampleTexture2DOffset("tex", "uv_round", 1, 0).C(";\n");
 				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");

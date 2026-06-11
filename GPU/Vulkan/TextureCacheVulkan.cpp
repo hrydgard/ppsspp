@@ -19,8 +19,6 @@
 #include <cstring>
 #include <memory>
 
-#include "ext/xxhash.h"
-
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/LogReporting.h"
@@ -218,11 +216,9 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 }
 
 void TextureCacheVulkan::DeviceLost() {
-	textureShaderCache_->DeviceLost();
+	TextureCacheCommon::DeviceLost();
 	
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
-
-	Clear(true);
 
 	samplerCache_.DeviceLost();
 	if (samplerNearest_)
@@ -238,13 +234,11 @@ void TextureCacheVulkan::DeviceLost() {
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	_assert_(vulkan);
-
 	samplerCache_.DeviceRestore(vulkan);
-	textureShaderCache_->DeviceRestore(draw);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -582,42 +576,6 @@ void TextureCacheVulkan::StartFrame() {
 	computeShaderManager_.BeginFrame();
 }
 
-void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
-	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
-	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
-	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
-	//
-	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
-	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
-	// unrelated old entries for small palettes.
-	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
-	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
-
-	if (replacer_.Enabled())
-		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-	else
-		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
-	clutBuf_ = clutBufRaw_;
-
-	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-	clutAlphaLinear_ = false;
-	clutAlphaLinearColor_ = 0;
-	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
-		const u16_le *clut = GetCurrentClut<u16_le>();
-		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
-		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | (i << 12);
-			if (clut[i] != step) {
-				clutAlphaLinear_ = false;
-				break;
-			}
-		}
-	}
-
-	clutLastFormat_ = gstate.clutformat;
-}
-
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry || !entry->vkTex) {
 		Unbind();
@@ -629,7 +587,6 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	imageView_ = entry->vkTex->GetImageView();
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE, false);
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
@@ -1001,7 +958,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
 	}
-	if (entry.status & TexStatus::CLUT_GPU) {
+	if (entry.status & TexStatus::CLUT8_INDEXED) {
 		texDecFlags |= TexDecodeFlags::TO_CLUT8;
 	}
 

@@ -131,6 +131,10 @@ struct TextureDefinition {
 // At one point we might merge the concepts of framebuffers and textures, but that
 // moment is far away.
 
+// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
+// is commonly the only part accessed.  If access is made above 272, we hash the entire
+// texture, and set this flag to allow scaling the texture just once for the new hash.
+
 enum class TexStatus : u16 {
 	VIDEO = (1 << 0),
 	BGRA = (1 << 1),
@@ -143,13 +147,11 @@ enum class TexStatus : u16 {
 	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
 	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
 	TO_REPLACE = (1 << 9),    // Pending texture replacement.
-	// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
-	// is commonly the only part accessed.  If access is made above 272, we hash the entire
-	// texture, and set this flag to allow scaling the texture just once for the new hash.
+	IS_3D = (1 << 10),
 	NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
 	FRAMEBUFFER_OVERLAP = (1 << 12),
 	FORCE_REBUILD = (1 << 13),
-	IS_3D = (1 << 14),
+	CLUT8_INDEXED = (1 << 14),  // Decoded as plain CLUT8 indices instead of all the way to colors.
 	CLUT_GPU = (1 << 15),
 };
 ENUM_CLASS_BITOPS(TexStatus);
@@ -245,6 +247,12 @@ struct AttachCandidate {
 	std::string ToString() const;
 };
 
+struct CLUTProperties {
+	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
+	bool clutAlphaLinear = false;
+	u16 clutAlphaLinearColor;
+};
+
 class FramebufferManagerCommon;
 
 struct BuildTexturePlan {
@@ -338,7 +346,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
-	TextureShaderCache *GetTextureShaderCache() { return textureShaderCache_; }
+	const TextureShaderCache &GetTextureShaderCache() const { return textureShaderCache_; }
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
@@ -364,8 +372,8 @@ public:
 
 	virtual void StartFrame();
 
-	virtual void DeviceLost() = 0;
-	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
+	virtual void DeviceLost();
+	virtual void DeviceRestore(Draw::DrawContext *draw);
 
 	// Accessors for the debugger.
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const = 0;
@@ -396,11 +404,11 @@ protected:
 	void Decimate(TexCacheEntry *exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
-	void ApplyTextureDepal(TexCacheEntry *entry);
+	void ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
-	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
+	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);  // only overridden in GLES
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
 	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
@@ -413,16 +421,6 @@ protected:
 
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
-
-	template <typename T>
-	inline const T *GetCurrentClut() {
-		return (const T *)clutBuf_;
-	}
-
-	template <typename T>
-	inline const T *GetCurrentRawClut() {
-		return (const T *)clutBufRaw_;
-	}
 
 	// These need to be member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
@@ -480,7 +478,8 @@ protected:
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
 	FramebufferManagerCommon *framebufferManager_;
-	TextureShaderCache *textureShaderCache_;
+	TextureShaderCache textureShaderCache_;
+	ClutTextureCache clutTextureCache_;
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
@@ -514,16 +513,14 @@ protected:
 	u32 *clutBufConverted_;
 	// This is the active one.
 	u32 *clutBuf_;
+
 	u32 clutLastFormat_ = 0xFFFFFFFF;
 	u32 clutTotalBytes_ = 0;
 	u32 clutMaxBytes_ = 0;
 	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
 	GEBufferFormat clutRenderFormat_;
-
-	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_ = false;
-	u16 clutAlphaLinearColor_;
+	CLUTProperties clutProperties_;
 
 	// Facilities for GPU depal of static textures.
 	Draw::Framebuffer *dynamicClutTemp_ = nullptr;

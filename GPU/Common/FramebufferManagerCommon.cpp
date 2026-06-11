@@ -944,7 +944,7 @@ Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat 
 
 	Draw2DPipeline *pipeline = reinterpretFromTo_[(int)from][(int)to];
 	if (!pipeline) {
-		pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+		pipeline = draw2D_.Create2DPipeline([from, to](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
 			return GenerateReinterpretFragmentShader(shaderWriter, from, to);
 		});
 		reinterpretFromTo_[(int)from][(int)to] = pipeline;
