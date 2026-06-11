@@ -669,7 +669,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 		if (hasClutGPU) {
 			WARN_LOG_N_TIMES(clutUseRender, 5, Log::G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-			entry->status |= TexStatus::CLUT_GPU;
+			entry->status |= TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED;
 		}
 
 		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
@@ -691,6 +691,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		}
 
 		nextNeedsChange_ = false;
+	} else {
+		// We had an entry already, modify it.
 	}
 
 	// We have to decode it, let's setup the cache entry first.
@@ -703,6 +705,14 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->bufw = bufw;
 
 	entry->cluthash = cluthash;
+
+	/*
+	if (entry->maxLevel == 0 && (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) &&
+		!(entry->status & TexStatus::TO_REPLACE) && !(entry->status & TexStatus::TO_SCALE) && !(entry->status & TexStatus::RELIABLE)) {
+		// Experiment with CLUT8 decoding for regular textures.
+		entry->status |= TexStatus::CLUT8_INDEXED;
+	}
+	*/
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
@@ -720,7 +730,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	nextTexture_ = entry;
 	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
-	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_ = true;
 	return entry;
 }
@@ -2216,16 +2225,16 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	}
 
 	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	entry->lastFrame = gpuStats.totals.numFlips;
 	if (entry->status & TexStatus::CLUT_GPU) {
+		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
 		// Special process.
-		ApplyTextureDepal(entry);
-		entry->lastFrame = gpuStats.totals.numFlips;
+		ApplyTextureDepalFramebufferCLUT(entry);
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA(false);
 	} else {
-		entry->lastFrame = gpuStats.totals.numFlips;
 		if (doBind) {
 			BindTexture(entry, flatZ);
 		}
@@ -2233,7 +2242,15 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsBGRA((entry->status & TexStatus::BGRA) != 0);
-		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		if (entry->status & TexStatus::CLUT8_INDEXED) {
+			bool smoothedDepal = false;
+			u32 depthUpperBits = 0;
+			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBuf_);
+			BindAsClutTexture(clutTexture.texture, false);
+			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+		} else {
+			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		}
 	}
 }
 
@@ -2474,7 +2491,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
-void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
+void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	switch (entry->format) {
@@ -2881,7 +2898,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	bool canReplace = !isPPGETexture;
-	if (entry->status & TexStatus::CLUT_GPU) {
+	if (entry->status & TexStatus::CLUT8_INDEXED) {
 		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
 		plan.decodeToClut8 = true;
 		// We only support 1 mip level when doing CLUT on GPU for now.
@@ -3001,7 +3018,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 		if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
 		}
-		if (entry.status & (TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED)) {
+		if (entry.status & TexStatus::CLUT8_INDEXED) {
 			_dbg_assert_(entry.format == GE_TFMT_CLUT4 || entry.format == GE_TFMT_CLUT8);
 			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
@@ -3079,6 +3096,9 @@ std::string TexStatusToString(TexStatus status) {
 	}
 	if (status & TexStatus::CLUT_GPU) {
 		result += "CLUT_GPU ";
+	}
+	if (status & TexStatus::CLUT8_INDEXED) {
+		result += "CLUT8_INDEXED ";
 	}
 	if (status & TexStatus::FORCE_REBUILD) {
 		result += "FORCE_REBUILD ";

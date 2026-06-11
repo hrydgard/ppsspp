@@ -287,6 +287,7 @@ const char *GeBufferFormatToString(GEBufferFormat fmt) {
 	case GE_FORMAT_565: return "565";
 	case GE_FORMAT_8888: return "8888";
 	case GE_FORMAT_DEPTH16: return "DEPTH16";
+	case GE_FORMAT_CLUT8: return "CLUT8";
 	default: return "N/A";
 	}
 }

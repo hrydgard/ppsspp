@@ -958,7 +958,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
 	}
-	if (entry.status & TexStatus::CLUT_GPU) {
+	if (entry.status & TexStatus::CLUT8_INDEXED) {
 		texDecFlags |= TexDecodeFlags::TO_CLUT8;
 	}
 

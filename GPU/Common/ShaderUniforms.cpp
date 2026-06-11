@@ -193,9 +193,24 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		int indexOffset = gstate.getClutIndexStartPos() >> 4;
 		int format = gstate_c.depalTextureFormat;
 		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
-		// Poke in a bilinear filter flag in the top bit.
-		if (gstate.isMagnifyFilteringEnabled())
+		// NOTE: This must follow similar logic to TextureCacheCommon::GetSamplingParams -
+		// maybe we can share it somehow.
+		// TOOD: Handle replaced textures.
+		bool bilinear = gstate.isMagnifyFilteringEnabled() && !gstate_c.pixelMapped;
+		switch (g_Config.iTexFiltering) {
+		case TEX_FILTER_FORCE_NEAREST:
+			bilinear = false;
+			break;
+		case TEX_FILTER_FORCE_LINEAR:
+			bilinear = true;
+			break;
+		default:
+			break;
+		}
+		if (bilinear) {
+			// Poke in a bilinear filter flag in the top bit.
 			val |= 0x80000000;
+		}
 		ub->depal_mask_shift_off_fmt = val;
 	}
 }
