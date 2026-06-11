@@ -247,6 +247,12 @@ struct AttachCandidate {
 	std::string ToString() const;
 };
 
+struct CLUTProperties {
+	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
+	bool clutAlphaLinear = false;
+	u16 clutAlphaLinearColor;
+};
+
 class FramebufferManagerCommon;
 
 struct BuildTexturePlan {
@@ -416,16 +422,6 @@ protected:
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
-	template <typename T>
-	inline const T *GetCurrentClut() {
-		return (const T *)clutBuf_;
-	}
-
-	template <typename T>
-	inline const T *GetCurrentRawClut() {
-		return (const T *)clutBufRaw_;
-	}
-
 	// These need to be member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
@@ -517,16 +513,14 @@ protected:
 	u32 *clutBufConverted_;
 	// This is the active one.
 	u32 *clutBuf_;
+
 	u32 clutLastFormat_ = 0xFFFFFFFF;
 	u32 clutTotalBytes_ = 0;
 	u32 clutMaxBytes_ = 0;
 	u32 clutRenderAddress_ = 0xFFFFFFFF;
 	u32 clutRenderOffset_;
 	GEBufferFormat clutRenderFormat_;
-
-	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_ = false;
-	u16 clutAlphaLinearColor_;
+	CLUTProperties clutProperties_;
 
 	// Facilities for GPU depal of static textures.
 	Draw::Framebuffer *dynamicClutTemp_ = nullptr;

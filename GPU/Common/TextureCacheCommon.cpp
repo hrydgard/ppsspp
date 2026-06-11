@@ -385,20 +385,23 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-	clutAlphaLinear_ = false;
-	clutAlphaLinearColor_ = 0;
+	bool alphaLinear = false;
+	u16 alphaLinearColor = 0;
 	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
-		const u16_le *clut = GetCurrentClut<u16_le>();
-		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
+		const u16 *clut = (const u16 *)(clutBuf_);
+		alphaLinear = true;
+		alphaLinearColor = clut[15] & 0x0FFF;
 		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | (i << 12);
+			u16 step = alphaLinearColor | (i << 12);
 			if (clut[i] != step) {
-				clutAlphaLinear_ = false;
+				alphaLinear = false;
 				break;
 			}
 		}
 	}
+
+	clutProperties_.clutAlphaLinear = alphaLinear;
+	clutProperties_.clutAlphaLinearColor = alphaLinearColor;
 
 	clutLastFormat_ = gstate.clutformat;
 }
@@ -1841,23 +1844,23 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 		{
 			// The w > 1 check is to not need a case that handles a single pixel
 			// in DeIndexTexture4Optimal<u16>.
-			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit && w >= 4) {
-				// We don't bother with fullalpha here (clutAlphaLinear_)
+			if (clutProperties_.clutAlphaLinear && mipmapShareClut && !expandTo32bit && w >= 4) {
+				// We don't bother with fullalpha here (clutAlphaLinear)
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutProperties_.clutAlphaLinearColor);
 					}
 				} else {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutProperties_.clutAlphaLinearColor);
 					}
 				}
 			} else {
 				// Need to have the "un-reversed" (raw) CLUT here since we are using a generic conversion function.
 				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
-					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
+					const u16 *clut = (const u16 *)(clutBufRaw_) + clutSharingOffset;
 					const int clutStart = gstate.getClutIndexStartPos();
 					if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexMask() <= 16) {
 						ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
@@ -1871,7 +1874,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 					}
 				} else {
 					// If we're reversing colors, the CLUT was already reversed, no special handling needed.
-					const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
+					const u16 *clut = (const u16 *)(clutBuf_) + clutSharingOffset;
 					fullAlphaMask = ClutFormatToFullAlpha(clutformat, reverseColors);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -1888,7 +1891,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 		case GE_CMODE_32BIT_ABGR8888:
 		{
-			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
+			const u32 *clut = (const u32 *)(clutBuf_) + clutSharingOffset;
 			fullAlphaMask = 0xFF000000;
 			for (int y = 0; y < h; ++y) {
 				DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
