@@ -2188,8 +2188,9 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	}
 }
 
-// Can we depalettize at all? This refers to both in-fragment-shader depal and "traditional" depal through a separate pass.
-static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
+// Can we depalettize the bufferFormat as texFormat at all?
+// This refers to both in-fragment-shader depal and "traditional" depal through a separate pass.
+static bool CanDepalettizeBufferAs(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 	if (IsClutFormat(texFormat)) {
 		switch (bufferFormat) {
 		case GE_FORMAT_4444:
@@ -2255,17 +2256,18 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	Draw2DPipeline *textureShader = nullptr;
-	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
+	const uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool depth = channel == RASTER_DEPTH;
-	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format);
+	const bool depth = channel == RASTER_DEPTH;
+	const GEBufferFormat fbFormat = depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format;
+	const bool need_depalettize = CanDepalettizeBufferAs(texFormat, fbFormat);
+	const bool selfRender = framebufferManager_->GetCurrentRenderVFB() == framebuffer;
 
 	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
-		!depth && clutRenderAddress_ == 0xFFFFFFFF &&
+	bool useShaderDepal = !selfRender && !depth && clutRenderAddress_ == 0xFFFFFFFF &&
 		!gstate_c.curTextureIs3D &&
 		draw_->GetShaderLanguageDesc().bitwiseOps &&
-		!(texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551);  // socom
+		!(texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_5551);  // socom
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
 	case ShaderLanguage::GLSL_1xx:
@@ -2284,7 +2286,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	if (need_depalettize) {
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
 			clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-			smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture);
+			smoothedDepal = CanUseSmoothDepal(gstate, fbFormat, clutTexture);
 		} else {
 			// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
 			// Instead of texturing directly from that, we copy to a temporary CLUT texture.
@@ -2298,6 +2300,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		}
 
 		if (useShaderDepal) {
+			_dbg_assert_(!depth);
+
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
 			BindAsClutTexture(clutTexture.texture, smoothedDepal);
 
@@ -2312,16 +2316,16 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			ApplySamplingParams(samplerKey);
 
 			ShaderDepalMode mode = ShaderDepalMode::NORMAL;
-			if (texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_8888) {
+			if (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888) {
 				mode = ShaderDepalMode::CLUT8_8888;
 				smoothedDepal = false;  // just in case
 			} else if (smoothedDepal) {
 				mode = ShaderDepalMode::SMOOTHED;
 			}
 
-			gstate_c.Dirty(DIRTY_DEPAL);
+			gstate_c.Dirty(DIRTY_DEPAL | DIRTY_FRAGMENTSHADER_STATE);
 			gstate_c.SetUseShaderDepal(mode);
-			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
+			gstate_c.depalTextureFormat = fbFormat;
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -2334,7 +2338,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal, depthUpperBits);
+		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
 		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 	}
 

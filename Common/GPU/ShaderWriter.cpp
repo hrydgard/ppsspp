@@ -9,7 +9,6 @@
 const char * const vulkan_glsl_preamble_fs =
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
-"#extension GL_ARB_conservative_depth : enable\n"
 "#extension GL_ARB_shader_image_load_store : enable\n"
 "#define splat3(x) vec3(x)\n"
 "#define DISCARD discard\n"
