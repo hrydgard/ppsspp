@@ -19,8 +19,6 @@
 #include <cstring>
 #include <memory>
 
-#include "ext/xxhash.h"
-
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/LogReporting.h"
@@ -580,42 +578,6 @@ void TextureCacheVulkan::StartFrame() {
 	// TODO: For low memory detection, maybe use some indication from VMA.
 	// Maybe see https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/staying_within_budget.html#staying_within_budget_querying_for_budget .
 	computeShaderManager_.BeginFrame();
-}
-
-void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
-	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
-	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
-	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
-	//
-	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
-	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
-	// unrelated old entries for small palettes.
-	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
-	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
-
-	if (replacer_.Enabled())
-		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-	else
-		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
-	clutBuf_ = clutBufRaw_;
-
-	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-	clutAlphaLinear_ = false;
-	clutAlphaLinearColor_ = 0;
-	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
-		const u16_le *clut = GetCurrentClut<u16_le>();
-		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
-		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | (i << 12);
-			if (clut[i] != step) {
-				clutAlphaLinear_ = false;
-				break;
-			}
-		}
-	}
-
-	clutLastFormat_ = gstate.clutformat;
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {

@@ -147,6 +147,7 @@ void TextureCacheGLES::StartFrame() {
 	}
 }
 
+// TODO: This is almost the same as the Common one, just with some extra color conversion. Should merge.
 void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.

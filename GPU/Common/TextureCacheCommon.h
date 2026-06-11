@@ -400,7 +400,7 @@ protected:
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
-	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
+	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);  // only overridden in GLES
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
 	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
