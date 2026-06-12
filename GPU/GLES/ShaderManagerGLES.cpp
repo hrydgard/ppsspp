@@ -447,46 +447,13 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		}
 	}
 	if (dirty & DIRTY_FOGCOEF) {
-		float fogcoef[2] = {
-			getFloat24(gstate.fog1),
-			getFloat24(gstate.fog2),
-		};
-		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
-		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-		if (my_isnanorinf(fogcoef[0])) {
-			// Not really sure what a sensible value might be, but let's try 64k.
-			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
-		}
-		if (my_isnanorinf(fogcoef[1])) {
-			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
-		}
+		float fogcoef[2];
+		UpdateFogCoef(gstate, fogcoef);
 		render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 	}
 	if (dirty & DIRTY_UVSCALEOFFSET) {
-		float widthFactor = 1.0f;
-		float heightFactor = 1.0f;
-		if (gstate_c.textureIsFramebuffer) {
-			const float invW = 1.0f / (float)gstate_c.curTextureWidth;
-			const float invH = 1.0f / (float)gstate_c.curTextureHeight;
-			const int w = gstate.getTextureWidth(0);
-			const int h = gstate.getTextureHeight(0);
-			widthFactor = (float)w * invW;
-			heightFactor = (float)h * invH;
-		}
 		float uvscaleoff[4];
-		if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
-			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
-			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
-			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
-			uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
-			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-		} else {
-			uvscaleoff[0] = widthFactor;
-			uvscaleoff[1] = heightFactor;
-			uvscaleoff[2] = 0.0f;
-			uvscaleoff[3] = 0.0f;
-		}
+		UpdateUVScaleOff(gstate, uvscaleoff);
 		render_->SetUniformF(&u_uvscaleoffset, 4, uvscaleoff);
 	}
 
