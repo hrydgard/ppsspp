@@ -89,7 +89,6 @@ struct CompatFlags {
 	bool ForceLowerResolutionForEffectsOff;
 	bool AllowDownloadCLUT;
 	bool NearestFilteringOnFramebufferCreate;
-	bool SecondaryTextureCache;
 	bool EnglishOrJapaneseOnly;
 	bool OldAdrenoPixelDepthRoundingGL;
 	bool ForceCircleButtonConfirm;

@@ -877,7 +877,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 
 	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
 	// If enabled, we also need to clear the secondary cache.
-	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate >= TEXCACHE_SECOND_MIN_PRESSURE)) {
+	if (forcePressure || secondCacheSizeEstimate >= TEXCACHE_SECOND_MIN_PRESSURE) {
 		const u32 had = secondCacheSizeEstimate;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
@@ -2651,8 +2651,8 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	// Don't give up just yet.
-	// Let's try the secondary cache if it's been invalidated before.
-	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache) {
+	// Let's try the secondary cache if it's been invalidated before (and we're not dealing with detected video).
+	if (!isVideo) {
 		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 		// In that case, skip.
 		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
