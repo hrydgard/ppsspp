@@ -282,8 +282,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			break;
 		case TEX_FILTER_FORCE_LINEAR:
 			// Override to linear filtering if there's no alpha or color testing going on.
-			if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
-				(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
+			if (CanForceBilinear(gstate)) {
 				forceFiltering = TEX_FILTER_FORCE_LINEAR;
 			}
 			break;

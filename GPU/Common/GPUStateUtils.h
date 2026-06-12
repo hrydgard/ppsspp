@@ -59,6 +59,10 @@ bool NeedsTestDiscard();
 bool IsDepthTestEffectivelyDisabled();
 bool IsStencilTestOutputDisabled();
 
+inline bool CanForceBilinear(const GPUgstate &gstate) {
+	return ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) && (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()));
+}
+
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
