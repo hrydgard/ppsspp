@@ -731,13 +731,16 @@ static float vfpu_dot_cpp(const float a[4], const float b[4]) {
 	// (i.e. 2^23 <= m < 2^24), unless 0. Rounding, if any,
 	// is done via round-to-nearest-ties-to-even.
 	if (m != 0) {
-		int b = int(8 - clz32_nonzero(m));
-		ehi += b;
-		if(b > 0) {
-			uint32_t r = uint32_t(1) << (b - 1); // next-after-lsb bit
-			m = (m >> b)+((m & (2 * r - 1)) + ((m >> b) & 1) > r);
+		int shift = 8 - int(clz32_nonzero(m));
+		ehi += shift;
+		if(shift > 0) {
+			uint32_t r = uint32_t(1) << (shift - 1); // next-after-lsb bit
+			m = (m >> shift) + ((m & (2 * r - 1)) + ((m >> shift) & 1) > r);
+			// After rounding, the value may have been
+			// bumped up into the next exponent range.
+			if (m >= 2 * I) {m >>= 1; ehi += 1;}
 		}
-		if(b < 0) m = m << -b;
+		if(shift < 0) m = m << -shift;
 		_dbg_assert_msg_(m >= I && m < 2 * I, "Significand wrong: %08X", m);
 	}
 	else ehi = -128;
