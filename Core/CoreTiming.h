@@ -126,7 +126,7 @@ namespace CoreTiming {
 
 	void DoState(PointerWrap &p);
 
-	void SetClockFrequencyHz(int cpuHz);
+	bool SetClockFrequencyHz(int cpuHz);  // Return false if the frequency was already set.
 	int GetClockFrequencyHz();
 
 	// TODO: Add accessors?

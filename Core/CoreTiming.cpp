@@ -61,10 +61,15 @@ static s64 idledCycles;
 static s64 lastGlobalTimeTicks;
 static s64 lastGlobalTimeUs;
 
-void SetClockFrequencyHz(int cpuHz) {
+bool SetClockFrequencyHz(int cpuHz) {
 	if (cpuHz <= 0) {
 		// Paranoid check, protecting against division by zero and similar nonsense.
-		return;
+		return true;  // encourage logging
+	}
+
+	if (cpuHz == CPU_HZ) {
+		// Already at the correct frequency. Bail, false means we'll log at a lower level.
+		return false;
 	}
 
 	// When the mhz changes, we keep track of what "time" it was before hand.
@@ -76,6 +81,7 @@ void SetClockFrequencyHz(int cpuHz) {
 
 	// TODO: Rescale times of scheduled events?
 	__AudioCPUMHzChange();
+	return true;
 }
 
 int GetClockFrequencyHz() {
