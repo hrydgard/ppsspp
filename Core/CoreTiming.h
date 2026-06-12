@@ -73,7 +73,6 @@ inline s64 cyclesToUs(s64 cycles) {
 }
 
 namespace CoreTiming {
-	typedef void (*MHzChangeCallback)();
 	typedef void (*TimedCallback)(u64 userdata, int cyclesLate);
 
 	struct EventType {
@@ -122,9 +121,6 @@ namespace CoreTiming {
 	void ClearPendingEvents();
 
 	void LogPendingEvents();
-
-	// Warning: not included in save states.
-	void RegisterMHzChangeCallback(MHzChangeCallback callback);
 
 	std::string GetScheduledEventsSummary();
 
