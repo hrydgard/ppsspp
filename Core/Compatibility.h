@@ -123,6 +123,7 @@ struct CompatFlags {
 	bool FastEmulatedGPU;
 	bool CorrectCullAfterClip;
 	float SpriteBorderFix;
+	bool TextureCLUTInShader;
 };
 
 struct VRCompat {

@@ -88,7 +88,7 @@ static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
 }
 
-static void __AudioCPUMHzChange() {
+void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
 
 	// Soon to be removed.
@@ -120,7 +120,6 @@ void __AudioInit() {
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
 	System_AudioClear();
-	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
 void __AudioDoState(PointerWrap &p) {

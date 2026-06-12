@@ -282,8 +282,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			break;
 		case TEX_FILTER_FORCE_LINEAR:
 			// Override to linear filtering if there's no alpha or color testing going on.
-			if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
-				(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
+			if (CanForceBilinear(gstate)) {
 				forceFiltering = TEX_FILTER_FORCE_LINEAR;
 			}
 			break;
@@ -481,9 +480,19 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	bool hasClut = gstate.isTextureFormatIndexed();
 	bool hasClutGPU = false;
+	bool clutInShader = false;
 	u32 cluthash;
 	if (hasClut) {
-		if (clutRenderAddress_ != 0xFFFFFFFF) {
+		if (PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled() && (texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4)) {
+			if (clutLastFormat_ != gstate.clutformat) {
+				// We update here because the clut format can be specified after the load.
+				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
+				UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
+			}
+			// We computed clutHash_ (with underscore) above. But cluthash we set to 0, so the cache will collapse all the textures with various palettes.
+			cluthash = 0;
+			clutInShader = true;
+		} else if (clutRenderAddress_ != 0xFFFFFFFF) {
 			gstate_c.curTextureXOffset = 0.0f;
 			gstate_c.curTextureYOffset = 0.0f;
 			hasClutGPU = true;
@@ -706,13 +715,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	entry->cluthash = cluthash;
 
-	/*
-	if (entry->maxLevel == 0 && (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) &&
-		!(entry->status & TexStatus::TO_REPLACE) && !(entry->status & TexStatus::TO_SCALE) && !(entry->status & TexStatus::RELIABLE)) {
-		// Experiment with CLUT8 decoding for regular textures.
+	if (clutInShader) {
 		entry->status |= TexStatus::CLUT8_INDEXED;
 	}
-	*/
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
@@ -867,7 +872,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate, cacheSizeEstimate);
+		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", (int)(had - cacheSizeEstimate), (int)cacheSizeEstimate);
 	}
 
 	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
@@ -890,7 +895,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate, secondCacheSizeEstimate);
+		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", (int)(had - secondCacheSizeEstimate), (int)secondCacheSizeEstimate);
 	}
 
 	// Decimate known videos.

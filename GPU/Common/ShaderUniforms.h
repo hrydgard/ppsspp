@@ -119,3 +119,4 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 
 uint32_t PackLightControlBits();
+uint32_t PackDepalBits();

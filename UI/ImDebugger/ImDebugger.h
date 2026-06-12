@@ -112,7 +112,8 @@ struct ImConfig {
 	int selectedMemoryBlock = 0;
 	u32 selectedMpegCtx = 0;
 
-	uint64_t selectedTexAddr = 0;
+	uint64_t selectedTexId = 0;
+	bool selectedTexSecondary = false;
 
 	bool realtimePixelPreview = false;
 	int breakCount = 0;

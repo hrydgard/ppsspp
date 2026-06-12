@@ -716,4 +716,3 @@ class GPUInterface;
 class GPUCommon;
 
 extern GPUStateCache gstate_c;
-
