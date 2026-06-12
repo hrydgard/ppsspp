@@ -31,6 +31,7 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/VertexReader.h"
@@ -62,7 +63,8 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 // Note: 0 is BR and 2 is TL.
 
 // The PSP has a funky mechanism where the UV direction of screen-space rectangles is decided by the relative positioning
-// of the two corners defining the rectangle.
+// of the two corners defining the rectangle. This all boils down to a simple swap of the UVs of the two middle vertices,
+// after a check.
 static void RotateUV(TransformedVertex v[4]) {
 	const float x1 = v[2].x;
 	const float x2 = v[0].x;
@@ -212,17 +214,10 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 		}
 	} else {
 		Lighter lighter(vertType);
-		float fog_end = getFloat24(gstate.fog1);
-		float fog_slope = getFloat24(gstate.fog2);
-		// Same fixup as in ShaderManagerGLES.cpp
-		// Not really sure what a sensible value might be, but let's try 64k.
-		constexpr float largeFogValue = 65535.0f;
-		if (my_isnanorinf(fog_end)) {
-			fog_end = std::signbit(fog_end) ? -largeFogValue : largeFogValue;
-		}
-		if (my_isnanorinf(fog_slope)) {
-			fog_slope = std::signbit(fog_slope) ? -largeFogValue : largeFogValue;
-		}
+		float fogVal[2];
+		UpdateFogCoef(gstate, fogVal);
+		const float fog_end = fogVal[0];
+		const float fog_slope = fogVal[1];
 
 		const int texW = gstate.getTextureWidth(0);
 		const int texH = gstate.getTextureHeight(0);
