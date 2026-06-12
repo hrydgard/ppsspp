@@ -873,7 +873,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate, cacheSizeEstimate);
+		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", (int)(had - cacheSizeEstimate), (int)cacheSizeEstimate);
 	}
 
 	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
@@ -896,7 +896,7 @@ void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressu
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate, secondCacheSizeEstimate);
+		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", (int)(had - secondCacheSizeEstimate), (int)secondCacheSizeEstimate);
 	}
 
 	// Decimate known videos.

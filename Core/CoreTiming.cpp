@@ -56,7 +56,7 @@ static Event *eventPool = 0;
 // as we can already reach that structure through a register.
 int slicelength;
 
-static alignas(16) s64 globalTimer;
+alignas(16) static s64 globalTimer;
 static s64 idledCycles;
 static s64 lastGlobalTimeTicks;
 static s64 lastGlobalTimeUs;

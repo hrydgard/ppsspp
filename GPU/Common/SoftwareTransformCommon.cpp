@@ -1669,6 +1669,8 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 	case GE_PRIM_TRIANGLE_STRIP:
 		prim = GE_PRIM_TRIANGLES;
 		break;
+	default:
+		break;
 	}
 
 	int generatedIndices = indexGen.VertexCount();

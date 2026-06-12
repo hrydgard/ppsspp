@@ -38,7 +38,6 @@ static std::vector<ShaderInfo> shaderInfo;
 static std::vector<TextureShaderInfo> textureShaderInfo;
 
 static Draw::GPUVendor VendorFromString(const std::string &vendor) {
-	Draw::GPUVendor::VENDOR_UNKNOWN;
 	// TODO: This should probably be a function somewhere.
 	if (vendor == "ARM") {
 		return Draw::GPUVendor::VENDOR_ARM;
