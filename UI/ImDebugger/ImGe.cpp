@@ -128,40 +128,12 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 		ImGui::Text("Primary Cache");
 	}
 
-	for (auto &iter : textureCache->Cache()) {
-		u64 id = iter.first;
-		const TexCacheEntry *entry = iter.second.get();
-		void *nativeView = textureCache->GetNativeTextureView(iter.second.get(), true);
-		int w = 128;
-		int h = 128;
-
-		if (entry->replacedTexture) {
-			replacementStateCounts[(int)entry->replacedTexture->State()]++;
-		}
-
-		ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
-		float last_button_x2 = ImGui::GetItemRectMax().x;
-		float next_button_x2 = last_button_x2 + style.ItemSpacing.x + w; // Expected position if next button was on same line
-		if (next_button_x2 < window_visible_x2)
-			ImGui::SameLine();
-
-		float x = ImGui::GetCursorPosX();
-		if (ImGui::Selectable(("##Image" + std::to_string(id)).c_str(), cfg.selectedTexAddr == id, 0, ImVec2(w, h))) {
-			cfg.selectedTexAddr = id; // Update the selected index if clicked
-		}
-
-		ImGui::SameLine();
-		ImGui::SetCursorPosX(x + 2.0f);
-		ImGui::Image(texId, ImVec2(128, 128));
-	}
-
-	if (!textureCache->SecondCache().empty()) {
-		ImGui::Text("Secondary Cache (%d):", (int)textureCache->SecondCache().size());
-
-		for (auto &iter : textureCache->SecondCache()) {
-			u64 id = iter.first;
-			const TexCacheEntry *entry = iter.second.get();
-			void *nativeView = textureCache->GetNativeTextureView(iter.second.get(), true);
+	auto listTextureCache = [&cfg, &textureCache, &style, window_visible_x2, &replacementStateCounts](const TexCache &cache, bool isSecondary) {
+		for (auto &[key, value] : cache) {
+			u64 id = key;
+			ImGui::PushID((void *)id);
+			const TexCacheEntry *entry = value.get();
+			void *nativeView = textureCache->GetNativeTextureView(value.get(), true);
 			int w = 128;
 			int h = 128;
 
@@ -176,15 +148,24 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 				ImGui::SameLine();
 
 			float x = ImGui::GetCursorPosX();
-			if (ImGui::Selectable(("##Image" + std::to_string(id)).c_str(), cfg.selectedTexAddr == id, 0, ImVec2(w, h))) {
-				cfg.selectedTexAddr = id; // Update the selected index if clicked
+			if (ImGui::Selectable(("##Image" + std::to_string(id)).c_str(), cfg.selectedTexId == id, 0, ImVec2(w, h))) {
+				cfg.selectedTexId = id; // Update the selected index if clicked
+				cfg.selectedTexSecondary = isSecondary;
 			}
 
 			ImGui::SameLine();
 			ImGui::SetCursorPosX(x + 2.0f);
 			ImGui::Image(texId, ImVec2(128, 128));
+			ImGui::PopID();
 		}
-		// TODO
+	};
+
+	listTextureCache(textureCache->Cache(), false);
+
+	if (!textureCache->SecondCache().empty()) {
+		ImGui::Text("Secondary Cache (%d):", (int)textureCache->SecondCache().size());
+
+		listTextureCache(textureCache->SecondCache(), true);
 	}
 
 	ImGui::EndChild();
@@ -192,9 +173,10 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 	ImGui::SameLine();
 	ImGui::BeginChild("right", ImVec2(0.f, 0.0f));
 	if (ImGui::CollapsingHeader("Texture", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
-		if (cfg.selectedTexAddr) {
-			auto iter = textureCache->Cache().find(cfg.selectedTexAddr);
-			if (iter != textureCache->Cache().end()) {
+		if (cfg.selectedTexId) {
+			auto &cache = cfg.selectedTexSecondary ? textureCache->SecondCache() : textureCache->Cache();
+			auto iter = cache.find(cfg.selectedTexId);
+			if (iter != cache.end()) {
 				void *nativeView = textureCache->GetNativeTextureView(iter->second.get(), true);
 				ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
 				const TexCacheEntry *entry = iter->second.get();
@@ -202,7 +184,13 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 				int w = dimWidth(dim);
 				int h = dimHeight(dim);
 				ImGui::Image(texId, ImVec2(w, h));
-				ImGui::Text("%08x: %dx%d, %d mips, %s", (uint32_t)(cfg.selectedTexAddr & 0xFFFFFFFF), w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
+				if (cfg.selectedTexSecondary) {
+					// For the secondary cache, the ID is based on the contents.
+					ImGui::Text("Hash: %08x: %dx%d, %d mips, %s", (uint32_t)(cfg.selectedTexId & 0xFFFFFFFF), w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
+				} else {
+					// Address is packed in the ID
+					ImGui::Text("Addr: %08x: %dx%d, %d mips, %s", (uint32_t)(cfg.selectedTexId & 0xFFFFFFFF), w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
+				}
 				ImGui::Text("Stride: %d", entry->bufw);
 				ImGui::Text("Status: %08x: %s", entry->status, TexStatusToString(entry->status).c_str());
 				ImGui::Text("Hash: %08x", entry->fullhash);
@@ -229,7 +217,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 					ImGui::Text("Not replaced");
 				}
 			} else {
-				cfg.selectedTexAddr = 0;
+				cfg.selectedTexId = 0;
 			}
 		} else {
 			ImGui::Text("(no texture selected)");
