@@ -96,20 +96,20 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 				// to modify the calling code.
 				std::string contents;
 				if (File::ReadBinaryFileToString(cacheFile, &contents)) {
-					INFO_LOG(Log::sceNet, "Returning cached file for %.*s: %s", (int)url.size(), url.data(), cacheFile.c_str());
+					INFO_LOG(Log::HTTP, "Returning cached file for %.*s: %s", (int)url.size(), url.data(), cacheFile.c_str());
 					// All is well, but we've indented a bit much here.
 					std::shared_ptr<Request> dl(new CachedRequest(RequestMethod::GET, url, KeepAfterLast(url, '/'), nullptr, flags, contents));
 					newDownloads_.push_back(dl);
 					dl->SetCallback(callback);
 					return dl;
 				} else {
-					INFO_LOG(Log::sceNet, "Failed reading from cache, proceeding with request");
+					INFO_LOG(Log::HTTP, "Failed reading from cache, proceeding with request");
 				}
 			} else {
-				INFO_LOG(Log::sceNet, "Cached file too old, proceeding with request");
+				INFO_LOG(Log::HTTP, "Cached file too old, proceeding with request");
 			}
 		} else {
-			INFO_LOG(Log::sceNet, "Failed to check time modified. Proceeding with request.");
+			INFO_LOG(Log::HTTP, "Failed to check time modified. Proceeding with request.");
 		}
 	}
 
