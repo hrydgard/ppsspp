@@ -2234,7 +2234,9 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	if (entry->status & TexStatus::CLUT_GPU) {
 		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
 		// Special process.
-		ApplyTextureDepalFramebufferCLUT(entry);
+		if (doBind) {
+			ApplyTextureDepalFramebufferCLUT(entry);
+		}
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);

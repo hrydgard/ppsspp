@@ -25,7 +25,6 @@ public:
 	bool Failed() const override { return failed_; }
 
 private:
-	RequestMethod method_;
 	std::string postData_;
 	std::string postMime_;
 	bool completed_ = false;

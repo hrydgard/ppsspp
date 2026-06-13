@@ -212,7 +212,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 
 	json::JsonReader reader(jsonStr.data(), jsonStr.length());
 	if (!reader.ok() || !reader.root()) {
-		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		ERROR_LOG(Log::sceNet, "Error parsing DNS JSON");
 		return false;
 	}
 

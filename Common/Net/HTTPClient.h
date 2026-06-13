@@ -27,7 +27,7 @@ public:
 	bool Connect(int maxTries = 2, double timeout = 20.0f, bool *cancelConnect = nullptr);
 	void Disconnect();
 
-	// Only to be used for bring-up and debugging.
+	// TODO: Try to expose this less.
 	uintptr_t sock() const { return sock_; }
 
 	std::string GetLocalIpAsString() const;
@@ -49,6 +49,8 @@ private:
 
 namespace http {
 
+// Ignores line folding (deprecated), but respects field combining.
+// Don't use for Set-Cookie, which is a special header per RFC 7230.
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string_view header, std::string *value);
 
 class RequestParams {
@@ -83,7 +85,7 @@ public:
 	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress);
 
 	void SetDataTimeout(double t) {
-		dataTimeout_ = t;
+		headerTimeout_ = t;
 	}
 
 	void SetUserAgent(std::string_view value) {
@@ -97,7 +99,7 @@ public:
 protected:
 	std::string userAgent_;
 	const char* httpVersion_;
-	double dataTimeout_ = 900.0;
+	double headerTimeout_ = 900.0;
 };
 
 // Really an asynchronous request.
@@ -132,7 +134,7 @@ private:
 class CachedRequest : public Request {
 public:
 	CachedRequest(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags flags, std::string_view responseData)
-		: Request(method, url, name, cancelled, flags)
+		: Request(method, url, name, Path(), cancelled, flags)
 	{
 		buffer_.Append(responseData);
 	}
