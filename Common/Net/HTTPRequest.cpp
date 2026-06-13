@@ -15,19 +15,19 @@ Request::Request(RequestMethod method, std::string_view url, std::string_view na
 	INFO_LOG(Log::HTTP, "HTTP %s request: %.*s (%.*s)", RequestMethodToString(method), (int)url.size(), url.data(), (int)name.size(), name.data());
 
 	progress_.callback = [this](int64_t bytes, int64_t contentLength, bool done) {
-		std::string message;
-		if (!name_.empty()) {
-			message = name_;
-		} else {
-			std::size_t pos = url_.rfind('/');
-			if (pos != std::string::npos) {
-				message = url_.substr(pos + 1);
-			} else {
-				message = url_;
-			}
-		}
 		if (flags_ & RequestFlags::ProgressBar) {
 			if (!done) {
+				std::string message;
+				if (!name_.empty()) {
+					message = name_;
+				} else {
+					std::size_t pos = url_.rfind('/');
+					if (pos != std::string::npos) {
+						message = url_.substr(pos + 1);
+					} else {
+						message = url_;
+					}
+				}
 				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, flags_ & RequestFlags::ProgressBarDelayed ? 3.0f : 0.0f);  // delay 3 seconds before showing.
 			} else {
 				g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
@@ -40,7 +40,7 @@ static bool IsHttpsUrl(std::string_view url) {
 	return startsWith(url, "https:");
 }
 
-Path UrlToCachePath(const Path &cacheDir, std::string_view url) {
+static Path UrlToCachePath(const Path &cacheDir, std::string_view url) {
 	std::string fn = "DLCACHE_";
 	for (auto c : url) {
 		if (isalnum(c) || c == '.' || c == '-' || c == '_') {
@@ -52,7 +52,7 @@ Path UrlToCachePath(const Path &cacheDir, std::string_view url) {
 	return cacheDir / fn;
 }
 
-Path RequestManager::UrlToCachePath(const std::string_view url) {
+Path RequestManager::UrlToCachePath(const std::string_view url) const {
 	if (cacheDir_.empty()) {
 		return Path();
 	}
@@ -72,13 +72,13 @@ static std::shared_ptr<Request> CreateRequest(RequestMethod method, std::string_
 }
 
 // Compatible with StartDownload
-// Synchronous (no callback).
+// Synchronous (no completionCallback).
 bool RequestManager::ReadFileFromCache(std::string_view url, std::string *data) {
 	Path cacheFile = UrlToCachePath(url);
 	return File::ReadBinaryFileToString(cacheFile, data);
 }
 
-std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime, std::string_view name, std::function<void(Request &)> callback) {
+std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, const Path &outfile, RequestFlags flags, const char *acceptMime, std::string_view name, RequestCompletionCallback completionCallback) {
 	const bool enableCache = !cacheDir_.empty() && (flags & RequestFlags::Cached24H);
 
 	// Come up with a cache file path.
@@ -96,11 +96,11 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 				// to modify the calling code.
 				std::string contents;
 				if (File::ReadBinaryFileToString(cacheFile, &contents)) {
-					INFO_LOG(Log::HTTP, "Returning cached file for %.*s: %s", (int)url.size(), url.data(), cacheFile.c_str());
+					INFO_LOG(Log::HTTP, "Returning cached file for %.*s: %s", STR_VIEW(url), cacheFile.c_str());
 					// All is well, but we've indented a bit much here.
 					std::shared_ptr<Request> dl(new CachedRequest(RequestMethod::GET, url, KeepAfterLast(url, '/'), nullptr, flags, contents));
 					newDownloads_.push_back(dl);
-					dl->SetCallback(callback);
+					dl->SetCallback(completionCallback);
 					return dl;
 				} else {
 					INFO_LOG(Log::HTTP, "Failed reading from cache, proceeding with request");
@@ -127,7 +127,7 @@ std::shared_ptr<Request> RequestManager::StartDownload(std::string_view url, con
 	if (acceptMime) {
 		dl->SetAccept(acceptMime);
 	}
-	dl->SetCallback(callback);
+	dl->SetCallback(completionCallback);
 	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
@@ -138,12 +138,12 @@ std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
 	std::string_view postData,
 	std::string_view postMime,
 	RequestFlags flags,
-	std::function<void(Request &)> callback,
+	RequestCompletionCallback completionCallback,
 	std::string_view name) {
 	std::shared_ptr<Request> dl = CreateRequest(RequestMethod::POST, url, postData, postMime, Path(), flags, nullptr, name);
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
-	dl->SetCallback(callback);
+	dl->SetCallback(completionCallback);
 	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
