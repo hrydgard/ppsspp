@@ -58,6 +58,7 @@ enum class Log {
 	UI,
 	IAP,
 	CwCheats,
+	Net,  // Non-sce related networking logs.
 
 	sceAudio,
 	sceCtrl,
