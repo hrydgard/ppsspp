@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -598,6 +599,8 @@ private:
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
+
+	mutable std::unordered_map<DataFormat, uint32_t> dataFormatSupportCache_;
 
 	VulkanPushPool *push_ = nullptr;
 
@@ -1730,6 +1733,11 @@ std::vector<std::string> VKContext::GetExtensionList(bool device, bool enabledOn
 }
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
+	auto iter = dataFormatSupportCache_.find(fmt);
+	if (iter != dataFormatSupportCache_.end()) {
+		return iter->second;
+	}
+
 	VkFormat vulkan_format = DataFormatToVulkan(fmt);
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
@@ -1752,6 +1760,7 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
 		flags |= FMT_STORAGE_IMAGE;
 	}
+	dataFormatSupportCache_[fmt] = flags;
 	return flags;
 }
 

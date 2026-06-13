@@ -977,10 +977,9 @@ void VulkanRenderManager::EndCurRenderStep() {
 		}
 	}
 
-	compileQueueMutex_.lock();
-	if (needsCompile)
+	if (needsCompile) {
 		compileCond_.notify_one();
-	compileQueueMutex_.unlock();
+	}
 	pipelinesToCheck_.clear();
 
 	// We don't do this optimization for very small targets, probably not worth it.
@@ -1865,7 +1864,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 
 	pool.Reset();
 
-	VkDescriptorSet setCache[8];
+	VkDescriptorSet setCache[16];
 	VkDescriptorSetLayout layoutsForAlloc[ARRAY_SIZE(setCache)];
 	for (int i = 0; i < ARRAY_SIZE(setCache); i++) {
 		layoutsForAlloc[i] = descriptorSetLayout;

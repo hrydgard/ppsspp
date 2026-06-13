@@ -9,6 +9,7 @@
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Math/geom2d.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/Math/math_util.h"
 #include "Common/GPU/thin3d.h"
 
 struct Atlas;
@@ -86,7 +87,22 @@ public:
 	}
 	void Rect(float x, float y, float w, float h, float u, float v, float uw, float uh, uint32_t color);
 
-	void V(float x, float y, float z, uint32_t color, float u, float v);
+	void V(float x, float y, float z, uint32_t color, float u, float v) {
+		_dbg_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
+
+#ifdef _DEBUG
+		if (my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z)) {
+			_assert_(false);
+		}
+#endif
+		Vertex *vert = &verts_[count_++];
+		vert->x = x;
+		vert->y = y;
+		vert->z = z;
+		vert->rgba = alpha_ == 1.0f ? color : alphaMul(color, alpha_);
+		vert->u = u;
+		vert->v = v;
+	}
 	void V(float x, float y, uint32_t color, float u, float v) {
 		V(x, y, curZ_, color, u, v);
 	}

@@ -118,20 +118,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	}
 
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
-		float fogcoef[2] = {
-			getFloat24(gstate.fog1),
-			getFloat24(gstate.fog2),
-		};
-		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
-		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-		if (my_isnanorinf(fogcoef[0])) {
-			// Not really sure what a sensible value might be, but let's try 64k.
-			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
-		}
-		if (my_isnanorinf(fogcoef[1])) {
-			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
-		}
-		CopyFloat2(ub->fogCoef, fogcoef);
+		UpdateFogCoef(gstate, ub->fogCoef);
 	}
 
 	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
@@ -158,29 +145,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
-		float widthFactor = 1.0f;
-		float heightFactor = 1.0f;
-		if (gstate_c.textureIsFramebuffer) {
-			const float invW = 1.0f / (float)gstate_c.curTextureWidth;
-			const float invH = 1.0f / (float)gstate_c.curTextureHeight;
-			const int w = gstate.getTextureWidth(0);
-			const int h = gstate.getTextureHeight(0);
-			widthFactor = (float)w * invW;
-			heightFactor = (float)h * invH;
-		}
-		if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
-			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
-			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
-			ub->uvScaleOffset[0] = gstate_c.uv.uScale * widthFactor;
-			ub->uvScaleOffset[1] = gstate_c.uv.vScale * heightFactor;
-			ub->uvScaleOffset[2] = gstate_c.uv.uOff * widthFactor;
-			ub->uvScaleOffset[3] = gstate_c.uv.vOff * heightFactor;
-		} else {
-			ub->uvScaleOffset[0] = widthFactor;
-			ub->uvScaleOffset[1] = heightFactor;
-			ub->uvScaleOffset[2] = 0.0f;
-			ub->uvScaleOffset[3] = 0.0f;
-		}
+		UpdateUVScaleOff(gstate, ub->uvScaleOffset);
 	}
 
 	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {
@@ -290,5 +255,19 @@ void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
 		}
+	}
+}
+
+void UpdateFogCoef(const GPUgstate &state, float fogCoef[2]) {
+	fogCoef[0] = getFloat24(gstate.fog1);
+	fogCoef[1] = getFloat24(gstate.fog2);
+	// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
+	// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+	if (my_isnanorinf(fogCoef[0])) {
+		// Not really sure what a sensible value might be, but let's try 64k.
+		fogCoef[0] = std::signbit(fogCoef[0]) ? -65535.0f : 65535.0f;
+	}
+	if (my_isnanorinf(fogCoef[1])) {
+		fogCoef[1] = std::signbit(fogCoef[1]) ? -65535.0f : 65535.0f;
 	}
 }

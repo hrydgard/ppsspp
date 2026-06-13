@@ -3,6 +3,8 @@
 #include <cstdint>
 
 #include "ShaderCommon.h"
+#include "Common/Math/math_util.h"
+#include "GPU/GPUState.h"
 
 // Used by the "modern" backends that use uniform buffers. They can share this without issue.
 
@@ -120,3 +122,31 @@ void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 
 uint32_t PackLightControlBits();
 uint32_t PackDepalBits();
+
+void UpdateFogCoef(const GPUgstate &state, float fogCoef[2]);
+
+// This happens so much that I want it inline.
+inline void UpdateUVScaleOff(const GPUgstate &state, float uvScaleOff[4]) {
+	float widthFactor;
+	float heightFactor;
+	if (gstate_c.textureIsFramebuffer) {
+		widthFactor = (float)gstate.getTextureWidth(0) / (float)gstate_c.curTextureWidth;
+		heightFactor = (float)gstate.getTextureHeight(0) / (float)gstate_c.curTextureHeight;
+	} else {
+		widthFactor = 1.0f;
+		heightFactor = 1.0f;
+	}
+	if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
+		// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
+		// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
+		uvScaleOff[0] = gstate_c.uv.uScale * widthFactor;
+		uvScaleOff[1] = gstate_c.uv.vScale * heightFactor;
+		uvScaleOff[2] = gstate_c.uv.uOff * widthFactor;
+		uvScaleOff[3] = gstate_c.uv.vOff * heightFactor;
+	} else {
+		uvScaleOff[0] = widthFactor;
+		uvScaleOff[1] = heightFactor;
+		uvScaleOff[2] = 0.0f;
+		uvScaleOff[3] = 0.0f;
+	}
+}

@@ -292,6 +292,7 @@ void DrawEngineVulkan::Flush() {
 		int maxIndex;
 		bool useElements;
 		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -420,7 +421,7 @@ void DrawEngineVulkan::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.perFrame.numUncachedVertsDrawn += vertexCount;
+		gpuStats.perFrame.numVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		// At this point, the output is always an indexed triangle/line/point list, no strips/fans.
