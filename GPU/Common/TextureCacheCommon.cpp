@@ -2498,6 +2498,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
+// TODO: Merge this function with the above.
 void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
@@ -2544,6 +2545,14 @@ void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry) 
 		v2 = bounds.maxV + gstate_c.curTextureYOffset + 1.0f;
 		// We need to reapply the texture next time since we cropped UV.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+
+	// If it nearly covers, just make it cover. This fixes Ridge Racer where the UVs are slightly off and it causes a bright line on the lens flare.
+	if (u1 > 0 && u1 < 3) {
+		u1 = 0;
+	}
+	if (v1 > 0 && v1 < 3) {
+		v1 = 0;
 	}
 
 	Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, texWidth, texHeight);
