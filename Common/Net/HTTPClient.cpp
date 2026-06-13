@@ -348,7 +348,9 @@ int Client::SendRequest(const char *method, const RequestParams &req, const char
 }
 
 int Client::SendRequestWithData(const char *method, const RequestParams &req, std::string_view data, const char *otherHeaders, net::RequestProgress *progress) {
-	progress->Update(0, 0, false);
+	if (progress) {
+		progress->Update(0, 0, false);
+	}
 
 	net::Buffer buffer;
 	const char *tpl =
@@ -367,7 +369,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, st
 		req.acceptMime,
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
-	bool flushed = buffer.FlushSocket(sock(), dataTimeout_, progress->cancelled);
+	bool flushed = buffer.FlushSocket(sock(), headerTimeout_, progress ? progress->cancelled : nullptr);
 	if (!flushed) {
 		return -1;  // TODO error code.
 	}
@@ -378,9 +380,9 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
-	double endTimeout = time_now_d() + dataTimeout_;
+	double endTimeout = time_now_d() + headerTimeout_;
 	while (!ready) {
-		if (progress->cancelled && *progress->cancelled)
+		if (progress && progress->cancelled && *progress->cancelled)
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
 		if (!ready && time_now_d() > endTimeout) {
@@ -417,15 +419,16 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		return -1;
 	}
 
-	if (statusLine)
-		*statusLine = line;
+	if (statusLine) {
+		*statusLine = std::move(line);
+	}
 
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);
 		if (!sz || sz < 0)
 			break;
 		VERBOSE_LOG(Log::HTTP, "Header line: %s", line.c_str());
-		responseHeaders.push_back(line);
+		responseHeaders.emplace_back(line);
 	}
 
 	if (responseHeaders.size() == 0) {
@@ -479,7 +482,9 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 		if (chunked) {
 			if (!DeChunk(readbuf, output, contentLength)) {
 				ERROR_LOG(Log::HTTP, "Bad chunked data, couldn't read chunk size");
-				progress->Update(0, 0, true);
+				if (progress) {
+					progress->Update(0, 0, true);
+				}
 				return -1;
 			}
 		} else {
@@ -493,14 +498,18 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
 				ERROR_LOG(Log::HTTP, "Error decompressing using zlib");
-				progress->Update(0, 0, true);
+				if (progress) {
+					progress->Update(0, 0, true);
+				}
 				return -1;
 			}
 			output->Append(decompressed);
 		}
 	}
 
-	progress->Update(contentLength, contentLength, true);
+	if (progress) {
+		progress->Update(contentLength, contentLength, true);
+	}
 	return 0;
 }
 

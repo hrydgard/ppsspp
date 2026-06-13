@@ -27,7 +27,7 @@ public:
 	bool Connect(int maxTries = 2, double timeout = 20.0f, bool *cancelConnect = nullptr);
 	void Disconnect();
 
-	// Only to be used for bring-up and debugging.
+	// TODO: Try to expose this less.
 	uintptr_t sock() const { return sock_; }
 
 	std::string GetLocalIpAsString() const;
@@ -83,7 +83,7 @@ public:
 	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress);
 
 	void SetDataTimeout(double t) {
-		dataTimeout_ = t;
+		headerTimeout_ = t;
 	}
 
 	void SetUserAgent(std::string_view value) {
@@ -97,7 +97,7 @@ public:
 protected:
 	std::string userAgent_;
 	const char* httpVersion_;
-	double dataTimeout_ = 900.0;
+	double headerTimeout_ = 900.0;
 };
 
 // Really an asynchronous request.
