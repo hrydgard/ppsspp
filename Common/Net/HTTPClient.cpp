@@ -54,11 +54,11 @@ std::string Connection::GetLocalIpAsString() const {
 
 bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
-		ERROR_LOG(Log::IO, "Resolve: Already have a socket");
+		ERROR_LOG(Log::Net, "Resolve: Already have a socket");
 		return false;
 	}
 	if (!host || port < 1 || port > 65535) {
-		ERROR_LOG(Log::IO, "Resolve: Invalid host or port (%d)", port);
+		ERROR_LOG(Log::Net, "Resolve: Invalid host or port (%d)", port);
 		return false;
 	}
 
@@ -76,7 +76,7 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	
 	std::string err;
 	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
-		WARN_LOG(Log::IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
+		WARN_LOG(Log::Net, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;
 		return false;
@@ -99,7 +99,7 @@ static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 
 bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
-		ERROR_LOG(Log::IO, "Bad port");
+		ERROR_LOG(Log::Net, "Bad port");
 		return false;
 	}
 	sock_ = -1;
@@ -115,13 +115,13 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			int sock = socket(possible->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if ((intptr_t)sock == -1) {
-				ERROR_LOG(Log::IO, "Bad socket");
+				ERROR_LOG(Log::Net, "Bad socket");
 				continue;
 			}
 			// Windows sockets aren't limited by socket number, just by count, so checking FD_SETSIZE there is wrong.
 #if !PPSSPP_PLATFORM(WINDOWS)
 			if (sock >= FD_SETSIZE) {
-				ERROR_LOG(Log::IO, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
+				ERROR_LOG(Log::Net, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
 				closesocket(sock);
 				continue;
 			}
@@ -194,7 +194,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		}
 
 		if (cancelConnect && *cancelConnect) {
-			WARN_LOG(Log::HTTP, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
+			WARN_LOG(Log::Net, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
 			break;
 		}
 

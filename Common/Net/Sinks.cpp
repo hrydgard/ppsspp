@@ -209,7 +209,7 @@ void InputSink::AccountFill(int bytes) {
 		int err = socket_errno;
 		if (err == EWOULDBLOCK || err == EAGAIN)
 			return;
-		ERROR_LOG(Log::IO, "Error reading from socket: %d", err);
+		ERROR_LOG(Log::Net, "Error reading from socket: %d", err);
 		return;
 	}
 
