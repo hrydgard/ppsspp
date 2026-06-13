@@ -229,8 +229,6 @@ Client::~Client() {
 	Disconnect();
 }
 
-// Ignores line folding (deprecated), but respects field combining.
-// Don't use for Set-Cookie, which is a special header per RFC 7230.
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string_view header, std::string *value) {
 	std::string search(header);
 	search.push_back(':');
@@ -317,7 +315,7 @@ int Client::POST(const RequestParams &req, std::string_view data, std::string_vi
 	if (mime.empty()) {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
 	} else {
-		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %.*s\r\n", (long long)data.size(), (int)mime.size(), mime.data());
+		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %.*s\r\n", (long long)data.size(), STR_VIEW(mime));
 	}
 
 	int err = SendRequestWithData("POST", req, data, otherHeaders, progress);
@@ -514,8 +512,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 }
 
 HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name)
-	: Request(method, url, name, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
-	outfile_ = outfile;
+	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
 }
 
 HTTPRequest::~HTTPRequest() {
@@ -539,6 +536,8 @@ void HTTPRequest::Join() {
 }
 
 void HTTPRequest::SetFailed(int code) {
+	// TODO: Why are we not using code here?
+
 	failed_ = true;
 	progress_.Update(0, 0, true);
 	completed_ = true;

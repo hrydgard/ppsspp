@@ -31,7 +31,7 @@ using RequestCompletionCallback = std::function<void(Request &)>;
 // Abstract request.
 class Request {
 public:
-	Request(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags mode);
+	Request(RequestMethod method, std::string_view url, std::string_view name, const Path &outFile, bool *cancelled, RequestFlags mode);
 	virtual ~Request() {}
 
 	void SetAccept(const char *mime) {

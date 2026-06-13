@@ -49,6 +49,8 @@ private:
 
 namespace http {
 
+// Ignores line folding (deprecated), but respects field combining.
+// Don't use for Set-Cookie, which is a special header per RFC 7230.
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string_view header, std::string *value);
 
 class RequestParams {
@@ -132,7 +134,7 @@ private:
 class CachedRequest : public Request {
 public:
 	CachedRequest(RequestMethod method, std::string_view url, std::string_view name, bool *cancelled, RequestFlags flags, std::string_view responseData)
-		: Request(method, url, name, cancelled, flags)
+		: Request(method, url, name, Path(), cancelled, flags)
 	{
 		buffer_.Append(responseData);
 	}

@@ -13,8 +13,7 @@
 namespace http {
 
 HTTPSRequest::HTTPSRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name)
-	: Request(method, url, name, &cancelled_, flags), method_(method), postData_(postData), postMime_(postMime) {
-	outfile_ = outfile;
+	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime) {
 }
 
 HTTPSRequest::~HTTPSRequest() {
@@ -61,7 +60,7 @@ void HTTPSRequest::Join() {
 		res_ = nullptr;
 		req_ = nullptr;
 	} else {
-		ERROR_LOG(Log::HTTP, "HTTPSDownload::Join not implemented");
+		ERROR_LOG(Log::HTTP, "HTTPSRequest::Join called before completion");
 	}
 }
 
