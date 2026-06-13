@@ -303,6 +303,7 @@ void DrawEngineGLES::Flush() {
 		bool useElements;
 		DecodeVerts(dec_, decoded_);
 		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
 		if (useElements) {
 			uint32_t esz = sizeof(uint16_t) * vertexCount;
@@ -361,7 +362,6 @@ void DrawEngineGLES::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.perFrame.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		int maxIndex = numDecodedVerts_;
@@ -424,6 +424,7 @@ void DrawEngineGLES::Flush() {
 			render_->DrawIndexed(
 				softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
 				glprim[prim], result.drawIndexCount, GL_UNSIGNED_SHORT);
+			gpuStats.perFrame.numVertsDrawn += result.drawIndexCount;
 		} else if (action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;

@@ -324,7 +324,7 @@ void DrawEngineD3D11::Flush() {
 		bool useElements;
 		DecodeVerts(dec_, decoded_);
 		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
-		gpuStats.perFrame.numUncachedVertsDrawn += vertexCount;
+		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -412,7 +412,6 @@ void DrawEngineD3D11::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.perFrame.numUncachedVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 		VERBOSE_LOG(Log::G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
@@ -492,6 +491,7 @@ void DrawEngineD3D11::Flush() {
 			pushInds_->EndPush(context_);
 			context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 			context_->DrawIndexed(result.drawIndexCount, 0, 0);
+			gpuStats.perFrame.numVertsDrawn += result.drawIndexCount;
 		} else if (action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;

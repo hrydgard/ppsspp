@@ -1819,7 +1819,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numSoftTransformedDraws,
 		gpuStats.perFrame.numVertsSubmitted,
 		gpuStats.perFrame.numVertsDecoded,
-		gpuStats.perFrame.numUncachedVertsDrawn,
+		gpuStats.perFrame.numVertsDrawn,
 		gpuStats.perFrame.numSoftClippedTriangles,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.perFrame.numFramebufferEvaluations,

@@ -104,7 +104,7 @@ struct GPUStatsPerFrame {
 	int numBBOXJumps;
 	int numVertsSubmitted;
 	int numVertsDecoded;
-	int numUncachedVertsDrawn;
+	int numVertsDrawn;
 	int numTextureInvalidations;
 	int numTexturesChanged;
 	int numTextureInvalidationsByFramebuffer;
