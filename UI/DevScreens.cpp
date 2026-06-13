@@ -557,7 +557,12 @@ bool ShaderViewScreen::key(const KeyInput &ki) {
 const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
 
 FrameDumpTestScreen::~FrameDumpTestScreen() {
-	g_DownloadManager.CancelAll();
+	if (listing_) {
+		listing_->Cancel();
+	}
+	if (dumpDownload_) {
+		dumpDownload_->Cancel();
+	}
 }
 
 void FrameDumpTestScreen::CreateTabs() {
@@ -573,20 +578,17 @@ void FrameDumpTestScreen::CreateTabs() {
 			std::string url = framedumpsBaseUrl + file;
 			Choice *c = parent->Add(new Choice(file));
 			c->SetTag(url);
-			c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
+			c->OnClick.Add([this, url = Path(url)](UI::EventParams &e) {
+				INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
+				// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
+				// except for some reason the game ID.
+				// TODO: Fix that since it can be important for compat settings.
+				screenManager()->switchScreen(new EmuScreen(url));
+			});
 		}
 	});
 
 	EnsureTabs();
-}
-
-void FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
-	Path url = Path(params.v->Tag());
-	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
-	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
-	// except for some reason the game ID.
-	// TODO: Fix that since it can be important for compat settings.
-	screenManager()->switchScreen(new EmuScreen(url));
 }
 
 void FrameDumpTestScreen::update() {

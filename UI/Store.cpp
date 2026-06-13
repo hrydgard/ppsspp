@@ -426,7 +426,12 @@ StoreScreen::StoreScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags:
 }
 
 StoreScreen::~StoreScreen() {
-	g_DownloadManager.CancelAll();
+	if (listing_) {
+		listing_->Cancel();
+	}
+	if (image_) {
+		image_->Cancel();
+	}
 }
 
 // Handle async download tasks
