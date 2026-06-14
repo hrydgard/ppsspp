@@ -81,7 +81,7 @@ static void RotateUV(TransformedVertex v[4]) {
 }
 
 static bool ShouldApplySpriteBorderFix(const GPUgstate &gstate) {
-	return gstate.isAlphaBlendEnabled() && gstate.getBlendFuncA() != GE_SRCBLEND_FIXA && gstate.isTextureAlphaUsed();
+	return gstate.isMagnifyFilteringEnabled() && gstate.isAlphaBlendEnabled() && gstate.getBlendFuncA() != GE_SRCBLEND_FIXA && gstate.isTextureAlphaUsed();
 }
 
 // Clears on the PSP are best done by drawing a series of vertical strips
