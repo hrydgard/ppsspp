@@ -1095,14 +1095,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			truncate_cpy(replacedAlpha, "1.0");
 			break;
 
-		case STENCIL_VALUE_INCR_4:
-		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_INCR_4BIT:
+		case STENCIL_VALUE_DECR_4BIT:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
-		case STENCIL_VALUE_INCR_8:
-		case STENCIL_VALUE_DECR_8:
+		case STENCIL_VALUE_INCR_8BIT:
+		case STENCIL_VALUE_DECR_8BIT:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
