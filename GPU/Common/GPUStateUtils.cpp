@@ -234,9 +234,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 
 	case GE_FORMAT_4444:
 	case GE_FORMAT_8888:
-	case GE_FORMAT_INVALID:
-	case GE_FORMAT_DEPTH16:
-	case GE_FORMAT_CLUT8:
+	default:
 		switch (gstate.getStencilOpZPass()) {
 		case GE_STENCILOP_REPLACE:
 			// TODO: Could detect zero here and force ZERO - less uniform updates?
@@ -246,10 +244,10 @@ StencilValueType ReplaceAlphaWithStencilType() {
 			return STENCIL_VALUE_ZERO;
 
 		case GE_STENCILOP_DECR:
-			return gstate_c.framebufFormat == GE_FORMAT_4444 ? STENCIL_VALUE_DECR_4 : STENCIL_VALUE_DECR_8;
+			return gstate_c.framebufFormat == GE_FORMAT_4444 ? STENCIL_VALUE_DECR_4BIT : STENCIL_VALUE_DECR_8BIT;
 
 		case GE_STENCILOP_INCR:
-			return gstate_c.framebufFormat == GE_FORMAT_4444 ? STENCIL_VALUE_INCR_4 : STENCIL_VALUE_INCR_8;
+			return gstate_c.framebufFormat == GE_FORMAT_4444 ? STENCIL_VALUE_INCR_4BIT : STENCIL_VALUE_INCR_8BIT;
 
 		case GE_STENCILOP_INVERT:
 			return STENCIL_VALUE_INVERT;
@@ -784,16 +782,16 @@ void ApplyStencilReplaceAndLogicOpIgnoreBlend(ReplaceAlphaType replaceAlphaWithS
 	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
 	switch (stencilType) {
-	case STENCIL_VALUE_INCR_4:
-	case STENCIL_VALUE_INCR_8:
+	case STENCIL_VALUE_INCR_4BIT:
+	case STENCIL_VALUE_INCR_8BIT:
 		// We'll add the incremented value output by the shader.
 		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
 		blendState.setEquation(blendEq, BlendEq::ADD);
 		break;
 
-	case STENCIL_VALUE_DECR_4:
-	case STENCIL_VALUE_DECR_8:
+	case STENCIL_VALUE_DECR_4BIT:
+	case STENCIL_VALUE_DECR_8BIT:
 		// We'll subtract the incremented value output by the shader.
 		blendState.blendEnabled = true;
 		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
@@ -986,13 +984,13 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 			constantAlpha = gstate.getStencilTestRef();
 			break;
 
-		case STENCIL_VALUE_INCR_4:
-		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_INCR_4BIT:
+		case STENCIL_VALUE_DECR_4BIT:
 			constantAlpha = 16;
 			break;
 
-		case STENCIL_VALUE_INCR_8:
-		case STENCIL_VALUE_DECR_8:
+		case STENCIL_VALUE_INCR_8BIT:
+		case STENCIL_VALUE_DECR_8BIT:
 			constantAlpha = 1;
 			break;
 
@@ -1122,14 +1120,14 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
 		// Let the fragment shader take care of it.
 		switch (ReplaceAlphaWithStencilType()) {
-		case STENCIL_VALUE_INCR_4:
-		case STENCIL_VALUE_INCR_8:
+		case STENCIL_VALUE_INCR_4BIT:
+		case STENCIL_VALUE_INCR_8BIT:
 			// We'll add the increment value.
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
 			break;
 
-		case STENCIL_VALUE_DECR_4:
-		case STENCIL_VALUE_DECR_8:
+		case STENCIL_VALUE_DECR_4BIT:
+		case STENCIL_VALUE_DECR_8BIT:
 			// Like add with a small value, but subtracting.
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
 			alphaEq = BlendEq::SUBTRACT;
@@ -1167,13 +1165,13 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 			// This won't give a correct value (it multiplies) but it may be better than random values.
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, constantAlphaGL, BlendFactor::ZERO);
 			break;
-		case STENCIL_VALUE_INCR_4:
-		case STENCIL_VALUE_INCR_8:
+		case STENCIL_VALUE_INCR_4BIT:
+		case STENCIL_VALUE_INCR_8BIT:
 			// This won't give a correct value always, but it will try to increase at least.
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, constantAlphaGL, BlendFactor::ONE);
 			break;
-		case STENCIL_VALUE_DECR_4:
-		case STENCIL_VALUE_DECR_8:
+		case STENCIL_VALUE_DECR_4BIT:
+		case STENCIL_VALUE_DECR_8BIT:
 			// This won't give a correct value always, but it will try to decrease at least.
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, constantAlphaGL, BlendFactor::ONE);
 			alphaEq = BlendEq::SUBTRACT;

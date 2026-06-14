@@ -975,12 +975,14 @@ bool CreateGlobalPipelines() {
 
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc, "global_color");
 	if (!colorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
 
 	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc, "global_texcolor");
 	if (!texColorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}

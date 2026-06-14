@@ -543,12 +543,6 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions. TODO: Add more float formats.
 bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags) {
-	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
-	// Let's always say objects are within bounds.
-	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-		return true;
-	}
-
 	// For through mode, we only check FlatZ.
 	*flags |= ClipInfoFlags::Valid;
 
@@ -628,6 +622,13 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 			}
 		}
 	}
+
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		return true;
+	}
+
 	if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
 		return false;
 	}

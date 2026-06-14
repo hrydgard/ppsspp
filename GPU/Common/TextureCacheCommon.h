@@ -396,6 +396,11 @@ public:
 		return videos_;
 	}
 
+	// For the debugger
+	const VirtualFramebuffer *NextFramebufferTexture() const {
+		return nextFramebufferTexture_;
+	}
+
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 

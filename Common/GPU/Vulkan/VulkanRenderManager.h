@@ -303,7 +303,8 @@ public:
 	// return value and skip the draw if we're in a bad state. In that case, call ReportBadState.
 	// The old assert wasn't very helpful in figuring out what caused it anyway...
 	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
+		_dbg_assert_(pipeline != nullptr);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		if (!curRenderStep_ || curRenderStep_->stepType != VKRStepType::RENDER) {
 			return false;
 		}

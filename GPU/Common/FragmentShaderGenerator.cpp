@@ -1095,14 +1095,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			truncate_cpy(replacedAlpha, "1.0");
 			break;
 
-		case STENCIL_VALUE_INCR_4:
-		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_INCR_4BIT:
+		case STENCIL_VALUE_DECR_4BIT:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
-		case STENCIL_VALUE_INCR_8:
-		case STENCIL_VALUE_DECR_8:
+		case STENCIL_VALUE_INCR_8BIT:
+		case STENCIL_VALUE_DECR_8BIT:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
@@ -1204,12 +1204,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (writeDepth) {
 		if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			if (fsDepthClamp) {
-				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65536.0) / 65536.0;\n");
+				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65535.0) / 65535.0;\n");
 			} else {
-				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z) / 65536.0;\n");
+				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65535.0) / 65535.0;\n");
 			}
 		} else if (fsDepthClamp) {
-			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65536.0) / 65536.0;\n");
+			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
 		} else if (useDiscardStencilBugWorkaround) {
 			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
 			// when only stencil is used. The exact situation seems to vary by driver.

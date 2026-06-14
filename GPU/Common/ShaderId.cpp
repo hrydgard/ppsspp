@@ -236,10 +236,10 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
 		case STENCIL_VALUE_KEEP: desc << "StenKeep "; break;
 		case STENCIL_VALUE_INVERT: desc << "StenInv "; break;
-		case STENCIL_VALUE_INCR_4: desc << "StenIncr4 "; break;
-		case STENCIL_VALUE_INCR_8: desc << "StenIncr8 "; break;
-		case STENCIL_VALUE_DECR_4: desc << "StenDecr4 "; break;
-		case STENCIL_VALUE_DECR_8: desc << "StenDecr8 "; break;
+		case STENCIL_VALUE_INCR_4BIT: desc << "StenIncr4 "; break;
+		case STENCIL_VALUE_INCR_8BIT: desc << "StenIncr8 "; break;
+		case STENCIL_VALUE_DECR_4BIT: desc << "StenDecr4 "; break;
+		case STENCIL_VALUE_DECR_8BIT: desc << "StenDecr8 "; break;
 		default: desc << "StenUnknown "; break;
 		}
 	} else if (id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE)) {
