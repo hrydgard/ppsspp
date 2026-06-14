@@ -404,7 +404,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 }
 
 
-int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
+int ElfReader::LoadInto(u32 loadAddress, bool fromTop, u32 mpid) {
 	DEBUG_LOG(Log::Loader,"String section: %i", header->e_shstrndx);
 
 	if (size_ < sizeof(Elf32_Ehdr)) {
@@ -479,7 +479,11 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 
 	// If a load address is specified that's in regular RAM, override kernel module status
 	bool inUser = totalStart >= PSP_GetUserMemoryBase();
-	BlockAllocator &memblock = (kernelModule && !inUser) ? kernelMemory : userMemory;
+	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
+	if (!allocator) {
+		allocator = (kernelModule && !inUser) ? &kernelMemory : &userMemory;
+	}
+	BlockAllocator &memblock = *allocator;
 
 	if (!bRelocate)
 	{

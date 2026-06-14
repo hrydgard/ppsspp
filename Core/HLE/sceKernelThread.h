@@ -35,8 +35,7 @@ class DebugInterface;
 class BlockAllocator;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel);
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, u32 stackMpid = 2);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
@@ -254,6 +253,7 @@ public:
 	ThreadWaitInfo waitInfo{};
 	SceUID moduleId = -1;
 	KernelThreadDebugInterface debug;
+	u32 stackMpid = 2; // Default to user partition (2)
 
 	bool isProcessingCallbacks = false;
 	u32 currentMipscallId = -1;
@@ -302,6 +302,8 @@ u32 __KernelGetCurThreadStackStart();
 const char *__KernelGetThreadName(SceUID threadID);
 bool KernelIsThreadDormant(SceUID threadID);
 bool KernelIsThreadWaiting(SceUID threadID);
+
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 stackMpid = 2);
 
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled);
 void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled);

@@ -319,6 +319,9 @@ void PSPThread::GetQuickInfo(char *ptr, int size) {
 }
 
 BlockAllocator &PSPThread::StackAllocator() {
+	if (stackMpid == 1 || stackMpid == 3 || stackMpid == 4) {
+		return kernelMemory;
+	}
 	if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
 		return kernelMemory;
 	}
@@ -423,13 +426,18 @@ void PSPThread::Cleanup() {
 }
 
 void PSPThread::DoState(PointerWrap &p) {
-	auto s = p.Section("Thread", 1, 5);
+	auto s = p.Section("Thread", 1, 6);
 	if (!s)
 		return;
 
 	Do(p, nt);
 	Do(p, waitInfo);
 	Do(p, moduleId);
+	if (s >= 6) {
+		Do(p, stackMpid);
+	} else {
+		stackMpid = 2;
+	}
 	Do(p, isProcessingCallbacks);
 	Do(p, currentMipscallId);
 	Do(p, currentCallbackId);
@@ -473,9 +481,14 @@ struct WaitTypeFuncs
 	WaitEndCallbackFunc endFunc;
 };
 
+struct SceKernelThreadOptParam {
+	SceSize_le size;
+	SceUID_le stackMpid;
+};
+
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, u32 stackMpid);
 void __KernelResetThread(PSPThread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
@@ -811,8 +824,8 @@ void __KernelThreadingInit()
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
-	__KernelResetThread(__KernelCreateThreadObject(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
-	__KernelResetThread(__KernelCreateThreadObject(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
+	__KernelResetThread(__KernelCreateThreadObject(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL, 1), 0);
+	__KernelResetThread(__KernelCreateThreadObject(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL, 1), 0);
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
@@ -825,7 +838,7 @@ void __KernelThreadingInit()
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelThread", 1, 4);
+	auto s = p.Section("sceKernelThread", 1, 5);
 	if (!s)
 		return;
 
@@ -871,6 +884,11 @@ void __KernelThreadingDoState(PointerWrap &p)
 		Do(p, threadEventHandlers);
 	if (s >= 3)
 		Do(p, pendingDeleteThreads);
+
+	if (s >= 5) {
+		// New state for mpidstack support if needed at module level,
+		// but currently thread level is enough.
+	}
 }
 
 void __KernelThreadingDoStateLate(PointerWrap &p)
@@ -1728,7 +1746,7 @@ void __KernelResetThread(PSPThread *t, int lowestPriority) {
 		ERROR_LOG_REPORT(Log::sceKernel, "Resetting thread with threads waiting on end?");
 }
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, u32 stackMpid) {
 	std::lock_guard<std::mutex> guard(threadqueueLock);
 
 	PSPThread *t = new PSPThread();
@@ -1747,6 +1765,7 @@ PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *n
 	t->nt.initialPriority = t->nt.currentPriority = priority;
 	t->nt.stackSize = stacksize;
 	t->nt.status = THREADSTATUS_DORMANT;
+	t->stackMpid = stackMpid;
 
 	t->nt.numInterruptPreempts = 0;
 	t->nt.numReleases = 0;
@@ -1778,7 +1797,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 {
 	//grab mips regs
 	SceUID id;
-	PSPThread *thread = __KernelCreateThreadObject(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
+	PSPThread *thread = __KernelCreateThreadObject(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr, 2);
 	if (thread->currentStack.start == 0)
 		ERROR_LOG_REPORT(Log::sceKernel, "Unable to allocate stack for root thread.");
 	__KernelResetThread(thread, 0);
@@ -1806,10 +1825,10 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	return id;
 }
 
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr)
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 stackMpid)
 {
 	SceUID id;
-	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr);
+	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr, stackMpid);
 	if (newThread->currentStack.start == 0)
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 
@@ -1817,7 +1836,7 @@ SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32
 }
 
 // Note: Removed all the uses of hleReport* etc.
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel) {
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, u32 stackMpid) {
 	if (!threadName) {
 		ERROR_LOG(Log::sceKernel, "__KernelCreateThread: NULL thread name");
 		return SCE_KERNEL_ERROR_ERROR;
@@ -1868,7 +1887,16 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		}
 	}
 
-	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
+	if (optionAddr != 0) {
+		auto options = PSPPointer<SceKernelThreadOptParam>::Create(optionAddr);
+		if (options.IsValid() && options->size >= 8) {
+			stackMpid = options->stackMpid;
+		} else {
+			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
+		}
+	}
+
+	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr, stackMpid);
 	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY) {
 		ERROR_LOG_REPORT(Log::sceKernel, "out of memory, %08x stack requested", stacksize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;

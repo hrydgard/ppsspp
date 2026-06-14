@@ -145,7 +145,7 @@ public:
 
 	std::vector<SectionID> GetCodeSections() const;
 
-	int LoadInto(u32 vaddr, bool fromTop);
+	int LoadInto(u32 vaddr, bool fromTop, u32 mpid = 2);
 	bool LoadSymbols();
 	bool LoadRelocations(const Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);

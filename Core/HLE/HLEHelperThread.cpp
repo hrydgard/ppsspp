@@ -65,7 +65,7 @@ void HLEHelperThread::AllocEntry(u32 size) {
 }
 
 void HLEHelperThread::Create(const char *threadName, u32 prio, int stacksize) {
-	id_ = __KernelCreateThreadInternal(threadName, __KernelGetCurThreadModuleId(), entry_, prio, stacksize, 0x00001000);
+	id_ = __KernelCreateThreadInternal(threadName, __KernelGetCurThreadModuleId(), entry_, prio, stacksize, 0x00001000, 1);
 }
 
 void HLEHelperThread::DoState(PointerWrap &p) {

@@ -1024,7 +1024,7 @@ enum : u32 {
 };
 
 // filename is only used for dumping/metadata.
-static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
+static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, u32 mpidtext = 2, u32 mpiddata = 2) {
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1149,7 +1149,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				}
 			}
 			bool kernelModule = (head->attribute & 0x1000) != 0;
-			BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+			BlockAllocator *allocator = BlockAllocatorFromID(mpidtext);
+			if (!allocator) {
+				allocator = kernelModule ? &kernelMemory : &userMemory;
+			}
+			BlockAllocator &memblock = *allocator;
 			size_t n = strnlen(head->modname, 28);
 			const std::string modName = "ELF/" + std::string(head->modname, n);
 			u32 addr = memblock.Alloc(totalSize, fromTop, modName.c_str());
@@ -1230,7 +1234,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	// Open ELF reader
 	ElfReader reader((const void *)ptr, elfSize);
 
-	int result = reader.LoadInto(loadAddress, fromTop);
+	int result = reader.LoadInto(loadAddress, fromTop, mpidtext);
 	if (result != SCE_KERNEL_ERROR_OK) {
 		ERROR_LOG(Log::sceModule, "LoadInto failed with error %08x",result);
 		delete [] newptr;
@@ -1602,14 +1606,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	return module;
 }
 
-SceUID KernelLoadModule(const std::string &filename, std::string *error_string) {
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string, u32 mpidtext, u32 mpiddata) {
 	std::vector<uint8_t> buffer;
 	if (pspFileSystem.ReadEntireFile(filename, buffer) < 0)
 		return SCE_KERNEL_ERROR_NOFILE;
 
 	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	u32 magic;
-	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, filename, error);
+	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, filename, error, mpidtext, mpiddata);
 
 	if (module == nullptr)
 		return error;
@@ -1617,7 +1621,7 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string) 
 }
 
 // filename is only used for dumping etc.
-static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string_view filename, std::string *error_string) {
+static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string_view filename, std::string *error_string, u32 mpidtext, u32 mpiddata) {
 	PSPModule *module = nullptr;
 	// Check for PBP
 	if (fileSize >= sizeof(PSP_Header) && memcmp(fileptr, "\0PBP", 4) == 0) {
@@ -1660,13 +1664,13 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 		}
 
 		u32 error;
-		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], elfSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, filename, error);
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], elfSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, filename, error, mpidtext, mpiddata);
 
 		delete [] temp;
 	} else if (fileSize > sizeof(PSP_Header)) {
 		u32 error;
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr, fileSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, filename, error);
+		module = __KernelLoadELFFromPtr(fileptr, fileSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, filename, error, mpidtext, mpiddata);
 	} else {
 		*error_string = "ELF file truncated - can't load";
 		return nullptr;
@@ -1774,7 +1778,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	}
 
 	size_t size = fileData.size();
-	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, filename, error_string);
+	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, filename, error_string, 2, 2);
 
 	if (!module || module->isFake) {
 		if (module) {
@@ -1802,7 +1806,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	option.attribute = PSP_THREAD_ATTR_USER;
 	option.mpidstack = 2;
 	option.priority = 0x20;
-	option.stacksize = 0x40000;	// crazy? but seems to be the truth
+	option.stacksize = 0x8000;	// Matching JPCSP, use 32KB for syscall loads
 
 	// Replace start options with module-specified values if they exist.
 	if (module->nm.module_start_thread_attr != 0)
@@ -1971,6 +1975,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModule: unsupported flags: %08x", flags);
 	}
 	const SceKernelLMOption *lmoption = 0;
+	u32 mpidtext = 2;
+	u32 mpiddata = 2;
 	if (optionAddr) {
 		lmoption = (const SceKernelLMOption *)Memory::GetPointer(optionAddr);
 		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
@@ -1985,14 +1991,18 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			ERROR_LOG_REPORT(Log::Loader, "sceKernelLoadModule(%s): invalid position (fixed)", name);
 			return hleDelayResult(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "module loaded", 500);
 		}
-		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
+		if (lmoption->size >= 12) {
+			mpidtext = lmoption->mpidtext;
+			mpiddata = lmoption->mpiddata;
+		}
+		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModule: options size=%08x, flags=%08x, pos=%d, access=%d, mpiddata=%d, mpidtext=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, mpiddata, mpidtext);
 	}
 
 	PSPModule *module = nullptr;
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error);
+	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, mpidtext, mpiddata);
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -2069,7 +2079,8 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 
 		// TODO: Why do we skip smoption->attribute here?
 
-		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
+		u32 stackMpid = smoption ? smoption->mpidstack : 2;
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0, stackMpid);
 		_dbg_assert_(threadID > 0);
 		// TOOD: Check the return value and bail?
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
@@ -2148,6 +2159,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	if (module->nm.module_stop_thread_attr != 0)
 		attr = module->nm.module_stop_thread_attr;
 
+	u32 mpidstack = 2;
 	// TODO: Need to test how this really works.  Let's assume it's an override.
 	if (Memory::IsValidAddress(optionAddr))
 	{
@@ -2159,6 +2171,8 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 			stacksize = options->stacksize;
 		if (options->size != 0 && options->attribute != 0)
 			attr = options->attribute;
+		if (options->size >= 8)
+			mpidstack = options->mpidstack;
 		// TODO: Maybe based on size?
 		else if (attr != 0)
 			WARN_LOG_REPORT(Log::sceModule, "Stopping module with attr=%x, but options specify 0", attr);
@@ -2166,7 +2180,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 
 	if (Memory::IsValidAddress(stopFunc))
 	{
-		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0, mpidstack);
 		_dbg_assert_(threadID > 0);
 		// TOOD: Check the return value and bail?
 		__KernelStartThreadValidate(threadID, argSize, argAddr);
@@ -2234,6 +2248,7 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 		if (module->nm.module_stop_thread_attr != 0)
 			attr = module->nm.module_stop_thread_attr;
 
+		u32 mpidstack = 2;
 		// TODO: Need to test how this really works.  Let's assume it's an override.
 		if (Memory::IsValidAddress(optionAddr)) {
 			auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
@@ -2244,13 +2259,15 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 				stacksize = options->stacksize;
 			if (options->size != 0 && options->attribute != 0)
 				attr = options->attribute;
+			if (options->size >= 8)
+				mpidstack = options->mpidstack;
 			// TODO: Maybe based on size?
 			else if (attr != 0)
 				WARN_LOG_REPORT(Log::sceModule, "Stopping module with attr=%x, but options specify 0", attr);
 		}
 
 		if (Memory::IsValidAddress(stopFunc)) {
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0, mpidstack);
 			_dbg_assert_(threadID > 0);
 			// TOOD: Check the return value and bail?
 			__KernelStartThreadValidate(threadID, argSize, argp);
@@ -2446,9 +2463,15 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported flags: %08x", flags);
 	}
 	const SceKernelLMOption *lmoption = 0;
+	u32 mpidtext = 2;
+	u32 mpiddata = 2;
 	if (lmoptionPtr) {
 		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
-		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
+		if (lmoption && lmoption->size >= 12) {
+			mpidtext = lmoption->mpidtext;
+			mpiddata = lmoption->mpiddata;
+		}
+		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: options size=%08x, flags=%08x, pos=%d, access=%d, mpiddata=%d, mpidtext=%d", lmoption->size, lmoption->flags, (int)lmoption->position, (int)lmoption->access, mpiddata, mpidtext);
 	}
 	u32 pos = (u32)pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
 	size_t size = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
@@ -2459,7 +2482,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	pspFileSystem.ReadFile(handle, temp, size - pos);
 
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, "", error);
+	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, "", error, mpidtext, mpiddata);
 	delete [] temp;
 
 	if (!module) {
@@ -2507,9 +2530,15 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);
 	}
 	const SceKernelLMOption *lmoption = 0;
+	u32 mpidtext = 2;
+	u32 mpiddata = 2;
 	if (lmoptionPtr) {
 		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
-		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
+		if (lmoption && lmoption->size >= 12) {
+			mpidtext = lmoption->mpidtext;
+			mpiddata = lmoption->mpiddata;
+		}
+		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: options size=%08x, flags=%08x, pos=%d, access=%d, mpiddata=%d, mpidtext=%d", lmoption->size, lmoption->flags, (int)lmoption->position, (int)lmoption->access, mpiddata, mpidtext);
 	}
 	std::string error_string;
 	PSPModule *module = nullptr;
@@ -2520,7 +2549,7 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 	char fakeDebugFilename[512];
 	snprintf(fakeDebugFilename, sizeof(fakeDebugFilename), "moduleByPtr_%08x_%d", bufPtr, (int)size);
 
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, fakeDebugFilename, error);
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, fakeDebugFilename, error, mpidtext, mpiddata);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
@@ -2619,22 +2648,22 @@ static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u3
 }
 
 const HLEFunction ModuleMgrForUser[] = {
-	{0X977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx"    },
-	{0XB7F46618, &WrapU_UUU<sceKernelLoadModuleByID>,                   "sceKernelLoadModuleByID",                 'x', "xxx"    },
-	{0X50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
-	{0XD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx"    },
-	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
-	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x"      },
-	{0X710F61B5, nullptr,                                               "sceKernelLoadModuleMs",                   '?', ""       },
-	{0XF9275D98, &WrapI_UUUU<sceKernelLoadModuleBufferUsbWlan>,         "sceKernelLoadModuleBufferUsbWlan",        'i', "xxxx"   }, /// ??
-	{0XCC1D3699, nullptr,                                               "sceKernelStopUnloadSelfModule",           '?', ""       },
-	{0X748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx"     },
-	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x"      },
-	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', ""       },
-	{0X8F2DF740, &WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>, "sceKernelStopUnloadSelfModuleWithStatus", 'x', "xxxxx"  },
-	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx"     },
-	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx"    },
-	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx"    },
+	{0X977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
+	{0XB7F46618, &WrapU_UUU<sceKernelLoadModuleByID>,                   "sceKernelLoadModuleByID",                 'x', "xxx",   HLE_KERNEL_SYSCALL },
+	{0X50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0XD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL },
+	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x",     HLE_KERNEL_SYSCALL },
+	{0X710F61B5, nullptr,                                               "sceKernelLoadModuleMs",                   '?', "",      HLE_KERNEL_SYSCALL },
+	{0XF9275D98, &WrapI_UUUU<sceKernelLoadModuleBufferUsbWlan>,         "sceKernelLoadModuleBufferUsbWlan",        'i', "xxxx",  HLE_KERNEL_SYSCALL }, /// ??
+	{0XCC1D3699, nullptr,                                               "sceKernelStopUnloadSelfModule",           '?', "",      HLE_KERNEL_SYSCALL },
+	{0X748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x",     HLE_KERNEL_SYSCALL },
+	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', "",      HLE_KERNEL_SYSCALL },
+	{0X8F2DF740, &WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>, "sceKernelStopUnloadSelfModuleWithStatus", 'x', "xxxxx", HLE_KERNEL_SYSCALL },
+	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx",    HLE_KERNEL_SYSCALL },
+	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
+	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0XE4C4211C, nullptr,                                               "ModuleMgrForUser_E4C4211C",               '?', ""       },
 	{0XFBE27467, nullptr,                                               "ModuleMgrForUser_FBE27467",               '?', ""       },
 };
