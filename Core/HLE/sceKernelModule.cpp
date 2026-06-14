@@ -1806,7 +1806,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	option.attribute = PSP_THREAD_ATTR_USER;
 	option.mpidstack = 2;
 	option.priority = 0x20;
-	option.stacksize = 0x8000;	// Matching JPCSP, use 32KB for syscall loads
+	option.stacksize = 0x40000;	// crazy? but seems to be the truth
 
 	// Replace start options with module-specified values if they exist.
 	if (module->nm.module_start_thread_attr != 0)
