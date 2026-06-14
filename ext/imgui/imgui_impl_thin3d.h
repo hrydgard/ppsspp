@@ -46,6 +46,8 @@ IMGUI_IMPL_API void ImGui_ImplThin3d_DestroyDeviceObjects();
 enum class ImGuiPipeline {
 	TexturedAlphaBlend = 0,
 	TexturedOpaque = 1,
+	TexturedAlphaToGrayscale = 2,
+	Count,
 };
 
 // These register a texture for imgui drawing, but just for the current frame.

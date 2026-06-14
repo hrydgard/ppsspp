@@ -474,6 +474,7 @@ public:
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
+		_dbg_assert_(curPipeline_->pipeline);
 	}
 
 	void BindVertexBuffer(Buffer *vertexBuffer, int offset) override {
@@ -1246,8 +1247,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
+			_dbg_assert_(!gDesc.vertexShader);  // can't have two
 			gDesc.vertexShader = vkshader->Get();
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
+			_dbg_assert_(!gDesc.fragmentShader);  // can't have two
 			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(Log::G3D, "Bad stage");
@@ -1301,6 +1304,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	}
 
 	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, false, tag ? tag : "thin3d");
+	_dbg_assert_(pipeline->pipeline);
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;

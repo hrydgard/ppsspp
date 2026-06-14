@@ -1204,12 +1204,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (writeDepth) {
 		if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			if (fsDepthClamp) {
-				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65536.0) / 65536.0;\n");
+				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65535.0) / 65535.0;\n");
 			} else {
-				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z) / 65536.0;\n");
+				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65535.0) / 65535.0;\n");
 			}
 		} else if (fsDepthClamp) {
-			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65536.0) / 65536.0;\n");
+			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
 		} else if (useDiscardStencilBugWorkaround) {
 			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
 			// when only stencil is used. The exact situation seems to vary by driver.

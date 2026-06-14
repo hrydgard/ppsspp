@@ -148,6 +148,7 @@ enum class Primitive {
 enum VertexShaderPreset : int {
 	VS_COLOR_2D,
 	VS_TEXTURE_COLOR_2D,
+	VS_TEXTURE_COLOR_2D_NO_TINT,
 	VS_MAX_PRESET,
 };
 
@@ -155,6 +156,7 @@ enum FragmentShaderPreset : int {
 	FS_COLOR_2D,
 	FS_TEXTURE_COLOR_2D,
 	FS_TEXTURE_COLOR_2D_RB_SWIZZLE,
+	FS_TEXTURE_COLOR_2D_ALPHA_TO_GRAY,
 	FS_MAX_PRESET,
 };
 
@@ -770,8 +772,16 @@ public:
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) = 0;
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return vsPresets_[preset]; }
-	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return fsPresets_[preset]; }
+	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) {
+		ShaderModule *module = vsPresets_[preset];
+		_dbg_assert_(module->GetStage() == ShaderStage::Vertex);
+		return module;
+	}
+	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) {
+		ShaderModule *module = fsPresets_[preset];
+		_dbg_assert_(module->GetStage() == ShaderStage::Fragment);
+		return module;
+	}
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
@@ -911,13 +921,13 @@ public:
 protected:
 	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> frameTimeHistory_;
 
-	ShaderModule *vsPresets_[VS_MAX_PRESET];
-	ShaderModule *fsPresets_[FS_MAX_PRESET];
+	ShaderModule *vsPresets_[VS_MAX_PRESET]{};
+	ShaderModule *fsPresets_[FS_MAX_PRESET]{};
 
 	ShaderLanguageDesc shaderLanguageDesc_;
 
-	int targetWidth_;
-	int targetHeight_;
+	int targetWidth_ = 0;
+	int targetHeight_ = 0;
 
 	Bugs bugs_;
 };
