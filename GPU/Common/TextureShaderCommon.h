@@ -38,6 +38,7 @@ public:
 
 class ClutTextureCache {
 public:
+	ClutTextureCache(Draw::DrawContext *draw) : draw_(draw) {}
 	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut);
 
 	void Clear();
@@ -47,7 +48,7 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 private:
-	Draw::DrawContext *draw_;
+	Draw::DrawContext *draw_ = nullptr;
 	std::unordered_map<u32, ClutTexture *> texCache_;
 };
 
