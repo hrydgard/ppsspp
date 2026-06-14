@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GPU/GPUCommon.h"
+#include "Common/GPU/thin3d.h"
 
 // GE-related windows of the ImDebugger
 
@@ -63,6 +64,8 @@ public:
 	virtual ~PixelLookup() {}
 
 	virtual bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const = 0;
+	virtual float GetHistogramValue(int idx) const = 0;
+	virtual int GetHistogramSize() const = 0;
 };
 
 struct ImGePixelViewer : public PixelLookup {
@@ -73,6 +76,8 @@ struct ImGePixelViewer : public PixelLookup {
 	}
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 	void DeviceLost();
+	float GetHistogramValue(int idx) const override { return 0; }
+	int GetHistogramSize() const override { return 0; }
 
 	uint32_t addr = 0x04110000;
 	uint16_t stride = 512;
@@ -108,11 +113,20 @@ struct ImGeReadbackViewer : public PixelLookup {
 	GEBufferFormat fbFormat = GE_FORMAT_INVALID;
 
 	// This specifies what to show
-	Draw::Aspect aspect;
+	Draw::Aspect aspect_{};
+	bool showAlpha_ = false;
 	float scale = 1.0f;  // Scales depth values.
 
+	const int *Histogram() const { return histogram_; }
+	float GetHistogramValue(int idx) const override {
+		return histogram_[idx];
+	}
+	float GetHistogramMaxValue() const { return histogramMax_; }
+	int GetHistogramSize() const override { return aspect_ == Draw::Aspect::STENCIL_BIT ? 256 : (aspect_ == Draw::Aspect::COLOR_BIT && showAlpha_ ? 256 : 0); }
 private:
 	uint8_t *data_ = nullptr;
+	int histogram_[256 * 3] = {};
+	int histogramMax_ = 0;
 	Draw::DataFormat readbackFmt_;
 	Draw::Texture *texture_ = nullptr;
 	bool dirty_ = true;

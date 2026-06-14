@@ -591,7 +591,7 @@ void ImGePixelViewer::UpdateTexture(Draw::DrawContext *draw) {
 
 ImGeReadbackViewer::ImGeReadbackViewer() {
 	// These are only forward declared in the header, so we initialize them here.
-	aspect = Draw::Aspect::COLOR_BIT;
+	aspect_ = Draw::Aspect::COLOR_BIT;
 	readbackFmt_ = Draw::DataFormat::UNDEFINED;
 }
 
@@ -628,7 +628,7 @@ bool ImGeReadbackViewer::Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, floa
 		int w = vfb->fbo->Width();
 		int h = vfb->fbo->Height();
 		int rbBpp = 4;
-		switch (aspect) {
+		switch (aspect_) {
 		case Draw::Aspect::COLOR_BIT:
 			readbackFmt_ = Draw::DataFormat::R8G8B8A8_UNORM;
 			break;
@@ -645,7 +645,7 @@ bool ImGeReadbackViewer::Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, floa
 		}
 
 		data_ = new uint8_t[w * h * rbBpp];
-		draw->CopyFramebufferToMemory(vfb->fbo, aspect, 0, 0, w, h, readbackFmt_, data_, w, Draw::ReadbackMode::BLOCK, "debugger");
+		draw->CopyFramebufferToMemory(vfb->fbo, aspect_, 0, 0, w, h, readbackFmt_, data_, w, Draw::ReadbackMode::BLOCK, "debugger");
 
 		if (texture_) {
 			texture_->Release();
@@ -653,9 +653,12 @@ bool ImGeReadbackViewer::Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, floa
 		}
 
 		// For now, we just draw the color texture. The others we convert.
-		if (aspect != Draw::Aspect::COLOR_BIT) {
+		if (aspect_ != Draw::Aspect::COLOR_BIT || showAlpha_) {
 			uint8_t *texData = data_;
-			if (aspect == Draw::Aspect::DEPTH_BIT && scale != 1.0f) {
+			memset(histogram_, 0, sizeof(histogram_));
+			Draw::DataFormat fmt = rbBpp == 1 ? Draw::DataFormat::R8_UNORM : Draw::DataFormat::R32_FLOAT;
+
+			if (aspect_ == Draw::Aspect::DEPTH_BIT && scale != 1.0f) {
 				texData = new uint8_t[w * h * rbBpp];
 				// Apply scale
 				float *ptr = (float *)data_;
@@ -663,9 +666,28 @@ bool ImGeReadbackViewer::Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, floa
 				for (int i = 0; i < w * h; i++) {
 					tptr[i] = ptr[i] * scale;
 				}
+			} else if (aspect_ == Draw::Aspect::STENCIL_BIT) {
+				for (int i = 0; i < w * h; i++) {
+					histogram_[data_[i]]++;
+				}
+			} else if (aspect_ == Draw::Aspect::COLOR_BIT && showAlpha_) {
+				// Build a histogram of alpha values.
+				for (int i = 0; i < w * h; i++) {
+					histogram_[data_[i * 4 + 3]]++;
+				}
+				texData = new uint8_t[w * h * rbBpp];
+				// Also, tweak the pixels to actually show alpha as grayscale.
+				for (int i = 0; i < w * h; i++) {
+					uint8_t alpha = data_[i * 4 + 3];
+					texData[i * 4 + 0] = alpha;
+					texData[i * 4 + 1] = alpha;
+					texData[i * 4 + 2] = alpha;
+					texData[i * 4 + 3] = 255;
+				}
+
+				fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			}
 
-			Draw::DataFormat fmt = rbBpp == 1 ? Draw::DataFormat::R8_UNORM : Draw::DataFormat::R32_FLOAT;
 			Draw::TextureDesc desc{ Draw::TextureType::LINEAR2D,
 				fmt,
 				(int)w,
@@ -710,7 +732,11 @@ bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) 
 	case Draw::DataFormat::R8G8B8A8_UNORM:
 	{
 		const uint32_t *read32 = (const uint32_t *)(data_ + offset);
-		snprintf(buf, bufSize, "%08x", *read32);
+		int r = (*read32 >> 0) & 0xFF;
+		int g = (*read32 >> 8) & 0xFF;
+		int b = (*read32 >> 16) & 0xFF;
+		int a = (*read32 >> 24) & 0xFF;
+		snprintf(buf, bufSize, "%08x (RGBA %d, %d, %d, %d)", *read32, r, g, b, a);
 		return true;
 	}
 	case Draw::DataFormat::D32F:
@@ -728,6 +754,8 @@ bool ImGeReadbackViewer::FormatValueAt(char *buf, size_t bufSize, int x, int y) 
 		return true;
 	}
 	default:
+		_dbg_assert_(false);
+		snprintf(buf, bufSize, "N/A");
 		return false;
 	}
 }
@@ -1054,7 +1082,7 @@ void ImGeDebuggerWindow::NotifyStep() {
 		rbViewer_.fbAddr = gstate.getFrameBufAddress();
 		rbViewer_.fbStride = gstate.FrameBufStride();
 		rbViewer_.fbFormat = gstate.FrameBufFormat();
-		rbViewer_.aspect = selectedAspect_;
+		rbViewer_.aspect_ = selectedAspect_;
 	}
 	rbViewer_.Snapshot();
 }
@@ -1272,7 +1300,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			}
 			ImGui::SetNextItemWidth(200.0f);
 			ImGui::SliderFloat("Zoom", &previewZoom_, 0.125f, 2.f, "%.3f", ImGuiSliderFlags_Logarithmic);
-
+			if (selectedAspect_ == Draw::Aspect::COLOR_BIT) {
+				ImGui::SameLine();
+				if (ImGui::Checkbox("Alpha", &rbViewer_.showAlpha_)) {
+					rbViewer_.Snapshot();
+				}
+			}
 			// Use selectable instead of tab bar so we can get events (haven't figured that out).
 			static const Draw::Aspect aspects[3] = { Draw::Aspect::COLOR_BIT, Draw::Aspect::DEPTH_BIT, Draw::Aspect::STENCIL_BIT, };
 			static const char *const aspectNames[3] = { "Color", "Depth", "Stencil" };
@@ -1329,8 +1362,8 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			drawList->PopClipRect();
 
 			if (ImGui::IsItemHovered()) {
-				int x = (int)(ImGui::GetMousePos().x - p0.x) * previewZoom_;
-				int y = (int)(ImGui::GetMousePos().y - p0.y) * previewZoom_;
+				int x = (int)(ImGui::GetMousePos().x - p0.x) / previewZoom_;
+				int y = (int)(ImGui::GetMousePos().y - p0.y) / previewZoom_;
 				char temp[128];
 				if (lookup->FormatValueAt(temp, sizeof(temp), x, y)) {
 					ImGui::Text("(%d, %d): %s", x, y, temp);
@@ -1339,6 +1372,13 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 				}
 			} else {
 				ImGui::TextUnformatted("(no pixel hovered)");
+			}
+
+			if (lookup->GetHistogramSize() > 0) {
+				ImGui::PlotHistogram("##histogram", [](void *data, int idx) -> float {
+					PixelLookup *lookup = static_cast<PixelLookup *>(data);
+					return lookup->GetHistogramValue(idx);
+				}, lookup, 256, 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(0, 80));
 			}
 
 			if (vfb && vfb->fbo) {
@@ -1352,9 +1392,8 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 				ImGui::Text("(clear mode - texturing not used)");
 			} else if (!gstate.isTextureMapEnabled()) {
 				ImGui::Text("(texturing not enabled");
-			} else {  // We don't bother with the texture if previewCmd is BOUNDING_BOX - no texturing happens there.
-				TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon();
-				TexCacheEntry *tex = texcache ? texcache->SetTexture() : nullptr;
+			} else if (TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon()) {  // We don't bother with the texture if previewCmd is BOUNDING_BOX - no texturing happens there.
+				const TexCacheEntry *tex = texcache->SetTexture();
 				if (tex) {
 					ImGui::Text("Texture: %08x", tex->addr);
 					texcache->ApplyTexture(false, false);
@@ -1362,8 +1401,8 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 					void *nativeView = texcache->GetNativeTextureView(tex, true);
 					ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
 
-					float texW = dimWidth(tex->dim);
-					float texH = dimHeight(tex->dim);
+					const float texW = dimWidth(tex->dim);
+					const float texH = dimHeight(tex->dim);
 
 					const ImVec2 p0 = ImGui::GetCursorScreenPos();
 					const ImVec2 sz = ImGui::GetContentRegionAvail();
@@ -1382,11 +1421,16 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 
 					drawList->PopClipRect();
 
+				} else if (const VirtualFramebuffer *fb = texcache->NextFramebufferTexture()) {
+					// A framebuffer.
+					// TODO: More detail here.
+					ImGui::Text("Framebuffer as texture: %08x", fb->fb_address);
 				} else {
 					ImGui::Text("(no valid texture bound)");
-					// In software mode, we should just decode the texture here.
-					// TODO: List some of the texture params here.
 				}
+			} else {
+				// Software mode?
+				ImGui::Text("(texture cache not available)");
 			}
 
 			// Let's display the current CLUT.
