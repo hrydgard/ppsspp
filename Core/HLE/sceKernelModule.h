@@ -230,7 +230,7 @@ bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_strin
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
-SceUID KernelLoadModule(const std::string &filename, std::string *error_string, u32 mpidtext = 2, u32 mpiddata = 2);
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string, u32 mpidtext = 0, u32 mpiddata = 0);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);

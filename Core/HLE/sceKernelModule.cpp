@@ -1024,7 +1024,7 @@ enum : u32 {
 };
 
 // filename is only used for dumping/metadata.
-static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, u32 mpidtext = 2, u32 mpiddata = 2) {
+static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, u32 mpidtext = 0, u32 mpiddata = 0) {
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1153,6 +1153,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			if (!allocator) {
 				allocator = kernelModule ? &kernelMemory : &userMemory;
 			}
+			module->nm.mpidtext = BlockAllocatorToID(allocator);
+			module->nm.mpiddata = mpiddata == 0 ? module->nm.mpidtext : mpiddata;
 			BlockAllocator &memblock = *allocator;
 			size_t n = strnlen(head->modname, 28);
 			const std::string modName = "ELF/" + std::string(head->modname, n);
@@ -1245,6 +1247,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
+
+	BlockAllocator *actualAlloc = BlockAllocatorFromAddr(module->memoryBlockAddr);
+	module->nm.mpidtext = BlockAllocatorToID(actualAlloc);
+	module->nm.mpiddata = mpiddata == 0 ? module->nm.mpidtext : mpiddata;
 
 	currentMIPS->InvalidateICache(module->memoryBlockAddr, module->memoryBlockSize);
 
@@ -1621,7 +1627,7 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string, 
 }
 
 // filename is only used for dumping etc.
-static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string_view filename, std::string *error_string, u32 mpidtext, u32 mpiddata) {
+static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string_view filename, std::string *error_string, u32 mpidtext = 0, u32 mpiddata = 0) {
 	PSPModule *module = nullptr;
 	// Check for PBP
 	if (fileSize >= sizeof(PSP_Header) && memcmp(fileptr, "\0PBP", 4) == 0) {
@@ -1804,9 +1810,9 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	SceKernelSMOption option;
 	option.size = sizeof(SceKernelSMOption);
 	option.attribute = PSP_THREAD_ATTR_USER;
-	option.mpidstack = 2;
+	option.mpidstack = 0;
 	option.priority = 0x20;
-	option.stacksize = 0x40000;	// crazy? but seems to be the truth
+	option.stacksize = 0x8000;	// Matching JPCSP, use 32KB for syscall loads
 
 	// Replace start options with module-specified values if they exist.
 	if (module->nm.module_start_thread_attr != 0)
@@ -1975,8 +1981,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModule: unsupported flags: %08x", flags);
 	}
 	const SceKernelLMOption *lmoption = 0;
-	u32 mpidtext = 2;
-	u32 mpiddata = 2;
+	u32 mpidtext = 0;
+	u32 mpiddata = 0;
 	if (optionAddr) {
 		lmoption = (const SceKernelLMOption *)Memory::GetPointer(optionAddr);
 		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
@@ -2054,7 +2060,7 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 	}
 
 	u32 priority = 0x20;
-	u32 stacksize = 0x40000;
+	u32 stacksize = 0x8000; // default 32KB
 	int attribute = module->nm.attribute;
 	u32 entryAddr = module->nm.entry_addr;
 
@@ -2079,7 +2085,10 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 
 		// TODO: Why do we skip smoption->attribute here?
 
-		u32 stackMpid = smoption ? smoption->mpidstack : 2;
+		u32 stackMpid = 0;
+		if (smoption && smoption->size >= 8)
+			stackMpid = smoption->mpidstack;
+
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0, stackMpid);
 		_dbg_assert_(threadID > 0);
 		// TOOD: Check the return value and bail?
@@ -2130,7 +2139,7 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
 	u32 priority = 0x20;
-	u32 stacksize = 0x40000;
+	u32 stacksize = 0x8000;
 	u32 attr = 0;
 
 	// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
@@ -2463,8 +2472,8 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported flags: %08x", flags);
 	}
 	const SceKernelLMOption *lmoption = 0;
-	u32 mpidtext = 2;
-	u32 mpiddata = 2;
+	u32 mpidtext = 0;
+	u32 mpiddata = 0;
 	if (lmoptionPtr) {
 		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
 		if (lmoption && lmoption->size >= 12) {
@@ -2530,8 +2539,8 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);
 	}
 	const SceKernelLMOption *lmoption = 0;
-	u32 mpidtext = 2;
-	u32 mpiddata = 2;
+	u32 mpidtext = 0;
+	u32 mpiddata = 0;
 	if (lmoptionPtr) {
 		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
 		if (lmoption && lmoption->size >= 12) {
@@ -2650,19 +2659,19 @@ static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u3
 const HLEFunction ModuleMgrForUser[] = {
 	{0X977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0XB7F46618, &WrapU_UUU<sceKernelLoadModuleByID>,                   "sceKernelLoadModuleByID",                 'x', "xxx",   HLE_KERNEL_SYSCALL },
-	{0X50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
-	{0XD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL },
-	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
-	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x",     HLE_KERNEL_SYSCALL },
-	{0X710F61B5, nullptr,                                               "sceKernelLoadModuleMs",                   '?', "",      HLE_KERNEL_SYSCALL },
+	{0X50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0XD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx"    },
+	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x"      },
+	{0X710F61B5, nullptr,                                               "sceKernelLoadModuleMs",                   '?', ""       },
 	{0XF9275D98, &WrapI_UUUU<sceKernelLoadModuleBufferUsbWlan>,         "sceKernelLoadModuleBufferUsbWlan",        'i', "xxxx",  HLE_KERNEL_SYSCALL }, /// ??
-	{0XCC1D3699, nullptr,                                               "sceKernelStopUnloadSelfModule",           '?', "",      HLE_KERNEL_SYSCALL },
-	{0X748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
-	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x",     HLE_KERNEL_SYSCALL },
-	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', "",      HLE_KERNEL_SYSCALL },
-	{0X8F2DF740, &WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>, "sceKernelStopUnloadSelfModuleWithStatus", 'x', "xxxxx", HLE_KERNEL_SYSCALL },
-	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx",    HLE_KERNEL_SYSCALL },
-	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
+	{0XCC1D3699, nullptr,                                               "sceKernelStopUnloadSelfModule",           '?', ""       },
+	{0X748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx"     },
+	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x"      },
+	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', ""       },
+	{0X8F2DF740, &WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>, "sceKernelStopUnloadSelfModuleWithStatus", 'x', "xxxxx"  },
+	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx"     },
+	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx"    },
 	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0XE4C4211C, nullptr,                                               "ModuleMgrForUser_E4C4211C",               '?', ""       },
 	{0XFBE27467, nullptr,                                               "ModuleMgrForUser_FBE27467",               '?', ""       },

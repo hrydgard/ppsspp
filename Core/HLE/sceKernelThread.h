@@ -35,7 +35,7 @@ class DebugInterface;
 class BlockAllocator;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, u32 stackMpid = 2);
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, u32 stackMpid = 0);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
@@ -303,7 +303,7 @@ const char *__KernelGetThreadName(SceUID threadID);
 bool KernelIsThreadDormant(SceUID threadID);
 bool KernelIsThreadWaiting(SceUID threadID);
 
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 stackMpid = 2);
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 stackMpid = 0);
 
 void __KernelSaveContext(PSPThreadContext *ctx, bool vfpuEnabled);
 void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled);

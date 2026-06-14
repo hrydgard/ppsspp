@@ -481,7 +481,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop, u32 mpid) {
 	bool inUser = totalStart >= PSP_GetUserMemoryBase();
 	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
 	if (!allocator) {
-		allocator = (kernelModule && !inUser) ? &kernelMemory : &userMemory;
+		allocator = kernelModule ? &kernelMemory : &userMemory;
 	}
 	BlockAllocator &memblock = *allocator;
 

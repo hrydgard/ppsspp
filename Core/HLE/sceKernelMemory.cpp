@@ -1628,9 +1628,18 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 
 
 static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
-	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
-		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
+	BlockAllocator *allocator = &userMemory;
+	if (Memory::IsValidAddress(paramsAddr)) {
+		u32 paramsSize = Memory::Read_U32(paramsAddr);
+		if (paramsSize >= 8) {
+			u32 mpid = Memory::Read_U32(paramsAddr + 4);
+			allocator = BlockAllocatorFromID(mpid);
+			if (!allocator)
+				return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_PARTITION);
+		} else if (paramsSize != 4) {
+			ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, paramsSize);
+			return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
+		}
 	}
 	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
 		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported type %d", pname, type);
@@ -1645,7 +1654,7 @@ static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 
 		return hleNoLog(SCE_KERNEL_ERROR_ERROR);
 	}
 
-	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, pname, size, (MemblockType)type, 0);
+	PartitionMemoryBlock *block = new PartitionMemoryBlock(allocator, pname, size, (MemblockType)type, 0);
 	if (!block->IsValid()) {
 		delete block;
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "allocation failed");

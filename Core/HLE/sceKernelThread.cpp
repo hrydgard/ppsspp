@@ -319,10 +319,26 @@ void PSPThread::GetQuickInfo(char *ptr, int size) {
 }
 
 BlockAllocator &PSPThread::StackAllocator() {
-	if (stackMpid == 1 || stackMpid == 3 || stackMpid == 4) {
-		return kernelMemory;
+	u32 mpid = stackMpid;
+	if (mpid == 0) {
+		// Auto partition.
+		if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
+			mpid = 1;
+		} else {
+			// Otherwise, use the module's data partition if available.
+			u32 error;
+			PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+			if (module) {
+				mpid = module->nm.mpiddata;
+				// If the module itself is in kernel, use kernel partition for its threads.
+				if (mpid == 0 && (module->nm.attribute & 0x1000)) {
+					mpid = 1;
+				}
+			}
+		}
 	}
-	if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
+
+	if (mpid == 1 || mpid == 3 || mpid == 4) {
 		return kernelMemory;
 	}
 	return userMemory;
@@ -436,7 +452,7 @@ void PSPThread::DoState(PointerWrap &p) {
 	if (s >= 6) {
 		Do(p, stackMpid);
 	} else {
-		stackMpid = 2;
+		stackMpid = 0;
 	}
 	Do(p, isProcessingCallbacks);
 	Do(p, currentMipscallId);
@@ -488,7 +504,7 @@ struct SceKernelThreadOptParam {
 
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, u32 stackMpid);
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, u32 stackMpid = 0);
 void __KernelResetThread(PSPThread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
@@ -1797,7 +1813,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 {
 	//grab mips regs
 	SceUID id;
-	PSPThread *thread = __KernelCreateThreadObject(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr, 2);
+	PSPThread *thread = __KernelCreateThreadObject(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr, 0);
 	if (thread->currentStack.start == 0)
 		ERROR_LOG_REPORT(Log::sceKernel, "Unable to allocate stack for root thread.");
 	__KernelResetThread(thread, 0);
@@ -1902,10 +1918,6 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
 
-	if (optionAddr != 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
-	}
-
 	// Creating a thread resumes dispatch automatically.  Probably can't create without it.
 	dispatchEnabled = true;
 
@@ -1923,7 +1935,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr) {
 	PSPThread *cur = __GetCurrentThread();
 	SceUID module = __KernelGetCurThreadModuleId();
-	bool allowKernel = KernelModuleIsKernelMode(module) || hleIsKernelMode() || (cur ? (cur->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0 : false);
+	bool allowKernel = KernelModuleIsKernelMode(module) || (cur ? (cur->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0 : false);
 	int retval = __KernelCreateThread(threadName, module, entry, prio, stacksize, attr, optionAddr, allowKernel);
 	if (retval < 0) {
 		return hleLogError(Log::sceKernel, retval);
