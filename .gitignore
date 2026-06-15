@@ -32,6 +32,7 @@ Windows/win-version.h
 Windows/win-version-*.tmp
 android/assets
 ext/_Output
+ext/SDL3
 android/lint.xml
 PPSSPPWindows64.exe.manifest
 PPSSPPWindows.exe.manifest

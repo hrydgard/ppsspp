@@ -75,6 +75,9 @@ jobs:
           echo "#define PPSSPP_WIN_VERSION_NO_UPDATE 1" >> Windows/win-version.h
         }
         
+    - name: Download SDL3
+      run: .\Windows\get-sdl3.ps1
+
     - name: Build Windows
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ matrix.platform }} Windows/PPSSPP.sln

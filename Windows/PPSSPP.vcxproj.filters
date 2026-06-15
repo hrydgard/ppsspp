@@ -292,6 +292,9 @@
     <ClCompile Include="Hid\HidCommon.cpp">
       <Filter>Windows\Input\Hid</Filter>
     </ClCompile>
+    <ClCompile Include="SDLInput.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -592,6 +595,9 @@
     <ClInclude Include="Hid\HidCommon.h">
       <Filter>Windows\Input\Hid</Filter>
     </ClInclude>
+    <ClInclude Include="SDLInput.h">
+      <Filter>Windows\Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -879,5 +885,6 @@
     <Text Include="..\assets\gamecontrollerdb.txt">
       <Filter>assets</Filter>
     </Text>
+    <Text Include="SDL3_build.txt" />
   </ItemGroup>
 </Project>

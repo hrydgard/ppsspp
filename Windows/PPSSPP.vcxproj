@@ -221,7 +221,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib;../ext/SDL3/include</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -233,8 +233,8 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL3.lib;d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib;../ext/SDL3/lib/x64</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <LargeAddressAware>true</LargeAddressAware>
@@ -245,6 +245,10 @@
       <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)..\ext\SDL3\lib\x64\SDL3.dll" "$(OutDir)"</Command>
+      <Message>Copying SDL3.dll</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Midl />
@@ -255,7 +259,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib;../ext/SDL3/include</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -267,8 +271,8 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL3.lib;d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;../ext/SDL3/lib/arm64</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <LargeAddressAware>true</LargeAddressAware>
@@ -279,6 +283,10 @@
       <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)..\ext\SDL3\lib\arm64\SDL3.dll" "$(OutDir)"</Command>
+      <Message>Copying SDL3.dll</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -344,15 +352,15 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib;../ext/SDL3/include</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL3.lib;d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib;../ext/SDL3/lib/x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -365,6 +373,10 @@
       <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)..\ext\SDL3\lib\x64\SDL3.dll" "$(OutDir)"</Command>
+      <Message>Copying SDL3.dll</Message>
+    </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>$(EXTERNAL_RC_DEFINITIONS);_VC80_UPGRADE=0x0710;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
@@ -386,15 +398,15 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib;../ext/SDL3/include</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL3.lib;d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;../ext/SDL3/lib/arm64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -406,6 +418,10 @@
       <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)..\ext\SDL3\lib\arm64\SDL3.dll" "$(OutDir)"</Command>
+      <Message>Copying SDL3.dll</Message>
+    </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>$(EXTERNAL_RC_DEFINITIONS);_VC80_UPGRADE=0x0710;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
@@ -582,8 +598,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\SDL\SDLMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -693,6 +709,10 @@
     <ClCompile Include="InputDevice.cpp" />
     <ClCompile Include="MainWindowMenu.cpp" />
     <ClCompile Include="RawInput.cpp" />
+    <ClCompile Include="SDLInput.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="TouchInputHandler.cpp" />
     <ClCompile Include="GPU\WindowsVulkanContext.cpp" />
     <ClCompile Include="W32Util\ContextMenu.cpp" />
@@ -1027,8 +1047,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="..\SDL\SDLVulkanGraphicsContext.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1138,6 +1158,7 @@
     <ClInclude Include="InputDevice.h" />
     <ClInclude Include="MainWindowMenu.h" />
     <ClInclude Include="RawInput.h" />
+    <ClInclude Include="SDLInput.h" />
     <ClInclude Include="TouchInputHandler.h" />
     <ClInclude Include="GPU\WindowsVulkanContext.h" />
     <ClInclude Include="W32Util\ContextMenu.h" />
@@ -1442,6 +1463,7 @@
     <Text Include="..\ppge_atlasscript.txt" />
     <Text Include="..\SDL\README.TXT" />
     <Text Include="debugger.txt" />
+    <Text Include="SDL3_build.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
