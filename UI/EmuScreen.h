@@ -51,6 +51,7 @@ public:
 	void sendMessage(UIMessage message, const char *value) override;
 	void resized() override;
 	ScreenRenderRole renderRole(bool isTop) const override;
+	void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) override;
 
 	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
 	// to get minimal latency and full control. We forward to UIScreen when needed.

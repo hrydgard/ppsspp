@@ -86,7 +86,7 @@ public:
 
 	bool Key(const KeyInput &input) override;
 
-	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
+	void SetTopTabs(bool tabs);
 
 	std::string DescribeLog() const override { return "ChoiceStrip: " + View::DescribeLog(); }
 	std::string DescribeText() const override;

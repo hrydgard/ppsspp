@@ -90,6 +90,7 @@ struct JNIEnv {};
 #include "Common/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/UI/Accessibility.h"
 
 #include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
@@ -676,6 +677,95 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	std::string result = QueryConfig(query);
 	jstring jresult = env->NewStringUTF(result.c_str());
 	return jresult;
+}
+
+static const char *AccessibilityRoleName(UI::AccessibilityRole role) {
+	switch (role) {
+	case UI::AccessibilityRole::Button: return "button";
+	case UI::AccessibilityRole::Choice: return "choice";
+	case UI::AccessibilityRole::Checkbox: return "checkbox";
+	case UI::AccessibilityRole::Radio: return "radio";
+	case UI::AccessibilityRole::Tab: return "tab";
+	case UI::AccessibilityRole::Slider: return "slider";
+	case UI::AccessibilityRole::TextField: return "text_field";
+	case UI::AccessibilityRole::Progress: return "progress";
+	case UI::AccessibilityRole::Heading: return "heading";
+	case UI::AccessibilityRole::GamepadControl: return "gamepad_control";
+	case UI::AccessibilityRole::Image: return "image";
+	case UI::AccessibilityRole::StaticText:
+	default:
+		return "text";
+	}
+}
+
+static std::string JsonEscape(std::string_view value) {
+	std::string escaped;
+	escaped.reserve(value.size() + 8);
+	for (char c : value) {
+		switch (c) {
+		case '\\': escaped += "\\\\"; break;
+		case '"': escaped += "\\\""; break;
+		case '\n': escaped += "\\n"; break;
+		case '\r': escaped += "\\r"; break;
+		case '\t': escaped += "\\t"; break;
+		default: escaped += c; break;
+		}
+	}
+	return escaped;
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_setAccessibilityEnabled(JNIEnv *, jclass, jboolean enabled) {
+	UI::SetAccessibilityEnabled(enabled);
+}
+
+extern "C" jlong Java_org_ppsspp_ppsspp_NativeApp_getAccessibilitySnapshotVersion(JNIEnv *, jclass) {
+	return (jlong)UI::GetCachedAccessibilitySnapshotVersion();
+}
+
+extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_getAccessibilitySnapshotJson(JNIEnv *env, jclass) {
+	const std::vector<UI::AccessibilityElementInfo> snapshot = UI::GetCachedAccessibilitySnapshot();
+	std::ostringstream json;
+	json << "{\"version\":" << UI::GetCachedAccessibilitySnapshotVersion()
+		<< ",\"width\":" << g_display.dp_xres
+		<< ",\"height\":" << g_display.dp_yres
+		<< ",\"nodes\":[";
+	bool first = true;
+	for (const UI::AccessibilityElementInfo &info : snapshot) {
+		if (info.role == UI::AccessibilityRole::GamepadControl && !g_Config.bAccessibleTouchControls) {
+			continue;
+		}
+		if (!first) {
+			json << ',';
+		}
+		first = false;
+		json << "{\"id\":" << info.id
+			<< ",\"label\":\"" << JsonEscape(info.label) << '"'
+			<< ",\"role\":\"" << AccessibilityRoleName(info.role) << '"'
+			<< ",\"left\":" << info.bounds.x
+			<< ",\"top\":" << info.bounds.y
+			<< ",\"right\":" << info.bounds.x2()
+			<< ",\"bottom\":" << info.bounds.y2()
+			<< ",\"enabled\":" << (info.enabled ? "true" : "false")
+			<< ",\"checked\":" << (info.checked ? "true" : "false")
+			<< ",\"selected\":" << (info.selected ? "true" : "false")
+			<< ",\"clickable\":" << (info.clickable ? "true" : "false")
+			<< ",\"longClickable\":" << (info.longClickable ? "true" : "false")
+			<< '}';
+	}
+	json << "]}";
+	return env->NewStringUTF(json.str().c_str());
+}
+
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_performAccessibilityClick(JNIEnv *, jclass, jint id, jboolean longClick) {
+	return UI::PerformAccessibilityClick(id, longClick);
+}
+
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_focusAccessibilityElement(JNIEnv *, jclass, jint id) {
+	return NativeAccessibilityFocus(id);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_releaseAccessibilityInputs(JNIEnv *, jclass) {
+	UI::ReleaseAccessibilityInputs();
 }
 
 static void parse_args(std::vector<std::string> &args, const std::string value) {

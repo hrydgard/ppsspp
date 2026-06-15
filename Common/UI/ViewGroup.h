@@ -87,6 +87,7 @@ public:
 	std::string DescribeText() const override;
 
 	void Recurse(std::function<void(View *)> func) override;
+	void RecurseVisible(std::function<void(View *)> func);
 
 protected:
 	std::string DescribeListUnordered(std::string_view heading) const;

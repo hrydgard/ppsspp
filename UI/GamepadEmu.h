@@ -43,6 +43,8 @@ public:
 		return false;
 	}
 	std::string DescribeText() const override;
+	void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) const override;
+	bool SuppressDefaultAccessibilityElement() const override { return true; }
 	virtual bool IsDownByTouch() const {
 		return false;
 	}
@@ -120,6 +122,7 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	bool IsDownByTouch() const override { return down_ != 0; }
+	void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) const override;
 
 private:
 	void ProcessTouch(float x, float y, bool down, bool ignorePress);
@@ -142,6 +145,7 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	bool IsDownByTouch() const override { return dragPointerId_ != -1; }
+	void GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) const override;
 
 protected:
 	int dragPointerId_ = -1;

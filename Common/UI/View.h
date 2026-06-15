@@ -45,6 +45,7 @@ namespace Draw {
 namespace UI {
 
 class View;
+struct AccessibilityElementInfo;
 enum class FocusFlags;
 
 enum DrawableType {
@@ -384,6 +385,7 @@ public:
 	// touch response from the frame rate. Same with Key and Axis.
 	virtual bool Key(const KeyInput &input) { return false; }
 	virtual bool Touch(const TouchInput &input) { return true; }
+	virtual bool ActivateAccessibility() { return false; }
 	virtual void Axis(const AxisInput &input) {}
 	virtual void Update();
 
@@ -396,6 +398,8 @@ public:
 	virtual std::string DescribeLog() const;
 	// Accessible/searchable description.
 	virtual std::string DescribeText() const { return ""; }
+	virtual void GetAccessibilityElements(std::vector<AccessibilityElementInfo> &elements) const {}
+	virtual bool SuppressDefaultAccessibilityElement() const { return false; }
 
 	virtual void FocusChanged(FocusFlags focusFlags) {}
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
@@ -544,6 +548,10 @@ public:
 
 	bool Key(const KeyInput &input) override;
 	bool Touch(const TouchInput &input) override;
+	bool ActivateAccessibility() override {
+		ClickInternal();
+		return true;
+	}
 
 	void FocusChanged(FocusFlags focusFlags) override;
 
@@ -612,6 +620,8 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	std::string DescribeText() const override;
+	bool Selected() const { return *value_ == thisButtonValue_; }
+	std::string_view Text() const { return text_; }
 
 private:
 	void ClickInternal() override;
@@ -779,6 +789,9 @@ public:
 	void SetText(std::string_view text) {
 		text_ = text;
 	}
+	std::string_view Text() const {
+		return text_;
+	}
 	void SetIconOnly(bool iconOnly) {
 		iconOnly_ = iconOnly;
 	}
@@ -825,15 +838,32 @@ public:
 
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &touch) override;
+	bool ActivateAccessibility() override {
+		Press();
+		accessibilityActivation_ = true;
+		ClickInternal();
+		return true;
+	}
 	void FocusChanged(FocusFlags focusFlags) override;
 
 	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
-	bool IsDown() { return down_; }
+	bool IsDown() const { return down_; }
+	void SetAccessibilityTab(bool tab) { accessibilityTab_ = tab; }
+	bool IsAccessibilityTab() const { return accessibilityTab_; }
+	bool ConsumeAccessibilityActivation() {
+		const bool activated = accessibilityActivation_;
+		accessibilityActivation_ = false;
+		return activated;
+	}
 
 protected:
 	// hackery
 	bool IsSticky() const override { return true; }
+
+private:
+	bool accessibilityTab_ = false;
+	bool accessibilityActivation_ = false;
 };
 
 class InfoItem : public Item {
@@ -908,6 +938,7 @@ public:
 	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void SetLarge(bool large) { large_ = large; }
+	std::string_view Text() const { return text_; }
 private:
 	std::string text_;
 	bool large_ = false;
@@ -922,6 +953,7 @@ public:
 	}
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+	std::string_view Text() const { return text_; }
 
 private:
 	std::string text_;
@@ -945,6 +977,9 @@ public:
 	//allow external agents to toggle the checkbox
 	virtual void Toggle();
 	virtual bool Toggled() const;
+	std::string AccessibilityText() const {
+		return smallText_.empty() ? text_ : text_ + "\n" + smallText_;
+	}
 
 	// we don't allow these for checkboxes.
 	void SetAutoResult(DialogResult result) override {}

@@ -48,6 +48,8 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -115,6 +117,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
 	private InputManager.InputDeviceListener inputDeviceListener;
+	private AccessibilityManager accessibilityManager;
+	private AccessibilityManager.AccessibilityStateChangeListener accessibilityStateChangeListener;
+	private AccessibilityManager.TouchExplorationStateChangeListener touchExplorationStateChangeListener;
+	private PPSSPPAccessibilityDelegate accessibilityDelegate;
 
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
@@ -161,6 +167,40 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// for the left mouse button, but wacky BACK keyboard event with source == mouse
 	// for the right mouse button.
 	public static boolean useModernMouseEventsB2 = false;
+
+	private boolean isTouchExplorationActive() {
+		return accessibilityManager != null && accessibilityManager.isEnabled() && accessibilityManager.isTouchExplorationEnabled();
+	}
+
+	private boolean hasHardwareController() {
+		for (int deviceId : InputDevice.getDeviceIds()) {
+			InputDevice device = InputDevice.getDevice(deviceId);
+			if (device != null && InputDeviceState.inputSourceIsJoystick(device.getSources()) && !device.isVirtual()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void updateAccessibilityState() {
+		boolean enabled = isTouchExplorationActive();
+		NativeApp.setAccessibilityEnabled(enabled);
+		if (accessibilityDelegate != null) {
+			accessibilityDelegate.setHardwareControllerConnected(hasHardwareController());
+			accessibilityDelegate.setEnabled(enabled);
+		}
+	}
+
+	private void setupAccessibility(View surfaceView) {
+		accessibilityDelegate = new PPSSPPAccessibilityDelegate(surfaceView);
+		surfaceView.setAccessibilityDelegate(accessibilityDelegate);
+		accessibilityManager = (AccessibilityManager)getSystemService(Context.ACCESSIBILITY_SERVICE);
+		accessibilityStateChangeListener = enabled -> updateAccessibilityState();
+		touchExplorationStateChangeListener = enabled -> updateAccessibilityState();
+		accessibilityManager.addAccessibilityStateChangeListener(accessibilityStateChangeListener);
+		accessibilityManager.addTouchExplorationStateChangeListener(touchExplorationStateChangeListener);
+		updateAccessibilityState();
+	}
 
 	// Functions for the app activity to override to change behaviour.
 
@@ -822,6 +862,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
+			setupAccessibility(mGLSurfaceView);
 		} else {
 			updateSystemUiVisibility();
 
@@ -829,6 +870,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			sizeManager.setSurfaceView(mSurfaceView);
 			setInsetsListener(mSurfaceView);
 			setContentView(mSurfaceView);
+			setupAccessibility(mSurfaceView);
 
 			// render loop thread will be started once we get a surface.
 		}
@@ -884,6 +926,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 					InputDeviceState state = new InputDeviceState(device, true);
 					inputPlayers.add(state);
 					Log.i(TAG, "Input player registered on connect: desc = " + device.getDescriptor());
+					updateAccessibilityState();
 				}
 
 				@Override
@@ -900,6 +943,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 							// This is important so the C++ side can clear button states
 							NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(state.getDeviceId()));
 							inputPlayers.remove(i);
+							updateAccessibilityState();
 							break;
 						}
 					}
@@ -1044,6 +1088,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	protected void onDestroy() {
 		super.onDestroy();
 		lifeCycle.onDestroy();
+		if (accessibilityManager != null && accessibilityStateChangeListener != null) {
+			accessibilityManager.removeAccessibilityStateChangeListener(accessibilityStateChangeListener);
+		}
+		if (accessibilityManager != null && touchExplorationStateChangeListener != null) {
+			accessibilityManager.removeTouchExplorationStateChangeListener(touchExplorationStateChangeListener);
+		}
+		NativeApp.releaseAccessibilityInputs();
 
 		if (javaGL) {
 			nativeRenderer = null;
@@ -1102,6 +1153,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	protected void onPause() {
 		super.onPause();
 		lifeCycle.onPause();
+		if (accessibilityDelegate != null) {
+			accessibilityDelegate.resetInputs();
+		}
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.unregisterInputDeviceListener(inputDeviceListener);
@@ -1148,6 +1202,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		InputManager inputManager =
 			(InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.registerInputDeviceListener(inputDeviceListener, null);
+		updateAccessibilityState();
 
 		if (!javaGL) {
 			// Restart the render loop.
@@ -1506,6 +1561,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		input.setInputType(InputType.TYPE_CLASS_TEXT);
 		input.setImeOptions(EditorInfo.IME_ACTION_DONE);
 		input.setText(defaultText);
+		input.setHint(title);
 		input.setFocusableInTouchMode(true);
 		input.requestFocus();
 		input.selectAll();
@@ -1547,6 +1603,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		try {
 			dlg.show();
 			input.requestFocus();
+			Window dialogWindow = dlg.getWindow();
+			if (dialogWindow != null) {
+				dialogWindow.getDecorView().sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+			}
 		} catch (Exception e) {
 			NativeApp.reportException(e, "AlertDialog");
 		}
@@ -1684,6 +1744,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Toast toast = Toast.makeText(this, params, Toast.LENGTH_LONG);
 			toast.show();
 			Log.i(TAG, params);
+			if (surfView != null && isTouchExplorationActive()) {
+				surfView.announceForAccessibility(params);
+			}
 			return true;
 		} else if (command.equals("showKeyboard") && surfView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);

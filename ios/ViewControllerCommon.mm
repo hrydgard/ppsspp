@@ -1,4 +1,5 @@
 #import "ios/CameraHelper.h"
+#import "ios/AccessibilityBridge.h"
 #import "ios/ViewControllerCommon.h"
 #import "ios/Controls.h"
 #import "ios/IAPManager.h"
@@ -24,6 +25,7 @@
 @property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
 @property (strong, nonatomic) CMMotionManager *motionManager;
+@property (strong, nonatomic) PPSSPPAccessibilityBridge *accessibilityBridge;
 
 @end
 
@@ -86,6 +88,8 @@ static int GetPickerRequestId(id picker) {
 
 - (void)shutdown {
 	self.gameController = nil;
+	[self.accessibilityBridge reset];
+	self.accessibilityBridge = nil;
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
 	_dbg_assert_(sharedViewController != nil);
@@ -119,6 +123,8 @@ static int GetPickerRequestId(id picker) {
 }
 
 - (void)willResignActive {
+	[self.accessibilityBridge willResignActive];
+
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
 		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
@@ -325,6 +331,7 @@ static int GetPickerRequestId(id picker) {
 	[self setNeedsUpdateOfScreenEdgesDeferringSystemGestures];
 	[self hideKeyboard];
 	[self updateGesture];
+	[self.accessibilityBridge uiStateChanged];
 }
 
 - (void)startVideo:(int)width height:(int)height {
@@ -366,6 +373,7 @@ static int GetPickerRequestId(id picker) {
 	[locationHelper setDelegate:self];
 
 	self.motionManager = [[CMMotionManager alloc] init];
+	self.accessibilityBridge = [[PPSSPPAccessibilityBridge alloc] initWithView:self.view];
 }
 
 extern float g_safeInsetLeft;
@@ -541,9 +549,18 @@ extern float g_safeInsetBottom;
 	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 
 	NativeResized();
+	[self.accessibilityBridge scheduleRefresh];
 
 	NSLog(@"Updated display resolution: (%d, %d) @%.1fx",
 		  g_display.pixel_xres, g_display.pixel_yres, (float)scale);
+}
+
+- (BOOL)accessibilityPerformEscape {
+	return [self.accessibilityBridge accessibilityPerformEscape];
+}
+
+- (BOOL)accessibilityPerformMagicTap {
+	return [self.accessibilityBridge accessibilityPerformMagicTap];
 }
 
 @end

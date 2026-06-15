@@ -74,6 +74,12 @@ public class NativeApp {
 	public static native void setAchievementsHostOverride(String host);
 	public static native void clearAchievementsHostOverride();
 	public static native String queryConfig(String queryName);
+	public static native void setAccessibilityEnabled(boolean enabled);
+	public static native long getAccessibilitySnapshotVersion();
+	public static native String getAccessibilitySnapshotJson();
+	public static native boolean performAccessibilityClick(int virtualId, boolean longClick);
+	public static native boolean focusAccessibilityElement(int virtualId);
+	public static native void releaseAccessibilityInputs();
 
 	public static native int getSelectedCamera();
 	public static native int getDisplayFramerateMode();

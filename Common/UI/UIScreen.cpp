@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cctype>
+#include <exception>
 
 #include "Common/Log.h"
 #include "Common/System/Display.h"
@@ -6,6 +8,7 @@
 #include "Common/System/Request.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/UI/Accessibility.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Screen.h"
@@ -13,6 +16,73 @@
 #include "Common/Render/DrawBuffer.h"
 
 static constexpr bool ClickDebug = false;
+
+static UI::AccessibilityRole AccessibilityRoleForView(UI::View *view) {
+	if (UI::StickyChoice *stickyChoice = dynamic_cast<UI::StickyChoice *>(view); stickyChoice && stickyChoice->IsAccessibilityTab()) {
+		return UI::AccessibilityRole::Tab;
+	}
+	if (dynamic_cast<UI::Button *>(view)) {
+		return UI::AccessibilityRole::Button;
+	}
+	if (dynamic_cast<UI::CheckBox *>(view)) {
+		return UI::AccessibilityRole::Checkbox;
+	}
+	if (dynamic_cast<UI::RadioButton *>(view)) {
+		return UI::AccessibilityRole::Radio;
+	}
+	if (dynamic_cast<UI::Slider *>(view) || dynamic_cast<UI::SliderFloat *>(view)) {
+		return UI::AccessibilityRole::Slider;
+	}
+	if (dynamic_cast<UI::TextEdit *>(view)) {
+		return UI::AccessibilityRole::TextField;
+	}
+	if (dynamic_cast<UI::ProgressBar *>(view)) {
+		return UI::AccessibilityRole::Progress;
+	}
+	if (dynamic_cast<UI::ItemHeader *>(view) || dynamic_cast<UI::PopupHeader *>(view)) {
+		return UI::AccessibilityRole::Heading;
+	}
+	if (dynamic_cast<UI::TriggerButton *>(view)) {
+		return UI::AccessibilityRole::GamepadControl;
+	}
+	if (dynamic_cast<UI::Choice *>(view) ||
+		dynamic_cast<UI::ClickableItem *>(view) || dynamic_cast<UI::ClickableTextView *>(view)) {
+		return UI::AccessibilityRole::Choice;
+	}
+	return UI::AccessibilityRole::StaticText;
+}
+
+static bool ShouldIncludeAccessibilityView(UI::AccessibilityRole role) {
+	switch (role) {
+	case UI::AccessibilityRole::Button:
+	case UI::AccessibilityRole::Choice:
+	case UI::AccessibilityRole::Checkbox:
+	case UI::AccessibilityRole::Radio:
+	case UI::AccessibilityRole::Tab:
+	case UI::AccessibilityRole::Slider:
+	case UI::AccessibilityRole::TextField:
+	case UI::AccessibilityRole::Progress:
+	case UI::AccessibilityRole::Heading:
+	case UI::AccessibilityRole::GamepadControl:
+	case UI::AccessibilityRole::StaticText:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool IsUsefulAccessibilityLabel(const std::string &label) {
+	return !label.empty() && label != "button" && label != "choice" && label != "radio button" && label != "text field";
+}
+
+static std::string TrimAccessibilityLabel(std::string label) {
+	const auto begin = std::find_if(label.begin(), label.end(), [](unsigned char c) { return !std::isspace(c); });
+	const auto end = std::find_if(label.rbegin(), label.rend(), [](unsigned char c) { return !std::isspace(c); }).base();
+	if (begin >= end) {
+		return "";
+	}
+	return std::string(begin, end);
+}
 
 UIScreen::UIScreen() : Screen() {
 	lastOrientation_ = GetDeviceOrientation();
@@ -112,6 +182,14 @@ void UIScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 		ev.axis = axes[i];
 		eventQueue_.push_back(ev);
 	}
+}
+
+void UIScreen::UnsyncAccessibilityActivate(int id) {
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::ACCESSIBILITY_ACTIVATE;
+	ev.accessibilityId = id;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	eventQueue_.push_back(ev);
 }
 
 bool UIScreen::UnsyncKey(const KeyInput &key) {
@@ -222,6 +300,9 @@ void UIScreen::update() {
 		case QueuedEventType::AXIS:
 			axis(ev.axis);
 			break;
+		case QueuedEventType::ACCESSIBILITY_ACTIVATE:
+			ActivateAccessibilityElement(ev.accessibilityId);
+			break;
 		}
 	}
 
@@ -287,6 +368,157 @@ void UIScreen::TriggerFinish(DialogResult result) {
 	// From here on, this dialog cannot receive input.
 	ignoreInput_ = true;
 	screenManager()->finishDialog(this, result);
+}
+
+void UIScreen::GetAccessibilityElements(std::vector<UI::AccessibilityElementInfo> &elements) {
+	if (!root_) {
+		return;
+	}
+
+	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
+	int nextId = 1;
+	root_->RecurseVisible([&](UI::View *view) {
+		try {
+			if (!view || view->GetVisibility() != UI::V_VISIBLE) {
+				return;
+			}
+			const Bounds &bounds = view->GetBounds();
+			if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+				return;
+			}
+			const size_t customElementCount = elements.size();
+			view->GetAccessibilityElements(elements);
+			if (elements.size() != customElementCount || view->SuppressDefaultAccessibilityElement()) {
+				return;
+			}
+			if (view->IsViewGroup() && !view->CanBeFocused()) {
+				return;
+			}
+			UI::AccessibilityRole role = AccessibilityRoleForView(view);
+			if (!ShouldIncludeAccessibilityView(role)) {
+				return;
+			}
+			UI::RadioButton *radio = dynamic_cast<UI::RadioButton *>(view);
+			UI::Choice *choice = dynamic_cast<UI::Choice *>(view);
+			UI::CheckBox *checkbox = dynamic_cast<UI::CheckBox *>(view);
+			UI::ItemHeader *itemHeader = dynamic_cast<UI::ItemHeader *>(view);
+			UI::PopupHeader *popupHeader = dynamic_cast<UI::PopupHeader *>(view);
+			std::string label = TrimAccessibilityLabel(radio ? std::string(radio->Text()) :
+				checkbox ? checkbox->AccessibilityText() :
+				itemHeader ? std::string(itemHeader->Text()) :
+				popupHeader ? std::string(popupHeader->Text()) :
+				choice ? std::string(choice->Text()) : view->DescribeText());
+			if (!IsUsefulAccessibilityLabel(label)) {
+				return;
+			}
+
+			UI::AccessibilityElementInfo info;
+			info.id = nextId++;
+			info.label = label;
+			info.bounds = bounds;
+			info.role = role;
+			info.enabled = view->IsEnabled();
+			info.checked = dynamic_cast<UI::CheckBox *>(view) && static_cast<UI::CheckBox *>(view)->Toggled();
+			if (radio) {
+				info.checked = radio->Selected();
+			}
+			if (UI::StickyChoice *stickyChoice = dynamic_cast<UI::StickyChoice *>(view); stickyChoice && stickyChoice->IsAccessibilityTab()) {
+				info.selected = stickyChoice->IsDown();
+			}
+			info.clickable = dynamic_cast<UI::Clickable *>(view) != nullptr;
+			info.touchX = bounds.centerX();
+			info.touchY = bounds.centerY();
+			elements.push_back(info);
+		} catch (const std::exception &e) {
+			WARN_LOG(Log::UI, "Skipping accessibility element after exception: %s", e.what());
+		} catch (...) {
+			WARN_LOG(Log::UI, "Skipping accessibility element after unknown exception");
+		}
+	});
+}
+
+bool UIScreen::FocusAccessibilityElement(int id) {
+	if (!root_) {
+		return false;
+	}
+	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
+	int nextId = 1;
+	bool focused = false;
+	root_->RecurseVisible([&](UI::View *view) {
+		if (focused || !view || view->GetVisibility() != UI::V_VISIBLE) {
+			return;
+		}
+		const Bounds &bounds = view->GetBounds();
+		if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+			return;
+		}
+		std::vector<UI::AccessibilityElementInfo> customElements;
+		view->GetAccessibilityElements(customElements);
+		if (!customElements.empty() || view->SuppressDefaultAccessibilityElement() || (view->IsViewGroup() && !view->CanBeFocused())) {
+			return;
+		}
+		const UI::AccessibilityRole role = AccessibilityRoleForView(view);
+		UI::RadioButton *radio = dynamic_cast<UI::RadioButton *>(view);
+		UI::Choice *choice = dynamic_cast<UI::Choice *>(view);
+		UI::CheckBox *checkbox = dynamic_cast<UI::CheckBox *>(view);
+		UI::ItemHeader *itemHeader = dynamic_cast<UI::ItemHeader *>(view);
+		UI::PopupHeader *popupHeader = dynamic_cast<UI::PopupHeader *>(view);
+		const std::string label = TrimAccessibilityLabel(radio ? std::string(radio->Text()) :
+			checkbox ? checkbox->AccessibilityText() :
+			itemHeader ? std::string(itemHeader->Text()) :
+			popupHeader ? std::string(popupHeader->Text()) :
+			choice ? std::string(choice->Text()) : view->DescribeText());
+		if (!ShouldIncludeAccessibilityView(role) || !IsUsefulAccessibilityLabel(label)) {
+			return;
+		}
+		if (nextId++ == id && view->CanBeFocused()) {
+			focused = view->SetFocus(UI::FocusFlags::CAUSE_OTHER);
+			if (focused) {
+				root_->SubviewFocused(view);
+			}
+		}
+	});
+	return focused;
+}
+
+bool UIScreen::ActivateAccessibilityElement(int id) {
+	if (!root_) {
+		return false;
+	}
+	int nextId = 1;
+	bool activated = false;
+	root_->RecurseVisible([&](UI::View *view) {
+		if (activated || !view || view->GetVisibility() != UI::V_VISIBLE) {
+			return;
+		}
+		const Bounds &bounds = view->GetBounds();
+		if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+			return;
+		}
+		std::vector<UI::AccessibilityElementInfo> customElements;
+		view->GetAccessibilityElements(customElements);
+		if (!customElements.empty() || view->SuppressDefaultAccessibilityElement() || (view->IsViewGroup() && !view->CanBeFocused())) {
+			return;
+		}
+		const UI::AccessibilityRole role = AccessibilityRoleForView(view);
+		UI::RadioButton *radio = dynamic_cast<UI::RadioButton *>(view);
+		UI::Choice *choice = dynamic_cast<UI::Choice *>(view);
+		UI::CheckBox *checkbox = dynamic_cast<UI::CheckBox *>(view);
+		UI::ItemHeader *itemHeader = dynamic_cast<UI::ItemHeader *>(view);
+		UI::PopupHeader *popupHeader = dynamic_cast<UI::PopupHeader *>(view);
+		const std::string label = TrimAccessibilityLabel(radio ? std::string(radio->Text()) :
+			checkbox ? checkbox->AccessibilityText() :
+			itemHeader ? std::string(itemHeader->Text()) :
+			popupHeader ? std::string(popupHeader->Text()) :
+			choice ? std::string(choice->Text()) : view->DescribeText());
+		if (!ShouldIncludeAccessibilityView(role) || !IsUsefulAccessibilityLabel(label)) {
+			return;
+		}
+		if (nextId++ == id) {
+			activated = view->ActivateAccessibility();
+		}
+	});
+	return activated;
 }
 
 bool UIDialogScreen::key(const KeyInput &key) {

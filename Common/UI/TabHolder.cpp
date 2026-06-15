@@ -231,7 +231,7 @@ void TabHolder::OnTabClick(EventParams &e) {
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
 		// SetCurrentTab calls EnsureTab if needed.
-		SetCurrentTab((int)e.a);
+		SetCurrentTab((int)e.a, e.x != 0);
 	}
 }
 
@@ -275,6 +275,7 @@ void ChoiceStrip::AddChoice(std::string_view title, ImageID imageId) {
 		orientation_ == ORIENT_HORIZONTAL ?
 		nullptr :
 		new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));
+	c->SetAccessibilityTab(topTabs_);
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
 	choices_.push_back(c);
@@ -287,11 +288,19 @@ void ChoiceStrip::AddChoice(ImageID buttonImage) {
 		orientation_ == ORIENT_HORIZONTAL ?
 		nullptr :
 		new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT));
+	c->SetAccessibilityTab(topTabs_);
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
 	choices_.push_back(c);
 	if (selected_ == (int)choices_.size() - 1)
 		c->Press();
+}
+
+void ChoiceStrip::SetTopTabs(bool tabs) {
+	topTabs_ = tabs;
+	for (StickyChoice *choice : choices_) {
+		choice->SetAccessibilityTab(tabs);
+	}
 }
 
 void ChoiceStrip::OnChoiceClick(EventParams &e) {
@@ -309,6 +318,7 @@ void ChoiceStrip::OnChoiceClick(EventParams &e) {
 	e2.a = selected_;
 	// Set to 1 to indicate an explicit click.
 	e2.b = 1;
+	e2.x = e2.v && static_cast<StickyChoice *>(e2.v)->ConsumeAccessibilityActivation() ? 1 : 0;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
 	OnChoice.Dispatch(e2);
 }

@@ -471,6 +471,7 @@ public:
 
 	// Controls Visibility
 	bool bShowTouchControls = false;
+	bool bAccessibleTouchControls = true;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;

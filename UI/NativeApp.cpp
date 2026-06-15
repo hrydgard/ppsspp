@@ -56,6 +56,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/Accessibility.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/IconCache.h"
@@ -1002,6 +1003,9 @@ void NativeShutdownGraphics() {
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(ANDROID)
+	UI::ClearCachedAccessibilitySnapshot();
+#endif
 	g_iconCache.ClearTextures();
 
 	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
@@ -1170,6 +1174,13 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	// All actual rendering (and also emulation) happens in here.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(ANDROID)
+	static double lastAccessibilitySnapshotTime = 0.0;
+	if (UI::IsAccessibilityEnabled() && startTime - lastAccessibilitySnapshotTime >= 0.5) {
+		UI::UpdateCachedAccessibilitySnapshot(g_screenManager);
+		lastAccessibilitySnapshotTime = startTime;
+	}
+#endif
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
@@ -1347,6 +1358,22 @@ void NativeTouch(const TouchInput &touch) {
 		return;
 	}
 	g_screenManager->touch(touch);
+}
+
+bool NativeAccessibilityFocus(int id) {
+	return UI::FocusAccessibilityElement(g_screenManager, id);
+}
+
+bool NativeAccessibilityClick(int id) {
+	if (!g_screenManager) {
+		return false;
+	}
+	UIScreen *screen = dynamic_cast<UIScreen *>(g_screenManager->topScreen());
+	if (!screen) {
+		return false;
+	}
+	screen->UnsyncAccessibilityActivate(id);
+	return true;
 }
 
 // up, down

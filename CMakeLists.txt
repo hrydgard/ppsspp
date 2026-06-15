@@ -883,6 +883,8 @@ add_library(Common STATIC
 	Common/Thread/ThreadUtil.h
 	Common/Thread/ThreadManager.cpp
 	Common/Thread/ThreadManager.h
+	Common/UI/Accessibility.cpp
+	Common/UI/Accessibility.h
 	Common/UI/AsyncImageFileView.cpp
 	Common/UI/AsyncImageFileView.h
 	Common/UI/Root.cpp
@@ -1412,6 +1414,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/SceneDelegate.h
 		ios/Controls.h
 		ios/Controls.mm
+		ios/AccessibilityBridge.h
+		ios/AccessibilityBridge.mm
 		ios/ViewControllerCommon.h
 		ios/ViewControllerCommon.mm
 		ios/ViewController.mm
@@ -1459,6 +1463,7 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/CameraHelper.mm
 		ios/AudioEngine.mm
 		ios/LocationHelper.mm
+		ios/AccessibilityBridge.mm
 		ios/Controls.mm
 		Core/Util/DarwinFileSystemServices.mm
 		Common/Battery/AppleBatteryClient.m
