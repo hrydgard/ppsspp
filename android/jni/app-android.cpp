@@ -150,6 +150,7 @@ static int optimalSampleRate = 0;
 static int sampleRate = 0;
 static int framesPerBuffer = 0;
 static int androidVersion;
+static int smallestScreenWidthDp;
 static int deviceType;
 
 // This is the ACTUAL display size, not the hardware scaled display size.
@@ -529,6 +530,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;  // We can't create shortcuts directly from game code, but we can from the Android UI.
 	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
 		return g_hasCameraCutout;
+	case SYSPROP_CAN_RESTRICT_ORIENTATION:
+		// On Android 17+, large displays (sw600dp+) ignore orientation restrictions.
+		if (androidVersion >= 37 && smallestScreenWidthDp >= 600) {
+			return false;
+		}
+		return true;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
@@ -738,7 +745,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir,
 	jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam, jstring jInstallerName,
-	jint jAndroidVersion, jstring jboard) {
+	jint jAndroidVersion, jstring jboard, jint jSmallestScreenWidthDp) {
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -750,6 +757,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	renderer_inited = false;
 	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
+	smallestScreenWidthDp = jSmallestScreenWidthDp;
 	deviceType = jdeviceType;
 
 	Path apkPath(GetJavaString(env, japkpath));
