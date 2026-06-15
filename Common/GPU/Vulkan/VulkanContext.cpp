@@ -1453,29 +1453,49 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
 	allowedRotations &= ~VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
 
+	// Prefer identity unless the surface transform rotation actually matches
+	// the swapchain extent vs the logical display orientation. Some drivers
+	// advertise rotation bits even though the extent is already in the
+	// desired orientation; avoid double-rotating in that case.
+	VkExtent2D reportedExtent = currentExtent;
+	bool matchesNormal = (reportedExtent.width == g_display.pixel_xres && reportedExtent.height == g_display.pixel_yres);
+	bool matchesRot90 = (reportedExtent.width == g_display.pixel_yres && reportedExtent.height == g_display.pixel_xres);
+
 	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	} else if (surfCapabilities_.currentTransform & allowedRotations) {
-		// Normal, sensible rotations. Let's handle it.
-		preTransform = surfCapabilities_.currentTransform;
-		g_display.rot_matrix.setIdentity();
-		switch (surfCapabilities_.currentTransform) {
-		case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
-			g_display.rotation = DisplayRotation::ROTATE_90;
-			g_display.rot_matrix.setRotationZ90();
-			std::swap(swapChainExtent_.width, swapChainExtent_.height);
-			break;
-		case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
-			g_display.rotation = DisplayRotation::ROTATE_180;
-			g_display.rot_matrix.setRotationZ180();
-			break;
-		case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
-			g_display.rotation = DisplayRotation::ROTATE_270;
-			g_display.rot_matrix.setRotationZ270();
-			std::swap(swapChainExtent_.width, swapChainExtent_.height);
-			break;
-		default:
-			_dbg_assert_(false);
+		// Only apply a rotation preTransform if the reported extent indicates
+		// the surface is rotated relative to our logical display orientation.
+		VkSurfaceTransformFlagBitsKHR ct = (VkSurfaceTransformFlagBitsKHR)surfCapabilities_.currentTransform;
+		bool applyRotation = false;
+		if (ct == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR && matchesRot90) applyRotation = true;
+		if (ct == VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR && !matchesNormal && !matchesRot90) applyRotation = true; // 180 may not swap dims
+		if (ct == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR && matchesRot90) applyRotation = true;
+
+		if (applyRotation) {
+			preTransform = surfCapabilities_.currentTransform;
+			g_display.rot_matrix.setIdentity();
+			switch (surfCapabilities_.currentTransform) {
+			case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
+				g_display.rotation = DisplayRotation::ROTATE_90;
+				g_display.rot_matrix.setRotationZ90();
+				std::swap(swapChainExtent_.width, swapChainExtent_.height);
+				break;
+			case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
+				g_display.rotation = DisplayRotation::ROTATE_180;
+				g_display.rot_matrix.setRotationZ180();
+				break;
+			case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
+				g_display.rotation = DisplayRotation::ROTATE_270;
+				g_display.rot_matrix.setRotationZ270();
+				std::swap(swapChainExtent_.width, swapChainExtent_.height);
+				break;
+			default:
+				_dbg_assert_(false);
+			}
+		} else {
+			// Treat as identity to avoid double-rotation.
+			preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 		}
 	} else {
 		// Let the OS rotate the image (potentially slower on many Android devices)
