@@ -21,7 +21,7 @@
 #include "Common/Render/Text/draw_text_sdl.h"
 #include "Common/Render/Text/draw_text_uwp.h"
 #include "Common/StringUtils.h"
-
+#include "Common/OSVersion.h"
 
 // TODO: Move this to somewhere more appropriate.
 static bool IsRenderDocLoaded() {
@@ -304,7 +304,8 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 #elif defined(_WIN32) && !defined(USING_QT_UI)
 	// If RenderDoc is active, we can't use the UWP drawer since it uses D3D11 to initialize D2D,
 	// and RenderDoc doesn't permit multiple graphics contexts.
-	if (IsRenderDocLoaded()) {
+	// Also, this seems to cause failures under Windows 7, so let's gate on Win 10 to be safe.
+	if (IsRenderDocLoaded() || !IsWin10OrHigher()) {
 		drawer = new TextDrawerWin32(draw);
 	} else {
 		drawer = new TextDrawerUWP(draw);

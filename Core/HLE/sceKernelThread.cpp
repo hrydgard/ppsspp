@@ -3490,6 +3490,7 @@ int sceKernelRegisterExitCallback(SceUID cbId)
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
+// Update the exit callback status?
 int LoadExecForUser_362A956B()
 {
 	WARN_LOG_REPORT(Log::sceKernel, "LoadExecForUser_362A956B()");

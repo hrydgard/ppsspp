@@ -88,6 +88,7 @@ static u32 sceVaudioSetEffectType(int effectType, int vol) {
 	return 0;
 }
 
+// SensMe shows that this controls the automatic audio volume normalizer
 static u32 sceVaudioSetAlcMode(int alcMode) {
 	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
 	return 0;
