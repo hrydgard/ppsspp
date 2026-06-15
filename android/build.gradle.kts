@@ -1,7 +1,3 @@
-import com.google.protobuf.gradle.*
-import org.gradle.process.ExecOperations
-import java.io.ByteArrayOutputStream
-
 plugins {
 	id("com.android.application")
 	id("com.google.protobuf")
@@ -67,7 +63,7 @@ dependencies {
 	// Will replace with a different plugin soon.
 	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
-	implementation("com.google.protobuf:protobuf-javalite:4.33.5")
+	implementation("com.google.protobuf:protobuf-javalite:4.35.1")
 }
 
 protobuf {
@@ -110,8 +106,8 @@ android {
 	ndkVersion = "29.0.14206865"
 
 	compileOptions {
-		sourceCompatibility = JavaVersion.VERSION_11
-		targetCompatibility = JavaVersion.VERSION_11
+		sourceCompatibility = JavaVersion.VERSION_17
+		targetCompatibility = JavaVersion.VERSION_17
 	}
 
 	lint {

@@ -760,7 +760,7 @@ void GamePauseScreen::CreateViews() {
 			screenManager()->push(new GameScreen(gamePath_, true));
 		});
 
-		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 			AddRotationPicker(screenManager(), middleColumn, false);
 		}
 

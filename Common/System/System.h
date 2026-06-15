@@ -18,6 +18,7 @@
 
 enum SystemPermission {
 	SYSTEM_PERMISSION_STORAGE,
+	SYSTEM_PERMISSION_LOCAL_NETWORK,
 };
 
 enum PermissionStatus {
@@ -241,6 +242,8 @@ enum SystemProperty {
 	SYSPROP_USE_IAP,
 	SYSPROP_USE_APP_STORE,
 	SYSPROP_SUPPORTS_SHARE_TEXT,
+
+	SYSPROP_CAN_RESTRICT_ORIENTATION,
 
 	SYSPROP_INSTALLER_NAME,  // Useful on Android to check if we were installed from the play store.
 };

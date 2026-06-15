@@ -150,6 +150,7 @@ static int optimalSampleRate = 0;
 static int sampleRate = 0;
 static int framesPerBuffer = 0;
 static int androidVersion;
+static int smallestScreenWidthDp;
 static int deviceType;
 
 // This is the ACTUAL display size, not the hardware scaled display size.
@@ -529,6 +530,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;  // We can't create shortcuts directly from game code, but we can from the Android UI.
 	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
 		return g_hasCameraCutout;
+	case SYSPROP_CAN_RESTRICT_ORIENTATION:
+		// On Android 17+, large displays (sw600dp+) ignore orientation restrictions.
+		if (androidVersion >= 37 && smallestScreenWidthDp >= 600) {
+			return false;
+		}
+		return true;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
@@ -738,7 +745,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir,
 	jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam, jstring jInstallerName,
-	jint jAndroidVersion, jstring jboard) {
+	jint jAndroidVersion, jstring jboard, jint jSmallestScreenWidthDp) {
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -750,6 +757,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	renderer_inited = false;
 	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
+	smallestScreenWidthDp = jSmallestScreenWidthDp;
 	deviceType = jdeviceType;
 
 	Path apkPath(GetJavaString(env, japkpath));
@@ -1246,6 +1254,9 @@ void System_AskForPermission(SystemPermission permission) {
 	case SYSTEM_PERMISSION_STORAGE:
 		PushCommand("ask_permission", "storage");
 		break;
+	case SYSTEM_PERMISSION_LOCAL_NETWORK:
+		PushCommand("ask_permission", "local_network");
+		break;
 	}
 }
 
@@ -1450,18 +1461,29 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	if (msg == "moga") {
 		mogaVersion = prm;
 	} else if (msg == "permission_pending") {
-		INFO_LOG(Log::System, "STORAGE PERMISSION: PENDING");
-		// TODO: Add support for other permissions
-		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
-		// Don't need to send along, nothing else is listening.
+		if (prm == "storage") {
+			INFO_LOG(Log::System, "STORAGE PERMISSION: PENDING");
+			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
+		} else if (prm == "local_network") {
+			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: PENDING");
+			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_PENDING;
+		}
 	} else if (msg == "permission_denied") {
-		INFO_LOG(Log::System, "STORAGE PERMISSION: DENIED");
-		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
-		// Don't need to send along, nothing else is listening.
+		if (prm == "storage") {
+			INFO_LOG(Log::System, "STORAGE PERMISSION: DENIED");
+			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
+		} else if (prm == "local_network") {
+			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: DENIED");
+			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_DENIED;
+		}
 	} else if (msg == "permission_granted") {
-		INFO_LOG(Log::System, "STORAGE PERMISSION: GRANTED");
-		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
-		// Send along.
+		if (prm == "storage") {
+			INFO_LOG(Log::System, "STORAGE PERMISSION: GRANTED");
+			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
+		} else if (prm == "local_network") {
+			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: GRANTED");
+			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_GRANTED;
+		}
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
