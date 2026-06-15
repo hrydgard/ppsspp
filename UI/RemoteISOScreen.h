@@ -46,6 +46,8 @@ protected:
 	void HandleStopServer(UI::EventParams &e);
 	void HandleBrowse(UI::EventParams &e);
 
+	void sendMessage(UIMessage message, const char *value) override;
+
 	UI::TextView *firewallWarning_ = nullptr;
 	bool serverRunning_ = false;
 	bool serverStopping_ = false;
