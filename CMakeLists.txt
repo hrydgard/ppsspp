@@ -323,7 +323,7 @@ set(SDL_LIB_TARGET "")
 set(SDL_TTF_LIB_TARGET "")
 set(FONTCONFIG_LIB_TARGET "")
 
-if(NOT LIBRETRO AND NOT IOS)
+if(NOT LIBRETRO AND NOT IOS AND NOT LOONGARCH64_DEVICE)
 	find_package(SDL3 REQUIRED)
 	set(SDL_LIB_TARGET SDL3::SDL3)
 	find_package(SDL3_ttf REQUIRED)
@@ -957,6 +957,10 @@ endif()
 
 target_link_libraries(Common Ext::Snappy cpu_features)
 
+if(SDL_LIB_TARGET AND TARGET SDL3::Headers)
+	target_link_libraries(Common SDL3::Headers)
+endif()
+
 if(NOT LIBRETRO)
     target_link_libraries(Common imgui)
 endif()
@@ -1526,8 +1530,6 @@ else()
 	endif()
 	if(APPLE)
 		list(APPEND nativeExtra
-			SDL/SDLMain.h
-			SDL/SDLMain.mm
 			SDL/SDLCocoaMetalLayer.h
 			SDL/SDLCocoaMetalLayer.mm
 			SDL/CocoaBarItems.mm
