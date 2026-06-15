@@ -109,12 +109,6 @@ if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
 
-# Default to bundled SDL2 on macOS, system SDL2 elsewhere.
-if(APPLE AND NOT IOS)
-	set(DEFAULT_USE_SYSTEM_LIBSDL2 OFF)
-else()
-	set(DEFAULT_USE_SYSTEM_LIBSDL2 ON)
-endif()
 
 if(CMAKE_CXX_COMPILER MATCHES "webos" OR
    CMAKE_CXX_COMPILER MATCHES "starfish")
@@ -206,7 +200,7 @@ option(BUILD_BUNDLED_FFMPEG "Build bundled ffmpeg module" ${BUILD_BUNDLED_FFMPEG
 option(USE_SYSTEM_FREETYPE "Dynamically link against system freetype" ${USE_SYSTEM_FREETYPE})
 option(USE_SYSTEM_LIBCHDR "Dynamically link against system libchdr" ${USE_SYSTEM_LIBCHDR})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
-option(USE_SYSTEM_LIBSDL2 "Dynamically link against system SDL2" ${DEFAULT_USE_SYSTEM_LIBSDL2})
+
 option(USE_SYSTEM_LIBPNG "Dynamically link against system libpng" ON)
 option(USE_SYSTEM_RAPIDJSON "Build using system rapidjson" ${USE_SYSTEM_RAPIDJSON})
 option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD})
@@ -329,7 +323,7 @@ set(SDL_LIB_TARGET "")
 set(SDL_TTF_LIB_TARGET "")
 set(FONTCONFIG_LIB_TARGET "")
 
-if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
+if(NOT LIBRETRO AND NOT IOS)
 	find_package(SDL3 REQUIRED)
 	set(SDL_LIB_TARGET SDL3::SDL3)
 	find_package(SDL3_ttf REQUIRED)
@@ -346,16 +340,6 @@ if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	endif()
 endif()
 
-if(MACOSX AND NOT IOS)
-	if(USE_SYSTEM_LIBSDL2)
-		find_package(SDL2)
-		find_package(SDL3_ttf QUIET)
-	else()
-		find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
-		message(STATUS "found SDL2Fwk=${SDL2Fwk}")
-		add_compile_definitions(HAVE_SYSCTLBYNAME)
-	endif()
-endif()
 
 include(FindThreads)
 
@@ -1542,34 +1526,6 @@ else()
 	endif()
 	if(APPLE)
 		list(APPEND nativeExtra
-			SDL/SDLJoystick.h
-			SDL/SDLJoystick.cpp
-			SDL/SDLMain.cpp
-			SDL/SDLGLGraphicsContext.cpp
-		)
-		if(NOT USE_LIBNX)
-			list(APPEND nativeExtra
-				SDL/SDLVulkanGraphicsContext.cpp
-			)
-		endif()
-		if(SDL2_ttf_FOUND OR
-			(SDL2_ttf_PKGCONFIG_FOUND AND
-				SDL2_ttf_PKGCONFIG_VERSION VERSION_GREATER_EQUAL "2.0.18"))
-			add_compile_definitions(USE_SDL2_TTF)
-			if(FONTCONFIG_FOUND)
-				add_compile_definitions(USE_SDL2_TTF_FONTCONFIG)
-				list(APPEND nativeExtraLibs Fontconfig::Fontconfig)
-			endif()
-		elseif(SDL2_ttf_PKGCONFIG_FOUND)
-			message(WARNING "Found SDL2_ttf <2.0.18 - this is too old, falling back to atlas")
-		endif()
-		if(SDL2_ttf_FOUND)
-			list(APPEND nativeExtraLibs SDL2_ttf::SDL2_ttf)
-		elseif(SDL2_ttf_PKGCONFIG_FOUND)
-			list(APPEND nativeExtraLibs PkgConfig::SDL2_ttf_PKGCONFIG)
-		endif()
-		if(APPLE)
-			list(APPEND nativeExtra
 			SDL/SDLMain.h
 			SDL/SDLMain.mm
 			SDL/SDLCocoaMetalLayer.h
@@ -1583,32 +1539,17 @@ else()
 			UI/PSPNSApplicationDelegate.mm
 			UI/PSPNSApplicationDelegate.h)
 
-			# TODO
-			# set_source_files_properties(SDL/SDLMain.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-
-			set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
-				UI/PSPNSApplicationDelegate.mm
-				SDL/CocoaMetalLayer.mm
-				SDL/CocoaBarItems.mm
-				SDL/PPSSPPAboutViewController.m
-				SDL/MacCameraHelper.mm
-				Common/Battery/AppleBatteryClient.m
-				Common/Render/Text/draw_text_cocoa.mm
-				PROPERTIES COMPILE_FLAGS -fobjc-arc)
-			list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
-
-			if(USE_SYSTEM_LIBSDL2)
-				list(APPEND nativeExtraLibs SDL2::SDL2)
-			else()
-				list(APPEND nativeExtraLibs ${SDL2Fwk})
-			endif()
-		elseif(USING_EGL)
-			list(APPEND nativeExtraLibs pthread SDL2::SDL2)
-		else()
-			list(APPEND nativeExtraLibs SDL2::SDL2)
-		endif()
-	elseif(NOT CMAKE_CROSSCOMPILING)
-		message(FATAL_ERROR "SDL2 not found - required for this platform")
+		set_source_files_properties(Core/Util/DarwinFileSystemServices.mm
+			UI/PSPNSApplicationDelegate.mm
+			SDL/CocoaMetalLayer.mm
+			SDL/CocoaBarItems.mm
+			SDL/PPSSPPAboutViewController.m
+			SDL/MacCameraHelper.mm
+			Common/Battery/AppleBatteryClient.m
+			Common/Render/Text/draw_text_cocoa.mm
+			PROPERTIES COMPILE_FLAGS -fobjc-arc)
+		list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+		list(APPEND nativeExtraLibs ${SDL_LIB_TARGET})
 	elseif(USING_EGL)
 		list(APPEND nativeExtraLibs pthread ${SDL_LIB_TARGET})
 	else()
@@ -3133,8 +3074,6 @@ if(TargetBin)
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
 			if(USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
-			elseif(NOT USE_SYSTEM_LIBSDL2)
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/${TargetBin}.app" "${TargetBin}")
 			endif()
 		endif()
 	elseif(WIN32)
