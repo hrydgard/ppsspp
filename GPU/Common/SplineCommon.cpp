@@ -435,45 +435,6 @@ void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 ori
 template void SoftwareTessellation<BezierSurface>(OutputBuffers &output, const BezierSurface &surface, u32 origVertType, const ControlPoints &points);
 template void SoftwareTessellation<SplineSurface>(OutputBuffers &output, const SplineSurface &surface, u32 origVertType, const ControlPoints &points);
 
-template<class Surface>
-static void HardwareTessellation(OutputBuffers &output, const Surface &surface, u32 origVertType,
-	const SimpleVertex *const *points, TessellationDataTransfer *tessDataTransfer) {
-	using WeightType = typename Surface::WeightType;
-	u32 key_u = WeightType::ToKey(surface.tess_u, surface.num_points_u, surface.type_u);
-	u32 key_v = WeightType::ToKey(surface.tess_v, surface.num_points_v, surface.type_v);
-	Weight2D weights(WeightType::weightsCache, key_u, key_v);
-	weights.size_u = WeightType::CalcSize(surface.tess_u, surface.num_points_u);
-	weights.size_v = WeightType::CalcSize(surface.tess_v, surface.num_points_v);
-	tessDataTransfer->SendDataToShader(points, surface.num_points_u, surface.num_points_v, origVertType, weights);
-
-	// Generating simple input vertices for the spline-computing vertex shader.
-	float inv_u = 1.0f / (float)surface.tess_u;
-	float inv_v = 1.0f / (float)surface.tess_v;
-	for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
-		const int start_u = surface.GetTessStart(patch_u);
-		for (int patch_v = 0; patch_v < surface.num_patches_v; ++patch_v) {
-			const int start_v = surface.GetTessStart(patch_v);
-			for (int tile_u = start_u; tile_u <= surface.tess_u; ++tile_u) {
-				const int index_u = surface.GetIndexU(patch_u, tile_u);
-				for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
-					const int index_v = surface.GetIndexV(patch_v, tile_v);
-					SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
-					// Index for the weights
-					vert.pos.x = index_u;
-					vert.pos.y = index_v;
-					// For texcoord generation
-					vert.nrm.x = patch_u + (float)tile_u * inv_u;
-					vert.nrm.y = patch_v + (float)tile_v * inv_v;
-					// Patch position
-					vert.pos.z = patch_u;
-					vert.nrm.z = patch_v;
-				}
-			}
-		}
-	}
-	surface.BuildIndex(output.indices, output.count);
-}
-
 } // namespace Spline
 
 using namespace Spline;
@@ -551,15 +512,11 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	surface.Init(maxVerts);
 
-	if (CanUseHardwareTessellation(surface.primType)) {
-		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
-	} else {
-		ControlPoints cpoints(points, num_points, managedBuf);
-		if (cpoints.IsValid())
-			SoftwareTessellation(output, surface, origVertType, cpoints);
-		else
-			ERROR_LOG(Log::G3D, "Failed to allocate space for control point values, skipping curve draw");
-	}
+	ControlPoints cpoints(points, num_points, managedBuf);
+	if (cpoints.IsValid())
+		SoftwareTessellation(output, surface, origVertType, cpoints);
+	else
+		ERROR_LOG(Log::G3D, "Failed to allocate space for control point values, skipping curve draw");
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 

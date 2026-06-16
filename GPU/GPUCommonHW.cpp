@@ -1328,15 +1328,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 
 	// We need to dirty UVSCALEOFFSET here because we look at the submit type when setting that uniform.
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
-	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.submitType = SubmitType::HW_BEZIER;
-		if (gstate_c.spline_num_points_u != surface.num_points_u) {
-			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_num_points_u = surface.num_points_u;
-		}
-	} else {
-		gstate_c.submitType = SubmitType::BEZIER;
-	}
+	gstate_c.submitType = SubmitType::BEZIER;
 
 	int bytesRead = 0;
 	gstate_c.UpdateUVScaleOffset();
@@ -1408,15 +1400,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 
 	// We need to dirty UVSCALEOFFSET here because we look at the submit type when setting that uniform.
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
-	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.submitType = SubmitType::HW_SPLINE;
-		if (gstate_c.spline_num_points_u != surface.num_points_u) {
-			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_num_points_u = surface.num_points_u;
-		}
-	} else {
-		gstate_c.submitType = SubmitType::SPLINE;
-	}
+	gstate_c.submitType = SubmitType::SPLINE;
 
 	int bytesRead = 0;
 	gstate_c.UpdateUVScaleOffset();

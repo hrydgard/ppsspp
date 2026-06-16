@@ -57,15 +57,10 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), d
 	decOptions_.expand8BitNormalsToFloat = false;
 
 	InitDeviceObjects();
-
-	tessDataTransferGLES = new TessellationDataTransferGLES(render_);
-	tessDataTransfer = tessDataTransferGLES;
 }
 
 DrawEngineGLES::~DrawEngineGLES() {
 	DestroyDeviceObjects();
-
-	delete tessDataTransferGLES;
 }
 
 void DrawEngineGLES::DeviceLost() {
@@ -147,7 +142,6 @@ void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	frameData.pushIndex->End();
 	frameData.pushVertex->End();
-	tessDataTransferGLES->EndFrame();
 }
 
 struct GlTypeInfo {
@@ -275,7 +269,7 @@ void DrawEngineGLES::Flush() {
 		lastUseHwTransform_ = useHWTransform;
 	}
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, useHWTessellation_, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, clipInfoFlags_, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, clipInfoFlags_, &vsid);
 
 	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back. However, this can no longer really happen... Need to fix this.
 
@@ -457,81 +451,4 @@ bail:
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 	gpuCommon_->NotifyFlush();
-}
-
-// TODO: Refactor this to a single USE flag.
-bool DrawEngineGLES::SupportsHWTessellation() {
-	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-	return hasTexelFetch && gstate_c.UseAll(GPU_USE_VERTEX_TEXTURE_FETCH | GPU_USE_TEXTURE_FLOAT | GPU_USE_INSTANCE_RENDERING);
-}
-
-bool DrawEngineGLES::UpdateUseHWTessellation(bool enable) const {
-	return enable && SupportsHWTessellation();
-}
-
-void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
-	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
-
-	int size = size_u * size_v;
-	float *pos = new float[size * 4];
-	float *tex = hasTexCoord ? new float[size * 4] : nullptr;
-	float *col = hasColor ? new float[size * 4] : nullptr;
-	int stride = 4;
-
-	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
-	// Removed the 1D texture support, it's unlikely to be relevant for performance.
-	// Control Points
-	if (prevSizeU < size_u || prevSizeV < size_v) {
-		prevSizeU = size_u;
-		prevSizeV = size_v;
-		if (data_tex[0])
-			renderManager_->DeleteTexture(data_tex[0]);
-		data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D, size_u * 3, size_v, 1, 1);
-		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
-		renderManager_->FinalizeTexture(data_tex[0], 0, false);
-	}
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
-	// Position
-	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0], 0, 0, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)pos, GLRAllocType::NEW);
-	// Texcoord
-	if (hasTexCoord)
-		renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0], 0, size_u, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)tex, GLRAllocType::NEW);
-	// Color
-	if (hasColor)
-		renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0], 0, size_u * 2, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)col, GLRAllocType::NEW);
-
-	// Weight U
-	if (prevSizeWU < weights.size_u) {
-		prevSizeWU = weights.size_u;
-		if (data_tex[1])
-			renderManager_->DeleteTexture(data_tex[1]);
-		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_u * 2, 1, 1, 1);
-		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
-		renderManager_->FinalizeTexture(data_tex[1], 0, false);
-	}
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1]);
-	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1], 0, 0, 0, weights.size_u * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)weights.u, GLRAllocType::NONE);
-
-	// Weight V
-	if (prevSizeWV < weights.size_v) {
-		prevSizeWV = weights.size_v;
-		if (data_tex[2])
-			renderManager_->DeleteTexture(data_tex[2]);
-		data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_v * 2, 1, 1, 1);
-		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
-		renderManager_->FinalizeTexture(data_tex[2], 0, false);
-	}
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);
-	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2], 0, 0, 0, weights.size_v * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)weights.v, GLRAllocType::NONE);
-}
-
-void TessellationDataTransferGLES::EndFrame() {
-	for (int i = 0; i < 3; i++) {
-		if (data_tex[i]) {
-			renderManager_->DeleteTexture(data_tex[i]);
-			data_tex[i] = nullptr;
-		}
-	}
-	prevSizeU = prevSizeV = prevSizeWU = prevSizeWV = 0;
 }

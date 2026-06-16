@@ -187,7 +187,4 @@ public:
 		FreeAlignedMemory(p);
 	}
 #endif
-
-protected:
-	bool UpdateUseHWTessellation(bool enable) const override { return false; }
 };

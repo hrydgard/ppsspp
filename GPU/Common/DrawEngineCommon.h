@@ -59,13 +59,6 @@ enum FBOTexState {
 struct SimpleVertex;
 namespace Spline { struct Weight2D; }
 
-class TessellationDataTransfer {
-public:
-	virtual ~TessellationDataTransfer() {}
-	static void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
-	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
-};
-
 // Culling plane, group of 8.
 struct alignas(16) Plane8 {
 	float x[8], y[8], z[8], w[8];
@@ -129,7 +122,6 @@ public:
 	static void ClearSplineBezierWeights();
 
 	bool CanUseHardwareTransform(int prim) const;
-	bool CanUseHardwareTessellation(GEPatchPrimType prim) const;
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string_view id, DebugShaderStringType stringType);
@@ -164,8 +156,6 @@ public:
 	void FlushQueuedDepth();
 
 protected:
-	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
-
 	bool CheckClipFlags(bool useHwTransform) const;
 
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
@@ -273,7 +263,6 @@ protected:
 	}
 
 	bool useHWTransform_ = false;
-	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
 	bool flushOnParams_ = true;
 
@@ -345,9 +334,6 @@ protected:
 	uint64_t dirtyRequiresRecheck_ = 0;
 
 	ComputedPipelineState pipelineState_{};
-
-	// Hardware tessellation
-	TessellationDataTransfer *tessDataTransfer = nullptr;
 
 	GPUCommon *gpuCommon_ = nullptr;
 

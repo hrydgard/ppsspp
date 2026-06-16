@@ -607,12 +607,6 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 			if (u_lightspecular[i] != -1) SetColorUniform3(render_, &u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
-
-	if (dirty & DIRTY_BEZIERSPLINE) {
-		if (u_spline_counts != -1) {
-			render_->SetUniformI1(&u_spline_counts, gstate_c.spline_num_points_u);
-		}
-	}
 }
 
 static constexpr size_t CODE_BUFFER_SIZE = 32768;
@@ -707,10 +701,10 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode, clipInfoFlags);
+		ComputeVertexShaderID(VSID, vertexType, useHWTransform, weightsAsFloat, useSkinInDecode, clipInfoFlags);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -743,7 +737,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 
 		// Can still work with software transform.
 		VShaderID vsidTemp;
-		ComputeVertexShaderID(&vsidTemp, vertexType, false, false, weightsAsFloat, true, clipInfoFlags);
+		ComputeVertexShaderID(&vsidTemp, vertexType, false, weightsAsFloat, true, clipInfoFlags);
 		vs = CompileVertexShader(vsidTemp);
 	}
 

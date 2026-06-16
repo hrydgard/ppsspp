@@ -64,20 +64,6 @@ struct DrawEngineVulkanStats {
 
 class VulkanRenderManager;
 
-class TessellationDataTransferVulkan : public TessellationDataTransfer  {
-public:
-	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
-
-	void SetPushPool(VulkanPushPool *push) { push_ = push; }
-	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
-	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
-	const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
-private:
-	VulkanContext *vulkan_;
-	VulkanPushPool *push_;  // Updated each frame.
-	VkDescriptorBufferInfo bufInfo_[3]{};
-};
-
 enum {
 	DRAW_BINDING_TEXTURE = 0,
 	DRAW_BINDING_2ND_TEXTURE = 1,
@@ -227,7 +213,4 @@ private:
 
 	int tessOffset_ = 0;
 	FBOTexState fboTexBindState_ = FBO_TEX_NONE;
-
-	// Hardware tessellation
-	TessellationDataTransferVulkan *tessDataTransferVulkan = nullptr;
 };

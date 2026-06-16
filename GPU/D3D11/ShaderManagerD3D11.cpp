@@ -186,13 +186,13 @@ void ShaderManagerD3D11::BindUniforms() {
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 
-void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
+void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
 	VShaderID VSID;
 	FShaderID FSID;
 
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode, clipInfoFlags);
+		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, weightsAsFloat, useSkinInDecode, clipInfoFlags);
 	} else {
 		VSID = lastVSID_;
 	}

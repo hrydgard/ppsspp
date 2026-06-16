@@ -36,10 +36,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
 	VS_BIT_NORM_REVERSE = 10,
 	VS_BIT_HAS_TEXCOORD = 11,
-	VS_BIT_HAS_COLOR_TESS = 12,  // 1 bit
-	VS_BIT_HAS_TEXCOORD_TESS = 13,  // 1 bit
-	VS_BIT_NORM_REVERSE_TESS = 14, // 1 bit
-	VS_BIT_HAS_NORMAL_TESS = 15, // 1 bit
+	// 4 bits free: 12-15
 	VS_BIT_UVGEN_MODE = 16,
 	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
 	VS_BIT_LS0 = 18,  // 2
@@ -61,7 +58,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_LIGHT3_COMP = 44,  // 2 bits
 	VS_BIT_LIGHT3_TYPE = 46,  // 2 bits
 	VS_BIT_MATERIAL_UPDATE = 48,  // 3 bits
-	VS_BIT_SPLINE = 51, // 1 bit
+	// Bit 51 is free.
 	VS_BIT_LIGHT0_ENABLE = 52,
 	VS_BIT_LIGHT1_ENABLE = 53,
 	VS_BIT_LIGHT2_ENABLE = 54,
@@ -72,8 +69,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_FS_MINMAX_DISCARD = 59, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
 	VS_BIT_FS_DEPTH_CLAMP = 60, // Do depth clamp in the fragment shader.
 	VS_BIT_FLATSHADE = 62, // 1 bit
-	VS_BIT_BEZIER = 63, // 1 bit
-	// No more free
+	// Bit 63 is free.
 };
 
 static inline VShaderBit operator +(VShaderBit bit, int i) {
@@ -259,7 +255,7 @@ namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
+void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);

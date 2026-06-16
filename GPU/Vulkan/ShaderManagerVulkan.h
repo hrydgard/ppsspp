@@ -102,7 +102,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
+	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
 	void ClearShaders() override;
 	void DirtyLastShader() override;
 

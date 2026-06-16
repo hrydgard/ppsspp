@@ -13,7 +13,7 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_MATAMBIENTALPHA |
-	DIRTY_BEZIERSPLINE | DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET,
+	DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT_CONTROL | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
@@ -32,7 +32,7 @@ struct alignas(16) UB_VS_FS_Base {
 	float rasterOffset[2]; float minZmaxZ[2];
 	float uvScaleOffset[4];
 	float matAmbient[4];
-	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
+	uint32_t padding3; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
 	float texNoAlpha; float texMul; float padding4[2];  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.

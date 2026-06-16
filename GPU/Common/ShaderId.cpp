@@ -55,12 +55,6 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
-	if (id.Bit(VS_BIT_BEZIER)) desc << "Bezier ";
-	if (id.Bit(VS_BIT_SPLINE)) desc << "Spline ";
-	if (id.Bit(VS_BIT_HAS_COLOR_TESS)) desc << "TessC ";
-	if (id.Bit(VS_BIT_HAS_TEXCOORD_TESS)) desc << "TessT ";
-	if (id.Bit(VS_BIT_HAS_NORMAL_TESS)) desc << "TessN ";
-	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
 	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "RangeCull ";
 
 	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
@@ -70,7 +64,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
 	const bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	const bool isSoftwareFallback = !isModeThrough && !useHWTransform && g_Config.bHardwareTransform;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -151,18 +145,6 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, vtypeHasTexcoord);
-
-		if (useHWTessellation) {
-			id.SetBit(VS_BIT_BEZIER, doBezier);
-			id.SetBit(VS_BIT_SPLINE, doSpline);
-			if (doBezier || doSpline) {
-				// These are the original vertType's values (normalized will always have colors, etc.)
-				id.SetBit(VS_BIT_HAS_COLOR_TESS, (gstate.vertType & GE_VTYPE_COL_MASK) != 0);
-				id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, (gstate.vertType & GE_VTYPE_TC_MASK) != 0);
-				id.SetBit(VS_BIT_HAS_NORMAL_TESS, (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled());
-			}
-			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
-		}
 	}
 
 	if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {

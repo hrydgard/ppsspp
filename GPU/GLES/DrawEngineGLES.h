@@ -40,23 +40,6 @@ struct TransformedVertex;
 
 struct DecVtxFormat;
 
-class TessellationDataTransferGLES : public TessellationDataTransfer {
-private:
-	GLRTexture *data_tex[3]{};
-	int prevSizeU = 0, prevSizeV = 0;
-	int prevSizeWU = 0, prevSizeWV = 0;
-	GLRenderManager *renderManager_;
-public:
-	TessellationDataTransferGLES(GLRenderManager *renderManager)
-			: renderManager_(renderManager) { }
-	~TessellationDataTransferGLES() {
-		EndFrame();
-	}
-	// Send spline/bezier's control points and weights to vertex shader through floating point texture.
-	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
-	void EndFrame();  // Queues textures for deletion.
-};
-
 // Handles transform, lighting and drawing.
 class DrawEngineGLES : public DrawEngineCommon {
 public:
@@ -89,11 +72,6 @@ public:
 	}
 
 	void ClearInputLayoutMap();
-
-	static bool SupportsHWTessellation() ;
-
-protected:
-	bool UpdateUseHWTessellation(bool enable) const override;
 
 private:
 	void Invalidate(InvalidationCallbackFlags flags);
@@ -131,7 +109,4 @@ private:
 
 	int bufferDecimationCounter_ = 0;
 	int lastRenderStepId_ = -1;
-
-	// Hardware tessellation
-	TessellationDataTransferGLES *tessDataTransferGLES;
 };

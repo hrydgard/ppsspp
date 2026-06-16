@@ -85,9 +85,6 @@ void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 
-	tessDataTransferD3D11 = new TessellationDataTransferD3D11(context_, device_);
-	tessDataTransfer = tessDataTransferD3D11;
-
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
 }
 
@@ -97,9 +94,6 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	}
 
 	ClearInputLayoutMap();
-	delete tessDataTransferD3D11;
-	tessDataTransferD3D11 = nullptr;
-	tessDataTransfer = nullptr;
 	delete pushVerts_;
 	delete pushInds_;
 	pushVerts_ = nullptr;
@@ -347,7 +341,7 @@ void DrawEngineD3D11::Flush() {
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
+		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
 		ID3D11InputLayout *inputLayout;
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
@@ -459,7 +453,7 @@ void DrawEngineD3D11::Flush() {
 		if (action == SW_DRAW_INDEXED) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
+			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
@@ -518,96 +512,4 @@ void DrawEngineD3D11::Flush() {
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 	gpuCommon_->NotifyFlush();
-}
-
-TessellationDataTransferD3D11::TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)
-	: context_(context), device_(device) {
-	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-}
-
-TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
-}
-
-void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
-	struct TessData {
-		float pos[3]; float pad1;
-		float uv[2]; float pad2[2];
-		float color[4];
-	};
-
-	int size = size_u * size_v;
-
-	if (prevSize < size || !buf[0]) {
-		prevSize = size;
-		buf[0].Reset();
-		view[0].Reset();
-
-		desc.ByteWidth = size * sizeof(TessData);
-		desc.StructureByteStride = sizeof(TessData);
-		device_->CreateBuffer(&desc, nullptr, &buf[0]);
-		if (buf[0])
-			device_->CreateShaderResourceView(buf[0].Get(), nullptr, &view[0]);
-		if (!buf[0] || !view[0])
-			return;
-		context_->VSSetShaderResources(0, 1, view[0].GetAddressOf());
-	}
-	D3D11_MAPPED_SUBRESOURCE map{};
-	HRESULT hr = context_->Map(buf[0].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	if (FAILED(hr))
-		return;
-	uint8_t *data = (uint8_t *)map.pData;
-
-	float *pos = (float *)(data);
-	float *tex = (float *)(data + offsetof(TessData, uv));
-	float *col = (float *)(data + offsetof(TessData, color));
-	int stride = sizeof(TessData) / sizeof(float);
-
-	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
-
-	context_->Unmap(buf[0].Get(), 0);
-
-	using Spline::Weight;
-
-	// Weights U
-	if (prevSizeWU < weights.size_u || !buf[1]) {
-		prevSizeWU = weights.size_u;
-		buf[1].Reset();
-		view[1].Reset();
-
-		desc.ByteWidth = weights.size_u * sizeof(Weight);
-		desc.StructureByteStride = sizeof(Weight);
-		device_->CreateBuffer(&desc, nullptr, &buf[1]);
-		if (buf[1])
-			device_->CreateShaderResourceView(buf[1].Get(), nullptr, &view[1]);
-		if (!buf[1] || !view[1])
-			return;
-		context_->VSSetShaderResources(1, 1, view[1].GetAddressOf());
-	}
-	hr = context_->Map(buf[1].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	if (SUCCEEDED(hr))
-		memcpy(map.pData, weights.u, weights.size_u * sizeof(Weight));
-	context_->Unmap(buf[1].Get(), 0);
-
-	// Weights V
-	if (prevSizeWV < weights.size_v) {
-		prevSizeWV = weights.size_v;
-		buf[2].Reset();
-		view[2].Reset();
-
-		desc.ByteWidth = weights.size_v * sizeof(Weight);
-		desc.StructureByteStride = sizeof(Weight);
-		device_->CreateBuffer(&desc, nullptr, &buf[2]);
-		if (buf[2])
-			device_->CreateShaderResourceView(buf[2].Get(), nullptr, &view[2]);
-		if (!buf[2] || !view[2])
-			return;
-		context_->VSSetShaderResources(2, 1, view[2].GetAddressOf());
-	}
-	hr = context_->Map(buf[2].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-	if (SUCCEEDED(hr))
-		memcpy(map.pData, weights.v, weights.size_v * sizeof(Weight));
-	context_->Unmap(buf[2].Get(), 0);
 }
