@@ -730,31 +730,6 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
-	System_Notify(SystemNotification::ACTIVITY);
-
-	bool ignoreGamepad = false;
-
-	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
-		// Avoid pressing touch button behind the chat
-		if (chatMenu_->Contains(touch.x, touch.y)) {
-			ignoreGamepad = true;
-		}
-	}
-
-	if (touch.flags & TouchInputFlags::DOWN) {
-		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
-			// This just prevents the gamepad from timing out.
-			GamepadTouch();
-		}
-	}
-
-	if (root_) {
-		UIScreen::UnsyncTouch(touch);
-	}
-	return true;
-}
-
 // TODO: We should replace the "fpsLimit" system with a speed factor.
 static void ShowFpsLimitNotice() {
 	int fpsLimit = 60;
@@ -1253,6 +1228,24 @@ bool EmuScreen::key(const KeyInput &key) {
 }
 
 void EmuScreen::touch(const TouchInput &touch) {
+	System_Notify(SystemNotification::ACTIVITY);
+
+	bool ignoreGamepad = false;
+
+	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
+		// Avoid pressing touch button behind the chat
+		if (chatMenu_->Contains(touch.x, touch.y)) {
+			ignoreGamepad = true;
+		}
+	}
+
+	if (touch.flags & TouchInputFlags::DOWN) {
+		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
+			// This just prevents the gamepad from timing out.
+			GamepadTouch();
+		}
+	}
+
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_TouchEvent(touch);
 		if (!ImGui::GetIO().WantCaptureMouse) {
