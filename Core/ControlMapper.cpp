@@ -303,7 +303,7 @@ void ControlMapper::ReleaseAll() {
 
 	Axis(axes.data(), axes.size());;
 	for (const auto &key : keys) {
-		Key(key, nullptr);
+		Key(key);
 	}
 }
 
@@ -586,7 +586,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	return keyInputUsed;
 }
 
-bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
+bool ControlMapper::Key(const KeyInput &key) {
 	double now = time_now_d();
 	InputMapping mapping(key.deviceId, key.keyCode);
 
@@ -607,7 +607,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, nullptr);
 		DEBUG_LOG(Log::System, "Key: %d DeviceId: %d", key.keyCode, key.deviceId);
 		if (!mappingFound || key.deviceId == DEVICE_ID_DEFAULT) {
-			*pauseTrigger = true;
+			pauseTrigger_ = true;
 			return true;
 		}
 	}

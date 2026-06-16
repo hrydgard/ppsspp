@@ -518,8 +518,7 @@ bool AnalogCalibrationScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 
 	// Allow testing auto-rotation. If it collides with UI keys, too bad.
-	bool pauseTrigger = false;
-	g_controlMapper.Key(key, &pauseTrigger);
+	g_controlMapper.Key(key);
 
 	if (UI::IsEscapeKey(key)) {
 		TriggerFinish(DR_BACK);

@@ -114,6 +114,7 @@ private:
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
+	// We also poll the pause trigger from the ControlMapper. That needs refactoring.
 	bool pauseTrigger_ = false;
 
 	// The last read chat message count, and how many new ones there are.
