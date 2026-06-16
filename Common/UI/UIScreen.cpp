@@ -130,52 +130,10 @@ bool UIScreen::UnsyncKey(const KeyInput &key) {
 		}
 	}
 
-	// Track modifier keys.
-	if (key.flags & KeyInputFlags::DOWN) {
-		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: modifiersPressed_ |= Modifier::LCTRL; break;
-		case NKCODE_CTRL_RIGHT: modifiersPressed_ |= Modifier::RCTRL; break;
-		case NKCODE_SHIFT_LEFT: modifiersPressed_ |= Modifier::LSHIFT; break;
-		case NKCODE_SHIFT_RIGHT: modifiersPressed_ |= Modifier::RSHIFT; break;
-		case NKCODE_ALT_LEFT: modifiersPressed_ |= Modifier::LALT; break;
-		case NKCODE_ALT_RIGHT: modifiersPressed_ |= Modifier::RALT; break;
-		case NKCODE_META_LEFT: modifiersPressed_ |= Modifier::LMETA; break;
-		case NKCODE_META_RIGHT: modifiersPressed_ |= Modifier::RMETA; break;
-		default:
-			break;
-		}
-	}
-	if (key.flags & KeyInputFlags::UP) {
-		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: modifiersPressed_ &= ~Modifier::LCTRL; break;
-		case NKCODE_CTRL_RIGHT: modifiersPressed_ &= ~Modifier::RCTRL; break;
-		case NKCODE_SHIFT_LEFT: modifiersPressed_ &= ~Modifier::LSHIFT; break;
-		case NKCODE_SHIFT_RIGHT: modifiersPressed_ &= ~Modifier::RSHIFT; break;
-		case NKCODE_ALT_LEFT: modifiersPressed_ &= ~Modifier::LALT; break;
-		case NKCODE_ALT_RIGHT: modifiersPressed_ &= ~Modifier::RALT; break;
-		case NKCODE_META_LEFT: modifiersPressed_ &= ~Modifier::LMETA; break;
-		case NKCODE_META_RIGHT: modifiersPressed_ &= ~Modifier::RMETA; break;
-		default:
-			break;
-		}
-	}
-
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::KEY;
 	ev.key = key;
 
-	if (modifiersPressed_ & (Modifier::LCTRL | Modifier::RCTRL)) {
-		ev.key.flags |= KeyInputFlags::MOD_CTRL;
-	}
-	if (modifiersPressed_ & (Modifier::LSHIFT | Modifier::RSHIFT)) {
-		ev.key.flags |= KeyInputFlags::MOD_SHIFT;
-	}
-	if (modifiersPressed_ & (Modifier::LALT | Modifier::RALT)) {
-		ev.key.flags |= KeyInputFlags::MOD_ALT;
-	}
-	if (modifiersPressed_ & (Modifier::LMETA | Modifier::RMETA)) {
-		ev.key.flags |= KeyInputFlags::MOD_META;
-	}
 	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	eventQueue_.push_back(ev);
 	return retval;

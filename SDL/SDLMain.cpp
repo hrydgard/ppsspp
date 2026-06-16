@@ -1448,6 +1448,9 @@ int main(int argc, char *argv[]) {
 #endif
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+#ifdef SDL_HINT_ENABLE_SCREEN_KEYBOARD
+	SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
+#endif
 
 #ifdef SDL_HINT_TOUCH_MOUSE_EVENTS
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");

@@ -378,9 +378,8 @@ GamePauseScreen::~GamePauseScreen() {
 
 bool GamePauseScreen::UnsyncKey(const KeyInput &key) {
 	bool retval = UIScreen::UnsyncKey(key);
-	bool pauseTrigger = false;
-	retval = g_controlMapper.Key(key, &pauseTrigger) || retval;
-	if (pauseTrigger) {
+	retval = g_controlMapper.Key(key) || retval;
+	if (g_controlMapper.PollPauseTrigger()) {
 		TriggerFinish(DR_BACK);
 	}
 	return retval;

@@ -730,31 +730,6 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
-	System_Notify(SystemNotification::ACTIVITY);
-
-	bool ignoreGamepad = false;
-
-	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
-		// Avoid pressing touch button behind the chat
-		if (chatMenu_->Contains(touch.x, touch.y)) {
-			ignoreGamepad = true;
-		}
-	}
-
-	if (touch.flags & TouchInputFlags::DOWN) {
-		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
-			// This just prevents the gamepad from timing out.
-			GamepadTouch();
-		}
-	}
-
-	if (root_) {
-		UIScreen::UnsyncTouch(touch);
-	}
-	return true;
-}
-
 // TODO: We should replace the "fpsLimit" system with a speed factor.
 static void ShowFpsLimitNotice() {
 	int fpsLimit = 60;
@@ -1159,6 +1134,10 @@ void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }
 
+bool EmuScreen::AllowKeyboardNavigation() const {
+	return true;
+}
+
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
 
@@ -1189,7 +1168,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 				if (mappingFound) {
 					for (auto b : pspButtons) {
 						if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-							return g_controlMapper.Key(key, &pauseTrigger_);
+							return g_controlMapper.Key(key);
 						}
 					}
 				}
@@ -1199,28 +1178,28 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 			switch (key.deviceId) {
 			case DEVICE_ID_KEYBOARD:
 				if (!ImGui::GetIO().WantCaptureKeyboard) {
-					g_controlMapper.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key);
 				}
 				break;
 			case DEVICE_ID_MOUSE:
 				if (!ImGui::GetIO().WantCaptureMouse) {
-					g_controlMapper.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key);
 				}
 				break;
 			default:
-				g_controlMapper.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key);
 				break;
 			}
 		} else {
 			// Let up-events through to the controlMapper_ so input doesn't get stuck.
 			if (key.flags & KeyInputFlags::UP) {
-				g_controlMapper.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key);
 			}
 		}
 
 		return UIScreen::UnsyncKey(key);
 	}
-	return g_controlMapper.Key(key, &pauseTrigger_);
+	return g_controlMapper.Key(key);
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
@@ -1253,6 +1232,24 @@ bool EmuScreen::key(const KeyInput &key) {
 }
 
 void EmuScreen::touch(const TouchInput &touch) {
+	System_Notify(SystemNotification::ACTIVITY);
+
+	bool ignoreGamepad = false;
+
+	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
+		// Avoid pressing touch button behind the chat
+		if (chatMenu_->Contains(touch.x, touch.y)) {
+			ignoreGamepad = true;
+		}
+	}
+
+	if (touch.flags & TouchInputFlags::DOWN) {
+		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
+			// This just prevents the gamepad from timing out.
+			GamepadTouch();
+		}
+	}
+
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_TouchEvent(touch);
 		if (!ImGui::GetIO().WantCaptureMouse) {
@@ -1523,6 +1520,10 @@ void EmuScreen::update() {
 		errorMessage_.clear();
 		quit_ = true;
 		return;
+	}
+
+	if (g_controlMapper.PollPauseTrigger()) {
+		pauseTrigger_ = true;
 	}
 
 	if (pauseTrigger_) {
