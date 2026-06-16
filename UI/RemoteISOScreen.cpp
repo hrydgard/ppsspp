@@ -324,6 +324,8 @@ void RemoteISOScreen::sendMessage(UIMessage message, const char *value) {
 			ERROR_LOG(Log::UI, "Unknown permission granted: %s", value);
 		}
 		break;
+	default:
+		break;
 	}
 }
 

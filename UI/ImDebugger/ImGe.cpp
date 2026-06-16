@@ -192,7 +192,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 					ImGui::Text("Addr: %08x: %dx%d, %d mips, %s", (uint32_t)(cfg.selectedTexId & 0xFFFFFFFF), w, h, entry->maxLevel + 1, GeTextureFormatToString((GETextureFormat)entry->format));
 				}
 				ImGui::Text("Stride: %d", entry->bufw);
-				ImGui::Text("Status: %08x: %s", entry->status, TexStatusToString(entry->status).c_str());
+				ImGui::Text("Status: %08x: %s", (u32)entry->status, TexStatusToString(entry->status).c_str());
 				ImGui::Text("Hash: %08x", entry->fullhash);
 				ImGui::Text("CLUT Hash: %08x", entry->cluthash);
 				ImGui::Text("MaxSeenV: %08x", entry->maxSeenV);
@@ -211,7 +211,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 						ImGui::Text("Key: %08x_%08x", (u32)(desc.cachekey >> 32), (u32)desc.cachekey);
 						ImGui::Text("Hashfiles: %s", desc.hashfiles.c_str());
 						ImGui::Text("Base: %s", desc.basePath.c_str());
-						ImGui::Text("Alpha status: %02x", entry->replacedTexture->AlphaStatus());
+						ImGui::Text("Alpha status: %d", (int)entry->replacedTexture->AlphaStatus());
 					}
 				} else {
 					ImGui::Text("Not replaced");

@@ -88,49 +88,33 @@ static int8_t EGL_Open(SDL_Window *window) {
 	g_Window = (EGLNativeWindowType)nullptr;
 #else
 	// Get the SDL window native handle
-	SDL_SysWMinfo sysInfo{};
-	SDL_VERSION(&sysInfo.version);
-	if (!SDL_GetWindowWMInfo(window, &sysInfo)) {
-		fprintf(stderr, "ERROR: Unable to retrieve native window handle\n");
-		g_Display = (EGLNativeDisplayType)XOpenDisplay(nullptr);
-		g_XDisplayOpen = g_Display != nullptr;
-		if (!g_XDisplayOpen)
-			EGL_ERROR("Unable to get display!", false);
-		g_Window = (EGLNativeWindowType)nullptr;
+	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
+	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+	if (x11Display != nullptr) {
+		g_Display = (EGLNativeDisplayType)x11Display;
+		g_Window = (EGLNativeWindowType)(uintptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
 	} else {
-		switch (sysInfo.subsystem) {
-		case SDL_SYSWM_X11:
-			g_Display = (EGLNativeDisplayType)sysInfo.info.x11.display;
-			g_Window = (EGLNativeWindowType)sysInfo.info.x11.window;
-			break;
-#if defined(SDL_VIDEO_DRIVER_DIRECTFB)
-		case SDL_SYSWM_DIRECTFB:
-			g_Display = (EGLNativeDisplayType)EGL_DEFAULT_DISPLAY;
-			g_Window = (EGLNativeWindowType)sysInfo.info.dfb.surface;
-			break;
-#endif
-#if SDL_VERSION_ATLEAST(2, 0, 2) && defined(SDL_VIDEO_DRIVER_WAYLAND)
-		case SDL_SYSWM_WAYLAND:
-			g_Display = (EGLNativeDisplayType)sysInfo.info.wl.display;
-			g_Window = (EGLNativeWindowType)sysInfo.info.wl.egl_window;
-			break;
-#endif
-#if SDL_VERSION_ATLEAST(2, 0, 5) && defined(SDL_VIDEO_DRIVER_VIVANTE)
-		case SDL_SYSWM_VIVANTE:
-			g_Display = (EGLNativeDisplayType)sysInfo.info.vivante.display;
-			g_Window = (EGLNativeWindowType)sysInfo.info.vivante.window;
-			break;
-#endif
-		}
-
-		if (!EGL_OpenInit()) {
-			// Let's try again with X11.
+		void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+		void *waylandEGLWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_EGL_WINDOW_POINTER, nullptr);
+		if (waylandDisplay != nullptr && waylandEGLWindow != nullptr) {
+			g_Display = (EGLNativeDisplayType)waylandDisplay;
+			g_Window = (EGLNativeWindowType)waylandEGLWindow;
+		} else {
+			fprintf(stderr, "ERROR: Unable to retrieve native window properties\n");
 			g_Display = (EGLNativeDisplayType)XOpenDisplay(nullptr);
 			g_XDisplayOpen = g_Display != nullptr;
 			if (!g_XDisplayOpen)
 				EGL_ERROR("Unable to get display!", false);
 			g_Window = (EGLNativeWindowType)nullptr;
 		}
+	}
+
+	if (!EGL_OpenInit()) {
+		g_Display = (EGLNativeDisplayType)XOpenDisplay(nullptr);
+		g_XDisplayOpen = g_Display != nullptr;
+		if (!g_XDisplayOpen)
+			EGL_ERROR("Unable to get display!", false);
+		g_Window = (EGLNativeWindowType)nullptr;
 	}
 
 #endif
@@ -346,12 +330,16 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 		SetGLCoreContext(true);
 #endif
 
-		window = SDL_CreateWindow("PPSSPP", x, y, w, h, mode);
+		window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
 		if (!window) {
 			// Definitely don't shutdown here: we'll keep trying more GL versions.
 			fprintf(stderr, "SDL_CreateWindow failed for GL %d.%d: %s\n", ver.major, ver.minor, SDL_GetError());
 			// Skip the DestroyWindow.
 			continue;
+		}
+
+		if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+			SDL_SetWindowPosition(window, x, y);
 		}
 
 		glContext = SDL_GL_CreateContext(window);
@@ -371,12 +359,16 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		SetGLCoreContext(false);
 
-		window = SDL_CreateWindow("PPSSPP", x, y, w, h, mode);
+		window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
 		if (window == nullptr) {
 			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 			SDL_Quit();
 			return 2;
+		}
+
+		if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+			SDL_SetWindowPosition(window, x, y);
 		}
 
 		glContext = SDL_GL_CreateContext(window);
@@ -462,7 +454,7 @@ void SDLGLGraphicsContext::ShutdownFromRenderThread() {
 #ifdef USING_EGL
 	EGL_Close();
 #endif
-	SDL_GL_DeleteContext(glContext);
+		SDL_GL_DestroyContext(glContext);
 	glContext = nullptr;
 	window_ = nullptr;
 }

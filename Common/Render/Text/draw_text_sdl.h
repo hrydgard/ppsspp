@@ -5,12 +5,12 @@
 #include <map>
 #include "Common/Render/Text/draw_text.h"
 
-#if defined(USE_SDL2_TTF)
+#if defined(USE_SDL3_TTF)
 
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_ttf.h"
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
-#if defined(USE_SDL2_TTF_FONTCONFIG)
+#if defined(USE_SDL3_TTF_FONTCONFIG)
 #include <fontconfig/fontconfig.h>
 #endif
 
@@ -40,9 +40,9 @@ private:
 
 	std::map<int, int> glyphFallbackFontIndex_;
 
-#if defined(USE_SDL2_TTF_FONTCONFIG)
+	#if defined(USE_SDL3_TTF_FONTCONFIG)
 	FcConfig *config;
-#endif
+	#endif
 };
 
 #endif
