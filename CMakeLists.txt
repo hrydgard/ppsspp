@@ -1503,6 +1503,9 @@ elseif(WIN32)
 	# Don't care about SDL.
 	set(TargetBin PPSSPPWindows)
 elseif(LIBRETRO)
+elseif(LOONGARCH64_DEVICE)
+	# Cross-compiling for loongarch64 currently only builds PPSSPPHeadless, and there's
+	# no SDL3 available for that target, so skip the desktop SDL frontend entirely.
 else()
 	if(GOLD)
 		set(TargetBin PPSSPPGold)

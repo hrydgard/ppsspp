@@ -29,8 +29,8 @@
 
 #ifdef SDL
 #include "SDL/SDLJoystick.h"
-#include "SDL_audio.h"
-#include "SDL_keyboard.h"
+#include <SDL3/SDL_audio.h>
+#include <SDL3/SDL_keyboard.h>
 #endif
 
 #include "Common/Audio/AudioBackend.h"
