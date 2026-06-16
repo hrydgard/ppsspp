@@ -115,7 +115,6 @@ void DrawEngineCommon::NotifyConfigChanged() {
 	decoderMap_.Clear();
 
 	useHWTransform_ = g_Config.bHardwareTransform;
-	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
@@ -977,35 +976,6 @@ bool DrawEngineCommon::CanUseHardwareTransform(int prim) const {
 	if (!useHWTransform_)
 		return false;
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
-}
-
-bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) const {
-	if (useHWTessellation_) {
-		return CanUseHardwareTransform(PatchPrimToPrim(prim));
-	}
-	return false;
-}
-
-void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {
-	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
-
-	for (int i = 0; i < size; ++i) {
-		memcpy(pos, points[i]->pos.AsArray(), 3 * sizeof(float));
-		pos += posStride;
-	}
-	if (hasTexCoord) {
-		for (int i = 0; i < size; ++i) {
-			memcpy(tex, points[i]->uv, 2 * sizeof(float));
-			tex += texStride;
-		}
-	}
-	if (hasColor) {
-		for (int i = 0; i < size; ++i) {
-			memcpy(col, Vec4f::FromRGBA(points[i]->color_32).AsArray(), 4 * sizeof(float));
-			col += colStride;
-		}
-	}
 }
 
 bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {

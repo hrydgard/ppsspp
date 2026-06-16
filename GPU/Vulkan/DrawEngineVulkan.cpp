@@ -64,9 +64,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		BindingType::UNIFORM_BUFFER_DYNAMIC_ALL,  // uniforms
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // lights
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // bones
-		BindingType::STORAGE_BUFFER_VERTEX,  // tess
-		BindingType::STORAGE_BUFFER_VERTEX,
-		BindingType::STORAGE_BUFFER_VERTEX,
 	};
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -94,9 +91,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
-	tessDataTransfer = tessDataTransferVulkan;
-
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineVulkan::Invalidate, this, std::placeholders::_1));
 }
 
@@ -114,10 +108,6 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	draw_->SetInvalidationCallback(InvalidationCallback());
-
-	delete tessDataTransferVulkan;
-	tessDataTransfer = nullptr;
-	tessDataTransferVulkan = nullptr;
 
 	pushUBO_ = nullptr;
 
@@ -165,8 +155,6 @@ void DrawEngineVulkan::BeginFrame() {
 	// pushUBO is the thin3d push pool, don't need to BeginFrame again.
 	pushVertex_->BeginFrame();
 	pushIndex_->BeginFrame();
-
-	tessDataTransferVulkan->SetPushPool(pushUBO_);
 
 	DirtyAllUBOs();
 
@@ -318,7 +306,7 @@ void DrawEngineVulkan::Flush() {
 			VulkanVertexShader *vshader = nullptr;
 			VulkanFragmentShader *fshader = nullptr;
 
-			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
+			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, true, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
@@ -351,8 +339,6 @@ void DrawEngineVulkan::Flush() {
 		UpdateUBOs();
 
 		int descCount = 6;
-		if (tess)
-			descCount = 9;
 		int descSetIndex;
 		PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 		descriptors[0].image.view = imageView;
@@ -375,14 +361,7 @@ void DrawEngineVulkan::Flush() {
 		descriptors[5].buffer.buffer = boneBuf;
 		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
 		descriptors[5].buffer.offset = 0;
-		if (tess) {
-			const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
-			for (int j = 0; j < 3; j++) {
-				descriptors[j + 6].buffer.buffer = bufInfo[j].buffer;
-				descriptors[j + 6].buffer.range = bufInfo[j].range;
-				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
-			}
-		}
+
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
 		// Think this will require different descriptor set layouts.
 		const uint32_t dynamicUBOOffsets[3] = {
@@ -485,7 +464,7 @@ void DrawEngineVulkan::Flush() {
 				VulkanVertexShader *vshader = nullptr;
 				VulkanFragmentShader *fshader = nullptr;
 
-				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
+				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
@@ -604,39 +583,4 @@ void DrawEngineVulkan::UpdateUBOs() {
 		boneUBOOffset = shaderManager_->PushBoneBuffer(pushUBO_, &boneBuf);
 		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
-}
-
-void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
-	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
-	// also need to be 16-byte aligned, hence the padding.
-	struct TessData {
-		float pos[3]; float pad1;
-		float uv[2]; float pad2[2];
-		float color[4];
-	};
-
-	int size = size_u * size_v;
-
-	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties().properties.limits.minStorageBufferOffsetAlignment;
-	uint8_t *data = (uint8_t *)push_->Allocate(size * sizeof(TessData), ssboAlignment, &bufInfo_[0].buffer, (uint32_t *)&bufInfo_[0].offset);
-	bufInfo_[0].range = size * sizeof(TessData);
-
-	float *pos = (float *)(data);
-	float *tex = (float *)(data + offsetof(TessData, uv));
-	float *col = (float *)(data + offsetof(TessData, color));
-	int stride = sizeof(TessData) / sizeof(float);
-
-	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
-
-	using Spline::Weight;
-
-	// Weights U
-	data = (uint8_t *)push_->Allocate(weights.size_u * sizeof(Weight), ssboAlignment, &bufInfo_[1].buffer, (uint32_t *)&bufInfo_[1].offset);
-	memcpy(data, weights.u, weights.size_u * sizeof(Weight));
-	bufInfo_[1].range = weights.size_u * sizeof(Weight);
-
-	// Weights V
-	data = (uint8_t *)push_->Allocate(weights.size_v * sizeof(Weight), ssboAlignment, &bufInfo_[2].buffer, (uint32_t *)&bufInfo_[2].offset);
-	memcpy(data, weights.v, weights.size_v * sizeof(Weight));
-	bufInfo_[2].range = weights.size_v * sizeof(Weight);
 }

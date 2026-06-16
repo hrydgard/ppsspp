@@ -214,8 +214,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_USE_TEXTURE_LOD_CONTROL;
-	features |= GPU_USE_INSTANCE_RENDERING;
-	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
 
 	if (!draw_->GetBugs().Has(Draw::Bugs::PVR_BAD_16BIT_TEXFORMATS)) {

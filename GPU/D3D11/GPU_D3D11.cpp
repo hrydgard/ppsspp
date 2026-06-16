@@ -83,7 +83,6 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 	u32 features = GPUCommonHW::CheckGPUFeatures();
 
 	features |= GPU_USE_TEXTURE_FLOAT;
-	features |= GPU_USE_INSTANCE_RENDERING;
 	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);

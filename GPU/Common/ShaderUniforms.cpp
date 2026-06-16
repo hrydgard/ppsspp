@@ -148,10 +148,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		UpdateUVScaleOff(gstate, ub->uvScaleOffset);
 	}
 
-	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {
-		ub->spline_counts = gstate_c.spline_num_points_u;
-	}
-
 	if (dirtyUniforms & DIRTY_DEPAL) {
 		ub->depal_mask_shift_off_fmt = PackDepalBits();
 	}

@@ -68,10 +68,10 @@ enum : uint64_t {
 	DIRTY_SHADERBLEND = 1ULL << 17,  // Used only for in-shader blending.
 
 	DIRTY_UVSCALEOFFSET = 1ULL << 18,
-	// Free bit 19!
+	// Free uniform bit 19!
 
 	DIRTY_VIEWPORT_UNIFORMS = 1ULL << 20,
-	// Free bit 20!
+	// Free uniform bit 20!
 
 	DIRTY_WORLDMATRIX = 1ULL << 21,
 	DIRTY_VIEWMATRIX = 1ULL << 22,
@@ -85,9 +85,9 @@ enum : uint64_t {
 	DIRTY_BONEMATRIX6 = 1ULL << 30,
 	DIRTY_BONEMATRIX7 = 1ULL << 31,
 
-	DIRTY_BEZIERSPLINE = 1ULL << 32,
+	// Free uniform bit 32!,
 	DIRTY_TEXCLAMP = 1ULL << 33,
-	// Free bit 34!
+	// Free uniform  bit 34!
 
 	DIRTY_DEPAL = 1ULL << 35,
 	DIRTY_COLORWRITEMASK = 1ULL << 36,
