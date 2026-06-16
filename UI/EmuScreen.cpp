@@ -1134,6 +1134,10 @@ void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }
 
+bool EmuScreen::AllowKeyboardNavigation() const {
+	return true;
+}
+
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
 

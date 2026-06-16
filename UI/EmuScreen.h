@@ -69,6 +69,8 @@ public:
 	}
 
 protected:
+	bool AllowKeyboardNavigation() const override;
+
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;

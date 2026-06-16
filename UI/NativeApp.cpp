@@ -1369,6 +1369,20 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 }
 
+enum class Modifier {
+	NONE = 0,
+	LCTRL = 1,
+	RCTRL = 2,
+	LSHIFT = 4,
+	RSHIFT = 8,
+	LALT = 16,
+	RALT = 32,
+	LMETA = 64,
+	RMETA = 128,
+};
+ENUM_CLASS_BITOPS(Modifier);
+static Modifier g_modifiersPressed{};
+
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
 
@@ -1429,8 +1443,59 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
+
+	// Track and update modifiers.
+
+	// Track modifier keys.
+	if (key.flags & KeyInputFlags::DOWN) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed |= Modifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed |= Modifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed |= Modifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed |= Modifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed |= Modifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed |= Modifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed |= Modifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed |= Modifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+	if (key.flags & KeyInputFlags::UP) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed &= ~Modifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed &= ~Modifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed &= ~Modifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed &= ~Modifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed &= ~Modifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed &= ~Modifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed &= ~Modifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed &= ~Modifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+
+	KeyInputFlags modifierFlags{};
+
+	if (g_modifiersPressed & (Modifier::LCTRL | Modifier::RCTRL)) {
+		modifierFlags |= KeyInputFlags::MOD_CTRL;
+	}
+	if (g_modifiersPressed & (Modifier::LSHIFT | Modifier::RSHIFT)) {
+		modifierFlags |= KeyInputFlags::MOD_SHIFT;
+	}
+	if (g_modifiersPressed & (Modifier::LALT | Modifier::RALT)) {
+		modifierFlags |= KeyInputFlags::MOD_ALT;
+	}
+	if (g_modifiersPressed & (Modifier::LMETA | Modifier::RMETA)) {
+		modifierFlags |= KeyInputFlags::MOD_META;
+	}
+
+	KeyInput modKey = key;
+	modKey.flags |= modifierFlags;
+
 	// Dispatch the key event.
-	bool retval = g_screenManager->key(key);
+	bool retval = g_screenManager->key(modKey);
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
