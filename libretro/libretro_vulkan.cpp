@@ -169,6 +169,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretr
 		pSurfaceCapabilities->maxImageExtent.height = h;
 		pSurfaceCapabilities->currentExtent.width = w;
 		pSurfaceCapabilities->currentExtent.height = h;
+		// The libretro fake swapchain presents images directly to the frontend via set_image(),
+		// so the real surface's pre-rotation transform is irrelevant. Force identity to prevent
+		// VulkanContext from applying rotation (which would double-rotate on Android).
+		pSurfaceCapabilities->currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+		pSurfaceCapabilities->supportedTransforms = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
 	return res;
 }
