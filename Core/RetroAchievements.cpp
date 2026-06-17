@@ -35,6 +35,7 @@
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/Net/HTTPRequest.h"
+#include "Common/Net/HTTPClient.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
@@ -290,8 +291,9 @@ static void server_call_callback(const rc_api_request_t *request,
 {
 	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+	std::string url = http::RemoveHttpsIfNeeded(request->url);
 	if (request->post_data) {
-		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
+		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(url, std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
 			[callback, callback_data](http::Request &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
@@ -302,7 +304,7 @@ static void server_call_callback(const rc_api_request_t *request,
 			callback(&response, callback_data);
 		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
-		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(std::string(request->url), Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
+		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
 			ac->T("Contacting RetroAchievements server..."),
 			[callback, callback_data](http::Request &download) {
 			std::string buffer;
@@ -918,6 +920,7 @@ bool HasAchievementsOrLeaderboards() {
 }
 
 void DownloadImageIfMissing(std::string_view url) {
+	// On Linux for example, we currently have no way of doing a HTTPS request.
 	if (g_iconCache.MarkPending(url)) {
 		INFO_LOG(Log::Achievements, "Downloading image: %.*s", STR_VIEW(url));
 		g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::Default, nullptr, "", [](http::Request &download) {
@@ -985,7 +988,8 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		// Successful! Show a message that we're active.
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(client);
 
-		DownloadImageIfMissing(gameInfo->badge_url);
+		std::string imageUrl = http::RemoveHttpsIfNeeded(gameInfo->badge_url);
+		DownloadImageIfMissing(imageUrl);
 
 		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());
 		auto ga = GetI18NCategory(I18NCat::GAME);
@@ -997,7 +1001,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 			title += ")";
 		}
 		// TODO: Detect current subset.
-		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(0), gameInfo->badge_url, 5.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(0), imageUrl, 5.0f);
 		break;
 	}
 	case RC_NO_GAME_LOADED:
