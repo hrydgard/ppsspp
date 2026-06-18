@@ -219,6 +219,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	build = si->T("Debug");
 #endif
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
+	osInformation->Add(new InfoItem(si->T("HTTPS supported"), System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? di->T("Yes") : di->T("No")));
 
 	CollapsibleSection *displayInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Display Information")));
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
