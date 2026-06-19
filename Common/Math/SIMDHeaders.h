@@ -11,6 +11,7 @@
 
 #include "stdint.h"
 #include <string.h>
+#include <cfloat>
 
 #ifdef __clang__
 // Weird how you can't just use #pragma in a macro.
@@ -296,8 +297,8 @@ inline __m128 clean_nan_inf_sse(__m128 x) {
 	return _mm_and_ps(x, valid_mask);
 #else
 	// 1. Establish your maximum and minimum finite bounds
-	__m128 max_finite = _mm_set1_ps(3.40282347e+38f);  // FLT_MAX
-	__m128 min_finite = _mm_set1_ps(-3.40282347e+38f); // -FLT_MAX
+	__m128 max_finite = _mm_set1_ps(FLT_MAX);
+	__m128 min_finite = _mm_set1_ps(-FLT_MAX);
 	// 2. Clamp the upper bound. 
 	// If x is +Inf, min(Inf, FLT_MAX) -> FLT_MAX.
 	// If x is NaN, it outputs the second operand -> max_finite (FLT_MAX).
