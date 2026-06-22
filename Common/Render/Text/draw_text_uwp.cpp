@@ -176,7 +176,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 	UINT32 familyCount = m_fontCollection->GetFontFamilyCount();
 	for (UINT32 i = 0; i < familyCount; ++i) {
-		IDWriteFontFamily *family;
+		IDWriteFontFamily1 *family;
 		m_fontCollection->GetFontFamily(i, &family);
 
 		IDWriteLocalizedStrings *names;
