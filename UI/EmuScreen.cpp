@@ -757,11 +757,334 @@ static void ShowFpsLimitNotice() {
 void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	if (!IsOnTop())
 		return;
+	queuedVirtKeys_.push_back(std::make_pair(virtualKeyCode, down));
+}
 
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
+void EmuScreen::ProcessQueuedVKeys() {
+	for (auto iter : queuedVirtKeys_) {
+		ProcessVKey(iter.first, iter.second);
+	}
+	queuedVirtKeys_.clear();
+}
+
+// Synchronized processing of virtkeys.
+void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
-	switch (virtualKeyCode) {
+	switch (virtKey) {
+	case VIRTKEY_PAUSE:
+		// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
+		// running in the background of the menu.
+		if (down) {
+			pauseTrigger_ = true;
+		}
+		break;
+
+	case VIRTKEY_SCREENSHOT:
+		if (down) {
+			TakeUserScreenshot();
+		}
+		break;
+
+	case VIRTKEY_TOGGLE_DEBUGGER:
+		if (down) {
+			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+		}
+		break;
+	case VIRTKEY_TOGGLE_TILT:
+		if (down) {
+			g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
+			if (!g_Config.bTiltInputEnabled) {
+				// Reset whatever got tilted.
+				switch (g_Config.iTiltInputType) {
+				case TILT_ANALOG:
+					__CtrlSetAnalogXY(0, 0, 0);
+					break;
+				case TILT_ACTION_BUTTON:
+					__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
+					break;
+				case TILT_DPAD:
+					__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
+					break;
+				case TILT_TRIGGER_BUTTONS:
+					__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
+					break;
+				}
+			}
+		}
+		break;
+	case VIRTKEY_OPENCHAT:
+		if (down) {
+			if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
+				UI::EventParams e{};
+				g_controlMapper.ForceReleaseVKey(VIRTKEY_OPENCHAT);
+				OpenChat(true);
+			}
+		}
+		break;
+
+	case VIRTKEY_AXIS_SWAP_TOGGLE:
+		if (down) {
+			g_controlMapper.ToggleSwapAxes();
+			g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
+		}
+		break;
+
+	case VIRTKEY_DEVMENU:
+		if (down) {
+			UI::EventParams e{};
+			OnDevMenu.Trigger(e);
+		}
+		break;
+
+	case VIRTKEY_TOGGLE_MOUSE:
+		if (down) {
+			g_Config.bMouseControl = !g_Config.bMouseControl;
+		}
+		break;
+
+	case VIRTKEY_TEXTURE_DUMP:
+		if (down) {
+			g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
+			if (g_Config.bSaveNewTextures) {
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0, "savetexturechanged");
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0, "savetexturechanged");
+			}
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+		}
+		break;
+
+	case VIRTKEY_TEXTURE_REPLACE:
+		if (down) {
+			g_Config.bReplaceTextures = !g_Config.bReplaceTextures;
+			if (g_Config.bReplaceTextures) {
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0, "replacetexturechanged");
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures are no longer being replaced"), 2.0, "replacetexturechanged");
+			}
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+		}
+		break;
+
+	case VIRTKEY_MUTE_TOGGLE:
+		if (down) {
+			g_Config.bEnableSound = !g_Config.bEnableSound;
+		}
+		break;
+
+	case VIRTKEY_SCREEN_ROTATION_VERTICAL:
+		if (down) {
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
+		}
+		break;
+	case VIRTKEY_SCREEN_ROTATION_VERTICAL180:
+		if (down) {
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+		}
+		break;
+	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL:
+		if (down) {
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+		}
+		break;
+	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL180:
+		if (down) {
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
+		}
+		break;
+
+	case VIRTKEY_TOGGLE_WLAN:
+		if (down) {
+			// Let's not allow the user to toggle wlan while connected, could get confusing.
+			if (!g_netInited) {
+				auto n = GetI18NCategory(I18NCat::NETWORKING);
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				g_Config.bEnableWlan = !g_Config.bEnableWlan;
+				// Try to avoid adding more strings so we piece together a message from existing ones.
+				g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
+					"%s: %s", n->T_cstr("Enable networking"), g_Config.bEnableWlan ? di->T_cstr("Enabled") : di->T_cstr("Disabled")), 2.0, "toggle_wlan");
+			}
+		}
+		break;
+
+	case VIRTKEY_TOGGLE_FULLSCREEN:
+		if (down) {
+			// TODO: Limit to platforms that can support fullscreen.
+			g_Config.bFullScreen = !g_Config.bFullScreen;
+			System_ApplyFullscreenState();
+		}
+		break;
+
+	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:
+		if (down) {
+			if (g_Config.bShowTouchControls) {
+				// This just messes with opacity if enabled, so you can touch the screen again to bring them back.
+				if (GamepadGetOpacity() < 0.01f) {
+					GamepadTouch();
+				} else {
+					GamepadResetTouch();
+				}
+			} else {
+				// If touch controls are disabled though, they'll get enabled.
+				g_Config.bShowTouchControls = true;
+				RecreateViews();
+				GamepadTouch();
+			}
+		}
+		break;
+
+	case VIRTKEY_REWIND:
+		if (down) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
+				if (SaveState::CanRewind()) {
+					SaveState::Rewind(&ShowMessageAfterSaveStateAction);
+				} else {
+					g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0);
+				}
+			}
+		}
+		break;
+
+	case VIRTKEY_PAUSE_NO_MENU:
+		if (down) {
+			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
+				// We re-use debug break/resume to implement pause/resume without a menu.
+				if (coreState == CORE_STEPPING_CPU) {  // should we check reason?
+					Core_Resume();
+				} else {
+					Core_Break(BreakReason::UIPause);
+				}
+			}
+		}
+		break;
+
+	case VIRTKEY_EXIT_APP:
+		if (down) {
+			if (!bootPending_) {
+				std::string confirmExitMessage = GetConfirmExitMessage();
+				if (!confirmExitMessage.empty()) {
+					auto di = GetI18NCategory(I18NCat::DIALOG);
+					auto mm = GetI18NCategory(I18NCat::MAINMENU);
+					confirmExitMessage += '\n';
+					confirmExitMessage += di->T("Are you sure you want to exit?");
+					screenManager()->push(new UI::MessagePopupScreen(di->T("Exit"), confirmExitMessage, di->T("Yes"), di->T("No"), [](bool result) {
+						if (result) {
+							System_ExitApp();
+						}
+					}));
+				} else {
+					System_ExitApp();
+				}
+			}
+		}
+		break;
+
+	case VIRTKEY_FRAME_ADVANCE:
+		if (down) {
+			// Can't do this reliably in an async fashion, so we just set a variable.
+			// Is this used by anyone? There's no user-friendly way to resume, other than PAUSE_NO_MENU or the debugger.
+			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
+				if (Core_IsStepping()) {
+					Core_Resume();
+					frameStep_ = true;
+				} else {
+					Core_Break(BreakReason::FrameAdvance);
+				}
+			}
+		}
+		break;
+
+	case VIRTKEY_SPEED_TOGGLE:
+		if (down) {
+			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
+				// Cycle through enabled speeds.
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+				} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit2 >= 0) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+				} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 || PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+				}
+
+				ShowFpsLimitNotice();
+			}
+		}
+		break;
+
+	case VIRTKEY_RESET_EMULATION:
+		if (down) {
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		}
+		break;
+
+#ifndef MOBILE_DEVICE
+	case VIRTKEY_RECORD:
+		if (down) {
+			if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
+				g_Config.bDumpFrames = !g_Config.bDumpFrames;
+				g_Config.bDumpAudio = !g_Config.bDumpAudio;
+			} else {
+				// This hotkey should always toggle both audio and video together.
+				// So let's make sure that's the only outcome even if video OR audio was already being dumped.
+				if (g_Config.bDumpFrames) {
+					AVIDump::Stop();
+					AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+					g_Config.bDumpAudio = true;
+				} else {
+					WAVDump::Reset();
+					g_Config.bDumpFrames = true;
+				}
+			}
+		}
+		break;
+#endif
+
+	case VIRTKEY_SAVE_STATE:
+		if (down) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
+				SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			}
+		}
+		break;
+	case VIRTKEY_LOAD_STATE:
+		if (down) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
+				if (g_Config.bConfirmLoadState) {
+					std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
+					int slot = g_Config.iCurrentStateSlot;
+					screenManager()->push(new LoadStateConfirmScreen(prefix, slot, [prefix, slot](bool result) {
+						if (result) {
+							SaveState::LoadSlot(prefix, slot, &ShowMessageAfterSaveStateAction);
+						}
+					}));
+				} else {
+					SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+				}
+			}
+		}
+		break;
+	case VIRTKEY_PREVIOUS_SLOT:
+		if (down) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+				SaveState::PrevSlot();
+				System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
+			}
+		}
+		break;
+	case VIRTKEY_NEXT_SLOT:
+		if (down) {
+			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
+				SaveState::NextSlot();
+				System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
+			}
+		}
+		break;
 	case VIRTKEY_FASTFORWARD:
 		if (down && !NetworkWarnUserIfOnlineAndCantSpeed() && !bootPending_) {
 			/*
@@ -806,294 +1129,7 @@ void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
-	default:
-		// To make sure we're not in an async context.
-		if (down) {
-			queuedVirtKeys_.push_back(virtualKeyCode);
-		}
-		break;
-	}
-}
 
-void EmuScreen::ProcessQueuedVKeys() {
-	for (auto iter : queuedVirtKeys_) {
-		ProcessVKey(iter);
-	}
-	queuedVirtKeys_.clear();
-}
-
-// Synchronized processing of virtkeys.
-void EmuScreen::ProcessVKey(VirtKey virtKey) {
-	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
-
-	switch (virtKey) {
-	case VIRTKEY_PAUSE:
-		// Note: We don't check NetworkWarnUserIfOnlineAndCantSpeed, because we can keep
-		// running in the background of the menu.
-		pauseTrigger_ = true;
-		break;
-
-	case VIRTKEY_SCREENSHOT:
-		TakeUserScreenshot();
-		break;
-
-	case VIRTKEY_TOGGLE_DEBUGGER:
-		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
-		break;
-	case VIRTKEY_TOGGLE_TILT:
-		g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
-		if (!g_Config.bTiltInputEnabled) {
-			// Reset whatever got tilted.
-			switch (g_Config.iTiltInputType) {
-			case TILT_ANALOG:
-				__CtrlSetAnalogXY(0, 0, 0);
-				break;
-			case TILT_ACTION_BUTTON:
-				__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);
-				break;
-			case TILT_DPAD:
-				__CtrlUpdateButtons(0, CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT);
-				break;
-			case TILT_TRIGGER_BUTTONS:
-				__CtrlUpdateButtons(0, CTRL_LTRIGGER | CTRL_RTRIGGER);
-				break;
-			}
-		}
-		break;
-	case VIRTKEY_OPENCHAT:
-		if (g_Config.bEnableNetworkChat && !g_Config.bShowImDebugger) {
-			UI::EventParams e{};
-			g_controlMapper.ForceReleaseVKey(VIRTKEY_OPENCHAT);
-			OpenChat(true);
-		}
-		break;
-
-	case VIRTKEY_AXIS_SWAP_TOGGLE:
-		g_controlMapper.ToggleSwapAxes();
-		g_OSD.Show(OSDType::MESSAGE_INFO, mc->T("AxisSwap"));  // best string we have.
-		break;
-
-	case VIRTKEY_DEVMENU:
-		{
-			UI::EventParams e{};
-			OnDevMenu.Trigger(e);
-		}
-		break;
-
-	case VIRTKEY_TOGGLE_MOUSE:
-		g_Config.bMouseControl = !g_Config.bMouseControl;
-		break;
-
-	case VIRTKEY_TEXTURE_DUMP:
-		g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
-		if (g_Config.bSaveNewTextures) {
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0, "savetexturechanged");
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0, "savetexturechanged");
-		}
-		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-		break;
-
-	case VIRTKEY_TEXTURE_REPLACE:
-		g_Config.bReplaceTextures = !g_Config.bReplaceTextures;
-		if (g_Config.bReplaceTextures) {
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0, "replacetexturechanged");
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures are no longer being replaced"), 2.0, "replacetexturechanged");
-		}
-		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-		break;
-
-	case VIRTKEY_MUTE_TOGGLE:
-		g_Config.bEnableSound = !g_Config.bEnableSound;
-		break;
-
-	case VIRTKEY_SCREEN_ROTATION_VERTICAL:
-	{
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-		config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
-		break;
-	}
-	case VIRTKEY_SCREEN_ROTATION_VERTICAL180:
-	{
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-		config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
-		break;
-	}
-	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL:
-	{
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-		config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
-		break;
-	}
-	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL180:
-	{
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
-		config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
-		break;
-	}
-
-	case VIRTKEY_TOGGLE_WLAN:
-		// Let's not allow the user to toggle wlan while connected, could get confusing.
-		if (!g_netInited) {
-			auto n = GetI18NCategory(I18NCat::NETWORKING);
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			g_Config.bEnableWlan = !g_Config.bEnableWlan;
-			// Try to avoid adding more strings so we piece together a message from existing ones.
-			g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
-				"%s: %s", n->T_cstr("Enable networking"), g_Config.bEnableWlan ? di->T_cstr("Enabled") : di->T_cstr("Disabled")), 2.0, "toggle_wlan");
-		}
-		break;
-
-	case VIRTKEY_TOGGLE_FULLSCREEN:
-		// TODO: Limit to platforms that can support fullscreen.
-		g_Config.bFullScreen = !g_Config.bFullScreen;
-		System_ApplyFullscreenState();
-		break;
-
-	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:
-		if (g_Config.bShowTouchControls) {
-			// This just messes with opacity if enabled, so you can touch the screen again to bring them back.
-			if (GamepadGetOpacity() < 0.01f) {
-				GamepadTouch();
-			} else {
-				GamepadResetTouch();
-			}
-		} else {
-			// If touch controls are disabled though, they'll get enabled.
-			g_Config.bShowTouchControls = true;
-			RecreateViews();
-			GamepadTouch();
-		}
-		break;
-
-	case VIRTKEY_REWIND:
-		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			if (SaveState::CanRewind()) {
-				SaveState::Rewind(&ShowMessageAfterSaveStateAction);
-			} else {
-				g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0);
-			}
-		}
-		break;
-
-	case VIRTKEY_PAUSE_NO_MENU:
-		if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
-			// We re-use debug break/resume to implement pause/resume without a menu.
-			if (coreState == CORE_STEPPING_CPU) {  // should we check reason?
-				Core_Resume();
-			} else {
-				Core_Break(BreakReason::UIPause);
-			}
-		}
-		break;
-
-	case VIRTKEY_EXIT_APP:
-	{
-		if (!bootPending_) {
-			std::string confirmExitMessage = GetConfirmExitMessage();
-			if (!confirmExitMessage.empty()) {
-				auto di = GetI18NCategory(I18NCat::DIALOG);
-				auto mm = GetI18NCategory(I18NCat::MAINMENU);
-				confirmExitMessage += '\n';
-				confirmExitMessage += di->T("Are you sure you want to exit?");
-				screenManager()->push(new UI::MessagePopupScreen(di->T("Exit"), confirmExitMessage, di->T("Yes"), di->T("No"), [](bool result) {
-					if (result) {
-						System_ExitApp();
-					}
-				}));
-			} else {
-				System_ExitApp();
-			}
-		}
-		break;
-	}
-
-	case VIRTKEY_FRAME_ADVANCE:
-		// Can't do this reliably in an async fashion, so we just set a variable.
-		// Is this used by anyone? There's no user-friendly way to resume, other than PAUSE_NO_MENU or the debugger.
-		if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
-			if (Core_IsStepping()) {
-				Core_Resume();
-				frameStep_ = true;
-			} else {
-				Core_Break(BreakReason::FrameAdvance);
-			}
-		}
-		break;
-
-	case VIRTKEY_SPEED_TOGGLE:
-		if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
-			// Cycle through enabled speeds.
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit2 >= 0) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
-			} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 || PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-			}
-
-			ShowFpsLimitNotice();
-		}
-		break;
-
-	case VIRTKEY_RESET_EMULATION:
-		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-		break;
-
-#ifndef MOBILE_DEVICE
-	case VIRTKEY_RECORD:
-		if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
-			g_Config.bDumpFrames = !g_Config.bDumpFrames;
-			g_Config.bDumpAudio = !g_Config.bDumpAudio;
-		} else {
-			// This hotkey should always toggle both audio and video together.
-			// So let's make sure that's the only outcome even if video OR audio was already being dumped.
-			if (g_Config.bDumpFrames) {
-				AVIDump::Stop();
-				AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-				g_Config.bDumpAudio = true;
-			} else {
-				WAVDump::Reset();
-				g_Config.bDumpFrames = true;
-			}
-		}
-		break;
-#endif
-
-	case VIRTKEY_SAVE_STATE:
-		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
-		}
-		break;
-	case VIRTKEY_LOAD_STATE:
-		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			if (g_Config.bConfirmLoadState) {
-				std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
-				int slot = g_Config.iCurrentStateSlot;
-				screenManager()->push(new LoadStateConfirmScreen(prefix, slot, [prefix, slot](bool result) {
-					if (result) {
-						SaveState::LoadSlot(prefix, slot, &ShowMessageAfterSaveStateAction);
-					}
-				}));
-			} else {
-				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
-			}
-		}
-		break;
-	case VIRTKEY_PREVIOUS_SLOT:
-		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-			SaveState::PrevSlot();
-			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
-		}
-		break;
-	case VIRTKEY_NEXT_SLOT:
-		if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-			SaveState::NextSlot();
-			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
-		}
-		break;
 	default:
 		break;
 	}

@@ -102,7 +102,7 @@ private:
 	bool checkPowerDown();
 
 	void ProcessQueuedVKeys();
-	void ProcessVKey(VirtKey vkey);
+	void ProcessVKey(VirtKey vkey, bool down);
 
 	bool ShouldRunEmulation(ScreenRenderMode mode) const;
 
@@ -148,7 +148,8 @@ private:
 	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 
 	bool imguiInited_ = false;
-	// For ImGui modifier tracking
+	// For ImGui modifier tracking. It works a bit weirdly and it's easier to track it here
+	// than to use our global modifier tracking that attaches modifiers to each key event.
 	bool keyCtrlLeft_ = false;
 	bool keyCtrlRight_ = false;
 	bool keyShiftLeft_ = false;
@@ -158,7 +159,7 @@ private:
 
 	bool lastImguiEnabled_ = false;
 
-	std::vector<VirtKey> queuedVirtKeys_;
+	std::vector<std::pair<VirtKey, bool>> queuedVirtKeys_;
 
 	ImGuiContext *ctx_ = nullptr;
 
