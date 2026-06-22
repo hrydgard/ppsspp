@@ -52,6 +52,8 @@ public:
 	void resized() override;
 	ScreenRenderRole renderRole(bool isTop) const override;
 
+	InputMode PassInputToMapper() const override;
+
 	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
 	// to get minimal latency and full control. We forward to UIScreen when needed.
 	bool UnsyncKey(const KeyInput &key) override;
@@ -69,8 +71,6 @@ public:
 	}
 
 protected:
-	bool AllowKeyboardNavigation() const override;
-
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;

@@ -108,6 +108,7 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 void ScreenManager::update() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 
+
 	if (cancelScreensAbove_) {
 		bool found = false;
 		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
@@ -129,9 +130,11 @@ void ScreenManager::update() {
 		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
 	}
-	// The background screen doesn't need updating.
+
+	// Only the front screen gets update().
 	if (!stack_.empty()) {
 		stack_.back().screen->update();
+		passInputToMapper_ = stack_.back().screen->PassInputToMapper();
 	}
 }
 

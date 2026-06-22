@@ -75,6 +75,15 @@ enum class ViewLayoutMode {
 	IgnoreBottomInset,
 };
 
+enum class InputMode {
+	None = 0,
+	Keyboard = 1,
+	Mouse = 2,
+	Other = 4,
+	ImDebuggerToggle = 8,  // ugly hack
+};
+ENUM_CLASS_BITOPS(InputMode);
+
 class Screen {
 public:
 	Screen() = default;
@@ -101,6 +110,10 @@ public:
 	virtual void UnsyncAxis(const AxisInput *axes, size_t count) = 0;
 
 	virtual void RecreateViews() {}
+
+	// NOTE: This is polled every frame, not called on every input event. This is
+	// a step towards eventually removing the ScreenManager input mutex.
+	virtual InputMode PassInputToMapper() const { return InputMode::None; }
 
 	ScreenManager *screenManager() { return screenManager_; }
 	const ScreenManager *screenManager() const { return screenManager_; }
@@ -136,7 +149,7 @@ enum {
 	LAYER_TRANSPARENT = 2,
 };
 
-typedef void(*PostRenderCallback)(UIContext *ui, void *userdata);
+typedef void (*PostRenderCallback)(UIContext *ui, void *userdata);
 
 class ScreenManager {
 public:
@@ -192,6 +205,10 @@ public:
 	// Will delete any existing overlay screen.
 	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
 
+	InputMode PassInputToMapper() const {
+		return passInputToMapper_;
+	}
+
 	std::recursive_mutex inputLock_;
 
 private:
@@ -225,4 +242,6 @@ private:
 	std::vector<Layer> nextStack_;
 
 	std::unordered_map<int64_t, int> lastAxis_;
+
+	InputMode passInputToMapper_ = InputMode::None;
 };

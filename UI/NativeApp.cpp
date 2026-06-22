@@ -1386,6 +1386,8 @@ static Modifier g_modifiersPressed{};
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
 
+	System_Notify(SystemNotification::ACTIVITY);
+
 	// VR actions
 	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRKeys(key)) {
 		return false;
@@ -1435,6 +1437,46 @@ bool NativeKey(const KeyInput &key) {
 
 	if (!g_screenManager) {
 		return false;
+	}
+
+	// Filtering, detailed rules needed for good imgui behavior without having to ask the screen about what to do.
+	InputMode inputMode = g_screenManager->PassInputToMapper();
+	bool passKeyThrough = false;
+	if (inputMode != InputMode::None) {
+		if (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN)) {
+			InputMapping mapping(key.deviceId, key.keyCode);
+			std::vector<int> pspButtons;
+			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+			if (mappingFound) {
+				for (auto b : pspButtons) {
+					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
+						// TRUE
+						passKeyThrough = true;
+					}
+				}
+			}
+		}
+		if (key.deviceId == DEVICE_ID_MOUSE) {
+			if (inputMode & InputMode::Mouse) {
+				passKeyThrough = true;
+			}
+		} else if (key.deviceId == DEVICE_ID_KEYBOARD) {
+			if (inputMode & InputMode::Keyboard) {
+				passKeyThrough = true;
+			}
+		} else if (inputMode & InputMode::Other) {
+			// yes this is different
+			passKeyThrough = true;
+		}
+	} else {
+		// Pass through only up events.
+		if (key.flags & KeyInputFlags::UP) {
+			passKeyThrough = true;
+		}
+	}
+
+	if (passKeyThrough) {
+		g_controlMapper.Key(key);
 	}
 
 	// Handle releases of mousewheel keys.
@@ -1512,9 +1554,15 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		return;
 	}
 
+	System_Notify(SystemNotification::ACTIVITY);
+
 	if (!g_screenManager) {
 		// Too early.
 		return;
+	}
+
+	if (g_screenManager->PassInputToMapper() & InputMode::Other) {
+		g_controlMapper.Axis(axes, count);
 	}
 
 	g_screenManager->axis(axes, count);

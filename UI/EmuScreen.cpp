@@ -1170,13 +1170,27 @@ void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }
 
-bool EmuScreen::AllowKeyboardNavigation() const {
-	return true;
+InputMode EmuScreen::PassInputToMapper() const {
+	const bool chatMenuOpen = chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE;
+	if (chatMenuOpen) {
+		return InputMode::None;
+	}
+
+	InputMode modes = InputMode::Keyboard | InputMode::Mouse | InputMode::Other | InputMode::ImDebuggerToggle;
+	if (g_Config.bShowImDebugger && imguiInited_) {
+		if (ImGui::GetIO().WantCaptureKeyboard) {
+			modes &= ~InputMode::Keyboard;
+		}
+		if (ImGui::GetIO().WantCaptureMouse) {
+			modes &= ~InputMode::Mouse;
+		}
+		return modes;
+	}
+
+	return modes;
 }
 
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
-	System_Notify(SystemNotification::ACTIVITY);
-
 	// Update imgui modifier flags
 	if (key.flags & (KeyInputFlags::DOWN | KeyInputFlags::UP)) {
 		bool down = (key.flags & KeyInputFlags::DOWN) != 0;
@@ -1191,58 +1205,12 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 		}
 	}
 
-	const bool chatMenuOpen = chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE;
-	if (chatMenuOpen) {
-		// Let up-events through to the controlMapper_ so input doesn't get stuck.
-		if (key.flags & KeyInputFlags::UP) {
-			g_controlMapper.Key(key);
-		}
-		return UIScreen::UnsyncKey(key);
-	}
-
-	if (g_Config.bShowImDebugger && imguiInited_) {
-		// Note: Allow some Vkeys through, so we can toggle the imgui for example (since we actually block the control mapper otherwise in imgui mode).
-		// We need to manually implement it here :/
-		if (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN)) {
-			InputMapping mapping(key.deviceId, key.keyCode);
-			std::vector<int> pspButtons;
-			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
-			if (mappingFound) {
-				for (auto b : pspButtons) {
-					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-						return g_controlMapper.Key(key);
-					}
-				}
-			}
-		}
-		UI::EnableFocusMovement(false);
-		// Enable gamepad controls while running imgui (but ignore mouse/keyboard).
-		switch (key.deviceId) {
-		case DEVICE_ID_KEYBOARD:
-			if (!ImGui::GetIO().WantCaptureKeyboard) {
-				g_controlMapper.Key(key);
-			}
-			break;
-		case DEVICE_ID_MOUSE:
-			if (!ImGui::GetIO().WantCaptureMouse) {
-				g_controlMapper.Key(key);
-			}
-			break;
-		default:
-			g_controlMapper.Key(key);
-			break;
-		}
-
-		return UIScreen::UnsyncKey(key);
-	}
-
-	return g_controlMapper.Key(key);
+	return UIScreen::UnsyncKey(key);
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
-	System_Notify(SystemNotification::ACTIVITY);
-
 	if (UI::IsFocusMovementEnabled()) {
+		// Otherwise no use for axis events - we send them to the control mapper.
 		return UIScreen::UnsyncAxis(axes, count);
 	}
 
