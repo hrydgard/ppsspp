@@ -1443,7 +1443,7 @@ bool NativeKey(const KeyInput &key) {
 	InputMode inputMode = g_screenManager->PassInputToMapper();
 	bool passKeyThrough = false;
 	if (inputMode != InputMode::None) {
-		if (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN)) {
+		if ((inputMode & InputMode::ImDebuggerToggle) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
 			InputMapping mapping(key.deviceId, key.keyCode);
 			std::vector<int> pspButtons;
 			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);

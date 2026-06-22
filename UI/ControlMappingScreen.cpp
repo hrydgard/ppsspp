@@ -514,25 +514,9 @@ void AnalogCalibrationScreen::update() {
 	UIScreen::update();
 }
 
-bool AnalogCalibrationScreen::key(const KeyInput &key) {
-	bool retval = UIScreen::key(key);
-
-	// Allow testing auto-rotation. If it collides with UI keys, too bad.
-	g_controlMapper.Key(key);
-
-	if (UI::IsEscapeKey(key)) {
-		TriggerFinish(DR_BACK);
-		return retval;
-	}
-	return retval;
-}
-
 void AnalogCalibrationScreen::axis(const AxisInput &axis) {
 	// We DON'T call UIScreen::Axis here! Otherwise it'll try to move the UI focus around.
 	// UIScreen::axis(axis);
-
-	// Instead we just send the input directly to the mapper, that we'll visualize.
-	g_controlMapper.Axis(&axis, 1);
 }
 
 std::string_view AnalogCalibrationScreen::GetTitle() const {
