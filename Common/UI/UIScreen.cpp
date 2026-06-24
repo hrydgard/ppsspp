@@ -67,6 +67,15 @@ void UIScreen::DoRecreateViews() {
 }
 
 void UIScreen::touch(const TouchInput &touch) {
+	if (ClickDebug && root_ && (touch.flags & TouchInputFlags::DOWN)) {
+		INFO_LOG(Log::System, "Touch down!");
+		std::vector<UI::View *> views;
+		root_->Query(touch.x, touch.y, views);
+		for (auto view : views) {
+			INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
+		}
+	}
+
 	if (!ignoreInput_ && root_) {
 		UI::TouchEvent(touch, root_);
 	}
@@ -87,15 +96,6 @@ bool UIScreen::key(const KeyInput &key) {
 }
 
 bool UIScreen::UnsyncTouch(const TouchInput &touch) {
-	if (ClickDebug && root_ && (touch.flags & TouchInputFlags::DOWN)) {
-		INFO_LOG(Log::System, "Touch down!");
-		std::vector<UI::View *> views;
-		root_->Query(touch.x, touch.y, views);
-		for (auto view : views) {
-			INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
-		}
-	}
-
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::TOUCH;
 	ev.touch = touch;
@@ -116,9 +116,27 @@ void UIScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 
 bool UIScreen::UnsyncKey(const KeyInput &key) {
 	bool retval = false;
+	using namespace UI;
+
+	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
+	switch (key.keyCode) {
+	case NKCODE_VOLUME_DOWN:
+	case NKCODE_VOLUME_UP:
+	case NKCODE_VOLUME_MUTE:
+		return false;
+	default:
+		break;
+	}
+
 	if (root_) {
-		// TODO: Make key events async too. The return value is troublesome, though.
-		switch (UI::UnsyncKeyEvent(key, root_)) {
+		KeyEventResult kev = KeyEventToFocusMoves(key);
+		if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
+			// If a repeat, we follow what KeyEventToFocusMoves set it to.
+			// Otherwise we signal that we used the key, always.
+			kev = KeyEventResult::ACCEPT;
+		}
+
+		switch (kev) {
 		case UI::KeyEventResult::ACCEPT:
 			retval = true;
 			break;

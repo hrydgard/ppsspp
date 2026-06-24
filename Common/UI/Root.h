@@ -34,8 +34,7 @@ enum class KeyEventResult {
 	ACCEPT,  // Let it be processed, but return true.
 };
 
-// Hooks arrow keys for navigation
-KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root);
+KeyEventResult KeyEventToFocusMoves(const KeyInput &key);
 
 bool KeyEvent(const KeyInput &key, ViewGroup *root);
 void TouchEvent(const TouchInput &touch, ViewGroup *root);

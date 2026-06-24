@@ -193,7 +193,7 @@ bool IsScrollKey(const KeyInput &input) {
 	}
 }
 
-static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
+KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
 	// Ignore repeats for focus moves.
 	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
@@ -227,27 +227,6 @@ static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 				retval = KeyEventResult::ACCEPT;
 			}
 		}
-	}
-	return retval;
-}
-
-KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
-	KeyEventResult retval = KeyEventToFocusMoves(key);
-
-	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
-	switch (key.keyCode) {
-	case NKCODE_VOLUME_DOWN:
-	case NKCODE_VOLUME_UP:
-	case NKCODE_VOLUME_MUTE:
-		retval = KeyEventResult::PASS_THROUGH;
-		break;
-	default:
-		if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
-			// If a repeat, we follow what KeyEventToFocusMoves set it to.
-			// Otherwise we signal that we used the key, always.
-			retval = KeyEventResult::ACCEPT;
-		}
-		break;
 	}
 	return retval;
 }
