@@ -339,7 +339,7 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	const float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
 	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
 		if (direction != FocusMove::PREV_PAGE && direction != FocusMove::NEXT_PAGE) {
-			INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
+			// INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
 			return 0.0f;
 		}
 	}

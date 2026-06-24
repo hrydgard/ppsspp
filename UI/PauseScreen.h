@@ -38,6 +38,10 @@ public:
 
 	const char *tag() const override { return "GamePause"; }
 
+	InputMode PassInputToMapper() const override {
+		return InputMode::ImDebuggerToggle;
+	}
+
 protected:
 	void CreateViews() override;
 	void update() override;
@@ -45,10 +49,6 @@ protected:
 	ViewLayoutMode LayoutMode() const override {
 		return ViewLayoutMode::ApplyInsets;
 	}
-	// For processing of certain mapped keys.
-	bool UnsyncKey(const KeyInput &key) override;
-	void UnsyncAxis(const AxisInput *axes, size_t count) override;
-
 	void OnVKey(VirtKey virtualKeyCode, bool down) override;
 
 private:

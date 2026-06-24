@@ -54,11 +54,6 @@ public:
 
 	InputMode PassInputToMapper() const override;
 
-	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
-	// to get minimal latency and full control. We forward to UIScreen when needed.
-	bool UnsyncKey(const KeyInput &key) override;
-	void UnsyncAxis(const AxisInput *axes, size_t count) override;
-
 	// We also need to do some special handling of queued UI events to handle closing the chat window.
 	bool key(const KeyInput &key) override;
 	void touch(const TouchInput &key) override;

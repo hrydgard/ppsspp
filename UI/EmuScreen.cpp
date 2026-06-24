@@ -21,6 +21,7 @@
 
 using namespace std::placeholders;
 
+#include "Common/System/NativeApp.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/File/FileUtil.h"
@@ -1190,35 +1191,10 @@ InputMode EmuScreen::PassInputToMapper() const {
 	return modes;
 }
 
-bool EmuScreen::UnsyncKey(const KeyInput &key) {
-	// Update imgui modifier flags
-	if (key.flags & (KeyInputFlags::DOWN | KeyInputFlags::UP)) {
-		bool down = (key.flags & KeyInputFlags::DOWN) != 0;
-		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: keyCtrlLeft_ = down; break;
-		case NKCODE_CTRL_RIGHT: keyCtrlRight_ = down; break;
-		case NKCODE_SHIFT_LEFT: keyShiftLeft_ = down; break;
-		case NKCODE_SHIFT_RIGHT: keyShiftRight_ = down; break;
-		case NKCODE_ALT_LEFT: keyAltLeft_ = down; break;
-		case NKCODE_ALT_RIGHT: keyAltRight_ = down; break;
-		default: break;
-		}
-	}
-
-	return UIScreen::UnsyncKey(key);
-}
-
-void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
-	if (UI::IsFocusMovementEnabled()) {
-		// Otherwise no use for axis events - we send them to the control mapper.
-		return UIScreen::UnsyncAxis(axes, count);
-	}
-
-	return g_controlMapper.Axis(axes, count);
-}
-
 bool EmuScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
+
+
 
 	if (!retval && g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_KeyEvent(key);
@@ -1948,9 +1924,15 @@ void EmuScreen::runImDebugger() {
 
 			// Update keyboard modifiers.
 			auto &io = ImGui::GetIO();
-			io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrlLeft_ || keyCtrlRight_);
-			io.AddKeyEvent(ImGuiMod_Shift, keyShiftLeft_ || keyShiftRight_);
-			io.AddKeyEvent(ImGuiMod_Alt, keyAltLeft_ || keyAltRight_);
+
+			KeyModifier modifiers = NativeGetKeyModifiers();
+
+			const bool keyCtrl = (modifiers & KeyModifier::LCTRL) || (modifiers & KeyModifier::RCTRL);
+			const bool keyShift = (modifiers & KeyModifier::LSHIFT) || (modifiers & KeyModifier::RSHIFT);
+			const bool keyAlt = (modifiers & KeyModifier::LALT) || (modifiers & KeyModifier::RALT);
+			io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrl);
+			io.AddKeyEvent(ImGuiMod_Shift, keyShift);
+			io.AddKeyEvent(ImGuiMod_Alt, keyAlt);
 			// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
 
 			ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);

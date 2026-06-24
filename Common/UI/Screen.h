@@ -80,7 +80,7 @@ enum class InputMode {
 	Keyboard = 1,
 	Mouse = 2,
 	Other = 4,
-	ImDebuggerToggle = 8,  // ugly hack
+	ImDebuggerToggle = 8,  // ugly hack. debugger and pause goes through.
 };
 ENUM_CLASS_BITOPS(InputMode);
 

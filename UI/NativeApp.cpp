@@ -1369,19 +1369,11 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 }
 
-enum class Modifier {
-	NONE = 0,
-	LCTRL = 1,
-	RCTRL = 2,
-	LSHIFT = 4,
-	RSHIFT = 8,
-	LALT = 16,
-	RALT = 32,
-	LMETA = 64,
-	RMETA = 128,
-};
-ENUM_CLASS_BITOPS(Modifier);
-static Modifier g_modifiersPressed{};
+KeyModifier g_modifiersPressed{};
+
+KeyModifier NativeGetKeyModifiers() {
+	return g_modifiersPressed;
+}
 
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
@@ -1435,6 +1427,13 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
+	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
+
+	// Handle releases of mousewheel keys.
+	if ((key.flags & KeyInputFlags::DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+		ProcessWheelRelease(key.keyCode, now, true);
+	}
+
 	if (!g_screenManager) {
 		return false;
 	}
@@ -1479,40 +1478,31 @@ bool NativeKey(const KeyInput &key) {
 		g_controlMapper.Key(key);
 	}
 
-	// Handle releases of mousewheel keys.
-	if ((key.flags & KeyInputFlags::DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
-		ProcessWheelRelease(key.keyCode, now, true);
-	}
-
-	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
-
-	// Track and update modifiers.
-
 	// Track modifier keys.
 	if (key.flags & KeyInputFlags::DOWN) {
 		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: g_modifiersPressed |= Modifier::LCTRL; break;
-		case NKCODE_CTRL_RIGHT: g_modifiersPressed |= Modifier::RCTRL; break;
-		case NKCODE_SHIFT_LEFT: g_modifiersPressed |= Modifier::LSHIFT; break;
-		case NKCODE_SHIFT_RIGHT: g_modifiersPressed |= Modifier::RSHIFT; break;
-		case NKCODE_ALT_LEFT: g_modifiersPressed |= Modifier::LALT; break;
-		case NKCODE_ALT_RIGHT: g_modifiersPressed |= Modifier::RALT; break;
-		case NKCODE_META_LEFT: g_modifiersPressed |= Modifier::LMETA; break;
-		case NKCODE_META_RIGHT: g_modifiersPressed |= Modifier::RMETA; break;
+		case NKCODE_CTRL_LEFT: g_modifiersPressed |= KeyModifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed |= KeyModifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed |= KeyModifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed |= KeyModifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed |= KeyModifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed |= KeyModifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed |= KeyModifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed |= KeyModifier::RMETA; break;
 		default:
 			break;
 		}
 	}
 	if (key.flags & KeyInputFlags::UP) {
 		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: g_modifiersPressed &= ~Modifier::LCTRL; break;
-		case NKCODE_CTRL_RIGHT: g_modifiersPressed &= ~Modifier::RCTRL; break;
-		case NKCODE_SHIFT_LEFT: g_modifiersPressed &= ~Modifier::LSHIFT; break;
-		case NKCODE_SHIFT_RIGHT: g_modifiersPressed &= ~Modifier::RSHIFT; break;
-		case NKCODE_ALT_LEFT: g_modifiersPressed &= ~Modifier::LALT; break;
-		case NKCODE_ALT_RIGHT: g_modifiersPressed &= ~Modifier::RALT; break;
-		case NKCODE_META_LEFT: g_modifiersPressed &= ~Modifier::LMETA; break;
-		case NKCODE_META_RIGHT: g_modifiersPressed &= ~Modifier::RMETA; break;
+		case NKCODE_CTRL_LEFT: g_modifiersPressed &= ~KeyModifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed &= ~KeyModifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed &= ~KeyModifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed &= ~KeyModifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed &= ~KeyModifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed &= ~KeyModifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed &= ~KeyModifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed &= ~KeyModifier::RMETA; break;
 		default:
 			break;
 		}
@@ -1520,16 +1510,16 @@ bool NativeKey(const KeyInput &key) {
 
 	KeyInputFlags modifierFlags{};
 
-	if (g_modifiersPressed & (Modifier::LCTRL | Modifier::RCTRL)) {
+	if (g_modifiersPressed & (KeyModifier::LCTRL | KeyModifier::RCTRL)) {
 		modifierFlags |= KeyInputFlags::MOD_CTRL;
 	}
-	if (g_modifiersPressed & (Modifier::LSHIFT | Modifier::RSHIFT)) {
+	if (g_modifiersPressed & (KeyModifier::LSHIFT | KeyModifier::RSHIFT)) {
 		modifierFlags |= KeyInputFlags::MOD_SHIFT;
 	}
-	if (g_modifiersPressed & (Modifier::LALT | Modifier::RALT)) {
+	if (g_modifiersPressed & (KeyModifier::LALT | KeyModifier::RALT)) {
 		modifierFlags |= KeyInputFlags::MOD_ALT;
 	}
-	if (g_modifiersPressed & (Modifier::LMETA | Modifier::RMETA)) {
+	if (g_modifiersPressed & (KeyModifier::LMETA | KeyModifier::RMETA)) {
 		modifierFlags |= KeyInputFlags::MOD_META;
 	}
 
@@ -1561,7 +1551,7 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		return;
 	}
 
-	if (g_screenManager->PassInputToMapper() & InputMode::Other) {
+	if (g_screenManager->PassInputToMapper() & (InputMode::Other | InputMode::ImDebuggerToggle)) {
 		g_controlMapper.Axis(axes, count);
 	}
 
