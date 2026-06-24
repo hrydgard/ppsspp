@@ -1526,8 +1526,38 @@ bool NativeKey(const KeyInput &key) {
 	KeyInput modKey = key;
 	modKey.flags |= modifierFlags;
 
+	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
+	switch (key.keyCode) {
+	case NKCODE_VOLUME_DOWN:
+	case NKCODE_VOLUME_UP:
+	case NKCODE_VOLUME_MUTE:
+		return false;
+	default:
+		break;
+	}
+
+	bool retval = false;
+
+	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(key);
+	if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
+		// If a repeat, we follow what KeyEventToFocusMoves set it to.
+		// Otherwise we signal that we used the key, always.
+		kev = UI::KeyEventResult::ACCEPT;
+	}
+
+	switch (kev) {
+	case UI::KeyEventResult::ACCEPT:
+		retval = true;
+		break;
+	case UI::KeyEventResult::PASS_THROUGH:
+		retval = false;
+		break;
+	case UI::KeyEventResult::IGNORE_KEY:
+		return false;
+	}
+
 	// Dispatch the key event.
-	bool retval = g_screenManager->key(modKey);
+	g_screenManager->key(modKey);
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {

@@ -183,18 +183,16 @@ void ScreenManager::touch(const TouchInput &touch) {
 	}
 }
 
-bool ScreenManager::key(const KeyInput &key) {
+void ScreenManager::key(const KeyInput &key) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	bool result = false;
 	// Send key up to every screen layer, to avoid stuck keys.
 	if (key.flags & KeyInputFlags::UP) {
 		for (auto &layer : stack_) {
-			result = layer.screen->UnsyncKey(key);
+			layer.screen->UnsyncKey(key);
 		}
 	} else if (!stack_.empty()) {
-		result = stack_.back().screen->UnsyncKey(key);
+		stack_.back().screen->UnsyncKey(key);
 	}
-	return result;
 }
 
 void ScreenManager::axis(const AxisInput *axes, size_t count) {

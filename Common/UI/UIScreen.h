@@ -47,7 +47,7 @@ public:
 	virtual void axis(const AxisInput &axis);
 
 	bool UnsyncTouch(const TouchInput &touch) override;
-	bool UnsyncKey(const KeyInput &key) override;
+	void UnsyncKey(const KeyInput &key) override;
 	void UnsyncAxis(const AxisInput *axes, size_t count) override;
 
 	TouchInput transformTouch(const TouchInput &touch) override;

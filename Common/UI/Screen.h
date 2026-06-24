@@ -106,7 +106,7 @@ public:
 	// Return value of UnsyncTouch is only used to let the overlay screen block touches.
 	virtual bool UnsyncTouch(const TouchInput &touch) = 0;
 	// Return value of UnsyncKey is used to not block certain system keys like volume when unhandled, on Android.
-	virtual bool UnsyncKey(const KeyInput &touch) = 0;
+	virtual void UnsyncKey(const KeyInput &touch) = 0;
 	virtual void UnsyncAxis(const AxisInput *axes, size_t count) = 0;
 
 	virtual void RecreateViews() {}
@@ -186,7 +186,7 @@ public:
 
 	// Instant touch, separate from the update() mechanism.
 	void touch(const TouchInput &touch);
-	bool key(const KeyInput &key);
+	void key(const KeyInput &key);
 	void axis(const AxisInput *axes, size_t count);
 
 	void sendMessage(UIMessage message, const char *value);
