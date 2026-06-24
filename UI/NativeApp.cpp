@@ -1478,6 +1478,16 @@ bool NativeKey(const KeyInput &key) {
 		g_controlMapper.Key(key);
 	}
 
+	// Ignore volume keys and stuff here - though we do send them through to the control mapper, so they can be mapped to PSP buttons.
+	switch (key.keyCode) {
+	case NKCODE_VOLUME_DOWN:
+	case NKCODE_VOLUME_UP:
+	case NKCODE_VOLUME_MUTE:
+		return false;
+	default:
+		break;
+	}
+
 	// Track modifier keys.
 	if (key.flags & KeyInputFlags::DOWN) {
 		switch (key.keyCode) {
@@ -1525,16 +1535,6 @@ bool NativeKey(const KeyInput &key) {
 
 	KeyInput modKey = key;
 	modKey.flags |= modifierFlags;
-
-	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
-	switch (key.keyCode) {
-	case NKCODE_VOLUME_DOWN:
-	case NKCODE_VOLUME_UP:
-	case NKCODE_VOLUME_MUTE:
-		return false;
-	default:
-		break;
-	}
 
 	bool retval = false;
 

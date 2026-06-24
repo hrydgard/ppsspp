@@ -25,7 +25,7 @@ public:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	void CreateViews() override;
 	bool isTransparent() const override { return true; }
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	bool key(const KeyInput &key) override;
 
 	void TriggerFinish(DialogResult result) override;

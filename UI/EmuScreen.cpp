@@ -1212,7 +1212,7 @@ bool EmuScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-void EmuScreen::touch(const TouchInput &touch) {
+bool EmuScreen::touch(const TouchInput &touch) {
 	System_Notify(SystemNotification::ACTIVITY);
 
 	bool ignoreGamepad = false;
@@ -1234,7 +1234,7 @@ void EmuScreen::touch(const TouchInput &touch) {
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_TouchEvent(touch);
 		if (!ImGui::GetIO().WantCaptureMouse) {
-			UIScreen::touch(touch);
+			return UIScreen::touch(touch);
 		}
 	} else if (g_Config.bMouseControl && !(touch.flags & TouchInputFlags::UP) && (touch.flags & TouchInputFlags::MOUSE)) {
 		// don't do anything as the mouse pointer is hidden in this case.
@@ -1252,8 +1252,9 @@ void EmuScreen::touch(const TouchInput &touch) {
 				}
 			}
 		}
-		UIScreen::touch(touch);
+		return UIScreen::touch(touch);
 	}
+	return false;
 }
 
 // TODO: Shouldn't actually need bounds for this, Anchor can center too.

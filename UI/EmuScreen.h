@@ -56,7 +56,7 @@ public:
 
 	// We also need to do some special handling of queued UI events to handle closing the chat window.
 	bool key(const KeyInput &key) override;
-	void touch(const TouchInput &key) override;
+	bool touch(const TouchInput &key) override;
 
 	void deviceLost() override;
 	void deviceRestored(Draw::DrawContext *draw) override;

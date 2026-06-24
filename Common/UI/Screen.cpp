@@ -108,7 +108,6 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 void ScreenManager::update() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 
-
 	if (cancelScreensAbove_) {
 		bool found = false;
 		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
@@ -135,6 +134,67 @@ void ScreenManager::update() {
 	if (!stack_.empty()) {
 		stack_.back().screen->update();
 		passInputToMapper_ = stack_.back().screen->PassInputToMapper();
+	}
+
+	// Process queued events.
+
+	std::lock_guard<std::mutex> eventGuard(eventQueueLock_);
+
+	for (const QueuedEvent &ev : eventQueue_) {
+		switch (ev.type) {
+		case QueuedEventType::TOUCH:
+		{
+			const TouchInput &touch = ev.touch;
+
+			// Send release all events to every screen layer.
+			if (touch.flags & TouchInputFlags::RELEASE_ALL) {
+				for (auto &layer : stack_) {
+					Screen *screen = layer.screen;
+					layer.screen->touch(screen->transformTouch(touch));
+				}
+			} else if (!stack_.empty()) {
+				// Let the overlay know about touch-downs, to be able to dismiss popups.
+				bool skip = false;
+				if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
+					skip = overlayScreen_->touch(overlayScreen_->transformTouch(touch));
+				}
+				if (!skip) {
+					Screen *screen = stack_.back().screen;
+					stack_.back().screen->touch(screen->transformTouch(touch));
+				}
+			}
+			break;
+		}
+		case QueuedEventType::KEY:
+		{
+			const KeyInput &key = ev.key;
+
+			std::lock_guard<std::recursive_mutex> guard(inputLock_);
+			// Send key up to every screen layer, to avoid stuck keys.
+			if (key.flags & KeyInputFlags::UP) {
+				for (auto &layer : stack_) {
+					layer.screen->key(key);
+				}
+			} else if (!stack_.empty()) {
+				stack_.back().screen->key(key);
+			}
+
+			break;
+		}
+		case QueuedEventType::AXIS:
+		{
+			const AxisInput &axis = ev.axis;
+
+			std::lock_guard<std::recursive_mutex> guard(inputLock_);
+			if (!stack_.empty()) {
+				stack_.back().screen->axis(axis);
+			}
+			break;
+		}
+		default:
+			ERROR_LOG(Log::UI, "Unknown queued event type: %d", (int)ev.type);
+			break;
+		}
 	}
 }
 
@@ -163,42 +223,28 @@ void ScreenManager::switchToNext() {
 }
 
 void ScreenManager::touch(const TouchInput &touch) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	// Send release all events to every screen layer.
-	if (touch.flags & TouchInputFlags::RELEASE_ALL) {
-		for (auto &layer : stack_) {
-			Screen *screen = layer.screen;
-			layer.screen->UnsyncTouch(screen->transformTouch(touch));
-		}
-	} else if (!stack_.empty()) {
-		// Let the overlay know about touch-downs, to be able to dismiss popups.
-		bool skip = false;
-		if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
-			skip = overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
-		}
-		if (!skip) {
-			Screen *screen = stack_.back().screen;
-			stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
-		}
-	}
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::TOUCH;
+	ev.touch = touch;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	eventQueue_.push_back(ev);
 }
 
 void ScreenManager::key(const KeyInput &key) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	// Send key up to every screen layer, to avoid stuck keys.
-	if (key.flags & KeyInputFlags::UP) {
-		for (auto &layer : stack_) {
-			layer.screen->UnsyncKey(key);
-		}
-	} else if (!stack_.empty()) {
-		stack_.back().screen->UnsyncKey(key);
-	}
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::KEY;
+	ev.key = key;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	eventQueue_.push_back(ev);
 }
 
 void ScreenManager::axis(const AxisInput *axes, size_t count) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!stack_.empty()) {
-		stack_.back().screen->UnsyncAxis(axes, count);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::AXIS;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	for (size_t i = 0; i < count; i++) {
+		ev.axis = axes[i];
+		eventQueue_.push_back(ev);
 	}
 }
 

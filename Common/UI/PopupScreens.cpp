@@ -51,11 +51,11 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 	alpha_ = 0.0f;  // inherited
 }
 
-void PopupScreen::touch(const TouchInput &touch) {
+bool PopupScreen::touch(const TouchInput &touch) {
 	if (!box_ || (touch.flags & TouchInputFlags::DOWN) == 0) {
 		// Handle down-presses here.
 		UIDialogScreen::touch(touch);
-		return;
+		return false;
 	}
 
 	// Extra bounds to avoid closing the dialog while trying to aim for something
@@ -65,7 +65,7 @@ void PopupScreen::touch(const TouchInput &touch) {
 		TriggerFinish(DR_CANCEL);
 	}
 
-	UIDialogScreen::touch(touch);
+	return UIDialogScreen::touch(touch);
 }
 
 bool PopupScreen::key(const KeyInput &key) {
