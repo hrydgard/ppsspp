@@ -30,6 +30,29 @@ static inline s16 ClampFloatToS16(float f) {
 	}
 }
 
+static const char *GetAudioClientErrorName(HRESULT hr) {
+	switch (hr) {
+	case AUDCLNT_E_UNSUPPORTED_FORMAT:
+		return "AUDCLNT_E_UNSUPPORTED_FORMAT";
+	case AUDCLNT_E_DEVICE_INVALIDATED:
+		return "AUDCLNT_E_DEVICE_INVALIDATED";
+	case AUDCLNT_E_DEVICE_IN_USE:
+		return "AUDCLNT_E_DEVICE_IN_USE";
+	case AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED:
+		return "AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED";
+	case AUDCLNT_E_BUFFER_SIZE_ERROR:
+		return "AUDCLNT_E_BUFFER_SIZE_ERROR";
+	case E_INVALIDARG:
+		return "E_INVALIDARG";
+	case E_POINTER:
+		return "E_POINTER";
+	case E_OUTOFMEMORY:
+		return "E_OUTOFMEMORY";
+	default:
+		return nullptr;
+	}
+}
+
 void BuildStereoFloatFormat(const WAVEFORMATEXTENSIBLE *original, WAVEFORMATEXTENSIBLE *output) {
 	// Zero‑init all fields first.
 	ZeroMemory(output, sizeof(WAVEFORMATEXTENSIBLE));
@@ -297,8 +320,38 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 				}
 				createBuffer = true;
 			} else {
-				WARN_LOG(Log::Audio, "Got other error %08lx", result);
+				// IsFormatSupported failed - log detailed error information
+				const char *errorName = GetAudioClientErrorName(result);
+				if (errorName) {
+					WARN_LOG(Log::Audio, "IsFormatSupported failed with %s (0x%08lx)", errorName, result);
+				} else {
+					WARN_LOG(Log::Audio, "IsFormatSupported failed with unknown error 0x%08lx", result);
+				}
+
+				// Log the format we tried to request for debugging
+				WARN_LOG(Log::Audio, "  Requested format: %d Hz, %d channels, %d-bit %s",
+					stereo.Format.nSamplesPerSec,
+					stereo.Format.nChannels,
+					stereo.Format.wBitsPerSample,
+					"float");
+
+				// Log the device's native format
+				WARN_LOG(Log::Audio, "  Device native format: %d Hz, %d channels",
+					format_->nSamplesPerSec,
+					format_->nChannels);
+
+				// Common causes based on error code
+				if (result == AUDCLNT_E_UNSUPPORTED_FORMAT) {
+					INFO_LOG(Log::Audio, "  Device doesn't support our requested stereo float format.");
+					INFO_LOG(Log::Audio, "  Will use manual conversion from stereo to %d-channel output.", format_->nChannels);
+				} else if (result == AUDCLNT_E_DEVICE_INVALIDATED) {
+					WARN_LOG(Log::Audio, "  Audio device was removed or disabled. Audio may not work.");
+				} else if (result == AUDCLNT_E_DEVICE_IN_USE) {
+					WARN_LOG(Log::Audio, "  Audio device is in exclusive use by another application.");
+				}
+
 				_dbg_assert_(!closestMatch);
+				createBuffer = true;
 			}
 		} else {
 			// All good, nothing to convert.
