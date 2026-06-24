@@ -431,7 +431,6 @@ struct SceKernelSMOption {
 static int actionAfterModule;
 
 static std::set<SceUID> loadedModules;
-static SceUID g_mainModuleID = 0;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -442,7 +441,7 @@ static void __KernelModuleInit()
 
 void __KernelModuleDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelModule", 1, 3);
+	auto s = p.Section("sceKernelModule", 1, 2);
 	if (!s)
 		return;
 
@@ -451,9 +450,6 @@ void __KernelModuleDoState(PointerWrap &p)
 
 	if (s >= 2) {
 		Do(p, loadedModules);
-	}
-	if (s >= 3) {
-		Do(p, g_mainModuleID);
 	}
 
 	if (p.mode == p.MODE_READ) {
@@ -477,7 +473,6 @@ void __KernelModuleDoState(PointerWrap &p)
 void __KernelModuleShutdown()
 {
 	loadedModules.clear();
-	g_mainModuleID = 0;
 	MIPSAnalyst::Reset();
 	HLEPlugins::Unload();
 }
@@ -1717,7 +1712,6 @@ bool KernelModuleIsKernelMode(SceUID uid) {
 
 void __KernelLoadReset() {
 	// Wipe kernel here, loadexec should reset the entire system
-	g_mainModuleID = 0;
 	if (__KernelIsRunning()) {
 		u32 error;
 		while (!loadedModules.empty()) {
@@ -1781,10 +1775,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	size_t size = fileData.size();
 	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, filename, error_string);
-
-	if (module) {
-		g_mainModuleID = module->GetUID();
-	}
 
 	if (!module || module->isFake) {
 		if (module) {
@@ -1858,7 +1848,6 @@ bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_strin
 	memset(&module->nm, 0, sizeof(module->nm));
 	module->isFake = true;
 	module->nm.entry_addr = codeStartAddr;
-	g_mainModuleID = module->GetUID();
 	module->nm.gp_value = -1;
 
 	SceUID threadID = __KernelSetupRootThread(module->GetUID(), (int)base_filename.size(), base_filename.data(), 0x20, 0x1000, 0);
@@ -2425,10 +2414,6 @@ u32 sceKernelFindModuleByUID(u32 uid)
 		return hleLogError(Log::sceModule, 0, "Module Not Found or Fake");
 	}
 	return hleLogInfo(Log::sceModule, module->modulePtr.ptr);
-}
-
-SceUID __KernelGetMainModuleId() {
-	return g_mainModuleID;
 }
 
 u32 sceKernelFindModuleByName(const char *name)
