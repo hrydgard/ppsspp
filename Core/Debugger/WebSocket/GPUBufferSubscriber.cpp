@@ -181,9 +181,6 @@ static std::string DescribeFormat(GPUDebugBufferFormat fmt) {
 	case GPU_DBG_FORMAT_24BIT_8X: return "D24_X8";
 	case GPU_DBG_FORMAT_24X_8BIT: return "X24_S8";
 
-	case GPU_DBG_FORMAT_FLOAT_DIV_256: return "D32F_DIV_256";
-	case GPU_DBG_FORMAT_24BIT_8X_DIV_256: return "D32F_X8_DIV_256";
-
 	case GPU_DBG_FORMAT_888_RGB: return "R8G8B8_UNORM";
 
 	case GPU_DBG_FORMAT_INVALID:

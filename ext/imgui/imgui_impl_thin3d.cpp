@@ -34,7 +34,7 @@ struct RegisteredTexture {
 struct BackendData {
 	Draw::SamplerState *fontSampler = nullptr;
 	Draw::Texture *fontImage = nullptr;
-	Draw::Pipeline *pipelines[2]{};
+	Draw::Pipeline *pipelines[(int)ImGuiPipeline::Count]{};
 	std::vector<RegisteredTexture> tempTextures;
 };
 
@@ -73,7 +73,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	viewport.MaxDepth = 1.0f;
 	draw->SetViewport(viewport);
 
-	Lin::Matrix4x4 mtx = ComputeOrthoMatrix(draw_data->DisplaySize.x, draw_data->DisplaySize.y, draw->GetDeviceCaps().coordConvention, true);
+	Lin::Matrix4x4 mtx = ComputeOrthoMatrix(draw_data->DisplaySize.x, draw_data->DisplaySize.y, draw->GetDeviceCaps().coordConvention);
 
 	Draw::VsTexColUB ub{};
 	memcpy(ub.WorldViewProj, mtx.getReadPtr(), sizeof(Lin::Matrix4x4));
@@ -220,12 +220,9 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 		DepthStencilState *depthStencil = draw->CreateDepthStencilState(dsDesc);
 		RasterState *rasterNoCull = draw->CreateRasterState({});
 
-		ShaderModule *vs_texture_color_2d = draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-		ShaderModule *fs_texture_color_2d = draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D);
-
 		PipelineDesc pipelineDesc{
 			Primitive::TRIANGLE_LIST,
-			{ vs_texture_color_2d, fs_texture_color_2d },
+			{ draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D_NO_TINT), draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
 			inputLayout,
 			depthStencil,
 			blend,
@@ -233,9 +230,13 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 			&vsTexColBufDesc
 		};
 
-		bd->pipelines[0] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
+		bd->pipelines[(int)ImGuiPipeline::TexturedAlphaBlend] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline");
 		pipelineDesc.blend = blendOpaque;
-		bd->pipelines[1] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline-opaque");
+		bd->pipelines[(int)ImGuiPipeline::TexturedOpaque] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline-opaque");
+
+		pipelineDesc.shaders[1] = draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D_ALPHA_TO_GRAY);
+
+		bd->pipelines[(int)ImGuiPipeline::TexturedAlphaToGrayscale] = draw->CreateGraphicsPipeline(pipelineDesc, "imgui-pipeline-alpha-to-gray");
 
 		inputLayout->Release();
 		blend->Release();

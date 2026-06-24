@@ -40,9 +40,6 @@ public:
 	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
-	void SetDepalShaderCache(TextureShaderCache *dpCache) {
-		textureShaderCache_ = dpCache;
-	}
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;
 	}
@@ -57,7 +54,7 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
 protected:
-	void BindTexture(TexCacheEntry *entry) override;
+	void BindTexture(TexCacheEntry *entry, bool flatZ) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
@@ -80,5 +77,3 @@ private:
 
 	enum { INVALID_TEX = -1 };
 };
-
-static Draw::DataFormat getClutDestFormat(GEPaletteFormat format);

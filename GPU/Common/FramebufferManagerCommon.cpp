@@ -944,7 +944,7 @@ Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat 
 
 	Draw2DPipeline *pipeline = reinterpretFromTo_[(int)from][(int)to];
 	if (!pipeline) {
-		pipeline = draw2D_.Create2DPipeline([=](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+		pipeline = draw2D_.Create2DPipeline([from, to](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
 			return GenerateReinterpretFragmentShader(shaderWriter, from, to);
 		});
 		reinterpretFromTo_[(int)from][(int)to] = pipeline;
@@ -1037,7 +1037,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -1099,7 +1099,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			float clearDepth = 0.0f;
 			if (vfb->usageFlags & FB_USAGE_INVALIDATE_DEPTH) {
 				depthAction = Draw::RPAction::CLEAR;
-				clearDepth = GetDepthScaleFactors(gstate_c.UseFlags()).Offset();
 				vfb->usageFlags &= ~FB_USAGE_INVALIDATE_DEPTH;
 			}
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, {Draw::RPAction::KEEP, depthAction, Draw::RPAction::KEEP, 0, clearDepth}, "FBSwitch");
@@ -1145,7 +1144,7 @@ void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int siz
 			const int bpp = BufferFormatBytesPerPixel(fmt);
 			ResizeFramebufFBO(vfb, stride, size / (bpp * stride));
 			// Resizing may change the viewport/etc.
-			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			vfb->fb_stride = stride;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
 			vfb->width = stride;
@@ -2213,6 +2212,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			WARN_LOG_ONCE(btdcpyheight, Log::FrameBuf, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
 		} else if (GetSkipGPUReadbackMode() == SkipGPUReadbackMode::NO_SKIP && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
 			ReadFramebufferToMemory(srcBuffer, 0, srcY, srcBuffer->width, srcH, channel, Draw::ReadbackMode::BLOCK);
+			gstate_c.textureSyncTimeDomain++;
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 		return false;
@@ -2811,6 +2811,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					WARN_LOG_ONCE(btdheight, Log::G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcRect.y, srcRect.h, srcRect.vfb->bufferHeight);
 				}
 				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+				gstate_c.textureSyncTimeDomain++;
 				srcRect.vfb->usageFlags = (srcRect.vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
 		}
@@ -2877,7 +2878,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				dstRect.vfb->newHeight = std::max(dstRect.h, (int)dstRect.vfb->height);
 				dstRect.vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 				// Resizing may change the viewport/etc.
-				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
+				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			}
 			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
@@ -3115,12 +3116,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 
-	// Old code
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
-	} else {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
-	}
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
 	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
 	bool retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetDepthBuffer");
 	if (!retval) {

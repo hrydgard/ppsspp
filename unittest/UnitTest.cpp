@@ -99,6 +99,8 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+// Set to true for more verbose unit tests.
+bool g_testLog = false;
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
@@ -312,7 +314,9 @@ bool TestSinCos() {
 		float slowsin = sinf(f * M_PI_2), slowcos = cosf(f * M_PI_2);
 		float fastsin, fastcos;
 		fastsincos(f, fastsin, fastcos);
-		printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+		if (g_testLog) {
+			printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+		}
 	}
 	return true;
 }
@@ -323,7 +327,9 @@ bool TestAsin() {
 		float f = i / 100.0f;
 		float slowval = asinf(f) / M_PI_2;
 		float fastval = fastasin5(f) / M_PI_2;
-		printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		if (g_testLog) {
+			printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		}
 		float diff = fabsf(slowval - fastval);
 		// EXPECT_TRUE(diff < 0.0001f);
 	}
@@ -466,7 +472,9 @@ bool TestVFPUSinCos() {
 		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
 		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
 
-		printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+		if (g_testLog) {
+			printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+		}
 	}
 	return true;
 }
@@ -892,47 +900,6 @@ static bool TestSmallDataConvert() {
 	return true;
 }
 
-float DepthSliceFactor(u32 useFlags);
-
-static bool TestDepthMath() {
-	// These are in normalized space.
-	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
-
-	// Flag combinations that can happen (any combination not included here is invalid, see comment
-	// over in GPUStateUtils.cpp):
-	static const u32 useFlagsArray[] = {
-		0,
-		GPU_USE_ACCURATE_DEPTH,
-		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
-		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,
-		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  // Here, GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT should take precedence over USE_DEPTH_CLAMP.
-	};
-	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
-	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };
-
-	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
-
-	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
-		u32 useFlags = useFlagsArray[j];
-		printf("j: %d useflags: %d\n", j, useFlags);
-		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
-
-		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
-		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
-		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
-
-		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
-			float testValue = testValues[i] * 65535.0f;
-
-			float encoded = factors.EncodeFromU16(testValue);
-			float decodedU16 = factors.DecodeToU16(encoded);
-			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
-		}
-	}
-
-	return true;
-}
-
 bool TestInputMapping() {
 	InputMapping mapping;
 	mapping.deviceId = DEVICE_ID_PAD_0;
@@ -1218,6 +1185,14 @@ bool TestCrossSIMD() {
 		return false;
 	}
 
+	s8 values[4] = {-1, -128, 127, 45};
+	float fvalues[4];
+	Vec4F32::LoadS8Norm(values).Store(fvalues);
+	static const float known_s8norm_result[4] = {(float)values[0]/128.0f, (float)values[1]/128.0f, (float)values[2]/128.0f, (float)values[3]/128.0f,};
+	if (!CompareFloats(fvalues, known_s8norm_result, ARRAY_SIZE(known_s8norm_result), __LINE__)) {
+		return false;
+	}
+
 	// PrintFloats(result, 16);
 
 	return true;
@@ -1403,7 +1378,6 @@ TestItem availableTests[] = {
 	TEST_ITEM(TinySet),
 	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
-	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
@@ -1453,12 +1427,14 @@ int main(int argc, const char *argv[]) {
 	if (allTests) {
 		int passes = 0;
 		int fails = 0;
+		std::vector<const char *> failedTests;
 		for (const auto &f : availableTests) {
 			printf("\n**** Running test %s ****\n", f.name);
 			if (f.func()) {
 				++passes;
 			} else {
 				printf("%s: FAILED\n", f.name);
+				failedTests.push_back(f.name);
 				++fails;
 			}
 		}
@@ -1467,6 +1443,9 @@ int main(int argc, const char *argv[]) {
 		}
 		if (fails > 0) {
 			printf("%d tests failed!\n", fails);
+			for (auto testName : failedTests) {
+				printf("  * %s\n", testName);
+			}
 			return 2;
 		}
 	} else if (!testFunc) {

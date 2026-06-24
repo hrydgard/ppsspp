@@ -30,7 +30,7 @@
 #include "Core/Loaders.h"
 
 #include "GPU/GPUState.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 
 

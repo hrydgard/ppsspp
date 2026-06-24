@@ -159,35 +159,6 @@ void GameSettingsScreen::PreCreateViews() {
 	ReloadAllThemeInfo();
 }
 
-// This needs before run CheckGPUFeatures()
-// TODO: Remove this if fix the issue
-static bool CheckSupportShaderTessellationGLES() {
-#if PPSSPP_PLATFORM(UWP)
-	return true;
-#else
-	// TODO: Make work with non-GL backends
-	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
-	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
-
-	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
-	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-
-	return vertexTexture && textureFloat && hasTexelFetch;
-#endif
-}
-
-static bool DoesBackendSupportHWTess() {
-	switch (GetGPUBackend()) {
-	case GPUBackend::OPENGL:
-		return CheckSupportShaderTessellationGLES();
-	case GPUBackend::VULKAN:
-	case GPUBackend::DIRECT3D11:
-		return true;
-	default:
-		return false;
-	}
-}
-
 static bool UsingHardwareTextureScaling() {
 	// For now, Vulkan only.
 	return g_Config.bTexHardwareScaling && GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
@@ -412,10 +383,22 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		fullscreenCheckbox->OnClick.Add([](UI::EventParams &e) {
 			System_ApplyFullscreenState();
 		});
+		if (draw->GetDeviceCaps().fullScreenExclusiveSupported) {
+			CheckBox* fullscreenExclusive = graphicsSettings->Add(new CheckBox(&g_Config.bAllowFullScreenExclusive, gr->T("Allow exclusive fullscreen")));
+			fullscreenExclusive->SetEnabledFunc([] {
+				return g_Config.bFullScreen && !g_Config.bFullScreenMulti;
+			});
+			fullscreenExclusive->OnClick.Add([this](UI::EventParams &e) {
+				TriggerRestartOrDo([this]() {
+					g_Config.bAllowFullScreenExclusive = !g_Config.bAllowFullScreenExclusive;
+					RecreateViews();
+				});
+			});
+		}
 		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 			CheckBox *fullscreenMulti = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays")));
 			fullscreenMulti->SetEnabledFunc([] {
-				return g_Config.bFullScreen;
+				return g_Config.bFullScreen && !g_Config.bAllowFullScreenExclusive;
 			});
 			fullscreenMulti->OnClick.Add([](UI::EventParams &e) {
 				System_ApplyFullscreenState();
@@ -492,9 +475,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	});
 	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *disableCulling = graphicsSettings->Add(new CheckBox(&g_Config.bDisableRangeCulling, gr->T("Disable culling")));
-	disableCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	static const char *skipGpuReadbackModes[] = { "No", "Skip", "Copy to texture" };
 
 	PopupMultiChoice *skipGPUReadbacks = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSkipGPUReadbackMode, gr->T("Skip GPU Readbacks"), skipGpuReadbackModes, 0, ARRAY_SIZE(skipGpuReadbackModes), I18NCat::GRAPHICS, screenManager()));
@@ -509,10 +489,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	depthRasterMode->SetDefault(DefaultDepthRaster());
 	if (g_Config.iDepthRasterMode != 3)
 		depthRasterMode->HideChoice(3);
-
-	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), texBackoff));
 
 	static const char *quality[] = { "Low", "Medium", "High" };
 	PopupMultiChoice *bezierQuality = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), I18NCat::GRAPHICS, screenManager()));
@@ -558,14 +534,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), swSkin));
 
-	if (DoesBackendSupportHWTess()) {
-		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
-		tessellationHW->SetEnabledFunc([]() {
-			return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-		});
-		graphicsSettings->Add(new SettingHint(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), tessellationHW));
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
@@ -610,9 +578,13 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new SettingHint(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), deposterize));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
+
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), I18NCat::GRAPHICS, screenManager()));
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	anisoFiltering->OnChoice.Add([](UI::EventParams &e) {
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+	});
 
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Auto Max Quality"};
 	PopupMultiChoice *filters = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), I18NCat::GRAPHICS, screenManager()));
@@ -661,6 +633,8 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
 	});
 	respectSilentMode->SetEnabledPtr(&g_Config.bEnableSound);
+#endif
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	CheckBox *mixWithOthers = audioSettings->Add(new CheckBox(&g_Config.bAudioMixWithOthers, a->T("Mix audio with other apps")));
 	mixWithOthers->OnClick.Add([=](EventParams &e) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
@@ -1390,6 +1364,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ItemHeader(sa->T("Save states")));  // Borrow this string from the savedata manager
 
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
+	systemSettings->Add(new CheckBox(&g_Config.bConfirmLoadState, sy->T("Ask to confirm on load")));
 
 	PopupSliderChoice* savestateSlotCount = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateSlotCount, 1, 30, 5, sy->T("Savestate slot count"), screenManager()));
 	savestateSlotCount->OnChange.Add([](UI::EventParams &e) {
@@ -1412,15 +1387,15 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	PopupSliderChoice *exitConfirmation = systemSettings->Add(new PopupSliderChoice(&g_Config.iAskForExitConfirmationAfterSeconds, 0, 1200, 300, sy->T("Ask for exit confirmation after seconds"), screenManager(), "s"));
 	exitConfirmation->SetZeroLabel(sy->T("Off"));
 
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+	if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 		auto co = GetI18NCategory(I18NCat::CONTROLS);
 
 		// Display rotation 
 		AddRotationPicker(screenManager(), systemSettings, true);
+	}
 
-		if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
-			systemSettings->Add(new CheckBox(&g_Config.bSustainedPerformanceMode, sy->T("Sustained performance mode")))->OnClick.Handle(this, &GameSettingsScreen::OnSustainedPerformanceModeChange);
-		}
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
+		systemSettings->Add(new CheckBox(&g_Config.bSustainedPerformanceMode, sy->T("Sustained performance mode")))->OnClick.Handle(this, &GameSettingsScreen::OnSustainedPerformanceModeChange);
 	}
 
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);

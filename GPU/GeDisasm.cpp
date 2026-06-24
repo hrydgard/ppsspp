@@ -94,17 +94,6 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
-	static constexpr const char * primTypes[8] = {
-		"POINTS",
-		"LINES",
-		"LINE_STRIP",
-		"TRIANGLES",
-		"TRIANGLE_STRIP",
-		"TRIANGLE_FAN",
-		"RECTANGLES",
-		"CONTINUE_PREVIOUS",
-	};
-
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
 	{
@@ -144,9 +133,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			u32 count = data & 0xFFFF;
 			u32 type = (data >> 16) & 7;
 			if (gstate.vertType & GE_VTYPE_IDX_MASK)
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", GePrimTypeToString(static_cast<GEPrimitiveType>(type)), count, gstate_c.vertexAddr, gstate_c.indexAddr);
 			else
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", GePrimTypeToString(static_cast<GEPrimitiveType>(type)), count, gstate_c.vertexAddr);
 		}
 		break;
 
@@ -323,7 +312,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
-	case GE_CMD_DEPTHCLAMPENABLE:
+	case GE_CMD_DEPTHCLIPENABLE:
 		snprintf(buffer, bufsize, "Depth clamp enable: %i", data);
 		break;
 
@@ -1365,7 +1354,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			bool texturing = (data & GE_IMM_TEXTURE) != 0;
 			bool dither = (data & GE_IMM_DITHER) != 0;
 			char *p = buffer;
-			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, primTypes[(data >> 8) & 7]);
+			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, GePrimTypeToString(static_cast<GEPrimitiveType>((data >> 8) & 7)));
 			if (antialias)
 				p += snprintf(p, bufsize - (p - buffer), ", antialias");
 			if (clip != 0)

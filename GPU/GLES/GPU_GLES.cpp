@@ -95,9 +95,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			File::IOFile f(shaderCachePath_, "rb");
 			if (f.IsOpen()) {
 				if (shaderManagerGL_->LoadCacheFlags(f, &drawEngine_)) {
-					if (drawEngineCommon_->EverUsedExactEqualDepth()) {
-						sawExactEqualDepth_ = true;
-					}
 					gstate_c.SetUseFlags(CheckGPUFeatures());
 					// We're compiling now, clear if they changed.
 					gstate_c.useFlagsChanged = false;
@@ -108,13 +105,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			}
 		} else {
 			INFO_LOG(Log::G3D, "Shader cache disabled. Not loading.");
-		}
-	}
-
-	if (g_Config.bHardwareTessellation) {
-		// Log information that we disable hardware tessellation if device is unsupported.
-		if (!drawEngine_.SupportsHWTessellation()) {
-			ERROR_LOG(Log::G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 		}
 	}
 }
@@ -144,16 +134,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
-	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
-	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
-	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
-	if (instanceRendering)
-		features |= GPU_USE_INSTANCE_RENDERING;
-
-	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
-	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
-		features |= GPU_USE_VERTEX_TEXTURE_FETCH;
-
 	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_USE_TEXTURE_FLOAT;
 
@@ -168,11 +148,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (IsVREnabled() || g_Config.bForceVR) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 		features &= ~GPU_USE_VS_RANGE_CULLING;
-	}
-
-	if (!gl_extensions.GLES3) {
-		// Heuristic.
-		features &= ~GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
 	features = CheckGPUFeaturesLate(features);

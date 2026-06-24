@@ -532,8 +532,9 @@ namespace MainWindow {
 		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
 		if (!g_Config.bShowMenuBar) {
-			MainMenuInit(hwndMain, g_hMenu);
 			SetMenu(hwndMain, NULL);
+		} else {
+			MainMenuInit(hwndMain, g_hMenu);
 		}
 
 		// Accept dragged files.

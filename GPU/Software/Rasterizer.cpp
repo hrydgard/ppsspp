@@ -165,8 +165,8 @@ void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	DisplayList currentList{};
-	if (gpuDebug)
-		gpuDebug->GetCurrentDisplayList(currentList);
+	if (gpu)
+		gpu->GetCurrentDisplayList(currentList);
 	state->listPC = currentList.pc;
 #endif
 }

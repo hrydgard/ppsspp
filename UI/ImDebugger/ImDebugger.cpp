@@ -59,7 +59,7 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 
 // GPU things
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Stepping.h"
 
 #include "UI/ImDebugger/ImDebugger.h"
@@ -1608,7 +1608,7 @@ void ImLogWindow::Draw(ImConfig &cfg) {
 			for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
 				int n = ring.GetCount() - 1 - line_no;
 
-				const std::string_view line = ring.TextAt(n);
+				const std::string line = ring.TextAt(n);
 				const LogLevel level = ring.LevelAt(n);
 				const u32 color = 0xFF000000 | LogManager::GetLevelColor(level);
 				ImGui::PushStyleColor(ImGuiCol_Text, color);
@@ -2312,7 +2312,7 @@ ImDebugger::~ImDebugger() {
 	cfg_.SaveConfig(ConfigPath());
 }
 
-void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw) {
+void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw::DrawContext *draw) {
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
 
@@ -2766,7 +2766,7 @@ void ImDebugger::Snapshot(MIPSState *mips) {
 	pixelViewer_.Snapshot();
 }
 
-void ImDebugger::SnapshotGPU(GPUDebugInterface *gpuDebug) {
+void ImDebugger::SnapshotGPU(GPUCommon *gpuDebug) {
 	pixelViewer_.Snapshot();
 }
 

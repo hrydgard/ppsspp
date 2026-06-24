@@ -545,13 +545,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 		// If the above if fails, the checkbox is redundant since it'll be force disabled anyway.
 		list->Add(new CheckBox(&g_Config.bUberShaderVertex, dev->T("Vertex")));
 	}
-#if !PPSSPP_PLATFORM(UWP)
-	if (g_Config.iGPUBackend != (int)GPUBackend::OPENGL || gl_extensions.GLES3) {
-#else
-	{
-#endif
-		list->Add(new CheckBox(&g_Config.bUberShaderFragment, dev->T("Fragment")));
-	}
 
 	// Experimental, allow some VR features without OpenXR
 	if (GetGPUBackend() == GPUBackend::OPENGL) {

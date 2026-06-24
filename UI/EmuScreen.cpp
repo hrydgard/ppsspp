@@ -64,6 +64,7 @@ using namespace std::placeholders;
 #include "GPU/GPUCommon.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceDisplay.h"
@@ -79,6 +80,7 @@ using namespace std::placeholders;
 #include "UI/BackgroundAudio.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
+#include "UI/LoadStateConfirmScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/Background.h"
 #include "UI/EmuScreen.h"
@@ -469,6 +471,33 @@ EmuScreen::~EmuScreen() {
 		bootPending_ = false;
 	}
 
+	// Catch-all for shutdown paths that didn't go through REQUEST_GAME_STOP (e.g. user navigated
+	// away with the back button, opened a different game, etc.). If an exit callback is registered
+	// and the core is still running, drive the CPU synchronously here so the callback gets a chance
+	// to run - there are no more host frames after this point. Capped tightly so a misbehaving
+	// callback can't stall shutdown.
+	if (!bootPending_ && PSP_IsInited() && coreState != CORE_POWERDOWN) {
+		const bool inflight = __KernelIsExitCallbackPending();
+		if (inflight || __KernelInvokeRegisteredExitCallback()) {
+			INFO_LOG(Log::Loader, "EmuScreen dtor: %s exit callback synchronously before shutdown",
+				inflight ? "finishing in-flight" : "running");
+			if (coreState == CORE_NEXTFRAME)
+				coreState = CORE_RUNNING_CPU;
+			const s64 chunkCycles = usToCycles(100000);  // ~100ms of emulated time per chunk
+			const int maxChunks = 20;                    // hard cap: ~2s of emulated time total
+			for (int i = 0; i < maxChunks && __KernelIsExitCallbackPending(); i++) {
+				if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
+					break;
+				PSP_RunLoopFor((int)chunkCycles);
+				if (coreState == CORE_NEXTFRAME)
+					coreState = CORE_RUNNING_CPU;
+			}
+			if (__KernelIsExitCallbackPending()) {
+				WARN_LOG(Log::Loader, "Exit callback didn't return in time; powering down anyway.");
+			}
+		}
+	}
+
 	Achievements::UnloadGame();
 	PSP_Shutdown(true);
 
@@ -561,8 +590,17 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			WARN_LOG(Log::Loader, "Can't stop during a pending boot");
 			return;
 		}
-		// The destructor will take care of shutting down.
-		screenManager()->switchScreen(new MainScreen());
+		// Give the game a chance to run its registered exit callback before tearing things down.
+		// If the dispatch took, we keep running emulation; ActionAfterExitCallback (or a direct
+		// sceKernelExitGame from inside the callback) flips coreState to CORE_POWERDOWN, and
+		// checkPowerDown() then switches us to MainScreen as usual. Pressing stop again while
+		// the callback is in flight, or stopping a non-running core, falls through to immediate shutdown.
+		if (coreState == CORE_RUNNING_CPU && !__KernelIsExitCallbackPending() && __KernelInvokeRegisteredExitCallback()) {
+			INFO_LOG(Log::Loader, "REQUEST_GAME_STOP: running exit callback before shutdown.");
+		} else {
+			// No callback (or already in flight, or core not running) - the destructor will take care of shutting down.
+			screenManager()->switchScreen(new MainScreen());
+		}
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
 			WARN_LOG(Log::Loader, "Can't reset during a pending boot");
@@ -690,31 +728,6 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			}
 		}
 	}
-}
-
-bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
-	System_Notify(SystemNotification::ACTIVITY);
-
-	bool ignoreGamepad = false;
-
-	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
-		// Avoid pressing touch button behind the chat
-		if (chatMenu_->Contains(touch.x, touch.y)) {
-			ignoreGamepad = true;
-		}
-	}
-
-	if (touch.flags & TouchInputFlags::DOWN) {
-		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
-			// This just prevents the gamepad from timing out.
-			GamepadTouch();
-		}
-	}
-
-	if (root_) {
-		UIScreen::UnsyncTouch(touch);
-	}
-	return true;
 }
 
 // TODO: We should replace the "fpsLimit" system with a speed factor.
@@ -1056,7 +1069,17 @@ void EmuScreen::ProcessVKey(VirtKey virtKey) {
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (!Achievements::WarnUserIfHardcoreModeActive(false) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
-			SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			if (g_Config.bConfirmLoadState) {
+				std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
+				int slot = g_Config.iCurrentStateSlot;
+				screenManager()->push(new LoadStateConfirmScreen(prefix, slot, [prefix, slot](bool result) {
+					if (result) {
+						SaveState::LoadSlot(prefix, slot, &ShowMessageAfterSaveStateAction);
+					}
+				}));
+			} else {
+				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+			}
 		}
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:
@@ -1111,6 +1134,10 @@ void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }
 
+bool EmuScreen::AllowKeyboardNavigation() const {
+	return true;
+}
+
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
 
@@ -1141,7 +1168,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 				if (mappingFound) {
 					for (auto b : pspButtons) {
 						if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-							return g_controlMapper.Key(key, &pauseTrigger_);
+							return g_controlMapper.Key(key);
 						}
 					}
 				}
@@ -1151,28 +1178,28 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 			switch (key.deviceId) {
 			case DEVICE_ID_KEYBOARD:
 				if (!ImGui::GetIO().WantCaptureKeyboard) {
-					g_controlMapper.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key);
 				}
 				break;
 			case DEVICE_ID_MOUSE:
 				if (!ImGui::GetIO().WantCaptureMouse) {
-					g_controlMapper.Key(key, &pauseTrigger_);
+					g_controlMapper.Key(key);
 				}
 				break;
 			default:
-				g_controlMapper.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key);
 				break;
 			}
 		} else {
 			// Let up-events through to the controlMapper_ so input doesn't get stuck.
 			if (key.flags & KeyInputFlags::UP) {
-				g_controlMapper.Key(key, &pauseTrigger_);
+				g_controlMapper.Key(key);
 			}
 		}
 
 		return UIScreen::UnsyncKey(key);
 	}
-	return g_controlMapper.Key(key, &pauseTrigger_);
+	return g_controlMapper.Key(key);
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
@@ -1205,6 +1232,24 @@ bool EmuScreen::key(const KeyInput &key) {
 }
 
 void EmuScreen::touch(const TouchInput &touch) {
+	System_Notify(SystemNotification::ACTIVITY);
+
+	bool ignoreGamepad = false;
+
+	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
+		// Avoid pressing touch button behind the chat
+		if (chatMenu_->Contains(touch.x, touch.y)) {
+			ignoreGamepad = true;
+		}
+	}
+
+	if (touch.flags & TouchInputFlags::DOWN) {
+		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
+			// This just prevents the gamepad from timing out.
+			GamepadTouch();
+		}
+	}
+
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_TouchEvent(touch);
 		if (!ImGui::GetIO().WantCaptureMouse) {
@@ -1475,6 +1520,10 @@ void EmuScreen::update() {
 		errorMessage_.clear();
 		quit_ = true;
 		return;
+	}
+
+	if (g_controlMapper.PollPauseTrigger()) {
+		pauseTrigger_ = true;
 	}
 
 	if (pauseTrigger_) {
@@ -1918,7 +1967,7 @@ void EmuScreen::runImDebugger() {
 					1.f
 				);
 			}
-			imDebugger_->Frame(currentDebugMIPS, gpuDebug, draw);
+			imDebugger_->Frame(currentDebugMIPS, gpu, draw);
 
 			// Convert to drawlists.
 			ImGui::Render();

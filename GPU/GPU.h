@@ -24,7 +24,7 @@
 enum GPUCore : int;
 
 class GPUCommon;
-class GPUDebugInterface;
+class GPUCommon;
 class GraphicsContext;
 
 // PSP rasterization has two outputs, color and depth. Stencil is packed
@@ -68,20 +68,45 @@ inline unsigned int toFloat24(float f) {
 	return i >> 8;
 }
 
+// TODO: Not completely sure about the exact mechanics here, or where we need to use this.
+// Useful to experiment with.
+inline float roundToFloat24(float f) {
+	unsigned int i;
+	memcpy(&i, &f, 4);
+	i &= 0xFFFFFF00;
+	i += 0x80;  // TODO: Subtract for negative numbers?
+	float retval;
+	memcpy(&retval, &i, 4);
+	return retval;
+}
+
+inline float truncateToFloat24(float f) {
+	unsigned int i;
+	memcpy(&i, &f, 4);
+	i &= 0xFFFFFF00;
+	float retval;
+	memcpy(&retval, &i, 4);
+	return retval;
+}
+
 // TODO: Possibly use macros to disable expensive parts of stats tracking in release builds.
 struct GPUStatsPerFrame {
-	// Per frame statistics
+	int numEnqueue;
+	int numUpdateStall;
+	int numDrawSyncs;
+	int numListSyncs;
 	int numDrawCalls;
 	int numVertexDecodes;
 	int numCulledDraws;
-	int numDrawSyncs;
-	int numListSyncs;
 	int numFlushes;
+	int numSoftTransformedDraws;
+	int numSoftClippedTriangles;
 	int numBBOXJumps;
 	int numVertsSubmitted;
 	int numVertsDecoded;
-	int numUncachedVertsDrawn;
+	int numVertsDrawn;
 	int numTextureInvalidations;
+	int numTexturesChanged;
 	int numTextureInvalidationsByFramebuffer;
 	int numTexturesHashed;
 	int numTextureDataBytesHashed;
@@ -119,6 +144,7 @@ struct GPUStatsPerFrame {
 };
 
 struct GPUStatsTotals {
+	// Flip count. Doesn't really belong here.
 	int numFlips;
 };
 
@@ -140,7 +166,7 @@ struct GPUStatistics {
 
 extern GPUStatistics gpuStats;
 extern GPUCommon *gpu;
-extern GPUDebugInterface *gpuDebug;
+extern GPUCommon *gpu;
 
 namespace Draw {
 	class DrawContext;

@@ -412,6 +412,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 			return true;
 
+		case SYSPROP_CAN_RESTRICT_ORIENTATION:
+			return true;
+
 		default:
 			return false;
 	}

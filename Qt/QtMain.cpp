@@ -29,8 +29,8 @@
 
 #ifdef SDL
 #include "SDL/SDLJoystick.h"
-#include "SDL_audio.h"
-#include "SDL_keyboard.h"
+#include <SDL3/SDL_audio.h>
+#include <SDL3/SDL_keyboard.h>
 #endif
 
 #include "Common/Audio/AudioBackend.h"
@@ -75,55 +75,86 @@ MainWindow *g_mainWindow;
 
 #ifdef SDL
 SDL_AudioSpec g_retFmt;
+static int g_audioFramesPerBuffer = 0;
 
 static SDL_AudioDeviceID audioDev = 0;
+static SDL_AudioStream *audioStream = nullptr;
 
-extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4, AUDIO_FREQ, userdata);
+static void sdl_mixaudio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
+	if (additional_amount <= 0) {
+		return;
+	}
+	const int frames = additional_amount / (int)(sizeof(int16_t) * 2);
+	if (frames <= 0) {
+		return;
+	}
+	std::vector<int16_t> mixBuf(frames * 2);
+	NativeMix(mixBuf.data(), frames, AUDIO_FREQ, userdata);
+	SDL_PutAudioStreamData(stream, mixBuf.data(), (int)(mixBuf.size() * sizeof(int16_t)));
 }
 
 static void InitSDLAudioDevice() {
-	SDL_AudioSpec fmt;
-	memset(&fmt, 0, sizeof(fmt));
-	fmt.freq = 44100;
-	fmt.format = AUDIO_S16;
-	fmt.channels = 2;
-	fmt.samples = std::max(g_Config.iSDLAudioBufferSize, 128);
-	fmt.callback = &mixaudio;
-	fmt.userdata = nullptr;
+	SDL_AudioSpec fmt{};
+	fmt.freq = AUDIO_FREQ;
+	fmt.format = SDL_AUDIO_S16;
+	fmt.channels = AUDIO_CHANNELS;
+	g_audioFramesPerBuffer = std::max(g_Config.iSDLAudioBufferSize, 128);
 
-	audioDev = 0;
+	SDL_AudioDeviceID chosenDevice = SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK;
 	if (!g_Config.sAudioDevice.empty()) {
-		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-		if (audioDev <= 0) {
-			WARN_LOG(Log::Audio, "Failed to open preferred audio device %s", g_Config.sAudioDevice.c_str());
+		int deviceCount = 0;
+		SDL_AudioDeviceID *devices = SDL_GetAudioPlaybackDevices(&deviceCount);
+		for (int i = 0; devices && i < deviceCount; ++i) {
+			const char *deviceName = SDL_GetAudioDeviceName(devices[i]);
+			if (deviceName && g_Config.sAudioDevice == deviceName) {
+				chosenDevice = devices[i];
+				break;
+			}
+		}
+		if (devices) {
+			SDL_free(devices);
+		}
+		if (chosenDevice == SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK) {
+			WARN_LOG(Log::Audio, "Failed to find preferred audio device %s", g_Config.sAudioDevice.c_str());
 		}
 	}
-	if (audioDev <= 0) {
-		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+
+	audioStream = SDL_OpenAudioDeviceStream(chosenDevice, &fmt, sdl_mixaudio_callback, nullptr);
+	if (!audioStream && chosenDevice != SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK) {
+		audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &fmt, sdl_mixaudio_callback, nullptr);
 	}
-	if (audioDev <= 0) {
+
+	if (!audioStream) {
 		ERROR_LOG(Log::Audio, "Failed to open audio: %s", SDL_GetError());
-	} else {
-		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
-			ERROR_LOG(Log::Audio, "Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
-		if (g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
-			ERROR_LOG(Log::Audio, "Sound buffer format does not match requested format.");
-			ERROR_LOG(Log::Audio, "Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
-			ERROR_LOG(Log::Audio, "Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
-			ERROR_LOG(Log::Audio, "Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
-			ERROR_LOG(Log::Audio, "Provided output format does not match requirement, turning audio off");
-			SDL_CloseAudioDevice(audioDev);
-		}
-		SDL_PauseAudioDevice(audioDev, 0);
+		audioDev = 0;
+		return;
+	}
+
+	audioDev = SDL_GetAudioStreamDevice(audioStream);
+	if (!SDL_GetAudioDeviceFormat(audioDev, &g_retFmt, &g_audioFramesPerBuffer)) {
+		g_retFmt = fmt;
+	}
+	if (g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
+		ERROR_LOG(Log::Audio, "Sound buffer format does not match requested format.");
+		ERROR_LOG(Log::Audio, "Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
+		ERROR_LOG(Log::Audio, "Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
+		ERROR_LOG(Log::Audio, "Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
+	}
+
+	if (!SDL_ResumeAudioStreamDevice(audioStream)) {
+		ERROR_LOG(Log::Audio, "Failed to start audio stream: %s", SDL_GetError());
+		SDL_DestroyAudioStream(audioStream);
+		audioStream = nullptr;
+		audioDev = 0;
 	}
 }
 
 static void StopSDLAudioDevice() {
-	if (audioDev > 0) {
-		SDL_PauseAudioDevice(audioDev, 1);
-		SDL_CloseAudioDevice(audioDev);
+	if (audioStream) {
+		SDL_DestroyAudioStream(audioStream);
+		audioStream = nullptr;
 	}
+	audioDev = 0;
 }
 #endif
 
@@ -149,18 +180,23 @@ std::string System_GetProperty(SystemProperty prop) {
 	case SYSPROP_AUDIO_DEVICE_LIST:
 		{
 			std::string result;
-			for (int i = 0; i < SDL_GetNumAudioDevices(0); ++i) {
-				const char *name = SDL_GetAudioDeviceName(i, 0);
+			int count = 0;
+			SDL_AudioDeviceID *devices = SDL_GetAudioPlaybackDevices(&count);
+			for (int i = 0; devices && i < count; ++i) {
+				const char *name = SDL_GetAudioDeviceName(devices[i]);
 				if (!name) {
 					continue;
 				}
 
-				if (i == 0) {
+				if (result.empty()) {
 					result = name;
 				} else {
 					result.append(1, '\0');
 					result.append(name);
 				}
+			}
+			if (devices) {
+				SDL_free(devices);
 			}
 			return result;
 		}
@@ -195,14 +231,14 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return g_retFmt.freq;
 	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
-		return g_retFmt.samples;
+		return g_audioFramesPerBuffer;
 	case SYSPROP_KEYBOARD_LAYOUT:
 	{
 		// TODO: Use Qt APIs for detecting this
 		char q, w, y;
-		q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q);
-		w = SDL_GetKeyFromScancode(SDL_SCANCODE_W);
-		y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y);
+		q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q, SDL_KMOD_NONE, false);
+		w = SDL_GetKeyFromScancode(SDL_SCANCODE_W, SDL_KMOD_NONE, false);
+		y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y, SDL_KMOD_NONE, false);
 		if (q == 'a' && w == 'z' && y == 'y')
 			return KEYBOARD_LAYOUT_AZERTY;
 		else if (q == 'q' && w == 'w' && y == 'z')
@@ -883,10 +919,7 @@ int main(int argc, char *argv[])
 	INFO_LOG(Log::System, "Left mainInternal here.");
 
 #ifdef SDL
-	if (audioDev > 0) {
-		SDL_PauseAudioDevice(audioDev, 1);
-		SDL_CloseAudioDevice(audioDev);
-	}
+	StopSDLAudioDevice();
 #endif
 	NativeShutdown();
 	glslang::FinalizeProcess();

@@ -25,6 +25,8 @@
 
 #include "ppsspp_config.h"
 
+#include "ext/rcheevos/include/rc_client.h"
+
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
 #include <errno.h>
@@ -191,6 +193,71 @@ static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static int g_restartGraphics;
 static bool g_windowHidden = false;
+static std::string g_achievementsHostOverride;
+static std::string g_savedAchievementsHost;
+static bool g_savedAchievementsHardcoreMode = false;
+static bool g_hasSavedAchievementsSettings = false;
+static bool g_nativeMainThreadReady = false;
+
+static void ApplyAchievementsRuntimeSettings() {
+	auto *client = Achievements::GetClient();
+	if (!client) {
+		return;
+	}
+
+	if (!g_Config.sAchievementsHost.empty()) {
+		rc_client_set_host(client, g_Config.sAchievementsHost.c_str());
+	} else if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		rc_client_set_host(client, "http://retroachievements.org");
+	} else {
+		rc_client_set_host(client, "https://retroachievements.org");
+	}
+
+	rc_client_set_hardcore_enabled(client, g_Config.bAchievementsHardcoreMode ? 1 : 0);
+}
+
+static void ApplyAchievementsHostOverride() {
+	if (g_achievementsHostOverride.empty()) {
+		return;
+	}
+
+	if (!g_hasSavedAchievementsSettings) {
+		g_savedAchievementsHost = g_Config.sAchievementsHost;
+		g_savedAchievementsHardcoreMode = g_Config.bAchievementsHardcoreMode;
+		g_hasSavedAchievementsSettings = true;
+	}
+
+	g_Config.DoNotSaveSetting(&g_Config.sAchievementsHost);
+	g_Config.sAchievementsHost = g_achievementsHostOverride;
+	g_Config.DoNotSaveSetting(&g_Config.bAchievementsHardcoreMode);
+	g_Config.bAchievementsHardcoreMode = false;
+	ApplyAchievementsRuntimeSettings();
+}
+
+static void ClearAchievementsHostOverride() {
+	g_achievementsHostOverride.clear();
+	if (!g_hasSavedAchievementsSettings) {
+		return;
+	}
+
+	g_Config.DoNotSaveSetting(&g_Config.sAchievementsHost);
+	g_Config.sAchievementsHost = g_savedAchievementsHost;
+	g_Config.DoNotSaveSetting(&g_Config.bAchievementsHardcoreMode);
+	g_Config.bAchievementsHardcoreMode = g_savedAchievementsHardcoreMode;
+	g_savedAchievementsHost.clear();
+	g_savedAchievementsHardcoreMode = false;
+	g_hasSavedAchievementsSettings = false;
+	ApplyAchievementsRuntimeSettings();
+}
+
+static void RunAchievementsOverrideUpdate(std::function<void()> func) {
+	if (g_nativeMainThreadReady) {
+		System_RunOnMainThread(std::move(func));
+	} else {
+		func();
+	}
+}
+
 std::vector<std::function<void()>> g_pendingClosures;
 
 AudioBackend *g_audioBackend = nullptr;
@@ -707,6 +774,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_DownloadManager.SetCacheDir(GetSysDirectory(DIRECTORY_APP_CACHE));
 
+	ApplyAchievementsHostOverride();
+
 	DEBUG_LOG(Log::System, "ScreenManager!");
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
@@ -756,6 +825,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// Must be done restarting by now.
 	restarting = false;
+	g_nativeMainThreadReady = true;
+}
+
+void NativeSetAchievementsHostOverride(std::string_view host) {
+	std::string hostCopy(host);
+	RunAchievementsOverrideUpdate([host = std::move(hostCopy)] {
+		g_achievementsHostOverride = host;
+		ApplyAchievementsHostOverride();
+	});
+}
+
+void NativeClearAchievementsHostOverride() {
+	RunAchievementsOverrideUpdate([] {
+		ClearAchievementsHostOverride();
+	});
 }
 
 void CallbackPostRender(UIContext *dc, void *userdata);
@@ -891,12 +975,14 @@ bool CreateGlobalPipelines() {
 
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc, "global_color");
 	if (!colorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
 
 	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc, "global_texcolor");
 	if (!texColorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
@@ -1072,8 +1158,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_breakpoints.Frame();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
-	// NOTE: We compensate for the Y convention in the shaders, so we can use the same matrices in all backends.
-	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention, false);
+	// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
+	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
 
 	// Can be overridden by sceDisplay which may pass true for the second argument.
 	g_frameTiming.ComputePresentMode(g_draw, false);
@@ -1283,6 +1369,20 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 }
 
+enum class Modifier {
+	NONE = 0,
+	LCTRL = 1,
+	RCTRL = 2,
+	LSHIFT = 4,
+	RSHIFT = 8,
+	LALT = 16,
+	RALT = 32,
+	LMETA = 64,
+	RMETA = 128,
+};
+ENUM_CLASS_BITOPS(Modifier);
+static Modifier g_modifiersPressed{};
+
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
 
@@ -1343,8 +1443,59 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
+
+	// Track and update modifiers.
+
+	// Track modifier keys.
+	if (key.flags & KeyInputFlags::DOWN) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed |= Modifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed |= Modifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed |= Modifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed |= Modifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed |= Modifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed |= Modifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed |= Modifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed |= Modifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+	if (key.flags & KeyInputFlags::UP) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed &= ~Modifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed &= ~Modifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed &= ~Modifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed &= ~Modifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed &= ~Modifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed &= ~Modifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed &= ~Modifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed &= ~Modifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+
+	KeyInputFlags modifierFlags{};
+
+	if (g_modifiersPressed & (Modifier::LCTRL | Modifier::RCTRL)) {
+		modifierFlags |= KeyInputFlags::MOD_CTRL;
+	}
+	if (g_modifiersPressed & (Modifier::LSHIFT | Modifier::RSHIFT)) {
+		modifierFlags |= KeyInputFlags::MOD_SHIFT;
+	}
+	if (g_modifiersPressed & (Modifier::LALT | Modifier::RALT)) {
+		modifierFlags |= KeyInputFlags::MOD_ALT;
+	}
+	if (g_modifiersPressed & (Modifier::LMETA | Modifier::RMETA)) {
+		modifierFlags |= KeyInputFlags::MOD_META;
+	}
+
+	KeyInput modKey = key;
+	modKey.flags |= modifierFlags;
+
 	// Dispatch the key event.
-	bool retval = g_screenManager->key(key);
+	bool retval = g_screenManager->key(modKey);
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
@@ -1470,6 +1621,8 @@ bool NativeIsRestarting() {
 
 void NativeShutdown() {
 	INFO_LOG(Log::System, "NativeShutdown begin");
+	ClearAchievementsHostOverride();
+	g_nativeMainThreadReady = false;
 
 	Achievements::Shutdown();
 

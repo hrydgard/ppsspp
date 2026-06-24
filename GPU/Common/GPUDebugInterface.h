@@ -75,9 +75,6 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_24BIT_8X = 0x13,
 	GPU_DBG_FORMAT_24X_8BIT = 0x14,
 
-	GPU_DBG_FORMAT_FLOAT_DIV_256 = 0x18,
-	GPU_DBG_FORMAT_24BIT_8X_DIV_256 = 0x1B,
-
 	// This is used for screenshots, mainly.
 	GPU_DBG_FORMAT_888_RGB = 0x20,
 };
@@ -202,108 +199,44 @@ private:
 	int scaleFactor_ = 0;
 };
 
+// This is used to represent both pre- and post transformed vertices, so is a bit of a mess.
 struct GPUDebugVertex {
 	float u;
 	float v;
+
 	float x;
 	float y;
 	float z;
-	u8 c[4];
+	float w;
+
+	union {
+		u8 c0[4];
+		u32 color0_32;
+	};
+	union {
+		u8 c1[4];
+		u32 color1_32;
+	};
+
+	float fog;
+
 	float nx;
 	float ny;
 	float nz;
+
+	float weights[8];
 };
+
+enum class DebugVertexFlags {
+	Transformed = 1 << 0,
+	Clipped = 1 << 1,
+	DrawCoords = 1 << 2,  // if not set, output X/Y will be in screen coords.
+};
+ENUM_CLASS_BITOPS(DebugVertexFlags);
 
 class StringWriter;
+class GPUCommon;
 
-class GPUDebugInterface {
-public:
-	virtual ~GPUDebugInterface() = default;
-	virtual bool GetCurrentDisplayList(DisplayList &list) = 0;
-	virtual int GetCurrentPrimCount() = 0;
-	virtual std::vector<DisplayList> ActiveDisplayLists() = 0;
-	virtual void ResetListPC(int listID, u32 pc) = 0;
-	virtual void ResetListStall(int listID, u32 stall) = 0;
-	virtual void ResetListState(int listID, DisplayListState state) = 0;
-
-	virtual GPUDebugOp DisassembleOp(u32 pc, u32 op) = 0;
-	virtual std::vector<GPUDebugOp> DisassembleOpRange(u32 startpc, u32 endpc) = 0;
-
-	virtual u32 GetRelativeAddress(u32 data) = 0;
-	virtual u32 GetVertexAddress() = 0;
-	virtual u32 GetIndexAddress() = 0;
-	virtual const GPUgstate &GetGState() = 0;
-	// Needs to be called from the GPU thread.
-	// Calling from a separate thread (e.g. UI) may fail.
-	virtual void SetCmdValue(u32 op) = 0;
-	virtual void Flush() = 0;
-
-	virtual void GetStats(StringWriter &w) = 0;
-
-	virtual uint32_t SetAddrTranslation(uint32_t value) = 0;
-	virtual uint32_t GetAddrTranslation() = 0;
-	
-	// TODO: Make a proper debug interface instead of accessing directly?
-	virtual FramebufferManagerCommon *GetFramebufferManagerCommon() = 0;
-	virtual TextureCacheCommon *GetTextureCacheCommon() = 0;
-
-	virtual std::vector<const VirtualFramebuffer *> GetFramebufferList() const = 0;
-
-	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) = 0;
-	virtual std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) = 0;
-	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
-	virtual const std::list<int> &GetDisplayListQueue() = 0;
-	virtual const DisplayList &GetDisplayList(int index) = 0;
-
-	virtual int PrimsThisFrame() const = 0;
-	virtual int PrimsLastFrame() const = 0;
-
-	virtual void ClearBreakNext() = 0;
-	virtual void SetBreakNext(GPUDebug::BreakNext next) = 0 ;
-	virtual void SetBreakCount(int c, bool relative = false) = 0 ;
-	virtual GPUDebug::BreakNext GetBreakNext() const = 0;
-	virtual int GetBreakCount() const = 0;
-	virtual bool SetRestrictPrims(std::string_view rule) = 0 ;
-	virtual std::string_view GetRestrictPrims() = 0;
-
-	virtual GPURecord::Recorder *GetRecorder() = 0;
-	virtual GPUBreakpoints *GetBreakpoints() = 0;
-
-	virtual bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-		return false;
-	}
-
-	// Needs to be called from the GPU thread, so on the same thread as a notification is fine.
-	// Calling from a separate thread (e.g. UI) may fail.
-	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) {
-		// False means unsupported.
-		return false;
-	}
-
-	// Similar to GetCurrentFramebuffer().
-	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-		return false;
-	}
-
-	// Similar to GetCurrentFramebuffer().
-	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-		return false;
-	}
-
-	// Similar to GetCurrentFramebuffer(), with texture level specification.
-	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-		return false;
-	}
-
-	virtual bool GetCurrentClut(GPUDebugBuffer &buffer) {
-		return false;
-	}
-
-	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-		return false;
-	}
-};
-
-bool GPUDebugInitExpression(GPUDebugInterface *g, const char *str, PostfixExpression &exp);
-bool GPUDebugExecExpression(GPUDebugInterface *g, PostfixExpression &exp, uint32_t &result);
-bool GPUDebugExecExpression(GPUDebugInterface *g, const char *str, uint32_t &result);
+bool GPUDebugInitExpression(GPUCommon *g, const char *str, PostfixExpression &exp);
+bool GPUDebugExecExpression(GPUCommon *g, PostfixExpression &exp, uint32_t &result);
+bool GPUDebugExecExpression(GPUCommon *g, const char *str, uint32_t &result);

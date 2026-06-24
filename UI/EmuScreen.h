@@ -54,7 +54,6 @@ public:
 
 	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
 	// to get minimal latency and full control. We forward to UIScreen when needed.
-	bool UnsyncTouch(const TouchInput &touch) override;
 	bool UnsyncKey(const KeyInput &key) override;
 	void UnsyncAxis(const AxisInput *axes, size_t count) override;
 
@@ -70,6 +69,8 @@ public:
 	}
 
 protected:
+	bool AllowKeyboardNavigation() const override;
+
 	void darken();
 	void focusChanged(ScreenFocusChange focusChange) override;
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
@@ -114,6 +115,7 @@ private:
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
+	// We also poll the pause trigger from the ControlMapper. That needs refactoring.
 	bool pauseTrigger_ = false;
 
 	// The last read chat message count, and how many new ones there are.

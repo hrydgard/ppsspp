@@ -65,7 +65,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 
 	// Changes that dirty the framebuffer
 	{ GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
-	{ GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
+	{ GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE },
 	{ GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE },
 	{ GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE },
@@ -75,8 +75,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
 
 	// These affect the fragment shader so need flushing.
-	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
-	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
@@ -90,7 +90,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 
 	// These change the vertex shader so need flushing.
 	{ GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
-	{ GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_LIGHTENABLE0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	{ GE_CMD_LIGHTENABLE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 	{ GE_CMD_LIGHTENABLE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
@@ -102,7 +102,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_MATERIALUPDATE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
 
 	// These change all shaders so need flushing.
-	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE },
+	{ GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 
 	{ GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
@@ -192,27 +192,27 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_ANTIALIASENABLE, FLAG_FLUSHBEFOREONCHANGE },
 
 	// Viewport.
-	{ GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
-	{ GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
-	{ GE_CMD_VIEWPORTXSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULLRANGE | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_VIEWPORTYSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULLRANGE | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_VIEWPORTXCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULLRANGE | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULLRANGE | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_VIEWPORTZSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULLRANGE | DIRTY_DEPTHRANGE | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULLRANGE | DIRTY_DEPTHRANGE | DIRTY_PROJMATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_DEPTHCLAMPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE | DIRTY_RASTER_STATE },
+	{ GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_OFFSET },
+	{ GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_OFFSET },
+	{ GE_CMD_VIEWPORTXSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORT_UNIFORMS | DIRTY_VIEWPORTSCISSOR_STATE },  // GetFramebufferHeuristicInputs still uses viewport scale
+	{ GE_CMD_VIEWPORTYSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORT_UNIFORMS | DIRTY_VIEWPORTSCISSOR_STATE },
+	{ GE_CMD_VIEWPORTXCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORT_UNIFORMS },
+	{ GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORT_UNIFORMS },
+	{ GE_CMD_VIEWPORTZSCALE, FLAG_FLUSHBEFOREONCHANGE,  DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORT_UNIFORMS },
+	{ GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORT_UNIFORMS },
 
-	// Z clip
-	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
-	{ GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
+	// Z range and clipping
+	{ GE_CMD_DEPTHCLIPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE },
+	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_RASTER_OFFSET | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_RASTER_OFFSET | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
 
 	// Region
-	{ GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
-	{ GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
+	{ GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE },
+	{ GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
 
 	// Scissor
-	{ GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
-	{ GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE },
+	{ GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
+	{ GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_CULL_MATRIX | DIRTY_VIEWPORTSCISSOR_STATE },
 
 	// Lighting base colors
 	{ GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_AMBIENT },
@@ -495,21 +495,6 @@ void GPUCommonHW::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_MATERIALUPDATE].RemoveDirty(DIRTY_LIGHT_CONTROL);
 		cmdInfo_[GE_CMD_MATERIALUPDATE].AddDirty(DIRTY_VERTEXSHADER_STATE);
 	}
-
-	if (gstate_c.Use(GPU_USE_FRAGMENT_UBERSHADER)) {
-		// Texfunc controls both texalpha and doubling. The rest is not dynamic yet so can't remove fragment shader dirtying.
-		cmdInfo_[GE_CMD_TEXFUNC].AddDirty(DIRTY_TEX_ALPHA_MUL);
-	} else {
-		cmdInfo_[GE_CMD_TEXFUNC].RemoveDirty(DIRTY_TEX_ALPHA_MUL);
-	}
-}
-
-void GPUCommonHW::BeginHostFrame(const DisplayLayoutConfig &config) {
-	GPUCommon::BeginHostFrame(config);
-	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
-		sawExactEqualDepth_ = true;
-		gstate_c.SetUseFlags(CheckGPUFeatures());
-	}
 }
 
 void GPUCommonHW::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -581,7 +566,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	if (draw_->GetDeviceCaps().logicOpSupported) {
 		features |= GPU_USE_LOGIC_OP;
 	}
-	if (draw_->GetDeviceCaps().anisoSupported) {
+	if (draw_->GetDeviceCaps().anisoSupported && g_Config.iAnisotropyLevel > 0) {
 		features |= GPU_USE_ANISOTROPY;
 	}
 	if (draw_->GetDeviceCaps().dualSourceBlend) {
@@ -593,7 +578,9 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_BLEND_MINMAX;
 	}
 
-	if (draw_->GetDeviceCaps().maxClipDistances >= 2) {
+	// The next three (clipDistance, cullDistance, depthClamp) are the critical features that let us correctly emulate PSP behavior without fallbacks.
+	// This is except for the case of clipped polygons still reaching outside the guardband, where we still need to software-clip if detected.
+	if (draw_->GetDeviceCaps().maxClipDistances >= 3) {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
@@ -601,20 +588,12 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
 
+	if (draw_->GetDeviceCaps().depthClampSupported) {
+		features |= GPU_USE_DEPTH_CLAMP;
+	}
+
 	if (draw_->GetDeviceCaps().textureDepthSupported) {
 		features |= GPU_USE_DEPTH_TEXTURE;
-	}
-
-	if (draw_->GetDeviceCaps().depthClampSupported) {
-		// Some backends always do GPU_USE_ACCURATE_DEPTH, but it's required for depth clamp.
-		features |= GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH;
-	}
-
-	bool canClipOrCull = draw_->GetDeviceCaps().maxClipDistances >= 2 || draw_->GetDeviceCaps().maxCullDistances >= 1;
-	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
-	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
-		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
-		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
@@ -634,14 +613,8 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
-	// Even without depth clamp, force accurate depth on for some games that break without it.
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
-		features |= GPU_USE_ACCURATE_DEPTH;
-	}
-
-	// Some backends will turn this off again in the calling function.
-	if (g_Config.bUberShaderFragment) {
-		features |= GPU_USE_FRAGMENT_UBERSHADER;
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
 	return features;
@@ -652,24 +625,9 @@ u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
 	if (!prefer16) {
-		if (sawExactEqualDepth_ && (features & GPU_USE_ACCURATE_DEPTH) != 0 && !PSP_CoreParameter().compat.flags().ForceMaxDepthResolution) {
-			// Exact equal tests tend to have issues unless we use the PSP's depth range.
-			// We use 24-bit depth virtually everwhere, the fallback is just for safety.
-			if (prefer24)
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			else
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-		} else if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-				// Here we can simulate a 16 bit depth buffer by scaling.
-				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
-				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
-			} else {
-				// Use fragment rounding on where available otherwise.
-				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			}
+		if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+			// Use fragment rounding on where available otherwise.
+			features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
 		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
@@ -693,7 +651,7 @@ std::vector<std::string> GPUCommonHW::DebugGetShaderIDs(DebugShaderType type) {
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngineCommon_->DebugGetVertexLoaderIDs();
 	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderIDs(type);
+		return textureCache_->GetTextureShaderCache().DebugGetShaderIDs(type);
 	default:
 		return shaderManager_->DebugGetShaderIDs(type);
 	}
@@ -704,7 +662,7 @@ std::string GPUCommonHW::DebugGetShaderString(std::string id, DebugShaderType ty
 	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngineCommon_->DebugGetVertexLoaderString(id, stringType);
 	case SHADER_TYPE_TEXTURE:
-		return textureCache_->GetTextureShaderCache()->DebugGetShaderString(id, type, stringType);
+		return textureCache_->GetTextureShaderCache().DebugGetShaderString(id, type, stringType);
 	default:
 		return shaderManager_->DebugGetShaderString(id, type, stringType);
 	}
@@ -883,7 +841,7 @@ void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
 
 		if (diff & GE_VTYPE_THROUGH_MASK) {
 			// Switching between through and non-through, we need to invalidate a bunch of stuff.
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
 }
@@ -903,8 +861,9 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
+
 	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
@@ -994,7 +953,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const bool isTriangle = IsTrianglePrim(prim);
 
 	bool canExtend = isTriangle;
-	u32 vertexType = gstate.vertType;
+	GEVertexType vertexType = (GEVertexType)gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
 		const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
@@ -1014,8 +973,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
+	// This is the check from #21678 for Evangelion JO.
+	// TODO: Make this less specific.
 	if (gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
-			gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
+		gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
 		int safeWidth;
 		int safeHeight;
 		// First-frame readback can happen before queued draws reach backend transform.
@@ -1024,10 +985,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
-	if ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_MASK | GE_VTYPE_IDX_MASK)) == (GE_VTYPE_THROUGH_MASK | GE_VTYPE_POS_FLOAT | GE_VTYPE_IDX_NONE)) {
+	// Through mode early-out. Very beneficial for Fate Extra CCC (very beneficial there due to avoiding texture loads)
+	// Also we take the opportunity to check for flat draws, where we can detect sprites (to fix filter artifacts).
+	ClipInfoFlags flags{};
+	if (gstate.isModeThrough()) {
 		int bytesRead = 0;
-		if (!drawEngineCommon_->TestBoundingBoxThrough(verts, count, decoder, vertexType, &bytesRead)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags)) {
 			gpuStats.perFrame.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
@@ -1038,12 +1001,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 	}
 
-#define MAX_CULL_CHECK_COUNT 6
+#define MAX_CULL_CHECK_COUNT 2500
 
-// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
+	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
 
-#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK | GE_VTYPE_IDX_MASK)) || count > MAX_CULL_CHECK_COUNT)
+#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK)) || count > MAX_CULL_CHECK_COUNT)
 
 #else
 
@@ -1055,7 +1018,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	bool passCulling = PASSES_CULLING;
 	if (!passCulling) {
 		// Do software culling.
-		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType)) {
+		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
 			passCulling = true;
 		} else {
 			gpuStats.perFrame.numCulledDraws++;
@@ -1068,13 +1031,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Cuts down on checking, while not losing that much efficiency.
 	bool onePassed = false;
 	if (passCulling) {
-		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead)) {
+		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, decoder, vertTypeID, true, &bytesRead, flags)) {
 			canExtend = false;
 		}
-		onePassed = true;
+		// onePassed = true;
 	} else {
 		// Still need to advance bytesRead.
-		drawEngineCommon_->SkipPrim(prim, count, decoder, vertTypeID, &bytesRead);
+		drawEngineCommon_->SkipPrim(prim, count, decoder, &bytesRead);
 		canExtend = false;
 	}
 
@@ -1114,9 +1077,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 			if (canExtend) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
-				// are consecutive in memory. We also ignore culling here.
+				// are consecutive in memory. We also ignore culling here which is not ideal.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle);
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, flags);
 				if (!commandsExecuted) {
 					goto bail;
 				}
@@ -1142,24 +1105,24 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			}
 
 			bool passCulling = onePassed || PASSES_CULLING;
+			ClipInfoFlags flags{};
 			if (!passCulling) {
 				// Do software culling.
-				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.worldviewproj, verts, count, decoder, vertexType)) {
+				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
 					passCulling = true;
 				} else {
 					gpuStats.perFrame.numCulledDraws++;
 				}
 			}
 			if (passCulling) {
-				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead)) {
+				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead, flags)) {
 					canExtend = false;
 				}
 				// As soon as one passes, assume we don't need to check the rest of this batch.
-				onePassed = true;
+				// onePassed = true;
 			} else {
 				// Still need to advance bytesRead.
-				drawEngineCommon_->SkipPrim(newPrim, count, decoder, vertTypeID, &bytesRead);
+				drawEngineCommon_->SkipPrim(newPrim, count, decoder, &bytesRead);
 				canExtend = false;
 			}
 			AdvanceVerts(vertexType, count, bytesRead);
@@ -1175,7 +1138,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 					goto bail;
 				drawEngineCommon_->FlushSkin();
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
-				vertexType = data;
+				vertexType = (GEVertexType)(data);
 				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 				decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 			}
@@ -1364,22 +1327,14 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
 	// We need to dirty UVSCALEOFFSET here because we look at the submit type when setting that uniform.
-	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
-	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.submitType = SubmitType::HW_BEZIER;
-		if (gstate_c.spline_num_points_u != surface.num_points_u) {
-			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_num_points_u = surface.num_points_u;
-		}
-	} else {
-		gstate_c.submitType = SubmitType::BEZIER;
-	}
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
+	gstate_c.submitType = SubmitType::BEZIER;
 
 	int bytesRead = 0;
 	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
-	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -1444,22 +1399,14 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
 	// We need to dirty UVSCALEOFFSET here because we look at the submit type when setting that uniform.
-	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
-	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
-		gstate_c.submitType = SubmitType::HW_SPLINE;
-		if (gstate_c.spline_num_points_u != surface.num_points_u) {
-			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_num_points_u = surface.num_points_u;
-		}
-	} else {
-		gstate_c.submitType = SubmitType::SPLINE;
-	}
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
+	gstate_c.submitType = SubmitType::SPLINE;
 
 	int bytesRead = 0;
 	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
-	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
 	gstate_c.submitType = SubmitType::DRAW;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -1541,7 +1488,7 @@ void GPUCommonHW::Execute_WorldMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX);
+				gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 			}
 			if (++i >= end) {
 				break;
@@ -1564,7 +1511,7 @@ void GPUCommonHW::Execute_WorldMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.worldMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX);
+		gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
@@ -1594,7 +1541,7 @@ void GPUCommonHW::Execute_ViewMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+				gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX) ;
 			}
 			if (++i >= end) {
 				break;
@@ -1617,7 +1564,7 @@ void GPUCommonHW::Execute_ViewMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.viewMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+		gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
@@ -1647,7 +1594,7 @@ void GPUCommonHW::Execute_ProjMtxNum(u32 op, u32 diff) {
 			if (dst[i] != newVal) {
 				Flush();
 				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+				gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 			}
 			if (++i >= end) {
 				break;
@@ -1670,7 +1617,7 @@ void GPUCommonHW::Execute_ProjMtxData(u32 op, u32 diff) {
 	if (num < 16 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 	}
 	num++;
 	if (num <= 16)
@@ -1829,11 +1776,12 @@ int GPUCommonHW::ListSync(int listid, int mode) {
 void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	float vertexAverageCycles = gpuStats.perFrame.numVertsSubmitted > 0 ? (float)gpuStats.perFrame.vertexGPUCycles / (float)gpuStats.perFrame.numVertsSubmitted : 0.0f;
 	w.F(
-		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
+		"DL processing time: %0.2f ms\n"
+		"%d enqueue, %d updatestall, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
-		"Vertices: %d dec: %d drawn: %d\n"
+		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
 		"FBOs active: %d (evaluations: %d, created %d)\n"
-		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB, clut %d\n"
+		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
@@ -1842,6 +1790,8 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
 		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
 		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
+		gpuStats.perFrame.numEnqueue,
+		gpuStats.perFrame.numUpdateStall,
 		gpuStats.perFrame.numDrawSyncs,
 		gpuStats.perFrame.numListSyncs,
 		gpuStats.perFrame.numDrawCalls,
@@ -1850,15 +1800,19 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numFlushes,
 		gpuStats.perFrame.numClears,
 		gpuStats.perFrame.numBBOXJumps,
+		gpuStats.perFrame.numSoftTransformedDraws,
 		gpuStats.perFrame.numVertsSubmitted,
 		gpuStats.perFrame.numVertsDecoded,
-		gpuStats.perFrame.numUncachedVertsDrawn,
+		gpuStats.perFrame.numVertsDrawn,
+		gpuStats.perFrame.numSoftClippedTriangles,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.perFrame.numFramebufferEvaluations,
 		gpuStats.perFrame.numFBOsCreated,
 		(int)textureCache_->NumLoadedTextures(),
+		(int)textureCache_->NumSecondaryTextures(),
 		gpuStats.perFrame.numTexturesDecoded,
 		gpuStats.perFrame.numTextureInvalidations,
+		gpuStats.perFrame.numTexturesChanged,
 		gpuStats.perFrame.numTextureDataBytesHashed / 1024,
 		gpuStats.perFrame.numClutTextures,
 		gpuStats.perFrame.numBlockingReadbacks,

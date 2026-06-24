@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -473,6 +474,7 @@ public:
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
+		_dbg_assert_(curPipeline_->pipeline);
 	}
 
 	void BindVertexBuffer(Buffer *vertexBuffer, int offset) override {
@@ -598,6 +600,8 @@ private:
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
+
+	mutable std::unordered_map<DataFormat, uint32_t> dataFormatSupportCache_;
 
 	VulkanPushPool *push_ = nullptr;
 
@@ -953,6 +957,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	// Note that it must also be enabled on the pipelines (which we do).
 	caps_.provokingVertexLast = vulkan->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast;
 
+	caps_.fullScreenExclusiveSupported = vulkan->Extensions().EXT_full_screen_exclusive;
 	// Present mode stuff
 	caps_.presentMaxInterval = 1;
 	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
@@ -1242,8 +1247,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
+			_dbg_assert_(!gDesc.vertexShader);  // can't have two
 			gDesc.vertexShader = vkshader->Get();
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
+			_dbg_assert_(!gDesc.fragmentShader);  // can't have two
 			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(Log::G3D, "Bad stage");
@@ -1297,6 +1304,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	}
 
 	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, false, tag ? tag : "thin3d");
+	_dbg_assert_(pipeline->pipeline);
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1729,6 +1737,11 @@ std::vector<std::string> VKContext::GetExtensionList(bool device, bool enabledOn
 }
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
+	auto iter = dataFormatSupportCache_.find(fmt);
+	if (iter != dataFormatSupportCache_.end()) {
+		return iter->second;
+	}
+
 	VkFormat vulkan_format = DataFormatToVulkan(fmt);
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
@@ -1751,6 +1764,7 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
 		flags |= FMT_STORAGE_IMAGE;
 	}
+	dataFormatSupportCache_[fmt] = flags;
 	return flags;
 }
 

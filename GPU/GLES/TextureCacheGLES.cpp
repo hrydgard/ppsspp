@@ -147,6 +147,7 @@ void TextureCacheGLES::StartFrame() {
 	}
 }
 
+// TODO: This is almost the same as the Common one, just with some extra color conversion. Should merge.
 void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
@@ -173,25 +174,27 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	}
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-	clutAlphaLinear_ = false;
-	clutAlphaLinearColor_ = 0;
+	bool alphaLinear = false;
+	u16 alphaLinearColor = 0;
 	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
-		const u16_le *clut = GetCurrentClut<u16_le>();
-		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
+		const u16 *clut = (const u16 *)(clutBuf_);
+		alphaLinear = true;
+		alphaLinearColor = clut[15] & 0xFFF0;
 		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | i;
+			u16 step = alphaLinearColor | i;
 			if (clut[i] != step) {
-				clutAlphaLinear_ = false;
+				alphaLinear = false;
 				break;
 			}
 		}
 	}
+	clutProperties_.clutAlphaLinear = alphaLinear;
+	clutProperties_.clutAlphaLinearColor = alphaLinearColor;
 
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
 		lastBoundTexture = nullptr;
@@ -201,10 +204,9 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
+	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ApplySamplingParams(samplerKey);
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -269,7 +271,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			// on this hardware (strict OpenGL rules).
 			plan.levelsToCreate = 1;
 			plan.levelsToLoad = 1;
-			entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+			entry->status |= TexStatus::NO_MIPS;
 		}
 	}
 
@@ -345,13 +347,13 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		render_->TextureImage(entry->textureName, 0, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, dstFmt, data, GLRAllocType::ALIGNED);
 
 		// Signal that we support depth textures so use it as one.
-		entry->status |= TexCacheEntry::STATUS_3D;
+		entry->status |= TexStatus::IS_3D;
 
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 	}
 }
 
@@ -388,7 +390,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-	ApplyTexture(false);
+	ApplyTexture(false, false);
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -412,16 +414,14 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 }
 
 void TextureCacheGLES::DeviceLost() {
-	textureShaderCache_->DeviceLost();
-	Clear(false);
+	TextureCacheCommon::DeviceLost();
 	draw_ = nullptr;
 	render_ = nullptr;
 }
 
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	textureShaderCache_->DeviceRestore(draw);
 }
 
 void *TextureCacheGLES::GetNativeTextureView(const TexCacheEntry *entry, bool flat) const {

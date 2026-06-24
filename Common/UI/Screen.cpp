@@ -349,9 +349,11 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 
 	// NOTE: Changed this to send the message to all screens, instead of just the top one,
 	// to allow EmuScreen to receive messages from popup menus. Hope this didn't break anything..
-	for (const auto &iter : stack_) {
-		if (iter.screen) {
-			iter.screen->sendMessage(message, value);
+	// NOTE: We do not use the iterator solution here, because the screen array may change by sendMessage!
+	// Although if it does, that's very bad.
+	for (int i = 0; i < stack_.size(); i++) {
+		if (stack_[i].screen) {
+			stack_[i].screen->sendMessage(message, value);
 		}
 	}
 }

@@ -251,7 +251,11 @@ extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
 
 // For fast extension-enabled checks.
 struct VulkanExtensions {
+	// Instance extensions
+	bool KHR_get_surface_capabilities2;
 	bool EXT_debug_utils;
+
+	// Device extensions
 	bool KHR_maintenance1; // required for KHR_create_renderpass2
 	bool KHR_maintenance2;
 	bool KHR_maintenance3;
@@ -272,6 +276,7 @@ struct VulkanExtensions {
 	bool EXT_provoking_vertex;
 	bool KHR_present_mode_fifo_latest_ready;
 	bool EXT_scalar_block_layout;
+	bool EXT_full_screen_exclusive;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 

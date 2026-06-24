@@ -154,7 +154,6 @@ public:
 	const char *tag() const override { return "FrameDumpTest"; }
 
 private:
-	void OnLoadDump(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
 
 	std::vector<std::string> files_;

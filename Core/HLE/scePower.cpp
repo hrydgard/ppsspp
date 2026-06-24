@@ -442,12 +442,6 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	if (busfreq == 0 || busfreq > 166) {
 		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid bus frequency");
 	}
-	// TODO: More restrictions.
-	if (GetLockedCPUSpeedMhz() > 0) {
-		INFO_LOG(Log::HLE, "scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, GetLockedCPUSpeedMhz(), GetLockedCPUSpeedMhz(), busFreq);
-	} else {
-		INFO_LOG(Log::HLE, "scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
-	}
 	// Only reschedules when the stepped PLL frequency changes.
 	// It seems like the busfreq parameter has no effect (but can cause errors.)
 	if (RealpllFreq != PowerPllMhzToHz(pllfreq)) {
@@ -471,8 +465,15 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 
 		return hleDelayResult(hleNoLog(0), "scepower set clockFrequency", usec);
 	}
-	if (GetLockedCPUSpeedMhz() <= 0)
-		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
+	if (GetLockedCPUSpeedMhz() <= 0) {
+		if (CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq))) {
+			return hleLogInfo(Log::HLE, 0);
+		} else {
+			return hleLogDebug(Log::HLE, 0);
+		}
+	} else {
+		return hleLogInfo(Log::HLE, 0, "locked by user config at %i, %i, %i", GetLockedCPUSpeedMhz(), GetLockedCPUSpeedMhz(), busFreq);
+	}
 	return hleNoLog(0);
 }
 

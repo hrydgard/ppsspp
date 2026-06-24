@@ -85,7 +85,7 @@ public:
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 protected:
-	void BindTexture(TexCacheEntry *entry) override;
+	void BindTexture(TexCacheEntry *entry, bool flatZ) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
@@ -118,7 +118,6 @@ private:
 
 	void LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	static VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) ;
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 
@@ -154,5 +153,3 @@ private:
 	VulkanBuffer textureScaleCBuffer_;
 	bool cbufferInited_ = true;
 };
-
-VkFormat getClutDestFormatVulkan(GEPaletteFormat format);

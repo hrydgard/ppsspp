@@ -1032,6 +1032,7 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 void VertexDecoderJitCache::Jit_PosFloat() {
 	// Just copy 12 bytes, play with over read/write later.
+	// TODO: This should clean out inf and NaN values.
 	LD_W(tempReg1, srcReg, dec_->posoff + 0);
 	LD_W(tempReg2, srcReg, dec_->posoff + 4);
 	LD_W(tempReg3, srcReg, dec_->posoff + 8);

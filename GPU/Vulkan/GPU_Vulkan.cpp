@@ -122,9 +122,6 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 	}
 	if (result) {
 		// Reload use flags in case LoadCacheFlags() changed them.
-		if (drawEngineCommon_->EverUsedExactEqualDepth()) {
-			sawExactEqualDepth_ = true;
-		}
 		gstate_c.SetUseFlags(CheckGPUFeatures());
 		result = shaderManagerVulkan_->LoadCache(f);
 		if (!result) {
@@ -207,44 +204,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
-	// Could simplify this, but it's good as documentation.
-	switch (vulkan->GetPhysicalDeviceProperties().properties.vendorID) {
-	case VULKAN_VENDOR_AMD:
-		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
-		features |= GPU_USE_ACCURATE_DEPTH;
-		break;
-	case VULKAN_VENDOR_QUALCOMM:
-		// Accurate depth is required on Adreno too (seems to also have a reverse-Z driver bug).
-		features |= GPU_USE_ACCURATE_DEPTH;
-		break;
-	case VULKAN_VENDOR_ARM:
-	{
-		// This check is probably not exactly accurate. But old drivers had problems with reverse-Z, just like AMD and Qualcomm.
-
-		// NOTE: Galaxy S8 has version 16 but still seems to have some problems with accurate depth.
-
-		// TODO: Move this check to thin3d_vulkan.
-
-		bool driverTooOld = IsHashMaliDriverVersion(vulkan->GetPhysicalDeviceProperties().properties)
-			|| VK_VERSION_MAJOR(vulkan->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
-
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
-			features |= GPU_USE_ACCURATE_DEPTH;
-		} else {
-			features &= ~GPU_USE_ACCURATE_DEPTH;
-		}
-		break;
-	}
-	case VULKAN_VENDOR_IMGTEC:
-		// We ignore the disable flag on IMGTec. Another reverse-Z bug (plus, not really any reason to bother). See #17044
-		features |= GPU_USE_ACCURATE_DEPTH;
-		break;
-	default:
-		// On other GPUs we'll just assume we don't need inaccurate depth, leaving ARM Mali as the odd one out.
-		features |= GPU_USE_ACCURATE_DEPTH;
-		break;
-	}
-
 	if (vulkan->SupportsPreRotation() && g_Config.bSkipBufferEffects) {
 		features |= GPU_USE_PRE_ROTATION;
 	}
@@ -255,21 +214,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_USE_TEXTURE_LOD_CONTROL;
-	features |= GPU_USE_INSTANCE_RENDERING;
-	features |= GPU_USE_VERTEX_TEXTURE_FETCH;
 	features |= GPU_USE_TEXTURE_FLOAT;
-
-	// Fall back to geometry shader culling if we can't do vertex range culling.
-	// Checking accurate depth here because the old depth path is uncommon and not well tested for this.
-	if (draw_->GetDeviceCaps().geometryShaderSupported && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		const bool vertexSupported = draw_->GetDeviceCaps().maxClipDistances >= 2 && draw_->GetDeviceCaps().maxCullDistances >= 1;
-		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
-			// Switch to culling via the geometry shader if not fully supported in vertex.
-			features |= GPU_USE_GS_CULLING;
-			features &= ~GPU_USE_VS_RANGE_CULLING;
-		}
-	}
 
 	if (!draw_->GetBugs().Has(Draw::Bugs::PVR_BAD_16BIT_TEXFORMATS)) {
 		// These are VULKAN_4444_FORMAT and friends.
@@ -288,12 +233,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
-
-		if (features & GPU_USE_GS_CULLING) {
-			// Many devices that support stereo and GS don't support GS during stereo.
-			features &= ~GPU_USE_GS_CULLING;
-			features |= GPU_USE_VS_RANGE_CULLING;
-		}
 	}
 
 	// Attempt to workaround #17386

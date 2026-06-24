@@ -59,12 +59,12 @@ std::string ResolveUrl(const std::string &baseUrl, const std::string &url) {
 
 class HttpImageFileView : public UI::View {
 public:
-	HttpImageFileView(http::RequestManager *requestManager, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, bool useIconCache = true, UI::LayoutParams *layoutParams = nullptr)
-		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), requestManager_(requestManager), useIconCache_(useIconCache) {
+	HttpImageFileView(const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, bool useIconCache = true, UI::LayoutParams *layoutParams = nullptr)
+		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), useIconCache_(useIconCache) {
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownload(path_, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, acceptMime, "", [](http::Request &download) {
+			g_DownloadManager.StartDownload(path_, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, acceptMime, "", [](http::Request &download) {
 				// Can't touch 'this' in this function! Don't use captures!
 				std::string path = download.url();
 				if (download.ResultCode() == 200) {
@@ -107,7 +107,6 @@ private:
 	std::string path_;  // or cache key
 	uint32_t color_ = 0xFFFFFFFF;
 	UI::ImageSizeMode sizeMode_;
-	http::RequestManager *requestManager_;
 	std::shared_ptr<http::Request> download_;
 
 	std::string textureData_;
@@ -165,7 +164,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	if (!useIconCache_) {
 		if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownload(path_, Path(), http::RequestFlags::Default, acceptMime, "", [this](http::Request &download) {
+			g_DownloadManager.StartDownload(path_, Path(), http::RequestFlags::Default, acceptMime, "", [this](http::Request &download) {
 				if (download.IsCancelled()) {
 					// We were probably destroyed. Can't touch "this" (heh).
 					return;
@@ -282,7 +281,7 @@ void ProductView::CreateViews() {
 	Clear();
 
 	if (!entry_.iconURL.empty()) {
-		Add(new HttpImageFileView(&g_DownloadManager, ResolveUrl(StoreBaseUrl(), entry_.iconURL), IS_FIXED))->SetFixedSize(144, 88);
+		Add(new HttpImageFileView(ResolveUrl(StoreBaseUrl(), entry_.iconURL), IS_FIXED))->SetFixedSize(144, 88);
 	}
 	Add(new TextView(entry_.name))->SetBig(true);
 	Add(new TextView(entry_.author));
@@ -427,14 +426,17 @@ StoreScreen::StoreScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags:
 }
 
 StoreScreen::~StoreScreen() {
-	g_DownloadManager.CancelAll();
+	if (listing_) {
+		listing_->Cancel();
+	}
+	if (image_) {
+		image_->Cancel();
+	}
 }
 
 // Handle async download tasks
 void StoreScreen::update() {
 	UIBaseDialogScreen::update();
-
-	g_DownloadManager.Update();
 
 	if (listing_.get() && listing_->Done()) {
 		resultCode_ = listing_->ResultCode();

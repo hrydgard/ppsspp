@@ -9,6 +9,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Notice.h"
 #include "Common/StringUtils.h"
+#include "Common/Net/HTTPClient.h"
 
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"
@@ -619,8 +620,9 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 	// Download and display the image.
 	const char *url = iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? achievement->badge_url : achievement->badge_locked_url;
-	Achievements::DownloadImageIfMissing(url);
-	if (g_iconCache.BindIconTexture(&dc, url)) {
+	std::string imageUrl = http::RemoveHttpsIfNeeded(url);
+	Achievements::DownloadImageIfMissing(imageUrl);
+	if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
 		dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
 	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
@@ -668,8 +670,10 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.Flush();
 
-	Achievements::DownloadImageIfMissing(gameInfo->badge_url);
-	if (g_iconCache.BindIconTexture(&dc, gameInfo->badge_url)) {
+	std::string imageUrl = http::RemoveHttpsIfNeeded(gameInfo->badge_url);
+
+	Achievements::DownloadImageIfMissing(imageUrl);
+	if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
 		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
 
@@ -765,8 +769,9 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	// Come up with a unique name for the icon entry.
 	char userImageUrl[512];
 	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, userImageUrl, sizeof(userImageUrl))) {
-		Achievements::DownloadImageIfMissing(userImageUrl);
-		if (g_iconCache.BindIconTexture(&dc, userImageUrl)) {
+		std::string imageUrl = http::RemoveHttpsIfNeeded(userImageUrl);
+		Achievements::DownloadImageIfMissing(imageUrl);
+		if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}

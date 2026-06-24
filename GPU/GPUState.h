@@ -27,6 +27,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "Common/Math/lin/vec3.h"
 
 class PointerWrap;
 
@@ -61,7 +62,7 @@ struct GPUgstate {
 				region2,
 				lightingEnable,
 				lightEnable[4],
-				depthClampEnable,
+				depthClipEnable,
 				cullfaceEnable,
 				textureMapEnable,  // 0x1E GE_CMD_TEXTUREMAPENABLE
 				fogEnable,
@@ -388,15 +389,19 @@ struct GPUgstate {
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 
-	bool isDepthClampEnabled() const { return depthClampEnable & 1; }
+	bool isDepthClipEnabled() const { return depthClipEnable & 1; }
 
 	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
 	float getViewportXScale() const { return getFloat24(viewportxscale); }
 	float getViewportYScale() const { return getFloat24(viewportyscale); }
 	float getViewportZScale() const { return getFloat24(viewportzscale); }
+	// TODO: Rename to offset?
 	float getViewportXCenter() const { return getFloat24(viewportxcenter); }
 	float getViewportYCenter() const { return getFloat24(viewportycenter); }
 	float getViewportZCenter() const { return getFloat24(viewportzcenter); }
+
+	Lin::Vec3 getViewportScale() const { return Lin::Vec3(getViewportXScale(), getViewportYScale(), getViewportZScale()); }
+	Lin::Vec3 getViewportOffset() const { return Lin::Vec3(getViewportXCenter(), getViewportYCenter(), getViewportZCenter()); }
 
 	// Fixed 12.4 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
@@ -453,36 +458,35 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-#define FLAG_BIT(x) (1 << x)
+#define FLAG_BIT(x) (u32)(1U << x)
 
 // These flags are mainly to make sure that we make decisions on code path in a single
 // location. Sometimes we need to take things into account in multiple places, it helps
 // to centralize into flags like this. They're also fast to check since the cache line
 // will be hot.
 // NOTE: Do not forget to update the string array at the end of GPUState.cpp!
-enum {
+enum : u32 {
 	GPU_USE_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_USE_LIGHT_UBERSHADER = FLAG_BIT(1),
 	GPU_USE_FRAGMENT_TEST_CACHE = FLAG_BIT(2),
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	GPU_USE_FRAGMENT_UBERSHADER = FLAG_BIT(6),
-	// Free bit: 7
+	// Free bits: 6-7
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
-	GPU_USE_INSTANCE_RENDERING = FLAG_BIT(10),
-	GPU_USE_VERTEX_TEXTURE_FETCH = FLAG_BIT(11),
+	// Free bit: 10
+	// Free bit: 11
 	GPU_USE_TEXTURE_FLOAT = FLAG_BIT(12),
 	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_USE_TEXTURE_LOD_CONTROL = FLAG_BIT(15),
 	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
-	GPU_USE_ACCURATE_DEPTH = FLAG_BIT(17),
-	GPU_USE_GS_CULLING = FLAG_BIT(18),  // Geometry shader
+	// Free bit: 17
+	// Free bit: 18
 	GPU_USE_FRAMEBUFFER_ARRAYS = FLAG_BIT(19),
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
-	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
+	// Free bit: 21,
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
@@ -535,15 +539,9 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
-	void SetUseShaderDepal(ShaderDepalMode mode) {
-		if (mode != shaderDepalMode) {
-			shaderDepalMode = mode;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
-		}
-	}
-	void SetTextureFullAlpha(bool fullAlpha) {
-		if (fullAlpha != textureFullAlpha) {
-			textureFullAlpha = fullAlpha;
+	void SetTextureSolidAlpha(bool solidAlpha) {
+		if (solidAlpha != textureSolidAlpha) {
+			textureSolidAlpha = solidAlpha;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
@@ -621,8 +619,13 @@ public:
 	bool usingDepth;  // For deferred depth copies.
 	bool clearingDepth;
 
-	bool textureFullAlpha;
+	bool textureSolidAlpha;
 	bool vertexFullAlpha;
+
+	// The PSP CPU can only safely modify textures *between* syncs, so we can safely cache textures without
+	// rehashing until the next sync. So for each texture we keep track which sync index we actually updated
+	// it on.
+	int textureSyncTimeDomain;
 
 	int skipDrawReason;
 
@@ -646,22 +649,14 @@ public:
 	int curTextureYOffset;
 	bool curTextureIs3D;
 
-	float vpWidth;
-	float vpHeight;
-
-	float vpXOffset;
-	float vpYOffset;
-	float vpZOffset;
-	float vpWidthScale;
-	float vpHeightScale;
-	float vpDepthScale;
-
 	// Cached 4x4 products of the matrices.
 	// Useful for culling and extracing the final Z from vertices (so we can check if clipping is needed).
 	// Most often, world changes the most.
 	// We recompute viewproj when view or proj changes, and worldviewproj when world, view, or proj changes.
 	float viewproj[16];
 	float worldviewproj[16];
+	float cullMatrix[16];
+	bool viewportNearPlaneMatchesOutput;
 
 	KnownVertexBounds vertBounds;
 
@@ -699,7 +694,15 @@ public:
 	int spline_num_points_u;
 
 	ShaderDepalMode shaderDepalMode;
-	GEBufferFormat depalFramebufferFormat;
+	GEBufferFormat depalTextureFormat;
+
+	void SetShaderDepal(ShaderDepalMode mode, GEBufferFormat texFormat = {}) {
+		if (mode != shaderDepalMode || (mode != ShaderDepalMode::OFF && texFormat != depalTextureFormat)) {
+			shaderDepalMode = mode;
+			depalTextureFormat = texFormat;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 
 	u32 getRelativeAddress(u32 data) const {
 		u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
@@ -710,7 +713,6 @@ public:
 };
 
 class GPUInterface;
-class GPUDebugInterface;
+class GPUCommon;
 
 extern GPUStateCache gstate_c;
-

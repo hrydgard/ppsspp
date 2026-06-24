@@ -23,15 +23,10 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/GPU/thin3d.h"
 #include "Core/ConfigValues.h"
+#include "GPU/Common/ImageCommon.h"
 
 class TextureReplacer;
 class LimitedWaitable;
-
-// These must match the constants in TextureCacheCommon.
-enum class ReplacedTextureAlpha {
-	UNKNOWN = 0x04,
-	FULL = 0x00,
-};
 
 // For forward compatibility, we specify the hash.
 enum class ReplacedTextureHash {
@@ -169,8 +164,8 @@ public:
 		return desc_;
 	}
 
-	u8 AlphaStatus() const {
-		return (u8)alphaStatus_;
+	TextureAlpha AlphaStatus() const {
+		return alphaStatus_;
 	}
 
 	bool Poll(double budget);
@@ -196,7 +191,7 @@ private:
 	LimitedWaitable *threadWaitable_ = nullptr;
 	std::mutex lock_;
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
-	ReplacedTextureAlpha alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+	TextureAlpha alphaStatus_ = TextureAlpha::Any;
 	double lastUsed = 0.0;
 
 	std::atomic<ReplacementState> state_ = ReplacementState::UNLOADED;

@@ -32,7 +32,7 @@ static const HidStickMapping g_psStickMappings[] = {
 	{HID_STICK_LX, JOYSTICK_AXIS_X},
 	{HID_STICK_LY, JOYSTICK_AXIS_Y},
 	{HID_STICK_RX, JOYSTICK_AXIS_Z},
-	{HID_STICK_RY, JOYSTICK_AXIS_RX},
+	{HID_STICK_RY, JOYSTICK_AXIS_RZ},
 };
 
 struct HidTriggerMapping {
@@ -203,7 +203,7 @@ void HidInputDevice::ReleaseAllKeys(const ButtonInputMapping *buttonMappings, in
 		JOYSTICK_AXIS_X,
 		JOYSTICK_AXIS_Y,
 		JOYSTICK_AXIS_Z,
-		JOYSTICK_AXIS_RX,
+		JOYSTICK_AXIS_RZ,
 		JOYSTICK_AXIS_LTRIGGER,
 		JOYSTICK_AXIS_RTRIGGER,
 	};

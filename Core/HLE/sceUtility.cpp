@@ -1591,6 +1591,10 @@ const HLEFunction sceUtility[] =
 	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   },
 	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   },
 
+	{0x05e242a1, nullptr,                                          "sceUtility_05e242a1",                    '?', ""   },
+	{0x644b513b, nullptr,                                          "sceUtility_644b513b",                    '?', ""   },
+	{0x043ebe3e, nullptr,                                          "sceUtility_043ebe3e",                    '?', ""   },
+
 	// Fake functions for PPSSPP's use.
 	{0xC0DE0001, &WrapI_I<UtilityFinishDialog>,                    "__UtilityFinishDialog",                  'i', "i"  },
 	{0xC0DE0002, &WrapI_I<UtilityWorkUs>,                          "__UtilityWorkUs",                        'i', "i"  },

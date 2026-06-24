@@ -256,11 +256,11 @@
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\DepthRaster.h" />
+    <ClInclude Include="Common\ImageCommon.h" />
     <ClInclude Include="Common\ReplacedTexture.h" />
     <ClInclude Include="Common\TextureReplacer.h" />
     <ClInclude Include="Common\TextureShaderCommon.h" />
     <ClInclude Include="Common\Draw2D.h" />
-    <ClInclude Include="Common\GeometryShaderGenerator.h" />
     <ClInclude Include="Common\ReinterpretFramebuffer.h" />
     <ClInclude Include="Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="Common\DrawEngineCommon.h" />
@@ -282,6 +282,7 @@
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Common\VertexDecoderHandwritten.h" />
+    <ClInclude Include="Common\VertexReader.h" />
     <ClInclude Include="Common\VertexShaderGenerator.h" />
     <ClInclude Include="D3D11\D3D11Util.h" />
     <ClInclude Include="D3D11\DrawEngineD3D11.h" />
@@ -333,6 +334,7 @@
     <ClInclude Include="GPUCommonHW.h" />
     <ClInclude Include="GPUDefinitions.h" />
     <ClInclude Include="GPUState.h" />
+    <ClInclude Include="GPUStateSIMDUtil.h" />
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Software\BinManager.h" />
     <ClInclude Include="Software\Clipper.h" />
@@ -364,7 +366,6 @@
     <ClCompile Include="Common\TextureReplacer.cpp" />
     <ClCompile Include="Common\TextureShaderCommon.cpp" />
     <ClCompile Include="Common\Draw2D.cpp" />
-    <ClCompile Include="Common\GeometryShaderGenerator.cpp" />
     <ClCompile Include="Common\ReinterpretFramebuffer.cpp" />
     <ClCompile Include="Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="Common\DrawEngineCommon.cpp" />

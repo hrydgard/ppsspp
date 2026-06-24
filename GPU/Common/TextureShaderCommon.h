@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <string>
 
@@ -36,6 +36,22 @@ public:
 	int rampStarts[MAX_RAMPS];
 };
 
+class ClutTextureCache {
+public:
+	ClutTextureCache(Draw::DrawContext *draw) : draw_(draw) {}
+	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut);
+
+	void Clear();
+	void Decimate();
+
+	void DeviceLost();
+	void DeviceRestore(Draw::DrawContext *draw);
+
+private:
+	Draw::DrawContext *draw_ = nullptr;
+	std::unordered_map<u32, ClutTexture *> texCache_;
+};
+
 // For CLUT depal shaders, and other pre-bind texture shaders.
 // Caches both shaders and palette textures.
 class TextureShaderCache {
@@ -44,14 +60,12 @@ public:
 	~TextureShaderCache();
 
 	Draw2DPipeline *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal, u32 depthUpperBits);
-	ClutTexture GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut);
 
 	Draw::SamplerState *GetSampler(bool linearFilter);
 
 	void Clear();
-	void Decimate();
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) const;
+	std::string DebugGetShaderString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType) const;
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
@@ -61,7 +75,5 @@ private:
 	Draw::SamplerState *nearestSampler_ = nullptr;
 	Draw::SamplerState *linearSampler_ = nullptr;
 	Draw2D *draw2D_;
-
-	std::map<u64, Draw2DPipeline *> depalCache_;
-	std::map<u32, ClutTexture *> texCache_;
+	std::unordered_map<u64, Draw2DPipeline *> pipelineCache_;
 };

@@ -19,8 +19,6 @@
 #include <cstring>
 #include <memory>
 
-#include "ext/xxhash.h"
-
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/LogReporting.h"
@@ -218,11 +216,9 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 }
 
 void TextureCacheVulkan::DeviceLost() {
-	textureShaderCache_->DeviceLost();
+	TextureCacheCommon::DeviceLost();
 	
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
-
-	Clear(true);
 
 	samplerCache_.DeviceLost();
 	if (samplerNearest_)
@@ -238,13 +234,11 @@ void TextureCacheVulkan::DeviceLost() {
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 
 	VulkanContext *vulkan = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	_assert_(vulkan);
-
 	samplerCache_.DeviceRestore(vulkan);
-	textureShaderCache_->DeviceRestore(draw);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -570,20 +564,6 @@ void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) 
 	entry->vkTex = nullptr;
 }
 
-VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
-	switch (format) {
-	case GE_CMODE_16BIT_ABGR4444:
-		return VULKAN_4444_FORMAT;
-	case GE_CMODE_16BIT_ABGR5551:
-		return VULKAN_1555_FORMAT;
-	case GE_CMODE_16BIT_BGR5650:
-		return VULKAN_565_FORMAT;
-	case GE_CMODE_32BIT_ABGR8888:
-		return VULKAN_8888_FORMAT;
-	}
-	return VK_FORMAT_UNDEFINED;
-}
-
 static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_NEAREST,
 	VK_FILTER_LINEAR
@@ -596,54 +576,17 @@ void TextureCacheVulkan::StartFrame() {
 	computeShaderManager_.BeginFrame();
 }
 
-void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
-	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
-	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
-	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
-	//
-	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
-	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
-	// unrelated old entries for small palettes.
-	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
-	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
-
-	if (replacer_.Enabled())
-		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-	else
-		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
-	clutBuf_ = clutBufRaw_;
-
-	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-	clutAlphaLinear_ = false;
-	clutAlphaLinearColor_ = 0;
-	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
-		const u16_le *clut = GetCurrentClut<u16_le>();
-		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
-		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | (i << 12);
-			if (clut[i] != step) {
-				clutAlphaLinear_ = false;
-				break;
-			}
-		}
-	}
-
-	clutLastFormat_ = gstate.clutformat;
-}
-
-void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
+void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry || !entry->vkTex) {
 		Unbind();
 		return;
 	}
 
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
+	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	imageView_ = entry->vkTex->GetImageView();
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE, false);
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
@@ -833,18 +776,18 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	copyBatch.reserve(levels);
 
 	for (int i = 0; i < levels; i++) {
-		int mipUnscaledWidth = gstate.getTextureWidth(i);
-		int mipUnscaledHeight = gstate.getTextureHeight(i);
+		const int mipUnscaledWidth = gstate.getTextureWidth(i);
+		const int mipUnscaledHeight = gstate.getTextureHeight(i);
 
 		int mipWidth;
 		int mipHeight;
 		plan.GetMipSize(i, &mipWidth, &mipHeight);
 
-		int bpp = VkFormatBytesPerPixel(actualFmt);
+		const int bpp = VkFormatBytesPerPixel(actualFmt);
 		// RoundToNextPowerOf2 is probably not necessary as the optimal alignment is gonna be a power of 2.
-		int optimalStrideAlignment = RoundToNextPowerOf2(std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment));
-		int byteStride = RoundUpToMultipleOf(mipWidth * bpp, optimalStrideAlignment);  // output stride
-		int pixelStride = byteStride / bpp;
+		const int optimalStrideAlignment = RoundToNextPowerOf2(std::max(4, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyRowPitchAlignment));
+		const int byteStride = RoundUpToMultipleOf(mipWidth * bpp, optimalStrideAlignment);  // output stride
+		const int pixelStride = byteStride / bpp;
 		int uploadSize = byteStride * mipHeight;
 
 		uint32_t bufferOffset;
@@ -919,7 +862,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.hash = entry->fullhash;
 				replacedInfo.addr = entry->addr;
 				replacedInfo.isVideo = IsVideo(entry->addr);
-				replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+				replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
 				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, stride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
@@ -951,11 +894,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	// Signal that we support depth textures so use it as one.
 	if (plan.depth > 1) {
-		entry->status |= TexCacheEntry::STATUS_3D;
+		entry->status |= TexStatus::IS_3D;
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 	}
 }
 
@@ -968,7 +911,18 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	case GE_TFMT_CLUT8:
 	case GE_TFMT_CLUT16:
 	case GE_TFMT_CLUT32:
-		return getClutDestFormatVulkan(clutFormat);
+		switch (clutFormat) {
+		case GE_CMODE_16BIT_ABGR4444:
+			return VULKAN_4444_FORMAT;
+		case GE_CMODE_16BIT_ABGR5551:
+			return VULKAN_1555_FORMAT;
+		case GE_CMODE_16BIT_BGR5650:
+			return VULKAN_565_FORMAT;
+		case GE_CMODE_32BIT_ABGR8888:
+			return VULKAN_8888_FORMAT;
+		default:
+			return VK_FORMAT_UNDEFINED;
+		}
 	case GE_TFMT_4444:
 		return VULKAN_4444_FORMAT;
 	case GE_TFMT_5551:
@@ -1004,7 +958,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || scaleFactor > 1 || dstFmt == VULKAN_8888_FORMAT) {
 		texDecFlags |= TexDecodeFlags::EXPAND32;
 	}
-	if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
+	if (entry.status & TexStatus::CLUT8_INDEXED) {
 		texDecFlags |= TexDecodeFlags::TO_CLUT8;
 	}
 
@@ -1018,7 +972,7 @@ void TextureCacheVulkan::LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *w
 		decPitch = rowPitch;
 	}
 
-	CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, texDecFlags);
+	TextureAlpha alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, texDecFlags);
 	entry.SetAlphaStatus(alphaResult, level);
 
 	if (scaleFactor > 1) {
@@ -1060,7 +1014,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture();
+	ApplyTexture(true, false);
 
 	if (!entry->vkTex)
 		return false;

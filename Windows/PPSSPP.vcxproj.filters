@@ -496,9 +496,6 @@
     <ClInclude Include="..\SDL\SDLJoystick.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
-    <ClInclude Include="..\SDL\SDLMain.h">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClInclude>
     <ClInclude Include="..\SDL\SDLVulkanGraphicsContext.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
@@ -717,9 +714,6 @@
       <Filter>Other Platforms\SDL</Filter>
     </None>
     <None Include="..\SDL\SDLCocoaMetalLayer.mm">
-      <Filter>Other Platforms\SDL</Filter>
-    </None>
-    <None Include="..\SDL\SDLMain.mm">
       <Filter>Other Platforms\SDL</Filter>
     </None>
     <None Include="..\assets\compatvr.ini">

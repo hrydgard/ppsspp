@@ -47,7 +47,7 @@
 #include "Windows/main.h"
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Breakpoints.h"
@@ -84,7 +84,7 @@ static void RemoveDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosi
 static void UpdateDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosition pos, void *ptr) {
 	CtrlDisplayListView *view = (CtrlDisplayListView *)ptr;
 	DisplayList list;
-	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
+	if (gpu != nullptr && gpu->GetCurrentDisplayList(list)) {
 		view->setDisplayList(list);
 	} else {
 		view->clearDisplayList();
@@ -135,8 +135,8 @@ StepCountDlg::~StepCountDlg() {
 void StepCountDlg::Jump(int count, bool relative) {
 	if (relative && count == 0)
 		return;
-	gpuDebug->SetBreakNext(GPUDebug::BreakNext::COUNT);
-	gpuDebug->SetBreakCount(count, relative);
+	gpu->SetBreakNext(GPUDebug::BreakNext::COUNT);
+	gpu->SetBreakCount(count, relative);
 };
 
 BOOL StepCountDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -559,8 +559,8 @@ void CGEDebugger::UpdatePreviews() {
 
 	GPUgstate state{};
 
-	if (gpuDebug != nullptr) {
-		state = gpuDebug->GetGState();
+	if (gpu != nullptr) {
+		state = gpu->GetGState();
 	}
 
 	updating_ = true;
@@ -578,9 +578,9 @@ void CGEDebugger::UpdatePreviews() {
 		UpdatePrimPreview(primOp, 3);
 	}
 
-	if (gpuDebug) {
+	if (gpu) {
 		wchar_t primCounter[1024]{};
-		swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
+		swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", gpu->PrimsThisFrame(), gpu->PrimsLastFrame());
 		SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
 	}
 
@@ -611,7 +611,7 @@ void CGEDebugger::AddTab(GEDebuggerTab *tab, GETabPosition mask) {
 			tab->state[index].ptr = tab->add(tab, t, pos, m_hInstance, m_hDlg);
 			tab->pos |= pos;
 			t->ShowTab(tab->state[index].index, true);
-			if (gpuDebug)
+			if (gpu)
 				tab->update(tab, t, pos, tab->state[index].ptr);
 		}
 	};
@@ -683,9 +683,9 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_, &primaryIsFramebuffer_);
 		flags = TexturePreviewFlags(state);
 		if (bufferResult) {
-			gpuDebug->GetBreakpoints()->UpdateLastTexture(state.getTextureAddress(textureLevel_));
+			gpu->GetBreakpoints()->UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
-			gpuDebug->GetBreakpoints()->UpdateLastTexture((u32)-1);
+			gpu->GetBreakpoints()->UpdateLastTexture((u32)-1);
 		}
 	} else {
 		switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
@@ -736,9 +736,9 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 	} else {
 		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_, &secondIsFramebuffer_);
 		if (bufferResult) {
-			gpuDebug->GetBreakpoints()->UpdateLastTexture(state.getTextureAddress(textureLevel_));
+			gpu->GetBreakpoints()->UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
-			gpuDebug->GetBreakpoints()->UpdateLastTexture((u32)-1);
+			gpu->GetBreakpoints()->UpdateLastTexture((u32)-1);
 		}
 	}
 
@@ -763,7 +763,7 @@ void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
 		secondWindow->Clear();
 		secondBuffer_ = nullptr;
 
-		if (gpuDebug == nullptr || state.isTextureMapEnabled()) {
+		if (gpu == nullptr || state.isTextureMapEnabled()) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
 		} else {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
@@ -785,8 +785,8 @@ void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
 		GPUgstate state{};
-		if (gpuDebug != nullptr) {
-			state = gpuDebug->GetGState();
+		if (gpu != nullptr) {
+			state = gpu->GetGState();
 		}
 		DescribePrimaryPreview(state, desc);
 	} else {
@@ -813,8 +813,8 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
 		GPUgstate state{};
-		if (gpuDebug != nullptr) {
-			state = gpuDebug->GetGState();
+		if (gpu != nullptr) {
+			state = gpu->GetGState();
 		}
 		DescribeSecondPreview(state, desc);
 	} else {
@@ -835,8 +835,8 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 
 void CGEDebugger::UpdateTextureLevel(int level) {
 	GPUgstate state{};
-	if (gpuDebug != nullptr) {
-		state = gpuDebug->GetGState();
+	if (gpu != nullptr) {
+		state = gpu->GetGState();
 	}
 
 	int maxValid = 0;
@@ -967,7 +967,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		{
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
-			if (gpuDebug != nullptr) {
+			if (gpu != nullptr) {
 				for (GEDebuggerTab &tabState : tabStates_) {
 					if (tabState.type == GETabType::LISTS)
 						UpdateTab(&tabState);
@@ -985,7 +985,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
-			if (gpuDebug != nullptr) {
+			if (gpu != nullptr) {
 				UpdatePreviews();
 			}
 			break;
@@ -999,31 +999,31 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::DRAW);
+			gpu->SetBreakNext(GPUDebug::BreakNext::DRAW);
 			break;
 
 		case IDC_GEDBG_STEP:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
+			gpu->SetBreakNext(GPUDebug::BreakNext::OP);
 			break;
 
 		case IDC_GEDBG_STEPTEX:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::TEX);
+			gpu->SetBreakNext(GPUDebug::BreakNext::TEX);
 			break;
 
 		case IDC_GEDBG_STEPFRAME:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::FRAME);
+			gpu->SetBreakNext(GPUDebug::BreakNext::FRAME);
 			break;
 
 		case IDC_GEDBG_STEPVSYNC:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::VSYNC);
+			gpu->SetBreakNext(GPUDebug::BreakNext::VSYNC);
 			break;
 
 		case IDC_GEDBG_STEPPRIM:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::PRIM);
+			gpu->SetBreakNext(GPUDebug::BreakNext::PRIM);
 			break;
 
 		case IDC_GEDBG_STEPCURVE:
-			gpuDebug->SetBreakNext(GPUDebug::BreakNext::CURVE);
+			gpu->SetBreakNext(GPUDebug::BreakNext::CURVE);
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
@@ -1032,17 +1032,17 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTEX:
 			{
-				if (!gpuDebug) {
+				if (!gpu) {
 					break;
 				}
-				const auto state = gpuDebug->GetGState();
+				const auto state = gpu->GetGState();
 				u32 texAddr = state.getTextureAddress(textureLevel_);
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", texAddr, texAddr)) {
-					if (gpuDebug->GetBreakpoints()->IsTextureBreakpoint(texAddr)) {
-						gpuDebug->GetBreakpoints()->RemoveTextureBreakpoint(texAddr);
+					if (gpu->GetBreakpoints()->IsTextureBreakpoint(texAddr)) {
+						gpu->GetBreakpoints()->RemoveTextureBreakpoint(texAddr);
 					} else {
-						gpuDebug->GetBreakpoints()->AddTextureBreakpoint(texAddr);
+						gpu->GetBreakpoints()->AddTextureBreakpoint(texAddr);
 					}
 				}
 			}
@@ -1050,31 +1050,31 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTARGET:
 			{
-				if (!gpuDebug) {
+				if (!gpu) {
 					break;
 				}
-				const auto state = gpuDebug->GetGState();
+				const auto state = gpu->GetGState();
 				u32 fbAddr = state.getFrameBufRawAddress();
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Framebuffer Address", fbAddr, fbAddr)) {
-					if (gpuDebug->GetBreakpoints()->IsRenderTargetBreakpoint(fbAddr)) {
-						gpuDebug->GetBreakpoints()->RemoveRenderTargetBreakpoint(fbAddr);
+					if (gpu->GetBreakpoints()->IsRenderTargetBreakpoint(fbAddr)) {
+						gpu->GetBreakpoints()->RemoveRenderTargetBreakpoint(fbAddr);
 					} else {
-						gpuDebug->GetBreakpoints()->AddRenderTargetBreakpoint(fbAddr);
+						gpu->GetBreakpoints()->AddRenderTargetBreakpoint(fbAddr);
 					}
 				}
 			}
 			break;
 
 		case IDC_GEDBG_TEXLEVELDOWN:
-			if (gpuDebug != nullptr) {
+			if (gpu != nullptr) {
 				UpdateTextureLevel(textureLevel_ - 1);
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_TEXLEVELUP:
-			if (gpuDebug != nullptr) {
+			if (gpu != nullptr) {
 				UpdateTextureLevel(textureLevel_ + 1);
 				UpdatePreviews();
 			}
@@ -1088,14 +1088,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
-			if (gpuDebug) {
-				gpuDebug->SetBreakNext(GPUDebug::BreakNext::NONE);
+			if (gpu) {
+				gpu->SetBreakNext(GPUDebug::BreakNext::NONE);
 			}
 			break;
 
 		case IDC_GEDBG_RECORD:
-			if (gpuDebug) {
-				gpuDebug->GetRecorder()->RecordNextFrame([](const Path &path) {
+			if (gpu) {
+				gpu->GetRecorder()->RecordNextFrame([](const Path &path) {
 					// Opens a Windows Explorer window with the file, when done.
 					System_ShowFileInFolder(path);
 				});
@@ -1103,7 +1103,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FLUSH:
-			if (gpuDebug) {
+			if (gpu) {
 				if (!autoFlush_)
 					GPU_FlushDrawing();
 				UpdatePreviews();
@@ -1115,14 +1115,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FORCEOPAQUE:
-			if (gpuDebug) {
+			if (gpu) {
 				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_SHOWCLUT:
-			if (gpuDebug) {
+			if (gpu) {
 				showClut_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_SHOWCLUT), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
@@ -1131,8 +1131,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_SETPRIMFILTER:
 		{
 			std::string value;
-			if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim counter ranges", gpuDebug->GetRestrictPrims(), value)) {
-				gpuDebug->SetRestrictPrims(value.c_str());
+			if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim counter ranges", gpu->GetRestrictPrims(), value)) {
+				gpu->SetRestrictPrims(value.c_str());
 			}
 			break;
 		}
@@ -1140,24 +1140,24 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_STEPDISPLAYLIST:
-		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
+		gpu->SetBreakNext(GPUDebug::BreakNext::OP);
 		break;
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
 			u32 pc = (u32)wParam;
 			bool temp;
-			bool isBreak = gpuDebug->GetBreakpoints()->IsAddressBreakpoint(pc, temp);
+			bool isBreak = gpu->GetBreakpoints()->IsAddressBreakpoint(pc, temp);
 			if (isBreak && !temp) {
-				if (gpuDebug->GetBreakpoints()->GetAddressBreakpointCond(pc, nullptr)) {
+				if (gpu->GetBreakpoints()->GetAddressBreakpointCond(pc, nullptr)) {
 					int ret = MessageBox(m_hDlg, L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 					if (ret == IDYES)
-						gpuDebug->GetBreakpoints()->RemoveAddressBreakpoint(pc);
+						gpu->GetBreakpoints()->RemoveAddressBreakpoint(pc);
 				} else {
-					gpuDebug->GetBreakpoints()->RemoveAddressBreakpoint(pc);
+					gpu->GetBreakpoints()->RemoveAddressBreakpoint(pc);
 				}
 			} else {
-				gpuDebug->GetBreakpoints()->AddAddressBreakpoint(pc);
+				gpu->GetBreakpoints()->AddAddressBreakpoint(pc);
 			}
 		}
 		break;
@@ -1165,7 +1165,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_GEDBG_RUNTOWPARAM:
 		{
 			u32 pc = (u32)wParam;
-			gpuDebug->GetBreakpoints()->AddAddressBreakpoint(pc, true);
+			gpu->GetBreakpoints()->AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
 		}
 		break;

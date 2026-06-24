@@ -284,14 +284,13 @@ public:
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
-	bool bHardwareTransform; // only used in the GLES backend
+	bool bHardwareTransform;
 	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
 	bool bUseGeometryShader;
 
 	// Speedhacks (more will be moved here):
 	bool bSkipBufferEffects;
-	bool bDisableRangeCulling;
 	int iDepthRasterMode;
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
@@ -321,11 +320,11 @@ public:
 	float fUITint;
 	float fUISaturation;
 
-	bool bTextureBackoffCache;
 	bool bVertexDecoderJit;
 	int iAppSwitchMode;
 	bool bFullScreen;
 	bool bFullScreenMulti;
+	bool bAllowFullScreenExclusive;
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	int iMultiSampleLevel;
@@ -346,6 +345,7 @@ public:
 	int iRewindSnapshotInterval;
 	bool bUISound;
 	bool bEnableStateUndo;
+	bool bConfirmLoadState;
 	std::string sStateLoadUndoGame;
 	std::string sStateUndoLastSaveGame;
 	int iStateUndoLastSaveSlot;
@@ -362,10 +362,8 @@ public:
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	int iSkipGPUReadbackMode;  // 0 = off, 1 = skip, 2 = to texture
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
-	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 	bool bUberShaderVertex;
-	bool bUberShaderFragment;
 	int iDefaultTab;
 	int iScreenshotMode;
 	bool bVulkanDisableImplicitLayers;
@@ -514,6 +512,15 @@ public:
 	bool bAnalogIsCircular;
 	// Auto rotation speed
 	float fAnalogAutoRotSpeed;
+
+	// Advanced analog deadzone settings (Steam Input-style).
+	// Deadzone shape: 0 = Circle, 1 = Square (default, matches legacy max-norm), 2 = Cross
+	int iAnalogDeadzoneShape;
+	// Cross-shaped axial anti-deadzone. Boosts small off-axis values past this threshold,
+	// making the output skip the zone near each cardinal axis to prevent axis snapping.
+	float fAnalogAxialDeadzone;
+	// Response curve type: 0 = Linear, 1 = Aggressive, 2 = Relaxed, 3 = Wide
+	int iAnalogResponseCurve;
 
 	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;

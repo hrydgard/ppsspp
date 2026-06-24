@@ -79,7 +79,7 @@ static constexpr VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_ZERO,
 	VK_STENCIL_OP_REPLACE,
 	VK_STENCIL_OP_INVERT,
-	VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+	VK_STENCIL_OP_INCREMENT_AND_CLAMP,  // TODO: Are we sure we shouldn't wrap?
 	VK_STENCIL_OP_DECREMENT_AND_CLAMP,
 	VK_STENCIL_OP_KEEP, // reserved
 	VK_STENCIL_OP_KEEP, // reserved
@@ -224,9 +224,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.depthClampEnable = false;
 		} else {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
-				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
-				// But the alternate is not clamping in either direction...
-				key.depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+				// We get some extra clamping behavior if clipping is enabled.
+				key.depthClampEnable = gstate.isDepthClipEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				key.depthClampEnable = false;
@@ -333,21 +332,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);
-		UpdateCachedViewportState(vpAndScissor);
-
-		float depthMin = vpAndScissor.depthRangeMin;
-		float depthMax = vpAndScissor.depthRangeMax;
-
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
-
 		VkViewport &vp = dynState.viewport;
 		vp.x = vpAndScissor.viewportX;
 		vp.y = vpAndScissor.viewportY;
 		vp.width = vpAndScissor.viewportW;
 		vp.height = vpAndScissor.viewportH;
-		vp.minDepth = vpAndScissor.depthRangeMin;
-		vp.maxDepth = vpAndScissor.depthRangeMax;
+		vp.minDepth = 0.0f;
+		vp.maxDepth = 1.0f;
 
 		ScissorRect &scissor = dynState.scissor;
 		scissor.x = vpAndScissor.scissorX;

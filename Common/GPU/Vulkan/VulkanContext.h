@@ -412,6 +412,10 @@ public:
 		return presentMode_;
 	}
 
+#ifdef VK_EXT_full_screen_exclusive
+	void SetFullScreenExclusiveMode(VkFullScreenExclusiveEXT mode) { fullScreenExclusiveMode_ = mode; }
+#endif
+
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
 	}
@@ -529,6 +533,11 @@ private:
 	bool swapchainInited_ = false;
 
 	PhysicalDeviceFeatures deviceFeatures_;
+
+#ifdef VK_EXT_full_screen_exclusive
+	VkFullScreenExclusiveEXT fullScreenExclusiveMode_ = VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
+#endif
+
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};

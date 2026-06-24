@@ -199,7 +199,7 @@ static_assert(sizeof(PackedDescriptor::buffer) == 16, "PackedDescriptor should b
 struct VKRPipelineLayout {
 	~VKRPipelineLayout();
 
-	enum { MAX_DESC_SET_BINDINGS = 10 };
+	enum { MAX_DESC_SET_BINDINGS = 6 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
 
 	uint32_t bindingTypesCount = 0;
@@ -303,7 +303,8 @@ public:
 	// return value and skip the draw if we're in a bad state. In that case, call ReportBadState.
 	// The old assert wasn't very helpful in figuring out what caused it anyway...
 	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
+		_dbg_assert_(pipeline != nullptr);
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		if (!curRenderStep_ || curRenderStep_->stepType != VKRStepType::RENDER) {
 			return false;
 		}

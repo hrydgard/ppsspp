@@ -143,11 +143,15 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static final String[] permissionsForMicrophone = {
 		Manifest.permission.RECORD_AUDIO
 	};
+	private static final String[] permissionsForLocalNetwork = {
+		"android.permission.ACCESS_LOCAL_NETWORK"
+	};
 
 	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
 	public static final int REQUEST_CODE_LOCATION_PERMISSION = 2;
 	public static final int REQUEST_CODE_CAMERA_PERMISSION = 3;
 	public static final int REQUEST_CODE_MICROPHONE_PERMISSION = 4;
+	public static final int REQUEST_CODE_LOCAL_NETWORK_PERMISSION = 5;
 
 	// Once we received a "modern" mouse event, we stop listening to old style mouse
 	// button events.
@@ -171,6 +175,22 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static boolean m_hasNoNativeBinary = false;
 
 	public static boolean libraryLoaded = false;
+
+	public static void applyAchievementsHostOverride(String host) {
+		if (!initialized || !libraryLoaded || host == null || host.isEmpty()) {
+			return;
+		}
+
+		NativeApp.setAchievementsHostOverride(host);
+	}
+
+	public static void clearAchievementsHostOverride() {
+		if (!initialized || !libraryLoaded) {
+			return;
+		}
+
+		NativeApp.clearAchievementsHostOverride();
+	}
 
 	public static void CheckABIAndLoadLibrary() {
 		try {
@@ -239,6 +259,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			} else {
 				NativeApp.sendMessageFromJava("permission_denied", "storage");
 			}
+
+			if (Build.VERSION.SDK_INT >= 35) {
+				if (this.checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") == PackageManager.PERMISSION_GRANTED) {
+					NativeApp.sendMessageFromJava("permission_granted", "local_network");
+				} else {
+					NativeApp.sendMessageFromJava("permission_denied", "local_network");
+				}
+			} else {
+				NativeApp.sendMessageFromJava("permission_granted", "local_network");
+			}
 		}
 	}
 
@@ -274,6 +304,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			case REQUEST_CODE_MICROPHONE_PERMISSION:
 				if (permissionsGranted(permissions, grantResults)) {
 					NativeApp.audioRecording_Start();
+				}
+				break;
+			case REQUEST_CODE_LOCAL_NETWORK_PERMISSION:
+				if (permissionsGranted(permissions, grantResults)) {
+					NativeApp.sendMessageFromJava("permission_granted", "local_network");
+				} else {
+					NativeApp.sendMessageFromJava("permission_denied", "local_network");
 				}
 				break;
 			default:
@@ -496,8 +533,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		PackageManager packageManager = getPackageManager();
 		String installerName = getInstallerName(packageManager);
 
+		int smallestScreenWidthDp = getResources().getConfiguration().smallestScreenWidthDp;
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD, smallestScreenWidthDp);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -568,6 +606,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@SuppressLint("SourceLockedOrientationActivity")
 	private void updateScreenRotation(String cause) {
+		if (Build.VERSION.SDK_INT >= 37 && getResources().getConfiguration().smallestScreenWidthDp >= 600) {
+			// Android 17+ on large screens (sw600dp+) ignores orientation requests to push for adaptive apps.
+			// If we try anyway, it's just a waste of time and might cause weirdness.
+			return;
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (isInMultiWindowMode()) {
 				// Do not try to enforce rotation! This can result in re-init loops.
@@ -707,6 +750,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			setShortcutParam(shortcutParam);
 		}
 
+		String achievementsHostOverride = AchievementsHostOverrideReceiver.getAchievementsHostOverride(this);
+		if (achievementsHostOverride != null && !achievementsHostOverride.isEmpty()) {
+			NativeApp.setAchievementsHostOverride(achievementsHostOverride);
+			Log.i(TAG, "Found achievements host override");
+		}
+
 		lifeCycle.onCreate();
 
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
@@ -737,7 +786,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
-		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.audioInit();
 
 		if (javaGL) {
@@ -1092,7 +1141,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mCameraHelper.resume();
 		}
 
-		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 
@@ -1147,9 +1196,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// keep this static so we can call this even if we don't
 	// instantiate NativeAudioPlayer
-	public static void gainAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
-		if (audioManager != null) {
+	public static void updateAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
+		if (audioManager == null) {
+			Log.w(TAG, "Couldn't update audio focus, audio manager null");
+			return;
+		}
+		if (NativeApp.queryConfig("audioMixWithOthers").equals("0")) {
+			// Shouldn't mix with others - take over.
 			audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+		} else {
+			// Mix with others - abandon focus so we don't kick others out.
+			audioManager.abandonAudioFocus(focusChangeListener);
 		}
 	}
 
@@ -1710,6 +1767,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else if (command.equals("immersive")) {
 			updateSystemUiVisibility();
 			return true;
+		} else if (command.equals("audio_mode_changed")) {
+			updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
+			return true;
 		} else if (command.equals("recreate")) {
 			recreate();
 			return true;
@@ -1726,6 +1786,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.sendMessageFromJava("permission_pending", "storage");
 			} else {
 				NativeApp.sendMessageFromJava("permission_granted", "storage");
+			}
+			return true;
+		} else if (command.equals("ask_permission") && params.equals("local_network")) {
+			if (Build.VERSION.SDK_INT >= 35) {
+				if (askForPermissions(permissionsForLocalNetwork, REQUEST_CODE_LOCAL_NETWORK_PERMISSION)) {
+					NativeApp.sendMessageFromJava("permission_pending", "local_network");
+				} else {
+					NativeApp.sendMessageFromJava("permission_granted", "local_network");
+				}
+			} else {
+				NativeApp.sendMessageFromJava("permission_granted", "local_network");
 			}
 			return true;
 		} else if (command.equals("gps_command")) {

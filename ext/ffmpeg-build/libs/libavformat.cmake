@@ -1,0 +1,51 @@
+# libavformat source files (all platforms)
+set(LIBAVFORMAT_SOURCE_FILES
+	${LIBAVFORMAT_SRC_DIR}/aacdec.c
+	${LIBAVFORMAT_SRC_DIR}/allformats.c
+	${LIBAVFORMAT_SRC_DIR}/apetag.c
+	${LIBAVFORMAT_SRC_DIR}/avidec.c
+	${LIBAVFORMAT_SRC_DIR}/avienc.c
+	${LIBAVFORMAT_SRC_DIR}/avio.c
+	${LIBAVFORMAT_SRC_DIR}/aviobuf.c
+	${LIBAVFORMAT_SRC_DIR}/avlanguage.c
+	${LIBAVFORMAT_SRC_DIR}/cutils.c
+	${LIBAVFORMAT_SRC_DIR}/dump.c
+	${LIBAVFORMAT_SRC_DIR}/file.c
+	${LIBAVFORMAT_SRC_DIR}/format.c
+	${LIBAVFORMAT_SRC_DIR}/h263dec.c
+	${LIBAVFORMAT_SRC_DIR}/h264dec.c
+	${LIBAVFORMAT_SRC_DIR}/id3v1.c
+	${LIBAVFORMAT_SRC_DIR}/id3v2.c
+	${LIBAVFORMAT_SRC_DIR}/img2.c
+	${LIBAVFORMAT_SRC_DIR}/isom.c
+	${LIBAVFORMAT_SRC_DIR}/m4vdec.c
+	${LIBAVFORMAT_SRC_DIR}/metadata.c
+	${LIBAVFORMAT_SRC_DIR}/mp3dec.c
+	${LIBAVFORMAT_SRC_DIR}/mpeg.c
+	${LIBAVFORMAT_SRC_DIR}/mpegtsenc.c
+	${LIBAVFORMAT_SRC_DIR}/mpegvideodec.c
+	${LIBAVFORMAT_SRC_DIR}/mux.c
+	${LIBAVFORMAT_SRC_DIR}/oma.c
+	${LIBAVFORMAT_SRC_DIR}/omadec.c
+	${LIBAVFORMAT_SRC_DIR}/options.c
+	${LIBAVFORMAT_SRC_DIR}/os_support.c
+	${LIBAVFORMAT_SRC_DIR}/pcm.c
+	${LIBAVFORMAT_SRC_DIR}/pcmdec.c
+	${LIBAVFORMAT_SRC_DIR}/pmpdec.c
+	${LIBAVFORMAT_SRC_DIR}/qtpalette.c
+	${LIBAVFORMAT_SRC_DIR}/rawdec.c
+	${LIBAVFORMAT_SRC_DIR}/replaygain.c
+	${LIBAVFORMAT_SRC_DIR}/riff.c
+	${LIBAVFORMAT_SRC_DIR}/riffdec.c
+	${LIBAVFORMAT_SRC_DIR}/riffenc.c
+	${LIBAVFORMAT_SRC_DIR}/sdp.c
+	${LIBAVFORMAT_SRC_DIR}/url.c
+	${LIBAVFORMAT_SRC_DIR}/utils.c
+	${LIBAVFORMAT_SRC_DIR}/wavdec.c
+)
+
+set(LIBAVFORMAT_HEADERS
+	${LIBAVFORMAT_SRC_DIR}/avformat.h
+	${LIBAVFORMAT_SRC_DIR}/avio.h
+	${LIBAVFORMAT_SRC_DIR}/version.h
+)

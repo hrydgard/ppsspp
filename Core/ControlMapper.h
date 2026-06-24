@@ -1,12 +1,13 @@
 #pragma once
 
-#include "Common/Input/InputState.h"
-#include "Core/KeyMap.h"
-
-#include <functional>
 #include <cstring>
+#include <atomic>
+#include <functional>
 #include <mutex>
 #include <vector>
+
+#include "Common/Input/InputState.h"
+#include "Core/KeyMap.h"
 
 struct DisplayLayoutConfig;
 
@@ -32,7 +33,7 @@ public:
 
 	// Inputs to the table-based mapping
 	// These functions are free-threaded.
-	bool Key(const KeyInput &key, bool *pauseTrigger);
+	bool Key(const KeyInput &key);
 	void Axis(const AxisInput *axes, size_t count);
 
 	// Required callbacks.
@@ -59,6 +60,10 @@ public:
 	void ReleaseAll();
 
 	void GetDebugString(StringWriter &w) const;
+
+	bool PollPauseTrigger() {
+		return pauseTrigger_.exchange(false);
+	}
 
 	struct InputSample {
 		float value;
@@ -106,6 +111,8 @@ private:
 	// Mappable auto-rotation. Useful for keyboard/dpad->analog in a few games.
 	bool autoRotatingAnalogCW_ = false;
 	bool autoRotatingAnalogCCW_ = false;
+
+	std::atomic<bool> pauseTrigger_{};
 
 	bool swapAxes_ = false;
 

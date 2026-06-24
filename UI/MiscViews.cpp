@@ -442,6 +442,11 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
 		if (unichar >= 0x20 && unichar != 127) {  // 127 gets produced from Ctrl+Backspace on Windows for some reason.
+			// Don't allow spaces as the first character, it looks confusing (empty search field)
+			if (searchFilter.empty() && unichar == ' ') {
+				return false;
+			}
+
 			// TODO: Save focus state here.
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];

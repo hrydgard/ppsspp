@@ -112,10 +112,10 @@ void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
 }
 
 void SaveFrameDump() {
-	if (!gpuDebug) {
+	if (!gpu) {
 		return;
 	}
-	gpuDebug->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
+	gpu->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
 		NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
 		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 			System_ShowFileInFolder(dumpPath);
@@ -197,6 +197,28 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			gpu->DumpNextFrame();
 		});
 	}
+
+	items->Add(new Choice(dev->T("Compatibility flags")))->OnClick.Add([this](UI::EventParams &e) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::string activeFlags = PSP_CoreParameter().compat.GetActiveFlagsString();
+		std::string compatText = join(di->T("Enabled"), "\n");
+		compatText += activeFlags.empty() ? "None" : activeFlags;
+		compatText += "\n\n";
+		std::string ignored = g_Config.sIgnoreCompatSettings;
+		compatText += join(di->T("Ignored"), ":");
+		if (ignored.empty()) {
+			compatText += " None";
+		} else {
+			compatText += "\n" + ignored;
+		}
+		compatText += "\n\n";
+		compatText += "Loaded files: ";
+		for (const auto &file : PSP_CoreParameter().compat.filesLoaded()) {
+			compatText += "\n" + file;
+		}
+		screenManager()->push(new MessagePopupScreen(dev->T("Compatibility flags"), compatText, di->T("OK"), ""));
+	});
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -535,7 +557,12 @@ bool ShaderViewScreen::key(const KeyInput &ki) {
 const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
 
 FrameDumpTestScreen::~FrameDumpTestScreen() {
-	g_DownloadManager.CancelAll();
+	if (listing_) {
+		listing_->Cancel();
+	}
+	if (dumpDownload_) {
+		dumpDownload_->Cancel();
+	}
 }
 
 void FrameDumpTestScreen::CreateTabs() {
@@ -551,20 +578,17 @@ void FrameDumpTestScreen::CreateTabs() {
 			std::string url = framedumpsBaseUrl + file;
 			Choice *c = parent->Add(new Choice(file));
 			c->SetTag(url);
-			c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
+			c->OnClick.Add([this, url = Path(url)](UI::EventParams &e) {
+				INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
+				// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
+				// except for some reason the game ID.
+				// TODO: Fix that since it can be important for compat settings.
+				screenManager()->switchScreen(new EmuScreen(url));
+			});
 		}
 	});
 
 	EnsureTabs();
-}
-
-void FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
-	Path url = Path(params.v->Tag());
-	INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
-	// Our disc streaming functionality detects the URL and takes over and handles loading framedumps well,
-	// except for some reason the game ID.
-	// TODO: Fix that since it can be important for compat settings.
-	screenManager()->switchScreen(new EmuScreen(url));
 }
 
 void FrameDumpTestScreen::update() {

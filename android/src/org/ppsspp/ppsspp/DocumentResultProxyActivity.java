@@ -44,7 +44,12 @@ public class DocumentResultProxyActivity extends AppCompatActivity {
 
 				String resultPath = null;
 				if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-					Uri uri = result.getData().getData();
+					Intent data = result.getData();
+					Uri uri = data.getData();
+					if (uri == null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+						uri = data.getClipData().getItemAt(0).getUri();
+					}
+
 					if (uri != null) {
 						Log.i(TAG, "DocumentResultProxy: Selected URI: " + uri);
 						try {

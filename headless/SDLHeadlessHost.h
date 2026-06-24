@@ -24,8 +24,7 @@
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS SDLHeadlessHost
 
-struct SDL_Window;
-typedef void *SDL_GLContext;
+#include <SDL3/SDL.h>
 
 class SDLHeadlessHost : public HeadlessHost
 {

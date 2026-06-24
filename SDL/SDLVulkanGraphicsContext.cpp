@@ -11,11 +11,7 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 
 #include "Core/System.h"
-#if PPSSPP_PLATFORM(MAC)
-#include "SDL2/SDL_vulkan.h"
-#else
-#include "SDL_vulkan.h"
-#endif
+#include <SDL3/SDL_vulkan.h>
 #include "SDLVulkanGraphicsContext.h"
 
 #if defined(VK_USE_PLATFORM_METAL_EXT)
@@ -29,10 +25,13 @@ static const bool g_Validate = false;
 #endif
 
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message) {
-	window = SDL_CreateWindow("Initializing Vulkan...", x, y, w, h, mode);
+	window = SDL_CreateWindow("Initializing Vulkan...", w, h, (SDL_WindowFlags)mode);
 	if (!window) {
 		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
 		exit(1);
+	}
+	if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+		SDL_SetWindowPosition(window, x, y);
 	}
 
 	init_glslang();
@@ -77,55 +76,55 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 
 	vulkan_->SetCbGetDrawSize([window]() {
 		int w=1,h=1;
-		SDL_Vulkan_GetDrawableSize(window, &w, &h);
+		SDL_GetWindowSizeInPixels(window, &w, &h);
 		return VkExtent2D {(uint32_t)w, (uint32_t)h};
 	});
 
-	SDL_SysWMinfo sys_info{};
-	SDL_VERSION(&sys_info.version); //Set SDL version
-	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
-		fprintf(stderr, "Error getting SDL window wm info: %s\n", SDL_GetError());
-		exit(1);
-	}
-	switch (sys_info.subsystem) {
-	case SDL_SYSWM_X11:
+	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
+	bool surfaceInitialized = false;
+	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+	if (x11Display != nullptr) {
+		intptr_t x11Window = (intptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
-		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void*)sys_info.info.x11.display,
-				(void *)(intptr_t)sys_info.info.x11.window);
+		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, x11Display, (void *)x11Window);
+		surfaceInitialized = true;
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
-		vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void*)XGetXCBConnection(sys_info.info.x11.display),
-				(void *)(intptr_t)sys_info.info.x11.window);
+		vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void *)XGetXCBConnection((Display *)x11Display), (void *)x11Window);
+		surfaceInitialized = true;
 #endif
-		break;
+ 	}
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	case SDL_SYSWM_WAYLAND:
-		vulkan_->InitSurface(WINDOWSYSTEM_WAYLAND, (void*)sys_info.info.wl.display, (void *)sys_info.info.wl.surface);
-		break;
+	if (!surfaceInitialized) {
+		void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+		void *waylandSurface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+		if (waylandDisplay != nullptr && waylandSurface != nullptr) {
+			vulkan_->InitSurface(WINDOWSYSTEM_WAYLAND, waylandDisplay, waylandSurface);
+ 			surfaceInitialized = true;
+		}
+ 	}
 #endif
 #if defined(VK_USE_PLATFORM_METAL_EXT)
 #if PPSSPP_PLATFORM(MAC)
-	case SDL_SYSWM_COCOA:
-		vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(sys_info.info.cocoa.window), nullptr);
-		break;
+	if (!surfaceInitialized) {
+			void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+			if (cocoaWindow != nullptr) {
+				vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(cocoaWindow), nullptr);
+				surfaceInitialized = true;
+ 			}
+ 	}
 #else
-	case SDL_SYSWM_UIKIT:
-		vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(sys_info.info.uikit.window), nullptr);
-		break;
+	if (!surfaceInitialized) {
+			void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+			if (uikitWindow != nullptr) {
+				vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(uikitWindow), nullptr);
+				surfaceInitialized = true;
+ 			}
+ 	}
 #endif
 #endif
-#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
-	case SDL_SYSWM_KMSDRM:
-		/*
-		There is no problem passing null for the next two arguments, and reinit will be called later
-		huangzihan china
-		*/
-		vulkan_->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
-		break;
-#endif
-	default:
-		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
+	if (!surfaceInitialized) {
+		fprintf(stderr, "Unable to determine Vulkan window system from SDL3 window properties\n");
 		exit(1);
-		break;
 	}
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;

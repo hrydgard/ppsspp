@@ -228,7 +228,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_VIEWPORTYCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTZSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTZCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
-	{ GE_CMD_DEPTHCLAMPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_DEPTHCLIPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
 
 	// Z clipping.
 	{ GE_CMD_MINZ, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
@@ -1030,10 +1030,6 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
 }
 
-void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
-	GPUCommon::Execute_BoundingBox(op, diff);
-}
-
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 	// We assume depthbuf.data won't change while we're drawing.
 	if (diff) {
@@ -1086,7 +1082,7 @@ void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 		}
 	}
 
@@ -1107,7 +1103,7 @@ void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 		}
 	}
 
@@ -1442,11 +1438,6 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	buffer.Allocate(pixels, 1, (GEBufferFormat)gstate.getClutPaletteFormat());
 	memcpy(buffer.GetData(), clut, 1024);
 	return true;
-}
-
-bool SoftGPU::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	gstate_c.UpdateUVScaleOffset();
-	return drawEngine_->transformUnit.GetCurrentDrawAsDebugVertices(count, vertices, indices);
 }
 
 bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {

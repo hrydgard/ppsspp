@@ -11,6 +11,7 @@
 
 #include "stdint.h"
 #include <string.h>
+#include <cfloat>
 
 #ifdef __clang__
 // Weird how you can't just use #pragma in a macro.
@@ -31,8 +32,8 @@
 #endif
 #endif
 
-#if PPSSPP_ARCH(LOONGARCH64)
-#if PPSSPP_ARCH(LOONGARCH64_LSX)
+#if PPSSPP_ARCH(LOONGARCH64) && PPSSPP_ARCH(LOONGARCH64_LSX)
+
 #include <lsxintrin.h>
 
 static inline __m128 __lsx_vreplfr2vr_s(float val) {
@@ -40,12 +41,63 @@ static inline __m128 __lsx_vreplfr2vr_s(float val) {
 	memcpy(&bits, &val, sizeof(bits));
 	return (__m128)__lsx_vreplgr2vr_w(bits);
 }
-#endif
-#endif
 
-// Basic types
+static inline __m128 zero_nans_lsx(__m128 val) {
+	// vfcmp.ceq.s compares each float lane.
+	// NaN == NaN is false, so NaNs result in 0x00000000.
+	// Numbers result in 0xFFFFFFFF.
+	__m128i mask = (__m128i)__lsx_vfcmp_ceq_s(val, val);
+	// Bitwise AND to keep non-NaNs and turn NaNs into 0.0f
+	return (__m128)__lsx_vand_v((__m128i)val, mask);
+}
 
-#if PPSSPP_ARCH(ARM64_NEON)
+static inline __m128 clean_nan_inf_lsx(__m128 val) {
+	// Strip sign bit
+	__m128i sign_mask = __lsx_vreplgr2vr_w(0x7FFFFFFF);
+	__m128i abs_x = __lsx_vand_v((__m128i)val, sign_mask);
+
+	// Infinity threshold
+	__m128i inf_val = __lsx_vreplgr2vr_w(0x7F800000);
+
+	// Compare: Is |x| < Inf? (using signed comparison since 0x7F800000 fits)
+	__m128i finite_mask = __lsx_vslt_w(abs_x, inf_val);
+
+	return (__m128)__lsx_vand_v((__m128i)val, finite_mask);
+}
+
+static inline __m128i zero_nans_lsx(__m128i x) {
+	// vfcmp.ceq.s compares each float lane.
+	// NaN == NaN is false, so NaNs result in 0x00000000.
+	// Numbers result in 0xFFFFFFFF.
+	__m128i mask = (__m128i)__lsx_vfcmp_ceq_s((__m128)x, (__m128)x);
+	// Bitwise AND to keep non-NaNs and turn NaNs into 0.0f
+	return __lsx_vand_v(x, mask);
+}
+
+static inline __m128 zero_nan_inf_lsx(__m128 x) {
+	// 1. Take absolute value by masking off the sign bit
+	// LSX doesn't have __lsx_vfabs_s, so we compute |x| manually
+	__m128i sign_mask = __lsx_vreplgr2vr_w(0x7FFFFFFF);
+	__m128 x_abs = (__m128)__lsx_vand_v((__m128i)x, sign_mask);
+
+	// 2. Load the Positive Infinity bit pattern (0x7F800000)
+	// Emits: vreplgr2vr.w to duplicate the GPR value into all SIMD lanes
+	__m128i inf_bytes = __lsx_vreplgr2vr_w(0x7F800000);
+	__m128 inf_vec = (__m128)inf_bytes;
+
+	// 3. Compare x_abs < inf_vec
+	// clt variant: Compare Less Than, returns all ones for true, zero for false/NaN
+	// Emits: vfcmp.clt.s vr, vr, vr
+	__m128i valid_mask = __lsx_vfcmp_clt_s(x_abs, inf_vec);
+
+	// 4. Bitwise AND to clear the invalid lanes
+	// Emits: vand.v vr, vr, vr
+	__m128i result_bytes = __lsx_vand_v((__m128i)x, valid_mask);
+
+	return (__m128)result_bytes;
+}
+
+#elif PPSSPP_ARCH(ARM64_NEON)
 
 // No special ones here.
 
@@ -85,6 +137,29 @@ static inline float32x4_t vdupq_laneq_f32(float32x4_t vec, int lane) {
 
 static inline uint32x4_t vcgezq_f32(float32x4_t v) {
 	return vcgeq_f32(v, vdupq_n_f32(0.0f));
+}
+
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(ARM64_NEON)
+
+static inline float32x4_t zero_nans_neon(float32x4_t x) {
+	// vceqq_f32 returns 0 for NaNs (since NaN != NaN)
+	uint32x4_t mask = vceqq_f32(x, x);
+	// Bitwise AND the float bits with the mask
+	return vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(x), mask));
+}
+
+static inline float32x4_t clean_inf_and_nan_neon(float32x4_t x) {
+	// Alternate solution that zeroes always
+	uint32x4_t raw_bits = vreinterpretq_u32_f32(x);
+	// Shift left by 1 to remove the sign bit. 
+	// Finite numbers will be less than (0x7F800000 << 1) which is 0xFF000000
+	uint32x4_t abs_shifted = vshlq_n_u32(raw_bits, 1);
+	uint32x4_t inf_shifted = vdupq_n_u32(0xFF000000);
+	// Compare less-than (unsigned)
+	uint32x4_t finite_mask = vcltq_u32(abs_shifted, inf_shifted);
+	return vreinterpretq_f32_u32(vandq_u32(raw_bits, finite_mask));
 }
 
 #endif
@@ -192,6 +267,47 @@ inline __m128i _mm_cmpgt_epu16(__m128i x, __m128i y) {
 // Return 0xFFFF where x < y, else 0x0000.
 inline __m128i _mm_cmplt_epu16(__m128i x, __m128i y) {
 	return _mm_cmpgt_epu16(y, x);
+}
+
+inline __m128 zero_nans_sse(__m128 x) {
+	// Returns 0xFFFFFFFF where x is NOT NaN, 0x00000000 where it IS NaN
+	__m128 mask = _mm_cmpord_ps(x, x);
+	// NaN & 0 = 0.0f. Finite & 0xFF... = Finite.
+	return _mm_and_ps(x, mask);
+}
+
+inline __m128 clean_nan_inf_sse(__m128 x) {
+#if 0
+	// 1. Create a mask to strip the sign bit (0x7FFFFFFF)
+	__m128i sign_mask = _mm_set1_epi32(0x7FFFFFFF);
+
+	// 2. Create a vector representing Positive Infinity (0x7F800000)
+	__m128i inf_bytes = _mm_set1_epi32(0x7F800000);
+	__m128 inf_vec = _mm_castsi128_ps(inf_bytes);
+
+	// 3. Get absolute value: x_abs = x & 0x7FFFFFFF
+	__m128 x_abs = _mm_and_ps(x, _mm_castsi128_ps(sign_mask));
+
+	// 4. Compare x_abs < INF
+	// Finite numbers -> 0xFFFFFFFF
+	// INF and NaN    -> 0x00000000
+	__m128 valid_mask = _mm_cmplt_ps(x_abs, inf_vec);
+
+	// 5. Zero out the invalid elements
+	return _mm_and_ps(x, valid_mask);
+#else
+	// 1. Establish your maximum and minimum finite bounds
+	__m128 max_finite = _mm_set1_ps(FLT_MAX);
+	__m128 min_finite = _mm_set1_ps(-FLT_MAX);
+	// 2. Clamp the upper bound. 
+	// If x is +Inf, min(Inf, FLT_MAX) -> FLT_MAX.
+	// If x is NaN, it outputs the second operand -> max_finite (FLT_MAX).
+	__m128 upper_clamped = _mm_min_ps(x, max_finite);
+	// 3. Clamp the lower bound.
+	// If upper_clamped is -Inf, max(-Inf, -FLT_MAX) -> -FLT_MAX.
+	// If upper_clamped became FLT_MAX because it was a NaN, max(FLT_MAX, -FLT_MAX) -> FLT_MAX.
+	return _mm_max_ps(upper_clamped, min_finite);
+#endif
 }
 
 #endif

@@ -28,6 +28,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Clipper.h"
@@ -68,7 +69,7 @@ void SoftwareDrawEngine::Flush() {
 	transformUnit.Flush(gpuCommon_, "debug");
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) {
 	_assert_msg_(clockwise, "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
@@ -153,8 +154,6 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 
 template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
-	ScreenCoords ret;
-
 	// Account for rounding for X and Y.
 	// TODO: Validate actual rounding range.
 	constexpr float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
@@ -197,7 +196,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float y = coords.y * yScale / coords.w + yCenter;
 	float z = coords.z * zScale / coords.w + zCenter;
 
-	if (gstate.isDepthClampEnabled()) {
+	if (gstate.isDepthClipEnabled()) {
 		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
 	}
 	return ClipToScreenInternal<false, true>(Vec3f(x, y, z), coords, outside_range_flag);
@@ -315,7 +314,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	}
 
-	if (gstate.isDepthClampEnabled())
+	if (gstate.isDepthClipEnabled())
 		state->roundToScreen = &ClipToScreenInternal<true, false>;
 	else
 		state->roundToScreen = &ClipToScreenInternal<false, false>;
@@ -352,8 +351,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	ClipVertexData vertex;
 
 	ModelCoords pos;
-	// VertexDecoder normally scales z, but we want it unscaled.
-	vreader.ReadPosThroughZ16(pos.AsArray());
+	vreader.ReadPosThrough(pos.AsArray());
 
 	static Vec3Packedf lastTC;
 	if (state.readUV) {
@@ -909,128 +907,4 @@ void TransformUnit::FlushIfOverlap(GPUCommon *common, const char *reason, bool m
 
 void TransformUnit::NotifyClutUpdate(const void *src) {
 	binner_->UpdateClut(src);
-}
-
-// TODO: This probably is not the best interface.
-// Also, we should try to merge this into the similar function in DrawEngineCommon.
-bool TransformUnit::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	// This is always for the current vertices.
-	u16 indexLowerBound = 0;
-	u16 indexUpperBound = count - 1;
-
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr) || count == 0)
-		return false;
-
-	if (count > 0 && (gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
-		const u16_le *inds16 = (const u16_le *)inds;
-		const u32_le *inds32 = (const u32_le *)inds;
-
-		if (inds) {
-			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
-			indices.resize(count);
-			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			case GE_VTYPE_IDX_8BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds[i];
-				}
-				break;
-			case GE_VTYPE_IDX_16BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds16[i];
-				}
-				break;
-			case GE_VTYPE_IDX_32BIT:
-				WARN_LOG_REPORT_ONCE(simpleIndexes32, Log::G3D, "SimpleVertices: Decoding 32-bit indexes");
-				for (int i = 0; i < count; ++i) {
-					// These aren't documented and should be rare.  Let's bounds check each one.
-					if (inds32[i] != (u16)inds32[i]) {
-						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, Log::G3D, "SimpleVertices: Index outside 16-bit range");
-					}
-					indices[i] = (u16)inds32[i];
-				}
-				break;
-			}
-		} else {
-			indices.clear();
-		}
-	} else {
-		indices.clear();
-	}
-
-	static std::vector<u32> temp_buffer;
-	static std::vector<SimpleVertex> simpleVertices;
-	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
-	simpleVertices.resize(indexUpperBound + 1);
-
-	VertexDecoder vdecoder;
-	VertexDecoderOptions options{};
-	u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
-	vdecoder.SetVertexType(vertTypeID, options);
-
-	if (!Memory::IsValidRange(gstate_c.vertexAddr, (indexUpperBound + 1) * vdecoder.VertexSize()))
-		return false;
-
-	::NormalizeVertices(&simpleVertices[0], (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, &vdecoder, gstate.vertType);
-
-	float world[16];
-	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-
-	const float zScale = gstate.getViewportZScale();
-	const float zCenter = gstate.getViewportZCenter();
-
-	vertices.resize(indexUpperBound + 1);
-	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
-		const SimpleVertex &vert = simpleVertices[i];
-
-		if (gstate.isModeThrough()) {
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0];
-				vertices[i].v = vert.uv[1];
-			} else {
-				vertices[i].u = 0.0f;
-				vertices[i].v = 0.0f;
-			}
-			vertices[i].x = vert.pos.x;
-			vertices[i].y = vert.pos.y;
-			vertices[i].z = vert.pos.z;
-		} else {
-			Vec4f clipPos = Vec3ByMatrix44(vert.pos, worldviewproj);
-			bool outsideRangeFlag;
-			ScreenCoords screenPos = ClipToScreen(clipPos, &outsideRangeFlag);
-			float z = clipPos.z * zScale / clipPos.w + zCenter;
-
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
-				vertices[i].v = vert.uv[1] * (float)gstate.getTextureHeight(0);
-			} else {
-				vertices[i].u = 0.0f;
-				vertices[i].v = 0.0f;
-			}
-			vertices[i].x = (float)screenPos.x / SCREEN_SCALE_FACTOR;
-			vertices[i].y = (float)screenPos.y / SCREEN_SCALE_FACTOR;
-			vertices[i].z = screenPos.z <= 0 || screenPos.z >= 0xFFFF ? z : (float)screenPos.z;
-		}
-
-		if (gstate.vertType & GE_VTYPE_COL_MASK) {
-			memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
-		} else {
-			memset(vertices[i].c, 0, sizeof(vertices[i].c));
-		}
-		vertices[i].nx = vert.nrm.x;
-		vertices[i].ny = vert.nrm.y;
-		vertices[i].nz = vert.nrm.z;
-	}
-
-	// The GE debugger expects these to be set.
-	gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-	gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-
-	return true;
 }

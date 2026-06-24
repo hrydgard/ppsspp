@@ -963,7 +963,7 @@ void WriteRunDumpCode(u32 codeStart) {
 // A long term goal is inversion of control here, but it's tricky for a number of reasons that you'll find
 // out if you try.
 ReplayResult RunMountedReplay(const std::string &filename) {
-	_assert_msg_(!gpuDebug->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
+	_assert_msg_(!gpu->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
 
 	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {

@@ -32,6 +32,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/System/System.h"
 #include "Common/System/Request.h"
 
 #include "Common/File/PathBrowser.h"
@@ -313,11 +314,35 @@ void RemoteISOScreen::update() {
 	serverRunning_ = nowRunning;
 }
 
+void RemoteISOScreen::sendMessage(UIMessage message, const char *value) {
+	UITabbedBaseDialogScreen::sendMessage(message, value);
+	switch (message) {
+	case UIMessage::PERMISSION_GRANTED:
+		if (equals(value, "local_network")) {
+			RecreateViews();
+		} else {
+			ERROR_LOG(Log::UI, "Unknown permission granted: %s", value);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	using namespace UI;
+
+	PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
+	if (status != PERMISSION_STATUS_GRANTED) {
+		// Proceed with local network functionality
+		tab->Add(new Choice(ri->T("Ask for network permission")))->OnClick.Add([this](UI::EventParams &e) {
+			System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
+		});
+		return;
+	}
 
 	if (serverRunning_) {
 		tab->Add(new NoticeView(NoticeLevel::SUCCESS, ri->T("Currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));

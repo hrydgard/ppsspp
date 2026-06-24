@@ -53,7 +53,122 @@ void TextureShaderCache::DeviceLost() {
 	draw_ = nullptr;
 }
 
-ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut) {
+Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
+	if (linearFilter) {
+		if (!linearSampler_) {
+			Draw::SamplerStateDesc desc{};
+			desc.magFilter = Draw::TextureFilter::LINEAR;
+			desc.minFilter = Draw::TextureFilter::LINEAR;
+			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			linearSampler_ = draw_->CreateSamplerState(desc);
+		}
+		return linearSampler_;
+	} else {
+		if (!nearestSampler_) {
+			Draw::SamplerStateDesc desc{};
+			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
+			nearestSampler_ = draw_->CreateSamplerState(desc);
+		}
+		return nearestSampler_;
+	}
+}
+
+void TextureShaderCache::Clear() {
+	for (auto shader = pipelineCache_.begin(); shader != pipelineCache_.end(); ++shader) {
+		if (shader->second->pipeline) {
+			shader->second->pipeline->Release();
+		}
+		delete shader->second;
+	}
+	pipelineCache_.clear();
+	if (nearestSampler_) {
+		nearestSampler_->Release();
+		nearestSampler_ = nullptr;
+	}
+	if (linearSampler_) {
+		linearSampler_->Release();
+		linearSampler_ = nullptr;
+	}
+}
+
+Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal, u32 depthUpperBits) {
+	using namespace Draw;
+
+	// Generate an ID for depal shaders.
+	u64 id = ((u64)depthUpperBits << 32) | (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
+
+	auto shader = pipelineCache_.find(id);
+	if (shader != pipelineCache_.end()) {
+		return shader->second;
+	}
+
+	// TODO: Parse these out of clutMode some nice way, to become a bit more stateless.
+	DepalConfig config;
+	config.clutFormat = gstate.getClutPaletteFormat();
+	config.startPos = gstate.getClutIndexStartPos();
+	config.shift = gstate.getClutIndexShift();
+	config.mask = gstate.getClutIndexMask();
+	config.bufferFormat = bufferFormat;
+	config.textureFormat = textureFormat;
+	config.smoothedDepal = smoothedDepal;
+	config.depthUpperBits = depthUpperBits;
+
+	Draw2DPipeline *ts = draw2D_->Create2DPipeline([config](ShaderWriter &writer) -> Draw2DPipelineInfo {
+		GenerateDepalFs(writer, config);
+		return Draw2DPipelineInfo{
+			"depal",
+			config.bufferFormat == GE_FORMAT_DEPTH16 ? RASTER_DEPTH : RASTER_COLOR,
+			RASTER_COLOR,
+			samplers
+		};
+	});
+
+	pipelineCache_[id] = ts;
+
+	return ts->pipeline ? ts : nullptr;
+}
+
+std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) const {
+	std::vector<std::string> ids;
+	for (auto &entry : pipelineCache_) {
+		ids.push_back(StringFromFormat("%08x", entry.first));
+	}
+	return ids;
+}
+
+std::string TextureShaderCache::DebugGetShaderString(const std::string &idstr, DebugShaderType type, DebugShaderStringType stringType) const {
+	uint32_t id = 0;
+	if (sscanf(idstr.c_str(), "%08x", &id) == 0) {
+		return "";
+	}
+	auto iter = pipelineCache_.find(id);
+	if (iter == pipelineCache_.end())
+		return "";
+	switch (stringType) {
+	case SHADER_STRING_SHORT_DESC:
+		return idstr;
+	case SHADER_STRING_SOURCE_CODE:
+		return iter->second->code;
+	default:
+		return "";
+	}
+}
+
+void ClutTextureCache::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+}
+
+void ClutTextureCache::DeviceLost() {
+	Clear();
+	draw_ = nullptr;
+}
+
+// TODO: We could cache many CLUTs in one big texture, might be more efficient.
+ClutTexture ClutTextureCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, const u32 *rawClut) {
 	// Simplistic, but works well enough.
 	u32 clutId = clutHash ^ (uint32_t)clutFormat;
 
@@ -138,54 +253,15 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 	return *tex;
 }
 
-void TextureShaderCache::Clear() {
-	for (auto shader = depalCache_.begin(); shader != depalCache_.end(); ++shader) {
-		if (shader->second->pipeline) {
-			shader->second->pipeline->Release();
-		}
-		delete shader->second;
-	}
-	depalCache_.clear();
+void ClutTextureCache::Clear() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
 		tex->second->texture->Release();
 		delete tex->second;
 	}
 	texCache_.clear();
-	if (nearestSampler_) {
-		nearestSampler_->Release();
-		nearestSampler_ = nullptr;
-	}
-	if (linearSampler_) {
-		linearSampler_->Release();
-		linearSampler_ = nullptr;
-	}
 }
 
-Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
-	if (linearFilter) {
-		if (!linearSampler_) {
-			Draw::SamplerStateDesc desc{};
-			desc.magFilter = Draw::TextureFilter::LINEAR;
-			desc.minFilter = Draw::TextureFilter::LINEAR;
-			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-			linearSampler_ = draw_->CreateSamplerState(desc);
-		}
-		return linearSampler_;
-	} else {
-		if (!nearestSampler_) {
-			Draw::SamplerStateDesc desc{};
-			desc.wrapU = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-			desc.wrapV = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-			desc.wrapW = Draw::TextureAddressMode::CLAMP_TO_EDGE;
-			nearestSampler_ = draw_->CreateSamplerState(desc);
-		}
-		return nearestSampler_;
-	}
-}
-
-void TextureShaderCache::Decimate() {
+void ClutTextureCache::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
 		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.totals.numFlips) {
 			tex->second->texture->Release();
@@ -196,65 +272,4 @@ void TextureShaderCache::Decimate() {
 		}
 	}
 	gpuStats.perFrame.numClutTextures = (int)texCache_.size();
-}
-
-Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETextureFormat textureFormat, GEBufferFormat bufferFormat, bool smoothedDepal, u32 depthUpperBits) {
-	using namespace Draw;
-
-	// Generate an ID for depal shaders.
-	u64 id = ((u64)depthUpperBits << 32) | (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
-
-	auto shader = depalCache_.find(id);
-	if (shader != depalCache_.end()) {
-		return shader->second;
-	}
-
-	// TODO: Parse these out of clutMode some nice way, to become a bit more stateless.
-	DepalConfig config;
-	config.clutFormat = gstate.getClutPaletteFormat();
-	config.startPos = gstate.getClutIndexStartPos();
-	config.shift = gstate.getClutIndexShift();
-	config.mask = gstate.getClutIndexMask();
-	config.bufferFormat = bufferFormat;
-	config.textureFormat = textureFormat;
-	config.smoothedDepal = smoothedDepal;
-	config.depthUpperBits = depthUpperBits;
-
-	Draw2DPipeline *ts = draw2D_->Create2DPipeline([=](ShaderWriter &writer) -> Draw2DPipelineInfo {
-		GenerateDepalFs(writer, config);
-		return Draw2DPipelineInfo{
-			"depal",
-			config.bufferFormat == GE_FORMAT_DEPTH16 ? RASTER_DEPTH : RASTER_COLOR,
-			RASTER_COLOR,
-			samplers
-		};
-	});
-
-	depalCache_[id] = ts;
-
-	return ts->pipeline ? ts : nullptr;
-}
-
-std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) {
-	std::vector<std::string> ids;
-	for (auto &iter : depalCache_) {
-		ids.push_back(StringFromFormat("%08x", iter.first));
-	}
-	return ids;
-}
-
-std::string TextureShaderCache::DebugGetShaderString(const std::string &idstr, DebugShaderType type, DebugShaderStringType stringType) {
-	uint32_t id = 0;
-	sscanf(idstr.c_str(), "%08x", &id);
-	auto iter = depalCache_.find(id);
-	if (iter == depalCache_.end())
-		return "";
-	switch (stringType) {
-	case SHADER_STRING_SHORT_DESC:
-		return idstr;
-	case SHADER_STRING_SOURCE_CODE:
-		return iter->second->code;
-	default:
-		return "";
-	}
 }
