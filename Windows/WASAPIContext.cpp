@@ -121,14 +121,24 @@ WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
 
 bool GetDeviceDesc(IMMDevice *device, AudioDeviceDesc *desc) {
 	ComPtr<IPropertyStore> props;
-	device->OpenPropertyStore(STGM_READ, &props);
+	HRESULT hr = device->OpenPropertyStore(STGM_READ, &props);
+	if (FAILED(hr) || !props) {
+		return false;
+	}
+
 	PROPVARIANT nameProp;
 	PropVariantInit(&nameProp);
-	props->GetValue(PKEY_Device_FriendlyName, &nameProp);
+	hr = props->GetValue(PKEY_Device_FriendlyName, &nameProp);
+
 	LPWSTR id_str = 0;
 	bool success = false;
 	if (SUCCEEDED(device->GetId(&id_str))) {
-		desc->name = ConvertWStringToUTF8(nameProp.pwszVal);
+		// Only use the name if GetValue succeeded, otherwise use empty string
+		if (SUCCEEDED(hr) && nameProp.pwszVal) {
+			desc->name = ConvertWStringToUTF8(nameProp.pwszVal);
+		} else {
+			desc->name = "(Unknown device)";
+		}
 		desc->uniqueId = ConvertWStringToUTF8(id_str);
 		CoTaskMemFree(id_str);
 		success = true;
@@ -151,7 +161,9 @@ void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool 
 
 	for (UINT i = 0; i < count; ++i) {
 		ComPtr<IMMDevice> device;
-		collection->Item(i, &device);
+		if (FAILED(collection->Item(i, &device)) || !device) {
+			continue;
+		}
 
 		AudioDeviceDesc desc{};
 		if (GetDeviceDesc(device.Get(), &desc)) {
@@ -365,7 +377,12 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 
 	// Get engine period info
 	REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
-	audioClient_->GetDevicePeriod(&defaultPeriod, &minPeriod);
+	hr = audioClient_->GetDevicePeriod(&defaultPeriod, &minPeriod);
+	if (FAILED(hr)) {
+		// Non-fatal, but log it. We'll use a default duration.
+		WARN_LOG(Log::Audio, "GetDevicePeriod failed: %08lx, using default period", hr);
+		minPeriod = 100000;  // 10ms default
+	}
 
 	const REFERENCE_TIME duration = minPeriod;
 	hr = audioClient_->Initialize(
@@ -618,12 +635,27 @@ void WASAPIContext::AudioLoop() {
 
 		UINT32 padding = 0;
 		if (audioClient3_) {
-			audioClient3_->GetCurrentPadding(&padding);
+			hr = audioClient3_->GetCurrentPadding(&padding);
+			if (FAILED(hr)) {
+				WARN_LOG(Log::Audio, "AudioClient3::GetCurrentPadding failed: %08lx", hr);
+				continue;
+			}
 		} else {
-			audioClient_->GetCurrentPadding(&padding);
+			hr = audioClient_->GetCurrentPadding(&padding);
+			if (FAILED(hr)) {
+				WARN_LOG(Log::Audio, "AudioClient::GetCurrentPadding failed: %08lx", hr);
+				continue;
+			}
 		}
 
-		UINT32 framesToWrite = available - padding;
+		// Calculate frames to write, checking for underflow
+		UINT32 framesToWrite = 0;
+		if (padding < available) {
+			framesToWrite = available - padding;
+		} else if (padding > available) {
+			// This shouldn't happen, but log it if it does
+			WARN_LOG(Log::Audio, "Padding (%d) exceeds available (%d), skipping frame", padding, available);
+		}
 
 		// Safety: clamp framesToWrite to tempBuf_ capacity if using conversion path
 		const UINT32 bufCapacity = reportedBufferSize_.load();
@@ -634,7 +666,12 @@ void WASAPIContext::AudioLoop() {
 
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
-			if (!tempBuf_) {
+			if (!callback_) {
+				// No callback set, fill with silence
+				if (buffer) {
+					memset(buffer, 0, framesToWrite * format_->nChannels * (format_->wBitsPerSample / 8));
+				}
+			} else if (!tempBuf_) {
 				// Mix directly to the output buffer, avoiding a copy.
 				if (buffer) {
 					callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nSamplesPerSec, userdata_);
@@ -643,6 +680,8 @@ void WASAPIContext::AudioLoop() {
 				// We decided previously that we need conversion, so mix to our temp buffer...
 				callback_(tempBuf_.get(), framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
+				// NOTE: Channel mapping assumes standard order (FL, FR, RL, RR, C, LFE).
+				// Non-standard channel masks from WAVEFORMATEXTENSIBLE are not currently handled.
 				if (format == AudioFormat::PCM16 && buffer) {
 					// Need to convert.
 					s16 *dest = reinterpret_cast<s16 *>(buffer);
@@ -724,7 +763,10 @@ void WASAPIContext::AudioLoop() {
 				}
 			}
 
-			renderClient_->ReleaseBuffer(framesToWrite, 0);
+			hr = renderClient_->ReleaseBuffer(framesToWrite, 0);
+			if (FAILED(hr)) {
+				WARN_LOG(Log::Audio, "ReleaseBuffer failed: %08lx", hr);
+			}
 
 			// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
 			if (audioClient_ && framesToWrite < actualPeriodFrames_.load()) {
