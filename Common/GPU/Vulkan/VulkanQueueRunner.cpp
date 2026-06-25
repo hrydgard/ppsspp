@@ -975,7 +975,7 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 	INFO_LOG(Log::G3D, "%s", StepToString(vulkan_, step).c_str());
 }
 
-void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile) {
+void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, const int curFrame, QueueProfileContext &profile) {
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
@@ -1198,6 +1198,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 			if (pipelineOK) {
+				_dbg_assert_(c.drawIndexed.descSetIndex < descSets->size());
 				VkDescriptorSet set = (*descSets)[c.drawIndexed.descSetIndex].set;
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
@@ -1210,7 +1211,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW:
 			if (pipelineOK) {
-				VkDescriptorSet set = (*descSets)[c.drawIndexed.descSetIndex].set;
+				_dbg_assert_(c.draw.descSetIndex < descSets->size());
+				VkDescriptorSet set = (*descSets)[c.draw.descSetIndex].set;
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.draw.numUboOffsets, c.draw.uboOffsets);
 				if (c.draw.vbuffer) {

@@ -90,6 +90,8 @@ enum class PerfClass {
 	FAST,
 };
 
+typedef std::function<void(VulkanContext *)> DeleteCallback;
+
 // This is a bit repetitive...
 class VulkanDeleteList {
 	struct BufferWithAlloc {
@@ -127,7 +129,7 @@ public:
 	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { _dbg_assert_(pipelineLayout != VK_NULL_HANDLE); pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { _dbg_assert_(descSetLayout != VK_NULL_HANDLE); descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueDeleteQueryPool(VkQueryPool &queryPool) { _dbg_assert_(queryPool != VK_NULL_HANDLE); queryPools_.push_back(queryPool); queryPool = VK_NULL_HANDLE; }
-	void QueueCallback(void (*func)(VulkanContext *vulkan, void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueCallback(DeleteCallback func) { callbacks_.push_back(func); }
 
 	void QueueDeleteBufferAllocation(VkBuffer &buffer, VmaAllocation &alloc) { 
 		_dbg_assert_(buffer != VK_NULL_HANDLE); 
@@ -167,7 +169,7 @@ private:
 	std::vector<VkPipelineLayout> pipelineLayouts_;
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<VkQueryPool> queryPools_;
-	std::vector<Callback> callbacks_;
+	std::vector<DeleteCallback> callbacks_;
 	int deleteCount_ = 0;
 };
 
