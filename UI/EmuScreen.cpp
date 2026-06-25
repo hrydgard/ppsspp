@@ -1194,8 +1194,6 @@ InputMode EmuScreen::PassInputToMapper() const {
 bool EmuScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 
-
-
 	if (!retval && g_Config.bShowImDebugger && imguiInited_) {
 		ImGui_ImplPlatform_KeyEvent(key);
 	}

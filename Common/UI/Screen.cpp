@@ -138,9 +138,14 @@ void ScreenManager::update() {
 
 	// Process queued events.
 
-	std::lock_guard<std::mutex> eventGuard(eventQueueLock_);
+	std::deque<QueuedEvent> events;
+	{
+		std::lock_guard<std::mutex> eventGuard(eventQueueLock_);
+		events = std::move(eventQueue_);
+		eventQueue_.clear();
+	}
 
-	for (const QueuedEvent &ev : eventQueue_) {
+	for (const QueuedEvent &ev : events) {
 		switch (ev.type) {
 		case QueuedEventType::TOUCH:
 		{
