@@ -1523,16 +1523,26 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
 		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
-		u32 packetsThisRound = 0;
-		while (numPackets) {
+		u32 desiredPacketsThisRound = 0;
+		while (numPackets > 0) {
 			PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 			action->setRingAddr(ringbufferAddr);
 
-			packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
-			numPackets -= packetsThisRound;
-			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args };
-			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
-			writeOffset = (writeOffset + packetsThisRound) % (s32)ringbuffer->packets;
+			desiredPacketsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset); //min(How many avail, how many will fit)
+			u32 writePosBefore = ringbuffer->packetsWritePos;
+			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, desiredPacketsThisRound, (u32)ringbuffer->callback_args };
+			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action); //Calling the callback
+
+			if (ringbuffer->packetsWritePos == writePosBefore) {
+				// Callback did not write anything
+				break;
+			}
+			numPackets -= (ringbuffer->packetsWritePos - writePosBefore);
+			
+			//TODO: We always increment the writeOffset even if nothing was written
+			//TODO: We should only increment by how much was written, so not using packetsThisRound but using... ? ringbuffer->packetsAvail
+			//writeOffset = (writeOffset + desiredPacketsThisRound) % (s32)ringbuffer->packets;
+			writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
 			// Old savestate don't use this feature, just for compatibility.
 			if (!useRingbufferPutCallbackMulti)
 				break;
