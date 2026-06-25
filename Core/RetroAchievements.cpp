@@ -615,7 +615,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 	}
 	case RC_MISSING_VALUE:
 		// This is fine, proceeding to login.
-		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RAIntegration is enabled, but %1 was not found."));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(ac->T("RAIntegration is enabled, but %1 was not found."), RAINTEGRATION_FILENAME));
 		break;
 	case RC_ABORTED:
 		// This is fine(-ish), proceeding to login.

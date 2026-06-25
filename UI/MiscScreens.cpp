@@ -419,10 +419,12 @@ bool LogoScreen::key(const KeyInput &key) {
 	return false;
 }
 
-void LogoScreen::touch(const TouchInput &touch) {
+bool LogoScreen::touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
 		Next();
+		return true;
 	}
+	return false;
 }
 
 void LogoScreen::DrawForeground(UIContext &dc) {

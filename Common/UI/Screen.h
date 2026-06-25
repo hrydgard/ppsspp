@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <deque>
 #include <unordered_map>
 #include <vector>
 
@@ -75,6 +76,30 @@ enum class ViewLayoutMode {
 	IgnoreBottomInset,
 };
 
+enum class InputMode {
+	None = 0,
+	Keyboard = 1,
+	Mouse = 2,
+	Other = 4,
+	ImDebuggerToggle = 8,  // ugly hack. debugger and pause goes through.
+};
+ENUM_CLASS_BITOPS(InputMode);
+
+enum class QueuedEventType : u8 {
+	KEY,
+	AXIS,
+	TOUCH,
+};
+
+struct QueuedEvent {
+	QueuedEventType type;
+	union {
+		TouchInput touch;
+		KeyInput key;
+		AxisInput axis;
+	};
+};
+
 class Screen {
 public:
 	Screen() = default;
@@ -94,13 +119,15 @@ public:
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
 
-	// Return value of UnsyncTouch is only used to let the overlay screen block touches.
-	virtual bool UnsyncTouch(const TouchInput &touch) = 0;
-	// Return value of UnsyncKey is used to not block certain system keys like volume when unhandled, on Android.
-	virtual bool UnsyncKey(const KeyInput &touch) = 0;
-	virtual void UnsyncAxis(const AxisInput *axes, size_t count) = 0;
+	virtual bool touch(const TouchInput &touch) = 0;
+	virtual bool key(const KeyInput &key) = 0;
+	virtual void axis(const AxisInput &axis) = 0;
 
 	virtual void RecreateViews() {}
+
+	// NOTE: This is polled every frame, not called on every input event. This is
+	// a step towards eventually removing the ScreenManager input mutex.
+	virtual InputMode PassInputToMapper() const { return InputMode::None; }
 
 	ScreenManager *screenManager() { return screenManager_; }
 	const ScreenManager *screenManager() const { return screenManager_; }
@@ -136,7 +163,7 @@ enum {
 	LAYER_TRANSPARENT = 2,
 };
 
-typedef void(*PostRenderCallback)(UIContext *ui, void *userdata);
+typedef void (*PostRenderCallback)(UIContext *ui, void *userdata);
 
 class ScreenManager {
 public:
@@ -173,7 +200,7 @@ public:
 
 	// Instant touch, separate from the update() mechanism.
 	void touch(const TouchInput &touch);
-	bool key(const KeyInput &key);
+	void key(const KeyInput &key);
 	void axis(const AxisInput *axes, size_t count);
 
 	void sendMessage(UIMessage message, const char *value);
@@ -192,7 +219,9 @@ public:
 	// Will delete any existing overlay screen.
 	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
 
-	std::recursive_mutex inputLock_;
+	InputMode PassInputToMapper() const {
+		return passInputToMapper_;
+	}
 
 private:
 	void pop();
@@ -225,4 +254,9 @@ private:
 	std::vector<Layer> nextStack_;
 
 	std::unordered_map<int64_t, int> lastAxis_;
+
+	std::mutex eventQueueLock_;
+	std::deque<QueuedEvent> eventQueue_;
+
+	InputMode passInputToMapper_ = InputMode::None;
 };

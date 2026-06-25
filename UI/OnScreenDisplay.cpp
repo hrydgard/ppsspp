@@ -389,7 +389,7 @@ bool OnScreenMessagesView::Dismiss(float x, float y) {
 	return dismissed;
 }
 
-bool OSDOverlayScreen::UnsyncTouch(const TouchInput &touch) {
+bool OSDOverlayScreen::touch(const TouchInput &touch) {
 	// Don't really need to forward.
 	// UIScreen::UnsyncTouch(touch);
 	if ((touch.flags & TouchInputFlags::DOWN) && osmView_) {

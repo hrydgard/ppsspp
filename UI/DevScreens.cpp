@@ -629,7 +629,7 @@ void FrameDumpTestScreen::update() {
 	}
 }
 
-void TouchTestScreen::touch(const TouchInput &touch) {
+bool TouchTestScreen::touch(const TouchInput &touch) {
 	UIBaseDialogScreen::touch(touch);
 	if (touch.flags & TouchInputFlags::DOWN) {
 		bool found = false;
@@ -678,6 +678,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 			WARN_LOG(Log::System, "Touch release without touch down");
 		}
 	}
+	return true;
 }
 
 // TODO: Move this screen out into its own file.

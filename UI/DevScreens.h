@@ -169,7 +169,7 @@ public:
 		}
 	}
 
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	void DrawForeground(UIContext &dc) override;
 
 	bool key(const KeyInput &key) override;
