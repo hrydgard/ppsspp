@@ -308,9 +308,6 @@ jobs:
         brew install ldid dpkg pillow
         # Check Xcode version
         xcodebuild -version
-        # List available Xcode versions
-        ls /Applications | grep Xcode
-        sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
 
     - name: Create iOS Version.txt file
       if: matrix.id == 'ios'
