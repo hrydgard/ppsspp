@@ -52,6 +52,7 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] = {
 		{u"qwertyuiop[]"},
 		{u"asdfghjkl;@~"},
 		{u"zxcvbnm,./?\\"},
+		{u"=<>\'€¥&§£*()"},
 	},
 	{
 		// Latin Uppercase
@@ -59,6 +60,7 @@ static const char16_t oskKeys[OSK_KEYBOARD_COUNT][6][14] = {
 		{u"QWERTYUIOP{}"},
 		{u"ASDFGHJKL:\"`"},
 		{u"ZXCVBNM<>/?|"},
+		{u"=<>\'€¥&§-[]"},
 	},
 	{
 		// Hiragana

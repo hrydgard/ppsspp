@@ -42,8 +42,8 @@
 const static int OSK_INIT_DELAY_US = 300000;
 const static int OSK_SHUTDOWN_DELAY_US = 40000;
 
-const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
-const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 6, 6, 5, 4, 4, 4, 4};
+static const uint8_t numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12, 12, 12};
+static const uint8_t numKeyRows[OSK_KEYBOARD_COUNT] = {5, 5, 6, 6, 5, 4, 4, 4, 4};
 
 // Korean (Hangul) vowel Combination key
 static const uint8_t kor_vowelCom[21] = { 0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19 };
