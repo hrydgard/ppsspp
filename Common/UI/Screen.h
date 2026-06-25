@@ -222,7 +222,6 @@ public:
 	InputMode PassInputToMapper() const {
 		return passInputToMapper_;
 	}
-	std::recursive_mutex inputLock_;
 
 private:
 	void pop();

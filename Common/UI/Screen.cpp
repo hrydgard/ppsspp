@@ -59,7 +59,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 		ERROR_LOG(Log::UI, "Can't switch to empty screen");
 		return;
 	}
-	// TODO: inputLock_ ?
 
 	INFO_LOG(Log::UI, "ScreenManager::switchScreen('%s')", screen->tag());
 
@@ -106,8 +105,6 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 }
 
 void ScreenManager::update() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-
 	if (cancelScreensAbove_) {
 		bool found = false;
 		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
@@ -150,7 +147,6 @@ void ScreenManager::update() {
 		case QueuedEventType::TOUCH:
 		{
 			const TouchInput &touch = ev.touch;
-
 			// Send release all events to every screen layer.
 			if (touch.flags & TouchInputFlags::RELEASE_ALL) {
 				for (auto &layer : stack_) {
@@ -173,8 +169,6 @@ void ScreenManager::update() {
 		case QueuedEventType::KEY:
 		{
 			const KeyInput &key = ev.key;
-
-			std::lock_guard<std::recursive_mutex> guard(inputLock_);
 			// Send key up to every screen layer, to avoid stuck keys.
 			if (key.flags & KeyInputFlags::UP) {
 				for (auto &layer : stack_) {
@@ -183,14 +177,11 @@ void ScreenManager::update() {
 			} else if (!stack_.empty()) {
 				stack_.back().screen->key(key);
 			}
-
 			break;
 		}
 		case QueuedEventType::AXIS:
 		{
 			const AxisInput &axis = ev.axis;
-
-			std::lock_guard<std::recursive_mutex> guard(inputLock_);
 			if (!stack_.empty()) {
 				stack_.back().screen->axis(axis);
 			}
@@ -204,7 +195,6 @@ void ScreenManager::update() {
 }
 
 void ScreenManager::switchToNext() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextStack_.empty()) {
 		ERROR_LOG(Log::System, "switchToNext: No nextStack_!");
 	}
@@ -266,7 +256,6 @@ void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
 
 void ScreenManager::resized() {
 	INFO_LOG(Log::UI, "ScreenManager::resized(dp: %dx%d)", g_display.dp_xres, g_display.dp_yres);
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
 	for (auto &layer : stack_) {
@@ -411,7 +400,6 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 }
 
 void ScreenManager::shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (const auto &layer : stack_)
 		delete layer.screen;
 	stack_.clear();
@@ -425,7 +413,6 @@ void ScreenManager::shutdown() {
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	screen->setScreenManager(this);
 	if (screen->isTransparent()) {
 		layerFlags |= LAYER_TRANSPARENT;
@@ -456,7 +443,6 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 }
 
 void ScreenManager::pop() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 
@@ -472,7 +458,6 @@ void ScreenManager::pop() {
 }
 
 void ScreenManager::RecreateAllViews() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (auto &layer : stack_) {
 		layer.screen->RecreateViews();
 	}
@@ -506,7 +491,6 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
 		{
-			std::lock_guard<std::recursive_mutex> guard(inputLock_);
 			// Another dialog may have been pushed before the render, so search for it.
 			Screen *caller = dialogParent(dialogFinished_);
 			bool erased = false;
