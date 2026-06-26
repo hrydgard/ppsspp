@@ -3,47 +3,27 @@ precision mediump float;
 precision mediump int;
 #endif
 
-// UE5 PostProcess — Unreal Engine 5 style post-processing
+// UE5 PostProcess — Unreal Engine 5 style post-processing (v2)
 // =================================================================
 // Three independent stages, all bypassed when their slider is 0:
 //
-//   .x = Filmic tone-map strength  [0, 1]   (0 = off)
-//   .y = Rim light strength        [0, 0.3] (0 = off, 0.15 = default)
-//   .z = Color grading strength    [0, 1]   (0 = off)
-//   .w = Quality level             [0, 2]   (0=cheap, 1=normal, 2=high)
+//   .x = Filmic tone-map strength  [0, 1]     (0 = off)  default 0.3
+//   .y = Rim light strength        [0, 0.2]   (0 = off)  default 0.08
+//   .z = Color grading strength    [0, 1]     (0 = off)  default 0.2
+//   .w = Quality level             [0, 2]     (0=cheap, 1=normal, 2=high)
 //
-// Improvements over the previous version (per hrydgard's feedback
-// that UE5 "looked cartoon-like"):
-//
-// 1. Rim light now uses a *5x5 local min/max contrast* approach
-//    (Schlick-style "screen-space ambient rim") instead of a hard
-//    Sobel edge. The result is a *soft, additive bloom-like halo*
-//    that only appears where the local contrast is high — never
-//    as a sharp outline.
-//
-// 2. Tone mapping: still ACES Filmic (Narkowicz 2015), but now
-//    applied with a *pre-exposure* step. This is what UE5 does:
-//    multiply the input by ~1.05-1.2 to push midtones into the
-//    rolloff region of the curve. Without pre-exposure, ACES on
-//    already-dark PSP frames looks flat.
-//
-// 3. Color grading now uses the *industry-standard
-//    Lift/Gamma/Gain* model (used in DaVinci Resolve, UE5,
-//    Lightroom). Each channel gets three independent controls:
-//      - Lift  : shifts shadows (additive)
-//      - Gamma : adjusts midtones (power)
-//      - Gain  : multiplies highlights
-//    This is what gives UE5 its "filmic" signature look: cool
-//    shadows, neutral midtones, warm highlights.
-//
-// u_time is used to give the rim light a *very subtle* time-based
-// shimmer so it doesn't look like a static effect (PPSSPP exposes
-// u_time at offset 3 in PostShaderUniforms).
+// v2 changes (explosion fix):
+//   - Removed preExposure (was causing overexposure)
+//   - Removed shimmer (was causing flickering during movement)
+//   - Rim light multiplier: 3.5 -> 1.0 (was way too strong)
+//   - Rim light range: [0, 0.3] -> [0, 0.2], default 0.08
+//   - Rim mask: smoothstep(0.45, 0.90) -> smoothstep(0.50, 0.85)
+//   - Tonemap default: 0.5 -> 0.3
+//   - Color grade default: 0.5 -> 0.2
 
 uniform sampler2D sampler0;
 uniform vec2 u_texelDelta;
 uniform vec4 u_setting;
-uniform vec4 u_time;
 
 varying vec2 v_texcoord0;
 
@@ -62,17 +42,11 @@ vec3 acesFilmic(vec3 x) {
 }
 
 // Lift/Gamma/Gain color grading (industry standard, same model
-// as DaVinci Resolve / UE5 / Lightroom). Each parameter is a
-// per-channel vec3; we expose a single user slider (u_setting.z)
-// and a few hand-tuned constants. To customize, edit the
-// constants below.
+// as DaVinci Resolve / UE5 / Lightroom).
 vec3 liftGammaGain(vec3 color, vec3 lift, vec3 gamma, vec3 gain) {
-    // Lift:  additive in shadow region (smoothstep masks to dark)
-    // Gain:  multiplicative everywhere
-    // Gamma: power in midtone region
     vec3 liftMask = vec3(1.0) - smoothstep(0.0, 0.4, color);
     vec3 gainMask = smoothstep(0.0, 0.7, color);
-    vec3 gammaMask = vec3(1.0) - abs(color - 0.5) * 2.0;  // peak at 0.5
+    vec3 gammaMask = vec3(1.0) - abs(color - 0.5) * 2.0;
     gammaMask = clamp(gammaMask, 0.0, 1.0);
 
     color = color + lift * liftMask * 0.10;
@@ -82,8 +56,6 @@ vec3 liftGammaGain(vec3 color, vec3 lift, vec3 gamma, vec3 gain) {
 }
 
 // Soft rim-light via local min/max contrast. 5x5 neighborhood.
-// This is much smoother than Sobel (no hard edge detection) and
-// matches what UE5 does in its bloom + lens-flare stack.
 float softRim(sampler2D tex, vec2 uv, vec2 texelD) {
     float cMin = 1.0;
     float cMax = 0.0;
@@ -96,7 +68,6 @@ float softRim(sampler2D tex, vec2 uv, vec2 texelD) {
             cMax = max(cMax, l);
         }
     }
-    // "Where am I in the local range" — this is the soft rim term
     float range = max(cMax - cMin, 0.0001);
     return clamp((c - cMin) / range, 0.0, 1.0);
 }
@@ -104,36 +75,31 @@ float softRim(sampler2D tex, vec2 uv, vec2 texelD) {
 void main() {
     vec3 color = texture2D(sampler0, v_texcoord0).rgb;
 
-    // ---- 1. Filmic tone mapping (NO pre-exposure — v4 fix) ----
+    // ---- 1. Filmic tone mapping (no pre-exposure) ----
     if (u_setting.x > 0.0) {
-        // Direct ACES without pre-exposure (preExposure caused overexposure)
         color = mix(color, acesFilmic(color), u_setting.x);
     }
 
-    // ---- 2. Rim light (5x5 soft local contrast) — v4: NO shimmer, low multiplier ----
+    // ---- 2. Rim light (5x5 soft local contrast) ----
     if (u_setting.y > 0.0) {
         float quality = u_setting.w;
         vec2 sampleDelta = u_texelDelta * (1.0 + quality * 1.2);
         float rim = softRim(sampler0, v_texcoord0, sampleDelta);
         float rimTerm = pow(rim, 2.0);
-        // v4: removed shimmer (caused flickering during movement)
+        // No shimmer — stable across frames.
         vec3 rimColor = vec3(1.05, 0.92, 0.78);
+        // Tighter rim mask: smoothstep(0.50, 0.85) — less aggressive.
         float rimMask = smoothstep(0.50, 0.85, rim);
-        // v4: multiplier 3.5 -> 1.0 (was way too strong, caused "dots")
+        // Multiplier reduced from 3.5 to 1.0.
         color = color + rimColor * rimTerm * rimMask * u_setting.y * 1.0;
     }
 
     // ---- 3. Color grading (Lift/Gamma/Gain) ----
     if (u_setting.z > 0.0) {
-        // Hand-tuned for UE5 cinematic look:
-        //   Lift  : cool shadows   (R, G up; B down -> cyan)
-        //   Gamma : neutral
-        //   Gain  : warm highlights (R up, B down -> orange)
         vec3 lift  = vec3(0.04, 0.05, -0.02);
         vec3 gamma = vec3(1.0);
         vec3 gain  = vec3(1.05, 1.0, 0.95);
         vec3 graded = liftGammaGain(color, lift, gamma, gain);
-        // Plus a slight saturation push (UE5 default 1.10-1.15).
         float lum = luminance(graded);
         graded = mix(vec3(lum), graded, 1.10);
         color = mix(color, graded, u_setting.z);

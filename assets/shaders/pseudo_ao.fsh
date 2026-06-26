@@ -5,23 +5,18 @@ precision mediump int;
 
 // Pseudo AO — Multi-radius edge darkening with scattering (v4)
 // =================================================================
-// TRUE pseudo-AO without depth buffer. Detects brightness edges,
-// then darkens the "dark side" of each edge. Multiple radius rings
-// make the darkening scatter outward like real contact shadows.
+// For each pixel, checks if it's on the "dark side" of an edge
+// (darker than its neighbors). If so, darken it. Uses 3 radius
+// rings so the darkening "scatters" outward like real contact
+// shadows.
 //
-// Algorithm:
-//   For each of 3 radius rings (0.33x, 0.66x, 1.0x of max radius):
-//     1. Sample 8 neighbors at that ring distance
-//     2. Compute average neighbor luminance
-//     3. If center is darker than neighbors (dark side of edge):
-//        accumulate (avgNeighbor - center) weighted by 1/ring_index
-//   The weighted sum across rings creates a "scattering" falloff.
+// 24 taps: 3 rings x 8 directions.
 //
 // u_setting:
-//   .x = Strength  [-1, 2]   default 1.0 (negative = brighten)
-//   .y = Radius    [1, 6]    default 3.0
-//   .z = Color     [0, 1]    0=black, 1=dark grey  default 0.0
-//   .w = Blend     [0, 1]    default 0.7
+//   .x = Strength  [-1, 2]  (negative = brighten)  default 1.0
+//   .y = Radius    [1, 6]   texel distance          default 3.0
+//   .z = Color     [0, 1]   0=black, 1=dark grey    default 0.0
+//   .w = Blend     [0, 1]                           default 0.7
 
 uniform sampler2D sampler0;
 uniform vec2 u_texelDelta;
@@ -37,57 +32,68 @@ void main() {
     vec3 color = texture2D(sampler0, v_texcoord0).rgb;
     float centerLum = luminance(color);
 
-    float strength = u_setting.x;
+    float strength  = u_setting.x;
+    float radius    = max(u_setting.y, 1.0);
+    float colorMode = u_setting.z;
+    float blend     = u_setting.w;
+
+    // If strength is exactly 0, no effect.
     if (strength == 0.0) {
         gl_FragColor = vec4(color, 1.0);
         return;
     }
 
-    float maxRadius = max(u_setting.y, 1.0);
-    float colorMode = u_setting.z;
-    float blend = u_setting.w;
-
-    // 3 radius rings, 8 directions each = 24 taps
-    float aoAccum = 0.0;
-    float weightAccum = 0.0;
     const float PI_4 = 0.7853981633;
 
-    for (int ring = 0; ring < 3; ring++) {
-        float ringFrac = (float(ring) + 1.0) / 3.0;  // 0.33, 0.67, 1.0
-        float r = maxRadius * ringFrac;
-        // Closer rings weigh more — creates scattering falloff
-        float weight = 1.0 / (1.0 + float(ring) * 0.7);
+    float aoAccum = 0.0;
+    float totalWeight = 0.0;
 
-        float sumLum = 0.0;
+    // 3 radius rings: radius * 0.333, 0.666, 1.0
+    for (int r = 0; r < 3; r++) {
+        float ringFrac = (float(r) + 1.0) / 3.0;
+        float ringRadius = radius * ringFrac;
+        // Closer rings weigh more — scattering falloff.
+        float ringWeight = 1.0 / (1.0 + float(r) * 0.7);
+
+        // Sample 8 neighbors at this ring distance.
+        float neighborSum = 0.0;
         for (int i = 0; i < 8; i++) {
             float angle = float(i) * PI_4;
             vec2 dir = vec2(cos(angle), sin(angle));
-            vec2 off = dir * u_texelDelta * r;
-            sumLum += luminance(texture2D(sampler0, v_texcoord0 + off).rgb);
+            vec2 off = dir * u_texelDelta * ringRadius;
+            float l = luminance(texture2D(sampler0, v_texcoord0 + off).rgb);
+            neighborSum += l;
         }
-        float avgLum = sumLum / 8.0;
 
-        // If center is on dark side of edge (darker than neighbors)
-        float diff = max(0.0, avgLum - centerLum);
-        aoAccum += diff * weight;
-        weightAccum += weight;
+        float avgNeighbor = neighborSum / 8.0;
+
+        // If center is on the dark side of the edge (neighbors brighter),
+        // accumulate occlusion.
+        if (avgNeighbor > centerLum) {
+            float diff = avgNeighbor - centerLum;
+            aoAccum += diff * ringWeight;
+        }
+        totalWeight += ringWeight;
     }
 
-    float ao = aoAccum / max(weightAccum, 0.001);
-    // Sensitive smoothstep for visible effect
+    // Normalize by total weight.
+    float ao = aoAccum / max(totalWeight, 0.001);
+
+    // Sensitive smoothstep — catches small differences.
     float aoFactor = smoothstep(0.005, 0.15, ao);
 
-    // Quantized AO color
+    // Quantized AO color: pure black or dark grey.
     vec3 aoColor = (colorMode < 0.5) ? vec3(0.0) : vec3(0.08, 0.08, 0.10);
 
     vec3 result;
-    if (strength > 0.0) {
-        // Normal: darken toward AO color
-        result = mix(color, aoColor, clamp(aoFactor * strength, 0.0, 1.0));
+    if (strength < 0.0) {
+        // Negative strength: brighten instead of darken.
+        result = mix(color, vec3(1.0), clamp(abs(strength) * aoFactor, 0.0, 1.0));
     } else {
-        // Negative strength: brighten instead (inverse AO)
-        result = mix(color, vec3(1.0), clamp(aoFactor * abs(strength), 0.0, 1.0));
+        result = mix(color, aoColor, clamp(strength * aoFactor, 0.0, 1.0));
     }
+
+    // Blend with original by user blend factor.
     result = mix(color, result, blend);
 
     gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);
