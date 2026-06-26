@@ -75,13 +75,6 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	bool vtypeHasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool vtypeHasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 
-	bool doBezier = gstate_c.submitType == SubmitType::HW_BEZIER;
-	bool doSpline = gstate_c.submitType == SubmitType::HW_SPLINE;
-
-	if (doBezier || doSpline) {
-		_assert_(vtypeHasNormal);
-	}
-
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool vertexRangeCulling = gstate_c.Use(GPU_USE_VS_RANGE_CULLING) &&
 		!isModeThrough && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692

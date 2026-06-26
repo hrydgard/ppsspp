@@ -514,8 +514,6 @@ enum class SubmitType {
 	DRAW,
 	BEZIER,
 	SPLINE,
-	HW_BEZIER,
-	HW_SPLINE,
 };
 
 extern GPUgstate gstate;

@@ -207,8 +207,6 @@ void DrawEngineVulkan::Flush() {
 
 	PROFILE_THIS_SCOPE("Flush");
 
-	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
-
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -224,7 +222,7 @@ void DrawEngineVulkan::Flush() {
 
 	// Always use software for flat shading to fix the provoking index
 	// if the provoking vertex extension is not available.
-	bool provokingVertexOk = (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
+	bool provokingVertexOk = gstate.getShadeMode() != GE_SHADE_FLAT;
 	if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
 		provokingVertexOk = true;
 	}

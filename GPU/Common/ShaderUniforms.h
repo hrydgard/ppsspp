@@ -136,17 +136,8 @@ inline void UpdateUVScaleOff(const GPUgstate &state, float uvScaleOff[4]) {
 		widthFactor = 1.0f;
 		heightFactor = 1.0f;
 	}
-	if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
-		// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
-		// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
-		uvScaleOff[0] = gstate_c.uv.uScale * widthFactor;
-		uvScaleOff[1] = gstate_c.uv.vScale * heightFactor;
-		uvScaleOff[2] = gstate_c.uv.uOff * widthFactor;
-		uvScaleOff[3] = gstate_c.uv.vOff * heightFactor;
-	} else {
-		uvScaleOff[0] = widthFactor;
-		uvScaleOff[1] = heightFactor;
-		uvScaleOff[2] = 0.0f;
-		uvScaleOff[3] = 0.0f;
-	}
+	uvScaleOff[0] = widthFactor;
+	uvScaleOff[1] = heightFactor;
+	uvScaleOff[2] = 0.0f;
+	uvScaleOff[3] = 0.0f;
 }
