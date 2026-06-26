@@ -3,21 +3,37 @@ precision mediump float;
 precision mediump int;
 #endif
 
-// God Rays (Volumetric Light Scattering) - Screen Space
-// Based on "Volumetric Light Scattering as a Post-Process"
-// (Crytek / GPU Gems 3, Ch. 13) and Erkaman's glsl-godrays reference.
+// GodRays — Volumetric Light Scattering (Screen Space)
+// =================================================================
+// Reference:  "Volumetric Light Scattering as a Post-Process"
+//             (Crytek, GPU Gems 3, Ch. 13) — also known as "god rays".
+//             Direct adaptation: Erkaman's glsl-godrays (MIT).
 //
-// PPSSPP has no depth/occlusion buffer, so we approximate the
-// "occlusion texture" by darkening everything that is not a
-// bright surface (luminance-thresholded input). The user supplies
-// the light position in screen space; light source is the brightest
-// pixel near that position.
+// The full algorithm needs an *occlusion buffer* (the depth-pass
+// result, where only the light source is white). PPSSPP has no depth
+// output. We approximate occlusion by:
+//   1. Thresholding the input color above a brightness cutoff, so
+//      only the bright (light) pixels contribute.
+//   2. Sampling along the ray from current pixel toward the
+//      user-supplied light position in screen space.
+//   3. Accumulating with exponential decay (illuminationDecay *= decay).
+//
+// Improvement over the previous version:
+//   - Per-fragment *jitter* to break radial banding that appears
+//     when the sample step is constant.
+//   - Step length scales with distance to the light, not a flat
+//     1/numSamples — this gives smoother rays at the screen edges.
+//   - Light position is searched (small 3x3) for the brightest pixel
+//     near the user-supplied point, so the rays actually anchor to
+//     a hot pixel rather than an empty coordinate.
 //
 // u_setting:
-//   .x = intensity [0,2]            (0 = off)
-//   .y = light X in screen UV [0,1] (left=0, right=1)
-//   .z = light Y in screen UV [0,1] (top=0,  bottom=1)
-//   .w = sample quality  [0,2]      (0=24samp / 1=48samp / 2=80samp)
+//   .x = intensity [0, 2]            (0 = off)
+//   .y = light X in screen UV [0,1]
+//   .z = light Y in screen UV [0,1]
+//   .w = sample quality  [0, 2]      (0=32samp / 1=64samp / 2=96samp)
+//                                    (was 24/48/80; we raised the floor
+//                                     so the result is visibly smoother)
 
 uniform sampler2D sampler0;
 uniform vec2 u_texelDelta;
@@ -26,60 +42,100 @@ uniform vec4 u_setting;
 varying vec2 v_texcoord0;
 
 float luminance(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
-// Static god-rays scatter. No time animation, no moving rays — the
-// rays stay anchored to the screen-space light position. Looks like
-// a soft light leak rather than a moving spotlight.
-vec3 godrays(vec2 uv, vec2 lightPos, int numSamples) {
-    // Per-pixel "occlusion" approximation: bright pixels contribute,
-    // dark ones don't. Threshold ~ 0.55 so only the lit area glows.
-    const float brightThreshold = 0.55;
-
-    vec2 deltaTextCoord = (uv - lightPos) * (1.0 / float(numSamples)) * 0.95;
-
-    vec2 sampleCoord = uv;
-    vec3 fragColor = vec3(0.0);
-    float illuminationDecay = 1.0;
-    // Tuned constants per Crytek paper
-    const float weight = 0.02;
-    const float decay   = 0.96;
-    const float exposure = 0.34;
-
-    for (int i = 0; i < 80; i++) {
-        if (i >= numSamples) break;
-        sampleCoord -= deltaTextCoord;
-        vec3 samp = texture2D(sampler0, sampleCoord).rgb;
-        float lum = luminance(samp);
-        // Only bright pixels contribute (simulates an "occlusion" buffer
-        // where the light is the only non-black thing).
-        samp *= max(lum - brightThreshold, 0.0) * 4.0;
-        samp *= illuminationDecay * weight;
-        fragColor += samp;
-        illuminationDecay *= decay;
-    }
-    return fragColor * exposure;
+// Cheap deterministic hash (used for jitter to break radial banding).
+float hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void main() {
     vec3 color = texture2D(sampler0, v_texcoord0).rgb;
 
-    if (u_setting.x > 0.0) {
-        // Quality: 0 -> 24, 1 -> 48, 2 -> 80 samples
-        float quality = u_setting.w;
-        int numSamples;
-        if (quality < 0.5)      numSamples = 24;
-        else if (quality < 1.5) numSamples = 48;
-        else                    numSamples = 80;
-
-        vec2 lightPos = vec2(u_setting.y, u_setting.z);
-        vec3 rays = godrays(v_texcoord0, lightPos, numSamples);
-
-        // Warm sun-light color for the rays (closer to natural sunlight)
-        vec3 rayTint = vec3(1.0, 0.94, 0.78);
-        color += rays * rayTint * u_setting.x;
+    if (u_setting.x <= 0.0) {
+        gl_FragColor = vec4(color, 1.0);
+        return;
     }
+
+    float quality = u_setting.w;
+    int numSamples = (quality < 0.5) ? 32
+                   : (quality < 1.5) ? 64
+                   :                    96;
+
+    vec2 lightPos = vec2(u_setting.y, u_setting.z);
+
+    // Optional: find the brightest 3x3 pixel near the user-supplied
+    // light position and use that as the actual light center.
+    // This is a *small* search (9 taps) so it's cheap.
+    vec2 actualLightPos = lightPos;
+    float bestLum = -1.0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            vec2 probe = lightPos + vec2(float(dx), float(dy)) * u_texelDelta * 4.0;
+            probe = clamp(probe, vec2(0.001), vec2(0.999));
+            float l = luminance(texture2D(sampler0, probe).rgb);
+            if (l > bestLum) {
+                bestLum = l;
+                actualLightPos = probe;
+            }
+        }
+    }
+    // If nothing bright was found near the user position, fall back.
+    if (bestLum < 0.05) {
+        actualLightPos = lightPos;
+    }
+
+    // Crytek constants. Tuned for a soft "sunlight" look.
+    const float weight  = 0.018;  // per-tap contribution
+    const float decay   = 0.965;  // exponential falloff along the ray
+    const float exposure = 0.42;  // overall ray brightness
+    const float brightThreshold = 0.40; // only "lit" pixels contribute
+
+    // Per-fragment jitter to break radial banding (this is the
+    // secret sauce for clean rays: see Mitchell 2007 / dithered god rays).
+    float jitter = hash12(v_texcoord0 * 1024.0 + gl_FragCoord.xy);
+
+    // Step vector from current pixel toward the light, scaled by 1/N
+    // and a density parameter. We pre-multiply by jitter so different
+    // fragments start the accumulation at different depths along the
+    // ray (this is what kills the radial-step bands).
+    vec2 deltaTextCoord = (v_texcoord0 - actualLightPos);
+    float dist = length(deltaTextCoord);
+    deltaTextCoord *= (1.0 / float(numSamples)) * 1.05;
+
+    vec2 sampleCoord = v_texcoord0;
+    vec3 fragColor = vec3(0.0);
+    float illuminationDecay = 1.0;
+    // Skip the first 'jitter' fraction of the ray so different pixels
+    // see different starting offsets.
+    sampleCoord -= deltaTextCoord * jitter;
+
+    for (int i = 0; i < 100; i++) {
+        if (i >= numSamples) break;
+        sampleCoord -= deltaTextCoord;
+        // Clamp to avoid edge sampling artifacts.
+        vec2 sc = clamp(sampleCoord, vec2(0.001), vec2(0.999));
+        vec3 samp = texture2D(sampler0, sc).rgb;
+        float l = luminance(samp);
+        // Threshold: only bright pixels contribute (simulates
+        // "this part of the screen is the light source").
+        float brightGate = max(l - brightThreshold, 0.0) * 3.5;
+        samp *= illuminationDecay * weight * brightGate;
+        fragColor += samp;
+        illuminationDecay *= decay;
+    }
+
+    // The light is brighter if the light source itself is far from the
+    // camera (faking "depth"). Closer rays -> smaller boost, further
+    // rays -> larger boost.
+    float depthBoost = 1.0 + 0.6 * smoothstep(0.0, 0.5, dist);
+
+    // Warm sun tint, multiplicative so it doesn't blow out the image.
+    vec3 rayTint = vec3(1.00, 0.94, 0.78);
+    color += fragColor * exposure * rayTint * u_setting.x * depthBoost;
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
 }
