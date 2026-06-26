@@ -3,32 +3,31 @@ precision mediump float;
 precision mediump int;
 #endif
 
-// Pseudo AO — Horizon-based luminance occlusion (v3)
+// Pseudo AO — Multi-radius edge darkening with scattering (v4)
 // =================================================================
-// Detects where the current pixel is DARKER than its surroundings
-// in 8 directions. If a neighbor is brighter, the current pixel is
-// "occluded" from that direction. Uses max (not sum) of directional
-// occlusions to prevent over-darkening at edge intersections.
+// TRUE pseudo-AO without depth buffer. Detects brightness edges,
+// then darkens the "dark side" of each edge. Multiple radius rings
+// make the darkening scatter outward like real contact shadows.
 //
-// 16 taps: 8 directions x 2 distances.
+// Algorithm:
+//   For each of 3 radius rings (0.33x, 0.66x, 1.0x of max radius):
+//     1. Sample 8 neighbors at that ring distance
+//     2. Compute average neighbor luminance
+//     3. If center is darker than neighbors (dark side of edge):
+//        accumulate (avgNeighbor - center) weighted by 1/ring_index
+//   The weighted sum across rings creates a "scattering" falloff.
 //
 // u_setting:
-//   .x = AO Strength   [0, 1]   (0 = off)    default 0.6
-//   .y = AO Radius     [1, 4]   texel distance, default 2.5
-//   .z = AO Color Mode [0, 1]   0=black, 1=dark grey (step=1.0)  default 0.0
-//   .w = AO Blend      [0, 1]   default 0.8
+//   .x = Strength  [-1, 2]   default 1.0 (negative = brighten)
+//   .y = Radius    [1, 6]    default 3.0
+//   .z = Color     [0, 1]    0=black, 1=dark grey  default 0.0
+//   .w = Blend     [0, 1]    default 0.7
 
 uniform sampler2D sampler0;
 uniform vec2 u_texelDelta;
 uniform vec4 u_setting;
 
 varying vec2 v_texcoord0;
-
-// Baked defaults — used when u_setting components are 0/unset.
-const float DEFAULT_STRENGTH   = 0.6;
-const float DEFAULT_RADIUS     = 2.5;
-const float DEFAULT_COLOR_MODE = 0.0;
-const float DEFAULT_BLEND      = 0.8;
 
 float luminance(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -39,54 +38,56 @@ void main() {
     float centerLum = luminance(color);
 
     float strength = u_setting.x;
-    // strength = 0 means explicitly "off" — no AO at all.
-    if (strength <= 0.0) {
+    if (strength == 0.0) {
         gl_FragColor = vec4(color, 1.0);
         return;
     }
 
-    float radius    = max(u_setting.y, 1.0);
+    float maxRadius = max(u_setting.y, 1.0);
     float colorMode = u_setting.z;
-    float blend     = (u_setting.w > 0.0) ? u_setting.w : DEFAULT_BLEND;
+    float blend = u_setting.w;
 
-    // 8 directions: 0, 45, 90, ..., 315 degrees.
+    // 3 radius rings, 8 directions each = 24 taps
+    float aoAccum = 0.0;
+    float weightAccum = 0.0;
     const float PI_4 = 0.7853981633;
 
-    // Track the maximum occlusion across all 8 directions.
-    float maxOcclusion = 0.0;
+    for (int ring = 0; ring < 3; ring++) {
+        float ringFrac = (float(ring) + 1.0) / 3.0;  // 0.33, 0.67, 1.0
+        float r = maxRadius * ringFrac;
+        // Closer rings weigh more — creates scattering falloff
+        float weight = 1.0 / (1.0 + float(ring) * 0.7);
 
-    for (int i = 0; i < 8; i++) {
-        float angle = float(i) * PI_4;
-        vec2 dir = vec2(cos(angle), sin(angle));
+        float sumLum = 0.0;
+        for (int i = 0; i < 8; i++) {
+            float angle = float(i) * PI_4;
+            vec2 dir = vec2(cos(angle), sin(angle));
+            vec2 off = dir * u_texelDelta * r;
+            sumLum += luminance(texture2D(sampler0, v_texcoord0 + off).rgb);
+        }
+        float avgLum = sumLum / 8.0;
 
-        // Sample at 2 distances: radius*0.5 and radius*1.0.
-        // Track the maximum luminance (the "horizon") in this direction.
-        float horizon = 0.0;
-
-        // Distance 1: radius * 0.5
-        vec2 off1 = dir * u_texelDelta * (radius * 0.5);
-        float l1 = luminance(texture2D(sampler0, v_texcoord0 + off1).rgb);
-        horizon = max(horizon, l1);
-
-        // Distance 2: radius * 1.0
-        vec2 off2 = dir * u_texelDelta * radius;
-        float l2 = luminance(texture2D(sampler0, v_texcoord0 + off2).rgb);
-        horizon = max(horizon, l2);
-
-        // Occlusion: if the neighbor is brighter than center, we're occluded.
-        float occ = max(0.0, horizon - centerLum);
-        // Use max across directions to prevent over-darkening at intersections.
-        maxOcclusion = max(maxOcclusion, occ);
+        // If center is on dark side of edge (darker than neighbors)
+        float diff = max(0.0, avgLum - centerLum);
+        aoAccum += diff * weight;
+        weightAccum += weight;
     }
 
-    // Smooth the occlusion into a soft falloff.
-    float aoFactor = smoothstep(0.03, 0.35, maxOcclusion);
+    float ao = aoAccum / max(weightAccum, 0.001);
+    // Sensitive smoothstep for visible effect
+    float aoFactor = smoothstep(0.005, 0.15, ao);
 
-    // Quantized AO color: pure black or dark grey.
+    // Quantized AO color
     vec3 aoColor = (colorMode < 0.5) ? vec3(0.0) : vec3(0.08, 0.08, 0.10);
 
-    // Blend toward AO color, then mix with original by blend factor.
-    vec3 result = mix(color, aoColor, aoFactor * strength);
+    vec3 result;
+    if (strength > 0.0) {
+        // Normal: darken toward AO color
+        result = mix(color, aoColor, clamp(aoFactor * strength, 0.0, 1.0));
+    } else {
+        // Negative strength: brighten instead (inverse AO)
+        result = mix(color, vec3(1.0), clamp(aoFactor * abs(strength), 0.0, 1.0));
+    }
     result = mix(color, result, blend);
 
     gl_FragColor = vec4(clamp(result, 0.0, 1.0), 1.0);

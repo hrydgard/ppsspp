@@ -104,38 +104,23 @@ float softRim(sampler2D tex, vec2 uv, vec2 texelD) {
 void main() {
     vec3 color = texture2D(sampler0, v_texcoord0).rgb;
 
-    // ---- 1. Filmic tone mapping (with pre-exposure) ----
+    // ---- 1. Filmic tone mapping (NO pre-exposure — v4 fix) ----
     if (u_setting.x > 0.0) {
-        // Pre-exposure: push midtones into the rolloff region of
-        // the ACES curve. Without this, dark PSP frames look flat.
-        float preExposure = 1.08;
-        color = color * preExposure;
+        // Direct ACES without pre-exposure (preExposure caused overexposure)
         color = mix(color, acesFilmic(color), u_setting.x);
     }
 
-    // ---- 2. Rim light (5x5 soft local contrast) ----
+    // ---- 2. Rim light (5x5 soft local contrast) — v4: NO shimmer, low multiplier ----
     if (u_setting.y > 0.0) {
         float quality = u_setting.w;
-        // Quality 0: small neighborhood, 1: normal, 2: wide
         vec2 sampleDelta = u_texelDelta * (1.0 + quality * 1.2);
         float rim = softRim(sampler0, v_texcoord0, sampleDelta);
-        // Bias the rim term to the brightest areas of the local
-        // range so it looks like a *back-light halo*, not a
-        // general brightness boost. pow(rim, 2.0) makes it
-        // concentrate on the "top of the local range".
         float rimTerm = pow(rim, 2.0);
-        // Tiny time-based shimmer so it doesn't look like a
-        // printed-on overlay. ~3 Hz, ~5% amplitude.
-        float shimmer = 1.0 + 0.05 * sin(u_time.x * 18.0 + v_texcoord0.x * 12.0);
-        // Warm-amber rim color (1.05, 0.92, 0.78) is what real
-        // back-lights look like. Multiplicative blend so it
-        // brightens existing color rather than overlaying white.
+        // v4: removed shimmer (caused flickering during movement)
         vec3 rimColor = vec3(1.05, 0.92, 0.78);
-        // Apply the rim only to the *brightest* end of the local
-        // range, so it doesn't lift the dark areas (which would
-        // make it look like a wash).
-        float rimMask = smoothstep(0.45, 0.90, rim);
-        color = color + rimColor * rimTerm * rimMask * u_setting.y * 3.5 * shimmer;
+        float rimMask = smoothstep(0.50, 0.85, rim);
+        // v4: multiplier 3.5 -> 1.0 (was way too strong, caused "dots")
+        color = color + rimColor * rimTerm * rimMask * u_setting.y * 1.0;
     }
 
     // ---- 3. Color grading (Lift/Gamma/Gain) ----
