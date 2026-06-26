@@ -8,7 +8,7 @@ precision mediump int;
 // Three independent stages, all bypassed when their slider is 0:
 //
 //   .x = Filmic tone-map strength  [0, 1]   (0 = off)
-//   .y = Rim light strength        [0, 2]   (0 = off)
+//   .y = Rim light strength        [0, 0.3] (0 = off, 0.15 = default)
 //   .z = Color grading strength    [0, 1]   (0 = off)
 //   .w = Quality level             [0, 2]   (0=cheap, 1=normal, 2=high)
 //
@@ -134,8 +134,8 @@ void main() {
         // Apply the rim only to the *brightest* end of the local
         // range, so it doesn't lift the dark areas (which would
         // make it look like a wash).
-        float rimMask = smoothstep(0.55, 0.95, rim);
-        color = color + rimColor * rimTerm * rimMask * u_setting.y * 0.5 * shimmer;
+        float rimMask = smoothstep(0.45, 0.90, rim);
+        color = color + rimColor * rimTerm * rimMask * u_setting.y * 3.5 * shimmer;
     }
 
     // ---- 3. Color grading (Lift/Gamma/Gain) ----

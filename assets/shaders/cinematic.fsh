@@ -19,7 +19,7 @@ precision mediump int;
 //     a sin/fract hash, which always had visible patterning.
 //   - The grain is multi-octave: 2 octaves at different scales
 //     (coarse + fine), blended, for that "real film stock" look.
-//   - Slider value scaled by ~0.45 so 1.0 reads as "strong but not
+//   - Slider value scaled by ~0.35 so 1.0 reads as "strong but not
 //     broken TV". User can push to 0.5 for chunky 16mm look.
 //   - Chromatic Aberration: still radial, but red is offset OUTWARD
 //     and blue INWARD (green stays put). This is the actual
@@ -87,16 +87,16 @@ void main() {
         vec3 p2 = vec3(v_texcoord0 * 200.0, fract(t * 24.0) * 1.7);
         float n1 = hash13(p1) - 0.5;
         float n2 = hash13(p2) - 0.5;
-        // Coarse + fine mix, weighted toward fine (the visible grain).
-        float grain = n1 * 0.6 + n2 * 0.4;
+        // Coarse + fine mix, balanced for natural film look.
+        float grain = n1 * 0.5 + n2 * 0.5;
         // Slightly luma-aware: grain is more visible in midtones,
         // less in pure black/white (real film behaves this way).
         float lum = dot(color, vec3(0.299, 0.587, 0.114));
         float lumaWeight = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
         lumaWeight = clamp(lumaWeight, 0.4, 1.0);
-        // Slider 0..0.5 -> grain strength 0..0.225 (chunky at the
-        // top end, like 16mm stock).
-        color += grain * u_setting.y * 0.45 * lumaWeight;
+        // Slider 0..0.5 -> grain strength 0..0.175 (subtle at default,
+        // push higher for chunky 16mm look).
+        color += grain * u_setting.y * 0.35 * lumaWeight;
     }
 
     // ---- 3. Vignette (cubic falloff) ----
