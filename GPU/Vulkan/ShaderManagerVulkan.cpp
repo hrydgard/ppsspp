@@ -116,10 +116,9 @@ VulkanFragmentShader::~VulkanFragmentShader() {
 		if (shaderModule) {
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 		}
-		vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *m) {
-			auto module = (Promise<VkShaderModule> *)m;
+		vulkan_->Delete().QueueCallback([module = module_](VulkanContext *vulkan) {
 			delete module;
-		}, module_);
+		});
 	}
 }
 
@@ -148,10 +147,9 @@ VulkanVertexShader::~VulkanVertexShader() {
 		if (shaderModule) {
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 		}
-		vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *m) {
-			auto module = (Promise<VkShaderModule> *)m;
+		vulkan_->Delete().QueueCallback([module = module_](VulkanContext *vulkan) {
 			delete module;
-		}, module_);
+		});
 	}
 }
 

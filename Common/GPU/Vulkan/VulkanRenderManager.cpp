@@ -223,11 +223,10 @@ void VKRGraphicsPipeline::BlockUntilCompiled() {
 
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 	// Can't destroy variants here, the pipeline still lives for a while.
-	vulkan->Delete().QueueCallback([](VulkanContext *vulkan, void *p) {
-		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
-		pipeline->DestroyVariantsInstant(vulkan->GetDevice());
-		delete pipeline;
-	}, this);
+	vulkan->Delete().QueueCallback([this](VulkanContext *vulkan) {
+		this->DestroyVariantsInstant(vulkan->GetDevice());
+		delete this;
+	});
 }
 
 u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
@@ -528,6 +527,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
 	vulkan_->WaitUntilQueueIdle();
+	vulkan_->PerformPendingDeletes();  // Some callbacks can contain a reference to the render manager.
 
 	_dbg_assert_(pipelineLayouts_.empty());
 
@@ -1632,11 +1632,6 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	}
 	frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
-	// Flush descriptors.
-	double descStart = time_now_d();
-	FlushDescriptors(task.frame);
-	frameData.profile.descWriteTime = time_now_d() - descStart;
-
 	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
 		// We always record main commands first, so we don't need to reset the present command buffer separately.
@@ -1648,6 +1643,12 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		frameData.hasMainCommands = true;
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 	}
+
+	// Flush descriptors.
+	double descStart = time_now_d();
+	int f = task.frame;
+	FlushDescriptors(task.frame);
+	frameData.profile.descWriteTime = time_now_d() - descStart;
 
 	queueRunner_.PreprocessSteps(task.steps);
 	// Likely during shutdown, happens in headless.
@@ -1815,14 +1816,13 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
-	for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
-		if (*iter == layout) {
-			pipelineLayouts_.erase(iter);
-			break;
+	vulkan_->Delete().QueueCallback([this, layout](VulkanContext *vulkan) {
+		for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
+			if (*iter == layout) {
+				pipelineLayouts_.erase(iter);
+				break;
+			}
 		}
-	}
-	vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *userdata) {
-		VKRPipelineLayout *layout = (VKRPipelineLayout *)userdata;
 		for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 			layout->frameData[i].pool.DestroyImmediately();
 		}
@@ -1830,17 +1830,17 @@ void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 		vkDestroyDescriptorSetLayout(vulkan->GetDevice(), layout->descriptorSetLayout, nullptr);
 
 		delete layout;
-	}, layout);
+	});
 }
 
 void VulkanRenderManager::FlushDescriptors(int frame) {
-	for (auto iter : pipelineLayouts_) {
+	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
 	}
 }
 
 void VulkanRenderManager::ResetDescriptorLists(int frame) {
-	for (auto iter : pipelineLayouts_) {
+	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
 
 		data.flushedDescriptors_ = 0;

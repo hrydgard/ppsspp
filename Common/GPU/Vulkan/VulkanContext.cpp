@@ -1790,7 +1790,7 @@ void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator alloca
 	int deleteCount = 0;
 
 	for (auto &callback : callbacks_) {
-		callback.func(vulkan, callback.userdata);
+		callback(vulkan);
 		deleteCount++;
 	}
 	callbacks_.clear();
