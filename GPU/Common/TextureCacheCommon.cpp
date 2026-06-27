@@ -2798,7 +2798,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			int lastW = gstate.getTextureWidth(i - 1);
 			int lastH = gstate.getTextureHeight(i - 1);
 
-			if (gstate_c.Use(GPU_USE_TEXTURE_LOD_CONTROL)) {
+			if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
 				if (tw != 1 && tw != (lastW >> 1))
 					plan.badMipSizes = true;
 				else if (th != 1 && th != (lastH >> 1))

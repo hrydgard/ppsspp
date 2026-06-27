@@ -636,6 +636,7 @@ struct DeviceCaps {
 	bool provokingVertexLast;  // GL behavior, what the PSP does
 	bool verySlowShaderCompiler;
 	bool fullScreenExclusiveSupported;
+	bool samplerLodControl;
 
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;

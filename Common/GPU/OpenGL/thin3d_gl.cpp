@@ -566,6 +566,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 			if (gl_extensions.range[1][5][1] >= 30) {
 				caps_.fragmentShaderInt32Supported = true;
 			}
+			caps_.samplerLodControl = true;
 		}
 		caps_.texture3DSupported = gl_extensions.GLES3 || gl_extensions.OES_texture_3D;
 		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
@@ -576,6 +577,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
 		caps_.textureDepthSupported = true;
+		caps_.samplerLodControl = true;
 	}
 
 	caps_.maxTextureSize = gl_extensions.maxTextureSize;

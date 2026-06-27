@@ -131,10 +131,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 	features |= GPU_USE_16BIT_FORMATS;
 
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES) {
-		features |= GPU_USE_TEXTURE_LOD_CONTROL;
-	}
-
 	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
