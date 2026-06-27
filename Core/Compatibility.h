@@ -123,6 +123,7 @@ struct CompatFlags {
 	bool CorrectCullAfterClip;
 	float SpriteBorderFix;
 	bool TextureCLUTInShader;
+	bool DisableRangeCulling;
 };
 
 struct VRCompat {

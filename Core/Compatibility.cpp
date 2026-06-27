@@ -168,6 +168,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "CorrectCullAfterClip", &flags_.CorrectCullAfterClip);
 	CheckSetting(iniFile, gameID, "SpriteBorderFix", &flags_.SpriteBorderFix);
 	CheckSetting(iniFile, gameID, "TextureCLUTInShader", &flags_.TextureCLUTInShader);
+	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

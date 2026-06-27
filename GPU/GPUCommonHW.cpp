@@ -613,7 +613,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling && !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
