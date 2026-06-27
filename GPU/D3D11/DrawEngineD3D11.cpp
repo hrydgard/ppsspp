@@ -286,8 +286,7 @@ void DrawEngineD3D11::Flush() {
 	GEPrimitiveType prim = prevPrim_;
 
 	// Always use software for flat shading to fix the provoking index.
-	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
-	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
+	bool useHWTransform = CanUseHardwareTransform(prim) && gstate.getShadeMode() != GE_SHADE_FLAT;
 	if (clipInfoFlags_ & ClipInfoFlags::Valid) {
 		if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
 			useHWTransform = false;

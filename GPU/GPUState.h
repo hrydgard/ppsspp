@@ -475,12 +475,10 @@ enum : u32 {
 	// Free bits: 6-7
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
-	// Free bit: 10
-	// Free bit: 11
-	GPU_USE_TEXTURE_FLOAT = FLAG_BIT(12),
+	// Free bit: 10-12
 	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
-	GPU_USE_TEXTURE_LOD_CONTROL = FLAG_BIT(15),
+	GPU_USE_SAMPLER_LOD_CONTROL = FLAG_BIT(15),
 	GPU_USE_DEPTH_TEXTURE = FLAG_BIT(16),
 	// Free bit: 17
 	// Free bit: 18
@@ -514,8 +512,6 @@ enum class SubmitType {
 	DRAW,
 	BEZIER,
 	SPLINE,
-	HW_BEZIER,
-	HW_SPLINE,
 };
 
 extern GPUgstate gstate;

@@ -381,7 +381,7 @@ static constexpr const char * g_gpuUseFlagNames[32] = {
 	"GPU_USE_CLEAR_RAM_HACK",
 	"N/A",
 	"N/A",
-	"GPU_USE_TEXTURE_FLOAT",
+	"N/A",
 	"GPU_USE_16BIT_FORMATS",
 	"GPU_USE_DEPTH_CLAMP",
 	"GPU_USE_TEXTURE_LOD_CONTROL",

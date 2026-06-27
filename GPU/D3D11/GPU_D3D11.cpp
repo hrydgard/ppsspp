@@ -76,14 +76,10 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_->NotifyConfigChanged();
 }
 
-GPU_D3D11::~GPU_D3D11() {
-}
+GPU_D3D11::~GPU_D3D11() {}
 
 u32 GPU_D3D11::CheckGPUFeatures() const {
 	u32 features = GPUCommonHW::CheckGPUFeatures();
-
-	features |= GPU_USE_TEXTURE_FLOAT;
-	features |= GPU_USE_TEXTURE_LOD_CONTROL;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);

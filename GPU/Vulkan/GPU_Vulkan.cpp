@@ -208,14 +208,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_USE_PRE_ROTATION;
 	}
 
-	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
-	// if (!g_Config.bEnableVendorBugChecks)
-	// 	features |= GPU_USE_ACCURATE_DEPTH;
-
-	// Mandatory features on Vulkan, which may be checked in "centralized" code
-	features |= GPU_USE_TEXTURE_LOD_CONTROL;
-	features |= GPU_USE_TEXTURE_FLOAT;
-
 	if (!draw_->GetBugs().Has(Draw::Bugs::PVR_BAD_16BIT_TEXFORMATS)) {
 		// These are VULKAN_4444_FORMAT and friends.
 		// Note that we are now using the correct set of formats - the only cases where some may be missing

@@ -596,6 +596,10 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_DEPTH_TEXTURE;
 	}
 
+	if (draw_->GetDeviceCaps().samplerLodControl) {
+		features |= GPU_USE_SAMPLER_LOD_CONTROL;
+	}
+
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
 		features |= GPU_USE_FRAMEBUFFER_FETCH;
 		features |= GPU_USE_SHADER_BLENDING;   // doesn't matter if we are buffered or not here.
@@ -613,7 +617,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
-	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling && !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
@@ -622,7 +626,6 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
 	// If we already have a 16-bit depth buffer, we don't need to round.
-	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
 	if (!prefer16) {
 		if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
@@ -632,7 +635,6 @@ u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}
-
 	return features;
 }
 
