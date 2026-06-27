@@ -14,6 +14,9 @@
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
+#if !defined(USING_FBDEV) && !defined(__APPLE__)
+#include <X11/Xlib.h>
+#endif
 #endif
 
 class GLRenderManager;
