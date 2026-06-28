@@ -172,7 +172,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 	if (!retval && (key.flags & KeyInputFlags::DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
 			ERROR_LOG(Log::System, "Screen already finished");
-		} else {
+		} else if (!firstFrame_) {
 			finished_ = true;
 			TriggerFinish(DR_BACK);
 			UI::PlayUISound(UI::UISound::BACK);

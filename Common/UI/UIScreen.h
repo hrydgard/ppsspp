@@ -79,9 +79,15 @@ class UIDialogScreen : public UIScreen {
 public:
 	UIDialogScreen() : UIScreen(), finished_(false) {}
 	~UIDialogScreen() override;
+	void update() override {
+		UIScreen::update();
+		firstFrame_ = false;
+	}
 	bool key(const KeyInput &key) override;
 	void sendMessage(UIMessage message, const char *value) override;
 
+protected:
+	bool firstFrame_ = true;  // Since back button can toggle this screen, we need to make sure we don't immediately pop it on the first frame.
 private:
 	bool finished_;
 };
