@@ -1,5 +1,8 @@
+#include <cmath>
 #include <string>
+#include <unordered_map>
 
+#include "Common/Data/Format/IniFile.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
@@ -14,7 +17,10 @@
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Log.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/Config.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/System.h"
 
 #include "UI/UIAtlas.h"
 
@@ -223,7 +229,7 @@ static bool IsImageID(const ImageMeta *imageIDs, size_t imageCount, std::string_
 	return GetImageIndex(imageIDs, imageCount, id) != -1;
 }
 
-static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images, bool premultiplyAlpha = true) {
 	Instant svgStart = Instant::Now();
 
 	// Load SVGs here, trying to fill in the images. The remaining images we fill from PNGs.
@@ -345,7 +351,9 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 				pngSave(Path(name), img.data(), img.width(), img.height(), 4);
 			}
 
-			img.ConvertToPremultipliedAlpha();
+			if (premultiplyAlpha) {
+				img.ConvertToPremultipliedAlpha();
+			}
 		}
 
 		shapeCount = (int)usedShapes.size();
@@ -362,6 +370,340 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
 	return true;
+}
+
+int DumpButtonsPNGsToSystem() {
+	Path textureDir = GetSysDirectory(DIRECTORY_TEXTURES);
+	std::string gameID;
+	if (g_paramSFO.IsValid()) {
+		gameID = g_paramSFO.GetDiscID();
+		if (!gameID.empty()) {
+			textureDir = textureDir / gameID;
+		}
+	}
+
+	Path sourceButtons = textureDir / "buttons.svg";
+	if (!File::Exists(sourceButtons)) {
+		sourceButtons = Path("ui_images/buttons.svg");
+	}
+
+	std::vector<Image> images(ARRAY_SIZE(g_uiImageIDs));
+	if (!RasterizeSVG(sourceButtons.c_str(), 1.0f, 8192, g_uiImageIDs, ARRAY_SIZE(g_uiImageIDs), &images, false)) {
+		ERROR_LOG(Log::G3D, "Failed to rasterize buttons SVG for PNG dump: %s", sourceButtons.c_str());
+		return 0;
+	}
+
+	Path dumpDir = textureDir / "new";
+	File::CreateFullPath(dumpDir);
+
+	// Also dump the source SVG to keep PNG dumps and vector source together.
+	size_t svgSize = 0;
+	std::string sourceButtonsPath = sourceButtons.ToString();
+	const uint8_t *svgData = g_VFS.ReadFile(sourceButtonsPath, &svgSize);
+	if (svgData && svgSize > 0) {
+		Path svgOutPath = dumpDir / "buttons.svg";
+		if (!File::WriteDataToFile(false, svgData, svgSize, svgOutPath)) {
+			WARN_LOG(Log::G3D, "Failed to write buttons SVG dump: %s", svgOutPath.c_str());
+		}
+		delete[] svgData;
+	}
+
+	int dumped = 0;
+	for (int i = 0; i < (int)images.size(); i++) {
+		if (images[i].IsEmpty()) {
+			continue;
+		}
+
+		Path outPath = dumpDir / ("buttons_" + PNGNameFromID(g_uiImageIDs[i].id));
+		pngSave(outPath, images[i].data(), images[i].width(), images[i].height(), 4);
+		dumped++;
+	}
+
+	INFO_LOG(Log::G3D, "Dumped %d buttons PNG files to %s", dumped, dumpDir.c_str());
+	return dumped;
+}
+
+static std::string NormalizeButtonAliasKey(std::string_view key) {
+	std::string out;
+	out.reserve(key.size());
+	if (key.size() > 2 && key[0] == 'I' && key[1] == '_') {
+		key = key.substr(2);
+	}
+	for (char c : key) {
+		out.push_back((char)tolower((unsigned char)c));
+	}
+	return out;
+}
+
+static std::unordered_map<std::string, std::string> LoadButtonAliases(const Path &textureDir) {
+	std::unordered_map<std::string, std::string> aliases;
+	IniFile ini;
+	if (!ini.Load(textureDir / "textures.ini")) {
+		return aliases;
+	}
+
+	const Section *buttons = ini.GetSection("buttons");
+	if (!buttons) {
+		return aliases;
+	}
+
+	for (const ParsedIniLine &line : buttons->Lines()) {
+		if (line.Key().empty() || line.Value().empty()) {
+			continue;
+		}
+		aliases[NormalizeButtonAliasKey(line.Key())] = std::string(line.Value());
+	}
+	return aliases;
+}
+
+static int LoadButtonsPNGOverrides(const Path &textureDir, const std::unordered_map<std::string, std::string> &aliases, const ImageMeta *imageIDs, size_t imageCount, std::vector<Image> *images) {
+	auto bilinearSample = [](const Image &img, float x, float y) {
+		const int w = img.width();
+		const int h = img.height();
+
+		x = std::clamp(x, 0.0f, (float)(w - 1));
+		y = std::clamp(y, 0.0f, (float)(h - 1));
+
+		const int x0 = (int)std::floor(x);
+		const int y0 = (int)std::floor(y);
+		const int x1 = std::min(x0 + 1, w - 1);
+		const int y1 = std::min(y0 + 1, h - 1);
+
+		const float tx = x - (float)x0;
+		const float ty = y - (float)y0;
+
+		const u32 c00 = img.get1(x0, y0);
+		const u32 c10 = img.get1(x1, y0);
+		const u32 c01 = img.get1(x0, y1);
+		const u32 c11 = img.get1(x1, y1);
+
+		auto interpChannel = [&](int shift) {
+			const float v00 = (float)((c00 >> shift) & 0xFF);
+			const float v10 = (float)((c10 >> shift) & 0xFF);
+			const float v01 = (float)((c01 >> shift) & 0xFF);
+			const float v11 = (float)((c11 >> shift) & 0xFF);
+			const float a = v00 + (v10 - v00) * tx;
+			const float b = v01 + (v11 - v01) * tx;
+			return (u32)std::lround(a + (b - a) * ty);
+		};
+
+		const u32 r = interpChannel(0);
+		const u32 g = interpChannel(8);
+		const u32 b = interpChannel(16);
+		const u32 a = interpChannel(24);
+		return r | (g << 8) | (b << 16) | (a << 24);
+	};
+	auto sampleArea = [&](const Image &img, float x0, float y0, float x1, float y1) {
+		constexpr int kSamplesPerAxis = 4;
+		uint64_t sums[4] = {};
+		for (int sy = 0; sy < kSamplesPerAxis; sy++) {
+			const float py = y0 + ((float)sy + 0.5f) * (y1 - y0) / (float)kSamplesPerAxis;
+			for (int sx = 0; sx < kSamplesPerAxis; sx++) {
+				const float px = x0 + ((float)sx + 0.5f) * (x1 - x0) / (float)kSamplesPerAxis;
+				const u32 col = bilinearSample(img, px, py);
+				sums[0] += col & 0xFF;
+				sums[1] += (col >> 8) & 0xFF;
+				sums[2] += (col >> 16) & 0xFF;
+				sums[3] += (col >> 24) & 0xFF;
+			}
+		}
+
+		const uint32_t sampleCount = kSamplesPerAxis * kSamplesPerAxis;
+		const u32 r = (u32)((sums[0] + sampleCount / 2) / sampleCount);
+		const u32 g = (u32)((sums[1] + sampleCount / 2) / sampleCount);
+		const u32 b = (u32)((sums[2] + sampleCount / 2) / sampleCount);
+		const u32 a = (u32)((sums[3] + sampleCount / 2) / sampleCount);
+		return r | (g << 8) | (b << 16) | (a << 24);
+	};
+
+	// Bicubic sample at fractional coordinates (Catmull-Rom style)
+	auto bicubicSample = [&](const Image &img, float x, float y) {
+		auto cubic = [](float v0, float v1, float v2, float v3, float t) {
+			float a0 = -0.5f*v0 + 1.5f*v1 - 1.5f*v2 + 0.5f*v3;
+			float a1 = v0 - 2.5f*v1 + 2.0f*v2 - 0.5f*v3;
+			float a2 = -0.5f*v0 + 0.5f*v2;
+			float a3 = v1;
+			return ((a0 * t + a1) * t + a2) * t + a3;
+		};
+		const int w = img.width();
+		const int h = img.height();
+		float fx = std::clamp(x, 0.0f, (float)(w - 1));
+		float fy = std::clamp(y, 0.0f, (float)(h - 1));
+		int ix = (int)std::floor(fx);
+		int iy = (int)std::floor(fy);
+		float tx = fx - ix;
+		float ty = fy - iy;
+		int vals[4];
+		int chvals[4];
+		int outc[4] = {0,0,0,0};
+		for (int c = 0; c < 4; c++) {
+			float col_y[4];
+			for (int m = -1; m <= 2; m++) {
+				for (int n = -1; n <= 2; n++) {
+					int sx = std::clamp(ix + n, 0, w - 1);
+					int sy = std::clamp(iy + m, 0, h - 1);
+					u32 cc = img.get1(sx, sy);
+					chvals[n + 1] = (cc >> (c * 8)) & 0xFF;
+				}
+				col_y[m + 1] = cubic(chvals[0], chvals[1], chvals[2], chvals[3], tx);
+			}
+			float finalc = cubic(col_y[0], col_y[1], col_y[2], col_y[3], ty);
+			int ic = (int)std::lround(finalc);
+			outc[c] = std::clamp(ic, 0, 255);
+		}
+		return (u32)outc[0] | ((u32)outc[1] << 8) | ((u32)outc[2] << 16) | ((u32)outc[3] << 24);
+	};
+
+	// Simple unsharp mask to restore apparent sharpness after downsampling.
+	// amount: 0..1 roughly how strong the effect is. radius currently fixed to 1 (3x3 gaussian).
+	auto unsharpMask = [&](Image &img, float amount) {
+		if (amount <= 0.0f) return;
+		const int w = img.width();
+		const int h = img.height();
+		if (w <= 1 || h <= 1) return;
+		std::vector<u32> blurred((size_t)w * h);
+		// 3x3 gaussian kernel: 1 2 1 / 2 4 2 / 1 2 1 -> sum = 16
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int sum[4] = {0,0,0,0};
+				int ksum = 0;
+				for (int oy = -1; oy <= 1; oy++) {
+					int yy = std::clamp(y + oy, 0, h - 1);
+					for (int ox = -1; ox <= 1; ox++) {
+						int xx = std::clamp(x + ox, 0, w - 1);
+						int weight = 1;
+						if (oy == 0 && ox == 0) weight = 4; else if (oy == 0 || ox == 0) weight = 2;
+						const u32 c = img.get1(xx, yy);
+						sum[0] += (c & 0xFF) * weight;
+						sum[1] += ((c >> 8) & 0xFF) * weight;
+						sum[2] += ((c >> 16) & 0xFF) * weight;
+						sum[3] += ((c >> 24) & 0xFF) * weight;
+						ksum += weight;
+					}
+				}
+				const u32 r = (u32)((sum[0] + ksum/2) / ksum);
+				const u32 g = (u32)((sum[1] + ksum/2) / ksum);
+				const u32 b = (u32)((sum[2] + ksum/2) / ksum);
+				const u32 a = (u32)((sum[3] + ksum/2) / ksum);
+				blurred[y * w + x] = r | (g << 8) | (b << 16) | (a << 24);
+			}
+		}
+		// Apply unsharp: out = orig + amount*(orig - blurred)
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				const u32 orig = img.get1(x, y);
+				const u32 blur = blurred[y * w + x];
+				int orc = (orig & 0xFF);
+				int ogc = ((orig >> 8) & 0xFF);
+				int obc = ((orig >> 16) & 0xFF);
+				int oac = ((orig >> 24) & 0xFF);
+				int brc = (blur & 0xFF);
+				int bgc = ((blur >> 8) & 0xFF);
+				int bbc = ((blur >> 16) & 0xFF);
+				int bac = ((blur >> 24) & 0xFF);
+				int nrc = orc + (int)std::lround((orc - brc) * amount);
+				int ngc = ogc + (int)std::lround((ogc - bgc) * amount);
+				int nbc = obc + (int)std::lround((obc - bbc) * amount);
+				int nac = oac; // keep alpha as original
+				nrc = std::clamp(nrc, 0, 255);
+				ngc = std::clamp(ngc, 0, 255);
+				nbc = std::clamp(nbc, 0, 255);
+				img.set1(x, y, (u32)nrc | ((u32)ngc << 8) | ((u32)nbc << 16) | ((u32)nac << 24));
+			}
+		}
+	};
+
+	int loaded = 0;
+	for (int i = 0; i < (int)imageCount; i++) {
+		std::string pngName = PNGNameFromID(imageIDs[i].id);
+		std::string key = NormalizeButtonAliasKey(imageIDs[i].id);
+
+		Path chosenPath;
+		auto alias = aliases.find(key);
+		if (alias != aliases.end()) {
+			chosenPath = textureDir / alias->second;
+		} else {
+			chosenPath = textureDir / ("buttons_" + pngName);
+		}
+
+		if (!File::Exists(chosenPath)) {
+			continue;
+		}
+
+		Image loadedImage;
+		if (!loadedImage.LoadPNG(chosenPath.c_str())) {
+			ERROR_LOG(Log::G3D, "Failed to load custom buttons PNG: %s", chosenPath.c_str());
+			continue;
+		}
+
+		const Image &targetImage = (*images)[i];
+		if (!targetImage.IsEmpty() && targetImage.width() > 0 && targetImage.height() > 0) {
+			const int targetW = targetImage.width();
+			const int targetH = targetImage.height();
+			const int srcW = loadedImage.width();
+			const int srcH = loadedImage.height();
+
+			float fitScale = std::min((float)targetW / (float)srcW, (float)targetH / (float)srcH);
+			fitScale = std::min(fitScale, 1.0f);
+
+			const int fitW = std::max(1, (int)std::lround(srcW * fitScale));
+			const int fitH = std::max(1, (int)std::lround(srcH * fitScale));
+			const int offsetX = (targetW - fitW) / 2;
+			const int offsetY = (targetH - fitH) / 2;
+
+			Image fitted;
+			fitted.resize(targetW, targetH);
+			fitted.fill(0);
+			fitted.scale = targetImage.scale;
+
+			for (int y = 0; y < fitH; y++) {
+					const float srcY0 = (float)y * (float)srcH / (float)fitH;
+					const float srcY1 = (float)(y + 1) * (float)srcH / (float)fitH;
+				for (int x = 0; x < fitW; x++) {
+						const float srcX0 = (float)x * (float)srcW / (float)fitW;
+						const float srcX1 = (float)(x + 1) * (float)srcW / (float)fitW;
+							if (srcW > fitW || srcH > fitH) {
+								// Downscaling: choose algorithm from config
+								switch (g_Config.iUIButtonDownscaleFilter) {
+								case 0: { // Linear (bilinear sample at pixel center)
+									const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+									const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+									fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+									break;
+								}
+								case 1: { // Bicubic
+									const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+									const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+									fitted.set1(offsetX + x, offsetY + y, bicubicSample(loadedImage, srcX, srcY));
+									break;
+								}
+								case 2: // Hybrid: area sampling
+								default:
+									fitted.set1(offsetX + x, offsetY + y, sampleArea(loadedImage, srcX0, srcY0, srcX1, srcY1));
+									break;
+								}
+							} else {
+								const float srcX = ((float)x + 0.5f) * (float)srcW / (float)fitW - 0.5f;
+								const float srcY = ((float)y + 0.5f) * (float)srcH / (float)fitH - 0.5f;
+								fitted.set1(offsetX + x, offsetY + y, bilinearSample(loadedImage, srcX, srcY));
+							}
+				}
+			}
+
+			bool wasDownscaled = (srcW > fitW || srcH > fitH);
+			loadedImage = std::move(fitted);
+			if (wasDownscaled && g_Config.bUIButtonSharpen) {
+				// Subtle sharpening to counteract downsample blur.
+				unsharpMask(loadedImage, 0.6f);
+			}
+		}
+
+		loadedImage.ConvertToPremultipliedAlpha();
+		(*images)[i] = std::move(loadedImage);
+		loaded++;
+	}
+
+	return loaded;
 }
 
 static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
@@ -381,16 +723,39 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	if (!RasterizeSVG("ui_images/images.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 		return false;
 	}
-	Path customButtons = GetSysDirectory(DIRECTORY_SYSTEM) / "buttons.svg";
-	if (File::Exists(customButtons)) {
-		if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
-			return false;
+	if (g_Config.bReplaceTextures) {
+		Path textureDir = GetSysDirectory(DIRECTORY_TEXTURES);
+		std::string gameID;
+		if (g_paramSFO.IsValid()) {
+			gameID = g_paramSFO.GetDiscID();
+			if (!gameID.empty()) {
+				textureDir = textureDir / gameID;
+			}
+		}
+
+		Path customButtons = textureDir / "buttons.svg";
+		if (File::Exists(customButtons)) {
+			INFO_LOG(Log::G3D, "Using texture-replacement buttons SVG: %s", customButtons.c_str());
+			if (!RasterizeSVG(customButtons.c_str(), dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+				return false;
+			}
+		} else {
+			if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
+				return false;
+			}
+		}
+
+		std::unordered_map<std::string, std::string> aliases = LoadButtonAliases(textureDir);
+		int buttonsPngOverridden = LoadButtonsPNGOverrides(textureDir, aliases, imageIDs, imageCount, &images);
+		if (buttonsPngOverridden > 0) {
+			INFO_LOG(Log::G3D, "Loaded %d custom buttons PNG overrides", buttonsPngOverridden);
 		}
 	} else {
 		if (!RasterizeSVG("ui_images/buttons.svg", dpiScale, maxTextureSize, imageIDs, imageCount, &images)) {
 			return false;
 		}
 	}
+
 	Instant shadowStart = Instant::Now();
 
 	// We can trivially parallelize shadowing/extension of the images.
@@ -513,7 +878,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	desc.width = g_cachedUIAtlasImage.width();
 	desc.height = g_cachedUIAtlasImage.height();
 	desc.depth = 1;
+	// Let the backend generate mipmaps for better sampling at different scales.
 	desc.mipLevels = 1;
+	desc.generateMips = true;
 	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	desc.type = Draw::TextureType::LINEAR2D;
 	desc.initData.push_back((const u8 *)g_cachedUIAtlasImage.data());
