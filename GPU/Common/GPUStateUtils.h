@@ -59,7 +59,7 @@ bool NeedsTestDiscard();
 bool IsDepthTestEffectivelyDisabled();
 bool IsStencilTestOutputDisabled();
 
-inline bool CanForceBilinear(const GPUgstate &gstate) {
+inline bool CanForceBilinear(const GEState &gstate) {
 	return ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) && (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()));
 }
 

@@ -195,10 +195,10 @@ struct FramebufferHeuristicParams {
 	int16_t scissorBottom;
 };
 
-struct GPUgstate;
-extern GPUgstate gstate;
+struct GEState;
+extern GEState gstate;
 
-void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate);
+void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GEState &gstate);
 
 enum BindFramebufferColorFlags {
 	BINDFBCOLOR_SKIP_COPY = 0,

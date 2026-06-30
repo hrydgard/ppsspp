@@ -80,7 +80,7 @@ static void RotateUV(TransformedVertex v[4]) {
 	}
 }
 
-static bool ShouldApplySpriteBorderFix(const GPUgstate &gstate) {
+static bool ShouldApplySpriteBorderFix(const GEState &gstate) {
 	return gstate.isMagnifyFilteringEnabled() && gstate.isAlphaBlendEnabled() && gstate.getBlendFuncA() != GE_SRCBLEND_FIXA && gstate.isTextureAlphaUsed();
 }
 
@@ -407,7 +407,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 
 // Modifies the vertices in-place. Applies viewport and projection.
 // TODO: SIMD.
-static void ProjectVertices(const GPUgstate &gstate, TransformedVertex *transformed, int vertexCount) {
+static void ProjectVertices(const GEState &gstate, TransformedVertex *transformed, int vertexCount) {
 #if 0
 	Lin::Vec3 vpOffset(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	Lin::Vec3 vpScale(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());

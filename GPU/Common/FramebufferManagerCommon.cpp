@@ -313,7 +313,7 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, int fb_stride
 	DEBUG_LOG(Log::G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i %s", fb_address, viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height, margin ? " (margin!)" : "");
 }
 
-void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate) {
+void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GEState &gstate) {
 	// GetFramebufferHeuristicInputs is only called from rendering, and thus, it's VRAM.
 	params->fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
 	params->fb_stride = gstate.FrameBufStride();

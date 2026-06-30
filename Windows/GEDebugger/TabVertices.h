@@ -83,8 +83,8 @@ protected:
 	bool OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) override;
 
 private:
-	bool GetValue(const GPUgstate &state, int row, int col, float &val);
-	bool ColChanged(const GPUgstate &lastState, const GPUgstate &state, int row, int col);
+	bool GetValue(const GEState &state, int row, int col, float &val);
+	bool ColChanged(const GEState &lastState, const GEState &state, int row, int col);
 	void ToggleBreakpoint(int row);
 	void PromptBreakpointCond(int row);
 };

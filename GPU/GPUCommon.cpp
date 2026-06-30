@@ -1707,7 +1707,7 @@ u32 GPUCommon::GetIndexAddress() {
 	return gstate_c.indexAddr;
 }
 
-const GPUgstate &GPUCommon::GetGState() {
+const GEState &GPUCommon::GetGState() {
 	return gstate;
 }
 

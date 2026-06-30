@@ -30,7 +30,7 @@ class TextureCacheCommon;
 class DrawEngineCommon;
 class GraphicsContext;
 struct PspGeListArgs;
-struct GPUgstate;
+struct GEState;
 class PointerWrap;
 struct VirtualFramebuffer;
 
@@ -221,7 +221,7 @@ public:
 	u32 GetRelativeAddress(u32 data);
 	u32 GetVertexAddress();
 	u32 GetIndexAddress();
-	const GPUgstate &GetGState();
+	const GEState &GetGState();
 	void SetCmdValue(u32 op);
 
 	DisplayList* getList(int listid) {

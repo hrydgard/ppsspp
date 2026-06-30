@@ -328,7 +328,7 @@ bool CtrlMatrixList::OnColPrePaint(int row, int col, LPNMLVCUSTOMDRAW msg) {
 	return false;
 }
 
-bool CtrlMatrixList::ColChanged(const GPUgstate &lastState, const GPUgstate &state, int row, int col) {
+bool CtrlMatrixList::ColChanged(const GEState &lastState, const GEState &state, int row, int col) {
 	union {
 		float f;
 		uint32_t u;
@@ -340,7 +340,7 @@ bool CtrlMatrixList::ColChanged(const GPUgstate &lastState, const GPUgstate &sta
 	return newVal.u != oldVal.u;
 }
 
-bool CtrlMatrixList::GetValue(const GPUgstate &state, int row, int col, float &val) {
+bool CtrlMatrixList::GetValue(const GEState &state, int row, int col, float &val) {
 	if (!gpu || row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT)
 		return false;
 

@@ -123,10 +123,10 @@ void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 uint32_t PackLightControlBits();
 uint32_t PackDepalBits();
 
-void UpdateFogCoef(const GPUgstate &state, float fogCoef[2]);
+void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 
 // This happens so much that I want it inline.
-inline void UpdateUVScaleOff(const GPUgstate &state, float uvScaleOff[4]) {
+inline void UpdateUVScaleOff(const GEState &state, float uvScaleOff[4]) {
 	float widthFactor;
 	float heightFactor;
 	if (gstate_c.textureIsFramebuffer) {

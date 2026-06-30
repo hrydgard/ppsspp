@@ -31,7 +31,7 @@
 
 class PointerWrap;
 
-struct GPUgstate {
+struct GEState {
 	// Getting rid of this ugly union in favor of the accessor functions
 	// might be a good idea....
 	union {
@@ -514,7 +514,7 @@ enum class SubmitType {
 	SPLINE,
 };
 
-extern GPUgstate gstate;
+extern GEState gstate;
 
 struct GPUStateCache {
 	bool Use(u32 flags) const { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.

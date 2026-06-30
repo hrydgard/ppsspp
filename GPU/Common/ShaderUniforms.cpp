@@ -254,7 +254,7 @@ void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
 	}
 }
 
-void UpdateFogCoef(const GPUgstate &state, float fogCoef[2]) {
+void UpdateFogCoef(const GEState &state, float fogCoef[2]) {
 	fogCoef[0] = getFloat24(gstate.fog1);
 	fogCoef[1] = getFloat24(gstate.fog2);
 	// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
