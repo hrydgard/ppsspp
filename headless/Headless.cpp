@@ -367,6 +367,7 @@ int main(int argc, const char* argv[])
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
+	int meCpuCore = -1;
 	int debuggerPort = -1;
 	bool oldAtrac = false;
 	bool outputDebugStringLog = false;
@@ -403,6 +404,8 @@ int main(int argc, const char* argv[])
 			cpuCore = CPUCore::JIT_IR;
 		else if (!strcmp(argv[i], "--ir"))
 			cpuCore = CPUCore::IR_INTERPRETER;
+		else if (!strncmp(argv[i], "--me-core=", strlen("--me-core=")) && strlen(argv[i]) > strlen("--me-core="))
+			meCpuCore = atoi(argv[i] + strlen("--me-core="));
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			testOptions.compare = true;
 		else if (!strcmp(argv[i], "--bench"))
@@ -517,6 +520,8 @@ int main(int argc, const char* argv[])
 	// we actually set the cpu core in CoreParameter above. Probably because we end up using the JIT vs non-JIT
 	// vertex decoder.
 	g_Config.iCpuCore = 0;
+	if (meCpuCore >= 0)
+		g_Config.iMECpuCore = meCpuCore;
 
 	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;

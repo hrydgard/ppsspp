@@ -33,6 +33,8 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
+Arm64MEIRJit::FastCacheEntry *Arm64MEIRJit::g_meFastCache = nullptr;
+
 // Invalidations just need at most two MOVs and B.
 static constexpr int MIN_BLOCK_NORMAL_LEN = 12;
 // As long as we can fit a B, we should be fine.
@@ -412,6 +414,34 @@ void Arm64JitBackend::LoadStaticRegisters() {
 	} else {
 		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 	}
+}
+
+const u8 *Arm64MEIRJit::CompileAndLookup(u32 pc) {
+	// Fast path: direct-mapped cache lookup.
+	int idx = (pc >> kFastCacheShift) & kFastCacheMask;
+	FastCacheEntry &entry = fastCache_[idx];
+	if (entry.pc == pc && entry.nativeEntry) {
+		return entry.nativeEntry;
+	}
+
+	// Slow path: find or compile block.
+	int blockNum = blocks_.FindPreloadBlock(pc);
+	if (blockNum < 0) {
+		Compile(pc);
+		blockNum = blocks_.FindPreloadBlock(pc);
+	}
+	if (blockNum < 0) {
+		return nullptr;
+	}
+	const IRBlock *irBlock = blocks_.GetBlock(blockNum);
+	if (!irBlock || irBlock->GetNativeOffset() < 0) {
+		return nullptr;
+	}
+	const u8 *result = backend_->CodeBlock().GetBasePtr() + irBlock->GetNativeOffset();
+
+	entry.pc = pc;
+	entry.nativeEntry = result;
+	return result;
 }
 
 } // namespace MIPSComp

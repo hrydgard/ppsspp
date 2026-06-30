@@ -38,6 +38,37 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
+static u32 ComputeConstantAddress(const IRInst &inst, Arm64IRRegCache &regs) {
+	uint64_t base = 0;
+	if (inst.src1 != MIPS_REG_ZERO) {
+		if (!regs.IsGPRImm(inst.src1))
+			return 0;
+		base = regs.GetGPRImm(inst.src1);
+	}
+
+	int64_t imm = (int32_t)inst.constant;
+	if ((imm & 0xC0000000) == 0x80000000) {
+		imm = (uint64_t)(uint32_t)inst.constant;
+	}
+	return (u32)(base + imm);
+}
+
+static bool NeedsGenericMeHwAccess(const IRInst &inst, Arm64IRRegCache &regs, const MIPSComp::JitOptions &jo) {
+	if (!jo.isMeJit)
+		return false;
+	// Only fall back for provable HW register accesses.
+	// Non-constant bases keep the normal RAM path.
+	if (inst.src1 != MIPS_REG_ZERO && !regs.IsGPRImm(inst.src1)) {
+		return false;
+	}
+	u32 addr = ComputeConstantAddress(inst, regs);
+	bool sensitive = Memory::IsMeSensitiveHwPage(addr);
+	if (sensitive) {
+		DEBUG_LOG(Log::JIT, "ME HW access detected: addr=%08x src1=%d constant=%08x -> GENERIC", addr, inst.src1, inst.constant);
+	}
+	return sensitive;
+}
+
 static int IROpToByteWidth(IROp op) {
 	switch (op) {
 	case IROp::Load8:
@@ -80,6 +111,11 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 	// If it's about to be clobbered, don't waste time pointerifying.  Use displacement.
 	bool clobbersSrc1 = !readsFromSrc1 && regs_.IsGPRClobbered(inst.src1);
 
+#ifdef MASKED_PSP_MEMORY
+	// ME kseg1 addresses need a 29-bit physical mask.
+	const u32 addrMask = jo.isMeJit ? 0x1FFFFFFFU : Memory::MEMVIEW32_MASK;
+#endif
+
 	int64_t imm = (int32_t)inst.constant;
 	// It can't be this negative, must be a constant address with the top bit set.
 	if ((imm & 0xC0000000) == 0x80000000) {
@@ -91,7 +127,7 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 		// The constant gets applied later.
 		addrArg.base = MEMBASEREG;
 #ifdef MASKED_PSP_MEMORY
-		imm &= Memory::MEMVIEW32_MASK;
+		imm &= addrMask;
 #endif
 	} else if (!jo.enablePointerify && readsFromSrc1) {
 #ifndef MASKED_PSP_MEMORY
@@ -107,7 +143,7 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 		if (!addrArg.useRegisterOffset) {
 			ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), imm, SCRATCH2);
 #ifdef MASKED_PSP_MEMORY
-			ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK, SCRATCH2);
+			ANDI2R(SCRATCH1, SCRATCH1, addrMask, SCRATCH2);
 #endif
 
 			addrArg.base = MEMBASEREG;
@@ -121,7 +157,7 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 	} else {
 		ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), imm, SCRATCH2);
 #ifdef MASKED_PSP_MEMORY
-		ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK, SCRATCH2);
+		ANDI2R(SCRATCH1, SCRATCH1, addrMask, SCRATCH2);
 #endif
 
 		addrArg.base = MEMBASEREG;
@@ -136,7 +172,7 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		// In case we have an address + offset reg.
 		if (imm > 0)
-			imm &= Memory::MEMVIEW32_MASK;
+			imm &= addrMask;
 #endif
 
 		int scale = IROpToByteWidth(inst.op);
@@ -150,10 +186,17 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 			addrArg.useUnscaled = true;
 		} else {
 			// No luck, we'll need to load into a register.
-			MOVI2R(SCRATCH1, imm);
+			if (addrArg.base != MEMBASEREG) {
+				// Pointerified bases need 32-bit wrapping arithmetic here.
+				ADDI2R(SCRATCH1, DecodeReg(addrArg.base), (u64)(u32)(s32)imm, SCRATCH2);
+				addrArg.base = MEMBASEREG;
+			} else {
+				MOVI2R(SCRATCH1, imm);
+			}
 			addrArg.regOffset = SCRATCH1;
 			addrArg.useRegisterOffset = true;
-			addrArg.signExtendRegOffset = true;
+			// Keep bit 31 addresses inside the 4 GB arena.
+			addrArg.signExtendRegOffset = false;
 		}
 	}
 
@@ -164,6 +207,8 @@ void Arm64JitBackend::CompIR_CondStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
@@ -197,6 +242,8 @@ void Arm64JitBackend::CompIR_CondStore(IRInst inst) {
 
 void Arm64JitBackend::CompIR_FLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
 
@@ -220,6 +267,8 @@ void Arm64JitBackend::CompIR_FLoad(IRInst inst) {
 
 void Arm64JitBackend::CompIR_FStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
 
@@ -243,6 +292,8 @@ void Arm64JitBackend::CompIR_FStore(IRInst inst) {
 
 void Arm64JitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	regs_.SpillLockGPR(inst.dest, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
@@ -339,6 +390,8 @@ void Arm64JitBackend::CompIR_LoadShift(IRInst inst) {
 
 void Arm64JitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	regs_.SpillLockGPR(inst.src3, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
@@ -404,6 +457,8 @@ void Arm64JitBackend::CompIR_StoreShift(IRInst inst) {
 
 void Arm64JitBackend::CompIR_VecLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
 
@@ -427,6 +482,8 @@ void Arm64JitBackend::CompIR_VecLoad(IRInst inst) {
 
 void Arm64JitBackend::CompIR_VecStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (NeedsGenericMeHwAccess(inst, regs_, jo))
+		DISABLE;
 
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
 

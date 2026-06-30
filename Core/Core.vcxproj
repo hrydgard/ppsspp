@@ -639,8 +639,11 @@
     <ClCompile Include="HLE\sceOpenPSID.cpp" />
     <ClCompile Include="HLE\sceParseHttp.cpp" />
     <ClCompile Include="HLE\sceParseUri.cpp" />
+    <ClCompile Include="HLE\sceMeCore.cpp" />
     <ClCompile Include="HLE\scePauth.cpp" />
     <ClCompile Include="HLE\scePower.cpp" />
+    <ClCompile Include="HLE\sceSysEvent.cpp" />
+    <ClCompile Include="HLE\sceSysreg.cpp" />
     <ClCompile Include="HLE\scePsmf.cpp" />
     <ClCompile Include="HLE\scePspNpDrm_user.cpp" />
     <ClCompile Include="HLE\sceP3da.cpp" />
@@ -1137,8 +1140,11 @@
     <ClInclude Include="HLE\sceOpenPSID.h" />
     <ClInclude Include="HLE\sceParseHttp.h" />
     <ClInclude Include="HLE\sceParseUri.h" />
+    <ClInclude Include="HLE\sceMeCore.h" />
     <ClInclude Include="HLE\scePauth.h" />
     <ClInclude Include="HLE\scePower.h" />
+    <ClInclude Include="HLE\sceSysEvent.h" />
+    <ClInclude Include="HLE\sceSysreg.h" />
     <ClInclude Include="HLE\scePsmf.h" />
     <ClInclude Include="HLE\scePspNpDrm_user.h" />
     <ClInclude Include="HLE\sceP3da.h" />

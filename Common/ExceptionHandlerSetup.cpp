@@ -99,7 +99,7 @@ void UninstallExceptionHandler() {
 	g_badAccessHandler = nullptr;
 }
 
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && PPSSPP_ARCH(AMD64)
 
 static void CheckKR(const char* name, kern_return_t kr) {
 	_assert_msg_(kr == 0, "%s failed: kr=%x", name, kr);

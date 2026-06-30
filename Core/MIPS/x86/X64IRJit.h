@@ -61,7 +61,6 @@ protected:
 		return *this;
 	}
 
-private:
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void MovFromPC(Gen::X64Reg r);
@@ -175,6 +174,33 @@ public:
 
 private:
 	X64JitBackend x64Backend_;
+};
+
+class X64MEJitBackend : public X64JitBackend {
+public:
+	using X64JitBackend::X64JitBackend;
+	void GenerateFixedCode(MIPSState *mipsState) override;
+};
+
+class X64MEIRJit : public IRNativeJit {
+public:
+	X64MEIRJit(MIPSState *mipsState)
+		: IRNativeJit(mipsState), meBackend_(jo, blocks_) {
+		jo.enableBlocklink = false;
+		jo.enablePointerify = false;
+		jo.isMeJit = true;
+		blocks_.SetPatchMemory(false);
+		Init(meBackend_);
+	}
+
+	const u8 *CompileAndLookup(u32 pc);
+
+	void EnterDispatcher() {
+		hooks_.enterDispatcher();
+	}
+
+private:
+	X64MEJitBackend meBackend_;
 };
 
 } // namespace MIPSComp

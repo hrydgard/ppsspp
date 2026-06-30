@@ -229,19 +229,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::Load8:
-			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = Memory::Read_U8(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load8Ext:
-			mips->r[inst->dest] = SignExtend8ToU32(Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant));
+			mips->r[inst->dest] = SignExtend8ToU32(Memory::Read_U8(mips->r[inst->src1] + inst->constant));
 			break;
 		case IROp::Load16:
-			mips->r[inst->dest] = Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = Memory::Read_U16(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load16Ext:
-			mips->r[inst->dest] = SignExtend16ToU32(Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant));
+			mips->r[inst->dest] = SignExtend16ToU32(Memory::Read_U16(mips->r[inst->src1] + inst->constant));
 			break;
 		case IROp::Load32:
-			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = Memory::Read_U32(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load32Left:
 		{
@@ -271,13 +271,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::Store8:
-			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+			Memory::Write_U8(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Store16:
-			Memory::WriteUnchecked_U16(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+			Memory::Write_U16(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Store32:
-			Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+			Memory::Write_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Store32Left:
 		{

@@ -239,5 +239,8 @@ namespace MIPSComp {
 
 		// Common
 		bool enableBlocklink;
+
+		// ME JIT: conservative memory access handling for HW registers.
+		bool isMeJit = false;
 	};
 }

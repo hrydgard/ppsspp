@@ -57,7 +57,10 @@
 static inline void DelayBranchTo(u32 where)
 {
 	if (!Memory::IsValidAddress(where) || (where & 3) != 0) {
-		Core_ExecException(where, PC, ExecExceptionType::JUMP);
+		// Allow the ME to stop by returning through jr $ra with $ra == 0.
+		if (!(currentMIPS == &mipsMe && where == 0)) {
+			Core_ExecException(where, PC, ExecExceptionType::JUMP);
+		}
 	}
 	PC += 4;
 	mipsr4k.nextPC = where;
@@ -89,6 +92,9 @@ int MIPS_SingleStep()
 	}
 	return 1;
 }
+
+// Flag set by Int_Halt inside JIT blocks; checked by ME_NativeRunSlice.
+extern bool g_meHaltDetected;
 
 namespace MIPSInt
 {
@@ -815,11 +821,45 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	void Int_Halt(MIPSOpcode op)
+	{
+		// Force the native ME dispatcher to return promptly.
+		g_meHaltDetected = true;
+		// Force downcount negative so the JIT exits promptly.
+		currentMIPS->downcount = -1;
+		PC += 4;
+	}
+
+	void Int_Cop0(MIPSOpcode op)
+	{
+		// Used by the ME. The main CPU handles these through exceptions.
+		int rs = _RS;
+		int rt = _RT;
+		int rd = (op >> 11) & 0x1F;
+		if (rs == 0x04) {  // MTC0: GPR[rt] -> CP0[rd]
+			currentMIPS->cp0regs[rd] = R(rt);
+		} else if (rs == 0x00) {  // MFC0: CP0[rd] -> GPR[rt]
+			if (rt != 0)
+				R(rt) = currentMIPS->cp0regs[rd];
+		} else if (rs == 0x10 && (op & 0x3F) == 0x18) {
+			// ERET: Return from exception.
+			// PC = EPC, clear Status.EXL
+			currentMIPS->pc = currentMIPS->cp0regs[14];  // EPC
+			currentMIPS->cp0regs[12] &= ~0x02;           // Clear EXL
+			currentMIPS->inDelaySlot = false;
+			return;  // Don't advance PC
+		}
+		PC += 4;
+	}
+
 	void Int_Special2(MIPSOpcode op)
 	{
 		static int reported = 0;
 		switch (op & 0x3F)
 		{
+		case 0:  // halt
+			Int_Halt(op);
+			return;
 		case 36:  // mfic
 			// move from interrupt controller, not implemented
 			// See related report https://report.ppsspp.org/logs/kind/316 for possible locations.
