@@ -8,21 +8,18 @@
 #include "Common/StringUtils.h"
 
 ImConsole::ImConsole() {
-	memset(InputBuf, 0, sizeof(InputBuf));
+	memset(inputBuf_, 0, sizeof(inputBuf_));
 
-	HistoryPos = -1;
+	historyPos_ = -1;
 
 	// "CLASSIFY" is here to provide the test case where "C"+[tab] completes to "CL" and display multiple matches.
-	Commands.push_back("HELP");
-	Commands.push_back("HISTORY");
-	Commands.push_back("CLEAR");
-	AutoScroll = true;
-	ScrollToBottom = false;
+	autoScroll_ = true;
+	scrollToBottom_ = false;
 }
 
 ImConsole::~ImConsole() {
-	for (int i = 0; i < History.Size; i++)
-		ImGui::MemFree(History[i]);
+	for (int i = 0; i < history_.Size; i++)
+		ImGui::MemFree(history_[i]);
 }
 
 // Portable helpers
@@ -55,7 +52,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 
 	// Options menu
 	if (ImGui::BeginPopup("Options")) {
-		ImGui::Checkbox("Auto-scroll", &AutoScroll);
+		ImGui::Checkbox("Auto-scroll", &autoScroll_);
 		ImGui::EndPopup();
 	}
 
@@ -64,7 +61,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 	if (ImGui::Button("Options"))
 		ImGui::OpenPopup("Options");
 	ImGui::SameLine();
-	Filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180);
+	filter_.Draw("Filter (\"incl,-excl\") (\"error\")", 180);
 	ImGui::Separator();
 
 	// Reserve enough left-over height for 1 separator + 1 input text
@@ -104,7 +101,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 		if (copy_to_clipboard)
 			ImGui::LogToClipboard();
 		for (const auto &item : g_lua.GetLines()) {
-			if (!Filter.PassFilter(item.line.c_str()))
+			if (!filter_.PassFilter(item.line.c_str()))
 				continue;
 			ImVec4 color;
 			bool has_color = true;
@@ -114,6 +111,7 @@ void ImConsole::Draw(ImConfig &cfg) {
 			case LogLineType::Error:    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); break;
 			case LogLineType::External: color = ImVec4(0.8f, 0.8f, 1.0f, 1.0f); break;
 			case LogLineType::Integer:  color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
+			case LogLineType::Float:    color = ImVec4(1.0f, 1.0f, 0.8f, 1.0f); break;
 			case LogLineType::String:   color = ImVec4(0.8f, 1.0f, 0.8f, 1.0f); break;
 			default:
 				has_color = false;
@@ -140,20 +138,26 @@ void ImConsole::Draw(ImConfig &cfg) {
 
 		// Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
 		// Using a scrollbar or mouse-wheel will take away from the bottom edge.
-		if (ScrollToBottom || (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
+		if (scrollToBottom_ || (autoScroll_ && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
 			ImGui::SetScrollHereY(1.0f);
-		ScrollToBottom = false;
+		scrollToBottom_ = false;
 
 		ImGui::PopStyleVar();
 	}
 	ImGui::EndChild();
 	ImGui::Separator();
 
+	// Detect first frame when the window becomes active
+	if (ImGui::IsWindowAppearing()) {
+		// Tell ImGui to focus the next input widget
+		ImGui::SetKeyboardFocusHere();
+	}
+
 	// Command-line
 	bool reclaim_focus = false;
 	ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
-	if (ImGui::InputText("Input", InputBuf, IM_ARRAYSIZE(InputBuf), input_text_flags, &TextEditCallbackStub, (void*)this)) {
-		char* s = InputBuf;
+	if (ImGui::InputText("Input", inputBuf_, IM_ARRAYSIZE(inputBuf_), input_text_flags, &TextEditCallbackStub, (void*)this)) {
+		char* s = inputBuf_;
 		Strtrim(s);
 		if (s[0])
 			ExecCommand(s);
@@ -172,15 +176,15 @@ void ImConsole::Draw(ImConfig &cfg) {
 void ImConsole::ExecCommand(const char* command_line) {
 	// Insert into history. First find match and delete it so it can be pushed to the back.
 	// This isn't trying to be smart or optimal.
-	HistoryPos = -1;
-	for (int i = History.Size - 1; i >= 0; i--)
-		if (Stricmp(History[i], command_line) == 0)
-		{
-			ImGui::MemFree(History[i]);
-			History.erase(History.begin() + i);
+	historyPos_ = -1;
+	for (int i = history_.Size - 1; i >= 0; i--) {
+		if (Stricmp(history_[i], command_line) == 0) {
+			ImGui::MemFree(history_[i]);
+			history_.erase(history_.begin() + i);
 			break;
 		}
-	History.push_back(Strdup(command_line));
+	}
+	history_.push_back(Strdup(command_line));
 
 	g_lua.Print(LogLineType::Cmd, std::string(command_line));
 
@@ -188,22 +192,19 @@ void ImConsole::ExecCommand(const char* command_line) {
 	if (Stricmp(command_line, "clear") == 0) {
 		g_lua.Clear();
 	} else if (Stricmp(command_line, "help") == 0) {
-		g_lua.Print("Available non-Lua commands:");
-		for (int i = 0; i < Commands.Size; i++)
-			g_lua.Print(StringFromFormat("- %s", Commands[i]));
 		g_lua.Print("For Lua help:");
 		g_lua.Print(LogLineType::Url, "https://www.lua.org/manual/5.3/");
 		// TODO: Also print available Lua commands.
 	} else if (Stricmp(command_line, "history") == 0) {
-		int first = History.Size - 10;
-		for (int i = first > 0 ? first : 0; i < History.Size; i++)
-			g_lua.Print(StringFromFormat("%3d: %s", i, History[i]));
+		int first = history_.Size - 10;
+		for (int i = first > 0 ? first : 0; i < history_.Size; i++)
+			g_lua.Print(StringFromFormat("%3d: %s", i, history_[i]));
 	} else {
 		g_lua.ExecuteConsoleCommand(command_line);
 	}
 
 	// On command input, we scroll to bottom even if AutoScroll==false
-	ScrollToBottom = true;
+	scrollToBottom_ = true;
 }
 
 int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
@@ -226,11 +227,12 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 
 		// Build a list of candidates
 		ImVector<const char*> candidates;
-		for (int i = 0; i < Commands.Size; i++)
-			if (Strnicmp(Commands[i], word_start, (int)(word_end - word_start)) == 0)
-				candidates.push_back(Commands[i]);
 
 		// TODO: Add lua globals to candidates!
+		std::vector<std::string> luaCandidates = g_lua.AutoComplete(std::string_view(word_start, word_end - word_start));
+		for (const auto &s : luaCandidates) {
+			candidates.push_back(s.c_str());
+		}
 
 		if (candidates.Size == 0) {
 			// No match. TODO: Match against lua globals.
@@ -264,6 +266,9 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 
 			// List matches
 			g_lua.Print("Possible matches:");
+			std::sort(candidates.begin(), candidates.end(), [](const char* a, const char* b) {
+				return Stricmp(a, b) < 0;
+			});
 			for (int i = 0; i < candidates.Size; i++) {
 				g_lua.Print(StringFromFormat("- %s", candidates[i]));
 			}
@@ -274,21 +279,21 @@ int ImConsole::TextEditCallback(ImGuiInputTextCallbackData* data) {
 	case ImGuiInputTextFlags_CallbackHistory:
 	{
 		// Example of HISTORY
-		const int prev_history_pos = HistoryPos;
+		const int prev_history_pos = historyPos_;
 		if (data->EventKey == ImGuiKey_UpArrow) {
-			if (HistoryPos == -1)
-				HistoryPos = History.Size - 1;
-			else if (HistoryPos > 0)
-				HistoryPos--;
+			if (historyPos_ == -1)
+				historyPos_ = history_.Size - 1;
+			else if (historyPos_ > 0)
+				historyPos_--;
 		} else if (data->EventKey == ImGuiKey_DownArrow) {
-			if (HistoryPos != -1)
-				if (++HistoryPos >= History.Size)
-					HistoryPos = -1;
+			if (historyPos_ != -1)
+				if (++historyPos_ >= history_.Size)
+					historyPos_ = -1;
 		}
 
 		// A better implementation would preserve the data on the current input line along with cursor position.
-		if (prev_history_pos != HistoryPos) {
-			const char* history_str = (HistoryPos >= 0) ? History[HistoryPos] : "";
+		if (prev_history_pos != historyPos_) {
+			const char* history_str = (historyPos_ >= 0) ? history_[historyPos_] : "";
 			data->DeleteChars(0, data->BufTextLen);
 			data->InsertChars(0, history_str);
 		}
