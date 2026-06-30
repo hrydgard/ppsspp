@@ -171,32 +171,23 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GamepadButton button) {
 void SDLJoystick::ProcessInput(const SDL_Event &event){
 	switch (event.type) {
 	case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-	{
-		auto code = getKeycodeForButton((SDL_GamepadButton)event.gbutton.button);
-		if (code != NKCODE_UNKNOWN) {
-			KeyInput key;
-			key.flags = KeyInputFlags::DOWN;
-			key.keyCode = code;
-			key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.gbutton.which);
-			NativeKey(key);
-		}
-		break;
-	}
 	case SDL_EVENT_GAMEPAD_BUTTON_UP:
 	{
 		auto code = getKeycodeForButton((SDL_GamepadButton)event.gbutton.button);
 		if (code != NKCODE_UNKNOWN) {
+			const int padId = 0;  // previously getDeviceIndex(event.gbutton.which), but for now we force all pads to pad0 for config compatibility.
 			KeyInput key;
-			key.flags = KeyInputFlags::UP;
+			key.flags = event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 			key.keyCode = code;
-			key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.gbutton.which);
+			key.deviceId = DEVICE_ID_PAD_0 + padId;
 			NativeKey(key);
 		}
 		break;
 	}
 	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 	{
-		InputDeviceID deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.gaxis.which);
+		const int padId = 0;  // previously getDeviceIndex(event.gaxis.which), but for now we force all pads to pad0 for config compatibility.
+		InputDeviceID deviceId = DEVICE_ID_PAD_0 + padId;
 		InputAxis axisId = (InputAxis)event.gaxis.axis;
 		float value = event.gaxis.value * (1.f / 32767.f);
 		if (value > 1.0f) value = 1.0f;
