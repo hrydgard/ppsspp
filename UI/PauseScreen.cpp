@@ -333,11 +333,13 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 
 void GamePauseScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	UIScreen::update();
 
-	if (g_controlMapper.PollPauseTrigger()) {
+	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
 		TriggerFinish(DR_BACK);
 	}
+	UIScreen::update();
+
+	firstFrame_ = false;
 
 	if (finishNextFrame_) {
 		TriggerFinish(finishNextFrameResult_);
