@@ -618,6 +618,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/KeyMap.cpp \
   $(SRC)/Core/KeyMapDefaults.cpp \
   $(SRC)/Core/LuaContext.cpp \
+  $(SRC)/Core/MemoryScanner.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/FileLoaders/CachingFileLoader.cpp \
@@ -945,6 +946,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/RemoteISOScreen.cpp \
   $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/PauseScreen.cpp \
+  $(SRC)/UI/MemoryScannerScreen.cpp \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/SystemInfoScreen.cpp \

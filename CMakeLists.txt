@@ -1628,6 +1628,8 @@ list(APPEND NativeAppSource
 	UI/IAPScreen.h
 	UI/MainScreen.h
 	UI/MainScreen.cpp
+	UI/MemoryScannerScreen.h
+	UI/MemoryScannerScreen.cpp
 	UI/GameBrowser.h
 	UI/GameBrowser.cpp
 	UI/MiscScreens.h
@@ -2170,6 +2172,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/KeyMapDefaults.h
 	Core/LuaContext.cpp
 	Core/LuaContext.h
+	Core/MemoryScanner.cpp
+	Core/MemoryScanner.h
 	Core/RetroAchievements.h
 	Core/RetroAchievements.cpp
 	Core/TiltEventProcessor.h

@@ -12,6 +12,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
+#include "Core/MemoryScanner.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -327,6 +328,8 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		g_Config.bReloadCheats = false;
 	}
 	cheatEngine->Run();
+
+	g_MemoryScanner.Update();
 }
 
 CWCheatEngine::CWCheatEngine(std::string_view gameID) : gameID_(gameID) {

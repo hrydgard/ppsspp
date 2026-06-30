@@ -303,10 +303,19 @@
     <ClCompile Include="Debugger\SymbolMap.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Config.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="Core.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="CoreTiming.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="CwCheat.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="MemoryScanner.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="Loaders.cpp">
@@ -338,9 +347,6 @@
     </ClCompile>
     <ClCompile Include="HLE\sceKernelAlarm.cpp">
       <Filter>HLE\Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="Config.cpp">
-      <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="ELF\PrxDecrypter.cpp">
       <Filter>ELF</Filter>
@@ -1593,6 +1599,9 @@
     <ClInclude Include="System.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Config.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="Core.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -1600,6 +1609,12 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="CoreTiming.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="CwCheat.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MemoryScanner.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Loaders.h">
@@ -1628,9 +1643,6 @@
     </ClInclude>
     <ClInclude Include="HLE\sceKernelAlarm.h">
       <Filter>HLE\Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="Config.h">
-      <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="ELF\PrxDecrypter.h">
       <Filter>ELF</Filter>
