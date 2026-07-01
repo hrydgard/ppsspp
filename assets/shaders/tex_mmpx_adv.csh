@@ -33,10 +33,15 @@ precision mediump float;
 
 uint srcu(int x, int y) {
 
-	//* out-of-bounds check, return transparent color if coordinates are out of range
-    return (x >= 0 && x < params.width && y >= 0 && y < params.height) 
-           ? readColoru(uvec2(x, y)) 
-           : 0u;
+	//* clamped buf read
+    int cx = clamp(x, 0, params.width - 1);
+    int cy = clamp(y, 0, params.height - 1);
+    uint color = readColoru(uvec2(cx, cy));
+    
+	//* out-of-bounds check, return transparent color if out of range
+    bool is_out = x < 0 || x >= params.width || y < 0 || y >= params.height;
+    
+    return is_out ? 0u : color;
 }
 
 #define src(c,d) unpackUnorm4x8(srcu(c,d))
