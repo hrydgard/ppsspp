@@ -331,6 +331,7 @@ class PostPutAction : public PSPAction {
 public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
+	void setRemainingPackets(u32 remainingPackets) { remainingPackets_ = remainingPackets; }
 	static PSPAction *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostPutAction", 1);
@@ -338,10 +339,12 @@ public:
 			return;
 
 		Do(p, ringAddr_);
+		Do(p, remainingPackets_);
 	}
 	void run(MipsCall &call) override;
 private:
 	u32 ringAddr_ = 0;
+	s32 remainingPackets_ = 0;
 };
 
 void __MpegInit() {
@@ -1481,6 +1484,23 @@ void PostPutAction::run(MipsCall &call) {
 		ringbuffer->packetsRead += packetsAddedThisRound;
 		ringbuffer->packetsWritePos += packetsAddedThisRound;
 		ringbuffer->packetsAvail += packetsAddedThisRound;
+
+		if (remainingPackets_ > 0) {
+			if (packetsAddedThisRound > remainingPackets_) {
+				WARN_LOG_REPORT(Log::Mpeg, "Wrote more than expected.");
+			}
+			else if (packetsAddedThisRound < remainingPackets_) {
+				// Call the callback again to get more packets.
+				writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
+				u32 desiredPacketsThisRound = std::min(remainingPackets_, (s32)ringbuffer->packets - writeOffset);
+
+				PostPutAction* action = (PostPutAction*)__KernelCreateAction(actionPostPut);
+				action->setRingAddr(ringAddr_);
+				action->setRemainingPackets(remainingPackets_ - desiredPacketsThisRound);
+				u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, desiredPacketsThisRound, (u32)ringbuffer->callback_args };
+				hleEnqueueCall(ringbuffer->callback_addr, 3, args, action); //Calling the callback
+			}
+		}
 	}
 	DEBUG_LOG(Log::Mpeg, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAddedThisRound, ringbuffer->packetsRead, ringbuffer->packets);
 
@@ -1523,19 +1543,17 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
 		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
-		u32 packetsThisRound = 0;
-		while (numPackets) {
+		if (numPackets > 0) {
+			u32 desiredPacketsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset); //min(How many avail, how many will fit)
+
 			PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 			action->setRingAddr(ringbufferAddr);
+			// Old savestate don't use this feature (useRingbufferPutCallbackMulti), just for compatibility.
+			action->setRemainingPackets(useRingbufferPutCallbackMulti ? numPackets - desiredPacketsThisRound : 0);
 
-			packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
-			numPackets -= packetsThisRound;
-			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args };
+			u32 writePosBefore = ringbuffer->packetsWritePos;
+			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, desiredPacketsThisRound, (u32)ringbuffer->callback_args };
 			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
-			writeOffset = (writeOffset + packetsThisRound) % (s32)ringbuffer->packets;
-			// Old savestate don't use this feature, just for compatibility.
-			if (!useRingbufferPutCallbackMulti)
-				break;
 		}
 	} else {
 		ERROR_LOG_REPORT(Log::Mpeg, "sceMpegRingbufferPut: callback_addr zero");
