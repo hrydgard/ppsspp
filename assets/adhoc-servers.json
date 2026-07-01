@@ -177,6 +177,17 @@
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
 			"status_data_json": "https://status-brazil-01.sprawl-relay.link?format=aemu"
+		},
+		{
+			"name": "PSP Brasil",
+			"host": "pspbrasil.duckdns.org",
+			"discord": "",
+			"web": "https://pspbrasil.duckdns.org/",
+			"location": "São Paulo, Brazil",
+			"location-emoji": "🇧🇷",
+			"description": "Rede br para partidas online de jogos PSP.",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://pspbrasil.duckdns.org/data.json"
 		}
 	]
 }
