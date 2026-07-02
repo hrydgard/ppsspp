@@ -566,6 +566,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 			if (gl_extensions.range[1][5][1] >= 30) {
 				caps_.fragmentShaderInt32Supported = true;
 			}
+			caps_.samplerLodControl = true;
 		}
 		caps_.texture3DSupported = gl_extensions.GLES3 || gl_extensions.OES_texture_3D;
 		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
@@ -576,10 +577,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
 		caps_.textureDepthSupported = true;
+		caps_.samplerLodControl = true;
 	}
 
 	caps_.maxTextureSize = gl_extensions.maxTextureSize;
-	caps_.maxClipPlanes = gl_extensions.IsGLES ? 0 : gl_extensions.maxClipPlanes;
 	caps_.coordConvention = CoordConvention::OpenGL;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
@@ -592,17 +593,8 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	caps_.blendMinMaxSupported = gl_extensions.EXT_blend_minmax;
 	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
-	if (gl_extensions.IsGLES) {
-		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
-		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
-	} else {
-		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
-		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
-	}
-	caps_.textureNPOTFullySupported =
-		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||
-		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||
-		gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
+	caps_.maxClipDistances = gl_extensions.maxClipDistances;
+	caps_.maxCullDistances = gl_extensions.maxCullDistances;
 
 	if (gl_extensions.IsGLES) {
 		caps_.fragmentShaderDepthWriteSupported = gl_extensions.GLES3;
@@ -644,7 +636,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, "thin3d_vbuf");
+		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, 32, "thin3d_vbuf");
 	}
 
 	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -1267,15 +1259,8 @@ void OpenGLContext::ApplySamplers() {
 		} else {
 			continue;
 		}
-		GLenum wrapS;
-		GLenum wrapT;
-		if (tex->canWrap) {
-			wrapS = samp->wrapU;
-			wrapT = samp->wrapV;
-		} else {
-			wrapS = GL_CLAMP_TO_EDGE;
-			wrapT = GL_CLAMP_TO_EDGE;
-		}
+		GLenum wrapS = samp->wrapU;
+		GLenum wrapT = samp->wrapV;
 		GLenum magFilt = samp->magFilt;
 		GLenum minFilt = tex->numMips > 1 ? samp->mipMinFilt : samp->minFilt;
 		renderManager_.SetTextureSampler(i, wrapS, wrapT, magFilt, minFilt, 0.0f);
@@ -1380,12 +1365,13 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
-	if (curPipeline_->dynamicUniforms.uniformBufferSize != size) {
+	const auto &dynamicUniforms = curPipeline_->dynamicUniforms;
+	if (dynamicUniforms.uniformBufferSize != size) {
 		Crash();
 	}
 
-	for (size_t i = 0; i < curPipeline_->dynamicUniforms.uniforms.size(); ++i) {
-		const auto &uniform = curPipeline_->dynamicUniforms.uniforms[i];
+	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
+		const auto &uniform = dynamicUniforms.uniforms[i];
 		const GLint &loc = curPipeline_->locs_->dynamicUniformLocs_[i];
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {

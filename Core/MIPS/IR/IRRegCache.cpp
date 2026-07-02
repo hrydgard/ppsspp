@@ -445,7 +445,7 @@ bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, IRReg r) const {
 	if (usage == IRUsage::CLOBBERED) {
 		// If multiple mips regs use this native reg (i.e. vector, HI/LO), check each.
 		bool canClobber = true;
-		for (IRReg m = first + 1; mr[m].nReg == mr[first].nReg && m < IRREG_INVALID && canClobber; ++m)
+		for (IRReg m = first + 1; m < IRREG_INVALID && mr[m].nReg == mr[first].nReg && canClobber; ++m)
 			canClobber = GetNextRegUsage(info, type, m) == IRUsage::CLOBBERED;
 
 		return canClobber;
@@ -497,7 +497,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 			// If multiple mips regs use this native reg (i.e. vector, HI/LO), check each.
 			// Note: mipsReg points to the lowest numbered IRReg.
 			bool canClobber = true;
-			for (IRReg m = mipsReg + 1; mr[m].nReg == nreg && m < IRREG_INVALID && canClobber; ++m)
+			for (IRReg m = mipsReg + 1; m < IRREG_INVALID && mr[m].nReg == nreg && canClobber; ++m)
 				canClobber = GetNextRegUsage(info, type, m) == IRUsage::CLOBBERED;
 
 			// Okay, if all can be clobbered, we're good to go.
@@ -541,7 +541,7 @@ void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "DiscardNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg != IRREG_INVALID) {
 		int8_t lanes = 0;
-		for (IRReg m = nr[nreg].mipsReg; mr[m].nReg == nreg && m < IRREG_INVALID; ++m)
+		for (IRReg m = nr[nreg].mipsReg; m < IRREG_INVALID && mr[m].nReg == nreg; ++m)
 			lanes++;
 
 		if (mr[nr[nreg].mipsReg].isStatic) {
@@ -1002,7 +1002,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 		if (mreg.nReg != -1) {
 			// How many lanes is it currently in?
 			int oldlanes = 0;
-			for (IRReg m = nr[mreg.nReg].mipsReg; mr[m].nReg == mreg.nReg && m < IRREG_INVALID; ++m)
+			for (IRReg m = nr[mreg.nReg].mipsReg; m < IRREG_INVALID && mr[m].nReg == mreg.nReg; ++m)
 				oldlanes++;
 
 			// We may need to flush if it goes outside or we're initing.

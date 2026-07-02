@@ -90,6 +90,8 @@ enum class PerfClass {
 	FAST,
 };
 
+typedef std::function<void(VulkanContext *)> DeleteCallback;
+
 // This is a bit repetitive...
 class VulkanDeleteList {
 	struct BufferWithAlloc {
@@ -127,7 +129,7 @@ public:
 	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { _dbg_assert_(pipelineLayout != VK_NULL_HANDLE); pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { _dbg_assert_(descSetLayout != VK_NULL_HANDLE); descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueDeleteQueryPool(VkQueryPool &queryPool) { _dbg_assert_(queryPool != VK_NULL_HANDLE); queryPools_.push_back(queryPool); queryPool = VK_NULL_HANDLE; }
-	void QueueCallback(void (*func)(VulkanContext *vulkan, void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueCallback(DeleteCallback func) { callbacks_.push_back(func); }
 
 	void QueueDeleteBufferAllocation(VkBuffer &buffer, VmaAllocation &alloc) { 
 		_dbg_assert_(buffer != VK_NULL_HANDLE); 
@@ -167,7 +169,7 @@ private:
 	std::vector<VkPipelineLayout> pipelineLayouts_;
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<VkQueryPool> queryPools_;
-	std::vector<Callback> callbacks_;
+	std::vector<DeleteCallback> callbacks_;
 	int deleteCount_ = 0;
 };
 
@@ -289,6 +291,7 @@ public:
 		VkPhysicalDevicePresentIdFeaturesKHR presentId;
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps;
+		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayout;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
@@ -301,11 +304,10 @@ public:
 		return queueFamilyProperties_[family];
 	}
 
-	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> *extensions);
 	VkResult GetInstanceLayerProperties();
 
-	VkResult GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
-	VkResult GetDeviceLayerProperties();
+	VkResult GetDeviceExtensionList(std::vector<VkExtensionProperties> *extensions);
 
 	const std::vector<VkExtensionProperties> &GetDeviceExtensionsAvailable() const {
 		return device_extension_properties_;
@@ -412,6 +414,10 @@ public:
 		return presentMode_;
 	}
 
+#ifdef VK_EXT_full_screen_exclusive
+	void SetFullScreenExclusiveMode(VkFullScreenExclusiveEXT mode) { fullScreenExclusiveMode_ = mode; }
+#endif
+
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
 	}
@@ -439,6 +445,10 @@ public:
 
 	WindowSystem GetWindowSystem() const {
 		return winsys_;
+	}
+
+	bool SupportsPreRotation() const {
+		return surfCapabilities_.supportedTransforms != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
 
 private:
@@ -477,9 +487,6 @@ private:
 
 	std::vector<const char *> instance_extensions_enabled_;
 	std::vector<VkExtensionProperties> instance_extension_properties_;
-
-	std::vector<const char *> device_layer_names_;
-	std::vector<LayerProperties> device_layer_properties_;
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
@@ -528,6 +535,11 @@ private:
 	bool swapchainInited_ = false;
 
 	PhysicalDeviceFeatures deviceFeatures_;
+
+#ifdef VK_EXT_full_screen_exclusive
+	VkFullScreenExclusiveEXT fullScreenExclusiveMode_ = VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
+#endif
+
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};

@@ -39,7 +39,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/Core.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GPUCommon.h"
 
@@ -199,23 +199,6 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 		b = 0;
 		a = (src >> 24) & 0xFF;
 		break;
-	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
-		src = buf32[offset]& 0x00FFFFFF;
-		src = src - 0x800000 + 0x8000;
-		r = 255;
-		g = 0;
-		b = 0;
-		a = (src >> 8) & 0xFF;
-		break;
-	case GPU_DBG_FORMAT_FLOAT_DIV_256:
-		fsrc = fbuf[offset];
-		src = (int)(fsrc * 16777215.0);
-		src = src - 0x800000 + 0x8000;
-		r = 255;
-		g = 0;
-		b = 0;
-		a = (src >> 8) & 0xFF;
-		break;
 	default:
 		_assert_msg_(false, "Unsupported framebuffer format for screenshot: %d", fmt);
 		return false;
@@ -374,7 +357,7 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 	}
 
 	GPUDebugBuffer buf;
-	if (!gpuDebug) {
+	if (!gpu) {
 		ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
 		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
 		g_pendingScreenshot = {};
@@ -383,7 +366,7 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 
 	const int maxRes = g_pendingScreenshot.maxRes;
 
-	if (!gpuDebug->GetCurrentFramebuffer(buf, g_pendingScreenshot.type == ScreenshotType::Render ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
+	if (!gpu->GetCurrentFramebuffer(buf, g_pendingScreenshot.type == ScreenshotType::Render ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
 		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
 		g_pendingScreenshot = {};
 		return false;
@@ -394,6 +377,10 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 	if (buf.IsBackBuffer()) {
 		w = buf.GetStride();
 		h = buf.GetHeight();
+	} else if (maxRes < 0 && buf.GetScaleFactor() > 0) {
+		// Normal case. Crop to the current screen size if it's larger (some games render to large buffers and display a subset).
+		w = 480 * buf.GetScaleFactor();
+		h = 272 * buf.GetScaleFactor();
 	} else {
 		w = maxRes > 0 ? 480 * maxRes : buf.GetStride();
 		h = maxRes > 0 ? 272 * maxRes : buf.GetHeight();
@@ -491,7 +478,7 @@ bool Save8888RGBAScreenshot(std::vector<uint8_t> &bufferPNG, const u8 *bufferRGB
 	return success;
 }
 
-void TakeUserScreenshotImpl() {
+void TakeUserScreenshot() {
 	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	// Make sure the screenshot directory exists.
 	File::CreateDir(path);
@@ -551,11 +538,5 @@ void TakeUserScreenshotImpl() {
 			WARN_LOG(Log::System, "Failed to take screenshot.");
 		}
 		// TODO: What to do about ScreenshotNotPossible?
-	});
-}
-
-void TakeUserScreenshot() {
-	System_RunOnMainThread([]() {
-		TakeUserScreenshotImpl();
 	});
 }

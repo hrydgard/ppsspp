@@ -45,7 +45,6 @@ public:
 	GLenum magFilter = 0xFFFF;
 	GLenum minFilter = 0xFFFF;
 	uint8_t numMips = 0;
-	bool canWrap = true;
 	float anisotropy = -100000.0f;
 	float minLod = -1000.0f;
 	float maxLod = 1000.0f;
@@ -341,8 +340,8 @@ public:
 		return step.create_input_layout.inputLayout;
 	}
 
-	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, const char *tag) {
-		GLPushBuffer *push = new GLPushBuffer(this, target, size, tag);
+	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, int slack, const char *tag) {
+		GLPushBuffer *push = new GLPushBuffer(this, target, size, slack, tag);
 		RegisterPushBuffer(frame, push);
 		return push;
 	}

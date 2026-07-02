@@ -30,7 +30,7 @@ struct JsonGet {
 	int getInt(const char *child_name) const;
 	int getInt(const char *child_name, int default_value) const;
 	bool getBool(const char *child_name) const;
-	bool getBool(const char *child_name, bool default_value) const;
+	bool getBoolOr(const char *child_name, bool default_value) const;
 
 	bool hasChild(const char *child_name, JsonTag child_type) const {
 		return get(child_name, child_type) != nullptr;

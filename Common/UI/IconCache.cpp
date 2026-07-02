@@ -14,7 +14,7 @@
 #define MAX_RUNTIME_CACHE_SIZE (1024 * 1024 * 4)
 #define MAX_SAVED_CACHE_SIZE (1024 * 1024 * 1)
 
-const uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
+constexpr uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
 
 IconCache g_iconCache;
 
@@ -47,12 +47,13 @@ void IconCache::SaveToFile(FILE *file) {
 	for (auto &iter : cache_) {
 		DiskCacheEntry entryHeader{};
 		entryHeader.keyLen = (uint32_t)iter.first.size();
-		entryHeader.dataLen = (uint32_t)iter.second.data.size();
-		entryHeader.format = iter.second.format;
-		entryHeader.insertedTimestamp = iter.second.insertedTimeStamp;
+		const auto &entry = iter.second;
+		entryHeader.dataLen = (uint32_t)entry.data.size();
+		entryHeader.format = entry.format;
+		entryHeader.insertedTimestamp = entry.insertedTimeStamp;
 		fwrite(&entryHeader, 1, sizeof(entryHeader), file);
 		fwrite(iter.first.c_str(), 1, iter.first.size(), file);
-		fwrite(iter.second.data.data(), 1, iter.second.data.size(), file);
+		fwrite(entry.data.data(), 1, entry.data.size(), file);
 	}
 }
 
@@ -134,13 +135,14 @@ void IconCache::FrameUpdate() {
 	double now = time_now_d();
 	if (now > lastUpdate_ + 2.0) {
 		for (auto &iter : cache_) {
-			double useAge = now - iter.second.usedTimeStamp;
+			auto &entry = iter.second;
+			double useAge = now - entry.usedTimeStamp;
 			if (useAge > 5.0) {
 				// Release the texture after a few seconds of no use.
 				// Still, keep the png data loaded, it's small.
-				if (iter.second.texture) {
-					iter.second.texture->Release();
-					iter.second.texture = nullptr;
+				if (entry.texture) {
+					entry.texture->Release();
+					entry.texture = nullptr;
 				}
 			}
 		}
@@ -175,7 +177,8 @@ void IconCache::Decimate(int64_t maxSize) {
 	std::vector<SortEntry> sortEntries;
 	sortEntries.reserve(cache_.size());
 	for (const auto &iter : cache_) {
-		sortEntries.push_back({ iter.first, iter.second.usedTimeStamp, iter.second.data.size() });
+		const auto &entry = iter.second;
+		sortEntries.push_back({ iter.first, entry.usedTimeStamp, entry.data.size() });
 	}
 
 	std::sort(sortEntries.begin(), sortEntries.end(), [](const SortEntry &a, const SortEntry &b) {
@@ -204,10 +207,11 @@ bool IconCache::GetDimensions(std::string_view key, int *width, int *height) {
 		return false;
 	}
 
-	if (iter->second.texture) {
+	const auto &entry = iter->second;
+	if (entry.texture) {
 		// TODO: Store the width/height in the cache.
-		*width = iter->second.texture->Width();
-		*height = iter->second.texture->Height();
+		*width = entry.texture->Width();
+		*height = entry.texture->Height();
 		return true;
 	} else {
 		return false;
@@ -286,13 +290,15 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 		return nullptr;
 	}
 
-	if (iter->second.texture) {
-		context->GetDrawContext()->BindTexture(0, iter->second.texture);
-		iter->second.usedTimeStamp = time_now_d();
-		return iter->second.texture;
+	auto &entry = iter->second;
+
+	if (entry.texture) {
+		context->GetDrawContext()->BindTexture(0, entry.texture);
+		entry.usedTimeStamp = time_now_d();
+		return entry.texture;
 	}
 
-	if (iter->second.badData) {
+	if (entry.badData) {
 		return nullptr;
 	}
 
@@ -302,15 +308,15 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 	Draw::DataFormat dataFormat;
 	unsigned char *buffer = nullptr;
 
-	switch (iter->second.format) {
+	switch (entry.format) {
 	case IconFormat::PNG:
 	{
-		int result = pngLoadPtr((const unsigned char *)iter->second.data.data(), iter->second.data.size(), &width,
-			&height, &buffer);
+		const std::string &data = entry.data;
+		int result = pngLoadPtr((const unsigned char *)data.data(), data.size(), &width, &height, &buffer);
 
 		if (result != 1) {
-			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %.*s", (int)iter->second.data.size(), STR_VIEW(key));
-			iter->second.badData = true;
+			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %.*s", (int)data.size(), STR_VIEW(key));
+			entry.badData = true;
 			return nullptr;
 		}
 		dataFormat = Draw::DataFormat::R8G8B8A8_UNORM;
@@ -333,8 +339,8 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 	iconDesc.type = Draw::TextureType::LINEAR2D;
 
 	Draw::Texture *texture = context->GetDrawContext()->CreateTexture(iconDesc);
-	iter->second.texture = texture;
-	iter->second.usedTimeStamp = time_now_d();
+	entry.texture = texture;
+	entry.usedTimeStamp = time_now_d();
 
 	free(buffer);
 
@@ -348,9 +354,10 @@ IconCacheStats IconCache::GetStats() {
 
 	for (auto &iter : cache_) {
 		stats.cachedCount++;
-		if (iter.second.texture)
+		const auto &entry = iter.second;
+		if (entry.texture)
 			stats.textureCount++;
-		stats.dataSize += iter.second.data.size();
+		stats.dataSize += entry.data.size();
 	}
 
 	stats.pending = pending_.size();

@@ -13,10 +13,16 @@ VulkanBarrierBatch::~VulkanBarrierBatch() {
 }
 
 void VulkanBarrierBatch::Flush(VkCommandBuffer cmd) {
+	// TODO: batch together buffer and image barriers
 	if (!imageBarriers_.empty()) {
 		vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, 0, nullptr, (uint32_t)imageBarriers_.size(), imageBarriers_.data());
 	}
 	imageBarriers_.clear();
+	if (!bufferBarriers_.empty()) {
+		vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, (uint32_t)bufferBarriers_.size(), bufferBarriers_.data(), 0, nullptr);
+	}
+	bufferBarriers_.clear();
+
 	srcStageMask_ = 0;
 	dstStageMask_ = 0;
 	dependencyFlags_ = 0;
@@ -49,6 +55,22 @@ void VulkanBarrierBatch::TransitionImage(
 	imageBarrier.subresourceRange.baseArrayLayer = 0;
 	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+}
+
+void VulkanBarrierBatch::TransitionBufferToShaderRead(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size) {
+
+	srcStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+	dstStageMask_ |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	VkBufferMemoryBarrier &bufferBarrier = bufferBarriers_.push_uninitialized();
+	bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	bufferBarrier.pNext = nullptr;
+	bufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	bufferBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferBarrier.buffer = buffer;
+	bufferBarrier.offset = offset;
+	bufferBarrier.size = size;
 }
 
 void VulkanBarrierBatch::TransitionColorImageAuto(

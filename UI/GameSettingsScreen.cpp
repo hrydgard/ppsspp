@@ -105,8 +105,8 @@ extern AndroidAudioState *g_audioState;
 void SetMemStickDirDarwin(int requesterToken) {
 	auto initialPath = g_Config.memStickDirectory;
 	INFO_LOG(Log::System, "Current path: %s", initialPath.c_str());
-	System_BrowseForFolder(requesterToken, "", initialPath, [](const std::string &value, int) {
-		INFO_LOG(Log::System, "Selected path: %s", value.c_str());
+	System_BrowseForFolder(requesterToken, "", initialPath, [](std::string_view value, int) {
+		INFO_LOG(Log::System, "Selected path: %.*s", STR_VIEW(value));
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
 	});
 }
@@ -157,35 +157,6 @@ GameSettingsScreen::~GameSettingsScreen() {
 void GameSettingsScreen::PreCreateViews() {
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	ReloadAllThemeInfo();
-}
-
-// This needs before run CheckGPUFeatures()
-// TODO: Remove this if fix the issue
-static bool CheckSupportShaderTessellationGLES() {
-#if PPSSPP_PLATFORM(UWP)
-	return true;
-#else
-	// TODO: Make work with non-GL backends
-	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
-	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
-
-	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
-	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-
-	return vertexTexture && textureFloat && hasTexelFetch;
-#endif
-}
-
-static bool DoesBackendSupportHWTess() {
-	switch (GetGPUBackend()) {
-	case GPUBackend::OPENGL:
-		return CheckSupportShaderTessellationGLES();
-	case GPUBackend::VULKAN:
-	case GPUBackend::DIRECT3D11:
-		return true;
-	default:
-		return false;
-	}
 }
 
 static bool UsingHardwareTextureScaling() {
@@ -412,10 +383,22 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		fullscreenCheckbox->OnClick.Add([](UI::EventParams &e) {
 			System_ApplyFullscreenState();
 		});
+		if (draw->GetDeviceCaps().fullScreenExclusiveSupported) {
+			CheckBox* fullscreenExclusive = graphicsSettings->Add(new CheckBox(&g_Config.bAllowFullScreenExclusive, gr->T("Allow exclusive fullscreen")));
+			fullscreenExclusive->SetEnabledFunc([] {
+				return g_Config.bFullScreen && !g_Config.bFullScreenMulti;
+			});
+			fullscreenExclusive->OnClick.Add([this](UI::EventParams &e) {
+				TriggerRestartOrDo([this]() {
+					g_Config.bAllowFullScreenExclusive = !g_Config.bAllowFullScreenExclusive;
+					RecreateViews();
+				});
+			});
+		}
 		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 			CheckBox *fullscreenMulti = graphicsSettings->Add(new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays")));
 			fullscreenMulti->SetEnabledFunc([] {
-				return g_Config.bFullScreen;
+				return g_Config.bFullScreen && !g_Config.bAllowFullScreenExclusive;
 			});
 			fullscreenMulti->OnClick.Add([](UI::EventParams &e) {
 				System_ApplyFullscreenState();
@@ -488,11 +471,9 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		}
 
 		System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	});
 	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	CheckBox *disableCulling = graphicsSettings->Add(new CheckBox(&g_Config.bDisableRangeCulling, gr->T("Disable culling")));
-	disableCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *skipGpuReadbackModes[] = { "No", "Skip", "Copy to texture" };
 
@@ -508,10 +489,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	depthRasterMode->SetDefault(DefaultDepthRaster());
 	if (g_Config.iDepthRasterMode != 3)
 		depthRasterMode->HideChoice(3);
-
-	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("Lazy texture caching Tip", "Faster, but can cause text problems in a few games"), texBackoff));
 
 	static const char *quality[] = { "Low", "Medium", "High" };
 	PopupMultiChoice *bezierQuality = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), I18NCat::GRAPHICS, screenManager()));
@@ -541,7 +518,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		const bool usable = draw->GetDeviceCaps().geometryShaderSupported && !draw->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		const bool vertexSupported = draw->GetDeviceCaps().clipDistanceSupported && draw->GetDeviceCaps().cullDistanceSupported;
+		const bool vertexSupported = draw->GetDeviceCaps().maxClipDistances >= 2 && draw->GetDeviceCaps().maxCullDistances >= 1;
 		if (usable && !vertexSupported) {
 			CheckBox *geometryCulling = graphicsSettings->Add(new CheckBox(&g_Config.bUseGeometryShader, gr->T("Geometry shader culling")));
 			geometryCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -556,14 +533,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), swSkin));
-
-	if (DoesBackendSupportHWTess()) {
-		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
-		tessellationHW->SetEnabledFunc([]() {
-			return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-		});
-		graphicsSettings->Add(new SettingHint(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), tessellationHW));
-	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
@@ -596,11 +565,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
 	});
 	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 1, ARRAY_SIZE(texScaleLevels), I18NCat::GRAPHICS, screenManager()));
-	// TODO: Better check?  When it won't work, it scales down anyway.
-	if (!gl_extensions.OES_texture_npot && GetGPUBackend() == GPUBackend::OPENGL) {
-		texScalingChoice->HideChoice(3); // 3x
-		texScalingChoice->HideChoice(5); // 5x
-	}
 	graphicsSettings->Add(new SettingHint(gr->T("UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter"), texScalingChoice));
 
 	texScalingChoice->SetEnabledFunc([]() {
@@ -614,9 +578,13 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new SettingHint(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), deposterize));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
+
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), I18NCat::GRAPHICS, screenManager()));
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	anisoFiltering->OnChoice.Add([](UI::EventParams &e) {
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+	});
 
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Auto Max Quality"};
 	PopupMultiChoice *filters = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), I18NCat::GRAPHICS, screenManager()));
@@ -673,6 +641,8 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
 	});
 	respectSilentMode->SetEnabledPtr(&g_Config.bEnableSound);
+#endif
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	CheckBox *mixWithOthers = audioSettings->Add(new CheckBox(&g_Config.bAudioMixWithOthers, a->T("Mix audio with other apps")));
 	mixWithOthers->OnClick.Add([=](EventParams &e) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
@@ -924,6 +894,13 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, co->T("Disable D-Pad diagonals (4-way touch)")));
 		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	controlsSettings->Add(new ItemHeader(co->T("Control input sources")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAllowHIDInput, co->T("HID input")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAllowXInput, co->T("XInput")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAllowDInput, co->T("DirectInput")));
+#endif
 
 	if (deviceType != DEVICE_TYPE_VR) {
 		controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
@@ -1395,6 +1372,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new ItemHeader(sa->T("Save states")));  // Borrow this string from the savedata manager
 
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
+	systemSettings->Add(new CheckBox(&g_Config.bConfirmLoadState, sy->T("Ask to confirm on load")));
 
 	PopupSliderChoice* savestateSlotCount = systemSettings->Add(new PopupSliderChoice(&g_Config.iSaveStateSlotCount, 1, 30, 5, sy->T("Savestate slot count"), screenManager()));
 	savestateSlotCount->OnChange.Add([](UI::EventParams &e) {
@@ -1417,15 +1395,15 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	PopupSliderChoice *exitConfirmation = systemSettings->Add(new PopupSliderChoice(&g_Config.iAskForExitConfirmationAfterSeconds, 0, 1200, 300, sy->T("Ask for exit confirmation after seconds"), screenManager(), "s"));
 	exitConfirmation->SetZeroLabel(sy->T("Off"));
 
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+	if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 		auto co = GetI18NCategory(I18NCat::CONTROLS);
 
 		// Display rotation 
 		AddRotationPicker(screenManager(), systemSettings, true);
+	}
 
-		if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
-			systemSettings->Add(new CheckBox(&g_Config.bSustainedPerformanceMode, sy->T("Sustained performance mode")))->OnClick.Handle(this, &GameSettingsScreen::OnSustainedPerformanceModeChange);
-		}
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
+		systemSettings->Add(new CheckBox(&g_Config.bSustainedPerformanceMode, sy->T("Sustained performance mode")))->OnClick.Handle(this, &GameSettingsScreen::OnSustainedPerformanceModeChange);
 	}
 
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
@@ -1628,7 +1606,7 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	}
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [=](const std::string &value, int converted) {
+	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [this](std::string_view value, int converted) {
 		if (converted == 1) {
 			// The platform code converted and saved the file to the desired path already.
 			INFO_LOG(Log::UI, "Converted file.");
@@ -1656,14 +1634,14 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 			}
 
 			if (!filename.empty()) {
-				Path src(value);
 				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-				File::Copy(src, dest);
-				if (src.FilePathContainsNoCase("temp_import.jpg")) {
-					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(src).c_str());
-					File::Delete(src);
+				File::Copy(path, dest);
+				if (path.FilePathContainsNoCase("temp_import.jpg")) {
+					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(path).c_str());
+					File::Delete(path);
 				}
 			} else {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
 			}
 		}

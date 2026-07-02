@@ -28,7 +28,7 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 
 // These tables all fit into u8s.
-static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
+static constexpr VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	VK_BLEND_FACTOR_ZERO,
 	VK_BLEND_FACTOR_ONE,
 	VK_BLEND_FACTOR_SRC_COLOR,
@@ -50,7 +50,7 @@ static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	VK_BLEND_FACTOR_MAX_ENUM,
 };
 
-static const VkBlendOp vkBlendEqLookup[(size_t)BlendEq::COUNT] = {
+static constexpr VkBlendOp vkBlendEqLookup[(size_t)BlendEq::COUNT] = {
 	VK_BLEND_OP_ADD,
 	VK_BLEND_OP_SUBTRACT,
 	VK_BLEND_OP_REVERSE_SUBTRACT,
@@ -58,12 +58,12 @@ static const VkBlendOp vkBlendEqLookup[(size_t)BlendEq::COUNT] = {
 	VK_BLEND_OP_MAX,
 };
 
-static const VkCullModeFlagBits cullingMode[] = {
+static constexpr VkCullModeFlagBits cullingMode[] = {
 	VK_CULL_MODE_BACK_BIT,
 	VK_CULL_MODE_FRONT_BIT,
 };
 
-static const VkCompareOp compareOps[] = {
+static constexpr VkCompareOp compareOps[] = {
 	VK_COMPARE_OP_NEVER,
 	VK_COMPARE_OP_ALWAYS,
 	VK_COMPARE_OP_EQUAL,
@@ -74,18 +74,18 @@ static const VkCompareOp compareOps[] = {
 	VK_COMPARE_OP_GREATER_OR_EQUAL,
 };
 
-static const VkStencilOp stencilOps[] = {
+static constexpr VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_KEEP,
 	VK_STENCIL_OP_ZERO,
 	VK_STENCIL_OP_REPLACE,
 	VK_STENCIL_OP_INVERT,
-	VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+	VK_STENCIL_OP_INCREMENT_AND_CLAMP,  // TODO: Are we sure we shouldn't wrap?
 	VK_STENCIL_OP_DECREMENT_AND_CLAMP,
 	VK_STENCIL_OP_KEEP, // reserved
 	VK_STENCIL_OP_KEEP, // reserved
 };
 
-static const VkPrimitiveTopology primToVulkan[8] = {
+static constexpr VkPrimitiveTopology primToVulkan[8] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert points to triangles.
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert lines to triangles.
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // We convert line strips to triangles.
@@ -96,7 +96,7 @@ static const VkPrimitiveTopology primToVulkan[8] = {
 };
 
 // These are actually the same exact values/order/etc. as the GE ones, but for clarity...
-static const VkLogicOp logicOps[] = {
+static constexpr VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_CLEAR,
 	VK_LOGIC_OP_AND,
 	VK_LOGIC_OP_AND_REVERSE,
@@ -224,9 +224,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.depthClampEnable = false;
 		} else {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
-				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
-				// But the alternate is not clamping in either direction...
-				key.depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+				// We get some extra clamping behavior if clipping is enabled.
+				key.depthClampEnable = gstate.isDepthClipEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				key.depthClampEnable = false;
@@ -333,21 +332,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);
-		UpdateCachedViewportState(vpAndScissor);
-
-		float depthMin = vpAndScissor.depthRangeMin;
-		float depthMax = vpAndScissor.depthRangeMax;
-
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
-
 		VkViewport &vp = dynState.viewport;
 		vp.x = vpAndScissor.viewportX;
 		vp.y = vpAndScissor.viewportY;
 		vp.width = vpAndScissor.viewportW;
 		vp.height = vpAndScissor.viewportH;
-		vp.minDepth = vpAndScissor.depthRangeMin;
-		vp.maxDepth = vpAndScissor.depthRangeMax;
+		vp.minDepth = 0.0f;
+		vp.maxDepth = 1.0f;
 
 		ScissorRect &scissor = dynState.scissor;
 		scissor.x = vpAndScissor.scissorX;

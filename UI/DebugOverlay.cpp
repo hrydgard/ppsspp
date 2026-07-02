@@ -4,7 +4,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
-#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/StringWriter.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/Display.h"
@@ -46,9 +46,20 @@ static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(.7f, .7f);
 
-	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	StringWriter w(statbuf, sizeof(statbuf));
+	w.F("Kernel processing time: %0.2f ms\n"
+		"Slowest syscall: %s : %0.2f ms\n"
+		"Most active syscall: %s : %0.2f ms\n",
+		kernelStats.msInSyscalls * 1000.0f,
+		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
+		kernelStats.slowestSyscallTime * 1000.0f,
+		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
+		kernelStats.summedSlowestSyscallTime * 1000.0f);
+
+	__DisplayGetDebugStats(w);
+
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
@@ -58,7 +69,7 @@ static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 
-	char statbuf[4096] = { 0 };
+	char statbuf[4096];
 	System_AudioGetDebugStats(statbuf, sizeof(statbuf));
 
 	ctx->Flush();
@@ -82,14 +93,15 @@ static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 static void DrawControlDebug(UIContext *ctx, const ControlMapper &mapper, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 
-	char statbuf[4096] = { 0 };
-	mapper.GetDebugString(statbuf, sizeof(statbuf));
+	char statbuf[2048];
+	StringWriter w(statbuf, sizeof(statbuf));
+	mapper.GetDebugString(w);
 
 	ctx->Flush();
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
@@ -198,7 +210,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void DrawFramebufferList(UIContext *ctx, GPUDebugInterface *gpu, const Bounds &bounds) {
+void DrawFramebufferList(UIContext *ctx, GPUCommon *gpu, const Bounds &bounds) {
 	if (!gpu) {
 		return;
 	}
@@ -245,12 +257,12 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 		break;
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
 	case DebugOverlay::GPU_PROFILE:
-		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
 			DrawGPUProfilerVis(ctx, gpu);
 		}
 		break;
 	case DebugOverlay::GPU_ALLOCATOR:
-		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
 			DrawGPUMemoryVis(ctx, gpu);
 		}
 		break;

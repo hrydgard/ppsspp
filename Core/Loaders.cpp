@@ -40,6 +40,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
 
+// TODO: This is just part of a VolDescriptor, see ISOFileSystem.cpp.
 struct PVD {
 	u8 type;
 	char identifier[5];
@@ -224,7 +225,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		Path filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that. Also accept extension-less paths.
 		if (extension == ".plf" || strstr(filename.GetFilename().c_str(), "BOOT.BIN") ||
-			extension == ".elf" || extension == ".prx" || extension == ".pbp" || extension == "") {
+			extension == ".elf" || extension == ".prx" || extension == ".pbp" || extension.empty()) {
 			return IdentifiedFileType::PSP_ELF;
 		}
 		return IdentifiedFileType::UNKNOWN_ELF;
@@ -585,11 +586,19 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		} else if (endsWith(lowerCaseName, "/icon0.png")) {
 			hasIcon0PNG = true;
 		} else if (endsWith(lowerCaseName, "/plugin.ini") && slashCount >= 1) {
-			int slashLocation = (int)lowerCaseName.find_last_of('/');
+			const size_t slashLocation = lowerCaseName.find_last_of('/');  // can't miss, we have a slash in the endsWith check.
 			// Find previous slash to determine the root of the plugin, so we can display it properly.
-			int prevSlashLocation = (int)lowerCaseName.find_last_of('/', slashLocation - 1);
-			_dbg_assert_(prevSlashLocation != std::string::npos);
-			stripChars = prevSlashLocation + 1;
+			if (slashLocation > 0) {
+				int prevSlashLocation = (int)lowerCaseName.find_last_of('/', slashLocation - 1);
+				if (prevSlashLocation == std::string::npos) {
+					stripChars = 0;
+				} else {
+					stripChars = prevSlashLocation + 1;
+				}
+			} else {
+				// Can't load plugins where plugin.ini is in the root.
+				continue;
+			}
 			hasPluginIni = true;
 			ZipExtractFileToMemory(z, i, &info->iniContents);
 			info->contentName = fileName.substr(0, fileName.find_last_of('/'));

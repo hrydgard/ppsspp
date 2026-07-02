@@ -114,90 +114,115 @@ void TabHolder::EnsureAllCreated() {
 	}
 }
 
+// Returns true if this created a tab.
 bool TabHolder::EnsureTab(int index) {
-	_dbg_assert_(index >= 0 && index < createFuncs_.size());
+	_assert_(index >= 0 && index < createFuncs_.size());
 
-	if (!tabs_[index]) {
-		_dbg_assert_(index < createFuncs_.size());
-		_dbg_assert_(createFuncs_[index]);
-		std::function<UI::ViewGroup * ()> func;
-		createFuncs_[index].swap(func);
-
-		ViewGroup *tabContents = func();
-		tabs_[index] = tabContents;
-		contents_->Add(tabContents);
-
-		tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
-		return true;
-	} else {
+	if (tabs_[index]) {
+		// Tab already created.
 		return false;
 	}
+
+	_dbg_assert_(index < createFuncs_.size());
+	_dbg_assert_(createFuncs_[index]);
+	std::function<UI::ViewGroup * ()> func;
+	createFuncs_[index].swap(func);
+
+	ViewGroup *tabContents = func();
+	tabs_[index] = tabContents;
+	contents_->Add(tabContents);
+
+	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	return true;
 }
 
 void TabHolder::SetInitialTab(int tab) {
+	if (tab < 0 || tab >= (int)tabs_.size()) {
+		return;
+	}
+	EnsureTab(tab);
 	currentTab_ = tab;
 	tabStrip_->SetSelection(tab, false);
 }
 
 bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
-	if (tab >= (int)tabs_.size()) {
+	if (tab < 0 || tab >= (int)tabs_.size()) {
 		// Ignore
 		return false;
 	}
 
-	bool created = false;
-
-	if (tab != currentTab_) {
-		_dbg_assert_(tabs_[currentTab_]);  // we should always have a tab to switch *from*.
-		created = EnsureTab(tab);
+	if (currentTab_ < 0 || currentTab_ >= (int)tabs_.size()) {
+		EnsureTab(tab);
+		_dbg_assert_(tabs_[tab]);
+		// No current tab, so just switch immediately.
+		currentTab_ = tab;
+		tabStrip_->SetSelection(tab, false);
+		if (tabs_[tab]) {
+			tabs_[tab]->SetVisibility(V_VISIBLE);
+		}
+		return true;
 	}
 
-	auto setupTween = [&](View *view, AnchorTranslateTween *&tween) {
-		_dbg_assert_(view != nullptr);
-		if (tween)
-			return;
+	if (tab == currentTab_) {
+		tabStrip_->SetSelection(tab, false);
+		return false;
+	}
 
+	auto setupTween = [this](View *view, AnchorTranslateTween *&tween) {
+		_dbg_assert_(view != nullptr);
+		if (!view) {
+			return;
+		}
+		if (tween) {
+			return;
+		}
 		tween = new AnchorTranslateTween(0.15f, bezierEaseInOut);
-		tween->Finish.Add([&](EventParams &e) {
+		tween->Finish.Add([this](EventParams &e) {
 			e.v->SetVisibility(tabs_[currentTab_] == e.v ? V_VISIBLE : V_GONE);
 		});
 		view->AddTween(tween)->Persist();
 	};
 
-	if (tab != currentTab_) {
-		Orientation orient = Opposite(orientation_);
-		// Direction from which the new tab will come.
-		float dir = tab < currentTab_ ? -1.0f : 1.0f;
+	// Ensure both tabs are created before setting up tweens.
+	bool createdCurrent = EnsureTab(currentTab_);
+	_dbg_assert_msg_(!createdCurrent, "Current should already have been created before EnsureTab!");
 
-		// First, setup any missing tweens.
-		setupTween(tabs_[currentTab_], tabTweens_[currentTab_]);
-		setupTween(tabs_[tab], tabTweens_[tab]);
+	bool created = EnsureTab(tab);
 
-		// Currently displayed, so let's reset it.
-		if (skipTween) {
-			tabs_[currentTab_]->SetVisibility(V_GONE);
-			tabTweens_[tab]->Reset(Point2D(0.0f, 0.0f));
-			tabTweens_[tab]->Apply(tabs_[tab]);
+	Orientation orient = Opposite(orientation_);
+	// Direction from which the new tab will come.
+	float dir = tab < currentTab_ ? -1.0f : 1.0f;
+
+	// First, setup any missing tweens.
+	setupTween(tabs_[currentTab_], tabTweens_[currentTab_]);
+	setupTween(tabs_[tab], tabTweens_[tab]);
+
+	// Currently displayed, so let's reset it.
+	if (skipTween) {
+		tabs_[currentTab_]->SetVisibility(V_GONE);
+		tabTweens_[tab]->Reset(Point2D(0.0f, 0.0f));
+		tabTweens_[tab]->Apply(tabs_[tab]);
+	} else {
+		tabTweens_[currentTab_]->Reset(Point2D(0.0f, 0.0f));
+
+		if (orient == ORIENT_HORIZONTAL) {
+			tabTweens_[tab]->Reset(Point2D(bounds_.w * dir, 0.0f));
+			tabTweens_[currentTab_]->Divert(Point2D(bounds_.w * -dir, 0.0f));
 		} else {
-			tabTweens_[currentTab_]->Reset(Point2D(0.0f, 0.0f));
-
-			if (orient == ORIENT_HORIZONTAL) {
-				tabTweens_[tab]->Reset(Point2D(bounds_.w * dir, 0.0f));
-				tabTweens_[currentTab_]->Divert(Point2D(bounds_.w * -dir, 0.0f));
-			} else {
-				tabTweens_[tab]->Reset(Point2D(0.0f, bounds_.h * dir));
-				tabTweens_[currentTab_]->Divert(Point2D(0.0f, bounds_.h * -dir));
-			}
-			// Actually move it to the initial position now, just to avoid any flicker.
-			tabTweens_[tab]->Apply(tabs_[tab]);
-			tabTweens_[tab]->Divert(Point2D(0.0f, 0.0f));
+			tabTweens_[tab]->Reset(Point2D(0.0f, bounds_.h * dir));
+			tabTweens_[currentTab_]->Divert(Point2D(0.0f, bounds_.h * -dir));
 		}
-		tabs_[tab]->SetVisibility(V_VISIBLE);
-
-		currentTab_ = tab;
+		// Actually move it to the initial position now, just to avoid any flicker.
+		tabTweens_[tab]->Apply(tabs_[tab]);
+		tabTweens_[tab]->Divert(Point2D(0.0f, 0.0f));
 	}
-	tabStrip_->SetSelection(tab, false);
+	tabs_[tab]->SetVisibility(V_VISIBLE);
 
+	currentTab_ = tab;
+	UI::EventParams e{};
+	e.v = this;
+	e.a = currentTab_;
+	OnChangeTab.Trigger(e);
 	return created;
 }
 
@@ -205,7 +230,7 @@ void TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
-		EnsureTab(e.a);
+		// SetCurrentTab calls EnsureTab if needed.
 		SetCurrentTab((int)e.a);
 	}
 }
@@ -239,7 +264,6 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 void TabHolder::EnableTab(int tab, bool enabled) {
 	tabStrip_->EnableChoice(tab, enabled);
 }
-
 
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 	: LinearLayout(orientation, layoutParams) {
@@ -290,13 +314,16 @@ void ChoiceStrip::OnChoiceClick(EventParams &e) {
 }
 
 void ChoiceStrip::SetSelection(int sel, bool triggerClick) {
+	if (sel < 0 || sel >= (int)choices_.size()) {
+		return;
+	}
 	int prevSelected = selected_;
-	if (selected_ < choices_.size()) {
+	if (selected_ >= 0 && selected_ < (int)choices_.size()) {
 		StickyChoice *prevChoice = choices_[selected_];
 		prevChoice->Release();
 	}
 	selected_ = sel;
-	if (selected_ < choices_.size()) {
+	if (selected_ >= 0 && selected_ < (int)choices_.size()) {
 		StickyChoice *newChoice = choices_[selected_];
 		newChoice->Press();
 		if (topTabs_ && prevSelected != selected_) {
@@ -340,7 +367,7 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 				if (selected_ > 0) {
 					SetSelection(selected_ - 1, true);
 				} else if (!choices_.empty()) {
-					SetSelection(choices_.size() - 1, true);
+					SetSelection((int)choices_.size() - 1, true);
 				}
 			} else {
 				if (selected_ < (int)choices_.size() - 1) {

@@ -167,6 +167,8 @@ void MemoryStick_SetState(MemStickState state) {
 		return;
 	}
 
+	INFO_LOG(Log::System, "Memory stick state changed: %d -> %d", memStickState, state);
+
 	memStickState = state;
 
 	// If removed, we unmount.  Otherwise, mounting is delayed.

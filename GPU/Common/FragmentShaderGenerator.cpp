@@ -58,6 +58,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool highpTexcoord = false;
 	bool enableFragmentTestCache = gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE);
 
+	const bool fsMinmaxDiscard = id.Bit(FS_BIT_MINMAX_DISCARD);
+	const bool fsDepthClamp = id.Bit(FS_BIT_DEPTH_CLAMP);
+
 	if (compat.gles) {
 		// PowerVR needs highp to do the fog in MHU correctly.
 		// Others don't, and some can't handle highp in the fragment shader.
@@ -67,6 +70,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool texture3D = id.Bit(FS_BIT_3D_TEXTURE);
 	bool arrayTexture = id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+	bool forceDepthWritesOff = id.Bit(FS_BIT_DEPTH_TEST_NEVER);
+	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL) && !forceDepthWritesOff;
 
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
@@ -83,6 +88,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (gl_extensions.OES_texture_3D && texture3D) {
 			extensions.push_back("#extension GL_OES_texture_3D: enable");
+		}
+		if (useDiscardStencilBugWorkaround) {
+			// The only use of layout (depth_...)
+			extensions.push_back("#extension GL_ARB_conservative_depth : enable\n");
 		}
 	} 
 
@@ -107,10 +116,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 
-	bool ubershader = id.Bit(FS_BIT_UBERSHADER);
-	// ubershader-controlled bits. If ubershader is on, these will not be used below (and will be false).
-	bool useTexAlpha = id.Bit(FS_BIT_TEXALPHA);
-	bool enableColorDouble = id.Bit(FS_BIT_DOUBLE_COLOR);
+	bool ubershader = true;
 
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
@@ -129,6 +135,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderDepalMode shaderDepalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
+	GEBufferFormat shaderDepalFmt = (GEBufferFormat)(id.Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3));
 	if (texture3D) {
 		shaderDepalMode = ShaderDepalMode::OFF;
 	}
@@ -159,9 +166,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		shading = doFlatShading ? "flat" : "";
 	}
 
-	bool forceDepthWritesOff = id.Bit(FS_BIT_DEPTH_TEST_NEVER);
-
-	bool useDiscardStencilBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL) && !forceDepthWritesOff;
 
 	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
 	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
@@ -183,7 +187,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) && !forceDepthWritesOff;
+	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff;
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
 // on hardware that can do proper bit math in fragment shaders.
@@ -224,6 +228,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "layout (location = 4) in highp vec2 v_zw;\n");
 		}
 
 		if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -291,6 +298,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
 			}
 		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+		}
 		WRITE(p, "};\n");
 
 		if (compat.shaderLanguage == HLSL_D3D11) {
@@ -319,9 +329,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			if (ubershader) {
-				WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
-			}
+			WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -390,6 +398,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform float u_mipBias;\n");
 		}
 
+		if (fsMinmaxDiscard) {
+			*uniformMask |= DIRTY_RASTER_OFFSET;  // they're updated together
+			WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		}
+
+		// Varyings
+
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
 		if (lmode) {
 			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
@@ -401,6 +416,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "%s vec2 v_zw;\n", compat.varying_fs);
 		}
 
 		if (!enableFragmentTestCache) {
@@ -498,6 +516,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
+		}
+		if (fsMinmaxDiscard || fsDepthClamp) {
+			WRITE(p, "  vec2 v_zw = In.v_zw;\n");
 		}
 	}
 
@@ -664,7 +685,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
-				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x2Fu) != 0x0u;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x1Fu) != 0x0u;\n");
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
@@ -672,74 +693,101 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    uv_round = uv;\n");
 				WRITE(p, "  }\n");
+
+				// TODO: Use fetch here when possible.
 				p.C("  highp vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  highp vec4 t1 = ").SampleTexture2DOffset("tex", "uv_round", 1, 0).C(";\n");
 				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");
 				p.C("  highp vec4 t3 = ").SampleTexture2DOffset("tex", "uv_round", 1, 1).C(";\n");
+
 				WRITE(p, "  uint depalMask = (u_depal_mask_shift_off_fmt & 0xFFu);\n");
 				WRITE(p, "  uint depalShift = (u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu;\n");
 				WRITE(p, "  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u;\n");
 				WRITE(p, "  uint depalFmt = (u_depal_mask_shift_off_fmt >> 0x18u) & 0x3u;\n");
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
-				WRITE(p, "  switch (int(depalFmt)) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
-				WRITE(p, "  case 0:\n");  // 565
-				WRITE(p, "    col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "    index0 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = uvec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index1 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index2 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
-				WRITE(p, "      index3 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  case 1:\n");  // 5551
-				WRITE(p, "    col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "    index0 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = uvec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index1 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index2 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
-				WRITE(p, "      index3 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  case 2:\n");  // 4444
-				WRITE(p, "    col = uvec4(t.rgba * 15.99);\n");
-				WRITE(p, "    index0 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = uvec4(t1.rgba * 15.99);\n");
-				WRITE(p, "      index1 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t2.rgba * 15.99);\n");
-				WRITE(p, "      index2 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t3.rgba * 15.99);\n");
-				WRITE(p, "      index3 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  case 3:\n");  // 8888
-				WRITE(p, "    col = uvec4(t.rgba * 255.99);\n");
-				WRITE(p, "    index0 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
-				WRITE(p, "    if (bilinear) {\n");
-				WRITE(p, "      col = uvec4(t1.rgba * 255.99);\n");
-				WRITE(p, "      index1 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t2.rgba * 255.99);\n");
-				WRITE(p, "      index2 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
-				WRITE(p, "      col = uvec4(t3.rgba * 255.99);\n");
-				WRITE(p, "      index3 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "    break;\n");
-				WRITE(p, "  };\n");
+
+				switch (shaderDepalFmt) {
+				case GE_FORMAT_565:
+					WRITE(p, "  col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+					WRITE(p, "  index0 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    col = uvec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+					WRITE(p, "    index1 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+					WRITE(p, "    index2 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+					WRITE(p, "    index3 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "  }\n");
+					break;
+				case GE_FORMAT_5551:
+					WRITE(p, "  col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+					WRITE(p, "  index0 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    col = uvec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+					WRITE(p, "    index1 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+					WRITE(p, "    index2 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+					WRITE(p, "    index3 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+					WRITE(p, "  }\n");
+					break;
+				case GE_FORMAT_4444:
+					WRITE(p, "  col = uvec4(t.rgba * 15.99);\n");
+					WRITE(p, "  index0 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    col = uvec4(t1.rgba * 15.99);\n");
+					WRITE(p, "    index1 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t2.rgba * 15.99);\n");
+					WRITE(p, "    index2 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t3.rgba * 15.99);\n");
+					WRITE(p, "    index3 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+					WRITE(p, "  }\n");
+					break;
+				case GE_FORMAT_8888:
+					WRITE(p, "  col = uvec4(t.rgba * 255.99);\n");
+					WRITE(p, "  index0 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    col = uvec4(t1.rgba * 255.99);\n");
+					WRITE(p, "    index1 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t2.rgba * 255.99);\n");
+					WRITE(p, "    index2 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+					WRITE(p, "    col = uvec4(t3.rgba * 255.99);\n");
+					WRITE(p, "    index3 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+					WRITE(p, "  }\n");
+					break;
+				case GE_FORMAT_CLUT8:
+					WRITE(p, "  index0 = uint(t.r * 255.99);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    index1 = uint(t1.r * 255.99);\n");
+					WRITE(p, "    index2 = uint(t2.r * 255.99);\n");
+					WRITE(p, "    index3 = uint(t3.r * 255.99);\n");
+					WRITE(p, "  }\n");
+					break;
+				case GE_FORMAT_DEPTH16:
+					WRITE(p, "  index0 = uint(t.r * 65535.99);\n");
+					WRITE(p, "  if (bilinear) {\n");
+					WRITE(p, "    index1 = uint(t1.r * 65535.99);\n");
+					WRITE(p, "    index2 = uint(t2.r * 65535.99);\n");
+					WRITE(p, "    index3 = uint(t3.r * 65535.99);\n");
+					WRITE(p, "  }\n");
+					break;
+				default:
+					// Invalid, but the unit test can produce this inadvertently.
+					WRITE(p, "  index0 = 0u;\n");
+					WRITE(p, "  index1 = 0u;\n");
+					WRITE(p, "  index2 = 0u;\n");
+					WRITE(p, "  index3 = 0u;\n");
+					break;
+				}
 				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index0, 0)", 0).C(";\n");
 				WRITE(p, "  if (bilinear && !(index0 == index1 && index1 == index2 && index2 == index3)) {\n");
 				WRITE(p, "    index1 = ((index1 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "    index2 = ((index2 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "    index3 = ((index3 >> depalShift) & depalMask) | depalOffset;\n");
-				p.C("  t1 = ").LoadTexture2D("pal", "ivec2(index1, 0)", 0).C(";\n");
-				p.C("  t2 = ").LoadTexture2D("pal", "ivec2(index2, 0)", 0).C(";\n");
-				p.C("  t3 = ").LoadTexture2D("pal", "ivec2(index3, 0)", 0).C(";\n");
+				p.C("    t1 = ").LoadTexture2D("pal", "ivec2(index1, 0)", 0).C(";\n");
+				p.C("    t2 = ").LoadTexture2D("pal", "ivec2(index2, 0)", 0).C(";\n");
+				p.C("    t3 = ").LoadTexture2D("pal", "ivec2(index3, 0)", 0).C(";\n");
 				WRITE(p, "    t = mix(t, t1, fraction.x);\n");
 				WRITE(p, "    t2 = mix(t2, t3, fraction.x);\n");
 				WRITE(p, "    t = mix(t, t2, fraction.y);\n");
@@ -773,11 +821,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
-				if (ubershader) {
-					WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
-				} else if (!useTexAlpha) {
-					WRITE(p, "  t.a = 1.0;\n");
-				}
+				WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
 			}
 
 			switch (texFunc) {
@@ -792,11 +836,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			case GE_TEXFUNC_REPLACE:
 				WRITE(p, "  vec4 r = t;\n");
-				if (ubershader) {
-					WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlphaMul.x);\n");
-				} else if (!useTexAlpha) {
-					WRITE(p, "  r.a = p.a;\n");
-				}
+				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlphaMul.x);\n");
 				WRITE(p, "  vec4 v = r%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_ADD:
@@ -815,14 +855,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 
 			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
-			if (ubershader) {
-				if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
-					WRITE(p, "  v.rgb = clamp(v.rgb * u_texNoAlphaMul.y, 0.0, 1.0);\n");
-				} else {
-					WRITE(p, "  v.rgb *= u_texNoAlphaMul.y;\n");
-				}
-			} else if (enableColorDouble) {
-				p.C("  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			// TODO: Clamp is so cheap that this probably is pretty meaningless.
+			if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * u_texNoAlphaMul.y, 0.0, 1.0);\n");
+			} else {
+				WRITE(p, "  v.rgb *= u_texNoAlphaMul.y;\n");
 			}
 		} else {
 			// No texture mapping
@@ -1058,14 +1095,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			truncate_cpy(replacedAlpha, "1.0");
 			break;
 
-		case STENCIL_VALUE_INCR_4:
-		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_INCR_4BIT:
+		case STENCIL_VALUE_DECR_4BIT:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
-		case STENCIL_VALUE_INCR_8:
-		case STENCIL_VALUE_DECR_8:
+		case STENCIL_VALUE_INCR_8BIT:
+		case STENCIL_VALUE_DECR_8BIT:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
@@ -1151,30 +1188,35 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", compat.fragColor0, compat.fragColor0);
 	}
 
-	if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
-		DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+	if (fsDepthClamp || fsMinmaxDiscard) {
+		WRITE(p, "  highp float projZ = v_zw.x / v_zw.y;\n");
+	}
 
-		const double scale = depthScale.ScaleU16();
+	if (fsMinmaxDiscard) {
+		// See the vertex shader generator for the explanation for this - and don't forget to update both
+		// places if you change this.
+		WRITE(p, "  float clipZNear = floor(projZ * 0.5 + 0.5) * 2.0;\n");
+		WRITE(p, "  float clipZFar = floor(projZ * 0.5) * 2.0;\n");
+		WRITE(p, "  if (u_minZmaxZ.x > 0.0 && clipZNear < u_minZmaxZ.x) DISCARD;\n");
+		WRITE(p, "  if (u_minZmaxZ.y < 65535.0 && clipZFar > u_minZmaxZ.y) DISCARD;\n");
+	}
 
-		WRITE(p, "  highp float z = gl_FragCoord.z;\n");
-		if (gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-			// We center the depth with an offset, but only its fraction matters.
-			// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
-			if (((int)(depthScale.Scale() - 1.0f) & 1) == 1) {
-				WRITE(p, "  z = (floor((z * %f) - (1.0 / 2.0)) + (1.0 / 2.0)) * (1.0 / %f);\n", scale, scale);
+	if (writeDepth) {
+		if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+			if (fsDepthClamp) {
+				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65535.0) / 65535.0;\n");
 			} else {
-				WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
+				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65535.0) / 65535.0;\n");
 			}
-		} else {
-			WRITE(p, "  z = (1.0 / 65535.0) * floor(z * 65535.0);\n");
+		} else if (fsDepthClamp) {
+			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
+		} else if (useDiscardStencilBugWorkaround) {
+			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+			// when only stencil is used. The exact situation seems to vary by driver.
+			// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+			// This doesn't make a ton of sense, but empirically does work.
+			WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 		}
-		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (useDiscardStencilBugWorkaround) {
-		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
-		// when only stencil is used. The exact situation seems to vary by driver.
-		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
-		// This doesn't make a ton of sense, but empirically does work.
-		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

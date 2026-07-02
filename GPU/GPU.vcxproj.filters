@@ -243,9 +243,6 @@
     <ClInclude Include="Debugger\GECommandTable.h">
       <Filter>Debugger</Filter>
     </ClInclude>
-    <ClInclude Include="Common\GeometryShaderGenerator.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="GPUCommonHW.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -262,6 +259,15 @@
       <Filter>Debugger</Filter>
     </ClInclude>
     <ClInclude Include="Common\DepthRaster.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="GPUStateSIMDUtil.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VertexReader.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ImageCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -494,9 +500,6 @@
     <ClCompile Include="Debugger\GECommandTable.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="Common\GeometryShaderGenerator.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="Common\DepthBufferCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -538,6 +541,69 @@
     <FxCompile Include="..\assets\shaders\tex_2xbrz.csh">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="..\assets\shaders\4xhqglsl.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\5xBR.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\aacolor.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\cartoon.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\fxaa.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\natural.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\naturalA.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_mmpx_adv.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_2x_single.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_4x_single.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_mp_cshift_2x.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_mp_cshift_4x.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_mp_nns16_pass1_buffer.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_mp_nns16_pass1_image.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_nnedi3_mp_nns16_pass2.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_spline36_2x.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_spline36_4x.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\upscale_bicubic.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\upscale_sharp_bilinear.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\upscale_spline36.vsh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\assets\shaders\tex_smiley_2x.csh">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\assets\shaders\defaultshaders.ini">
@@ -547,6 +613,87 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="..\assets\shaders\stereo_sbs.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\4xhqglsl.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\5xBR.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\5xBR-lv2.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\aacolor.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\bloom.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\bloomnoblur.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\cartoon.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\colorcorrection.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\crt.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\fakereflections.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\fsr_easu.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\fsr_rcas.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\fxaa.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\GaussianDownscale.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\natural.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\naturalA.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\persistence.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\psp_color.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\scanlines.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\sharpen.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\smiley.py">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\smiley_16x16_rgba.bin">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\upscale_bicubic.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\upscale_sharp_bilinear.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\upscale_spline36.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\videoAA.fsh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\assets\shaders\vignette.fsh">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

@@ -33,8 +33,6 @@ void UIScreen::DoRecreateViews() {
 		return;
 	}
 
-	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
-
 	UI::PersistMap persisted;
 	bool persisting = root_ != nullptr;
 	if (persisting) {
@@ -46,7 +44,7 @@ void UIScreen::DoRecreateViews() {
 	CreateViews();
 	UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
 	if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
-		defaultView->SetFocus();
+		defaultView->SetFocus(UI::FocusFlags::CAUSE_OTHER);
 	}
 	recreateViews_ = false;
 
@@ -66,10 +64,20 @@ void UIScreen::DoRecreateViews() {
 	WipeRequesterToken();
 }
 
-void UIScreen::touch(const TouchInput &touch) {
+bool UIScreen::touch(const TouchInput &touch) {
+	if (ClickDebug && root_ && (touch.flags & TouchInputFlags::DOWN)) {
+		INFO_LOG(Log::System, "Touch down!");
+		std::vector<UI::View *> views;
+		root_->Query(touch.x, touch.y, views);
+		for (auto view : views) {
+			INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
+		}
+	}
+
 	if (!ignoreInput_ && root_) {
 		UI::TouchEvent(touch, root_);
 	}
+	return true;
 }
 
 void UIScreen::axis(const AxisInput &axis) {
@@ -86,90 +94,6 @@ bool UIScreen::key(const KeyInput &key) {
 	}
 }
 
-bool UIScreen::UnsyncTouch(const TouchInput &touch) {
-	if (ClickDebug && root_ && (touch.flags & TouchInputFlags::DOWN)) {
-		INFO_LOG(Log::System, "Touch down!");
-		std::vector<UI::View *> views;
-		root_->Query(touch.x, touch.y, views);
-		for (auto view : views) {
-			INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
-		}
-	}
-
-	QueuedEvent ev{};
-	ev.type = QueuedEventType::TOUCH;
-	ev.touch = touch;
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	eventQueue_.push_back(ev);
-	return false;
-}
-
-void UIScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
-	QueuedEvent ev{};
-	ev.type = QueuedEventType::AXIS;
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	for (size_t i = 0; i < count; i++) {
-		ev.axis = axes[i];
-		eventQueue_.push_back(ev);
-	}
-}
-
-bool UIScreen::UnsyncKey(const KeyInput &key) {
-	bool retval = false;
-	if (root_) {
-		// TODO: Make key events async too. The return value is troublesome, though.
-		switch (UI::UnsyncKeyEvent(key, root_)) {
-		case UI::KeyEventResult::ACCEPT:
-			retval = true;
-			break;
-		case UI::KeyEventResult::PASS_THROUGH:
-			retval = false;
-			break;
-		case UI::KeyEventResult::IGNORE_KEY:
-			return false;
-		}
-	}
-
-	// Track modifier keys.
-	if (key.flags & KeyInputFlags::DOWN) {
-		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: modifiersPressed_ |= Modifier::LCTRL; break;
-		case NKCODE_CTRL_RIGHT: modifiersPressed_ |= Modifier::RCTRL; break;
-		case NKCODE_SHIFT_LEFT: modifiersPressed_ |= Modifier::LSHIFT; break;
-		case NKCODE_SHIFT_RIGHT: modifiersPressed_ |= Modifier::RSHIFT; break;
-		case NKCODE_ALT_LEFT: modifiersPressed_ |= Modifier::LALT; break;
-		case NKCODE_ALT_RIGHT: modifiersPressed_ |= Modifier::RALT; break;
-		}
-	}
-	if (key.flags & KeyInputFlags::UP) {
-		switch (key.keyCode) {
-		case NKCODE_CTRL_LEFT: modifiersPressed_ &= ~Modifier::LCTRL; break;
-		case NKCODE_CTRL_RIGHT: modifiersPressed_ &= ~Modifier::RCTRL; break;
-		case NKCODE_SHIFT_LEFT: modifiersPressed_ &= ~Modifier::LSHIFT; break;
-		case NKCODE_SHIFT_RIGHT: modifiersPressed_ &= ~Modifier::RSHIFT; break;
-		case NKCODE_ALT_LEFT: modifiersPressed_ &= ~Modifier::LALT; break;
-		case NKCODE_ALT_RIGHT: modifiersPressed_ &= ~Modifier::RALT; break;
-		}
-	}
-
-	QueuedEvent ev{};
-	ev.type = QueuedEventType::KEY;
-	ev.key = key;
-
-	if (modifiersPressed_ & (Modifier::LCTRL | Modifier::RCTRL)) {
-		ev.key.flags |= KeyInputFlags::MOD_CTRL;
-	}
-	if (modifiersPressed_ & (Modifier::LSHIFT | Modifier::RSHIFT)) {
-		ev.key.flags |= KeyInputFlags::MOD_SHIFT;
-	}
-	if (modifiersPressed_ & (Modifier::LALT | Modifier::RALT)) {
-		ev.key.flags |= KeyInputFlags::MOD_ALT;
-	}
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	eventQueue_.push_back(ev);
-	return retval;
-}
-
 void UIScreen::update() {
 	DeviceOrientation orientation = GetDeviceOrientation();
 	if (orientation != lastOrientation_) {
@@ -178,41 +102,6 @@ void UIScreen::update() {
 	}
 
 	DoRecreateViews();
-
-	while (true) {
-		QueuedEvent ev{};
-		{
-			std::lock_guard<std::mutex> guard(eventQueueLock_);
-			if (!eventQueue_.empty()) {
-				ev = eventQueue_.front();
-				eventQueue_.pop_front();
-			} else {
-				break;
-			}
-		}
-		if (ignoreInput_) {
-			continue;
-		}
-		switch (ev.type) {
-		case QueuedEventType::KEY:
-			key(ev.key);
-			break;
-		case QueuedEventType::TOUCH:
-			if (ClickDebug && (ev.touch.flags & TouchInputFlags::DOWN)) {
-				INFO_LOG(Log::System, "Touch down!");
-				std::vector<UI::View *> views;
-				root_->Query(ev.touch.x, ev.touch.y, views);
-				for (auto view : views) {
-					INFO_LOG(Log::System, "%s", view->DescribeLog().c_str());
-				}
-			}
-			touch(ev.touch);
-			break;
-		case QueuedEventType::AXIS:
-			axis(ev.axis);
-			break;
-		}
-	}
 
 	if (root_) {
 		DialogResult result = UpdateViewHierarchy(root_);
@@ -283,7 +172,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 	if (!retval && (key.flags & KeyInputFlags::DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
 			ERROR_LOG(Log::System, "Screen already finished");
-		} else {
+		} else if (!firstFrame_) {
 			finished_ = true;
 			TriggerFinish(DR_BACK);
 			UI::PlayUISound(UI::UISound::BACK);

@@ -240,7 +240,16 @@ TextureShaderScreen::TextureShaderScreen(std::string_view title) : ListPopupScre
 void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+	
 	shaders_ = GetAllTextureShaderInfo();
+	for (int i = 0; i < (int)shaders_.size(); ) {
+		if (shaders_[i].hidden) {
+			shaders_.erase(shaders_.begin() + i);
+		} else {
+			i++;
+		}
+	}
+
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
@@ -410,10 +419,12 @@ bool LogoScreen::key(const KeyInput &key) {
 	return false;
 }
 
-void LogoScreen::touch(const TouchInput &touch) {
+bool LogoScreen::touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
 		Next();
+		return true;
 	}
+	return false;
 }
 
 void LogoScreen::DrawForeground(UIContext &dc) {

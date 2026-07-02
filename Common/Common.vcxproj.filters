@@ -781,6 +781,9 @@
     <ClInclude Include="..\ext\pugixml\pugixml.hpp">
       <Filter>ext\pugixml</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Text\StringWriter.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

@@ -82,6 +82,9 @@
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\LoadStateConfirmScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\MainScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -220,6 +223,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\JoystickHistoryView.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\LoadStateConfirmScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\MainScreen.h">

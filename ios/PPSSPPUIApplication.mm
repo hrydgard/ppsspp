@@ -70,48 +70,48 @@
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
 
 - (void)decodeKeyEvent:(NSInteger *)eventMem {
-    NSInteger eventType = eventMem[GSEVENT_TYPE];
-    NSInteger eventScanCode = eventMem[GSEVENTKEY_KEYCODE];
+	NSInteger eventType = eventMem[GSEVENT_TYPE];
+	NSInteger eventScanCode = eventMem[GSEVENTKEY_KEYCODE];
 
-    //NSLog(@"Got key: %d", (int)eventScanCode);
+	//NSLog(@"Got key: %d", (int)eventScanCode);
 
-    if (eventType == GSEVENT_TYPE_KEYUP) {
-        struct KeyInput key;
-        key.flags = KeyInputFlags::UP;
-        key.keyCode = getSmartKeyboardMap((int)eventScanCode);
-        key.deviceId = DEVICE_ID_KEYBOARD;
-        NativeKey(key);
-    } else if (GSEVENT_TYPE_KEYDOWN) {
-        struct KeyInput key;
-        key.flags = KeyInputFlags::DOWN;
-        key.keyCode = getSmartKeyboardMap((int)eventScanCode);
-        key.deviceId = DEVICE_ID_KEYBOARD;
-        NativeKey(key);
-    }
+	if (eventType == GSEVENT_TYPE_KEYUP) {
+		struct KeyInput key;
+		key.flags = KeyInputFlags::UP;
+		key.keyCode = getSmartKeyboardMap((int)eventScanCode);
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		NativeKey(key);
+	} else if (GSEVENT_TYPE_KEYDOWN) {
+		struct KeyInput key;
+		key.flags = KeyInputFlags::DOWN;
+		key.keyCode = getSmartKeyboardMap((int)eventScanCode);
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		NativeKey(key);
+	}
 
 }
 
 - (void)handleKeyUIEvent:(UIEvent *) event {
-    if ([event respondsToSelector:@selector(_gsEvent)]) {
-        NSInteger *eventMem;
+	if ([event respondsToSelector:@selector(_gsEvent)]) {
+		NSInteger *eventMem;
 
-        eventMem = (NSInteger *) (__bridge void*)[event performSelector:@selector(_gsEvent)];
-        if (eventMem) {
-            [self decodeKeyEvent:eventMem];
-        }
-    }
+		eventMem = (NSInteger *) (__bridge void*)[event performSelector:@selector(_gsEvent)];
+		if (eventMem) {
+			[self decodeKeyEvent:eventMem];
+		}
+	}
 }
 
 - (void)sendEvent:(UIEvent *)event {
-    [super sendEvent:event];
-    if ([event respondsToSelector:@selector(_gsEvent)]) {
-        NSInteger *eventMem;
+	[super sendEvent:event];
+	if ([event respondsToSelector:@selector(_gsEvent)]) {
+		NSInteger *eventMem;
 
-        eventMem = (NSInteger *) (__bridge void*)[event performSelector:@selector(_gsEvent)];
-        if (eventMem) {
-            [self decodeKeyEvent:eventMem];
-        }
-    }
+		eventMem = (NSInteger *) (__bridge void*)[event performSelector:@selector(_gsEvent)];
+		if (eventMem) {
+			[self decodeKeyEvent:eventMem];
+		}
+	}
 }
 
 #endif  // !IOS_APP_STORE

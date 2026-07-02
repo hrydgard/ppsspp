@@ -38,7 +38,7 @@ class OSDOverlayScreen : public UIScreen {
 public:
 	const char *tag() const override { return "OSDOverlayScreen"; }
 
-	bool UnsyncTouch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 
 	void CreateViews() override;
 	void DrawForeground(UIContext &ui) override;

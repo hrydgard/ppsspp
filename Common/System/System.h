@@ -18,6 +18,7 @@
 
 enum SystemPermission {
 	SYSTEM_PERMISSION_STORAGE,
+	SYSTEM_PERMISSION_LOCAL_NETWORK,
 };
 
 enum PermissionStatus {
@@ -49,7 +50,6 @@ enum class LaunchUrlType {
 	EMAIL_ADDRESS,
 	LOCAL_FILE,
 	LOCAL_FOLDER,  // Shows the folder. Not supported on all systems of course.
-	AUTO,
 };
 
 void System_Vibrate(int length_ms);
@@ -168,6 +168,7 @@ enum SystemProperty {
 	SYSPROP_HAS_LOGIN_DIALOG,
 	SYSPROP_HAS_TEXT_CLIPBOARD,
 	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
+	SYSPROP_HAS_DEEP_LINKS,  // ios-style deep links
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
 	SYSPROP_CAN_SHOW_FILE,
@@ -241,6 +242,8 @@ enum SystemProperty {
 	SYSPROP_USE_IAP,
 	SYSPROP_USE_APP_STORE,
 	SYSPROP_SUPPORTS_SHARE_TEXT,
+
+	SYSPROP_CAN_RESTRICT_ORIENTATION,
 
 	SYSPROP_INSTALLER_NAME,  // Useful on Android to check if we were installed from the play store.
 };

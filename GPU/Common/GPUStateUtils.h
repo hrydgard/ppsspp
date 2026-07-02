@@ -14,10 +14,10 @@ enum StencilValueType {
 	STENCIL_VALUE_ONE,
 	STENCIL_VALUE_KEEP,
 	STENCIL_VALUE_INVERT,
-	STENCIL_VALUE_INCR_4,
-	STENCIL_VALUE_INCR_8,
-	STENCIL_VALUE_DECR_4,
-	STENCIL_VALUE_DECR_8,
+	STENCIL_VALUE_INCR_4BIT,
+	STENCIL_VALUE_INCR_8BIT,
+	STENCIL_VALUE_DECR_4BIT,
+	STENCIL_VALUE_DECR_8BIT,
 };
 
 enum ReplaceAlphaType {
@@ -59,6 +59,10 @@ bool NeedsTestDiscard();
 bool IsDepthTestEffectivelyDisabled();
 bool IsStencilTestOutputDisabled();
 
+inline bool CanForceBilinear(const GPUgstate &gstate) {
+	return ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) && (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()));
+}
+
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
@@ -76,51 +80,11 @@ struct ViewportAndScissor {
 	float viewportY;
 	float viewportW;
 	float viewportH;
-	float depthRangeMin;
-	float depthRangeMax;
-	float widthScale;
-	float heightScale;
-	float depthScale;
-	float xOffset;
-	float yOffset;
-	float zOffset;
-	bool throughMode;
 };
 
 // config is only used for non-buffered rendering.
 struct DisplayLayoutConfig;
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
-void UpdateCachedViewportState(const ViewportAndScissor &vpAndScissor);
-
-// NOTE: See the .cpp file for detailed comment about how the use flags are interpreted.
-class DepthScaleFactors {
-public:
-	// This should only be used from GetDepthScaleFactors.
-	DepthScaleFactors(double offset, double scale) : offset_(offset), scale_(scale) {}
-
-	// Decodes a value from a depth buffer to a value of range 0..65536
-	float DecodeToU16(float z) const {
-		return (float)((z - offset_) * scale_);
-	}
-
-	// Encodes a value from the range 0..65536 to a normalized depth value (0-1), in the
-	// range that we write to the depth buffer.
-	float EncodeFromU16(float z_u16) const {
-		return (float)(((double)z_u16 / scale_) + offset_);
-	}
-
-	float Offset() const { return (float)offset_; }
-
-	float ScaleU16() const { return (float)scale_; }
-	float Scale() const { return (float)(scale_ / 65535.0); }
-
-private:
-	// Doubles hardly cost anything these days, and precision matters here.
-	double offset_;
-	double scale_;
-};
-
-DepthScaleFactors GetDepthScaleFactors(u32 useFlags);
 
 // These are common to all modern APIs and can be easily converted with a lookup table.
 enum class BlendFactor : uint8_t {

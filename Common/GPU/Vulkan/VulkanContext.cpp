@@ -125,15 +125,15 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	}
 
 	instance_layer_names_.clear();
-	device_layer_names_.clear();
 
 	// We can get the list of layers and extensions without an instance so we can use this information
 	// to enable the extensions we need that are available.
 	GetInstanceLayerProperties();
-	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
+	GetInstanceLayerExtensionList(nullptr, &instance_extension_properties_);
 
 	if (!IsInstanceExtensionAvailable(VK_KHR_SURFACE_EXTENSION_NAME)) {
 		// Cannot create a Vulkan display without VK_KHR_SURFACE_EXTENSION.
+		// Technically we could allow this for headless builds, but meh.
 		init_error_ = "Vulkan not loaded - no surface extension";
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
@@ -176,7 +176,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
 				instance_layer_names_.push_back(validationLayers[i]);
-				device_layer_names_.push_back(validationLayers[i]);
 			}
 			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			extensionsLookup_.EXT_debug_utils = true;
@@ -185,6 +184,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			ERROR_LOG(Log::G3D, "Validation layer extension not available - not enabling Vulkan validation.");
 			createInfo_.flags &= ~VulkanInitFlags::VALIDATE;
 		}
+	}
+
+	if (IsInstanceExtensionAvailable(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+		extensionsLookup_.KHR_get_surface_capabilities2 = true;
 	}
 
 	// Uncomment to test GPU backend fallback
@@ -234,7 +238,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			WARN_LOG(Log::G3D, "Validation on but instance layer not available - dropping layers");
 			// Drop the validation layers and try again.
 			instance_layer_names_.clear();
-			device_layer_names_.clear();
 			inst_info.enabledLayerCount = 0;
 			inst_info.ppEnabledLayerNames = nullptr;
 			res = vkCreateInstance(&inst_info, nullptr, &instance_);
@@ -403,7 +406,7 @@ void VulkanContext::DestroySurface() {
 	}
 }
 
-VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
+VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> *extensions) {
 	VkResult res;
 	do {
 		uint32_t instance_extension_count;
@@ -412,8 +415,8 @@ VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std
 			return res;
 		if (instance_extension_count == 0)
 			return VK_SUCCESS;
-		extensions.resize(instance_extension_count);
-		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, extensions.data());
+		extensions->resize(instance_extension_count);
+		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, extensions->data());
 	} while (res == VK_INCOMPLETE);
 	return res;
 }
@@ -445,10 +448,11 @@ VkResult VulkanContext::GetInstanceLayerProperties() {
 	} while (res == VK_INCOMPLETE);
 
 	// Now gather the extension list for each instance layer.
+	// (TODO: Is this meaningful, or used for anything?)
 	for (uint32_t i = 0; i < instance_layer_count; i++) {
 		LayerProperties layer_props;
 		layer_props.properties = vk_props[i];
-		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
+		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, &layer_props.extensions);
 		if (res != VK_SUCCESS)
 			return res;
 		instance_layer_properties_.push_back(layer_props);
@@ -456,57 +460,18 @@ VkResult VulkanContext::GetInstanceLayerProperties() {
 	return res;
 }
 
-// Pass layerName == nullptr to get the extension list for the device.
-VkResult VulkanContext::GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
+VkResult VulkanContext::GetDeviceExtensionList(std::vector<VkExtensionProperties> *extensions) {
 	VkResult res;
 	do {
 		uint32_t device_extension_count;
-		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], layerName, &device_extension_count, nullptr);
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], nullptr, &device_extension_count, nullptr);
 		if (res != VK_SUCCESS)
 			return res;
 		if (!device_extension_count)
 			return VK_SUCCESS;
-		extensions.resize(device_extension_count);
-		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], layerName, &device_extension_count, extensions.data());
+		extensions->resize(device_extension_count);
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], nullptr, &device_extension_count, extensions->data());
 	} while (res == VK_INCOMPLETE);
-	return res;
-}
-
-VkResult VulkanContext::GetDeviceLayerProperties() {
-	/*
-	 * It's possible, though very rare, that the number of
-	 * instance layers could change. For example, installing something
-	 * could include new layers that the loader would pick up
-	 * between the initial query for the count and the
-	 * request for VkLayerProperties. The loader indicates that
-	 * by returning a VK_INCOMPLETE status and will update the
-	 * the count parameter.
-	 * The count parameter will be updated with the number of
-	 * entries loaded into the data pointer - in case the number
-	 * of layers went down or is smaller than the size given.
-	 */
-	uint32_t device_layer_count;
-	std::vector<VkLayerProperties> vk_props;
-	VkResult res;
-	do {
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[physical_device_], &device_layer_count, nullptr);
-		if (res != VK_SUCCESS)
-			return res;
-		if (device_layer_count == 0)
-			return VK_SUCCESS;
-		vk_props.resize(device_layer_count);
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[physical_device_], &device_layer_count, vk_props.data());
-	} while (res == VK_INCOMPLETE);
-
-	// Gather the list of extensions for each device layer.
-	for (uint32_t i = 0; i < device_layer_count; i++) {
-		LayerProperties layer_props;
-		layer_props.properties = vk_props[i];
-		res = GetDeviceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
-		if (res != VK_SUCCESS)
-			return res;
-		device_layer_properties_.push_back(layer_props);
-	}
 	return res;
 }
 
@@ -609,11 +574,6 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 
 	vulkanDeviceApiVersion_ = physicalDeviceProperties_[physical_device].properties.apiVersion;
 
-	GetDeviceLayerProperties();
-	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
-		WARN_LOG(Log::G3D, "CheckLayers for device %d failed", physical_device);
-	}
-
 	queue_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	_dbg_assert_(queue_count >= 1);
@@ -662,7 +622,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 			(memory_properties_.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
 	}
 
-	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
+	GetDeviceExtensionList(&device_extension_properties_);
 
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
@@ -692,6 +652,8 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	extensionsLookup_.KHR_maintenance4 = EnableDeviceExtension("VK_KHR_maintenance4", VK_API_VERSION_1_3);
 	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME, VK_API_VERSION_1_1);
 
+	extensionsLookup_.EXT_scalar_block_layout = EnableDeviceExtension(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME, VK_API_VERSION_1_2);
+
 	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_memory_requirements2 = true;
 		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME, VK_API_VERSION_1_1);
@@ -714,7 +676,11 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	}
 
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
-
+	if (extensionsLookup_.KHR_get_surface_capabilities2) {
+#ifdef VK_EXT_full_screen_exclusive
+		extensionsLookup_.EXT_full_screen_exclusive = EnableDeviceExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME, 0);
+#endif
+	}
 	extensionsLookup_.KHR_present_mode_fifo_latest_ready = EnableDeviceExtension(VK_KHR_PRESENT_MODE_FIFO_LATEST_READY_EXTENSION_NAME, 0);
 	if (!extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 		// Enable the EXT extension instead if available, it's equivalent (was promoted).
@@ -730,6 +696,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
+		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
 
 		ChainStruct(features2, &multiViewFeatures);
 		if (extensionsLookup_.KHR_present_wait) {
@@ -744,9 +711,15 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			ChainStruct(features2, &presentModeFifoProps);
 		}
+		if (extensionsLookup_.EXT_scalar_block_layout) {
+			ChainStruct(features2, &scalarBlockLayoutFeatures);
+		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
+		if (extensionsLookup_.EXT_scalar_block_layout) {
+			deviceFeatures_.available.scalarBlockLayout = scalarBlockLayoutFeatures;
+		}
 		if (extensionsLookup_.KHR_present_wait) {
 			deviceFeatures_.available.presentWait = presentWaitFeatures;
 		}
@@ -803,6 +776,11 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		deviceFeatures_.enabled.presentModeFifoProps.presentModeFifoLatestReady = deviceFeatures_.available.presentModeFifoProps.presentModeFifoLatestReady;
 	}
 
+	deviceFeatures_.enabled.scalarBlockLayout = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
+	if (extensionsLookup_.EXT_scalar_block_layout) {
+		deviceFeatures_.enabled.scalarBlockLayout.scalarBlockLayout = deviceFeatures_.available.scalarBlockLayout.scalarBlockLayout;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -810,8 +788,8 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
-	device_info.enabledLayerCount = (uint32_t)device_layer_names_.size();
-	device_info.ppEnabledLayerNames = device_info.enabledLayerCount ? device_layer_names_.data() : nullptr;
+	device_info.enabledLayerCount = 0;
+	device_info.ppEnabledLayerNames = nullptr;
 	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
 	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
 
@@ -827,6 +805,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &deviceFeatures_.enabled.provokingVertex);
+		}
+		if (extensionsLookup_.EXT_scalar_block_layout) {
+			ChainStruct(features2, &deviceFeatures_.enabled.scalarBlockLayout);
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);
@@ -1559,6 +1540,19 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 	}
 
+#ifdef VK_EXT_full_screen_exclusive
+	VkSurfaceFullScreenExclusiveInfoEXT fullScreenInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT };
+	VkSurfaceFullScreenExclusiveWin32InfoEXT win32ExclusiveInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT };
+	if (extensionsLookup_.EXT_full_screen_exclusive) {
+		fullScreenInfo.fullScreenExclusive = fullScreenExclusiveMode_;
+		if (fullScreenExclusiveMode_ == VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT) {
+			win32ExclusiveInfo.hmonitor = MonitorFromWindow((HWND)winsysData2_, MONITOR_DEFAULTTONEAREST);
+			fullScreenInfo.pNext = &win32ExclusiveInfo;
+		}
+		swap_chain_info.pNext = &fullScreenInfo;
+	}
+#endif
+
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(Log::G3D, "vkCreateSwapchainKHR failed! %s", VulkanResultToString(res));
@@ -1796,7 +1790,7 @@ void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator alloca
 	int deleteCount = 0;
 
 	for (auto &callback : callbacks_) {
-		callback.func(vulkan, callback.userdata);
+		callback(vulkan);
 		deleteCount++;
 	}
 	callbacks_.clear();

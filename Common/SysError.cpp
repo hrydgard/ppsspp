@@ -52,7 +52,8 @@ std::string GetStringErrorMsg(int errCode) {
 	snprintf(err_str, buff_size, "%s", ConvertWStringToUTF8(err_strw).c_str());
 
 	std::string err_string = err_str;
-	if (!err_string.empty() && err_string.back() == '\n') {
+	// Trim the trailing line breaks which can mess up the logs
+	while (!err_string.empty() && (err_string.back() == '\n' || err_string.back() == '\r')) {
 		err_string.pop_back();
 	}
 	return err_string;

@@ -560,7 +560,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
-  $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
   $(SRC)/GPU/Common/TextureReplacer.cpp \
   $(SRC)/GPU/Common/ReplacedTexture.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
@@ -951,6 +950,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SystemInfoScreen.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/JoystickHistoryView.cpp \
+  $(SRC)/UI/LoadStateConfirmScreen.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/UploadScreen.cpp \

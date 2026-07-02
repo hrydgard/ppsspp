@@ -38,6 +38,10 @@ void GLProfiler::Init() {
 	scopes_.clear();
 	scopeStack_.clear();
 
+	// NOTE: Getting a lot of hangs on Android from this, I'm disabling it entirely for now.
+	// Will later re-enable on desktop.
+#if 0
+
 	// Check for extension support
 	// Function pointers are declared in gl3stub.h and loaded appropriately per platform
 	if (gl_extensions.EXT_disjoint_timer_query) {
@@ -53,6 +57,7 @@ void GLProfiler::Init() {
 			INFO_LOG(Log::G3D, "GLProfiler: Using GL_ARB_timer_query");
 		}
 	}
+#endif
 
 	if (supported_) {
 		// Pre-allocate query objects
@@ -105,7 +110,7 @@ void GLProfiler::BeginFrame() {
 		static const char * const indent[4] = { "", "  ", "    ", "      " };
 
 		if (!scopes_.empty()) {
-			INFO_LOG(Log::G3D, "OpenGL profiling events this frame:");
+			DEBUG_LOG(Log::G3D, "OpenGL profiling events this frame:");
 		}
 
 		// Log results
@@ -122,7 +127,7 @@ void GLProfiler::BeginFrame() {
 			// Times are in nanoseconds, convert to milliseconds
 			double milliseconds = (double)(endTime - startTime) / 1000000.0;
 
-			INFO_LOG(Log::G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name, milliseconds);
+			DEBUG_LOG(Log::G3D, "%s%s (%0.3f ms)", indent[scope.level & 3], scope.name, milliseconds);
 		}
 	}
 

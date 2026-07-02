@@ -49,12 +49,12 @@ struct AudioFormatTransform {
 	AVSampleFormat AVAudioFormat;
 };
 
-enum class CAPTUREDEVIDE_TYPE {
+enum class CAPTUREDEVICE_TYPE {
 	VIDEO,
-	Audio
+	AUDIO,
 };
 
-enum class CAPTUREDEVIDE_STATE {
+enum class CAPTUREDEVICE_STATE {
 	UNINITIALIZED,
 	LOST,
 	STOPPED,
@@ -62,15 +62,14 @@ enum class CAPTUREDEVIDE_STATE {
 	SHUTDOWN
 };
 
-enum class CAPTUREDEVIDE_COMMAND {
-	INITIALIZE,
+enum class CAPTUREDEVICE_COMMAND {
 	START,
 	STOP,
 	SHUTDOWN,
 	UPDATE_STATE
 };
 
-enum CAPTUREDEVIDE_ERROR {
+enum CAPTUREDEVICE_ERROR {
 	CAPTUREDEVIDE_ERROR_NO_ERROR,
 	CAPTUREDEVIDE_ERROR_UNKNOWN_TYPE = 0x80000001,
 	CAPTUREDEVIDE_ERROR_INIT_FAILED,
@@ -79,8 +78,8 @@ enum CAPTUREDEVIDE_ERROR {
 	CAPTUREDEVIDE_ERROR_GETNAMES_FAILED
 };
 
-struct CAPTUREDEVIDE_MESSAGE{
-	CAPTUREDEVIDE_COMMAND command;
+struct CAPTUREDEVICE_MESSAGE {
+	CAPTUREDEVICE_COMMAND command;
 	void *opacity;
 };
 
@@ -178,31 +177,30 @@ protected:
 
 class WindowsCaptureDevice {
 public:
-	WindowsCaptureDevice(CAPTUREDEVIDE_TYPE type);
+	WindowsCaptureDevice(CAPTUREDEVICE_TYPE type);
 	~WindowsCaptureDevice();
 
 	void CheckDevices();
 
-	bool init();
 	bool start(void *startParam);
 	bool stop();
 
-	CAPTUREDEVIDE_ERROR getError() const { return error; }
+	CAPTUREDEVICE_ERROR getError() const { return error; }
 	std::string getErrorMessage() const { return errorMessage; }
 	int getDeviceCounts() const { return param.count; }
 	// Get a list contained friendly device name.
 	std::vector<std::string> getDeviceList(bool forceEnum = false, int *pActuallCount = nullptr);
 
-	void setError(const CAPTUREDEVIDE_ERROR &newError, const std::string &newErrorMessage) { error = newError; errorMessage = newErrorMessage; }
+	void setError(const CAPTUREDEVICE_ERROR &newError, const std::string &newErrorMessage) { error = newError; errorMessage = newErrorMessage; }
 	void setSelection(const UINT32 &selection) { param.selection = selection; }
 	HRESULT setDeviceParam(IMFMediaType *pType);
 
-	bool isShutDown() const { return state == CAPTUREDEVIDE_STATE::SHUTDOWN; }
-	bool isStarted() const { return state == CAPTUREDEVIDE_STATE::STARTED; }
+	bool isShutDown() const { return state == CAPTUREDEVICE_STATE::SHUTDOWN; }
+	bool isStarted() const { return state == CAPTUREDEVICE_STATE::STARTED; }
 	void waitShutDown();
 
-	void sendMessage(CAPTUREDEVIDE_MESSAGE message);
-	CAPTUREDEVIDE_MESSAGE getMessage();
+	void sendMessage(CAPTUREDEVICE_MESSAGE message);
+	CAPTUREDEVICE_MESSAGE getMessage();
 
 	HRESULT enumDevices();
 
@@ -211,49 +209,54 @@ public:
 	friend class ReaderCallback;
 
 protected:
-	void updateState(const CAPTUREDEVIDE_STATE &newState);
+	void updateState(const CAPTUREDEVICE_STATE &newState);
 	// Handle message here.
 	void messageHandler();
 
-	CAPTUREDEVIDE_TYPE type;
+	CAPTUREDEVICE_TYPE type;
 	MediaParam deviceParam;
 	MediaParam targetMediaParam;
-	CAPTUREDEVIDE_STATE state;
+	CAPTUREDEVICE_STATE state;
 	ChooseDeviceParam param;
 
-	CAPTUREDEVIDE_ERROR error;
+	CAPTUREDEVICE_ERROR error;
 	std::string errorMessage;
 
 	bool isDeviceChanged = false;
 
-// MF interface.
+	// MF interface.
 	Microsoft::WRL::ComPtr<ReaderCallback> m_pCallback;
 	Microsoft::WRL::ComPtr<IMFSourceReader> m_pReader;
 	Microsoft::WRL::ComPtr<IMFMediaSource> m_pSource;
 
-// Message loop.
+	// Message loop.
 	std::mutex mutex;
 	std::condition_variable cond;
-	std::queue<CAPTUREDEVIDE_MESSAGE> messageQueue;
+	std::queue<CAPTUREDEVICE_MESSAGE> messageQueue;
 
-// For the shutdown event safety.
+	// For the shutdown event safety.
 	std::mutex sdMutex;
 
-// Param updating synchronously.
+	// Param updating synchronously.
 	std::mutex paramMutex;
 	std::mutex stateMutex_;
 	std::condition_variable stateCond_;
 
-// Camera only
+	// Camera only
 	unsigned char *imageRGB = nullptr;
 	int imgRGBLineSizes[4]{};
 	unsigned char *imageJpeg = nullptr;
 	int imgJpegSize = 0;
 
-//Microphone only
+	//Microphone only
 	u8 *resampleBuf = nullptr;
 	u32 resampleBufSize = 0;
+
+	std::thread thread_;
 };
 
 extern WindowsCaptureDevice *winCamera;
 extern WindowsCaptureDevice *winMic;
+
+bool RegisterCMPTMFApis();
+bool UnRegisterCMPTMFApis();

@@ -120,10 +120,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
 
-	private static final int RESULT_LOAD_IMAGE = 101;
-	private static final int RESULT_OPEN_DOCUMENT = 102;
-	private static final int RESULT_OPEN_DOCUMENT_TREE = 103;
-
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
 	private final ArrayList<InputDeviceState> inputPlayers = new ArrayList<>();
@@ -147,11 +143,15 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static final String[] permissionsForMicrophone = {
 		Manifest.permission.RECORD_AUDIO
 	};
+	private static final String[] permissionsForLocalNetwork = {
+		"android.permission.ACCESS_LOCAL_NETWORK"
+	};
 
 	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
 	public static final int REQUEST_CODE_LOCATION_PERMISSION = 2;
 	public static final int REQUEST_CODE_CAMERA_PERMISSION = 3;
 	public static final int REQUEST_CODE_MICROPHONE_PERMISSION = 4;
+	public static final int REQUEST_CODE_LOCAL_NETWORK_PERMISSION = 5;
 
 	// Once we received a "modern" mouse event, we stop listening to old style mouse
 	// button events.
@@ -175,6 +175,22 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static boolean m_hasNoNativeBinary = false;
 
 	public static boolean libraryLoaded = false;
+
+	public static void applyAchievementsHostOverride(String host) {
+		if (!initialized || !libraryLoaded || host == null || host.isEmpty()) {
+			return;
+		}
+
+		NativeApp.setAchievementsHostOverride(host);
+	}
+
+	public static void clearAchievementsHostOverride() {
+		if (!initialized || !libraryLoaded) {
+			return;
+		}
+
+		NativeApp.clearAchievementsHostOverride();
+	}
 
 	public static void CheckABIAndLoadLibrary() {
 		try {
@@ -243,6 +259,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			} else {
 				NativeApp.sendMessageFromJava("permission_denied", "storage");
 			}
+
+			if (Build.VERSION.SDK_INT >= 35) {
+				if (this.checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") == PackageManager.PERMISSION_GRANTED) {
+					NativeApp.sendMessageFromJava("permission_granted", "local_network");
+				} else {
+					NativeApp.sendMessageFromJava("permission_denied", "local_network");
+				}
+			} else {
+				NativeApp.sendMessageFromJava("permission_granted", "local_network");
+			}
 		}
 	}
 
@@ -278,6 +304,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			case REQUEST_CODE_MICROPHONE_PERMISSION:
 				if (permissionsGranted(permissions, grantResults)) {
 					NativeApp.audioRecording_Start();
+				}
+				break;
+			case REQUEST_CODE_LOCAL_NETWORK_PERMISSION:
+				if (permissionsGranted(permissions, grantResults)) {
+					NativeApp.sendMessageFromJava("permission_granted", "local_network");
+				} else {
+					NativeApp.sendMessageFromJava("permission_denied", "local_network");
 				}
 				break;
 			default:
@@ -500,8 +533,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		PackageManager packageManager = getPackageManager();
 		String installerName = getInstallerName(packageManager);
 
+		int smallestScreenWidthDp = getResources().getConfiguration().smallestScreenWidthDp;
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD, smallestScreenWidthDp);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -572,6 +606,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@SuppressLint("SourceLockedOrientationActivity")
 	private void updateScreenRotation(String cause) {
+		if (Build.VERSION.SDK_INT >= 37 && getResources().getConfiguration().smallestScreenWidthDp >= 600) {
+			// Android 17+ on large screens (sw600dp+) ignores orientation requests to push for adaptive apps.
+			// If we try anyway, it's just a waste of time and might cause weirdness.
+			return;
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (isInMultiWindowMode()) {
 				// Do not try to enforce rotation! This can result in re-init loops.
@@ -711,6 +750,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			setShortcutParam(shortcutParam);
 		}
 
+		String achievementsHostOverride = AchievementsHostOverrideReceiver.getAchievementsHostOverride(this);
+		if (achievementsHostOverride != null && !achievementsHostOverride.isEmpty()) {
+			NativeApp.setAchievementsHostOverride(achievementsHostOverride);
+			Log.i(TAG, "Found achievements host override");
+		}
+
 		lifeCycle.onCreate();
 
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
@@ -741,7 +786,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
-		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.audioInit();
 
 		if (javaGL) {
@@ -1096,7 +1141,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mCameraHelper.resume();
 		}
 
-		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 
@@ -1151,9 +1196,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// keep this static so we can call this even if we don't
 	// instantiate NativeAudioPlayer
-	public static void gainAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
-		if (audioManager != null) {
+	public static void updateAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
+		if (audioManager == null) {
+			Log.w(TAG, "Couldn't update audio focus, audio manager null");
+			return;
+		}
+		if (NativeApp.queryConfig("audioMixWithOthers").equals("0")) {
+			// Shouldn't mix with others - take over.
 			audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+		} else {
+			// Mix with others - abandon focus so we don't kick others out.
+			audioManager.abandonAudioFocus(focusChangeListener);
 		}
 	}
 
@@ -1417,101 +1470,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
-	static int packResultCode(int requestCode, int requestId) {
-		return (requestCode << 16) | (requestId & 0xFFFF);
-	}
-	static int getRequestCode(int packedResult) {
-		return packedResult >> 16;  // This will sign-extend, just like we want.
-	}
-	static int getRequestId(int packedResult) {
-		return packedResult & 0xFFFF;  // The requestID is unsigned, so this is fine.
-	}
-
 	@Override
 	protected void onActivityResult(int packedRequest, int resultCode, Intent data) {
 		super.onActivityResult(packedRequest, resultCode, data);
-
-		int requestCode = getRequestCode(packedRequest);
-		int requestId = getRequestId(packedRequest);
-
-		Log.i(TAG, "onActivityResult: requestCode=" + requestCode + " requestId = " + requestId + " resultCode = " + resultCode);
-
-		if (resultCode != RESULT_OK || data == null) {
-			if (data == null) {
-				Log.i(TAG, "Intent data == null");
-			}
-			NativeApp.sendRequestResult(requestId, false, "", resultCode);
-			return;
-		}
-
-		try {
-			if (requestCode == RESULT_LOAD_IMAGE) {
-				Log.i(TAG, "data: " + data);
-				Uri selectedImage = data.getData();
-				if (selectedImage != null) {
-					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-						Log.i(TAG, "Selected image: " + selectedImage);
-						NativeApp.sendRequestResult(requestId, true, selectedImage.toString(), 0);
-					} else {
-						String[] filePathColumn = {MediaStore.Images.Media.DATA};
-						Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-						if (cursor != null) {
-							cursor.moveToFirst();
-							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-							String picturePath = cursor.getString(columnIndex);
-							cursor.close();
-							Log.i(TAG, "Selected picture path: " + picturePath);
-							NativeApp.sendRequestResult(requestId, true, picturePath, 0);
-						}
-					}
-				} else {
-					Log.i(TAG, "No image data received");
-				}
-			} else if (requestCode == RESULT_OPEN_DOCUMENT) {
-				Uri selectedFile = data.getData();
-				if (selectedFile != null) {
-					try {
-						// Grab permanent permission so we can show it in recents list etc.
-						getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-					} catch (Exception e) {
-						Log.w(TAG, "Exception getting permissions for document: " + e);
-						NativeApp.sendRequestResult(requestId, false, "", 0);
-						NativeApp.reportException(e, selectedFile.toString());
-						return;
-					}
-					Log.i(TAG, "Browse file finished:" + selectedFile);
-					NativeApp.sendRequestResult(requestId, true, selectedFile.toString(), 0);
-				}
-			} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
-				Uri selectedDirectoryUri = data.getData();
-				if (selectedDirectoryUri != null) {
-					String path = selectedDirectoryUri.toString();
-					Log.i(TAG, "Browse folder finished: " + path);
-					try {
-						getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-					} catch (Exception e) {
-						Log.w(TAG, "Exception getting permissions for document: " + e);
-						NativeApp.reportException(e, selectedDirectoryUri.toString());
-						// Even if we got an exception getting permissions, continue and try to pass along the file. Maybe this version of Android
-						// doesn't need it. If we can't access it, we'll fail in some other way later.
-					}
-					DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
-					if (documentFile != null) {
-						Log.i(TAG, "Chosen document name: " + documentFile.getUri());
-						NativeApp.sendRequestResult(requestId, true, documentFile.getUri().toString(), 0);
-					} else {
-						NativeApp.sendRequestResult(requestId, false, "", 0);
-					}
-				}
-			} else {
-				Toast.makeText(getApplicationContext(), "Bad request code: " + requestCode, Toast.LENGTH_LONG).show();
-				NativeApp.sendRequestResult(requestId, false, null, resultCode);
-				// Can't send a sensible request result back to the app without a requestCode
-			}
-		} catch (Exception e) {
-			NativeApp.reportException(e, "(function level)");
-			NativeApp.sendRequestResult(requestId, false, null, resultCode);
-		}
+		Log.i(TAG, "onActivityResult: packedRequest=" + packedRequest + " resultCode=" + resultCode);
 	}
 
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
@@ -1638,13 +1600,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else if (command.equals("browse_image")) {
 			try {
 				int requestId = Integer.parseInt(params);
-				int packedResultCode = packResultCode(RESULT_LOAD_IMAGE, requestId);
 				// 1. To Launch the picker:
 				Intent picker = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				Intent proxy = new Intent(this, ImageResultProxyActivity.class);
 				proxy.putExtra("picker_intent", picker);
 				proxy.putExtra("request_id", requestId);
-				Log.i(TAG, "image request ID: " + requestId + " packed: " + packedResultCode);
+				Log.i(TAG, "image request ID: " + requestId);
 				startActivity(proxy);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
@@ -1655,8 +1616,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else if (command.equals("browse_file") || command.equals("browse_file_audio") || command.equals("browse_file_zip")) {
 			try {
 				int requestId = Integer.parseInt(params);
-				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT, requestId);
-				Log.i(TAG, "browse_file request ID: " + requestId + " packed: " + packedResultCode);
+				Log.i(TAG, "browse_file request ID: " + requestId);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				if (command.equals("browse_file_audio")) {
@@ -1670,8 +1630,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 					intent.setType("*/*");
 				}
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-				startActivityForResult(intent, packedResultCode);
-				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
+
+				Intent proxy = new Intent(this, DocumentResultProxyActivity.class);
+				proxy.putExtra("picker_intent", intent);
+				proxy.putExtra("request_id", requestId);
+				startActivity(proxy);
+				return true;
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
 				Log.e(TAG, e.toString());
@@ -1680,14 +1644,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else if (command.equals("browse_folder")) {
 			try {
 				int requestId = Integer.parseInt(params);
-				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT_TREE, requestId);
-				Log.i(TAG, "browse_folder request ID: " + requestId + " packed: " + packedResultCode);
+				Log.i(TAG, "browse_folder request ID: " + requestId);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 				intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
-				startActivityForResult(intent, packedResultCode);
+
+				Intent proxy = new Intent(this, DocumentResultProxyActivity.class);
+				proxy.putExtra("picker_intent", intent);
+				proxy.putExtra("request_id", requestId);
+				startActivity(proxy);
 				return true;
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
@@ -1740,6 +1707,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// Workaround for issue #13363 to fix Split/Second game start - it requires text input
 			// but we don't support it on VR devices.
 			if (isVRDevice()) {
+				Log.w(TAG, "VR: Missing UI, supplying default string for text input request");
 				NativeApp.sendRequestResult(requestID, false, defString, 0);
 				return true;
 			}
@@ -1799,6 +1767,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else if (command.equals("immersive")) {
 			updateSystemUiVisibility();
 			return true;
+		} else if (command.equals("audio_mode_changed")) {
+			updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
+			return true;
 		} else if (command.equals("recreate")) {
 			recreate();
 			return true;
@@ -1815,6 +1786,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.sendMessageFromJava("permission_pending", "storage");
 			} else {
 				NativeApp.sendMessageFromJava("permission_granted", "storage");
+			}
+			return true;
+		} else if (command.equals("ask_permission") && params.equals("local_network")) {
+			if (Build.VERSION.SDK_INT >= 35) {
+				if (askForPermissions(permissionsForLocalNetwork, REQUEST_CODE_LOCAL_NETWORK_PERMISSION)) {
+					NativeApp.sendMessageFromJava("permission_pending", "local_network");
+				} else {
+					NativeApp.sendMessageFromJava("permission_granted", "local_network");
+				}
+			} else {
+				NativeApp.sendMessageFromJava("permission_granted", "local_network");
 			}
 			return true;
 		} else if (command.equals("gps_command")) {
@@ -1970,21 +1952,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		if (intent.hasExtra("request_id")) {
 			logIntentExtras(intent);
-			// This was a proxied image request.
 			int requestId = intent.getIntExtra("request_id", -1);
-			int resultCode = intent.getIntExtra("result_code", RESULT_CANCELED);
+			int resultCode = intent.getIntExtra("result_code", NativeApp.RESULT_CANCELED);
 			String path = intent.getStringExtra("result_path");
 
-			if (path != null) {
-				Log.i(TAG, "Received valid intent: " + path);
-				Log.i(TAG, "requestId: " + requestId + " resultCode: " + resultCode);
-
-				// Now you can call your native method
-				NativeApp.sendRequestResult(requestId, (resultCode == RESULT_OK), path, resultCode);
+			if (resultCode == NativeApp.RESULT_OK && path != null) {
+				Log.i(TAG, "Received valid proxied result: path='" + path + "' requestId=" + requestId);
+				NativeApp.sendRequestResult(requestId, true, path, 0);
 			} else {
-				Log.i(TAG, "Received failed intent");
-				Log.i(TAG, "requestId: " + requestId + " resultCode: " + resultCode);
-				NativeApp.sendRequestResult(requestId, false,"", resultCode);
+				Log.i(TAG, "Received failed or cancelled proxied result: path='" + path + "' requestId=" + requestId + " resultCode=" + resultCode);
+				NativeApp.sendRequestResult(requestId, false, path != null ? path : "", resultCode);
 			}
 		} else {
 			// Someone launched a shortcut while we were running....

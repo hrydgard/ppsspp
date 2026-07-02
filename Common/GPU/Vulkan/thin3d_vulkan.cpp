@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -193,10 +194,9 @@ public:
 		if (module_) {
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-			vulkan_->Delete().QueueCallback([](VulkanContext *context, void *m) {
-				auto module = (Promise<VkShaderModule> *)m;
+			vulkan_->Delete().QueueCallback([module = module_](VulkanContext *context) {
 				delete module;
-			}, module_);
+			});
 		}
 	}
 	Promise<VkShaderModule> *Get() const { return module_; }
@@ -473,6 +473,7 @@ public:
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
+		_dbg_assert_(curPipeline_->pipeline);
 	}
 
 	void BindVertexBuffer(Buffer *vertexBuffer, int offset) override {
@@ -598,6 +599,8 @@ private:
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
+
+	mutable std::unordered_map<DataFormat, uint32_t> dataFormatSupportCache_;
 
 	VulkanPushPool *push_ = nullptr;
 
@@ -924,11 +927,12 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
 
 	caps_.maxTextureSize = vulkan->GetPhysicalDeviceProperties().properties.limits.maxImageDimension2D;
-	caps_.maxClipPlanes = vulkan->GetPhysicalDeviceProperties().properties.limits.maxClipDistances;
-
-	// Comment out these two to test geometry shader culling on any geometry shader-supporting hardware.
-	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance != 0;
-	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderCullDistance != 0;
+	if (vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance) {
+		caps_.maxClipDistances = vulkan->GetPhysicalDeviceProperties().properties.limits.maxClipDistances;
+	}
+	if (vulkan->GetDeviceFeatures().enabled.standard.shaderCullDistance) {
+		caps_.maxCullDistances = vulkan->GetPhysicalDeviceProperties().properties.limits.maxCullDistances;
+	}
 
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
@@ -941,7 +945,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.texture3DSupported = true;
 	caps_.textureDepthSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
-	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.fragmentShaderStencilWriteSupported = vulkan->Extensions().EXT_shader_stencil_export;
 	caps_.blendMinMaxSupported = true;
@@ -949,10 +952,12 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
 	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
 	caps_.textureSwizzleSupported = true;
+	caps_.samplerLodControl = true;
 
 	// Note that it must also be enabled on the pipelines (which we do).
 	caps_.provokingVertexLast = vulkan->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast;
 
+	caps_.fullScreenExclusiveSupported = vulkan->Extensions().EXT_full_screen_exclusive;
 	// Present mode stuff
 	caps_.presentMaxInterval = 1;
 	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
@@ -1098,7 +1103,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		WARN_LOG(Log::G3D, "KHR_create_renderpass2 not supported, disabling multisampling");
 		multisampleAllowed = false;
 	} else {
-		_dbg_assert_(vkCreateRenderPass2 != nullptr);
+		// This is hit using a replacement adreno driver, "EggNS mesa skyport".
+		// _dbg_assert_(vkCreateRenderPass2 != nullptr);
 	}
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
@@ -1126,7 +1132,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	device_ = vulkan->GetDevice();
 
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, usage);
+	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, 32, usage);
 
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image 0
@@ -1241,8 +1247,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
+			_dbg_assert_(!gDesc.vertexShader);  // can't have two
 			gDesc.vertexShader = vkshader->Get();
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
+			_dbg_assert_(!gDesc.fragmentShader);  // can't have two
 			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(Log::G3D, "Bad stage");
@@ -1296,6 +1304,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	}
 
 	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, false, tag ? tag : "thin3d");
+	_dbg_assert_(pipeline->pipeline);
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1728,6 +1737,11 @@ std::vector<std::string> VKContext::GetExtensionList(bool device, bool enabledOn
 }
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
+	auto iter = dataFormatSupportCache_.find(fmt);
+	if (iter != dataFormatSupportCache_.end()) {
+		return iter->second;
+	}
+
 	VkFormat vulkan_format = DataFormatToVulkan(fmt);
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
@@ -1750,6 +1764,7 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
 		flags |= FMT_STORAGE_IMAGE;
 	}
+	dataFormatSupportCache_[fmt] = flags;
 	return flags;
 }
 
@@ -1768,10 +1783,9 @@ public:
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
-		buf_->Vulkan()->Delete().QueueCallback([](VulkanContext *vulkan, void *fb) {
-			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
-			delete vfb;
-		}, buf_);
+		buf_->Vulkan()->Delete().QueueCallback([buf = buf_](VulkanContext *vulkan) {
+			delete buf;
+		});
 		buf_ = nullptr;
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }

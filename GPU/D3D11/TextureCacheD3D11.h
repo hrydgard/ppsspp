@@ -64,7 +64,7 @@ public:
 	void DestroyDeviceObjects();
 
 protected:
-	void BindTexture(TexCacheEntry *entry) override;
+	void BindTexture(TexCacheEntry *entry, bool flatZ) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
@@ -73,7 +73,6 @@ protected:
 
 private:
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;
 

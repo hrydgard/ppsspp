@@ -22,19 +22,24 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 
 enum SoftwareTransformAction {
-	SW_NOT_READY,
 	SW_DRAW_INDEXED,
 	SW_CLEAR,
+	SW_CULLED,  // don't draw
+};
+
+struct TransformStats {
+	u16 culledTrianglesNear;
+	u16 culledTrianglesFar;
+	u16 clippedTriangles;  // Only near plane is clipped against
 };
 
 struct SoftwareTransformResult {
-	SoftwareTransformAction action;
 	u32 color;
 	float depth;
 
@@ -46,20 +51,22 @@ struct SoftwareTransformResult {
 	u32 safeHeight;
 
 	TransformedVertex *drawBuffer;
-	int drawNumTrans;
+	int drawVertexCount;
+	int drawIndexCount;
 	bool pixelMapped;
+
+	TransformStats stats;
 };
 
 struct SoftwareTransformParams {
 	u8 *decoded;
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
-	FramebufferManagerCommon *fbman;
-	TextureCacheCommon *texCache;
+	ClipInfoFlags clipInfoFlags;
 	bool allowClear;
 	bool allowSeparateAlphaClear;
-	bool flippedY;
-	bool usesHalfZ;
+	bool everUsedEqualDepth;
+	float pointScale = 1.0f;  // Useful to increase these for debug views of bounding box corners.
 };
 
 // Converts an index buffer to make the provoking vertex the last.
@@ -67,29 +74,18 @@ struct SoftwareTransformParams {
 // TODO: We could do this already during index decode.
 void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize);
 
-class SoftwareTransform {
-public:
-	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
-
-	void SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
-	void Transform(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result);
-
-	// NOTE: The viewport must be up to date!
-	// indsSize is in indices, not bytes.
-	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
-
-protected:
-	void CalcCullParams(float &minZValue, float &maxZValue) const;
-	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
-	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
-	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
-
-	const SoftwareTransformParams &params_;
-	Lin::Matrix4x4 projMatrix_;
-};
+// indsSize is in indices, not bytes.
+// NOTE: In case of clipping, this might write extra vertices after params.transformed.
+// NOTE: Does not handle line strips, triangle strips or triangle fans - generate indices for those beforehand.
+// NOTE2: The output is ALWAYS an indexed triangle list, no matter the input primitive.
+SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result);
 
 class DrawEngineCommon;
 
 // Slow. See description in the cpp file.
 u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const VertexDecoder *dec, u32 vertType);
-bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+
+// In the returned data, you should subtract the value of lowerIndexBound from the indices to get the actual vertex index in the vertices array.
+// This is because some draws in some games use very large indices, but they only use a small range of them in each PRIM submission.
+// Additionally, if the transformed flag is set in flags, the indices will be transformed into "generic" types (triangles instead of strips), etc.
+bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags);

@@ -35,6 +35,7 @@ enum class ShaderWriterFlags {
 };
 ENUM_CLASS_BITOPS(ShaderWriterFlags);
 
+// TODO: Somehow merge with StringWriter from Parsers.h
 class ShaderWriter {
 public:
 	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).
@@ -119,6 +120,7 @@ private:
 	// Several of the shader languages ignore samplers, beware of that.
 	void DeclareSampler2D(const SamplerDef &def);
 	void DeclareTexture2D(const SamplerDef &def);
+	void DeclareUniforms(const Slice<UniformDef> &uniforms);
 	const SamplerDef *GetSamplerDef(const char *name) const;
 
 	void Preamble(Slice<const char *> extensions);

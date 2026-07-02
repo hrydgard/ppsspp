@@ -94,7 +94,6 @@
 #include "sceOpenPSID.h"
 #include "sceHttp.h"
 #include "Core/Util/PPGeDraw.h"
-#include "sceHttp.h"
 
 /*
 17: [MIPS32 R4K 00000000 ]: Loader: Type: 1 Vaddr: 00000000 Filesz: 2856816 Memsz: 2856816 
@@ -945,6 +944,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0xB736E9FF, &WrapI_IU<sceKernelFreeVpl>,                        "sceKernelFreeVpl",                          'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x1D371B8A, &WrapI_IU<sceKernelCancelVpl>,                      "sceKernelCancelVpl",                        'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x39810265, &WrapI_IU<sceKernelReferVplStatus>,                 "sceKernelReferVplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0xBC31C1B9, nullptr, "sceKernelExtendKernelStack"},
 };
 
 void Register_ThreadManForUser()
@@ -974,6 +974,7 @@ const HLEFunction LoadExecForKernel[] =
 	{0XA3D5E142, nullptr,                                            "sceKernelExitVSHVSH",                       '?', ""        },
 	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
 	{0x6D302D3D, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitVSHKernel",                    'v', "x", HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame 	
+	{0x05572A5F, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitGame",                         'v', "", HLE_KERNEL_SYSCALL },
 };
  
 void Register_LoadExecForKernel()

@@ -328,8 +328,14 @@ bool IsMobile() {
 }
 
 void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision) {
+	major = minor = build = revision = 0;
 	winrt::hstring deviceFamilyVersion = winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo().DeviceFamilyVersion();
-	uint64_t version = std::stoull(std::wstring(deviceFamilyVersion));
+	uint64_t version = 0;
+	try {
+		version = std::stoull(std::wstring(deviceFamilyVersion));
+	} catch (...) {
+		return;
+	}
 
 	major = static_cast<uint32_t>((version & 0xFFFF000000000000L) >> 48);
 	minor = static_cast<uint32_t>((version & 0x0000FFFF00000000L) >> 32);
@@ -432,6 +438,7 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		if (corewindow) {
 			return  (int)corewindow.Bounds().Width;
 		}
+		return -1;
 	}
 	case SYSPROP_DISPLAY_YRES:
 	{
@@ -439,6 +446,7 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		if (corewindow) {
 			return (int)corewindow.Bounds().Height;
 		}
+		return -1;
 	}
 	default:
 		return -1;
@@ -492,6 +500,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		// touch devices has input pane, we need to depend on it
 		// I don't know any possible way to display input dialog in non-xaml apps
 		return isKeyboardAvailable() || isTouchAvailable();
+	}
+	case SYSPROP_KEYBOARD_IS_SOFT:
+	{
+		return IsXBox();
 	}
 	case SYSPROP_DEBUGGER_PRESENT:
 		return IsDebuggerPresent();
@@ -651,8 +663,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
-	auto uri = winrt::Windows::Foundation::Uri(ToHString(url));
-	winrt::Windows::System::Launcher::LaunchUriAsync(uri);
+	try {
+		auto uri = winrt::Windows::Foundation::Uri(ToHString(url));
+		winrt::Windows::System::Launcher::LaunchUriAsync(uri);
+	} catch (const winrt::hresult_error &e) {
+		ERROR_LOG(Log::System, "System_LaunchUrl: invalid URI: %s", winrt::to_string(e.message()).c_str());
+	}
 }
 
 void System_Vibrate(int length_ms) {

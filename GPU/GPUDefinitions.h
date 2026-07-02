@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "Common/Common.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Core/MemMap.h"
 
 
@@ -194,6 +195,18 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,  // NOTE: Either this or FLAG_EXECUTE*, not both!
 };
 
+enum class ClipInfoFlags {
+	Empty = 0,
+	Valid = 1,
+	SoftClipCull = 2,
+	FlatZ = 4,
+	DepthClamp = 8,
+	DepthClampFragment = 16,
+	MinMaxZClip = 32,
+	MinMaxZDiscard = 64,
+};
+ENUM_CLASS_BITOPS(ClipInfoFlags);
+
 struct TransformedVertex {
 	union {
 		struct {
@@ -208,14 +221,9 @@ struct TransformedVertex {
 		float uv[3];
 	};
 	float fog;
-	union {
-		u8 color0[4];   // prelit
-		u32 color0_32;
-	};
-	union {
-		u8 color1[4];   // prelit
-		u32 color1_32;
-	};
+	// These are RGBA values, 4x u8.
+	u32 color0_32;
+	u32 color1_32;
 
 	void CopyFromWithOffset(const TransformedVertex &other, float xoff, float yoff) {
 		this->x = other.x + xoff;

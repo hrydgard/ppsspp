@@ -37,7 +37,7 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 
 #include "GPU/GPUState.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -63,20 +63,6 @@ struct DrawEngineVulkanStats {
 };
 
 class VulkanRenderManager;
-
-class TessellationDataTransferVulkan : public TessellationDataTransfer  {
-public:
-	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
-
-	void SetPushPool(VulkanPushPool *push) { push_ = push; }
-	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
-	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
-	const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
-private:
-	VulkanContext *vulkan_;
-	VulkanPushPool *push_;  // Updated each frame.
-	VkDescriptorBufferInfo bufInfo_[3]{};
-};
 
 enum {
 	DRAW_BINDING_TEXTURE = 0,
@@ -165,7 +151,7 @@ private:
 
 	void UpdateUBOs();
 
-	NO_INLINE void ResetAfterDraw();
+	NO_INLINE void ResetAfterSkippedDraw();
 
 	Draw::DrawContext *draw_;
 
@@ -227,7 +213,4 @@ private:
 
 	int tessOffset_ = 0;
 	FBOTexState fboTexBindState_ = FBO_TEX_NONE;
-
-	// Hardware tessellation
-	TessellationDataTransferVulkan *tessDataTransferVulkan = nullptr;
 };

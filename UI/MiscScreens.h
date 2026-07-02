@@ -101,7 +101,7 @@ public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	void update() override;
 	void DrawForeground(UIContext &ui) override;
 	void sendMessage(UIMessage message, const char *value) override;

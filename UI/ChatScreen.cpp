@@ -92,7 +92,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 		box_->SetHasDropShadow(false);
 
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		View *title = new PopupHeader(n->T("Chat"));
+		View *title = new PopupHeader(std::string(n->T("Chat")) + ": " + g_Config.sNickName);
 		box_->Add(title);
 
 		CreateContents(box_);
@@ -104,7 +104,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 void ChatMenu::OnSubmitMessage(UI::EventParams &e) {
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
-	chatEdit_->SetFocus();
+	chatEdit_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 	sendChat(chat);
 }
 
@@ -114,7 +114,7 @@ void ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 	using namespace UI;
 
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, n->T("Chat"), "", false, [](const std::string &value, int) {
+		System_InputBoxGetString(token_, n->T("Chat"), "", false, [](std::string_view value, int) {
 			sendChat(value);
 		});
 	} else {
@@ -183,7 +183,7 @@ void ChatMenu::Update() {
 	// Could remove the fullscreen check here, it works now.
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
-		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), false, [](const std::string &value, int) {
+		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), false, [](std::string_view value, int) {
 			sendChat(value);
 		});
 		promptInput_ = false;

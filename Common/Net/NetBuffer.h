@@ -23,6 +23,7 @@ class Buffer : public ::Buffer {
 public:
 	bool FlushSocket(uintptr_t sock, double timeout, bool *cancelled = nullptr);
 
+	// If you know the size of the file to read, pass it in knownSize, for best performance and for progress reporting.
 	bool ReadAllWithProgress(int fd, int knownSize, RequestProgress *progress);
 
 	// < 0: error
@@ -30,4 +31,4 @@ public:
 	int Read(int fd, size_t sz);
 };
 
-}
+}  // namespace net

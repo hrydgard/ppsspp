@@ -55,8 +55,10 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
+#include "UI/DevScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/PauseScreen.h"
+#include "UI/LoadStateConfirmScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/ReportScreen.h"
 #include "UI/CwCheatScreen.h"
@@ -71,10 +73,15 @@
 #include "UI/MiscViews.h"
 #include "UI/AdhocServerScreen.h"
 
-static void AfterSaveStateAction(SaveState::Status status, std::string_view message) {
-	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
+// This is in an objective-C file.
+#if PPSSPP_PLATFORM(IOS)
+void copyDeepLinkForPath(std::string_view filePath);
+#endif
+
+void ShowMessageAfterSaveStateAction(SaveState::Status status, std::string_view message, std::string_view metadata) {
+	if (!message.empty()) {
 		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
-			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+			message, metadata, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
@@ -148,7 +155,7 @@ private:
 void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::SaveSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
+		SaveState::SaveSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		TriggerFinish(DR_OK); //OK will close the pause screen as well
 	}
 }
@@ -156,8 +163,17 @@ void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
-		TriggerFinish(DR_OK);
+		if (g_Config.bConfirmLoadState) {
+			screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slot_, [this](bool result) {
+				if (result) {
+					SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+					TriggerFinish(DR_OK);
+				}
+			}));
+		} else {
+			SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+			TriggerFinish(DR_OK);
+		}
 	}
 }
 
@@ -213,6 +229,7 @@ public:
 	UI::Event OnStateSaved;
 	UI::Event OnScreenshotClicked;
 	UI::Event OnSelected;
+	UI::Event OnLoadRequested;
 
 private:
 	void OnSaveState(UI::EventParams &e);
@@ -298,17 +315,16 @@ void SaveSlotView::Draw(UIContext &dc) {
 void SaveSlotView::OnLoadState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::LoadSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
-		OnStateLoaded.Trigger(e2);
+		OnLoadRequested.Trigger(e2);
 	}
 }
 
 void SaveSlotView::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
-		SaveState::SaveSlot(saveStatePrefix_, slot_, &AfterSaveStateAction);
+		SaveState::SaveSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateSaved.Trigger(e2);
@@ -317,7 +333,13 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 
 void GamePauseScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
+
+	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
+		TriggerFinish(DR_BACK);
+	}
 	UIScreen::update();
+
+	firstFrame_ = false;
 
 	if (finishNextFrame_) {
 		TriggerFinish(finishNextFrameResult_);
@@ -360,17 +382,6 @@ GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
 }
 
-bool GamePauseScreen::UnsyncKey(const KeyInput &key) {
-	int retval = UIScreen::UnsyncKey(key);
-	bool pauseTrigger = false;
-	return retval || g_controlMapper.Key(key, &pauseTrigger);
-}
-
-void GamePauseScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
-	UIScreen::UnsyncAxis(axes, count);
-	g_controlMapper.Axis(axes, count);
-}
-
 void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	// Simple de-bounce using createdTime_, just to be safe.
 	if (down && virtualKeyCode == VIRTKEY_PAUSE && time_now_d() > createdTime_ + 0.1) {
@@ -389,6 +400,22 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(saveStatePrefix_, i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Gravity::G_HCENTER, Margins(0,0,0,0))));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
+		slot->OnLoadRequested.Add([this](UI::EventParams &e) {
+			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+			int slotNum = v->GetSlot();
+			auto doLoad = [this, slotNum]() {
+				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
+				finishNextFrame_ = true;
+				finishNextFrameResult_ = DR_CANCEL;
+			};
+			if (g_Config.bConfirmLoadState) {
+				screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slotNum, [doLoad](bool result) {
+					if (result) doLoad();
+				}));
+			} else {
+				doLoad();
+			}
+		});
 		slot->OnScreenshotClicked.Add([this](UI::EventParams &e) {
 			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
 			int slot = v->GetSlot();
@@ -421,7 +448,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
 		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::UndoLoad(saveStatePrefix_, &AfterSaveStateAction);
+			SaveState::UndoLoad(saveStatePrefix_, &ShowMessageAfterSaveStateAction);
 			TriggerFinish(DR_CANCEL);
 		});
 	}
@@ -430,7 +457,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::Rewind(&AfterSaveStateAction);
+			SaveState::Rewind(&ShowMessageAfterSaveStateAction);
 			TriggerFinish(DR_CANCEL);
 		});
 	}
@@ -681,8 +708,8 @@ void GamePauseScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer(20.0));
 	Choice *exit;
 	if (g_Config.bPauseMenuExitsEmulator) {
-		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		exit = new Choice(mm->T("Exit"), ImageID("I_EXIT"));
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		exit = new Choice(di->T("Exit"), ImageID("I_EXIT"));
 	} else {
 		exit = new Choice(pa->T("Exit to menu"), ImageID("I_EXIT"));
 	}
@@ -724,7 +751,7 @@ void GamePauseScreen::CreateViews() {
 			screenManager()->push(new GameScreen(gamePath_, true));
 		});
 
-		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 			AddRotationPicker(screenManager(), middleColumn, false);
 		}
 
@@ -760,7 +787,10 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 				finishNextFrame_ = true;
 			}
 		});
-
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		parent->Add(new Choice(dev->T("DevMenu"), ImageID("I_DEBUGGER")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new DevMenuScreen(gamePath_, I18NCat::DEVELOPER));
+		});
 		if (portrait) {
 			AddExtraOptions(parent);
 		}
@@ -857,10 +887,9 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 	std::string confirmExitMessage = GetConfirmExitMessage();
 
 	if (!confirmExitMessage.empty()) {
-		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::string_view title = di->T("Are you sure you want to exit?");
-		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, mm->T("Exit"), di->T("Cancel"), [this](bool result) {
+		screenManager()->push(new UI::MessagePopupScreen(title, confirmExitMessage, di->T("Exit"), di->T("Cancel"), [this](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();

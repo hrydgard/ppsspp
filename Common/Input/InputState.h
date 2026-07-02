@@ -168,6 +168,7 @@ struct TouchInput {
 #undef MOD_CTRL
 #undef MOD_ALT
 #undef MOD_SHIFT
+#undef MOD_META
 
 enum class KeyInputFlags {
 	DOWN = 1 << 0,
@@ -180,6 +181,7 @@ enum class KeyInputFlags {
 	MOD_CTRL = 1 << 5,
 	MOD_SHIFT = 1 << 6,
 	MOD_ALT = 1 << 7,
+	MOD_META = 1 << 8,  // Windows key, command key, etc.
 };
 
 ENUM_CLASS_BITOPS(KeyInputFlags);

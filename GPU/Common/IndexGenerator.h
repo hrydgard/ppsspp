@@ -87,8 +87,8 @@ private:
 	template <class ITypeLE>
 	inline void TranslateRectangles(int numVerts, const ITypeLE *inds, int indexOffset);
 
-	u16 *indsBase_;
-	u16 *inds_;
+	u16 *indsBase_ = nullptr;
+	u16 *inds_ = nullptr;
 
 	static const u8 indexedPrimitiveType[7];
 };

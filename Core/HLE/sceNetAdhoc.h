@@ -114,6 +114,7 @@ struct AdhocServerListEntry {
 	std::string dataJsonUrl;
 	std::string statusXmlUrl;
 	std::string statusWebUrl;
+	bool hidden = false;
 	AdhocDataMode mode = AdhocDataMode::P2P;
 };
 

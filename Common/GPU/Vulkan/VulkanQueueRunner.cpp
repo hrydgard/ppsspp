@@ -213,51 +213,54 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	//    substitute descriptors, alternatively using texture array layers creatively.
 
 	for (int j = 0; j < (int)steps.size(); j++) {
+		decltype(steps[j]->render) &render = steps[j]->render;
 		if (steps[j]->stepType == VKRStepType::RENDER &&
-			steps[j]->render.framebuffer) {
-			if (steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-				steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			render.framebuffer) {
+			if (render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+				render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			}
-			if (steps[j]->render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-				steps[j]->render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			if (render.finalDepthStencilLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+				render.finalDepthStencilLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			}
 		}
 	}
 
 	for (int j = 0; j < (int)steps.size() - 1; j++) {
 		// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
+		decltype(steps[j]->render) &render_j = steps[j]->render;
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
-			steps[j]->render.numDraws == 0 &&
-			steps[j]->render.numReads == 0 &&
-			steps[j]->render.colorLoad == VKRRenderPassLoadAction::CLEAR &&
-			steps[j]->render.stencilLoad == VKRRenderPassLoadAction::CLEAR &&
-			steps[j]->render.depthLoad == VKRRenderPassLoadAction::CLEAR) {
+			render_j.numDraws == 0 &&
+			render_j.numReads == 0 &&
+			render_j.colorLoad == VKRRenderPassLoadAction::CLEAR &&
+			render_j.stencilLoad == VKRRenderPassLoadAction::CLEAR &&
+			render_j.depthLoad == VKRRenderPassLoadAction::CLEAR) {
 
 			// Drop the clear step, and merge it into the next step that touches the same framebuffer.
 			for (int i = j + 1; i < (int)steps.size(); i++) {
+				decltype(steps[i]->render) &render_i = steps[i]->render;
 				if (steps[i]->stepType == VKRStepType::RENDER &&
-					steps[i]->render.framebuffer == steps[j]->render.framebuffer) {
-					if (steps[i]->render.colorLoad != VKRRenderPassLoadAction::CLEAR) {
-						steps[i]->render.colorLoad = VKRRenderPassLoadAction::CLEAR;
-						steps[i]->render.clearColor = steps[j]->render.clearColor;
+					render_i.framebuffer == render_j.framebuffer) {
+					if (render_i.colorLoad != VKRRenderPassLoadAction::CLEAR) {
+						render_i.colorLoad = VKRRenderPassLoadAction::CLEAR;
+						render_i.clearColor = render_j.clearColor;
 					}
-					if (steps[i]->render.depthLoad != VKRRenderPassLoadAction::CLEAR) {
-						steps[i]->render.depthLoad = VKRRenderPassLoadAction::CLEAR;
-						steps[i]->render.clearDepth = steps[j]->render.clearDepth;
+					if (render_i.depthLoad != VKRRenderPassLoadAction::CLEAR) {
+						render_i.depthLoad = VKRRenderPassLoadAction::CLEAR;
+						render_i.clearDepth = render_j.clearDepth;
 					}
-					if (steps[i]->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
-						steps[i]->render.stencilLoad = VKRRenderPassLoadAction::CLEAR;
-						steps[i]->render.clearStencil = steps[j]->render.clearStencil;
+					if (render_i.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
+						render_i.stencilLoad = VKRRenderPassLoadAction::CLEAR;
+						render_i.clearStencil = render_j.clearStencil;
 					}
-					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
-					steps[i]->render.renderPassType = MergeRPTypes(steps[i]->render.renderPassType, steps[j]->render.renderPassType);
-					steps[i]->render.numDraws += steps[j]->render.numDraws;
-					steps[i]->render.numReads += steps[j]->render.numReads;
+					MergeRenderAreaRectInto(&render_i.renderArea, render_j.renderArea);
+					render_i.renderPassType = MergeRPTypes(render_i.renderPassType, render_j.renderPassType);
+					render_i.numDraws += render_j.numDraws;
+					render_i.numReads += render_j.numReads;
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
 				} else if (steps[i]->stepType == VKRStepType::COPY &&
-					steps[i]->copy.src == steps[j]->render.framebuffer) {
+					steps[i]->copy.src == render_j.framebuffer) {
 					// Can't eliminate the clear if a game copies from it before it's
 					// rendered to. However this should be rare.
 					// TODO: This should never happen when we check numReads now.
@@ -324,6 +327,8 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 						frameData.AcquireNextImage(vulkan_);
 						if (frameData.hasAcquired && frameData.curSwapchainImage != (uint32_t)-1) {
 							SetBackbuffer(framebuffers_[frameData.curSwapchainImage], frameDataShared.swapchainImages_[frameData.curSwapchainImage].image);
+						} else {
+							perform = false;
 						}
 					}
 
@@ -404,17 +409,19 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 
 	for (int i = 0; i < (int)steps.size() - 3; i++) {
 		int last = -1;
+		const decltype(steps[i + 1]->render) &render_i_plus_1 = steps[i + 1]->render;
 		if (!(steps[i]->stepType == VKRStepType::COPY &&
 			steps[i + 1]->stepType == VKRStepType::RENDER &&
 			steps[i + 2]->stepType == VKRStepType::COPY &&
-			steps[i + 1]->render.numDraws == 1 &&
+			render_i_plus_1.numDraws == 1 &&
 			steps[i]->copy.dst == steps[i + 2]->copy.dst))
 			continue;
 		// Looks promising! Let's start by finding the last one.
 		for (int j = i; j < (int)steps.size(); j++) {
+			const decltype(steps[j]->render) &render_j = steps[j]->render;
 			switch (steps[j]->stepType) {
 			case VKRStepType::RENDER:
-				if (steps[j]->render.numDraws > 1)
+				if (render_j.numDraws > 1)
 					last = j - 1;
 				// should really also check descriptor sets...
 				if (steps[j]->commands.size()) {
@@ -480,41 +487,45 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 	// of the game.
 	for (int i = 0; i < (int)steps.size() - 3; i++) {
 		int last = -1;
+		const decltype(steps[i]->render) &render_i = steps[i]->render;
+		const decltype(steps[i + 1]->render) &render_i_plus_1 = steps[i + 1]->render;
+		const decltype(steps[i + 2]->render) &render_i_plus_2 = steps[i + 2]->render;
 		if (!(steps[i]->stepType == VKRStepType::RENDER &&
 			steps[i + 1]->stepType == VKRStepType::RENDER &&
 			steps[i + 2]->stepType == VKRStepType::RENDER &&
-			steps[i]->render.numDraws == 1 &&
-			steps[i + 1]->render.numDraws == 1 &&
-			steps[i + 2]->render.numDraws == 1 &&
-			steps[i]->render.colorLoad == VKRRenderPassLoadAction::DONT_CARE &&
-			steps[i + 1]->render.colorLoad == VKRRenderPassLoadAction::KEEP &&
-			steps[i + 2]->render.colorLoad == VKRRenderPassLoadAction::DONT_CARE)) {
+			render_i.numDraws == 1 &&
+			render_i_plus_1.numDraws == 1 &&
+			render_i_plus_2.numDraws == 1 &&
+			render_i.colorLoad == VKRRenderPassLoadAction::DONT_CARE &&
+			render_i_plus_1.colorLoad == VKRRenderPassLoadAction::KEEP &&
+			render_i_plus_2.colorLoad == VKRRenderPassLoadAction::DONT_CARE)) {
 			continue;
 		}
-		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
-		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
+		VKRFramebuffer *depalFramebuffer = render_i.framebuffer;
+		VKRFramebuffer *targetFramebuffer = render_i_plus_1.framebuffer;
 		// OK, found the start of a post-process sequence. Let's scan until we find the end.
 		for (int j = i; j < (int)steps.size() - 3; j++) {
+			const decltype(steps[j]->render) &render_j = steps[j]->render;
 			if (((j - i) & 1) == 0) {
 				// This should be a depal draw.
-				if (steps[j]->render.numDraws != 1)
+				if (render_j.numDraws != 1)
 					break;
-				if (steps[j]->commands.size() > 5) // TODO: Not the greatest heuristic! This may change if we merge commands.
+				if (steps[j]->commands.size() > 5)
 					break;
-				if (steps[j]->render.colorLoad != VKRRenderPassLoadAction::DONT_CARE)
+				if (render_j.colorLoad != VKRRenderPassLoadAction::DONT_CARE)
 					break;
-				if (steps[j]->render.framebuffer != depalFramebuffer)
+				if (render_j.framebuffer != depalFramebuffer)
 					break;
 				last = j;
 			} else {
 				// This should be a target draw.
-				if (steps[j]->render.numDraws != 1)
+				if (render_j.numDraws != 1)
 					break;
-				if (steps[j]->commands.size() > 5) // TODO: Not the greatest heuristic! This may change if we merge commands.
+				if (steps[j]->commands.size() > 5)
 					break;
-				if (steps[j]->render.colorLoad != VKRRenderPassLoadAction::KEEP)
+				if (render_j.colorLoad != VKRRenderPassLoadAction::KEEP)
 					break;
-				if (steps[j]->render.framebuffer != targetFramebuffer)
+				if (render_j.framebuffer != targetFramebuffer)
 					break;
 				last = j;
 			}
@@ -536,6 +547,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 
 		// Combine the depal renders. Also record scissor bounds.
 		for (int j = i + 2; j <= last + 1; j += 2) {
+			const decltype(steps[j]->render) &render_j = steps[j]->render;
 			for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
 				switch (steps[j]->commands[k].cmd) {
 				case VKRRenderCommand::DRAW:
@@ -564,7 +576,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					break;
 				}
 			}
-			MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
+			MergeRenderAreaRectInto(&steps[i]->render.renderArea, render_j.renderArea);
 			steps[j]->stepType = VKRStepType::RENDER_SKIP;
 		}
 
@@ -586,6 +598,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 
 		// Combine the target renders.
 		for (int j = i + 3; j <= last; j += 2) {
+			const decltype(steps[j]->render) &render_j = steps[j]->render;
 			for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
 				switch (steps[j]->commands[k].cmd) {
 				case VKRRenderCommand::DRAW:
@@ -596,7 +609,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					break;
 				}
 			}
-			MergeRenderAreaRectInto(&steps[i + 1]->render.renderArea, steps[j]->render.renderArea);
+			MergeRenderAreaRectInto(&steps[i + 1]->render.renderArea, render_j.renderArea);
 			steps[j]->stepType = VKRStepType::RENDER_SKIP;
 		}
 
@@ -613,35 +626,39 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 
 	for (int i = 0; i < (int)steps.size() - 4; i++) {
 		int last = -1;
+		const decltype(steps[i]->render) &render_i = steps[i]->render;
+		const decltype(steps[i + 1]->render) &render_i_plus_1 = steps[i + 1]->render;
+		const decltype(steps[i + 2]->render) &render_i_plus_2 = steps[i + 2]->render;
+		const decltype(steps[i + 3]->render) &render_i_plus_3 = steps[i + 3]->render;
 		if (!(steps[i]->stepType == VKRStepType::RENDER &&
 			steps[i + 1]->stepType == VKRStepType::RENDER &&
 			steps[i + 2]->stepType == VKRStepType::RENDER &&
 			steps[i + 3]->stepType == VKRStepType::RENDER &&
-			steps[i]->render.numDraws == 3 &&
-			steps[i + 1]->render.numDraws == 1 &&
-			steps[i + 2]->render.numDraws == 6 &&
-			steps[i + 3]->render.numDraws == 1 &&
-			steps[i]->render.framebuffer == steps[i + 2]->render.framebuffer &&
-			steps[i + 1]->render.framebuffer == steps[i + 3]->render.framebuffer))
+			render_i.numDraws == 3 &&
+			render_i_plus_1.numDraws == 1 &&
+			render_i_plus_2.numDraws == 6 &&
+			render_i_plus_3.numDraws == 1 &&
+			render_i.framebuffer == render_i_plus_2.framebuffer &&
+			render_i_plus_1.framebuffer == render_i_plus_3.framebuffer))
 			continue;
 		// Looks promising! Let's start by finding the last one.
 		for (int j = i; j < (int)steps.size(); j++) {
-			switch (steps[j]->stepType) {
-			case VKRStepType::RENDER:
+			const decltype(steps[j]->render) &render_j = steps[j]->render;
+			if (steps[j]->stepType == VKRStepType::RENDER) {
 				if ((j - i) & 1) {
-					if (steps[j]->render.framebuffer != steps[i + 1]->render.framebuffer)
+					if (render_j.framebuffer != render_i_plus_1.framebuffer)
 						last = j - 1;
-					if (steps[j]->render.numDraws != 1)
+					if (render_j.numDraws != 1)
 						last = j - 1;
 				} else {
-					if (steps[j]->render.framebuffer != steps[i]->render.framebuffer)
+					if (render_j.framebuffer != render_i.framebuffer)
 						last = j - 1;
-					if (steps[j]->render.numDraws != 3 && steps[j]->render.numDraws != 6)
+					if (render_j.numDraws != 3 && render_j.numDraws != 6)
 						last = j - 1;
 				}
-				break;
-			default:
-				break;
+			} else {
+				// Not a render step, so break.
+				last = j - 1;
 			}
 			if (last != -1)
 				break;
@@ -769,8 +786,9 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	// Now, let's go through the steps. If we find one that is rendered to more than once,
 	// we'll scan forward and slurp up any rendering that can be merged across.
 	for (int i = 0; i < (int)steps.size(); i++) {
-		if (steps[i]->stepType == VKRStepType::RENDER && counts[steps[i]->render.framebuffer] > 1) {
-			auto fb = steps[i]->render.framebuffer;
+		decltype(steps[i]->render) &render_i = steps[i]->render;
+		if (steps[i]->stepType == VKRStepType::RENDER && counts[render_i.framebuffer] > 1) {
+			auto fb = render_i.framebuffer;
 			TinySet<VKRFramebuffer *, 8> touchedFramebuffers;  // must be the same fast-size as the dependencies TinySet for annoying reasons.
 			for (int j = i + 1; j < (int)steps.size(); j++) {
 				// If any other passes are reading from this framebuffer as-is, we cancel the scan.
@@ -890,7 +908,8 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 	INFO_LOG(Log::G3D, "RENDER %s Begin(%s, draws: %d, %dx%d, %s, %s, %s)", pass.tag, framebuf, r.numDraws, w, h, RenderPassActionName(r.colorLoad), RenderPassActionName(r.depthLoad), RenderPassActionName(r.stencilLoad));
 	// TODO: Log these in detail.
 	for (int i = 0; i < (int)pass.preTransitions.size(); i++) {
-		INFO_LOG(Log::G3D, "  PRETRANSITION: %s %s -> %s", pass.preTransitions[i].fb->Tag(), AspectToString(pass.preTransitions[i].aspect), ImageLayoutToString(pass.preTransitions[i].targetLayout));
+		const TransitionRequest &preTransition = pass.preTransitions[i];
+		INFO_LOG(Log::G3D, "  PRETRANSITION: %s %s -> %s", preTransition.fb->Tag(), AspectToString(preTransition.aspect), ImageLayoutToString(preTransition.targetLayout));
 	}
 
 	if (verbose) {
@@ -956,7 +975,7 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 	INFO_LOG(Log::G3D, "%s", StepToString(vulkan_, step).c_str());
 }
 
-void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile) {
+void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, const int curFrame, QueueProfileContext &profile) {
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
@@ -1179,6 +1198,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 			if (pipelineOK) {
+				_dbg_assert_(c.drawIndexed.descSetIndex < descSets->size());
 				VkDescriptorSet set = (*descSets)[c.drawIndexed.descSetIndex].set;
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
@@ -1191,7 +1211,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW:
 			if (pipelineOK) {
-				VkDescriptorSet set = (*descSets)[c.drawIndexed.descSetIndex].set;
+				_dbg_assert_(c.draw.descSetIndex < descSets->size());
+				VkDescriptorSet set = (*descSets)[c.draw.descSetIndex].set;
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.draw.numUboOffsets, c.draw.uboOffsets);
 				if (c.draw.vbuffer) {

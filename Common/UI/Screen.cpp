@@ -15,8 +15,22 @@
 void Screen::focusChanged(ScreenFocusChange focusChange) {
 	const char *eventName = "";
 	switch (focusChange) {
-	case ScreenFocusChange::FOCUS_LOST_TOP: eventName = "FOCUS_LOST_TOP"; break;
-	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
+	case ScreenFocusChange::FOCUS_LOST_TOP:
+	#if !defined(MOBILE_DEVICE)
+		if (WantsTextInput()) {
+			System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+		}
+	#endif
+		eventName = "FOCUS_LOST_TOP";
+		break;
+	case ScreenFocusChange::FOCUS_BECAME_TOP:
+	#if !defined(MOBILE_DEVICE)
+		if (WantsTextInput()) {
+			System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+		}
+	#endif
+		eventName = "FOCUS_BECAME_TOP";
+		break;
 	}
 	DEBUG_LOG(Log::UI, "Screen %s got %s", this->tag(), eventName);
 }
@@ -45,7 +59,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 		ERROR_LOG(Log::UI, "Can't switch to empty screen");
 		return;
 	}
-	// TODO: inputLock_ ?
 
 	INFO_LOG(Log::UI, "ScreenManager::switchScreen('%s')", screen->tag());
 
@@ -92,8 +105,6 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 }
 
 void ScreenManager::update() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-
 	if (cancelScreensAbove_) {
 		bool found = false;
 		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
@@ -115,14 +126,75 @@ void ScreenManager::update() {
 		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
 	}
-	// The background screen doesn't need updating.
+
+	// Only the front screen gets update().
 	if (!stack_.empty()) {
 		stack_.back().screen->update();
+		passInputToMapper_ = stack_.back().screen->PassInputToMapper();
+	}
+
+	// Process queued events.
+
+	std::deque<QueuedEvent> events;
+	{
+		std::lock_guard<std::mutex> eventGuard(eventQueueLock_);
+		events = std::move(eventQueue_);
+		eventQueue_.clear();
+	}
+
+	for (const QueuedEvent &ev : events) {
+		switch (ev.type) {
+		case QueuedEventType::TOUCH:
+		{
+			const TouchInput &touch = ev.touch;
+			// Send release all events to every screen layer.
+			if (touch.flags & TouchInputFlags::RELEASE_ALL) {
+				for (auto &layer : stack_) {
+					Screen *screen = layer.screen;
+					layer.screen->touch(screen->transformTouch(touch));
+				}
+			} else if (!stack_.empty()) {
+				// Let the overlay know about touch-downs, to be able to dismiss popups.
+				bool skip = false;
+				if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
+					skip = overlayScreen_->touch(overlayScreen_->transformTouch(touch));
+				}
+				if (!skip) {
+					Screen *screen = stack_.back().screen;
+					stack_.back().screen->touch(screen->transformTouch(touch));
+				}
+			}
+			break;
+		}
+		case QueuedEventType::KEY:
+		{
+			const KeyInput &key = ev.key;
+			// Send key up to every screen layer, to avoid stuck keys.
+			if (key.flags & KeyInputFlags::UP) {
+				for (auto &layer : stack_) {
+					layer.screen->key(key);
+				}
+			} else if (!stack_.empty()) {
+				stack_.back().screen->key(key);
+			}
+			break;
+		}
+		case QueuedEventType::AXIS:
+		{
+			const AxisInput &axis = ev.axis;
+			if (!stack_.empty()) {
+				stack_.back().screen->axis(axis);
+			}
+			break;
+		}
+		default:
+			ERROR_LOG(Log::UI, "Unknown queued event type: %d", (int)ev.type);
+			break;
+		}
 	}
 }
 
 void ScreenManager::switchToNext() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextStack_.empty()) {
 		ERROR_LOG(Log::System, "switchToNext: No nextStack_!");
 	}
@@ -136,7 +208,7 @@ void ScreenManager::switchToNext() {
 	stack_.push_back(nextStack_.front());
 	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
 	delete temp.screen;
-	UI::SetFocusedView(nullptr);
+	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 
 	// When will this ever happen? Should handle focus here too?
 	for (size_t i = 1; i < nextStack_.size(); ++i) {
@@ -146,44 +218,28 @@ void ScreenManager::switchToNext() {
 }
 
 void ScreenManager::touch(const TouchInput &touch) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	// Send release all events to every screen layer.
-	if (touch.flags & TouchInputFlags::RELEASE_ALL) {
-		for (auto &layer : stack_) {
-			Screen *screen = layer.screen;
-			layer.screen->UnsyncTouch(screen->transformTouch(touch));
-		}
-	} else if (!stack_.empty()) {
-		// Let the overlay know about touch-downs, to be able to dismiss popups.
-		bool skip = false;
-		if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
-			skip = overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
-		}
-		if (!skip) {
-			Screen *screen = stack_.back().screen;
-			stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
-		}
-	}
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::TOUCH;
+	ev.touch = touch;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	eventQueue_.push_back(ev);
 }
 
-bool ScreenManager::key(const KeyInput &key) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	bool result = false;
-	// Send key up to every screen layer, to avoid stuck keys.
-	if (key.flags & KeyInputFlags::UP) {
-		for (auto &layer : stack_) {
-			result = layer.screen->UnsyncKey(key);
-		}
-	} else if (!stack_.empty()) {
-		result = stack_.back().screen->UnsyncKey(key);
-	}
-	return result;
+void ScreenManager::key(const KeyInput &key) {
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::KEY;
+	ev.key = key;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	eventQueue_.push_back(ev);
 }
 
 void ScreenManager::axis(const AxisInput *axes, size_t count) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!stack_.empty()) {
-		stack_.back().screen->UnsyncAxis(axes, count);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::AXIS;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	for (size_t i = 0; i < count; i++) {
+		ev.axis = axes[i];
+		eventQueue_.push_back(ev);
 	}
 }
 
@@ -200,7 +256,6 @@ void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
 
 void ScreenManager::resized() {
 	INFO_LOG(Log::UI, "ScreenManager::resized(dp: %dx%d)", g_display.dp_xres, g_display.dp_yres);
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
 	for (auto &layer : stack_) {
@@ -335,15 +390,16 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 
 	// NOTE: Changed this to send the message to all screens, instead of just the top one,
 	// to allow EmuScreen to receive messages from popup menus. Hope this didn't break anything..
-	for (const auto &iter : stack_) {
-		if (iter.screen) {
-			iter.screen->sendMessage(message, value);
+	// NOTE: We do not use the iterator solution here, because the screen array may change by sendMessage!
+	// Although if it does, that's very bad.
+	for (int i = 0; i < stack_.size(); i++) {
+		if (stack_[i].screen) {
+			stack_[i].screen->sendMessage(message, value);
 		}
 	}
 }
 
 void ScreenManager::shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (const auto &layer : stack_)
 		delete layer.screen;
 	stack_.clear();
@@ -357,14 +413,13 @@ void ScreenManager::shutdown() {
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	screen->setScreenManager(this);
 	if (screen->isTransparent()) {
 		layerFlags |= LAYER_TRANSPARENT;
 	}
 
 	// Release touches and unfocus.
-	UI::SetFocusedView(nullptr);
+	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 	TouchInput input{};
 	input.x = -50000.0f;
 	input.y = -50000.0f;
@@ -388,7 +443,6 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 }
 
 void ScreenManager::pop() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 
@@ -404,7 +458,6 @@ void ScreenManager::pop() {
 }
 
 void ScreenManager::RecreateAllViews() {
-	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (auto &layer : stack_) {
 		layer.screen->RecreateViews();
 	}
@@ -438,7 +491,6 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
 		{
-			std::lock_guard<std::recursive_mutex> guard(inputLock_);
 			// Another dialog may have been pushed before the render, so search for it.
 			Screen *caller = dialogParent(dialogFinished_);
 			bool erased = false;

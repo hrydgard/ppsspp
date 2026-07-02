@@ -36,21 +36,32 @@
 constexpr double micros = 1000000.0;
 constexpr double nanos = 1000000000.0;
 
+
 #if PPSSPP_PLATFORM(WINDOWS)
+
+constexpr int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
+constexpr double TICKS_PER_SECOND = 10000000; //a tick is 100ns
 
 static LARGE_INTEGER frequency;
 static double frequencyMult;
 static LARGE_INTEGER startTime;
+static LARGE_INTEGER startFileTime;
 
 HANDLE Timer;
 int SchedulerPeriodMs = 10;
 INT64 QpcPerSecond;
 
 void TimeInit() {
+	FILETIME ft;
+	GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
+	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
+	startFileTime.LowPart = ft.dwLowDateTime;
+	startFileTime.HighPart = ft.dwHighDateTime;
+
 	QueryPerformanceFrequency(&frequency);
 	QueryPerformanceCounter(&startTime);
 	QpcPerSecond = frequency.QuadPart;
-	frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
+	frequencyMult = 1.0 / frequency.QuadPart;
 
 	// The timer will be automatically deleted on process destruction. Don't need to CloseHandle.
 	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
@@ -85,9 +96,6 @@ double from_time_raw_relative(uint64_t raw_time) {
 }
 
 double time_now_unix_utc() {
-	const int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
-	const double TICKS_PER_SECOND = 10000000; //a tick is 100ns
-
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
 	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
@@ -96,6 +104,15 @@ double time_now_unix_utc() {
 	li.HighPart = ft.dwHighDateTime;
 	//Convert ticks since 1/1/1970 into seconds
 	return (double)(li.QuadPart - UNIX_TIME_START) / TICKS_PER_SECOND;
+}
+
+// Adds the timestamp to startTime, and converts to seconds from the unix epoch.
+double time_to_unix_utc(double timestamp) {
+	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
+	LARGE_INTEGER li;
+	li.LowPart = startFileTime.LowPart;
+	li.HighPart = startFileTime.HighPart;
+	return (double)(li.QuadPart - UNIX_TIME_START + static_cast<int64_t>(timestamp * TICKS_PER_SECOND)) / TICKS_PER_SECOND;
 }
 
 void yield() {
@@ -225,6 +242,12 @@ void yield() {}
 
 double time_now_unix_utc() {
 	return time_now_raw();
+}
+
+double time_to_unix_utc(double t) {
+	struct timeval tv;
+	gettimeofday(&tv, nullptr);
+	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros) + t;
 }
 
 Instant::Instant() {

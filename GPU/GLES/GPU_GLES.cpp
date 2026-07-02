@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/GraphicsContext.h"
 #include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
@@ -94,9 +95,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			File::IOFile f(shaderCachePath_, "rb");
 			if (f.IsOpen()) {
 				if (shaderManagerGL_->LoadCacheFlags(f, &drawEngine_)) {
-					if (drawEngineCommon_->EverUsedExactEqualDepth()) {
-						sawExactEqualDepth_ = true;
-					}
 					gstate_c.SetUseFlags(CheckGPUFeatures());
 					// We're compiling now, clear if they changed.
 					gstate_c.useFlagsChanged = false;
@@ -107,13 +105,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			}
 		} else {
 			INFO_LOG(Log::G3D, "Shader cache disabled. Not loading.");
-		}
-	}
-
-	if (g_Config.bHardwareTessellation) {
-		// Log information that we disable hardware tessellation if device is unsupported.
-		if (!drawEngine_.SupportsHWTessellation()) {
-			ERROR_LOG(Log::G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 		}
 	}
 }
@@ -140,22 +131,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 
 	features |= GPU_USE_16BIT_FORMATS;
 
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		features |= GPU_USE_TEXTURE_LOD_CONTROL;
-
-	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
-	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
-	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
-	if (instanceRendering)
-		features |= GPU_USE_INSTANCE_RENDERING;
-
-	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
-	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
-		features |= GPU_USE_VERTEX_TEXTURE_FETCH;
-
-	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
-		features |= GPU_USE_TEXTURE_FLOAT;
-
 	if (!draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_FRAGMENT_TEST_CACHE;
 	}
@@ -167,11 +142,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if (IsVREnabled() || g_Config.bForceVR) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 		features &= ~GPU_USE_VS_RANGE_CULLING;
-	}
-
-	if (!gl_extensions.GLES3) {
-		// Heuristic.
-		features &= ~GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
 	features = CheckGPUFeaturesLate(features);
@@ -190,6 +160,11 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}
+
+	if (g_Config.bSkipBufferEffects) {
+		features |= GPU_USE_NONBUFFERED_FLIP;
+	}
+
 	return features;
 }
 
@@ -242,8 +217,8 @@ void GPU_GLES::BeginHostFrame(const DisplayLayoutConfig &config) {
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
 
-	const int saveShaderCacheFrameInterval = 32767;  // power of 2 - 1. About every 10 minutes at 60fps.
-	if (shaderCachePath_.Valid() && !(gpuStats.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING_CPU) {
+	constexpr int saveShaderCacheFrameInterval = 32767;  // power of 2 - 1. About every 10 minutes at 60fps.
+	if (shaderCachePath_.Valid() && !(gpuStats.totals.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING_CPU) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
 	shaderManagerGL_->DirtyLastShader();
@@ -273,16 +248,11 @@ void GPU_GLES::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
-	size_t offset = FormatGPUStatsCommon(buffer, bufsize);
-	buffer += offset;
-	bufsize -= offset;
-	if ((int)bufsize < 0)
-		return;
-	snprintf(buffer, bufsize,
-		"Vertex, Fragment, Programs loaded: %d, %d, %d\n",
+void GPU_GLES::GetStats(StringWriter &w) {
+	w.F("Vertex, Fragment, Programs loaded: %d, %d, %d\n",
 		shaderManagerGL_->GetNumVertexShaders(),
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
+	FormatGPUStatsCommon(w);
 }

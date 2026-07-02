@@ -191,7 +191,8 @@ public:
 
 private:
 	// Should be called under lock.
-	void Update(u32 addr = 0) {
+	// 0 means to clear the whole jit cache, to apply some change that has been made.
+	void Update(u32 addr) {
 		needsUpdate_ = true;
 		updateAddr_ = addr;
 	}
@@ -217,6 +218,10 @@ private:
 
 	bool needsUpdate_ = true;
 	u32 updateAddr_ = 0;
+
+	enum {
+		INVALID_ADDRESS = -1
+	};
 };
 
 extern BreakpointManager g_breakpoints;

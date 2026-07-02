@@ -80,8 +80,6 @@ private:
 	void OnConfirmClick(UI::EventParams &params);
 	void OnChoiceClick(UI::EventParams &params);
 
-	NoticeView *errorNoticeView_ = nullptr;
-
 	bool initialSetup_;
 	bool storageBrowserWorking_;
 	bool done_ = false;

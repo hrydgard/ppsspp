@@ -157,6 +157,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_FOLDER_UPLOAD", false},
 	{"I_FILE", false},
 	{"I_FILE_COPY", false},
+	{"I_FILE_PASTE", false},
 	{"I_WEB_BROWSER", false},
 	{"I_WIFI", false},
 	{"I_LOGO_X", false},
@@ -199,6 +200,10 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_RADIO_SELECTED", false},
 	{"I_EDIT_TEXT", false},
 	{"I_SEND", false},
+	{"I_ARCHIVE_ZIP", false},
+	{"I_ARCHIVE_7Z", false},
+	{"I_ARCHIVE_RAR", false},
+	{"I_DOWNLOAD", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {

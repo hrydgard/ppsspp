@@ -13,6 +13,9 @@
 #include "Common/UI/Context.h"
 #include "UI/TabbedDialogScreen.h"
 
+UITabbedBaseDialogScreen::UITabbedBaseDialogScreen(const Path &gamePath, int *currentTabSetting, TabDialogFlags flags)
+	: UIBaseDialogScreen(gamePath), currentTabSetting_(currentTabSetting), flags_(flags) {}
+
 void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
 	using namespace UI;
 
@@ -103,8 +106,15 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	CreateTabs();
 	if (currentTabSetting_) {
 		tabHolder_->SetInitialTab(*currentTabSetting_);
+	} else {
+		tabHolder_->EnsureTab(tabHolder_->GetCurrentTab());
 	}
-	tabHolder_->EnsureTab(tabHolder_->GetCurrentTab());
+
+	tabHolder_->OnChangeTab.Add([this](UI::EventParams &e) {
+		if (currentTabSetting_) {
+			*currentTabSetting_ = e.a;
+		}
+	});
 
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD) || System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		// Hide search if screen is too small.
@@ -134,12 +144,6 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	// Need to handle recreates, both important and accidental ones.
 	if (!searchFilter_.empty()) {
 		ApplySearchFilter();
-	}
-}
-
-UITabbedBaseDialogScreen::~UITabbedBaseDialogScreen() {
-	if (currentTabSetting_) {
-		*currentTabSetting_ = GetCurrentTab();
 	}
 }
 

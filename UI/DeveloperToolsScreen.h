@@ -39,7 +39,6 @@ private:
 	void OnMIPSTracerClearTracer(UI::EventParams &e);
 	void OnGPUDriverTest(UI::EventParams &e);
 	void OnMemstickTest(UI::EventParams &e);
-	void OnTouchscreenTest(UI::EventParams &e);
 	void OnCopyStatesToRoot(UI::EventParams &e);
 	void OnSaveButtonsTexture(UI::EventParams &e);
 

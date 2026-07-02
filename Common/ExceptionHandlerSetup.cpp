@@ -222,6 +222,8 @@ void UninstallExceptionHandler() {
 
 static struct sigaction old_sa_segv;
 static struct sigaction old_sa_bus;
+static stack_t old_signal_stack{};
+static bool old_signal_stack_valid = false;
 
 static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 	if (sig != SIGSEGV && sig != SIGBUS) {
@@ -298,6 +300,9 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack{};
+	if (sigaltstack(nullptr, &old_signal_stack) == 0) {
+		old_signal_stack_valid = true;
+	}
 	altStack = malloc(altStackSize);
 #ifdef __FreeBSD__
 	signal_stack.ss_sp = (char*)altStack;
@@ -324,10 +329,11 @@ void UninstallExceptionHandler() {
 	if (!g_badAccessHandler) {
 		return;
 	}
-	stack_t signal_stack{};
-	signal_stack.ss_flags = SS_DISABLE;
-	if (0 != sigaltstack(&signal_stack, nullptr)) {
-		ERROR_LOG(Log::System, "Could not remove signal altstack");
+	if (old_signal_stack_valid) {
+		if (0 != sigaltstack(&old_signal_stack, nullptr)) {
+			ERROR_LOG(Log::System, "Could not restore previous signal altstack");
+		}
+		old_signal_stack_valid = false;
 	}
 	if (altStack) {
 		free(altStack);

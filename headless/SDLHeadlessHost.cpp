@@ -20,11 +20,7 @@
 #include <cstdio>
 
 #include "ppsspp_config.h"
-#if PPSSPP_PLATFORM(MAC)
-#include "SDL2/SDL.h"
-#else
-#include "SDL.h"
-#endif
+#include <SDL3/SDL.h>
 
 #include "headless/SDLHeadlessHost.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -49,7 +45,7 @@ SDL_Window *CreateHiddenWindow() {
 	if (!WINDOW_VISIBLE) {
 		flags |= SDL_WINDOW_HIDDEN;
 	}
-	return SDL_CreateWindow("PPSSPPHeadless", 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, flags);
+	return SDL_CreateWindow("PPSSPPHeadless", WINDOW_WIDTH, WINDOW_HEIGHT, flags);
 }
 
 class GLDummyGraphicsContext : public GraphicsContext {
@@ -64,7 +60,7 @@ public:
 		delete draw_;
 		draw_ = nullptr;
 
-		SDL_GL_DeleteContext(glContext_);
+		SDL_GL_DestroyContext(glContext_);
 		glContext_ = nullptr;
 		SDL_DestroyWindow(screen_);
 		screen_ = nullptr;

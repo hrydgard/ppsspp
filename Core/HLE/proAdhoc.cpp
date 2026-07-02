@@ -1305,7 +1305,7 @@ void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	if (count != NULL) (*count)++;
 }
 
-void sendChat(const std::string &chatString) {
+void sendChat(std::string_view chatString) {
 	SceNetAdhocctlChatPacketC2S chat{};
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
@@ -1313,7 +1313,7 @@ void sendChat(const std::string &chatString) {
 		// Send Chat to Server 
 		if (!chatString.empty()) {
 			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-			std::string message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
+			std::string message(chatString.substr(0, 60)); // 64 return chat variable corrupted is it out of memory?
 			strcpy(chat.message, message.c_str());
 			//Send Chat Messages
 			if (IsSocketReady((int)metasocket, false, true) > 0) {
@@ -1330,7 +1330,7 @@ void sendChat(const std::string &chatString) {
 		std::lock_guard<std::mutex> guard(chatLogLock);
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		chatLog.push_back(std::string(n->T("You're in Offline Mode, go to lobby or online hall")));
-		INFO_LOG(Log::sceNet, "Offline. Would have sent: %s", chatString.c_str());
+		INFO_LOG(Log::sceNet, "Offline. Would have sent: %.*s", STR_VIEW(chatString));
 		chatMessageGeneration++;
 	}
 }

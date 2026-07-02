@@ -138,6 +138,15 @@ struct VolDescriptor {
 	char zeroos[653];
 };
 
+// Removes version numbers from filenames.
+static std::string_view CleanISOFileName(std::string_view name) {
+	auto pos = name.find(';');
+	if (pos != name.npos) {
+		name = name.substr(0, pos);
+	}
+	return name;
+}
+
 #pragma pack(pop)
 
 ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice) {
@@ -145,8 +154,17 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDev
 	hAlloc = _hAlloc;
 
 	VolDescriptor desc;
-	if (!blockDevice->ReadBlock(16, (u8*)&desc))
+	if (!blockDevice->ReadBlock(16, (u8*)&desc)) {
+		// TODO: This is kinda wacky.
 		blockDevice->NotifyReadError();
+		errorString_ = "ISO: error reading volume descriptor";
+		return;
+	}
+
+	if (memcmp(desc.cd001, "CD001", 5)) {
+		errorString_ = "ISO: missing CD001 signature";
+		return;
+	}
 
 	entireISO.name.clear();
 	entireISO.isDirectory = false;
@@ -162,11 +180,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDev
 	treeroot->flags = 0;
 	treeroot->parent = NULL;
 	treeroot->valid = false;
-
-	if (memcmp(desc.cd001, "CD001", 5)) {
-		ERROR_LOG(Log::FileSystem, "ISO looks bogus, expected CD001 signature not present? Giving up...");
-		return;
-	}
 
 	treeroot->startsector = desc.root.firstDataSector;
 	treeroot->dirsize = desc.root.dataLength;
@@ -223,7 +236,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				entry->name = "..";
 				relative = true;
 			} else {
-				entry->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
+				entry->name = std::string(CleanISOFileName(std::string_view((const char *)&dir.firstIdChar, dir.identifierLength)));
 				relative = false;
 			}
 

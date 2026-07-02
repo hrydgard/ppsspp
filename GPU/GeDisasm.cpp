@@ -34,7 +34,7 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	int morphCount = (op & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT;
 	int idx = (op & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 
-	static const char * const colorNames[] = {
+	static constexpr const char * colorNames[] = {
 		NULL,
 		"unsupported1",
 		"unsupported2",
@@ -44,19 +44,19 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		"ABGR 4444",
 		"ABGR 8888",
 	};
-	static const char * const typeNames[] = {
+	static constexpr const char * typeNames[] = {
 		NULL,
 		"u8",
 		"u16",
 		"float",
 	};
-	static const char * const typeNamesI[] = {
+	static constexpr const char * typeNamesI[] = {
 		NULL,
 		"u8",
 		"u16",
 		"u32",
 	};
-	static const char * const typeNamesS[] = {
+	static constexpr const char * typeNamesS[] = {
 		NULL,
 		"s8",
 		"s16",
@@ -93,17 +93,6 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
-
-	static const char * const primTypes[8] = {
-		"POINTS",
-		"LINES",
-		"LINE_STRIP",
-		"TRIANGLES",
-		"TRIANGLE_STRIP",
-		"TRIANGLE_FAN",
-		"RECTANGLES",
-		"CONTINUE_PREVIOUS",
-	};
 
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
@@ -144,9 +133,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			u32 count = data & 0xFFFF;
 			u32 type = (data >> 16) & 7;
 			if (gstate.vertType & GE_VTYPE_IDX_MASK)
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", GePrimTypeToString(static_cast<GEPrimitiveType>(type)), count, gstate_c.vertexAddr, gstate_c.indexAddr);
 			else
-				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", type < 7 ? primTypes[type] : "INVALID", count, gstate_c.vertexAddr);
+				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x", GePrimTypeToString(static_cast<GEPrimitiveType>(type)), count, gstate_c.vertexAddr);
 		}
 		break;
 
@@ -323,7 +312,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
-	case GE_CMD_DEPTHCLAMPENABLE:
+	case GE_CMD_DEPTHCLIPENABLE:
 		snprintf(buffer, bufsize, "Depth clamp enable: %i", data);
 		break;
 
@@ -474,13 +463,13 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXMAPMODE:
 		{
-			static const char * const uvgen[] = {
+			static constexpr const char * uvgen[] = {
 				"texcoords",
 				"texgen matrix",
 				"env map",
 				"invalid"
 			};
-			static const char * const uvproj[] = {
+			static constexpr const char * uvproj[] = {
 				"pos",
 				"uv",
 				"normalized normal",
@@ -767,7 +756,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			float g = (float)((data>>8) & 0xff)/255.0f;
 			float b = (float)(data>>16)/255.0f;
 
-			static const char * const lightColorTypes[] = {
+			static constexpr const char * lightColorTypes[] = {
 				"ambient",
 				"diffuse",
 				"specular",
@@ -1006,7 +995,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXFUNC:
 		{
-			const char * const texfuncs[] = {
+			constexpr const char * texfuncs[] = {
 				"modulate",
 				"decal",
 				"blend",
@@ -1025,7 +1014,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXFILTER:
 		{
-			static const char * const textureFilters[] = {
+			static constexpr const char * textureFilters[] = {
 				"nearest",
 				"linear",
 				"nearest, invalid",
@@ -1057,7 +1046,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXFORMAT:
 		{
-			static const char * const texformats[] = {
+			static constexpr const char * texformats[] = {
 				"5650",
 				"5551",
 				"4444",
@@ -1105,7 +1094,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_TEXLEVEL:
 		{
-			static const char * const mipLevelModes[] = {
+			static constexpr const char * mipLevelModes[] = {
 				"auto + bias",
 				"bias",
 				"slope + bias",
@@ -1149,14 +1138,14 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_STENCILOP:
 		{
-			static const char * const stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
+			static constexpr const char * stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
 			snprintf(buffer, bufsize, "Stencil op: fail=%s, pass/depthfail=%s, pass=%s", stencilOps[data & 7], stencilOps[(data >> 8) & 7], stencilOps[(data >> 16) & 7]);
 		}
 		break;
 
 	case GE_CMD_STENCILTEST:
 		{
-			static const char * const zTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			static constexpr const char * zTestFuncs[] = { " NEVER ", " ALWAYS ", " == ", " != ", " < ", " <= ", " > ", " >= " };
 			if (data & ~0xFFFF07)
 				snprintf(buffer, bufsize, "Stencil test: %02x%s(dst.a & %02x) (extra %06x)", (data >> 8) & 0xFF, zTestFuncs[data & 7], (data >> 16) & 0xFF, data & ~0xFFFF07);
 			else
@@ -1170,7 +1159,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_ZTEST:
 		{
-			static const char * const zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+			static constexpr const char * zTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 			if (data & ~7)
 				snprintf(buffer, bufsize, "Z test mode: %s (extra %06x)", zTestFuncs[data & 7], data & ~7);
 			else
@@ -1202,7 +1191,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 
 	case GE_CMD_LOGICOP:
 		{
-			const char * const logicOps[] = {
+			constexpr const char * logicOps[] = {
 				"clear",
 				"and",
 				"reverse and",
@@ -1365,7 +1354,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			bool texturing = (data & GE_IMM_TEXTURE) != 0;
 			bool dither = (data & GE_IMM_DITHER) != 0;
 			char *p = buffer;
-			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, primTypes[(data >> 8) & 7]);
+			p += snprintf(p, bufsize - (p - buffer), "Vertex draw: alpha=%02x, prim=%s", data & 0xFF, GePrimTypeToString(static_cast<GEPrimitiveType>((data >> 8) & 7)));
 			if (antialias)
 				p += snprintf(p, bufsize - (p - buffer), ", antialias");
 			if (clip != 0)

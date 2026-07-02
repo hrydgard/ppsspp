@@ -52,6 +52,8 @@ public:
 	}
 	bool EnsureTab(int index);  // return true if it actually created a tab.
 
+	Event OnChangeTab;
+
 private:
 	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
 	void OnTabClick(EventParams &e);
@@ -66,7 +68,7 @@ private:
 	TabHolderFlags flags_ = TabHolderFlags::Default;
 	int currentTab_ = 0;
 	std::vector<ViewGroup *> tabs_;
-	std::vector<AnchorTranslateTween *> tabTweens_;
+	std::vector<AnchorTranslateTween *> tabTweens_;  // NOTE: The tweens are actually owned by the tabs.
 	std::vector<std::function<ViewGroup *()>> createFuncs_;
 };
 

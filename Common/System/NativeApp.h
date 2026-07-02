@@ -3,6 +3,8 @@
 #include <functional>
 #include <string>
 
+#include "Common/Common.h"
+
 // The Native App API.
 //
 // Implement these functions and you've got a native app. These are called
@@ -17,6 +19,19 @@ struct AxisInput;
 class GraphicsContext;
 class AudioBackend;
 
+enum class KeyModifier {
+	NONE = 0,
+	LCTRL = 1,
+	RCTRL = 2,
+	LSHIFT = 4,
+	RSHIFT = 8,
+	LALT = 16,
+	RALT = 32,
+	LMETA = 64,
+	RMETA = 128,
+};
+ENUM_CLASS_BITOPS(KeyModifier);
+
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version);
@@ -29,6 +44,8 @@ bool NativeIsAtTopLevel();
 // before this, although it may be called at any point in time afterwards (on any thread!)
 // This functions must NOT call OpenGL. Main thread.
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir);
+void NativeSetAchievementsHostOverride(std::string_view host);
+void NativeClearAchievementsHostOverride();
 
 // Runs after NativeInit() at some point. May (and probably should) call OpenGL.
 // Should not initialize anything screen-size-dependent - do that in NativeResized.
@@ -53,6 +70,7 @@ bool NativeKey(const KeyInput &key);
 void NativeAxis(const AxisInput *axis, size_t count);
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ);
 void NativeMouseDelta(float dx, float dy);
+KeyModifier NativeGetKeyModifiers();  // TODO: Move this to input handling somewhere? But don't want it in each backend...
 
 // Called when it's process a frame, including rendering. If the device can keep up, this
 // will be called sixty times per second. Main thread.

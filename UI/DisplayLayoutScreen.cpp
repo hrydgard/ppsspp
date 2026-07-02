@@ -294,7 +294,7 @@ void DisplayLayoutScreen::CreateViews() {
 			rightColumn->Add(new CheckBox(&config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 		}
 
-		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 			rightColumn->Add(new Spacer(12.0f));
 			AddRotationPicker(screenManager(), rightColumn, true);
 		}

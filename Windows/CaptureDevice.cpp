@@ -18,6 +18,8 @@
 #include <shlwapi.h>
 #include <wrl/client.h>
 
+#include "mfapi.h"
+
 #include "Common/Thread/ThreadUtil.h"
 #include "CaptureDevice.h"
 #include "BufferLock.h"
@@ -33,64 +35,87 @@ namespace MFAPI {
 	HINSTANCE Mfplatlib;
 	HINSTANCE Mfreadwritelib;
 
+	// NOTE: MFGetAttributeSize is an inline function, so we don't need to load it dynamically.
+
 	typedef HRESULT(WINAPI *MFEnumDeviceSourcesFunc)(IMFAttributes *, IMFActivate ***, UINT32 *);
+	typedef HRESULT(WINAPI *MFStartupFunc)(ULONG, DWORD);
+	typedef HRESULT(WINAPI *MFShutdownFunc)();
+	typedef HRESULT(WINAPI *MFCreateAttributesFunc)(IMFAttributes **, UINT32);
 	typedef HRESULT(WINAPI *MFGetStrideForBitmapInfoHeaderFunc)(DWORD, DWORD, LONG *);
 	typedef HRESULT(WINAPI *MFCreateSourceReaderFromMediaSourceFunc)(IMFMediaSource *, IMFAttributes *, IMFSourceReader **);
 	typedef HRESULT(WINAPI *MFCopyImageFunc)(BYTE *, LONG, const BYTE *, LONG, DWORD, DWORD);
 
 	MFEnumDeviceSourcesFunc EnumDeviceSources;
+	MFStartupFunc Startup;
+	MFShutdownFunc ShutdownFn;
+	MFCreateAttributesFunc CreateAttributes;
 	MFGetStrideForBitmapInfoHeaderFunc GetStrideForBitmapInfoHeader;
 	MFCreateSourceReaderFromMediaSourceFunc CreateSourceReaderFromMediaSource;
 	MFCopyImageFunc CopyImage;
 }
 
-using namespace MFAPI;
 
-bool RegisterCMPTMFApis(){
-	//For the compatibility,these funcs don't be supported on vista.
-	Mflib = LoadLibrary(L"Mf.dll");
-	Mfplatlib = LoadLibrary(L"Mfplat.dll");
-	Mfreadwritelib = LoadLibrary(L"Mfreadwrite.dll");
-	if (!Mflib || !Mfplatlib || !Mfreadwritelib)
-		return false;
+bool RegisterCMPTMFApis() {
+	// We dynamically load these, as they are not always available (de-bloated Windows, Windows Vista, etc).
 
-	EnumDeviceSources = (MFEnumDeviceSourcesFunc)GetProcAddress(Mflib, "MFEnumDeviceSources");
-	GetStrideForBitmapInfoHeader = (MFGetStrideForBitmapInfoHeaderFunc)GetProcAddress(Mfplatlib, "MFGetStrideForBitmapInfoHeader");
-	MFAPI::CopyImage = (MFCopyImageFunc)GetProcAddress(Mfplatlib, "MFCopyImage");
-	CreateSourceReaderFromMediaSource = (MFCreateSourceReaderFromMediaSourceFunc)GetProcAddress(Mfreadwritelib, "MFCreateSourceReaderFromMediaSource");
-	if (!EnumDeviceSources || !GetStrideForBitmapInfoHeader || !CreateSourceReaderFromMediaSource || !MFAPI::CopyImage)
+	MFAPI::Mflib = LoadLibrary(L"Mf.dll");
+	if (!MFAPI::Mflib) {
+		ERROR_LOG(Log::System, "Failed to load Mflib.");
 		return false;
+	}
+	MFAPI::Mfplatlib = LoadLibrary(L"Mfplat.dll");
+	if (!MFAPI::Mfplatlib) {
+		ERROR_LOG(Log::System, "Failed to load Mfplat.");
+		return false;
+	}
+	MFAPI::Mfreadwritelib = LoadLibrary(L"Mfreadwrite.dll");
+	if (!MFAPI::Mfreadwritelib) {
+		ERROR_LOG(Log::System, "Failed to load Mfreadwrite.");
+		return false;
+	}
+
+	MFAPI::EnumDeviceSources = (MFAPI::MFEnumDeviceSourcesFunc)GetProcAddress(MFAPI::Mflib, "MFEnumDeviceSources");
+	MFAPI::Startup = (MFAPI::MFStartupFunc)GetProcAddress(MFAPI::Mfplatlib, "MFStartup");
+	MFAPI::ShutdownFn = (MFAPI::MFShutdownFunc)GetProcAddress(MFAPI::Mfplatlib, "MFShutdown");
+	MFAPI::CreateAttributes = (MFAPI::MFCreateAttributesFunc)GetProcAddress(MFAPI::Mfplatlib, "MFCreateAttributes");
+	MFAPI::GetStrideForBitmapInfoHeader = (MFAPI::MFGetStrideForBitmapInfoHeaderFunc)GetProcAddress(MFAPI::Mfplatlib, "MFGetStrideForBitmapInfoHeader");
+	MFAPI::CopyImage = (MFAPI::MFCopyImageFunc)GetProcAddress(MFAPI::Mfplatlib, "MFCopyImage");
+	MFAPI::CreateSourceReaderFromMediaSource = (MFAPI::MFCreateSourceReaderFromMediaSourceFunc)GetProcAddress(MFAPI::Mfreadwritelib, "MFCreateSourceReaderFromMediaSource");
+	if (!MFAPI::EnumDeviceSources || !MFAPI::Startup || !MFAPI::ShutdownFn || !MFAPI::CreateAttributes || !MFAPI::GetStrideForBitmapInfoHeader || !MFAPI::CreateSourceReaderFromMediaSource || !MFAPI::CopyImage) {
+		return false;
+	}
 
 	return true;
 }
 
-bool unRegisterCMPTMFApis() {
-	if (Mflib) {
-		FreeLibrary(Mflib);
-		Mflib = nullptr;
+bool UnRegisterCMPTMFApis() {
+	if (MFAPI::Mflib) {
+		FreeLibrary(MFAPI::Mflib);
+		MFAPI::Mflib = nullptr;
 	}
 
-	if (Mfplatlib) {
-		FreeLibrary(Mfplatlib);
-		Mfplatlib = nullptr;
+	if (MFAPI::Mfplatlib) {
+		FreeLibrary(MFAPI::Mfplatlib);
+		MFAPI::Mfplatlib = nullptr;
 	}
 
-	if (Mfreadwritelib) {
-		FreeLibrary(Mfreadwritelib);
-		Mfreadwritelib = nullptr;
+	if (MFAPI::Mfreadwritelib) {
+		FreeLibrary(MFAPI::Mfreadwritelib);
+		MFAPI::Mfreadwritelib = nullptr;
 	}
 
-	EnumDeviceSources = nullptr;
-	GetStrideForBitmapInfoHeader = nullptr;
-	CreateSourceReaderFromMediaSource = nullptr;
+	MFAPI::EnumDeviceSources = nullptr;
+	MFAPI::Startup = nullptr;
+	MFAPI::ShutdownFn = nullptr;
+	MFAPI::CreateAttributes = nullptr;
+	MFAPI::GetStrideForBitmapInfoHeader = nullptr;
+	MFAPI::CreateSourceReaderFromMediaSource = nullptr;
 	MFAPI::CopyImage = nullptr;
-
 	return true;
 }
 
 WindowsCaptureDevice *winCamera;
 WindowsCaptureDevice *winMic;
-
 // TODO: Add more formats, but need some tests.
 VideoFormatTransform g_VideoFormats[] =
 {
@@ -160,7 +185,7 @@ HRESULT ReaderCallback::OnReadSample(
 	}
 	if (SUCCEEDED(hr)) {
 		switch (device->type) {
-		case CAPTUREDEVIDE_TYPE::VIDEO: {
+		case CAPTUREDEVICE_TYPE::VIDEO: {
 			BYTE *pbScanline0 = nullptr;
 			VideoBufferLock *videoBuffer = nullptr;
 			int imgJpegSize = device->imgJpegSize;
@@ -247,7 +272,7 @@ HRESULT ReaderCallback::OnReadSample(
 			delete videoBuffer;
 			break;
 		}
-		case CAPTUREDEVIDE_TYPE::Audio: {
+		case CAPTUREDEVICE_TYPE::AUDIO: {
 			BYTE *sampleBuf = nullptr;
 			DWORD length = 0;
 			u32 sizeAfterResample = 0;
@@ -464,34 +489,33 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 #endif
 }
 
-WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE _type) :
+WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVICE_TYPE _type) :
 	type(_type),
 	error(CAPTUREDEVIDE_ERROR_NO_ERROR),
-	state(CAPTUREDEVIDE_STATE::UNINITIALIZED) {
+	state(CAPTUREDEVICE_STATE::UNINITIALIZED) {
 	param = { 0 };
 	deviceParam = { { 0 } };
 
 	switch (type) {
-	case CAPTUREDEVIDE_TYPE::VIDEO:
+	case CAPTUREDEVICE_TYPE::VIDEO:
 		targetMediaParam = defaultVideoParam;
 		break;
-	case CAPTUREDEVIDE_TYPE::Audio:
+	case CAPTUREDEVICE_TYPE::AUDIO:
 		targetMediaParam = defaultAudioParam;
 		break;
 	}
 
-	std::thread t(&WindowsCaptureDevice::messageHandler, this);
-	t.detach();
+	thread_ = std::thread(&WindowsCaptureDevice::messageHandler, this);
 }
 
 WindowsCaptureDevice::~WindowsCaptureDevice() {
 #ifdef USE_FFMPEG
 	switch (type) {
-	case CAPTUREDEVIDE_TYPE::VIDEO:
+	case CAPTUREDEVICE_TYPE::VIDEO:
 		av_freep(&imageRGB);
 		av_freep(&imageJpeg);
 		break;
-	case CAPTUREDEVIDE_TYPE::Audio:
+	case CAPTUREDEVICE_TYPE::AUDIO:
 		av_freep(&resampleBuf);
 		break;
 	}
@@ -500,26 +524,6 @@ WindowsCaptureDevice::~WindowsCaptureDevice() {
 
 void WindowsCaptureDevice::CheckDevices() {
 	isDeviceChanged = true;
-}
-
-bool WindowsCaptureDevice::init() {
-	HRESULT hr = S_OK;
-
-	if (!RegisterCMPTMFApis()) {
-		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot register devices");
-		return false;
-	}
-	std::unique_lock<std::mutex> lock(paramMutex);
-	hr = enumDevices();
-	lock.unlock();
-
-	if (FAILED(hr)) {
-		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot enumerate devices");
-		return false;
-	}
-
-	updateState(CAPTUREDEVIDE_STATE::STOPPED);
-	return true;
 }
 
 bool WindowsCaptureDevice::start(void *startParam) {
@@ -543,10 +547,10 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 	m_pCallback = new ReaderCallback(this);
 
-	std::string selectedDeviceName = type == CAPTUREDEVIDE_TYPE::VIDEO ? g_Config.sCameraDevice : g_Config.sMicDevice;
+	std::string selectedDeviceName = type == CAPTUREDEVICE_TYPE::VIDEO ? g_Config.sCameraDevice : g_Config.sMicDevice;
 
 	switch (state) {
-	case CAPTUREDEVIDE_STATE::STOPPED:
+	case CAPTUREDEVICE_STATE::STOPPED:
 		for (auto &name : deviceList) {
 			if (name == selectedDeviceName) {
 				selection = count;
@@ -559,7 +563,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 			IID_PPV_ARGS(&m_pSource));
 
 		if (SUCCEEDED(hr))
-			hr = MFCreateAttributes(&pAttributes, 2);
+			hr = MFAPI::CreateAttributes(&pAttributes, 2);
 
 		// Use async mode
 		if (SUCCEEDED(hr))
@@ -569,7 +573,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 			hr = pAttributes->SetUINT32(MF_READWRITE_DISABLE_CONVERTERS, TRUE);
 
 		if (SUCCEEDED(hr)) {
-			hr = CreateSourceReaderFromMediaSource(
+			hr = MFAPI::CreateSourceReaderFromMediaSource(
 					m_pSource.Get(),
 					pAttributes.Get(),
 					&m_pReader
@@ -581,7 +585,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 		if (SUCCEEDED(hr)) {
 			switch (type) {
-			case CAPTUREDEVIDE_TYPE::VIDEO: {
+			case CAPTUREDEVICE_TYPE::VIDEO: {
 				if (startParam) {
 					std::vector<int> *resolution = static_cast<std::vector<int>*>(startParam);
 					targetMediaParam.width = resolution->at(0);
@@ -635,7 +639,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 				break;
 			}
 
-			case CAPTUREDEVIDE_TYPE::Audio: {
+			case CAPTUREDEVICE_TYPE::AUDIO: {
 				if (startParam) {
 					std::vector<u32> *micParam = static_cast<std::vector<u32>*>(startParam);
 					targetMediaParam.sampleRate = micParam->at(0);
@@ -682,15 +686,15 @@ bool WindowsCaptureDevice::start(void *startParam) {
 			return false;
 		}
 
-		updateState(CAPTUREDEVIDE_STATE::STARTED);
+		updateState(CAPTUREDEVICE_STATE::STARTED);
 		break;
-	case CAPTUREDEVIDE_STATE::LOST:
+	case CAPTUREDEVICE_STATE::LOST:
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Device has lost");
 		return false;
-	case CAPTUREDEVIDE_STATE::STARTED:
+	case CAPTUREDEVICE_STATE::STARTED:
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Device has started");
 		return false;
-	case CAPTUREDEVIDE_STATE::UNINITIALIZED:
+	case CAPTUREDEVICE_STATE::UNINITIALIZED:
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Device doesn't initialize");
 		return false;
 	default:
@@ -700,12 +704,12 @@ bool WindowsCaptureDevice::start(void *startParam) {
 }
 
 bool WindowsCaptureDevice::stop() {
-	if (state == CAPTUREDEVIDE_STATE::STOPPED)
+	if (state == CAPTUREDEVICE_STATE::STOPPED)
 		return true;
 	if (m_pSource)
 		m_pSource->Stop();
 
-	updateState(CAPTUREDEVIDE_STATE::STOPPED);
+	updateState(CAPTUREDEVICE_STATE::STOPPED);
 
 	return true;
 };
@@ -778,7 +782,7 @@ HRESULT WindowsCaptureDevice::setDeviceParam(IMFMediaType *pType) {
 	bool getFormat = false;
 
 	switch (type) {
-	case CAPTUREDEVIDE_TYPE::VIDEO:
+	case CAPTUREDEVICE_TYPE::VIDEO:
 		hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
 		if (FAILED(hr))
 			break;
@@ -817,12 +821,12 @@ HRESULT WindowsCaptureDevice::setDeviceParam(IMFMediaType *pType) {
 			hr = GetDefaultStride(pType, &deviceParam.default_stride);
 
 		break;
-	case CAPTUREDEVIDE_TYPE::Audio:
+	case CAPTUREDEVICE_TYPE::AUDIO:
 		hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
 		if (FAILED(hr))
 			break;
 
-		for (int i = 0; i < g_cVideoFormats; i++) {
+		for (int i = 0; i < g_cAudioFormats; i++) {
 			if (subtype == g_AudioFormats[i].MFAudioFormat) {
 				deviceParam.audioFormat = subtype;
 				getFormat = true;
@@ -864,17 +868,17 @@ HRESULT WindowsCaptureDevice::setDeviceParam(IMFMediaType *pType) {
 	return hr;
 }
 
-void WindowsCaptureDevice::sendMessage(CAPTUREDEVIDE_MESSAGE message) {
+void WindowsCaptureDevice::sendMessage(CAPTUREDEVICE_MESSAGE message) {
 	// Must be unique lock
 	std::unique_lock<std::mutex> lock(mutex);
 	messageQueue.push(message);
 	cond.notify_one();
 }
 
-CAPTUREDEVIDE_MESSAGE WindowsCaptureDevice::getMessage() {
+CAPTUREDEVICE_MESSAGE WindowsCaptureDevice::getMessage() {
 	// Must be unique lock
 	std::unique_lock<std::mutex> lock(mutex);
-	CAPTUREDEVIDE_MESSAGE message;
+	CAPTUREDEVICE_MESSAGE message;
 	cond.wait(lock, [this]() { return !messageQueue.empty(); });
 	message = messageQueue.front();
 	messageQueue.pop();
@@ -882,7 +886,7 @@ CAPTUREDEVIDE_MESSAGE WindowsCaptureDevice::getMessage() {
 	return message;
 }
 
-void WindowsCaptureDevice::updateState(const CAPTUREDEVIDE_STATE &newState) {
+void WindowsCaptureDevice::updateState(const CAPTUREDEVICE_STATE &newState) {
 	state = newState;
 	if (isShutDown()) {
 		std::unique_lock<std::mutex> guard(stateMutex_);
@@ -891,52 +895,67 @@ void WindowsCaptureDevice::updateState(const CAPTUREDEVIDE_STATE &newState) {
 }
 
 void WindowsCaptureDevice::waitShutDown() {
-	sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
-
-	std::unique_lock<std::mutex> guard(stateMutex_);
-	while (!isShutDown()) {
-		stateCond_.wait(guard);
+	_dbg_assert_(thread_.joinable());
+	if (!thread_.joinable()) {
+		ERROR_LOG(Log::System, "Tried to wait for capture device thread, but not joinable.");
+		return;
 	}
+
+	sendMessage({ CAPTUREDEVICE_COMMAND::SHUTDOWN, nullptr });
+	thread_.join();
 }
 
+// This is the main thread for the capture device.
 void WindowsCaptureDevice::messageHandler() {
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	MFStartup(MF_VERSION);
-	CAPTUREDEVIDE_MESSAGE message;
+	SetCurrentThreadName(type == CAPTUREDEVICE_TYPE::AUDIO ? "AudioCapture" : "VideoCapture");
 
-	if (type == CAPTUREDEVIDE_TYPE::VIDEO) {
+	if (!MFAPI::Startup) {
+		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot register devices");
+		return;
+	}
+
+	HRESULT hr = ERROR_SUCCESS;
+	{
+		std::lock_guard<std::mutex> lock(paramMutex);
+		hr = enumDevices();
+	}
+	if (FAILED(hr)) {
+		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot enumerate devices");
+		return;
+	}
+
+	updateState(CAPTUREDEVICE_STATE::STOPPED);
+	CAPTUREDEVICE_MESSAGE message;
+
+	if (type == CAPTUREDEVICE_TYPE::VIDEO) {
 		SetCurrentThreadName("Camera");
-	} else if (type == CAPTUREDEVIDE_TYPE::Audio) {
+	} else if (type == CAPTUREDEVICE_TYPE::AUDIO) {
 		SetCurrentThreadName("Microphone");
 	}
 
-	while ((message = getMessage()).command != CAPTUREDEVIDE_COMMAND::SHUTDOWN) {
+	while ((message = getMessage()).command != CAPTUREDEVICE_COMMAND::SHUTDOWN) {
 		switch (message.command) {
-		case CAPTUREDEVIDE_COMMAND::INITIALIZE:
-			init();
-			break;
-		case CAPTUREDEVIDE_COMMAND::START:
+		case CAPTUREDEVICE_COMMAND::START:
 			start(message.opacity);
 			break;
-		case CAPTUREDEVIDE_COMMAND::STOP:
+		case CAPTUREDEVICE_COMMAND::STOP:
 			stop();
 			break;
-		case CAPTUREDEVIDE_COMMAND::UPDATE_STATE:
-			updateState((*(CAPTUREDEVIDE_STATE *)message.opacity));
+		case CAPTUREDEVICE_COMMAND::UPDATE_STATE:
+			updateState((*(CAPTUREDEVICE_STATE *)message.opacity));
 			break;
-		case CAPTUREDEVIDE_COMMAND::SHUTDOWN:
+		case CAPTUREDEVICE_COMMAND::SHUTDOWN:
 			break;
 		}
 	}
 
-	if (state != CAPTUREDEVIDE_STATE::STOPPED)
+	if (state != CAPTUREDEVICE_STATE::STOPPED)
 		stop();
 
 	std::lock_guard<std::mutex> lock(sdMutex);
 	m_pSource = nullptr;
 	m_pReader = nullptr;
 	m_pCallback = nullptr;
-	unRegisterCMPTMFApis();
 
 	std::unique_lock<std::mutex> lock2(paramMutex);
 	for (DWORD i = 0; i < param.count; i++) {
@@ -945,27 +964,24 @@ void WindowsCaptureDevice::messageHandler() {
 	CoTaskMemFree(param.ppDevices); // Null pointer is okay.
 	lock2.unlock();
 
-	MFShutdown();
-	CoUninitialize();
-
-	updateState(CAPTUREDEVIDE_STATE::SHUTDOWN);
+	updateState(CAPTUREDEVICE_STATE::SHUTDOWN);
 }
 
 HRESULT WindowsCaptureDevice::enumDevices() {
 	HRESULT hr = S_OK;
 	ComPtr<IMFAttributes> pAttributes;
 
-	hr = MFCreateAttributes(&pAttributes, 1);
+	hr = MFAPI::CreateAttributes(&pAttributes, 1);
 	if (SUCCEEDED(hr)) {
 		switch (type) {
-		case CAPTUREDEVIDE_TYPE::VIDEO:
+		case CAPTUREDEVICE_TYPE::VIDEO:
 			hr = pAttributes->SetGUID(
 				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
 				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
 			);
 
 			break;
-		case CAPTUREDEVIDE_TYPE::Audio:
+		case CAPTUREDEVICE_TYPE::AUDIO:
 			hr = pAttributes->SetGUID(
 				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
 				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_GUID
@@ -978,7 +994,7 @@ HRESULT WindowsCaptureDevice::enumDevices() {
 		}
 	}
 	if (SUCCEEDED(hr)) {
-		hr = EnumDeviceSources(pAttributes.Get(), &param.ppDevices, &param.count);
+		hr = MFAPI::EnumDeviceSources(pAttributes.Get(), &param.ppDevices, &param.count);
 	}
 
 	return hr;
@@ -1020,7 +1036,7 @@ HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride)
 		}
 		if (SUCCEEDED(hr))
 		{
-			hr = GetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
+			hr = MFAPI::GetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
 		}
 
 		// Set the attribute for later reference.

@@ -32,6 +32,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
@@ -866,9 +867,8 @@ void VertexDecoder::Step_PosS16(const VertexDecoder *dec, const u8 *ptr, u8 *dec
 }
 
 void VertexDecoder::Step_PosFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
-	u8 *v = (u8 *)(decoded + dec->decFmt.posoff);
-	const u8 *fv = (const u8*)(ptr + dec->posoff);
-	memcpy(v, fv, 12);
+	Vec4F32 v = Vec4F32::Load((const float *)(ptr + dec->posoff));
+	v.CleanNaNInfs().Store((float *)(decoded + dec->decFmt.posoff));
 }
 
 void VertexDecoder::Step_PosS8Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
@@ -886,6 +886,7 @@ void VertexDecoder::Step_PosS16Skin(const VertexDecoder *dec, const u8 *ptr, u8 
 }
 
 void VertexDecoder::Step_PosFloatSkin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
+	// TODO: Clean for NaN/INF here.
 	float *pos = (float *)(decoded + dec->decFmt.posoff);
 	const float_le *fn = (const float_le *)(ptr + dec->posoff);
 	Vec3ByMatrix43(pos, fn, skinMatrix);

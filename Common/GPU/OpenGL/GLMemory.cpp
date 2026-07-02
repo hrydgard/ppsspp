@@ -62,7 +62,8 @@ bool GLRBuffer::Unmap() {
 	return glUnmapBuffer(target_) == GL_TRUE;
 }
 
-GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag) : render_(render), nextBufferSize_(size), target_(target), tag_(tag) {
+GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, int slack, const char *tag)
+	: render_(render), nextBufferSize_(size), target_(target), slack_(slack), tag_(tag) {
 	AddBuffer();
 	RegisterGPUMemoryManager(this);
 }

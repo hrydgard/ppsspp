@@ -19,6 +19,7 @@
 #include <cstring>
 #include <cfloat>
 
+#include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <wrl/client.h>
 
@@ -174,13 +175,13 @@ void TextureCacheD3D11::DestroyDeviceObjects() {
 }
 
 void TextureCacheD3D11::DeviceLost() {
-	Clear(false);
+	TextureCacheCommon::DeviceLost();
 	DestroyDeviceObjects();
 	draw_ = nullptr;
 }
 
 void TextureCacheD3D11::DeviceRestore(Draw::DrawContext *draw) { 
-	draw_ = draw;
+	TextureCacheCommon::DeviceRestore(draw);
 	InitDeviceObjects();
 }
 
@@ -208,43 +209,7 @@ void TextureCacheD3D11::ForgetLastTexture() {
 	context_->PSSetShaderResources(0, 4, nullTex);
 }
 
-void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
-	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
-	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
-	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
-	//
-	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
-	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
-	// unrelated old entries for small palettes.
-	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
-	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
-
-	if (replacer_.Enabled())
-		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-	else
-		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
-	clutBuf_ = clutBufRaw_;
-
-	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-	clutAlphaLinear_ = false;
-	clutAlphaLinearColor_ = 0;
-	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
-		const u16_le *clut = GetCurrentClut<u16_le>();
-		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
-		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | (i << 12);
-			if (clut[i] != step) {
-				clutAlphaLinear_ = false;
-				break;
-			}
-		}
-	}
-
-	clutLastFormat_ = gstate.clutformat;
-}
-
-void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
+void TextureCacheD3D11::BindTexture(TexCacheEntry *entry, bool flatZ) {
 	if (!entry) {
 		ID3D11ShaderResourceView *textureView = nullptr;
 		context_->PSSetShaderResources(0, 1, &textureView);
@@ -255,12 +220,11 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture_ = textureView;
 	}
-	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
+	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ComPtr<ID3D11SamplerState> state;
 	samplerCache_.GetOrCreateSampler(device_, samplerKey, &state);
 	context_->PSSetSamplers(0, 1, state.GetAddressOf());
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
@@ -429,23 +393,23 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 	// Signal that we support depth textures so use it as one.
 	if (plan.depth > 1) {
-		entry->status |= TexCacheEntry::STATUS_3D;
+		entry->status |= TexStatus::IS_3D;
 	}
 
 	if (levels == 1) {
-		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+		entry->status |= TexStatus::NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
+		entry->status &= ~TexStatus::NO_MIPS;
 	}
 
 	if (plan.doReplace) {
-		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
 
 		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
-			entry->status |= TexCacheEntry::STATUS_BGRA;
+			entry->status |= TexStatus::BGRA;
 		}
 	} else {
-		entry->status |= TexCacheEntry::STATUS_BGRA;
+		entry->status |= TexStatus::BGRA;
 	}
 }
 
@@ -498,7 +462,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture();
+	ApplyTexture(true, false);
 
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
 	if (!texture)

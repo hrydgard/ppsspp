@@ -13,8 +13,31 @@
 #import "Core/Config.h"
 #import "Common/Log.h"
 #import "IAPManager.h"
+#include "Core/Util/PathUtil.h"
 
 #import <AVFoundation/AVFoundation.h>
+#include <string>
+
+static std::string gStartupArgStorage;
+
+static NSString *ExtractDeepLinkPath(NSURL *url) {
+	if (![[url scheme] isEqualToString:@"ppsspp"]) {
+		return nil;
+	}
+
+	NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+	for (NSURLQueryItem *item in components.queryItems) {
+		if ([item.name isEqualToString:@"path"] && item.value.length > 0) {
+			return item.value;
+		}
+	}
+
+	return nil;
+}
+
+@interface SceneDelegate ()
+@property (nonatomic, strong) NSString *pendingLaunchPath;
+@end
 
 @implementation SceneDelegate
 
@@ -22,10 +45,36 @@
 	NSLog(@"✅ SceneDelegate class was loaded!");
 }
 
+- (void)capturePendingPathFromURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
+	for (UIOpenURLContext *context in URLContexts) {
+		NSString *path = ExtractDeepLinkPath(context.URL);
+		if (path.length > 0) {
+			self.pendingLaunchPath = path;
+			NSLog(@"SceneDelegate: captured cold-start deep link path: %@", self.pendingLaunchPath);
+			break;
+		}
+	}
+}
+
+- (void)handleURLContextsWhileRunning:(NSSet<UIOpenURLContext *> *)URLContexts {
+	AppDelegate *appDelegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
+	for (UIOpenURLContext *context in URLContexts) {
+		NSLog(@"SceneDelegate: openURLContexts called with URL: %@", context.URL);
+		NSString *path = ExtractDeepLinkPath(context.URL);
+		if (path.length > 0) {
+			[appDelegate processFilePath:path];
+		} else {
+			NSLog(@"SceneDelegate: ignoring deep link URL (invalid scheme or missing path): %@", context.URL);
+		}
+	}
+}
+
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)connectionOptions {
 	if (![scene isKindOfClass:[UIWindowScene class]]) {
 		return;
 	}
+
+	[self capturePendingPathFromURLContexts:connectionOptions.URLContexts];
 
 	UIWindowScene *windowScene = (UIWindowScene *)scene;
 	if (self.window) {
@@ -43,12 +92,26 @@
 
 	int argc = 1;
 	char *argv[5]{};
+	NSString *startupPath = nil;
 	NSURL *nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
 
-	if (nsUrl != nullptr && nsUrl.isFileURL) {
+	if (self.pendingLaunchPath.length > 0) {
+		startupPath = self.pendingLaunchPath;
+		self.pendingLaunchPath = nil;
+	}
+
+	if (startupPath == nil && nsUrl != nullptr && nsUrl.isFileURL) {
 		NSString *nsString = nsUrl.path;
-		const char *string = nsString.UTF8String;
-		argv[argc++] = (char*)string;
+		startupPath = nsString;
+	}
+
+	if (startupPath.length > 0) {
+		// Keep cold-start argv behavior aligned with processFilePath().
+		std::string startupPathUtf8(startupPath.UTF8String);
+		Path gamePath(startupPathUtf8);
+		gStartupArgStorage = gamePath.ToString();
+		argv[argc++] = (char *)gStartupArgStorage.c_str();
+		NSLog(@"SceneDelegate: startup path passed to argv: %s", gStartupArgStorage.c_str());
 	}
 
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
@@ -93,6 +156,10 @@
 
 	// Notify new view controller
 	[sharedViewController didBecomeActive];
+}
+
+- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
+	[self handleURLContextsWhileRunning:URLContexts];
 }
 
 - (void)sceneWillResignActive:(UIScene *)scene {

@@ -13,7 +13,7 @@
 #include "Common/File/AndroidStorage.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/System/Request.h"
@@ -196,6 +196,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		}
 	}
 	gpuInfo->Add(new InfoItem(si->T("Depth buffer format"), DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)));
+	gpuInfo->Add(new InfoItem(si->T("Clip/cull distances (depth clamp)"), StringFromFormat("%d/%d (%s)", draw->GetDeviceCaps().maxClipDistances, draw->GetDeviceCaps().maxCullDistances, draw->GetDeviceCaps().depthClampSupported ? "true" : "false")));
 
 	std::string texCompressionFormats;
 	// Simple non-detailed summary of supported tex compression formats.
@@ -218,6 +219,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	build = si->T("Debug");
 #endif
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
+	osInformation->Add(new InfoItem(si->T("HTTPS supported"), System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? di->T("Yes") : di->T("No")));
 
 	CollapsibleSection *displayInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Display Information")));
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
@@ -504,10 +506,15 @@ void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
+
+	// TODO: This one belongs under its own header. And this is Vulkan "pre-rotation" really.
+	vulkanFeatures->Add(new InfoItem(gr->T("Display rotation"), StringFromFormat("%d°", (int)g_display.rotation * 90)));
+
 	std::vector<std::string> features = draw->GetFeatureList();
 	for (const auto &feature : features) {
 		vulkanFeatures->Add(new TextView(feature, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);

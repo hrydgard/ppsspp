@@ -57,7 +57,7 @@ public:
 	int SkipLineCRLF();
 
 	// Utility functions.
-	void Printf(const char *fmt, ...);
+	ATTR_FORMAT_PRINTF(2, 3) void Printf(MSVC_FORMAT_PRINTF const char *fmt, ...);
 
 	// Dumps the entire buffer to the string, but keeps it around.
 	// Only to be used for debugging, since it might not be fast at all.

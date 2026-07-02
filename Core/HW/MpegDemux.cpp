@@ -187,10 +187,16 @@ bool MpegDemux::skipPackHeader() {
 	return true;
 }
 
+void MpegDemux::setAudioChannel(int audioChannel) {
+	if (m_audioChannel != audioChannel) {
+		m_audioChannel = audioChannel;
+		m_audioStream.clear();
+	}
+}
+
 bool MpegDemux::demux(int audioChannel)
 {
-	if (audioChannel >= 0)
-		m_audioChannel = audioChannel;
+	setAudioChannel(audioChannel);
 
 	bool looksValid = false;
 	bool needMore = false;

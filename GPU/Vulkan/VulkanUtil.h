@@ -55,7 +55,7 @@ public:
 	}
 
 	// Note: This doesn't cache. The descriptor is for immediate use only.
-	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize bufferOffset, VkDeviceSize bufferRange);
+	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2, VkImageView image2, VkBuffer cbuffer, VkDeviceSize cbufferSize);
 
 	// This of course caches though.
 	VkPipeline GetPipeline(VkShaderModule cs);

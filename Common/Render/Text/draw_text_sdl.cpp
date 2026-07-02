@@ -13,10 +13,24 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_sdl.h"
 
-#if defined(USE_SDL2_TTF)
+#if defined(USE_SDL3_TTF)
 
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_ttf.h"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3_ttf/SDL_ttf.h>
+
+static TTF_Font *OpenFontFace(const std::string &fontPath, float ptSize, int faceIndex) {
+	SDL_PropertiesID props = SDL_CreateProperties();
+	if (!props) {
+		return nullptr;
+	}
+	SDL_SetStringProperty(props, TTF_PROP_FONT_CREATE_FILENAME_STRING, fontPath.c_str());
+	SDL_SetFloatProperty(props, TTF_PROP_FONT_CREATE_SIZE_FLOAT, ptSize);
+	SDL_SetNumberProperty(props, TTF_PROP_FONT_CREATE_FACE_NUMBER, faceIndex);
+	TTF_Font *font = TTF_OpenFontWithProperties(props);
+	SDL_DestroyProperties(props);
+	return font;
+}
 
 static std::string getlocale() {
 	// setlocale is not an intuitive function...
@@ -31,13 +45,13 @@ static std::string getlocale() {
 }
 
 TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
-	if (TTF_Init() < 0) {
-		ERROR_LOG(Log::G3D, "Unable to initialize SDL2_ttf");
+	if (!TTF_Init()) {
+		ERROR_LOG(Log::G3D, "Unable to initialize SDL3_ttf");
 	}
 
 	dpiScale_ = CalculateDPIScale();
 
-#if defined(USE_SDL2_TTF_FONTCONFIG)
+#if defined(USE_SDL3_TTF_FONTCONFIG)
 	config = FcInitLoadConfigAndFonts();
 #endif
 
@@ -50,7 +64,7 @@ TextDrawerSDL::~TextDrawerSDL() {
 
 	TTF_Quit();
 
-#if defined(USE_SDL2_TTF_FONTCONFIG)
+	#if defined(USE_SDL3_TTF_FONTCONFIG)
 	FcConfigDestroy(config);
 	// Don't call this - it crashes, see https://github.com/openframeworks/openFrameworks/issues/5061.
 	//FcFini();
@@ -59,19 +73,19 @@ TextDrawerSDL::~TextDrawerSDL() {
 
 // If a user complains about missing characters on SDL, re-visit this!
 void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
-#if defined(USE_SDL2_TTF_FONTCONFIG)
+#if defined(USE_SDL3_TTF_FONTCONFIG)
 	FcObjectSet *os = FcObjectSetBuild (FC_FILE, FC_INDEX, (char *) 0);
 
 	// To install the recommended Droid Sans fallback font in Ubuntu:
 	// sudo apt install fonts-droid-fallback
 	const char *hardcodedNames[] = {
-		"Droid Sans Medium",
+		"Droid Sans",
 		"Droid Sans Fallback",
-		"Source Han Sans Medium",
-		"Noto Sans CJK Medium",
-		"Noto Sans Hebrew Medium",
-		"Noto Sans Lao Medium",
-		"Noto Sans Thai Medium",
+		"Source Han Sans",
+		"Noto Sans CJK",
+		"Noto Sans Hebrew",
+		"Noto Sans Lao",
+		"Noto Sans Thai",
 		"DejaVu Sans Condensed",
 		"DejaVu Sans",
 		"Meera Regular",
@@ -110,22 +124,51 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	for (int i = 0; i < names.size(); i++) {
 		// printf("trying font name %s\n", names[i]);
 		FcPattern *name = FcNameParse((const FcChar8 *)names[i]);
+		FcPatternAddInteger(name, FC_WEIGHT, FC_WEIGHT_NORMAL);
+		FcPatternAddInteger(name, FC_SLANT, FC_SLANT_ROMAN);
 		FcFontSet *foundFonts = FcFontList(config, name, os);
+
+		std::vector<std::pair<std::string, int>> preferredFonts;
+		std::vector<std::pair<std::string, int>> otherFonts;
 
 		for (int j = 0; foundFonts && j < foundFonts->nfont; ++j) {
 			FcPattern* font = foundFonts->fonts[j];
 			FcChar8 *path;
 			int fontIndex;
+			int fontWeight = FC_WEIGHT_NORMAL;
 
 			if (FcPatternGetInteger(font, FC_INDEX, 0, &fontIndex) != FcResultMatch) {
 				fontIndex = 0; // The 0th face is guaranteed to exist
 			}
 
+			if (FcPatternGetInteger(font, FC_WEIGHT, 0, &fontWeight) != FcResultMatch) {
+				fontWeight = FC_WEIGHT_NORMAL;
+			}
+
 			if (FcPatternGetString(font, FC_FILE, 0, &path) == FcResultMatch) {
 				std::string path_str((const char*)path);
-				// printf("fallback font: %s\n", path_str.c_str());
-				fallbackFontPaths_.push_back(std::make_pair(path_str, fontIndex));
+				if (fontWeight <= FC_WEIGHT_NORMAL) {
+					preferredFonts.push_back(std::make_pair(path_str, fontIndex));
+				} else {
+					otherFonts.push_back(std::make_pair(path_str, fontIndex));
+				}
 			}
+		}
+
+		auto addFallbackUnique = [&](const std::pair<std::string, int> &candidate) {
+			for (const auto &existing : fallbackFontPaths_) {
+				if (existing.first == candidate.first && existing.second == candidate.second) {
+					return;
+				}
+			}
+			fallbackFontPaths_.push_back(candidate);
+		};
+
+		for (const auto &candidate : preferredFonts) {
+			addFallbackUnique(candidate);
+		}
+		for (const auto &candidate : otherFonts) {
+			addFallbackUnique(candidate);
 		}
 
 		if (foundFonts) {
@@ -160,22 +203,11 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 			Path fontPath = Path(fontDirs[i]) / fallbackFonts[j];
 
 			if (File::Exists(fontPath)) {
-				TTF_Font *openedFont = TTF_OpenFont(fontPath.ToString().c_str(), 24);
-				int64_t numFaces = TTF_FontFaces(openedFont);
-
+				TTF_Font *openedFont = TTF_OpenFont(fontPath.ToString().c_str(), 24.0f);
+				int numFaces = TTF_GetNumFontFaces(openedFont);
 				for (int k = 0; k < numFaces; k++) {
-					TTF_Font *fontFace = TTF_OpenFontIndex(fontPath.ToString().c_str(), 24, k);
-					std::string fontFaceName(TTF_FontFaceStyleName(fontFace));
-					TTF_CloseFont(fontFace);
-
-					if (strstr(fontFaceName.c_str(), "Medium") ||
-						strstr(fontFaceName.c_str(), "Regular"))
-					{
-						fallbackFontPaths_.push_back(std::make_pair(fontPath.ToString(), k));
-						break;
-					}
+					fallbackFontPaths_.push_back(std::make_pair(fontPath.ToString(), k));
 				}
-
 				TTF_CloseFont(openedFont);
 			}
 		}
@@ -201,7 +233,7 @@ uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
 	uint32_t missingGlyph = 0;
 	while (!utf8Decoded.end()) {
 		uint32_t glyph = utf8Decoded.next();
-		if (!TTF_GlyphIsProvided32(font, glyph)) {
+		if (!TTF_FontHasGlyph(font, glyph)) {
 			missingGlyph = glyph;
 			break;
 		}
@@ -220,7 +252,7 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	// If we encounter a missing glyph, try to use one of already loaded fallback fonts.
 	for (int i = 0; i < fallbackFonts_.size(); i++) {
 		TTF_Font *fallbackFont = fallbackFonts_[i];
-		if (TTF_GlyphIsProvided32(fallbackFont, missingGlyph)) {
+		if (TTF_FontHasGlyph(fallbackFont, missingGlyph)) {
 			glyphFallbackFontIndex_[missingGlyph] = i;
 			return i;
 		}
@@ -232,13 +264,15 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 		std::string& fontPath = fallbackFontPaths_[i].first;
 		int faceIndex = fallbackFontPaths_[i].second;
 
-		TTF_Font *font = TTF_OpenFontIndex(fontPath.c_str(), ptSize, faceIndex);
+		TTF_Font *font = OpenFontFace(fontPath, static_cast<float>(ptSize), faceIndex);
 
-		if (TTF_GlyphIsProvided32(font, missingGlyph)) {
+		if (font && TTF_FontHasGlyph(font, missingGlyph)) {
 			fallbackFonts_.push_back(font);
 			return fallbackFonts_.size() - 1;
 		} else {
-			TTF_CloseFont(font);
+			if (font) {
+				TTF_CloseFont(font);
+			}
 		}
 	}
 
@@ -263,9 +297,9 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 	size_t fileSz;
 	fileData = g_VFS.ReadFile(useFont.c_str(), &fileSz);
 	if (fileData) {
-		SDL_RWops *rw = SDL_RWFromMem(fileData, static_cast<int>(fileSz));
+		SDL_IOStream *rw = SDL_IOFromConstMem(fileData, fileSz);
 		INFO_LOG(Log::G3D, "Opened font from RW: '%p' '%d'", fileData, (int)fileSz);
-		font = TTF_OpenFontRW(rw, 1, ptSize);
+		font = TTF_OpenFontIO(rw, true, static_cast<float>(ptSize));
 		if (!font) {
 			ERROR_LOG(Log::G3D, "Failed to load font from asset file: '%s'", useFont.c_str());
 		}
@@ -314,7 +348,7 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 			line = " ";
 		}
 		temp = line;  // zero-terminate, ugh.
-		TTF_SizeUTF8(font, temp.c_str(), &width, &height);
+		TTF_GetStringSize(font, temp.c_str(), temp.size(), &width, &height);
 
 		if (width > extW)
 			extW = width;
@@ -346,7 +380,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	std::string processedStr(str);
 
-	// If a string includes only newlines, SDL2_ttf will refuse to render it
+	// If a string includes only newlines, SDL3_ttf will refuse to render it
 	// thinking it is empty. Add a space to avoid that.
 	bool isAllNewline = processedStr.find_first_not_of('\n') == std::string::npos;
 
@@ -357,24 +391,26 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	uint32_t missingGlyph = CheckMissingGlyph(processedStr);
 
 	if (missingGlyph) {
-		const int ptSize = TTF_FontHeight(font) / 1.25;
+		const int ptSize = static_cast<int>(TTF_GetFontSize(font));
 		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
 		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
 		}
 	}
 
-#if SDL_TTF_VERSION_ATLEAST(2, 20, 0)
 	if (align & ALIGN_HCENTER)
-		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_CENTER);
+		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_CENTER);
 	else if (align & ALIGN_RIGHT)
-		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_RIGHT);
+		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_RIGHT);
 	else
-		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_LEFT);
-#endif
+		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_LEFT);
 
 	SDL_Color fgColor = { 0xFF, 0xFF, 0xFF, 0xFF };
-	SDL_Surface *text = TTF_RenderUTF8_Blended_Wrapped(font, processedStr.c_str(), fgColor, 0);
+	SDL_Surface *text = TTF_RenderText_Blended_Wrapped(font, processedStr.c_str(), processedStr.size(), fgColor, 0);
+	if (!text) {
+		ERROR_LOG(Log::G3D, "Failed to render SDL3_ttf text: %s", SDL_GetError());
+		return false;
+	}
 	SDL_LockSurface(text);
 
 	entry.texture = nullptr;
@@ -411,7 +447,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	}
 
 	SDL_UnlockSurface(text);
-	SDL_FreeSurface(text);
+	SDL_DestroySurface(text);
 	return true;
 }
 

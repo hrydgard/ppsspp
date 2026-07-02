@@ -20,6 +20,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/OSD.h"
 #include "Core/KeyMap.h"
+#include "Core/Config.h"
 
 struct HidStickMapping {
 	HidStickAxis stickAxis;
@@ -31,7 +32,7 @@ static const HidStickMapping g_psStickMappings[] = {
 	{HID_STICK_LX, JOYSTICK_AXIS_X},
 	{HID_STICK_LY, JOYSTICK_AXIS_Y},
 	{HID_STICK_RX, JOYSTICK_AXIS_Z},
-	{HID_STICK_RY, JOYSTICK_AXIS_RX},
+	{HID_STICK_RY, JOYSTICK_AXIS_RZ},
 };
 
 struct HidTriggerMapping {
@@ -80,7 +81,7 @@ static const HIDControllerInfo *GetGamepadInfo(const HIDD_ATTRIBUTES &attr) {
 	return nullptr;
 }
 
-static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize, int *outReportSize, const HIDControllerInfo **outInfo) {
+static HANDLE OpenFirstHIDController(std::unordered_set<std::wstring> &ignoreHidDevicePaths, HIDControllerType *subType, int *reportSize, int *outReportSize, const HIDControllerInfo **outInfo) {
 	GUID hidGuid;
 	HidD_GetHidGuid(&hidGuid);
 
@@ -103,6 +104,11 @@ static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize
 			continue;
 		}
 
+		std::wstring hidDevicePath = detailData->DevicePath;
+		if (ignoreHidDevicePaths.find(hidDevicePath) != ignoreHidDevicePaths.end()) {
+			continue;
+		}
+
 		HANDLE handle = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE,
 			FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (handle == INVALID_HANDLE_VALUE) {
@@ -119,6 +125,7 @@ static HANDLE OpenFirstHIDController(HIDControllerType *subType, int *reportSize
 		*outInfo = info;
 		if (!info) {
 			CloseHandle(handle);
+			ignoreHidDevicePaths.insert(hidDevicePath);
 			continue;
 		}
 
@@ -196,7 +203,7 @@ void HidInputDevice::ReleaseAllKeys(const ButtonInputMapping *buttonMappings, in
 		JOYSTICK_AXIS_X,
 		JOYSTICK_AXIS_Y,
 		JOYSTICK_AXIS_Z,
-		JOYSTICK_AXIS_RX,
+		JOYSTICK_AXIS_RZ,
 		JOYSTICK_AXIS_LTRIGGER,
 		JOYSTICK_AXIS_RTRIGGER,
 	};
@@ -222,7 +229,7 @@ int HidInputDevice::UpdateState() {
 		if (pollCount_ == 0) {
 			pollCount_ = POLL_FREQ;
 			const HIDControllerInfo *info{};
-			HANDLE newController = OpenFirstHIDController(&subType_, &inReportSize_, &outReportSize_, &info);
+			HANDLE newController = OpenFirstHIDController(ignoreHidDevicePaths_, &subType_, &inReportSize_, &outReportSize_, &info);
 			if (newController) {
 				controller_ = newController;
 				if (info) {
@@ -234,6 +241,8 @@ int HidInputDevice::UpdateState() {
 			pollCount_--;
 		}
 	}
+
+	const bool sendInput = g_Config.bAllowHIDInput;
 
 	if (controller_) {
 		HIDControllerState state{};
@@ -258,14 +267,14 @@ int HidInputDevice::UpdateState() {
 
 			for (u32 i = 0; i < buttonMappingsSize; i++) {
 				const ButtonInputMapping &mapping = buttonMappings[i];
-				if (downMask & mapping.button) {
+				if ((downMask & mapping.button) && sendInput) {
 					KeyInput key;
 					key.deviceId = deviceID;
 					key.flags = KeyInputFlags::DOWN;
 					key.keyCode = mapping.keyCode;
 					NativeKey(key);
 				}
-				if (upMask & mapping.button) {
+				if ((upMask & mapping.button) && sendInput) {
 					KeyInput key;
 					key.deviceId = deviceID;
 					key.flags = KeyInputFlags::UP;
@@ -275,7 +284,7 @@ int HidInputDevice::UpdateState() {
 			}
 
 			for (const auto &mapping : g_psStickMappings) {
-				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis]) {
+				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis] && sendInput) {
 					AxisInput axis;
 					axis.deviceId = deviceID;
 					axis.axisId = mapping.inputAxis;
@@ -285,7 +294,7 @@ int HidInputDevice::UpdateState() {
 			}
 
 			for (const auto &mapping : g_psTriggerMappings) {
-				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis]) {
+				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis] && sendInput) {
 					AxisInput axis;
 					axis.deviceId = deviceID;
 					axis.axisId = mapping.inputAxis;
@@ -294,7 +303,7 @@ int HidInputDevice::UpdateState() {
 				}
 			}
 
-			if (state.accValid) {
+			if (state.accValid && sendInput) {
 				NativeAccelerometer(state.accelerometer[0], state.accelerometer[1], state.accelerometer[2]);
 			}
 

@@ -142,6 +142,7 @@ static bool ParseServerListEntriesJSON(std::string_view json) {
 	for (const JsonNode *iter : servers->value) {
 		JsonGet server = iter->value;
 		AdhocServerListEntry entry;
+		entry.hidden = server.getBoolOr("hidden", false);
 		entry.name = server.getStringOr("name", "");
 		entry.discord = server.getStringOr("discord", "");
 		entry.host = server.getStringOr("host", "");

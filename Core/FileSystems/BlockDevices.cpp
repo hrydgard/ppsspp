@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <array>
 #include <cstring>
+#include <vector>
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
@@ -28,6 +30,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
@@ -37,6 +40,184 @@ extern "C"
 #include "ext/libkirk/amctrl.h"
 #include "ext/libkirk/kirk_engine.h"
 };
+
+static u16 ReadLE16(const u8 *ptr) {
+	return ptr[0] | (ptr[1] << 8);
+}
+
+static u32 ReadLE32(const u8 *ptr) {
+	return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+}
+
+static std::string DecodeUDFFileName(const u8 *data, size_t size) {
+	if (size == 0)
+		return "";
+
+	std::string result;
+	if (data[0] == 8) {
+		result.assign((const char *)(data + 1), size - 1);
+	} else if (data[0] == 16) {
+		for (size_t i = 1; i + 1 < size; i += 2) {
+			result.push_back((char)data[i + 1]);
+		}
+	}
+	return result;
+}
+
+struct UDFShortAd {
+	u32 length = 0;
+	u32 position = 0;
+};
+
+struct UDFLongAd {
+	u32 length = 0;
+	u32 position = 0;
+	u16 partition = 0;
+};
+
+static bool ReadDescriptorSector(FileLoader *fileLoader, u32 sector, std::array<u8, 2048> *out) {
+	return fileLoader->ReadAt((u64)sector * 2048, 1, out->size(), out->data()) == out->size();
+}
+
+static bool ParseUDFLongAd(const u8 *data, UDFLongAd *out) {
+	out->length = ReadLE32(data);
+	out->position = ReadLE32(data + 4);
+	out->partition = ReadLE16(data + 8);
+	return true;
+}
+
+static bool ParseUDFShortAd(const u8 *data, UDFShortAd *out) {
+	out->length = ReadLE32(data) & 0x3FFFFFFF;
+	out->position = ReadLE32(data + 4);
+	return out->length != 0;
+}
+
+static bool ParseUDFFileEntryExtent(FileLoader *fileLoader, u32 sector, UDFShortAd *extent) {
+	std::array<u8, 2048> block{};
+	if (!ReadDescriptorSector(fileLoader, sector, &block))
+		return false;
+	if (ReadLE16(block.data()) != 0x0105)
+		return false;
+
+	u32 extAttrLen = ReadLE32(block.data() + 0xA8);
+	u32 allocDescLen = ReadLE32(block.data() + 0xAC);
+	u32 allocDescOffset = 0xB0 + extAttrLen;
+	if (allocDescLen < 8 || allocDescOffset + 8 > block.size())
+		return false;
+
+	return ParseUDFShortAd(block.data() + allocDescOffset, extent);
+}
+
+static bool ParseUDFRootDirectory(FileLoader *fileLoader, u32 sector, u32 partitionStart, std::vector<u8> *dirData) {
+	UDFShortAd extent{};
+	if (!ParseUDFFileEntryExtent(fileLoader, sector, &extent))
+		return false;
+	if (extent.length == 0)
+		return false;
+
+	dirData->resize(extent.length);
+	const u64 offset = (u64)(partitionStart + extent.position) * 2048;
+	return fileLoader->ReadAt(offset, 1, dirData->size(), dirData->data()) == dirData->size();
+}
+
+static bool FindUDFRootFileEntry(FileLoader *fileLoader, u32 *rootSector, u32 *partitionStart) {
+	std::array<u8, 2048> avdp{};
+	if (!ReadDescriptorSector(fileLoader, 256, &avdp))
+		return false;
+	if (ReadLE16(avdp.data()) != 0x0002)
+		return false;
+
+	u32 mvdsLength = ReadLE32(avdp.data() + 16);
+	u32 mvdsLocation = ReadLE32(avdp.data() + 20);
+	if (mvdsLength < 2048)
+		return false;
+
+	std::array<u8, 2048> block{};
+	bool foundPartition = false;
+	bool foundRoot = false;
+	u32 fsdLocation = 0;
+	u32 fsdPartition = 0;
+
+	for (u32 sector = mvdsLocation; sector < mvdsLocation + mvdsLength / 2048; ++sector) {
+		if (!ReadDescriptorSector(fileLoader, sector, &block))
+			return false;
+
+		switch (ReadLE16(block.data())) {
+		case 0x0005:
+			// Partition Descriptor.
+			fsdPartition = ReadLE32(block.data() + 188);
+			foundPartition = true;
+			break;
+		case 0x0006:
+			// Logical Volume Descriptor. The file set descriptor sequence is stored
+			// in logicalVolumeContentsUse as an extent_ad.
+			fsdLocation = ReadLE32(block.data() + 252);
+			foundRoot = true;
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (!foundPartition || !foundRoot)
+		return false;
+
+	std::array<u8, 2048> fsd{};
+	if (!ReadDescriptorSector(fileLoader, fsdPartition + fsdLocation, &fsd))
+		return false;
+	if (ReadLE16(fsd.data()) != 0x0100)
+		return false;
+
+	UDFLongAd rootIcb{};
+	ParseUDFLongAd(fsd.data() + 400, &rootIcb);
+	if (rootIcb.partition != 0)
+		return false;
+
+	*partitionStart = fsdPartition;
+	*rootSector = fsdPartition + rootIcb.position;
+	return true;
+}
+
+static bool FindUDFLayerFileEntrySectors(FileLoader *fileLoader, u32 rootSector, u32 partitionStart, u32 *layer0Sector, u32 *layer1Sector) {
+	std::vector<u8> dirData;
+	if (!ParseUDFRootDirectory(fileLoader, rootSector, partitionStart, &dirData))
+		return false;
+
+	bool found0 = false;
+	bool found1 = false;
+	for (size_t offset = 0; offset + 16 <= dirData.size();) {
+		u16 tag = ReadLE16(&dirData[offset]);
+		u16 crcLen = ReadLE16(&dirData[offset + 10]);
+		size_t entryLen = 16 + crcLen;
+		entryLen = (entryLen + 3) & ~size_t(3);
+		if (entryLen == 0 || offset + entryLen > dirData.size())
+			break;
+
+		if (tag == 0x0101 && crcLen >= 20) {
+			u8 fileIdLen = dirData[offset + 19];
+			u16 implUseLen = ReadLE16(&dirData[offset + 36]);
+			size_t nameOffset = offset + 38 + implUseLen;
+			if (nameOffset + fileIdLen <= dirData.size()) {
+				std::string name = DecodeUDFFileName(&dirData[nameOffset], fileIdLen);
+				UDFLongAd icb{};
+				ParseUDFLongAd(&dirData[offset + 20], &icb);
+				if (icb.partition == 0) {
+					if (name == "USER_L0.IMG") {
+						*layer0Sector = partitionStart + icb.position;
+						found0 = true;
+					} else if (name == "USER_L1.IMG") {
+						*layer1Sector = partitionStart + icb.position;
+						found1 = true;
+					}
+				}
+			}
+		}
+
+		offset += entryLen;
+	}
+
+	return found0 || found1;
+}
 
 BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString) {
 	if (!fileLoader->Exists()) {
@@ -71,6 +252,22 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 		}
 	} else if (!memcmp(buffer, "MComprHD", 8)) {
 		device = new CHDFileBlockDevice(fileLoader);
+	}
+
+	if (!device) {
+		device = new UDFFileBlockDevice(fileLoader);
+		if (!device->IsOK()) {
+			delete device;
+			device = nullptr;
+		}
+	}
+
+	if (!device) {
+		device = new ISOContainerFileBlockDevice(fileLoader);
+		if (!device->IsOK()) {
+			delete device;
+			device = nullptr;
+		}
 	}
 
 	// No check above passed, should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
@@ -117,6 +314,166 @@ bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	if (retval != (size_t)count) {
 		ERROR_LOG(Log::FileSystem, "Could not read %d blocks, at block offset %d. Only got %d blocks", count, minBlock, (int)retval);
 		return false;
+	}
+	return true;
+}
+
+UDFFileBlockDevice::UDFFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader) {
+	u32 partitionStart = 0;
+	u32 rootSector = 0;
+	if (!FindUDFRootFileEntry(fileLoader, &rootSector, &partitionStart)) {
+		errorString_ = "Not a supported UDF disc image";
+		return;
+	}
+
+	u32 layer0Sector = 0;
+	u32 layer1Sector = 0;
+	if (!FindUDFLayerFileEntrySectors(fileLoader, rootSector, partitionStart, &layer0Sector, &layer1Sector) || layer0Sector == 0) {
+		errorString_ = "Not a PSP UDF disc image";
+		return;
+	}
+
+	UDFShortAd layer0Extent{};
+	if (!ParseUDFFileEntryExtent(fileLoader, layer0Sector, &layer0Extent)) {
+		errorString_ = "Failed to read USER_L0.IMG entry";
+		return;
+	}
+	layer0_.startBlock = partitionStart + layer0Extent.position;
+	layer0_.numBlocks = layer0Extent.length / GetBlockSize();
+	numBlocks_ = layer0_.numBlocks;
+
+	if (layer1Sector != 0) {
+		UDFShortAd layer1Extent{};
+		if (ParseUDFFileEntryExtent(fileLoader, layer1Sector, &layer1Extent)) {
+			layer1_.startBlock = partitionStart + layer1Extent.position;
+			layer1_.numBlocks = layer1Extent.length / GetBlockSize();
+			numBlocks_ += layer1_.numBlocks;
+		}
+	}
+
+	if (numBlocks_ == 0) {
+		errorString_ = "UDF disc image had no readable UMD layers";
+		return;
+	}
+
+	DEBUG_LOG(Log::Loader, "Detected PSP DVD-R wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
+		layer0_.numBlocks, layer0_.startBlock, layer1_.numBlocks, layer1_.startBlock);
+}
+
+UDFFileBlockDevice::~UDFFileBlockDevice() = default;
+
+bool UDFFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
+	if ((u32)blockNumber >= numBlocks_) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+
+	u32 sourceBlock = 0;
+	if ((u32)blockNumber < layer0_.numBlocks) {
+		sourceBlock = layer0_.startBlock + blockNumber;
+	} else {
+		u32 layer1Block = (u32)blockNumber - layer0_.numBlocks;
+		if (layer1Block >= layer1_.numBlocks) {
+			memset(outPtr, 0, GetBlockSize());
+			return false;
+		}
+		sourceBlock = layer1_.startBlock + layer1Block;
+	}
+
+	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
+	size_t retval = fileLoader_->ReadAt((u64)sourceBlock * (u64)GetBlockSize(), 1, GetBlockSize(), outPtr, flags);
+	if (retval != GetBlockSize()) {
+		DEBUG_LOG(Log::FileSystem, "Could not read UDF-wrapped block %d from source block %u", blockNumber, sourceBlock);
+		return false;
+	}
+	return true;
+}
+
+bool UDFFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	for (int i = 0; i < count; ++i) {
+		if (!ReadBlock(minBlock + i, outPtr)) {
+			return false;
+		}
+		outPtr += GetBlockSize();
+	}
+	return true;
+}
+
+ISOContainerFileBlockDevice::ISOContainerFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader) {
+	outerBlockDevice_ = std::make_shared<FileBlockDevice>(fileLoader);
+	if (!outerBlockDevice_->IsOK()) {
+		errorString_ = outerBlockDevice_->ErrorString();
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	SequentialHandleAllocator alloc;
+	ISOFileSystem iso(&alloc, outerBlockDevice_);
+	if (!iso.Error().empty()) {
+		errorString_ = iso.Error();
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	PSPFileInfo layer0Info = iso.GetFileInfo("/USER_L0.IMG");
+	if (!layer0Info.exists) {
+		errorString_ = "Not a PSP ISO container image";
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	layer0_.startBlock = layer0Info.startSector;
+	layer0_.numBlocks = (u32)((layer0Info.size + GetBlockSize() - 1) / GetBlockSize());
+	numBlocks_ = layer0_.numBlocks;
+
+	PSPFileInfo layer1Info = iso.GetFileInfo("/USER_L1.IMG");
+	if (layer1Info.exists) {
+		layer1_.startBlock = layer1Info.startSector;
+		layer1_.numBlocks = (u32)((layer1Info.size + GetBlockSize() - 1) / GetBlockSize());
+		numBlocks_ += layer1_.numBlocks;
+	}
+
+	if (numBlocks_ == 0) {
+		errorString_ = "ISO container image had no readable UMD layers";
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	DEBUG_LOG(Log::Loader, "Detected PSP ISO wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
+		layer0_.numBlocks, layer0_.startBlock, layer1_.numBlocks, layer1_.startBlock);
+}
+
+ISOContainerFileBlockDevice::~ISOContainerFileBlockDevice() = default;
+
+bool ISOContainerFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
+	if ((u32)blockNumber >= numBlocks_ || !outerBlockDevice_) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+
+	u32 sourceBlock = 0;
+	if ((u32)blockNumber < layer0_.numBlocks) {
+		sourceBlock = layer0_.startBlock + blockNumber;
+	} else {
+		u32 layer1Block = (u32)blockNumber - layer0_.numBlocks;
+		if (layer1Block >= layer1_.numBlocks) {
+			memset(outPtr, 0, GetBlockSize());
+			return false;
+		}
+		sourceBlock = layer1_.startBlock + layer1Block;
+	}
+
+	return outerBlockDevice_->ReadBlock(sourceBlock, outPtr, uncached);
+}
+
+bool ISOContainerFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	for (int i = 0; i < count; ++i) {
+		if (!ReadBlock(minBlock + i, outPtr)) {
+			return false;
+		}
+		outPtr += GetBlockSize();
 	}
 	return true;
 }

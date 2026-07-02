@@ -130,10 +130,13 @@ public:
 	AnalogCalibrationScreen(const Path &gamePath);
 	~AnalogCalibrationScreen();
 
-	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;
 
 	void update() override;
+
+	InputMode PassInputToMapper() const {
+		return InputMode::Other | InputMode::Keyboard | InputMode::Mouse;
+	}
 
 	const char *tag() const override { return "AnalogSetup"; }
 

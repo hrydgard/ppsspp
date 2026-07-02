@@ -68,6 +68,9 @@
     <Filter Include="Windows\Input\Hid">
       <UniqueIdentifier>{55d277d0-1afa-464d-9bde-672334ad73fe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="assets">
+      <UniqueIdentifier>{a5b85611-e50f-4179-814d-426816c1e04d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -493,9 +496,6 @@
     <ClInclude Include="..\SDL\SDLJoystick.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
-    <ClInclude Include="..\SDL\SDLMain.h">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClInclude>
     <ClInclude Include="..\SDL\SDLVulkanGraphicsContext.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
@@ -716,9 +716,6 @@
     <None Include="..\SDL\SDLCocoaMetalLayer.mm">
       <Filter>Other Platforms\SDL</Filter>
     </None>
-    <None Include="..\SDL\SDLMain.mm">
-      <Filter>Other Platforms\SDL</Filter>
-    </None>
     <None Include="..\assets\compatvr.ini">
       <Filter>Resource Files</Filter>
     </None>
@@ -830,6 +827,21 @@
     <None Include="..\scripts\websocket-test.py">
       <Filter>Other Platforms</Filter>
     </None>
+    <None Include="..\assets\adhoc-servers.json">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\infra-dns.json">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\redump.csv">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\shaders\defaultshaders.ini">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\cheats.json">
+      <Filter>assets</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
@@ -863,6 +875,9 @@
     </Text>
     <Text Include="..\SDL\README.TXT">
       <Filter>Other Platforms\SDL</Filter>
+    </Text>
+    <Text Include="..\assets\gamecontrollerdb.txt">
+      <Filter>assets</Filter>
     </Text>
   </ItemGroup>
 </Project>

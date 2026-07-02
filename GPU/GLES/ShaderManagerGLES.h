@@ -41,7 +41,7 @@ public:
 	~LinkedShader();
 
 	void use(const ShaderID &VSID) const;
-	void UpdateUniforms(const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
+	void UpdateUniforms(const ShaderID &VSID, const ShaderLanguageDesc &shaderLanguage);
 	void Delete();
 
 	GLRenderManager *render_;
@@ -60,18 +60,20 @@ public:
 	int u_tex;
 	int u_proj;
 	int u_proj_lens;
-	int u_proj_through;
+	int u_xywh;
+	int u_vpScale;
+	int u_vpOffset;
 	int u_texenv;
 	int u_view;
 	int u_texmtx;
 	int u_world;
-	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
-	int u_cullRangeMin;
-	int u_cullRangeMax;
-	int u_rotation;
 	int u_mipBias;
 	int u_scaleX;
 	int u_scaleY;
+	int u_NaN;
+
+	int u_rasterOffset;
+	int u_minZmaxZ;
 
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones
@@ -159,6 +161,8 @@ private:
 
 class VertexDecoder;
 
+enum class ClipInfoFlags;
+
 class ShaderManagerGLES : public ShaderManagerCommon {
 public:
 	ShaderManagerGLES(Draw::DrawContext *draw);
@@ -168,8 +172,8 @@ public:
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
-	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering);
+	Shader *ApplyVertexShader(bool useHWTransform, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID);
+	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags);
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;

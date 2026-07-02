@@ -131,7 +131,7 @@ bool JsonGet::getBool(const char *child_name) const {
 	return get(child_name)->value.getTag() == JSON_TRUE;
 }
 
-bool JsonGet::getBool(const char *child_name, bool default_value) const {
+bool JsonGet::getBoolOr(const char *child_name, bool default_value) const {
 	const JsonNode *val = get(child_name);
 	if (val) {
 		JsonTag tag = val->value.getTag();

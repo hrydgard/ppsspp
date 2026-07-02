@@ -68,6 +68,7 @@
 #include "Windows/resource.h"
 #include "Windows/InputDevice.h"
 #include "Windows/MainWindow.h"
+#include "Windows/CaptureDevice.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
@@ -1171,6 +1172,13 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 	}
 
+	// Media foundation
+	if (!RegisterCMPTMFApis()) {
+		ERROR_LOG(Log::System, "Failed to load Media Foundation functions");
+		// Let's unregister again.
+		UnRegisterCMPTMFApis();
+	}
+
 	ContextMenuInit(_hInstance);
 	MainWindow::Init(_hInstance);
 	MainWindow::Show(_hInstance);
@@ -1251,6 +1259,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
+
+	UnRegisterCMPTMFApis();
 
 	g_logManager.Shutdown();
 	WinMainCleanup();

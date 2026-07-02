@@ -64,9 +64,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		BindingType::UNIFORM_BUFFER_DYNAMIC_ALL,  // uniforms
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // lights
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // bones
-		BindingType::STORAGE_BUFFER_VERTEX,  // tess
-		BindingType::STORAGE_BUFFER_VERTEX,
-		BindingType::STORAGE_BUFFER_VERTEX,
 	};
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -76,8 +73,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	pipelineLayout_ = renderManager->CreatePipelineLayout(bindingTypes, ARRAY_SIZE(bindingTypes), draw_->GetDeviceCaps().geometryShaderSupported, "drawengine_layout");
 
 	pushUBO_ = (VulkanPushPool *)draw_->GetNativeObject(Draw::NativeObject::PUSH_POOL);
-	pushVertex_ = new VulkanPushPool(vulkan, "pushVertex", 4 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	pushIndex_ = new VulkanPushPool(vulkan, "pushIndex", 1 * 512 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	pushVertex_ = new VulkanPushPool(vulkan, "pushVertex", 4 * 1024 * 1024, 256, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	pushIndex_ = new VulkanPushPool(vulkan, "pushIndex", 512 * 1024, 64, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -93,9 +90,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	_dbg_assert_(VK_SUCCESS == res);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
-
-	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
-	tessDataTransfer = tessDataTransferVulkan;
 
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineVulkan::Invalidate, this, std::placeholders::_1));
 }
@@ -114,10 +108,6 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	draw_->SetInvalidationCallback(InvalidationCallback());
-
-	delete tessDataTransferVulkan;
-	tessDataTransfer = nullptr;
-	tessDataTransferVulkan = nullptr;
 
 	pushUBO_ = nullptr;
 
@@ -165,8 +155,6 @@ void DrawEngineVulkan::BeginFrame() {
 	// pushUBO is the thin3d push pool, don't need to BeginFrame again.
 	pushVertex_->BeginFrame();
 	pushIndex_->BeginFrame();
-
-	tessDataTransferVulkan->SetPushPool(pushUBO_);
 
 	DirtyAllUBOs();
 
@@ -219,8 +207,6 @@ void DrawEngineVulkan::Flush() {
 
 	PROFILE_THIS_SCOPE("Flush");
 
-	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
-
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -236,11 +222,35 @@ void DrawEngineVulkan::Flush() {
 
 	// Always use software for flat shading to fix the provoking index
 	// if the provoking vertex extension is not available.
-	bool provokingVertexOk = (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
+	bool provokingVertexOk = gstate.getShadeMode() != GE_SHADE_FLAT;
 	if (renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
 		provokingVertexOk = true;
 	}
 	bool useHWTransform = CanUseHardwareTransform(prim) && provokingVertexOk;
+	if (clipInfoFlags_ & ClipInfoFlags::Valid) {
+		if (clipInfoFlags_ & ClipInfoFlags::SoftClipCull) {
+			useHWTransform = false;
+		}
+	}
+	if (clipInfoFlags_ != lastClipInfoFlags_) {
+		ClipInfoFlags changed = (ClipInfoFlags)((u32)clipInfoFlags_ ^ (u32)lastClipInfoFlags_);
+		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
+			gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+		}
+		if (changed & ClipInfoFlags::FlatZ) {
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		}
+		lastClipInfoFlags_ = clipInfoFlags_;
+	}
+
+	// Is this still needed?
+	if (useHWTransform != lastUseHwTransform_) {
+		// Need to re-evaluate software transform fallbacks.
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
+		lastUseHwTransform_ = useHWTransform;
+	}
+
+	// TODO: Here we can check depths_ to see if we need to fall back to software transform for clipping.
 
 	// The optimization to avoid indexing isn't really worth it on Vulkan since it means creating more pipelines.
 	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
@@ -268,6 +278,7 @@ void DrawEngineVulkan::Flush() {
 		int maxIndex;
 		bool useElements;
 		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -277,7 +288,7 @@ void DrawEngineVulkan::Flush() {
 		}
 
 		if (textureNeedsApply) {
-			textureCache_->ApplyTexture();
+			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
 				imageView = (VkImageView)draw_->GetNativeObject(gstate_c.textureIsArray ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
@@ -285,28 +296,27 @@ void DrawEngineVulkan::Flush() {
 				sampler = nullSampler_;
 		}
 
-		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
+		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
 
 			VulkanVertexShader *vshader = nullptr;
 			VulkanFragmentShader *fshader = nullptr;
-			VulkanGeometryShader *gshader = nullptr;
 
-			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
+			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, true, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0, framebufferManager_->GetMSAALevel(), false);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
-				ResetAfterDraw();
+				ResetAfterSkippedDraw();
 				return;
 			}
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 
 			if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
 				renderManager->ReportBadStateForDraw();
-				ResetAfterDraw();
+				ResetAfterSkippedDraw();
 				return;
 			}
 			if (pipeline != lastPipeline_) {
@@ -327,8 +337,6 @@ void DrawEngineVulkan::Flush() {
 		UpdateUBOs();
 
 		int descCount = 6;
-		if (tess)
-			descCount = 9;
 		int descSetIndex;
 		PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 		descriptors[0].image.view = imageView;
@@ -351,14 +359,7 @@ void DrawEngineVulkan::Flush() {
 		descriptors[5].buffer.buffer = boneBuf;
 		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
 		descriptors[5].buffer.offset = 0;
-		if (tess) {
-			const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
-			for (int j = 0; j < 3; j++) {
-				descriptors[j + 6].buffer.buffer = bufInfo[j].buffer;
-				descriptors[j + 6].buffer.range = bufInfo[j].range;
-				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
-			}
-		}
+
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
 		// Think this will require different descriptor set layouts.
 		const uint32_t dynamicUBOOffsets[3] = {
@@ -375,6 +376,8 @@ void DrawEngineVulkan::Flush() {
 			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
 		}
 	} else {
+		gpuStats.perFrame.numSoftTransformedDraws++;
+
 		PROFILE_THIS_SCOPE("soft");
 		const VertexDecoder *swDec = dec_;
 		if (swDec->nweights != 0) {
@@ -395,47 +398,10 @@ void DrawEngineVulkan::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += vertexCount;
+		gpuStats.perFrame.numVertsDrawn += vertexCount;
 		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
-		// At this point, the output is always an index triangle/line/point list, no strips/fans.
-
-		u16 *inds = decIndex_;
-		SoftwareTransformResult result{};
-		SoftwareTransformParams params{};
-		params.decoded = decoded_;
-		params.transformed = transformed_;
-		params.transformedExpanded = transformedExpanded_;
-		params.fbman = framebufferManager_;
-		params.texCache = textureCache_;
-		// In Vulkan, we have to force drawing of primitives if !framebufferManager_->UseBufferedRendering() because Vulkan clears
-		// do not respect scissor rects.
-		params.allowClear = framebufferManager_->UseBufferedRendering();
-		params.allowSeparateAlphaClear = false;
-
-		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
-			if (!renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
-				// If we can't have the hardware do it, we need to rotate the index buffer to simulate a different provoking vertex.
-				// We do this before line expansion etc.
-				IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
-			}
-		}
-		params.flippedY = true;
-		params.usesHalfZ = true;
-
-		// We need to update the viewport early because it's checked for flipping in SoftwareTransform.
-		// We don't have a "DrawStateEarly" in vulkan, so...
-		// TODO: Probably should eventually refactor this and feed the vp size into SoftwareTransform directly (Unknown's idea).
-		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			ViewportAndScissor vpAndScissor;
-			ConvertViewportAndScissor(
-				framebufferManager_->GetDisplayLayoutConfigCopy(),
-				framebufferManager_->UseBufferedRendering(),
-				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-				vpAndScissor);
-			UpdateCachedViewportState(vpAndScissor);
-		}
+		// At this point, the output is always an indexed triangle/line/point list, no strips/fans.
 
 		// At this point, rect and line primitives are still preserved as such. So, it's the best time to do software depth raster.
 		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
@@ -444,34 +410,40 @@ void DrawEngineVulkan::Flush() {
 			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
 		}
 
-		SoftwareTransform swTransform(params);
+		u16 *inds = decIndex_;
 
-		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
-		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
-		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
-
-		swTransform.Transform(prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, &result);
-
-		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
-		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
-		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
-			result.action = SW_NOT_READY;
-
-		if (result.action == SW_NOT_READY) {
-			// decIndex_ here is always equal to inds currently, but it may not be in the future.
-			swTransform.BuildDrawingParams(prim, vertexCount, swDec->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			if (!renderManager->GetVulkanContext()->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast) {
+				// If we can't have the hardware do it, we need to rotate the index buffer to simulate a different provoking vertex.
+				// We do this before line expansion etc.
+				IndexBufferProvokingLastToFirst(prim, inds, vertexCount);
+			}
 		}
+
+		SoftwareTransformResult result{};
+		SoftwareTransformParams params{};
+		params.decoded = decoded_;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
+		// In Vulkan, we have to force drawing of primitives if !framebufferManager_->UseBufferedRendering() because Vulkan clears
+		// do not respect scissor rects.
+		params.allowClear = framebufferManager_->UseBufferedRendering();
+		params.allowSeparateAlphaClear = false;
+		params.everUsedEqualDepth = everUsedEqualDepth_;
+		params.clipInfoFlags = clipInfoFlags_;
+
+		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
-		if (result.action == SW_DRAW_INDEXED) {
+		if (action == SW_DRAW_INDEXED) {
 			if (textureNeedsApply) {
 				gstate_c.pixelMapped = result.pixelMapped;
 				gstate_c.dstSquared = false;
-				textureCache_->ApplyTexture();
+				textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 				gstate_c.pixelMapped = false;
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
@@ -482,28 +454,27 @@ void DrawEngineVulkan::Flush() {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 			}
-			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE) || prim != lastPrim_) {
+			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
 
 				VulkanVertexShader *vshader = nullptr;
 				VulkanFragmentShader *fshader = nullptr;
-				VulkanGeometryShader *gshader = nullptr;
 
-				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, &gshader, pipelineState_, false, false, decOptions_.expandAllWeightsToFloat, true);
+				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
 				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel(), false);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
-					ResetAfterDraw();
+					ResetAfterSkippedDraw();
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 
 				if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
 					renderManager->ReportBadStateForDraw();
-					ResetAfterDraw();
+					ResetAfterSkippedDraw();
 					return;
 				}
 				if (pipeline != lastPipeline_) {
@@ -552,10 +523,10 @@ void DrawEngineVulkan::Flush() {
 			PROFILE_THIS_SCOPE("renderman_q");
 
 			VkBuffer vbuf, ibuf;
-			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
-			u32 ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
-			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
-		} else if (result.action == SW_CLEAR) {
+			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, result.drawVertexCount * sizeof(TransformedVertex), 4, &vbuf);
+			u32 ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawIndexCount, 4, &ibuf);
+			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawIndexCount, 1);
+		} else if (action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
 			bool clearColor = gstate.isClearModeColorMask();
 			bool clearAlpha = gstate.isClearModeAlphaMask();  // and stencil
@@ -586,7 +557,7 @@ void DrawEngineVulkan::Flush() {
 	gpuCommon_->NotifyFlush();
 }
 
-void DrawEngineVulkan::ResetAfterDraw() {
+void DrawEngineVulkan::ResetAfterSkippedDraw() {
 	indexGen.Reset();
 	numDecodedVerts_ = 0;
 	numDrawVerts_ = 0;
@@ -610,39 +581,4 @@ void DrawEngineVulkan::UpdateUBOs() {
 		boneUBOOffset = shaderManager_->PushBoneBuffer(pushUBO_, &boneBuf);
 		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
-}
-
-void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
-	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
-	// also need to be 16-byte aligned, hence the padding.
-	struct TessData {
-		float pos[3]; float pad1;
-		float uv[2]; float pad2[2];
-		float color[4];
-	};
-
-	int size = size_u * size_v;
-
-	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties().properties.limits.minStorageBufferOffsetAlignment;
-	uint8_t *data = (uint8_t *)push_->Allocate(size * sizeof(TessData), ssboAlignment, &bufInfo_[0].buffer, (uint32_t *)&bufInfo_[0].offset);
-	bufInfo_[0].range = size * sizeof(TessData);
-
-	float *pos = (float *)(data);
-	float *tex = (float *)(data + offsetof(TessData, uv));
-	float *col = (float *)(data + offsetof(TessData, color));
-	int stride = sizeof(TessData) / sizeof(float);
-
-	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
-
-	using Spline::Weight;
-
-	// Weights U
-	data = (uint8_t *)push_->Allocate(weights.size_u * sizeof(Weight), ssboAlignment, &bufInfo_[1].buffer, (uint32_t *)&bufInfo_[1].offset);
-	memcpy(data, weights.u, weights.size_u * sizeof(Weight));
-	bufInfo_[1].range = weights.size_u * sizeof(Weight);
-
-	// Weights V
-	data = (uint8_t *)push_->Allocate(weights.size_v * sizeof(Weight), ssboAlignment, &bufInfo_[2].buffer, (uint32_t *)&bufInfo_[2].offset);
-	memcpy(data, weights.v, weights.size_v * sizeof(Weight));
-	bufInfo_[2].range = weights.size_v * sizeof(Weight);
 }

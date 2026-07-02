@@ -51,16 +51,6 @@ static int ParsePortValue(const rapidjson::Value &v) {
 	return -1;
 }
 
-static std::string RemoveHttpsIfNeeded(std::string_view url) {
-	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
-		// Try with http. Needed on Linux installs currently.
-		if (startsWith(url, "https://")) {
-			return "http://" + std::string(url.substr(8));
-		}
-	}
-	return std::string(url);
-}
-
 std::vector<AdhocGame> ParseStatusXML(const std::string& xmlInput) {
 	pugi::xml_document doc;
 	pugi::xml_parse_result result = doc.load_string(xmlInput.c_str());
@@ -301,9 +291,9 @@ AdhocServerInfoScreen::AdhocServerInfoScreen(const AdhocServerListEntry &entry)
 
 	std::string dataUrl;
 	if (!entry.dataJsonUrl.empty()) {
-		dataUrl = RemoveHttpsIfNeeded(entry.dataJsonUrl);
+		dataUrl = http::RemoveHttpsIfNeeded(entry.dataJsonUrl);
 	} else if (!entry.statusXmlUrl.empty()) {
-		dataUrl = RemoveHttpsIfNeeded(entry.statusXmlUrl);
+		dataUrl = http::RemoveHttpsIfNeeded(entry.statusXmlUrl);
 	}
 
 	if (!dataUrl.empty()) {
@@ -328,7 +318,7 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 		CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
 		gameSection->Header()->SetUnderline(false);
 		for (const AdhocGroup &group : game.groups) {
-			std::string groupName = group.name;
+			std::string groupName(StripSpaces(group.name));
 			if (groupName.empty()) {
 				groupName = "???";
 			}
@@ -357,9 +347,15 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 				}
 			} else {
 				// Show each group on a single line.
-				std::string groupString = "  " + group.name + ApplySafeSubstitutions("(%1):", group.usercount);
+				std::string groupString = "  " + groupName + ApplySafeSubstitutions(" (%1):", group.usercount);
+				bool first = true;
 				for (const AdhocUser &user : group.users) {
-					groupString.push_back(' ');
+					if (first) {
+						groupString += " ";
+						first = false;
+					} else {
+						groupString += ", ";
+					}
 					groupString += user.name;
 				}
 				gameSection->Add(new TextView(groupString))->SetTextSize(TextSize::Small)->SetWordWrap();
@@ -726,6 +722,9 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	CollapsibleSection *publicSection = innerView->Add(new CollapsibleSection(n->T("Public server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	for (const auto &entry : entries) {
+		// Show even hidden entries, as long as they are chosen currently.
+		if (entry.hidden && entry.host != g_Config.sProAdhocServer)
+			continue;
 		AddButtonFromEntry(publicSection, entry, false);
 	}
 
@@ -862,7 +861,7 @@ void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(requestToken, n->T("Ad hoc server address"), g_Config.sProAdhocServer, false, [](const std::string &enteredValue, int) {
+		System_InputBoxGetString(requestToken, n->T("Ad hoc server address"), g_Config.sProAdhocServer, false, [](std::string_view enteredValue, int) {
 			EditServerName(enteredValue);
 		});
 		return;

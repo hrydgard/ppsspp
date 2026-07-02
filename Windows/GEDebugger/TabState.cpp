@@ -33,7 +33,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Debugger/GECommandTable.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/Debugger/State.h"
@@ -66,7 +66,7 @@ const GECommand g_stateFlagsRows[] = {
 	GE_CMD_LIGHTENABLE1,
 	GE_CMD_LIGHTENABLE2,
 	GE_CMD_LIGHTENABLE3,
-	GE_CMD_DEPTHCLAMPENABLE,
+	GE_CMD_DEPTHCLIPENABLE,
 	GE_CMD_CULLFACEENABLE,
 	GE_CMD_TEXTUREMAPENABLE,
 	GE_CMD_FOGENABLE,
@@ -304,19 +304,19 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, size_t destSize, int row, int
 		
 	case STATEVALUES_COL_VALUE:
 		{
-			if (!gpuDebug) {
+			if (!gpu) {
 				wcscpy(dest, L"N/A");
 				break;
 			}
 
 			const auto info = GECmdInfoByCmd(rows_[row]);
-			const auto state = gpuDebug->GetGState();
+			const auto &state = gpu->GetGState();
 			const bool enabled = info.enableCmd == 0 || (state.cmdmem[info.enableCmd] & 1) == 1;
 			const u32 value = state.cmdmem[info.cmd] & 0xFFFFFF;
 			const u32 otherValue = state.cmdmem[info.otherCmd] & 0xFFFFFF;
 			const u32 otherValue2 = state.cmdmem[info.otherCmd2] & 0xFFFFFF;
 			char temp[256];
-			FormatStateRow(gpuDebug, temp, sizeof(temp), info.fmt, value, enabled, otherValue, otherValue2);
+			FormatStateRow(temp, sizeof(temp), info.fmt, value, enabled, otherValue, otherValue2);
 			ConvertUTF8ToWString(dest, destSize, temp);
 			break;
 		}
@@ -324,7 +324,7 @@ void CtrlStateValues::GetColumnText(wchar_t *dest, size_t destSize, int row, int
 }
 
 void CtrlStateValues::OnDoubleClick(int row, int column) {
-	if (gpuDebug == nullptr || row >= rowCount_) {
+	if (gpu == nullptr || row >= rowCount_) {
 		return;
 	}
 
@@ -332,19 +332,19 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 
 	if (column == STATEVALUES_COL_BREAKPOINT) {
 		bool proceed = true;
-		if (gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info.cmd, nullptr)) {
+		if (gpu->GetBreakpoints()->GetCmdBreakpointCond(info.cmd, nullptr)) {
 			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			proceed = ret == IDYES;
 		}
 		if (proceed)
-			SetItemState(row, gpuDebug->GetBreakpoints()->ToggleCmdBreakpoint(info) ? 1 : 0);
+			SetItemState(row, gpu->GetBreakpoints()->ToggleCmdBreakpoint(info) ? 1 : 0);
 		return;
 	}
 
 	switch (info.fmt) {
 	case CMD_FMT_FLAG:
 		{
-			const auto state = gpuDebug->GetGState();
+			const auto state = gpu->GetGState();
 			u32 newValue = state.cmdmem[info.cmd] ^ 1;
 			SetCmdValue(newValue);
 		}
@@ -353,7 +353,7 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 	default:
 		{
 			char title[1024];
-			const auto state = gpuDebug->GetGState();
+			const auto state = gpu->GetGState();
 
 			u32 newValue = state.cmdmem[info.cmd] & 0x00FFFFFF;
 			snprintf(title, sizeof(title), "New value for %s", info.uiName);
@@ -385,21 +385,21 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 }
 
 void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
-	if (gpuDebug == nullptr) {
+	if (gpu == nullptr) {
 		return;
 	}
 
 	const GECommand cmd = rows_[row];
 	const GECmdInfo &info = GECmdInfoByCmd(cmd);
 
-	const auto state = gpuDebug->GetGState();
+	const auto state = gpu->GetGState();
 
 	POINT screenPt(point);
 	ClientToScreen(GetHandle(), &screenPt);
 
 	HMENU subMenu = GetContextMenu(ContextMenuID::GEDBG_STATE);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
-	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, gpuDebug->GetBreakpoints()->GPUBreakpoints::IsCmdBreakpoint(info.cmd) ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(subMenu, ID_GEDBG_SETCOND, gpu->GetBreakpoints()->GPUBreakpoints::IsCmdBreakpoint(info.cmd) ? MF_ENABLED : MF_GRAYED);
 
 	// Ehh, kinda ugly.
 	if (!watchList.empty() && rows_ == &watchList[0]) {
@@ -417,12 +417,12 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT: {
 		bool proceed = true;
-		if (gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info.cmd, nullptr)) {
+		if (gpu->GetBreakpoints()->GetCmdBreakpointCond(info.cmd, nullptr)) {
 			int ret = MessageBox(GetHandle(), L"This breakpoint has a custom condition.\nDo you want to remove it?", L"Confirmation", MB_YESNO);
 			proceed = ret == IDYES;
 		}
 		if (proceed)
-			SetItemState(row, gpuDebug->GetBreakpoints()->ToggleCmdBreakpoint(info) ? 1 : 0);
+			SetItemState(row, gpu->GetBreakpoints()->ToggleCmdBreakpoint(info) ? 1 : 0);
 		break;
 	}
 
@@ -444,7 +444,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		const u32 otherValue2 = state.cmdmem[info.otherCmd2] & 0xFFFFFF;
 
 		char dest[512];
-		FormatStateRow(gpuDebug, dest, sizeof(dest), info.fmt, value, enabled, otherValue, otherValue2);
+		FormatStateRow(dest, sizeof(dest), info.fmt, value, enabled, otherValue, otherValue2);
 		System_CopyStringToClipboard(dest);
 		break;
 	}
@@ -465,7 +465,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 }
 
 bool CtrlStateValues::OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) {
-	if (gpuDebug && RowValuesChanged(row)) {
+	if (gpu && RowValuesChanged(row)) {
 		msg->clrText = RGB(255, 0, 0);
 		return true;
 	}
@@ -478,10 +478,10 @@ void CtrlStateValues::SetCmdValue(u32 op) {
 }
 
 bool CtrlStateValues::RowValuesChanged(int row) {
-	_assert_(gpuDebug != nullptr && row >= 0 && row < rowCount_);
+	_assert_(gpu != nullptr && row >= 0 && row < rowCount_);
 
 	const auto &info = GECmdInfoByCmd(rows_[row]);
-	const auto state = gpuDebug->GetGState();
+	const auto state = gpu->GetGState();
 	const auto lastState = GPUStepping::LastState();
 
 	if (state.cmdmem[info.cmd] != lastState.cmdmem[info.cmd])
@@ -496,18 +496,18 @@ bool CtrlStateValues::RowValuesChanged(int row) {
 
 void CtrlStateValues::PromptBreakpointCond(const GECmdInfo &info) {
 	std::string expression;
-	gpuDebug->GetBreakpoints()->GetCmdBreakpointCond(info.cmd, &expression);
+	gpu->GetBreakpoints()->GetCmdBreakpointCond(info.cmd, &expression);
 	if (!InputBox_GetString(GetModuleHandle(NULL), GetHandle(), L"Expression", expression, expression))
 		return;
 
 	std::string error;
-	if (!gpuDebug->GetBreakpoints()->SetCmdBreakpointCond(info.cmd, expression, &error)) {
+	if (!gpu->GetBreakpoints()->SetCmdBreakpointCond(info.cmd, expression, &error)) {
 		MessageBox(GetHandle(), ConvertUTF8ToWString(error).c_str(), L"Invalid expression", MB_OK | MB_ICONEXCLAMATION);
 	} else {
 		if (info.otherCmd)
-			gpuDebug->GetBreakpoints()->SetCmdBreakpointCond(info.otherCmd, expression, &error);
+			gpu->GetBreakpoints()->SetCmdBreakpointCond(info.otherCmd, expression, &error);
 		if (info.otherCmd2)
-			gpuDebug->GetBreakpoints()->SetCmdBreakpointCond(info.otherCmd2, expression, &error);
+			gpu->GetBreakpoints()->SetCmdBreakpointCond(info.otherCmd2, expression, &error);
 	}
 }
 

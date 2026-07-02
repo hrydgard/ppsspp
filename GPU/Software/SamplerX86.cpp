@@ -678,12 +678,12 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		static const X64Reg srcArgReg = R8;
 		static const X64Reg bufwArgReg = R9;
 #else
-		static const X64Reg uArgReg = RDI;
-		static const X64Reg vArgReg = RSI;
-		static const X64Reg srcArgReg = RDX;
-		static const X64Reg bufwArgReg = RCX;
+		static constexpr X64Reg uArgReg = RDI;
+		static constexpr X64Reg vArgReg = RSI;
+		static constexpr X64Reg srcArgReg = RDX;
+		static constexpr X64Reg bufwArgReg = RCX;
 #endif
-		static const X64Reg resultReg = RAX;
+		static constexpr X64Reg resultReg = RAX;
 
 		X64Reg uReg = regCache_.Find(level1 ? RegCache::VEC_U1 : RegCache::VEC_ARG_U);
 		X64Reg vReg = regCache_.Find(level1 ? RegCache::VEC_V1 : RegCache::VEC_ARG_V);
@@ -3528,7 +3528,7 @@ bool SamplerJitCache::Jit_Decode4444Quad(const SamplerID &id, Rasterizer::RegCac
 	return true;
 }
 
-alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
+alignas(16) static constexpr u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 bool SamplerJitCache::Jit_Decode4444(const SamplerID &id) {
 	Describe("4444");

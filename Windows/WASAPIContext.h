@@ -79,6 +79,9 @@ private:
 	void SetErrorString(std::string_view str, HRESULT hr);
 	void ClearErrorString();
 
+	bool TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMode);
+	bool TryInitAudioClient(IMMDevice *device, LatencyMode latencyMode);
+
 	void Start();
 	void Stop();
 
@@ -106,9 +109,8 @@ private:
 	UINT32 maxPeriodFrames_ = 0;
 	std::atomic<bool> running_ = true;
 
-	// NOTE: these do not need to be atomic, due to usage.
-	UINT32 actualPeriodFrames_ = 0;  // may not be the requested.
-	UINT32 reportedBufferSize_ = 0;
+	std::atomic<UINT32> actualPeriodFrames_{0};  // may not be the requested.
+	std::atomic<UINT32> reportedBufferSize_{0};
 
 	Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_;
 	DeviceNotificationClient notificationClient_;

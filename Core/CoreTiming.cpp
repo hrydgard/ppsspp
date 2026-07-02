@@ -31,6 +31,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPS.h"
 
 static const int initialHz = 222000000;
@@ -48,30 +49,27 @@ static std::set<int> usedEventTypes;
 static std::set<int> restoredEventTypes;
 static int nextEventTypeRestoreId = -1;
 
-Event *first;
-Event *eventPool = 0;
+static Event *first;
+static Event *eventPool = 0;
 
 // Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
 // as we can already reach that structure through a register.
 int slicelength;
 
-alignas(16) s64 globalTimer;
-s64 idledCycles;
-s64 lastGlobalTimeTicks;
-s64 lastGlobalTimeUs;
+alignas(16) static s64 globalTimer;
+static s64 idledCycles;
+static s64 lastGlobalTimeTicks;
+static s64 lastGlobalTimeUs;
 
-std::vector<MHzChangeCallback> mhzChangeCallbacks;
-
-void FireMhzChange() {
-	for (MHzChangeCallback cb : mhzChangeCallbacks) {
-		cb();
-	}
-}
-
-void SetClockFrequencyHz(int cpuHz) {
+bool SetClockFrequencyHz(int cpuHz) {
 	if (cpuHz <= 0) {
 		// Paranoid check, protecting against division by zero and similar nonsense.
-		return;
+		return true;  // encourage logging
+	}
+
+	if (cpuHz == CPU_HZ) {
+		// Already at the correct frequency. Bail, false means we'll log at a lower level.
+		return false;
 	}
 
 	// When the mhz changes, we keep track of what "time" it was before hand.
@@ -80,9 +78,10 @@ void SetClockFrequencyHz(int cpuHz) {
 	lastGlobalTimeTicks = GetTicks();
 
 	CPU_HZ = cpuHz;
-	// TODO: Rescale times of scheduled events?
 
-	FireMhzChange();
+	// TODO: Rescale times of scheduled events?
+	__AudioCPUMHzChange();
+	return true;
 }
 
 int GetClockFrequencyHz() {
@@ -187,7 +186,6 @@ void Init()
 	idledCycles = 0;
 	lastGlobalTimeTicks = 0;
 	lastGlobalTimeUs = 0;
-	mhzChangeCallbacks.clear();
 	CPU_HZ = initialHz;
 }
 
@@ -303,12 +301,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 	return result;
 }
 
-void RegisterMHzChangeCallback(MHzChangeCallback callback) {
-	mhzChangeCallbacks.push_back(callback);
-}
-
-bool IsScheduled(int event_type)
-{
+bool IsScheduled(int event_type) {
 	if (!first)
 		return false;
 	Event *e = first;
@@ -529,7 +522,7 @@ void DoState(PointerWrap &p) {
 		lastGlobalTimeUs = 0;
 	}
 
-	FireMhzChange();
+	__AudioCPUMHzChange();
 }
 
 }	// namespace

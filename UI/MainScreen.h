@@ -52,6 +52,7 @@ public:
 
 	bool key(const KeyInput &touch) override;
 
+	bool WantsTextInput() const override;
 protected:
 	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::IgnoreBottomInset; }
 
@@ -91,7 +92,6 @@ protected:
 	bool lockBackgroundAudio_ = false;
 	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
-	bool searchKeyModifier_ = false;
 	bool searchChanged_ = false;
 	std::string searchFilter_;
 

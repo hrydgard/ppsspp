@@ -32,6 +32,7 @@ class FramebufferManagerVulkan;
 class ShaderManagerVulkan;
 class LinkedShader;
 class TextureCacheVulkan;
+class StringWriter;
 
 class GPU_Vulkan : public GPUCommonHW {
 public:
@@ -47,7 +48,7 @@ public:
 	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 	void EndHostFrame() override;
 
-	void GetStats(char *buffer, size_t bufsize) override;
+	void GetStats(StringWriter &w) override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore(Draw::DrawContext *draw) override;
 

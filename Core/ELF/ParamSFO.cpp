@@ -96,6 +96,7 @@ const u8 *ParamSFOData::GetValueData(std::string_view key, unsigned int *size) c
 
 std::vector<std::string> ParamSFOData::GetKeys() const {
 	std::vector<std::string> result;
+	result.reserve(values.size());
 	for (const auto &pair : values) {
 		result.push_back(pair.first);
 	}

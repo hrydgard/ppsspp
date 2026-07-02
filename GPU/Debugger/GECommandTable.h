@@ -76,6 +76,7 @@ enum class GECmdFormat {
 // TODO: Merge with the above.
 enum CmdFormatType {
 	CMD_FMT_HEX = 0,
+	CMD_FMT_HEX_AND_INT,
 	CMD_FMT_NUM,
 	CMD_FMT_FLOAT24,
 	CMD_FMT_PTRWIDTH,

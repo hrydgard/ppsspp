@@ -207,7 +207,7 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
 
 		// With depth clamp off, we discard the rectangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
 			return;
 		// With it on, both must be outside in the same direction.
 		else if (outsidePos >= 2 || outsideNeg >= 2)
@@ -288,7 +288,7 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 	CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
 
 	// With depth clamp off, we discard the line if even one vert is outside.
-	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
 		return;
 	// With it on, both must be outside in the same direction.
 	else if (outsidePos >= 2 || outsideNeg >= 2)
@@ -332,7 +332,7 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		CheckOutsideZ(v2.clippos, outsidePos, outsideNeg);
 
 		// With depth clamp off, we discard the triangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClampEnabled())
+		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
 			return;
 		// With it on, all three must be outside in the same direction.
 		else if (outsidePos >= 3 || outsideNeg >= 3)

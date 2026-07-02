@@ -52,10 +52,13 @@ public:
 	void TransitionColorImageAuto(VKRImage *image, VkImageLayout newImageLayout);
 	void TransitionDepthStencilImageAuto(VKRImage *image, VkImageLayout newImageLayout);
 
+	void TransitionBufferToShaderRead(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size);
+	
 	void Flush(VkCommandBuffer cmd);
 
 private:
 	FastVec<VkImageMemoryBarrier> imageBarriers_;
+	FastVec<VkBufferMemoryBarrier> bufferBarriers_;
 	VkPipelineStageFlags srcStageMask_ = 0;
 	VkPipelineStageFlags dstStageMask_ = 0;
 	VkDependencyFlags dependencyFlags_ = 0;

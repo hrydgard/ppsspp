@@ -85,8 +85,10 @@ Event::~Event() {
 }
 
 View::~View() {
-	if (HasFocus())
-		SetFocusedView(0);
+	if (HasFocus()) {
+		// The view with focus was destroyed.
+		SetFocusedView(nullptr, FocusFlags::CAUSE_VIEW_REMOVED);
+	}
 	RemoveQueuedEventsByView(this);
 
 	// Could use unique_ptr, but then we have to include tween everywhere.
@@ -150,7 +152,7 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 		break;
 	case UI::PERSIST_RESTORE:
 		if (storage.find(focusedKey) != storage.end()) {
-			SetFocus();
+			SetFocus(UI::FocusFlags::CAUSE_RESTORE);
 		}
 		break;
 	}
@@ -184,10 +186,10 @@ Point2D CollapsibleHeader::GetFocusPosition(FocusMove dir) const {
 	}
 }
 
-bool View::SetFocus() {
+bool View::SetFocus(FocusFlags cause) {
 	if (IsFocusMovementEnabled()) {
 		if (CanBeFocused()) {
-			SetFocusedView(this);
+			SetFocusedView(this, cause);
 			return true;
 		}
 	}
@@ -225,8 +227,8 @@ void Clickable::ClickInternal() {
 	OnClick.Trigger(e);
 };
 
-void Clickable::FocusChanged(int focusFlags) {
-	if (focusFlags & FF_LOSTFOCUS) {
+void Clickable::FocusChanged(FocusFlags focusFlags) {
+	if (focusFlags & FocusFlags::LOST_FOCUS) {
 		down_ = false;
 		dragging_ = false;
 	}
@@ -248,8 +250,10 @@ bool Clickable::Touch(const TouchInput &input) {
 
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
-			if (IsFocusMovementEnabled())
-				SetFocusedView(this);
+			if (IsFocusMovementEnabled()) {
+				// Can this even happen? Touch cancels focus movement.
+				SetFocusedView(this, UI::FocusFlags::CAUSE_OTHER);
+			}
 			dragging_ = true;
 			down_ = true;
 		} else {
@@ -344,7 +348,6 @@ bool Clickable::Key(const KeyInput &key) {
 
 bool StickyChoice::Touch(const TouchInput &touch) {
 	bool contains = bounds_.Contains(touch.x, touch.y);
-	dragging_ = false;
 	if (!IsEnabled()) {
 		down_ = false;
 		return contains;
@@ -352,12 +355,21 @@ bool StickyChoice::Touch(const TouchInput &touch) {
 
 	if (touch.flags & TouchInputFlags::DOWN) {
 		if (contains) {
-			if (IsFocusMovementEnabled())
-				SetFocusedView(this);
-			down_ = true;
+			dragging_ = true;
+		}
+	}
+	if (touch.flags & TouchInputFlags::UP) {
+		if (dragging_ && contains && !(touch.flags & TouchInputFlags::CANCEL)) {
+			if (IsFocusMovementEnabled()) {
+				// Can this even happen? Touch cancels focus movement.
+				SetFocusedView(this, UI::FocusFlags::CAUSE_OTHER);
+			}
 			ClickInternal();
+			dragging_ = false;
+			down_ = true;
 			return true;
 		}
+		dragging_ = false;
 	}
 	return false;
 }
@@ -379,7 +391,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 	return false;
 }
 
-void StickyChoice::FocusChanged(int focusFlags) {
+void StickyChoice::FocusChanged(FocusFlags focusFlags) {
 	// Override Clickable's FocusChanged to do nothing.
 }
 
@@ -545,6 +557,9 @@ InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutPara
 	: Item(layoutParams), text_(text), rightText_(rightText) {
 	// We set the colors later once we have a UIContext.
 }
+
+InfoItem::InfoItem(std::string_view text, int rightValue, LayoutParams *layoutParams)
+	: InfoItem(text, std::to_string(rightValue), layoutParams) {}
 
 void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	float w1, h1, w2, h2;
@@ -1084,6 +1099,7 @@ const FontStyle *GetTextStyle(const UIContext &dc, TextSize size) {
 	default:
 		break;
 	}
+	_dbg_assert_(style->sizePts > 0);
 	return style;
 }
 
@@ -1179,8 +1195,10 @@ bool ClickableTextView::Touch(const TouchInput &input) {
 
 	if (input.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
-			if (IsFocusMovementEnabled())
-				SetFocusedView(this);
+			if (IsFocusMovementEnabled()) {
+				// Can this even happen? Touch cancels focus movement.
+				SetFocusedView(this, UI::FocusFlags::CAUSE_OTHER);
+			}
 			dragging_ = true;
 			down_ = true;
 		} else {
@@ -1239,11 +1257,11 @@ TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_vi
 	caret_ = (int)text_.size();
 }
 
-void TextEdit::FocusChanged(int focusFlags) {
-	if (focusFlags == FF_GOTFOCUS) {
+void TextEdit::FocusChanged(FocusFlags focusFlags) {
+	if (focusFlags & FocusFlags::GOT_FOCUS) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
 	}
-	else {
+	if (focusFlags & FocusFlags::LOST_FOCUS) {
 		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
 	}
 }
@@ -1293,18 +1311,26 @@ void TextEdit::Draw(UIContext &dc) {
 
 	if (selectAtX_ >= 0) {
 		caret_ = -1;
-		for (int i = 0; i <= text_.size(); i++) {
+		for (int i = 0; i <= text_.size(); ) {
 			dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, textToDisplay.substr(0, i), &w, &h, ALIGN_VCENTER | ALIGN_LEFT | align_);
 			float charX = w - scrollPos_;
 			if (charX >= selectAtX_ - 3) {
 				caret_ = i;
 				break;
 			}
+			if (i >= text_.size()) {
+				break;
+			}
+			u8_inc(text_.c_str(), &i);
 		}
 		if (caret_ == -1) {
 			caret_ = (int)text_.size();
 		}
 		selectAtX_ = -1;
+	}
+	if (caret_ < 0 || caret_ > text_.size()) {
+		ERROR_LOG(Log::UI, "Caret position out of bounds: %d (text length %d)", caret_, (int)text_.size());
+		caret_ = (int)text_.size();
 	}
 
 	dc.PopScissor();
@@ -1337,7 +1363,7 @@ static std::string FirstLine(const std::string &text) {
 bool TextEdit::Touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
 		if (bounds_.Contains(touch.x, touch.y)) {
-			SetFocusedView(this, true);
+			SetFocusedView(this, UI::FocusFlags::CAUSE_FORCED, true);
 			Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
 			if (textBounds.Contains(touch.x, touch.y)) {
 				int relativeX = touch.x - textBounds.x + scrollPos_;
@@ -1380,10 +1406,6 @@ bool TextEdit::Key(const KeyInput &input) {
 	// Process hardcoded navigation keys. These aren't chars.
 	if (input.flags & KeyInputFlags::DOWN) {
 		switch (input.keyCode) {
-		case NKCODE_CTRL_LEFT:
-		case NKCODE_CTRL_RIGHT:
-			ctrlDown_ = true;
-			break;
 		case NKCODE_DPAD_LEFT:  // ASCII left arrow
 			MoveLeft();
 			break;
@@ -1428,7 +1450,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			break;
 		}
 
-		if (ctrlDown_) {
+		if ((input.flags & KeyInputFlags::MOD_CTRL) || (input.flags & KeyInputFlags::MOD_META)) {
 			switch (input.keyCode) {
 			case NKCODE_C:
 				// Just copy the entire text contents, until we get selection support.
@@ -1476,21 +1498,10 @@ bool TextEdit::Key(const KeyInput &input) {
 		}
 	}
 
-	if (input.flags & KeyInputFlags::UP) {
-		switch (input.keyCode) {
-		case NKCODE_CTRL_LEFT:
-		case NKCODE_CTRL_RIGHT:
-			ctrlDown_ = false;
-			break;
-		default:
-			break;
-		}
-	}
-
 	// Process chars.
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
-		if (unichar >= 0x20 && !ctrlDown_) {  // Ignore control characters.
+		if (unichar >= 0x20 && !(input.flags & KeyInputFlags::MOD_CTRL)) {  // Ignore control characters.
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
@@ -1511,6 +1522,7 @@ bool TextEdit::Key(const KeyInput &input) {
 }
 
 void TextEdit::InsertAtCaret(const char *text) {
+	_dbg_assert_(caret_ >= 0 && caret_ <= (int)text_.size());
 	size_t len = strlen(text);
 	for (size_t i = 0; i < len; i++) {
 		text_.insert(text_.begin() + caret_, text[i]);

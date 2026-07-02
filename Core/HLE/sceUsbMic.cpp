@@ -307,7 +307,7 @@ static int sceUsbMicWaitInputEnd() {
 int Microphone::startMic(void *param) {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::START, param });
+		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::START, param });
 #elif PPSSPP_PLATFORM(ANDROID)
 	std::vector<u32> *micParam = static_cast<std::vector<u32>*>(param);
 	int sampleRate = micParam->at(0);
@@ -322,7 +322,7 @@ int Microphone::startMic(void *param) {
 int Microphone::stopMic() {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
+		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
 #elif PPSSPP_PLATFORM(ANDROID)
 	System_MicrophoneCommand("stopRecording");
 #endif

@@ -83,7 +83,7 @@ static void *exception_handler(void *argument) {
 static NSDictionary *parse_entitlements(const void *entitlements, size_t length) {
 	char *copy = (char *)malloc(length);
 	memcpy(copy, entitlements, length);
-	
+
 	// strip out psychic paper entitlement hiding
 	if (@available(iOS 13.5, *)) {
 	} else {
@@ -95,7 +95,7 @@ static NSDictionary *parse_entitlements(const void *entitlements, size_t length)
 	}
 	NSData *data = [NSData dataWithBytes:copy length:length];
 	free(copy);
-	
+
 	return [NSPropertyListSerialization propertyListWithData:data
 													 options:NSPropertyListImmutable
 													  format:nil
@@ -104,7 +104,7 @@ static NSDictionary *parse_entitlements(const void *entitlements, size_t length)
 
 static NSDictionary *app_entitlements(void) {
 	// Inspired by codesign.c in Darwin sources for Security.framework
-	
+
 	// Find our mach-o header
 	Dl_info dl_info;
 	if (dladdr((const void *)app_entitlements, &dl_info) == 0)
@@ -115,7 +115,7 @@ static NSDictionary *app_entitlements(void) {
 	struct mach_header_64 *header = (struct mach_header_64 *)dl_info.dli_fbase;
 	if (header->magic != MH_MAGIC_64)
 		return nil;
-	
+
 	// Simulator executables have fake entitlements in the code signature. The real entitlements can be found in an __entitlements section.
 	size_t entitlements_size;
 	uint8_t *entitlements_data = getsectiondata(header, "__TEXT", "__entitlements", &entitlements_size);
@@ -128,7 +128,7 @@ static NSDictionary *app_entitlements(void) {
 														  format:nil
 														   error:nil];
 	}
-	
+
 	// Find the LC_CODE_SIGNATURE
 	struct load_command *lc = (struct load_command *) (base + sizeof(*header));
 	struct linkedit_data_command *cs_lc = NULL;
@@ -152,7 +152,7 @@ static NSDictionary *app_entitlements(void) {
 	const struct cs_superblob *cs = (const struct cs_superblob *)csData.bytes;
 	if (ntohl(cs->magic) != 0xfade0cc0)
 		return nil;
-	
+
 	// Find the entitlements in the code signature
 	for (uint32_t i = 0; i < ntohl(cs->count); i++) {
 		struct cs_entitlements *ents = (struct cs_entitlements *) ((char *) cs + ntohl(cs->index[i].offset));
@@ -180,7 +180,7 @@ static char *childArgv[] = {NULL, "debugme", NULL};
 
 bool jb_spawn_ptrace_child(int argc, char **argv) {
 	int ret; pid_t pid;
-	
+
 	if (argc > 1 && strcmp(argv[1], childArgv[1]) == 0) {
 		ret = ptrace(PT_TRACE_ME, 0, NULL, 0);
 		NSLog(@"child: ptrace(PT_TRACE_ME) %d", ret);
@@ -250,7 +250,7 @@ static bool jb_has_debugger_attached(void) {
 
 bool jb_enable_ptrace_hack(void) {
 	bool debugged = jb_has_debugger_attached();
-	
+
 	// Thanks to this comment: https://news.ycombinator.com/item?id=18431524
 	// We use this hack to allow mmap with PROT_EXEC (which usually requires the
 	// dynamic-codesigning entitlement) by tricking the process into thinking
@@ -259,7 +259,7 @@ bool jb_enable_ptrace_hack(void) {
 	if (ptrace(PT_TRACE_ME, 0, NULL, 0) < 0) {
 		return false;
 	}
-	
+
 	// ptracing ourselves confuses the kernel and will cause bad things to
 	// happen to the system (hangs…) if an exception or signal occurs. Setup
 	// some "safety nets" so we can cause the process to exit in a somewhat sane
@@ -269,7 +269,7 @@ bool jb_enable_ptrace_hack(void) {
 	if (!debugged) {
 		// First, ensure that signals are delivered as Mach software exceptions…
 		ptrace(PT_SIGEXC, 0, NULL, 0);
-		
+
 		// …then ensure that this exception goes through our exception handler.
 		// I think it's OK to just watch for EXC_SOFTWARE because the other
 		// exceptions (e.g. EXC_BAD_ACCESS, EXC_BAD_INSTRUCTION, and friends)
@@ -282,7 +282,7 @@ bool jb_enable_ptrace_hack(void) {
 		pthread_t thread;
 		pthread_create(&thread, NULL, exception_handler, (void *)&port);
 	}
-	
+
 	return true;
 }
 #endif
@@ -358,6 +358,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+		case SYSPROP_HAS_DEEP_LINKS:
+			return true;
 		case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
 			return true;
 		case SYSPROP_HAS_FILE_BROWSER:
@@ -408,6 +410,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return true;
 #endif
 		case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
+			return true;
+
+		case SYSPROP_CAN_RESTRICT_ORIENTATION:
 			return true;
 
 		default:
@@ -696,6 +701,10 @@ int main(int argc, char *argv[]) {
 		perror("Unable to ignore SIGPIPE");
 	}
 	PROFILE_INIT();
+
+#if PPSSPP_PLATFORM(IOS_APP_STORE) && defined(_DEBUG)
+	g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+#endif
 
 	@autoreleasepool {
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));

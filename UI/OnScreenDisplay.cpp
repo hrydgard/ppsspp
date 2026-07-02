@@ -389,7 +389,7 @@ bool OnScreenMessagesView::Dismiss(float x, float y) {
 	return dismissed;
 }
 
-bool OSDOverlayScreen::UnsyncTouch(const TouchInput &touch) {
+bool OSDOverlayScreen::touch(const TouchInput &touch) {
 	// Don't really need to forward.
 	// UIScreen::UnsyncTouch(touch);
 	if ((touch.flags & TouchInputFlags::DOWN) && osmView_) {
@@ -439,10 +439,6 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 	ApplyBoundBySpec(layoutWidth, horiz);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
 	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_);
-	// Layout hack! Some weird problems with the layout that I can't figure out right now..
-	if (squishy_) {
-		w = 50.0;
-	}
 }
 
 void NoticeView::Draw(UIContext &dc) {

@@ -232,7 +232,11 @@ void XinputDevice::ReleaseAllKeys(int pad) {
 }
 
 void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
-	ApplyButtons(pad, state);
+	const bool sendInput = g_Config.bAllowXInput;
+
+	if (sendInput) {
+		ApplyButtons(pad, state);
+	}
 	ApplyVibration(pad, vibration);
 
 	AxisInput axis[6];
@@ -256,12 +260,13 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 4);
 	sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
 
-	if (axisCount) {
+	if (axisCount && sendInput) {
 		NativeAxis(axis, axisCount);
 	}
 
 	padData_[pad].prevState = state;
 	padData_[pad].checkDelayUpdates = 0;
+	padData_[pad].prevButtons = state.Gamepad.wButtons;
 }
 
 void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
@@ -269,7 +274,6 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 	const u32 downMask = buttons & (~padData_[pad].prevButtons);
 	const u32 upMask = (~buttons) & padData_[pad].prevButtons;
-	padData_[pad].prevButtons = buttons;
 
 	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
 		if (downMask & xinput_ctrl_map[i].from) {

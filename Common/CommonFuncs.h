@@ -132,3 +132,19 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	return (x >> n) | (x << (64 - n));
 #endif
 }
+
+// --- GCC / Clang / Intel Definition ---
+#if defined(__GNUC__) || defined(__clang__)
+#define ATTR_FORMAT_PRINTF(fmt_idx, first_arg_idx) \
+        __attribute__((format(printf, fmt_idx, first_arg_idx)))
+#else
+#define ATTR_FORMAT_PRINTF(fmt_idx, first_arg_idx)
+#endif
+
+// --- MSVC Definition ---
+#if defined(_MSC_VER)
+#include <sal.h>
+#define MSVC_FORMAT_PRINTF _Printf_format_string_
+#else
+#define MSVC_FORMAT_PRINTF
+#endif

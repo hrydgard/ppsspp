@@ -31,6 +31,10 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 		*image = ImageID("I_NAVIGATE_BACK");
 	} else if (buttonText == di->T("Exit")) {
 		*image = ImageID("I_EXIT");
+	} else if (buttonText == di->T("More info")) {
+		*image = ImageID("I_LINK_OUT_QUESTION");
+	} else {
+		*image = ImageID();
 	}
 }
 
@@ -47,11 +51,11 @@ PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::
 	alpha_ = 0.0f;  // inherited
 }
 
-void PopupScreen::touch(const TouchInput &touch) {
+bool PopupScreen::touch(const TouchInput &touch) {
 	if (!box_ || (touch.flags & TouchInputFlags::DOWN) == 0) {
 		// Handle down-presses here.
 		UIDialogScreen::touch(touch);
-		return;
+		return false;
 	}
 
 	// Extra bounds to avoid closing the dialog while trying to aim for something
@@ -61,7 +65,7 @@ void PopupScreen::touch(const TouchInput &touch) {
 		TriggerFinish(DR_CANCEL);
 	}
 
-	UIDialogScreen::touch(touch);
+	return UIDialogScreen::touch(touch);
 }
 
 bool PopupScreen::key(const KeyInput &key) {
@@ -332,12 +336,12 @@ void PopupCallbackScreen::CreatePopupContents(ViewGroup *parent) {
 	AlignPopup(parent);
 }
 
-std::string ChopTitle(const std::string &title) {
+static std::string ChopTitle(std::string_view title) {
 	size_t pos = title.find('\n');
 	if (pos != title.npos) {
-		return title.substr(0, pos);
+		return std::string(title.substr(0, pos));
 	}
-	return title;
+	return std::string(title);
 }
 
 PopupMultiChoice::PopupMultiChoice(int *value, std::string_view text, const char **choices, int minVal, int numChoices,
@@ -397,7 +401,7 @@ void PopupMultiChoice::UpdateText() {
 			}
 			valueText_ = std::move(text);
 		} else {
-			valueText_ = "";
+			valueText_.clear();
 		}
 	}
 }
@@ -416,7 +420,7 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		OnChoice.Trigger(e);
 
 		if (restoreFocus_) {
-			SetFocusedView(this);
+			SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 		}
 	}
 }
@@ -489,7 +493,7 @@ void PopupSliderChoice::HandleChange(EventParams &e) {
 	OnChange.Trigger(e);
 
 	if (restoreFocus_) {
-		SetFocusedView(this);
+		SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 	}
 }
 
@@ -552,7 +556,7 @@ void PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 	OnChange.Trigger(e);
 
 	if (restoreFocus_) {
-		SetFocusedView(this);
+		SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 	}
 }
 
@@ -665,7 +669,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
 
 	if (IsFocusMovementEnabled())
-		UI::SetFocusedView(slider_);
+		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
 }
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -706,7 +710,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
-		UI::SetFocusedView(slider_);
+		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
 }
 
 void SliderFloatPopupScreen::OnDecrease(EventParams &params) {
@@ -785,8 +789,34 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
+// General utility, if you don't want to use a choice with a string.
+void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *sourceView, std::string_view title, std::function<void(const std::string &, bool)> callback) {
+	// Choose method depending on platform capabilities.
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(token, title, "", false, [callback](std::string_view enteredValue, int) {
+			callback(SanitizeString(StripSpaces(enteredValue), StringRestriction::None, 0, 0), true);
+		});
+		return;
+	}
+
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(nullptr, "", ChopTitle(title), -1);
+	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
+		popupScreen->SetAlignTop(true);
+	}
+	popupScreen->OnChange.Add([callback, sourceView](EventParams &e) {
+		callback(SanitizeString(StripSpaces(e.s), StringRestriction::None, 0, 0), true);
+		if (sourceView) {
+			SetFocusedView(sourceView, FocusFlags::CAUSE_SCREEN_CHANGE);
+		}
+	});
+	if (sourceView)
+		popupScreen->SetPopupOrigin(sourceView);
+	screenManager->push(popupScreen);
+}
+
 PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *value, std::string_view title, std::string_view placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen), token_(token), restriction_(StringRestriction::None) {
+	_dbg_assert_(value);
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
@@ -795,7 +825,7 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [this](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_, passwordMasking_, [this](std::string_view enteredValue, int) {
 			*value_ = SanitizeString(StripSpaces(enteredValue), restriction_, minLen_, maxLen_);
 			EventParams params{};
 			params.v = this;
@@ -813,9 +843,10 @@ void PopupTextInputChoice::HandleClick(EventParams &e) {
 		*value_ = StripSpaces(SanitizeString(*value_, restriction_, minLen_, maxLen_));
 		EventParams params{};
 		params.v = this;
+		params.s = *value_;
 		OnChange.Trigger(params);
 		if (restoreFocus_) {
-			SetFocusedView(this);
+			SetFocusedView(this, FocusFlags::CAUSE_SCREEN_CHANGE);
 		}
 	});
 	if (e.v)
@@ -833,7 +864,7 @@ std::string PopupTextInputChoice::ValueText(bool *shadow) const {
 	}
 }
 
-ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
+ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 	ScrollView *scrollView = new ScrollView(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	LinearLayout *keyboard = scrollView->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
@@ -841,17 +872,20 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 	static struct {
 		std::string_view v; const char *tag;
 	} kbRows[] = {
-		{"1234567890-=", "A"},
-		{"qwertyuiop'[]", "L"},
-		{"asdfghjkl()", "L"},
+		{"1234567890-_", "A"},
+		{"qwertyuiop", "L"},
+		{"asdfghjkl", "L"},
 		{"zxcvbnm,.", "L"},
-		{"QWERTYUIOP'[]", "U"},
-		{"ASDFGHJKL()", "U"},
+		{"QWERTYUIOP", "U"},
+		{"ASDFGHJKL", "U"},
 		{"ZXCVBNM,.", "U"},
+		{"@#$_&()/-+_", "S"},
+		{"*\"':;!?[]", "S"},
+		{"={}~<>|", "S"},
 		{"", "A"},
 	};
 	static const float space[] = {
-		0.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 30.0f,
+		0.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 30.0f,
 	};
 
 	static_assert(ARRAY_SIZE(kbRows) == ARRAY_SIZE(space));
@@ -871,8 +905,9 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 
 		bool visible = false;
 		switch (kbRows[i].tag[0]) {
-		case 'L': visible = !(*upperCase); break;
-		case 'U': visible = *upperCase; break;
+		case 'L': visible = (*state == SoftKeyboardState::Lower); break;
+		case 'U': visible = (*state == SoftKeyboardState::Upper); break;
+		case 'S': visible = (*state == SoftKeyboardState::Symbols); break;
 		case 'A': visible = true; break;
 		default: visible = false; break;
 		}
@@ -885,16 +920,20 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 				edit->Backspace();
 			});
 			break;
-		case 7:
+		case 10:
 			// Special keys.
-			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([keyboard, upperCase](EventParams &) {
-				*upperCase = !(*upperCase);
+			row->Add(new Button("Aa", new LinearLayoutParams(80.0f, 50.0f)))->OnClick.Add([keyboard, state](EventParams &) {
+				*state = (SoftKeyboardState)((int)*state + 1);
+				if (*state == SoftKeyboardState::MAX) {
+					*state = SoftKeyboardState::Upper;
+				}
 				// Work through visibility.
 				for (int i = 0; i < keyboard->GetNumSubviews(); i++) {
 					LinearLayout *row = (LinearLayout *)keyboard->GetViewByIndex(i);
 					switch (row->Tag()[0]) {
-					case 'L': row->SetVisibility(*upperCase ? V_GONE : V_VISIBLE); break;
-					case 'U': row->SetVisibility(*upperCase ? V_VISIBLE : V_GONE); break;
+					case 'L': row->SetVisibility((*state == SoftKeyboardState::Lower) ? V_VISIBLE : V_GONE); break;
+					case 'U': row->SetVisibility((*state == SoftKeyboardState::Upper) ? V_VISIBLE : V_GONE); break;
+					case 'S': row->SetVisibility((*state == SoftKeyboardState::Symbols) ? V_VISIBLE : V_GONE); break;
 					case 'A': row->SetVisibility(V_VISIBLE); break;
 					default: row->SetVisibility(V_GONE); break;
 					}
@@ -916,6 +955,15 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, bool *upperCase) {
 	return scrollView;
 }
 
+TextEditPopupScreen::TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
+		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value), placeholder_(placeholder), maxLen_(maxLen) {
+	if (!value_) {
+		// Point it to our temporary.
+		value_ = &textEditValue_;
+	}
+}
+
+
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
@@ -930,7 +978,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	parent->Add(new Spacer(8.0f));
 
-	keyboard_ = parent->Add(CreateSoftKeyboard(edit_, &upperCase_));
+	keyboard_ = parent->Add(CreateSoftKeyboard(edit_, &kbState_));
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
 		keyboard_->SetVisibility(V_GONE);
 		lin->Add(new Spacer(5.0f));
@@ -941,7 +989,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		});
 	}
 
-	UI::SetFocusedView(edit_);
+	UI::SetFocusedView(edit_, FocusFlags::CAUSE_SCREEN_CHANGE);
 }
 
 void TextEditPopupScreen::OnCompleted(DialogResult result) {
@@ -949,6 +997,7 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 		*value_ = StripSpaces(edit_->GetText());
 		EventParams e{};
 		e.v = edit_;
+		e.s = *value_;
 		OnChange.Trigger(e);
 	}
 }
@@ -1071,7 +1120,7 @@ std::string ChoiceWithValueDisplay::ValueText(bool *shadow) const {
 FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, std::string_view text, BrowseFileType fileType, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFile(token, text_, fileType, [=](const std::string &returnValue, int) {
+		System_BrowseForFile(token, text_, fileType, [=](std::string_view returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};
@@ -1095,7 +1144,7 @@ std::string FileChooserChoice::ValueText(bool *shadow) const {
 FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *value, std::string_view text, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), token_(token) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFolder(token_, text_, Path(*value), [=](const std::string &returnValue, int) {
+		System_BrowseForFolder(token_, text_, Path(*value), [=](std::string_view returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};

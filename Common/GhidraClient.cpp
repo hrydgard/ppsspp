@@ -123,7 +123,7 @@ bool GhidraClient::FetchTypes() {
 		type.pathName = entry.getStringOr("pathName", "");
 		type.length = entry.getInt("length", 0);
 		type.alignedLength = entry.getInt("alignedLength", 0);
-		type.zeroLength = entry.getBool("zeroLength", false);
+		type.zeroLength = entry.getBoolOr("zeroLength", false);
 		type.description = entry.getStringOr("description", "");
 		type.kind = ResolveTypeKind(entry.getStringOr("kind", ""));
 

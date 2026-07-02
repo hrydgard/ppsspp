@@ -37,7 +37,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -135,7 +135,7 @@ bool Recorder::BeginRecording() {
 	nextFrame = false;
 	lastTextures.clear();
 	lastRenderTargets.clear();
-	flipLastAction = gpuStats.numFlips;
+	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 
 	u32 ptr = (u32)pushbuf.size();
@@ -147,7 +147,7 @@ bool Recorder::BeginRecording() {
 
 	// Also save the initial CLUT.
 	GPUDebugBuffer clut;
-	if (gpuDebug->GetCurrentClut(clut)) {
+	if (gpu->GetCurrentClut(clut)) {
 		sz = clut.GetStride() * clut.PixelSize();
 		_assert_msg_(sz == 1024, "CLUT should be 1024 bytes");
 		ptr = (u32)pushbuf.size();
@@ -525,7 +525,7 @@ void Recorder::EmitClut(u32 op) {
 	// Hardware rendering may be using a framebuffer as CLUT.
 	// To get at this, we first run the command (normally we're called right before it has run.)
 	if (Memory::IsVRAMAddress(addr))
-		gpuDebug->SetCmdValue(op);
+		gpu->SetCmdValue(op);
 
 	// Actually should only be 0x3F, but we allow enhanced CLUTs.  See #15727.
 	u32 blocks = (op & 0x7F) == 0x40 ? 0x40 : (op & 0x3F);
@@ -575,7 +575,7 @@ void Recorder::EmitBezierSpline(u32 op) {
 
 bool Recorder::RecordNextFrame(const std::function<void(const Path &)> callback) {
 	if (!nextFrame) {
-		flipLastAction = gpuStats.numFlips;
+		flipLastAction = gpuStats.totals.numFlips;
 		flipFinishAt = -1;
 		writeCallback = callback;
 		nextFrame = true;
@@ -597,7 +597,7 @@ void Recorder::FinishRecording() {
 
 	NOTICE_LOG(Log::System, "Recording finished");
 	active = false;
-	flipLastAction = gpuStats.numFlips;
+	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 	lastEdramTrans = 0x400;
 
@@ -608,10 +608,10 @@ void Recorder::FinishRecording() {
 }
 
 void Recorder::CheckEdramTrans() {
-	if (!gpuDebug)
+	if (!gpu)
 		return;
 
-	uint32_t value = gpuDebug->GetAddrTranslation();
+	uint32_t value = gpu->GetAddrTranslation();
 	if (value == lastEdramTrans)
 		return;
 	lastEdramTrans = value;
@@ -785,9 +785,9 @@ void Recorder::NotifyDisplay(u32 framebuf, int stride, int fmt) {
 }
 
 void Recorder::NotifyBeginFrame() {
-	const bool noDisplayAction = flipLastAction + 4 < gpuStats.numFlips;
+	const bool noDisplayAction = flipLastAction + 4 < gpuStats.totals.numFlips;
 	// We do this only to catch things that don't call NotifyDisplay.
-	if (active && HasDrawCommands() && (noDisplayAction || gpuStats.numFlips == flipFinishAt)) {
+	if (active && HasDrawCommands() && (noDisplayAction || gpuStats.totals.numFlips == flipFinishAt)) {
 		NOTICE_LOG(Log::System, "Recording complete on frame");
 
 		CheckEdramTrans();
@@ -813,7 +813,7 @@ void Recorder::NotifyBeginFrame() {
 		NOTICE_LOG(Log::System, "Recording starting on frame...");
 		BeginRecording();
 		// If we began on a BeginFrame, end on a BeginFrame.
-		flipFinishAt = gpuStats.numFlips + 1;
+		flipFinishAt = gpuStats.totals.numFlips + 1;
 	}
 }
 

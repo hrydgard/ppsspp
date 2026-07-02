@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 
+#include "Common/CommonFuncs.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/gl3stub.h"
 
@@ -25,11 +26,8 @@ public:
 
 	void BeginFrame();
 
-	void Begin(const char *fmt, ...)
-#ifdef __GNUC__
-		__attribute__((format(printf, 2, 3)))
-#endif
-		;
+	ATTR_FORMAT_PRINTF(2, 3)
+	void Begin(MSVC_FORMAT_PRINTF const char *fmt, ...);
 	void End();
 
 	void SetEnabledPtr(bool *enabledPtr) {

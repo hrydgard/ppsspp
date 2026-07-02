@@ -23,6 +23,7 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
@@ -190,7 +191,7 @@ void MemStickScreen::CreateViews() {
 	ViewGroup *leftColumn = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	subColumns->Add(leftColumn);
 
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(220, FILL_PARENT, actionMenuMargins));
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(250, FILL_PARENT, actionMenuMargins));
 	subColumns->Add(rightColumnItems);
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
@@ -220,8 +221,6 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_SET_MANUAL, ms->T("Manually specify PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		// TODO: Show current folder here if we have one set.
 	}
-	errorNoticeView_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("Cancelled - try again"), ""));
-	errorNoticeView_->SetVisibility(UI::V_GONE);
 
 	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
 		UI::View *extraView = nullptr;
@@ -273,7 +272,7 @@ void MemStickScreen::CreateViews() {
 		rightColumnItems->Add(new UI::Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
-		rightColumnItems->Add(new UI::Choice(ms->T("WhatsThis", "What's this?")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
+		rightColumnItems->Add(new UI::Choice(ms->T("WhatsThis", "What's this?"), ImageID("I_LINK_OUT_QUESTION")))->OnClick.Handle<MemStickScreen>(this, &MemStickScreen::OnHelp);
 	}
 
 	INFO_LOG(Log::System, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
@@ -290,7 +289,6 @@ void MemStickScreen::OnChoiceClick(UI::EventParams &params) {
 	// and change the text that we show.
 	RecreateViews();
 }
-
 
 void MemStickScreen::OnConfirmClick(UI::EventParams &params) {
 	switch (choice_) {
@@ -309,11 +307,11 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 	// The old way, from before scoped storage. Write in the full path.
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	System_InputBoxGetString(GetRequesterToken(), sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), false, [&](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), false, [this](std::string_view value, int) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		std::string newPath = value;
+		std::string newPath(value);
 		size_t pos = newPath.find_last_not_of('/');
 		// Gotta have at least something but a /, and also needs to start with a /.
 		if (newPath.empty() || pos == std::string::npos || newPath[0] != '/') {
@@ -419,8 +417,8 @@ void MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 
 void MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [=](const std::string &value, int) {
-		Path pendingMemStickFolder = Path(value);
+	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [this](std::string_view value, int) {
+		Path pendingMemStickFolder(value);
 		INFO_LOG(Log::System, "Got folder: '%s' (old: %s)", pendingMemStickFolder.c_str(), g_Config.memStickDirectory.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.
 		if (!pendingMemStickFolder.empty() && pendingMemStickFolder == g_Config.memStickDirectory && File::IsDirectory(pendingMemStickFolder)) {
@@ -430,11 +428,23 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 			done_ = true;
 			return;
 		}
-		errorNoticeView_->SetVisibility(UI::V_GONE);
-
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
-	}, [=]() {
-		errorNoticeView_->SetVisibility(UI::V_VISIBLE);
+	}, [this](int responseValue) {
+		WARN_LOG(Log::System, "Folder browse cancelled: %d", responseValue);
+
+		if (responseValue == 1) {
+			// Show a message box explaining what went wrong.
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+			auto nw = GetI18NCategory(I18NCat::NETWORKING);
+			screenManager()->push(new UI::MessagePopupScreen(
+				nw->T("Error"),  // from the networking category of strings.
+				ms->T("MissingFileBrowserError", "This device is missing a file/folder browser. If you disabled the 'Files' app, please enable it and try again."),
+				di->T("More info"), di->T("Cancel"), [](bool ok) {
+					System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/cant-pick-folder/");
+				}
+			));
+		}
 	});
 }
 

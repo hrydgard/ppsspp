@@ -510,7 +510,7 @@ int Core_GetSteppingCounter() {
 }
 
 SteppingReason Core_GetSteppingReason() {
-	SteppingReason r;
+	SteppingReason r{};
 	std::lock_guard<std::mutex> lock(g_stepMutex);
 	if (!g_cpuStepCommand.empty()) {
 		r.reason = g_cpuStepCommand.reason;

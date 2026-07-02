@@ -282,8 +282,10 @@ void App::OnSuspending(const IInspectable& sender, const SuspendingEventArgs& ar
 	auto app = this;
 
 	std::thread([app, deferral]() {
-		g_Config.Save("App::OnSuspending");
-		app->m_deviceResources->Trim();
+		try {
+			g_Config.Save("App::OnSuspending");
+			app->m_deviceResources->Trim();
+		} catch (...) {}
 		deferral.Complete();
 	}).detach();
 }

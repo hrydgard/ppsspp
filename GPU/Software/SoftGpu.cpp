@@ -49,8 +49,8 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Record.h"
 
-const int FB_WIDTH = 480;
-const int FB_HEIGHT = 272;
+constexpr int FB_WIDTH = 480;
+constexpr int FB_HEIGHT = 272;
 
 uint8_t clut[1024];
 FormatBuffer fb;
@@ -228,7 +228,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_VIEWPORTYCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTZSCALE, 0, SoftDirty::TRANSFORM_VIEWPORT },
 	{ GE_CMD_VIEWPORTZCENTER, 0, SoftDirty::TRANSFORM_VIEWPORT },
-	{ GE_CMD_DEPTHCLAMPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_DEPTHCLIPENABLE, 0, SoftDirty::TRANSFORM_BASIC },
 
 	// Z clipping.
 	{ GE_CMD_MINZ, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },
@@ -630,15 +630,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 
 	fbTex = draw_->CreateTexture(desc);
 
-	switch (GetGPUBackend()) {
-	case GPUBackend::OPENGL:
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
-		break;
-	case GPUBackend::DIRECT3D11:
-		outputFlags |= OutputFlags::POSITION_FLIPPED;
-		break;
-	case GPUBackend::VULKAN:
-		break;
 	}
 
 	presentation_->SourceTexture(fbTex, desc.width, desc.height);
@@ -1037,11 +1030,6 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
 }
 
-void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_CULL_PLANES);
-	GPUCommon::Execute_BoundingBox(op, diff);
-}
-
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 	// We assume depthbuf.data won't change while we're drawing.
 	if (diff) {
@@ -1094,7 +1082,7 @@ void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_CULL_PLANES);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 		}
 	}
 
@@ -1115,7 +1103,7 @@ void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_CULL_PLANES);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 		}
 	}
 
@@ -1136,7 +1124,7 @@ void SoftGPU::Execute_ProjMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
-			gstate_c.Dirty(DIRTY_CULL_PLANES);
+			gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX);
 		}
 	}
 
@@ -1281,8 +1269,8 @@ u32 SoftGPU::DrawSync(int mode) {
 	return GPUCommon::DrawSync(mode);
 }
 
-void SoftGPU::GetStats(char *buffer, size_t bufsize) {
-	drawEngine_->transformUnit.GetStats(buffer, bufsize);
+void SoftGPU::GetStats(StringWriter &w) {
+	drawEngine_->transformUnit.GetStats(w);
 }
 
 void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
@@ -1450,11 +1438,6 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	buffer.Allocate(pixels, 1, (GEBufferFormat)gstate.getClutPaletteFormat());
 	memcpy(buffer.GetData(), clut, 1024);
 	return true;
-}
-
-bool SoftGPU::GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	gstate_c.UpdateUVScaleOffset();
-	return drawEngine_->transformUnit.GetCurrentDrawAsDebugVertices(count, vertices, indices);
 }
 
 bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {

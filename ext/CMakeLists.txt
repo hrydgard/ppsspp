@@ -60,6 +60,10 @@ if(NOT USE_SYSTEM_LIBCHDR)
 	add_subdirectory(libchdr-build)
 endif()
 
+if(BUILD_BUNDLED_FFMPEG)
+	add_subdirectory(ffmpeg-build)
+endif()
+
 if(ANDROID)
     if (ARM64)
         add_subdirectory(libadrenotools)

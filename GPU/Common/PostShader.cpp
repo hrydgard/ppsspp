@@ -38,7 +38,6 @@ static std::vector<ShaderInfo> shaderInfo;
 static std::vector<TextureShaderInfo> textureShaderInfo;
 
 static Draw::GPUVendor VendorFromString(const std::string &vendor) {
-	Draw::GPUVendor::VENDOR_UNKNOWN;
 	// TODO: This should probably be a function somewhere.
 	if (vendor == "ARM") {
 		return Draw::GPUVendor::VENDOR_ARM;
@@ -212,6 +211,13 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					info.scaleFactor = 0;
 					section.Get("Name", &info.name);
 					section.Get("Scale", &info.scaleFactor);
+					bool hidden = false;
+					section.Get("Hidden", &info.hidden);
+					std::string cbufferFilename;
+					if (section.Get("ConstantBuffer", &cbufferFilename)) {
+						Path cbufferPath = path / cbufferFilename;
+						info.constantBuffer = cbufferPath;
+					}
 					if (section.Get("Compute", &temp)) {
 						info.computeShaderFile = path / temp;
 						info.computeShaderFiles.push_back(info.computeShaderFile);

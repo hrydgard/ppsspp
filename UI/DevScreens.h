@@ -154,7 +154,6 @@ public:
 	const char *tag() const override { return "FrameDumpTest"; }
 
 private:
-	void OnLoadDump(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
 
 	std::vector<std::string> files_;
@@ -170,7 +169,7 @@ public:
 		}
 	}
 
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	void DrawForeground(UIContext &dc) override;
 
 	bool key(const KeyInput &key) override;

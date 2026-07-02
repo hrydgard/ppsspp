@@ -76,8 +76,8 @@ public:
 		GPUDebugBuffer buf;
 		u16 w = NATIVEWIDTH;
 		u16 h = NATIVEHEIGHT;
-		if (gpuDebug) {
-			gpuDebug->GetOutputFramebuffer(buf);
+		if (gpu) {
+			gpu->GetOutputFramebuffer(buf);
 			const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buf, w, h);
 			memcpy(soft_bmp, pixels.data(), SOFT_BMP_SIZE);
 		}

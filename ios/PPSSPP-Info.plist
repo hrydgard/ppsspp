@@ -40,6 +40,17 @@
 			<string>AppIcon</string>
 		</dict>
 	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>org.ppsspp.ppsspp-free</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ppsspp</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

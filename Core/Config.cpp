@@ -267,6 +267,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("SaveLoadResetsAVdumping", SETTING(g_Config, bSaveLoadResetsAVdumping), false, CfgFlag::DEFAULT),
 	ConfigSetting("StateSlot", SETTING(g_Config, iCurrentStateSlot), 0, CfgFlag::PER_GAME),
 	ConfigSetting("EnableStateUndo", SETTING(g_Config, bEnableStateUndo), &DefaultEnableStateUndo, CfgFlag::PER_GAME),
+	ConfigSetting("ConfirmLoadState", SETTING(g_Config, bConfirmLoadState), false, CfgFlag::DEFAULT),
 	ConfigSetting("StateLoadUndoGame", SETTING(g_Config, sStateLoadUndoGame), "NA", CfgFlag::DEFAULT),
 	ConfigSetting("StateUndoLastSaveGame", SETTING(g_Config, sStateUndoLastSaveGame), "NA", CfgFlag::DEFAULT),
 	ConfigSetting("StateUndoLastSaveSlot", SETTING(g_Config, iStateUndoLastSaveSlot), -5, CfgFlag::DEFAULT), // Start with an "invalid" value
@@ -717,7 +718,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("VendorBugChecksEnabled", SETTING(g_Config, bVendorBugChecksEnabled), true, CfgFlag::DONT_SAVE),
 	ConfigSetting("UseGeometryShader", SETTING(g_Config, bUseGeometryShader), false, CfgFlag::PER_GAME),
 	ConfigSetting("SkipBufferEffects", SETTING(g_Config, bSkipBufferEffects), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("DisableRangeCulling", SETTING(g_Config, bDisableRangeCulling), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("DepthRasterMode", SETTING(g_Config, iDepthRasterMode), &DefaultDepthRaster, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SoftwareRenderer", SETTING(g_Config, bSoftwareRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("SoftwareRendererJit", SETTING(g_Config, bSoftwareRenderingJit), true, CfgFlag::PER_GAME),
@@ -743,11 +743,11 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AnisotropyLevel", SETTING(g_Config, iAnisotropyLevel), 4, CfgFlag::PER_GAME),
 	ConfigSetting("MultiSampleLevel", SETTING(g_Config, iMultiSampleLevel), 0, CfgFlag::PER_GAME),  // Number of samples is 1 << iMultiSampleLevel
 
-	ConfigSetting("TextureBackoffCache", SETTING(g_Config, bTextureBackoffCache), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VertexDecJit", SETTING(g_Config, bVertexDecoderJit), &DefaultCodeGen, CfgFlag::DONT_SAVE | CfgFlag::REPORT),
 
 #ifndef MOBILE_DEVICE
 	ConfigSetting("FullScreen", SETTING(g_Config, bFullScreen), false, CfgFlag::DEFAULT),
+	ConfigSetting("FullScreenExclusive", SETTING(g_Config, bAllowFullScreenExclusive), false, CfgFlag::DEFAULT),
 	ConfigSetting("FullScreenMulti", SETTING(g_Config, bFullScreenMulti), false, CfgFlag::DEFAULT),
 #endif
 
@@ -771,12 +771,11 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("UIButtonDownscaleFilter", SETTING(g_Config, iUIButtonDownscaleFilter), 2, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexHardwareScaling", SETTING(g_Config, bTexHardwareScaling), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VerticalSync", SETTING(g_Config, bVSync), true, CfgFlag::PER_GAME),
-	ConfigSetting("LowLatencyPresent", SETTING(g_Config, bLowLatencyPresent), true, CfgFlag::PER_GAME),
+	ConfigSetting("LowLatencyPresent", SETTING(g_Config, bLowLatencyPresent), false, CfgFlag::PER_GAME),
 	ConfigSetting("BloomHack", SETTING(g_Config, iBloomHack), 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	// Not really a graphics setting...
 	ConfigSetting("SplineBezierQuality", SETTING(g_Config, iSplineBezierQuality), 2, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("HardwareTessellation", SETTING(g_Config, bHardwareTessellation), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),
 
@@ -794,7 +793,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("GpuLogProfiler", SETTING(g_Config, bGpuLogProfiler), false, CfgFlag::DEFAULT),
 
 	ConfigSetting("UberShaderVertex", SETTING(g_Config, bUberShaderVertex), true, CfgFlag::DEFAULT),
-	ConfigSetting("UberShaderFragment", SETTING(g_Config, bUberShaderFragment), true, CfgFlag::DEFAULT),
 
 	ConfigSetting("DisplayRefreshRate", SETTING(g_Config, iDisplayRefreshRate), g_Config.iDisplayRefreshRate, CfgFlag::PER_GAME),
 };
@@ -827,6 +825,16 @@ std::string DefaultProAdhocServer() {
 	return "socom.cc";
 }
 
+bool DefaultAudioMixWithOthers() {
+#if PPSSPP_PLATFORM(IOS)
+	// On iOS, it's generally best to mix with others by default, since users expect that and the hardware is generally good enough to handle it.
+	return true;
+#else
+	// On Android, we historically took audio focus.
+	return false;
+#endif
+}
+
 static const ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", SETTING(g_Config, bEnableSound), true, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", SETTING(g_Config, bExtraAudioBuffering), false, CfgFlag::DEFAULT),
@@ -852,7 +860,7 @@ static const ConfigSetting soundSettings[] = {
 
 	ConfigSetting("AudioDevice", SETTING(g_Config, sAudioDevice), "", CfgFlag::DEFAULT),
 	ConfigSetting("AutoAudioDevice", SETTING(g_Config, bAutoSwitchAudioDevice), true, CfgFlag::DEFAULT),
-	ConfigSetting("AudioMixWithOthers", SETTING(g_Config, bAudioMixWithOthers), true, CfgFlag::DEFAULT),
+	ConfigSetting("AudioMixWithOthers", SETTING(g_Config, bAudioMixWithOthers), &DefaultAudioMixWithOthers, CfgFlag::DEFAULT),
 	ConfigSetting("AudioRespectSilentMode", SETTING(g_Config, bAudioRespectSilentMode), false, CfgFlag::DEFAULT),
 	ConfigSetting("UseOldAtrac", SETTING(g_Config, bUseOldAtrac), false, CfgFlag::DEFAULT),
 };
@@ -1025,6 +1033,11 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogIsCircular", SETTING(g_Config, bAnalogIsCircular), false, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogAutoRotSpeed", SETTING(g_Config, fAnalogAutoRotSpeed), 8.0f, CfgFlag::PER_GAME),
 
+	// Advanced analog deadzone settings.
+	ConfigSetting("AnalogDeadzoneShape", SETTING(g_Config, iAnalogDeadzoneShape), 1, CfgFlag::PER_GAME),  // Default 1 (Square) matches legacy max-norm behavior
+	ConfigSetting("AnalogAxialDeadzone", SETTING(g_Config, fAnalogAxialDeadzone), 0.0f, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogResponseCurve", SETTING(g_Config, iAnalogResponseCurve), 0, CfgFlag::PER_GAME),
+
 	ConfigSetting("AnalogLimiterDeadzone", SETTING(g_Config, fAnalogLimiterDeadzone), 0.6f, CfgFlag::DEFAULT),
 	ConfigSetting("AnalogTriggerThreshold", SETTING(g_Config, fAnalogTriggerThreshold), 0.75f, CfgFlag::DEFAULT),
 	ConfigSetting("AnalogStickThreshold", SETTING(g_Config, fAnalogStickThreshold), 0.75f, CfgFlag::DEFAULT),
@@ -1040,6 +1053,12 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("SystemControls", SETTING(g_Config, bSystemControls), true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", SETTING(g_Config, iRapidFireInterval), 5, CfgFlag::DEFAULT),
+
+#if PPSSPP_PLATFORM(WINDOWS)
+	ConfigSetting("AllowHIDInput", SETTING(g_Config, bAllowHIDInput), true, CfgFlag::DEFAULT),
+	ConfigSetting("AllowXInput", SETTING(g_Config, bAllowXInput), true, CfgFlag::DEFAULT),
+	ConfigSetting("AllowDInput", SETTING(g_Config, bAllowDInput), true, CfgFlag::DEFAULT),
+#endif
 };
 
 static const std::vector<std::string_view> emptyList;
@@ -1598,7 +1617,7 @@ void Config::PostLoadCleanup() {
 
 	// Remove a legacy value.
 	if (g_Config.sCustomDriver == "Default") {
-		g_Config.sCustomDriver = "";
+		g_Config.sCustomDriver.clear();
 	}
 
 	// Squash unsupported screen rotations.

@@ -329,8 +329,7 @@ retry:
 	}
 }
 
-static void __CtrlVblank()
-{
+void __CtrlVblank() {
 	emuRapidFireFrames++;
 	if (emuRapidFireFrames >= emuRapidFireInterval) {
 		emuRapidFireFrames = 0;
@@ -356,10 +355,8 @@ static void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
 	__CtrlDoSample();
 }
 
-void __CtrlInit()
-{
+void __CtrlInit() {
 	ctrlTimer = CoreTiming::RegisterEvent("CtrlSampleTimer", __CtrlTimerUpdate);
-	__DisplayListenVblank(__CtrlVblank);
 
 	ctrlIdleReset = -1;
 	ctrlIdleBack = -1;

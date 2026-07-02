@@ -16,6 +16,7 @@ double from_time_raw_relative(uint64_t raw_time);
 
 // Seconds, Unix UTC time
 double time_now_unix_utc();
+double time_to_unix_utc(double timeNowSeconds);
 
 // Sleep for milliseconds. Does not necessarily have millisecond granularity, especially on Windows.
 // Requires a "reason" since sleeping generally should be very sparingly used. This

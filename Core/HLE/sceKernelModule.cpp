@@ -21,7 +21,6 @@
 #include "zlib.h"
 
 #include "Common/Data/Convert/SmallDataConvert.h"
-#include "Common/Data/Text/Parsers.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"
@@ -31,6 +30,7 @@
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/StringWriter.h"
 
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -363,7 +363,7 @@ void PSPModule::GetLongInfo(char *ptr, int bufSize) const {
 	}
 	w.F("Text: %08x (%08x bytes)\n", nm.text_addr, nm.text_size);
 	w.F("Data: %08x (%08x bytes)\n", GetDataAddr(), nm.data_size);
-	w.F("BSS: % 08x(% 08x bytes)\n", GetBSSAddr(), nm.bss_size);
+	w.F("BSS: %08x (%08x bytes)\n", GetBSSAddr(), nm.bss_size);
 	w.F("Entry: %08x GP: %08x\n", nm.entry_addr, nm.gp_value);
 	w.F("Status: %08x\n", nm.status);
 }

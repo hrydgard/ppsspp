@@ -125,6 +125,12 @@ MainScreen::~MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
 }
 
+bool MainScreen::WantsTextInput() const {
+	// We don't want to pop a software keyboard on the main screen, just for type-to-search.
+	return !System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT);
+}
+
+
 #if PPSSPP_PLATFORM(IOS)
 constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
 constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
@@ -269,6 +275,7 @@ private:
 void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (portrait) {
 		parent->Add(new Spacer(1.0f, new LinearLayoutParams(1.0f)));
 	}
@@ -308,7 +315,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 #endif
 	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 	if (showExitButton) {
-		parent->Add(new Choice(mm->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
+		parent->Add(new Choice(di->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
 			// Let's make sure the config was saved, since it may not have been.
 			if (!g_Config.Save("MainScreen::OnExit")) {
 				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
@@ -509,18 +516,13 @@ void MainScreen::CreateViews() {
 
 bool MainScreen::key(const KeyInput &key) {
 	if (key.flags & KeyInputFlags::DOWN) {
-		if (key.keyCode == NKCODE_CTRL_LEFT || key.keyCode == NKCODE_CTRL_RIGHT)
-			searchKeyModifier_ = true;
-		if (key.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		if (key.keyCode == NKCODE_F && (key.flags & KeyInputFlags::MOD_CTRL) && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
-			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, false, [&](const std::string &value, int) {
+			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, false, [this](std::string_view value, int) {
 				searchFilter_ = StripSpaces(value);
 				searchChanged_ = true;
 			});
 		}
-	} else if (key.flags & KeyInputFlags::UP) {
-		if (key.keyCode == NKCODE_CTRL_LEFT || key.keyCode == NKCODE_CTRL_RIGHT)
-			searchKeyModifier_ = false;
 	}
 
 	bool retval = UIBaseScreen::key(key);
@@ -595,7 +597,7 @@ void MainScreen::update() {
 void MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+		System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, value);
 		});
 	}
@@ -665,12 +667,14 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 
 	Path path(e.s);
 
-	if (path == highlightedGamePath_ && e.a == FF_GOTFOCUS) {
+	const FocusFlags focusFlags = (FocusFlags)e.a;
+
+	if (path == highlightedGamePath_ && (focusFlags & FocusFlags::GOT_FOCUS)) {
 		// Already highlighted, nothing to do.
 		return;
 	}
 
-	if (e.a == FF_LOSTFOCUS) {
+	if (focusFlags & FocusFlags::LOST_FOCUS) {
 		// Lost focus, so we want to fade out the background.
 
 		// Trigger fadeouts on any active highlights.
@@ -680,7 +684,10 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 			}
 		}
 		highlightedGamePath_.clear();
-		g_BackgroundAudio.SetGame(Path());
+		if ((focusFlags & FocusFlags::CAUSE_FOCUS_MOVE) || (focusFlags & FocusFlags::CAUSE_KB_FOCUS_DISABLED)) {
+			// Focus moved to another game, so we want to fade out so we can fade in the new one.
+			g_BackgroundAudio.SetGame(Path());
+		}
 		return;
 	}
 
@@ -695,7 +702,7 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 
 	// Add a new entry to the highlight list.
 	highlightedBackgrounds_.push_back({path, time_now_d(), -1.0});
-	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_) {
+	if ((!highlightedGamePath_.empty() || (focusFlags & FocusFlags::LOST_FOCUS)) && !lockBackgroundAudio_) {
 		g_BackgroundAudio.SetGame(highlightedGamePath_);
 	}
 
@@ -829,7 +836,7 @@ void UmdReplaceScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
-			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](const std::string &value, int) {
+			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](std::string_view value, int) {
 				__UmdReplace(Path(value));
 				TriggerFinish(DR_OK);
 			});

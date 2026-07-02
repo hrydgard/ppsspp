@@ -45,13 +45,13 @@ struct GLExtensions {
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	int maxTextureSize;
-	int maxClipPlanes;
+	int maxClipDistances;
+	int maxCullDistances;
 
 	// OES
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
 	bool OES_depth_texture;
-	bool OES_texture_npot;  // If this is set, can wrap non-pow-2 textures. Set on desktop.
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	bool OES_copy_image;
@@ -73,6 +73,7 @@ struct GLExtensions {
 	bool ARB_texture_float;
 	bool ARB_draw_instanced;
 	bool ARB_buffer_storage;
+	bool ARB_clip_distance;
 	bool ARB_cull_distance;
 	bool ARB_depth_clamp;
 	bool ARB_uniform_buffer_object;

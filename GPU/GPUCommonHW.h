@@ -2,6 +2,8 @@
 
 #include "GPUCommon.h"
 
+class StringWriter;
+
 // Shared GPUCommon implementation for the HW backends.
 // Things that are irrelevant for SoftGPU should live here.
 class GPUCommonHW : public GPUCommon {
@@ -16,8 +18,6 @@ public:
 	void DoState(PointerWrap &p) override;
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
-
-	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 
 	u32 CheckGPUFeatures() const override;
 
@@ -88,7 +88,7 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 
 protected:
-	size_t FormatGPUStatsCommon(char *buf, size_t size);
+	void FormatGPUStatsCommon(StringWriter &w);
 	void UpdateCmdInfo() override;
 
 	void PreExecuteOp(u32 op, u32 diff) override;
@@ -105,7 +105,6 @@ protected:
 	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	int msaaLevel_ = 0;
-	bool sawExactEqualDepth_ = false;
 	ShaderManagerCommon *shaderManager_ = nullptr;
 	bool curFramebufferDirty_ = false;
 };

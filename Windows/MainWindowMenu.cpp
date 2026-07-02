@@ -45,6 +45,7 @@
 #include "Core/SaveState.h"
 #include "Core/Core.h"
 #include "Core/RetroAchievements.h"
+#include "UI/PauseScreen.h"
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 #include "ext/rcheevos/include/rc_client_raintegration.h"
@@ -352,7 +353,7 @@ namespace MainWindow {
 		DrawMenuBar(hWnd);
 	}
 
-	void BrowseAndBootDone(std::string filename);
+	void BrowseAndBootDone(std::string_view filename);
 
 	void BrowseAndBoot(RequesterToken token, std::string defaultPath, bool browseDirectory) {
 		bool browsePauseAfter = false;
@@ -366,37 +367,37 @@ namespace MainWindow {
 		W32Util::MakeTopMost(GetHWND(), false);
 
 		if (browseDirectory) {
-			System_BrowseForFolder(token, mm->T("Load"), Path(), [](const std::string &value, int) {
+			System_BrowseForFolder(token, mm->T("Load"), Path(), [](std::string_view value, int) {
 				BrowseAndBootDone(value);
 			});
 		} else {
-			System_BrowseForFile(token, mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			System_BrowseForFile(token, mm->T("Load"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 				BrowseAndBootDone(value);
 			});
 		}
 	}
 
-	void BrowseAndBootDone(std::string filename) {
+	void BrowseAndBootDone(std::string_view filename) {
 		if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
 			Core_Resume();
 		}
-		filename = ReplaceAll(filename, "\\", "/");
-		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename);
+		std::string fileStr(filename);
+		fileStr = ReplaceAll(fileStr, "\\", "/");
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, fileStr);
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
 	}
 
 	static void UmdSwitchAction(RequesterToken token) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});
 	}
 
-	static void SaveStateActionFinished(SaveState::Status status, std::string_view message) {
-		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-			g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
-		}
+	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, std::string_view metadata) {
+		// Reuse the message from the pause screen.
+		ShowMessageAfterSaveStateAction(status, message, metadata);
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
@@ -1142,13 +1143,8 @@ namespace MainWindow {
 			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | (selected ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !gl_extensions.OES_texture_npot) {
-			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_GRAYED);
-			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_GRAYED);
-		} else {
-			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
-			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
-		}
+		EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
+		EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
 
 		static const int texscalingtypeitems[] = {
 			ID_TEXTURESCALING_XBRZ,

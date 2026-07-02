@@ -25,6 +25,8 @@
 
 #include "ppsspp_config.h"
 
+#include "ext/rcheevos/include/rc_client.h"
+
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
 #include <errno.h>
@@ -133,6 +135,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
+#include "UI/PauseScreen.h"
 #include "UI/UIAtlas.h"
 
 #if PPSSPP_PLATFORM(UWP)
@@ -190,6 +193,71 @@ static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static int g_restartGraphics;
 static bool g_windowHidden = false;
+static std::string g_achievementsHostOverride;
+static std::string g_savedAchievementsHost;
+static bool g_savedAchievementsHardcoreMode = false;
+static bool g_hasSavedAchievementsSettings = false;
+static bool g_nativeMainThreadReady = false;
+
+static void ApplyAchievementsRuntimeSettings() {
+	auto *client = Achievements::GetClient();
+	if (!client) {
+		return;
+	}
+
+	if (!g_Config.sAchievementsHost.empty()) {
+		rc_client_set_host(client, g_Config.sAchievementsHost.c_str());
+	} else if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		rc_client_set_host(client, "http://retroachievements.org");
+	} else {
+		rc_client_set_host(client, "https://retroachievements.org");
+	}
+
+	rc_client_set_hardcore_enabled(client, g_Config.bAchievementsHardcoreMode ? 1 : 0);
+}
+
+static void ApplyAchievementsHostOverride() {
+	if (g_achievementsHostOverride.empty()) {
+		return;
+	}
+
+	if (!g_hasSavedAchievementsSettings) {
+		g_savedAchievementsHost = g_Config.sAchievementsHost;
+		g_savedAchievementsHardcoreMode = g_Config.bAchievementsHardcoreMode;
+		g_hasSavedAchievementsSettings = true;
+	}
+
+	g_Config.DoNotSaveSetting(&g_Config.sAchievementsHost);
+	g_Config.sAchievementsHost = g_achievementsHostOverride;
+	g_Config.DoNotSaveSetting(&g_Config.bAchievementsHardcoreMode);
+	g_Config.bAchievementsHardcoreMode = false;
+	ApplyAchievementsRuntimeSettings();
+}
+
+static void ClearAchievementsHostOverride() {
+	g_achievementsHostOverride.clear();
+	if (!g_hasSavedAchievementsSettings) {
+		return;
+	}
+
+	g_Config.DoNotSaveSetting(&g_Config.sAchievementsHost);
+	g_Config.sAchievementsHost = g_savedAchievementsHost;
+	g_Config.DoNotSaveSetting(&g_Config.bAchievementsHardcoreMode);
+	g_Config.bAchievementsHardcoreMode = g_savedAchievementsHardcoreMode;
+	g_savedAchievementsHost.clear();
+	g_savedAchievementsHardcoreMode = false;
+	g_hasSavedAchievementsSettings = false;
+	ApplyAchievementsRuntimeSettings();
+}
+
+static void RunAchievementsOverrideUpdate(std::function<void()> func) {
+	if (g_nativeMainThreadReady) {
+		System_RunOnMainThread(std::move(func));
+	} else {
+		func();
+	}
+}
+
 std::vector<std::function<void()>> g_pendingClosures;
 
 AudioBackend *g_audioBackend = nullptr;
@@ -390,6 +458,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
+#ifdef _DEBUG
+	g_logManager.SetAllLogLevels(LogLevel::LINFO);
+	g_logManager.SetAllLogEnable(true);
+	g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+	INFO_LOG(Log::System, "Logging test");
+#endif
+
 	// In Android 12 with scoped storage, due to the above, the external directory
 	// is no longer the plain root of external storage, but it's an app specific directory
 	// on external storage (g_extFilesDir).
@@ -624,12 +699,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					boot_filename = Path(str);
 					skipLogo = true;
 				}
+				// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
+				TryUpdateSavedPath(&boot_filename);
 				if (okToLoad && okToCheck) {
 					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
 					if (!fileLoader->Exists()) {
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-#if defined(_WIN32) || defined(__ANDROID__)
-						// Ignore and proceed.
+
+#if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
 						boot_filename.clear();
 #else
 						// Bail.
@@ -639,7 +716,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				}
 			} else {
 				fprintf(stderr, "Syntax error: Can only boot one file.\nNote: Many command line args need a =, like --appendconfig=FILENAME.ini.\n");
-#if defined(_WIN32) || defined(__ANDROID__)
+#if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
 				// Ignore and proceed.
 #else
 				// Bail.
@@ -684,12 +761,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_BackgroundAudio.SFX().Init();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message) {
-			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
-					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
-			}
-		});
+		SaveState::Load(stateToLoad, -1, &ShowMessageAfterSaveStateAction);
 	}
 
 	if (g_Config.bAchievementsEnable) {
@@ -701,6 +773,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	g_DownloadManager.SetCacheDir(GetSysDirectory(DIRECTORY_APP_CACHE));
+
+	ApplyAchievementsHostOverride();
 
 	DEBUG_LOG(Log::System, "ScreenManager!");
 	g_screenManager = new ScreenManager();
@@ -751,6 +825,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// Must be done restarting by now.
 	restarting = false;
+	g_nativeMainThreadReady = true;
+}
+
+void NativeSetAchievementsHostOverride(std::string_view host) {
+	std::string hostCopy(host);
+	RunAchievementsOverrideUpdate([host = std::move(hostCopy)] {
+		g_achievementsHostOverride = host;
+		ApplyAchievementsHostOverride();
+	});
+}
+
+void NativeClearAchievementsHostOverride() {
+	RunAchievementsOverrideUpdate([] {
+		ClearAchievementsHostOverride();
+	});
 }
 
 void CallbackPostRender(UIContext *dc, void *userdata);
@@ -823,10 +912,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (IsWin7OrHigher()) {
-		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
-		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
-		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::Audio);
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::VIDEO);
+		winMic = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::AUDIO);
 	}
 #endif
 
@@ -888,12 +975,14 @@ bool CreateGlobalPipelines() {
 
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc, "global_color");
 	if (!colorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
 
 	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc, "global_texcolor");
 	if (!texColorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
@@ -1069,7 +1158,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_breakpoints.Frame();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
-	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
+	// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
+	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
 
 	// Can be overridden by sceDisplay which may pass true for the second argument.
 	g_frameTiming.ComputePresentMode(g_draw, false);
@@ -1279,8 +1369,16 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 }
 
+KeyModifier g_modifiersPressed{};
+
+KeyModifier NativeGetKeyModifiers() {
+	return g_modifiersPressed;
+}
+
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
+
+	System_Notify(SystemNotification::ACTIVITY);
 
 	// VR actions
 	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRKeys(key)) {
@@ -1290,7 +1388,7 @@ bool NativeKey(const KeyInput &key) {
 #if PPSSPP_PLATFORM(UWP)
 	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
-	if (IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
+	if (key.deviceId == DEVICE_ID_KEYBOARD && IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
 		return false;
 	}
 #endif
@@ -1329,18 +1427,137 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
-	if (!g_screenManager) {
-		return false;
-	}
+	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
 
 	// Handle releases of mousewheel keys.
 	if ((key.flags & KeyInputFlags::DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
 		ProcessWheelRelease(key.keyCode, now, true);
 	}
 
-	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
+	if (!g_screenManager) {
+		return false;
+	}
+
+	// Filtering, detailed rules needed for good imgui behavior without having to ask the screen about what to do.
+	InputMode inputMode = g_screenManager->PassInputToMapper();
+	bool passKeyThrough = false;
+	if (inputMode != InputMode::None) {
+		if ((inputMode & InputMode::ImDebuggerToggle) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
+			InputMapping mapping(key.deviceId, key.keyCode);
+			std::vector<int> pspButtons;
+			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+			if (mappingFound) {
+				for (auto b : pspButtons) {
+					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
+						// TRUE
+						passKeyThrough = true;
+					}
+				}
+			}
+		}
+		if (key.deviceId == DEVICE_ID_MOUSE) {
+			if (inputMode & InputMode::Mouse) {
+				passKeyThrough = true;
+			}
+		} else if (key.deviceId == DEVICE_ID_KEYBOARD) {
+			if (inputMode & InputMode::Keyboard) {
+				passKeyThrough = true;
+			}
+		} else if (inputMode & InputMode::Other) {
+			// yes this is different
+			passKeyThrough = true;
+		}
+	} else {
+		// Pass through only up events.
+		if (key.flags & KeyInputFlags::UP) {
+			passKeyThrough = true;
+		}
+	}
+
+	if (passKeyThrough) {
+		g_controlMapper.Key(key);
+	}
+
+	// Ignore volume keys and stuff here - though we do send them through to the control mapper, so they can be mapped to PSP buttons.
+	switch (key.keyCode) {
+	case NKCODE_VOLUME_DOWN:
+	case NKCODE_VOLUME_UP:
+	case NKCODE_VOLUME_MUTE:
+		return false;
+	default:
+		break;
+	}
+
+	// Track modifier keys.
+	if (key.flags & KeyInputFlags::DOWN) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed |= KeyModifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed |= KeyModifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed |= KeyModifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed |= KeyModifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed |= KeyModifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed |= KeyModifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed |= KeyModifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed |= KeyModifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+	if (key.flags & KeyInputFlags::UP) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed &= ~KeyModifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed &= ~KeyModifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed &= ~KeyModifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed &= ~KeyModifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed &= ~KeyModifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed &= ~KeyModifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed &= ~KeyModifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed &= ~KeyModifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+
+	KeyInputFlags modifierFlags{};
+
+	if (g_modifiersPressed & (KeyModifier::LCTRL | KeyModifier::RCTRL)) {
+		modifierFlags |= KeyInputFlags::MOD_CTRL;
+	}
+	if (g_modifiersPressed & (KeyModifier::LSHIFT | KeyModifier::RSHIFT)) {
+		modifierFlags |= KeyInputFlags::MOD_SHIFT;
+	}
+	if (g_modifiersPressed & (KeyModifier::LALT | KeyModifier::RALT)) {
+		modifierFlags |= KeyInputFlags::MOD_ALT;
+	}
+	if (g_modifiersPressed & (KeyModifier::LMETA | KeyModifier::RMETA)) {
+		modifierFlags |= KeyInputFlags::MOD_META;
+	}
+
+	KeyInput modKey = key;
+	modKey.flags |= modifierFlags;
+
+	bool retval = false;
+
+	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(key);
+	if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
+		// If a repeat, we follow what KeyEventToFocusMoves set it to.
+		// Otherwise we signal that we used the key, always.
+		kev = UI::KeyEventResult::ACCEPT;
+	}
+
+	switch (kev) {
+	case UI::KeyEventResult::ACCEPT:
+		retval = true;
+		break;
+	case UI::KeyEventResult::PASS_THROUGH:
+		retval = false;
+		break;
+	case UI::KeyEventResult::IGNORE_KEY:
+		return false;
+	}
+
 	// Dispatch the key event.
-	bool retval = g_screenManager->key(key);
+	g_screenManager->key(modKey);
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
@@ -1357,9 +1574,15 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		return;
 	}
 
+	System_Notify(SystemNotification::ACTIVITY);
+
 	if (!g_screenManager) {
 		// Too early.
 		return;
+	}
+
+	if (g_screenManager->PassInputToMapper() & (InputMode::Other | InputMode::ImDebuggerToggle)) {
+		g_controlMapper.Axis(axes, count);
 	}
 
 	g_screenManager->axis(axes, count);
@@ -1466,6 +1689,8 @@ bool NativeIsRestarting() {
 
 void NativeShutdown() {
 	INFO_LOG(Log::System, "NativeShutdown begin");
+	ClearAchievementsHostOverride();
+	g_nativeMainThreadReady = false;
 
 	Achievements::Shutdown();
 

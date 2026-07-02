@@ -313,7 +313,7 @@ public:
 	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason, bool *changed) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
-			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
+			currentRenderVfb_->last_frame_render = gpuStats.totals.numFlips;
 			currentRenderVfb_->dirtyAfterDisplay = true;
 			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;

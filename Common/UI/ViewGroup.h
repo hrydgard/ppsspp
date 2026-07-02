@@ -55,7 +55,7 @@ public:
 	// If it fails, the newView is deleted.
 	bool ReplaceSubview(View *view, View *newView);
 
-	bool SetFocus() override;
+	bool SetFocus(FocusFlags cause) override;
 	bool SubviewFocused(View *view) override;
 	virtual void RemoveSubview(View *view);
 
@@ -111,7 +111,7 @@ public:
 	void Layout() override;
 };
 
-const float NONE = -FLT_MAX;
+constexpr float NONE = -FLT_MAX;
 
 enum class Centering {
 	None = 0,

@@ -12,6 +12,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"  // Just for ClipInfoFlags
 
 std::string VertexShaderDesc(const VShaderID &id) {
 	std::stringstream desc;
@@ -35,6 +36,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 
 	if (uvgMode) desc << uvgModes[uvgMode];
 	if (id.Bit(VS_BIT_ENABLE_BONES)) desc << "Bones:" << (id.Bits(VS_BIT_BONES, 3) + 1) << " ";
+
 	// Lights
 	if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
 		desc << "Light: ";
@@ -53,21 +55,18 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
-	if (id.Bit(VS_BIT_BEZIER)) desc << "Bezier ";
-	if (id.Bit(VS_BIT_SPLINE)) desc << "Spline ";
-	if (id.Bit(VS_BIT_HAS_COLOR_TESS)) desc << "TessC ";
-	if (id.Bit(VS_BIT_HAS_TEXCOORD_TESS)) desc << "TessT ";
-	if (id.Bit(VS_BIT_HAS_NORMAL_TESS)) desc << "TessN ";
-	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
-	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "Cull ";
+	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "RangeCull ";
 
 	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
+	if (id.Bit(VS_BIT_FS_MINMAX_DISCARD)) desc << "FSMinMax ";
+	if (id.Bit(VS_BIT_FS_DEPTH_CLAMP)) desc << "FSDepthClamp ";
 
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
-	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
+	const bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
+	const bool isSoftwareFallback = !isModeThrough && !useHWTransform && g_Config.bHardwareTransform;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
@@ -75,13 +74,6 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	bool vtypeHasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool vtypeHasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool vtypeHasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
-
-	bool doBezier = gstate_c.submitType == SubmitType::HW_BEZIER;
-	bool doSpline = gstate_c.submitType == SubmitType::HW_SPLINE;
-
-	if (doBezier || doSpline) {
-		_assert_(vtypeHasNormal);
-	}
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool vertexRangeCulling = gstate_c.Use(GPU_USE_VS_RANGE_CULLING) &&
@@ -103,6 +95,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	}
 
 	if (useHWTransform) {
+		_dbg_assert_(!isModeThrough);
 		id.SetBit(VS_BIT_USE_HW_TRANSFORM);
 		id.SetBit(VS_BIT_HAS_NORMAL, vtypeHasNormal);
 
@@ -145,18 +138,13 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, vtypeHasTexcoord);
+	}
 
-		if (useHWTessellation) {
-			id.SetBit(VS_BIT_BEZIER, doBezier);
-			id.SetBit(VS_BIT_SPLINE, doSpline);
-			if (doBezier || doSpline) {
-				// These are the original vertType's values (normalized will always have colors, etc.)
-				id.SetBit(VS_BIT_HAS_COLOR_TESS, (gstate.vertType & GE_VTYPE_COL_MASK) != 0);
-				id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, (gstate.vertType & GE_VTYPE_TC_MASK) != 0);
-				id.SetBit(VS_BIT_HAS_NORMAL_TESS, (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled());
-			}
-			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
-		}
+	if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+		id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
+	}
+	if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+		id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
@@ -185,20 +173,10 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
 	if (id.Bit(FS_BIT_DO_TEXTURE)) desc << (id.Bit(FS_BIT_3D_TEXTURE) ? "Tex3D " : "Tex ");
 	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
-	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
-	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
-	if (id.Bit(FS_BIT_DOUBLE_COLOR)) desc << "Double ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
-	if (id.Bit(FS_BIT_UBERSHADER)) desc << "FragUber ";
 	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc << "DepthNever ";
-	switch ((ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2)) {
-	case ShaderDepalMode::OFF: break;
-	case ShaderDepalMode::NORMAL: desc << "Depal ";  break;
-	case ShaderDepalMode::SMOOTHED: desc << "SmoothDepal "; break;
-	case ShaderDepalMode::CLUT8_8888: desc << "CLUT8From8888Depal"; break;
-	}
 	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
@@ -233,10 +211,10 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
 		case STENCIL_VALUE_KEEP: desc << "StenKeep "; break;
 		case STENCIL_VALUE_INVERT: desc << "StenInv "; break;
-		case STENCIL_VALUE_INCR_4: desc << "StenIncr4 "; break;
-		case STENCIL_VALUE_INCR_8: desc << "StenIncr8 "; break;
-		case STENCIL_VALUE_DECR_4: desc << "StenDecr4 "; break;
-		case STENCIL_VALUE_DECR_8: desc << "StenDecr8 "; break;
+		case STENCIL_VALUE_INCR_4BIT: desc << "StenIncr4 "; break;
+		case STENCIL_VALUE_INCR_8BIT: desc << "StenIncr8 "; break;
+		case STENCIL_VALUE_DECR_4BIT: desc << "StenDecr4 "; break;
+		case STENCIL_VALUE_DECR_8BIT: desc << "StenDecr8 "; break;
 		default: desc << "StenUnknown "; break;
 		}
 	} else if (id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE)) {
@@ -264,6 +242,22 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
 	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
 	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
+	if (id.Bit(FS_BIT_MINMAX_DISCARD)) desc << "FragMinMaxDiscard ";
+	if (id.Bit(FS_BIT_DEPTH_CLAMP)) desc << "FragDepthClamp ";
+
+	const ShaderDepalMode depalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
+	switch (depalMode) {
+	case ShaderDepalMode::OFF: break;
+	case ShaderDepalMode::NORMAL: desc << "Depal(";
+	{
+		const GEBufferFormat shaderDepalFormat = (GEBufferFormat)id.Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3);
+		desc << GeBufferFormatToString(shaderDepalFormat) << ") ";
+		break;
+	}
+	case ShaderDepalMode::SMOOTHED: desc << "SmoothDepal "; break;
+	case ShaderDepalMode::CLUT8_8888: desc << "CLUT8From8888Depal"; break;
+	}
+
 	return desc.str();
 }
 
@@ -282,13 +276,26 @@ inline u32 SanitizeBlendMode(GEBlendMode mode) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs) {
+void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, ClipInfoFlags clipInfoFlags) {
 	FShaderID id;
+	bool isModeThrough = gstate.isModeThrough();
+
+	// NOTE: This check MUST be identical to the one in ComputeVertexShaderID, otherwise we might get mismatches between VS and FS and end up with no shader at all.
+	if (!isModeThrough) {
+		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+			id.SetBit(FS_BIT_DEPTH_CLAMP);
+		}
+		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+			id.SetBit(FS_BIT_MINMAX_DISCARD);
+		}
+	} else {
+		_dbg_assert_(0 == (clipInfoFlags & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)));
+	}
+
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id.SetBit(FS_BIT_CLEARMODE);
 	} else {
-		bool isModeThrough = gstate.isModeThrough();
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
 		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
@@ -299,9 +306,11 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		bool enableTexAlpha = gstate.isTextureAlphaUsed();
 
-		bool uberShader = gstate_c.Use(GPU_USE_FRAGMENT_UBERSHADER);
-
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
+		GEBufferFormat shaderDepalFormat = {};
+		if (shaderDepalMode == ShaderDepalMode::NORMAL) {
+			shaderDepalFormat = gstate_c.depalTextureFormat;
+		}
 
 		bool colorWriteMask = pipelineState.maskState.applyFramebufferRead;
 		ReplaceBlendType replaceBlend = pipelineState.blendState.replaceBlend;
@@ -321,6 +330,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
 			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
+			id.SetBits(FS_BIT_SHADER_DEPAL_FORMAT, 3, (int)shaderDepalFormat);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
 		}
 
@@ -343,13 +353,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 
 		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);  // TODO: Will be moved back to the ubershader.
-
-		id.SetBit(FS_BIT_UBERSHADER, uberShader);
-		if (!uberShader) {
-			id.SetBit(FS_BIT_TEXALPHA, enableTexAlpha);
-			id.SetBit(FS_BIT_DOUBLE_COLOR, enableColorDouble);
-		}
-
 		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 
 		// 2 bits
@@ -401,6 +404,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			}
 		}
 
+		// Various conditions that require per-pixel depth manipulation (very expensive!)
+		bool needMinMaxClipping = gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF && !isModeThrough;
+
 		// Forcibly disable NEVER + depth-write on Mali.
 		// TODO: Take this from computed depth test instead of directly from the gstate.
 		// That will take more refactoring though.
@@ -415,54 +421,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
 				id.SetBit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 			}
-		}
-	}
-
-	*id_out = id;
-}
-
-std::string GeometryShaderDesc(const GShaderID &id) {
-	std::stringstream desc;
-	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
-	if (id.Bit(GS_BIT_ENABLED)) desc << "ENABLED ";
-	if (id.Bit(GS_BIT_DO_TEXTURE)) desc << "TEX ";
-	if (id.Bit(GS_BIT_LMODE)) desc << "LM ";
-	return desc.str();
-}
-
-void ComputeGeometryShaderID(GShaderID *id_out, const Draw::Bugs &bugs, int prim) {
-	GShaderID id;
-	// Early out.
-	if (!gstate_c.Use(GPU_USE_GS_CULLING)) {
-		*id_out = id;
-		return;
-	}
-
-	bool isModeThrough = gstate.isModeThrough();
-	bool isCurve = gstate_c.submitType != SubmitType::DRAW;
-	bool isTriangle = prim == GE_PRIM_TRIANGLES || prim == GE_PRIM_TRIANGLE_FAN || prim == GE_PRIM_TRIANGLE_STRIP;
-
-	bool vertexRangeCulling = !isCurve;
-	bool clipClampedDepth = gstate_c.Use(GPU_USE_DEPTH_CLAMP) && !gstate_c.Use(GPU_USE_CLIP_DISTANCE);
-
-	// Only use this for triangle primitives, and if we actually need it.
-	if ((!vertexRangeCulling && !clipClampedDepth) || isModeThrough || !isTriangle) {
-		*id_out = id;
-		return;
-	}
-
-	id.SetBit(GS_BIT_ENABLED, true);
-	// Vertex range culling doesn't seem tno happen for spline/bezier, see #11692.
-	id.SetBit(GS_BIT_CURVE, isCurve);
-
-	if (gstate.isModeClear()) {
-		// No attribute bits.
-	} else {
-		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
-
-		id.SetBit(GS_BIT_LMODE, lmode);
-		if (gstate.isTextureMapEnabled()) {
-			id.SetBit(GS_BIT_DO_TEXTURE);
 		}
 	}
 
