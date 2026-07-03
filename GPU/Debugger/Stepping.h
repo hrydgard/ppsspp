@@ -47,5 +47,5 @@ namespace GPUStepping {
 	bool GPU_FlushDrawing();
 
 	// Can be used to highlight differences in a debugger.
-	const GPUgstate &LastState();
+	const GEState &LastState();
 };

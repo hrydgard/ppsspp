@@ -68,7 +68,7 @@ static bool lastWasFramebuffer;
 static u32 pauseSetCmdValue;
 
 // This is used only to highlight differences. Should really be owned by the debugger.
-static GPUgstate lastGState;
+static GEState lastGState;
 
 const char *PauseActionToString(PauseAction action) {
 	switch (action) {
@@ -291,7 +291,7 @@ bool GPU_FlushDrawing() {
 	return true;
 }
 
-const GPUgstate &LastState() {
+const GEState &LastState() {
 	return lastGState;
 }
 

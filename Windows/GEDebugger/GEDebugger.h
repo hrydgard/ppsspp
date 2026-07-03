@@ -43,7 +43,7 @@ class TabStateSettings;
 class TabVertices;
 class TabMatrices;
 class TabStateWatch;
-struct GPUgstate;
+struct GEState;
 
 enum class GETabPosition {
 	LEFT = 1,
@@ -100,8 +100,8 @@ protected:
 private:
 	void SetupPreviews();
 	void UpdatePreviews();
-	void UpdatePrimaryPreview(const GPUgstate &state);
-	void UpdateSecondPreview(const GPUgstate &state);
+	void UpdatePrimaryPreview(const GEState &state);
+	void UpdateSecondPreview(const GEState &state);
 	static u32 PrimPreviewOp();
 	void UpdatePrimPreview(u32 op, int which);
 	void CleanupPrimPreview();
@@ -109,8 +109,8 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void UpdateTextureLevel(int level);
-	void DescribePrimaryPreview(const GPUgstate &state, char desc[256]);
-	void DescribeSecondPreview(const GPUgstate &state, char desc[256]);
+	void DescribePrimaryPreview(const GEState &state, char desc[256]);
+	void DescribeSecondPreview(const GEState &state, char desc[256]);
 	void PrimaryPreviewHover(int x, int y);
 	void SecondPreviewHover(int x, int y);
 	void PreviewExport(const GPUDebugBuffer *buffer);
@@ -122,7 +122,7 @@ private:
 	int HasTabIndex(GEDebuggerTab *tab, GETabPosition pos);
 	void CheckTabMessage(TabControl *t, GETabPosition pos, LPARAM lParam);
 
-	u32 TexturePreviewFlags(const GPUgstate &state);
+	u32 TexturePreviewFlags(const GEState &state);
 
 	SimpleGLWindow *primaryWindow = nullptr;
 	SimpleGLWindow *secondWindow = nullptr;

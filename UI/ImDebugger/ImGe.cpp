@@ -1643,7 +1643,7 @@ void ImGeStateWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebu
 					bool sectionOpen = false;
 					for (size_t i = 0; i < numRows; i++) {
 						const GECmdInfo &info = GECmdInfoByCmd(rows[i].cmd);
-						const GPUgstate &lastState = GPUStepping::LastState();
+						const GEState &lastState = GPUStepping::LastState();
 						bool diff = lastState.cmdmem[rows[i].cmd] != gstate.cmdmem[rows[i].cmd];
 
 						if (rows[i].header) {

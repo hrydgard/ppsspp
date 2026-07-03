@@ -27,6 +27,8 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+const UVScale g_uvScale{1.0f, 1.0f, 0.0f, 0.0f};
+
 class VertexDecoderTestHarness {
 	static const int BUFFER_SIZE = 64 * 65536;
 	static const int ROUNDS = 200;
@@ -37,9 +39,6 @@ public:
 		src_ = new u8[BUFFER_SIZE];
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
-
-		gstate_c.uv.uScale = 1.0f;
-		gstate_c.uv.vScale = 1.0f;
 	}
 	~VertexDecoderTestHarness() {
 		delete [] src_;
@@ -69,7 +68,7 @@ public:
 	void Execute(int vtype, int count, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, count);
+		dec_->DecodeVerts(dst_, src_, &g_uvScale, count);
 	}
 
 	double ExecuteTimed(int vtype, int count, bool useJit) {
@@ -79,7 +78,7 @@ public:
 		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, count);
+				dec_->DecodeVerts(dst_, src_, &g_uvScale, count);
 				++total;
 			}
 		} while (time_now_d() - st < 0.5);

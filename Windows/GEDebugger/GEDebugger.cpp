@@ -377,7 +377,7 @@ void CGEDebugger::SetupPreviews() {
 	}
 }
 
-void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256]) {
+void CGEDebugger::DescribePrimaryPreview(const GEState &state, char desc[256]) {
 	if (primaryTrackX_ < primaryBuffer_->GetStride() && primaryTrackY_ < primaryBuffer_->GetHeight()) {
 		u32 pix = primaryBuffer_->GetRawPixel(primaryTrackX_, primaryTrackY_);
 		DescribePixel(pix, primaryBuffer_->GetFormat(), primaryTrackX_, primaryTrackY_, desc);
@@ -410,7 +410,7 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, char desc[256])
 	}
 }
 
-void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, char desc[256]) {
+void CGEDebugger::DescribeSecondPreview(const GEState &state, char desc[256]) {
 	if (secondTrackX_ != 0xFFFFFFFF) {
 		uint32_t x = secondTrackX_;
 		uint32_t y = secondTrackY_;
@@ -557,7 +557,7 @@ void CGEDebugger::UpdatePreviews() {
 		return;
 	}
 
-	GPUgstate state{};
+	GEState state{};
 
 	if (gpu != nullptr) {
 		state = gpu->GetGState();
@@ -663,7 +663,7 @@ int CGEDebugger::HasTabIndex(GEDebuggerTab *tab, GETabPosition pos) {
 	return -1;
 }
 
-u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
+u32 CGEDebugger::TexturePreviewFlags(const GEState &state) {
 	if (state.isTextureAlphaUsed() && !forceOpaque_) {
 		return SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_BEST_CENTER;
 	} else {
@@ -671,7 +671,7 @@ u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
 	}
 }
 
-void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
+void CGEDebugger::UpdatePrimaryPreview(const GEState &state) {
 	bool bufferResult = false;
 	u32 flags = SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER;
 
@@ -724,7 +724,7 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 	}
 }
 
-void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
+void CGEDebugger::UpdateSecondPreview(const GEState &state) {
 	bool bufferResult = false;
 
 	SetupPreviews();
@@ -784,7 +784,7 @@ void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 		desc[0] = 0;
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
-		GPUgstate state{};
+		GEState state{};
 		if (gpu != nullptr) {
 			state = gpu->GetGState();
 		}
@@ -812,7 +812,7 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 		desc[0] = 0;
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
-		GPUgstate state{};
+		GEState state{};
 		if (gpu != nullptr) {
 			state = gpu->GetGState();
 		}
@@ -834,7 +834,7 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 }
 
 void CGEDebugger::UpdateTextureLevel(int level) {
-	GPUgstate state{};
+	GEState state{};
 	if (gpu != nullptr) {
 		state = gpu->GetGState();
 	}

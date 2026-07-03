@@ -1325,8 +1325,6 @@ void GPUCommon::FlushImm() {
 
 	SetDrawType(DRAW_PRIM, immPrim_);
 
-	gstate_c.UpdateUVScaleOffset();
-
 	VirtualFramebuffer *vfb = nullptr;
 	if (framebufferManager_) {
 		bool changed;
@@ -1707,7 +1705,7 @@ u32 GPUCommon::GetIndexAddress() {
 	return gstate_c.indexAddr;
 }
 
-const GPUgstate &GPUCommon::GetGState() {
+const GEState &GPUCommon::GetGState() {
 	return gstate;
 }
 

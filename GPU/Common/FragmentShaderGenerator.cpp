@@ -154,10 +154,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
 
-	bool blueToAlpha = false;
-	if (replaceBlend == ReplaceBlendType::REPLACE_BLEND_BLUE_TO_ALPHA) {
-		blueToAlpha = true;
-	}
+	const bool blueToAlpha = replaceBlend == ReplaceBlendType::REPLACE_BLEND_BLUE_TO_ALPHA;
 
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
@@ -854,8 +851,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			// This happens before fog is applied.
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 
-			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
-			// TODO: Clamp is so cheap that this probably is pretty meaningless.
+			// We only need a clamp if the color will be further processed directly in the shader.
+			// Otherwise the hardware color conversion will clamp for us (unless we start using FP formats for fake HDR but then we probably don't want the clamp...)
 			if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
 				WRITE(p, "  v.rgb = clamp(v.rgb * u_texNoAlphaMul.y, 0.0, 1.0);\n");
 			} else {

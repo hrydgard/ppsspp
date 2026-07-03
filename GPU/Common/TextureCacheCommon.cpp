@@ -2301,7 +2301,7 @@ static bool CanDepalettizeBufferAs(GETextureFormat texFormat, GEBufferFormat buf
 // But we only do it if the mask/shift exactly matches a color channel, else something different might be going
 // on and we definitely don't want to interpolate.
 // Great enhancement for Test Drive and Manhunt 2.
-static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, const ClutTexture &clutTexture) {
+static bool CanUseSmoothDepal(const GEState &gstate, GEBufferFormat framebufferFormat, const ClutTexture &clutTexture) {
 	for (int i = 0; i < ClutTexture::MAX_RAMPS; i++) {
 		if (gstate.getClutIndexStartPos() == clutTexture.rampStarts[i] &&
 			gstate.getClutIndexMask() < clutTexture.rampLengths[i]) {

@@ -27,7 +27,7 @@
 #include "GPU/GPUState.h"
 
 // This must be aligned so that the matrices within are aligned.
-alignas(16) GPUgstate gstate;
+alignas(16) GEState gstate;
 // Let's align this one too for good measure.
 alignas(16) GPUStateCache gstate_c;
 
@@ -102,7 +102,7 @@ static const u32_le *LoadMatrix(const u32_le *cmds, float *mtx, int sz) {
 	return cmds;
 }
 
-void GPUgstate::Reset() {
+void GEState::Reset() {
 	memset(gstate.cmdmem, 0, sizeof(gstate.cmdmem));
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
@@ -120,7 +120,7 @@ void GPUgstate::Reset() {
 	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 }
 
-void GPUgstate::Save(u32_le *ptr) {
+void GEState::Save(u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	ptr[5] = gstate_c.vertexAddr;
 	ptr[6] = gstate_c.indexAddr;
@@ -168,7 +168,7 @@ void GPUgstate::Save(u32_le *ptr) {
 	}
 }
 
-void GPUgstate::FastLoadBoneMatrix(u32 addr) {
+void GEState::FastLoadBoneMatrix(u32 addr) {
 	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(addr);
 	u32 num = boneMatrixNumber;
 	u32 *dst = (u32 *)(boneMatrix + (num & 0x7F));
@@ -204,7 +204,7 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 }
 
-void GPUgstate::Restore(const u32_le *ptr) {
+void GEState::Restore(const u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
 	gstate_c.indexAddr = ptr[6];
@@ -292,7 +292,6 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		textureSolidAlpha = old.textureSolidAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
-		uv = old.uv;
 
 		savedContextVersion = 0;
 	} else {
@@ -310,6 +309,8 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 		Do(p, skipDrawReason);
 
+		// Legacy, remove in the next bump.
+		UVScale uv{};
 		Do(p, uv);
 
 		bool oldFlipTexture = false;

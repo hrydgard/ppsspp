@@ -159,6 +159,8 @@ private:
 	}
 
 	static void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
+		// TODO: This SSE code doesn't look like it's worth it. We need to parallelize across another
+		// dimension.
 #ifdef _M_SSE
 		const __m128 knot012 = _mm_loadu_ps(knots);
 		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
@@ -463,8 +465,9 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = num_points - 1;
 	IndexConverter ConvertIndex(vertType, indices);
-	if (indices)
+	if (indices) {
 		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
+	}
 
 	u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_);
 	VertexDecoder *origVDecoder = GetVertexDecoder(vertTypeID);
@@ -485,7 +488,8 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	}
 
 	const u32 origVertType = vertType;
-	vertType = ::NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, origVDecoder, vertType);
+	UVScale neutralUVScale{1.0f, 1.0f, 0.0f, 0.0f};  // Avoid rescaling UV during normalization, it will happen anyway later (in DispatchSubmitPrim). Although ideally we should avoid running Decode at all there.
+	vertType = ::NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, neutralUVScale, origVDecoder, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
 
@@ -500,8 +504,9 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		ERROR_LOG(Log::G3D, "Failed to allocate space for control point pointers, skipping curve draw");
 		return;
 	}
-	for (int idx = 0; idx < num_points; idx++)
+	for (int idx = 0; idx < num_points; idx++) {
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
+	}
 
 	OutputBuffers output;
 	output.vertices = (SimpleVertex *)(decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2);
@@ -513,22 +518,14 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	surface.Init(maxVerts);
 
 	ControlPoints cpoints(points, num_points, managedBuf);
-	if (cpoints.IsValid())
+	if (cpoints.IsValid()) {
+		// Run the tessellation!
 		SoftwareTessellation(output, surface, origVertType, cpoints);
-	else
+	} else {
 		ERROR_LOG(Log::G3D, "Failed to allocate space for control point values, skipping curve draw");
+	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
-
-	UVScale prevUVScale;
-	if (origVertType & GE_VTYPE_TC_MASK) {
-		// We scaled during Normalize already so let's turn it off when drawing.
-		prevUVScale = gstate_c.uv;
-		gstate_c.uv.uScale = 1.0f;
-		gstate_c.uv.vScale = 1.0f;
-		gstate_c.uv.uOff = 0;
-		gstate_c.uv.vOff = 0;
-	}
 
 	vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), applySkinInDecode_);
 	int generatedBytesRead;
@@ -537,11 +534,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead, flags);
 	}
 
-	if (flushOnParams_)
+	if (flushOnParams_) {
 		Flush();
-
-	if (origVertType & GE_VTYPE_TC_MASK) {
-		// If analysis says this is uninitialized, it's wrong.
-		gstate_c.uv = prevUVScale;
 	}
 }

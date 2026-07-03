@@ -232,7 +232,8 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// TODO: Avoid normalization if just plain skinning.
 			// Force software skinning.
 			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), true);
-			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, dec, vertType);
+			UVScale uvScale{};  // We don't care about UV.
+			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, uvScale, dec, vertType);
 			IndexConverter conv(vertType, inds);
 			for (int i = 0; i < vertexCount; i++) {
 				verts[i * 3] = corners[conv(i)].pos.x;
@@ -891,7 +892,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		numDrawVerts_ = numDrawVerts + 1;  // Increment the uncached variable
 		dv.verts = verts;
 		dv.vertexCount = vertexCount;
-		dv.uvScale = gstate_c.uv;
+		dv.uvScale = LoadUVScaleOffset(gstate);
 		// Does handle the unindexed case.
 		GetIndexBounds(inds, vertexCount, vertTypeID, &dv.indexLowerBound, &dv.indexUpperBound);
 	}
@@ -1064,6 +1065,7 @@ Mat4F32 ComputeFinalProjMatrix() {
 		0.0f,
 	};
 
+	// TODO: Simply use Mat4F32 m(gstate_c.worldviewproj);
 	Mat4F32 wv = Mul4x3By4x4(Mat4x3F32(gstate.worldMatrix), Mat4F32::Load4x3(gstate.viewMatrix));
 	Mat4F32 m = Mul4x4By4x4(wv, Mat4F32(gstate.projMatrix));
 	// NOTE: Applying the translation actually works pre-divide, since W is also affected.

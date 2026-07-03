@@ -621,7 +621,7 @@ bool GEExpressionFunctions::parseSymbol(char *str, uint32_t &symbolValue) {
 }
 
 uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
-	GPUgstate state = gpu_->GetGState();
+	GEState state = gpu_->GetGState();
 	if (referenceIndex < 0x100) {
 		GECmdFormat fmt = GECmdInfoByCmd(GECommand(referenceIndex)).cmdFmt;
 		uint32_t value = state.cmdmem[referenceIndex];

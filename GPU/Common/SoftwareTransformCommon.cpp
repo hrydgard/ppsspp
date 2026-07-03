@@ -80,7 +80,7 @@ static void RotateUV(TransformedVertex v[4]) {
 	}
 }
 
-static bool ShouldApplySpriteBorderFix(const GPUgstate &gstate) {
+static bool ShouldApplySpriteBorderFix(const GEState &gstate) {
 	return gstate.isMagnifyFilteringEnabled() && gstate.isAlphaBlendEnabled() && gstate.getBlendFuncA() != GE_SRCBLEND_FIXA && gstate.isTextureAlphaUsed();
 }
 
@@ -407,7 +407,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 
 // Modifies the vertices in-place. Applies viewport and projection.
 // TODO: SIMD.
-static void ProjectVertices(const GPUgstate &gstate, TransformedVertex *transformed, int vertexCount) {
+static void ProjectVertices(const GEState &gstate, TransformedVertex *transformed, int vertexCount) {
 #if 0
 	Lin::Vec3 vpOffset(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
 	Lin::Vec3 vpScale(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
@@ -1366,13 +1366,13 @@ static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&in
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
-u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const VertexDecoder *dec, u32 vertType) {
+u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const UVScale &uvScale, const VertexDecoder *dec, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
 	// Actually if software transform is off, we could enforce it in the vertex decoder lookup before calling this,
 	// avoiding having to implement it again below.
 	const int count = upperBound + 1 - lowerBound;
-	dec->DecodeVerts(bufPtr, inPtr + lowerBound * dec->VertexSize(), &gstate_c.uv, count);
+	dec->DecodeVerts(bufPtr, inPtr + lowerBound * dec->VertexSize(), &uvScale, count);
 
 	// OK, morphing eliminated but bones still remain to be taken care of.
 	// Let's do a partial software transform where we only do skinning.
@@ -1543,12 +1543,10 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 	const int stride = (int)dec->GetDecVtxFmt().stride;
 	vertsTemp.resize(stride * verticesToDecode + 32);  // Add some padding bytes for "over-writes".
 
-	UVScale uvScale{};
-	LoadUVScaleOffsetVec(gstate).Store(&uvScale.uScale);
-
 	const u8 *startPos = verts + indexLowerBound * dec->VertexSize();
 
 	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
+	const UVScale uvScale = LoadUVScaleOffset(gstate);
 	dec->DecodeVerts(vertsTemp.data(), startPos, &uvScale, verticesToDecode);
 	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 
