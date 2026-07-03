@@ -29,6 +29,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Common/VertexReader.h"
+#include "GPU/GPUStateSIMDUtil.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Clipper.h"
@@ -482,7 +483,8 @@ public:
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
 		if (vertex_count != 0) {
 			const int count = upperBound_ - lowerBound_ + 1;
-			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &gstate_c.uv, count);
+			const UVScale uvScale = LoadUVScaleOffset(gstate);
+			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &uvScale, count);
 		}
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)

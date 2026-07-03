@@ -1543,12 +1543,10 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 	const int stride = (int)dec->GetDecVtxFmt().stride;
 	vertsTemp.resize(stride * verticesToDecode + 32);  // Add some padding bytes for "over-writes".
 
-	UVScale uvScale{};
-	LoadUVScaleOffsetVec(gstate).Store(&uvScale.uScale);
-
 	const u8 *startPos = verts + indexLowerBound * dec->VertexSize();
 
 	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
+	const UVScale uvScale = LoadUVScaleOffset(gstate);
 	dec->DecodeVerts(vertsTemp.data(), startPos, &uvScale, verticesToDecode);
 	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 

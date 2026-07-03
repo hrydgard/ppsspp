@@ -26,7 +26,6 @@
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
-#include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/lin/vec3.h"
 
 class PointerWrap;
@@ -588,21 +587,6 @@ struct GPUStateCache {
 		return useFlags_;
 	}
 
-	void UpdateUVScaleOffset() {
-#if defined(_M_SSE)
-		__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *)&gstate.texscaleu), 8);
-		_mm_storeu_si128((__m128i *)&uv, values);
-#elif PPSSPP_ARCH(ARM_NEON)
-		const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);
-		vst1q_u32((u32 *)&uv, values);
-#else
-		uv.uScale = getFloat24(gstate.texscaleu);
-		uv.vScale = getFloat24(gstate.texscalev);
-		uv.uOff = getFloat24(gstate.texoffsetu);
-		uv.vOff = getFloat24(gstate.texoffsetv);
-#endif
-	}
-
 private:
 	u32 useFlags_;
 public:
@@ -624,8 +608,6 @@ public:
 	int textureSyncTimeDomain;
 
 	int skipDrawReason;
-
-	UVScale uv;
 
 	bool bgraTexture;
 	bool needShaderTexClamp;

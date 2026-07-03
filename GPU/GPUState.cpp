@@ -292,7 +292,6 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		textureSolidAlpha = old.textureSolidAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
-		uv = old.uv;
 
 		savedContextVersion = 0;
 	} else {
@@ -310,6 +309,8 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 		Do(p, skipDrawReason);
 
+		// Legacy, remove in the next bump.
+		UVScale uv{};
 		Do(p, uv);
 
 		bool oldFlipTexture = false;

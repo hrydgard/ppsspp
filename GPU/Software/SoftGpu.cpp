@@ -863,7 +863,6 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 
 	cyclesExecuted += EstimatePerVertexCost() * count;
 	int bytesRead;
-	gstate_c.UpdateUVScaleOffset();
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
 	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
@@ -916,7 +915,6 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
 	int bytesRead = 0;
-	gstate_c.UpdateUVScaleOffset();
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
@@ -970,7 +968,6 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
 	int bytesRead = 0;
-	gstate_c.UpdateUVScaleOffset();
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
