@@ -1780,9 +1780,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
-		"GPU cycles: %d (%0.1f per vertex)\n"
-		"Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
-		"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
+		"GPU cycles: %d (%0.1f per vertex)\n",
 		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
 		gpuStats.perFrame.numEnqueue,
 		gpuStats.perFrame.numUpdateStall,
@@ -1823,18 +1821,23 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numCopiesForShaderBlend,
 		gpuStats.perFrame.numCopiesForSelfTex,
 		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.perFrame.msPrepareDepth * 1000.0,
-		gpuStats.perFrame.msCullDepth * 1000.0,
-		gpuStats.perFrame.msRasterizeDepth * 1000.0,
-		(gpuStats.perFrame.msPrepareDepth + gpuStats.perFrame.msCullDepth + gpuStats.perFrame.msRasterizeDepth) * 1000.0,
-		gpuStats.perFrame.msRasterTimeAvailable * 1000.0,
-		gpuStats.perFrame.numDepthRasterPrims,
-		gpuStats.perFrame.numDepthRasterNoPixels,
-		gpuStats.perFrame.numDepthRasterTooSmall,
-		gpuStats.perFrame.numDepthRasterEarlySize,
-		gpuStats.perFrame.numDepthRasterZCulled,
-		gpuStats.perFrame.numDepthEarlyBoxCulled,
-		debugRecording_ ? "(debug-recording)" : ""
-	);
+		vertexAverageCycles);
+
+	if (PSP_CoreParameter().compat.flags().SoftwareRasterDepth) {
+		w.F("Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
+			"Z-rast: %d prim, %d nopix, %d small, %d earlysize, %d zcull, %d box\n%s",
+			gpuStats.perFrame.msPrepareDepth * 1000.0,
+			gpuStats.perFrame.msCullDepth * 1000.0,
+			gpuStats.perFrame.msRasterizeDepth * 1000.0,
+			(gpuStats.perFrame.msPrepareDepth + gpuStats.perFrame.msCullDepth + gpuStats.perFrame.msRasterizeDepth) * 1000.0,
+			gpuStats.perFrame.msRasterTimeAvailable * 1000.0,
+			gpuStats.perFrame.numDepthRasterPrims,
+			gpuStats.perFrame.numDepthRasterNoPixels,
+			gpuStats.perFrame.numDepthRasterTooSmall,
+			gpuStats.perFrame.numDepthRasterEarlySize,
+			gpuStats.perFrame.numDepthRasterZCulled,
+			gpuStats.perFrame.numDepthEarlyBoxCulled,
+			debugRecording_ ? "(debug-recording)" : ""
+		);
+	}
 }
