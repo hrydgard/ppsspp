@@ -143,7 +143,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		*errorString = "depal requires bitwise ops";
 		return false;
 	}
-	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
@@ -601,15 +600,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (texture3D) {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias))%s;\n", bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias));\n");
 						} else {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy, u_mipBias))%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy, u_mipBias));\n", texcoord);
 						}
 					} else {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, v_texcoord.xy / v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, v_texcoord.xy / v_texcoord.z);\n");
 						} else {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy);\n", texcoord);
 						}
 					}
 				} else {

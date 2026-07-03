@@ -137,7 +137,7 @@ struct TextureDefinition {
 
 enum class TexStatus : u16 {
 	VIDEO = (1 << 0),
-	BGRA = (1 << 1),
+	// Free bit 1
 	ALPHA_SOLID = (1 << 2),      // Has no alpha channel, or always solid (==1.0) alpha.
 
 	MANY_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.

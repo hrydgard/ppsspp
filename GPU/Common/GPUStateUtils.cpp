@@ -42,6 +42,7 @@ bool IsStencilTestOutputDisabled() {
 	return true;
 }
 
+// This is used to figure out when we can replace discard with alpha blending.
 bool NeedsTestDiscard() {
 	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
 	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)

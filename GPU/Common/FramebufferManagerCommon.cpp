@@ -1384,7 +1384,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		XXH3_freeState(hashState);
 	}
 
-	Draw::DataFormat texFormat = preferredPixelsFormat_;
+	Draw::DataFormat texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
 	if (srcPixelFormat == GE_FORMAT_DEPTH16) {
 		if ((draw_->GetDataFormatSupport(Draw::DataFormat::R16_UNORM) & Draw::FMT_TEXTURE) != 0) {

@@ -57,7 +57,7 @@ static Draw::DataFormat FromD3D11Format(u32 fmt) {
 	case DXGI_FORMAT_B5G5R5A1_UNORM: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 	case DXGI_FORMAT_B5G6R5_UNORM: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
 	case DXGI_FORMAT_R8_UNORM: return Draw::DataFormat::R8_UNORM;
-	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_R8G8B8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -69,7 +69,7 @@ static DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
 	case Draw::DataFormat::BC4_UNORM_BLOCK: return DXGI_FORMAT_BC4_UNORM;
 	case Draw::DataFormat::BC5_UNORM_BLOCK: return DXGI_FORMAT_BC5_UNORM;
 	case Draw::DataFormat::BC7_UNORM_BLOCK: return DXGI_FORMAT_BC7_UNORM;
-	case Draw::DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_R8G8B8A8_UNORM;
 	default: _dbg_assert_(false); return DXGI_FORMAT_UNKNOWN;
 	}
 }
@@ -254,7 +254,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	if (plan.doReplace) {
 		dstFmt = ToDXGIFormat(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
-		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+		dstFmt = DXGI_FORMAT_R8G8B8A8_UNORM;
 	} else if (plan.decodeToClut8) {
 		dstFmt = DXGI_FORMAT_R8_UNORM;
 	}
@@ -303,7 +303,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 			if (plan.scaleFactor > 1) {
 				bpp = 4;
 			} else {
-				bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
+				bpp = dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 2;
 			}
 			stride = std::max(mipWidth * bpp, 16);
 			dataSize = stride * mipHeight;
@@ -404,12 +404,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 	if (plan.doReplace) {
 		entry->SetAlphaStatus(plan.replaced->AlphaStatus());
-
-		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
-			entry->status |= TexStatus::BGRA;
-		}
-	} else {
-		entry->status |= TexStatus::BGRA;
 	}
 }
 
@@ -422,15 +416,15 @@ DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format) {
 	case GE_CMODE_16BIT_BGR5650:
 		return DXGI_FORMAT_B5G6R5_UNORM;
 	case GE_CMODE_32BIT_ABGR8888:
-		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		return DXGI_FORMAT_R8G8B8A8_UNORM;
 	}
 	// Should never be here !
-	return DXGI_FORMAT_B8G8R8A8_UNORM;
+	return DXGI_FORMAT_R8G8B8A8_UNORM;
 }
 
 DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
 	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS)) {
-		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		return DXGI_FORMAT_R8G8B8A8_UNORM;
 	}
 
 	switch (format) {
@@ -450,7 +444,7 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
 	default:
-		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		return DXGI_FORMAT_R8G8B8A8_UNORM;
 	}
 }
 
@@ -475,7 +469,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	int height = desc.Height >> level;
 
 	switch (desc.Format) {
-	case DXGI_FORMAT_B8G8R8A8_UNORM:
+	case DXGI_FORMAT_R8G8B8A8_UNORM:
 		buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
 		break;
 

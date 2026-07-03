@@ -625,8 +625,6 @@ protected:
 	int bloomHack_ = 0;
 	bool updatePostShaders_ = false;
 
-	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
-
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;
 		int last_frame_used;
