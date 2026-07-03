@@ -83,7 +83,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 class DrawEngineCommon;
 
 // Slow. See description in the cpp file.
-u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const VertexDecoder *dec, u32 vertType);
+u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const UVScale &uvScale, const VertexDecoder *dec, u32 vertType);
 
 // In the returned data, you should subtract the value of lowerIndexBound from the indices to get the actual vertex index in the vertices array.
 // This is because some draws in some games use very large indices, but they only use a small range of them in each PRIM submission.

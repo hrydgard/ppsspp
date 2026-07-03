@@ -27,7 +27,7 @@
 
 #include "Core/Config.h"
 
-#define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
+inline int half_ceil(int x) { return (x + 1) / 2; } // Integer ceil = (int)ceil((float)x / 2.0f)
 
 class SimpleBufferManager;
 
@@ -61,8 +61,8 @@ struct SurfaceInfo {
 			break;
 		case SplineQuality::MEDIUM_QUALITY:
 			// Don't cut below 2, though.
-			if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
-			if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
+			if (tess_u > 2) tess_u = half_ceil(tess_u);
+			if (tess_v > 2) tess_v = half_ceil(tess_v);
 			break;
 		default:
 			break;
@@ -140,7 +140,8 @@ struct SplineSurface : public SurfaceInfo {
 };
 
 struct Weight {
-	float basis[4], deriv[4];
+	float basis[4];
+	float deriv[4];
 };
 
 template<class T>
@@ -207,10 +208,10 @@ struct NAME { \
 	} \
 };
 
-template<typename Func, int NumParams, class Dispatcher> 
+template<typename Func, int NumParams, class Dispatcher>
 class TemplateParameterDispatcher {
 
-	/* Store all combinations of template functions into an array */
+	// Store all combinations of template functions into an array
 	template<int LoopCount, int Index = 0, bool ...Params>
 	struct Initializer {
 		static void Init(Func funcs[]) {
@@ -218,7 +219,7 @@ class TemplateParameterDispatcher {
 			Initializer<LoopCount - 1, (Index << 1) + 0, false, Params...>::Init(funcs); // false
 		}
 	};
- 	/* Specialized for terminates the recursive loop */
+	// Specialized for terminates the recursive loop
 	template<int Index, bool ...Params>
 	struct Initializer<0, Index, Params...> {
 		static void Init(Func funcs[]) {
@@ -226,19 +227,19 @@ class TemplateParameterDispatcher {
 		}
 	};
 
-private: 
-	Func funcs[1 << NumParams]; /* Function pointers array */ 
-public: 
-	TemplateParameterDispatcher() { 
-		Initializer<NumParams>::Init(funcs); 
-	} 
- 
-	Func GetFunc(const bool params[]) const { 
- 		/* Convert bool parameters to index of the array */ 
-		int index = 0; 
-		for (int i = 0; i < NumParams; ++i) 
-			index |= params[i] << i; 
- 
-		return funcs[index]; 
-	} 
+private:
+	Func funcs[1 << NumParams]; /* Function pointers array */
+public:
+	TemplateParameterDispatcher() {
+		Initializer<NumParams>::Init(funcs);
+	}
+
+	Func GetFunc(const bool params[]) const {
+		// Convert bool parameters to index of the array
+		int index = 0;
+		for (int i = 0; i < NumParams; ++i) {
+			index |= params[i] << i;
+		}
+		return funcs[index];
+	}
 };

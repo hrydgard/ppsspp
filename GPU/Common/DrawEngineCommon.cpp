@@ -232,7 +232,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// TODO: Avoid normalization if just plain skinning.
 			// Force software skinning.
 			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), true);
-			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, dec, vertType);
+			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, gstate_c.uv, dec, vertType);
 			IndexConverter conv(vertType, inds);
 			for (int i = 0; i < vertexCount; i++) {
 				verts[i * 3] = corners[conv(i)].pos.x;

@@ -159,6 +159,8 @@ private:
 	}
 
 	static void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
+		// TODO: This SSE code doesn't look like it's worth it. We need to parallelize across another
+		// dimension.
 #ifdef _M_SSE
 		const __m128 knot012 = _mm_loadu_ps(knots);
 		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
@@ -485,7 +487,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	}
 
 	const u32 origVertType = vertType;
-	vertType = ::NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, origVDecoder, vertType);
+	vertType = ::NormalizeVertices(simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, gstate_c.uv, origVDecoder, vertType);
 
 	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
 

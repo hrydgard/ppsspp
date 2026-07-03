@@ -1366,13 +1366,13 @@ static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&in
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
-u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const VertexDecoder *dec, u32 vertType) {
+u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, const UVScale &uvScale, const VertexDecoder *dec, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
 	// Actually if software transform is off, we could enforce it in the vertex decoder lookup before calling this,
 	// avoiding having to implement it again below.
 	const int count = upperBound + 1 - lowerBound;
-	dec->DecodeVerts(bufPtr, inPtr + lowerBound * dec->VertexSize(), &gstate_c.uv, count);
+	dec->DecodeVerts(bufPtr, inPtr + lowerBound * dec->VertexSize(), &uvScale, count);
 
 	// OK, morphing eliminated but bones still remain to be taken care of.
 	// Let's do a partial software transform where we only do skinning.
