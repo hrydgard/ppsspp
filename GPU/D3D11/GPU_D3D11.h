@@ -37,8 +37,6 @@ public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
 
-	u32 CheckGPUFeatures() const override;
-
 	void GetStats(StringWriter &w) override;
 	void DeviceLost() override;  // Destroy all device objects.
 	void DeviceRestore(Draw::DrawContext *draw) override;
