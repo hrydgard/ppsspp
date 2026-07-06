@@ -3,12 +3,21 @@ precision mediump float;
 precision mediump int;
 #endif
 
-// PseudoRT — Indirect light GI simulation (v4)
+// PseudoRT — Indirect light GI simulation (v8)
 // =================================================================
-// Simulates global illumination (light bouncing). For each pixel,
-// checks 8 directions x 2 distances (16 taps):
-//   - Brighter neighbors  → warm indirect light spill
-//   - Darker neighbors    → AO edge darkening
+// Simulates global illumination (light bouncing). For each pixel we
+// sample 8 directions x 2 distances (16 taps):
+//   - Brighter neighbors  -> warm (or cool) indirect light spill
+//   - Darker neighbors    -> AO edge darkening
+//
+// v8 changes (fake GI / irradiance, guest.r RetroArch-style single-pass
+// approach + joint-bilateral weighting):
+//   - Hard `if diff > 0.03` threshold replaced by a smooth knee
+//     (smoothstep), removing the binary on/off popping.
+//   - A cross-bilateral range weight w = 1/(1+(dL^2)/sigma)*(1/dist)
+//     stops the GI/AO from bleeding across bright/dark edges (haloing).
+//   - A tiny self-bounce floor lifts pure-black areas slightly so
+//     shadows read as "filled" rather than crushed.
 //
 // u_setting:
 //   .x = AO Strength      [-1, 2]  (negative = clamped to 0)  default 0.5
@@ -22,10 +31,11 @@ uniform vec4 u_setting;
 
 varying vec2 v_texcoord0;
 
-const vec3 AO_COLOR         = vec3(0.04, 0.045, 0.055);
+const vec3 AO_COLOR          = vec3(0.04, 0.045, 0.055);
 const vec3 INDIRECT_TINT_WARM = vec3(1.0, 0.85, 0.65);
 const vec3 INDIRECT_TINT_COOL = vec3(0.65, 0.75, 1.0);
 
+// Rec.709 luma
 float luminance(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -45,40 +55,37 @@ void main() {
         return;
     }
 
-    const float PI_4 = 0.7853981633;
+    const float PI_4  = 0.7853981633;
+    const float SIGMA = 0.10;   // range (luminance) weight falloff
 
-    float aoAccum = 0.0;
-    float indirectAccum = 0.0;
+    float aoAccum = 0.0, indirectAccum = 0.0;
+    float wsumAO = 0.0, wsumI = 0.0;
 
     // 8 directions x 2 distances = 16 taps.
     for (int i = 0; i < 8; i++) {
         float angle = float(i) * PI_4;
         vec2 dir = vec2(cos(angle), sin(angle));
-
-        // Distance 1: radius * 0.5 (closer, weight = 1.0)
-        vec2 off1 = dir * u_texelDelta * (radius * 0.5);
-        float l1 = luminance(texture2D(sampler0, v_texcoord0 + off1).rgb);
-        float diff1 = l1 - centerLum;
-        if (diff1 > 0.03) {
-            indirectAccum += diff1 * 1.0;
-        } else if (diff1 < -0.03) {
-            aoAccum += (-diff1) * 1.0;
-        }
-
-        // Distance 2: radius * 1.0 (farther, weight = 0.5)
-        vec2 off2 = dir * u_texelDelta * radius;
-        float l2 = luminance(texture2D(sampler0, v_texcoord0 + off2).rgb);
-        float diff2 = l2 - centerLum;
-        if (diff2 > 0.03) {
-            indirectAccum += diff2 * 0.5;
-        } else if (diff2 < -0.03) {
-            aoAccum += (-diff2) * 0.5;
+        for (int r = 1; r <= 2; r++) {
+            float dist = float(r);
+            vec2 off = dir * u_texelDelta * (radius * dist);
+            float l = luminance(texture2D(sampler0, v_texcoord0 + off).rgb);
+            float diff = l - centerLum;
+            float w = 1.0 / (1.0 + (diff * diff) / SIGMA) * (1.0 / dist);
+            if (diff > 0.0) {
+                // soft knee instead of binary threshold
+                float k = smoothstep(0.0, 0.25, diff);
+                indirectAccum += k * w;
+                wsumI += w;
+            } else if (diff < 0.0) {
+                float k = smoothstep(0.0, 0.25, -diff);
+                aoAccum += k * w;
+                wsumAO += w;
+            }
         }
     }
 
-    // Smoothstep falloff.
-    float aoFactor = smoothstep(0.005, 0.15, aoAccum);
-    float indirectFactor = smoothstep(0.01, 0.20, indirectAccum);
+    float aoFactor       = (wsumAO > 0.0) ? aoAccum / wsumAO : 0.0;
+    float indirectFactor = (wsumI  > 0.0) ? indirectAccum / wsumI : 0.0;
 
     // AO darkening (clamped — negative AO strength = no effect).
     float aoAmt = clamp(aoStrength * aoFactor, 0.0, 1.0);
@@ -89,6 +96,8 @@ void main() {
     vec3 indirectTint = (indirectStrength < 0.0) ? INDIRECT_TINT_COOL : INDIRECT_TINT_WARM;
     float indirectAmt = abs(indirectStrength);
     result += indirectTint * indirectFactor * indirectAmt * 0.4;
+    // Subtle self-bounce floor so dark areas are not crushed to black.
+    result += indirectTint * 0.02 * indirectAmt * (1.0 - centerLum);
 
     // Blend with original by user blend factor.
     result = mix(color, result, blend);

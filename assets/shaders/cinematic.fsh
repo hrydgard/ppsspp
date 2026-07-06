@@ -10,21 +10,17 @@ precision mediump int;
 //   .x = Chromatic Aberration   [0, 0.05]   (radial, real-lens-like)
 //   .y = Film Grain              [0, 0.5]    (animated 3D-hash noise)
 //   .z = Vignette                [0, 1]      (cubic falloff)
-//   .w = Dithering (Bayer 8x8)   [0, 1]
+//   .w = Debanding (IGN)         [0, 1]
 //
-// Improvements over the previous version (per hrydgard's feedback):
-//   - Film grain now uses a *3D hash* over (uv, time). This is the
-//     well-known IQ-style noise that produces *blue-noise-like*
-//     distribution. The result looks like film grain instead of
-//     a sin/fract hash, which always had visible patterning.
-//   - The grain is multi-octave: 2 octaves at different scales
-//     (coarse + fine), blended, for that "real film stock" look.
-//   - Slider value scaled by ~0.35 so 1.0 reads as "strong but not
-//     broken TV". User can push to 0.5 for chunky 16mm look.
-//   - Chromatic Aberration: still radial, but red is offset OUTWARD
-//     and blue INWARD (green stays put). This is the actual
-//     physical behaviour of a converging lens — previous version
-//     had both R and B moved *outward*, which is wrong.
+// v8 changes:
+//   - Debanding now uses Interleaved Gradient Noise (IGN, Castaño /
+//     Call of Duty: Advanced Warfare) instead of an 8x8 Bayer LUT.
+//     The previous code used `float[](...)` which is GLSL ES 3.00
+//     syntax and fails to compile on the Vulkan/D3D11 backends via
+//     SPIRV-Cross. IGN is a single line, ES 1.00 safe, and is the
+//     recommended modern debanding technique (arguably better than
+//     Bayer for banding removal).
+//   - Film-grain luminance weight unified to Rec.709 (was BT.601).
 
 uniform sampler2D sampler0;
 uniform vec2 u_texelDelta;
@@ -44,16 +40,10 @@ float hash13(vec3 p) {
     return fract((p.x + p.y) * p.z);
 }
 
-const float bayer8[64] = float[](
-     0.0, 32.0,  8.0, 40.0,  2.0, 34.0, 10.0, 42.0,
-    48.0, 16.0, 56.0, 24.0, 50.0, 18.0, 58.0, 26.0,
-    12.0, 44.0,  4.0, 36.0, 14.0, 46.0,  6.0, 38.0,
-    60.0, 28.0, 52.0, 20.0, 62.0, 30.0, 54.0, 22.0,
-     3.0, 35.0, 11.0, 43.0,  1.0, 33.0,  9.0, 41.0,
-    51.0, 19.0, 59.0, 27.0, 49.0, 17.0, 57.0, 25.0,
-    15.0, 47.0,  7.0, 39.0, 13.0, 45.0,  5.0, 37.0,
-    63.0, 31.0, 55.0, 23.0, 61.0, 29.0, 53.0, 21.0
-);
+// Interleaved Gradient Noise (Castaño, CoD:AW). ES 1.00 safe.
+float ign(vec2 p) {
+    return fract(52.9829189 * fract(dot(floor(p), vec2(0.06711056, 0.00583715))));
+}
 
 void main() {
     vec3 color = texture2D(sampler0, v_texcoord0).rgb;
@@ -91,7 +81,7 @@ void main() {
         float grain = n1 * 0.5 + n2 * 0.5;
         // Slightly luma-aware: grain is more visible in midtones,
         // less in pure black/white (real film behaves this way).
-        float lum = dot(color, vec3(0.299, 0.587, 0.114));
+        float lum = dot(color, vec3(0.2126, 0.7152, 0.0722)); // Rec.709
         float lumaWeight = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
         lumaWeight = clamp(lumaWeight, 0.4, 1.0);
         // Slider 0..0.5 -> grain strength 0..0.175 (subtle at default,
@@ -108,13 +98,9 @@ void main() {
         color *= clamp(vignette, 0.0, 1.0);
     }
 
-    // ---- 4. Dithering (8x8 Bayer) ----
+    // ---- 4. Debanding (IGN, Castaño / CoD:AW) ----
     if (u_setting.w > 0.0) {
-        vec2 p = floor(gl_FragCoord.xy);
-        int x = int(mod(p.x, 8.0));
-        int y = int(mod(p.y, 8.0));
-        int n = y * 8 + x;
-        float d = bayer8[n] / 64.0 - 0.5;
+        float d = ign(gl_FragCoord.xy) - 0.5;
         color += d * u_setting.w * (1.0 / 255.0);
     }
 

@@ -3,7 +3,7 @@ precision mediump float;
 precision mediump int;
 #endif
 
-// UE5 PostProcess — Unreal Engine 5 style post-processing (v2)
+// UE5 PostProcess — Unreal Engine 5 style post-processing (v8)
 // =================================================================
 // Three independent stages, all bypassed when their slider is 0:
 //
@@ -12,14 +12,15 @@ precision mediump int;
 //   .z = Color grading strength    [0, 1]     (0 = off)  default 0.2
 //   .w = Quality level             [0, 2]     (0=cheap, 1=normal, 2=high)
 //
-// v2 changes (explosion fix):
-//   - Removed preExposure (was causing overexposure)
-//   - Removed shimmer (was causing flickering during movement)
-//   - Rim light multiplier: 3.5 -> 1.0 (was way too strong)
-//   - Rim light range: [0, 0.3] -> [0, 0.2], default 0.08
-//   - Rim mask: smoothstep(0.45, 0.90) -> smoothstep(0.50, 0.85)
-//   - Tonemap default: 0.5 -> 0.3
-//   - Color grade default: 0.5 -> 0.2
+// v8 changes (rim light):
+//   - Rim is now gated by the local luminance GRADIENT magnitude, so it
+//     appears on actual edges instead of every locally-bright pixel
+//     (gradient/edge-based rim, Sobel/Frei-Chen style mask).
+//   - The rim tint is shifted by the gradient DIRECTION (horizontal),
+//     so top-lit vs side-lit edges read differently — a light-direction
+//     aware rim rather than a uniform glow.
+//   ACES tone mapping and Lift/Gamma/Gain are unchanged (documented,
+//   well-behaved).
 
 uniform sampler2D sampler0;
 uniform vec2 u_texelDelta;
@@ -27,6 +28,7 @@ uniform vec4 u_setting;
 
 varying vec2 v_texcoord0;
 
+// Rec.709 luma
 float luminance(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -72,6 +74,15 @@ float softRim(sampler2D tex, vec2 uv, vec2 texelD) {
     return clamp((c - cMin) / range, 0.0, 1.0);
 }
 
+// Luminance gradient (gx, gy) from 4 diagonal neighbors.
+vec2 grad2(sampler2D tex, vec2 uv, vec2 td) {
+    float tl = luminance(texture2D(tex, uv + vec2(-td.x, -td.y)).rgb);
+    float tr = luminance(texture2D(tex, uv + vec2( td.x, -td.y)).rgb);
+    float bl = luminance(texture2D(tex, uv + vec2(-td.x,  td.y)).rgb);
+    float br = luminance(texture2D(tex, uv + vec2( td.x,  td.y)).rgb);
+    return vec2((tr + br) - (tl + bl), (bl + br) - (tl + tr));
+}
+
 void main() {
     vec3 color = texture2D(sampler0, v_texcoord0).rgb;
 
@@ -80,18 +91,26 @@ void main() {
         color = mix(color, acesFilmic(color), u_setting.x);
     }
 
-    // ---- 2. Rim light (5x5 soft local contrast) ----
+    // ---- 2. Rim light (gradient-aware, v8) ----
     if (u_setting.y > 0.0) {
         float quality = u_setting.w;
         vec2 sampleDelta = u_texelDelta * (1.0 + quality * 1.2);
         float rim = softRim(sampler0, v_texcoord0, sampleDelta);
         float rimTerm = pow(rim, 2.0);
-        // No shimmer — stable across frames.
+
+        // Edge gate: rim only where there is a real luminance gradient.
+        vec2 g = grad2(sampler0, v_texcoord0, sampleDelta);
+        float edge = smoothstep(0.02, 0.30, length(g));
+
+        // Direction-aware tint shift (horizontal gradient component).
+        float dirTint = clamp(g.x * 0.5 + 0.5, 0.0, 1.0);
+        vec3 rimTintShift = mix(vec3(0.96, 1.0, 1.06), vec3(1.04, 1.0, 0.94), dirTint);
+
         vec3 rimColor = vec3(1.05, 0.92, 0.78);
         // Tighter rim mask: smoothstep(0.50, 0.85) — less aggressive.
         float rimMask = smoothstep(0.50, 0.85, rim);
         // Multiplier reduced from 3.5 to 1.0.
-        color = color + rimColor * rimTerm * rimMask * u_setting.y * 1.0;
+        color = color + rimColor * rimTintShift * rimTerm * rimMask * edge * u_setting.y * 1.0;
     }
 
     // ---- 3. Color grading (Lift/Gamma/Gain) ----
