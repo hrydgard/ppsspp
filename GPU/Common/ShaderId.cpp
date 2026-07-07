@@ -1,5 +1,4 @@
 #include <string>
-#include <sstream>
 #include <vector>
 
 #include "Common/GPU/thin3d.h"
@@ -178,96 +177,100 @@ static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
 }
 
 std::string FragmentShaderDesc(const FShaderID &id) {
-	std::stringstream desc;
-	desc << id.ToDebugString() << " ";
-	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
+	char buffer[512];
+	StringWriter desc(buffer, sizeof(buffer));
+
+	desc.W(id.ToDebugString()).C(" ");
+	if (id.Bit(FS_BIT_CLEARMODE)) desc.C("Clear ");
 	if (id.Bit(FS_BIT_DO_TEXTURE)) {
-		desc << (id.Bit(FS_BIT_3D_TEXTURE) ? "Tex3D" : "Tex");
+		desc.W(id.Bit(FS_BIT_3D_TEXTURE) ? "Tex3D" : "Tex");
 		switch (id.Bits(FS_BIT_TEXFUNC, 3)) {
-		case GE_TEXFUNC_ADD: desc << "(TFuncAdd) "; break;
-		case GE_TEXFUNC_BLEND: desc << "(TFuncBlend) "; break;
-		case GE_TEXFUNC_DECAL: desc << "(TFuncDecal) "; break;
-		case GE_TEXFUNC_MODULATE: desc << "(TFuncMod) "; break;
-		case GE_TEXFUNC_REPLACE: desc << "(TFuncRepl) "; break;
-		default: desc << "(TFuncUnk) "; break;
+		case GE_TEXFUNC_ADD: desc.C("(TFuncAdd) "); break;
+		case GE_TEXFUNC_BLEND: desc.C("(TFuncBlend) "); break;
+		case GE_TEXFUNC_DECAL: desc.C("(TFuncDecal) "); break;
+		case GE_TEXFUNC_MODULATE: desc.C("(TFuncMod) "); break;
+		case GE_TEXFUNC_REPLACE: desc.C("(TFuncRepl) "); break;
+		default: desc.C("(TFuncUnk) "); break;
 		}
 	}
-	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
-	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
-	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc << "DepthNever ";
-	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc << "WriteMask ";
+	if (id.Bit(FS_BIT_ENABLE_FOG)) desc.C("Fog ");
+	if (id.Bit(FS_BIT_LMODE)) desc.C("LM ");
+	if (id.Bit(FS_BIT_FLATSHADE)) desc.C("Flat ");
+	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc.C("DepthNever ");
+	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc.C("WriteMask ");
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
-		desc << "TClamp";
-		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
-		if (id.Bit(FS_BIT_CLAMP_T)) desc << "T";
-		desc << " ";
+		desc.C("TClamp");
+		if (id.Bit(FS_BIT_CLAMP_S)) desc.C("S");
+		if (id.Bit(FS_BIT_CLAMP_T)) desc.C("T");
+		desc.C(" ");
 	}
 	int blendBits = id.Bits(FS_BIT_REPLACE_BLEND, 3);
 	if (blendBits) {
 		switch (blendBits) {
 		case ReplaceBlendType::REPLACE_BLEND_BLUE_TO_ALPHA:
-			desc << "BlueToAlpha_" << "A:" << id.Bits(FS_BIT_BLENDFUNC_A, 4);
+			desc.C("BlueToAlpha_" "A:").F("%d ", id.Bits(FS_BIT_BLENDFUNC_A, 4));
 			break;
 		default:
-			desc << "ReplaceBlend_" << id.Bits(FS_BIT_REPLACE_BLEND, 3)
-				 << "A:" << id.Bits(FS_BIT_BLENDFUNC_A, 4)
-				 << "_B:" << id.Bits(FS_BIT_BLENDFUNC_B, 4)
-				 << "_Eq:" << id.Bits(FS_BIT_BLENDEQ, 3) << " ";
+			desc.C("ReplaceBlend_").F("%d ", id.Bits(FS_BIT_REPLACE_BLEND, 3))
+				 .C("A:").F("%d ", id.Bits(FS_BIT_BLENDFUNC_A, 4))
+				 .C("_B:").F("%d ", id.Bits(FS_BIT_BLENDFUNC_B, 4))
+				 .C("_Eq:").F("%d ", id.Bits(FS_BIT_BLENDEQ, 3));
 			break;
 		}
 	}
 
 	switch (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) {
 	case REPLACE_ALPHA_NO: break;
-	case REPLACE_ALPHA_YES: desc << "StenToAlpha "; break;
-	case REPLACE_ALPHA_DUALSOURCE: desc << "StenToAlphaDual "; break;
+	case REPLACE_ALPHA_YES: desc.C("StenToAlpha "); break;
+	case REPLACE_ALPHA_DUALSOURCE: desc.C("StenToAlphaDual "); break;
+	default: desc.C("StenToAlphaUnknown "); break;  // bad
 	}
+
 	if (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
 		switch (id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
-		case STENCIL_VALUE_UNIFORM: desc << "StenUniform "; break;
-		case STENCIL_VALUE_ZERO: desc << "Sten0 "; break;
-		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
-		case STENCIL_VALUE_KEEP: desc << "StenKeep "; break;
-		case STENCIL_VALUE_INVERT: desc << "StenInv "; break;
-		case STENCIL_VALUE_INCR_4BIT: desc << "StenIncr4 "; break;
-		case STENCIL_VALUE_INCR_8BIT: desc << "StenIncr8 "; break;
-		case STENCIL_VALUE_DECR_4BIT: desc << "StenDecr4 "; break;
-		case STENCIL_VALUE_DECR_8BIT: desc << "StenDecr8 "; break;
-		default: desc << "StenUnknown "; break;
+		case STENCIL_VALUE_UNIFORM: desc.C("StenUniform "); break;
+		case STENCIL_VALUE_ZERO: desc.C("Sten0 "); break;
+		case STENCIL_VALUE_ONE: desc.C("Sten1 "); break;
+		case STENCIL_VALUE_KEEP: desc.C("StenKeep "); break;
+		case STENCIL_VALUE_INVERT: desc.C("StenInv "); break;
+		case STENCIL_VALUE_INCR_4BIT: desc.C("StenIncr4 "); break;
+		case STENCIL_VALUE_INCR_8BIT: desc.C("StenIncr8 "); break;
+		case STENCIL_VALUE_DECR_4BIT: desc.C("StenDecr4 "); break;
+		case STENCIL_VALUE_DECR_8BIT: desc.C("StenDecr8 "); break;
+		default: desc.C("StenUnknown "); break;
 		}
 	} else if (id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE)) {
-		desc << "StenOff ";
+		desc.C("StenOff ");
 	}
 
-
-	if (id.Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
-	else if (id.Bit(FS_BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
-	if (id.Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
-	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
-	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc << "TestDiscardToZero ";
-	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc << "StencilDiscardWorkaround ";
+	if (id.Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc.C("AlphaTest0 ").W(alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)]).C(" ");
+	else if (id.Bit(FS_BIT_ALPHA_TEST)) desc.C("AlphaTest ").W(alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)]).C(" ");
+	if (id.Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc.C("ColorTest0 ").W(alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)]).C(" ");  // first 4 match;
+	else if (id.Bit(FS_BIT_COLOR_TEST)) desc.C("ColorTest ").W(alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)]).C(" ");  // first 4 match
+	if (id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc.C("TestDiscardToZero ");
+	if (id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc.C("StencilDiscardWorkaround ");
 	int logicMode = id.Bits(FS_BIT_REPLACE_LOGIC_OP, 4);
-	if ((logicMode != GE_LOGIC_COPY) && !id.Bit(FS_BIT_CLEARMODE)) desc << "RLogic(" << logicFuncs[logicMode] << ")";
-	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc << "TexArray ";
-	if (id.Bit(FS_BIT_STEREO)) desc << "Stereo ";
-	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc << "(fetch)";
-	if (id.Bit(FS_BIT_MINMAX_DISCARD)) desc << "FragMinMaxDiscard ";
-	if (id.Bit(FS_BIT_DEPTH_CLAMP)) desc << "FragDepthClamp ";
+	if ((logicMode != GE_LOGIC_COPY) && !id.Bit(FS_BIT_CLEARMODE)) desc.C("RLogic(").W(logicFuncs[logicMode]).C(")");
+	if (id.Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc.C("TexArray ");
+	if (id.Bit(FS_BIT_STEREO)) desc.C("Stereo ");
+	if (id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc.C("(fetch)");
+	if (id.Bit(FS_BIT_MINMAX_DISCARD)) desc.C("FragMinMaxDiscard ");
+	if (id.Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
 
 	const ShaderDepalMode depalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	switch (depalMode) {
 	case ShaderDepalMode::OFF: break;
-	case ShaderDepalMode::NORMAL: desc << "Depal(";
+	case ShaderDepalMode::NORMAL: desc.C("Depal(");
 	{
 		const GEBufferFormat shaderDepalFormat = (GEBufferFormat)id.Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3);
-		desc << GeBufferFormatToString(shaderDepalFormat) << ") ";
+		desc.W(GeBufferFormatToString(shaderDepalFormat)).C(") ");
 		break;
 	}
-	case ShaderDepalMode::SMOOTHED: desc << "SmoothDepal "; break;
-	case ShaderDepalMode::CLUT8_8888: desc << "CLUT8From8888Depal"; break;
+	case ShaderDepalMode::SMOOTHED: desc.C("SmoothDepal "); break;
+	case ShaderDepalMode::CLUT8_8888: desc.C("CLUT8From8888Depal"); break;
 	}
 
-	return desc.str();
+	return desc.as_string();
 }
 
 bool FragmentIdNeedsFramebufferRead(const FShaderID &id) {
