@@ -24,52 +24,47 @@ inline bool needFragmentDepthClamp() {
 // VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
 // sent to the shader and processed there. This cuts down the number of shaders ("ubershader approach").
 enum VShaderBit : uint8_t {
-	VS_BIT_LMODE = 0,
-	VS_BIT_IS_THROUGH = 1,
-	// bit 2 is free.
-	VS_BIT_HAS_COLOR = 3,
-	// bit 4 is free.
-	VS_BIT_VERTEX_RANGE_CULLING = 5,
-	VS_BIT_SIMPLE_STEREO = 6,
-	// bit 7 is free,
-	VS_BIT_USE_HW_TRANSFORM = 8,
-	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
-	VS_BIT_NORM_REVERSE = 10,
-	VS_BIT_HAS_TEXCOORD = 11,
-	// 4 bits free: 12-15
-	VS_BIT_UVGEN_MODE = 16,
-	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
-	VS_BIT_LS0 = 18,  // 2
-	VS_BIT_LS1 = 20,  // 2
-	VS_BIT_BONES = 22,  // 3 should be enough, not 8
-	// 25 - 29 are free.
-	VS_BIT_ENABLE_BONES = 30,
+	VS_BIT_IS_THROUGH = 0,
+	VS_BIT_USE_HW_TRANSFORM = 1,
+	VS_BIT_HAS_NORMAL = 2,  // conditioned on hw transform
+	VS_BIT_HAS_TEXCOORD = 3,
+	VS_BIT_HAS_COLOR = 4,
+	VS_BIT_LMODE = 5,
+	VS_BIT_NORM_REVERSE = 6,
+	VS_BIT_FLATSHADE = 7,
+	VS_BIT_MATERIAL_UPDATE = 8,  // 3 bits
+	// Free bit: 11
+	VS_BIT_UVGEN_MODE = 12,  // 2 bits
+	VS_BIT_UVPROJ_MODE = 14,  // 2 bits
+	VS_BIT_ENABLE_BONES = 16,
+	VS_BIT_WEIGHT_FMTSCALE = 17,  // only two bits
+	VS_BIT_BONES = 19,  // 3 should be enough to represent 1-8 bones.
+	VS_BIT_FS_MINMAX_DISCARD = 22, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
+	VS_BIT_FS_DEPTH_CLAMP = 23, // Do depth clamp in the fragment shader.
+	VS_BIT_LIGHTING_ENABLE = 24,
+	VS_BIT_LS0 = 25,  // 2 bits
+	VS_BIT_LS1 = 27,  // 2 bits
 
 	// If this is set along with LIGHTING_ENABLE, all other lighting bits below
 	// are passed to the shader directly instead.
-	VS_BIT_LIGHT_UBERSHADER = 31,
+	VS_BIT_LIGHT_UBERSHADER = 29,
 
-	VS_BIT_LIGHT0_COMP = 32,  // 2 bits
-	VS_BIT_LIGHT0_TYPE = 34,  // 2 bits
-	VS_BIT_LIGHT1_COMP = 36,  // 2 bits
-	VS_BIT_LIGHT1_TYPE = 38,  // 2 bits
-	VS_BIT_LIGHT2_COMP = 40,  // 2 bits
-	VS_BIT_LIGHT2_TYPE = 42,  // 2 bits
-	VS_BIT_LIGHT3_COMP = 44,  // 2 bits
-	VS_BIT_LIGHT3_TYPE = 46,  // 2 bits
-	VS_BIT_MATERIAL_UPDATE = 48,  // 3 bits
-	// Bit 51 is free.
-	VS_BIT_LIGHT0_ENABLE = 52,
-	VS_BIT_LIGHT1_ENABLE = 53,
-	VS_BIT_LIGHT2_ENABLE = 54,
-	VS_BIT_LIGHT3_ENABLE = 55,
-	VS_BIT_LIGHTING_ENABLE = 56,
-	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
-	// 59 - 61 are free.
-	VS_BIT_FS_MINMAX_DISCARD = 59, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
-	VS_BIT_FS_DEPTH_CLAMP = 60, // Do depth clamp in the fragment shader.
-	VS_BIT_FLATSHADE = 62, // 1 bit
-	// Bit 63 is free.
+	VS_BIT_LIGHT0_COMP = 30,  // 2 bits
+	VS_BIT_LIGHT0_TYPE = 32,  // 2 bits
+	VS_BIT_LIGHT1_COMP = 34,  // 2 bits
+	VS_BIT_LIGHT1_TYPE = 36,  // 2 bits
+	VS_BIT_LIGHT2_COMP = 38,  // 2 bits
+	VS_BIT_LIGHT2_TYPE = 40,  // 2 bits
+	VS_BIT_LIGHT3_COMP = 42,  // 2 bits
+	VS_BIT_LIGHT3_TYPE = 44,  // 2 bits
+	VS_BIT_LIGHT0_ENABLE = 46,
+	VS_BIT_LIGHT1_ENABLE = 47,
+	VS_BIT_LIGHT2_ENABLE = 48,
+	VS_BIT_LIGHT3_ENABLE = 49,
+
+	VS_BIT_VERTEX_RANGE_CULLING = 50,
+	VS_BIT_SIMPLE_STEREO = 51,
+	// bits 52-63 are free.
 };
 
 static inline VShaderBit operator +(VShaderBit bit, int i) {

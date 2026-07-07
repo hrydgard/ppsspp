@@ -22,6 +22,9 @@ public:
 	std::string_view as_view() const {
 		return std::string_view(start_, p_ - start_);
 	}
+	std::string as_string() const {
+		return std::string(start_, p_ - start_);
+	}
 	const char *begin() const {
 		return start_;
 	}

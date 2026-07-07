@@ -4,6 +4,7 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Core/Config.h"
 
 #include "GPU/ge_constants.h"
@@ -15,53 +16,57 @@
 #include "GPU/Common/DrawEngineCommon.h"  // Just for ClipInfoFlags
 
 std::string VertexShaderDesc(const VShaderID &id) {
-	std::stringstream desc;
-	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
-	if (id.Bit(VS_BIT_IS_THROUGH)) desc << "THR ";
-	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc << "HWX ";
-	if (id.Bit(VS_BIT_HAS_COLOR)) desc << "C ";
-	if (id.Bit(VS_BIT_HAS_TEXCOORD)) desc << "T ";
-	if (id.Bit(VS_BIT_HAS_NORMAL)) desc << "N ";
-	if (id.Bit(VS_BIT_LMODE)) desc << "LM ";
-	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
+	char buffer[512];
+	StringWriter desc(buffer, sizeof(buffer));
+
+	desc.F("%08x:%08x ", id.d[1], id.d[0]);
+	if (id.Bit(VS_BIT_IS_THROUGH)) desc.C("THR ");
+	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc.C("HWX "); else desc.C("SWX ");
+	if (id.Bit(VS_BIT_HAS_NORMAL)) desc.C("N ");
+	if (id.Bit(VS_BIT_HAS_TEXCOORD)) desc.C("T ");
+	if (id.Bit(VS_BIT_HAS_COLOR)) desc.C("C ");
+	if (id.Bit(VS_BIT_LMODE)) desc.C("LM ");
+	if (id.Bit(VS_BIT_NORM_REVERSE)) desc.C("RevN ");
+	if (id.Bit(VS_BIT_FLATSHADE)) desc.C("Flat ");
+	if (id.Bits(VS_BIT_MATERIAL_UPDATE, 3)) desc.C("MatUp:").F("%d", id.Bits(VS_BIT_MATERIAL_UPDATE, 3)).C(" ");
+
 	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
+	static constexpr std::string_view uvgModes[4] = {"UV ", "UVMtx ", "UVEnv ", "UVUnk "};
+	if (uvgMode) desc.W(uvgModes[uvgMode]);
 	if (uvgMode == GE_TEXMAP_TEXTURE_MATRIX) {
 		int uvprojMode = id.Bits(VS_BIT_UVPROJ_MODE, 2);
-		const char *uvprojModes[4] = { "TexProjPos ", "TexProjUV ", "TexProjNNrm ", "TexProjNrm " };
-		desc << uvprojModes[uvprojMode];
+		static constexpr std::string_view uvprojModes[4] = { "TexProjPos ", "TexProjUV ", "TexProjNNrm ", "TexProjNrm " };
+		desc.W(uvprojModes[uvprojMode]);
 	}
-	static constexpr std::array<const char*, 4> uvgModes = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
+
+	if (id.Bit(VS_BIT_ENABLE_BONES)) desc.F("Bones:%d ", id.Bits(VS_BIT_BONES, 3) + 1);
+	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc.F("WScale:%d ", id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2));
+
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 
-	if (uvgMode) desc << uvgModes[uvgMode];
-	if (id.Bit(VS_BIT_ENABLE_BONES)) desc << "Bones:" << (id.Bits(VS_BIT_BONES, 3) + 1) << " ";
+	if (id.Bit(VS_BIT_FS_MINMAX_DISCARD)) desc.C("FSMinMax ");
+	if (id.Bit(VS_BIT_FS_DEPTH_CLAMP)) desc.C("FSDepthClamp ");
 
 	// Lights
 	if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
-		desc << "Light: ";
+		desc.C("Light: ");
 	}
 	if (id.Bit(VS_BIT_LIGHT_UBERSHADER)) {
-		desc << "LightUberShader ";
+		desc.C("LightUberShader ");
 	}
 	for (int i = 0; i < 4; i++) {
 		bool enabled = id.Bit(VS_BIT_LIGHT0_ENABLE + i) && id.Bit(VS_BIT_LIGHTING_ENABLE);
 		if (enabled || (uvgMode == GE_TEXMAP_ENVIRONMENT_MAP && (ls0 == i || ls1 == i))) {
-			desc << i << ": ";
-			desc << "c:" << id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2) << " t:" << id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2) << " ";
+			desc.F("%d: ", i);
+			desc.F("c:%d t:%d ", id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2), id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
 		}
 	}
-	if (id.Bits(VS_BIT_MATERIAL_UPDATE, 3)) desc << "MatUp:" << id.Bits(VS_BIT_MATERIAL_UPDATE, 3) << " ";
-	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
-	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
-	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc << "RangeCull ";
+	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc.C("SimpleStereo ");
+	if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc.C("RangeCull ");
 
-	if (id.Bit(VS_BIT_SIMPLE_STEREO)) desc << "SimpleStereo ";
-	if (id.Bit(VS_BIT_FS_MINMAX_DISCARD)) desc << "FSMinMax ";
-	if (id.Bit(VS_BIT_FS_DEPTH_CLAMP)) desc << "FSDepthClamp ";
-
-	return desc.str();
+	return desc.as_string();
 }
 
 void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
