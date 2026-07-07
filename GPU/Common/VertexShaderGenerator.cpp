@@ -296,7 +296,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// And the "varyings".
 		if (useHWTransform) {
-			WRITE(p, "struct VS_IN {                              \n");
+			WRITE(p, "struct VS_IN {\n");
 			if (enableBones) {
 				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
 			}
