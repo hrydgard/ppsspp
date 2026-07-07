@@ -368,11 +368,9 @@ bool TestVertexShaders() {
 	// Generate a bunch of random vertex shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
 	for (int i = 0; i < count; i++) {
-		uint32_t bottom = rng.R32();
-		uint32_t top = rng.R32();
+		uint64_t id64 = rng.R64();
 		VShaderID id;
-		id.d[0] = bottom;
-		id.d[1] = top;
+		id.FromUint64(id64);
 
 		// The generated bits need some adjustment:
 
@@ -453,11 +451,9 @@ bool TestFragmentShaders() {
 	// Generate a bunch of random fragment shader IDs, try to generate shader source.
 	// Then compile it and check that it's ok.
 	for (int i = 0; i < count; i++) {
-		uint32_t bottom = rng.R32();
-		uint32_t top = rng.R32();
+		uint64_t id64 = rng.R64();
 		FShaderID id;
-		id.d[0] = bottom;
-		id.d[1] = top;
+		id.FromUint64(id64);
 
 		// bits we don't need to test because they are irrelevant on d3d11
 		id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, false);

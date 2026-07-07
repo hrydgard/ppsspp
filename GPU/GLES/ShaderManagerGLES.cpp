@@ -673,7 +673,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	std::string errorString;
 	FragmentShaderFlags flags;
 	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString)) {
-		ERROR_LOG_REPORT(Log::G3D, "FS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", FSID.d[0], FSID.d[1]);
+		ERROR_LOG_REPORT(Log::G3D, "FS shader gen error: %s (%s: %s)", errorString.c_str(), "GLES", FSID.ToDebugString().c_str());
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
@@ -691,7 +691,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	std::string errorString;
 	VertexShaderFlags flags;
 	if (!GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &errorString)) {
-		ERROR_LOG_REPORT(Log::G3D, "VS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", VSID.d[0], VSID.d[1]);
+		ERROR_LOG_REPORT(Log::G3D, "VS shader gen error: %s (%s: %s)", errorString.c_str(), "GLES", VSID.ToDebugString().c_str());
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
@@ -776,7 +776,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 		// Could fail to generate, in which case we're kinda screwed.
 		fs = CompileFragmentShader(FSID);
 		if (!fs) {
-			ERROR_LOG(Log::G3D, "Failed to generate fragment shader with ID %08x:%08x", FSID.d[0], FSID.d[1]);
+			ERROR_LOG(Log::G3D, "Failed to generate fragment shader with ID %s", FSID.ToDebugString().c_str());
 			// Still insert it so we don't end up spamming generation.
 		}
 		fsCache_.Insert(FSID, fs);
@@ -834,26 +834,22 @@ std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) con
 
 std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType type) {
 	std::string id;
-	std::vector<std::string> ids;
+	std::vector<uint64_t> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 		vsCache_.Iterate([&](const VShaderID &id, Shader *shader) {
-			std::string idstr;
-			id.ToString(&idstr);
-			ids.push_back(idstr);
+			ids.push_back(id.ToUint64());
 		});
 		break;
 	case SHADER_TYPE_FRAGMENT:
 		fsCache_.Iterate([&](const FShaderID &id, Shader *shader) {
-			std::string idstr;
-			id.ToString(&idstr);
-			ids.push_back(idstr);
+			ids.push_back(id.ToUint64());
 		});
 		break;
 	default:
 		break;
 	}
-	return ids;
+	return ToSortedDebugShaderIdVec(ids);
 }
 
 std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {

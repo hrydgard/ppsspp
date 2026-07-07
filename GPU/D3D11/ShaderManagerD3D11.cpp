@@ -262,28 +262,26 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader 
 
 std::vector<std::string> ShaderManagerD3D11::DebugGetShaderIDs(DebugShaderType type) {
 	std::string id;
-	std::vector<std::string> ids;
+	std::vector<uint64_t> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		for (auto iter : vsCache_) {
-			iter.first.ToString(&id);
-			ids.push_back(id);
+		for (auto &iter : vsCache_) {
+			ids.push_back(iter.first.ToUint64());
 		}
 		break;
 	}
 	case SHADER_TYPE_FRAGMENT:
 	{
-		for (auto iter : fsCache_) {
-			iter.first.ToString(&id);
-			ids.push_back(id);
+		for (auto &iter : fsCache_) {
+			ids.push_back(iter.first.ToUint64());
 		}
 		break;
 	}
 	default:
 		break;
 	}
-	return ids;
+	return ToSortedDebugShaderIdVec(ids);
 }
 
 std::string ShaderManagerD3D11::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {

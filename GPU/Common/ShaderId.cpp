@@ -1,10 +1,11 @@
 #include <string>
 #include <sstream>
-#include <array>
+#include <vector>
 
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
+#include "Common/BitSet.h"
 #include "Core/Config.h"
 
 #include "GPU/ge_constants.h"
@@ -15,11 +16,15 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"  // Just for ClipInfoFlags
 
+std::string ShaderID::ToDebugString() const {
+	return StringFromFormat("%08x:%08x", d >> 32, d & 0xFFFFFFFF);
+}
+
 std::string VertexShaderDesc(const VShaderID &id) {
 	char buffer[512];
 	StringWriter desc(buffer, sizeof(buffer));
 
-	desc.F("%08x:%08x ", id.d[1], id.d[0]);
+	desc.W(id.ToDebugString()).C(" ");
 	if (id.Bit(VS_BIT_IS_THROUGH)) desc.C("THR ");
 	if (id.Bit(VS_BIT_USE_HW_TRANSFORM)) desc.C("HWX "); else desc.C("SWX ");
 	if (id.Bit(VS_BIT_HAS_NORMAL)) desc.C("N ");
@@ -174,10 +179,19 @@ static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
 
 std::string FragmentShaderDesc(const FShaderID &id) {
 	std::stringstream desc;
-	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
+	desc << id.ToDebugString() << " ";
 	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
-	if (id.Bit(FS_BIT_DO_TEXTURE)) desc << (id.Bit(FS_BIT_3D_TEXTURE) ? "Tex3D " : "Tex ");
-	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(FS_BIT_DO_TEXTURE)) {
+		desc << (id.Bit(FS_BIT_3D_TEXTURE) ? "Tex3D" : "Tex");
+		switch (id.Bits(FS_BIT_TEXFUNC, 3)) {
+		case GE_TEXFUNC_ADD: desc << "(TFuncAdd) "; break;
+		case GE_TEXFUNC_BLEND: desc << "(TFuncBlend) "; break;
+		case GE_TEXFUNC_DECAL: desc << "(TFuncDecal) "; break;
+		case GE_TEXFUNC_MODULATE: desc << "(TFuncMod) "; break;
+		case GE_TEXFUNC_REPLACE: desc << "(TFuncRepl) "; break;
+		default: desc << "(TFuncUnk) "; break;
+		}
+	}
 	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc << "DepthNever ";
@@ -224,16 +238,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	} else if (id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE)) {
 		desc << "StenOff ";
 	}
-	if (id.Bit(FS_BIT_DO_TEXTURE)) {
-		switch (id.Bits(FS_BIT_TEXFUNC, 3)) {
-		case GE_TEXFUNC_ADD: desc << "TFuncAdd "; break;
-		case GE_TEXFUNC_BLEND: desc << "TFuncBlend "; break;
-		case GE_TEXFUNC_DECAL: desc << "TFuncDecal "; break;
-		case GE_TEXFUNC_MODULATE: desc << "TFuncMod "; break;
-		case GE_TEXFUNC_REPLACE: desc << "TFuncRepl "; break;
-		default: desc << "TFuncUnk "; break;
-		}
-	}
+
 
 	if (id.Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
 	else if (id.Bit(FS_BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
@@ -428,4 +433,25 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 	}
 
 	*id_out = id;
+}
+
+std::vector<std::string> ToSortedDebugShaderIdVec(std::vector<uint64_t> ids) {
+	// Reverse the bits so that the sort order matches the importance order.
+	for (auto &id : ids) {
+		id = ReverseBits64(id);
+	}
+	std::sort(ids.begin(), ids.end());
+	// Reverse the bits back to get the original IDs.
+	for (auto &id : ids) {
+		id = ReverseBits64(id);
+	}
+	std::vector<std::string> strIds;
+	for (auto &id : ids) {
+		ShaderID shaderId;
+		shaderId.FromUint64(id);
+		std::string idStr;
+		shaderId.ToString(&idStr);
+		strIds.push_back(idStr);
+	}
+	return strIds;
 }

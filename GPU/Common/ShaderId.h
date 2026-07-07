@@ -121,87 +121,73 @@ struct ShaderID {
 		clear();
 	}
 	void clear() {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			d[i] = 0;
-		}
+		d = 0;
 	}
 	void set_invalid() {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			d[i] = 0xFFFFFFFF;
-		}
+		d = 0xFFFFFFFFFFFFFFFF;
 	}
 	bool is_invalid() const {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			if (d[i] != 0xFFFFFFFF)
-				return false;
-		}
-		return true;
+		return d == 0xFFFFFFFFFFFFFFFF;
 	}
 
-	uint32_t d[2];
 	bool operator < (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
+		return d < other.d;
 	}
 	bool operator == (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
+		return d == other.d;
 	}
 	bool operator != (const ShaderID &other) const {
 		return !(*this == other);
 	}
 
-	uint32_t Word(int word) const {
-		return d[word];
-	}
-
 	// Note: This is a binary copy to string-as-bytes, not a human-readable representation.
 	void ToString(std::string *dest) const {
 		dest->resize(sizeof(d));
-		memcpy(&(*dest)[0], d, sizeof(d));
+		memcpy(&(*dest)[0], &d, sizeof(d));
 	}
 	// Note: This is a binary copy from string-as-bytes, not a human-readable representation.
 	void FromString(std::string src) {
-		memcpy(d, &(src)[0], sizeof(d));
+		memcpy(&d, &(src)[0], sizeof(d));
 	}
 
+	uint64_t ToUint64() const {
+		return d;
+	}
+	void FromUint64(uint64_t src) {
+		d = src;
+	}
+
+	std::string ToDebugString() const;
+	uint64_t d;
 protected:
 	bool Bit(int bit) const {
-		return (d[bit >> 5] >> (bit & 31)) & 1;
+		return (d >> bit) & 1;
 	}
 	// Does not handle crossing 32-bit boundaries. count must be 30 or smaller.
 	int Bits(int bit, int count) const {
 		const int mask = (1 << count) - 1;
-		return (d[bit >> 5] >> (bit & 31)) & mask;
+		return (d >> bit) & mask;
 	}
 	void SetBit(int bit, bool value = true) {
 		if (value) {
-			d[bit >> 5] |= 1 << (bit & 31);
+			d |= 1ULL << bit;
 		} else {
-			d[bit >> 5] &= ~(1 << (bit & 31));
+			d &= ~(1ULL << bit);
 		}
 	}
 	void SetBits(int bit, int count, int value) {
 		const int mask = (1 << count) - 1;
-		const int shifted_mask = mask << (bit & 31);
-		d[bit >> 5] = (d[bit >> 5] & ~shifted_mask) | ((value & mask) << (bit & 31));
+		const uint64_t shifted_mask = uint64_t(mask) << bit;
+		d = (d & ~shifted_mask) | (uint64_t(value & mask) << bit);
 	}
 };
 
-struct VShaderID : ShaderID {
+struct VShaderID : public ShaderID {
 	VShaderID() : ShaderID() {
 	}
 
-	explicit VShaderID(ShaderID &src) {
-		memcpy(d, src.d, sizeof(d));
+	explicit VShaderID(const ShaderID &src) {
+		d = src.d;
 	}
 
 	bool Bit(VShaderBit bit) const {
@@ -221,12 +207,12 @@ struct VShaderID : ShaderID {
 	}
 };
 
-struct FShaderID : ShaderID {
+struct FShaderID : public ShaderID {
 	FShaderID() : ShaderID() {
 	}
 
-	explicit FShaderID(ShaderID &src) {
-		memcpy(d, src.d, sizeof(d));
+	explicit FShaderID(const ShaderID &src) {
+		d = src.d;
 	}
 
 	bool Bit(FShaderBit bit) const {
@@ -261,3 +247,6 @@ std::string FragmentShaderDesc(const FShaderID &id);
 
 // For sanity checking.
 bool FragmentIdNeedsFramebufferRead(const FShaderID &id);
+
+// For the shader viewer.
+std::vector<std::string> ToSortedDebugShaderIdVec(std::vector<uint64_t> ids);

@@ -24,6 +24,23 @@ inline u32 ReverseBits32(u32 v) {
 	return v;
 }
 
+inline u64 ReverseBits64(u64 v) {
+	// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+	// swap odd and even bits
+	v = ((v >> 1) & 0x5555555555555555ULL) | ((v & 0x5555555555555555ULL) << 1);
+	// swap consecutive pairs
+	v = ((v >> 2) & 0x3333333333333333ULL) | ((v & 0x3333333333333333ULL) << 2);
+	// swap nibbles ...
+	v = ((v >> 4) & 0x0F0F0F0F0F0F0F0FULL) | ((v & 0x0F0F0F0F0F0F0F0FULL) << 4);
+	// swap bytes
+	v = ((v >> 8) & 0x00FF00FF00FF00FFULL) | ((v & 0x00FF00FF00FF00FFULL) << 8);
+	// swap 2-byte long pairs
+	v = ((v >> 16) & 0x0000FFFF0000FFFFULL) | ((v & 0x0000FFFF0000FFFFULL) << 16);
+	// swap 4-byte long pairs
+	v = (v >> 32) | (v << 32);
+	return v;
+}
+
 #ifdef _WIN32
 #include <intrin.h>
 template <typename T>
