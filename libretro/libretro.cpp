@@ -73,6 +73,12 @@ static struct {
    int32_t size;
    int32_t capacity;
 } output_audio_buffer = {NULL, 0, 0};
+// output_audio_buffer is filled by System_AudioPushSamples() on the emu
+// thread (used with the GL backends, where PSP-side audio pushes arrive
+// via the GL command queue) and drained + realloc'd on the libretro
+// thread in retro_run()/init/shutdown — every access must hold this
+// mutex or a realloc can free the pointer mid-read on the other thread.
+static std::mutex output_audio_buffer_mutex;
 
 // Calculated swap interval is 'stable' if the same
 // value is recorded for a number of retro_run()
@@ -123,6 +129,7 @@ namespace Libretro
    static float runSpeed = 0.0f;
    static s64 runTicksLast = 0;
 
+   // Must be called with output_audio_buffer_mutex held.
    static void ensure_output_audio_buffer_capacity(int32_t capacity)
    {
       if (capacity <= output_audio_buffer.capacity) {
@@ -136,6 +143,7 @@ namespace Libretro
 
    static void init_output_audio_buffer(int32_t capacity)
    {
+      std::lock_guard<std::mutex> lock(output_audio_buffer_mutex);
       output_audio_buffer.data = NULL;
       output_audio_buffer.size = 0;
       output_audio_buffer.capacity = 0;
@@ -144,6 +152,7 @@ namespace Libretro
 
    static void free_output_audio_buffer()
    {
+      std::lock_guard<std::mutex> lock(output_audio_buffer_mutex);
       free(output_audio_buffer.data);
       output_audio_buffer.data = NULL;
       output_audio_buffer.size = 0;
@@ -152,6 +161,7 @@ namespace Libretro
 
    static void upload_output_audio_buffer()
    {
+      std::lock_guard<std::mutex> lock(output_audio_buffer_mutex);
       audio_batch_cb(output_audio_buffer.data, output_audio_buffer.size / 2);
       output_audio_buffer.size = 0;
    }
@@ -2021,6 +2031,8 @@ inline int16_t Clamp16(int32_t sample) {
 
 void System_AudioPushSamples(const int32_t *audio, int numSamples, float volume) {
    // We ignore volume here, because it's handled by libretro presumably.
+
+   std::lock_guard<std::mutex> lock(output_audio_buffer_mutex);
 
    // Convert to 16-bit audio for further processing.
    int16_t buffer[1024 * 2];
