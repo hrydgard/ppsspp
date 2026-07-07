@@ -193,8 +193,8 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 		default: desc.C("(TFuncUnk) "); break;
 		}
 	}
-	if (id.Bit(FS_BIT_ENABLE_FOG)) desc.C("Fog ");
 	if (id.Bit(FS_BIT_LMODE)) desc.C("LM ");
+	if (id.Bit(FS_BIT_ENABLE_FOG)) desc.C("Fog ");
 	if (id.Bit(FS_BIT_FLATSHADE)) desc.C("Flat ");
 	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc.C("DepthNever ");
 	if (id.Bit(FS_BIT_COLOR_WRITEMASK)) desc.C("WriteMask ");
