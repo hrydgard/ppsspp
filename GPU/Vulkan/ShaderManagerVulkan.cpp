@@ -318,28 +318,23 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertexType, VulkanVertexShade
 }
 
 std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType type) {
-	std::vector<std::string> ids;
+	std::vector<uint64_t> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 		vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *shader) {
-			std::string idstr;
-			id.ToString(&idstr);
-			ids.push_back(idstr);
+			ids.push_back(id.ToUint64());
 		});
 		break;
 	case SHADER_TYPE_FRAGMENT:
 		fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *shader) {
-			std::string idstr;
-			id.ToString(&idstr);
-			ids.push_back(idstr);
+			ids.push_back(id.ToUint64());
 		});
 		break;
-	case SHADER_TYPE_GEOMETRY:
-		return ids;
 	default:
 		break;
 	}
-	return ids;
+
+	return ToSortedDebugShaderIdVec(ids);
 }
 
 std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
@@ -408,7 +403,7 @@ enum class VulkanCacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 56
+#define CACHE_VERSION 58
 
 struct VulkanCacheHeader {
 	uint32_t magic;

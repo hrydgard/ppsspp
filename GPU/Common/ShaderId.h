@@ -24,52 +24,47 @@ inline bool needFragmentDepthClamp() {
 // VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
 // sent to the shader and processed there. This cuts down the number of shaders ("ubershader approach").
 enum VShaderBit : uint8_t {
-	VS_BIT_LMODE = 0,
-	VS_BIT_IS_THROUGH = 1,
-	// bit 2 is free.
-	VS_BIT_HAS_COLOR = 3,
-	// bit 4 is free.
-	VS_BIT_VERTEX_RANGE_CULLING = 5,
-	VS_BIT_SIMPLE_STEREO = 6,
-	// bit 7 is free,
-	VS_BIT_USE_HW_TRANSFORM = 8,
-	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
-	VS_BIT_NORM_REVERSE = 10,
-	VS_BIT_HAS_TEXCOORD = 11,
-	// 4 bits free: 12-15
-	VS_BIT_UVGEN_MODE = 16,
-	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
-	VS_BIT_LS0 = 18,  // 2
-	VS_BIT_LS1 = 20,  // 2
-	VS_BIT_BONES = 22,  // 3 should be enough, not 8
-	// 25 - 29 are free.
-	VS_BIT_ENABLE_BONES = 30,
+	VS_BIT_IS_THROUGH = 0,
+	VS_BIT_USE_HW_TRANSFORM = 1,
+	VS_BIT_HAS_NORMAL = 2,  // conditioned on hw transform
+	VS_BIT_HAS_TEXCOORD = 3,
+	VS_BIT_HAS_COLOR = 4,
+	VS_BIT_LMODE = 5,
+	VS_BIT_NORM_REVERSE = 6,
+	VS_BIT_FLATSHADE = 7,
+	VS_BIT_MATERIAL_UPDATE = 8,  // 3 bits
+	// Free bit: 11
+	VS_BIT_UVGEN_MODE = 12,  // 2 bits
+	VS_BIT_UVPROJ_MODE = 14,  // 2 bits
+	VS_BIT_ENABLE_BONES = 16,
+	VS_BIT_WEIGHT_FMTSCALE = 17,  // only two bits
+	VS_BIT_BONES = 19,  // 3 should be enough to represent 1-8 bones.
+	VS_BIT_FS_MINMAX_DISCARD = 22, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
+	VS_BIT_FS_DEPTH_CLAMP = 23, // Do depth clamp in the fragment shader.
+	VS_BIT_LIGHTING_ENABLE = 24,
+	VS_BIT_LS0 = 25,  // 2 bits
+	VS_BIT_LS1 = 27,  // 2 bits
 
 	// If this is set along with LIGHTING_ENABLE, all other lighting bits below
 	// are passed to the shader directly instead.
-	VS_BIT_LIGHT_UBERSHADER = 31,
+	VS_BIT_LIGHT_UBERSHADER = 29,
 
-	VS_BIT_LIGHT0_COMP = 32,  // 2 bits
-	VS_BIT_LIGHT0_TYPE = 34,  // 2 bits
-	VS_BIT_LIGHT1_COMP = 36,  // 2 bits
-	VS_BIT_LIGHT1_TYPE = 38,  // 2 bits
-	VS_BIT_LIGHT2_COMP = 40,  // 2 bits
-	VS_BIT_LIGHT2_TYPE = 42,  // 2 bits
-	VS_BIT_LIGHT3_COMP = 44,  // 2 bits
-	VS_BIT_LIGHT3_TYPE = 46,  // 2 bits
-	VS_BIT_MATERIAL_UPDATE = 48,  // 3 bits
-	// Bit 51 is free.
-	VS_BIT_LIGHT0_ENABLE = 52,
-	VS_BIT_LIGHT1_ENABLE = 53,
-	VS_BIT_LIGHT2_ENABLE = 54,
-	VS_BIT_LIGHT3_ENABLE = 55,
-	VS_BIT_LIGHTING_ENABLE = 56,
-	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
-	// 59 - 61 are free.
-	VS_BIT_FS_MINMAX_DISCARD = 59, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
-	VS_BIT_FS_DEPTH_CLAMP = 60, // Do depth clamp in the fragment shader.
-	VS_BIT_FLATSHADE = 62, // 1 bit
-	// Bit 63 is free.
+	VS_BIT_LIGHT0_COMP = 30,  // 2 bits
+	VS_BIT_LIGHT0_TYPE = 32,  // 2 bits
+	VS_BIT_LIGHT1_COMP = 34,  // 2 bits
+	VS_BIT_LIGHT1_TYPE = 36,  // 2 bits
+	VS_BIT_LIGHT2_COMP = 38,  // 2 bits
+	VS_BIT_LIGHT2_TYPE = 40,  // 2 bits
+	VS_BIT_LIGHT3_COMP = 42,  // 2 bits
+	VS_BIT_LIGHT3_TYPE = 44,  // 2 bits
+	VS_BIT_LIGHT0_ENABLE = 46,
+	VS_BIT_LIGHT1_ENABLE = 47,
+	VS_BIT_LIGHT2_ENABLE = 48,
+	VS_BIT_LIGHT3_ENABLE = 49,
+
+	VS_BIT_VERTEX_RANGE_CULLING = 50,
+	VS_BIT_SIMPLE_STEREO = 51,
+	// bits 52-63 are free.
 };
 
 static inline VShaderBit operator +(VShaderBit bit, int i) {
@@ -80,20 +75,23 @@ static inline VShaderBit operator +(VShaderBit bit, int i) {
 enum FShaderBit : uint8_t {
 	FS_BIT_CLEARMODE = 0,
 	FS_BIT_DO_TEXTURE = 1,
-	FS_BIT_TEXFUNC = 2,  // 3 bits
-	FS_BIT_SHADER_TEX_CLAMP = 5,
-	FS_BIT_CLAMP_S = 6,
-	FS_BIT_CLAMP_T = 7,
-	FS_BIT_SHADER_DEPAL_FORMAT = 8,  // 3 bits (GEBufferFormat), connected to FS_BIT_SHADER_DEPAL_MODE
+	FS_BIT_3D_TEXTURE = 2,
+	FS_BIT_DO_TEXTURE_PROJ = 3,
+	FS_BIT_TEXFUNC = 4,  // 3 bits
+	FS_BIT_LMODE = 7,
+	FS_BIT_ENABLE_FOG = 8,
+	FS_BIT_FLATSHADE = 9,
+	FS_BIT_DEPTH_CLAMP = 10,  // These both are connected to VS_BIT_MINMAX_DISCARD_OR_DEPTH_CLAMP in the vertex shader.
+	FS_BIT_MINMAX_DISCARD = 11,
 	FS_BIT_ALPHA_TEST = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,
 	FS_BIT_COLOR_TEST = 17,
 	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
-	FS_BIT_ENABLE_FOG = 21,
-	FS_BIT_DO_TEXTURE_PROJ = 22,
-	FS_BIT_MINMAX_DISCARD = 23,
+	FS_BIT_SHADER_TEX_CLAMP = 21,
+	FS_BIT_CLAMP_S = 22,
+	FS_BIT_CLAMP_T = 23,
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
 	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
 	FS_BIT_SIMULATE_LOGIC_OP_TYPE = 30,  // 2 bits
@@ -101,20 +99,17 @@ enum FShaderBit : uint8_t {
 	FS_BIT_BLENDEQ = 35,  // 3 bits
 	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
 	FS_BIT_BLENDFUNC_B = 42,  // 4 bits
-	FS_BIT_FLATSHADE = 46,
-	// Free bit 47
-	FS_BIT_TEST_DISCARD_TO_ZERO = 48,
-	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 49,
-	FS_BIT_COLOR_WRITEMASK = 50,
-	FS_BIT_REPLACE_LOGIC_OP = 51,  // 4 bits. GE_LOGIC_COPY means no-op/off.
-	FS_BIT_SHADER_DEPAL_MODE = 55,  // 2 bits (ShaderDepalMode)
-	FS_BIT_SAMPLE_ARRAY_TEXTURE = 57,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
+	FS_BIT_TEST_DISCARD_TO_ZERO = 46,
+	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 47,
+	FS_BIT_COLOR_WRITEMASK = 48,
+	FS_BIT_REPLACE_LOGIC_OP = 49,  // 4 bits. GE_LOGIC_COPY means no-op/off.
+	FS_BIT_SHADER_DEPAL_MODE = 53,  // 2 bits (ShaderDepalMode)
+	FS_BIT_SHADER_DEPAL_FORMAT = 55,  // 3 bits (GEBufferFormat), connected to FS_BIT_SHADER_DEPAL_MODE
 	FS_BIT_STEREO = 58,
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
-	FS_BIT_LMODE = 60,
-	FS_BIT_DEPTH_TEST_NEVER = 61,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
-	FS_BIT_DEPTH_CLAMP = 62,  // These both are connected to VS_BIT_MINMAX_DISCARD_OR_DEPTH_CLAMP in the vertex shader.
-	FS_BIT_3D_TEXTURE = 63,
+	FS_BIT_DEPTH_TEST_NEVER = 60,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
+	FS_BIT_SAMPLE_ARRAY_TEXTURE = 61,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
+	// Free bits: 62-63
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
@@ -126,87 +121,73 @@ struct ShaderID {
 		clear();
 	}
 	void clear() {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			d[i] = 0;
-		}
+		d = 0;
 	}
 	void set_invalid() {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			d[i] = 0xFFFFFFFF;
-		}
+		d = 0xFFFFFFFFFFFFFFFF;
 	}
 	bool is_invalid() const {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			if (d[i] != 0xFFFFFFFF)
-				return false;
-		}
-		return true;
+		return d == 0xFFFFFFFFFFFFFFFF;
 	}
 
-	uint32_t d[2];
 	bool operator < (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
+		return d < other.d;
 	}
 	bool operator == (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
+		return d == other.d;
 	}
 	bool operator != (const ShaderID &other) const {
 		return !(*this == other);
 	}
 
-	uint32_t Word(int word) const {
-		return d[word];
-	}
-
 	// Note: This is a binary copy to string-as-bytes, not a human-readable representation.
 	void ToString(std::string *dest) const {
 		dest->resize(sizeof(d));
-		memcpy(&(*dest)[0], d, sizeof(d));
+		memcpy(&(*dest)[0], &d, sizeof(d));
 	}
 	// Note: This is a binary copy from string-as-bytes, not a human-readable representation.
 	void FromString(std::string src) {
-		memcpy(d, &(src)[0], sizeof(d));
+		memcpy(&d, &(src)[0], sizeof(d));
 	}
 
+	uint64_t ToUint64() const {
+		return d;
+	}
+	void FromUint64(uint64_t src) {
+		d = src;
+	}
+
+	std::string ToDebugString() const;
+	uint64_t d;
 protected:
 	bool Bit(int bit) const {
-		return (d[bit >> 5] >> (bit & 31)) & 1;
+		return (d >> bit) & 1;
 	}
 	// Does not handle crossing 32-bit boundaries. count must be 30 or smaller.
 	int Bits(int bit, int count) const {
 		const int mask = (1 << count) - 1;
-		return (d[bit >> 5] >> (bit & 31)) & mask;
+		return (d >> bit) & mask;
 	}
 	void SetBit(int bit, bool value = true) {
 		if (value) {
-			d[bit >> 5] |= 1 << (bit & 31);
+			d |= 1ULL << bit;
 		} else {
-			d[bit >> 5] &= ~(1 << (bit & 31));
+			d &= ~(1ULL << bit);
 		}
 	}
 	void SetBits(int bit, int count, int value) {
 		const int mask = (1 << count) - 1;
-		const int shifted_mask = mask << (bit & 31);
-		d[bit >> 5] = (d[bit >> 5] & ~shifted_mask) | ((value & mask) << (bit & 31));
+		const uint64_t shifted_mask = uint64_t(mask) << bit;
+		d = (d & ~shifted_mask) | (uint64_t(value & mask) << bit);
 	}
 };
 
-struct VShaderID : ShaderID {
+struct VShaderID : public ShaderID {
 	VShaderID() : ShaderID() {
 	}
 
-	explicit VShaderID(ShaderID &src) {
-		memcpy(d, src.d, sizeof(d));
+	explicit VShaderID(const ShaderID &src) {
+		d = src.d;
 	}
 
 	bool Bit(VShaderBit bit) const {
@@ -226,12 +207,12 @@ struct VShaderID : ShaderID {
 	}
 };
 
-struct FShaderID : ShaderID {
+struct FShaderID : public ShaderID {
 	FShaderID() : ShaderID() {
 	}
 
-	explicit FShaderID(ShaderID &src) {
-		memcpy(d, src.d, sizeof(d));
+	explicit FShaderID(const ShaderID &src) {
+		d = src.d;
 	}
 
 	bool Bit(FShaderBit bit) const {
@@ -266,3 +247,6 @@ std::string FragmentShaderDesc(const FShaderID &id);
 
 // For sanity checking.
 bool FragmentIdNeedsFramebufferRead(const FShaderID &id);
+
+// For the shader viewer.
+std::vector<std::string> ToSortedDebugShaderIdVec(std::vector<uint64_t> ids);
