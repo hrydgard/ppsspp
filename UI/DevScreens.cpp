@@ -163,13 +163,23 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		});
 	}
 
-	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
+	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Add([this](UI::EventParams &e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new DeveloperToolsScreen(gamePath_));
+	});
 
 	// Debug overlay
 	AddOverlayList(items, screenManager());
 
-	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
-	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
+	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Add([this](UI::EventParams &e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new JitCompareScreen());
+	});
+	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Add([this](UI::EventParams &e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		if (gpu)  // Avoid crashing if chosen while the game is being loaded.
+			screenManager()->push(new ShaderListScreen());
+	});
 
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
 		if (PSP_CoreParameter().frozen) {
@@ -179,9 +189,11 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	});
 
-	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Add([](UI::EventParams &e) {
+		Reporting::ResetCounts();
+	});
 
-	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
+	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([this, dev](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
 
@@ -224,26 +236,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(scroll);
 
 	g_logManager.EnableOutput(LogOutput::RingBuffer);
-}
-
-void DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
-	Reporting::ResetCounts();
-}
-
-void DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new DeveloperToolsScreen(gamePath_));
-}
-
-void DevMenuScreen::OnJitCompare(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new JitCompareScreen());
-}
-
-void DevMenuScreen::OnShaderView(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
-		screenManager()->push(new ShaderListScreen());
 }
 
 void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
