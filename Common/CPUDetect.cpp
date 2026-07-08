@@ -36,6 +36,7 @@
 #include <memory.h>
 #include <set>
 #include <algorithm>
+#include <numeric>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -124,9 +125,9 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 			if (parts == 1) {
 				high = low;
 			}
-			for (int i = low; i <= high; ++i) {
-				results.push_back(i);
-			}
+			std::vector<int> temp(high - low + 1);
+			std::iota(temp.begin(), temp.end(), low);
+			results.insert(results.end(), temp.begin(), temp.end());
 		}
 	}
 
@@ -395,10 +396,7 @@ void CPUInfo::Detect() {
 				if (processor.Relationship == RelationProcessorCore) {
 					num_cores++;
 					for (int j = 0; j < processor.Processor.GroupCount; ++j) {
-						const auto &mask = processor.Processor.GroupMask[j].Mask;
-						for (int i = 0; i < sizeof(mask) * 8; ++i) {
-							logical_cpu_count += (mask >> i) & 1;
-						}
+						logical_cpu_count += __popcnt(processor.Processor.GroupMask[j].Mask);
 					}
 				}
 				p += processor.Size;
@@ -418,9 +416,7 @@ void CPUInfo::Detect() {
 			for (const auto &processor : processors) {
 				if (processor.Relationship == RelationProcessorCore) {
 					num_cores++;
-					for (int i = 0; i < sizeof(processor.ProcessorMask) * 8; ++i) {
-						logical_cpu_count += (processor.ProcessorMask >> i) & 1;
-					}
+					logical_cpu_count += __popcnt(processor.ProcessorMask);
 				}
 			}
 		}

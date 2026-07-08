@@ -61,8 +61,10 @@ inline float bezierEaseFunc(float val) {
 
 	float guess = val;
 	// Newton-Raphson calculation, no need to be too precise.
+	constexpr float three_a = 3.0f * a;
+	constexpr float two_b = 2.0f * b;
 	for (int i = 0; i < 4; ++i) {
-		float slope = 3.0f * a * guess * guess + 2.0f * b * guess + c;
+		float slope = three_a * guess * guess + two_b * guess + c;
 		if (slope == 0.0f) {
 			break;
 		}

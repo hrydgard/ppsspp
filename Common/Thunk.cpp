@@ -163,9 +163,10 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params) 
 	// matter.
 	ABI_AlignStack(num_params * 4);
 	unsigned int alignedSize = ABI_GetAlignedFrameSize(num_params * 4);
+	const unsigned int espOffset = alignedSize - 4;
 	for (int i = 0; i < num_params; i++) {
 		// ESP is changing, so we do not need i
-		PUSH(32, MDisp(ESP, alignedSize - 4));
+		PUSH(32, MDisp(ESP, espOffset));
 	}
 	CALL(function);
 	ABI_RestoreStack(num_params * 4);

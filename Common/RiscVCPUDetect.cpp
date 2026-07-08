@@ -27,6 +27,7 @@
 #include <cstring>
 #include <set>
 #include <sstream>
+#include <algorithm>
 #if defined(HAVE_GETAUXVAL) || defined(HAVE_ELF_AUX_INFO)
 #include <sys/auxv.h>
 #endif
@@ -144,12 +145,7 @@ bool RiscVCPUInfoParser::FirmwareMatchesCompatible(const std::string &str) {
 		SplitString(data, '\0', firmware_);
 	}
 
-	for (auto compatible : firmware_) {
-		if (compatible == str)
-			return true;
-	}
-
-	return false;
+	return std::find(firmware_.begin(), firmware_.end(), str) != firmware_.end();
 }
 #endif
 

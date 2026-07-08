@@ -53,10 +53,8 @@ std::string GetStringErrorMsg(int errCode) {
 
 	std::string err_string = err_str;
 	// Trim the trailing line breaks which can mess up the logs
-	while (!err_string.empty() && (err_string.back() == '\n' || err_string.back() == '\r')) {
-		err_string.pop_back();
-	}
-	return err_string;
+	size_t end = err_string.find_last_not_of("\r\n");
+	return err_string.substr(0, end + 1);
 #else
 	char err_str[buff_size] = {};
 
