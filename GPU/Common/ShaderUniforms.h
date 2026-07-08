@@ -53,8 +53,8 @@ R"(  mat4 u_proj;
   mat3x4 u_world;
   mat3x4 u_texmtx;
   vec4 u_xywh;
-  vec3 u_vpScale; float u_NaN; // w = offsetX
-  vec4 u_vpOffset; // w = offsetY
+  vec3 u_vpScale; float u_NaN;
+  vec4 u_vpOffset;
   vec2 u_rasterOffset; vec2 u_minZmaxZ;
   vec4 u_uvscaleoffset;
   vec4 u_matambientalpha;
