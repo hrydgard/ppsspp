@@ -205,7 +205,6 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	desc->fragmentShader = fs->GetModule();
 	desc->vertexShader = vs->GetModule();
-	desc->geometryShader = nullptr;
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;

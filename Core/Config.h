@@ -287,7 +287,6 @@ public:
 	bool bHardwareTransform;
 	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
-	bool bUseGeometryShader;
 
 	// Speedhacks (more will be moved here):
 	bool bSkipBufferEffects;

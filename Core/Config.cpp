@@ -716,7 +716,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CameraMirrorHorizontal", SETTING(g_Config, bCameraMirrorHorizontal), false, CfgFlag::DEFAULT),
 	ConfigSetting("AndroidFramerateMode", SETTING(g_Config, iDisplayFramerateMode), 1, CfgFlag::DEFAULT),
 	ConfigSetting("VendorBugChecksEnabled", SETTING(g_Config, bVendorBugChecksEnabled), true, CfgFlag::DONT_SAVE),
-	ConfigSetting("UseGeometryShader", SETTING(g_Config, bUseGeometryShader), false, CfgFlag::PER_GAME),
 	ConfigSetting("SkipBufferEffects", SETTING(g_Config, bSkipBufferEffects), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("DepthRasterMode", SETTING(g_Config, iDepthRasterMode), &DefaultDepthRaster, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SoftwareRenderer", SETTING(g_Config, bSoftwareRendering), false, CfgFlag::PER_GAME),
