@@ -76,11 +76,6 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	if (!fileLoader->Exists()) {
-		*errorString = "IdentifyFile: File doesn't exist: " + fileLoader->GetPath().ToString();
-		return IdentifiedFileType::ERROR_IDENTIFYING;
-	}
-
 	std::string extension = fileLoader->GetFileExtension();
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
@@ -104,6 +99,11 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		}
 
 		return IdentifiedFileType::NORMAL_DIRECTORY;
+	}
+
+	if (!fileLoader->Exists()) {
+		*errorString = "IdentifyFile: File doesn't exist: " + fileLoader->GetPath().ToString();
+		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
 	bool isDiscImage = false;
