@@ -285,7 +285,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 		u32 newAddress = currentPc + stepSize;
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
 		g_breakpoints.SetSkipFirst(currentPc);
-		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
+		for (int i = 0; i < (int)(newAddress - currentPc) >> 2; i++) {
 			currentMIPS->SingleStep();
 		}
 		break;
@@ -320,7 +320,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 			Core_Resume();
 		} else {
 			// If not a branch, just do a simple single-step, no point in involving the breakpoint machinery.
-			for (int i = 0; i < (int)(breakpointAddress - currentPc) / 4; i++) {
+			for (int i = 0; i < (int)(breakpointAddress - currentPc) >> 2; i++) {
 				currentMIPS->SingleStep();
 			}
 		}

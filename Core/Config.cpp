@@ -110,12 +110,13 @@ std::string DefaultLangRegion() {
 		if (section) {
 			section->GetKeys(&keys);
 		}
+		const std::string lang = langRegion.substr(0, 3);
 		for (const std::string &key : keys) {
 			if (startsWithNoCase(key, langRegion)) {
 				// Exact submatch, or different case.  Let's use it.
 				defaultLangRegion = key;
 				break;
-			} else if (startsWithNoCase(key, langRegion.substr(0, 3))) {
+			} else if (startsWithNoCase(key, lang)) {
 				// Best so far.
 				defaultLangRegion = key;
 			}
@@ -1504,8 +1505,8 @@ bool Config::Save(const char *saveReason) {
 
 		Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
 		pinnedPaths->Clear();
+		char keyName[64];
 		for (size_t i = 0; i < vPinnedPaths.size(); ++i) {
-			char keyName[64];
 			snprintf(keyName, sizeof(keyName), "Path%d", (int)i);
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
 		}
@@ -1521,7 +1522,6 @@ bool Config::Save(const char *saveReason) {
 			Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
 			postShaderChain->Clear();
 			for (size_t i = 0; i < vPostShaderNames.size(); ++i) {
-				char keyName[64];
 				snprintf(keyName, sizeof(keyName), "PostShader%d", (int)i+1);
 				postShaderChain->Set(keyName, vPostShaderNames[i]);
 			}
@@ -1880,8 +1880,8 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 	Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
 	postShaderChain->Clear();
+	char keyName[64];
 	for (size_t i = 0; i < vPostShaderNames.size(); ++i) {
-		char keyName[64];
 		snprintf(keyName, sizeof(keyName), "PostShader%d", (int)i+1);
 		postShaderChain->Set(keyName, vPostShaderNames[i]);
 	}
