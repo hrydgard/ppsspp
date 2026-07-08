@@ -65,6 +65,7 @@ using namespace std::placeholders;
 #include "GPU/GPUCommon.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceDisplay.h"
@@ -471,6 +472,8 @@ EmuScreen::~EmuScreen() {
 		bootPending_ = false;
 	}
 
+	// TODO: We need to somehow handle exit callbacks here, too.
+
 	Achievements::UnloadGame();
 	PSP_Shutdown(true);
 
@@ -563,8 +566,17 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			WARN_LOG(Log::Loader, "Can't stop during a pending boot");
 			return;
 		}
-		// The destructor will take care of shutting down.
-		screenManager()->switchScreen(new MainScreen());
+		// Give the game a chance to run its registered exit callback before tearing things down.
+		// If the dispatch took, we keep running emulation; ActionAfterExitCallback (or a direct
+		// sceKernelExitGame from inside the callback) flips coreState to CORE_POWERDOWN, and
+		// checkPowerDown() then switches us to MainScreen as usual. Pressing stop again while
+		// the callback is in flight, or stopping a non-running core, falls through to immediate shutdown.
+		if (coreState == CORE_RUNNING_CPU && !__KernelIsExitCallbackPending() && __KernelInvokeRegisteredExitCallback()) {
+			INFO_LOG(Log::Loader, "REQUEST_GAME_STOP: running exit callback before shutdown.");
+		} else {
+			// No callback (or already in flight, or core not running) - the destructor will take care of shutting down.
+			screenManager()->switchScreen(new MainScreen());
+		}
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
 			WARN_LOG(Log::Loader, "Can't reset during a pending boot");
