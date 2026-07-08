@@ -35,11 +35,11 @@ struct alignas(16) UB_VS_FS_Base {
 	uint32_t padding3; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float texNoAlpha; float texMul; float padding4[2];  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
+	float texNoAlpha; float texMul; float texClampOffset[2];;  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
+	float fogCoef[2]; float padding4[2];
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
 	float texClamp[4];
-	float texClampOffset[2]; float fogCoef[2];
 	float blendFixA[3]; float stencilReplaceValue;
 	float blendFixB[3]; float rotation;
 	// VR stuff is to go here, later. For normal drawing, we can then get away
@@ -53,8 +53,8 @@ R"(  mat4 u_proj;
   mat3x4 u_world;
   mat3x4 u_texmtx;
   vec4 u_xywh;
-  vec3 u_vpScale; float u_NaN; // w = offsetX
-  vec4 u_vpOffset; // w = offsetY
+  vec3 u_vpScale; float u_NaN;
+  vec4 u_vpOffset;
   vec2 u_rasterOffset; vec2 u_minZmaxZ;
   vec4 u_uvscaleoffset;
   vec4 u_matambientalpha;
@@ -62,11 +62,11 @@ R"(  mat4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
   float u_mipBias;
-  vec2 u_texNoAlphaMul; float pad1; float pad2;
+  vec2 u_texNoAlphaMul; vec2 u_texclampoff;
+  vec2 u_fogcoef; float pad1; float pad2;
   vec3 u_fogcolor;  uint u_alphacolorref;
   vec3 u_texenv;    uint u_alphacolormask;
   vec4 u_texclamp;
-  vec2 u_texclampoff; vec2 u_fogcoef;
   vec3 u_blendFixA; float u_stencilReplaceValue;
   vec3 u_blendFixB; float u_rotation;
 )";
