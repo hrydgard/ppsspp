@@ -64,7 +64,7 @@ void IndexGenerator::AddList(int numVerts, int indexOffset, bool clockwise) {
 	inds_ = outInds;
 }
 
-alignas(16) static const u16 offsets_clockwise[24] = {
+alignas(16) static constexpr u16 offsets_clockwise[24] = {
 	0, (u16)(0 + 1), (u16)(0 + 2),
 	(u16)(1 + 1), 1, (u16)(1 + 2),
 	2, (u16)(2 + 1), (u16)(2 + 2),
@@ -75,7 +75,7 @@ alignas(16) static const u16 offsets_clockwise[24] = {
 	(u16)(7 + 1), 7, (u16)(7 + 2),
 };
 
-alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
+alignas(16) static constexpr uint16_t offsets_counter_clockwise[24] = {
 	0, (u16)(0 + 2), (u16)(0 + 1),
 	1, (u16)(1 + 1), (u16)(1 + 2),
 	2, (u16)(2 + 2), (u16)(2 + 1),

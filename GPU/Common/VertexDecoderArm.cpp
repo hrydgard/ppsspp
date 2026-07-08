@@ -53,9 +53,9 @@ alignas(16) static float boneMask[4] = {1.0f, 1.0f, 1.0f, 0.0f};
 // TODO: Maybe load all morph weights to Q6+ to avoid memory access?
 // Also in PosFloat we're free to use Q4.
 
-static const float by128 = 1.0f / 128.0f;
-static const float by16384 = 1.0f / 16384.0f;
-static const float by32768 = 1.0f / 32768.0f;
+static constexpr float by128 = 1.0f / 128.0f;
+static constexpr float by16384 = 1.0f / 16384.0f;
+static constexpr float by32768 = 1.0f / 32768.0f;
 
 using namespace ArmGen;
 
@@ -103,7 +103,7 @@ static const ARMReg acc[3] = {S11, S12, S13};  // skin accumulator
 static const ARMReg srcNEON = Q2;
 static const ARMReg accNEON = Q3;
 
-static const JitLookup jitLookup[] = {
+static constexpr JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
@@ -702,7 +702,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-alignas(16) static const s16 color4444Shift[2][4] = {{12, 8, 4, 0}, {-12, -12, -12, -12}};
+alignas(16) static constexpr s16 color4444Shift[2][4] = {{12, 8, 4, 0}, {-12, -12, -12, -12}};
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
@@ -741,8 +741,8 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-alignas(16) static const s16 color565Shift[2][4] = {{11, 5, 0, 0}, {-11, -10, -11, 0}};
-alignas(16) static const float byColor565[4] = {255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 0.0f};
+alignas(16) static constexpr s16 color565Shift[2][4] = {{11, 5, 0, 0}, {-11, -10, -11, 0}};
+alignas(16) static constexpr float byColor565[4] = {255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 0.0f};
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);
@@ -784,8 +784,8 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-alignas(16) static const s16 color5551Shift[2][4] = {{11, 6, 1, 0}, {-11, -11, -11, -15}};
-alignas(16) static const float byColor5551[4] = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
+alignas(16) static constexpr s16 color5551Shift[2][4] = {{11, 6, 1, 0}, {-11, -11, -11, -15}};
+alignas(16) static constexpr float byColor5551[4] = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	ADDI2R(tempReg1, srcReg, dec_->coloff, scratchReg);

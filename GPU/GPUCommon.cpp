@@ -1785,7 +1785,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		} else if ((srcDstOverlap || srcWraps || dstWraps) && (srcValid || srcWraps) && (dstValid || dstWraps)) {
 			// This path means we have either src/dst overlap, OR one or both of src and dst wrap.
 			// This should be uncommon so it's the slowest path.
-			u32 bytesToCopy = width * bpp;
+			const u32 bytesToCopy = width * bpp;
 			bool notifyDetail = MemBlockInfoDetailed(srcWraps || dstWraps ? 64 : bytesToCopy);
 			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
 			if (notifyDetail || notifyAll) {
@@ -1803,9 +1803,11 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				}
 			};
 
+			const u32 srcLineStart = srcBasePtr + srcX * bpp;
+			const u32 dstLineStart = dstBasePtr + dstX * bpp;
 			for (int y = 0; y < height; y++) {
-				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+				u32 srcLineStartAddr = srcLineStart + (y + srcY) * srcStride;
+				u32 dstLineStartAddr = dstLineStart + (y + dstY) * dstStride;
 				// If we already passed a wrap, we can use the quicker path.
 				if ((srcLineStartAddr & 0x04800000) == 0x04800000)
 					srcLineStartAddr &= ~0x00800000;
@@ -1886,16 +1888,18 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				}
 			}
 		} else if (srcValid && dstValid) {
-			u32 bytesToCopy = width * bpp;
+			const u32 bytesToCopy = width * bpp;
 			bool notifyDetail = MemBlockInfoDetailed(bytesToCopy);
 			bool notifyAll = !notifyDetail && MemBlockInfoDetailed(srcSize, dstSize);
 			if (notifyDetail || notifyAll) {
 				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, srcSize);
 			}
 
+			const u32 srcLineStart = srcBasePtr + srcX * bpp;
+			const u32 dstLineStart = dstBasePtr + dstX * bpp;
 			for (int y = 0; y < height; y++) {
-				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+				u32 srcLineStartAddr = srcLineStart + (y + srcY) * srcStride;
+				u32 dstLineStartAddr = dstLineStart + (y + dstY) * dstStride;
 
 				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
 				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);

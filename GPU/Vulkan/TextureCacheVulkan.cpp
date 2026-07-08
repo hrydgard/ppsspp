@@ -55,7 +55,7 @@ using namespace PPSSPP_VK;
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
 #define TEXCACHE_SLAB_PRESSURE 4
 
-const char *uploadShader = R"(
+static constexpr char uploadShader[] = R"(
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
@@ -110,7 +110,7 @@ void main() {
 
 )";
 
-static int VkFormatBytesPerPixel(VkFormat format) {
+static constexpr int VkFormatBytesPerPixel(VkFormat format) {
 	switch (format) {
 	case VULKAN_8888_FORMAT: return 4;
 	case VK_FORMAT_R16G16B16A16_SFLOAT: return 8;

@@ -79,7 +79,7 @@ struct DeclTypeInfo {
 	const char *name;
 };
 
-static const DeclTypeInfo VComp[] = {
+static constexpr DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_UNDEFINED, "NULL" }, // DEC_NONE,
 	{ VK_FORMAT_R32_SFLOAT, "R32_SFLOAT " },  // DEC_FLOAT_1,
 	{ VK_FORMAT_R32G32_SFLOAT, "R32G32_SFLOAT " },  // DEC_FLOAT_2,
