@@ -360,6 +360,19 @@ int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
 	return count;
 }
 
+VectorSize GetQuarterVectorSizeSafe(VectorSize sz) {
+	switch (sz) {
+	case V_Quad: return V_Single;
+	default: return V_Invalid;
+	}
+}
+
+VectorSize GetQuarterVectorSize(VectorSize sz) {
+	VectorSize res = GetQuarterVectorSizeSafe(sz);
+	_assert_msg_(res != V_Invalid, "%s: Bad vector size", __FUNCTION__);
+	return res;
+}
+
 VectorSize GetHalfVectorSizeSafe(VectorSize sz) {
 	switch (sz) {
 	case V_Pair: return V_Single;
@@ -370,6 +383,19 @@ VectorSize GetHalfVectorSizeSafe(VectorSize sz) {
 
 VectorSize GetHalfVectorSize(VectorSize sz) {
 	VectorSize res = GetHalfVectorSizeSafe(sz);
+	_assert_msg_(res != V_Invalid, "%s: Bad vector size", __FUNCTION__);
+	return res;
+}
+
+VectorSize GetQuadrupleVectorSizeSafe(VectorSize sz) {
+	switch (sz) {
+	case V_Single: return V_Quad;
+	default: return V_Invalid;
+	}
+}
+
+VectorSize GetQuadrupleVectorSize(VectorSize sz) {
+	VectorSize res = GetQuadrupleVectorSizeSafe(sz);
 	_assert_msg_(res != V_Invalid, "%s: Bad vector size", __FUNCTION__);
 	return res;
 }
