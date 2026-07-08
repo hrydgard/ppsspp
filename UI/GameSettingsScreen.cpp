@@ -516,15 +516,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		graphicsSettings->Add(new SettingHint(gr->T("Faster, input lag"), inflightChoice));  // TODO: This hint could use improvement.
 	}
 
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		const bool usable = draw->GetDeviceCaps().geometryShaderSupported && !draw->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		const bool vertexSupported = draw->GetDeviceCaps().maxClipDistances >= 2 && draw->GetDeviceCaps().maxCullDistances >= 1;
-		if (usable && !vertexSupported) {
-			CheckBox *geometryCulling = graphicsSettings->Add(new CheckBox(&g_Config.bUseGeometryShader, gr->T("Geometry shader culling")));
-			geometryCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
-		}
-	}
-
 	if (deviceType != DEVICE_TYPE_VR) {
 		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);

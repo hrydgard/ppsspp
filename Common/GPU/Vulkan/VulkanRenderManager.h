@@ -94,13 +94,11 @@ public:
 	// Replaced the ShaderStageInfo with promises here so we can wait for compiles to finish.
 	Promise<VkShaderModule> *vertexShader = nullptr;
 	Promise<VkShaderModule> *fragmentShader = nullptr;
-	Promise<VkShaderModule> *geometryShader = nullptr;
 
 	// These are for pipeline creation failure logging.
 	// TODO: Store pointers to the string instead? Feels iffy but will probably work.
 	std::string vertexShaderSource;
 	std::string fragmentShaderSource;
-	std::string geometryShaderSource;
 
 	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	VkVertexInputAttributeDescription attrs[8]{};
@@ -282,7 +280,7 @@ public:
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 
-	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag);
+	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, const char *tag);
 	void DestroyPipelineLayout(VKRPipelineLayout *pipelineLayout);
 
 	void ReportBadStateForDraw();

@@ -359,10 +359,6 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 			return "";
 		}
 	}
-	case SHADER_TYPE_GEOMETRY:
-	{
-		return "";
-	}
 	default:
 		return "N/A";
 	}

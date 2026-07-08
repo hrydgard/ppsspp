@@ -133,14 +133,6 @@ enum class Primitive {
 	TRIANGLE_LIST,
 	TRIANGLE_STRIP,
 	TRIANGLE_FAN,
-	// Tesselation shader only
-	PATCH_LIST,
-	// These are for geometry shaders only.
-	LINE_LIST_ADJ,
-	LINE_STRIP_ADJ,
-	TRIANGLE_LIST_ADJ,
-	TRIANGLE_STRIP_ADJ,
-
 	UNDEFINED,
 	PRIMITIVE_TYPE_COUNT,
 };
@@ -351,7 +343,6 @@ public:
 		RASPBERRY_SHADER_COMP_HANG = 8,
 		MALI_CONSTANT_LOAD_BUG = 9,
 		SUBPASS_FEEDBACK_BROKEN = 10,
-		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		ADRENO_RESOURCE_DEADLOCK = 12,
 		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
 		PVR_BAD_16BIT_TEXFORMATS = 14,
@@ -609,7 +600,6 @@ struct DeviceCaps {
 
 	bool anisoSupported;
 	bool depthRangeMinusOneToOne;  // OpenGL style depth
-	bool geometryShaderSupported;
 	bool tesselationShaderSupported;
 	bool dualSourceBlend;
 	bool logicOpSupported;

@@ -27,18 +27,17 @@ namespace Draw {
 
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
-	SHADER_TYPE_FRAGMENT = 1,
-	SHADER_TYPE_GEOMETRY = 2,
-	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
-	SHADER_TYPE_PIPELINE = 4,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
-	SHADER_TYPE_TEXTURE = 5,
-	SHADER_TYPE_SAMPLER = 6,  // Not really a shader either. Need to rename this enum...
+	SHADER_TYPE_FRAGMENT,
+	SHADER_TYPE_VERTEXLOADER,  // Not really a shader, but might as well re-use this mechanism
+	SHADER_TYPE_PIPELINE,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
+	SHADER_TYPE_TEXTURE,
+	SHADER_TYPE_SAMPLER,  // Not really a shader either. Need to rename this enum...
 };
 
 enum DebugShaderStringType {
 	SHADER_STRING_SHORT_DESC = 0,
-	SHADER_STRING_SOURCE_CODE = 1,
-	SHADER_STRING_STATS = 2,
+	SHADER_STRING_SOURCE_CODE,
+	SHADER_STRING_STATS,
 };
 
 // Shared between the backends. Not all are necessarily used by each backend, but this lets us share
