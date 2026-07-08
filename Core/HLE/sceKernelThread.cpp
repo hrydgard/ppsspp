@@ -300,31 +300,6 @@ public:
 	SceUID cbId;
 };
 
-// Set when an exit callback dispatch is in flight, cleared by the action below when it returns.
-static bool g_exitCallbackPending = false;
-
-class ActionAfterExitCallback : public PSPAction {
-public:
-	ActionAfterExitCallback() {}
-	void run(MipsCall &call) override {
-		INFO_LOG(Log::sceKernel, "Exit callback returned (v0 = %08x). Powering down.", currentMIPS->r[MIPS_REG_V0]);
-		g_exitCallbackPending = false;
-		// The callback may have already powered down by calling sceKernelExitGame - that's fine,
-		// Core_Stop is idempotent. Either way, the host will see CORE_POWERDOWN and tear the game down.
-		Core_Stop();
-	}
-
-	static PSPAction *Create() {
-		return new ActionAfterExitCallback;
-	}
-
-	void DoState(PointerWrap &p) override {
-		auto s = p.Section("ActionAfterExitCallback", 1);
-		if (!s)
-			return;
-	}
-};
-
 u32 PSPThread::GetMissingErrorCode() {
 	return SCE_KERNEL_ERROR_UNKNOWN_THID;
 }
@@ -546,7 +521,6 @@ static bool dispatchEnabled = true;
 static MipsCallManager mipsCalls;
 static int actionAfterCallback;
 static int actionAfterMipsCall;
-static int actionAfterExitCallback;
 
 // When inside a callback, delays are "paused", and rechecked after the callback returns.
 static std::map<SceUID, u64> pausedDelays;
@@ -834,8 +808,6 @@ void __KernelThreadingInit()
 	eventThreadEndTimeout = CoreTiming::RegisterEvent("ThreadEndTimeout", &hleThreadEndTimeout);
 	actionAfterMipsCall = __KernelRegisterActionType(ActionAfterMipsCall::Create);
 	actionAfterCallback = __KernelRegisterActionType(ActionAfterCallback::Create);
-	actionAfterExitCallback = __KernelRegisterActionType(ActionAfterExitCallback::Create);
-	g_exitCallbackPending = false;
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
@@ -853,7 +825,7 @@ void __KernelThreadingInit()
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelThread", 1, 5);
+	auto s = p.Section("sceKernelThread", 1, 4);
 	if (!s)
 		return;
 
@@ -889,10 +861,6 @@ void __KernelThreadingDoState(PointerWrap &p)
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
 	Do(p, actionAfterCallback);
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
-	if (s >= 5) {
-		Do(p, actionAfterExitCallback);
-		__KernelRestoreActionType(actionAfterExitCallback, ActionAfterExitCallback::Create);
-	}
 
 	Do(p, pausedDelays);
 
@@ -1082,7 +1050,6 @@ void __KernelThreadingShutdown() {
 	pausedDelays.clear();
 	threadEventHandlers.clear();
 	pendingDeleteThreads.clear();
-	g_exitCallbackPending = false;
 }
 
 std::string __KernelThreadingSummary() {
@@ -2722,7 +2689,7 @@ SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 	if (thread)
 		thread->callbacks.push_back(id);
 
-	return hleLogInfo(Log::sceKernel, id);
+	return hleLogDebug(Log::sceKernel, id);
 }
 
 int sceKernelDeleteCallback(SceUID cbId)
@@ -3521,51 +3488,6 @@ int sceKernelRegisterExitCallback(SceUID cbId)
 
 	registeredExitCbId = cbId;
 	return hleLogDebug(Log::sceKernel, 0);
-}
-
-// Dispatch the exit callback registered via sceKernelRegisterExitCallback on the thread that registered
-// it, so the game has a chance to run its cleanup before we shut down. Returns false if no callback can
-// be dispatched (none registered, registering thread dead, etc.) - the caller should then power down
-// immediately. While true is returned, __KernelIsExitCallbackPending() will report true until the
-// callback returns (via the chained ActionAfterExitCallback).
-bool __KernelInvokeRegisteredExitCallback() {
-	if (g_exitCallbackPending) {
-		WARN_LOG(Log::sceKernel, "__KernelInvokeRegisteredExitCallback: already in progress");
-		return true;
-	}
-
-	u32 error;
-	PSPCallback *cb = kernelObjects.Get<PSPCallback>(registeredExitCbId, error);
-	if (!cb) {
-		INFO_LOG(Log::sceKernel, "__KernelInvokeRegisteredExitCallback: no exit callback registered");
-		return false;
-	}
-
-	PSPThread *thread = kernelObjects.Get<PSPThread>(cb->nc.threadId, error);
-	if (!thread) {
-		WARN_LOG(Log::sceKernel, "__KernelInvokeRegisteredExitCallback: registering thread %08x is gone", cb->nc.threadId);
-		return false;
-	}
-	if (thread->isStopped()) {
-		WARN_LOG(Log::sceKernel, "__KernelInvokeRegisteredExitCallback: registering thread %s is stopped", thread->GetName());
-		return false;
-	}
-
-	ActionAfterExitCallback *action = (ActionAfterExitCallback *)__KernelCreateAction(actionAfterExitCallback);
-
-	// Exit callbacks on real PSP receive (arg1, arg2, common) where arg1/arg2 are zero for HOME-button exit.
-	const u32 args[] = { 0, 0, cb->nc.commonArgument };
-
-	INFO_LOG(Log::sceKernel, "__KernelInvokeRegisteredExitCallback: dispatching '%s' (cb %08x) on thread '%s'",
-		cb->nc.name, registeredExitCbId, thread->GetName());
-
-	g_exitCallbackPending = true;
-	__KernelCallAddress(thread, cb->nc.entrypoint, action, args, 3, true, registeredExitCbId);
-	return true;
-}
-
-bool __KernelIsExitCallbackPending() {
-	return g_exitCallbackPending;
 }
 
 // Update the exit callback status?
