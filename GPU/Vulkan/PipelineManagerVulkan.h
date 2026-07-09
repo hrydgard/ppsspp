@@ -43,9 +43,8 @@ class DrawEngineCommon;
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
-	VKRRenderPass *renderPass;
-	Promise<VkShaderModule> *vShader;
-	Promise<VkShaderModule> *fShader;
+	VShaderID vid;
+	FShaderID fid;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
 
@@ -87,8 +86,8 @@ public:
 	~PipelineManagerVulkan();
 
 	// variantMask is only used when loading pipelines from cache.
-	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt,
-		VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantMask, int multiSampleLevel, bool cacheLoad);
+	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, ShaderManagerVulkan *shaderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt,
+		VShaderID vid, FShaderID fid, bool useHwTransform, u32 variantMask, int multiSampleLevel, bool cacheLoad);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();
