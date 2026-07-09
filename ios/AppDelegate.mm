@@ -6,11 +6,19 @@
 #import "Core/System.h"
 #import "Core/Config.h"
 #import "Core/Util/PathUtil.h"
+#import "Core/Util/RecentFiles.h"
 #import "Common/Log.h"
+#import "Common/File/Path.h"
+#import "Common/File/DirListing.h"
+#import "Common/File/FileUtil.h"
 #import "IAPManager.h"
 
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
+
+#include <set>
+#include <string>
+#include <vector>
 
 // TODO: Unfortunate hack to force link SceneDelegate class.
 // This is necessary because otherwise classes from static libraries aren't loaded.
@@ -119,6 +127,105 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 
 	// Call the C++ function to handle the file
 	System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, gamePath.ToString());
+}
+
+// Gathers the game library as a flat list of file paths. This mirrors what the
+// user sees in the "Games" tab. Duplicates are
+// removed while preserving order.
+static std::vector<std::string> GatherGameLibrary() {
+	std::vector<std::string> paths;
+	std::set<std::string> seen;
+
+	auto addPath = [&](const std::string &p) {
+		if (p.empty()) {
+			return;
+		}
+		if (seen.insert(p).second) {
+			paths.push_back(p);
+		}
+	};
+
+	const Path &gamesDir = g_Config.currentDirectory;
+	if (!gamesDir.empty()) {
+		std::vector<File::FileInfo> fileInfo;
+		if (File::GetFilesInDir(gamesDir, &fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:")) {
+			for (const File::FileInfo &info : fileInfo) {
+				if (info.isDirectory) {
+					// Detect installed/extracted PSP game folders.
+					if (File::Exists(info.fullName / "EBOOT.PBP") ||
+						File::Exists(info.fullName / "PSP_GAME/SYSDIR")) {
+						addPath(info.fullName.ToString());
+					}
+				} else {
+					addPath(info.fullName.ToString());
+				}
+			}
+		}
+	}
+
+	// Also include recently played games.
+	for (const std::string &recent : g_recentFiles.GetRecentFiles()) {
+		addPath(recent);
+	}
+
+	return paths;
+}
+
+- (void)exportLibraryToScheme:(NSString *)callerScheme {
+	if (callerScheme.length == 0) {
+		NSLog(@"exportLibraryToScheme: empty caller scheme, ignoring");
+		return;
+	}
+
+	// Build a list of games. Each game's "titleId" is set to the file path so
+	// the receiving app can build a "ppsspp://open?path=<path>" deep link from it.
+	std::vector<std::string> library = GatherGameLibrary();
+
+	NSMutableArray<NSDictionary *> *games = [NSMutableArray arrayWithCapacity:library.size()];
+	for (const std::string &file : library) {
+		NSString *path = [[NSString alloc] initWithBytes:file.data()
+												  length:file.length()
+												encoding:NSUTF8StringEncoding];
+		if (path.length == 0) {
+			continue;
+		}
+		// Create a human-readable title from the filename (without extension).
+		NSString *titleName = [[path lastPathComponent] stringByDeletingPathExtension];
+		if (titleName.length == 0) {
+			titleName = [path lastPathComponent];
+		}
+		[games addObject:@{
+			@"titleName": titleName ?: @"",
+			@"titleId": path,
+			@"developer": @"",
+			@"version": @"",
+		}];
+	}
+
+	NSError *error = nil;
+	NSData *jsonData = [NSJSONSerialization dataWithJSONObject:games options:0 error:&error];
+	if (!jsonData || error) {
+		NSLog(@"exportLibraryToScheme: failed to serialize library: %@", error);
+		return;
+	}
+
+	// base64url-encode (URL-safe alphabet, no padding) to keep it URL-safe.
+	NSString *encoded = [jsonData base64EncodedStringWithOptions:0];
+	encoded = [encoded stringByReplacingOccurrencesOfString:@"+" withString:@"-"];
+	encoded = [encoded stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
+	encoded = [encoded stringByReplacingOccurrencesOfString:@"=" withString:@""];
+
+	NSString *urlString = [NSString stringWithFormat:@"%@://ppsspp?games=%@", callerScheme, encoded];
+	NSURL *returnURL = [NSURL URLWithString:urlString];
+	if (!returnURL) {
+		NSLog(@"exportLibraryToScheme: failed to build return URL for scheme '%@'", callerScheme);
+		return;
+	}
+
+	NSLog(@"exportLibraryToScheme: returning %lu games to scheme '%@'", (unsigned long)games.count, callerScheme);
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[[UIApplication sharedApplication] openURL:returnURL options:@{} completionHandler:nil];
+	});
 }
 
 - (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
