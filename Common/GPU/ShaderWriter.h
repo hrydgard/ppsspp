@@ -57,10 +57,11 @@ public:
 		return *this;
 	}
 	// W: Writes a zero-terminated string to the stream.
-	ShaderWriter &W(const char *text) {
-		size_t len = strlen(text);
-		memcpy(p_, text, len + 1);
+	ShaderWriter &W(std::string_view text) {
+		size_t len = text.size();
+		memcpy(p_, text.data(), len);
 		p_ += len;
+		*p_ = '\0';
 		return *this;
 	}
 

@@ -301,12 +301,12 @@ void DrawEngineVulkan::Flush() {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
 
-			VulkanVertexShader *vshader = nullptr;
-			VulkanFragmentShader *fshader = nullptr;
+			VShaderID vshaderID;
+			FShaderID fshaderID;
 
-			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, true, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
-			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, true, 0, framebufferManager_->GetMSAALevel(), false);
+			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vshaderID, &fshaderID, pipelineState_, true, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
+			_dbg_assert_msg_(vshaderID.Bit(VS_BIT_USE_HW_TRANSFORM) == true, "Bad vshader ID");
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshaderID, fshaderID, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				ResetAfterSkippedDraw();
@@ -459,12 +459,12 @@ void DrawEngineVulkan::Flush() {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
 
-				VulkanVertexShader *vshader = nullptr;
-				VulkanFragmentShader *fshader = nullptr;
+				VShaderID vshaderID;
+				FShaderID fshaderID;
 
-				shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
-				_dbg_assert_msg_(!vshader->UseHWTransform(), "Bad vshader");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshader, fshader, false, 0, framebufferManager_->GetMSAALevel(), false);
+				shaderManager_->GetShaderIDs(prim, swDec->VertexType(), &vshaderID, &fshaderID, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
+				_dbg_assert_msg_(vshaderID.Bit(VS_BIT_USE_HW_TRANSFORM) == false, "Bad vshader ID");
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshaderID, fshaderID, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					ResetAfterSkippedDraw();

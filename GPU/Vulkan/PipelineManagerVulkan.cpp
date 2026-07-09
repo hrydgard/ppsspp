@@ -1,12 +1,11 @@
 #include <cstring>
 #include <memory>
 #include <set>
-#include <sstream>
-
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
@@ -30,7 +29,7 @@ PipelineManagerVulkan::~PipelineManagerVulkan() {
 	// Block on all pipelines to make sure any background compiles are done.
 	// This is very important to do before we start trying to tear down the shaders - otherwise, we might
 	// be deleting shaders before queued pipeline creations that use them are performed.
-	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+	pipelines_.Iterate([](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (value->pipeline) {
 			value->pipeline->BlockUntilCompiled();
 		}
@@ -186,7 +185,7 @@ static std::string CutFromMain(const std::string &str) {
 
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
 	VKRPipelineLayout *layout, PipelineFlags pipelineFlags, VkSampleCountFlagBits sampleCount, const VulkanPipelineRasterStateKey &key,
-	const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask, bool cacheLoad) {
+	const DecVtxFormat *decFmt, const VulkanVertexShader *vs, const VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask, bool cacheLoad) {
 	_assert_(fs && vs);
 
 	if (!fs || !fs->GetModule()) {
@@ -327,7 +326,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	std::string tag = "game";
 #ifdef _DEBUG
-	tag = FragmentShaderDesc(fs->GetID()) + " VS " + VertexShaderDesc(vs->GetID());
+	tag = fs->GetID().Description() + " VS " + vs->GetID().Description();
 #endif
 
 	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, sampleCount, cacheLoad, tag.c_str());
@@ -343,7 +342,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask, int multiSampleLevel, bool cacheLoad) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, ShaderManagerVulkan *shaderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VShaderID vid, FShaderID fid, bool useHwTransform, u32 variantBitmask, int multiSampleLevel, bool cacheLoad) {
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -354,14 +353,17 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 
 	key.raster = rasterKey;
 	key.useHWTransform = useHwTransform;
-	key.vShader = vs->GetModule();
-	key.fShader = fs->GetModule();
+	key.vid = vid;
+	key.fid = fid;
 	key.vtxFmtId = useHwTransform ? decFmt->id : 0;
 
 	VulkanPipeline *pipeline;
 	if (pipelines_.Get(key, &pipeline)) {
 		return pipeline;
 	}
+
+	const VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(fid);
+	const VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(vid);
 
 	PipelineFlags pipelineFlags = (PipelineFlags)0;
 	if (fs->Flags() & FragmentShaderFlags::USES_DISCARD) {
@@ -490,7 +492,7 @@ static constexpr const char * blendFactors[19] = {
 	"INV_SRC1_A",
 };
 
-std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) {
+std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType) {
 	if (type != SHADER_TYPE_PIPELINE)
 		return "N/A";
 
@@ -504,72 +506,71 @@ std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, D
 	_assert_(pipeline != nullptr);
 	u32 variants = pipeline->GetVariantsBitmask();
 
-	std::string keyDescription = pipelineKey.GetDescription(stringType, shaderManager);
+	std::string keyDescription = pipelineKey.GetDescription(stringType);
 	return StringFromFormat("%s. v: %08x", keyDescription.c_str(), variants);
 }
 
 std::string VulkanPipelineKey::GetRasterStateDesc(bool lineBreaks) const {
-	std::stringstream str;
-	str << topologies[raster.topology] << " ";
+	char temp[512];
+	StringWriter str(temp);
+	str.W(topologies[raster.topology]).C(" ");
 	if (useHWTransform) {
-		str << "HWX ";
+		str.C("HWX ");
 	}
 	if (vtxFmtId) {
-		str << "Vfmt(" << StringFromFormat("%08x", vtxFmtId) << ") ";  // TODO: Format nicer.
+		str.F("Vfmt(%08x) ", vtxFmtId);  // TODO: Format nicer.
 	} else {
-		str << "SWX ";
+		str.C("SWX ");
 	}
-	if (lineBreaks) str << std::endl;
+	if (lineBreaks) str.endl();
 	if (raster.blendEnable) {
-		str << "Blend(C:" << blendOps[raster.blendOpColor] << "/"
-			<< blendFactors[raster.srcColor] << ":" << blendFactors[raster.destColor] << " ";
+		str.W("Blend(C:").W(blendOps[raster.blendOpColor]).W("/").W(blendFactors[raster.srcColor]).W(":").W(blendFactors[raster.destColor]).W(" ");
 		if (raster.blendOpAlpha != VK_BLEND_OP_ADD ||
 			raster.srcAlpha != VK_BLEND_FACTOR_ONE ||
 			raster.destAlpha != VK_BLEND_FACTOR_ZERO) {
-			str << "A:" << blendOps[raster.blendOpAlpha] << "/"
-				<< blendFactors[raster.srcColor] << ":" << blendFactors[raster.destColor] << " ";
+			str.C("A:").W(blendOps[raster.blendOpAlpha]).C("/").W(blendFactors[raster.srcColor]).C(":").W(blendFactors[raster.destColor]).W(" ");
 		}
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.colorWriteMask != 0xF) {
-		str << "Mask(";
+		str.C("Mask(");
 		for (int i = 0; i < 4; i++) {
 			if (raster.colorWriteMask & (1 << i)) {
-				str << "RGBA"[i];
+				str.F("%c", "RGBA"[i]);
 			} else {
-				str << "_";
+				str.C("_");
 			}
 		}
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.depthTestEnable) {
-		str << "Z(";
+		str.C("Z(");
 		if (raster.depthWriteEnable)
-			str << "W, ";
+			str.C("W, ");
 		if (raster.depthCompareOp)
-			str << compareOps[raster.depthCompareOp & 7];
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+			str.W(compareOps[raster.depthCompareOp & 7]);
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.stencilTestEnable) {
-		str << "Stenc(";
-		str << compareOps[raster.stencilCompareOp & 7] << " ";
-		str << stencilOps[raster.stencilPassOp & 7] << "/";
-		str << stencilOps[raster.stencilFailOp & 7] << "/";
-		str << stencilOps[raster.stencilDepthFailOp & 7];
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C("Stenc(");
+		str.W(compareOps[raster.stencilCompareOp & 7]).C(" ");
+		str.W(stencilOps[raster.stencilPassOp & 7]).C("/");
+		str.W(stencilOps[raster.stencilFailOp & 7]).C("/");
+		str.W(stencilOps[raster.stencilDepthFailOp & 7]);
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.logicOpEnable) {
-		str << "Logic(" << logicOps[raster.logicOp & 15] << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C("Logic(").W(logicOps[raster.logicOp & 15]).C(") ");
+		if (lineBreaks) str.endl();
 	}
-	return str.str();
+	return str.as_string();
 }
 
-std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) const {
+std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType) const {
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
 		// Just show the raster state. Also show brief VS/FS IDs?
@@ -577,15 +578,11 @@ std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType, 
 
 	case SHADER_STRING_SOURCE_CODE:
 	{
-		// More detailed description of all the parts of the pipeline.
-		VkShaderModule fsModule = this->fShader->BlockUntilReady();
-		VkShaderModule vsModule = this->vShader->BlockUntilReady();
-
-		std::stringstream str;
-		str << "VS: " << VertexShaderDesc(shaderManager->GetVertexShaderFromModule(vsModule)->GetID()) << std::endl;
-		str << "FS: " << FragmentShaderDesc(shaderManager->GetFragmentShaderFromModule(fsModule)->GetID()) << std::endl;
-		str << GetRasterStateDesc(true);
-		return str.str();
+		std::string str;
+		str += "VS: " + vid.Description() + "\n";
+		str += "FS: " + fid.Description() + "\n";
+		str += GetRasterStateDesc(true);
+		return str;
 	}
 
 	default:
@@ -645,28 +642,18 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 
 	int64_t seekPosOnFailure = File::Ftell(file);
 
-	bool failed = false;
-	bool writeFailed = false;
 	// Since we don't include the full pipeline key, there can be duplicates,
 	// caused by things like switching from buffered to non-buffered rendering.
 	// Make sure the set of pipelines we write is "unique".
 	std::set<StoredVulkanPipelineKey> keys;
 
-	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
-		if (failed)
-			return;
-		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader->BlockUntilReady());
-		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader->BlockUntilReady());
-		if (!vshader || !fshader) {
-			failed = true;
-			return;
-		}
+	pipelines_.Iterate([&keys](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		_dbg_assert_(pkey.raster.topology != VK_PRIMITIVE_TOPOLOGY_POINT_LIST && pkey.raster.topology != VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 		StoredVulkanPipelineKey key{};
 		key.raster = pkey.raster;
 		key.useHWTransform = pkey.useHWTransform;
-		key.fShaderID = fshader->GetID();
-		key.vShaderID = vshader->GetID();
+		key.fShaderID = pkey.fid;
+		key.vShaderID = pkey.vid;
 		key.gShaderID = {};
 		key.variants = value->GetVariantsBitmask();
 		if (key.useHWTransform) {
@@ -678,29 +665,14 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 
 	// Write the number of pipelines.
 	size = (uint32_t)keys.size();
-	writeFailed = writeFailed || fwrite(&size, sizeof(size), 1, file) != 1;
+	fwrite(&size, sizeof(size), 1, file);
 
 	// Write the pipelines.
 	for (auto &key : keys) {
-		writeFailed = writeFailed || fwrite(&key, sizeof(key), 1, file) != 1;
+		fwrite(&key, sizeof(key), 1, file);
 	}
 
-	if (failed) {
-		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, some shader was missing");
-		// Write a zero in the right place so it doesn't try to load the pipelines next time.
-		size = 0;
-		File::Fseek(file, seekPosOnFailure, SEEK_SET);
-		writeFailed = fwrite(&size, sizeof(size), 1, file) != 1;
-		if (writeFailed) {
-			ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");
-		}
-		return;
-	}
-	if (writeFailed) {
-		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");
-	} else {
-		NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
-	}
+	NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
 }
 
 bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VKRPipelineLayout *layout, int multiSampleLevel) {
@@ -780,9 +752,6 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 			continue;
 		}
 
-		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
-		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
-
 		// Avoid creating multisampled shaders if it's not enabled, as that results in an invalid combination.
 		// Note that variantsToBuild is NOT directly a RenderPassType! instead, it's a collection of (1 << RenderPassType).
 		u32 variantsToBuild = key.variants;
@@ -797,7 +766,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
 		VulkanPipeline *pipeline = GetOrCreatePipeline(
-			rm, layout, key.raster, key.useHWTransform ? &fmt : 0, vs, fs, key.useHWTransform, variantsToBuild, multiSampleLevel, true);
+			rm, shaderManager, layout, key.raster, key.useHWTransform ? &fmt : 0, key.vShaderID, key.fShaderID, key.useHWTransform, variantsToBuild, multiSampleLevel, true);
 		if (!pipeline) {
 			pipelineCreateFailCount += 1;
 		}

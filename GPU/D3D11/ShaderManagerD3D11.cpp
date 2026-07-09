@@ -47,7 +47,7 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
 	case SHADER_STRING_SHORT_DESC:
-		return FragmentShaderDesc(id_);
+		return id_.Description();
 	default:
 		return "N/A";
 	}
@@ -69,7 +69,7 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
 	case SHADER_STRING_SHORT_DESC:
-		return VertexShaderDesc(id_);
+		return id_.Description();
 	default:
 		return "N/A";
 	}

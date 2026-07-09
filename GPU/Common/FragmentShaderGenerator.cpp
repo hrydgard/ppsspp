@@ -101,7 +101,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
-	p.F("// %s\n", FragmentShaderDesc(id).c_str());
+	p.C("// %").W(id.Description()).endl();
 
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
