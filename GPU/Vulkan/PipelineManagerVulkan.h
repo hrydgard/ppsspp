@@ -55,7 +55,7 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
-	std::string GetDescription(DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) const;
+	std::string GetDescription(DebugShaderStringType stringType) const;
 
 private:
 	std::string GetRasterStateDesc(bool lineBreaks) const;
@@ -97,7 +97,7 @@ public:
 
 	void InvalidateMSAAPipelines();
 
-	std::string DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager);
+	std::string DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type) const;
 
 	// Saves data for faster creation next time.

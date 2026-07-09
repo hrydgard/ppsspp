@@ -492,7 +492,7 @@ static constexpr const char * blendFactors[19] = {
 	"INV_SRC1_A",
 };
 
-std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) {
+std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType) {
 	if (type != SHADER_TYPE_PIPELINE)
 		return "N/A";
 
@@ -506,7 +506,7 @@ std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, D
 	_assert_(pipeline != nullptr);
 	u32 variants = pipeline->GetVariantsBitmask();
 
-	std::string keyDescription = pipelineKey.GetDescription(stringType, shaderManager);
+	std::string keyDescription = pipelineKey.GetDescription(stringType);
 	return StringFromFormat("%s. v: %08x", keyDescription.c_str(), variants);
 }
 
@@ -570,7 +570,7 @@ std::string VulkanPipelineKey::GetRasterStateDesc(bool lineBreaks) const {
 	return str.as_string();
 }
 
-std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) const {
+std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType) const {
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
 		// Just show the raster state. Also show brief VS/FS IDs?
@@ -642,28 +642,18 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 
 	int64_t seekPosOnFailure = File::Ftell(file);
 
-	bool failed = false;
-	bool writeFailed = false;
 	// Since we don't include the full pipeline key, there can be duplicates,
 	// caused by things like switching from buffered to non-buffered rendering.
 	// Make sure the set of pipelines we write is "unique".
 	std::set<StoredVulkanPipelineKey> keys;
 
-	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
-		if (failed)
-			return;
-		const VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromID(pkey.vid);
-		const VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromID(pkey.fid);
-		if (!vshader || !fshader) {
-			failed = true;
-			return;
-		}
+	pipelines_.Iterate([&keys](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		_dbg_assert_(pkey.raster.topology != VK_PRIMITIVE_TOPOLOGY_POINT_LIST && pkey.raster.topology != VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 		StoredVulkanPipelineKey key{};
 		key.raster = pkey.raster;
 		key.useHWTransform = pkey.useHWTransform;
-		key.fShaderID = fshader->GetID();
-		key.vShaderID = vshader->GetID();
+		key.fShaderID = pkey.fid;
+		key.vShaderID = pkey.vid;
 		key.gShaderID = {};
 		key.variants = value->GetVariantsBitmask();
 		if (key.useHWTransform) {
@@ -675,29 +665,14 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 
 	// Write the number of pipelines.
 	size = (uint32_t)keys.size();
-	writeFailed = writeFailed || fwrite(&size, sizeof(size), 1, file) != 1;
+	fwrite(&size, sizeof(size), 1, file);
 
 	// Write the pipelines.
 	for (auto &key : keys) {
-		writeFailed = writeFailed || fwrite(&key, sizeof(key), 1, file) != 1;
+		fwrite(&key, sizeof(key), 1, file);
 	}
 
-	if (failed) {
-		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, some shader was missing");
-		// Write a zero in the right place so it doesn't try to load the pipelines next time.
-		size = 0;
-		File::Fseek(file, seekPosOnFailure, SEEK_SET);
-		writeFailed = fwrite(&size, sizeof(size), 1, file) != 1;
-		if (writeFailed) {
-			ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");
-		}
-		return;
-	}
-	if (writeFailed) {
-		ERROR_LOG(Log::G3D, "Failed to write pipeline cache, disk full?");
-	} else {
-		NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
-	}
+	NOTICE_LOG(Log::G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
 }
 
 bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VKRPipelineLayout *layout, int multiSampleLevel) {
