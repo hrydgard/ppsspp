@@ -169,7 +169,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
 
-	p.F("// %s\n", VertexShaderDesc(id).c_str());
+	p.C("// %").W(id.Description()).endl();
 
 	bool lmode = id.Bit(VS_BIT_LMODE);
 

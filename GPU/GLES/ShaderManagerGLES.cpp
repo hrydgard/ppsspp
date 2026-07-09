@@ -677,7 +677,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
-	std::string desc = FragmentShaderDesc(FSID);
+	std::string desc = FSID.Description();
 	ShaderDescGLES params{ GL_FRAGMENT_SHADER, 0, uniformMask };
 	return new Shader(render_, codeBuffer_, desc, params);
 }
@@ -695,7 +695,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
-	std::string desc = VertexShaderDesc(VSID);
+	std::string desc = VSID.Description();
 	ShaderDescGLES params{ GL_VERTEX_SHADER, attrMask, uniformMask };
 	params.useHWTransform = useHWTransform;
 	return new Shader(render_, codeBuffer_, desc, params);
@@ -826,7 +826,7 @@ std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) con
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
 	case SHADER_STRING_SHORT_DESC:
-		return isFragment_ ? FragmentShaderDesc(FShaderID(id)) : VertexShaderDesc(VShaderID(id));
+		return isFragment_ ? FShaderID(id).Description() : VShaderID(id).Description();
 	default:
 		return "N/A";
 	}

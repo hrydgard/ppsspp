@@ -1,12 +1,11 @@
 #include <cstring>
 #include <memory>
 #include <set>
-#include <sstream>
-
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
@@ -30,7 +29,7 @@ PipelineManagerVulkan::~PipelineManagerVulkan() {
 	// Block on all pipelines to make sure any background compiles are done.
 	// This is very important to do before we start trying to tear down the shaders - otherwise, we might
 	// be deleting shaders before queued pipeline creations that use them are performed.
-	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+	pipelines_.Iterate([](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (value->pipeline) {
 			value->pipeline->BlockUntilCompiled();
 		}
@@ -327,7 +326,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 
 	std::string tag = "game";
 #ifdef _DEBUG
-	tag = FragmentShaderDesc(fs->GetID()) + " VS " + VertexShaderDesc(vs->GetID());
+	tag = fs->GetID().Description() + " VS " + vs->GetID().Description();
 #endif
 
 	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, sampleCount, cacheLoad, tag.c_str());
@@ -509,64 +508,63 @@ std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, D
 }
 
 std::string VulkanPipelineKey::GetRasterStateDesc(bool lineBreaks) const {
-	std::stringstream str;
-	str << topologies[raster.topology] << " ";
+	char temp[512];
+	StringWriter str(temp);
+	str.W(topologies[raster.topology]).C(" ");
 	if (useHWTransform) {
-		str << "HWX ";
+		str.C("HWX ");
 	}
 	if (vtxFmtId) {
-		str << "Vfmt(" << StringFromFormat("%08x", vtxFmtId) << ") ";  // TODO: Format nicer.
+		str.F("Vfmt(%08x) ", vtxFmtId);  // TODO: Format nicer.
 	} else {
-		str << "SWX ";
+		str.C("SWX ");
 	}
-	if (lineBreaks) str << std::endl;
+	if (lineBreaks) str.endl();
 	if (raster.blendEnable) {
-		str << "Blend(C:" << blendOps[raster.blendOpColor] << "/"
-			<< blendFactors[raster.srcColor] << ":" << blendFactors[raster.destColor] << " ";
+		str.W("Blend(C:").W(blendOps[raster.blendOpColor]).W("/").W(blendFactors[raster.srcColor]).W(":").W(blendFactors[raster.destColor]).W(" ");
 		if (raster.blendOpAlpha != VK_BLEND_OP_ADD ||
 			raster.srcAlpha != VK_BLEND_FACTOR_ONE ||
 			raster.destAlpha != VK_BLEND_FACTOR_ZERO) {
-			str << "A:" << blendOps[raster.blendOpAlpha] << "/"
-				<< blendFactors[raster.srcColor] << ":" << blendFactors[raster.destColor] << " ";
+			str.C("A:").W(blendOps[raster.blendOpAlpha]).C("/").W(blendFactors[raster.srcColor]).C(":").W(blendFactors[raster.destColor]).W(" ");
 		}
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.colorWriteMask != 0xF) {
-		str << "Mask(";
+		str.C("Mask(");
 		for (int i = 0; i < 4; i++) {
 			if (raster.colorWriteMask & (1 << i)) {
-				str << "RGBA"[i];
+				str.F("%c", "RGBA"[i]);
 			} else {
-				str << "_";
+				str.C("_");
 			}
 		}
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.depthTestEnable) {
-		str << "Z(";
+		str.C("Z(");
 		if (raster.depthWriteEnable)
-			str << "W, ";
+			str.C("W, ");
 		if (raster.depthCompareOp)
-			str << compareOps[raster.depthCompareOp & 7];
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+			str.W(compareOps[raster.depthCompareOp & 7]);
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.stencilTestEnable) {
-		str << "Stenc(";
-		str << compareOps[raster.stencilCompareOp & 7] << " ";
-		str << stencilOps[raster.stencilPassOp & 7] << "/";
-		str << stencilOps[raster.stencilFailOp & 7] << "/";
-		str << stencilOps[raster.stencilDepthFailOp & 7];
-		str << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C("Stenc(");
+		str.W(compareOps[raster.stencilCompareOp & 7]).C(" ");
+		str.W(stencilOps[raster.stencilPassOp & 7]).C("/");
+		str.W(stencilOps[raster.stencilFailOp & 7]).C("/");
+		str.W(stencilOps[raster.stencilDepthFailOp & 7]);
+		str.C(") ");
+		if (lineBreaks) str.endl();
 	}
 	if (raster.logicOpEnable) {
-		str << "Logic(" << logicOps[raster.logicOp & 15] << ") ";
-		if (lineBreaks) str << std::endl;
+		str.C("Logic(").W(logicOps[raster.logicOp & 15]).C(") ");
+		if (lineBreaks) str.endl();
 	}
-	return str.str();
+	return str.as_string();
 }
 
 std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) const {
@@ -581,11 +579,11 @@ std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType, 
 		VkShaderModule fsModule = this->fShader->BlockUntilReady();
 		VkShaderModule vsModule = this->vShader->BlockUntilReady();
 
-		std::stringstream str;
-		str << "VS: " << VertexShaderDesc(shaderManager->GetVertexShaderFromModule(vsModule)->GetID()) << std::endl;
-		str << "FS: " << FragmentShaderDesc(shaderManager->GetFragmentShaderFromModule(fsModule)->GetID()) << std::endl;
-		str << GetRasterStateDesc(true);
-		return str.str();
+		std::string str;
+		str += "VS: " + shaderManager->GetVertexShaderFromModule(vsModule)->GetID().Description() + "\n";
+		str += "FS: " + shaderManager->GetFragmentShaderFromModule(fsModule)->GetID().Description() + "\n";
+		str += GetRasterStateDesc(true);
+		return str;
 	}
 
 	default:
