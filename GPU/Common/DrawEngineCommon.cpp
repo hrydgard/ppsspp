@@ -999,7 +999,7 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 
 	if (found) {
 		char temp[256];
-		found->ToString(temp, false);
+		found->ToString(temp, sizeof(temp), false);
 		name = temp;
 		snprintf(temp, sizeof(temp), "_%08X", foundKey);
 		name += temp;

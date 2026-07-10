@@ -510,6 +510,10 @@ const bool IsSameExceptForShaders(const VulkanPipelineKey &a, const VulkanPipeli
 	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vtxFmtId == b.vtxFmtId;
 }
 
+const bool IsSameExceptForVertexFormat(const VulkanPipelineKey &a, const VulkanPipelineKey &b) {
+	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vid == b.vid && a.fid == b.fid;
+}
+
 void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
 #if !PPSSPP_PLATFORM(UWP)
 	GPU_Vulkan *vgpu = dynamic_cast<GPU_Vulkan *>(gpu);
@@ -532,16 +536,25 @@ void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
 			if (IsSameExceptForShaders(keyA, keyB)) {
 				// Found a pair of pipelines that are identical except for the shaders.
 				if (keyA.vid != keyB.vid) {
-					toBeMerged += "VShader: " + keyA.vid.Description() + " vs " + keyB.vid.Description() + "\n";
+					toBeMerged += "VShader: " + keyA.vid.Description(false) + " vs " + keyB.vid.Description(false) + "\n";
 				}
 				if (keyA.fid != keyB.fid) {
-					toBeMerged += "FShader: " + keyA.fid.Description() + " vs " + keyB.fid.Description() + "\n";
+					toBeMerged += "FShader: " + keyA.fid.Description(false) + " vs " + keyB.fid.Description(false) + "\n";
+				}
+			}
+			if (IsSameExceptForVertexFormat(keyA, keyB)) {
+				if (keyA.vtxFmtId != 0 && keyB.vtxFmtId != 0 && keyA.vtxFmtId != keyB.vtxFmtId) {
+					DecVtxFormat fmtA;
+					DecVtxFormat fmtB;
+					fmtA.InitializeFromID(keyA.vtxFmtId);
+					fmtB.InitializeFromID(keyB.vtxFmtId);
+					toBeMerged += "VertexFmt: " + fmtA.ToString() + " vs " + fmtB.ToString() + "\n";
 				}
 			}
 		}
 		if (!toBeMerged.empty()) {
-			tabContent->Add(new UI::TextView(keys[i].GetDescription(SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
-			tabContent->Add(new UI::TextView(toBeMerged, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
+			tabContent->Add(new UI::TextView(keys[i].GetDescription(SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII, true));
+			tabContent->Add(new UI::TextView(toBeMerged, FLAG_DYNAMIC_ASCII, true));
 		}
 	}
 #endif

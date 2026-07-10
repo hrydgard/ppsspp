@@ -19,11 +19,13 @@ std::string ShaderID::ToDebugString() const {
 	return StringFromFormat("%08x:%08x", d >> 32, d & 0xFFFFFFFF);
 }
 
-std::string VShaderID::Description() const {
+std::string VShaderID::Description(bool includeID) const {
 	char buffer[512];
 	StringWriter desc(buffer, sizeof(buffer));
 
-	desc.W(ToDebugString()).C(" ");
+	if (includeID) {
+		desc.W(ToDebugString()).C(" ");
+	}
 	if (Bit(VS_BIT_IS_THROUGH)) desc.C("THR ");
 	if (Bit(VS_BIT_USE_HW_TRANSFORM)) desc.C("HWX "); else desc.C("SWX ");
 	if (Bit(VS_BIT_HAS_NORMAL)) desc.C("N ");
@@ -176,11 +178,13 @@ static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
 	return m[2] != 0.0f || m[5] != 0.0f || (m[8] != 0.0f && mode != GE_PROJMAP_UV) || m[11] != 1.0f;
 }
 
-std::string FShaderID::Description() const {
+std::string FShaderID::Description(bool includeID) const {
 	char buffer[512];
 	StringWriter desc(buffer, sizeof(buffer));
+	if (includeID) {
+		desc.W(ToDebugString()).C(" ");
+	}
 
-	desc.W(ToDebugString()).C(" ");
 	if (Bit(FS_BIT_CLEARMODE)) desc.C("Clear ");
 	if (Bit(FS_BIT_DO_TEXTURE)) {
 		desc.W(Bit(FS_BIT_3D_TEXTURE) ? "Tex3D" : "Tex");
@@ -343,6 +347,11 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
 			id.SetBits(FS_BIT_SHADER_DEPAL_FORMAT, 3, (int)shaderDepalFormat);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
+			// All framebuffers are array textures in Vulkan now.
+			if (gstate_c.textureIsArray && gstate_c.Use(GPU_USE_FRAMEBUFFER_ARRAYS)) {
+				id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+			}
+			id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
@@ -364,7 +373,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 
 		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);  // TODO: Will be moved back to the ubershader.
-		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 
 		// 2 bits
 		id.SetBits(FS_BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
@@ -394,11 +402,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
-
-		// All framebuffers are array textures in Vulkan now.
-		if (gstate_c.textureIsArray && gstate_c.Use(GPU_USE_FRAMEBUFFER_ARRAYS)) {
-			id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
-		}
 
 		// Stereo support
 		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {

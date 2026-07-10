@@ -23,6 +23,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Math/CrossSIMD.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
@@ -82,6 +83,41 @@ static int DecFmtSize(u8 fmt) {
 	default:
 		return 0;
 	}
+}
+
+const char *DecFmtComponentToString(u8 fmt) {
+	switch (fmt) {
+	case DEC_NONE: return "NONE";
+	case DEC_FLOAT_1: return "FLOAT_1";
+	case DEC_FLOAT_2: return "FLOAT_2";
+	case DEC_FLOAT_3: return "FLOAT_3";
+	case DEC_FLOAT_4: return "FLOAT_4";
+	case DEC_S8_3: return "S8_3";
+	case DEC_S16_3: return "S16_3";
+	case DEC_U8_1:  return "U8_1";
+	case DEC_U8_2:  return "U8_2";
+	case DEC_U8_3:  return "U8_3";
+	case DEC_U8_4:  return "U8_4";
+	case DEC_U16_1: return "U16_1";
+	case DEC_U16_2: return "U16_2";
+	case DEC_U16_3: return "U16_3";
+	case DEC_U16_4: return "U16_4";
+	default: return "UNKNOWN";
+	}
+}
+
+std::string DecVtxFormat::ToString() const {
+	char buf[256];
+	StringWriter w(buf, sizeof(buf));
+	if (w0fmt) {
+		w.F("W0: %s ", DecFmtComponentToString(w0fmt));
+	}
+	w.F("W1: %s ", DecFmtComponentToString(w1fmt));
+	w.F("UV: %s ", DecFmtComponentToString(uvfmt));
+	w.F("C0: %s ", DecFmtComponentToString(c0fmt));
+	w.F("C1: %s ", DecFmtComponentToString(c1fmt));
+	w.F("N: %s", DecFmtComponentToString(nrmfmt));
+	return w.as_string();
 }
 
 void DecVtxFormat::ComputeID() {
@@ -1413,7 +1449,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	if (reportNoPos) {
 		char temp[256]{};
-		ToString(temp, true);
+		ToString(temp, sizeof(temp), true);
 		ERROR_LOG(Log::G3D, "Vertices without position found (and ignored): (%08x) %s", fmt_, temp);
 	}
 
@@ -1550,8 +1586,8 @@ void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, 
 		controlReader.Goto(i);
 		jittedReader.Goto(i);
 		if (!DecodedVertsAreSimilar(controlReader, jittedReader)) {
-			char name[512]{};
-			ToString(name, true);
+			char name[256]{};
+			ToString(name, sizeof(name), true);
 			ERROR_LOG(Log::G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
 			if (morphcount > 1) {
 				printf("Morph:\n");
@@ -1605,26 +1641,30 @@ static const char * const idxnames[4] = { "-", "u8", "u16", "?" };
 static const char * const weightnames[4] = { "-", "u8", "u16", "f" };
 static const char * const colnames[8] = { "", "?", "?", "?", "565", "5551", "4444", "8888" };
 
-int VertexDecoder::ToString(char *output, bool spaces) const {
-	char *start = output;
-	output += sprintf(output, "[%08x] ", fmt_);
-	output += sprintf(output, "P: %s ", posnames[pos]);
-	if (nrm)
-		output += sprintf(output, "N: %s ", nrmnames[nrm]);
-	if (col)
-		output += sprintf(output, "C: %s ", colnames[col]);
-	if (tc)
-		output += sprintf(output, "T: %s ", tcnames[tc]);
-	if (weighttype)
-		output += sprintf(output, "W: %s (%ix) ", weightnames[weighttype], nweights);
-	if (idx)
-		output += sprintf(output, "I: %s ", idxnames[idx]);
-	if (morphcount > 1)
-		output += sprintf(output, "Morph: %i ", morphcount);
-	if (throughmode)
-		output += sprintf(output, " (through)");
+// There's a direct ToString function for vertex types in the GPU debugger, GeDescribeVertexType.
 
-	output += sprintf(output, " (%ib)", VertexSize());
+int VertexDecoder::ToString(char *buf, int bufSize, bool spaces) const {
+	StringWriter w(buf, bufSize);
+
+	char *start = buf;
+	w.F("[%08x] ", fmt_);
+	w.F("P: %s ", posnames[pos]);
+	if (nrm)
+		w.F("N: %s ", nrmnames[nrm]);
+	if (col)
+		w.F("C: %s ", colnames[col]);
+	if (tc)
+		w.F("T: %s ", tcnames[tc]);
+	if (weighttype)
+		w.F("W: %s (%ix) ", weightnames[weighttype], nweights);
+	if (idx)
+		w.F("I: %s ", idxnames[idx]);
+	if (morphcount > 1)
+		w.F("Morph: %i ", morphcount);
+	if (throughmode)
+		w.F(" (through)");
+
+	w.F(" (%ib)", VertexSize());
 
 	if (!spaces) {
 		size_t len = strlen(start);
@@ -1635,17 +1675,16 @@ int VertexDecoder::ToString(char *output, bool spaces) const {
 	}
 
 #ifdef _DEBUG
-	output += sprintf(output, " (%llu)", (long long)decodedCount);
+	w.F(" (%llu)", (long long)decodedCount);
 #endif
-
-	return output - start;
+	return (int)w.size();
 }
 
 std::string VertexDecoder::GetString(DebugShaderStringType stringType) const {
 	char buffer[256];
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
-		ToString(buffer, true);
+		ToString(buffer, sizeof(buffer), true);
 		return std::string(buffer);
 	case SHADER_STRING_SOURCE_CODE:
 		{
