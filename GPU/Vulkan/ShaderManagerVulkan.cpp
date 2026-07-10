@@ -378,7 +378,7 @@ enum class VulkanCacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 58
+#define CACHE_VERSION 59
 
 struct VulkanCacheHeader {
 	uint32_t magic;

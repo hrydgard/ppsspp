@@ -190,13 +190,15 @@
 			"status_data_json": "https://pspbrasil.duckdns.org/data.json"
 		},
 		{
-			"name": "Jeddah relay",
+			"name": "Jeddah Relay - Middle East",
 			"host": "jeddah-relay.ddns.net",
-			"discord": "",
-			"location": "Saudi Arabia",
+			"discord": "https://discord.gg/44qRAzADw",
+			"web": "",
+			"location": "Jeddah, Saudi Arabia",
 			"location-emoji": "🇸🇦",
-			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
+			"description": "Dedicated regional relay server providing low-latency matchmaking for MENA players.",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://jeddah-relay.ddns.net/data.json"
 		}
 	]
 }
