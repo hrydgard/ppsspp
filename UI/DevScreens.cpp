@@ -66,6 +66,10 @@
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
+
+// These two are for pipeline analysis, maybe should move elsewhere.
+#include "GPU/Vulkan/PipelineManagerVulkan.h"
+#include "GPU/Vulkan/GPU_Vulkan.h"
 #include "UI/BaseScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
@@ -474,7 +478,7 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 	return count;
 }
 
-struct { DebugShaderType type; const char *name; } shaderTypes[] = {
+static constexpr struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_VERTEX, "Vertex" },
 	{ SHADER_TYPE_FRAGMENT, "Fragment" },
 	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
@@ -489,11 +493,58 @@ void ShaderListScreen::CreateTabs() {
 	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
 		int count = (int)gpu->DebugGetShaderIDs(shaderTypes[i].type).size();
 		AddTab(shaderTypes[i].name, StringFromFormat("%s (%d)", shaderTypes[i].name, count), [this, i](UI::LinearLayout *tabContent) {
+			if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && shaderTypes[i].type == SHADER_TYPE_PIPELINE) {
+				CollapsibleSection *pipelineAnalysisSection = tabContent->Add(new CollapsibleSection("Pipeline Analysis"));
+				AddPipelineAnalysis(pipelineAnalysisSection);
+				pipelineAnalysisSection->SetOpen(false);
+			}
+
 			LinearLayout *shaderList = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 			int count = ListShaders(shaderTypes[i].type, shaderList);
 			tabContent->Add(shaderList);
 		});
 	}
+}
+
+const bool IsSameExceptForShaders(const VulkanPipelineKey &a, const VulkanPipelineKey &b) {
+	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vtxFmtId == b.vtxFmtId;
+}
+
+void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
+#if !PPSSPP_PLATFORM(UWP)
+	GPU_Vulkan *vgpu = dynamic_cast<GPU_Vulkan *>(gpu);
+	const PipelineManagerVulkan *pipelineManager = vgpu->GetPipelineManager();
+	// Collect all pipeline keys in a vector.
+	std::vector<VulkanPipelineKey> keys;
+	pipelineManager->GetPipelines().Iterate([&keys](const VulkanPipelineKey &key, VulkanPipeline *pipeline) {
+		keys.push_back(key);
+	});
+
+	using namespace UI;
+
+	// Now, see if there are two pipelines that are identical except for the shader IDs. If so, we may be able to
+	// merge them by making the shaders a bit more "uber".
+	for (size_t i = 0; i < keys.size(); i++) {
+		std::string toBeMerged;
+		for (size_t j = i + 1; j < keys.size(); j++) {
+			const VulkanPipelineKey &keyA = keys[i];
+			const VulkanPipelineKey &keyB = keys[j];
+			if (IsSameExceptForShaders(keyA, keyB)) {
+				// Found a pair of pipelines that are identical except for the shaders.
+				if (keyA.vid != keyB.vid) {
+					toBeMerged += "VShader: " + keyA.vid.Description() + " vs " + keyB.vid.Description() + "\n";
+				}
+				if (keyA.fid != keyB.fid) {
+					toBeMerged += "FShader: " + keyA.fid.Description() + " vs " + keyB.fid.Description() + "\n";
+				}
+			}
+		}
+		if (!toBeMerged.empty()) {
+			tabContent->Add(new UI::TextView(keys[i].GetDescription(SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
+			tabContent->Add(new UI::TextView(toBeMerged, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
+		}
+	}
+#endif
 }
 
 void ShaderListScreen::OnShaderClick(UI::EventParams &e) {
@@ -729,10 +780,10 @@ bool TouchTestScreen::key(const KeyInput &key) {
 		(key.flags & KeyInputFlags::UP) ? "UP " : "",
 		(key.flags & KeyInputFlags::DOWN) ? "DOWN " : "",
 		(key.flags & KeyInputFlags::CHAR) ? "CHAR " : "",
-		(key.flags & KeyInputFlags::MOD_CTRL) ? "CTRL " : "",
-		(key.flags & KeyInputFlags::MOD_SHIFT) ? "SHIFT " : "",
-		(key.flags & KeyInputFlags::MOD_ALT) ? "ALT " : "",
-		(key.flags & KeyInputFlags::MOD_META) ? "META " : "");
+		(key.flags & KeyInputFlags::ModCtrl) ? "CTRL " : "",
+		(key.flags & KeyInputFlags::ModShift) ? "SHIFT " : "",
+		(key.flags & KeyInputFlags::ModAlt) ? "ALT " : "",
+		(key.flags & KeyInputFlags::ModMeta) ? "META " : "");
 	keyEventLog_.push_back(buf);
 	UpdateLogView();
 	return true;
@@ -754,6 +805,8 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 	}
 	UpdateLogView();
 }
+
+#undef DrawText
 
 void TouchTestScreen::DrawForeground(UIContext &dc) {
 	Bounds bounds = GetLayoutBounds(dc);

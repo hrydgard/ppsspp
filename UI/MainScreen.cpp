@@ -516,7 +516,7 @@ void MainScreen::CreateViews() {
 
 bool MainScreen::key(const KeyInput &key) {
 	if (key.flags & KeyInputFlags::DOWN) {
-		if (key.keyCode == NKCODE_F && (key.flags & KeyInputFlags::MOD_CTRL) && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		if (key.keyCode == NKCODE_F && (key.flags & KeyInputFlags::ModCtrl) && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
 			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, false, [this](std::string_view value, int) {
 				searchFilter_ = StripSpaces(value);
