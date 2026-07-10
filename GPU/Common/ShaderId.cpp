@@ -343,6 +343,11 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
 			id.SetBits(FS_BIT_SHADER_DEPAL_FORMAT, 3, (int)shaderDepalFormat);
 			id.SetBit(FS_BIT_3D_TEXTURE, gstate_c.curTextureIs3D);
+			// All framebuffers are array textures in Vulkan now.
+			if (gstate_c.textureIsArray && gstate_c.Use(GPU_USE_FRAMEBUFFER_ARRAYS)) {
+				id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
+			}
+			id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
@@ -364,7 +369,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 
 		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);  // TODO: Will be moved back to the ubershader.
-		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 
 		// 2 bits
 		id.SetBits(FS_BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
@@ -394,11 +398,6 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
-
-		// All framebuffers are array textures in Vulkan now.
-		if (gstate_c.textureIsArray && gstate_c.Use(GPU_USE_FRAMEBUFFER_ARRAYS)) {
-			id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
-		}
 
 		// Stereo support
 		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
