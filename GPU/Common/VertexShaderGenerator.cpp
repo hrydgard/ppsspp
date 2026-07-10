@@ -186,7 +186,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
-	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
+	bool hasColor = id.Bit(VS_BIT_HAS_COLOR);
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
@@ -268,7 +268,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 			}
 		}
-		if (hasColor) {
+		if (hasColor || !useHWTransform) {
 			WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
 			if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
@@ -303,7 +303,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (hasTexcoord) {
 				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 			}
-			if (hasColor) {
+			if (hasColor || !useHWTransform) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
 			}
 			if (hasNormal) {
@@ -322,7 +322,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 				}
 			}
-			if (hasColor) {
+			if (hasColor || !useHWTransform) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
 			}
 			// only software transform supplies color1 as vertex data
@@ -396,7 +396,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*attrMask |= 1 << ATTR_TEXCOORD;
 		}
 
-		if (hasColor) {
+		if (hasColor || !useHWTransform) {
 			WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_COLOR0;
 			if (lmode && !useHWTransform) { // only software transform supplies color1 as vertex data
@@ -490,7 +490,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_scaleY;\n");
 		}
 
-		if (useHWTransform || !hasColor) {
+		if (useHWTransform) {
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
@@ -518,7 +518,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (useHWTransform) {
 		WRITE(p, "vec3 normalizeOr001(vec3 v) {\n");
-		WRITE(p, "   return length(v) == 0.0 ? vec3(0.0, 0.0, 1.0) : normalize(v);\n");
+		WRITE(p, "   float len2 = dot(v, v);\n");
+		WRITE(p, "   return len2 == 0.0 ? vec3(0.0, 0.0, 1.0) : (v * inversesqrt(len2));\n");
 		WRITE(p, "}\n");
 	}
 
@@ -534,7 +535,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec2 texcoord = In.texcoord;\n");
 			}
 		}
-		if (hasColor) {
+		if (hasColor || !useHWTransform) {
 			WRITE(p, "  vec4 color0 = In.color0;\n");
 			if (lmode && !useHWTransform) {
 				WRITE(p, "  vec3 color1 = In.color1;\n");
@@ -565,16 +566,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);
 		}
-		if (hasColor) {
-			WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
-			if (lmode) {
-				WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
-			}
-		} else {
-			WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
-			if (lmode) {
-				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
-			}
+		WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
+		if (lmode) {
+			WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
 		}
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 
@@ -587,7 +581,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
-		
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
 			if (hasNormal) {
