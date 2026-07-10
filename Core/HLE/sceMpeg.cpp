@@ -334,12 +334,14 @@ public:
 	void setRemainingPackets(u32 remainingPackets) { remainingPackets_ = remainingPackets; }
 	static PSPAction *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("PostPutAction", 1);
+		auto s = p.Section("PostPutAction", 1, 2);
 		if (!s)
 			return;
 
 		Do(p, ringAddr_);
-		Do(p, remainingPackets_);
+		if (s >= 2) {
+			Do(p, remainingPackets_);
+		}
 	}
 	void run(MipsCall &call) override;
 private:
