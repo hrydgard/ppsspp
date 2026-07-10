@@ -1521,16 +1521,16 @@ bool NativeKey(const KeyInput &key) {
 	KeyInputFlags modifierFlags{};
 
 	if (g_modifiersPressed & (KeyModifier::LCTRL | KeyModifier::RCTRL)) {
-		modifierFlags |= KeyInputFlags::MOD_CTRL;
+		modifierFlags |= KeyInputFlags::ModCtrl;
 	}
 	if (g_modifiersPressed & (KeyModifier::LSHIFT | KeyModifier::RSHIFT)) {
-		modifierFlags |= KeyInputFlags::MOD_SHIFT;
+		modifierFlags |= KeyInputFlags::ModShift;
 	}
 	if (g_modifiersPressed & (KeyModifier::LALT | KeyModifier::RALT)) {
-		modifierFlags |= KeyInputFlags::MOD_ALT;
+		modifierFlags |= KeyInputFlags::ModAlt;
 	}
 	if (g_modifiersPressed & (KeyModifier::LMETA | KeyModifier::RMETA)) {
-		modifierFlags |= KeyInputFlags::MOD_META;
+		modifierFlags |= KeyInputFlags::ModMeta;
 	}
 
 	KeyInput modKey = key;

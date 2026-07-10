@@ -474,7 +474,7 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 	return count;
 }
 
-struct { DebugShaderType type; const char *name; } shaderTypes[] = {
+static constexpr struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_VERTEX, "Vertex" },
 	{ SHADER_TYPE_FRAGMENT, "Fragment" },
 	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
@@ -729,10 +729,10 @@ bool TouchTestScreen::key(const KeyInput &key) {
 		(key.flags & KeyInputFlags::UP) ? "UP " : "",
 		(key.flags & KeyInputFlags::DOWN) ? "DOWN " : "",
 		(key.flags & KeyInputFlags::CHAR) ? "CHAR " : "",
-		(key.flags & KeyInputFlags::MOD_CTRL) ? "CTRL " : "",
-		(key.flags & KeyInputFlags::MOD_SHIFT) ? "SHIFT " : "",
-		(key.flags & KeyInputFlags::MOD_ALT) ? "ALT " : "",
-		(key.flags & KeyInputFlags::MOD_META) ? "META " : "");
+		(key.flags & KeyInputFlags::ModCtrl) ? "CTRL " : "",
+		(key.flags & KeyInputFlags::ModShift) ? "SHIFT " : "",
+		(key.flags & KeyInputFlags::ModAlt) ? "ALT " : "",
+		(key.flags & KeyInputFlags::ModMeta) ? "META " : "");
 	keyEventLog_.push_back(buf);
 	UpdateLogView();
 	return true;
@@ -754,6 +754,8 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 	}
 	UpdateLogView();
 }
+
+#undef DrawText
 
 void TouchTestScreen::DrawForeground(UIContext &dc) {
 	Bounds bounds = GetLayoutBounds(dc);

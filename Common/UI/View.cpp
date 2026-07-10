@@ -1450,7 +1450,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			break;
 		}
 
-		if ((input.flags & KeyInputFlags::MOD_CTRL) || (input.flags & KeyInputFlags::MOD_META)) {
+		if ((input.flags & KeyInputFlags::ModCtrl) || (input.flags & KeyInputFlags::ModMeta)) {
 			switch (input.keyCode) {
 			case NKCODE_C:
 				// Just copy the entire text contents, until we get selection support.
@@ -1501,7 +1501,7 @@ bool TextEdit::Key(const KeyInput &input) {
 	// Process chars.
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
-		if (unichar >= 0x20 && !(input.flags & KeyInputFlags::MOD_CTRL)) {  // Ignore control characters.
+		if (unichar >= 0x20 && !(input.flags & KeyInputFlags::ModCtrl)) {  // Ignore control characters.
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
