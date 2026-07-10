@@ -66,6 +66,7 @@ constexpr int SCREENSHOT_FAILURE_RETRIES = 6;
 static const char * const STATE_EXTENSION = "ppst";
 static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
 static const char * const UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
+static const char * const NAME_EXTENSION = "txt";
 
 static const char * const LOAD_UNDO_NAME = "load_undo.ppst";
 
@@ -470,12 +471,10 @@ int g_screenshotFailures;
 		if (!NetworkAllowSaveState()) {
 			return;
 		}
-
 		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
 		Path fnUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
 			Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
-
 			std::string prefix(gamePrefix);
 			auto renameCallback = [fn, fnUndo, prefix, slot, callback](Status status, std::string_view message, std::string_view metadata) {
 				if (status != Status::FAILURE) {
@@ -536,10 +535,12 @@ int g_screenshotFailures;
 	void DeleteSlot(std::string_view gamePrefix, int slot) {
 		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
 		Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
+		Path fnName = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
 
 		if (File::Exists(fn)) {
 			DeleteIfExists(fn);
 			DeleteIfExists(shot);
+			DeleteIfExists(fnName);
 		}
 		Rescan(gamePrefix);
 	}
@@ -705,6 +706,17 @@ int g_screenshotFailures;
 	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
 		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
 		return GetSaveFileDateAsString(fn);
+	}
+
+	std::string GetSlotCustomName(std::string_view gamePrefix, int slot) {
+		Path path = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
+		std::string result = "";
+		File::ReadBinaryFileToString(path, &result);
+		return result;
+	}
+
+	void SetSlotCustomName(std::string_view gamePrefix, int slot, std::string_view new_name){
+		File::WriteStringToFile(true, new_name, GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION));
 	}
 
 	std::vector<Operation> Flush() {
