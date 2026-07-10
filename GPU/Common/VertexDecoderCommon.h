@@ -46,7 +46,7 @@
 
 // Keep this in 4 bits.
 enum {
-	DEC_NONE,
+	DEC_NONE = 0,
 	DEC_FLOAT_1,
 	DEC_FLOAT_2,
 	DEC_FLOAT_3,
@@ -62,6 +62,8 @@ enum {
 	DEC_U16_3,
 	DEC_U16_4,
 };
+
+const char *DecFmtComponentToString(u8 fmt);
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
@@ -81,6 +83,8 @@ struct DecVtxFormat {
 	void InitializeFromID(uint32_t id);
 
 	static u8 PosFmt() { return DEC_FLOAT_3; }
+
+	std::string ToString() const;
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
@@ -152,6 +156,8 @@ inline bool VertTypeIDSkinInDecode(uint32_t vertType) {
 inline GETexMapMode VertTypeIDUVGenMode(uint32_t vertType) {
 	return (GETexMapMode)((vertType >> 24) & 3);
 }
+
+std::string DecFmtIdToString(u32 id);
 
 class VertexDecoder {
 public:
@@ -258,7 +264,7 @@ public:
 	// output must be big for safety.
 	// Returns number of chars written.
 	// Ugly for speed.
-	int ToString(char *output, bool spaces) const;
+	int ToString(char *buf, int bufSize, bool spaces) const;
 
 	bool IsInSpace(const uint8_t *ptr) const {
 		return ptr >= (const uint8_t *)jitted_ && ptr < ((const uint8_t *)jitted_ + jittedSize_);

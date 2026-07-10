@@ -510,6 +510,10 @@ const bool IsSameExceptForShaders(const VulkanPipelineKey &a, const VulkanPipeli
 	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vtxFmtId == b.vtxFmtId;
 }
 
+const bool IsSameExceptForVertexFormat(const VulkanPipelineKey &a, const VulkanPipelineKey &b) {
+	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vid == b.vid && a.fid == b.fid;
+}
+
 void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
 #if !PPSSPP_PLATFORM(UWP)
 	GPU_Vulkan *vgpu = dynamic_cast<GPU_Vulkan *>(gpu);
@@ -536,6 +540,15 @@ void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
 				}
 				if (keyA.fid != keyB.fid) {
 					toBeMerged += "FShader: " + keyA.fid.Description() + " vs " + keyB.fid.Description() + "\n";
+				}
+			}
+			if (IsSameExceptForVertexFormat(keyA, keyB)) {
+				if (keyA.vtxFmtId != 0 && keyB.vtxFmtId != 0 && keyA.vtxFmtId != keyB.vtxFmtId) {
+					DecVtxFormat fmtA;
+					DecVtxFormat fmtB;
+					fmtA.InitializeFromID(keyA.vtxFmtId);
+					fmtB.InitializeFromID(keyB.vtxFmtId);
+					toBeMerged += "VertexFmt: " + fmtA.ToString() + " vs " + fmtB.ToString() + "\n";
 				}
 			}
 		}

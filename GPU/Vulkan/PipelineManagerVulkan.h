@@ -45,7 +45,7 @@ struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
 	VShaderID vid;
 	FShaderID fid;
-	uint32_t vtxFmtId;
+	uint32_t vtxFmtId;  // Note: This is the decoded format ID, not the source format!
 	bool useHWTransform;
 
 	void ToString(std::string *str) const {
