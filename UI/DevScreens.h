@@ -118,7 +118,7 @@ public:
 private:
 	bool ForceHorizontalTabs() const override {return true; }
 	int ListShaders(DebugShaderType shaderType, UI::LinearLayout *view);
-
+	void AddPipelineAnalysis(UI::LinearLayout *view);
 	void OnShaderClick(UI::EventParams &e);
 };
 

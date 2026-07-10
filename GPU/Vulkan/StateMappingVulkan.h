@@ -60,7 +60,11 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int topology : 4;  // VkPrimitiveTopology 
 
 	bool operator < (const VulkanPipelineRasterStateKey &other) const {
-		size_t size = sizeof(VulkanPipelineRasterStateKey);
+		constexpr size_t size = sizeof(VulkanPipelineRasterStateKey);
 		return memcmp(this, &other, size) < 0;
+	}
+	bool operator == (const VulkanPipelineRasterStateKey &other) const {
+		constexpr size_t size = sizeof(VulkanPipelineRasterStateKey);
+		return memcmp(this, &other, size) == 0;
 	}
 };

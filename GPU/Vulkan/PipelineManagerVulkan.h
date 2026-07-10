@@ -104,6 +104,9 @@ public:
 	void SavePipelineCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext);
 	bool LoadPipelineCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VKRPipelineLayout *layout, int multiSampleLevel);
 
+	// For analysis only.
+	const DenseHashMap<VulkanPipelineKey, VulkanPipeline *> &GetPipelines() const { return pipelines_; }
+
 private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *> pipelines_;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
