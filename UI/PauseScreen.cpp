@@ -57,6 +57,7 @@
 
 #include "UI/DevScreens.h"
 #include "UI/EmuScreen.h"
+#include "UI/MemoryScannerScreen.h"
 #include "UI/PauseScreen.h"
 #include "UI/LoadStateConfirmScreen.h"
 #include "UI/GameSettingsScreen.h"
@@ -492,6 +493,7 @@ void GamePauseScreen::CreateViews() {
 	auto nw = GetI18NCategory(I18NCat::NETWORKING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto se = GetI18NCategory(I18NCat::SEARCH);
 
 	root_ = new LinearLayout(portrait ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
 
@@ -697,6 +699,9 @@ void GamePauseScreen::CreateViews() {
 	if (g_Config.bEnableCheats && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
+		});
+		rightColumnItems->Add(new Choice(se->T("Memory Scanner"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new MemoryScannerScreen(gamePath_));
 		});
 	}
 
