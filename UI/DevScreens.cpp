@@ -536,10 +536,10 @@ void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
 			if (IsSameExceptForShaders(keyA, keyB)) {
 				// Found a pair of pipelines that are identical except for the shaders.
 				if (keyA.vid != keyB.vid) {
-					toBeMerged += "VShader: " + keyA.vid.Description() + " vs " + keyB.vid.Description() + "\n";
+					toBeMerged += "VShader: " + keyA.vid.Description(false) + " vs " + keyB.vid.Description(false) + "\n";
 				}
 				if (keyA.fid != keyB.fid) {
-					toBeMerged += "FShader: " + keyA.fid.Description() + " vs " + keyB.fid.Description() + "\n";
+					toBeMerged += "FShader: " + keyA.fid.Description(false) + " vs " + keyB.fid.Description(false) + "\n";
 				}
 			}
 			if (IsSameExceptForVertexFormat(keyA, keyB)) {
@@ -553,8 +553,8 @@ void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
 			}
 		}
 		if (!toBeMerged.empty()) {
-			tabContent->Add(new UI::TextView(keys[i].GetDescription(SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
-			tabContent->Add(new UI::TextView(toBeMerged, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
+			tabContent->Add(new UI::TextView(keys[i].GetDescription(SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII, true));
+			tabContent->Add(new UI::TextView(toBeMerged, FLAG_DYNAMIC_ASCII, true));
 		}
 	}
 #endif

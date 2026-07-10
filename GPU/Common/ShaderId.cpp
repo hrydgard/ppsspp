@@ -19,11 +19,13 @@ std::string ShaderID::ToDebugString() const {
 	return StringFromFormat("%08x:%08x", d >> 32, d & 0xFFFFFFFF);
 }
 
-std::string VShaderID::Description() const {
+std::string VShaderID::Description(bool includeID) const {
 	char buffer[512];
 	StringWriter desc(buffer, sizeof(buffer));
 
-	desc.W(ToDebugString()).C(" ");
+	if (includeID) {
+		desc.W(ToDebugString()).C(" ");
+	}
 	if (Bit(VS_BIT_IS_THROUGH)) desc.C("THR ");
 	if (Bit(VS_BIT_USE_HW_TRANSFORM)) desc.C("HWX "); else desc.C("SWX ");
 	if (Bit(VS_BIT_HAS_NORMAL)) desc.C("N ");
@@ -176,11 +178,13 @@ static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
 	return m[2] != 0.0f || m[5] != 0.0f || (m[8] != 0.0f && mode != GE_PROJMAP_UV) || m[11] != 1.0f;
 }
 
-std::string FShaderID::Description() const {
+std::string FShaderID::Description(bool includeID) const {
 	char buffer[512];
 	StringWriter desc(buffer, sizeof(buffer));
+	if (includeID) {
+		desc.W(ToDebugString()).C(" ");
+	}
 
-	desc.W(ToDebugString()).C(" ");
 	if (Bit(FS_BIT_CLEARMODE)) desc.C("Clear ");
 	if (Bit(FS_BIT_DO_TEXTURE)) {
 		desc.W(Bit(FS_BIT_3D_TEXTURE) ? "Tex3D" : "Tex");

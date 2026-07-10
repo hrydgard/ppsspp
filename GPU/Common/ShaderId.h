@@ -208,7 +208,7 @@ struct VShaderID : public ShaderID {
 
 	// Generates a compact string that describes the shader. Useful in a list to get an overview
 	// of the current flora of shaders.
-	std::string Description() const;
+	std::string Description(bool includeID = true) const;
 };
 
 struct FShaderID : public ShaderID {
@@ -235,7 +235,7 @@ struct FShaderID : public ShaderID {
 		ShaderID::SetBits((int)bit, count, value);
 	}
 
-	std::string Description() const;
+	std::string Description(bool includeID = true) const;
 };
 
 static_assert(sizeof(VShaderID) == sizeof(uint64_t), "VShaderID size mismatch");
