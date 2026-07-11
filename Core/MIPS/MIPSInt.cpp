@@ -765,15 +765,12 @@ namespace MIPSInt
 
 		case 20: // bitrev
 			{
-				u32 tmp = 0;
-				for (int i = 0; i < 32; i++)
-				{
-					if (R(rt) & (1 << i))
-					{
-						tmp |= (0x80000000 >> i);
-					}
-				}
-				R(rd) = tmp;
+				u32 v = R(rt);
+				v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
+				v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2);
+				v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4);
+				v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
+				R(rd) = (v >> 16) | (v << 16);
 			}
 			break;
 
