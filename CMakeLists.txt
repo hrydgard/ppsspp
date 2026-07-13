@@ -2053,6 +2053,8 @@ set(GPU_SOURCES
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/Slang/SlangPreset.h
+	GPU/Common/Slang/SlangpParser.cpp
+	GPU/Common/Slang/SlangpParser.h
 	GPU/Common/TextureReplacer.cpp
 	GPU/Common/TextureReplacer.h
 	GPU/Common/ReplacedTexture.cpp
@@ -2979,6 +2981,7 @@ if(UNITTEST)
 	add_executable(PPSSPPUnitTest
 		unittest/UnitTest.cpp
 		unittest/TestShaderGenerators.cpp
+		unittest/TestSlangParser.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
 		unittest/TestIRPassSimplify.cpp

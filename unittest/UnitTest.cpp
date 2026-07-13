@@ -1339,6 +1339,7 @@ bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
 bool TestThreadManager();
 bool TestVFS();
+bool TestSlangParser();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1383,6 +1384,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFS),
 	TEST_ITEM(Substitutions),
 	TEST_ITEM(IniFile),
+	TEST_ITEM(SlangParser),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),

@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/File/Path/Path.h"
+#include "Common/File/Path.h"
 
 enum class SlangScaleType {
 	Source,    // multiplier of this pass's input size
