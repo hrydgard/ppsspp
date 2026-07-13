@@ -2060,6 +2060,8 @@ set(GPU_SOURCES
 	GPU/Common/Slang/SlangReflection.cpp
 	GPU/Common/Slang/SlangReflection.h
 	GPU/Common/Slang/SlangResolution.h
+	GPU/Common/Slang/SlangFilterChain.cpp
+	GPU/Common/Slang/SlangFilterChain.h
 	GPU/Common/TextureReplacer.cpp
 	GPU/Common/TextureReplacer.h
 	GPU/Common/ReplacedTexture.cpp

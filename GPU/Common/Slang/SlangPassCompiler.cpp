@@ -27,6 +27,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/ShaderTranslation.h"
 #include "GPU/Common/Slang/SlangPassCompiler.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "ext/SPIRV-Cross/spirv_cross.hpp"
@@ -119,13 +120,120 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 
 bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src,
                       SlangCompiledPass *out, std::string *error) {
-	// First reflect to get the semantics
+	// First reflect to get the semantics and compile to SPIR-V
 	if (!ReflectSlangSource(src, &out->reflection, error)) {
 		return false;
 	}
 
-	// For now, just return true - full pipeline creation requires more setup
-	// This will be exercised in Task 9 integration
-	*error = "CompileSlangPass: not yet implemented";
-	return false;
+	// Compile both stages to SPIR-V (already done in reflection)
+	std::vector<unsigned int> vspv, fspv;
+	if (!CompileStageToSpirv(EShLangVertex, src.vertex, &vspv, error)) return false;
+	if (!CompileStageToSpirv(EShLangFragment, src.fragment, &fspv, error)) return false;
+
+	// For Vulkan backend, we can use SPIR-V directly. For other backends, we need to
+	// translate via SPIRV-Cross. Since slang source is Vulkan GLSL (#version 450),
+	// we treat it as GLSL_VULKAN input to TranslateShader.
+	ShaderLanguage backendLang = draw->GetShaderLanguageDesc().shaderLanguage;
+
+	std::string vsTranslated, fsTranslated;
+	std::string vsErr, fsErr;
+
+	// For Vulkan, feed SPIR-V directly; for other backends, translate
+	if (backendLang == GLSL_VULKAN) {
+		// CreateShaderModule accepts SPIR-V for Vulkan backend
+		vsTranslated = std::string((const char *)vspv.data(), vspv.size() * sizeof(unsigned int));
+		fsTranslated = std::string((const char *)fspv.data(), fspv.size() * sizeof(unsigned int));
+	} else {
+		// Cross-compile SPIR-V to target backend language via SPIRV-Cross (via TranslateShader)
+		// TranslateShader expects source as string, but for SPIR-V we need to serialize it.
+		// The TranslateShader path from GLSL_VULKAN compiles to SPIR-V internally, then crosses.
+		// So we pass the original GLSL source and let TranslateShader handle the full chain.
+		if (!TranslateShader(&vsTranslated, backendLang, draw->GetShaderLanguageDesc(),
+		                     nullptr, src.vertex, GLSL_VULKAN, ShaderStage::Vertex, &vsErr)) {
+			*error = "vertex translate: " + vsErr;
+			return false;
+		}
+		if (!TranslateShader(&fsTranslated, backendLang, draw->GetShaderLanguageDesc(),
+		                     nullptr, src.fragment, GLSL_VULKAN, ShaderStage::Fragment, &fsErr)) {
+			*error = "fragment translate: " + fsErr;
+			return false;
+		}
+	}
+
+	// Create shader modules
+	Draw::ShaderModule *vs = draw->CreateShaderModule(ShaderStage::Vertex, backendLang,
+		(const uint8_t *)vsTranslated.c_str(), vsTranslated.size(), src.name.empty() ? "slang" : src.name.c_str());
+	Draw::ShaderModule *fs = draw->CreateShaderModule(ShaderStage::Fragment, backendLang,
+		(const uint8_t *)fsTranslated.c_str(), fsTranslated.size(), src.name.empty() ? "slang" : src.name.c_str());
+
+	if (!vs || !fs) {
+		*error = "failed to create shader modules";
+		if (vs) vs->Release();
+		if (fs) fs->Release();
+		return false;
+	}
+
+	// Build UniformBufferDesc from reflection
+	UniformBufferDesc uboDesc{};
+	if (out->reflection.uboSizeBytes > 0) {
+		uboDesc.uniformBufferSize = out->reflection.uboSizeBytes;
+		// Populate uniforms array with member info
+		for (const auto &m : out->reflection.uboMembers) {
+			UniformType utype = UniformType::FLOAT4;  // default, we mostly use vec4/mat4
+			if (m.sizeBytes == 64) utype = UniformType::MATRIX4X4;
+			else if (m.sizeBytes == 4) utype = UniformType::FLOAT1;
+			else if (m.sizeBytes == 8) utype = UniformType::FLOAT2;
+			uboDesc.uniforms.push_back({m.name.c_str(), -1, -1, utype, (int16_t)m.offsetBytes});
+		}
+	}
+
+	// Mirror PresentationCommon::CreatePipeline - same input layout, blend, depth, raster
+	using namespace Draw;
+	Semantic pos = SEM_POSITION;
+	Semantic tc = SEM_TEXCOORD0;
+	// HLSL workaround from PresentationCommon (shader translation marks both as TEXCOORDs)
+	if (backendLang == HLSL_D3D11) {
+		pos = SEM_TEXCOORD0;
+		tc = SEM_TEXCOORD1;
+	}
+
+	InputLayoutDesc inputDesc = {
+		6 * sizeof(float) + sizeof(uint32_t),  // pos(3) + uv(2) + color(4bytes) = 28 bytes
+		{
+			{ pos, DataFormat::R32G32B32_FLOAT, 0 },
+			{ tc, DataFormat::R32G32_FLOAT, 12 },
+			{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+		},
+	};
+
+	InputLayout *inputLayout = draw->CreateInputLayout(inputDesc);
+	DepthStencilState *depth = draw->CreateDepthStencilState({ false, false, Comparison::LESS });
+	BlendState *blendOff = draw->CreateBlendState({ false, 0xF });
+	RasterState *rasterNoCull = draw->CreateRasterState({});
+
+	PipelineDesc pipelineDesc{
+		Primitive::TRIANGLE_STRIP,
+		{ vs, fs },
+		inputLayout,
+		depth,
+		blendOff,
+		rasterNoCull,
+		uboDesc.uniformBufferSize > 0 ? &uboDesc : nullptr
+	};
+	out->pipeline = draw->CreateGraphicsPipeline(pipelineDesc, "slang-pass");
+
+	// Release intermediate objects
+	inputLayout->Release();
+	depth->Release();
+	blendOff->Release();
+	rasterNoCull->Release();
+	vs->Release();
+	fs->Release();
+
+	if (!out->pipeline) {
+		*error = "failed to create graphics pipeline";
+		return false;
+	}
+
+	return true;
 }

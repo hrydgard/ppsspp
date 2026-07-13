@@ -1,0 +1,331 @@
+// Copyright (c) 2026- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include "ppsspp_config.h"
+#ifdef DBG_NEW
+#undef new
+#undef free
+#undef malloc
+#undef realloc
+#endif
+
+#include <cstring>
+#include <cmath>
+#include "Common/Log.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/Data/Format/IniFile.h"
+#include "GPU/Common/Slang/SlangFilterChain.h"
+#include "GPU/Common/Slang/SlangpParser.h"
+#include "GPU/Common/Slang/SlangResolution.h"
+
+// Helper: release a single Draw object
+template <typename T>
+static void DoRelease(T *&obj) {
+	if (obj)
+		obj->Release();
+	obj = nullptr;
+}
+
+// Helper: release all objects in a vector
+template <typename T>
+static void DoReleaseVector(std::vector<T *> &list) {
+	for (auto &obj : list)
+		obj->Release();
+	list.clear();
+}
+
+SlangFilterChain::SlangFilterChain(Draw::DrawContext *draw) : draw_(draw) {
+}
+
+SlangFilterChain::~SlangFilterChain() {
+	DeviceLost();
+}
+
+bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
+	presetPath_ = presetPath;
+	valid_ = false;
+
+	// Release any existing resources
+	DeviceLost();
+
+	// Read the .slangp preset file
+	size_t sz = 0;
+	char *data = (char *)g_VFS.ReadFile(presetPath.c_str(), &sz);
+	if (!data) {
+		*error = "failed to read preset file: " + presetPath.ToString();
+		return false;
+	}
+	std::string presetText(data, sz);
+	delete[] data;
+
+	// Parse the preset
+	Path baseDir = Path(presetPath.GetDirectory());
+	if (!ParseSlangPreset(presetText, baseDir, &preset_, error)) {
+		return false;
+	}
+
+	if (preset_.passes.empty()) {
+		*error = "preset has no passes";
+		return false;
+	}
+
+	// Create device objects (quad vertex buffer, samplers)
+	using namespace Draw;
+
+	// Full-screen quad: positions + UVs + color (same layout as PresentationCommon)
+	struct Vertex {
+		float x, y, z;
+		float u, v;
+		uint32_t color;
+	};
+	Vertex quadVerts[4] = {
+		{-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF},  // TL
+		{ 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF},  // TR
+		{-1.0f,  1.0f, 0.0f, 0.0f, 1.0f, 0xFFFFFFFF},  // BL
+		{ 1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF},  // BR
+	};
+
+	quad_ = draw_->CreateBuffer(sizeof(quadVerts), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	draw_->UpdateBuffer(quad_, (const uint8_t *)quadVerts, 0, sizeof(quadVerts), Draw::UPDATE_DISCARD);
+
+	samplerLinear_ = draw_->CreateSamplerState({
+		TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR,
+		0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE
+	});
+	samplerNearest_ = draw_->CreateSamplerState({
+		TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST,
+		0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE
+	});
+
+	// Compile each pass
+	passes_.resize(preset_.passes.size());
+	for (size_t i = 0; i < preset_.passes.size(); i++) {
+		const SlangPassDesc &passDesc = preset_.passes[i];
+
+		// Read the .slang shader file
+		size_t shaderSz = 0;
+		char *shaderData = (char *)g_VFS.ReadFile(passDesc.shaderPath.c_str(), &shaderSz);
+		if (!shaderData) {
+			*error = "failed to read shader: " + passDesc.shaderPath;
+			DeviceLost();
+			return false;
+		}
+		std::string shaderSrc(shaderData, shaderSz);
+		delete[] shaderData;
+
+		// Split into vertex + fragment stages
+		SlangSource src;
+		if (!SplitSlangSource(shaderSrc, &src, error)) {
+			DeviceLost();
+			return false;
+		}
+
+		// Compile to pipeline
+		if (!CompileSlangPass(draw_, src, &passes_[i], error)) {
+			DeviceLost();
+			return false;
+		}
+	}
+
+	valid_ = true;
+	return true;
+}
+
+Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW, int sourceH,
+                                          int viewportW, int viewportH, int frameCount) {
+	if (!valid_ || !source) {
+		return nullptr;
+	}
+
+	// Ensure we have enough framebuffer slots (lazy allocation, will resize as needed)
+	if (passFramebuffers_.size() < passes_.size()) {
+		passFramebuffers_.resize(passes_.size(), nullptr);
+	}
+
+	Draw::Framebuffer *prevOutput = source;
+	int prevW = sourceW, prevH = sourceH;
+
+	for (size_t i = 0; i < passes_.size(); i++) {
+		const SlangPassDesc &passDesc = preset_.passes[i];
+		const SlangCompiledPass &pass = passes_[i];
+
+		// Compute output size for this pass
+		SlangSize inputSize = { prevW, prevH };
+		SlangSize viewportSize = { viewportW, viewportH };
+		SlangSize outputSize = ResolvePassSize(passDesc, inputSize, viewportSize);
+
+		// Allocate or reuse framebuffer (check if size changed)
+		bool needsResize = false;
+		if (passFramebuffers_[i]) {
+			int fbW, fbH;
+			draw_->GetFramebufferDimensions(passFramebuffers_[i], &fbW, &fbH);
+			needsResize = (fbW != outputSize.w || fbH != outputSize.h);
+		}
+		if (!passFramebuffers_[i] || needsResize) {
+			DoRelease(passFramebuffers_[i]);
+			using namespace Draw;
+			passFramebuffers_[i] = draw_->CreateFramebuffer({
+				outputSize.w, outputSize.h, 1, 1, 0, false, "slang-pass"
+			});
+			if (!passFramebuffers_[i]) {
+				ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create framebuffer %dx%d", outputSize.w, outputSize.h);
+				return nullptr;
+			}
+		}
+
+		// Bind input textures by semantic
+		for (const auto &tex : pass.reflection.textures) {
+			Draw::Framebuffer *inputFB = nullptr;
+			if (tex.semantic == SlangSemantic::TexSource) {
+				inputFB = (i == 0) ? source : passFramebuffers_[i - 1];
+			} else if (tex.semantic == SlangSemantic::TexOriginal) {
+				inputFB = source;
+			}
+			if (inputFB) {
+				draw_->BindFramebufferAsTexture(inputFB, tex.binding, Draw::Aspect::COLOR_BIT, 0);
+			}
+		}
+
+		// Bind sampler (use filterLinear from pass descriptor)
+		Draw::SamplerState *sampler = passDesc.filterLinear ? samplerLinear_ : samplerNearest_;
+		for (const auto &tex : pass.reflection.textures) {
+			draw_->BindSamplerStates(tex.binding, 1, &sampler);
+		}
+
+		// Build UBO scratch buffer
+		std::vector<uint8_t> uboScratch(pass.reflection.uboSizeBytes, 0);
+		for (const auto &m : pass.reflection.uboMembers) {
+			uint8_t *dst = uboScratch.data() + m.offsetBytes;
+			switch (m.semantic) {
+			case SlangSemantic::MVP: {
+				// Identity mat4 (PPSSPP uses pre-transformed quad)
+				float identity[16] = {
+					1, 0, 0, 0,
+					0, 1, 0, 0,
+					0, 0, 1, 0,
+					0, 0, 0, 1
+				};
+				memcpy(dst, identity, 64);
+				break;
+			}
+			case SlangSemantic::SourceSize: {
+				float v[4] = { (float)inputSize.w, (float)inputSize.h,
+				               1.0f / inputSize.w, 1.0f / inputSize.h };
+				memcpy(dst, v, 16);
+				break;
+			}
+			case SlangSemantic::OriginalSize: {
+				// In Phase 1 (linear chain), OriginalSize = source size
+				float v[4] = { (float)sourceW, (float)sourceH,
+				               1.0f / sourceW, 1.0f / sourceH };
+				memcpy(dst, v, 16);
+				break;
+			}
+			case SlangSemantic::OutputSize: {
+				float v[4] = { (float)outputSize.w, (float)outputSize.h,
+				               1.0f / outputSize.w, 1.0f / outputSize.h };
+				memcpy(dst, v, 16);
+				break;
+			}
+			case SlangSemantic::FinalViewportSize: {
+				float v[4] = { (float)viewportW, (float)viewportH,
+				               1.0f / viewportW, 1.0f / viewportH };
+				memcpy(dst, v, 16);
+				break;
+			}
+			case SlangSemantic::FrameCount: {
+				uint32_t fc = (uint32_t)frameCount;
+				memcpy(dst, &fc, 4);
+				break;
+			}
+			case SlangSemantic::FrameDirection: {
+				int fd = 1;
+				memcpy(dst, &fd, 4);
+				break;
+			}
+			case SlangSemantic::Rotation: {
+				int rot = 0;
+				memcpy(dst, &rot, 4);
+				break;
+			}
+			case SlangSemantic::UserParameter: {
+				// Find the parameter in preset_.params by name, use its initial value
+				float val = 0.0f;
+				for (const auto &p : preset_.params) {
+					if (p.name == m.name) {
+						val = p.initial;
+						break;
+					}
+				}
+				memcpy(dst, &val, 4);
+				break;
+			}
+			default:
+				break;
+			}
+		}
+
+		if (pass.reflection.uboSizeBytes > 0) {
+			draw_->UpdateDynamicUniformBuffer(uboScratch.data(), pass.reflection.uboSizeBytes);
+		}
+
+		// Bind framebuffer as render target and clear
+		draw_->BindFramebufferAsRenderTarget(passFramebuffers_[i], {
+			Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE
+		}, "slang-pass");
+
+		// Set viewport and scissor
+		Draw::Viewport vp = { 0, 0, (float)outputSize.w, (float)outputSize.h, 0.0f, 1.0f };
+		draw_->SetViewport(vp);
+		draw_->SetScissorRect(0, 0, outputSize.w, outputSize.h);
+
+		// Bind pipeline and draw
+		draw_->BindPipeline(pass.pipeline);
+		draw_->BindVertexBuffer(quad_, 0);
+		draw_->Draw(4, 0);
+
+		// Update for next pass
+		prevOutput = passFramebuffers_[i];
+		prevW = outputSize.w;
+		prevH = outputSize.h;
+	}
+
+	return passFramebuffers_.back();
+}
+
+void SlangFilterChain::DeviceLost() {
+	DoReleaseVector(passFramebuffers_);
+	for (auto &pass : passes_) {
+		DoRelease(pass.pipeline);
+	}
+	passes_.clear();
+	DoRelease(quad_);
+	DoRelease(samplerLinear_);
+	DoRelease(samplerNearest_);
+	draw_ = nullptr;
+	valid_ = false;
+}
+
+void SlangFilterChain::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	if (!presetPath_.empty()) {
+		std::string error;
+		if (!Load(presetPath_, &error)) {
+			ERROR_LOG(Log::G3D, "SlangFilterChain::DeviceRestore failed: %s", error.c_str());
+		}
+	}
+}
