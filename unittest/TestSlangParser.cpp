@@ -341,5 +341,23 @@ bool TestSlangSemanticsPhase2() {
 	EXPECT_TRUE(ClassifyUniform("Bright", ctx, &idx) == SlangSemantic::UserParameter);
 	EXPECT_EQ_INT(idx, -1);
 
+	// Regression: index alignment when earlier passes have no alias.
+	// Scenario: pass 0 has no alias (""), pass 1 aliased "SecondPass".
+	SlangClassifyContext ctxGap;
+	ctxGap.aliasNames = {"", "SecondPass"};
+	int idxGap = -99;
+
+	// "SecondPass" should resolve to index 1 (NOT 0).
+	EXPECT_TRUE(ClassifyTexture("SecondPass", ctxGap, &idxGap) == SlangSemantic::TexPassOutput);
+	EXPECT_EQ_INT(idxGap, 1);
+	EXPECT_TRUE(ClassifyTexture("SecondPassFeedback", ctxGap, &idxGap) == SlangSemantic::TexPassFeedback);
+	EXPECT_EQ_INT(idxGap, 1);
+	EXPECT_TRUE(ClassifyUniform("SecondPassSize", ctxGap, &idxGap) == SlangSemantic::PassOutputSize);
+	EXPECT_EQ_INT(idxGap, 1);
+
+	// Empty alias should never match any real name.
+	EXPECT_TRUE(ClassifyTexture("", ctxGap, &idxGap) == SlangSemantic::Unknown);
+	EXPECT_TRUE(ClassifyUniform("Size", ctxGap, &idxGap) == SlangSemantic::Unknown);
+
 	return true;
 }

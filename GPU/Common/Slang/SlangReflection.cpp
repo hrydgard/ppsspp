@@ -55,6 +55,7 @@ SlangSemantic ClassifyUniform(const std::string &name, const SlangClassifyContex
 
 	// <alias>Size → PassOutputSize with alias index
 	for (size_t i = 0; i < ctx.aliasNames.size(); ++i) {
+		if (ctx.aliasNames[i].empty()) continue;
 		if (name == ctx.aliasNames[i] + "Size") {
 			*outIndex = (int)i;
 			return SlangSemantic::PassOutputSize;
@@ -91,6 +92,7 @@ SlangSemantic ClassifyTexture(const std::string &name, const SlangClassifyContex
 
 	// <alias>Feedback → TexPassFeedback with alias index (check before bare alias)
 	for (size_t i = 0; i < ctx.aliasNames.size(); ++i) {
+		if (ctx.aliasNames[i].empty()) continue;
 		if (name == ctx.aliasNames[i] + "Feedback") {
 			*outIndex = (int)i;
 			return SlangSemantic::TexPassFeedback;
@@ -99,6 +101,7 @@ SlangSemantic ClassifyTexture(const std::string &name, const SlangClassifyContex
 
 	// <alias> → TexPassOutput with alias index
 	for (size_t i = 0; i < ctx.aliasNames.size(); ++i) {
+		if (ctx.aliasNames[i].empty()) continue;
 		if (name == ctx.aliasNames[i]) {
 			*outIndex = (int)i;
 			return SlangSemantic::TexPassOutput;
