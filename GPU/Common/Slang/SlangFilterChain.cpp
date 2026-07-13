@@ -270,6 +270,26 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 		}
 	}
 
+	// Compute which passes need feedback buffers: any pass referenced by TexPassFeedback/PassFeedbackSize,
+	// or the global preset_.feedbackPass (if >= 0).
+	passHasFeedback_.clear();
+	passHasFeedback_.resize(passes_.size(), false);
+	for (const auto &pass : passes_) {
+		for (const auto &tex : pass.reflection.textures) {
+			if (tex.semantic == SlangSemantic::TexPassFeedback && tex.index >= 0 && (size_t)tex.index < passHasFeedback_.size()) {
+				passHasFeedback_[tex.index] = true;
+			}
+		}
+		for (const auto &m : pass.reflection.uboMembers) {
+			if (m.semantic == SlangSemantic::PassFeedbackSize && m.index >= 0 && (size_t)m.index < passHasFeedback_.size()) {
+				passHasFeedback_[m.index] = true;
+			}
+		}
+	}
+	if (preset_.feedbackPass >= 0 && (size_t)preset_.feedbackPass < passHasFeedback_.size()) {
+		passHasFeedback_[preset_.feedbackPass] = true;
+	}
+
 	valid_ = true;
 	return true;
 }
@@ -315,6 +335,16 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		}
 	}
 
+	// Allocate feedback buffers: feedbackBuffers_[j] holds previous-frame output of pass j
+	// (for passes with passHasFeedback_[j] true). Size-matched to the pass output at runtime.
+	// Strategy: single retained buffer per feedback pass; after pass j renders, blit its output
+	// into feedbackBuffers_[j] so next frame reads previous-frame content. First frame (no history)
+	// binds a cleared buffer (CreateFramebuffer clears on allocation via RPAction::CLEAR).
+	if (feedbackBuffers_.size() != passes_.size()) {
+		DoReleaseVector(feedbackBuffers_);
+		feedbackBuffers_.resize(passes_.size(), nullptr);
+	}
+
 	Draw::Framebuffer *prevOutput = source;
 	int prevW = sourceW, prevH = sourceH;
 
@@ -343,6 +373,31 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			if (!passFramebuffers_[i]) {
 				ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create framebuffer %dx%d", outputSize.w, outputSize.h);
 				return nullptr;
+			}
+		}
+
+		// Allocate feedback buffer if this pass needs one (lazy, at pass output size)
+		if (i < passHasFeedback_.size() && passHasFeedback_[i]) {
+			bool feedbackNeedsResize = false;
+			if (feedbackBuffers_[i]) {
+				int fbW, fbH;
+				draw_->GetFramebufferDimensions(feedbackBuffers_[i], &fbW, &fbH);
+				feedbackNeedsResize = (fbW != outputSize.w || fbH != outputSize.h);
+			}
+			if (!feedbackBuffers_[i] || feedbackNeedsResize) {
+				DoRelease(feedbackBuffers_[i]);
+				using namespace Draw;
+				feedbackBuffers_[i] = draw_->CreateFramebuffer({
+					outputSize.w, outputSize.h, 1, 1, 0, false, "slang-feedback"
+				});
+				if (!feedbackBuffers_[i]) {
+					ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create feedback framebuffer %dx%d", outputSize.w, outputSize.h);
+					return nullptr;
+				}
+				// Clear on first allocation to avoid binding garbage on the first frame
+				draw_->BindFramebufferAsRenderTarget(feedbackBuffers_[i], {
+					Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE
+				}, "slang-feedback-clear");
 			}
 		}
 
@@ -392,6 +447,10 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			}
 			case SlangSemantic::FrameCount: {
 				uint32_t fc = (uint32_t)frameCount;
+				// Apply frameCountMod if specified for this pass
+				if (passDesc.frameCountMod > 0) {
+					fc = (uint32_t)(frameCount % passDesc.frameCountMod);
+				}
 				memcpy(dst, &fc, std::min((size_t)4, avail));
 				break;
 			}
@@ -456,10 +515,19 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 				break;
 			}
 			case SlangSemantic::PassFeedbackSize: {
-				// Task 7 stub: write source dims for now
-				float v[4] = { (float)sourceW, (float)sourceH,
-				               1.0f / (float)std::max(1, sourceW), 1.0f / (float)std::max(1, sourceH) };
-				memcpy(dst, v, std::min((size_t)16, avail));
+				// Range-check m.index and retrieve feedback buffer dimensions
+				if (m.index >= 0 && (size_t)m.index < feedbackBuffers_.size() && feedbackBuffers_[m.index]) {
+					int fbW, fbH;
+					draw_->GetFramebufferDimensions(feedbackBuffers_[m.index], &fbW, &fbH);
+					float v[4] = { (float)fbW, (float)fbH,
+					               1.0f / (float)std::max(1, fbW), 1.0f / (float)std::max(1, fbH) };
+					memcpy(dst, v, std::min((size_t)16, avail));
+				} else {
+					// Out of range or unallocated: write source dims as safe fallback
+					float v[4] = { (float)sourceW, (float)sourceH,
+					               1.0f / (float)std::max(1, sourceW), 1.0f / (float)std::max(1, sourceH) };
+					memcpy(dst, v, std::min((size_t)16, avail));
+				}
 				break;
 			}
 			default:
@@ -527,8 +595,18 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 				}
 				break;
 			case SlangSemantic::TexPassFeedback:
-				// Task 7 stub: bind source as placeholder
-				inputFB = source;
+				// Range-check tex.index and verify feedback buffer exists
+				if (tex.index >= 0 && (size_t)tex.index < feedbackBuffers_.size() && feedbackBuffers_[tex.index]) {
+					inputFB = feedbackBuffers_[tex.index];
+				} else {
+					// Out of range or unallocated: log once and bind source as safe fallback
+					static bool logged = false;
+					if (!logged) {
+						ERROR_LOG(Log::G3D, "SlangFilterChain: PassFeedback index %d out of range or unallocated", tex.index);
+						logged = true;
+					}
+					inputFB = source;
+				}
 				break;
 			case SlangSemantic::TexLut:
 				// Range-check tex.index against BOTH lutTextures_ and lutSamplers_
@@ -575,6 +653,18 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		prevH = outputSize.h;
 	}
 
+	// Update feedback buffers: for each pass with feedback enabled, blit this frame's
+	// output into its feedback buffer so next frame reads previous-frame content.
+	for (size_t j = 0; j < passes_.size(); j++) {
+		if (j < passHasFeedback_.size() && passHasFeedback_[j] && feedbackBuffers_[j] && passFramebuffers_[j]) {
+			int fbW, fbH;
+			draw_->GetFramebufferDimensions(passFramebuffers_[j], &fbW, &fbH);
+			draw_->BlitFramebuffer(passFramebuffers_[j], 0, 0, fbW, fbH,
+			                       feedbackBuffers_[j], 0, 0, fbW, fbH,
+			                       Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_NEAREST, "slang-feedback");
+		}
+	}
+
 	// Advance history ring: copy current source into the newest slot and rotate.
 	// historyRing_ is maintained newest-first: [0] = 1 frame ago, [historyDepth_-1] = oldest.
 	// Rotation: move the oldest frame to the front, then blit source into it (it becomes the newest).
@@ -595,10 +685,12 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 void SlangFilterChain::ReleaseResources() {
 	DoReleaseVector(passFramebuffers_);
 	DoReleaseVector(historyRing_);
+	DoReleaseVector(feedbackBuffers_);
 	DoReleaseVector(lutTextures_);
 	DoReleaseVector(lutSamplers_);
 	lutSizes_.clear();
 	historyDepth_ = 0;
+	passHasFeedback_.clear();
 	for (auto &pass : passes_) {
 		DoRelease(pass.pipeline);
 	}

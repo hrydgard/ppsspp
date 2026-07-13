@@ -60,6 +60,8 @@ private:
 	std::vector<Draw::Framebuffer *> passFramebuffers_;
 	std::vector<Draw::Framebuffer *> historyRing_;  // OriginalHistory1..N ring (newest-first)
 	int historyDepth_ = 0;  // max OriginalHistory index referenced; 0 if none
+	std::vector<bool> passHasFeedback_;  // index-aligned: true if pass i needs a feedback buffer
+	std::vector<Draw::Framebuffer *> feedbackBuffers_;  // previous-frame pass output for feedback
 	std::vector<Draw::Texture *> lutTextures_;
 	std::vector<Draw::SamplerState *> lutSamplers_;
 	std::vector<std::pair<int, int>> lutSizes_;  // optional, for Task 6
