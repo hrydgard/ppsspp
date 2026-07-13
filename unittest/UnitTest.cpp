@@ -1344,6 +1344,7 @@ bool TestSlangSplit();
 bool TestSlangResolution();
 bool TestSlangSemantics();
 bool TestSlangReflection();
+bool TestSlangParserPhase2Keys();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1393,6 +1394,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SlangResolution),
 	TEST_ITEM(SlangSemantics),
 	TEST_ITEM(SlangReflection),
+	TEST_ITEM(SlangParserPhase2Keys),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),

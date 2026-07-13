@@ -36,6 +36,13 @@ static SlangScaleType ParseScaleType(const std::string &v) {
 	return SlangScaleType::Source;  // default
 }
 
+static SlangWrapMode ParseWrapMode(const std::string &v) {
+	if (v == "clamp_to_edge") return SlangWrapMode::ClampToEdge;
+	if (v == "repeat") return SlangWrapMode::Repeat;
+	if (v == "mirrored_repeat") return SlangWrapMode::MirroredRepeat;
+	return SlangWrapMode::ClampToBorder;  // slang default
+}
+
 bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset *out, std::string *error) {
 	out->basePath = basePath;
 	out->passes.clear();
@@ -93,8 +100,18 @@ bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset
 		if (getStr("scale_x" + idx, &tmp)) pass.scaleX = (float)atof(tmp.c_str());
 		if (getStr("scale_y" + idx, &tmp)) pass.scaleY = (float)atof(tmp.c_str());
 
+		if (getStr("srgb_framebuffer" + idx, &tmp)) pass.srgbFramebuffer = (tmp == "true" || tmp == "1");
+		if (getStr("float_framebuffer" + idx, &tmp)) pass.floatFramebuffer = (tmp == "true" || tmp == "1");
+		if (getStr("mipmap_input" + idx, &tmp)) pass.mipmapInput = (tmp == "true" || tmp == "1");
+		if (getStr("wrap_mode" + idx, &tmp)) pass.wrapMode = ParseWrapMode(tmp);
+		if (getStr("frame_count_mod" + idx, &tmp)) pass.frameCountMod = atoi(tmp.c_str());
+
 		out->passes.push_back(pass);
 	}
+
+	std::string fp;
+	if (getStr("feedback_pass", &fp)) out->feedbackPass = atoi(fp.c_str());
+
 	return true;
 }
 

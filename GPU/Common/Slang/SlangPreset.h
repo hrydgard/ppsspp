@@ -28,6 +28,19 @@ enum class SlangScaleType {
 	Absolute,  // fixed pixel count
 };
 
+enum class SlangWrapMode {
+	ClampToBorder,
+	ClampToEdge,
+	Repeat,
+	MirroredRepeat,
+};
+
+enum class SlangFbFormat {
+	Default,  // maps to R8G8B8A8_UNORM
+	Srgb,     // maps to R8G8B8A8_SRGB
+	Float,    // maps to R16G16B16A16_FLOAT
+};
+
 struct SlangParamDesc {
 	std::string name;     // must match a float UBO/push member
 	float initial = 0.0f;
@@ -44,10 +57,17 @@ struct SlangPassDesc {
 	SlangScaleType scaleTypeY = SlangScaleType::Source;
 	float scaleX = 1.0f;
 	float scaleY = 1.0f;
+	bool srgbFramebuffer = false;       // srgb_framebufferN
+	bool floatFramebuffer = false;      // float_framebufferN
+	bool mipmapInput = false;           // mipmap_inputN
+	SlangWrapMode wrapMode = SlangWrapMode::ClampToBorder;  // wrap_modeN (slang default is clamp_to_border)
+	int frameCountMod = 0;              // frame_count_modN; 0 = no modulo
+	SlangFbFormat formatOverride = SlangFbFormat::Default;  // from #pragma format, filled in Task 4
 };
 
 struct SlangPreset {
 	Path basePath;   // directory the .slangp lives in
 	std::vector<SlangPassDesc> passes;
 	std::vector<SlangParamDesc> params;
+	int feedbackPass = -1;   // global feedback_pass; -1 = none
 };

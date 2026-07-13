@@ -225,3 +225,31 @@ bool TestSlangReflection() {
 	EXPECT_TRUE(refl.textures[0].semantic == SlangSemantic::TexSource);
 	return true;
 }
+
+bool TestSlangParserPhase2Keys() {
+	const std::string preset =
+		"shaders = 2\n"
+		"feedback_pass = 0\n"
+		"shader0 = a.slang\n"
+		"srgb_framebuffer0 = true\n"
+		"mipmap_input0 = true\n"
+		"wrap_mode0 = repeat\n"
+		"frame_count_mod0 = 60\n"
+		"shader1 = b.slang\n"
+		"float_framebuffer1 = true\n"
+		"wrap_mode1 = clamp_to_edge\n";
+	SlangPreset out; std::string err; Path base("/tmp/x");
+	EXPECT_TRUE(ParseSlangPreset(preset, base, &out, &err));
+	EXPECT_EQ_INT(out.feedbackPass, 0);
+	EXPECT_TRUE(out.passes[0].srgbFramebuffer);
+	EXPECT_FALSE(out.passes[0].floatFramebuffer);
+	EXPECT_TRUE(out.passes[0].mipmapInput);
+	EXPECT_TRUE(out.passes[0].wrapMode == SlangWrapMode::Repeat);
+	EXPECT_EQ_INT(out.passes[0].frameCountMod, 60);
+	EXPECT_TRUE(out.passes[1].floatFramebuffer);
+	EXPECT_TRUE(out.passes[1].wrapMode == SlangWrapMode::ClampToEdge);
+	// Defaults on an unspecified pass field:
+	EXPECT_TRUE(out.passes[1].wrapMode != SlangWrapMode::ClampToBorder);  // it was set
+	EXPECT_FALSE(out.passes[1].srgbFramebuffer);
+	return true;
+}
