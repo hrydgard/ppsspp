@@ -80,3 +80,50 @@ bool TestSlangParser() {
 
 	return true;
 }
+
+bool TestSlangSplit() {
+	const std::string src =
+		"#version 450\n"
+		"layout(set=0,binding=0,std140) uniform UBO { vec4 SourceSize; float ColorMod; };\n"
+		"#pragma name StockShader\n"
+		"#pragma parameter ColorMod \"Color intensity\" 1.0 0.1 2.0 0.1\n"
+		"#pragma stage vertex\n"
+		"void main() { gl_Position = vec4(0.0); }\n"
+		"#pragma stage fragment\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"void main() { FragColor = vec4(ColorMod); }\n";
+
+	SlangSource out;
+	std::string error;
+	EXPECT_TRUE(SplitSlangSource(src, &out, &error));
+
+	std::string name = out.name;
+	std::string expectName = "StockShader";
+	EXPECT_EQ_STR(name, expectName);
+
+	// Shared prologue (#version + UBO) present in BOTH stages.
+	EXPECT_TRUE(out.vertex.find("#version 450") != std::string::npos);
+	EXPECT_TRUE(out.fragment.find("#version 450") != std::string::npos);
+	EXPECT_TRUE(out.vertex.find("uniform UBO") != std::string::npos);
+	EXPECT_TRUE(out.fragment.find("uniform UBO") != std::string::npos);
+
+	// Stage bodies land in the right stage only.
+	EXPECT_TRUE(out.vertex.find("gl_Position") != std::string::npos);
+	EXPECT_TRUE(out.fragment.find("gl_Position") == std::string::npos);
+	EXPECT_TRUE(out.fragment.find("FragColor") != std::string::npos);
+	EXPECT_TRUE(out.vertex.find("FragColor") == std::string::npos);
+
+	// #pragma lines are stripped from emitted GLSL.
+	EXPECT_TRUE(out.fragment.find("#pragma") == std::string::npos);
+
+	// Parameter parsed.
+	EXPECT_EQ_INT((int)out.params.size(), 1);
+	std::string pn = out.params[0].name;
+	std::string expectPn = "ColorMod";
+	EXPECT_EQ_STR(pn, expectPn);
+	EXPECT_EQ_FLOAT(out.params[0].initial, 1.0f);
+	EXPECT_EQ_FLOAT(out.params[0].minimum, 0.1f);
+	EXPECT_EQ_FLOAT(out.params[0].maximum, 2.0f);
+	EXPECT_EQ_FLOAT(out.params[0].step, 0.1f);
+	return true;
+}

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <sstream>
 
@@ -94,5 +95,60 @@ bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset
 
 		out->passes.push_back(pass);
 	}
+	return true;
+}
+
+// Parse: #pragma parameter NAME "Description" INIT MIN MAX [STEP]
+static bool ParseParameterPragma(const std::string &rest, SlangParamDesc *p) {
+	// rest is everything after "#pragma parameter ".
+	size_t q1 = rest.find('"');
+	size_t q2 = (q1 == std::string::npos) ? std::string::npos : rest.find('"', q1 + 1);
+	if (q1 == std::string::npos || q2 == std::string::npos) return false;
+	p->name = std::string(StripSpaces(rest.substr(0, q1)));
+	std::string tail = rest.substr(q2 + 1);  // " INIT MIN MAX [STEP]"
+	std::istringstream nums(tail);
+	nums >> p->initial >> p->minimum >> p->maximum;
+	if (!(nums >> p->step)) p->step = 0.0f;
+	return !p->name.empty();
+}
+
+bool SplitSlangSource(const std::string &src, SlangSource *out, std::string *error) {
+	out->vertex.clear();
+	out->fragment.clear();
+	out->name.clear();
+	out->params.clear();
+
+	std::string prologue;
+	// stage: 0 = prologue (shared), 1 = vertex, 2 = fragment
+	int stage = 0;
+	std::stringstream ss(src);
+	std::string line;
+	while (std::getline(ss, line)) {
+		std::string trimmed = std::string(StripSpaces(line));
+		if (startsWith(trimmed, "#pragma")) {
+			std::string rest = std::string(StripSpaces(trimmed.substr(strlen("#pragma"))));
+			if (startsWith(rest, "stage")) {
+				std::string st = std::string(StripSpaces(rest.substr(strlen("stage"))));
+				stage = (st == "vertex") ? 1 : (st == "fragment") ? 2 : stage;
+				continue;
+			} else if (startsWith(rest, "name")) {
+				out->name = std::string(StripSpaces(rest.substr(strlen("name"))));
+				continue;
+			} else if (startsWith(rest, "parameter")) {
+				SlangParamDesc p;
+				if (ParseParameterPragma(std::string(StripSpaces(rest.substr(strlen("parameter")))), &p))
+					out->params.push_back(p);
+				continue;
+			} else if (startsWith(rest, "format")) {
+				continue;  // consumed; Phase 1 uses default RT format
+			}
+			// Unknown pragma: fall through and emit it.
+		}
+		if (stage == 0) prologue += line + "\n";
+		else if (stage == 1) out->vertex += line + "\n";
+		else out->fragment += line + "\n";
+	}
+	out->vertex = prologue + out->vertex;
+	out->fragment = prologue + out->fragment;
 	return true;
 }

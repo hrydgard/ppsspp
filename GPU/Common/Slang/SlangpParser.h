@@ -24,3 +24,12 @@
 // Parse a .slangp preset. Relative shaderN paths resolve against basePath.
 // Unknown keys are ignored (forward-compat). Returns false + *error on fatal errors.
 bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset *out, std::string *error);
+
+// Split a .slang source into vertex and fragment stages, extracting #pragma metadata.
+struct SlangSource {
+	std::string vertex;    // full GLSL for the vertex stage (shared prologue + vertex body)
+	std::string fragment;  // full GLSL for the fragment stage (shared prologue + fragment body)
+	std::string name;      // #pragma name value, "" if none
+	std::vector<SlangParamDesc> params;  // one per #pragma parameter
+};
+bool SplitSlangSource(const std::string &src, SlangSource *out, std::string *error);
