@@ -120,51 +120,28 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 
 bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src,
                       SlangCompiledPass *out, std::string *error) {
-	// First reflect to get the semantics and compile to SPIR-V
+	// First reflect to get the semantics (internally compiles to SPIR-V for reflection)
 	if (!ReflectSlangSource(src, &out->reflection, error)) {
 		return false;
 	}
 
-	// Compile both stages to SPIR-V (already done in reflection)
-	std::vector<unsigned int> vspv, fspv;
-	if (!CompileStageToSpirv(EShLangVertex, src.vertex, &vspv, error)) return false;
-	if (!CompileStageToSpirv(EShLangFragment, src.fragment, &fspv, error)) return false;
-
-	// For Vulkan backend, we can use SPIR-V directly. For other backends, we need to
-	// translate via SPIRV-Cross. Since slang source is Vulkan GLSL (#version 450),
-	// we treat it as GLSL_VULKAN input to TranslateShader.
+	// Phase 1: Vulkan-only. Slang source is already Vulkan GLSL (#version 450 with
+	// layout(set,binding) etc.) — exactly what PPSSPP's Vulkan CreateShaderModule expects.
+	// Non-Vulkan backends (D3D11/GL) are a Phase 5 concern requiring a SPIR-V→backend
+	// cross-compile path (TranslateShader cannot accept Vulkan-GLSL as source).
 	ShaderLanguage backendLang = draw->GetShaderLanguageDesc().shaderLanguage;
-
-	std::string vsTranslated, fsTranslated;
-	std::string vsErr, fsErr;
-
-	// For Vulkan, feed SPIR-V directly; for other backends, translate
-	if (backendLang == GLSL_VULKAN) {
-		// CreateShaderModule accepts SPIR-V for Vulkan backend
-		vsTranslated = std::string((const char *)vspv.data(), vspv.size() * sizeof(unsigned int));
-		fsTranslated = std::string((const char *)fspv.data(), fspv.size() * sizeof(unsigned int));
-	} else {
-		// Cross-compile SPIR-V to target backend language via SPIRV-Cross (via TranslateShader)
-		// TranslateShader expects source as string, but for SPIR-V we need to serialize it.
-		// The TranslateShader path from GLSL_VULKAN compiles to SPIR-V internally, then crosses.
-		// So we pass the original GLSL source and let TranslateShader handle the full chain.
-		if (!TranslateShader(&vsTranslated, backendLang, draw->GetShaderLanguageDesc(),
-		                     nullptr, src.vertex, GLSL_VULKAN, ShaderStage::Vertex, &vsErr)) {
-			*error = "vertex translate: " + vsErr;
-			return false;
-		}
-		if (!TranslateShader(&fsTranslated, backendLang, draw->GetShaderLanguageDesc(),
-		                     nullptr, src.fragment, GLSL_VULKAN, ShaderStage::Fragment, &fsErr)) {
-			*error = "fragment translate: " + fsErr;
-			return false;
-		}
+	if (backendLang != GLSL_VULKAN) {
+		*error = "slang passes require the Vulkan backend in Phase 1 (got a non-Vulkan backend)";
+		return false;
 	}
 
-	// Create shader modules
-	Draw::ShaderModule *vs = draw->CreateShaderModule(ShaderStage::Vertex, backendLang,
-		(const uint8_t *)vsTranslated.c_str(), vsTranslated.size(), src.name.empty() ? "slang" : src.name.c_str());
-	Draw::ShaderModule *fs = draw->CreateShaderModule(ShaderStage::Fragment, backendLang,
-		(const uint8_t *)fsTranslated.c_str(), fsTranslated.size(), src.name.empty() ? "slang" : src.name.c_str());
+	// Create shader modules directly from GLSL source strings.
+	// PPSSPP's Vulkan CreateShaderModule (VKShaderModule::Compile) takes GLSL source text,
+	// stores source_ = (const char*)data, and runs GLSLtoSPV(..., GLSLVariant::VULKAN, ...) on it.
+	Draw::ShaderModule *vs = draw->CreateShaderModule(ShaderStage::Vertex, GLSL_VULKAN,
+		(const uint8_t *)src.vertex.c_str(), src.vertex.size(), src.name.empty() ? "slang_vs" : src.name.c_str());
+	Draw::ShaderModule *fs = draw->CreateShaderModule(ShaderStage::Fragment, GLSL_VULKAN,
+		(const uint8_t *)src.fragment.c_str(), src.fragment.size(), src.name.empty() ? "slang_fs" : src.name.c_str());
 
 	if (!vs || !fs) {
 		*error = "failed to create shader modules";
@@ -191,11 +168,7 @@ bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src,
 	using namespace Draw;
 	Semantic pos = SEM_POSITION;
 	Semantic tc = SEM_TEXCOORD0;
-	// HLSL workaround from PresentationCommon (shader translation marks both as TEXCOORDs)
-	if (backendLang == HLSL_D3D11) {
-		pos = SEM_TEXCOORD0;
-		tc = SEM_TEXCOORD1;
-	}
+	// HLSL workaround from PresentationCommon (not needed in Phase 1 Vulkan-only path)
 
 	InputLayoutDesc inputDesc = {
 		6 * sizeof(float) + sizeof(uint32_t),  // pos(3) + uv(2) + color(4bytes) = 28 bytes
