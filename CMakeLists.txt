@@ -2052,6 +2052,7 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
+	GPU/Common/Slang/SlangPreset.h
 	GPU/Common/TextureReplacer.cpp
 	GPU/Common/TextureReplacer.h
 	GPU/Common/ReplacedTexture.cpp
