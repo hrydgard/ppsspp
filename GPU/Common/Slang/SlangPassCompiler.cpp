@@ -60,7 +60,7 @@ static bool CompileStageToSpirv(EShLanguage stage, const std::string &src,
 	return !spirv->empty();
 }
 
-static uint32_t MemberSizeBytes(const spirv_cross::Compiler &comp, const spirv_cross::SPIRType &type) {
+static uint32_t MemberSizeBytes(const spirv_cross::SPIRType &type) {
 	// vec4 = 16, mat4 = 64, float = 4, uint/int = 4.
 	uint32_t base = 4;  // float/int/uint base
 	uint32_t comps = type.vecsize * type.columns;
@@ -75,9 +75,23 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 	std::vector<std::string> paramNames;
 	for (const auto &p : src.params) paramNames.push_back(p.name);
 
+	// Reflect both stages to detect unsupported push_constant blocks (Phase 1 only supports UBOs).
+	spirv_cross::Compiler vert(vspv);
+	spirv_cross::ShaderResources vertRes = vert.get_shader_resources();
+	if (!vertRes.push_constant_buffers.empty()) {
+		*error = "slang push_constant blocks are not supported in Phase 1 (shader: " + src.name + ")";
+		return false;
+	}
+
 	// Reflect the fragment stage for UBO + samplers; merge vertex-only UBO members if present.
 	spirv_cross::Compiler frag(fspv);
 	spirv_cross::ShaderResources res = frag.get_shader_resources();
+
+	// Phase 1 does not support push_constant — full push-constant packing is a future-phase feature.
+	if (!res.push_constant_buffers.empty()) {
+		*error = "slang push_constant blocks are not supported in Phase 1 (shader: " + src.name + ")";
+		return false;
+	}
 
 	out->uboMembers.clear();
 	out->textures.clear();
@@ -94,7 +108,7 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 			SlangUniformMember m;
 			m.name = frag.get_member_name(ubo.base_type_id, i);
 			m.offsetBytes = frag.type_struct_member_offset(blockType, i);
-			m.sizeBytes = MemberSizeBytes(frag, frag.get_type(blockType.member_types[i]));
+			m.sizeBytes = MemberSizeBytes(frag.get_type(blockType.member_types[i]));
 			m.semantic = ClassifyUniform(m.name, paramNames);
 			if (m.semantic == SlangSemantic::Unknown) {
 				*error = "unsupported uniform member in Phase 1: " + m.name;

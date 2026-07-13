@@ -1768,8 +1768,10 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 			Draw::Framebuffer *slangOut = slangChain_->Run(vfb->fbo, actualWidth, actualHeight,
 			                                                pixelWidth_, pixelHeight_, gpuStats.totals.numFlips);
 			if (slangOut) {
-				// Slang output is at viewport size (final display size)
-				presentation_->SourceFramebuffer(slangOut, pixelWidth_, pixelHeight_);
+				// Query the actual framebuffer dimensions (final pass may not be viewport-scaled)
+				int sw = 0, sh = 0;
+				draw_->GetFramebufferDimensions(slangOut, &sw, &sh);
+				presentation_->SourceFramebuffer(slangOut, sw, sh);
 			} else {
 				presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 			}

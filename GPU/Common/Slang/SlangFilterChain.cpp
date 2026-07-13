@@ -23,6 +23,7 @@
 #undef realloc
 #endif
 
+#include <algorithm>
 #include <cstring>
 #include <cmath>
 #include "Common/Log.h"
@@ -44,7 +45,8 @@ static void DoRelease(T *&obj) {
 template <typename T>
 static void DoReleaseVector(std::vector<T *> &list) {
 	for (auto &obj : list)
-		obj->Release();
+		if (obj)
+			obj->Release();
 	list.clear();
 }
 
@@ -204,6 +206,9 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		std::vector<uint8_t> uboScratch(pass.reflection.uboSizeBytes, 0);
 		for (const auto &m : pass.reflection.uboMembers) {
 			uint8_t *dst = uboScratch.data() + m.offsetBytes;
+			// Guard against a malformed shader whose named member is smaller/mis-typed than the
+			// semantic's expected write width (would otherwise overflow the std140 scratch buffer).
+			size_t avail = (m.offsetBytes <= uboScratch.size()) ? (uboScratch.size() - m.offsetBytes) : 0;
 			switch (m.semantic) {
 			case SlangSemantic::MVP: {
 				// Identity mat4 (PPSSPP uses pre-transformed quad)
@@ -213,47 +218,47 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 					0, 0, 1, 0,
 					0, 0, 0, 1
 				};
-				memcpy(dst, identity, 64);
+				memcpy(dst, identity, std::min((size_t)64, avail));
 				break;
 			}
 			case SlangSemantic::SourceSize: {
 				float v[4] = { (float)inputSize.w, (float)inputSize.h,
-				               1.0f / inputSize.w, 1.0f / inputSize.h };
-				memcpy(dst, v, 16);
+				               1.0f / (float)std::max(1, inputSize.w), 1.0f / (float)std::max(1, inputSize.h) };
+				memcpy(dst, v, std::min((size_t)16, avail));
 				break;
 			}
 			case SlangSemantic::OriginalSize: {
 				// In Phase 1 (linear chain), OriginalSize = source size
 				float v[4] = { (float)sourceW, (float)sourceH,
-				               1.0f / sourceW, 1.0f / sourceH };
-				memcpy(dst, v, 16);
+				               1.0f / (float)std::max(1, sourceW), 1.0f / (float)std::max(1, sourceH) };
+				memcpy(dst, v, std::min((size_t)16, avail));
 				break;
 			}
 			case SlangSemantic::OutputSize: {
 				float v[4] = { (float)outputSize.w, (float)outputSize.h,
-				               1.0f / outputSize.w, 1.0f / outputSize.h };
-				memcpy(dst, v, 16);
+				               1.0f / (float)std::max(1, outputSize.w), 1.0f / (float)std::max(1, outputSize.h) };
+				memcpy(dst, v, std::min((size_t)16, avail));
 				break;
 			}
 			case SlangSemantic::FinalViewportSize: {
 				float v[4] = { (float)viewportW, (float)viewportH,
-				               1.0f / viewportW, 1.0f / viewportH };
-				memcpy(dst, v, 16);
+				               1.0f / (float)std::max(1, viewportW), 1.0f / (float)std::max(1, viewportH) };
+				memcpy(dst, v, std::min((size_t)16, avail));
 				break;
 			}
 			case SlangSemantic::FrameCount: {
 				uint32_t fc = (uint32_t)frameCount;
-				memcpy(dst, &fc, 4);
+				memcpy(dst, &fc, std::min((size_t)4, avail));
 				break;
 			}
 			case SlangSemantic::FrameDirection: {
 				int fd = 1;
-				memcpy(dst, &fd, 4);
+				memcpy(dst, &fd, std::min((size_t)4, avail));
 				break;
 			}
 			case SlangSemantic::Rotation: {
 				int rot = 0;
-				memcpy(dst, &rot, 4);
+				memcpy(dst, &rot, std::min((size_t)4, avail));
 				break;
 			}
 			case SlangSemantic::UserParameter: {
@@ -265,7 +270,7 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 						break;
 					}
 				}
-				memcpy(dst, &val, 4);
+				memcpy(dst, &val, std::min((size_t)4, avail));
 				break;
 			}
 			default:
