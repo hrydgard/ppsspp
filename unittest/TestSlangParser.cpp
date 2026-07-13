@@ -63,5 +63,20 @@ bool TestSlangParser() {
 	SlangPreset bad;
 	std::string badErr;
 	EXPECT_FALSE(ParseSlangPreset("shader0 = x.slang\n", base, &bad, &badErr));
+
+	// Regression: # inside quotes should not be treated as comment start
+	const std::string hashPreset =
+		"shaders = 1\n"
+		"shader0 = \"path#hash.slang\"\n"
+		"filter_linear0 = true # this is a comment\n";
+	SlangPreset hashOut;
+	std::string hashErr;
+	EXPECT_TRUE(ParseSlangPreset(hashPreset, base, &hashOut, &hashErr));
+	EXPECT_EQ_INT((int)hashOut.passes.size(), 1);
+	std::string hashPath = hashOut.passes[0].shaderPath;
+	std::string expectHash = (base / "path#hash.slang").ToString();
+	EXPECT_EQ_STR(hashPath, expectHash);
+	EXPECT_TRUE(hashOut.passes[0].filterLinear);
+
 	return true;
 }

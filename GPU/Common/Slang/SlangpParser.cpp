@@ -45,8 +45,18 @@ bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset
 	std::stringstream ss(text);
 	std::string line;
 	while (std::getline(ss, line)) {
-		size_t hash = line.find('#');
-		if (hash != std::string::npos) line = line.substr(0, hash);
+		// Strip comments, but only outside quotes.
+		bool inQuote = false;
+		size_t commentStart = std::string::npos;
+		for (size_t i = 0; i < line.size(); i++) {
+			if (line[i] == '"') inQuote = !inQuote;
+			else if (line[i] == '#' && !inQuote) {
+				commentStart = i;
+				break;
+			}
+		}
+		if (commentStart != std::string::npos) line = line.substr(0, commentStart);
+
 		size_t eq = line.find('=');
 		if (eq == std::string::npos) continue;
 		std::string key = std::string(StripSpaces(line.substr(0, eq)));
