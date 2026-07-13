@@ -522,14 +522,14 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 	// Scissor. The scissor needs to be offset by the framebuffer offset.
 	const int scissorX1 = gstate.getScissorX1();
 	const int scissorY1 = gstate.getScissorY1();
-	const int scissorX2 = gstate.getScissorX2() + 1;
-	const int scissorY2 = gstate.getScissorY2() + 1;
+	const int scissorW = gstate.getScissorX2() + 1 - scissorX1;
+	const int scissorH = gstate.getScissorY2() + 1 - scissorY1;
 
 	if (useBufferedRendering) {
 		const float renderWidthFactor = (float)renderWidth / (float)bufferWidth;
 		const float renderHeightFactor = (float)renderHeight / (float)bufferHeight;
 
-		if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
+		if (scissorW < 0 || scissorH < 0) {
 			// Bad scissor, kill all drawing with a valid scissor setup.
 			out.scissorX = 0;
 			out.scissorY = 0;
@@ -538,8 +538,8 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		} else {
 			out.scissorX = (scissorX1 + gstate_c.curRTOffsetX) * renderWidthFactor;
 			out.scissorY = (scissorY1 + gstate_c.curRTOffsetY) * renderHeightFactor;
-			out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
-			out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
+			out.scissorW = scissorW * renderWidthFactor;
+			out.scissorH = scissorH * renderHeightFactor;
 		}
 		out.viewportX = 0.0f;
 		out.viewportY = 0.0f;
@@ -558,7 +558,7 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		renderHeight = rc.h;
 		const float renderWidthFactor = renderWidth / 480.0f;
 		const float renderHeightFactor = renderHeight / 272.0f;
-		if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
+		if (scissorW < 0 || scissorH < 0) {
 			// Bad scissor, kill all drawing with a valid scissor setup.
 			out.scissorX = 0;
 			out.scissorY = 0;
@@ -567,8 +567,8 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		} else {
 			out.scissorX = displayOffsetX + (scissorX1 + gstate_c.curRTOffsetX) * renderWidthFactor;
 			out.scissorY = displayOffsetY + (scissorY1 + gstate_c.curRTOffsetY) * renderHeightFactor;
-			out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
-			out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
+			out.scissorW = scissorW * renderWidthFactor;
+			out.scissorH = scissorH * renderHeightFactor;
 		}
 
 		out.viewportX = displayOffsetX;
