@@ -414,7 +414,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
-			WRITE(p, "%s vec2 v_zw;\n", compat.varying_fs);
+			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_fs);
 		}
 
 		if (!enableFragmentTestCache) {

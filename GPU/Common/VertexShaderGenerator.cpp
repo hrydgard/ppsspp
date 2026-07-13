@@ -343,7 +343,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		if (fsMinmaxDiscard || fsDepthClamp) {
-			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+			WRITE(p, "  highp vec2 v_zw : TEXCOORD2;\n");
 		}
 		// gl_Position must be last for D3D11.
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
