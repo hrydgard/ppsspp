@@ -59,8 +59,8 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 	presetPath_ = presetPath;
 	valid_ = false;
 
-	// Release any existing resources
-	DeviceLost();
+	// Release any existing resources (but keep draw_ — we need it to build the new chain).
+	ReleaseResources();
 
 	// Read the .slangp preset file
 	size_t sz = 0;
@@ -121,7 +121,7 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 		char *shaderData = (char *)g_VFS.ReadFile(passDesc.shaderPath.c_str(), &shaderSz);
 		if (!shaderData) {
 			*error = "failed to read shader: " + passDesc.shaderPath;
-			DeviceLost();
+			ReleaseResources();
 			return false;
 		}
 		std::string shaderSrc(shaderData, shaderSz);
@@ -130,13 +130,26 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 		// Split into vertex + fragment stages
 		SlangSource src;
 		if (!SplitSlangSource(shaderSrc, &src, error)) {
-			DeviceLost();
+			ReleaseResources();
 			return false;
+		}
+
+		// Collect the #pragma parameter defaults declared in this .slang into preset_.params
+		// so Run() can supply their values to UserParameter uniforms. A .slangp-level override
+		// (already in preset_.params from ParseSlangPreset) wins and is not overwritten.
+		for (const auto &p : src.params) {
+			bool exists = false;
+			for (const auto &existing : preset_.params) {
+				if (existing.name == p.name) { exists = true; break; }
+			}
+			if (!exists) {
+				preset_.params.push_back(p);
+			}
 		}
 
 		// Compile to pipeline
 		if (!CompileSlangPass(draw_, src, &passes_[i], error)) {
-			DeviceLost();
+			ReleaseResources();
 			return false;
 		}
 	}
@@ -185,25 +198,6 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 				ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create framebuffer %dx%d", outputSize.w, outputSize.h);
 				return nullptr;
 			}
-		}
-
-		// Bind input textures by semantic
-		for (const auto &tex : pass.reflection.textures) {
-			Draw::Framebuffer *inputFB = nullptr;
-			if (tex.semantic == SlangSemantic::TexSource) {
-				inputFB = (i == 0) ? source : passFramebuffers_[i - 1];
-			} else if (tex.semantic == SlangSemantic::TexOriginal) {
-				inputFB = source;
-			}
-			if (inputFB) {
-				draw_->BindFramebufferAsTexture(inputFB, tex.binding, Draw::Aspect::COLOR_BIT, 0);
-			}
-		}
-
-		// Bind sampler (use filterLinear from pass descriptor)
-		Draw::SamplerState *sampler = passDesc.filterLinear ? samplerLinear_ : samplerNearest_;
-		for (const auto &tex : pass.reflection.textures) {
-			draw_->BindSamplerStates(tex.binding, 1, &sampler);
 		}
 
 		// Build UBO scratch buffer
@@ -279,11 +273,7 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			}
 		}
 
-		if (pass.reflection.uboSizeBytes > 0) {
-			draw_->UpdateDynamicUniformBuffer(uboScratch.data(), pass.reflection.uboSizeBytes);
-		}
-
-		// Bind framebuffer as render target and clear
+		// Bind framebuffer as render target and clear (must precede pipeline/texture binds).
 		draw_->BindFramebufferAsRenderTarget(passFramebuffers_[i], {
 			Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE
 		}, "slang-pass");
@@ -293,8 +283,35 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		draw_->SetViewport(vp);
 		draw_->SetScissorRect(0, 0, outputSize.w, outputSize.h);
 
-		// Bind pipeline and draw
+		// Bind input textures + samplers by semantic (source framebuffer, prev pass output).
+		// NOTE: slang shaders declare the UBO at descriptor binding 0 and samplers at
+		// binding 1..N. PPSSPP's thin3d, however, indexes textures by a 0-based *slot*
+		// (slot 0 -> descriptor binding 1, slot 1 -> binding 2, ...). So convert the
+		// reflected descriptor binding to a thin3d texture slot with (binding - 1).
+		Draw::SamplerState *sampler = passDesc.filterLinear ? samplerLinear_ : samplerNearest_;
+		for (const auto &tex : pass.reflection.textures) {
+			int slot = tex.binding - 1;
+			if (slot < 0) {
+				continue;  // binding 0 is the UBO, not a texture slot.
+			}
+			Draw::Framebuffer *inputFB = nullptr;
+			if (tex.semantic == SlangSemantic::TexSource) {
+				inputFB = (i == 0) ? source : passFramebuffers_[i - 1];
+			} else if (tex.semantic == SlangSemantic::TexOriginal) {
+				inputFB = source;
+			}
+			if (inputFB) {
+				draw_->BindFramebufferAsTexture(inputFB, slot, Draw::Aspect::COLOR_BIT, 0);
+			}
+			draw_->BindSamplerStates(slot, 1, &sampler);
+		}
+
+		// Bind pipeline BEFORE updating the dynamic uniform buffer — PPSSPP's Vulkan
+		// UpdateDynamicUniformBuffer writes into curPipeline_, so a pipeline must be bound first.
 		draw_->BindPipeline(pass.pipeline);
+		if (pass.reflection.uboSizeBytes > 0) {
+			draw_->UpdateDynamicUniformBuffer(uboScratch.data(), pass.reflection.uboSizeBytes);
+		}
 		draw_->BindVertexBuffer(quad_, 0);
 		draw_->Draw(4, 0);
 
@@ -303,11 +320,10 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		prevW = outputSize.w;
 		prevH = outputSize.h;
 	}
-
 	return passFramebuffers_.back();
 }
 
-void SlangFilterChain::DeviceLost() {
+void SlangFilterChain::ReleaseResources() {
 	DoReleaseVector(passFramebuffers_);
 	for (auto &pass : passes_) {
 		DoRelease(pass.pipeline);
@@ -316,8 +332,14 @@ void SlangFilterChain::DeviceLost() {
 	DoRelease(quad_);
 	DoRelease(samplerLinear_);
 	DoRelease(samplerNearest_);
-	draw_ = nullptr;
 	valid_ = false;
+}
+
+void SlangFilterChain::DeviceLost() {
+	// Full device teardown: release resources AND drop the device pointer.
+	// DeviceRestore() supplies a fresh device before reloading.
+	ReleaseResources();
+	draw_ = nullptr;
 }
 
 void SlangFilterChain::DeviceRestore(Draw::DrawContext *draw) {

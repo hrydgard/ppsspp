@@ -164,18 +164,26 @@ bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src,
 		}
 	}
 
-	// Mirror PresentationCommon::CreatePipeline - same input layout, blend, depth, raster
 	using namespace Draw;
-	Semantic pos = SEM_POSITION;
-	Semantic tc = SEM_TEXCOORD0;
-	// HLSL workaround from PresentationCommon (not needed in Phase 1 Vulkan-only path)
 
+	// The Vulkan backend maps AttributeDesc.location DIRECTLY to the shader's
+	// `layout(location = N)` input. Slang shaders follow the libretro convention:
+	//   layout(location = 0) in vec4 Position;
+	//   layout(location = 1) in vec2 TexCoord;
+	// So we MUST use explicit locations 0 and 1 here — NOT PPSSPP's Semantic enum
+	// values (SEM_TEXCOORD0 == 3), which would leave TexCoord unfed (constant) and
+	// break UV interpolation. Slang shaders declare no color input; we still supply
+	// the quad's color attribute at an unused location (2) so it never collides.
+	// Stride matches SlangFilterChain's quad vertex: float pos[3] + float uv[2] + uint32 color = 24 bytes.
+	const int LOC_POSITION = 0;
+	const int LOC_TEXCOORD = 1;
+	const int LOC_COLOR = 2;
 	InputLayoutDesc inputDesc = {
-		6 * sizeof(float) + sizeof(uint32_t),  // pos(3) + uv(2) + color(4bytes) = 28 bytes
+		5 * sizeof(float) + sizeof(uint32_t),  // pos(3f) + uv(2f) + color(u32) = 24 bytes
 		{
-			{ pos, DataFormat::R32G32B32_FLOAT, 0 },
-			{ tc, DataFormat::R32G32_FLOAT, 12 },
-			{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+			{ LOC_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
+			{ LOC_TEXCOORD, DataFormat::R32G32_FLOAT, 12 },
+			{ LOC_COLOR, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
 

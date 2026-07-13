@@ -50,6 +50,10 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 private:
+	// Release all GPU resources (pipelines, framebuffers, samplers, quad) WITHOUT
+	// dropping the device pointer. Safe to call from Load() to clear a previous chain.
+	void ReleaseResources();
+
 	Draw::DrawContext *draw_ = nullptr;
 	SlangPreset preset_;
 	std::vector<SlangCompiledPass> passes_;
