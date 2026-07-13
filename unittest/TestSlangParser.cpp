@@ -19,6 +19,7 @@
 #include "unittest/UnitTest.h"
 #include "Common/File/Path.h"
 #include "GPU/Common/Slang/SlangpParser.h"
+#include "GPU/Common/Slang/SlangResolution.h"
 
 bool TestSlangParser() {
 	// Two-pass preset with per-axis scale, alias, and a parameter list line.
@@ -125,5 +126,32 @@ bool TestSlangSplit() {
 	EXPECT_EQ_FLOAT(out.params[0].minimum, 0.1f);
 	EXPECT_EQ_FLOAT(out.params[0].maximum, 2.0f);
 	EXPECT_EQ_FLOAT(out.params[0].step, 0.1f);
+	return true;
+}
+
+bool TestSlangResolution() {
+	SlangSize input{480, 272};
+	SlangSize viewport{1920, 1080};
+
+	SlangPassDesc a;  // source x2 both axes
+	a.scaleTypeX = a.scaleTypeY = SlangScaleType::Source;
+	a.scaleX = a.scaleY = 2.0f;
+	SlangSize ra = ResolvePassSize(a, input, viewport);
+	EXPECT_EQ_INT(ra.w, 960);
+	EXPECT_EQ_INT(ra.h, 544);
+
+	SlangPassDesc b;  // x = viewport 1.0, y = absolute 240
+	b.scaleTypeX = SlangScaleType::Viewport; b.scaleX = 1.0f;
+	b.scaleTypeY = SlangScaleType::Absolute; b.scaleY = 240.0f;
+	SlangSize rb = ResolvePassSize(b, input, viewport);
+	EXPECT_EQ_INT(rb.w, 1920);
+	EXPECT_EQ_INT(rb.h, 240);
+
+	SlangPassDesc c;  // degenerate scale clamps to 1
+	c.scaleTypeX = c.scaleTypeY = SlangScaleType::Source;
+	c.scaleX = c.scaleY = 0.0f;
+	SlangSize rc = ResolvePassSize(c, input, viewport);
+	EXPECT_EQ_INT(rc.w, 1);
+	EXPECT_EQ_INT(rc.h, 1);
 	return true;
 }
