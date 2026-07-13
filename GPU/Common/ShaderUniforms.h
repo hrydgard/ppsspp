@@ -127,17 +127,13 @@ void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 
 // This happens so much that I want it inline.
 inline void UpdateUVScaleOff(const GEState &state, float uvScaleOff[4]) {
-	float widthFactor;
-	float heightFactor;
 	if (gstate_c.textureIsFramebuffer) {
-		widthFactor = (float)gstate.getTextureWidth(0) / (float)gstate_c.curTextureWidth;
-		heightFactor = (float)gstate.getTextureHeight(0) / (float)gstate_c.curTextureHeight;
+		uvScaleOff[0] = (float)gstate.getTextureWidth(0) / (float)gstate_c.curTextureWidth;
+		uvScaleOff[1] = (float)gstate.getTextureHeight(0) / (float)gstate_c.curTextureHeight;
 	} else {
-		widthFactor = 1.0f;
-		heightFactor = 1.0f;
+		uvScaleOff[0] = 1.0f;
+		uvScaleOff[1] = 1.0f;
 	}
-	uvScaleOff[0] = widthFactor;
-	uvScaleOff[1] = heightFactor;
 	uvScaleOff[2] = 0.0f;
 	uvScaleOff[3] = 0.0f;
 }
