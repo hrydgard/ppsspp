@@ -149,8 +149,16 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 			}
 		}
 
+		// Build classification context for Phase 2 semantics
+		SlangClassifyContext ctx;
+		for (const auto &p : preset_.params) ctx.paramNames.push_back(p.name);
+		for (const auto &pass : preset_.passes) {
+			if (!pass.alias.empty()) ctx.aliasNames.push_back(pass.alias);
+		}
+		for (const auto &lut : preset_.luts) ctx.lutNames.push_back(lut.name);
+
 		// Compile to pipeline
-		if (!CompileSlangPass(draw_, src, &passes_[i], error)) {
+		if (!CompileSlangPass(draw_, src, ctx, &passes_[i], error)) {
 			ReleaseResources();
 			return false;
 		}

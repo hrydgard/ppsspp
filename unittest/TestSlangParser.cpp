@@ -160,22 +160,24 @@ bool TestSlangResolution() {
 }
 
 bool TestSlangSemantics() {
-	std::vector<std::string> params = { "ColorMod", "Sharpness" };
+	SlangClassifyContext ctx;
+	ctx.paramNames = { "ColorMod", "Sharpness" };
+	int idx;
 
-	EXPECT_TRUE(ClassifyUniform("MVP", params) == SlangSemantic::MVP);
-	EXPECT_TRUE(ClassifyUniform("SourceSize", params) == SlangSemantic::SourceSize);
-	EXPECT_TRUE(ClassifyUniform("OriginalSize", params) == SlangSemantic::OriginalSize);
-	EXPECT_TRUE(ClassifyUniform("OutputSize", params) == SlangSemantic::OutputSize);
-	EXPECT_TRUE(ClassifyUniform("FinalViewportSize", params) == SlangSemantic::FinalViewportSize);
-	EXPECT_TRUE(ClassifyUniform("FrameCount", params) == SlangSemantic::FrameCount);
-	EXPECT_TRUE(ClassifyUniform("ColorMod", params) == SlangSemantic::UserParameter);
-	EXPECT_TRUE(ClassifyUniform("Sharpness", params) == SlangSemantic::UserParameter);
-	EXPECT_TRUE(ClassifyUniform("SomethingElse", params) == SlangSemantic::Unknown);
+	EXPECT_TRUE(ClassifyUniform("MVP", ctx, &idx) == SlangSemantic::MVP);
+	EXPECT_TRUE(ClassifyUniform("SourceSize", ctx, &idx) == SlangSemantic::SourceSize);
+	EXPECT_TRUE(ClassifyUniform("OriginalSize", ctx, &idx) == SlangSemantic::OriginalSize);
+	EXPECT_TRUE(ClassifyUniform("OutputSize", ctx, &idx) == SlangSemantic::OutputSize);
+	EXPECT_TRUE(ClassifyUniform("FinalViewportSize", ctx, &idx) == SlangSemantic::FinalViewportSize);
+	EXPECT_TRUE(ClassifyUniform("FrameCount", ctx, &idx) == SlangSemantic::FrameCount);
+	EXPECT_TRUE(ClassifyUniform("ColorMod", ctx, &idx) == SlangSemantic::UserParameter);
+	EXPECT_TRUE(ClassifyUniform("Sharpness", ctx, &idx) == SlangSemantic::UserParameter);
+	EXPECT_TRUE(ClassifyUniform("SomethingElse", ctx, &idx) == SlangSemantic::Unknown);
 
-	EXPECT_TRUE(ClassifyTexture("Source") == SlangSemantic::TexSource);
-	EXPECT_TRUE(ClassifyTexture("Original") == SlangSemantic::TexOriginal);
-	// Not supported in Phase 1:
-	EXPECT_TRUE(ClassifyTexture("PassOutput0") == SlangSemantic::Unknown);
+	EXPECT_TRUE(ClassifyTexture("Source", ctx, &idx) == SlangSemantic::TexSource);
+	EXPECT_TRUE(ClassifyTexture("Original", ctx, &idx) == SlangSemantic::TexOriginal);
+	// Phase 2 now supports PassOutput0:
+	EXPECT_TRUE(ClassifyTexture("PassOutput0", ctx, &idx) == SlangSemantic::TexPassOutput);
 	return true;
 }
 
@@ -204,8 +206,13 @@ bool TestSlangReflection() {
 	std::string error;
 	EXPECT_TRUE(SplitSlangSource(srcText, &src, &error));
 
+	// Build context for Phase 2 classifier
+	SlangClassifyContext ctx;
+	for (const auto &p : src.params) ctx.paramNames.push_back(p.name);
+	// Empty aliasNames and lutNames for this Phase 1 test
+
 	PassReflection refl;
-	EXPECT_TRUE(ReflectSlangSource(src, &refl, &error));
+	EXPECT_TRUE(ReflectSlangSource(src, ctx, &refl, &error));
 
 	// UBO binding 0, three members with correct semantics + offsets (std140).
 	EXPECT_EQ_INT(refl.uboBinding, 0);
@@ -291,5 +298,48 @@ bool TestSlangFormatPragma() {
 	EXPECT_TRUE(out.format == SlangFbFormat::Float);
 	// #pragma format line must NOT leak into emitted GLSL:
 	EXPECT_TRUE(out.fragment.find("#pragma format") == std::string::npos);
+	return true;
+}
+
+bool TestSlangSemanticsPhase2() {
+	SlangClassifyContext ctx;
+	ctx.paramNames = {"Bright"};
+	ctx.aliasNames = {"FirstPass", "SecondPass"};  // pass 0, pass 1
+	ctx.lutNames   = {"MaskTex"};
+	int idx = -99;
+
+	// Basic Phase 1 semantics still work
+	EXPECT_TRUE(ClassifyTexture("Source", ctx, &idx) == SlangSemantic::TexSource);
+	EXPECT_EQ_INT(idx, -1);
+
+	// Phase 2 texture semantics with indices
+	EXPECT_TRUE(ClassifyTexture("PassOutput0", ctx, &idx) == SlangSemantic::TexPassOutput);
+	EXPECT_EQ_INT(idx, 0);
+	EXPECT_TRUE(ClassifyTexture("PassFeedback2", ctx, &idx) == SlangSemantic::TexPassFeedback);
+	EXPECT_EQ_INT(idx, 2);
+	EXPECT_TRUE(ClassifyTexture("OriginalHistory1", ctx, &idx) == SlangSemantic::TexOriginalHistory);
+	EXPECT_EQ_INT(idx, 1);
+
+	// LUT by name
+	EXPECT_TRUE(ClassifyTexture("MaskTex", ctx, &idx) == SlangSemantic::TexLut);
+	EXPECT_EQ_INT(idx, 0);
+
+	// Alias pass output and feedback
+	EXPECT_TRUE(ClassifyTexture("SecondPass", ctx, &idx) == SlangSemantic::TexPassOutput);
+	EXPECT_EQ_INT(idx, 1);
+	EXPECT_TRUE(ClassifyTexture("FirstPassFeedback", ctx, &idx) == SlangSemantic::TexPassFeedback);
+	EXPECT_EQ_INT(idx, 0);
+
+	// Unknown texture
+	EXPECT_TRUE(ClassifyTexture("Nonsense", ctx, &idx) == SlangSemantic::Unknown);
+
+	// Phase 2 uniform semantics with indices
+	EXPECT_TRUE(ClassifyUniform("PassOutputSize0", ctx, &idx) == SlangSemantic::PassOutputSize);
+	EXPECT_EQ_INT(idx, 0);
+
+	// User parameter
+	EXPECT_TRUE(ClassifyUniform("Bright", ctx, &idx) == SlangSemantic::UserParameter);
+	EXPECT_EQ_INT(idx, -1);
+
 	return true;
 }

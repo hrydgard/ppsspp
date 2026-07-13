@@ -25,7 +25,7 @@
 // Reflect a compiled slang source: compile both stages to SPIR-V (glslang, Vulkan rules),
 // reflect the fragment+vertex SPIR-V (SPIRV-Cross), classify every UBO member and sampler.
 // Does NOT create GPU objects — pure compile+reflect, unit-testable without a device.
-bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string *error);
+bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error);
 
 struct SlangCompiledPass {
 	Draw::Pipeline *pipeline = nullptr;
@@ -34,5 +34,5 @@ struct SlangCompiledPass {
 
 // Full compile: reflect + create a Draw::Pipeline for the given backend language.
 // For Vulkan, the SPIR-V is consumed directly; other backends cross-compile via SPIRV-Cross.
-bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src,
+bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src, const SlangClassifyContext &ctx,
                       SlangCompiledPass *out, std::string *error);

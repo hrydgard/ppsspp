@@ -27,8 +27,10 @@ enum class SlangSemantic {
 	MVP, OutputSize, FinalViewportSize, FrameCount, FrameDirection, Rotation,
 	SourceSize, OriginalSize,          // Phase 1 texture-size companions
 	UserParameter,                     // matches a #pragma parameter float
+	PassOutputSize, PassFeedbackSize, OriginalHistorySize, LutSize,  // Phase 2 size companions
 	// texture (sampler2D) semantics:
 	TexSource, TexOriginal,
+	TexPassOutput, TexPassFeedback, TexOriginalHistory, TexLut,  // Phase 2 multi-input
 };
 
 struct SlangUniformMember {
@@ -36,12 +38,14 @@ struct SlangUniformMember {
 	SlangSemantic semantic;
 	uint32_t offsetBytes;   // offset within the UBO block
 	uint32_t sizeBytes;     // member size (4 for float, 16 for vec4, 64 for mat4)
+	int index = -1;         // PassOutput3 → 3; alias position; LUT position; -1 if not indexed
 };
 
 struct SlangTextureBinding {
 	std::string name;
 	SlangSemantic semantic;
 	int binding;            // sampler binding slot
+	int index = -1;         // PassOutput3 → 3; alias position; LUT position; -1 if not indexed
 };
 
 struct PassReflection {
@@ -51,8 +55,15 @@ struct PassReflection {
 	std::vector<SlangTextureBinding> textures;
 };
 
-// Classify a UBO/push member name. knownParams = names from #pragma parameter.
-SlangSemantic ClassifyUniform(const std::string &name, const std::vector<std::string> &knownParams);
+// Classification context for Phase 2 multi-input semantics
+struct SlangClassifyContext {
+	std::vector<std::string> paramNames;    // #pragma parameter names
+	std::vector<std::string> aliasNames;    // pass #pragma name / aliasN, in pass order
+	std::vector<std::string> lutNames;      // preset LUT identifiers
+};
 
-// Classify a sampler2D name.
-SlangSemantic ClassifyTexture(const std::string &name);
+// Classify a UBO/push member name. Sets *outIndex for indexed semantics (-1 otherwise).
+SlangSemantic ClassifyUniform(const std::string &name, const SlangClassifyContext &ctx, int *outIndex);
+
+// Classify a sampler2D name. Sets *outIndex for indexed semantics (-1 otherwise).
+SlangSemantic ClassifyTexture(const std::string &name, const SlangClassifyContext &ctx, int *outIndex);

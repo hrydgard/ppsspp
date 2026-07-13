@@ -16,9 +16,28 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cctype>
 #include "GPU/Common/Slang/SlangReflection.h"
 
-SlangSemantic ClassifyUniform(const std::string &name, const std::vector<std::string> &knownParams) {
+// Helper: check if name == prefix + <digits>, return true and set *outIndex if so.
+static bool MatchIndexedName(const std::string &name, const std::string &prefix, int *outIndex) {
+	if (name.size() <= prefix.size()) return false;
+	if (name.substr(0, prefix.size()) != prefix) return false;
+	size_t pos = prefix.size();
+	if (!std::isdigit((unsigned char)name[pos])) return false;
+	int idx = 0;
+	for (; pos < name.size(); ++pos) {
+		if (!std::isdigit((unsigned char)name[pos])) return false;
+		idx = idx * 10 + (name[pos] - '0');
+	}
+	*outIndex = idx;
+	return true;
+}
+
+SlangSemantic ClassifyUniform(const std::string &name, const SlangClassifyContext &ctx, int *outIndex) {
+	*outIndex = -1;
+
+	// Built-in single-instance semantics
 	if (name == "MVP") return SlangSemantic::MVP;
 	if (name == "OutputSize") return SlangSemantic::OutputSize;
 	if (name == "FinalViewportSize") return SlangSemantic::FinalViewportSize;
@@ -27,13 +46,72 @@ SlangSemantic ClassifyUniform(const std::string &name, const std::vector<std::st
 	if (name == "Rotation") return SlangSemantic::Rotation;
 	if (name == "SourceSize") return SlangSemantic::SourceSize;
 	if (name == "OriginalSize") return SlangSemantic::OriginalSize;
-	if (std::find(knownParams.begin(), knownParams.end(), name) != knownParams.end())
+
+	// Phase 2 indexed size semantics (match longest first)
+	int idx;
+	if (MatchIndexedName(name, "PassOutputSize", &idx)) { *outIndex = idx; return SlangSemantic::PassOutputSize; }
+	if (MatchIndexedName(name, "PassFeedbackSize", &idx)) { *outIndex = idx; return SlangSemantic::PassFeedbackSize; }
+	if (MatchIndexedName(name, "OriginalHistorySize", &idx)) { *outIndex = idx; return SlangSemantic::OriginalHistorySize; }
+
+	// <alias>Size → PassOutputSize with alias index
+	for (size_t i = 0; i < ctx.aliasNames.size(); ++i) {
+		if (name == ctx.aliasNames[i] + "Size") {
+			*outIndex = (int)i;
+			return SlangSemantic::PassOutputSize;
+		}
+	}
+
+	// <lut>Size → LutSize with LUT index
+	for (size_t i = 0; i < ctx.lutNames.size(); ++i) {
+		if (name == ctx.lutNames[i] + "Size") {
+			*outIndex = (int)i;
+			return SlangSemantic::LutSize;
+		}
+	}
+
+	// User parameter
+	if (std::find(ctx.paramNames.begin(), ctx.paramNames.end(), name) != ctx.paramNames.end())
 		return SlangSemantic::UserParameter;
+
 	return SlangSemantic::Unknown;
 }
 
-SlangSemantic ClassifyTexture(const std::string &name) {
+SlangSemantic ClassifyTexture(const std::string &name, const SlangClassifyContext &ctx, int *outIndex) {
+	*outIndex = -1;
+
+	// Single-instance textures
 	if (name == "Source") return SlangSemantic::TexSource;
 	if (name == "Original") return SlangSemantic::TexOriginal;
+
+	// Phase 2 indexed textures (longest match first)
+	int idx;
+	if (MatchIndexedName(name, "OriginalHistory", &idx)) { *outIndex = idx; return SlangSemantic::TexOriginalHistory; }
+	if (MatchIndexedName(name, "PassOutput", &idx)) { *outIndex = idx; return SlangSemantic::TexPassOutput; }
+	if (MatchIndexedName(name, "PassFeedback", &idx)) { *outIndex = idx; return SlangSemantic::TexPassFeedback; }
+
+	// <alias>Feedback → TexPassFeedback with alias index (check before bare alias)
+	for (size_t i = 0; i < ctx.aliasNames.size(); ++i) {
+		if (name == ctx.aliasNames[i] + "Feedback") {
+			*outIndex = (int)i;
+			return SlangSemantic::TexPassFeedback;
+		}
+	}
+
+	// <alias> → TexPassOutput with alias index
+	for (size_t i = 0; i < ctx.aliasNames.size(); ++i) {
+		if (name == ctx.aliasNames[i]) {
+			*outIndex = (int)i;
+			return SlangSemantic::TexPassOutput;
+		}
+	}
+
+	// LUT name → TexLut with LUT index
+	for (size_t i = 0; i < ctx.lutNames.size(); ++i) {
+		if (name == ctx.lutNames[i]) {
+			*outIndex = (int)i;
+			return SlangSemantic::TexLut;
+		}
+	}
+
 	return SlangSemantic::Unknown;
 }

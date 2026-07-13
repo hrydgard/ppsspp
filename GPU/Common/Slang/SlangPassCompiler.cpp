@@ -67,13 +67,10 @@ static uint32_t MemberSizeBytes(const spirv_cross::SPIRType &type) {
 	return base * comps;
 }
 
-bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string *error) {
+bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error) {
 	std::vector<unsigned int> vspv, fspv;
 	if (!CompileStageToSpirv(EShLangVertex, src.vertex, &vspv, error)) return false;
 	if (!CompileStageToSpirv(EShLangFragment, src.fragment, &fspv, error)) return false;
-
-	std::vector<std::string> paramNames;
-	for (const auto &p : src.params) paramNames.push_back(p.name);
 
 	// Reflect both stages to detect unsupported push_constant blocks (Phase 1 only supports UBOs).
 	spirv_cross::Compiler vert(vspv);
@@ -109,9 +106,9 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 			m.name = frag.get_member_name(ubo.base_type_id, i);
 			m.offsetBytes = frag.type_struct_member_offset(blockType, i);
 			m.sizeBytes = MemberSizeBytes(frag.get_type(blockType.member_types[i]));
-			m.semantic = ClassifyUniform(m.name, paramNames);
+			m.semantic = ClassifyUniform(m.name, ctx, &m.index);
 			if (m.semantic == SlangSemantic::Unknown) {
-				*error = "unsupported uniform member in Phase 1: " + m.name;
+				*error = "unsupported uniform member: " + m.name;
 				return false;
 			}
 			out->uboMembers.push_back(m);
@@ -122,9 +119,9 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 		SlangTextureBinding t;
 		t.name = frag.get_name(img.id);
 		t.binding = frag.get_decoration(img.id, spv::DecorationBinding);
-		t.semantic = ClassifyTexture(t.name);
+		t.semantic = ClassifyTexture(t.name, ctx, &t.index);
 		if (t.semantic == SlangSemantic::Unknown) {
-			*error = "unsupported texture in Phase 1: " + t.name;
+			*error = "unsupported texture: " + t.name;
 			return false;
 		}
 		out->textures.push_back(t);
@@ -132,10 +129,10 @@ bool ReflectSlangSource(const SlangSource &src, PassReflection *out, std::string
 	return true;
 }
 
-bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src,
+bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src, const SlangClassifyContext &ctx,
                       SlangCompiledPass *out, std::string *error) {
 	// First reflect to get the semantics (internally compiles to SPIR-V for reflection)
-	if (!ReflectSlangSource(src, &out->reflection, error)) {
+	if (!ReflectSlangSource(src, ctx, &out->reflection, error)) {
 		return false;
 	}
 
