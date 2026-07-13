@@ -764,17 +764,7 @@ namespace MIPSInt
 			break;
 
 		case 20: // bitrev
-			{
-				u32 tmp = 0;
-				for (int i = 0; i < 32; i++)
-				{
-					if (R(rt) & (1 << i))
-					{
-						tmp |= (0x80000000 >> i);
-					}
-				}
-				R(rd) = tmp;
-			}
+			R(rd) = ReverseBits32(R(rt));
 			break;
 
 		case 24: // seh

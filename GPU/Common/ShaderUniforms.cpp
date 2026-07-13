@@ -76,7 +76,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
-	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
+	if (dirtyUniforms & DIRTY_FRAMEBUFFER_DIM) {
 		ub->xywh[0] = (float)gstate_c.curRTOffsetX;
 		ub->xywh[1] = (float)gstate_c.curRTOffsetY;
 		ub->xywh[2] = (float)gstate_c.curRTWidth;
@@ -96,7 +96,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	}
 
 	if (dirtyUniforms & DIRTY_VIEWPORT_UNIFORMS) {
-		// TODO: This should be a couple of SIMD instructions.
 		Vec4F32 vpScale = Vec4F32::LoadF24x4(&gstate.viewportxscale);
 		Vec4F32 vpOffset = Vec4F32::LoadF24x4(&gstate.viewportxcenter);
 		vpScale.Store(ub->vpScale);

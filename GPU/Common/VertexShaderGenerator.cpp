@@ -407,7 +407,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "uniform vec4 u_xywh;\n");
 		WRITE(p, "uniform float u_NaN;\n");
-		*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
+		*uniformMask |= DIRTY_FRAMEBUFFER_DIM;
 
 		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
 		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.

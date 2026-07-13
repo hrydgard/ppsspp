@@ -1094,17 +1094,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		case STENCIL_VALUE_INCR_4BIT:
 		case STENCIL_VALUE_DECR_4BIT:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
+			// We have to set the blend mode to match elsewhere.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
 		case STENCIL_VALUE_INCR_8BIT:
 		case STENCIL_VALUE_DECR_8BIT:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
+			// We have to set the blend mode to match elsewhere.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
 
 		case STENCIL_VALUE_KEEP:
-			// Do nothing. We'll mask out the alpha using color mask.
+			// Do nothing. We'll mask out the alpha using color mask (could also be done with a blend mode).
 			break;
 		}
 	}

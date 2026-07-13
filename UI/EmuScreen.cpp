@@ -733,14 +733,21 @@ static void ShowFpsLimitNotice() {
 void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	if (!IsOnTop())
 		return;
+	std::lock_guard<std::mutex> lock(queuedVirtKeysLock_);
 	queuedVirtKeys_.push_back(std::make_pair(virtualKeyCode, down));
 }
 
 void EmuScreen::ProcessQueuedVKeys() {
-	for (auto iter : queuedVirtKeys_) {
+	std::vector<std::pair<VirtKey, bool>> dequeued;
+	{
+		std::lock_guard<std::mutex> lock(queuedVirtKeysLock_);
+		dequeued = std::move(queuedVirtKeys_);
+		queuedVirtKeys_.clear();
+	}
+
+	for (auto iter : dequeued) {
 		ProcessVKey(iter.first, iter.second);
 	}
-	queuedVirtKeys_.clear();
 }
 
 // Synchronized processing of virtkeys.

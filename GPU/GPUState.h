@@ -654,7 +654,7 @@ public:
 		if (xoff != curRTOffsetX || yoff != curRTOffsetY) {
 			curRTOffsetX = xoff;
 			curRTOffsetY = yoff;
-			Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_PROJTHROUGHMATRIX);
+			Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAMEBUFFER_DIM);
 		}
 	}
 	int curRTOffsetX;
