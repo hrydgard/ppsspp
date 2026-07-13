@@ -79,8 +79,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	if (dirtyUniforms & DIRTY_FRAMEBUFFER_DIM) {
 		ub->xywh[0] = (float)gstate_c.curRTOffsetX;
 		ub->xywh[1] = (float)gstate_c.curRTOffsetY;
-		ub->xywh[2] = (float)gstate_c.curRTWidth;
-		ub->xywh[3] = (float)gstate_c.curRTHeight;
+		ub->xywh[2] = (float)(2.0 / gstate_c.curRTWidth);  // intentionally do double precision here.
+		ub->xywh[3] = (float)(2.0 / gstate_c.curRTHeight);
 
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
