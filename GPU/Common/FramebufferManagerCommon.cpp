@@ -429,6 +429,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			} else if (PSP_CoreParameter().compat.flags().FramebufferAllowLargeVerticalOffset &&
 				params.fb_address > v->fb_address && v->fb_stride > 0 && (params.fb_address - v->fb_address) % v->FbStrideInBytes() == 0 &&
 				params.fb_address != 0x04088000 && v->fb_address != 0x04000000) {  // Heuristic to avoid merging the main framebuffers.
+
+				// Breath of Fire III relies on this to render the second framebuffer inside the first one.
+
 				y_offset = (params.fb_address - v->fb_address) / v->FbStrideInBytes();
 				if (y_offset <= v->bufferHeight) {  // note: v->height is misdetected as 256 instead of 272 here in tokimeki. Note that 272 is just the height of the upper part, it's supersampling vertically.
 					large_offset_vfb = v;
@@ -1037,11 +1040,11 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_FRAMEBUFFER_DIM | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+		gstate_c.Dirty(DIRTY_FRAMEBUFFER_DIM);
 	}
 }
 

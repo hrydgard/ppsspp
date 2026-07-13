@@ -44,7 +44,7 @@ enum DebugShaderStringType {
 // more code than before. TODO: Can probably cut the number of these down without too much slowdown.
 enum : uint64_t {
 	DIRTY_PROJMATRIX = 1ULL << 0,
-	DIRTY_PROJTHROUGHMATRIX = 1ULL << 1,
+	DIRTY_FRAMEBUFFER_DIM = 1ULL << 1,
 	DIRTY_FOGCOLOR = 1ULL << 2,
 	DIRTY_FOGCOEF = 1ULL << 3,
 	DIRTY_TEXENV = 1ULL << 4,

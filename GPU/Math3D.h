@@ -1176,6 +1176,7 @@ inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
 // 4567
 // 89AB
 // Don't see a way to SIMD that. Should be pretty fast anyway.
+// And on NEON it just works!
 inline void ConvertMatrix4x3To3x4Transposed(float *m3x4, const float *m4x3) {
 #if PPSSPP_ARCH(ARM_NEON)
 	// vld3q is a perfect match here!

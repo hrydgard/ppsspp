@@ -406,7 +406,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		memcpy(&matrix, gstate.projMatrix, 16 * sizeof(float));
 		render_->SetUniformM4x4(&u_proj, matrix.m);
 	}
-	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
+	if (dirty & DIRTY_FRAMEBUFFER_DIM) {
 		float xywh[4];
 		xywh[0] = (float)gstate_c.curRTOffsetX;
 		xywh[1] = (float)gstate_c.curRTOffsetY;
