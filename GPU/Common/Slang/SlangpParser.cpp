@@ -159,6 +159,7 @@ bool SplitSlangSource(const std::string &src, SlangSource *out, std::string *err
 	out->fragment.clear();
 	out->name.clear();
 	out->params.clear();
+	out->format = SlangFbFormat::Default;
 
 	std::string prologue;
 	// stage: 0 = prologue (shared), 1 = vertex, 2 = fragment
@@ -182,7 +183,11 @@ bool SplitSlangSource(const std::string &src, SlangSource *out, std::string *err
 					out->params.push_back(p);
 				continue;
 			} else if (startsWith(rest, "format")) {
-				continue;  // consumed; Phase 1 uses default RT format
+				std::string fmt = std::string(StripSpaces(rest.substr(strlen("format"))));
+				if (fmt.find("_SFLOAT") != std::string::npos) out->format = SlangFbFormat::Float;
+				else if (fmt.find("_SRGB") != std::string::npos) out->format = SlangFbFormat::Srgb;
+				else out->format = SlangFbFormat::Default;
+				continue;
 			}
 			// Unknown pragma: fall through and emit it.
 		}

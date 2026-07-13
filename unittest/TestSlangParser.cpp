@@ -276,3 +276,20 @@ bool TestSlangParserLuts() {
 	EXPECT_FALSE(out.luts[1].linear);
 	return true;
 }
+
+bool TestSlangFormatPragma() {
+	const std::string src =
+		"#version 450\n"
+		"#pragma format R16G16B16A16_SFLOAT\n"
+		"#pragma stage vertex\n"
+		"void main(){ gl_Position = vec4(0.0); }\n"
+		"#pragma stage fragment\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"void main(){ FragColor = vec4(1.0); }\n";
+	SlangSource out; std::string err;
+	EXPECT_TRUE(SplitSlangSource(src, &out, &err));
+	EXPECT_TRUE(out.format == SlangFbFormat::Float);
+	// #pragma format line must NOT leak into emitted GLSL:
+	EXPECT_TRUE(out.fragment.find("#pragma format") == std::string::npos);
+	return true;
+}

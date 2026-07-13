@@ -31,5 +31,6 @@ struct SlangSource {
 	std::string fragment;  // full GLSL for the fragment stage (shared prologue + fragment body)
 	std::string name;      // #pragma name value, "" if none
 	std::vector<SlangParamDesc> params;  // one per #pragma parameter
+	SlangFbFormat format = SlangFbFormat::Default;  // #pragma format value
 };
 bool SplitSlangSource(const std::string &src, SlangSource *out, std::string *error);
