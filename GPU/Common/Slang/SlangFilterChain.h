@@ -58,6 +58,9 @@ private:
 	SlangPreset preset_;
 	std::vector<SlangCompiledPass> passes_;
 	std::vector<Draw::Framebuffer *> passFramebuffers_;
+	std::vector<Draw::Texture *> lutTextures_;
+	std::vector<Draw::SamplerState *> lutSamplers_;
+	std::vector<std::pair<int, int>> lutSizes_;  // optional, for Task 6
 	Draw::Buffer *quad_ = nullptr;
 	Draw::SamplerState *samplerLinear_ = nullptr;
 	Draw::SamplerState *samplerNearest_ = nullptr;

@@ -26,9 +26,11 @@
 #include <algorithm>
 #include <cstring>
 #include <cmath>
+#include <cstdlib>
 #include "Common/Log.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Format/PngLoad.h"
 #include "GPU/Common/Slang/SlangFilterChain.h"
 #include "GPU/Common/Slang/SlangpParser.h"
 #include "GPU/Common/Slang/SlangResolution.h"
@@ -112,6 +114,95 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 		TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST,
 		0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE
 	});
+
+	// Load LUT textures
+	for (const auto &lut : preset_.luts) {
+		// Guard: LUT must have a path
+		if (lut.path.empty()) {
+			*error = "LUT '" + lut.name + "' has no path";
+			ReleaseResources();
+			return false;
+		}
+
+		// Read PNG file via VFS
+		size_t lutSz = 0;
+		uint8_t *lutData = g_VFS.ReadFile(lut.path.c_str(), &lutSz);
+		if (!lutData) {
+			*error = "failed to load LUT: " + lut.name;
+			ReleaseResources();
+			return false;
+		}
+
+		// Decode PNG
+		int w = 0, h = 0;
+		unsigned char *pixels = nullptr;
+		int pngResult = pngLoadPtr(lutData, lutSz, &w, &h, &pixels);
+		delete[] lutData;
+		if (pngResult != 1 || !pixels) {
+			*error = "failed to load LUT: " + lut.name;
+			ReleaseResources();
+			return false;
+		}
+
+		// Calculate mip levels: floor(log2(max(w,h))) + 1
+		int maxDim = std::max(w, h);
+		int mipLevels = lut.mipmap ? (int)(std::floor(std::log2((float)maxDim)) + 1) : 1;
+
+		// Create texture
+		TextureDesc texDesc{};
+		texDesc.type = TextureType::LINEAR2D;
+		texDesc.format = DataFormat::R8G8B8A8_UNORM;
+		texDesc.width = w;
+		texDesc.height = h;
+		texDesc.depth = 1;
+		texDesc.mipLevels = mipLevels;
+		texDesc.generateMips = lut.mipmap;
+		texDesc.swizzle = TextureSwizzle::DEFAULT;
+		texDesc.tag = "slang-lut";
+		texDesc.initData.push_back((const uint8_t *)pixels);
+
+		Texture *tex = draw_->CreateTexture(texDesc);
+		free(pixels);
+		if (!tex) {
+			*error = "failed to load LUT: " + lut.name;
+			ReleaseResources();
+			return false;
+		}
+
+		// Map SlangWrapMode to TextureAddressMode
+		TextureAddressMode wrapMode;
+		switch (lut.wrapMode) {
+		case SlangWrapMode::ClampToBorder:
+			wrapMode = TextureAddressMode::CLAMP_TO_BORDER;
+			break;
+		case SlangWrapMode::ClampToEdge:
+			wrapMode = TextureAddressMode::CLAMP_TO_EDGE;
+			break;
+		case SlangWrapMode::Repeat:
+			wrapMode = TextureAddressMode::REPEAT;
+			break;
+		case SlangWrapMode::MirroredRepeat:
+			wrapMode = TextureAddressMode::REPEAT_MIRROR;
+			break;
+		}
+
+		// Create sampler
+		TextureFilter filter = lut.linear ? TextureFilter::LINEAR : TextureFilter::NEAREST;
+		SamplerState *sampler = draw_->CreateSamplerState({
+			filter, filter, filter,
+			0.0f, wrapMode, wrapMode, wrapMode
+		});
+		if (!sampler) {
+			tex->Release();
+			*error = "failed to load LUT: " + lut.name;
+			ReleaseResources();
+			return false;
+		}
+
+		lutTextures_.push_back(tex);
+		lutSamplers_.push_back(sampler);
+		lutSizes_.push_back({w, h});
+	}
 
 	// Compile each pass
 	passes_.resize(preset_.passes.size());
@@ -338,6 +429,9 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 
 void SlangFilterChain::ReleaseResources() {
 	DoReleaseVector(passFramebuffers_);
+	DoReleaseVector(lutTextures_);
+	DoReleaseVector(lutSamplers_);
+	lutSizes_.clear();
 	for (auto &pass : passes_) {
 		DoRelease(pass.pipeline);
 	}
