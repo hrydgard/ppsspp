@@ -58,6 +58,8 @@ private:
 	SlangPreset preset_;
 	std::vector<SlangCompiledPass> passes_;
 	std::vector<Draw::Framebuffer *> passFramebuffers_;
+	std::vector<Draw::Framebuffer *> historyRing_;  // OriginalHistory1..N ring (newest-first)
+	int historyDepth_ = 0;  // max OriginalHistory index referenced; 0 if none
 	std::vector<Draw::Texture *> lutTextures_;
 	std::vector<Draw::SamplerState *> lutSamplers_;
 	std::vector<std::pair<int, int>> lutSizes_;  // optional, for Task 6

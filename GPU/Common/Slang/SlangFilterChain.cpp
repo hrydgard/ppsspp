@@ -255,6 +255,21 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 		}
 	}
 
+	// Compute history depth: max OriginalHistory index referenced across ALL passes
+	historyDepth_ = 0;
+	for (const auto &pass : passes_) {
+		for (const auto &tex : pass.reflection.textures) {
+			if (tex.semantic == SlangSemantic::TexOriginalHistory && tex.index > historyDepth_) {
+				historyDepth_ = tex.index;
+			}
+		}
+		for (const auto &m : pass.reflection.uboMembers) {
+			if (m.semantic == SlangSemantic::OriginalHistorySize && m.index > historyDepth_) {
+				historyDepth_ = m.index;
+			}
+		}
+	}
+
 	valid_ = true;
 	return true;
 }
@@ -268,6 +283,36 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 	// Ensure we have enough framebuffer slots (lazy allocation, will resize as needed)
 	if (passFramebuffers_.size() < passes_.size()) {
 		passFramebuffers_.resize(passes_.size(), nullptr);
+	}
+
+	// Allocate history ring: historyRing_[k] will hold the input from k frames ago (k >= 1).
+	// OriginalHistory0 is the current source (no ring slot needed); indices 1..historyDepth_ need retained copies.
+	// historyRing_[0] = newest (1 frame ago), historyRing_[historyDepth_-1] = oldest.
+	if (historyDepth_ > 0) {
+		if (historyRing_.size() != (size_t)historyDepth_) {
+			DoReleaseVector(historyRing_);
+			historyRing_.resize(historyDepth_, nullptr);
+		}
+		// Allocate or resize if source dimensions changed
+		for (int k = 0; k < historyDepth_; k++) {
+			bool needsResize = false;
+			if (historyRing_[k]) {
+				int fbW, fbH;
+				draw_->GetFramebufferDimensions(historyRing_[k], &fbW, &fbH);
+				needsResize = (fbW != sourceW || fbH != sourceH);
+			}
+			if (!historyRing_[k] || needsResize) {
+				DoRelease(historyRing_[k]);
+				using namespace Draw;
+				historyRing_[k] = draw_->CreateFramebuffer({
+					sourceW, sourceH, 1, 1, 0, false, "slang-history"
+				});
+				if (!historyRing_[k]) {
+					ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create history framebuffer %dx%d", sourceW, sourceH);
+					return nullptr;
+				}
+			}
+		}
 	}
 
 	Draw::Framebuffer *prevOutput = source;
@@ -372,6 +417,51 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 				memcpy(dst, &val, std::min((size_t)4, avail));
 				break;
 			}
+			case SlangSemantic::PassOutputSize: {
+				// Range-check: m.index must be >= 0 and < i (causal: only earlier passes)
+				if (m.index >= 0 && m.index < (int)i && (size_t)m.index < passFramebuffers_.size() && passFramebuffers_[m.index]) {
+					int fbW, fbH;
+					draw_->GetFramebufferDimensions(passFramebuffers_[m.index], &fbW, &fbH);
+					float v[4] = { (float)fbW, (float)fbH,
+					               1.0f / (float)std::max(1, fbW), 1.0f / (float)std::max(1, fbH) };
+					memcpy(dst, v, std::min((size_t)16, avail));
+				} else {
+					// Out of range or malformed: write source dims as safe fallback
+					float v[4] = { (float)sourceW, (float)sourceH,
+					               1.0f / (float)std::max(1, sourceW), 1.0f / (float)std::max(1, sourceH) };
+					memcpy(dst, v, std::min((size_t)16, avail));
+				}
+				break;
+			}
+			case SlangSemantic::OriginalHistorySize: {
+				// All history frames are source-sized; index doesn't matter for dimensions
+				float v[4] = { (float)sourceW, (float)sourceH,
+				               1.0f / (float)std::max(1, sourceW), 1.0f / (float)std::max(1, sourceH) };
+				memcpy(dst, v, std::min((size_t)16, avail));
+				break;
+			}
+			case SlangSemantic::LutSize: {
+				// Range-check m.index against lutSizes_
+				if (m.index >= 0 && (size_t)m.index < lutSizes_.size()) {
+					int w = lutSizes_[m.index].first;
+					int h = lutSizes_[m.index].second;
+					float v[4] = { (float)w, (float)h,
+					               1.0f / (float)std::max(1, w), 1.0f / (float)std::max(1, h) };
+					memcpy(dst, v, std::min((size_t)16, avail));
+				} else {
+					// Out of range: write 1x1 as safe fallback
+					float v[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+					memcpy(dst, v, std::min((size_t)16, avail));
+				}
+				break;
+			}
+			case SlangSemantic::PassFeedbackSize: {
+				// Task 7 stub: write source dims for now
+				float v[4] = { (float)sourceW, (float)sourceH,
+				               1.0f / (float)std::max(1, sourceW), 1.0f / (float)std::max(1, sourceH) };
+				memcpy(dst, v, std::min((size_t)16, avail));
+				break;
+			}
 			default:
 				break;
 			}
@@ -387,7 +477,7 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		draw_->SetViewport(vp);
 		draw_->SetScissorRect(0, 0, outputSize.w, outputSize.h);
 
-		// Bind input textures + samplers by semantic (source framebuffer, prev pass output).
+		// Bind input textures + samplers by semantic (source, PassOutput, history, LUTs).
 		// NOTE: slang shaders declare the UBO at descriptor binding 0 and samplers at
 		// binding 1..N. PPSSPP's thin3d, however, indexes textures by a 0-based *slot*
 		// (slot 0 -> descriptor binding 1, slot 1 -> binding 2, ...). So convert the
@@ -398,16 +488,75 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			if (slot < 0) {
 				continue;  // binding 0 is the UBO, not a texture slot.
 			}
+
 			Draw::Framebuffer *inputFB = nullptr;
-			if (tex.semantic == SlangSemantic::TexSource) {
+			Draw::SamplerState *useSampler = sampler;  // default to pass sampler
+			bool isLut = false;
+
+			switch (tex.semantic) {
+			case SlangSemantic::TexSource:
 				inputFB = (i == 0) ? source : passFramebuffers_[i - 1];
-			} else if (tex.semantic == SlangSemantic::TexOriginal) {
+				break;
+			case SlangSemantic::TexOriginal:
 				inputFB = source;
+				break;
+			case SlangSemantic::TexOriginalHistory:
+				// OriginalHistory0 = current source; indices 1..historyDepth_ = ring slots
+				if (tex.index == 0) {
+					inputFB = source;
+				} else if (tex.index >= 1 && tex.index <= historyDepth_ && (size_t)(tex.index - 1) < historyRing_.size()) {
+					// historyRing_[0] = 1 frame ago, historyRing_[k-1] = k frames ago
+					inputFB = historyRing_[tex.index - 1];
+				} else {
+					// Out of range: bind source as safe fallback
+					inputFB = source;
+				}
+				break;
+			case SlangSemantic::TexPassOutput:
+				// Range-check: tex.index must be >= 0 and < i (causal: only earlier passes)
+				if (tex.index >= 0 && tex.index < (int)i && (size_t)tex.index < passFramebuffers_.size()) {
+					inputFB = passFramebuffers_[tex.index];
+				} else {
+					// Out of range or malformed: log once and bind source as safe fallback
+					static bool logged = false;
+					if (!logged) {
+						ERROR_LOG(Log::G3D, "SlangFilterChain: PassOutput index %d out of range (current pass %d)", tex.index, (int)i);
+						logged = true;
+					}
+					inputFB = source;
+				}
+				break;
+			case SlangSemantic::TexPassFeedback:
+				// Task 7 stub: bind source as placeholder
+				inputFB = source;
+				break;
+			case SlangSemantic::TexLut:
+				// Range-check tex.index against lutTextures_
+				if (tex.index >= 0 && (size_t)tex.index < lutTextures_.size()) {
+					isLut = true;
+					draw_->BindTexture(slot, lutTextures_[tex.index]);
+					useSampler = lutSamplers_[tex.index];
+				} else {
+					// Out of range: skip binding (leave unbound)
+					static bool logged = false;
+					if (!logged) {
+						ERROR_LOG(Log::G3D, "SlangFilterChain: LUT index %d out of range", tex.index);
+						logged = true;
+					}
+				}
+				break;
+			default:
+				break;
 			}
-			if (inputFB) {
+
+			// Bind framebuffer inputs (if not a LUT)
+			if (!isLut && inputFB) {
 				draw_->BindFramebufferAsTexture(inputFB, slot, Draw::Aspect::COLOR_BIT, 0);
 			}
-			draw_->BindSamplerStates(slot, 1, &sampler);
+			// Bind sampler for all texture types
+			if (isLut || inputFB) {
+				draw_->BindSamplerStates(slot, 1, &useSampler);
+			}
 		}
 
 		// Bind pipeline BEFORE updating the dynamic uniform buffer — PPSSPP's Vulkan
@@ -424,14 +573,31 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		prevW = outputSize.w;
 		prevH = outputSize.h;
 	}
+
+	// Advance history ring: copy current source into the newest slot and rotate.
+	// historyRing_ is maintained newest-first: [0] = 1 frame ago, [historyDepth_-1] = oldest.
+	// Rotation: move the oldest frame to the front, then blit source into it (it becomes the newest).
+	if (historyDepth_ > 0 && !historyRing_.empty()) {
+		// Rotate: move last element to front
+		Draw::Framebuffer *oldest = historyRing_.back();
+		historyRing_.pop_back();
+		historyRing_.insert(historyRing_.begin(), oldest);
+		// Blit source into the new front (newest slot)
+		draw_->BlitFramebuffer(source, 0, 0, sourceW, sourceH,
+		                       historyRing_[0], 0, 0, sourceW, sourceH,
+		                       Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_NEAREST, "slang-history");
+	}
+
 	return passFramebuffers_.back();
 }
 
 void SlangFilterChain::ReleaseResources() {
 	DoReleaseVector(passFramebuffers_);
+	DoReleaseVector(historyRing_);
 	DoReleaseVector(lutTextures_);
 	DoReleaseVector(lutSamplers_);
 	lutSizes_.clear();
+	historyDepth_ = 0;
 	for (auto &pass : passes_) {
 		DoRelease(pass.pipeline);
 	}
