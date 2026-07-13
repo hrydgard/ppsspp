@@ -72,6 +72,7 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 
 	delete presentation_;
 	delete slangChain_;
+	slangChainPresetPath_.clear();
 	delete[] convBuf_;
 }
 
@@ -124,24 +125,30 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 	if (g_Config.sSlangShaderPreset.empty()) {
 		delete slangChain_;
 		slangChain_ = nullptr;
+		slangChainPresetPath_.clear();
 		return;
 	}
 
-	// Check if we need to reload
-	Path presetPath(g_Config.sSlangShaderPreset);
-	if (slangChain_) {
-		// If the preset path hasn't changed, keep the existing chain
-		// (Note: we could add a member to track the loaded path, but for now recreate each time)
-		delete slangChain_;
-		slangChain_ = nullptr;
+	// Check if we can keep the existing chain
+	if (slangChain_ && slangChainPresetPath_ == g_Config.sSlangShaderPreset && slangChain_->IsValid()) {
+		// Path unchanged and chain still valid, keep it
+		return;
 	}
+
+	// Need to reload - delete any existing chain
+	delete slangChain_;
+	slangChain_ = nullptr;
 
 	slangChain_ = new SlangFilterChain(draw_);
 	std::string error;
+	Path presetPath(g_Config.sSlangShaderPreset);
 	if (!slangChain_->Load(presetPath, &error)) {
 		WARN_LOG(Log::G3D, "Failed to load slang preset '%s': %s", g_Config.sSlangShaderPreset.c_str(), error.c_str());
 		delete slangChain_;
 		slangChain_ = nullptr;
+		slangChainPresetPath_.clear();
+	} else {
+		slangChainPresetPath_ = g_Config.sSlangShaderPreset;
 	}
 }
 

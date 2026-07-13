@@ -580,6 +580,7 @@ protected:
 
 	PresentationCommon *presentation_ = nullptr;
 	SlangFilterChain *slangChain_ = nullptr;
+	std::string slangChainPresetPath_;  // path currently loaded into slangChain_, empty if none
 
 	Draw::DrawContext *draw_ = nullptr;
 
