@@ -112,6 +112,31 @@ bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset
 	std::string fp;
 	if (getStr("feedback_pass", &fp)) out->feedbackPass = atoi(fp.c_str());
 
+	// Parse LUT textures
+	std::string texList;
+	if (getStr("textures", &texList)) {
+		std::vector<std::string> names;
+		// split on ';', trim each
+		size_t start = 0;
+		while (start <= texList.size()) {
+			size_t sep = texList.find(';', start);
+			std::string nm = std::string(StripSpaces(texList.substr(start, sep == std::string::npos ? std::string::npos : sep - start)));
+			if (!nm.empty()) {
+				SlangLutDesc lut;
+				lut.name = nm;
+				std::string p;
+				if (getStr(nm, &p)) lut.path = (basePath / p).ToString();
+				std::string t;
+				if (getStr(nm + "_linear", &t)) lut.linear = (t == "true" || t == "1");
+				if (getStr(nm + "_mipmap", &t)) lut.mipmap = (t == "true" || t == "1");
+				if (getStr(nm + "_wrap_mode", &t)) lut.wrapMode = ParseWrapMode(t);
+				out->luts.push_back(lut);
+			}
+			if (sep == std::string::npos) break;
+			start = sep + 1;
+		}
+	}
+
 	return true;
 }
 

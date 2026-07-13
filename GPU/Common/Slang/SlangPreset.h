@@ -49,6 +49,14 @@ struct SlangParamDesc {
 	float step = 0.01f;
 };
 
+struct SlangLutDesc {
+	std::string name;          // identifier used by shaders (e.g. "SamplerLUT1")
+	std::string path;          // resolved absolute path to the PNG
+	bool linear = false;       // <name>_linear
+	bool mipmap = false;       // <name>_mipmap
+	SlangWrapMode wrapMode = SlangWrapMode::ClampToBorder;  // <name>_wrap_mode
+};
+
 struct SlangPassDesc {
 	std::string shaderPath;   // resolved absolute path to the .slang file
 	std::string alias;        // #pragma name / aliasN, "" if none
@@ -69,5 +77,6 @@ struct SlangPreset {
 	Path basePath;   // directory the .slangp lives in
 	std::vector<SlangPassDesc> passes;
 	std::vector<SlangParamDesc> params;
+	std::vector<SlangLutDesc> luts;
 	int feedbackPass = -1;   // global feedback_pass; -1 = none
 };

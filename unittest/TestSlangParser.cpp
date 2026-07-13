@@ -253,3 +253,26 @@ bool TestSlangParserPhase2Keys() {
 	EXPECT_FALSE(out.passes[1].srgbFramebuffer);
 	return true;
 }
+
+bool TestSlangParserLuts() {
+	const std::string preset =
+		"shaders = 1\n"
+		"shader0 = a.slang\n"
+		"textures = \"LUT1;LUT2\"\n"
+		"LUT1 = ../luts/one.png\n"
+		"LUT1_linear = true\n"
+		"LUT1_mipmap = true\n"
+		"LUT1_wrap_mode = repeat\n"
+		"LUT2 = two.png\n";
+	SlangPreset out; std::string err; Path base("/tmp/dir");
+	EXPECT_TRUE(ParseSlangPreset(preset, base, &out, &err));
+	EXPECT_EQ_INT((int)out.luts.size(), 2);
+	std::string n0 = out.luts[0].name; std::string e0 = "LUT1"; EXPECT_EQ_STR(n0, e0);
+	std::string p0 = out.luts[0].path; std::string ep0 = (base / "../luts/one.png").ToString(); EXPECT_EQ_STR(p0, ep0);
+	EXPECT_TRUE(out.luts[0].linear);
+	EXPECT_TRUE(out.luts[0].mipmap);
+	EXPECT_TRUE(out.luts[0].wrapMode == SlangWrapMode::Repeat);
+	std::string n1 = out.luts[1].name; std::string e1 = "LUT2"; EXPECT_EQ_STR(n1, e1);
+	EXPECT_FALSE(out.luts[1].linear);
+	return true;
+}
