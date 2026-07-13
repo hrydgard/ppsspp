@@ -571,6 +571,7 @@ void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
@@ -579,6 +580,9 @@ void ShaderViewScreen::CreateViews() {
 	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
 		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
+	});
+	topbar->Add(new Choice(dev->T("Copy source code"), ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
+		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SOURCE_CODE));
 	});
 	topbar->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
 	layout->Add(topbar);

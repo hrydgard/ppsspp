@@ -166,12 +166,13 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	*id_out = id;
 }
 
-
 static const char * const alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+static_assert(ARRAY_SIZE(alphaTestFuncs) == 8);
 static const char * const logicFuncs[] = {
 	"CLEAR", "AND", "AND_REV", "COPY", "AND_INV", "NOOP", "XOR", "OR",
 	"NOR", "EQUIV", "INVERTED", "OR_REV", "COPY_INV", "OR_INV", "NAND", "SET",
 };
+static_assert(ARRAY_SIZE(logicFuncs) == 16);
 
 static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
 	// For GE_PROJMAP_UV, we can ignore m[8] since it multiplies to zero.

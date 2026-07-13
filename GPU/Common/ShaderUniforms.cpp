@@ -90,7 +90,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		ub->rasterOffset[1] = gstate.getOffsetY();
 		ub->minZmaxZ[0] = (float)gstate.getDepthRangeMin();
 		ub->minZmaxZ[1] = (float)gstate.getDepthRangeMax();
-
 		// test sine wave
 		// ub->minZmaxZ[0] = (sin(time_now_d()) * 0.5f + 0.5f) * 65536.0;
 	}

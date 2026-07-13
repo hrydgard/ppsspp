@@ -343,7 +343,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		if (fsMinmaxDiscard || fsDepthClamp) {
-			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+			WRITE(p, "  highp vec2 v_zw : TEXCOORD2;\n");
 		}
 		// gl_Position must be last for D3D11.
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
@@ -903,7 +903,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (specularIsZero) {
 					WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
 				} else {
-					WRITE(p, "  %sv_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
+					WRITE(p, "  %sv_color0 = clamp(vec4(lightSum0.rgb + lightSum1, lightSum0.a), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
 			}
 		} else {
