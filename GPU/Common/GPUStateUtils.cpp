@@ -518,15 +518,14 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 }
 
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
-	float renderWidthFactor, renderHeightFactor;
-	float renderX = 0.0f, renderY = 0.0f;
-	float displayOffsetX, displayOffsetY;
-	if (useBufferedRendering) {
-		displayOffsetX = 0.0f;
-		displayOffsetY = 0.0f;
-		renderWidthFactor = (float)renderWidth / (float)bufferWidth;
-		renderHeightFactor = (float)renderHeight / (float)bufferHeight;
-	} else {
+	float renderWidthFactor = (float)renderWidth / (float)bufferWidth;
+	float renderHeightFactor = (float)renderHeight / (float)bufferHeight;
+	float renderX = 0.0f;
+	float renderY = 0.0f;
+	float displayOffsetX = 0.0f;
+	float displayOffsetY = 0.0f;
+
+	if (!useBufferedRendering) {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, pixelW, pixelH);
@@ -540,31 +539,29 @@ void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBuffer
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	// Scissor
+	// Scissor. The scissor needs to be offset by the framebuffer offset.
 	int scissorX1 = gstate.getScissorX1();
 	int scissorY1 = gstate.getScissorY1();
 	int scissorX2 = gstate.getScissorX2() + 1;
 	int scissorY2 = gstate.getScissorY2() + 1;
 
 	if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
+		// Bad scissor, kill all drawing with a valid scissor setup.
 		out.scissorX = 0;
 		out.scissorY = 0;
 		out.scissorW = 0;
 		out.scissorH = 0;
 	} else {
-		out.scissorX = displayOffsetX + scissorX1 * renderWidthFactor;
-		out.scissorY = displayOffsetY + scissorY1 * renderHeightFactor;
+		out.scissorX = displayOffsetX + (scissorX1 + gstate_c.curRTOffsetX) * renderWidthFactor;
+		out.scissorY = displayOffsetY + (scissorY1 + gstate_c.curRTOffsetY) * renderHeightFactor;
 		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
 		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
 	}
 
-	int curRTWidth = gstate_c.curRTWidth;
-	int curRTHeight = gstate_c.curRTHeight;
-
 	out.viewportX = displayOffsetX;
 	out.viewportY = displayOffsetY;
-	out.viewportW = curRTWidth * renderWidthFactor;
-	out.viewportH = curRTHeight * renderHeightFactor;
+	out.viewportW = gstate_c.curRTWidth * renderWidthFactor;
+	out.viewportH = gstate_c.curRTHeight * renderHeightFactor;
 }
 
 static const BlendFactor genericALookup[11] = {

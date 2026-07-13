@@ -1042,7 +1042,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.
-	WRITE(p, "  outPos.xy = ((outPos.xy - u_xywh.xy) / u_xywh.zw) * 2.0 - 1.0;\n");
+	WRITE(p, "  outPos.xy = ((outPos.xy + u_xywh.xy) / u_xywh.zw) * 2.0 - 1.0;\n");
 
 	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
