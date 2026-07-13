@@ -2055,6 +2055,8 @@ set(GPU_SOURCES
 	GPU/Common/Slang/SlangPreset.h
 	GPU/Common/Slang/SlangpParser.cpp
 	GPU/Common/Slang/SlangpParser.h
+	GPU/Common/Slang/SlangReflection.cpp
+	GPU/Common/Slang/SlangReflection.h
 	GPU/Common/Slang/SlangResolution.h
 	GPU/Common/TextureReplacer.cpp
 	GPU/Common/TextureReplacer.h

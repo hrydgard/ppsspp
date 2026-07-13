@@ -20,6 +20,7 @@
 #include "Common/File/Path.h"
 #include "GPU/Common/Slang/SlangpParser.h"
 #include "GPU/Common/Slang/SlangResolution.h"
+#include "GPU/Common/Slang/SlangReflection.h"
 
 bool TestSlangParser() {
 	// Two-pass preset with per-axis scale, alias, and a parameter list line.
@@ -153,5 +154,25 @@ bool TestSlangResolution() {
 	SlangSize rc = ResolvePassSize(c, input, viewport);
 	EXPECT_EQ_INT(rc.w, 1);
 	EXPECT_EQ_INT(rc.h, 1);
+	return true;
+}
+
+bool TestSlangSemantics() {
+	std::vector<std::string> params = { "ColorMod", "Sharpness" };
+
+	EXPECT_TRUE(ClassifyUniform("MVP", params) == SlangSemantic::MVP);
+	EXPECT_TRUE(ClassifyUniform("SourceSize", params) == SlangSemantic::SourceSize);
+	EXPECT_TRUE(ClassifyUniform("OriginalSize", params) == SlangSemantic::OriginalSize);
+	EXPECT_TRUE(ClassifyUniform("OutputSize", params) == SlangSemantic::OutputSize);
+	EXPECT_TRUE(ClassifyUniform("FinalViewportSize", params) == SlangSemantic::FinalViewportSize);
+	EXPECT_TRUE(ClassifyUniform("FrameCount", params) == SlangSemantic::FrameCount);
+	EXPECT_TRUE(ClassifyUniform("ColorMod", params) == SlangSemantic::UserParameter);
+	EXPECT_TRUE(ClassifyUniform("Sharpness", params) == SlangSemantic::UserParameter);
+	EXPECT_TRUE(ClassifyUniform("SomethingElse", params) == SlangSemantic::Unknown);
+
+	EXPECT_TRUE(ClassifyTexture("Source") == SlangSemantic::TexSource);
+	EXPECT_TRUE(ClassifyTexture("Original") == SlangSemantic::TexOriginal);
+	// Not supported in Phase 1:
+	EXPECT_TRUE(ClassifyTexture("PassOutput0") == SlangSemantic::Unknown);
 	return true;
 }
