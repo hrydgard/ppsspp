@@ -21,6 +21,8 @@
 #include "GPU/Common/Slang/SlangpParser.h"
 #include "GPU/Common/Slang/SlangResolution.h"
 #include "GPU/Common/Slang/SlangReflection.h"
+#include "GPU/Common/Slang/SlangPassCompiler.h"
+#include "Common/GPU/ShaderTranslation.h"
 
 bool TestSlangParser() {
 	// Two-pass preset with per-axis scale, alias, and a parameter list line.
@@ -174,5 +176,52 @@ bool TestSlangSemantics() {
 	EXPECT_TRUE(ClassifyTexture("Original") == SlangSemantic::TexOriginal);
 	// Not supported in Phase 1:
 	EXPECT_TRUE(ClassifyTexture("PassOutput0") == SlangSemantic::Unknown);
+	return true;
+}
+
+bool TestSlangReflection() {
+	ShaderTranslationInit();  // idempotent-safe within a single test run
+	const std::string srcText =
+		"#version 450\n"
+		"layout(set=0,binding=0,std140) uniform UBO {\n"
+		"  mat4 MVP;\n"
+		"  vec4 SourceSize;\n"
+		"  float ColorMod;\n"
+		"};\n"
+		"#pragma parameter ColorMod \"Color\" 1.0 0.1 2.0 0.1\n"
+		"#pragma stage vertex\n"
+		"layout(location=0) in vec4 Position;\n"
+		"layout(location=1) in vec2 TexCoord;\n"
+		"layout(location=0) out vec2 vTexCoord;\n"
+		"void main() { gl_Position = MVP * Position; vTexCoord = TexCoord; }\n"
+		"#pragma stage fragment\n"
+		"layout(location=0) in vec2 vTexCoord;\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"layout(binding=1) uniform sampler2D Source;\n"
+		"void main() { FragColor = texture(Source, vTexCoord) * ColorMod; }\n";
+
+	SlangSource src;
+	std::string error;
+	EXPECT_TRUE(SplitSlangSource(srcText, &src, &error));
+
+	PassReflection refl;
+	EXPECT_TRUE(ReflectSlangSource(src, &refl, &error));
+
+	// UBO binding 0, three members with correct semantics + offsets (std140).
+	EXPECT_EQ_INT(refl.uboBinding, 0);
+	EXPECT_EQ_INT((int)refl.uboMembers.size(), 3);
+
+	bool sawMVP = false, sawSourceSize = false, sawColorMod = false;
+	for (const auto &m : refl.uboMembers) {
+		if (m.semantic == SlangSemantic::MVP) { sawMVP = true; EXPECT_EQ_INT((int)m.offsetBytes, 0); EXPECT_EQ_INT((int)m.sizeBytes, 64); }
+		if (m.semantic == SlangSemantic::SourceSize) { sawSourceSize = true; EXPECT_EQ_INT((int)m.offsetBytes, 64); EXPECT_EQ_INT((int)m.sizeBytes, 16); }
+		if (m.semantic == SlangSemantic::UserParameter) { sawColorMod = true; EXPECT_EQ_INT((int)m.offsetBytes, 80); }
+	}
+	EXPECT_TRUE(sawMVP); EXPECT_TRUE(sawSourceSize); EXPECT_TRUE(sawColorMod);
+
+	// Sampler "Source" at binding 1, classified TexSource.
+	EXPECT_EQ_INT((int)refl.textures.size(), 1);
+	EXPECT_EQ_INT(refl.textures[0].binding, 1);
+	EXPECT_TRUE(refl.textures[0].semantic == SlangSemantic::TexSource);
 	return true;
 }
