@@ -531,18 +531,19 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 				inputFB = source;
 				break;
 			case SlangSemantic::TexLut:
-				// Range-check tex.index against lutTextures_
-				if (tex.index >= 0 && (size_t)tex.index < lutTextures_.size()) {
+				// Range-check tex.index against BOTH lutTextures_ and lutSamplers_
+				if (tex.index >= 0 && (size_t)tex.index < lutTextures_.size() && (size_t)tex.index < lutSamplers_.size()) {
 					isLut = true;
 					draw_->BindTexture(slot, lutTextures_[tex.index]);
 					useSampler = lutSamplers_[tex.index];
 				} else {
-					// Out of range: skip binding (leave unbound)
+					// Out of range: bind source as safe fallback
 					static bool logged = false;
 					if (!logged) {
 						ERROR_LOG(Log::G3D, "SlangFilterChain: LUT index %d out of range", tex.index);
 						logged = true;
 					}
+					inputFB = source;
 				}
 				break;
 			default:
