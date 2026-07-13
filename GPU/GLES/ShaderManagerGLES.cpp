@@ -410,8 +410,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		float xywh[4];
 		xywh[0] = (float)gstate_c.curRTOffsetX;
 		xywh[1] = (float)gstate_c.curRTOffsetY;
-		xywh[2] = (float)gstate_c.curRTWidth;
-		xywh[3] = (float)gstate_c.curRTHeight;
+		xywh[2] = (float)(2.0 / gstate_c.curRTWidth);  // intentionally double precision here
+		xywh[3] = (float)(2.0 / gstate_c.curRTHeight);
 		SetFloatUniform4(render_, &u_xywh, xywh);
 		float nan = std::numeric_limits<float>::quiet_NaN();
 		render_->SetUniformF1(&u_NaN, nan);
