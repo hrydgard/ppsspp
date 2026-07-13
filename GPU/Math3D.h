@@ -1175,8 +1175,6 @@ inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
 // 0123
 // 4567
 // 89AB
-// Don't see a way to SIMD that. Should be pretty fast anyway.
-// And on NEON it just works!
 inline void ConvertMatrix4x3To3x4Transposed(float *m3x4, const float *m4x3) {
 #if PPSSPP_ARCH(ARM_NEON)
 	// vld3q is a perfect match here!
@@ -1184,6 +1182,34 @@ inline void ConvertMatrix4x3To3x4Transposed(float *m3x4, const float *m4x3) {
 	vst1q_f32(m3x4, packed.val[0]);
 	vst1q_f32(m3x4 + 4, packed.val[1]);
 	vst1q_f32(m3x4 + 8, packed.val[2]);
+#elif PPSSPP_ARCH(SSE2)
+	// This is Gemini's attempt. The generated code does look pretty good, though technically
+	// we should bench this against the naive version below.
+
+	// 1. Load all 12 elements into registers
+	__m128 r0 = _mm_loadu_ps(m4x3);     // [0, 1, 2, 3]
+	__m128 r1 = _mm_loadu_ps(m4x3 + 4); // [4, 5, 6, 7]
+	__m128 r2 = _mm_loadu_ps(m4x3 + 8); // [8, 9, 10, 11]
+
+	// 2. Generate Row 0: Target [0, 3, 6, 9]
+	__m128 tmp0 = _mm_shuffle_ps(r0, r1, _MM_SHUFFLE(2, 0, 3, 0)); // [0, 3, 4, 6]
+	__m128 tmp1 = _mm_shuffle_ps(r1, r2, _MM_SHUFFLE(1, 2, 2, 0)); // [4, 6, 10, 9]
+	__m128 row0 = _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(3, 1, 1, 0)); // [0, 3, 6, 9]
+
+	// 3. Generate Row 1: Target [1, 4, 7, 10]
+	__m128 tmp2 = _mm_shuffle_ps(r0, r1, _MM_SHUFFLE(0, 0, 0, 1)); // [1, 0, 4, 4]
+	__m128 tmp3 = _mm_shuffle_ps(r1, r2, _MM_SHUFFLE(2, 3, 3, 3)); // [7, 7, 11, 10]
+	__m128 row1 = _mm_shuffle_ps(tmp2, tmp3, _MM_SHUFFLE(3, 0, 2, 0)); // [1, 4, 7, 10]
+
+	// 4. Generate Row 2: Target [2, 5, 8, 11]
+	__m128 tmp4 = _mm_shuffle_ps(r0, r1, _MM_SHUFFLE(1, 1, 2, 2)); // [2, 2, 5, 5]
+	__m128 tmp5 = _mm_shuffle_ps(r2, r2, _MM_SHUFFLE(3, 0, 0, 0)); // [8, 8, 8, 11]
+	__m128 row2 = _mm_shuffle_ps(tmp4, tmp5, _MM_SHUFFLE(3, 0, 2, 0)); // [2, 5, 8, 11]
+
+	// 5. Stream back out to memory
+	_mm_storeu_ps(m3x4, row0);
+	_mm_storeu_ps(m3x4 + 4, row1);
+	_mm_storeu_ps(m3x4 + 8, row2);
 #else
 	m3x4[0] = m4x3[0];
 	m3x4[1] = m4x3[3];
