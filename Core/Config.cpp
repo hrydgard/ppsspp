@@ -731,6 +731,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AutoFrameSkip", SETTING(g_Config, bAutoFrameSkip), IsVREnabled(), CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("StereoRendering", SETTING(g_Config, bStereoRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", SETTING(g_Config, sStereoToMonoShader), "RedBlue", CfgFlag::PER_GAME),
+	ConfigSetting("SlangShaderPreset", SETTING(g_Config, sSlangShaderPreset), "", CfgFlag::PER_GAME),
 	ConfigSetting("FrameRate", SETTING(g_Config, iFpsLimit1), 0, CfgFlag::PER_GAME),
 	ConfigSetting("FrameRate2", SETTING(g_Config, iFpsLimit2), -1, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogFrameRate", SETTING(g_Config, iAnalogFpsLimit), 240, CfgFlag::PER_GAME),

@@ -376,6 +376,9 @@ public:
 	// There can only be one, unlike regular post shaders.
 	std::string sStereoToMonoShader;
 
+	// Slang shader preset path (empty = disabled)
+	std::string sSlangShaderPreset;
+
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
