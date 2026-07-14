@@ -1765,7 +1765,12 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 
 		if (slangChain_ && slangChain_->IsValid()) {
-			Draw::Framebuffer *slangOut = slangChain_->Run(vfb->fbo, actualWidth, actualHeight,
+			// Slang shaders expect SourceSize/OriginalSize to be the emulated content's NATIVE
+			// resolution (like RetroArch feeding a core's output), NOT PPSSPP's upscaled render
+			// resolution. Passing the upscaled size makes CRT scanline/mask math tile at display
+			// resolution (fine moiré / wobble). The bound texture is still the (upscaled) fbo,
+			// sampled via 0..1 UVs, so only the reported size must be native.
+			Draw::Framebuffer *slangOut = slangChain_->Run(vfb->fbo, vfb->bufferWidth, vfb->bufferHeight,
 			                                                pixelWidth_, pixelHeight_, gpuStats.totals.numFlips);
 			if (slangOut) {
 				// Query the actual framebuffer dimensions (final pass may not be viewport-scaled)
