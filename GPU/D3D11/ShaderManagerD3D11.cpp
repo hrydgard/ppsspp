@@ -82,11 +82,9 @@ ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *de
 	codeBuffer_ = new char[CODE_BUFFER_SIZE];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
-	memset(&ub_bones, 0, sizeof(ub_bones));
 
 	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
-	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 
 	InitDeviceObjects();
 }
@@ -98,19 +96,15 @@ ShaderManagerD3D11::~ShaderManagerD3D11() {
 }
 
 void ShaderManagerD3D11::InitDeviceObjects() {
-
 	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE};
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_base));
 	desc.ByteWidth = sizeof(ub_lights);
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_lights));
-	desc.ByteWidth = sizeof(ub_bones);
-	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_bones));
 }
 
 void ShaderManagerD3D11::DestroyDeviceObjects() {
 	push_base.Reset();
 	push_lights.Reset();
-	push_bones.Reset();
 	Clear();
 }
 
@@ -168,21 +162,15 @@ uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {
 			memcpy(map.pData, &ub_lights, sizeof(ub_lights));
 			context_->Unmap(push_lights.Get(), 0);
 		}
-		if (dirty & DIRTY_BONE_UNIFORMS) {
-			BoneUpdateUniforms(&ub_bones, dirty);
-			context_->Map(push_bones.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &ub_bones, sizeof(ub_bones));
-			context_->Unmap(push_bones.Get(), 0);
-		}
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
 }
 
 void ShaderManagerD3D11::BindUniforms() {
-	ID3D11Buffer *vs_cbs[3] = { push_base.Get(), push_lights.Get(), push_bones.Get() };
+	ID3D11Buffer *vs_cbs[2] = { push_base.Get(), push_lights.Get() };
 	ID3D11Buffer *ps_cbs[1] = { push_base.Get() };
-	context_->VSSetConstantBuffers(0, 3, vs_cbs);
+	context_->VSSetConstantBuffers(0, 2, vs_cbs);
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 

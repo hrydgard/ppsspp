@@ -345,7 +345,7 @@ void GPUCommon::ResetMatrices() {
 		matrixVisible.tgen[i] = toFloat24(gstate.tgenMatrix[i]);
 
 	// Assume all the matrices changed, so dirty things related to them.
-	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
+	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList) {
@@ -1389,12 +1389,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	const u32 num = gstate.boneMatrixNumber & 0x7F;
 	_dbg_assert_msg_(num + 12 <= 96, "FastLoadBoneMatrix would corrupt memory");
 	const u32 mtxNum = num / 12;
-	u32 uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
-	if (num != 12 * mtxNum) {
-		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
-	}
 
-	gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	gstate.FastLoadBoneMatrix(target);
 
 	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.

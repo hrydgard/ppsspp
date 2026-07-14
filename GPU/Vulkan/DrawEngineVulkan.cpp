@@ -63,7 +63,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		BindingType::COMBINED_IMAGE_SAMPLER,  // palette
 		BindingType::UNIFORM_BUFFER_DYNAMIC_ALL,  // uniforms
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // lights
-		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // bones
 	};
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -175,7 +174,7 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	baseBuf = VK_NULL_HANDLE;
 	lightBuf = VK_NULL_HANDLE;
 	boneBuf = VK_NULL_HANDLE;
-	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
+	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS;
 	imageView = VK_NULL_HANDLE;
 	sampler = VK_NULL_HANDLE;
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -336,7 +335,7 @@ void DrawEngineVulkan::Flush() {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 		UpdateUBOs();
 
-		int descCount = 6;
+		int descCount = 5;
 		int descSetIndex;
 		PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 		descriptors[0].image.view = imageView;
@@ -356,14 +355,10 @@ void DrawEngineVulkan::Flush() {
 		descriptors[4].buffer.range = sizeof(UB_VS_Lights);
 		descriptors[4].buffer.offset = 0;
 
-		descriptors[5].buffer.buffer = boneBuf;
-		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
-		descriptors[5].buffer.offset = 0;
-
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
 		// Think this will require different descriptor set layouts.
-		const uint32_t dynamicUBOOffsets[3] = {
-			baseUBOOffset, lightUBOOffset, boneUBOOffset,
+		const uint32_t dynamicUBOOffsets[2] = {
+			baseUBOOffset, lightUBOOffset,
 		};
 		if (useElements) {
 			VkBuffer ibuf;
@@ -497,7 +492,7 @@ void DrawEngineVulkan::Flush() {
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs();
 
-			int descCount = 6;
+			int descCount = 5;
 			int descSetIndex;
 			PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 			descriptors[0].image.view = imageView;
@@ -512,12 +507,9 @@ void DrawEngineVulkan::Flush() {
 			descriptors[4].buffer.buffer = lightBuf;
 			descriptors[4].buffer.range = sizeof(UB_VS_Lights);
 			descriptors[4].buffer.offset = 0;
-			descriptors[5].buffer.buffer = boneBuf;
-			descriptors[5].buffer.range = sizeof(UB_VS_Bones);
-			descriptors[5].buffer.offset = 0;
 
-			const uint32_t dynamicUBOOffsets[3] = {
-				baseUBOOffset, lightUBOOffset, boneUBOOffset,
+			const uint32_t dynamicUBOOffsets[2] = {
+				baseUBOOffset, lightUBOOffset,
 			};
 
 			PROFILE_THIS_SCOPE("renderman_q");
@@ -576,9 +568,5 @@ void DrawEngineVulkan::UpdateUBOs() {
 	if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
 		lightUBOOffset = shaderManager_->PushLightBuffer(pushUBO_, &lightBuf);
 		dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
-	}
-	if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
-		boneUBOOffset = shaderManager_->PushBoneBuffer(pushUBO_, &boneBuf);
-		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
 }

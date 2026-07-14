@@ -244,14 +244,6 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	}
 }
 
-void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
-	for (int i = 0; i < 8; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
-		}
-	}
-}
-
 void UpdateFogCoef(const GEState &state, float fogCoef[2]) {
 	fogCoef[0] = getFloat24(gstate.fog1);
 	fogCoef[1] = getFloat24(gstate.fog2);

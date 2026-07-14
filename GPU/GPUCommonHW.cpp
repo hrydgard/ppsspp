@@ -844,12 +844,6 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate.vertType ^= diff;
 		Flush();
 		gstate.vertType ^= diff;
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 
@@ -1687,11 +1681,6 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 				break;
 			}
 		}
-
-		const unsigned int numPlusCount = (op & 0x7F) + i;
-		for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
 	}
 
 	const int count = i;
@@ -1708,7 +1697,6 @@ void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 		// Bone matrices should NOT flush, as we're always doing skinning in decode nowadays!
-		gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;

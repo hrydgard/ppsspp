@@ -55,10 +55,10 @@ inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
 }
 
+// Map 1-4 bones to 4 bones. works fine.
 int TranslateNumBones(int bones) {
 	if (!bones) return 0;
 	if (bones < 4) return 4;
-	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
 	return bones;
 }
 
@@ -1285,8 +1285,6 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (skinInDecode) {
 			// No visible output, computes a matrix that is passed through the skinMatrix variable
 			// to the "nrm" and "pos" steps.
-			// Technically we should support morphing the weights too, but I have a hard time
-			// imagining that any game would use that.. but you never know.
 			steps_[numSteps_++] = wtstep_skin[weighttype];
 		} else {
 			int fmtBase = DEC_FLOAT_1;

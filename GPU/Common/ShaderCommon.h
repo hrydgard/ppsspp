@@ -75,14 +75,8 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX = 1ULL << 21,
 	DIRTY_VIEWMATRIX = 1ULL << 22,
 	DIRTY_TEXMATRIX = 1ULL << 23,
-	DIRTY_BONEMATRIX0 = 1ULL << 24,  // NOTE: These must be under 32
-	DIRTY_BONEMATRIX1 = 1ULL << 25,
-	DIRTY_BONEMATRIX2 = 1ULL << 26,
-	DIRTY_BONEMATRIX3 = 1ULL << 27,
-	DIRTY_BONEMATRIX4 = 1ULL << 28,
-	DIRTY_BONEMATRIX5 = 1ULL << 29,
-	DIRTY_BONEMATRIX6 = 1ULL << 30,
-	DIRTY_BONEMATRIX7 = 1ULL << 31,
+
+	// Free uniform bits 24-31!
 
 	// Free uniform bit 32!,
 	DIRTY_TEXCLAMP = 1ULL << 33,
@@ -99,8 +93,6 @@ enum : uint64_t {
 
 	// Bits 41-42 are free for new uniforms (although the mask below needs updating). Then we're really out and need to start merging.
 	// Don't forget to update DIRTY_ALL_UNIFORMS when you start using them.
-
-	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
 	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFFULL,
 

@@ -177,7 +177,6 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 
 	static_assert(sizeof(uniforms_->ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(uniforms_->ub_lights) <= 512, "ub_lights grew too big");
-	static_assert(sizeof(uniforms_->ub_bones) <= 384, "ub_bones grew too big");
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -231,8 +230,6 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&uniforms_->ub_lights, dirty);
-		if (dirty & DIRTY_BONE_UNIFORMS)
-			BoneUpdateUniforms(&uniforms_->ub_bones, dirty);
 	}
 	gstate_c.CleanUniforms();
 	return dirty;

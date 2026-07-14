@@ -620,7 +620,6 @@ public:
 	bool useFlagsChanged;
 
 	float morphWeights[8];
-	u32 deferredVertTypeDirty;
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;

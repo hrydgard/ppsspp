@@ -197,7 +197,7 @@ static_assert(sizeof(PackedDescriptor::buffer) == 16, "PackedDescriptor should b
 struct VKRPipelineLayout {
 	~VKRPipelineLayout();
 
-	enum { MAX_DESC_SET_BINDINGS = 6 };
+	enum { MAX_DESC_SET_BINDINGS = 5 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
 
 	uint32_t bindingTypesCount = 0;
