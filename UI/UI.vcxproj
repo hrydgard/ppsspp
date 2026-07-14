@@ -40,6 +40,7 @@
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
+    <ClCompile Include="SlangShaderScreen.cpp" />
     <ClCompile Include="DriverManagerScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
     <ClCompile Include="GameBrowser.cpp" />
@@ -98,6 +99,7 @@
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
+    <ClInclude Include="SlangShaderScreen.h" />
     <ClInclude Include="DriverManagerScreen.h" />
     <ClInclude Include="EmuScreen.h" />
     <ClInclude Include="GameBrowser.h" />

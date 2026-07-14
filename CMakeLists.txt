@@ -1620,6 +1620,8 @@ list(APPEND NativeAppSource
 	UI/DevScreens.h
 	UI/DisplayLayoutScreen.cpp
 	UI/DisplayLayoutScreen.h
+	UI/SlangShaderScreen.cpp
+	UI/SlangShaderScreen.h
 	UI/EmuScreen.h
 	UI/EmuScreen.cpp
 	UI/GameInfoCache.h
