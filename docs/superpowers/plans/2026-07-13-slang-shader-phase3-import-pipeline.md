@@ -337,7 +337,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ```cpp
 	ConfigSetting("SlangBuildbotUrl", SETTING(g_Config, sSlangBuildbotUrl),
-		"https://buildbot.libretro.com/nightly/shaders/shaders_slang.zip", CfgFlag::DEFAULT),
+		"https://buildbot.libretro.com/assets/frontend/shaders_slang.zip", CfgFlag::DEFAULT),
 ```
 
 - [ ] **Step 3: Create `Core/Slang/SlangPaths.h`** with the GPL 2.0 header (copy from `GPU/Common/Slang/SlangPreset.h`) followed by the interface block above.
