@@ -333,6 +333,13 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		return nullptr;
 	}
 
+	// sourceW/sourceH are the CONTENT's native resolution (reported to shaders as SourceSize).
+	// The actual `source` framebuffer texture is typically larger (PPSSPP's upscaled render target).
+	// History copies must use the REAL framebuffer pixel size, not the native size, or the blit
+	// copies only a native-sized corner of the upscaled source (produces a scaled/offset duplicate).
+	int srcActualW = sourceW, srcActualH = sourceH;
+	draw_->GetFramebufferDimensions(source, &srcActualW, &srcActualH);
+
 	// Ensure we have enough framebuffer slots (lazy allocation, will resize as needed)
 	if (passFramebuffers_.size() < passes_.size()) {
 		passFramebuffers_.resize(passes_.size(), nullptr);
@@ -352,16 +359,16 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			if (historyRing_[k]) {
 				int fbW, fbH;
 				draw_->GetFramebufferDimensions(historyRing_[k], &fbW, &fbH);
-				needsResize = (fbW != sourceW || fbH != sourceH);
+				needsResize = (fbW != srcActualW || fbH != srcActualH);
 			}
 			if (!historyRing_[k] || needsResize) {
 				DoRelease(historyRing_[k]);
 				using namespace Draw;
 				historyRing_[k] = draw_->CreateFramebuffer({
-					sourceW, sourceH, 1, 1, 0, false, "slang-history"
+					srcActualW, srcActualH, 1, 1, 0, false, "slang-history"
 				});
 				if (!historyRing_[k]) {
-					ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create history framebuffer %dx%d", sourceW, sourceH);
+					ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create history framebuffer %dx%d", srcActualW, srcActualH);
 					return nullptr;
 				}
 				// Clear on first allocation to avoid binding garbage on the first frame
@@ -773,9 +780,9 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		Draw::Framebuffer *oldest = historyRing_.back();
 		historyRing_.pop_back();
 		historyRing_.insert(historyRing_.begin(), oldest);
-		// Blit source into the new front (newest slot)
-		draw_->BlitFramebuffer(source, 0, 0, sourceW, sourceH,
-		                       historyRing_[0], 0, 0, sourceW, sourceH,
+		// Blit the FULL source framebuffer (real pixel size) into the newest slot.
+		draw_->BlitFramebuffer(source, 0, 0, srcActualW, srcActualH,
+		                       historyRing_[0], 0, 0, srcActualW, srcActualH,
 		                       Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_NEAREST, "slang-history");
 	}
 
