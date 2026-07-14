@@ -413,3 +413,98 @@ bool TestSlangIncludes() {
 
 	return true;
 }
+
+bool TestSlangPushConstant() {
+	ShaderTranslationInit();  // Required for glslang
+
+	// Test 1: Shader with BOTH std140 UBO (global.MVP) and push_constant (params.*)
+	const std::string srcWithBoth =
+		"#version 450\n"
+		"layout(std140, set = 0, binding = 0) uniform UBO {\n"
+		"  mat4 MVP;\n"
+		"} global;\n"
+		"layout(push_constant) uniform Push {\n"
+		"  vec4 SourceSize;\n"
+		"  float ColorMod;\n"
+		"} params;\n"
+		"#pragma parameter ColorMod \"Color intensity\" 1.0 0.1 2.0 0.1\n"
+		"#pragma stage vertex\n"
+		"layout(location=0) in vec4 Position;\n"
+		"void main() { gl_Position = global.MVP * Position; }\n"
+		"#pragma stage fragment\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"layout(binding=1) uniform sampler2D Source;\n"
+		"void main() { FragColor = vec4(params.SourceSize.xy, 0.0, 1.0) * params.ColorMod; }\n";
+
+	SlangSource src1;
+	std::string error1;
+	EXPECT_TRUE(SplitSlangSource(srcWithBoth, &src1, &error1));
+
+	SlangClassifyContext ctx1;
+	for (const auto &p : src1.params) ctx1.paramNames.push_back(p.name);
+
+	PassReflection refl1;
+	EXPECT_TRUE(ReflectSlangSource(src1, ctx1, &refl1, &error1));
+
+	// Should have single merged UBO at binding 0
+	EXPECT_EQ_INT(refl1.uboBinding, 0);
+	EXPECT_EQ_INT((int)refl1.uboMembers.size(), 3);
+
+	// Verify all three members are present with correct semantics
+	bool sawMVP = false, sawSourceSize = false, sawColorMod = false;
+	for (const auto &m : refl1.uboMembers) {
+		if (m.semantic == SlangSemantic::MVP) {
+			sawMVP = true;
+			EXPECT_EQ_INT((int)m.offsetBytes, 0);  // MVP should be first (from UBO)
+			EXPECT_EQ_INT((int)m.sizeBytes, 64);   // mat4 = 64 bytes
+		}
+		if (m.semantic == SlangSemantic::SourceSize) {
+			sawSourceSize = true;
+			EXPECT_EQ_INT((int)m.offsetBytes, 64); // SourceSize after MVP in std140
+			EXPECT_EQ_INT((int)m.sizeBytes, 16);   // vec4 = 16 bytes
+		}
+		if (m.semantic == SlangSemantic::UserParameter) {
+			sawColorMod = true;
+			EXPECT_EQ_INT((int)m.offsetBytes, 80); // ColorMod after SourceSize
+		}
+	}
+	EXPECT_TRUE(sawMVP);
+	EXPECT_TRUE(sawSourceSize);
+	EXPECT_TRUE(sawColorMod);
+
+	// Test 2: push_constant-ONLY shader (no separate UBO)
+	const std::string srcPushOnly =
+		"#version 450\n"
+		"layout(push_constant) uniform Push {\n"
+		"  vec4 OutputSize;\n"
+		"  uint FrameCount;\n"
+		"} params;\n"
+		"#pragma stage vertex\n"
+		"layout(location=0) in vec4 Position;\n"
+		"void main() { gl_Position = Position; }\n"
+		"#pragma stage fragment\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"void main() { FragColor = vec4(params.OutputSize.xy, 0.0, float(params.FrameCount)); }\n";
+
+	SlangSource src2;
+	std::string error2;
+	EXPECT_TRUE(SplitSlangSource(srcPushOnly, &src2, &error2));
+
+	SlangClassifyContext ctx2;
+	PassReflection refl2;
+	EXPECT_TRUE(ReflectSlangSource(src2, ctx2, &refl2, &error2));
+
+	// Should transform push_constant to UBO successfully
+	EXPECT_EQ_INT(refl2.uboBinding, 0);
+	EXPECT_EQ_INT((int)refl2.uboMembers.size(), 2);
+
+	bool sawOutputSize = false, sawFrameCount = false;
+	for (const auto &m : refl2.uboMembers) {
+		if (m.semantic == SlangSemantic::OutputSize) sawOutputSize = true;
+		if (m.semantic == SlangSemantic::FrameCount) sawFrameCount = true;
+	}
+	EXPECT_TRUE(sawOutputSize);
+	EXPECT_TRUE(sawFrameCount);
+
+	return true;
+}

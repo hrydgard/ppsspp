@@ -67,16 +67,176 @@ static uint32_t MemberSizeBytes(const spirv_cross::SPIRType &type) {
 	return base * comps;
 }
 
-bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error) {
-	std::vector<unsigned int> vspv, fspv;
-	if (!CompileStageToSpirv(EShLangVertex, src.vertex, &vspv, error)) return false;
-	if (!CompileStageToSpirv(EShLangFragment, src.fragment, &fspv, error)) return false;
+// Helper: find matching closing brace for an opening brace at position 'start'.
+static size_t FindMatchingBrace(const std::string &src, size_t start) {
+	if (start >= src.size() || src[start] != '{') return std::string::npos;
+	int depth = 0;
+	for (size_t i = start; i < src.size(); i++) {
+		if (src[i] == '{') depth++;
+		else if (src[i] == '}') {
+			depth--;
+			if (depth == 0) return i;
+		}
+	}
+	return std::string::npos;
+}
 
-	// Reflect both stages to detect unsupported push_constant blocks (Phase 1 only supports UBOs).
+// Transform slang GLSL source: merge push_constant blocks into a single std140 UBO.
+// Real slang shaders declare TWO uniform blocks: a std140 UBO (e.g. "layout(std140,set=0,binding=0) uniform UBO{mat4 MVP;} global;")
+// and a push_constant block (e.g. "layout(push_constant) uniform Push{vec4 SourceSize;} params;").
+// PPSSPP's thin3d only exposes ONE dynamic UBO (set 0 / binding 0) — no push-constant API.
+// So we rewrite the source: emit ONE combined std140 block with all members, then #define both instance names
+// to point to the merged block, so existing "global.MVP" / "params.SourceSize" accesses still resolve.
+// Returns true if transform succeeded OR source had no push_constant (no-op passthrough). False on parse failure.
+static bool TransformPushConstantToUBO(const std::string &src, std::string *out, std::string *error) {
+	*out = src;  // default: no change
+
+	// Step 1: Find push_constant block. Pattern: "layout(...push_constant...) uniform <BlockName> { ... } <instance>;"
+	size_t pushPos = src.find("push_constant");
+	if (pushPos == std::string::npos) {
+		return true;  // no push_constant; original source is fine
+	}
+
+	// Find the 'uniform' keyword AFTER push_constant layout (it should be within ~50 chars of push_constant)
+	size_t uniformPos = src.find("uniform", pushPos);
+	if (uniformPos == std::string::npos || uniformPos - pushPos > 200) {
+		*error = "push_constant transform: could not find 'uniform' keyword after push_constant layout";
+		return false;
+	}
+
+	// Find opening brace of push_constant block
+	size_t pushBraceStart = src.find('{', uniformPos);
+	if (pushBraceStart == std::string::npos) {
+		*error = "push_constant transform: could not find opening brace for push_constant block";
+		return false;
+	}
+
+	size_t pushBraceEnd = FindMatchingBrace(src, pushBraceStart);
+	if (pushBraceEnd == std::string::npos) {
+		*error = "push_constant transform: could not find matching closing brace for push_constant block";
+		return false;
+	}
+
+	// Extract push_constant members (between braces)
+	std::string pushMembers = src.substr(pushBraceStart + 1, pushBraceEnd - pushBraceStart - 1);
+
+	// Extract push_constant instance name: it's between '}' and ';'
+	size_t pushSemicolon = src.find(';', pushBraceEnd);
+	if (pushSemicolon == std::string::npos) {
+		*error = "push_constant transform: could not find semicolon after push_constant block";
+		return false;
+	}
+	std::string pushInstanceRaw = src.substr(pushBraceEnd + 1, pushSemicolon - pushBraceEnd - 1);
+	// Trim whitespace
+	size_t instStart = pushInstanceRaw.find_first_not_of(" \t\n\r");
+	size_t instEnd = pushInstanceRaw.find_last_not_of(" \t\n\r");
+	std::string pushInstance = (instStart == std::string::npos) ? "" : pushInstanceRaw.substr(instStart, instEnd - instStart + 1);
+	if (pushInstance.empty()) {
+		*error = "push_constant transform: could not extract push_constant instance name";
+		return false;
+	}
+
+	// Find the layout line start (scan backwards from pushPos to find start of line with 'layout')
+	size_t pushLayoutStart = src.rfind("layout", pushPos);
+	if (pushLayoutStart == std::string::npos) pushLayoutStart = pushPos;  // fallback
+
+	// Step 2: Find std140 UBO block if present. Pattern: "layout(...std140...) uniform <BlockName> { ... } <instance>;"
+	size_t uboPos = src.find("std140");
+	std::string uboMembers;
+	std::string uboInstance;
+	size_t uboBlockStart = 0, uboBlockEnd = 0;
+
+	if (uboPos != std::string::npos && uboPos < pushLayoutStart) {  // UBO must come BEFORE push_constant
+		// Find 'uniform' after std140
+		size_t uboUniformPos = src.find("uniform", uboPos);
+		if (uboUniformPos != std::string::npos && uboUniformPos < pushLayoutStart) {
+			size_t uboBraceStart = src.find('{', uboUniformPos);
+			if (uboBraceStart != std::string::npos && uboBraceStart < pushLayoutStart) {
+				size_t uboBraceEnd = FindMatchingBrace(src, uboBraceStart);
+				if (uboBraceEnd != std::string::npos && uboBraceEnd < pushLayoutStart) {
+					uboMembers = src.substr(uboBraceStart + 1, uboBraceEnd - uboBraceStart - 1);
+					size_t uboSemicolon = src.find(';', uboBraceEnd);
+					if (uboSemicolon != std::string::npos) {
+						std::string uboInstRaw = src.substr(uboBraceEnd + 1, uboSemicolon - uboBraceEnd - 1);
+						size_t uInstStart = uboInstRaw.find_first_not_of(" \t\n\r");
+						size_t uInstEnd = uboInstRaw.find_last_not_of(" \t\n\r");
+						uboInstance = (uInstStart == std::string::npos) ? "" : uboInstRaw.substr(uInstStart, uInstEnd - uInstStart + 1);
+
+						// Mark UBO block boundaries for deletion
+						size_t uboLayoutStart = src.rfind("layout", uboPos);
+						if (uboLayoutStart == std::string::npos) uboLayoutStart = uboPos;
+						uboBlockStart = uboLayoutStart;
+						uboBlockEnd = uboSemicolon + 1;
+					}
+				}
+			}
+		}
+	}
+
+	// Step 3: Build merged block. Order: UBO members first (if present), then push members.
+	std::string mergedMembers;
+	if (!uboMembers.empty()) {
+		mergedMembers = uboMembers;
+		if (!mergedMembers.empty() && mergedMembers.back() != '\n') mergedMembers += "\n";
+	}
+	mergedMembers += pushMembers;
+
+	// Step 4: Emit combined block + #defines
+	std::string combined = "layout(std140, set = 0, binding = 0) uniform _SlangMergedUBO {\n";
+	combined += mergedMembers;
+	combined += "\n} _slang_ubo;\n";
+
+	// Add #defines so old instance names resolve to new merged block
+	if (!uboInstance.empty()) {
+		combined += "#define " + uboInstance + " _slang_ubo\n";
+	}
+	combined += "#define " + pushInstance + " _slang_ubo\n";
+
+	// Step 5: Delete original blocks and insert combined block at the UBO position (or push position if no UBO)
+	std::string result;
+	size_t insertPos;
+	if (uboBlockStart > 0 && uboBlockEnd > uboBlockStart) {
+		// We have both UBO and push_constant: delete both, insert combined at UBO position
+		result = src.substr(0, uboBlockStart);
+		result += combined;
+		result += src.substr(uboBlockEnd, pushLayoutStart - uboBlockEnd);
+		result += src.substr(pushSemicolon + 1);
+		insertPos = uboBlockStart;
+	} else {
+		// Only push_constant: delete it, insert combined in its place
+		result = src.substr(0, pushLayoutStart);
+		result += combined;
+		result += src.substr(pushSemicolon + 1);
+		insertPos = pushLayoutStart;
+	}
+
+	*out = result;
+	return true;
+}
+
+bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error) {
+	// Phase 2 Task 9c: transform push_constant blocks into a single merged UBO before compilation.
+	// Real slang shaders use two blocks: a std140 UBO (e.g. global.MVP) and push_constant (e.g. params.SourceSize).
+	// PPSSPP thin3d only supports one dynamic UBO (set 0, binding 0). Transform merges both into one block.
+	std::string transformedVert, transformedFrag;
+	if (!TransformPushConstantToUBO(src.vertex, &transformedVert, error)) {
+		*error = "vertex stage push_constant transform failed: " + *error;
+		return false;
+	}
+	if (!TransformPushConstantToUBO(src.fragment, &transformedFrag, error)) {
+		*error = "fragment stage push_constant transform failed: " + *error;
+		return false;
+	}
+
+	std::vector<unsigned int> vspv, fspv;
+	if (!CompileStageToSpirv(EShLangVertex, transformedVert, &vspv, error)) return false;
+	if (!CompileStageToSpirv(EShLangFragment, transformedFrag, &fspv, error)) return false;
+
+	// Reflect both stages. After transform, push_constant blocks should be gone; if any remain, that's a transform bug.
 	spirv_cross::Compiler vert(vspv);
 	spirv_cross::ShaderResources vertRes = vert.get_shader_resources();
 	if (!vertRes.push_constant_buffers.empty()) {
-		*error = "slang push_constant blocks are not supported in Phase 1 (shader: " + src.name + ")";
+		*error = "push_constant transform incomplete (vertex stage still has push_constant after transform; shader: " + src.name + ")";
 		return false;
 	}
 
@@ -84,9 +244,9 @@ bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx,
 	spirv_cross::Compiler frag(fspv);
 	spirv_cross::ShaderResources res = frag.get_shader_resources();
 
-	// Phase 1 does not support push_constant — full push-constant packing is a future-phase feature.
+	// Safety net: if push_constant still present after transform, fail with clear message.
 	if (!res.push_constant_buffers.empty()) {
-		*error = "slang push_constant blocks are not supported in Phase 1 (shader: " + src.name + ")";
+		*error = "push_constant transform incomplete (fragment stage still has push_constant after transform; shader: " + src.name + ")";
 		return false;
 	}
 
