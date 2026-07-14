@@ -506,5 +506,49 @@ bool TestSlangPushConstant() {
 	EXPECT_TRUE(sawOutputSize);
 	EXPECT_TRUE(sawFrameCount);
 
+	// Test 3: push_constant declared BEFORE the std140 UBO (the crt-lottes ordering).
+	// Regression guard: the transform previously required the UBO to appear first and silently
+	// dropped MVP/OutputSize when push_constant came first, producing black output on-device.
+	const std::string srcPushFirst =
+		"#version 450\n"
+		"layout(push_constant) uniform Push {\n"
+		"  float maskDark;\n"
+		"  float maskLight;\n"
+		"} params;\n"
+		"layout(std140, set = 0, binding = 0) uniform UBO {\n"
+		"  mat4 MVP;\n"
+		"  vec4 OutputSize;\n"
+		"} global;\n"
+		"#pragma parameter maskDark \"maskDark\" 0.5 0.0 2.0 0.1\n"
+		"#pragma parameter maskLight \"maskLight\" 1.5 0.0 2.0 0.1\n"
+		"#pragma stage vertex\n"
+		"layout(location=0) in vec4 Position;\n"
+		"void main() { gl_Position = global.MVP * Position; }\n"
+		"#pragma stage fragment\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"layout(binding=1) uniform sampler2D Source;\n"
+		"void main() { FragColor = vec4(global.OutputSize.zw, params.maskDark, params.maskLight); }\n";
+
+	SlangSource src3;
+	std::string error3;
+	EXPECT_TRUE(SplitSlangSource(srcPushFirst, &src3, &error3));
+	SlangClassifyContext ctx3;
+	for (const auto &p : src3.params) ctx3.paramNames.push_back(p.name);
+	PassReflection refl3;
+	EXPECT_TRUE(ReflectSlangSource(src3, ctx3, &refl3, &error3));
+
+	// The UBO members (MVP, OutputSize) MUST survive the merge even though push_constant came first.
+	bool sawMVP3 = false, sawOutputSize3 = false, sawMaskDark = false, sawMaskLight = false;
+	for (const auto &m : refl3.uboMembers) {
+		if (m.semantic == SlangSemantic::MVP) sawMVP3 = true;
+		if (m.semantic == SlangSemantic::OutputSize) sawOutputSize3 = true;
+		if (m.semantic == SlangSemantic::UserParameter && m.name == "maskDark") sawMaskDark = true;
+		if (m.semantic == SlangSemantic::UserParameter && m.name == "maskLight") sawMaskLight = true;
+	}
+	EXPECT_TRUE(sawMVP3);        // was dropped by the ordering bug -> black screen
+	EXPECT_TRUE(sawOutputSize3); // was dropped by the ordering bug -> Mask(uv/0)=NaN -> black
+	EXPECT_TRUE(sawMaskDark);
+	EXPECT_TRUE(sawMaskLight);
+
 	return true;
 }

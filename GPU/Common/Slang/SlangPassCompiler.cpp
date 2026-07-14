@@ -140,40 +140,52 @@ static bool TransformPushConstantToUBO(const std::string &src, std::string *out,
 	size_t pushLayoutStart = src.rfind("layout", pushPos);
 	if (pushLayoutStart == std::string::npos) pushLayoutStart = pushPos;  // fallback
 
-	// Step 2: Find std140 UBO block if present. Pattern: "layout(...std140...) uniform <BlockName> { ... } <instance>;"
-	size_t uboPos = src.find("std140");
+	// The push_constant block spans [pushLayoutStart, pushSemicolon].
+	size_t pushBlockStart = pushLayoutStart;
+	size_t pushBlockEnd = pushSemicolon + 1;
+
+	// Step 2: Find the std140 UBO block if present, regardless of whether it appears BEFORE or AFTER
+	// the push_constant block. (Real shaders order these either way — e.g. crt-lottes declares
+	// push_constant first, then the std140 UBO. Requiring UBO-first previously dropped MVP/OutputSize,
+	// producing black output.) We locate the std140 block anywhere EXCEPT overlapping the push block.
 	std::string uboMembers;
 	std::string uboInstance;
-	size_t uboBlockStart = 0, uboBlockEnd = 0;
+	size_t uboBlockStart = std::string::npos, uboBlockEnd = std::string::npos;
 
-	if (uboPos != std::string::npos && uboPos < pushLayoutStart) {  // UBO must come BEFORE push_constant
-		// Find 'uniform' after std140
+	size_t searchFrom = 0;
+	while (true) {
+		size_t uboPos = src.find("std140", searchFrom);
+		if (uboPos == std::string::npos) break;
+		// Skip a match that is inside the push_constant block itself.
+		if (uboPos >= pushBlockStart && uboPos < pushBlockEnd) {
+			searchFrom = pushBlockEnd;
+			continue;
+		}
 		size_t uboUniformPos = src.find("uniform", uboPos);
-		if (uboUniformPos != std::string::npos && uboUniformPos < pushLayoutStart) {
-			size_t uboBraceStart = src.find('{', uboUniformPos);
-			if (uboBraceStart != std::string::npos && uboBraceStart < pushLayoutStart) {
-				size_t uboBraceEnd = FindMatchingBrace(src, uboBraceStart);
-				if (uboBraceEnd != std::string::npos && uboBraceEnd < pushLayoutStart) {
+		size_t uboBraceStart = (uboUniformPos == std::string::npos) ? std::string::npos : src.find('{', uboUniformPos);
+		if (uboBraceStart != std::string::npos) {
+			size_t uboBraceEnd = FindMatchingBrace(src, uboBraceStart);
+			if (uboBraceEnd != std::string::npos) {
+				size_t uboSemicolon = src.find(';', uboBraceEnd);
+				if (uboSemicolon != std::string::npos) {
 					uboMembers = src.substr(uboBraceStart + 1, uboBraceEnd - uboBraceStart - 1);
-					size_t uboSemicolon = src.find(';', uboBraceEnd);
-					if (uboSemicolon != std::string::npos) {
-						std::string uboInstRaw = src.substr(uboBraceEnd + 1, uboSemicolon - uboBraceEnd - 1);
-						size_t uInstStart = uboInstRaw.find_first_not_of(" \t\n\r");
-						size_t uInstEnd = uboInstRaw.find_last_not_of(" \t\n\r");
-						uboInstance = (uInstStart == std::string::npos) ? "" : uboInstRaw.substr(uInstStart, uInstEnd - uInstStart + 1);
-
-						// Mark UBO block boundaries for deletion
-						size_t uboLayoutStart = src.rfind("layout", uboPos);
-						if (uboLayoutStart == std::string::npos) uboLayoutStart = uboPos;
-						uboBlockStart = uboLayoutStart;
-						uboBlockEnd = uboSemicolon + 1;
-					}
+					std::string uboInstRaw = src.substr(uboBraceEnd + 1, uboSemicolon - uboBraceEnd - 1);
+					size_t uInstStart = uboInstRaw.find_first_not_of(" \t\n\r");
+					size_t uInstEnd = uboInstRaw.find_last_not_of(" \t\n\r");
+					uboInstance = (uInstStart == std::string::npos) ? "" : uboInstRaw.substr(uInstStart, uInstEnd - uInstStart + 1);
+					size_t uboLayoutStart = src.rfind("layout", uboPos);
+					if (uboLayoutStart == std::string::npos) uboLayoutStart = uboPos;
+					uboBlockStart = uboLayoutStart;
+					uboBlockEnd = uboSemicolon + 1;
 				}
 			}
 		}
+		break;
 	}
 
 	// Step 3: Build merged block. Order: UBO members first (if present), then push members.
+	// (std140 offsets are recomputed by SPIRV-Cross reflection on the transformed source, so the
+	// textual member order here only needs to be self-consistent, not match the original.)
 	std::string mergedMembers;
 	if (!uboMembers.empty()) {
 		mergedMembers = uboMembers;
@@ -192,22 +204,29 @@ static bool TransformPushConstantToUBO(const std::string &src, std::string *out,
 	}
 	combined += "#define " + pushInstance + " _slang_ubo\n";
 
-	// Step 5: Delete original blocks and insert combined block at the UBO position (or push position if no UBO)
+	// Step 5: Delete both original blocks (order-independent) and insert the combined block where the
+	// FIRST of the two blocks began. Build the output by walking the two [start,end] ranges in order.
 	std::string result;
-	size_t insertPos;
-	if (uboBlockStart > 0 && uboBlockEnd > uboBlockStart) {
-		// We have both UBO and push_constant: delete both, insert combined at UBO position
-		result = src.substr(0, uboBlockStart);
-		result += combined;
-		result += src.substr(uboBlockEnd, pushLayoutStart - uboBlockEnd);
-		result += src.substr(pushSemicolon + 1);
-		insertPos = uboBlockStart;
+	bool haveUbo = (uboBlockStart != std::string::npos && uboBlockEnd != std::string::npos);
+	if (haveUbo) {
+		// Determine which block comes first in the source.
+		size_t firstStart, firstEnd, secondStart, secondEnd;
+		if (uboBlockStart < pushBlockStart) {
+			firstStart = uboBlockStart; firstEnd = uboBlockEnd;
+			secondStart = pushBlockStart; secondEnd = pushBlockEnd;
+		} else {
+			firstStart = pushBlockStart; firstEnd = pushBlockEnd;
+			secondStart = uboBlockStart; secondEnd = uboBlockEnd;
+		}
+		result = src.substr(0, firstStart);              // text before the first block
+		result += combined;                               // combined block replaces the first
+		result += src.substr(firstEnd, secondStart - firstEnd);  // text between the two blocks
+		result += src.substr(secondEnd);                  // text after the second block
 	} else {
-		// Only push_constant: delete it, insert combined in its place
-		result = src.substr(0, pushLayoutStart);
+		// Only push_constant: delete it, insert combined in its place.
+		result = src.substr(0, pushBlockStart);
 		result += combined;
-		result += src.substr(pushSemicolon + 1);
-		insertPos = pushLayoutStart;
+		result += src.substr(pushBlockEnd);
 	}
 
 	*out = result;
