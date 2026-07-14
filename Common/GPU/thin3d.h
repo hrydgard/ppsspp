@@ -296,7 +296,7 @@ enum class ReadbackMode {
 	OLD_DATA_OK,  // Lets the backend return old results that won't need any waiting to get.
 };
 
-constexpr uint32_t MAX_TEXTURE_SLOTS = 8;
+constexpr uint32_t MAX_TEXTURE_SLOTS = 12;
 
 struct FramebufferDesc {
 	int width;
