@@ -127,11 +127,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_world, "u_world" });
 	queries.push_back({ &u_texmtx, "u_texmtx" });
 
-	if (VSID.Bit(VS_BIT_ENABLE_BONES))
-		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
-	else
-		numBones = 0;
-
 	// These two are only used for VR, but let's always query them for simplicity.
 	queries.push_back({ &u_scaleX, "u_scaleX" });
 	queries.push_back({ &u_scaleY, "u_scaleY" });
@@ -543,13 +538,6 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		float f = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
 		render_->SetUniformF(&u_stencilReplaceValue, 1, &f);
 	}
-	float bonetemp[16];
-	for (int i = 0; i < numBones; i++) {
-		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4Transposed(bonetemp, gstate.boneMatrix + 12 * i);
-			render_->SetUniformM4x4(&u_bone[i], bonetemp);
-		}
-	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
 		if (u_blendFixA != -1) {
@@ -701,10 +689,10 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, vertexType, useHWTransform, weightsAsFloat, useSkinInDecode, clipInfoFlags);
+		ComputeVertexShaderID(VSID, vertexType, useHWTransform, clipInfoFlags);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -737,7 +725,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType
 
 		// Can still work with software transform.
 		VShaderID vsidTemp;
-		ComputeVertexShaderID(&vsidTemp, vertexType, false, weightsAsFloat, true, clipInfoFlags);
+		ComputeVertexShaderID(&vsidTemp, vertexType, false, clipInfoFlags);
 		vs = CompileVertexShader(vsidTemp);
 	}
 

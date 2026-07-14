@@ -89,7 +89,6 @@ struct Uniforms {
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base{};
 	UB_VS_Lights ub_lights{};
-	UB_VS_Bones ub_bones{};
 };
 
 enum class ClipInfoFlags;
@@ -102,7 +101,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void GetShaderIDs(int prim, u32 vertexType, VShaderID *vshader, FShaderID *fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
+	void GetShaderIDs(int prim, u32 vertexType, VShaderID *vshader, FShaderID *fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, ClipInfoFlags clipInfoFlags);
 	void ClearShaders() override;
 	void DirtyLastShader() override;
 
@@ -128,10 +127,6 @@ public:
 	}
 	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
 		return dest->Push(&uniforms_->ub_lights, sizeof(uniforms_->ub_lights), uboAlignment_, buf);
-	}
-	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
-		return dest->Push(&uniforms_->ub_bones, sizeof(uniforms_->ub_bones), uboAlignment_, buf);
 	}
 
 	static bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);

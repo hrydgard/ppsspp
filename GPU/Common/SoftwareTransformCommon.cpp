@@ -1508,7 +1508,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 		return false;
 	}
 
-	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
+	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
 	const bool throughMode = (vertTypeID & GE_VTYPE_THROUGH) != 0;
 
 	// Points is the only primitive that generates 6x as many vertices as input indices (2 triangles per point).

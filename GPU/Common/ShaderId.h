@@ -36,9 +36,7 @@ enum VShaderBit : uint8_t {
 	// Free bit: 11
 	VS_BIT_UVGEN_MODE = 12,  // 2 bits
 	VS_BIT_UVPROJ_MODE = 14,  // 2 bits
-	VS_BIT_ENABLE_BONES = 16,
-	VS_BIT_WEIGHT_FMTSCALE = 17,  // only two bits
-	VS_BIT_BONES = 19,  // 3 should be enough to represent 1-8 bones.
+	// Free bits: 16-21
 	VS_BIT_FS_MINMAX_DISCARD = 22, // Do min/max and/or depth clamp in the fragment shader. It just means we need to forward Z and W to the fragment shader.
 	VS_BIT_FS_DEPTH_CLAMP = 23, // Do depth clamp in the fragment shader.
 	VS_BIT_LIGHTING_ENABLE = 24,
@@ -245,7 +243,7 @@ namespace Draw {
 class Bugs;
 }
 
-void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
+void ComputeVertexShaderID(VShaderID *id, u32 vertType, bool useHWTransform, ClipInfoFlags clipInfoFlags);
 
 struct ComputedPipelineState;
 void ComputeFragmentShaderID(FShaderID *id, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs, ClipInfoFlags clipInfoFlags);

@@ -53,7 +53,6 @@ enum {
 DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), draw_(draw) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
 	InitDeviceObjects();
@@ -269,7 +268,7 @@ void DrawEngineGLES::Flush() {
 		lastUseHwTransform_ = useHWTransform;
 	}
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, clipInfoFlags_, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
 
 	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back. However, this can no longer really happen... Need to fix this.
 
@@ -279,7 +278,7 @@ void DrawEngineGLES::Flush() {
 	uint32_t indexBufferOffset = 0;
 
 	if (useHWTransform) {
-		if (applySkinInDecode_ && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(dec_, decoded_);
 			uint32_t size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;

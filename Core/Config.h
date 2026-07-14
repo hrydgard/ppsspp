@@ -285,7 +285,6 @@ public:
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
 	bool bHardwareTransform;
-	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
 
 	// Speedhacks (more will be moved here):

@@ -54,8 +54,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BEZIER, FLAG_EXECUTE, 0, &GPUCommonHW::Execute_Bezier },
 	{ GE_CMD_SPLINE, FLAG_EXECUTE, 0, &GPUCommonHW::Execute_Spline },
 
-	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommonHW::Execute_VertexType },
+	// Changing the vertex type requires us to flush - except if we're soft skinning. So handled it in the execute function if needed.
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommonHW::Execute_VertexTypeSkinning },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommonHW::Execute_LoadClut},
 
@@ -465,13 +465,7 @@ void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void GPUCommonHW::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexTypeSkinning;
-	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexType;
-	}
+
 
 	// Reconfigure for light ubershader or not.
 	for (int i = 0; i < 4; i++) {
@@ -843,18 +837,6 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 	downcount = 0;
 }
 
-void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
-	if (diff) {
-		// TODO: We only need to dirty vshader-state here if the output format will be different.
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-
-		if (diff & GE_VTYPE_THROUGH_MASK) {
-			// Switching between through and non-through, we need to invalidate a bunch of stuff.
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
-		}
-	}
-}
-
 void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	// Don't flush when weight count changes.
 	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
@@ -862,12 +844,6 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate.vertType ^= diff;
 		Flush();
 		gstate.vertType ^= diff;
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 
@@ -977,7 +953,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
 	// This is the check from #21678 for Evangelion JO.
@@ -1064,8 +1040,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// above for each one. This can be expanded to support additional games that intersperse
 	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
-
-	const uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
+	constexpr uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
 
 	if (!useFastRunLoop_)
 		goto bail;  // we're either recording or stepping.
@@ -1146,7 +1121,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				drawEngineCommon_->FlushSkin();
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = (GEVertexType)(data);
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 				decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 			}
 			break;
@@ -1700,34 +1675,10 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 	}
 
 	if (fastLoad) {
-		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning) {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-			}
-		} else {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				dst[i] = src[i] << 8;
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
 			}
 		}
 	}
@@ -1745,13 +1696,7 @@ void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
 	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning) {
-			Flush();
-			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-		} else {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		} 
+		// Bone matrices should NOT flush, as we're always doing skinning in decode nowadays!
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;

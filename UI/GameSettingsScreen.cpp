@@ -521,10 +521,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
 
-	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
-	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), swSkin));
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
