@@ -1532,7 +1532,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 		indexLowerBound = 0;
 	}
 
-	int verticesToDecode = indexUpperBound + 1 - indexLowerBound;
+	const int verticesToDecode = indexUpperBound + 1 - indexLowerBound;
 
 	const u8 *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 
