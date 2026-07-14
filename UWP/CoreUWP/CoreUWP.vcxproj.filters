@@ -410,6 +410,7 @@
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\Core\Util\PathUtil.cpp" />
     <ClCompile Include="..\..\Core\Slang\SlangPaths.cpp" />
+    <ClCompile Include="..\..\Core\Slang\SlangPresetLibrary.cpp" />
     <ClCompile Include="..\..\Core\Slang\SlangPackageImporter.cpp" />
     <ClCompile Include="..\..\Core\SaveStateRewind.cpp" />
     <ClCompile Include="..\..\Core\Util\VideoPlayer.cpp" />
@@ -685,6 +686,7 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\Core\Util\PathUtil.h" />
     <ClInclude Include="..\..\Core\Slang\SlangPaths.h" />
+    <ClInclude Include="..\..\Core\Slang\SlangPresetLibrary.h" />
     <ClInclude Include="..\..\Core\Slang\SlangPackageImporter.h" />
     <ClInclude Include="..\..\Core\SaveStateRewind.h" />
     <ClInclude Include="..\..\Core\Util\VideoPlayer.h" />

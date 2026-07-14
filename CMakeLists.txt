@@ -2570,6 +2570,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PathUtil.h
 	Core/Slang/SlangPaths.cpp
 	Core/Slang/SlangPaths.h
+	Core/Slang/SlangPresetLibrary.cpp
+	Core/Slang/SlangPresetLibrary.h
 	Core/Slang/SlangPackageImporter.cpp
 	Core/Slang/SlangPackageImporter.h
 	Core/Util/PortManager.cpp

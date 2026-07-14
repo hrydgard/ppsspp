@@ -1355,6 +1355,7 @@ bool TestSlangReflectionIndexOverflow();
 bool TestSlangZipPathSanitizer();
 bool TestSlangPackageExtract();
 bool TestSlangParamDescription();
+bool TestSlangPresetLibrary();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1415,6 +1416,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SlangZipPathSanitizer),
 	TEST_ITEM(SlangPackageExtract),
 	TEST_ITEM(SlangParamDescription),
+	TEST_ITEM(SlangPresetLibrary),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),

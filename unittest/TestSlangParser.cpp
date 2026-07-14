@@ -18,6 +18,7 @@
 #include <string>
 #include <map>
 #include <zip.h>
+#include <algorithm>
 #include "unittest/UnitTest.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
@@ -30,6 +31,7 @@
 #include "Common/GPU/ShaderTranslation.h"
 #include "Core/Slang/SlangPaths.h"
 #include "Core/Slang/SlangPackageImporter.h"
+#include "Core/Slang/SlangPresetLibrary.h"
 
 bool TestSlangParser() {
 	// Two-pass preset with per-axis scale, alias, and a parameter list line.
@@ -688,5 +690,35 @@ bool TestSlangParamDescription() {
 	EXPECT_TRUE(src.params[0].description == "CRT Gamma");
 	EXPECT_TRUE(src.params[0].initial == 2.4f);
 	EXPECT_TRUE(src.params[0].maximum == 4.0f);
+	return true;
+}
+
+bool TestSlangPresetLibrary() {
+	Path root("/tmp/slanglib_test");
+	File::DeleteDirRecursively(root);
+	File::CreateFullPath(root / "crt");
+	File::CreateFullPath(root / "handheld");
+	File::WriteStringToFile(true, "shaders = 0\n", root / "crt" / "crt-royale.slangp");
+	File::WriteStringToFile(true, "shaders = 0\n", root / "crt" / "crt-lottes.slangp");
+	File::WriteStringToFile(true, "shaders = 0\n", root / "handheld" / "lcd.slangp");
+	File::WriteStringToFile(true, "shaders = 0\n", root / "bilinear.slangp");   // root -> "misc"
+	File::WriteStringToFile(true, "not a preset\n", root / "crt" / "readme.txt"); // ignored
+
+	SlangPresetLibrary lib;
+	lib.Rescan(root);
+	// categories: crt, handheld, misc (sorted), no "readme"
+	const auto &cats = lib.GetCategories();
+	EXPECT_TRUE(std::find(cats.begin(), cats.end(), "crt") != cats.end());
+	EXPECT_TRUE(std::find(cats.begin(), cats.end(), "handheld") != cats.end());
+	EXPECT_TRUE(std::find(cats.begin(), cats.end(), "misc") != cats.end());
+	// crt has 2 presets, sorted, displayName has no extension
+	auto crt = lib.GetPresets("crt");
+	EXPECT_EQ_INT((int)crt.size(), 2);
+	EXPECT_TRUE(crt[0].displayName == "crt-lottes");   // sorted
+	EXPECT_TRUE(crt[1].displayName == "crt-royale");
+	EXPECT_TRUE(crt[0].path.GetFileExtension() == ".slangp");
+	// only 4 presets total (txt ignored)
+	EXPECT_EQ_INT((int)lib.All().size(), 4);
+	File::DeleteDirRecursively(root);
 	return true;
 }
