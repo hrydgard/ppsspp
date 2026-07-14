@@ -113,12 +113,15 @@ std::vector<SlangPresetEntry> SlangPresetLibrary::GetPresets(const std::string &
 }
 
 bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *out, std::string *error) {
+	// 'error' must be non-null: the slang parsers (ParseSlangPreset/ResolveSlangIncludes/
+	// SplitSlangSource) dereference it unconditionally, so we require it too rather than
+	// pretend to be null-safe on only some paths.
 	out->clear();
 
 	// Read the .slangp file
 	std::string presetText;
 	if (!File::ReadBinaryFileToString(presetPath, &presetText)) {
-		if (error) *error = "Failed to read preset file";
+		*error = "Failed to read preset file";
 		return false;
 	}
 
@@ -143,7 +146,7 @@ bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *ou
 		std::string shaderSrc;
 		Path shaderPath = Path(pass.shaderPath);
 		if (!File::ReadBinaryFileToString(shaderPath, &shaderSrc)) {
-			if (error) *error = "Failed to read shader: " + pass.shaderPath;
+			*error = "Failed to read shader: " + pass.shaderPath;
 			return false;
 		}
 

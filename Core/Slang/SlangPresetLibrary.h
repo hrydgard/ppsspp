@@ -48,4 +48,5 @@ private:
 // Enumerate a preset's #pragma parameters by text-parsing its .slangp + each .slang
 // (with includes resolved). No GPU/compile. Returns the merged list (.slangp-level
 // overrides win over .slang defaults, first-seen wins across passes), or false + *error.
+// 'error' must be non-null (the underlying slang parsers dereference it unconditionally).
 bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *out, std::string *error);
