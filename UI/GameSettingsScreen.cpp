@@ -415,7 +415,12 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		Choice *slangImportChoice = graphicsSettings->Add(new Choice(gr->T("Import RetroArch (slang) shaders")));
 		slangImportChoice->OnClick.Add([](UI::EventParams &e) {
 			if (!g_SlangImporter.Busy()) {
-				g_SlangImporter.Start("");
+				// Start() can fail synchronously (empty URL, or the download subsystem refuses),
+				// transitioning straight to FAILED without ever hitting the DOWNLOADING state the
+				// NativeApp OSD watcher keys on. Surface that here so the tap isn't silent.
+				if (!g_SlangImporter.Start("")) {
+					g_OSD.Show(OSDType::MESSAGE_ERROR, "Slang shader import failed", g_SlangImporter.GetError(), 4.0f);
+				}
 			}
 		});
 	}
