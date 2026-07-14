@@ -16,20 +16,56 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include <string>
 #include "UI/BaseScreens.h"
 #include "Core/Slang/SlangPresetLibrary.h"
+#include "Core/Slang/SlangPackageImporter.h"   // SlangImportState
 #include "UI/MiscViews.h"
 
+// Top-level browser: Import/Update button, a "None (disable)" entry, and the list of
+// CATEGORIES. Selecting a category pushes a SlangCategoryScreen. Kept short on purpose —
+// the (potentially hundreds of) presets live one level down, per category.
 class SlangShaderScreen : public UIBaseDialogScreen {
 public:
 	explicit SlangShaderScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 	void CreateViews() override;
-	bool key(const KeyInput &input) override;
+	void update() override;
 	const char *tag() const override { return "SlangShader"; }
 private:
-	void ActivatePreset(const Path &presetPath);
 	void Deactivate();
 	SlangPresetLibrary library_;
+	SlangImportState lastImportState_ = SlangImportState::IDLE;
+};
+
+// Second level: the presets within one category, with a search box scoped to that category.
+// Selecting a preset activates it (writes g_Config.sSlangShaderPreset, clears legacy
+// post-shaders) and pops back to the caller.
+class SlangCategoryScreen : public UIBaseDialogScreen {
+public:
+	SlangCategoryScreen(const Path &gamePath, const std::string &category)
+		: UIBaseDialogScreen(gamePath), category_(category) {}
+	void CreateViews() override;
+	bool key(const KeyInput &input) override;
+	const char *tag() const override { return "SlangCategory"; }
+private:
+	void ActivatePreset(const Path &presetPath);
+	SlangPresetLibrary library_;
+	std::string category_;
 	ViewSearch search_{};
 	UI::ViewGroup *listContainer_ = nullptr;
 };
+
+// Parameter sliders for the currently-active preset, bound live to g_Config.mSlangParams.
+// Reached from a "Shader parameters" row in Display settings when the active preset has params.
+class SlangParamsScreen : public UIBaseDialogScreen {
+public:
+	explicit SlangParamsScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
+	void CreateViews() override;
+	const char *tag() const override { return "SlangParams"; }
+};
+
+// Helpers shared with the settings screen:
+// Display name (basename without extension) for the active slang preset, or "" if none.
+std::string GetActiveSlangShaderName();
+// True if the active preset exists and exposes at least one #pragma parameter.
+bool ActiveSlangPresetHasParams();

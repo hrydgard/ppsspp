@@ -112,6 +112,19 @@ std::vector<SlangPresetEntry> SlangPresetLibrary::GetPresets(const std::string &
 	return result;
 }
 
+std::string SlangPresetLibrary::CategoryOf(const Path &presetPath) const {
+	const std::string target = presetPath.ToString();
+	if (target.empty()) {
+		return "";
+	}
+	for (const auto &entry : entries_) {
+		if (entry.path.ToString() == target) {
+			return entry.category;
+		}
+	}
+	return "";
+}
+
 bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *out, std::string *error) {
 	// 'error' must be non-null: the slang parsers (ParseSlangPreset/ResolveSlangIncludes/
 	// SplitSlangSource) dereference it unconditionally, so we require it too rather than

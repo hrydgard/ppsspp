@@ -40,6 +40,8 @@ public:
 	std::vector<SlangPresetEntry> GetPresets(const std::string &category) const;
 	const std::vector<SlangPresetEntry> &All() const { return entries_; }
 	bool Empty() const { return entries_.empty(); }
+	// Category of the indexed preset whose path matches 'presetPath', or "" if not found.
+	std::string CategoryOf(const Path &presetPath) const;
 private:
 	std::vector<SlangPresetEntry> entries_;
 	std::vector<std::string> categories_;  // unique, sorted
