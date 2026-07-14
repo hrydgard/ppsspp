@@ -17,7 +17,12 @@
 
 #pragma once
 #include <string>
+#include <memory>
+#include <thread>
+#include <atomic>
 #include "Common/File/Path.h"
+
+namespace http { class Request; }
 
 // Extract a slang-shaders zip at 'zipPath' into 'destRoot' (default GetSlangShaderDir()),
 // using a temp dir + atomic swap. Only shader-asset files that pass ResolveSafeZipEntryPath
@@ -28,3 +33,31 @@
 bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
                          const std::string &sourceUrl, int64_t unixTimestamp,
                          std::string *error);
+
+enum class SlangImportState { IDLE, DOWNLOADING, EXTRACTING, DONE, FAILED };
+
+class SlangPackageImporter {
+public:
+	~SlangPackageImporter();
+	// Begins download+import of 'url' (default g_Config.sSlangBuildbotUrl if empty).
+	// Returns false if an import is already in progress.
+	bool Start(const std::string &url);
+	// Pump each frame from the UI thread (drives download completion + thread join).
+	void Update();
+	SlangImportState GetState() const { return state_; }
+	float GetProgress() const;                 // 0..1 across download (extraction is coarse)
+	std::string GetError() const { return error_; }
+	bool Busy() const { return state_ == SlangImportState::DOWNLOADING || state_ == SlangImportState::EXTRACTING; }
+private:
+	SlangImportState state_ = SlangImportState::IDLE;
+	std::shared_ptr<http::Request> download_;
+	std::thread extractThread_;
+	std::atomic<bool> extractDone_{false};
+	std::atomic<bool> extractOk_{false};
+	std::string error_;
+	std::string sourceUrl_;
+	Path zipPath_;
+};
+
+// Process-wide instance (mirrors g_GameManager).
+extern SlangPackageImporter g_SlangImporter;

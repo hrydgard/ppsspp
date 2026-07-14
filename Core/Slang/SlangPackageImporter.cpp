@@ -19,6 +19,8 @@
 #include "Core/Slang/SlangPackageImporter.h"
 #include "Core/Slang/SlangPaths.h"
 #include "Core/Loaders.h"
+#include "Core/Config.h"
+#include "Common/Net/HTTPRequest.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/JSONWriter.h"
 #include "Common/Log.h"
@@ -111,4 +113,68 @@ bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
 	// Swap succeeded; the old install (if any) is no longer needed.
 	File::DeleteDirRecursively(backupDir);
 	return true;
+}
+
+SlangPackageImporter g_SlangImporter;
+
+SlangPackageImporter::~SlangPackageImporter() {
+	if (extractThread_.joinable()) extractThread_.join();
+}
+
+bool SlangPackageImporter::Start(const std::string &url) {
+	if (Busy()) return false;
+	sourceUrl_ = url.empty() ? g_Config.sSlangBuildbotUrl : url;
+	if (sourceUrl_.empty()) { error_ = "no buildbot URL configured"; state_ = SlangImportState::FAILED; return false; }
+	zipPath_ = Path(g_Config.memStickDirectory) / "ppsspp_slang.dl";
+	error_.clear();
+	extractDone_ = false;
+	extractOk_ = false;
+	download_ = g_DownloadManager.StartDownload(sourceUrl_, zipPath_,
+		http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
+		"application/zip", "slang_shaders");
+	if (!download_) { error_ = "failed to start download"; state_ = SlangImportState::FAILED; return false; }
+	state_ = SlangImportState::DOWNLOADING;
+	return true;
+}
+
+void SlangPackageImporter::Update() {
+	if (state_ == SlangImportState::DOWNLOADING) {
+		if (download_ && download_->Done()) {
+			bool ok = !download_->Failed() && download_->ResultCode() == 200 && File::Exists(zipPath_);
+			std::shared_ptr<http::Request> finished = download_;
+			download_.reset();
+			if (!ok) {
+				error_ = "download failed (HTTP " + std::to_string(finished ? finished->ResultCode() : 0) + ")";
+				File::Delete(zipPath_);
+				state_ = SlangImportState::FAILED;
+				return;
+			}
+			// Kick extraction on a worker thread (extraction can be slow).
+			state_ = SlangImportState::EXTRACTING;
+			std::string src = sourceUrl_;
+			Path zip = zipPath_;
+			extractThread_ = std::thread([this, zip, src]() {
+				std::string err;
+				// NOTE: pass 0 for timestamp; Date/time is not available in this layer without
+				// plumbing. A wall-clock stamp can be added later; fileCount+url suffice for now.
+				bool ok = ExtractSlangPackage(zip, GetSlangShaderDir(), src, 0, &err);
+				if (!ok) error_ = err;   // written before extractDone_ is set (happens-before via release)
+				extractOk_ = ok;
+				extractDone_ = true;
+			});
+		}
+	} else if (state_ == SlangImportState::EXTRACTING) {
+		if (extractDone_.load()) {
+			if (extractThread_.joinable()) extractThread_.join();
+			File::Delete(zipPath_);
+			state_ = extractOk_.load() ? SlangImportState::DONE : SlangImportState::FAILED;
+		}
+	}
+}
+
+float SlangPackageImporter::GetProgress() const {
+	if (state_ == SlangImportState::DOWNLOADING && download_) return download_->Progress() * 0.9f;
+	if (state_ == SlangImportState::EXTRACTING) return 0.95f;
+	if (state_ == SlangImportState::DONE) return 1.0f;
+	return 0.0f;
 }
