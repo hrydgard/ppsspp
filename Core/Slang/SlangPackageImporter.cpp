@@ -89,12 +89,26 @@ bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
 		File::WriteStringToFile(true, w.str(), tempDir / "manifest.json");
 	}
 
-	// Atomic-ish swap: remove any existing install, then move temp into place.
-	File::DeleteDirRecursively(destRoot);
-	if (!File::Move(tempDir, destRoot)) {
-		*error = "could not move imported shaders into place";
+	// Swap into place without risking the existing install: move the old install aside to a
+	// backup first, put the new tree in place, and only delete the backup once the swap
+	// succeeded. If anything fails, restore the backup so a failed import never destroys the
+	// user's existing shaders.
+	Path backupDir = Path(destRoot.GetDirectory()) / (destRoot.GetFilename() + ".import.bak");
+	File::DeleteDirRecursively(backupDir);  // clear any stale backup
+	bool hadExisting = File::Exists(destRoot);
+	if (hadExisting && !File::Move(destRoot, backupDir)) {
+		*error = "could not move existing shader install aside";
 		File::DeleteDirRecursively(tempDir);
 		return false;
 	}
+	if (!File::Move(tempDir, destRoot)) {
+		*error = "could not move imported shaders into place";
+		// Restore the previous install, then drop the temp.
+		if (hadExisting) File::Move(backupDir, destRoot);
+		File::DeleteDirRecursively(tempDir);
+		return false;
+	}
+	// Swap succeeded; the old install (if any) is no longer needed.
+	File::DeleteDirRecursively(backupDir);
 	return true;
 }
