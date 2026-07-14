@@ -18,12 +18,21 @@
 #pragma once
 
 #include <string>
+#include <functional>
 #include "Common/File/Path.h"
 #include "GPU/Common/Slang/SlangPreset.h"
 
 // Parse a .slangp preset. Relative shaderN paths resolve against basePath.
 // Unknown keys are ignored (forward-compat). Returns false + *error on fatal errors.
 bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset *out, std::string *error);
+
+// Reader: given a path, fill *out with file contents; return true on success. Injected so the
+// resolver works with both VFS and real-file reads and is unit-testable with a fake reader.
+using SlangFileReader = std::function<bool(const Path &path, std::string *out)>;
+// Recursively inline #include "rel" / #pragma include_optional "rel" directives. Paths resolve
+// relative to the INCLUDING file's directory. Guards against cycles/runaway (depth cap 32).
+bool ResolveSlangIncludes(const std::string &src, const Path &sourceDir, const SlangFileReader &reader,
+                          std::string *out, std::string *error);
 
 // Split a .slang source into vertex and fragment stages, extracting #pragma metadata.
 struct SlangSource {

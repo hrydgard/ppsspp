@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include <map>
 #include "unittest/UnitTest.h"
 #include "Common/File/Path.h"
 #include "GPU/Common/Slang/SlangpParser.h"
@@ -358,6 +359,57 @@ bool TestSlangSemanticsPhase2() {
 	// Empty alias should never match any real name.
 	EXPECT_TRUE(ClassifyTexture("", ctxGap, &idxGap) == SlangSemantic::Unknown);
 	EXPECT_TRUE(ClassifyUniform("Size", ctxGap, &idxGap) == SlangSemantic::Unknown);
+
+	return true;
+}
+
+bool TestSlangIncludes() {
+	// Fake filesystem reader backed by a map
+	std::map<std::string, std::string> files;
+	files["/base/common.inc"] = "float helper() { return 1.0; }";
+	files["/base/nested.inc"] = "#include \"deep.inc\"\nfloat middle() { return 2.0; }";
+	files["/base/deep.inc"] = "float deep() { return 3.0; }";
+	files["/base/cycle.inc"] = "#include \"cycle.inc\"";
+
+	auto reader = [&files](const Path &path, std::string *out) -> bool {
+		auto it = files.find(path.ToString());
+		if (it == files.end()) return false;
+		*out = it->second;
+		return true;
+	};
+
+	// Test 1: single include inlined + directive removed
+	std::string src1 = "#version 450\n#include \"common.inc\"\nvoid main() {}";
+	std::string out1, err1;
+	EXPECT_TRUE(ResolveSlangIncludes(src1, Path("/base"), reader, &out1, &err1));
+	EXPECT_TRUE(out1.find("helper()") != std::string::npos);
+	EXPECT_TRUE(out1.find("#include") == std::string::npos);
+
+	// Test 2: nested include (a includes b)
+	std::string src2 = "#include \"nested.inc\"\nvoid main() {}";
+	std::string out2, err2;
+	EXPECT_TRUE(ResolveSlangIncludes(src2, Path("/base"), reader, &out2, &err2));
+	EXPECT_TRUE(out2.find("deep()") != std::string::npos);
+	EXPECT_TRUE(out2.find("middle()") != std::string::npos);
+	EXPECT_TRUE(out2.find("#include") == std::string::npos);
+
+	// Test 3: #pragma include_optional missing -> empty, no error
+	std::string src3 = "#pragma include_optional \"missing.inc\"\nvoid main() {}";
+	std::string out3, err3;
+	EXPECT_TRUE(ResolveSlangIncludes(src3, Path("/base"), reader, &out3, &err3));
+	EXPECT_TRUE(out3.find("void main") != std::string::npos);
+	EXPECT_TRUE(out3.find("#pragma include_optional") == std::string::npos);
+
+	// Test 4: cycle or depth guard -> error
+	std::string src4 = "#include \"cycle.inc\"";
+	std::string out4, err4;
+	EXPECT_FALSE(ResolveSlangIncludes(src4, Path("/base"), reader, &out4, &err4));
+	EXPECT_TRUE(err4.find("recursion") != std::string::npos || err4.find("depth") != std::string::npos);
+
+	// Test 5: #include missing (not optional) -> error
+	std::string src5 = "#include \"notfound.inc\"";
+	std::string out5, err5;
+	EXPECT_FALSE(ResolveSlangIncludes(src5, Path("/base"), reader, &out5, &err5));
 
 	return true;
 }

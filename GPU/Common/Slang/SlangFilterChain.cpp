@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include "Common/Log.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/PngLoad.h"
 #include "GPU/Common/Slang/SlangFilterChain.h"
@@ -52,6 +53,30 @@ static void DoReleaseVector(std::vector<T *> &list) {
 	list.clear();
 }
 
+// Read a slang asset: try the VFS first (bundled assets), then the real filesystem
+// (custom shader dir). Returns true + fills *out on success.
+static bool ReadSlangFile(const Path &path, std::string *out) {
+	size_t sz = 0;
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), &sz);
+	if (data) {
+		out->assign((const char *)data, sz);
+		delete[] data;
+		return true;
+	}
+	// Fallback to real filesystem (custom shader dir)
+	return File::ReadBinaryFileToString(path, out);
+}
+
+// Read binary slang asset (LUT PNG): try VFS first, then real filesystem.
+// Returns allocated data (caller must delete[]) or nullptr.
+static uint8_t *ReadSlangBinaryFile(const Path &path, size_t *outSize) {
+	*outSize = 0;
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), outSize);
+	if (data) return data;
+	// Fallback to real filesystem
+	return File::ReadLocalFile(path, outSize);
+}
+
 SlangFilterChain::SlangFilterChain(Draw::DrawContext *draw) : draw_(draw) {
 }
 
@@ -66,15 +91,12 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 	// Release any existing resources (but keep draw_ — we need it to build the new chain).
 	ReleaseResources();
 
-	// Read the .slangp preset file
-	size_t sz = 0;
-	char *data = (char *)g_VFS.ReadFile(presetPath.c_str(), &sz);
-	if (!data) {
+	// Read the .slangp preset file (try VFS, then real filesystem)
+	std::string presetText;
+	if (!ReadSlangFile(presetPath, &presetText)) {
 		*error = "failed to read preset file: " + presetPath.ToString();
 		return false;
 	}
-	std::string presetText(data, sz);
-	delete[] data;
 
 	// Parse the preset
 	Path baseDir = Path(presetPath.GetDirectory());
@@ -124,9 +146,9 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 			return false;
 		}
 
-		// Read PNG file via VFS
+		// Read PNG file (try VFS, then real filesystem)
 		size_t lutSz = 0;
-		uint8_t *lutData = g_VFS.ReadFile(lut.path.c_str(), &lutSz);
+		uint8_t *lutData = ReadSlangBinaryFile(Path(lut.path), &lutSz);
 		if (!lutData) {
 			*error = "failed to load LUT: " + lut.name;
 			ReleaseResources();
@@ -209,20 +231,28 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 	for (size_t i = 0; i < preset_.passes.size(); i++) {
 		const SlangPassDesc &passDesc = preset_.passes[i];
 
-		// Read the .slang shader file
-		size_t shaderSz = 0;
-		char *shaderData = (char *)g_VFS.ReadFile(passDesc.shaderPath.c_str(), &shaderSz);
-		if (!shaderData) {
+		// Read the .slang shader file (try VFS, then real filesystem)
+		std::string shaderSrc;
+		if (!ReadSlangFile(Path(passDesc.shaderPath), &shaderSrc)) {
 			*error = "failed to read shader: " + passDesc.shaderPath;
 			ReleaseResources();
 			return false;
 		}
-		std::string shaderSrc(shaderData, shaderSz);
-		delete[] shaderData;
+
+		// Resolve #include directives recursively
+		Path shaderDir(Path(passDesc.shaderPath).GetDirectory());
+		SlangFileReader reader = [](const Path &path, std::string *out) -> bool {
+			return ReadSlangFile(path, out);
+		};
+		std::string resolvedSrc;
+		if (!ResolveSlangIncludes(shaderSrc, shaderDir, reader, &resolvedSrc, error)) {
+			ReleaseResources();
+			return false;
+		}
 
 		// Split into vertex + fragment stages
 		SlangSource src;
-		if (!SplitSlangSource(shaderSrc, &src, error)) {
+		if (!SplitSlangSource(resolvedSrc, &src, error)) {
 			ReleaseResources();
 			return false;
 		}

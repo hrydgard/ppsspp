@@ -19,6 +19,7 @@
 #include <cstring>
 #include <map>
 #include <sstream>
+#include <functional>
 
 #include "Common/StringUtils.h"
 #include "GPU/Common/Slang/SlangpParser.h"
@@ -138,6 +139,85 @@ bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset
 	}
 
 	return true;
+}
+
+// Helper to recursively resolve includes with depth guard
+static bool ResolveSlangIncludesRecursive(const std::string &src, const Path &sourceDir,
+                                          const SlangFileReader &reader, int depth,
+                                          std::string *out, std::string *error) {
+	if (depth > 32) {
+		*error = "include recursion too deep (cycle or runaway)";
+		return false;
+	}
+
+	out->clear();
+	std::stringstream ss(src);
+	std::string line;
+	while (std::getline(ss, line)) {
+		std::string trimmed = std::string(StripSpaces(line));
+		bool isInclude = false;
+		bool isOptional = false;
+		std::string includePath;
+
+		// Match: #include "path" or #pragma include "path" or #pragma include_optional "path"
+		if (startsWith(trimmed, "#include")) {
+			std::string rest = std::string(StripSpaces(trimmed.substr(strlen("#include"))));
+			if (rest.size() >= 2 && rest.front() == '"' && rest.back() == '"') {
+				includePath = rest.substr(1, rest.size() - 2);
+				isInclude = true;
+			}
+		} else if (startsWith(trimmed, "#pragma")) {
+			std::string rest = std::string(StripSpaces(trimmed.substr(strlen("#pragma"))));
+			if (startsWith(rest, "include_optional")) {
+				std::string pathPart = std::string(StripSpaces(rest.substr(strlen("include_optional"))));
+				if (pathPart.size() >= 2 && pathPart.front() == '"' && pathPart.back() == '"') {
+					includePath = pathPart.substr(1, pathPart.size() - 2);
+					isInclude = true;
+					isOptional = true;
+				}
+			} else if (startsWith(rest, "include")) {
+				std::string pathPart = std::string(StripSpaces(rest.substr(strlen("include"))));
+				if (pathPart.size() >= 2 && pathPart.front() == '"' && pathPart.back() == '"') {
+					includePath = pathPart.substr(1, pathPart.size() - 2);
+					isInclude = true;
+				}
+			}
+		}
+
+		if (isInclude && !includePath.empty()) {
+			// Resolve path relative to sourceDir
+			Path fullPath = sourceDir / includePath;
+			std::string includeContent;
+			if (!reader(fullPath, &includeContent)) {
+				if (!isOptional) {
+					*error = "failed to read include: " + includePath;
+					return false;
+				}
+				// Optional include missing -> substitute empty, continue
+				continue;
+			}
+
+			// Recursively resolve includes in the included file
+			Path includeDir = Path(fullPath.GetDirectory());
+			std::string resolved;
+			if (!ResolveSlangIncludesRecursive(includeContent, includeDir, reader, depth + 1, &resolved, error)) {
+				return false;
+			}
+
+			// Substitute the resolved content (without the directive line itself)
+			*out += resolved;
+		} else {
+			// Non-include line: pass through
+			*out += line + "\n";
+		}
+	}
+
+	return true;
+}
+
+bool ResolveSlangIncludes(const std::string &src, const Path &sourceDir, const SlangFileReader &reader,
+                          std::string *out, std::string *error) {
+	return ResolveSlangIncludesRecursive(src, sourceDir, reader, 0, out, error);
 }
 
 // Parse: #pragma parameter NAME "Description" INIT MIN MAX [STEP]
