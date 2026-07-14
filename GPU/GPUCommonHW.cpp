@@ -1002,8 +1002,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
 			cyclesExecuted += cycles;
-			// NOTE! We still have to advance vertex pointers!
-			gstate_c.vertexAddr += bytesRead;   // We know from the above check that it's not an indexed draw.
+			// We still have to advance vertex/index pointers!
+			gstate_c.AdvanceVerts(vertexType, count, bytesRead);
 			return;
 		}
 	}
