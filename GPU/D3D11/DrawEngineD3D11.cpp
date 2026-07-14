@@ -340,7 +340,7 @@ void DrawEngineD3D11::Flush() {
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
+		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, clipInfoFlags_);
 		ID3D11InputLayout *inputLayout;
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
@@ -452,7 +452,7 @@ void DrawEngineD3D11::Flush() {
 		if (action == SW_DRAW_INDEXED) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
+			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, clipInfoFlags_);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());

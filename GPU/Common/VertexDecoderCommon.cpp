@@ -48,8 +48,7 @@ static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
 
 static constexpr bool validateJit = false;
 
-// When software skinning. This array is only used when non-jitted - when jitted, the matrix
-// is kept in registers.
+// This array might only be used when non-jitted - when jitted, the matrix is kept in registers whenever possible.
 alignas(16) static float skinMatrix[12];
 
 inline int align(int n, int align) {

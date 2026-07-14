@@ -1394,14 +1394,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 
-	if (!g_Config.bSoftwareSkinning) {
-		if (flushOnParams_) {
-			Flush();
-		}
-		gstate_c.Dirty(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
-	}
+	gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	gstate.FastLoadBoneMatrix(target);
 
 	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.

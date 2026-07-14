@@ -143,10 +143,10 @@ struct VertexDecoderOptions {
 	bool expand8BitNormalsToFloat;
 };
 
-inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode, bool skinInDecode) {
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (skinInDecode << 26);
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (1 << 26);
 }
 
 inline bool VertTypeIDSkinInDecode(uint32_t vertType) {

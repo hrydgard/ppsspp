@@ -260,8 +260,8 @@ void DrawEngineVulkan::Flush() {
 		uint32_t vbOffset;
 
 		VkBuffer vbuf = VK_NULL_HANDLE;
-		if (applySkinInDecode_ && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
+			// If skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(dec_, decoded_);
 			VkDeviceSize size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
@@ -304,7 +304,7 @@ void DrawEngineVulkan::Flush() {
 			VShaderID vshaderID;
 			FShaderID fshaderID;
 
-			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vshaderID, &fshaderID, pipelineState_, true, decOptions_.expandAllWeightsToFloat, applySkinInDecode_, clipInfoFlags_);
+			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vshaderID, &fshaderID, pipelineState_, true, clipInfoFlags_);
 			_dbg_assert_msg_(vshaderID.Bit(VS_BIT_USE_HW_TRANSFORM) == true, "Bad vshader ID");
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshaderID, fshaderID, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
@@ -462,7 +462,7 @@ void DrawEngineVulkan::Flush() {
 				VShaderID vshaderID;
 				FShaderID fshaderID;
 
-				shaderManager_->GetShaderIDs(prim, swDec->VertexType(), &vshaderID, &fshaderID, pipelineState_, false, decOptions_.expandAllWeightsToFloat, true, clipInfoFlags_);
+				shaderManager_->GetShaderIDs(prim, swDec->VertexType(), &vshaderID, &fshaderID, pipelineState_, false, clipInfoFlags_);
 				_dbg_assert_msg_(vshaderID.Bit(VS_BIT_USE_HW_TRANSFORM) == false, "Bad vshader ID");
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshaderID, fshaderID, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
