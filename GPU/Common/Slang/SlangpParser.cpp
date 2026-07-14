@@ -227,6 +227,7 @@ static bool ParseParameterPragma(const std::string &rest, SlangParamDesc *p) {
 	size_t q2 = (q1 == std::string::npos) ? std::string::npos : rest.find('"', q1 + 1);
 	if (q1 == std::string::npos || q2 == std::string::npos) return false;
 	p->name = std::string(StripSpaces(rest.substr(0, q1)));
+	p->description = rest.substr(q1 + 1, q2 - q1 - 1);   // text between the quotes
 	std::string tail = rest.substr(q2 + 1);  // " INIT MIN MAX [STEP]"
 	std::istringstream nums(tail);
 	nums >> p->initial >> p->minimum >> p->maximum;

@@ -672,3 +672,21 @@ bool TestSlangPackageExtract() {
 	File::Delete(zipPath);
 	return true;
 }
+
+bool TestSlangParamDescription() {
+	SlangSource src; std::string err;
+	std::string shader =
+		"#version 450\n"
+		"#pragma parameter crt_gamma \"CRT Gamma\" 2.4 1.0 4.0 0.05\n"
+		"#pragma stage vertex\n"
+		"void main() {}\n"
+		"#pragma stage fragment\n"
+		"void main() {}\n";
+	EXPECT_TRUE(SplitSlangSource(shader, &src, &err));
+	EXPECT_EQ_INT((int)src.params.size(), 1);
+	EXPECT_TRUE(src.params[0].name == "crt_gamma");
+	EXPECT_TRUE(src.params[0].description == "CRT Gamma");
+	EXPECT_TRUE(src.params[0].initial == 2.4f);
+	EXPECT_TRUE(src.params[0].maximum == 4.0f);
+	return true;
+}

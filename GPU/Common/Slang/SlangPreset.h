@@ -42,7 +42,8 @@ enum class SlangFbFormat {
 };
 
 struct SlangParamDesc {
-	std::string name;     // must match a float UBO/push member
+	std::string name;         // must match a float UBO/push member
+	std::string description;  // human-readable label from #pragma parameter (may be empty)
 	float initial = 0.0f;
 	float minimum = 0.0f;
 	float maximum = 1.0f;
