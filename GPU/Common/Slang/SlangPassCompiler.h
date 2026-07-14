@@ -25,7 +25,12 @@
 // Reflect a compiled slang source: compile both stages to SPIR-V (glslang, Vulkan rules),
 // reflect the fragment+vertex SPIR-V (SPIRV-Cross), classify every UBO member and sampler.
 // Does NOT create GPU objects — pure compile+reflect, unit-testable without a device.
-bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error);
+// When outTransformedVert/Frag are non-null, they receive the push_constant->UBO transformed
+// GLSL that was actually compiled — callers MUST create shader modules from these (NOT the
+// original src.vertex/src.fragment), or the GPU shader will still contain a push_constant block
+// that PPSSPP cannot feed, leaving those members (SourceSize/OutputSize/...) reading garbage.
+bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error,
+                        std::string *outTransformedVert = nullptr, std::string *outTransformedFrag = nullptr);
 
 struct SlangCompiledPass {
 	Draw::Pipeline *pipeline = nullptr;

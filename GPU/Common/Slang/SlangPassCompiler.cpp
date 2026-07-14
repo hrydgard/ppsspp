@@ -233,7 +233,8 @@ static bool TransformPushConstantToUBO(const std::string &src, std::string *out,
 	return true;
 }
 
-bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error) {
+bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx, PassReflection *out, std::string *error,
+                        std::string *outTransformedVert, std::string *outTransformedFrag) {
 	// Phase 2 Task 9c: transform push_constant blocks into a single merged UBO before compilation.
 	// Real slang shaders use two blocks: a std140 UBO (e.g. global.MVP) and push_constant (e.g. params.SourceSize).
 	// PPSSPP thin3d only supports one dynamic UBO (set 0, binding 0). Transform merges both into one block.
@@ -246,6 +247,13 @@ bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx,
 		*error = "fragment stage push_constant transform failed: " + *error;
 		return false;
 	}
+
+	// Hand the transformed GLSL back to the caller so shader modules are built from the SAME
+	// source we reflected. Compiling the original push_constant source instead would leave the
+	// push members (SourceSize/OutputSize/FrameCount/...) unfed on the GPU — they'd read garbage
+	// while the std140 UBO params read fine, producing frame-dependent corruption.
+	if (outTransformedVert) *outTransformedVert = transformedVert;
+	if (outTransformedFrag) *outTransformedFrag = transformedFrag;
 
 	std::vector<unsigned int> vspv, fspv;
 	if (!CompileStageToSpirv(EShLangVertex, transformedVert, &vspv, error)) return false;
@@ -310,8 +318,11 @@ bool ReflectSlangSource(const SlangSource &src, const SlangClassifyContext &ctx,
 
 bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src, const SlangClassifyContext &ctx,
                       SlangCompiledPass *out, std::string *error) {
-	// First reflect to get the semantics (internally compiles to SPIR-V for reflection)
-	if (!ReflectSlangSource(src, ctx, &out->reflection, error)) {
+	// First reflect to get the semantics (internally compiles to SPIR-V for reflection).
+	// Capture the push_constant->UBO transformed GLSL so the shader modules below are built from
+	// the exact source we reflected — see ReflectSlangSource's contract.
+	std::string transformedVert, transformedFrag;
+	if (!ReflectSlangSource(src, ctx, &out->reflection, error, &transformedVert, &transformedFrag)) {
 		return false;
 	}
 
@@ -329,9 +340,9 @@ bool CompileSlangPass(Draw::DrawContext *draw, const SlangSource &src, const Sla
 	// PPSSPP's Vulkan CreateShaderModule (VKShaderModule::Compile) takes GLSL source text,
 	// stores source_ = (const char*)data, and runs GLSLtoSPV(..., GLSLVariant::VULKAN, ...) on it.
 	Draw::ShaderModule *vs = draw->CreateShaderModule(ShaderStage::Vertex, GLSL_VULKAN,
-		(const uint8_t *)src.vertex.c_str(), src.vertex.size(), src.name.empty() ? "slang_vs" : src.name.c_str());
+		(const uint8_t *)transformedVert.c_str(), transformedVert.size(), src.name.empty() ? "slang_vs" : src.name.c_str());
 	Draw::ShaderModule *fs = draw->CreateShaderModule(ShaderStage::Fragment, GLSL_VULKAN,
-		(const uint8_t *)src.fragment.c_str(), src.fragment.size(), src.name.empty() ? "slang_fs" : src.name.c_str());
+		(const uint8_t *)transformedFrag.c_str(), transformedFrag.size(), src.name.empty() ? "slang_fs" : src.name.c_str());
 
 	if (!vs || !fs) {
 		*error = "failed to create shader modules";
