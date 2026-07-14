@@ -206,6 +206,9 @@ bool SlangFilterChain::Load(const Path &presetPath, std::string *error) {
 		case SlangWrapMode::MirroredRepeat:
 			wrapMode = TextureAddressMode::REPEAT_MIRROR;
 			break;
+		default:
+			wrapMode = TextureAddressMode::CLAMP_TO_EDGE;
+			break;
 		}
 
 		// Create sampler
@@ -361,6 +364,10 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 					ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create history framebuffer %dx%d", sourceW, sourceH);
 					return nullptr;
 				}
+				// Clear on first allocation to avoid binding garbage on the first frame
+				draw_->BindFramebufferAsRenderTarget(historyRing_[k], {
+					Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE
+				}, "slang-history-clear");
 			}
 		}
 	}
