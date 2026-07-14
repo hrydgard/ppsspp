@@ -1387,6 +1387,9 @@
     <ClCompile Include="Slang\SlangPaths.cpp">
       <Filter>Slang</Filter>
     </ClCompile>
+    <ClCompile Include="Slang\SlangPackageImporter.cpp">
+      <Filter>Slang</Filter>
+    </ClCompile>
     <ClCompile Include="SaveStateRewind.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -2248,6 +2251,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Slang\SlangPaths.h">
+      <Filter>Slang</Filter>
+    </ClInclude>
+    <ClInclude Include="Slang\SlangPackageImporter.h">
       <Filter>Slang</Filter>
     </ClInclude>
     <ClInclude Include="SaveStateRewind.h">

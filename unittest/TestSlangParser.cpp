@@ -17,14 +17,19 @@
 
 #include <string>
 #include <map>
+#include <zip.h>
 #include "unittest/UnitTest.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Data/Format/JSONReader.h"
+#include "Core/Config.h"
 #include "GPU/Common/Slang/SlangpParser.h"
 #include "GPU/Common/Slang/SlangResolution.h"
 #include "GPU/Common/Slang/SlangReflection.h"
 #include "GPU/Common/Slang/SlangPassCompiler.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Core/Slang/SlangPaths.h"
+#include "Core/Slang/SlangPackageImporter.h"
 
 bool TestSlangParser() {
 	// Two-pass preset with per-axis scale, alias, and a parameter list line.
@@ -622,5 +627,48 @@ bool TestSlangZipPathSanitizer() {
 	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "crt/evil.sh", false, &out));
 	// Empty name rejected:
 	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "", false, &out));
+	return true;
+}
+
+bool TestSlangPackageExtract() {
+	Path tmp = Path(g_Config.memStickDirectory).empty() ? Path("/tmp") : Path("/tmp");
+	Path zipPath = tmp / "slang_test_pkg.zip";
+	Path dest = tmp / "slang_extract_dest";
+	File::DeleteDirRecursively(dest);
+	File::Delete(zipPath);
+
+	// --- create the test zip ---
+	int zerr = 0;
+	zip_t *z = zip_open(zipPath.ToString().c_str(), ZIP_CREATE | ZIP_TRUNCATE, &zerr);
+	EXPECT_TRUE(z != nullptr);
+	auto addFile = [&](const char *name, const std::string &content) {
+		zip_source_t *s = zip_source_buffer(z, content.data(), content.size(), 0);
+		zip_file_add(z, name, s, ZIP_FL_ENC_UTF_8);
+	};
+	addFile("crt/x.slangp", "shaders = 0\n");
+	addFile("crt/x.slang", "#version 450\n");
+	addFile("../evil.slang", "#version 450\n");   // must be rejected
+	addFile("crt/notes.txt", "hello");            // wrong ext, must be skipped
+	zip_close(z);
+
+	// --- extract ---
+	std::string err;
+	EXPECT_TRUE(ExtractSlangPackage(zipPath, dest, "http://example/test.zip", 12345, &err));
+	// Valid shader files present:
+	EXPECT_TRUE(File::Exists(dest / "crt" / "x.slangp"));
+	EXPECT_TRUE(File::Exists(dest / "crt" / "x.slang"));
+	// Traversal + wrong-ext rejected:
+	EXPECT_FALSE(File::Exists(tmp / "evil.slang"));
+	EXPECT_FALSE(File::Exists(dest / "crt" / "notes.txt"));
+	// Manifest written:
+	EXPECT_TRUE(File::Exists(dest / "manifest.json"));
+	json::JsonReader r((dest / "manifest.json").ToString());
+	EXPECT_TRUE(r.ok());
+	std::string url; r.root().getString("sourceUrl", &url);
+	EXPECT_TRUE(url == "http://example/test.zip");
+	EXPECT_EQ_INT(r.root().getInt("fileCount", -1), 2);
+
+	File::DeleteDirRecursively(dest);
+	File::Delete(zipPath);
 	return true;
 }
