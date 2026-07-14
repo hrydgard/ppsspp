@@ -45,14 +45,12 @@ static void RecursiveScanForPresets(const Path &currentDir, const Path &rootDir,
 				SlangPresetEntry entry;
 				entry.path = fileInfo.fullName;
 
-				// Extract display name (filename without extension)
+				// Extract display name (filename without the .slangp extension). ext was already
+				// validated case-insensitively above, so strip exactly its length to handle any
+				// case (.slangp/.SLANGP/.Slangp) uniformly.
 				std::string filename = fileInfo.name;
-				size_t extPos = filename.rfind(".slangp");
-				if (extPos == std::string::npos) {
-					extPos = filename.rfind(".SLANGP");
-				}
-				if (extPos != std::string::npos) {
-					entry.displayName = filename.substr(0, extPos);
+				if (filename.size() >= ext.size()) {
+					entry.displayName = filename.substr(0, filename.size() - ext.size());
 				} else {
 					entry.displayName = filename;
 				}
