@@ -370,6 +370,9 @@ public:
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+	// Slang shader runtime parameter overrides, keyed "<presetPath>|<paramName>" -> value.
+	// Persisted manually in the [SlangParams] ini section (see Config.cpp Load/Save).
+	std::map<std::string, float> mSlangParams;
 
 	// Note that this is separate from VR stereo, though it'll share some code paths.
 	bool bStereoRendering;

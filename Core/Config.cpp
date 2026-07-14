@@ -1413,6 +1413,15 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		mPostShaderSetting[key] = std::stof(value);
 	}
 
+	// Load slang shader runtime parameter overrides.
+	const Section *slangParams = iniFile.GetOrCreateSection("SlangParams");
+	mSlangParams.clear();
+	for (const auto &[key, value] : slangParams->ToMap()) {
+		// Guard against a hand-edited ini with non-numeric values.
+		try { mSlangParams[key] = std::stof(value); }
+		catch (...) { WARN_LOG(Log::Loader, "Bad SlangParams value for '%s': %s", key.c_str(), value.c_str()); }
+	}
+
 	const Section *hostOverrideSetting = iniFile.GetOrCreateSection("HostAliases");
 	// TODO: relocate me before PR
 	mHostToAlias = hostOverrideSetting->ToMap();
@@ -1519,6 +1528,11 @@ bool Config::Save(const char *saveReason) {
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
 				postShaderSetting->Set(k, v);
+			}
+			Section *slangParams = iniFile.GetOrCreateSection("SlangParams");
+			slangParams->Clear();
+			for (const auto &[k, v] : mSlangParams) {
+				slangParams->Set(k.c_str(), v);
 			}
 			Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
 			postShaderChain->Clear();
