@@ -2568,6 +2568,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/GameDB.h
 	Core/Util/PathUtil.cpp
 	Core/Util/PathUtil.h
+	Core/Slang/SlangPaths.cpp
+	Core/Slang/SlangPaths.h
 	Core/Util/PortManager.cpp
 	Core/Util/PortManager.h
 	Core/Util/BlockAllocator.cpp

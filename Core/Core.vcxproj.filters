@@ -1384,6 +1384,9 @@
     <ClCompile Include="Util\PathUtil.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Slang\SlangPaths.cpp">
+      <Filter>Slang</Filter>
+    </ClCompile>
     <ClCompile Include="SaveStateRewind.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -2243,6 +2246,9 @@
     </ClInclude>
     <ClInclude Include="Util\PathUtil.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Slang\SlangPaths.h">
+      <Filter>Slang</Filter>
     </ClInclude>
     <ClInclude Include="SaveStateRewind.h">
       <Filter>Core</Filter>

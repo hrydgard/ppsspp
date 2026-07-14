@@ -783,6 +783,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/AudioFormat.cpp \
   $(SRC)/Core/Util/MemStick.cpp \
   $(SRC)/Core/Util/PathUtil.cpp \
+  $(SRC)/Core/Slang/SlangPaths.cpp \
   $(SRC)/Core/Util/PortManager.cpp \
   $(SRC)/Core/Util/GameDB.cpp \
   $(SRC)/Core/Util/GameManager.cpp \

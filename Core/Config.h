@@ -378,6 +378,8 @@ public:
 
 	// Slang shader preset path (empty = disabled)
 	std::string sSlangShaderPreset;
+	// URL of the libretro slang-shaders package zip (importer default; overridable for mirrors).
+	std::string sSlangBuildbotUrl;
 
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
