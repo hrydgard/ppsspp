@@ -352,6 +352,15 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		const SlangPassDesc &passDesc = preset_.passes[i];
 		const SlangCompiledPass &pass = passes_[i];
 
+		// Warn once if mipmapInput is requested (framebuffer mips not supported)
+		if (passDesc.mipmapInput) {
+			static bool warned = false;
+			if (!warned) {
+				WARN_LOG(Log::G3D, "slang: mipmap_input on framebuffer inputs not supported, sampling base level only (LUT mips work)");
+				warned = true;
+			}
+		}
+
 		// Compute output size for this pass
 		SlangSize inputSize = { prevW, prevH };
 		SlangSize viewportSize = { viewportW, viewportH };
@@ -367,8 +376,31 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		if (!passFramebuffers_[i] || needsResize) {
 			DoRelease(passFramebuffers_[i]);
 			using namespace Draw;
+
+			// Select color format based on pass requirements
+			DataFormat colorFormat = DataFormat::R8G8B8A8_UNORM;  // default
+			if (passDesc.formatOverride == SlangFbFormat::Srgb || passDesc.srgbFramebuffer) {
+				colorFormat = DataFormat::R8G8B8A8_UNORM_SRGB;
+			} else if (passDesc.formatOverride == SlangFbFormat::Float || passDesc.floatFramebuffer) {
+				colorFormat = DataFormat::R16G16B16A16_FLOAT;
+			}
+
+			// Check format support and fall back if unsupported
+			if (colorFormat != DataFormat::R8G8B8A8_UNORM) {
+				uint32_t support = draw_->GetDataFormatSupport(colorFormat);
+				if (!(support & FMT_RENDERTARGET)) {
+					static bool warned = false;
+					if (!warned) {
+						WARN_LOG(Log::G3D, "slang: %s framebuffer unsupported, falling back to UNORM (colors may differ)",
+							colorFormat == DataFormat::R8G8B8A8_UNORM_SRGB ? "sRGB" : "float");
+						warned = true;
+					}
+					colorFormat = DataFormat::R8G8B8A8_UNORM;
+				}
+			}
+
 			passFramebuffers_[i] = draw_->CreateFramebuffer({
-				outputSize.w, outputSize.h, 1, 1, 0, false, "slang-pass"
+				outputSize.w, outputSize.h, 1, 1, 0, false, "slang-pass", colorFormat
 			});
 			if (!passFramebuffers_[i]) {
 				ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create framebuffer %dx%d", outputSize.w, outputSize.h);
@@ -387,8 +419,23 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			if (!feedbackBuffers_[i] || feedbackNeedsResize) {
 				DoRelease(feedbackBuffers_[i]);
 				using namespace Draw;
+
+				// Select color format (same logic as pass framebuffer)
+				DataFormat colorFormat = DataFormat::R8G8B8A8_UNORM;
+				if (passDesc.formatOverride == SlangFbFormat::Srgb || passDesc.srgbFramebuffer) {
+					colorFormat = DataFormat::R8G8B8A8_UNORM_SRGB;
+				} else if (passDesc.formatOverride == SlangFbFormat::Float || passDesc.floatFramebuffer) {
+					colorFormat = DataFormat::R16G16B16A16_FLOAT;
+				}
+				if (colorFormat != DataFormat::R8G8B8A8_UNORM) {
+					uint32_t support = draw_->GetDataFormatSupport(colorFormat);
+					if (!(support & FMT_RENDERTARGET)) {
+						colorFormat = DataFormat::R8G8B8A8_UNORM;  // silent fallback (already warned above)
+					}
+				}
+
 				feedbackBuffers_[i] = draw_->CreateFramebuffer({
-					outputSize.w, outputSize.h, 1, 1, 0, false, "slang-feedback"
+					outputSize.w, outputSize.h, 1, 1, 0, false, "slang-feedback", colorFormat
 				});
 				if (!feedbackBuffers_[i]) {
 					ERROR_LOG(Log::G3D, "SlangFilterChain: failed to create feedback framebuffer %dx%d", outputSize.w, outputSize.h);
@@ -550,7 +597,20 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		// binding 1..N. PPSSPP's thin3d, however, indexes textures by a 0-based *slot*
 		// (slot 0 -> descriptor binding 1, slot 1 -> binding 2, ...). So convert the
 		// reflected descriptor binding to a thin3d texture slot with (binding - 1).
-		Draw::SamplerState *sampler = passDesc.filterLinear ? samplerLinear_ : samplerNearest_;
+
+		// Create per-pass sampler based on filterLinear + wrapMode
+		Draw::TextureFilter filter = passDesc.filterLinear ? Draw::TextureFilter::LINEAR : Draw::TextureFilter::NEAREST;
+		Draw::TextureAddressMode wrapMode;
+		switch (passDesc.wrapMode) {
+		case SlangWrapMode::ClampToBorder: wrapMode = Draw::TextureAddressMode::CLAMP_TO_BORDER; break;
+		case SlangWrapMode::ClampToEdge:   wrapMode = Draw::TextureAddressMode::CLAMP_TO_EDGE; break;
+		case SlangWrapMode::Repeat:        wrapMode = Draw::TextureAddressMode::REPEAT; break;
+		case SlangWrapMode::MirroredRepeat: wrapMode = Draw::TextureAddressMode::REPEAT_MIRROR; break;
+		default:                           wrapMode = Draw::TextureAddressMode::CLAMP_TO_EDGE; break;
+		}
+		Draw::SamplerState *sampler = draw_->CreateSamplerState({
+			filter, filter, filter, 0.0f, wrapMode, wrapMode, wrapMode
+		});
 		for (const auto &tex : pass.reflection.textures) {
 			int slot = tex.binding - 1;
 			if (slot < 0) {
@@ -646,6 +706,9 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 		}
 		draw_->BindVertexBuffer(quad_, 0);
 		draw_->Draw(4, 0);
+
+		// Release per-pass sampler
+		sampler->Release();
 
 		// Update for next pass
 		prevOutput = passFramebuffers_[i];

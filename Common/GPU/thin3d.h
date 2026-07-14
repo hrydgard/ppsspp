@@ -306,6 +306,7 @@ struct FramebufferDesc {
 	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
+	DataFormat colorFormat = DataFormat::R8G8B8A8_UNORM;  // Color attachment format (defaulted for backward compatibility)
 };
 
 // Binary compatible with D3D11 viewport.

@@ -58,7 +58,7 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag, VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -143,7 +143,7 @@ class VKRRenderPass {
 public:
 	explicit VKRRenderPass(const RPKey &key) : key_(key) {}
 
-	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount, VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
 	void Destroy(VulkanContext *vulkan) {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (pass[i]) {
@@ -156,6 +156,7 @@ private:
 	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
 	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
 	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT]{};
+	VkFormat colorFormats[(size_t)RenderPassType::TYPE_COUNT]{};
 	RPKey key_;
 };
 

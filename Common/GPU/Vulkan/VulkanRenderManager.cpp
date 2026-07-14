@@ -895,7 +895,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			// Sanity check
 			if (runCompileThread_) {
 				pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-				compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
+				compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount, VK_FORMAT_R8G8B8A8_UNORM), rpType, sampleCount);
 			}
 			needsCompile = true;
 		}

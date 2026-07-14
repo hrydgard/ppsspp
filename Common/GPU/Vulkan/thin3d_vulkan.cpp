@@ -676,6 +676,7 @@ static VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::R8G8_UNORM: return VK_FORMAT_R8G8_UNORM;
 	case DataFormat::R8G8B8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
 	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::R8G8B8A8_UNORM_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
 	case DataFormat::R4G4_UNORM_PACK8: return VK_FORMAT_R4G4_UNORM_PACK8;
 
 	// Note: A4R4G4B4_UNORM_PACK16 is not supported.
@@ -1798,7 +1799,8 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	_assert_(desc.width > 0);
 	_assert_(desc.height > 0);
 
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, &renderManager_.PostInitBarrier(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
+	VkFormat colorFormat = DataFormatToVulkan(desc.colorFormat);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, &renderManager_.PostInitBarrier(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag, colorFormat);
 	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
 }
 

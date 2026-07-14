@@ -1107,8 +1107,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 						// Unfortunately I don't know if we can fix it in any more sensible place than here.
 						// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 						// happen all that much.
+						VkFormat fbColorFormat = fb ? fb->color.format : VK_FORMAT_R8G8B8A8_UNORM;
 						graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-						graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
+						graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount, fbColorFormat), rpType, fbSampleCount, time_now_d(), -1);
 					}
 					pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
 				}
