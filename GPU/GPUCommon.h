@@ -320,15 +320,6 @@ protected:
 	// TODO: Unify this. Vulkan and OpenGL are different due to how they buffer data.
 	virtual void FinishDeferred() {}
 
-	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
-		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-			const int indexShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
-			gstate_c.indexAddr += count << indexShift;
-		} else {
-			gstate_c.vertexAddr += bytesRead;
-		}
-	}
-
 	virtual void BuildReportingInfo() = 0;
 
 	virtual void UpdateMSAALevel(Draw::DrawContext *draw) {}

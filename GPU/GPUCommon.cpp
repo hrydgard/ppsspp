@@ -1243,7 +1243,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		// This is the normal case that pretty much always happens, the others are esoteric.
 		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, vertType);
 	}
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
