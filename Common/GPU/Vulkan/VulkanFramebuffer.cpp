@@ -130,7 +130,7 @@ VkFramebuffer VKRFramebuffer::Get(VKRRenderPass *compatibleRenderPass, RenderPas
 		}
 	}
 
-	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType, sampleCount, color.format);
+	fbci.renderPass = compatibleRenderPass->Get(vulkan_, rpType, sampleCount);
 	fbci.attachmentCount = attachmentCount;
 	fbci.pAttachments = views;
 	fbci.width = width;
@@ -548,7 +548,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	return pass;
 }
 
-VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount, VkFormat colorFormat) {
+VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
 	// When we create a render pass, we create all "types" of it immediately,
 	// practical later when referring to it. Could change to on-demand if it feels motivated
 	// but I think the render pass objects are cheap.
@@ -557,15 +557,17 @@ VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, Vk
 	// which comes from the rpType.
 	// So you CAN NOT mix and match different non-one sample counts.
 
+	// The color format comes from key_ - it's part of RPKey, so each VKRRenderPass instance has
+	// exactly one color format and distinct formats live in distinct cache buckets.
+
 	_dbg_assert_(!((rpType & RenderPassType::MULTISAMPLE) && sampleCount == VK_SAMPLE_COUNT_1_BIT));
 
-	if (!pass[(int)rpType] || sampleCounts[(int)rpType] != sampleCount || colorFormats[(int)rpType] != colorFormat) {
+	if (!pass[(int)rpType] || sampleCounts[(int)rpType] != sampleCount) {
 		if (pass[(int)rpType]) {
 			vulkan->Delete().QueueDeleteRenderPass(pass[(int)rpType]);
 		}
-		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount, colorFormat);
+		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount, key_.colorFormat);
 		sampleCounts[(int)rpType] = sampleCount;
-		colorFormats[(int)rpType] = colorFormat;
 	}
 	return pass[(int)rpType];
 }

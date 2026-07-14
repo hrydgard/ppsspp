@@ -137,13 +137,22 @@ struct RPKey {
 	VKRRenderPassStoreAction colorStoreAction;
 	VKRRenderPassStoreAction depthStoreAction;
 	VKRRenderPassStoreAction stencilStoreAction;
+	// The color attachment format is part of render-pass compatibility (sRGB/float framebuffers for
+	// slang shaders need a matching render pass), so it must be part of the key.
+	// IMPORTANT: RPKey is hashed and compared byte-wise (see Hashmaps.h - XXH over sizeof + memcmp),
+	// so there must be no uninitialized padding. The explicit _padding member fills the gap to the
+	// 4-byte alignment of VkFormat, and both trailing members have default initializers so the
+	// existing 6-field aggregate initializers keep the padding and format deterministically zeroed
+	// (UNORM). Sites that render to a non-default format set colorFormat explicitly after init.
+	uint8_t _padding[2] = { 0, 0 };
+	VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM;
 };
 
 class VKRRenderPass {
 public:
 	explicit VKRRenderPass(const RPKey &key) : key_(key) {}
 
-	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount, VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
+	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
 	void Destroy(VulkanContext *vulkan) {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (pass[i]) {
@@ -156,7 +165,6 @@ private:
 	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
 	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
 	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT]{};
-	VkFormat colorFormats[(size_t)RenderPassType::TYPE_COUNT]{};
 	RPKey key_;
 };
 
