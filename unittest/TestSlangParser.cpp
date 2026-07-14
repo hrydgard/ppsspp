@@ -552,3 +552,19 @@ bool TestSlangPushConstant() {
 
 	return true;
 }
+
+bool TestSlangReflectionIndexOverflow() {
+	SlangClassifyContext ctx;  // no params/aliases/luts needed
+	int idx = -999;
+	// Normal small index still works:
+	EXPECT_TRUE(ClassifyUniform("PassOutputSize3", ctx, &idx) == SlangSemantic::PassOutputSize);
+	EXPECT_EQ_INT(idx, 3);
+	// Overflowing index must NOT be accepted as a valid PassOutputSize:
+	idx = -999;
+	SlangSemantic s = ClassifyUniform("PassOutputSize999999999999", ctx, &idx);
+	EXPECT_TRUE(s != SlangSemantic::PassOutputSize);   // rejected -> Unknown/unclassified
+	// Index just over the cap is rejected too:
+	idx = -999;
+	EXPECT_TRUE(ClassifyUniform("PassOutputSize100000", ctx, &idx) != SlangSemantic::PassOutputSize);
+	return true;
+}

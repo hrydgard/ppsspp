@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include "GPU/Common/Slang/SlangReflection.h"
 
 // Helper: check if name == prefix + <digits>, return true and set *outIndex if so.
@@ -28,7 +29,12 @@ static bool MatchIndexedName(const std::string &name, const std::string &prefix,
 	int idx = 0;
 	for (; pos < name.size(); ++pos) {
 		if (!std::isdigit((unsigned char)name[pos])) return false;
-		idx = idx * 10 + (name[pos] - '0');
+		int digit = name[pos] - '0';
+		// Reject overflow and absurd indices from untrusted shader files. No real slang
+		// shader references >255 passes/history frames; cap well below that ceiling.
+		if (idx > (INT_MAX - digit) / 10) return false;
+		idx = idx * 10 + digit;
+		if (idx > 4096) return false;
 	}
 	*outIndex = idx;
 	return true;
