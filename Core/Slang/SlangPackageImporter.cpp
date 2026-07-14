@@ -158,7 +158,7 @@ void SlangPackageImporter::Update() {
 				// NOTE: pass 0 for timestamp; Date/time is not available in this layer without
 				// plumbing. A wall-clock stamp can be added later; fileCount+url suffice for now.
 				bool ok = ExtractSlangPackage(zip, GetSlangShaderDir(), src, 0, &err);
-				if (!ok) error_ = err;   // written before extractDone_ is set (happens-before via release)
+				threadError_ = err;
 				extractOk_ = ok;
 				extractDone_ = true;
 			});
@@ -167,6 +167,7 @@ void SlangPackageImporter::Update() {
 		if (extractDone_.load()) {
 			if (extractThread_.joinable()) extractThread_.join();
 			File::Delete(zipPath_);
+			error_ = threadError_;   // safe: worker wrote threadError_ before the extractDone_ release; now UI-thread-only
 			state_ = extractOk_.load() ? SlangImportState::DONE : SlangImportState::FAILED;
 		}
 	}

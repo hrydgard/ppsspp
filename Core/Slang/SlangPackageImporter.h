@@ -55,6 +55,7 @@ private:
 	std::atomic<bool> extractDone_{false};
 	std::atomic<bool> extractOk_{false};
 	std::string error_;
+	std::string threadError_;   // written by the extract worker only; copied to error_ by Update() on the UI thread
 	std::string sourceUrl_;
 	Path zipPath_;
 };
