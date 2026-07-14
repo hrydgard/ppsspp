@@ -959,9 +959,16 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_TRIANGLES:
 	{
 		for (int i = 0; i < count - 2; i += 3) {
-			const auto &v1 = indices.empty() ? verts[i + 0] : verts[indices[indexOffset + i + 0]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
-			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
+			const int index0 = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			const int index2 = indices.empty() ? (i + 2) : indices[indexOffset + i + 2];
+
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size() || index2 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
+			const GPUDebugVertex &v3 = verts[index2];
 			drawList->AddTriangleFilled(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)),
@@ -972,8 +979,14 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_RECTANGLES:
 	{
 		for (int i = 0; i < count - 2; i += 3) {
-			const auto &tl = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
-			const auto &br = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const int indexTL = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int indexBR = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			if (indexTL >= (int)verts.size() || indexBR >= (int)verts.size()) {
+				continue;
+			}
+
+			const GPUDebugVertex &tl = verts[indexTL];
+			const GPUDebugVertex & br = verts[indexBR];
 			drawList->AddRectFilled(
 				ImVec2(p0.x + x(tl), p0.y + y(tl)),
 				ImVec2(p0.x + x(br), p0.y + y(br)), ImColor(defaultColor));
@@ -983,9 +996,17 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_TRIANGLE_FAN:
 	{
 		for (int i = 0; i < count - 2; i++) {
-			const auto &v1 = indices.empty() ? verts[0] : verts[indices[indexOffset + 0]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
-			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
+			const int index0 = indices.empty() ? 0 : indices[indexOffset + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			const int index2 = indices.empty() ? (i + 2) : indices[indexOffset + i + 2];
+
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size() || index2 >= (int)verts.size()) {
+				continue;
+			}
+
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
+			const GPUDebugVertex &v3 = verts[index2];
 			drawList->AddTriangleFilled(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)),
@@ -1000,9 +1021,15 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 			int i0 = i;
 			int i1 = i + t;
 			int i2 = i + (t ^ 3);
-			const auto &v1 = indices.empty() ? verts[i0] : verts[indices[indexOffset + i0]];
-			const auto &v2 = indices.empty() ? verts[i1] : verts[indices[indexOffset + i1]];
-			const auto &v3 = indices.empty() ? verts[i2] : verts[indices[indexOffset + i2]];
+			const int index0 = indices.empty() ? i0 : indices[indexOffset + i0];
+			const int index1 = indices.empty() ? i1 : indices[indexOffset + i1];
+			const int index2 = indices.empty() ? i2 : indices[indexOffset + i2];
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size() || index2 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
+			const GPUDebugVertex &v3 = verts[index2];
 			drawList->AddTriangleFilled(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)),
@@ -1014,8 +1041,13 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_LINES:
 	{
 		for (int i = 0; i < count - 1; i += 2) {
-			const auto &v1 = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const int index0 = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
 			drawList->AddLine(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(defaultColor));
@@ -1025,8 +1057,13 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_LINE_STRIP:
 	{
 		for (int i = 0; i < count - 2; i++) {
-			const auto &v1 = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const int index0 = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
 			drawList->AddLine(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(defaultColor));
@@ -1848,7 +1885,9 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpu) {
 						for (int column = 0; column < colCount; column++) {
 							ImGui::TableNextColumn();
 							char temp[36];
-							if (transformed) {
+							if ((size_t)index >= vertices.size()) {
+								snprintf(temp, sizeof(temp), "(%d: idx out of range)", index);
+							} else if (transformed) {
 								FormatVertColTransformed(temp, sizeof(temp), vertices[index], (VertexListTransformedCol)column);
 							} else {
 								FormatVertColDecoded(temp, sizeof(temp), vertices[index], (VertexListDecodedCol)column);

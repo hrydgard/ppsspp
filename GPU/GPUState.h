@@ -534,6 +534,16 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
+
+	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
+		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+			const int indexShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+			indexAddr += count << indexShift;
+		} else {
+			vertexAddr += bytesRead;
+		}
+	}
+
 	void SetTextureSolidAlpha(bool solidAlpha) {
 		if (solidAlpha != textureSolidAlpha) {
 			textureSolidAlpha = solidAlpha;
