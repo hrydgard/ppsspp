@@ -571,3 +571,29 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - `SlangPresetLibrary` + category-browsing UI + parameter sliders (Phase 4) — Phase 2 presets are still set via config string.
 - D3D11 / OpenGL / GLES backends (Phase 5) — `CompileSlangPass` still guards Vulkan-only.
 - `mipmap_input` on non-LUT framebuffer inputs if thin3d can't sample FBO mips cheaply (documented limitation from Task 8 Step 6).
+
+---
+
+### Task 9b: `#include` resolution + custom-shader-dir loading (unblocks crt-royale)
+
+**Added after Task 9 on-device testing revealed crt-royale needs two capabilities the original task set omitted:** (1) `.slang` sources use `#include` (crt-royale: 17 include files, nested); Phase 1/2 never resolved them. (2) `SlangFilterChain::Load` reads only via `g_VFS.ReadFile` (bundled assets), so a preset in the runtime custom-shader dir (`GetSysDirectory(DIRECTORY_CUSTOM_SHADERS)` = `PSP/shaders/`) isn't found. Both are required for real user shader packs and for the crt-royale conformance gate.
+
+**Files:** `GPU/Common/Slang/SlangpParser.{h,cpp}` (include resolution), `GPU/Common/Slang/SlangFilterChain.cpp` (custom-dir read), `unittest/TestSlangParser.cpp`, `unittest/UnitTest.cpp`.
+
+**Interfaces:**
+- Produces a recursive include resolver. Change `SplitSlangSource` (or add a pre-pass `ResolveSlangIncludes(const std::string &src, const Path &sourceDir, std::function<bool(const Path&, std::string*)> readFile, std::string *out, std::string *error)`) that, BEFORE stage-splitting, replaces `#include "rel/path"` lines with the referenced file's contents, resolving the path relative to the including file's directory, recursively (with a depth guard against cycles, e.g. max 32). Also handle `#pragma include_optional "path"` (skip silently if missing). A read-callback is injected so the resolver works with both VFS and real-file reads and stays unit-testable (tests pass a fake reader).
+
+**Part A — include resolution (unit-testable):**
+- [ ] **Step 1: failing test** `TestSlangIncludes()` in TestSlangParser.cpp: feed a source with `#include "common.inc"` and a fake reader mapping `common.inc`→`"float helper() { return 1.0; }"`; assert the resolved output contains `helper()` and no `#include` line; test nested include (a.inc includes b.inc); test `#pragma include_optional "missing.inc"` resolves to empty without error; test a cycle (a→a) fails with a clear error or is depth-guarded. Register `TEST_ITEM(SlangIncludes)`.
+- [ ] **Step 2:** implement `ResolveSlangIncludes` with the injected reader + depth guard; call it at the top of `SplitSlangSource` (or in `Load` before splitting) using the source file's directory as the base. Paths resolve relative to the *including* file (so nested includes work). Strip the `#include`/`#pragma include`/`#pragma include_optional` lines, substituting content.
+- [ ] **Step 3:** green + no regression (`PPSSPPUnitTest all`).
+
+**Part B — custom-shader-dir loading (device code):**
+- [ ] **Step 4:** in `SlangFilterChain::Load`, and for each `.slang`/LUT read, when `g_VFS.ReadFile(path)` returns null, fall back to a real-filesystem read via `File::ReadFileToString`/`File::ReadFile` on the same path (mirror how `PostShader.cpp` tries `LoadFromVFS` then `ini.Load(fullName)`). This lets presets under `GetSysDirectory(DIRECTORY_CUSTOM_SHADERS)` load. Preset/shader/LUT/include paths all resolve against the preset's own directory (absolute once resolved), so a preset referencing `shaders/crt-royale/src/foo.slang` works whether it's in assets or the custom dir.
+- [ ] **Step 5:** the include resolver's reader callback must use the SAME VFS-then-realfile fallback so includes in a custom-dir shader resolve.
+- [ ] **Step 6:** build both targets; `PPSSPPUnitTest all` green.
+
+**Part C — crt-royale conformance gate (on-device, controller-driven):**
+- [ ] **Step 7:** push the full crt-royale tree (preset + `shaders/crt-royale/**` incl. LUT PNGs + include headers) to `PSP/shaders/` on the device; set `SlangShaderPreset` to its custom-dir path; boot a game. Expected: 12-pass CRT effect (scanlines, phosphor mask, curvature) renders without crash/validation errors. Capture logcat clean + user/photo visual confirmation. If glslang reports errors from crt-royale's GLSL that stem from unsupported constructs (e.g. it relies on `#pragma parameter` in includes, or `user-preset-constants.h` overrides), document precisely which and treat genuine spec-conformance-vs-PPSSPP-toolchain gaps as findings for a later phase — the gate is "renders correctly," but a specific documented incompatibility in one upstream shader is acceptable to note rather than block Phase 2 if all the generic mechanisms work.
+
+**Done when:** include + custom-dir unit/build green AND crt-royale renders on-device (or its specific remaining incompatibility is precisely documented).
