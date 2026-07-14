@@ -32,6 +32,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Data/Format/PngLoad.h"
+#include "Common/GPU/thin3d.h"
 #include "GPU/Common/Slang/SlangFilterChain.h"
 #include "GPU/Common/Slang/SlangpParser.h"
 #include "GPU/Common/Slang/SlangResolution.h"
@@ -659,6 +660,19 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 			int slot = tex.binding - 1;
 			if (slot < 0) {
 				continue;  // binding 0 is the UBO, not a texture slot.
+			}
+			if (slot >= (int)Draw::MAX_TEXTURE_SLOTS) {
+				// A malformed/hostile shader can declare a sampler at an arbitrarily high
+				// binding; passing slot >= MAX_TEXTURE_SLOTS to thin3d would index past the
+				// backend's bound-texture arrays. Skip it (leaves the sampler unfed, which
+				// glslang/reflection already tolerates for unused-in-practice bindings).
+				static bool logged = false;
+				if (!logged) {
+					ERROR_LOG(Log::G3D, "SlangFilterChain: texture '%s' binding %d (slot %d) exceeds MAX_TEXTURE_SLOTS %u; skipping",
+						tex.name.c_str(), tex.binding, slot, (unsigned)Draw::MAX_TEXTURE_SLOTS);
+					logged = true;
+				}
+				continue;
 			}
 
 			Draw::Framebuffer *inputFB = nullptr;
