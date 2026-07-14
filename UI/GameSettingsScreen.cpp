@@ -545,12 +545,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		textureShaderChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 		Choice *slangImportChoice = graphicsSettings->Add(new Choice(gr->T("Import RetroArch (slang) shaders")));
-		slangImportChoice->OnClick.Handle([](UI::EventParams &e) {
-			if (g_SlangImporter.Busy()) {
-				return UI::EVENT_DONE;
+		slangImportChoice->OnClick.Add([](UI::EventParams &e) {
+			if (!g_SlangImporter.Busy()) {
+				g_SlangImporter.Start("");
 			}
-			g_SlangImporter.Start("");
-			return UI::EVENT_DONE;
 		});
 	}
 
