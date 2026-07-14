@@ -133,13 +133,9 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBones(int bones);
-
 typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count, const UVScale *uvScaleOffset);
 
 struct VertexDecoderOptions {
-	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 };
 
@@ -147,10 +143,6 @@ inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
 	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
-}
-
-inline bool VertTypeIDSkinInDecode(uint32_t vertType) {
-	return true;
 }
 
 inline GETexMapMode VertTypeIDUVGenMode(uint32_t vertType) {
@@ -178,12 +170,6 @@ public:
 	std::string GetString(DebugShaderStringType stringType) const;
 
 	void ComputeSkinMatrix(const float weights[8]) const;
-
-	static void Step_WeightsU8(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsU16(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsU8ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsU16ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
 	static void Step_WeightsU8Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 	static void Step_WeightsU16Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
@@ -350,12 +336,6 @@ public:
 	// Returns a pointer to the code to run.
 	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize);
 	void Clear();
-
-	void Jit_WeightsU8();
-	void Jit_WeightsU16();
-	void Jit_WeightsU8ToFloat();
-	void Jit_WeightsU16ToFloat();
-	void Jit_WeightsFloat();
 
 	void Jit_WeightsU8Skin();
 	void Jit_WeightsU16Skin();
