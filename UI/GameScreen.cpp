@@ -181,7 +181,7 @@ template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 
 }
 
 void GameScreen::update() {
-	UIScreen::update();
+	UITwoPaneBaseDialogScreen::update();
 
 	GameInfoFlags hasFlags;
 	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
