@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include "Common/File/Path.h"
 #include "Common/GPU/thin3d.h"
 #include "GPU/Common/Slang/SlangPreset.h"
@@ -49,6 +50,14 @@ public:
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
+	// Runtime overrides for #pragma parameter values: name -> value. Applied in Run()'s
+	// UserParameter binding; a name absent from the map falls back to the parameter's default.
+	void SetParamOverrides(const std::map<std::string, float> &overrides);
+
+	// Resolve a parameter value: if present in overrides return it, else return the param's initial, else 0.0f.
+	static float ResolveParamValue(const std::string &name, const std::vector<SlangParamDesc> &params,
+	                                const std::map<std::string, float> &overrides);
+
 private:
 	// Release all GPU resources (pipelines, framebuffers, samplers, quad) WITHOUT
 	// dropping the device pointer. Safe to call from Load() to clear a previous chain.
@@ -70,4 +79,5 @@ private:
 	Draw::SamplerState *samplerNearest_ = nullptr;
 	Path presetPath_;  // for DeviceRestore
 	bool valid_ = false;
+	std::map<std::string, float> paramOverrides_;
 };

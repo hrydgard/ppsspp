@@ -557,14 +557,7 @@ Draw::Framebuffer *SlangFilterChain::Run(Draw::Framebuffer *source, int sourceW,
 				break;
 			}
 			case SlangSemantic::UserParameter: {
-				// Find the parameter in preset_.params by name, use its initial value
-				float val = 0.0f;
-				for (const auto &p : preset_.params) {
-					if (p.name == m.name) {
-						val = p.initial;
-						break;
-					}
-				}
+				float val = ResolveParamValue(m.name, preset_.params, paramOverrides_);
 				memcpy(dst, &val, std::min((size_t)4, avail));
 				break;
 			}
@@ -837,4 +830,16 @@ void SlangFilterChain::DeviceRestore(Draw::DrawContext *draw) {
 			ERROR_LOG(Log::G3D, "SlangFilterChain::DeviceRestore failed: %s", error.c_str());
 		}
 	}
+}
+
+void SlangFilterChain::SetParamOverrides(const std::map<std::string, float> &overrides) {
+	paramOverrides_ = overrides;
+}
+
+float SlangFilterChain::ResolveParamValue(const std::string &name,
+		const std::vector<SlangParamDesc> &params, const std::map<std::string, float> &overrides) {
+	auto it = overrides.find(name);
+	if (it != overrides.end()) return it->second;
+	for (const auto &p : params) if (p.name == name) return p.initial;
+	return 0.0f;
 }

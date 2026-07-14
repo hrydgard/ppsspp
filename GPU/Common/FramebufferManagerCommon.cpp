@@ -1784,6 +1784,13 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 			CalculateDisplayOutputRect(config, &slangRc, 480.0f, 272.0f, slangFrame, uvRotation);
 			int slangVpW = std::max(1, (int)lroundf(slangRc.w));
 			int slangVpH = std::max(1, (int)lroundf(slangRc.h));
+			std::map<std::string, float> slangOverrides;
+			const std::string prefix = g_Config.sSlangShaderPreset + "|";
+			for (const auto &[k, v] : g_Config.mSlangParams) {
+				if (k.compare(0, prefix.size(), prefix) == 0)
+					slangOverrides[k.substr(prefix.size())] = v;
+			}
+			slangChain_->SetParamOverrides(slangOverrides);
 			Draw::Framebuffer *slangOut = slangChain_->Run(vfb->fbo, vfb->bufferWidth, vfb->bufferHeight,
 			                                                slangVpW, slangVpH, gpuStats.totals.numFlips);
 			if (slangOut) {

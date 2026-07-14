@@ -28,6 +28,7 @@
 #include "GPU/Common/Slang/SlangResolution.h"
 #include "GPU/Common/Slang/SlangReflection.h"
 #include "GPU/Common/Slang/SlangPassCompiler.h"
+#include "GPU/Common/Slang/SlangFilterChain.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Core/Slang/SlangPaths.h"
 #include "Core/Slang/SlangPackageImporter.h"
@@ -745,5 +746,17 @@ bool TestSlangPresetParameters() {
 	EXPECT_TRUE(params[1].name == "bright");
 	EXPECT_TRUE(params[1].maximum == 2.0f);
 	File::DeleteDirRecursively(root);
+	return true;
+}
+
+bool TestSlangParamOverride() {
+	std::vector<SlangParamDesc> params;
+	SlangParamDesc g; g.name = "gamma"; g.initial = 2.2f; params.push_back(g);
+	SlangParamDesc b; b.name = "bright"; b.initial = 1.0f; params.push_back(b);
+	std::map<std::string, float> ov; ov["gamma"] = 2.8f;   // override gamma only
+	// gamma overridden, bright falls back to default, unknown falls back to 0
+	EXPECT_TRUE(SlangFilterChain::ResolveParamValue("gamma", params, ov) == 2.8f);
+	EXPECT_TRUE(SlangFilterChain::ResolveParamValue("bright", params, ov) == 1.0f);
+	EXPECT_TRUE(SlangFilterChain::ResolveParamValue("nope", params, ov) == 0.0f);
 	return true;
 }
