@@ -568,3 +568,33 @@ bool TestSlangReflectionIndexOverflow() {
 	EXPECT_TRUE(ClassifyUniform("PassOutputSize100000", ctx, &idx) != SlangSemantic::PassOutputSize);
 	return true;
 }
+
+bool TestSlangPushConstantBraceInComment() {
+	ShaderTranslationInit();  // Required for glslang
+	SlangSource src;
+	src.name = "brace_comment";
+	src.vertex =
+		"#version 450\n"
+		"layout(push_constant) uniform Push {\n"
+		"  vec4 SourceSize; // note: use { as a delimiter\n"
+		"} params;\n"
+		"layout(std140, set=0, binding=0) uniform UBO { mat4 MVP; } global;\n"
+		"void main() { gl_Position = global.MVP * vec4(0.0); }\n";
+	src.fragment =
+		"#version 450\n"
+		"layout(push_constant) uniform Push {\n"
+		"  vec4 SourceSize; // trailing brace } in comment\n"
+		"} params;\n"
+		"layout(std140, set=0, binding=0) uniform UBO { mat4 MVP; } global;\n"
+		"layout(location=0) out vec4 FragColor;\n"
+		"void main() { FragColor = vec4(params.SourceSize.x); }\n";
+	SlangClassifyContext ctx;
+	PassReflection refl; std::string err;
+	// Must reflect successfully: the brace in the comment must not derail block extraction.
+	EXPECT_TRUE(ReflectSlangSource(src, ctx, &refl, &err));
+	// SourceSize must be present as a classified member.
+	bool foundSourceSize = false;
+	for (const auto &m : refl.uboMembers) if (m.name == "SourceSize") foundSourceSize = true;
+	EXPECT_TRUE(foundSourceSize);
+	return true;
+}

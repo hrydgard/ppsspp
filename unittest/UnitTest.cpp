@@ -1350,6 +1350,7 @@ bool TestSlangFormatPragma();
 bool TestSlangSemanticsPhase2();
 bool TestSlangIncludes();
 bool TestSlangPushConstant();
+bool TestSlangPushConstantBraceInComment();
 bool TestSlangReflectionIndexOverflow();
 
 TestItem availableTests[] = {
@@ -1406,6 +1407,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SlangSemanticsPhase2),
 	TEST_ITEM(SlangIncludes),
 	TEST_ITEM(SlangPushConstant),
+	TEST_ITEM(SlangPushConstantBraceInComment),
 	TEST_ITEM(SlangReflectionIndexOverflow),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),

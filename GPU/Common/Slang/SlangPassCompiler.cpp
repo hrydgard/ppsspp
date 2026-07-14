@@ -68,12 +68,30 @@ static uint32_t MemberSizeBytes(const spirv_cross::SPIRType &type) {
 }
 
 // Helper: find matching closing brace for an opening brace at position 'start'.
+// Skips // line comments, /* */ block comments, and "..." string literals so braces
+// inside them do not affect depth counting (untrusted shader source may contain them).
 static size_t FindMatchingBrace(const std::string &src, size_t start) {
 	if (start >= src.size() || src[start] != '{') return std::string::npos;
 	int depth = 0;
+	bool inLineComment = false, inBlockComment = false, inString = false;
 	for (size_t i = start; i < src.size(); i++) {
-		if (src[i] == '{') depth++;
-		else if (src[i] == '}') {
+		char c = src[i];
+		if (inString) {
+			if (c == '\\' && i + 1 < src.size()) { i++; continue; }  // skip escaped char
+			if (c == '"') inString = false;
+		} else if (inLineComment) {
+			if (c == '\n') inLineComment = false;
+		} else if (inBlockComment) {
+			if (c == '*' && i + 1 < src.size() && src[i + 1] == '/') { inBlockComment = false; i++; }
+		} else if (c == '/' && i + 1 < src.size() && src[i + 1] == '/') {
+			inLineComment = true; i++;
+		} else if (c == '/' && i + 1 < src.size() && src[i + 1] == '*') {
+			inBlockComment = true; i++;
+		} else if (c == '"') {
+			inString = true;
+		} else if (c == '{') {
+			depth++;
+		} else if (c == '}') {
 			depth--;
 			if (depth == 0) return i;
 		}
