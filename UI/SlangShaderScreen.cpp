@@ -19,11 +19,14 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/Data/Text/I18n.h"
 
 #include "UI/SlangShaderScreen.h"
 #include "UI/MiscViews.h"
 #include "Core/Config.h"
+#include "Core/Slang/SlangPresetLibrary.h"
+#include "GPU/Common/Slang/SlangPreset.h"
 
 void SlangShaderScreen::CreateViews() {
 	library_.Rescan();
@@ -75,6 +78,37 @@ void SlangShaderScreen::CreateViews() {
 			listContainer->Add(new Choice(label))->OnClick.Add([this, entry](EventParams &e) {
 				ActivatePreset(entry.path);
 			});
+		}
+	}
+
+	// Add parameter sliders if a preset is active
+	if (!g_Config.sSlangShaderPreset.empty()) {
+		std::vector<SlangParamDesc> params;
+		std::string err;
+		if (GetPresetParameters(Path(g_Config.sSlangShaderPreset), &params, &err) && !params.empty()) {
+			listContainer->Add(new ItemHeader(gr->T("Shader parameters")));
+			const std::string prefix = g_Config.sSlangShaderPreset + "|";
+			for (const auto &p : params) {
+				const std::string key = prefix + p.name;
+				bool existed = g_Config.mSlangParams.find(key) != g_Config.mSlangParams.end();
+				float &value = g_Config.mSlangParams[key];   // map auto-creates
+				if (!existed) value = p.initial;             // seed with the shader default
+				const std::string label = p.description.empty() ? p.name : p.description;
+				float step = p.step > 0.0f ? p.step : (p.maximum - p.minimum) / 100.0f;
+				PopupSliderChoiceFloat *slider = listContainer->Add(new PopupSliderChoiceFloat(
+					&value, p.minimum, p.maximum, p.initial, label, step, screenManager()));
+				slider->SetLiveUpdate(true);
+				slider->SetHasDropShadow(false);
+			}
+			listContainer->Add(new Choice(gr->T("Reset parameters to defaults")))->OnClick.Add(
+				[this](UI::EventParams &e) {
+					const std::string pfx = g_Config.sSlangShaderPreset + "|";
+					for (auto it = g_Config.mSlangParams.begin(); it != g_Config.mSlangParams.end(); ) {
+						if (it->first.compare(0, pfx.size(), pfx) == 0) it = g_Config.mSlangParams.erase(it);
+						else ++it;
+					}
+					RecreateViews();
+				});
 		}
 	}
 }
