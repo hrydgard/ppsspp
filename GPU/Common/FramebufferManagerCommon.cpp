@@ -143,7 +143,7 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 	std::string error;
 	Path presetPath(g_Config.sSlangShaderPreset);
 	if (!slangChain_->Load(presetPath, &error)) {
-		WARN_LOG(Log::G3D, "Failed to load slang preset '%s': %s", g_Config.sSlangShaderPreset.c_str(), error.c_str());
+		ERROR_LOG(Log::G3D, "Failed to load slang preset '%s': %s", g_Config.sSlangShaderPreset.c_str(), error.c_str());
 		delete slangChain_;
 		slangChain_ = nullptr;
 		slangChainPresetPath_.clear();
