@@ -64,6 +64,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/MiscViews.h"
 #include "UI/AdhocServerScreen.h"
+#include "UI/SlangShaderScreen.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -80,7 +81,6 @@
 #include "Core/HLE/sceUtility.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/GPU.h"
-#include "Core/Slang/SlangPackageImporter.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DarwinFileSystemServices.h"
@@ -412,16 +412,9 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			screenManager()->push(new DisplayLayoutScreen(gamePath_));
 		});
 
-		Choice *slangImportChoice = graphicsSettings->Add(new Choice(gr->T("Import RetroArch (slang) shaders")));
-		slangImportChoice->OnClick.Add([](UI::EventParams &e) {
-			if (!g_SlangImporter.Busy()) {
-				// Start() can fail synchronously (empty URL, or the download subsystem refuses),
-				// transitioning straight to FAILED without ever hitting the DOWNLOADING state the
-				// NativeApp OSD watcher keys on. Surface that here so the tap isn't silent.
-				if (!g_SlangImporter.Start("")) {
-					g_OSD.Show(OSDType::MESSAGE_ERROR, "Slang shader import failed", g_SlangImporter.GetError(), 4.0f);
-				}
-			}
+		Choice *slangChoice = graphicsSettings->Add(new Choice(gr->T("RetroArch (slang) shaders")));
+		slangChoice->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new SlangShaderScreen(gamePath_));
 		});
 	}
 

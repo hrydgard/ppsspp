@@ -26,7 +26,9 @@
 #include "UI/MiscViews.h"
 #include "Core/Config.h"
 #include "Core/Slang/SlangPresetLibrary.h"
+#include "Core/Slang/SlangPackageImporter.h"
 #include "GPU/Common/Slang/SlangPreset.h"
+#include "Common/System/OSD.h"
 
 void SlangShaderScreen::CreateViews() {
 	library_.Rescan();
@@ -46,36 +48,59 @@ void SlangShaderScreen::CreateViews() {
 	ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.f, 0.f, 300.0f, 0.f));
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL);
 	leftColumn->Add(new ItemHeader(gr->T("RetroArch (slang) shaders")));
+
+	// Import/Update button
+	std::string importLabel = library_.Empty() ?
+		std::string(gr->T("Import RetroArch (slang) shaders")) :
+		std::string(gr->T("Import / update shaders"));
+	leftColumn->Add(new Choice(importLabel))->OnClick.Add([](EventParams &e) {
+		if (!g_SlangImporter.Busy()) {
+			if (!g_SlangImporter.Start("")) {
+				g_OSD.Show(OSDType::MESSAGE_ERROR, "Slang shader import failed", g_SlangImporter.GetError(), 4.0f);
+			}
+		}
+	});
+
+	// Search box
+	search_.searchFilter.clear();
+	search_.searchBar = leftColumn->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	search_.searchBar->OnCancel.Add([this](UI::EventParams &) {
+		search_.searchFilter.clear();
+		search_.ApplySearchFilter(listContainer_, false);
+	});
+
 	leftScrollView->Add(leftColumn);
 	root_->Add(leftScrollView);
 
 	if (library_.Empty()) {
 		leftColumn->Add(new TextView(gr->T("No slang shaders imported yet")));
+		listContainer_ = nullptr;
 		return;
 	}
 
-	LinearLayout *listContainer = new LinearLayout(ORIENT_VERTICAL);
-	leftColumn->Add(listContainer);
+	listContainer_ = new LinearLayout(ORIENT_VERTICAL);
+	leftColumn->Add(listContainer_);
 
 	// Add "None (disable)" option
 	std::string noneLabel = std::string(gr->T("None (disable)"));
 	if (g_Config.sSlangShaderPreset.empty()) {
 		noneLabel += " ✓";  // Unicode checkmark
 	}
-	listContainer->Add(new Choice(noneLabel))->OnClick.Add([this](EventParams &e) {
+	listContainer_->Add(new Choice(noneLabel))->OnClick.Add([this](EventParams &e) {
 		Deactivate();
 	});
 
 	// Add presets by category
 	for (const std::string &category : library_.GetCategories()) {
-		listContainer->Add(new ItemHeader(category));
+		ItemHeader *header = listContainer_->Add(new ItemHeader(category));
+		header->SetAlwaysVisibleInSearch(true);
 		std::vector<SlangPresetEntry> presets = library_.GetPresets(category);
 		for (const SlangPresetEntry &entry : presets) {
 			std::string label = entry.displayName;
 			if (entry.path.ToString() == g_Config.sSlangShaderPreset) {
 				label += " ✓";
 			}
-			listContainer->Add(new Choice(label))->OnClick.Add([this, entry](EventParams &e) {
+			listContainer_->Add(new Choice(label))->OnClick.Add([this, entry](EventParams &e) {
 				ActivatePreset(entry.path);
 			});
 		}
@@ -86,7 +111,8 @@ void SlangShaderScreen::CreateViews() {
 		std::vector<SlangParamDesc> params;
 		std::string err;
 		if (GetPresetParameters(Path(g_Config.sSlangShaderPreset), &params, &err) && !params.empty()) {
-			listContainer->Add(new ItemHeader(gr->T("Shader parameters")));
+			ItemHeader *paramHeader = listContainer_->Add(new ItemHeader(gr->T("Shader parameters")));
+			paramHeader->SetAlwaysVisibleInSearch(true);
 			const std::string prefix = g_Config.sSlangShaderPreset + "|";
 			for (const auto &p : params) {
 				const std::string key = prefix + p.name;
@@ -95,12 +121,12 @@ void SlangShaderScreen::CreateViews() {
 				if (!existed) value = p.initial;             // seed with the shader default
 				const std::string label = p.description.empty() ? p.name : p.description;
 				float step = p.step > 0.0f ? p.step : (p.maximum - p.minimum) / 100.0f;
-				PopupSliderChoiceFloat *slider = listContainer->Add(new PopupSliderChoiceFloat(
+				PopupSliderChoiceFloat *slider = listContainer_->Add(new PopupSliderChoiceFloat(
 					&value, p.minimum, p.maximum, p.initial, label, step, screenManager()));
 				slider->SetLiveUpdate(true);
 				slider->SetHasDropShadow(false);
 			}
-			listContainer->Add(new Choice(gr->T("Reset parameters to defaults")))->OnClick.Add(
+			listContainer_->Add(new Choice(gr->T("Reset parameters to defaults")))->OnClick.Add(
 				[this](UI::EventParams &e) {
 					const std::string pfx = g_Config.sSlangShaderPreset + "|";
 					for (auto it = g_Config.mSlangParams.begin(); it != g_Config.mSlangParams.end(); ) {
@@ -111,6 +137,9 @@ void SlangShaderScreen::CreateViews() {
 				});
 		}
 	}
+
+	// Apply search filter after building the list
+	search_.ApplySearchFilter(listContainer_, false);
 }
 
 void SlangShaderScreen::ActivatePreset(const Path &presetPath) {
@@ -124,4 +153,11 @@ void SlangShaderScreen::ActivatePreset(const Path &presetPath) {
 void SlangShaderScreen::Deactivate() {
 	g_Config.sSlangShaderPreset.clear();
 	RecreateViews();
+}
+
+bool SlangShaderScreen::key(const KeyInput &input) {
+	if (listContainer_ && search_.Key(listContainer_, input)) {
+		return true;
+	}
+	return UIBaseDialogScreen::key(input);
 }

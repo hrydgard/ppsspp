@@ -18,14 +18,18 @@
 #pragma once
 #include "UI/BaseScreens.h"
 #include "Core/Slang/SlangPresetLibrary.h"
+#include "UI/MiscViews.h"
 
 class SlangShaderScreen : public UIBaseDialogScreen {
 public:
 	explicit SlangShaderScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 	void CreateViews() override;
+	bool key(const KeyInput &input) override;
 	const char *tag() const override { return "SlangShader"; }
 private:
 	void ActivatePreset(const Path &presetPath);
 	void Deactivate();
 	SlangPresetLibrary library_;
+	ViewSearch search_{};
+	UI::ViewGroup *listContainer_ = nullptr;
 };
