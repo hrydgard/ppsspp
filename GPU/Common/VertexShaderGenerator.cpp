@@ -906,7 +906,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	// Convert to NDC space, using the framebuffer offset and (inverse size * 2) stored in u_xywh.
-	WRITE(p, "  outPos.xy = ((outPos.xy + u_xywh.xy) * u_xywh.zw) - vec2(1.0, 1.0);\n");
+	WRITE(p, "  outPos.xy = (((outPos.xy + u_xywh.xy) * u_xywh.zw) - vec2(1.0, 1.0)) * outPos.w;\n");
 
 	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
@@ -916,11 +916,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
 	// So even if it seems like 65535 would make more sense, we divide by 65536 here.
-	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");
-
-	// Convert back to clip space coordinates. This is needed for all modern shader models.
-	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
-	WRITE(p, "  outPos.xyz *= outPos.w;\n");
+	WRITE(p, "  outPos.z = outPos.z * outPos.w / 65536.0;\n");
 
 	if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Use(GPU_USE_PRE_ROTATION)) {
 		// Apply rotation from the uniform.
