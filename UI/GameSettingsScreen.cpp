@@ -411,6 +411,13 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		displayEditor->OnClick.Add([&](UI::EventParams &) -> void {
 			screenManager()->push(new DisplayLayoutScreen(gamePath_));
 		});
+
+		Choice *slangImportChoice = graphicsSettings->Add(new Choice(gr->T("Import RetroArch (slang) shaders")));
+		slangImportChoice->OnClick.Add([](UI::EventParams &e) {
+			if (!g_SlangImporter.Busy()) {
+				g_SlangImporter.Start("");
+			}
+		});
 	}
 
 	// If only one mode is supported (like FIFO on iOS), no need to show the options.
@@ -543,13 +550,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			screenManager()->push(shaderScreen);
 		});
 		textureShaderChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-		Choice *slangImportChoice = graphicsSettings->Add(new Choice(gr->T("Import RetroArch (slang) shaders")));
-		slangImportChoice->OnClick.Add([](UI::EventParams &e) {
-			if (!g_SlangImporter.Busy()) {
-				g_SlangImporter.Start("");
-			}
-		});
 	}
 
 #ifndef MOBILE_DEVICE
