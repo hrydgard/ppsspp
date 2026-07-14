@@ -24,6 +24,7 @@
 #include "Common/File/DiskFree.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
+#include "Common/System/System.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Compatibility.h"
@@ -113,7 +114,6 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 	INFO_LOG(Log::IO, "Calculating free disk space (%s)", gameID.c_str());
 
 	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
-	u64 realFreeSpace = pspFileSystem.FreeDiskSpace("ms0:/");
 
 	// Cap the memory stick size to avoid math errors when old games get sizes that were
 	// not planned for back then (even though 2GB cards were available.)
@@ -135,20 +135,26 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 		// This doesn't work, so we'll just have to lie. Not sure what the best way is.
 		simulatedFreeSpace = smallMemstickSize / 2;  // just pick a value.
 	}
+
+	u64 space;
 	if (flags.MemstickFixedFree) {
 		const u64 memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
 		_dbg_assert_(g_initialMemstickSizePromise);
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
 		// See issue #12761
-		realFreeSpace = 0;
+		u64 realFreeSpace = 0;
 		if (memstickCurrentUse <= memstickInitialFree) {
 			realFreeSpace = memstickInitialFree - memstickCurrentUse;
 		}
+		space = std::min(simulatedFreeSpace, realFreeSpace);
+	} else if (System_GetPropertyBool(SYSPROP_CAN_GET_FREE_SPACE_FAST) || g_Config.bReportAccurateFreeStorageSpace) {
+		u64 realFreeSpace = pspFileSystem.FreeDiskSpace("ms0:/");
+		space = std::min(simulatedFreeSpace, realFreeSpace);
+		INFO_LOG(Log::IO, "Done calculating free disk space (%0.3f s): %llu", time_now_d() - start, (unsigned long long)space);
+	} else {
+		space = simulatedFreeSpace;
+		INFO_LOG(Log::IO, "Reporting simulated free disk space: %llu", (unsigned long long)space);
 	}
-
-	u64 space = std::min(simulatedFreeSpace, realFreeSpace);
-
-	INFO_LOG(Log::IO, "Done calculating free disk space (%0.3f s): %llu", time_now_d() - start, (unsigned long long)space);
 
 	return space;
 }

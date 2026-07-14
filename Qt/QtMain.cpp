@@ -308,6 +308,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
 		return true;
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return true;
 	default:
 		return false;
 	}

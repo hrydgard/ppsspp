@@ -540,6 +540,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
 #endif
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return false;
 	default:
 		return false;
 	}

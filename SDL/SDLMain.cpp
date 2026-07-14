@@ -809,6 +809,8 @@ case SYSPROP_HAS_FILE_BROWSER:
 #endif
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return true;
 	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
 #if PPSSPP_ARCH(64BIT) && !defined(MOBILE_DEVICE)
 		return true;
