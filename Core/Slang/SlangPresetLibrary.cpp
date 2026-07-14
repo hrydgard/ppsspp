@@ -20,7 +20,9 @@
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "GPU/Common/Slang/SlangpParser.h"
 #include <algorithm>
+#include <functional>
 #include <set>
 
 void SlangPresetLibrary::Rescan() {
@@ -108,4 +110,70 @@ std::vector<SlangPresetEntry> SlangPresetLibrary::GetPresets(const std::string &
 		}
 	}
 	return result;
+}
+
+bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *out, std::string *error) {
+	out->clear();
+
+	// Read the .slangp file
+	std::string presetText;
+	if (!File::ReadBinaryFileToString(presetPath, &presetText)) {
+		if (error) *error = "Failed to read preset file";
+		return false;
+	}
+
+	// Parse the preset
+	SlangPreset preset;
+	Path presetDir = Path(presetPath.GetDirectory());
+	if (!ParseSlangPreset(presetText, presetDir, &preset, error)) {
+		return false;
+	}
+
+	// Seed output with preset-level parameters (usually empty)
+	*out = preset.params;
+
+	// File reader for includes
+	SlangFileReader reader = [](const Path &p, std::string *o) {
+		return File::ReadBinaryFileToString(p, o);
+	};
+
+	// Process each pass
+	for (const auto &pass : preset.passes) {
+		// Read shader source
+		std::string shaderSrc;
+		Path shaderPath = Path(pass.shaderPath);
+		if (!File::ReadBinaryFileToString(shaderPath, &shaderSrc)) {
+			if (error) *error = "Failed to read shader: " + pass.shaderPath;
+			return false;
+		}
+
+		// Resolve includes
+		std::string resolved;
+		Path shaderDir = Path(shaderPath.GetDirectory());
+		if (!ResolveSlangIncludes(shaderSrc, shaderDir, reader, &resolved, error)) {
+			return false;
+		}
+
+		// Split source to extract parameters
+		SlangSource slangSrc;
+		if (!SplitSlangSource(resolved, &slangSrc, error)) {
+			return false;
+		}
+
+		// Merge parameters (first-seen wins)
+		for (const auto &param : slangSrc.params) {
+			bool alreadyExists = false;
+			for (const auto &existing : *out) {
+				if (existing.name == param.name) {
+					alreadyExists = true;
+					break;
+				}
+			}
+			if (!alreadyExists) {
+				out->push_back(param);
+			}
+		}
+	}
+
+	return true;
 }

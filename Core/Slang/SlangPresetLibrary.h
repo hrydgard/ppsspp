@@ -20,6 +20,8 @@
 #include <vector>
 #include "Common/File/Path.h"
 
+struct SlangParamDesc;
+
 struct SlangPresetEntry {
 	std::string category;     // first path segment under the slang root; "" -> "misc"
 	std::string displayName;  // .slangp filename without extension
@@ -42,3 +44,8 @@ private:
 	std::vector<SlangPresetEntry> entries_;
 	std::vector<std::string> categories_;  // unique, sorted
 };
+
+// Enumerate a preset's #pragma parameters by text-parsing its .slangp + each .slang
+// (with includes resolved). No GPU/compile. Returns the merged list (.slangp-level
+// overrides win over .slang defaults, first-seen wins across passes), or false + *error.
+bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *out, std::string *error);

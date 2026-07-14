@@ -722,3 +722,28 @@ bool TestSlangPresetLibrary() {
 	File::DeleteDirRecursively(root);
 	return true;
 }
+
+bool TestSlangPresetParameters() {
+	Path root("/tmp/slangparam_test");
+	File::DeleteDirRecursively(root);
+	File::CreateFullPath(root);
+	File::WriteStringToFile(true,
+		"shaders = 1\n"
+		"shader0 = a.slang\n", root / "p.slangp");
+	File::WriteStringToFile(true,
+		"#version 450\n"
+		"#pragma parameter gamma \"Gamma\" 2.2 1.0 3.0 0.1\n"
+		"#pragma parameter bright \"Brightness\" 1.0 0.0 2.0 0.05\n"
+		"#pragma stage vertex\nvoid main() {}\n"
+		"#pragma stage fragment\nvoid main() {}\n", root / "a.slang");
+
+	std::vector<SlangParamDesc> params; std::string err;
+	EXPECT_TRUE(GetPresetParameters(root / "p.slangp", &params, &err));
+	EXPECT_EQ_INT((int)params.size(), 2);
+	EXPECT_TRUE(params[0].name == "gamma");
+	EXPECT_TRUE(params[0].description == "Gamma");
+	EXPECT_TRUE(params[1].name == "bright");
+	EXPECT_TRUE(params[1].maximum == 2.0f);
+	File::DeleteDirRecursively(root);
+	return true;
+}
