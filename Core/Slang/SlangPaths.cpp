@@ -15,12 +15,28 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include "Core/Slang/SlangPaths.h"
 #include "Core/Util/PathUtil.h"
 #include <algorithm>
 #include <cstring>
 
+#if PPSSPP_PLATFORM(ANDROID)
+#include "Common/File/AndroidStorage.h"
+#endif
+
 Path GetSlangShaderDir() {
+#if PPSSPP_PLATFORM(ANDROID)
+	// On Android the memstick may be an SAF (content://) tree, where creating each of the
+	// thousands of extracted shader files costs a ContentResolver round-trip (minutes total).
+	// The app-private external files dir (g_extFilesDir) is a plain NATIVE filesystem path, so
+	// extraction there uses fopen with no per-file JNI (seconds). The slang loader reads the
+	// preset by absolute path, so the location is transparent to it. Fall back to the memstick
+	// shaders dir only if the app dir is unknown (should not happen on a normal launch).
+	if (!g_extFilesDir.empty()) {
+		return Path(g_extFilesDir) / "slang";
+	}
+#endif
 	return GetSysDirectory(DIRECTORY_CUSTOM_SHADERS) / "slang";
 }
 
