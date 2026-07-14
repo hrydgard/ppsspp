@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include <functional>
 #include <string>
 #include <memory>
 #include <thread>
@@ -24,15 +25,21 @@
 
 namespace http { class Request; }
 
-// Extract a slang-shaders zip at 'zipPath' into 'destRoot' (default GetSlangShaderDir()),
-// using a temp dir + atomic swap. Only shader-asset files that pass ResolveSafeZipEntryPath
-// are written. On success, writes destRoot/manifest.json (sourceUrl, timestamp, fileCount).
-// Returns false and leaves any prior install untouched on any failure; *error is set.
-// 'sourceUrl' and 'unixTimestamp' are recorded in the manifest (pass "" / 0 if unknown).
-// Synchronous; Task 7 calls this from a worker thread.
+// Called during extraction as each file is written: (filesWritten, totalCandidateFiles).
+// May be invoked from a worker thread. Optional.
+using SlangExtractProgressCallback = std::function<void(int, int)>;
+
+// Extract a slang-shaders zip at 'zipPath' directly into 'destRoot' (default GetSlangShaderDir()).
+// Only shader-asset files that pass ResolveSafeZipEntryPath are written. destRoot is cleared first
+// and extraction happens in place (no temp-dir+rename swap: directory rename is unsupported on
+// Android scoped storage and its copy fallback is unusably slow / fails). On success, writes
+// destRoot/manifest.json (sourceUrl, timestamp, fileCount) last. Returns false + *error on failure,
+// removing the partial destRoot. 'sourceUrl'/'unixTimestamp' are recorded in the manifest ("" / 0
+// if unknown). Optional 'progress' is called per written file. Synchronous; run from a worker thread.
 bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
                          const std::string &sourceUrl, int64_t unixTimestamp,
-                         std::string *error);
+                         std::string *error,
+                         const SlangExtractProgressCallback &progress = nullptr);
 
 enum class SlangImportState { IDLE, DOWNLOADING, EXTRACTING, DONE, FAILED };
 
@@ -45,7 +52,7 @@ public:
 	// Pump each frame from the UI thread (drives download completion + thread join).
 	void Update();
 	SlangImportState GetState() const { return state_; }
-	float GetProgress() const;                 // 0..1 across download (extraction is coarse)
+	float GetProgress() const;                 // 0..1 across download + extraction
 	std::string GetError() const { return error_; }
 	bool Busy() const { return state_ == SlangImportState::DOWNLOADING || state_ == SlangImportState::EXTRACTING; }
 private:
@@ -54,6 +61,7 @@ private:
 	std::thread extractThread_;
 	std::atomic<bool> extractDone_{false};
 	std::atomic<bool> extractOk_{false};
+	std::atomic<float> extractProgress_{0.0f};  // 0..1 fraction of files written (worker updates, UI reads)
 	std::string error_;
 	std::string threadError_;   // written by the extract worker only; copied to error_ by Update() on the UI thread
 	std::string sourceUrl_;

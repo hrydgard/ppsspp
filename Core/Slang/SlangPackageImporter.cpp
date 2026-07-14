@@ -24,6 +24,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Format/JSONWriter.h"
 #include "Common/Log.h"
+#include "Common/Thread/ThreadUtil.h"
 
 static bool WriteZipEntry(zip_t *z, zip_uint64_t index, const Path &out, std::string *error) {
 	struct zip_stat st; zip_stat_init(&st);
@@ -50,14 +51,21 @@ static bool WriteZipEntry(zip_t *z, zip_uint64_t index, const Path &out, std::st
 
 bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
                          const std::string &sourceUrl, int64_t unixTimestamp,
-                         std::string *error) {
-	Path tempDir = Path(destRoot.GetDirectory()) / (destRoot.GetFilename() + ".import.tmp");
-	File::DeleteDirRecursively(tempDir);          // clear any stale temp
-	if (!File::CreateFullPath(tempDir)) { *error = "could not create temp dir"; return false; }
+                         std::string *error,
+                         const SlangExtractProgressCallback &progress) {
+	// Extract directly into destRoot. We intentionally do NOT use a temp-dir + rename swap:
+	// on Android scoped storage (SAF) a directory rename/move is unsupported and the copy
+	// fallback recursively copies every file (minutes of thrash) and then fails, leaving an
+	// empty install. PPSSPP's own GameManager::ExtractZipContents extracts straight to the
+	// destination for the same reason. Trade-off: a failed/interrupted import can leave a
+	// partial tree, so we clear destRoot first and remove it again on failure rather than
+	// guaranteeing the previous install survives a mid-extraction error.
+	File::DeleteDirRecursively(destRoot);   // start from a clean install
+	if (!File::CreateFullPath(destRoot)) { *error = "could not create shader dir"; return false; }
 
 	ZipContainer zipContainer = ZipOpenPath(zipPath);
 	zip_t *z = zipContainer;
-	if (!z) { *error = "could not open downloaded zip"; File::DeleteDirRecursively(tempDir); return false; }
+	if (!z) { *error = "could not open downloaded zip"; File::DeleteDirRecursively(destRoot); return false; }
 
 	int fileCount = 0;
 	zip_int64_t numEntries = zip_get_num_entries(z, 0);
@@ -67,20 +75,23 @@ bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
 		std::string entry(name);
 		bool isDir = !entry.empty() && (entry.back() == '/' || entry.back() == '\\');
 		Path outPath;
-		if (!ResolveSafeZipEntryPath(tempDir, entry, isDir, &outPath)) {
+		if (!ResolveSafeZipEntryPath(destRoot, entry, isDir, &outPath)) {
 			continue;  // silently skip rejected entries (traversal, wrong ext, metadata)
 		}
 		if (isDir) { File::CreateFullPath(outPath); continue; }
 		if (!WriteZipEntry(z, (zip_uint64_t)i, outPath, error)) {
-			File::DeleteDirRecursively(tempDir); return false;
+			File::DeleteDirRecursively(destRoot); return false;
 		}
 		fileCount++;
+		// numEntries includes directory + rejected entries, so this is an approximate fraction;
+		// good enough to keep the progress bar advancing during the slow per-file SAF writes.
+		if (progress) progress((int)i + 1, (int)numEntries);
 	}
 	ZipClose(zipContainer);
 
-	if (fileCount == 0) { *error = "no valid shader files in archive"; File::DeleteDirRecursively(tempDir); return false; }
+	if (fileCount == 0) { *error = "no valid shader files in archive"; File::DeleteDirRecursively(destRoot); return false; }
 
-	// Write manifest inside the temp dir so it swaps atomically with the content.
+	// Write the manifest last, so its presence marks a completed extraction.
 	{
 		json::JsonWriter w(json::JsonWriter::PRETTY);
 		w.begin();
@@ -88,30 +99,8 @@ bool ExtractSlangPackage(const Path &zipPath, const Path &destRoot,
 		w.writeInt("timestamp", (int)unixTimestamp);
 		w.writeInt("fileCount", fileCount);
 		w.end();
-		File::WriteStringToFile(true, w.str(), tempDir / "manifest.json");
+		File::WriteStringToFile(true, w.str(), destRoot / "manifest.json");
 	}
-
-	// Swap into place without risking the existing install: move the old install aside to a
-	// backup first, put the new tree in place, and only delete the backup once the swap
-	// succeeded. If anything fails, restore the backup so a failed import never destroys the
-	// user's existing shaders.
-	Path backupDir = Path(destRoot.GetDirectory()) / (destRoot.GetFilename() + ".import.bak");
-	File::DeleteDirRecursively(backupDir);  // clear any stale backup
-	bool hadExisting = File::Exists(destRoot);
-	if (hadExisting && !File::Move(destRoot, backupDir)) {
-		*error = "could not move existing shader install aside";
-		File::DeleteDirRecursively(tempDir);
-		return false;
-	}
-	if (!File::Move(tempDir, destRoot)) {
-		*error = "could not move imported shaders into place";
-		// Restore the previous install, then drop the temp.
-		if (hadExisting) File::Move(backupDir, destRoot);
-		File::DeleteDirRecursively(tempDir);
-		return false;
-	}
-	// Swap succeeded; the old install (if any) is no longer needed.
-	File::DeleteDirRecursively(backupDir);
 	return true;
 }
 
@@ -153,11 +142,19 @@ void SlangPackageImporter::Update() {
 			state_ = SlangImportState::EXTRACTING;
 			std::string src = sourceUrl_;
 			Path zip = zipPath_;
+			extractProgress_ = 0.0f;
 			extractThread_ = std::thread([this, zip, src]() {
+				// On Android the shader dir is a scoped-storage (SAF) path, so File:: ops route
+				// through JNI; a raw std::thread is not attached to the JVM and would abort in
+				// getEnv(). Attach for the lifetime of the extraction (no-op on other platforms).
+				AndroidJNIThreadContext jniContext;
 				std::string err;
 				// NOTE: pass 0 for timestamp; Date/time is not available in this layer without
 				// plumbing. A wall-clock stamp can be added later; fileCount+url suffice for now.
-				bool ok = ExtractSlangPackage(zip, GetSlangShaderDir(), src, 0, &err);
+				bool ok = ExtractSlangPackage(zip, GetSlangShaderDir(), src, 0, &err,
+					[this](int done, int total) {
+						extractProgress_ = total > 0 ? (float)done / (float)total : 0.0f;
+					});
 				threadError_ = err;
 				extractOk_ = ok;
 				extractDone_ = true;
@@ -174,8 +171,10 @@ void SlangPackageImporter::Update() {
 }
 
 float SlangPackageImporter::GetProgress() const {
-	if (state_ == SlangImportState::DOWNLOADING && download_) return download_->Progress() * 0.9f;
-	if (state_ == SlangImportState::EXTRACTING) return 0.95f;
+	// Download is the first 50% of the bar, extraction the second 50% (extraction of thousands
+	// of files on scoped storage takes as long as, or longer than, the download).
+	if (state_ == SlangImportState::DOWNLOADING && download_) return download_->Progress() * 0.5f;
+	if (state_ == SlangImportState::EXTRACTING) return 0.5f + extractProgress_.load() * 0.5f;
 	if (state_ == SlangImportState::DONE) return 1.0f;
 	return 0.0f;
 }
