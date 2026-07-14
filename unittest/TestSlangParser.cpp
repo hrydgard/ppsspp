@@ -24,6 +24,7 @@
 #include "GPU/Common/Slang/SlangReflection.h"
 #include "GPU/Common/Slang/SlangPassCompiler.h"
 #include "Common/GPU/ShaderTranslation.h"
+#include "Core/Slang/SlangPaths.h"
 
 bool TestSlangParser() {
 	// Two-pass preset with per-axis scale, alias, and a parameter list line.
@@ -596,5 +597,30 @@ bool TestSlangPushConstantBraceInComment() {
 	bool foundSourceSize = false;
 	for (const auto &m : refl.uboMembers) if (m.name == "SourceSize") foundSourceSize = true;
 	EXPECT_TRUE(foundSourceSize);
+	return true;
+}
+
+bool TestSlangZipPathSanitizer() {
+	Path root("/tmp/slangroot");
+	Path out;
+	// Normal file under a category dir is accepted, resolved under root:
+	EXPECT_TRUE(ResolveSafeZipEntryPath(root, "crt/crt-royale.slangp", false, &out));
+	EXPECT_TRUE(out.StartsWith(root));
+	EXPECT_TRUE(out.ToString() == "/tmp/slangroot/crt/crt-royale.slangp");
+	// Nested include header accepted:
+	EXPECT_TRUE(ResolveSafeZipEntryPath(root, "crt/shaders/x.inc", false, &out));
+	// Directory entry accepted regardless of extension:
+	EXPECT_TRUE(ResolveSafeZipEntryPath(root, "crt/shaders/", true, &out));
+	// Traversal rejected:
+	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "../evil.slang", false, &out));
+	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "crt/../../evil.slang", false, &out));
+	// Absolute path rejected:
+	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "/etc/passwd", false, &out));
+	// Backslash traversal rejected (Windows-style separators in the zip):
+	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "..\\evil.slang", false, &out));
+	// Disallowed extension rejected (e.g. an executable smuggled in the archive):
+	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "crt/evil.sh", false, &out));
+	// Empty name rejected:
+	EXPECT_FALSE(ResolveSafeZipEntryPath(root, "", false, &out));
 	return true;
 }

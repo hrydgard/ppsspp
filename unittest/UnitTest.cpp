@@ -1352,6 +1352,7 @@ bool TestSlangIncludes();
 bool TestSlangPushConstant();
 bool TestSlangPushConstantBraceInComment();
 bool TestSlangReflectionIndexOverflow();
+bool TestSlangZipPathSanitizer();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1409,6 +1410,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SlangPushConstant),
 	TEST_ITEM(SlangPushConstantBraceInComment),
 	TEST_ITEM(SlangReflectionIndexOverflow),
+	TEST_ITEM(SlangZipPathSanitizer),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),

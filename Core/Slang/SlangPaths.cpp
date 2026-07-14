@@ -17,7 +17,47 @@
 
 #include "Core/Slang/SlangPaths.h"
 #include "Core/Util/PathUtil.h"
+#include <algorithm>
+#include <cstring>
 
 Path GetSlangShaderDir() {
 	return GetSysDirectory(DIRECTORY_CUSTOM_SHADERS) / "slang";
+}
+
+static bool HasAllowedShaderExtension(const std::string &name) {
+	// Case-insensitive check against the shader-asset whitelist.
+	std::string lower = name;
+	std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+	static const char *kExts[] = { ".slang", ".slangp", ".inc", ".h", ".png" };
+	for (const char *ext : kExts) {
+		size_t elen = strlen(ext);
+		if (lower.size() >= elen && lower.compare(lower.size() - elen, elen, ext) == 0)
+			return true;
+	}
+	return false;
+}
+
+bool ResolveSafeZipEntryPath(const Path &destRoot, const std::string &entryName,
+                             bool isDirectory, Path *outPath) {
+	if (entryName.empty()) return false;
+	// Reject absolute and drive-relative paths.
+	if (entryName[0] == '/' || entryName[0] == '\\') return false;
+	if (entryName.size() >= 2 && entryName[1] == ':') return false;  // C:\...
+	// Normalize separators and split into components; reject any "..".
+	std::string norm = entryName;
+	std::replace(norm.begin(), norm.end(), '\\', '/');
+	size_t start = 0;
+	while (start < norm.size()) {
+		size_t slash = norm.find('/', start);
+		std::string comp = norm.substr(start, slash == std::string::npos ? std::string::npos : slash - start);
+		if (comp == "..") return false;
+		start = (slash == std::string::npos) ? norm.size() : slash + 1;
+	}
+	// Files must have an allowed shader-asset extension; directories may not.
+	if (!isDirectory && !HasAllowedShaderExtension(norm)) return false;
+	Path resolved = destRoot / norm;
+	// Defense in depth: the resolved path must still live under destRoot.
+	if (!resolved.StartsWith(destRoot)) return false;
+	*outPath = resolved;
+	return true;
 }

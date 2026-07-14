@@ -17,6 +17,16 @@
 
 #pragma once
 #include "Common/File/Path.h"
+#include <string>
+
 // Root directory the importer extracts into and the library scans:
 //   <memstick>/PSP/shaders/slang
 Path GetSlangShaderDir();
+
+// Given a destination root and a zip entry's internal name, compute the safe on-disk
+// output path. Returns false (reject the entry) if the name is absolute, contains a
+// ".." traversal component, is empty, or the resolved path escapes 'destRoot'.
+// Also returns false for entry names whose extension is not an allowed shader asset
+// (.slang, .slangp, .inc, .h, .png) unless 'isDirectory' is true.
+bool ResolveSafeZipEntryPath(const Path &destRoot, const std::string &entryName,
+                             bool isDirectory, Path *outPath);
