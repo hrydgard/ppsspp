@@ -1,12 +1,14 @@
 #version 450
 // PSP LCD matrix shader — final pass: RGB subpixel mask + inter-cell grid + display encode.
 #pragma parameter SUBPIXEL_STRENGTH "LCD Subpixel Strength" 0.5 0.0 1.0 0.05
+#pragma parameter SUBPIXEL_SIZE "LCD Subpixel Width (px)" 3.0 1.0 8.0 1.0
 #pragma parameter GRID_STRENGTH     "LCD Grid Strength"     0.3 0.0 1.0 0.05
 #pragma parameter SCANLINE_STRENGTH "LCD Scanline Strength" 0.1 0.0 1.0 0.05
 #pragma parameter BRIGHTEN          "Brightness Compensation" 1.3 1.0 3.0 0.05
 
 layout(push_constant) uniform Push {
    float SUBPIXEL_STRENGTH;
+   float SUBPIXEL_SIZE;
    float GRID_STRENGTH;
    float SCANLINE_STRENGTH;
    float BRIGHTEN;
@@ -33,24 +35,28 @@ layout(set = 0, binding = 3) uniform sampler2D CORRECTED;   // alias of pass1 (s
 void main() {
    vec3 c = texture(CORRECTED, vTexCoord).rgb;
 
-   // Output-pixel coordinate (subpixels render at display density).
-   vec2 op = vTexCoord * registers.OutputSize.xy;
+   // Source (PSP) pixel position — used for the inter-cell grid + scanline so one emulated pixel
+   // maps to one LCD cell, independent of internal render resolution.
+   vec2 sp = vTexCoord * registers.SourceSize.xy;
 
-   // RGB vertical subpixel mask: each output column emphasizes one of R/G/B.
-   // sub in {0,1,2} selects the channel; others attenuated by SUBPIXEL_STRENGTH.
-   int sub = int(mod(floor(op.x), 3.0));
+   // RGB vertical subpixel stripes. The stripe PERIOD is SUBPIXEL_SIZE *display* pixels wide (NOT
+   // tied to source-pixel count): a PSP pixel upscaled to the display is only ~1 px per RGB column,
+   // too fine to see, so we render visible stripes at a fixed on-screen width instead. Each of the
+   // 3 columns emphasizes R/G/B; the others are attenuated by SUBPIXEL_STRENGTH.
+   vec2 op = vTexCoord * registers.OutputSize.xy;
+   int sub = int(mod(floor(op.x / registers.SUBPIXEL_SIZE), 3.0));
    vec3 mask = vec3(1.0 - registers.SUBPIXEL_STRENGTH);
    mask[sub] = 1.0;
 
-   // Inter-cell grid: subtle darkening at cell boundaries (both axes), tunable.
-   // Use fract of the per-axis pixel position; darken near the cell edge.
-   vec2 f = fract(op);
-   float gx = 1.0 - registers.GRID_STRENGTH * smoothstep(0.5, 1.0, abs(f.x - 0.5) * 2.0);
-   float gy = 1.0 - registers.GRID_STRENGTH * smoothstep(0.5, 1.0, abs(f.y - 0.5) * 2.0);
+   // Inter-cell grid: darken the gap between source-pixel cells (both axes). fract over the
+   // source-pixel grid spans many display pixels at high res, so the grid stays visible.
+   vec2 f = fract(sp);
+   float gx = 1.0 - registers.GRID_STRENGTH * smoothstep(0.8, 1.0, abs(f.x - 0.5) * 2.0);
+   float gy = 1.0 - registers.GRID_STRENGTH * smoothstep(0.8, 1.0, abs(f.y - 0.5) * 2.0);
    float grid = gx * gy;
 
-   // Subtle horizontal scanline modulation (much milder than a CRT).
-   float scan = 1.0 - registers.SCANLINE_STRENGTH * (0.5 - 0.5 * cos(6.28318 * op.y));
+   // Subtle horizontal scanline modulation over source rows (much milder than a CRT).
+   float scan = 1.0 - registers.SCANLINE_STRENGTH * (0.5 - 0.5 * cos(6.28318 * sp.y));
 
    c = c * mask * grid * scan * registers.BRIGHTEN;
 
