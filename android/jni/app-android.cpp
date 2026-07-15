@@ -826,6 +826,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 		}
 	}
 
+	EARLY_LOG("Calling NativeInit with user_data_path %s, externalStorageDir %s, cacheDir %s", user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+
 	// TODO: We should be able to do the Vulkan init in parallel with NativeInit.
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
 
