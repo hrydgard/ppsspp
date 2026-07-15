@@ -37,13 +37,16 @@ layout(set = 0, binding = 2) uniform sampler2D Source;
 
 void main() {
    vec3 c = texture(Source, vTexCoord).rgb;
+   // Always linearize here (input is ~gamma-encoded): pass 3 is the sole place that re-encodes
+   // to display gamma, so the linearize<->encode must balance regardless of COLOR_CORRECT. Gating
+   // the linearize behind the toggle would double-encode when correction is off (washed-out image).
+   c = pow(c, vec3(TARGET_GAMMA));
    if (registers.COLOR_CORRECT > 0.5) {
-      c = pow(c, vec3(TARGET_GAMMA));
       c = mat3(CC_R,  CC_RG, CC_RB,
                CC_GR, CC_G,  CC_GB,
                CC_BR, CC_BG, CC_B) * c;
-      // NOTE: leave in this (roughly linear) space; pass 3 encodes to display gamma.
-      c = clamp(c, 0.0, 1.0);
    }
+   // Leave in this (roughly linear) space; pass 3 encodes to display gamma.
+   c = clamp(c, 0.0, 1.0);
    FragColor = vec4(c, 1.0);
 }
