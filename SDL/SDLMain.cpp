@@ -1246,13 +1246,6 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				NativeKey(key);
 				break;
 			}
-			if (event.wheel.integer_y > 0) {
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-				NativeKey(key);
-			} else if (event.wheel.integer_y < 0) {
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-				NativeKey(key);
-			}
 			break;
 		}
 	case SDL_EVENT_MOUSE_MOTION:
