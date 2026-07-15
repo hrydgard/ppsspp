@@ -340,16 +340,24 @@ int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s
 bool MpegDemux::hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2)
 {
 	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
-	if (gotsize < 4 || !isHeader(m_audioFrame, 0))
+	if (gotsize < 4)
 		return false;
-	u8 code1 = m_audioFrame[2];
-	u8 code2 = m_audioFrame[3];
+
+	int offset = 0;
+	if (!isHeader(m_audioFrame, 0)) {
+		offset = getNextHeaderPosition(m_audioFrame, 1, gotsize, 0);
+		if (offset < 0 || gotsize - offset < 4)
+			return false;
+	}
+
+	u8 code1 = m_audioFrame[offset + 2];
+	u8 code2 = m_audioFrame[offset + 3];
 	int frameSize = (((code1 & 0x03) << 8) | (code2 * 8)) + 0x10;
-	if (frameSize > gotsize)
+	if (frameSize > gotsize - offset)
 		return false;
 
 	if (gotsizeOut)
-		*gotsizeOut = gotsize;
+		*gotsizeOut = gotsize - offset;
 	if (frameSizeOut)
 		*frameSizeOut = frameSize;
 	if (headerCode1)
