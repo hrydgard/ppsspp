@@ -30,6 +30,9 @@ public:
 	explicit SlangShaderScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 	void CreateViews() override;
 	void update() override;
+	// A pushed SlangCategoryScreen activates a preset then pops back with DR_OK; rebuild so the
+	// active-category ✓ marker reflects the new selection.
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	const char *tag() const override { return "SlangShader"; }
 private:
 	void Deactivate();
@@ -64,8 +67,6 @@ public:
 	const char *tag() const override { return "SlangParams"; }
 };
 
-// Helpers shared with the settings screen:
-// Display name (basename without extension) for the active slang preset, or "" if none.
-std::string GetActiveSlangShaderName();
+// Helper shared with the settings screen:
 // True if the active preset exists and exposes at least one #pragma parameter.
 bool ActiveSlangPresetHasParams();

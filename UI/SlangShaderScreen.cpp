@@ -34,20 +34,6 @@
 
 // ---- shared helpers -------------------------------------------------------
 
-std::string GetActiveSlangShaderName() {
-	if (g_Config.sSlangShaderPreset.empty()) {
-		return "";
-	}
-	// Basename without extension of the active .slangp path.
-	Path p(g_Config.sSlangShaderPreset);
-	std::string name = p.GetFilename();
-	size_t dot = name.rfind('.');
-	if (dot != std::string::npos) {
-		name = name.substr(0, dot);
-	}
-	return name;
-}
-
 bool ActiveSlangPresetHasParams() {
 	if (g_Config.sSlangShaderPreset.empty()) {
 		return false;
@@ -140,6 +126,11 @@ void SlangShaderScreen::update() {
 			RecreateViews();
 		}
 	}
+}
+
+void SlangShaderScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	// Returning from the per-category preset list: refresh the active-category marker.
+	RecreateViews();
 }
 
 void SlangShaderScreen::Deactivate() {
