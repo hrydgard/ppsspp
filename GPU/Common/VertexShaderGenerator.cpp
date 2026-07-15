@@ -916,7 +916,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
 	// So even if it seems like 65535 would make more sense, we divide by 65536 here.
-	WRITE(p, "  outPos.z = outPos.z * outPos.w / 65536.0;\n");
+	WRITE(p, "  outPos.z *= outPos.w * (1.0 / 65536.0);\n");
 
 	if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Use(GPU_USE_PRE_ROTATION)) {
 		// Apply rotation from the uniform.
@@ -953,7 +953,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (fsDepthClamp) {
 		// Overwrite Z with a value that will not be clipped.
 		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
-		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * 0.5 * (1.0 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
 	}
 
 	if (compat.depthMinusOneToOne) {
