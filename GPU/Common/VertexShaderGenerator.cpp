@@ -121,7 +121,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
-	bool needsZWHack = bugs.Has(Draw::Bugs::EQUAL_WZ_CORRUPTS_DEPTH) && g_Config.bVendorBugChecksEnabled;
 	bool nanBug = bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
@@ -960,12 +959,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Convert from 0->1 to -1->1 depth range.
 		WRITE(p, "  %sgl_Position.z = %sgl_Position.z * 2.0 - %sgl_Position.w;\n", compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 		// The formula takes the z component of gl_Position, which is currently in the range [0, w] (where w is the homogeneous coordinate), and transforms it to the range [-w, w]. This is done by first multiplying by 2 to scale the range from [0, w] to [0, 2w], and then subtracting w to shift the range to [-w, w]. This effectively converts the depth range from 0->1 to -1->1 after perspective division (when gl_Position is divided by w).
-	}
-
-	if (needsZWHack) {
-		// See comment in thin3d_vulkan.cpp.
-		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
-			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {
