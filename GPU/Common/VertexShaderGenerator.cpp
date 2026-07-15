@@ -121,7 +121,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
-	bool needsZWHack = bugs.Has(Draw::Bugs::EQUAL_WZ_CORRUPTS_DEPTH) && g_Config.bVendorBugChecksEnabled;
 	bool nanBug = bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
@@ -906,7 +905,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	// Convert to NDC space, using the framebuffer offset and (inverse size * 2) stored in u_xywh.
-	WRITE(p, "  outPos.xy = ((outPos.xy + u_xywh.xy) * u_xywh.zw) - vec2(1.0, 1.0);\n");
+	WRITE(p, "  outPos.xy = (((outPos.xy + u_xywh.xy) * u_xywh.zw) - vec2(1.0, 1.0)) * outPos.w;\n");
 
 	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
@@ -916,11 +915,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
 	// So even if it seems like 65535 would make more sense, we divide by 65536 here.
-	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");
-
-	// Convert back to clip space coordinates. This is needed for all modern shader models.
-	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
-	WRITE(p, "  outPos.xyz *= outPos.w;\n");
+	WRITE(p, "  outPos.z *= outPos.w * (1.0 / 65536.0);\n");
 
 	if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Use(GPU_USE_PRE_ROTATION)) {
 		// Apply rotation from the uniform.
@@ -957,19 +952,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (fsDepthClamp) {
 		// Overwrite Z with a value that will not be clipped.
 		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
-		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * 0.5 * (1.0 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
 	}
 
 	if (compat.depthMinusOneToOne) {
 		// Convert from 0->1 to -1->1 depth range.
 		WRITE(p, "  %sgl_Position.z = %sgl_Position.z * 2.0 - %sgl_Position.w;\n", compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 		// The formula takes the z component of gl_Position, which is currently in the range [0, w] (where w is the homogeneous coordinate), and transforms it to the range [-w, w]. This is done by first multiplying by 2 to scale the range from [0, w] to [0, 2w], and then subtracting w to shift the range to [-w, w]. This effectively converts the depth range from 0->1 to -1->1 after perspective division (when gl_Position is divided by w).
-	}
-
-	if (needsZWHack) {
-		// See comment in thin3d_vulkan.cpp.
-		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
-			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

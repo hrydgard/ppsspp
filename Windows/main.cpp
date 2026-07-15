@@ -483,6 +483,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return false;  // This should never be set to true on Windows. Only for testing/dev.
 	case SYSPROP_USE_APP_STORE:
 		return false;
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return true;
 	default:
 		return false;
 	}

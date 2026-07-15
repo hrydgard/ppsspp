@@ -836,7 +836,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 	}
 	VulkanBarrierBatch barrier;
 	if (!vkTex_->CreateDirect(width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, &barrier, swizzle)) {
-		ERROR_LOG(Log::G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
+		ERROR_LOG(Log::G3D,  "Failed to create VKTexture: %dx%dx%d fmt %s, %d levels, tag '%s'", width_, height_, depth_, VulkanFormatToString(vulkanFormat), mipLevels_, desc.tag);
 		return false;
 	}
 	barrier.Flush(cmd);

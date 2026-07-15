@@ -465,8 +465,6 @@ void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void GPUCommonHW::UpdateCmdInfo() {
-
-
 	// Reconfigure for light ubershader or not.
 	for (int i = 0; i < 4; i++) {
 		if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {

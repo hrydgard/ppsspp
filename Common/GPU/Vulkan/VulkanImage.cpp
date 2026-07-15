@@ -40,12 +40,12 @@ static bool IsDepthStencilFormat(VkFormat format) {
 
 bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, VulkanBarrierBatch *barrierBatch, const VkComponentMapping *mapping) {
 	if (w == 0 || h == 0 || numMips == 0) {
-		ERROR_LOG(Log::G3D, "Can't create a zero-size VulkanTexture");
+		ERROR_LOG(Log::G3D, "Can't create a zero-size VulkanTexture (tag: '%s')", tag_);
 		return false;
 	}
-	int maxDim = vulkan_->GetPhysicalDeviceProperties(0).properties.limits.maxImageDimension2D;
+	int maxDim = vulkan_->GetPhysicalDeviceProperties().properties.limits.maxImageDimension2D;
 	if (w > maxDim || h > maxDim) {
-		ERROR_LOG(Log::G3D, "Can't create a texture this large");
+		ERROR_LOG(Log::G3D, "Can't create a texture with format %s this large (%d > %d or %d > %d) (tag: '%s')", VulkanFormatToString(format), w, maxDim, h, maxDim, tag_);
 		return false;
 	}
 
@@ -87,7 +87,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 	VmaAllocationInfo allocInfo{};
 	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_create_info, &allocCreateInfo, &image_, &allocation_, &allocInfo);
 	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vmaCreateImage failed: %s. Destroying image.", VulkanResultToString(res));
+		ERROR_LOG(Log::G3D, "vmaCreateImage failed: %s. Destroying image (tag: '%s')", VulkanResultToString(res), tag_);
 		_dbg_assert_msg_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS, "%d", (int)res);
 		view_ = VK_NULL_HANDLE;
 		image_ = VK_NULL_HANDLE;
@@ -145,7 +145,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view_);
 	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vkCreateImageView failed: %s. Destroying image.", VulkanResultToString(res));
+		ERROR_LOG(Log::G3D, "vkCreateImageView failed: %s. Destroying image (tag: '%s')", VulkanResultToString(res), tag_);
 		_assert_msg_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS, "%d", (int)res);
 		vmaDestroyImage(vulkan_->Allocator(), image_, allocation_);
 		view_ = VK_NULL_HANDLE;
@@ -160,7 +160,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
 		// Assume that if the above view creation succeeded, so will this.
-		_assert_msg_(res == VK_SUCCESS, "View creation failed: %d", (int)res);
+		_assert_msg_(res == VK_SUCCESS, "View creation failed: %d (tag: '%s')", (int)res, tag_);
 		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_);
 	}
 

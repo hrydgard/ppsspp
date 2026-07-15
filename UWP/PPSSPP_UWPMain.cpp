@@ -509,6 +509,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return IsDebuggerPresent();
 	case SYSPROP_OK_BUTTON_LEFT:
 		return true;
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return true;
 	default:
 		return false;
 	}
