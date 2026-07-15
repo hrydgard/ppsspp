@@ -1,11 +1,11 @@
 #version 450
 // PSP LCD matrix shader — final pass: RGB subpixel mask + inter-cell grid + display encode.
-#pragma parameter SUBPIXEL_STRENGTH "LCD Subpixel Strength" 0.5 0.0 1.0 0.05
+#pragma parameter SUBPIXEL_STRENGTH "LCD Subpixel Strength" 0.35 0.0 1.0 0.05
 #pragma parameter SUBPIXEL_SIZE "LCD Subpixel Width (px)" 3.0 1.0 8.0 1.0
-#pragma parameter GRID_STRENGTH     "LCD Grid Strength"     0.3 0.0 1.0 0.05
+#pragma parameter GRID_STRENGTH     "LCD Grid Strength"     0.7 0.0 1.0 0.05
 #pragma parameter SCANLINE_STRENGTH "LCD Scanline Strength" 0.1 0.0 1.0 0.05
 #pragma parameter BRIGHTEN          "Brightness Compensation" 1.3 1.0 3.0 0.05
-#pragma parameter GLOW_STRENGTH     "LCD Glow Strength" 0.15 0.0 1.0 0.05
+#pragma parameter GLOW_STRENGTH     "LCD Glow Strength" 0.5 0.0 1.0 0.05
 
 layout(push_constant) uniform Push {
    float SUBPIXEL_STRENGTH;
@@ -54,8 +54,8 @@ void main() {
    // Inter-cell grid: darken the gap between source-pixel cells (both axes). fract over the
    // source-pixel grid spans many display pixels at high res, so the grid stays visible.
    vec2 f = fract(sp);
-   float gx = 1.0 - registers.GRID_STRENGTH * smoothstep(0.8, 1.0, abs(f.x - 0.5) * 2.0);
-   float gy = 1.0 - registers.GRID_STRENGTH * smoothstep(0.8, 1.0, abs(f.y - 0.5) * 2.0);
+   float gx = 1.0 - registers.GRID_STRENGTH * smoothstep(0.4, 1.0, abs(f.x - 0.5) * 2.0);
+   float gy = 1.0 - registers.GRID_STRENGTH * smoothstep(0.4, 1.0, abs(f.y - 0.5) * 2.0);
    float grid = gx * gy;
 
    // Subtle horizontal scanline modulation over source rows (much milder than a CRT).
