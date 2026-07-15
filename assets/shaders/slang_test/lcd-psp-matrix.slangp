@@ -1,0 +1,20 @@
+shaders = 3
+
+shader0 = lcd-psp-matrix-pass1.slang
+alias0 = CORRECTED
+filter_linear0 = false
+scale_type0 = source
+scale0 = 1.0
+float_framebuffer0 = true
+
+shader1 = lcd-psp-matrix-pass2.slang
+alias1 = GLOW
+filter_linear1 = true
+scale_type1 = source
+scale1 = 1.0
+float_framebuffer1 = true
+
+shader2 = lcd-psp-matrix-pass3.slang
+filter_linear2 = false
+scale_type2 = viewport
+scale2 = 1.0

@@ -5,6 +5,7 @@
 #pragma parameter GRID_STRENGTH     "LCD Grid Strength"     0.3 0.0 1.0 0.05
 #pragma parameter SCANLINE_STRENGTH "LCD Scanline Strength" 0.1 0.0 1.0 0.05
 #pragma parameter BRIGHTEN          "Brightness Compensation" 1.3 1.0 3.0 0.05
+#pragma parameter GLOW_STRENGTH     "LCD Glow Strength" 0.15 0.0 1.0 0.05
 
 layout(push_constant) uniform Push {
    float SUBPIXEL_STRENGTH;
@@ -12,6 +13,7 @@ layout(push_constant) uniform Push {
    float GRID_STRENGTH;
    float SCANLINE_STRENGTH;
    float BRIGHTEN;
+   float GLOW_STRENGTH;
    vec4 OutputSize;
    vec4 OriginalSize;
    vec4 SourceSize;
@@ -29,6 +31,7 @@ layout(location = 0) in vec2 vTexCoord;
 layout(location = 0) out vec4 FragColor;
 layout(set = 0, binding = 2) uniform sampler2D Source;      // = CORRECTED (pass1)
 layout(set = 0, binding = 3) uniform sampler2D CORRECTED;   // alias of pass1 (same content; bound by name)
+layout(set = 0, binding = 4) uniform sampler2D GLOW;
 
 #define INV_DISPLAY_GAMMA (1.0 / 2.2)
 
@@ -59,6 +62,7 @@ void main() {
    float scan = 1.0 - registers.SCANLINE_STRENGTH * (0.5 - 0.5 * cos(6.28318 * sp.y));
 
    c = c * mask * grid * scan * registers.BRIGHTEN;
+   c += registers.GLOW_STRENGTH * texture(GLOW, vTexCoord).rgb;
 
    // Encode to display gamma (pass1 left color in ~linear space).
    c = clamp(pow(max(c, vec3(0.0)), vec3(INV_DISPLAY_GAMMA)), 0.0, 1.0);
