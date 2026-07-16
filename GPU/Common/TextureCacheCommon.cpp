@@ -338,18 +338,39 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 }
 
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	// TODO: This call is pretty pointless, we overwrite most of it.
-	SamplerCacheKey key = GetSamplingParams(0, nullptr, true);
+	SamplerCacheKey key{};
 
-	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
-		int minFilt = gstate.texfilter & 0x7;
-		key.minFilt = minFilt & 1;
+	key.magFilt = gstate.isMagnifyFilteringEnabled();
+	int minFilt = gstate.texfilter & 0x7;
+	key.minFilt = minFilt & 1;
+	key.mipEnable = false;
+	key.mipFilt = false;
+	key.mipFilt = false;
+	key.sClamp = gstate.isTexCoordClampedS();
+	key.tClamp = gstate.isTexCoordClampedT();
+	key.aniso = false;
+	key.texture3d = false;
+
+	// Filtering overrides from replacements or settings.
+	switch ((TextureFiltering)g_Config.iTexFiltering) {
+	case TEX_FILTER_AUTO:
+	case TEX_FILTER_AUTO_MAX_QUALITY:
+		if (gstate_c.pixelMapped) {
+			key.magFilt = false;
+			key.minFilt = false;
+		}
+		break;
+	case TEX_FILTER_FORCE_LINEAR:
+		key.magFilt = true;
+		key.minFilt = true;
+		break;
+	case TEX_FILTER_FORCE_NEAREST:
+		key.magFilt = false;
+		key.minFilt = false;
+		break;
 	}
 
 	// Kill any mipmapping settings.
-	key.mipEnable = false;
-	key.mipFilt = false;
 	key.aniso = 0.0f;
 	key.maxLevel = 0.0f;
 	key.lodBias = 0.0f;
