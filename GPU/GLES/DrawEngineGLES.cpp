@@ -314,7 +314,8 @@ void DrawEngineGLES::Flush() {
 		}
 
 		if (textureNeedsApply) {
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
@@ -394,7 +395,8 @@ void DrawEngineGLES::Flush() {
 		if (textureNeedsApply) {
 			gstate_c.pixelMapped = result.pixelMapped;
 			gstate_c.dstSquared = false;
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 			if (gstate_c.dstSquared) {
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}

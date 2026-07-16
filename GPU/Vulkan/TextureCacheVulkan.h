@@ -89,7 +89,7 @@ protected:
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
-	void ApplySamplingParams(const SamplerCacheKey &key) override;
+	void ApplySamplerByKey(const SamplerCacheKey &key) override;
 	void BoundFramebufferTexture() override;
 
 private:

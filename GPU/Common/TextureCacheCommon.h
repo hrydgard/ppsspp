@@ -325,6 +325,12 @@ struct BuildTexturePlan {
 	}
 };
 
+struct TextureApplyResult {
+	// At most one of these will be set.
+	TexCacheEntry *texCacheEntry = nullptr;
+	VirtualFramebuffer *framebuffer = nullptr;
+};
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
@@ -341,7 +347,9 @@ public:
 		shaderManager_ = sm;
 	}
 
-	TexCacheEntry *ApplyTexture(bool doBind, bool flatZ);
+	TextureApplyResult ApplyTexture(bool doBind);
+	void ApplySampler(const TextureApplyResult &result, bool flatZ);  // Should follow ApplyTexture
+
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
@@ -352,7 +360,6 @@ public:
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
-	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
@@ -406,9 +413,6 @@ protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
-
-	void BindSampler(TexCacheEntry *entry, bool flatZ);
-
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
@@ -416,6 +420,7 @@ protected:
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
 	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);
+	virtual void ApplySamplerByKey(const SamplerCacheKey &key) = 0;
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;

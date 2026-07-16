@@ -327,7 +327,8 @@ void DrawEngineD3D11::Flush() {
 
 		if (textureNeedsApply) {
 			gstate_c.dstSquared = false;
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 			if (gstate_c.dstSquared) {
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
@@ -440,7 +441,8 @@ void DrawEngineD3D11::Flush() {
 		// TODO: This should be after BuildDrawingParams!
 		if (textureNeedsApply) {
 			gstate_c.pixelMapped = result.pixelMapped;
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
 			gstate_c.pixelMapped = false;
 		}
 

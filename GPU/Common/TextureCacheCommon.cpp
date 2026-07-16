@@ -2211,7 +2211,8 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	}
 }
 
-TexCacheEntry *TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
+TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
+	TextureApplyResult result;
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
@@ -2222,11 +2223,12 @@ TexCacheEntry *TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		} else if (nextFramebufferTexture_) {
 			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
+			result.framebuffer = nextFramebufferTexture_;
 			nextFramebufferTexture_ = nullptr;
 		}
 		// We don't set the 3D texture state here or anything else, on some backends (?)
 		// a nextTexture_ of nullptr means keep the current texture.
-		return nullptr;
+		return result;
 	}
 
 	nextTexture_ = nullptr;
@@ -2291,10 +2293,10 @@ TexCacheEntry *TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
+		return TextureApplyResult{};
 	} else {
 		if (doBind) {
 			BindTexture(entry);
-			BindSampler(entry, flatZ);
 		}
 		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
@@ -2309,7 +2311,20 @@ TexCacheEntry *TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 		}
 	}
-	return entry;
+	return TextureApplyResult{entry, nullptr};
+}
+
+void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool flatZ) {
+	SamplerCacheKey samplerKey;
+	if (result.texCacheEntry) {
+		int maxLevel = (result.texCacheEntry->status & TexStatus::NO_MIPS) ? 0 : result.texCacheEntry->maxLevel;
+		samplerKey = GetSamplingParams(maxLevel, result.texCacheEntry, flatZ);
+	} else if (result.framebuffer) {
+		samplerKey = GetFramebufferSamplingParams(gstate, result.framebuffer->bufferWidth, result.framebuffer->bufferHeight);
+	} else {
+		samplerKey = GetSamplingParams(0, nullptr, flatZ);
+	}
+	ApplySamplerByKey(samplerKey);
 }
 
 // Can we depalettize the bufferFormat as texFormat at all?
@@ -2437,7 +2452,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipEnable = false;
-			ApplySamplingParams(samplerKey);
+			ApplySamplerByKey(samplerKey);
 
 			ShaderDepalMode mode = ShaderDepalMode::NORMAL;
 			if (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888) {
@@ -2540,16 +2555,13 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		gstate_c.SetTextureSolidAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, framebuffer->bufferWidth, framebuffer->bufferHeight);
-	ApplySamplingParams(samplerKey);
-
 	// Since we've drawn using thin3d, might need these.
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
 // TODO: Merge this function with the above.
-void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry * const entry) {
+void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	switch (entry->format) {
@@ -2642,9 +2654,6 @@ void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry * 
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, texWidth, texHeight);
-	ApplySamplingParams(samplerKey);
-
 	// Since we've drawn using thin3d, might need these.
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
@@ -2691,13 +2700,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 	ReleaseTexture(it->second.get(), true);
 	cache_.erase(it);
-}
-
-void TextureCacheCommon::BindSampler(TexCacheEntry *entry, bool flatZ) {
-	_dbg_assert_(entry);
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ApplySamplingParams(samplerKey);
 }
 
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
