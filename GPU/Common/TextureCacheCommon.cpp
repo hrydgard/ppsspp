@@ -464,46 +464,48 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 
 // TODO: This should be called from the through mode bbox check.
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
-	// If the texture is >= 512 pixels tall...
-	if (entry->dim >= 0x900) {
-		if (entry->cluthash != 0 && entry->maxSeenV == 0) {
-			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-				// They should all be the same, just make sure we take any that has already increased.
-				// This is for a new texture.
-				if (it->second->maxSeenV != 0) {
-					entry->maxSeenV = it->second->maxSeenV;
-					break;
-				}
+	// If the texture is >= 512 pixels tall... otherwise we don't bother.
+	if (entry->dim < 0x900) {
+		return;
+	}
+
+	if (entry->cluthash != 0 && entry->maxSeenV == 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+			// They should all be the same, just make sure we take any that has already increased.
+			// This is for a new texture.
+			if (it->second->maxSeenV != 0) {
+				entry->maxSeenV = it->second->maxSeenV;
+				break;
 			}
 		}
+	}
 
-		// Texture scale/offset and gen modes don't apply in through.
-		// So we can optimize how much of the texture we look at.
-		if (throughMode) {
-			if (entry->maxSeenV == 0 && gstate_c.vertBounds.maxV > 0) {
-				// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
-				entry->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
-			} else if (gstate_c.vertBounds.maxV > entry->maxSeenV) {
-				// The max height changed, so we're better off hashing the entire thing.
-				entry->maxSeenV = 512;
-			}
-		} else {
-			// Otherwise, we need to reset to ensure we use the whole thing.
-			// Can't tell how much is used.
-			// TODO: We could tell for texcoord UV gen, and apply scale to max?
+	// Texture scale/offset and gen modes don't apply in through.
+	// So we can optimize how much of the texture we look at.
+	if (throughMode) {
+		if (entry->maxSeenV == 0 && gstate_c.vertBounds.maxV > 0) {
+			// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
+			entry->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
+		} else if (gstate_c.vertBounds.maxV > entry->maxSeenV) {
+			// The max height changed, so we're better off hashing the entire thing.
 			entry->maxSeenV = 512;
 		}
+	} else {
+		// Otherwise, we need to reset to ensure we use the whole thing.
+		// Can't tell how much is used.
+		// TODO: We could tell for texcoord UV gen, and apply scale to max?
+		entry->maxSeenV = 512;
+	}
 
-		// We need to keep all CLUT variants in sync so we detect changes properly.
-		// See HandleTextureChange / STATUS_CLUT_RECHECK.
-		if (entry->cluthash != 0) {
-			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-				it->second->maxSeenV = entry->maxSeenV;
-			}
+	// We need to keep all CLUT variants in sync so we detect changes properly.
+	// See HandleTextureChange / STATUS_CLUT_RECHECK.
+	if (entry->cluthash != 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+			it->second->maxSeenV = entry->maxSeenV;
 		}
 	}
 }
@@ -513,7 +515,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	if (IsFakeMipmapChange()) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
-	u32 texaddr = gstate.getTextureAddress(level);
+	const u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		nextTexture_ = nullptr;
@@ -600,24 +602,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			match = false;
 		}
 
-		// !!! Here we will do the check for "sync domain"
-		// NOTE: Reliable is just for the font texture now.
-		bool rehash = (entry->status & TexStatus::RELIABLE) == 0;
-
-		if (entry->lastSyncDomain == gstate_c.textureSyncTimeDomain) {
-			// The texture was last used in the same sync domain.
-			rehash = false;
-		} else {
-			entry->lastSyncDomain = gstate_c.textureSyncTimeDomain;
-			// We don't set rehash = true here, the declaration above did it properly.
-		}
-
-		if (entry->status & (TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK)) {
-			// If it's reliable, we can skip the sync domain check, since it won't change under us.
-			rehash = true;
-			entry->status &= ~(TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK);
-		}
-
 		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
 			match = false;
@@ -657,6 +641,25 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		}
 
 		if (match) {
+			// !!! Here we will do the check for "sync domain"
+			// NOTE: Reliable is just for the font texture now.
+			bool rehash = (entry->status & TexStatus::RELIABLE) == 0;
+
+			if (entry->lastSyncDomain == gstate_c.textureSyncTimeDomain) {
+				// The texture was last used in the same sync domain.
+				rehash = false;
+			} else {
+				entry->lastSyncDomain = gstate_c.textureSyncTimeDomain;
+				// We don't set rehash = true here, the declaration above did it properly.
+			}
+
+			// CLUT recheck was triggered by a "CLUT twin" (same address, different CLUT) needing a rehash.
+			if (entry->status & TexStatus::HASH_RECHECK) {
+				// If it's reliable, we can skip the sync domain check, since it won't change under us.
+				rehash = true;
+				entry->status &= ~(TexStatus::HASH_RECHECK);
+			}
+
 			// got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
@@ -682,7 +685,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		}
 	}
 
-	// No texture found, or changed (depending on entry).
+	// No texture found when looking up the key, or changed (depending on entry).
 	// Check for framebuffers.
 
 	TextureDefinition def{};
@@ -1074,7 +1077,7 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
 		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
 			if (it->second->cluthash != entry->cluthash) {
-				it->second->status |= TexStatus::CLUT_RECHECK;
+				it->second->status |= TexStatus::HASH_RECHECK;
 			}
 		}
 	}
@@ -3096,9 +3099,6 @@ std::string TexStatusToString(TexStatus status) {
 	}
 	if (status & TexStatus::MANY_CLUT_VARIANTS) {
 		result += "CLUTVARIANTS ";
-	}
-	if (status & TexStatus::CLUT_RECHECK) {
-		result += "CLUT_RECHECK ";
 	}
 	if (status & TexStatus::TO_SCALE) {
 		result += "TOSCALE ";

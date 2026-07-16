@@ -142,7 +142,7 @@ enum class TexStatus : u16 {
 
 	MANY_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
 	RELIABLE = (1 << 4),    // Hash will never change. This only really applies to the font texture.
-	CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
+	// Free bit: 5,
 	HASH_RECHECK = (1 << 6),   // Hash failed, but addr is the same, so we want to check again next time.
 	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
 	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
@@ -159,8 +159,10 @@ ENUM_CLASS_BITOPS(TexStatus);
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
+#ifdef _DEBUG
 		if (texturePtr || textureName || vkTex)
 			Crash();
+#endif
 	}
 	// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 	const static int FRAMES_REGAIN_TRUST = 1000;
