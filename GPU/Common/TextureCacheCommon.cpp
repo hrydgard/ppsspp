@@ -386,6 +386,39 @@ SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWi
 	return key;
 }
 
+static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, const TexCacheEntry *entry) {
+	const GETextureFormat format = entry->format;
+	if (replacer.Enabled()) {
+		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
+	}
+
+	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+		h = (int)entry->maxSeenV;
+	}
+
+	u32 sizeInRAM;
+	if (swizzled) {
+		// In swizzle mode, textures are stored in rectangular blocks with the height 8.
+		// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
+		// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
+		// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
+		// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
+		sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
+	} else {
+		sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
+	}
+	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+
+	if (Memory::IsValidAddress(addr + sizeInRAM)) {
+		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
+
+		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
+		return StableQuickTexHash(checkp, sizeInRAM);
+	} else {
+		return 0;
+	}
+}
+
 // NOTE: this is overridden in TextureCacheGLES, with some extra color conversion.
 void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
@@ -759,6 +792,111 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	nextNeedsRehash_ = true;
 	nextNeedsRebuild_ = true;
 	return entry;
+}
+
+TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
+	SetTexture();
+
+	TextureApplyResult result;
+	TexCacheEntry *entry = nextTexture_;
+	if (!entry) {
+		// Maybe we bound a framebuffer?
+		ForgetLastTexture();
+		if (failedTexture_) {
+			// Backends should handle this by binding a black texture with 0 alpha.
+			BindTexture(nullptr);
+		} else if (nextFramebufferTexture_) {
+			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
+			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
+			result.framebuffer = nextFramebufferTexture_;
+			nextFramebufferTexture_ = nullptr;
+		}
+		// We don't set the 3D texture state here or anything else, on some backends (?)
+		// a nextTexture_ of nullptr means keep the current texture.
+		return result;
+	}
+
+	nextTexture_ = nullptr;
+
+	UpdateMaxSeenV(entry, gstate.isModeThrough());
+
+	if (nextNeedsRebuild_) {
+		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
+		// This prevents temporary scaling perf hits on the first second of video.
+		if (IsVideo(entry->addr)) {
+			entry->status |= TexStatus::VIDEO;
+		} else {
+			entry->status &= ~TexStatus::VIDEO;
+		}
+
+		if (nextNeedsRehash_) {
+			PROFILE_THIS_SCOPE("texhash");
+			// Update the hash on the texture.
+			int w = gstate.getTextureWidth(0);
+			int h = gstate.getTextureHeight(0);
+			const bool swizzled = gstate.isTextureSwizzled();
+			entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+
+			// TODO: Here we could check the secondary cache; maybe the texture is in there?
+			// We would need to abort the build if so.
+		}
+		if (nextNeedsChange_) {
+			// This texture existed previously, let's handle the change.
+			HandleTextureChange(entry, nextChangeReason_, false, true);
+		}
+		// We actually build afterward (shared with rehash rebuild.)
+	} else if (nextNeedsRehash_) {
+		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
+		bool doDelete = true;
+		if (!CheckFullHash(entry, doDelete)) {
+			HandleTextureChange(entry, "hash fail", true, doDelete);
+			nextNeedsRebuild_ = true;
+		} else if (nextTexture_ != nullptr) {
+			// The secondary cache may choose an entry from its storage by setting nextTexture_.
+			// This means we should set that, instead of our previous entry.
+			entry = nextTexture_;
+			nextTexture_ = nullptr;
+			UpdateMaxSeenV(entry, gstate.isModeThrough());
+		}
+	}
+
+	// Okay, now actually rebuild the texture if needed.
+	if (nextNeedsRebuild_) {
+		_assert_(!entry->texturePtr);
+		BuildTexture(entry);
+		ForgetLastTexture();
+	}
+
+	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	entry->lastFrame = gpuStats.totals.numFlips;
+	if (entry->status & TexStatus::CLUT_GPU) {
+		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
+		// Special process.
+		if (doBind) {
+			ApplyTextureDepalFramebufferCLUT(entry);
+		}
+		gstate_c.SetTextureSolidAlpha(false);
+		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureIsArray(false);
+		return TextureApplyResult{};
+	} else {
+		if (doBind) {
+			BindTexture(entry);
+		}
+		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
+		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
+		gstate_c.SetTextureIsArray(false);
+		if (entry->status & TexStatus::CLUT8_INDEXED) {
+			bool smoothedDepal = false;
+			u32 depthUpperBits = 0;
+			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBuf_);
+			BindAsClutTexture(clutTexture.texture, false);
+			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+		} else {
+			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		}
+	}
+	return TextureApplyResult{entry, nullptr};
 }
 
 static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) {
@@ -2176,144 +2314,6 @@ TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level
 	} else {
 		return AlphaSumIsFull(alphaSum, fullAlphaMask) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
-}
-
-static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, const TexCacheEntry *entry) {
-	const GETextureFormat format = entry->format;
-	if (replacer.Enabled()) {
-		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
-	}
-
-	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-		h = (int)entry->maxSeenV;
-	}
-
-	u32 sizeInRAM;
-	if (swizzled) {
-		// In swizzle mode, textures are stored in rectangular blocks with the height 8.
-		// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
-		// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
-		// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
-		// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
-		sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
-	} else {
-		sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
-	}
-	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
-
-	if (Memory::IsValidAddress(addr + sizeInRAM)) {
-		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
-
-		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
-		return StableQuickTexHash(checkp, sizeInRAM);
-	} else {
-		return 0;
-	}
-}
-
-TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
-	SetTexture();
-
-	TextureApplyResult result;
-	TexCacheEntry *entry = nextTexture_;
-	if (!entry) {
-		// Maybe we bound a framebuffer?
-		ForgetLastTexture();
-		if (failedTexture_) {
-			// Backends should handle this by binding a black texture with 0 alpha.
-			BindTexture(nullptr);
-		} else if (nextFramebufferTexture_) {
-			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
-			result.framebuffer = nextFramebufferTexture_;
-			nextFramebufferTexture_ = nullptr;
-		}
-		// We don't set the 3D texture state here or anything else, on some backends (?)
-		// a nextTexture_ of nullptr means keep the current texture.
-		return result;
-	}
-
-	nextTexture_ = nullptr;
-
-	UpdateMaxSeenV(entry, gstate.isModeThrough());
-
-	if (nextNeedsRebuild_) {
-		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
-		// This prevents temporary scaling perf hits on the first second of video.
-		if (IsVideo(entry->addr)) {
-			entry->status |= TexStatus::VIDEO;
-		} else {
-			entry->status &= ~TexStatus::VIDEO;
-		}
-
-		if (nextNeedsRehash_) {
-			PROFILE_THIS_SCOPE("texhash");
-			// Update the hash on the texture.
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			const bool swizzled = gstate.isTextureSwizzled();
-			entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
-
-			// TODO: Here we could check the secondary cache; maybe the texture is in there?
-			// We would need to abort the build if so.
-		}
-		if (nextNeedsChange_) {
-			// This texture existed previously, let's handle the change.
-			HandleTextureChange(entry, nextChangeReason_, false, true);
-		}
-		// We actually build afterward (shared with rehash rebuild.)
-	} else if (nextNeedsRehash_) {
-		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
-		bool doDelete = true;
-		if (!CheckFullHash(entry, doDelete)) {
-			HandleTextureChange(entry, "hash fail", true, doDelete);
-			nextNeedsRebuild_ = true;
-		} else if (nextTexture_ != nullptr) {
-			// The secondary cache may choose an entry from its storage by setting nextTexture_.
-			// This means we should set that, instead of our previous entry.
-			entry = nextTexture_;
-			nextTexture_ = nullptr;
-			UpdateMaxSeenV(entry, gstate.isModeThrough());
-		}
-	}
-
-	// Okay, now actually rebuild the texture if needed.
-	if (nextNeedsRebuild_) {
-		_assert_(!entry->texturePtr);
-		BuildTexture(entry);
-		ForgetLastTexture();
-	}
-
-	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
-	entry->lastFrame = gpuStats.totals.numFlips;
-	if (entry->status & TexStatus::CLUT_GPU) {
-		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
-		// Special process.
-		if (doBind) {
-			ApplyTextureDepalFramebufferCLUT(entry);
-		}
-		gstate_c.SetTextureSolidAlpha(false);
-		gstate_c.SetTextureIs3D(false);
-		gstate_c.SetTextureIsArray(false);
-		return TextureApplyResult{};
-	} else {
-		if (doBind) {
-			BindTexture(entry);
-		}
-		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
-		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
-		gstate_c.SetTextureIsArray(false);
-		if (entry->status & TexStatus::CLUT8_INDEXED) {
-			bool smoothedDepal = false;
-			u32 depthUpperBits = 0;
-			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBuf_);
-			BindAsClutTexture(clutTexture.texture, false);
-			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
-		} else {
-			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
-		}
-	}
-	return TextureApplyResult{entry, nullptr};
 }
 
 void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped) {
