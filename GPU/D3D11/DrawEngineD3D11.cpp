@@ -426,9 +426,6 @@ void DrawEngineD3D11::Flush() {
 		params.clipInfoFlags = clipInfoFlags_;
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
-		if (result.setSafeSize) {
-			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
-		}
 
 		// TODO: This should be after BuildDrawingParams!
 		if (textureNeedsApply) {

@@ -2887,11 +2887,11 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	}
 }
 
-void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
+void FramebufferManagerCommon::SetSafeSize(int w, int h) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (vfb) {
-		vfb->safeWidth = std::min(vfb->bufferWidth, std::max(vfb->safeWidth, w));
-		vfb->safeHeight = std::min(vfb->bufferHeight, std::max(vfb->safeHeight, h));
+		vfb->safeWidth = std::min(vfb->bufferWidth, std::max(vfb->safeWidth, (u16)w));
+		vfb->safeHeight = std::min(vfb->bufferHeight, std::max(vfb->safeHeight, (u16)h));
 	}
 }
 
