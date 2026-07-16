@@ -2213,23 +2213,22 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	}
 }
 
-void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
+TexCacheEntry *TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
 		// Maybe we bound a framebuffer?
 		ForgetLastTexture();
 		if (failedTexture_) {
 			// Backends should handle this by binding a black texture with 0 alpha.
-			BindTexture(nullptr, flatZ);
+			BindTexture(nullptr);
 		} else if (nextFramebufferTexture_) {
 			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
 			nextFramebufferTexture_ = nullptr;
 		}
-
 		// We don't set the 3D texture state here or anything else, on some backends (?)
 		// a nextTexture_ of nullptr means keep the current texture.
-		return;
+		return nullptr;
 	}
 
 	nextTexture_ = nullptr;
@@ -2296,7 +2295,8 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 		gstate_c.SetTextureIsArray(false);
 	} else {
 		if (doBind) {
-			BindTexture(entry, flatZ);
+			BindTexture(entry);
+			BindSampler(entry, flatZ);
 		}
 		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
@@ -2311,6 +2311,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 		}
 	}
+	return entry;
 }
 
 // Can we depalettize the bufferFormat as texFormat at all?

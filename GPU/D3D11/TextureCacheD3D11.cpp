@@ -209,7 +209,7 @@ void TextureCacheD3D11::ForgetLastTexture() {
 	context_->PSSetShaderResources(0, 4, nullTex);
 }
 
-void TextureCacheD3D11::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		ID3D11ShaderResourceView *textureView = nullptr;
 		context_->PSSetShaderResources(0, 1, &textureView);
@@ -220,6 +220,10 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry, bool flatZ) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture_ = textureView;
 	}
+}
+
+void TextureCacheD3D11::BindSampler(TexCacheEntry *entry, bool flatZ) {
+	_dbg_assert_(entry);
 	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ComPtr<ID3D11SamplerState> state;

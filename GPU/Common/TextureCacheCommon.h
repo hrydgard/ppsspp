@@ -341,7 +341,7 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void ApplyTexture(bool doBind, bool flatZ);
+	TexCacheEntry *ApplyTexture(bool doBind, bool flatZ);
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
@@ -405,7 +405,9 @@ public:
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
-	virtual void BindTexture(TexCacheEntry *entry, bool flatZ) = 0;
+	virtual void BindTexture(TexCacheEntry *entry) = 0;
+	virtual void BindSampler(TexCacheEntry *entry, bool flatZ) = 0;
+
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);

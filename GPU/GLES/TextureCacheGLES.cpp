@@ -194,7 +194,7 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
 		lastBoundTexture = nullptr;
@@ -204,6 +204,10 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
+}
+
+void TextureCacheGLES::BindSampler(TexCacheEntry *entry, bool flatZ) {
+	_dbg_assert_(entry);
 	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ApplySamplingParams(samplerKey);
