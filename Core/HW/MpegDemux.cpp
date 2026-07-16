@@ -123,7 +123,8 @@ int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
 		pesHeader.channel = channel;
 		length--;
 		if (channel >= 0x80 && channel <= 0xCF) {
-			// Skip audio header
+			// Skip audio header. Standard PSP audio sub-streams have a 3 or 4 byte sub-header.
+			// ATRAC3+ (0x90) and some others have an additional byte in the sub-header.
 			skip(3);
 			length -= 3;
 			if (channel >= 0xB0 && channel <= 0xBF) {
@@ -345,6 +346,9 @@ bool MpegDemux::hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *heade
 
 	int offset = 0;
 	if (!isHeader(m_audioFrame, 0)) {
+		// If the header is not at the start, try to find it. This can happen during chapter transitions
+		// where garbage data might precede the first valid frame. Scanning prevents a "no data" deadlock
+		// by allowing the demuxer to resync even when the high-level code is just checking for availability.
 		offset = getNextHeaderPosition(m_audioFrame, 1, gotsize, 0);
 		if (offset < 0 || gotsize - offset < 4)
 			return false;
