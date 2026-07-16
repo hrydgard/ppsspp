@@ -247,7 +247,6 @@ void GPU_Vulkan::BeginHostFrame(const DisplayLayoutConfig &config) {
 
 	framebufferManager_->BeginFrame(config);
 
-	shaderManagerVulkan_->DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL);
 
 	if (gstate_c.useFlagsChanged) {

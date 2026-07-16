@@ -513,8 +513,6 @@ void GPUCommonHW::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) 
 	// Flush anything left over.
 	drawEngineCommon_->Flush();
 
-	shaderManager_->DirtyLastShader();
-
 	// after this, render pass is active.
 	framebufferManager_->PrepareCopyDisplayToOutput(config, curFramebufferDirty_);
 }

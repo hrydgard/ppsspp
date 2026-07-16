@@ -2531,7 +2531,6 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		gstate_c.SetTextureSolidAlpha(alphaStatus == TextureAlpha::Solid);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-		shaderManager_->DirtyLastShader();
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
@@ -2642,7 +2641,6 @@ void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry * 
 	gstate_c.SetTextureSolidAlpha(false);
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-	shaderManager_->DirtyLastShader();
 
 	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, texWidth, texHeight);
 	ApplySamplingParams(samplerKey);

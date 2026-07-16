@@ -221,10 +221,8 @@ void GPU_GLES::BeginHostFrame(const DisplayLayoutConfig &config) {
 	if (shaderCachePath_.Valid() && !(gpuStats.totals.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING_CPU) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
-	shaderManagerGL_->DirtyLastShader();
 
-	// Not sure if this is really needed.
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_FRAGMENTSHADER_STATE | DIRTY_VERTEXSHADER_STATE);
 
 	framebufferManager_->BeginFrame(config);
 

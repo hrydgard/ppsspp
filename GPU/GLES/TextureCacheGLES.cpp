@@ -186,8 +186,6 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (entry->textureName != lastBoundTexture_) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture_ = entry->textureName;
-	} else {
-		NOTICE_LOG(Log::G3D, "Saved a bind");
 	}
 }
 

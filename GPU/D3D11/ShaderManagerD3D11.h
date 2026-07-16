@@ -90,7 +90,6 @@ public:
 
 	void GetShaders(int prim, u32 vertexType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, ClipInfoFlags clipInfoFlags);
 	void ClearShaders() override;
-	void DirtyLastShader() override;
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
