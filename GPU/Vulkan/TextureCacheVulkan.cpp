@@ -585,13 +585,6 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	imageView_ = entry->vkTex->GetImageView();
 }
 
-void TextureCacheVulkan::BindSampler(TexCacheEntry *entry, bool flatZ) {
-	_dbg_assert_(entry);
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-}
-
 void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 }

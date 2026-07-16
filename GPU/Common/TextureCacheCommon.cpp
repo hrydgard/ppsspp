@@ -2693,6 +2693,13 @@ void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 	cache_.erase(it);
 }
 
+void TextureCacheCommon::BindSampler(TexCacheEntry *entry, bool flatZ) {
+	_dbg_assert_(entry);
+	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
+	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
+	ApplySamplingParams(samplerKey);
+}
+
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);

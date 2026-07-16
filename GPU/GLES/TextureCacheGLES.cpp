@@ -189,13 +189,6 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheGLES::BindSampler(TexCacheEntry *entry, bool flatZ) {
-	_dbg_assert_(entry);
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ApplySamplingParams(samplerKey);
-}
-
 void TextureCacheGLES::Unbind() {
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, nullptr);
 	ForgetLastTexture();

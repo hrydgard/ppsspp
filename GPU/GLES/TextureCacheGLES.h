@@ -54,7 +54,6 @@ public:
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
-	void BindSampler(TexCacheEntry *entry, bool flatZ) override;
 
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;

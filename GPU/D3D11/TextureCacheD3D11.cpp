@@ -222,15 +222,6 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheD3D11::BindSampler(TexCacheEntry *entry, bool flatZ) {
-	_dbg_assert_(entry);
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ComPtr<ID3D11SamplerState> state;
-	samplerCache_.GetOrCreateSampler(device_, samplerKey, &state);
-	context_->PSSetSamplers(0, 1, state.GetAddressOf());
-}
-
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
 	ComPtr<ID3D11SamplerState> state;
 	samplerCache_.GetOrCreateSampler(device_, key, &state);

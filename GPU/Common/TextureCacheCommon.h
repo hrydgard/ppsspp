@@ -406,7 +406,8 @@ protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
-	virtual void BindSampler(TexCacheEntry *entry, bool flatZ) = 0;
+
+	void BindSampler(TexCacheEntry *entry, bool flatZ);
 
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
