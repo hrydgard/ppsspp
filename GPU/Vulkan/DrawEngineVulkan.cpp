@@ -374,16 +374,9 @@ void DrawEngineVulkan::Flush() {
 		gpuStats.perFrame.numSoftTransformedDraws++;
 
 		PROFILE_THIS_SCOPE("soft");
-		const VertexDecoder *swDec = dec_;
-		if (swDec->nweights != 0) {
-			u32 withSkinning = lastVType_ | (1 << 26);
-			if (withSkinning != lastVType_) {
-				swDec = GetVertexDecoder(withSkinning);
-			}
-		}
 		int prevDecodedVerts = numDecodedVerts_;
 
-		DecodeVerts(swDec, decoded_);
+		DecodeVerts(dec_, decoded_);
 		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -402,7 +395,7 @@ void DrawEngineVulkan::Flush() {
 		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
 		// should clean up one day...
 		if (useDepthRaster_) {
-			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
+			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, dec_, vertexCount);
 		}
 
 		u16 *inds = decIndex_;
@@ -427,7 +420,7 @@ void DrawEngineVulkan::Flush() {
 		params.everUsedEqualDepth = everUsedEqualDepth_;
 		params.clipInfoFlags = clipInfoFlags_;
 
-		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
+		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 		if (result.setSafeSize) {
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 		}
@@ -456,9 +449,9 @@ void DrawEngineVulkan::Flush() {
 				VShaderID vshaderID;
 				FShaderID fshaderID;
 
-				shaderManager_->GetShaderIDs(prim, swDec->VertexType(), &vshaderID, &fshaderID, pipelineState_, false, clipInfoFlags_);
+				shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vshaderID, &fshaderID, pipelineState_, false, clipInfoFlags_);
 				_dbg_assert_msg_(vshaderID.Bit(VS_BIT_USE_HW_TRANSFORM) == false, "Bad vshader ID");
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &swDec->decFmt, vshaderID, fshaderID, false, 0, framebufferManager_->GetMSAALevel(), false);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshaderID, fshaderID, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					ResetAfterSkippedDraw();
