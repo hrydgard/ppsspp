@@ -150,7 +150,7 @@ enum class TexStatus : u16 {
 	IS_3D = (1 << 10),
 	NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
 	FRAMEBUFFER_OVERLAP = (1 << 12),
-	FORCE_REBUILD = (1 << 13),
+	// Free bit 13
 	CLUT8_INDEXED = (1 << 14),  // Decoded as plain CLUT8 indices instead of all the way to colors.
 	CLUT_GPU = (1 << 15),
 };
@@ -329,6 +329,7 @@ struct TextureApplyResult {
 	// At most one of these will be set.
 	TexCacheEntry *texCacheEntry = nullptr;
 	VirtualFramebuffer *framebuffer = nullptr;
+	bool otherTexture = false;
 };
 
 class TextureCacheCommon {
@@ -346,7 +347,6 @@ public:
 	TextureApplyResult ApplyTexture(bool doBind);
 	void ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped);  // Should follow ApplyTexture
 
-	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
@@ -405,10 +405,13 @@ protected:
 
 	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
 	// TODO: Return stuff directly instead of keeping state.
-	TexCacheEntry *SetTexture();
+	TextureApplyResult ApplyTextureFinish(TexCacheEntry *entry, bool doBind);
+	TextureApplyResult ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, bool doBind);
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
+	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
+	VirtualFramebuffer *SetTextureFramebuffer(const AttachCandidate &candidate);
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
@@ -417,7 +420,6 @@ protected:
 	virtual void ApplySamplerByKey(const SamplerCacheKey &key) = 0;
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);  // only overridden in GLES
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
@@ -437,8 +439,7 @@ protected:
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	void SetTextureFramebuffer(const AttachCandidate &candidate);
-	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
+	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, GPUDebugBuffer &buffer);
 
 	virtual void BoundFramebufferTexture() {}
 
@@ -476,7 +477,6 @@ protected:
 
 	TexCacheEntry *nextTexture_ = nullptr;
 	bool failedTexture_ = false;
-	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
 	RasterChannel nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	u32 clutHash_ = 0;
