@@ -675,8 +675,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->bufw = bufw;
-				entry->cluthash = cluthash;
-				if (IsVideo(entry->addr)) {
+				if (entry->cluthash != cluthash) {
+					WARN_LOG(Log::G3D, "Mysterious cluthash miss: %08x vs %08x", entry->cluthash, cluthash);
+				}
+				const bool isVideo = IsVideo(entry->addr);
+				if (isVideo) {
 					entry->status |= TexStatus::VIDEO;
 				} else {
 					entry->status &= ~TexStatus::VIDEO;
@@ -685,9 +688,12 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				// OK, time to check the contentshash if needed. This might lead to us throwing it in the backoff cache.
 				PROFILE_THIS_SCOPE("texhash");
 				// Update the hash on the texture.
-				int w = gstate.getTextureWidth(0);
-				int h = gstate.getTextureHeight(0);
-				u32 newFullHash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+				// int w = gstate.getTextureWidth(0);
+				// int h = gstate.getTextureHeight(0);
+				_dbg_assert_(w == gstate.getTextureWidth(0));
+				_dbg_assert_(h == gstate.getTextureHeight(0));
+				_dbg_assert_(entry->addr == texaddr);
+				const u32 newFullHash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 				if (newFullHash != entry->fullhash) {
 					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
 					entry->numInvalidated++;
@@ -706,16 +712,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 						}
 					}
 
-					// We have a new hash: look for that hash in the secondary cache.
-					const u64 secondKeyOld = entry->fullhash | ((u64)entry->cluthash << 32);
-					const u64 secondKeyNew = newFullHash | ((u64)entry->cluthash << 32);
-
 					// Release the texture from the cache entry, since we're about to throw it away.
 					entryIter->second.release();
 
-					// Start by throwing the old entry out into the secondary cache - but only if not video.
-					// If it's video, delete it.
-					if ((entry->status & TexStatus::VIDEO) == 0) {
+					const u64 secondKeyOld = (u64)entry->fullhash | ((u64)cluthash << 32);
+
+					// Start by throwing the old entry into the secondary cache - but only if not video.
+					// If it's video, just drop it.
+					if (!isVideo) {
 						TexCache::iterator secondIterOld = secondCache_.find(secondKeyOld);
 						if (secondIterOld == secondCache_.end()) {
 							// Not yet in the secondary, put it there.
@@ -725,36 +729,51 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 						} else {
 							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
 							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
-							WARN_LOG(Log::G3D, "Second cache already had one with hash %08x!", entry->fullhash);
+							INFO_LOG(Log::G3D, "Second cache already had one with hash %08x!", entry->fullhash);
 							// Just release the old entry, drop it on the ground.
 							ReleaseTexture(entry, true);
 							entry = nullptr;
 						}
+					} else {
+						// Just release the old video entry, drop it on the ground.
+						ReleaseTexture(entry, true);
+						entry = nullptr;
 					}
+
+					// We have a new hash: look for that hash in the secondary cache.
+					const u64 secondKeyNew = (u64)newFullHash | ((u64)cluthash << 32);
 
 					// Now, look for the new hash in the secondary cache.
 					// If we find it, we can use that instead of building a new texture. We then pull it out from
 					// the secondary cache and move it to the main cache.
-
 					TexCache::iterator secondIterNew = secondCache_.find(secondKeyNew);
 					if (secondIterNew != secondCache_.end()) {
 						// Found it, but does it match our current params?  If not, abort.
 						if (secondIterNew->second->MatchesProperties(dim, texFormat, maxLevel)) {
-							// Reset the numInvalidated value lower, we got a match in the secondary
-							// cache that we can use. So we take it out of the secondary cache into the primary cache.
+							// We got a match in the secondary cache that we can use.
+							// So we take it out of the secondary cache into the primary cache.
 							TexCacheEntry *secondEntry = secondIterNew->second.release();
 							secondCache_.erase(secondIterNew);
-							entryIter->second.reset(secondEntry);
+							entryIter->second.reset(secondEntry);  // Here we move it into the main cache.
 							entry = secondEntry;
+							// Make sure the address is correct.
+							if (entry->addr != texaddr) {
+								INFO_LOG(Log::G3D, "Texture at %08x matched with secondary cache entry at other address %08x. Updating address.", texaddr, entry->addr);
+								entry->addr = texaddr;
+							}
 							return ApplyTextureFinish(entry, doBind);
 						} else {
-							WARN_LOG(Log::G3D, "Entry in secondary cache not suitable, ignoring and creating new.");
+							INFO_LOG(Log::G3D, "Entry in secondary cache not suitable, ignoring and creating new: %08x", newFullHash);
 							// The entry in the secondary cache doesn't match our current parameters, so we can't use it.
 							// Let's leave it in there for now (revisit later).
 						}
 					} else {
-						WARN_LOG(Log::G3D, "No entry in secondary cache, creating new in main cache.");
-						// Not found, so we need to create a new entry.
+						if (!isVideo) {
+							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
+							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
+							INFO_LOG(Log::G3D, "No entry for hash %08x in secondary cache, creating new in main cache.", newFullHash);
+						}
+						// Well, not found, so we need to create a new entry.
 						cache_.erase(entryIter);
 					}
 					entry = nullptr;
