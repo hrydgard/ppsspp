@@ -105,11 +105,11 @@ R"(  vec4 u_ambient;
 )";
 
 // useBufferedRendering is only used to determine the rotation uniform.
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering);
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 
 uint32_t PackLightControlBits();
-uint32_t PackDepalBits();
+uint32_t PackDepalBits(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 

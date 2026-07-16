@@ -269,15 +269,6 @@ void DrawEngineD3D11::Flush() {
 	if (!numDrawVerts_) {
 		return;
 	}
-	bool textureNeedsApply = false;
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
-		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureNeedsApply = true;
-	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
-		// This catches the case of clearing a texture. (#10957)
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-	}
 
 	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).
@@ -325,12 +316,13 @@ void DrawEngineD3D11::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		if (textureNeedsApply) {
-			gstate_c.dstSquared = false;
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
-			if (gstate_c.dstSquared) {
-				gstate_c.Dirty(DIRTY_BLEND_STATE);
-			}
+		if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, false);
+		} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
+			// This catches the case of clearing a texture. (#10957)
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
@@ -344,7 +336,7 @@ void DrawEngineD3D11::Flush() {
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
+		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), false);
 		shaderManager_->BindUniforms();
 
 		context_->IASetInputLayout(inputLayout);
@@ -386,15 +378,7 @@ void DrawEngineD3D11::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		const VertexDecoder *swDec = dec_;
-		if (swDec->nweights != 0) {
-			u32 withSkinning = lastVType_ | (1 << 26);
-			if (withSkinning != lastVType_) {
-				swDec = GetVertexDecoder(withSkinning);
-			}
-		}
-
-		DecodeVerts(swDec, decoded_);
+		DecodeVerts(dec_, decoded_);
 		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -419,7 +403,19 @@ void DrawEngineD3D11::Flush() {
 		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
 		// should clean up one day...
 		if (useDepthRaster_) {
-			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
+			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, dec_, vertexCount);
+		}
+
+		bool textureNeedsApply = false;
+		TextureApplyResult textureResult;
+		if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+			gstate_c.dstSquared = false;
+			textureResult = textureCache_->ApplyTexture(true);
+			textureNeedsApply = true;
+		} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
+			// This catches the case of clearing a texture. (#10957)
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
 
 		SoftwareTransformResult result{};
@@ -432,16 +428,11 @@ void DrawEngineD3D11::Flush() {
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 		params.clipInfoFlags = clipInfoFlags_;
 
-		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
-		if (result.setSafeSize) {
-			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
-		}
+		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 
 		// TODO: This should be after BuildDrawingParams!
 		if (textureNeedsApply) {
-			gstate_c.pixelMapped = result.pixelMapped;
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
-			gstate_c.pixelMapped = false;
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, result.pixelMapped);
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
@@ -451,10 +442,10 @@ void DrawEngineD3D11::Flush() {
 		if (action == SW_DRAW_INDEXED) {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
-			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, clipInfoFlags_);
+			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, false, clipInfoFlags_);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
+			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), result.pixelMapped);
 			shaderManager_->BindUniforms();
 
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!

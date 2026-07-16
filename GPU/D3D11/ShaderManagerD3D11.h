@@ -102,7 +102,7 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
-	uint64_t UpdateUniforms(bool useBufferedRendering);
+	uint64_t UpdateUniforms(bool useBufferedRendering, bool pixelMapped);
 	void BindUniforms();
 
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.

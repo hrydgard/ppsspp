@@ -325,6 +325,12 @@ struct BuildTexturePlan {
 	}
 };
 
+struct TextureApplyResult {
+	// At most one of these will be set.
+	TexCacheEntry *texCacheEntry = nullptr;
+	VirtualFramebuffer *framebuffer = nullptr;
+};
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
@@ -333,15 +339,13 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Recorder *recorder);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
-	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
-	// TODO: Return stuff directly instead of keeping state.
-	TexCacheEntry *SetTexture();
-
 	void SetShaderManager(ShaderManagerCommon *sm) {
 		shaderManager_ = sm;
 	}
 
-	TexCacheEntry *ApplyTexture(bool doBind, bool flatZ);
+	TextureApplyResult ApplyTexture(bool doBind);
+	void ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped);  // Should follow ApplyTexture
+
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
@@ -352,7 +356,6 @@ public:
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 	virtual void NotifyConfigChanged();
-	virtual void ApplySamplingParams(const SamplerCacheKey &key) = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
@@ -397,17 +400,13 @@ public:
 		return videos_;
 	}
 
-	// For the debugger
-	const VirtualFramebuffer *NextFramebufferTexture() const {
-		return nextFramebufferTexture_;
-	}
-
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
+	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
+	// TODO: Return stuff directly instead of keeping state.
+	TexCacheEntry *SetTexture();
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
-	virtual void BindSampler(TexCacheEntry *entry, bool flatZ) = 0;
-
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
@@ -415,6 +414,7 @@ protected:
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
 	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);
+	virtual void ApplySamplerByKey(const SamplerCacheKey &key) = 0;
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
@@ -433,7 +433,7 @@ protected:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
 	// This needs to be a member functions just for IsVideo and Replacer.
-	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
+	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
@@ -527,4 +527,4 @@ inline u64 TexCacheEntry::CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash) {
 	return cachekey;
 }
 
-SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight);
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight, bool pixelMapped);

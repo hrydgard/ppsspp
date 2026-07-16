@@ -222,16 +222,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheD3D11::BindSampler(TexCacheEntry *entry, bool flatZ) {
-	_dbg_assert_(entry);
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ComPtr<ID3D11SamplerState> state;
-	samplerCache_.GetOrCreateSampler(device_, samplerKey, &state);
-	context_->PSSetSamplers(0, 1, state.GetAddressOf());
-}
-
-void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
+void TextureCacheD3D11::ApplySamplerByKey(const SamplerCacheKey &key) {
 	ComPtr<ID3D11SamplerState> state;
 	samplerCache_.GetOrCreateSampler(device_, key, &state);
 	context_->PSSetSamplers(0, 1, state.GetAddressOf());
@@ -459,8 +450,11 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
-	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture(true, false);
+	TextureApplyResult textureResult = ApplyTexture(true);
+	TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (!entry) {
+		return false;
+	}
 
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
 	if (!texture)

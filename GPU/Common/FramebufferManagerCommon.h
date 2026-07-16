@@ -441,7 +441,7 @@ public:
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
-	void SetSafeSize(u16 w, u16 h);
+	void SetSafeSize(int w, int h);
 
 	void NotifyRenderResized(const DisplayLayoutConfig &config, int msaaLevel);
 	virtual void NotifyDisplayResized();

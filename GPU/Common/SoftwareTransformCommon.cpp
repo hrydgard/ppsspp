@@ -187,12 +187,6 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 			reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
-
-			if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
-				result->setSafeSize = true;
-				result->safeWidth = scissorX2;
-				result->safeHeight = scissorY2;
-			}
 		}
 		if (params.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
 			// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
@@ -381,24 +375,6 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			// Projection happens later in ProjectClipAndExpand.
 
 			// Vertex depth rounding is done in the shader if enabled, to simulate the 16-bit depth buffer.
-		}
-	}
-
-	// TODO: This doesn't seem to be a very good check, but let's leave it for now.
-
-	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
-	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && numDecodedVerts == 2 && throughmode) {
-		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
-		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
-		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
-		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > 0.0f && transformed[1].y > transformed[0].y;
-
-		if (startsZeroX && startsZeroY && (clearingColor || writingColor)) {
-			int scissorX2 = gstate.getScissorX2() + 1;
-			int scissorY2 = gstate.getScissorY2() + 1;
-			result->setSafeSize = true;
-			result->safeWidth = std::min(scissorX2, (int)transformed[1].x);
-			result->safeHeight = std::min(scissorY2, (int)transformed[1].y);
 		}
 	}
 

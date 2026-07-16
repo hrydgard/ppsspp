@@ -217,11 +217,11 @@ void ShaderManagerVulkan::ClearShaders() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
+uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering, bool pixelMapped) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
-			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering);
+			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering, pixelMapped);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&uniforms_->ub_lights, dirty);
 	}

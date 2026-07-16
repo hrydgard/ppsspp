@@ -93,7 +93,7 @@ static constexpr GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
+void TextureCacheGLES::ApplySamplerByKey(const SamplerCacheKey &key) {
 	if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
 		float minLod = (float)key.minLevel / 256.0f;
 		float maxLod = (float)key.maxLevel / 256.0f;
@@ -187,13 +187,6 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture_ = entry->textureName;
 	}
-}
-
-void TextureCacheGLES::BindSampler(TexCacheEntry *entry, bool flatZ) {
-	_dbg_assert_(entry);
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -374,10 +367,13 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
-	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-	ApplyTexture(false, false);
+	TextureApplyResult textureResult = ApplyTexture(false);
+	TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (!entry) {
+		return false;
+	}
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 

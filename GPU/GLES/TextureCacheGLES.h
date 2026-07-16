@@ -54,7 +54,6 @@ public:
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
-	void BindSampler(TexCacheEntry *entry, bool flatZ) override;
 
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
@@ -63,7 +62,7 @@ protected:
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 private:
-	void ApplySamplingParams(const SamplerCacheKey &key) override;
+	void ApplySamplerByKey(const SamplerCacheKey &key) override;
 	static Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) ;
 
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
