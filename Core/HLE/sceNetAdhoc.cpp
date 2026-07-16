@@ -751,13 +751,6 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	SceNetEtherAddr saddr_copy = {0};
 	int len_copy = *len;
 
-	if (len_copy > AEMU_POSTOFFICE_PDP_BLOCK_MAX) {
-		// trim, library limites pdp packets
-		// some games just provide amazingly huge buffer sizes during recv
-		// if a huge packet cannot be sent, it is logged on the sender side
-		len_copy = AEMU_POSTOFFICE_PDP_BLOCK_MAX;
-	}
-
 	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		handle_relay_connect_failure();
@@ -767,10 +760,6 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	}
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
 		return SOCKET_ERROR;
-	}
-	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
-		// this is pretty critical
-		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, *len);
 	}
 
 	*len = len_copy;
@@ -1155,12 +1144,6 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	}
 
 	int len_copy = *len;
-	if (len_copy > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
-		// trim, library limit
-		// some games just provide amazingly huge buffer sizes during recv
-		// if a huge burst cannot be sent, it is logged on the sender side
-		len_copy = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
-	}
 
 	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
@@ -1171,10 +1154,6 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	}
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
-	}
-	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
-		// this is pretty critical
-		ERROR_LOG(Log::sceNet, "%s: critical: huge client buf %d what is going on please fix", __func__, *len);
 	}
 
 	// AEMU_POSTOFFICE_CLIENT_SESSION_DATA_TRUNC is okay, it just means it has data in it's user space buffer
@@ -3944,7 +3923,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					if (serverHasRelay) {
 						void *postofficeHandle = pdp_postoffice_recover(j);
 						if (postofficeHandle != NULL) {
-							sock->data.pdp.rcv_sb_cc = pdp_peek_next_size(postofficeHandle);
+							sock->data.pdp.rcv_sb_cc = pdp_buffered_data_size(postofficeHandle);
 						}
 					} else {
 						sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
