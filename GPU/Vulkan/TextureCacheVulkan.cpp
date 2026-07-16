@@ -1005,7 +1005,8 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TextureApplyResult textureResult = ApplyTexture(true);
 	if (textureResult.framebuffer) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+		*isFramebuffer = true;
+		return GetFramebufferTextureDebug(textureResult.framebuffer, buffer);
 	}
 
 	TexCacheEntry *entry = textureResult.texCacheEntry;

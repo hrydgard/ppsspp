@@ -347,7 +347,6 @@ public:
 	TextureApplyResult ApplyTexture(bool doBind);
 	void ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped);  // Should follow ApplyTexture
 
-	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
@@ -410,7 +409,9 @@ protected:
 	TextureApplyResult ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, bool doBind);
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
+	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
+	void SetTextureFramebuffer(const AttachCandidate &candidate);
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
@@ -419,7 +420,6 @@ protected:
 	virtual void ApplySamplerByKey(const SamplerCacheKey &key) = 0;
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);  // only overridden in GLES
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
@@ -439,8 +439,7 @@ protected:
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	void SetTextureFramebuffer(const AttachCandidate &candidate);
-	bool GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer);
+	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, GPUDebugBuffer &buffer);
 
 	virtual void BoundFramebufferTexture() {}
 

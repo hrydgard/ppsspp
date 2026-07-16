@@ -1425,42 +1425,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	nextNeedsRebuild_ = false;
 }
 
-// Only looks for framebuffers.
-bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		return false;
-	}
-
-	u32 texaddr = gstate.getTextureAddress(0);
-	GETextureFormat fmt = gstate.getTextureFormat();
-	const u32 bpp = fmt == GE_TFMT_8888 ? 4 : 2;
-	const u32 texaddrOffset = yOffset * gstate.getTextureWidth(0) * bpp;
-
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + texaddrOffset)) {
-		return false;
-	}
-
-	TextureDefinition def;
-	def.addr = texaddr;
-	def.format = fmt;
-	def.bufw = GetTextureBufw(0, texaddr, fmt);
-	def.dim = gstate.getTextureDimension(0);
-
-	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(framebufferManager_, def, texaddrOffset, &bestCandidate, "offsetTexture")) {
-		SetTextureFramebuffer(bestCandidate);
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer) {
-	if (!nextFramebufferTexture_)
-		return false;
-	*isFramebuffer = true;
-
-	VirtualFramebuffer *vfb = nextFramebufferTexture_;
+bool TextureCacheCommon::GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, GPUDebugBuffer &buffer) {
 	u8 sf = vfb->renderScaleFactor;
 	int x = gstate_c.curTextureXOffset * sf;
 	int y = gstate_c.curTextureYOffset * sf;

@@ -367,7 +367,8 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 	TextureApplyResult textureResult = ApplyTexture(false);
 	if (textureResult.framebuffer) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+		*isFramebuffer = true;
+		return GetFramebufferTextureDebug(textureResult.framebuffer, buffer);
 	}
 
 	TexCacheEntry *entry = textureResult.texCacheEntry;
