@@ -354,7 +354,8 @@ if (eq(E,A)) {
 
 	if ( comboE3 && comboA3 &&
 		(eq_B_PC || eq_D_QG) && eq_D_QA && eq_B_PA) {
-		mixFactor = (mixFactor * (-0.618034) + 0.8541) * step(0.002, vE.a);
+		mixFactor = mixFactor * (-0.618034) + 0.8541;
+		mixFactor = max(mixFactor, float(vE.a < 0.002));
         return mixXEoff;
 	}
 
@@ -363,7 +364,8 @@ if (eq(E,A)) {
 		 && eq_B_PA && eq_D_QA && eq_D_QG
 		 && eq_E_H
 		) {
-		mixFactor = (mixFactor * (-0.618034) + 0.8541) * step(0.002, vE.a);
+		mixFactor = mixFactor * (-0.618034) + 0.8541;
+		mixFactor = max(mixFactor, float(vE.a < 0.002));
         return mixXEoff;
 		}
 
@@ -371,7 +373,8 @@ if (eq(E,A)) {
 		 && eq_B_PA && eq_D_QA && eq_B_PC
 		 && eq_E_F
 		) {
-		mixFactor = (mixFactor * (-0.618034) + 0.8541) * step(0.002, vE.a);
+		mixFactor = mixFactor * (-0.618034) + 0.8541;
+		mixFactor = max(mixFactor, float(vE.a < 0.002));
         return mixXEoff;
 		}
 
