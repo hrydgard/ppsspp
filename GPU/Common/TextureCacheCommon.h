@@ -406,7 +406,8 @@ protected:
 
 	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
 	// TODO: Return stuff directly instead of keeping state.
-	TextureApplyResult ApplyTextureFinish(bool doBind);
+	TextureApplyResult ApplyTextureFinish(TexCacheEntry *entry, bool doBind);
+	TextureApplyResult ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, bool doBind);
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;

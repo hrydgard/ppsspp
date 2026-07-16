@@ -516,13 +516,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
+		nextTexture_ = nullptr;
 		Unbind();
 		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
-		return ApplyTextureFinish(doBind);
+		return TextureApplyResult();
 	}
 
 	const u16 dim = gstate.getTextureDimension(level);
@@ -688,7 +689,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			nextNeedsRebuild_ = false;
 			failedTexture_ = false;
 			VERBOSE_LOG(Log::G3D, "Texture at %08x found in cache, applying", texaddr);
-			return ApplyTextureFinish(doBind); //Done!
+			return ApplyTextureFinish(entry, doBind); //Done!
 		} else {
 			// Wasn't a match, we will rebuild.
 			nextChangeReason_ = reason;
@@ -717,7 +718,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		nextNeedsRebuild_ = false;
 
 		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
-		return ApplyTextureFinish(doBind);
+		return ApplyTextureFinishFramebuffer(nextFramebufferTexture_, doBind);
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -791,29 +792,30 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
 	nextNeedsRebuild_ = true;
-	return ApplyTextureFinish(doBind);
+	return ApplyTextureFinish(entry, doBind);
 }
 
-TextureApplyResult TextureCacheCommon::ApplyTextureFinish(bool doBind) {
+TextureApplyResult TextureCacheCommon::ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, bool doBind) {
 	TextureApplyResult result;
-	TexCacheEntry *entry = nextTexture_;
-	if (!entry) {
-		// Maybe we bound a framebuffer?
-		ForgetLastTexture();
-		if (failedTexture_) {
-			// Backends should handle this by binding a black texture with 0 alpha.
-			BindTexture(nullptr);
-		} else if (nextFramebufferTexture_) {
-			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
-			result.framebuffer = nextFramebufferTexture_;
-			nextFramebufferTexture_ = nullptr;
-		}
-		// We don't set the 3D texture state here or anything else, on some backends (?)
-		// a nextTexture_ of nullptr means keep the current texture.
-		return result;
+	// Maybe we bound a framebuffer?
+	ForgetLastTexture();
+	if (failedTexture_) {
+		// Backends should handle this by binding a black texture with 0 alpha.
+		BindTexture(nullptr);
+	} else if (framebuffer) {
+		// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
+		ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
+		result.framebuffer = framebuffer;
+		framebuffer = nullptr;
 	}
+	// We don't set the 3D texture state here or anything else, on some backends (?)
+	// a nextTexture_ of nullptr means keep the current texture.
+	return result;
+}
 
+TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, bool doBind) {
+	_dbg_assert_(entry);
+	TextureApplyResult result;
 	nextTexture_ = nullptr;
 
 	UpdateMaxSeenV(entry, gstate.isModeThrough());
