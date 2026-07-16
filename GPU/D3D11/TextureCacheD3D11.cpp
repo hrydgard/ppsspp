@@ -444,21 +444,21 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 }
 
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	SetTexture();
-	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
-	}
-
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TextureApplyResult textureResult = ApplyTexture(true);
-	TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (textureResult.framebuffer) {
+		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+	}
+	const TexCacheEntry *entry = textureResult.texCacheEntry;
 	if (!entry) {
 		return false;
 	}
 
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
-	if (!texture)
+	if (!texture) {
+		// Hm.
 		return false;
+	}
 
 	D3D11_TEXTURE2D_DESC desc;
 	texture->GetDesc(&desc);

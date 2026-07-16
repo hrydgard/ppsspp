@@ -329,6 +329,7 @@ struct TextureApplyResult {
 	// At most one of these will be set.
 	TexCacheEntry *texCacheEntry = nullptr;
 	VirtualFramebuffer *framebuffer = nullptr;
+	bool otherTexture = false;
 };
 
 class TextureCacheCommon {
@@ -405,7 +406,7 @@ protected:
 
 	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
 	// TODO: Return stuff directly instead of keeping state.
-	TexCacheEntry *SetTexture();
+	TextureApplyResult ApplyTextureFinish(bool doBind);
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;

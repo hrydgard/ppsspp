@@ -361,15 +361,15 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	ForgetLastTexture();
-	SetTexture();
-	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
-	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 	TextureApplyResult textureResult = ApplyTexture(false);
+	if (textureResult.framebuffer) {
+		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+	}
+
 	TexCacheEntry *entry = textureResult.texCacheEntry;
 	if (!entry) {
 		return false;

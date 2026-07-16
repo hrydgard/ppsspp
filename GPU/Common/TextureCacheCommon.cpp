@@ -508,7 +508,7 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 	}
 }
 
-TexCacheEntry *TextureCacheCommon::SetTexture() {
+TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	u8 level = 0;
 	if (IsFakeMipmapChange()) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
@@ -522,7 +522,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
-		return nullptr;
+		return ApplyTextureFinish(doBind);
 	}
 
 	const u16 dim = gstate.getTextureDimension(level);
@@ -688,7 +688,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsRebuild_ = false;
 			failedTexture_ = false;
 			VERBOSE_LOG(Log::G3D, "Texture at %08x found in cache, applying", texaddr);
-			return entry; //Done!
+			return ApplyTextureFinish(doBind); //Done!
 		} else {
 			// Wasn't a match, we will rebuild.
 			nextChangeReason_ = reason;
@@ -717,7 +717,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		nextNeedsRebuild_ = false;
 
 		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
-		return nullptr;
+		return ApplyTextureFinish(doBind);
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -791,12 +791,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
 	nextNeedsRebuild_ = true;
-	return entry;
+	return ApplyTextureFinish(doBind);
 }
 
-TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
-	SetTexture();
-
+TextureApplyResult TextureCacheCommon::ApplyTextureFinish(bool doBind) {
 	TextureApplyResult result;
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
