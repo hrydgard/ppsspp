@@ -32,7 +32,7 @@ void UpdateRotation(float rotMatrix[4], bool useBufferedRendering) {
 	}
 }
 
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering) {
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
 	}
@@ -147,11 +147,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	}
 
 	if (dirtyUniforms & DIRTY_DEPAL) {
-		ub->depal_mask_shift_off_fmt = PackDepalBits();
+		ub->depal_mask_shift_off_fmt = PackDepalBits(pixelMapped);
 	}
 }
 
-uint32_t PackDepalBits() {
+uint32_t PackDepalBits(bool pixelMapped) {
 	const int indexMask = gstate.getClutIndexMask();
 	const int indexShift = gstate.getClutIndexShift();
 	const int indexOffset = gstate.getClutIndexStartPos() >> 4;
@@ -160,7 +160,7 @@ uint32_t PackDepalBits() {
 	// NOTE: This must follow similar logic to TextureCacheCommon::GetSamplingParams -
 	// maybe we can share it somehow.
 	// TOOD: Handle replaced textures.
-	bool bilinear = gstate.isMagnifyFilteringEnabled() && !gstate_c.pixelMapped;
+	bool bilinear = gstate.isMagnifyFilteringEnabled() && !pixelMapped;
 	switch (g_Config.iTexFiltering) {
 	case TEX_FILTER_FORCE_NEAREST:
 		bilinear = false;

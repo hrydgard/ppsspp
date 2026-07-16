@@ -351,7 +351,7 @@ void LinkedShader::use(const ShaderID &VSID) const {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc &shaderLanguage) {
+void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc &shaderLanguage, bool pixelMapped) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
@@ -369,7 +369,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		return;
 
 	if (dirty & DIRTY_DEPAL) {
-		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, PackDepalBits());
+		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, PackDepalBits(pixelMapped));
 	}
 
 	// Set HUD mode
@@ -727,7 +727,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags, bool pixelMapped) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -746,7 +746,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	}
 
 	if (lastShader_ && lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
+		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc(), pixelMapped);
 		return lastShader_;
 	}
 
@@ -798,7 +798,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
+	ls->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc(), pixelMapped);
 
 	lastShader_ = ls;
 	return ls;

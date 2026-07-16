@@ -328,7 +328,7 @@ void DrawEngineD3D11::Flush() {
 		if (textureNeedsApply) {
 			gstate_c.dstSquared = false;
 			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
-			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, false);
 			if (gstate_c.dstSquared) {
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
@@ -345,7 +345,7 @@ void DrawEngineD3D11::Flush() {
 		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
+		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), false);
 		shaderManager_->BindUniforms();
 
 		context_->IASetInputLayout(inputLayout);
@@ -440,10 +440,8 @@ void DrawEngineD3D11::Flush() {
 
 		// TODO: This should be after BuildDrawingParams!
 		if (textureNeedsApply) {
-			gstate_c.pixelMapped = result.pixelMapped;
 			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
-			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
-			gstate_c.pixelMapped = false;
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, result.pixelMapped);
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
@@ -456,7 +454,7 @@ void DrawEngineD3D11::Flush() {
 			shaderManager_->GetShaders(prim, swDec->VertexType(), &vshader, &fshader, pipelineState_, false, clipInfoFlags_);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
+			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), result.pixelMapped);
 			shaderManager_->BindUniforms();
 
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!

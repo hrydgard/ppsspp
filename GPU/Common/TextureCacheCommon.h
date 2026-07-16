@@ -348,7 +348,7 @@ public:
 	}
 
 	TextureApplyResult ApplyTexture(bool doBind);
-	void ApplySampler(const TextureApplyResult &result, bool flatZ);  // Should follow ApplyTexture
+	void ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped);  // Should follow ApplyTexture
 
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
@@ -439,7 +439,7 @@ protected:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
 	// This needs to be a member functions just for IsVideo and Replacer.
-	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
+	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
@@ -533,4 +533,4 @@ inline u64 TexCacheEntry::CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash) {
 	return cachekey;
 }
 
-SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight);
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight, bool pixelMapped);

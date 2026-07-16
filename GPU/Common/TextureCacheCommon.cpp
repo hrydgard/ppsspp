@@ -182,7 +182,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ) {
+SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped) {
 	SamplerCacheKey key{};
 
 	int minFilt = gstate.texfilter & 0x7;
@@ -276,7 +276,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
-			if (gstate_c.pixelMapped) {
+			if (pixelMapped) {
 				forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
 			break;
@@ -303,7 +303,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 					key.aniso = false;
 				}
 			}
-			if (gstate_c.pixelMapped) {
+			if (pixelMapped) {
 				forceFiltering = TEX_FILTER_FORCE_NEAREST;
 				key.aniso = false;
 			}
@@ -337,7 +337,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	return key;
 }
 
-SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight) {
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight, bool pixelMapped) {
 	SamplerCacheKey key{};
 
 	key.magFilt = gstate.isMagnifyFilteringEnabled();
@@ -355,7 +355,7 @@ SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWi
 	switch ((TextureFiltering)g_Config.iTexFiltering) {
 	case TEX_FILTER_AUTO:
 	case TEX_FILTER_AUTO_MAX_QUALITY:
-		if (gstate_c.pixelMapped) {
+		if (pixelMapped) {
 			key.magFilt = false;
 			key.minFilt = false;
 		}
@@ -2314,15 +2314,15 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	return TextureApplyResult{entry, nullptr};
 }
 
-void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool flatZ) {
+void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped) {
 	SamplerCacheKey samplerKey;
 	if (result.texCacheEntry) {
 		int maxLevel = (result.texCacheEntry->status & TexStatus::NO_MIPS) ? 0 : result.texCacheEntry->maxLevel;
-		samplerKey = GetSamplingParams(maxLevel, result.texCacheEntry, flatZ);
+		samplerKey = GetSamplingParams(maxLevel, result.texCacheEntry, flatZ, pixelMapped);
 	} else if (result.framebuffer) {
-		samplerKey = GetFramebufferSamplingParams(gstate, result.framebuffer->bufferWidth, result.framebuffer->bufferHeight);
+		samplerKey = GetFramebufferSamplingParams(gstate, result.framebuffer->bufferWidth, result.framebuffer->bufferHeight, pixelMapped);
 	} else {
-		samplerKey = GetSamplingParams(0, nullptr, flatZ);
+		samplerKey = GetSamplingParams(0, nullptr, flatZ, pixelMapped);
 	}
 	ApplySamplerByKey(samplerKey);
 }
@@ -2448,7 +2448,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
 			BoundFramebufferTexture();
 
-			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, framebuffer->bufferWidth, framebuffer->bufferHeight);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, framebuffer->bufferWidth, framebuffer->bufferHeight, false);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipEnable = false;

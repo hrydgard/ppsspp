@@ -287,7 +287,7 @@ void DrawEngineVulkan::Flush() {
 
 		if (textureNeedsApply) {
 			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
-			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, false);
 			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
 				imageView = (VkImageView)draw_->GetNativeObject(gstate_c.textureIsArray ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
@@ -332,7 +332,7 @@ void DrawEngineVulkan::Flush() {
 		}
 		lastPrim_ = prim;
 
-		dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
+		dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), false);
 		UpdateUBOs();
 
 		int descCount = 5;
@@ -436,11 +436,9 @@ void DrawEngineVulkan::Flush() {
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (action == SW_DRAW_INDEXED) {
 			if (textureNeedsApply) {
-				gstate_c.pixelMapped = result.pixelMapped;
 				gstate_c.dstSquared = false;
 				TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
-				textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
-				gstate_c.pixelMapped = false;
+				textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, result.pixelMapped);
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
 					imageView = (VkImageView)draw_->GetNativeObject(gstate_c.textureIsArray ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);
@@ -488,7 +486,7 @@ void DrawEngineVulkan::Flush() {
 
 			lastPrim_ = prim;
 
-			dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
+			dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), result.pixelMapped);
 
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs();

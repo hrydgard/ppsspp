@@ -315,14 +315,14 @@ void DrawEngineGLES::Flush() {
 
 		if (textureNeedsApply) {
 			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
-			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, false);
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_, false);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
@@ -393,21 +393,19 @@ void DrawEngineGLES::Flush() {
 		}
 
 		if (textureNeedsApply) {
-			gstate_c.pixelMapped = result.pixelMapped;
 			gstate_c.dstSquared = false;
 			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
-			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, result.pixelMapped);
 			if (gstate_c.dstSquared) {
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
-			gstate_c.pixelMapped = false;
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_);
+		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_, result.pixelMapped);
 		if (!linked) {
 			// Not much we can do here. Let's skip drawing.
 			goto bail;

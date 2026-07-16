@@ -141,12 +141,12 @@ void ShaderManagerD3D11::ClearShaders() {
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 }
 
-uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {
+uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering, bool pixelMapped) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
-			BaseUpdateUniforms(&ub_base, dirty, useBufferedRendering);
+			BaseUpdateUniforms(&ub_base, dirty, useBufferedRendering, pixelMapped);
 			context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_base, sizeof(ub_base));
 			context_->Unmap(push_base.Get(), 0);
