@@ -1187,6 +1187,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 	if (ImGui::RepeatButtonShift("Single step", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel step")) {
+		gpuDebug->ClearBreakNext();
+	}
+
 	if (disableStepButtons) {
 		ImGui::EndDisabled();
 	}
@@ -1221,13 +1226,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 		}
 		if (showBannerInFrames_ == 0) {
 			ImGui::Text("Step pending: %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
-			ImGui::SameLine();
 			if (gpuDebug->GetBreakNext() == GPUDebug::BreakNext::COUNT) {
-				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
 				ImGui::SameLine();
-			}
-			if (ImGui::Button("Cancel step")) {
-				gpuDebug->ClearBreakNext();
+				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
 			}
 		}
 	} else {
