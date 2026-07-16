@@ -206,6 +206,7 @@ struct TexCacheEntry {
 	}
 
 	// This is the full size in RAM, not the half size we use sometimes as a "safe" underestimate.
+	// And also not the exact hashed size, see ComputeTextureHash.
 	u32 SizeInRAM() const {
 		return (textureBitsPerPixel[format] * bufw * dimHeight(dim)) / 8;
 	}
@@ -340,7 +341,7 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void ApplyTexture(bool doBind, bool flatZ);
+	TexCacheEntry *ApplyTexture(bool doBind, bool flatZ);
 	bool SetOffsetTexture(u32 yOffset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
@@ -404,14 +405,16 @@ public:
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
-	virtual void BindTexture(TexCacheEntry *entry, bool flatZ) = 0;
+	virtual void BindTexture(TexCacheEntry *entry) = 0;
+	virtual void BindSampler(TexCacheEntry *entry, bool flatZ) = 0;
+
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
-	void Decimate(TexCacheEntry *exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
+	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
-	void ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry);
+	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
@@ -429,9 +432,8 @@ protected:
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
-	// These need to be member functions just for IsVideo and Replacer.
+	// This needs to be a member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
-	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
@@ -444,41 +446,6 @@ protected:
 
 	static TextureAlpha CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
-	static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
-		if (replacer.Enabled()) {
-			return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
-		}
-
-		if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-			h = (int)entry->maxSeenV;
-		}
-
-		u32 sizeInRAM;
-		if (swizzled) {
-			// In swizzle mode, textures are stored in rectangular blocks with the height 8.
-			// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
-			// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
-			// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
-			// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
-			sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
-		} else {
-			sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
-		}
-		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
-
-		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
-
-		if (Memory::IsValidAddress(addr + sizeInRAM)) {
-			return StableQuickTexHash(checkp, sizeInRAM);
-		} else {
-			return 0;
-		}
-	}
-
-	static inline u32 MiniHash(const u32 *ptr) {
-		return ptr[0];
-	}
-
 	Draw::DrawContext *draw_;
 	Draw2D *draw2D_;
 
@@ -490,9 +457,8 @@ protected:
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
-	bool lowMemoryMode_ = false;
 
-	int decimationCounter_;
+	int decimationCounter_ = 0;
 	int texelsScaledThisFrame_ = 0;
 	double replacementTimeThisFrame_ = 0;
 	// Recomputed once per frame. Depends FPS and soon also config.
@@ -516,16 +482,16 @@ protected:
 	u32 clutHash_ = 0;
 
 	// Raw is where we keep the original bytes.  Converted is where we swap colors if necessary.
-	u32 *clutBufRaw_;
-	u32 *clutBufConverted_;
+	u32 *clutBufRaw_ = nullptr;
+	u32 *clutBufConverted_ = nullptr;
 	// This is the active one.
-	u32 *clutBuf_;
+	u32 *clutBuf_ = nullptr;
 
 	u32 clutLastFormat_ = 0xFFFFFFFF;
 	u32 clutTotalBytes_ = 0;
 	u32 clutMaxBytes_ = 0;
 	u32 clutRenderAddress_ = 0xFFFFFFFF;
-	u32 clutRenderOffset_;
+	u32 clutRenderOffset_ = 0;
 	GEBufferFormat clutRenderFormat_;
 	CLUTProperties clutProperties_;
 
@@ -533,13 +499,13 @@ protected:
 	Draw::Framebuffer *dynamicClutTemp_ = nullptr;
 	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
 
-	int standardScaleFactor_;
+	int standardScaleFactor_ = 0;
 	int shaderScaleFactor_ = 0;
 
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
+	const char *nextChangeReason_ = nullptr;
+	bool nextNeedsRehash_ = false;
+	bool nextNeedsChange_ = false;
+	bool nextNeedsRebuild_ = false;
 
 	u32 *expandClut_;
 };
@@ -560,3 +526,5 @@ inline u64 TexCacheEntry::CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash) {
 	}
 	return cachekey;
 }
+
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight);

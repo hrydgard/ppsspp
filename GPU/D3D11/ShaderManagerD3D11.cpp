@@ -134,16 +134,11 @@ void ShaderManagerD3D11::Clear() {
 
 void ShaderManagerD3D11::ClearShaders() {
 	Clear();
-	DirtyLastShader();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
-}
-
-void ShaderManagerD3D11::DirtyLastShader() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 }
 
 uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {

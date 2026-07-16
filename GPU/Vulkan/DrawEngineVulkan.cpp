@@ -427,9 +427,9 @@ void DrawEngineVulkan::Flush() {
 		params.clipInfoFlags = clipInfoFlags_;
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
-
-		if (result.setSafeSize)
+		if (result.setSafeSize) {
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
+		}
 
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.

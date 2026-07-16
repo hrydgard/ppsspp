@@ -923,7 +923,8 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After Reinterpret");
 	}
 
-	shaderManager_->DirtyLastShader();
+	// and a bunch of other stuff..
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 	textureCache_->ForgetLastTexture();
 }
 
@@ -1093,11 +1094,9 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 
 	textureCache_->ForgetLastTexture();
-	shaderManager_->DirtyLastShader();
 
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
-			shaderManager_->DirtyLastShader();
 			Draw::RPAction depthAction = Draw::RPAction::KEEP;
 			float clearDepth = 0.0f;
 			if (vfb->usageFlags & FB_USAGE_INVALIDATE_DEPTH) {
@@ -1198,7 +1197,6 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
 
 void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, RasterChannel channel, const char *tag) {
 	textureCache_->ForgetLastTexture();
-	shaderManager_->DirtyLastShader();
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
@@ -1252,9 +1250,8 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-
-		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 	}
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer) {
@@ -1545,7 +1542,6 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 // This is internal, called from CopyDisplayToOutput.
 bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig &config, const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat) {
 	textureCache_->ForgetLastTexture();
-	shaderManager_->DirtyLastShader();
 
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	if (!pixelsTex) {
@@ -1594,7 +1590,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 
 void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
-	shaderManager_->DirtyLastShader();
 
 	if (displayFramebufPtr_ == 0) {
 		if (GetUIState() != UISTATE_PAUSEMENU) {
@@ -1881,7 +1876,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		return;
 	}
 
-	shaderManager_->DirtyLastShader();
+	// Probably redundant
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+
 	char tag[128];
 	size_t len = FormatFramebufferName(vfb, tag, sizeof(tag));
 
@@ -3367,7 +3364,6 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 
 void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-	shaderManager_->DirtyLastShader();
 	// Needed for D3D11 to run validation clean. I don't think it's actually an issue.
 	// textureCache_->ForgetLastTexture();
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
@@ -3376,6 +3372,7 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 		// This can happen (like it does in Parappa) when a frame starts with copies instead of rendering.
 		// Let's do nothing and assume it'll take care of itself.
 	}
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 std::vector<const VirtualFramebuffer *> FramebufferManagerCommon::GetFramebufferList() const {

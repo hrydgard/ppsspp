@@ -130,23 +130,6 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 	}
 }
 
-void TextureCacheGLES::StartFrame() {
-	TextureCacheCommon::StartFrame();
-
-	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
-		lowMemoryMode_ = true;
-		decimationCounter_ = 0;
-
-		auto err = GetI18NCategory(I18NCat::ERRORS);
-		if (standardScaleFactor_ > 1) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-		}
-	}
-}
-
 // TODO: This is almost the same as the Common one, just with some extra color conversion. Should merge.
 void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
@@ -194,16 +177,20 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 		return;
 	}
-	if (entry->textureName != lastBoundTexture) {
+	if (entry->textureName != lastBoundTexture_) {
 		render_->BindTexture(0, entry->textureName);
-		lastBoundTexture = entry->textureName;
+		lastBoundTexture_ = entry->textureName;
 	}
+}
+
+void TextureCacheGLES::BindSampler(TexCacheEntry *entry, bool flatZ) {
+	_dbg_assert_(entry);
 	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
 	ApplySamplingParams(samplerKey);

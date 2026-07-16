@@ -37,7 +37,6 @@ public:
 	~TextureCacheGLES();
 
 	void Clear(bool delete_them) override;
-	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
 	void SetDrawEngine(DrawEngineGLES *td) {
@@ -45,7 +44,7 @@ public:
 	}
 
 	void ForgetLastTexture() override {
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
@@ -54,7 +53,9 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
 protected:
-	void BindTexture(TexCacheEntry *entry, bool flatZ) override;
+	void BindTexture(TexCacheEntry *entry) override;
+	void BindSampler(TexCacheEntry *entry, bool flatZ) override;
+
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
@@ -70,7 +71,7 @@ private:
 
 	GLRenderManager *render_;
 
-	GLRTexture *lastBoundTexture = nullptr;
+	GLRTexture *lastBoundTexture_ = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	DrawEngineGLES *drawEngine_;

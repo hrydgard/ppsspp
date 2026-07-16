@@ -212,15 +212,9 @@ void ShaderManagerVulkan::Clear() {
 
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
-	DirtyLastShader();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
-}
-
-void ShaderManagerVulkan::DirtyLastShader() {
-	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {

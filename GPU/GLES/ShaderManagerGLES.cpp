@@ -612,7 +612,6 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 }
 
 void ShaderManagerGLES::Clear() {
-	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		iter->ls->Delete();
 	}
@@ -625,7 +624,10 @@ void ShaderManagerGLES::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.Clear();
 	vsCache_.Clear();
-	DirtyLastShader();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
+
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void ShaderManagerGLES::ClearShaders() {
@@ -642,16 +644,6 @@ void ShaderManagerGLES::DeviceLost() {
 void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	draw_ = draw;
-}
-
-void ShaderManagerGLES::DirtyLastShader() {
-	// Forget the last shader ID
-	lastFSID_.set_invalid();
-	lastVSID_.set_invalid();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
-	shaderSwitchDirtyUniforms_ = 0;
-	lastShader_ = nullptr;
-	lastVShaderSame_ = false;
 }
 
 // Can only fail by failing to generate the code (bad FSID).
@@ -692,6 +684,8 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
+		lastShader_ = nullptr;
+		lastVShaderSame_ = false;
 		ComputeVertexShaderID(VSID, vertexType, useHWTransform, clipInfoFlags);
 	} else {
 		*VSID = lastVSID_;
@@ -744,13 +738,14 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
+		lastShader_ = nullptr;
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), clipInfoFlags);
 	} else {
 		FSID = lastFSID_;
 	}
 
-	if (lastVShaderSame_ && FSID == lastFSID_) {
+	if (lastShader_ && lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
 		return lastShader_;
 	}

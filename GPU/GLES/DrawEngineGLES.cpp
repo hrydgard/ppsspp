@@ -387,9 +387,9 @@ void DrawEngineGLES::Flush() {
 		params.clipInfoFlags = clipInfoFlags_;
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
-
-		if (result.setSafeSize)
+		if (result.setSafeSize) {
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
+		}
 
 		if (textureNeedsApply) {
 			gstate_c.pixelMapped = result.pixelMapped;

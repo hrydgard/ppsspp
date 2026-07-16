@@ -513,8 +513,6 @@ void GPUCommonHW::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) 
 	// Flush anything left over.
 	drawEngineCommon_->Flush();
 
-	shaderManager_->DirtyLastShader();
-
 	// after this, render pass is active.
 	framebufferManager_->PrepareCopyDisplayToOutput(config, curFramebufferDirty_);
 }
@@ -1721,23 +1719,17 @@ int GPUCommonHW::ListSync(int listid, int mode) {
 
 void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	float vertexAverageCycles = gpuStats.perFrame.numVertsSubmitted > 0 ? (float)gpuStats.perFrame.vertexGPUCycles / (float)gpuStats.perFrame.numVertsSubmitted : 0.0f;
-	w.F(
-		"DL processing time: %0.2f ms\n"
-		"%d enqueue, %d updatestall, %d drawsync, %d listsync\n"
-		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
-		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
-		"FBOs active: %d (evaluations: %d, created %d)\n"
-		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
-		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
-		"block transfers: %d\n"
-		"replacer: tracks %d references, %d unique textures\n"
-		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
-		"GPU cycles: %d (%0.1f per vertex)\n",
-		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
+	w.F("DL processing time: %0.2f ms\n", gpuStats.perFrame.msProcessingDisplayLists * 1000.0f);
+	w.F("%d enqueue, %d updstall, %d drawsync, %d listsync, %d geint (td: %d)\n",
 		gpuStats.perFrame.numEnqueue,
 		gpuStats.perFrame.numUpdateStall,
 		gpuStats.perFrame.numDrawSyncs,
 		gpuStats.perFrame.numListSyncs,
+		gpuStats.perFrame.numGEInterrupts,
+		gstate_c.textureSyncTimeDomain);
+	w.F("Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
+		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
+		"GPU cycles: %d (%0.1f per vertex)\n",
 		gpuStats.perFrame.numDrawCalls,
 		gpuStats.perFrame.numVertexDecodes,
 		gpuStats.perFrame.numCulledDraws,
@@ -1749,6 +1741,13 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numVertsDecoded,
 		gpuStats.perFrame.numVertsDrawn,
 		gpuStats.perFrame.numSoftClippedTriangles,
+		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
+		vertexAverageCycles);
+	w.F("FBOs active: %d (evaluations: %d, created %d)\n"
+		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
+		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
+		"block transfers: %d\n"
+		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n",
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.perFrame.numFramebufferEvaluations,
 		gpuStats.perFrame.numFBOsCreated,
@@ -1765,15 +1764,17 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numCachedUploads,
 		gpuStats.perFrame.numDepal,
 		gpuStats.perFrame.numBlockTransfers,
-		gpuStats.perFrame.numReplacerTrackedTex,
-		gpuStats.perFrame.numCachedReplacedTextures,
 		gpuStats.perFrame.numDepthCopies,
 		gpuStats.perFrame.numColorCopies,
 		gpuStats.perFrame.numReinterpretCopies,
 		gpuStats.perFrame.numCopiesForShaderBlend,
-		gpuStats.perFrame.numCopiesForSelfTex,
-		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
-		vertexAverageCycles);
+		gpuStats.perFrame.numCopiesForSelfTex);
+
+	if (gpuStats.perFrame.numReplacerTrackedTex) {
+		w.F("replacer: tracks %d references, %d unique textures\n",
+			gpuStats.perFrame.numReplacerTrackedTex,
+			gpuStats.perFrame.numCachedReplacedTextures);
+	}
 
 	if (PSP_CoreParameter().compat.flags().SoftwareRasterDepth) {
 		w.F("Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"
