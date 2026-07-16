@@ -432,9 +432,8 @@ protected:
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 
-	// These need to be member functions just for IsVideo and Replacer.
+	// This needs to be a member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ);
-	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
@@ -528,3 +527,5 @@ inline u64 TexCacheEntry::CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash) {
 	}
 	return cachekey;
 }
+
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight);

@@ -197,12 +197,14 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 		return;
 	}
-	if (entry->textureName != lastBoundTexture) {
+	if (entry->textureName != lastBoundTexture_) {
 		render_->BindTexture(0, entry->textureName);
-		lastBoundTexture = entry->textureName;
+		lastBoundTexture_ = entry->textureName;
+	} else {
+		NOTICE_LOG(Log::G3D, "Saved a bind");
 	}
 }
 

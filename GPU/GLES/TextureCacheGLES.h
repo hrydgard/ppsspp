@@ -45,7 +45,7 @@ public:
 	}
 
 	void ForgetLastTexture() override {
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
@@ -72,7 +72,7 @@ private:
 
 	GLRenderManager *render_;
 
-	GLRTexture *lastBoundTexture = nullptr;
+	GLRTexture *lastBoundTexture_ = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	DrawEngineGLES *drawEngine_;

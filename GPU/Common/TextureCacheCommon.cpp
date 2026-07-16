@@ -337,7 +337,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	return key;
 }
 
-SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight) {
 	SamplerCacheKey key{};
 
 	key.magFilt = gstate.isMagnifyFilteringEnabled();
@@ -2222,7 +2222,7 @@ TexCacheEntry *TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 			// Backends should handle this by binding a black texture with 0 alpha.
 			BindTexture(nullptr);
 		} else if (nextFramebufferTexture_) {
-			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
+			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
 			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
 			nextFramebufferTexture_ = nullptr;
 		}
@@ -2435,7 +2435,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
 			BoundFramebufferTexture();
 
-			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, framebuffer->bufferWidth, framebuffer->bufferHeight);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipEnable = false;
@@ -2543,7 +2543,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		gstate_c.SetTextureSolidAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, framebuffer->bufferWidth, framebuffer->bufferHeight);
 	ApplySamplingParams(samplerKey);
 
 	// Since we've drawn using thin3d, might need these.
@@ -2646,7 +2646,7 @@ void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry * 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	shaderManager_->DirtyLastShader();
 
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);
+	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, texWidth, texHeight);
 	ApplySamplingParams(samplerKey);
 
 	// Since we've drawn using thin3d, might need these.

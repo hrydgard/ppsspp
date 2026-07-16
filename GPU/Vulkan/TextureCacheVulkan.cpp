@@ -724,7 +724,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	bool allocSuccess = image->CreateDirect(plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, &barrier, mapping);
 	barrier.Flush(cmdInit);
 	if (!allocSuccess && !lowMemoryMode_) {
-		WARN_LOG_REPORT(Log::G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+		WARN_LOG(Log::G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
 		Decimate(entry, true);
