@@ -701,8 +701,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		nextTexture_ = nullptr;
 		nextNeedsRebuild_ = false;
 
-		VirtualFramebuffer *framebuffer = SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
-		return ApplyTextureFinishFramebuffer(framebuffer, doBind);
+		RasterChannel channel;
+		VirtualFramebuffer *framebuffer = SetTextureFramebuffer(bestCandidate, &channel);  // sets curTexture3D
+		return ApplyTextureFinishFramebuffer(framebuffer, channel, doBind);
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -769,7 +770,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	return ApplyTextureFinish(entry, doBind);
 }
 
-TextureApplyResult TextureCacheCommon::ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, bool doBind) {
+TextureApplyResult TextureCacheCommon::ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, RasterChannel textureChannel, bool doBind) {
 	TextureApplyResult result;
 	// Maybe we bound a framebuffer?
 	ForgetLastTexture();
@@ -778,8 +779,9 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinishFramebuffer(VirtualFram
 		BindTexture(nullptr);
 	} else if (framebuffer) {
 		// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
-		ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
+		ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), textureChannel);
 		result.framebuffer = framebuffer;
+		result.framebufferTextureChannel = textureChannel;
 		framebuffer = nullptr;
 	}
 	// We don't set the 3D texture state here or anything else, on some backends (?)
@@ -796,7 +798,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 	UpdateMaxSeenV(entry, gstate.isModeThrough());
 
 	if (nextNeedsRebuild_) {
-		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
+		// Regardless of hash fails or otherwise, if this is a video, flag it as such.
 		// This prevents temporary scaling perf hits on the first second of video.
 		if (IsVideo(entry->addr)) {
 			entry->status |= TexStatus::VIDEO;
@@ -1314,7 +1316,7 @@ static bool MatchFramebuffer(const TextureDefinition &entry,
 	}
 }
 
-VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
+VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate, RasterChannel *framebufferTextureChannel) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	RasterChannel channel = candidate.channel;
 
@@ -1327,8 +1329,7 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	// Keep the framebuffer alive.
 	framebuffer->last_frame_used = gpuStats.totals.numFlips;
-
-	nextFramebufferTextureChannel_ = RASTER_COLOR;
+	*framebufferTextureChannel = RASTER_COLOR;
 
 	if (framebufferManager_->UseBufferedRendering()) {
 		FramebufferMatchInfo fbInfo = candidate.match;
@@ -1375,7 +1376,7 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 			framebuffer = nullptr;
 			failedTexture_ = true;
 		} else {
-			nextFramebufferTextureChannel_ = channel;
+			*framebufferTextureChannel = channel;
 		}
 		nextTexture_ = nullptr;
 	} else {
@@ -1400,7 +1401,7 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 	return framebuffer;
 }
 
-bool TextureCacheCommon::GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, GPUDebugBuffer &buffer) {
+bool TextureCacheCommon::GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, RasterChannel channel, GPUDebugBuffer &buffer) {
 	u8 sf = vfb->renderScaleFactor;
 	int x = gstate_c.curTextureXOffset * sf;
 	int y = gstate_c.curTextureYOffset * sf;
@@ -1410,7 +1411,7 @@ bool TextureCacheCommon::GetFramebufferTextureDebug(const VirtualFramebuffer *vf
 	int h = std::min(desiredH, vfb->bufferHeight * sf - y);
 
 	bool retval;
-	if (nextFramebufferTextureChannel_ == RASTER_DEPTH) {
+	if (channel == RASTER_DEPTH) {
 		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_FLOAT, false);
 		if (w < desiredW || h < desiredH)
 			buffer.ZeroBytes();
@@ -2648,7 +2649,6 @@ void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	bool isVideo = IsVideo(entry->addr);
 	bool swizzled = gstate.isTextureSwizzled();
 
 	u32 fullhash;
@@ -2662,51 +2662,54 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 		return true;
 	}
 
+	const bool isVideo = IsVideo(entry->addr);
+	if (isVideo) {
+		// Just update the hash, no secondary cache, nor do we store away the image, for obvious reasons.
+		entry->fullhash = fullhash;
+		return false;
+	}
 	// Don't give up just yet.
 	// Let's try the secondary cache if it's been invalidated before (and we're not dealing with detected video).
-	if (!isVideo) {
-		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-		// In that case, skip.
-		if (entry->numInvalidated > 2 && entry->numInvalidated < 128) {
-			// We have a new hash: look for that hash in the secondary cache.
-			const u64 secondKey = fullhash | ((u64)entry->cluthash << 32);
-			TexCache::iterator secondIter = secondCache_.find(secondKey);
-			if (secondIter != secondCache_.end()) {
-				// Found it, but does it match our current params?  If not, abort.
-				TexCacheEntry *secondEntry = secondIter->second.get();
-				if (secondEntry->MatchesProperties(entry->dim, entry->format, entry->maxLevel)) {
-					// Reset the numInvalidated value lower, we got a match.
-					if (entry->numInvalidated > 8) {
-						--entry->numInvalidated;
-					}
-
-					// Now just use our archived texture, instead of entry.
-					// However, we still need to update the hash of entry!
-					nextTexture_ = secondEntry;
-					return true;
-				}
-			} else {
-				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
-				// Let's save this in the secondary cache in case it gets used again.
-				const u64 newSecondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-
-				// If the entry already exists in the secondary texture cache, drop it nicely.
-				auto oldIter = secondCache_.find(newSecondKey);
-				if (oldIter != secondCache_.end()) {
-					ReleaseTexture(oldIter->second.get(), true);
+	// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
+	// In that case, skip.
+	if (entry->numInvalidated > 2 && entry->numInvalidated < 128) {
+		// We have a new hash: look for that hash in the secondary cache.
+		const u64 secondKey = fullhash | ((u64)entry->cluthash << 32);
+		TexCache::iterator secondIter = secondCache_.find(secondKey);
+		if (secondIter != secondCache_.end()) {
+			// Found it, but does it match our current params?  If not, abort.
+			TexCacheEntry *secondEntry = secondIter->second.get();
+			if (secondEntry->MatchesProperties(entry->dim, entry->format, entry->maxLevel)) {
+				// Reset the numInvalidated value lower, we got a match.
+				if (entry->numInvalidated > 8) {
+					--entry->numInvalidated;
 				}
 
-				// Archive the entire texture entry as is, since we'll use its params if it is seen again.
-				// We keep parameters on the current entry, since we are STILL building a new texture here.
-				secondCache_[newSecondKey].reset(new TexCacheEntry(*entry));
-
-				// Make sure we don't delete the texture we just archived.
-				entry->texturePtr = nullptr;
-				doDelete = false;
+				// Now just use our archived texture, instead of entry.
+				// However, we still need to update the hash of entry!
+				nextTexture_ = secondEntry;
+				return true;
 			}
+		} else {
+			// It wasn't found, so we're about to throw away the entry and rebuild a texture.
+			// Let's save this in the secondary cache in case it gets used again.
+			const u64 newSecondKey = entry->fullhash | ((u64)entry->cluthash << 32);
+
+			// If the entry already exists in the secondary texture cache, drop it nicely.
+			auto oldIter = secondCache_.find(newSecondKey);
+			if (oldIter != secondCache_.end()) {
+				ReleaseTexture(oldIter->second.get(), true);
+			}
+
+			// Archive the entire texture entry as is, since we'll use its params if it is seen again.
+			// We keep parameters on the current entry, since we are STILL building a new texture here.
+			secondCache_[newSecondKey].reset(new TexCacheEntry(*entry));
+
+			// Make sure we don't delete the texture we just archived.
+			entry->texturePtr = nullptr;
+			doDelete = false;
 		}
 	}
-
 	// We know it failed, so update the full hash right away.
 	entry->fullhash = fullhash;
 	return false;

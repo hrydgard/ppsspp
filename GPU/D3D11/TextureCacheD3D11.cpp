@@ -448,7 +448,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	TextureApplyResult textureResult = ApplyTexture(true);
 	if (textureResult.framebuffer) {
 		*isFramebuffer = true;
-		return GetFramebufferTextureDebug(textureResult.framebuffer, buffer);
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
 	}
 
 	const TexCacheEntry *entry = textureResult.texCacheEntry;
