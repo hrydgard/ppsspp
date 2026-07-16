@@ -541,6 +541,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	bool clutInShader = false;
 	u32 cluthash;
 	if (hasClut) {
+		// Check if we should use dynamic CLUT in shader or some other tricks.
 		if (PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled() && (texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4)) {
 			if (clutLastFormat_ != gstate.clutformat) {
 				// We update here because the clut format can be specified after the load.
@@ -666,16 +667,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
-			gstate_c.SetTextureIsVideo(false);
-			gstate_c.SetTextureIs3D(entry->status & TexStatus::IS_3D);
-			gstate_c.SetTextureIsArray(false);
-			gstate_c.SetTextureIsFramebuffer(false);
-			if (entry->status & TexStatus::CLUT8_INDEXED) {
-				gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
-			} else {
-				gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
-			}
-
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->bufw = bufw;
@@ -777,15 +768,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
-	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
-	gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
-	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
-	gstate_c.SetTextureIsFramebuffer(false);
-	if (entry->status & TexStatus::CLUT8_INDEXED) {
-		gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
-	} else {
-		gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
-	}
 
 	failedTexture_ = false;
 	nextTexture_ = entry;
@@ -814,6 +796,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinishFramebuffer(VirtualFram
 
 TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, bool doBind) {
 	_dbg_assert_(entry);
+
 	TextureApplyResult result;
 	nextTexture_ = nullptr;
 
@@ -867,6 +850,8 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 	}
 
 	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
+	gstate_c.SetTextureIsFramebuffer(false);
 	entry->lastFrame = gpuStats.totals.numFlips;
 	if (entry->status & TexStatus::CLUT_GPU) {
 		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
@@ -876,7 +861,6 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		}
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
-		gstate_c.SetTextureIsArray(false);
 		return TextureApplyResult{};
 	} else {
 		if (doBind) {
@@ -884,7 +868,6 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		}
 		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
-		gstate_c.SetTextureIsArray(false);
 		if (entry->status & TexStatus::CLUT8_INDEXED) {
 			bool smoothedDepal = false;
 			u32 depthUpperBits = 0;
@@ -892,7 +875,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 			BindAsClutTexture(clutTexture.texture, false);
 			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
 		} else {
-			gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+			gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
 		}
 	}
 	return TextureApplyResult{entry, nullptr};
@@ -2526,7 +2509,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
-// TODO: Merge this function with the above.
+// TODO: Merge this function with the above. Or rather, we should try to eliminate this in favor
+// of in-shader depal.
 void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
