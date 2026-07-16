@@ -507,7 +507,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(replaceEnabled_ || saveEnabled_, "Replacement not enabled");
 
-	// TODO: Take swizzled into account, like in QuickTexHash().
+	// TODO: Take swizzled into account, like in ComputeTextureHash().
 	// Note: Currently, only the MLB games are known to need this.
 
 	if (!LookupHashRange(addr, w, h, &w, &h)) {

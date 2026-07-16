@@ -444,41 +444,6 @@ protected:
 
 	static TextureAlpha CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
-	static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
-		if (replacer.Enabled()) {
-			return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
-		}
-
-		if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-			h = (int)entry->maxSeenV;
-		}
-
-		u32 sizeInRAM;
-		if (swizzled) {
-			// In swizzle mode, textures are stored in rectangular blocks with the height 8.
-			// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
-			// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
-			// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
-			// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
-			sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
-		} else {
-			sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
-		}
-		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
-
-		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
-
-		if (Memory::IsValidAddress(addr + sizeInRAM)) {
-			return StableQuickTexHash(checkp, sizeInRAM);
-		} else {
-			return 0;
-		}
-	}
-
-	static inline u32 MiniHash(const u32 *ptr) {
-		return ptr[0];
-	}
-
 	Draw::DrawContext *draw_;
 	Draw2D *draw2D_;
 
@@ -492,7 +457,7 @@ protected:
 	bool clearCacheNextFrame_ = false;
 	bool lowMemoryMode_ = false;
 
-	int decimationCounter_;
+	int decimationCounter_ = 0;
 	int texelsScaledThisFrame_ = 0;
 	double replacementTimeThisFrame_ = 0;
 	// Recomputed once per frame. Depends FPS and soon also config.
@@ -516,16 +481,16 @@ protected:
 	u32 clutHash_ = 0;
 
 	// Raw is where we keep the original bytes.  Converted is where we swap colors if necessary.
-	u32 *clutBufRaw_;
-	u32 *clutBufConverted_;
+	u32 *clutBufRaw_ = nullptr;
+	u32 *clutBufConverted_ = nullptr;
 	// This is the active one.
-	u32 *clutBuf_;
+	u32 *clutBuf_ = nullptr;
 
 	u32 clutLastFormat_ = 0xFFFFFFFF;
 	u32 clutTotalBytes_ = 0;
 	u32 clutMaxBytes_ = 0;
 	u32 clutRenderAddress_ = 0xFFFFFFFF;
-	u32 clutRenderOffset_;
+	u32 clutRenderOffset_ = 0;
 	GEBufferFormat clutRenderFormat_;
 	CLUTProperties clutProperties_;
 
@@ -533,13 +498,13 @@ protected:
 	Draw::Framebuffer *dynamicClutTemp_ = nullptr;
 	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
 
-	int standardScaleFactor_;
+	int standardScaleFactor_ = 0;
 	int shaderScaleFactor_ = 0;
 
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
+	const char *nextChangeReason_ = nullptr;
+	bool nextNeedsRehash_ = false;
+	bool nextNeedsChange_ = false;
+	bool nextNeedsRebuild_ = false;
 
 	u32 *expandClut_;
 };

@@ -377,10 +377,13 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
-	if (replacer_.Enabled())
+	if (replacer_.Enabled()) {
+		// Replacer is still hardcoded to use XXH32 for the CLUT hash, so we need to keep that. It's not a bad one
+		// but XXH3_64bits should be faster (?).
 		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-	else
+	} else {
 		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
+	}
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -391,7 +394,7 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 		alphaLinear = true;
 		alphaLinearColor = clut[15] & 0x0FFF;
 		for (int i = 0; i < 16; ++i) {
-			u16 step = alphaLinearColor | (i << 12);
+			const u16 step = alphaLinearColor | (i << 12);
 			if (clut[i] != step) {
 				alphaLinear = false;
 				break;
@@ -489,7 +492,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
 				UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 			}
-			// We computed clutHash_ (with underscore) above. But cluthash we set to 0, so the cache will collapse all the textures with various palettes.
+			// We computed clutHash_ (with underscore) previously. But cluthash we set to 0, so the cache will collapse all the textures with various palettes.
 			cluthash = 0;
 			clutInShader = true;
 		} else if (clutRenderAddress_ != 0xFFFFFFFF) {
@@ -2156,6 +2159,38 @@ TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level
 	}
 }
 
+static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
+	if (replacer.Enabled()) {
+		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
+	}
+
+	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+		h = (int)entry->maxSeenV;
+	}
+
+	u32 sizeInRAM;
+	if (swizzled) {
+		// In swizzle mode, textures are stored in rectangular blocks with the height 8.
+		// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
+		// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
+		// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
+		// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
+		sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
+	} else {
+		sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
+	}
+	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+
+	gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
+
+	if (Memory::IsValidAddress(addr + sizeInRAM)) {
+		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
+		return StableQuickTexHash(checkp, sizeInRAM);
+	} else {
+		return 0;
+	}
+}
+
 void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {
@@ -2194,7 +2229,7 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
 			bool swizzled = gstate.isTextureSwizzled();
-			entry->fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
+			entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
 
 			// TODO: Here we could check the secondary cache; maybe the texture is in there?
 			// We would need to abort the build if so.
@@ -2648,7 +2683,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	u32 fullhash;
 	{
 		PROFILE_THIS_SCOPE("texhash");
-		fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
+		fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
 	}
 
 	if (fullhash == entry->fullhash) {
@@ -2663,7 +2698,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 		// In that case, skip.
 		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 			// We have a new hash: look for that hash in the secondary cache.
-			u64 secondKey = fullhash | (u64)entry->cluthash << 32;
+			const u64 secondKey = fullhash | ((u64)entry->cluthash << 32);
 			TexCache::iterator secondIter = secondCache_.find(secondKey);
 			if (secondIter != secondCache_.end()) {
 				// Found it, but does it match our current params?  If not, abort.
@@ -2681,17 +2716,17 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 			} else {
 				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
 				// Let's save this in the secondary cache in case it gets used again.
-				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
+				const u64 newSecondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 
 				// If the entry already exists in the secondary texture cache, drop it nicely.
-				auto oldIter = secondCache_.find(secondKey);
+				auto oldIter = secondCache_.find(newSecondKey);
 				if (oldIter != secondCache_.end()) {
 					ReleaseTexture(oldIter->second.get(), true);
 				}
 
 				// Archive the entire texture entry as is, since we'll use its params if it is seen again.
 				// We keep parameters on the current entry, since we are STILL building a new texture here.
-				secondCache_[secondKey].reset(new TexCacheEntry(*entry));
+				secondCache_[newSecondKey].reset(new TexCacheEntry(*entry));
 
 				// Make sure we don't delete the texture we just archived.
 				entry->texturePtr = nullptr;
