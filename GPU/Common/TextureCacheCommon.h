@@ -457,7 +457,6 @@ protected:
 	ShaderManagerCommon *shaderManager_;
 
 	bool clearCacheNextFrame_ = false;
-	bool lowMemoryMode_ = false;
 
 	int decimationCounter_ = 0;
 	int texelsScaledThisFrame_ = 0;

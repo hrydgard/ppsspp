@@ -37,7 +37,6 @@ public:
 	~TextureCacheGLES();
 
 	void Clear(bool delete_them) override;
-	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
 	void SetDrawEngine(DrawEngineGLES *td) {

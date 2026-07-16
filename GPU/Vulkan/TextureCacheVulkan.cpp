@@ -723,16 +723,16 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VulkanBarrierBatch barrier;
 	bool allocSuccess = image->CreateDirect(plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, &barrier, mapping);
 	barrier.Flush(cmdInit);
-	if (!allocSuccess && !lowMemoryMode_) {
-		WARN_LOG(Log::G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
-		lowMemoryMode_ = true;
+	if (!allocSuccess) {
+		WARN_LOG(Log::G3D, "Texture cache ran out of GPU memory; decimating");
 		decimationCounter_ = 0;
-		Decimate(entry, true);
+		Decimate(entry, true);  // note: First parameter is "exceptThisOne".
 
 		// TODO: We should stall the GPU here and wipe things out of memory.
 		// As is, it will almost definitely fail the second time, but next frame it may recover.
 
 		auto err = GetI18NCategory(I18NCat::ERRORS);
+		// TODO: These messages are not really accurate.
 		if (plan.scaleFactor > 1) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
@@ -853,8 +853,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, byteStride, plan.scaleFactor);
 				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
 			}
-			// Format might be wrong in lowMemoryMode_, so don't save.
-			if (plan.saveTexture && !lowMemoryMode_) {
+			if (plan.saveTexture) {
 				// When hardware texture scaling is enabled, this saves the original.
 				const int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				const int h = dataScaled ? mipHeight : mipUnscaledHeight;

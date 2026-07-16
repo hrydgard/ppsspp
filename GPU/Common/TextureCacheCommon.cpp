@@ -879,14 +879,13 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 		const u32 had = cacheSizeEstimate;
 
 		ForgetLastTexture();
-		int killAgeBase = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ) {
 			if (iter->second.get() == exceptThisOne) {
 				++iter;
 				continue;
 			}
 			bool hasClutVariants = (iter->second->status & TexStatus::MANY_CLUT_VARIANTS) != 0;
-			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
+			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : TEXTURE_KILL_AGE;
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
 				DeleteTexture(iter++);
 			} else {
@@ -907,8 +906,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 				++iter;
 				continue;
 			}
-			// In low memory mode, we kill them all since secondary cache is disabled.
-			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
+			if (iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
 				secondCacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				iter = secondCache_.erase(iter);
@@ -2719,7 +2717,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	if (!isVideo) {
 		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 		// In that case, skip.
-		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
+		if (entry->numInvalidated > 2 && entry->numInvalidated < 128) {
 			// We have a new hash: look for that hash in the secondary cache.
 			const u64 secondKey = fullhash | ((u64)entry->cluthash << 32);
 			TexCache::iterator secondIter = secondCache_.find(secondKey);
@@ -2863,13 +2861,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	plan.scaleFactor = standardScaleFactor_;
 	plan.depth = 1;
-
-	// Rachet down scale factor in low-memory mode.
-	// TODO: I think really we should just turn it off?
-	if (lowMemoryMode_ && !plan.hardwareScaling) {
-		// Keep it even, though, just in case of npot troubles.
-		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
-	}
 
 	if (plan.hardwareScaling) {
 		plan.scaleFactor = shaderScaleFactor_;
@@ -3115,7 +3106,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			}
 		}
 
-		if (plan.saveTexture && !lowMemoryMode_) {
+		if (plan.saveTexture) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
