@@ -536,11 +536,10 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		texFormat = GE_TFMT_5650;
 	}
 
-	bool hasClut = gstate.isTextureFormatIndexed();
 	bool hasClutGPU = false;
 	bool clutInShader = false;
 	u32 cluthash;
-	if (hasClut) {
+	if (gstate.isTextureFormatIndexed()) {
 		// Check if we should use dynamic CLUT in shader or some other tricks.
 		if (PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled() && (texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4)) {
 			if (clutLastFormat_ != gstate.clutformat) {
@@ -567,7 +566,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	} else {
 		cluthash = 0;
 	}
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
+	const u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
 
 	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
@@ -617,12 +616,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// If it's reliable, we can skip the sync domain check, since it won't change under us.
 			rehash = true;
 			entry->status &= ~(TexStatus::HASH_RECHECK | TexStatus::CLUT_RECHECK);
-		}
-
-		// Do we need to recreate?
-		if (entry->status & TexStatus::FORCE_REBUILD) {
-			match = false;
-			entry->status &= ~TexStatus::FORCE_REBUILD;
 		}
 
 		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
@@ -729,7 +722,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			entry->status |= TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED;
 		}
 
-		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
+		if (gstate.isTextureFormatIndexed() && clutRenderAddress_ == 0xFFFFFFFF) {
 			const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
 			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
 
@@ -2868,6 +2861,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
 
+	// TODO: We should move the PPGE texture entirely out from the PSP's memory space, so we don't save it in every save state.
 	const bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd();
 
 	// Don't scale the PPGe texture.
@@ -3117,9 +3111,6 @@ std::string TexStatusToString(TexStatus status) {
 	}
 	if (status & TexStatus::CLUT8_INDEXED) {
 		result += "CLUT8_INDEXED ";
-	}
-	if (status & TexStatus::FORCE_REBUILD) {
-		result += "FORCE_REBUILD ";
 	}
 	if (status & TexStatus::IS_3D) {
 		result += "3D ";

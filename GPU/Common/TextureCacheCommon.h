@@ -150,7 +150,7 @@ enum class TexStatus : u16 {
 	IS_3D = (1 << 10),
 	NO_MIPS = (1 << 11),      // Has bad or unusable mipmap levels.
 	FRAMEBUFFER_OVERLAP = (1 << 12),
-	FORCE_REBUILD = (1 << 13),
+	// Free bit 13
 	CLUT8_INDEXED = (1 << 14),  // Decoded as plain CLUT8 indices instead of all the way to colors.
 	CLUT_GPU = (1 << 15),
 };
