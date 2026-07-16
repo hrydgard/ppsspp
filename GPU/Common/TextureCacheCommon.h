@@ -411,7 +411,7 @@ protected:
 	virtual void Unbind() = 0;
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
-	void SetTextureFramebuffer(const AttachCandidate &candidate);
+	VirtualFramebuffer *SetTextureFramebuffer(const AttachCandidate &candidate);
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
@@ -477,7 +477,6 @@ protected:
 
 	TexCacheEntry *nextTexture_ = nullptr;
 	bool failedTexture_ = false;
-	VirtualFramebuffer *nextFramebufferTexture_ = nullptr;
 	RasterChannel nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	u32 clutHash_ = 0;

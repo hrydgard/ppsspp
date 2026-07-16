@@ -717,8 +717,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		nextTexture_ = nullptr;
 		nextNeedsRebuild_ = false;
 
-		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
-		return ApplyTextureFinishFramebuffer(nextFramebufferTexture_, doBind);
+		VirtualFramebuffer *framebuffer = SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
+		return ApplyTextureFinishFramebuffer(framebuffer, doBind);
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -789,7 +789,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 	failedTexture_ = false;
 	nextTexture_ = entry;
-	nextFramebufferTexture_ = nullptr;
 	nextNeedsRehash_ = true;
 	nextNeedsRebuild_ = true;
 	return ApplyTextureFinish(entry, doBind);
@@ -1339,7 +1338,7 @@ static bool MatchFramebuffer(const TextureDefinition &entry,
 	}
 }
 
-void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
+VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	RasterChannel channel = candidate.channel;
 
@@ -1397,10 +1396,9 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			WARN_LOG_ONCE(ndepthtex, Log::G3D, "Depth textures not supported, not binding");
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
-			nextFramebufferTexture_ = nullptr;
+			framebuffer = nullptr;
 			failedTexture_ = true;
 		} else {
-			nextFramebufferTexture_ = framebuffer;
 			nextFramebufferTextureChannel_ = channel;
 		}
 		nextTexture_ = nullptr;
@@ -1411,7 +1409,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 		Unbind();
 		gstate_c.SetNeedShaderTexclamp(false);
-		nextFramebufferTexture_ = nullptr;
+		framebuffer = nullptr;
 		nextTexture_ = nullptr;
 	}
 
@@ -1423,6 +1421,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	nextNeedsRehash_ = false;
 	nextNeedsChange_ = false;
 	nextNeedsRebuild_ = false;
+	return framebuffer;
 }
 
 bool TextureCacheCommon::GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, GPUDebugBuffer &buffer) {
