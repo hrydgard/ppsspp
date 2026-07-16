@@ -1431,10 +1431,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			} else if (!gstate.isTextureMapEnabled()) {
 				ImGui::Text("(texturing not enabled");
 			} else if (TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon()) {  // We don't bother with the texture if previewCmd is BOUNDING_BOX - no texturing happens there.
-				const TexCacheEntry *tex = texcache->SetTexture();
-				if (tex) {
+				TextureApplyResult result = texcache->ApplyTexture(false);
+				if (TexCacheEntry *tex = result.texCacheEntry) {
 					ImGui::Text("Texture: %08x", tex->addr);
-					texcache->ApplyTexture(false);
 
 					void *nativeView = texcache->GetNativeTextureView(tex, true);
 					ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
@@ -1458,12 +1457,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 					}
 
 					drawList->PopClipRect();
-
-				} else if (const VirtualFramebuffer *fb = texcache->NextFramebufferTexture()) {
+				} else if (const VirtualFramebuffer *fb = result.framebuffer) {
 					// A framebuffer.
 					// TODO: More detail here.
 					ImGui::Text("Framebuffer as texture: %08x", fb->fb_address);
 				} else {
+					// Will end up here in the CLUT8 texture cache for now :/
 					ImGui::Text("(no valid texture bound)");
 				}
 			} else {

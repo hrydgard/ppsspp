@@ -2212,6 +2212,8 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 }
 
 TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
+	SetTexture();
+
 	TextureApplyResult result;
 	TexCacheEntry *entry = nextTexture_;
 	if (!entry) {

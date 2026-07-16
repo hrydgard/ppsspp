@@ -339,10 +339,6 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Recorder *recorder);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
-	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
-	// TODO: Return stuff directly instead of keeping state.
-	TexCacheEntry *SetTexture();
-
 	void SetShaderManager(ShaderManagerCommon *sm) {
 		shaderManager_ = sm;
 	}
@@ -404,14 +400,12 @@ public:
 		return videos_;
 	}
 
-	// For the debugger
-	const VirtualFramebuffer *NextFramebufferTexture() const {
-		return nextFramebufferTexture_;
-	}
-
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
+	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
+	// TODO: Return stuff directly instead of keeping state.
+	TexCacheEntry *SetTexture();
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;

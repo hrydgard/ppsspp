@@ -276,7 +276,6 @@ void DrawEngineVulkan::Flush() {
 		bool textureNeedsApply = false;
 		if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 			gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-			textureCache_->SetTexture();
 			const TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
 			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, false);
 			textureCache_->GetVulkanHandles(imageView, sampler);
@@ -408,7 +407,6 @@ void DrawEngineVulkan::Flush() {
 			gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 			gstate_c.dstSquared = false;
 
-			textureCache_->SetTexture();
 			textureResult = textureCache_->ApplyTexture(true);
 			// NOTE: After this is set, we MUST call ApplyTexture before returning.
 			textureNeedsApply = true;
