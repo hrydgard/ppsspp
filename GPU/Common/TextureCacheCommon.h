@@ -422,7 +422,6 @@ protected:
 	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);
 	virtual void ApplySamplerByKey(const SamplerCacheKey &key) = 0;
 
-	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);  // only overridden in GLES
 	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
@@ -478,7 +477,6 @@ protected:
 	AlignedVector<u32, 16> tmpTexBuf32_;
 	AlignedVector<u32, 16> tmpTexBufRearrange_;
 
-	TexCacheEntry *nextTexture_ = nullptr;
 	bool failedTexture_ = false;
 
 	u32 clutHash_ = 0;
@@ -503,11 +501,6 @@ protected:
 
 	int standardScaleFactor_ = 0;
 	int shaderScaleFactor_ = 0;
-
-	const char *nextChangeReason_ = nullptr;
-	bool nextNeedsRehash_ = false;
-	bool nextNeedsChange_ = false;
-	bool nextNeedsRebuild_ = false;
 
 	u32 *expandClut_;
 };
