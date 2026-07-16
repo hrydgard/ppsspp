@@ -866,7 +866,7 @@ static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, con
 }
 
 // Removes old textures.
-void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressure) {
+void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure) {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -2180,7 +2180,8 @@ TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level
 	}
 }
 
-static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
+static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, const TexCacheEntry *entry) {
+	const GETextureFormat format = entry->format;
 	if (replacer.Enabled()) {
 		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
 	}
@@ -2202,9 +2203,9 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	}
 	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
 
-	gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
-
 	if (Memory::IsValidAddress(addr + sizeInRAM)) {
+		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
+
 		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
 		return StableQuickTexHash(checkp, sizeInRAM);
 	} else {
@@ -2249,8 +2250,8 @@ void TextureCacheCommon::ApplyTexture(bool doBind, bool flatZ) {
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
-			bool swizzled = gstate.isTextureSwizzled();
-			entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
+			const bool swizzled = gstate.isTextureSwizzled();
+			entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 
 			// TODO: Here we could check the secondary cache; maybe the texture is in there?
 			// We would need to abort the build if so.
@@ -2550,7 +2551,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
 // TODO: Merge this function with the above.
-void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry) {
+void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry * const entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	switch (entry->format) {
@@ -2704,7 +2705,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	u32 fullhash;
 	{
 		PROFILE_THIS_SCOPE("texhash");
-		fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
+		fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 	}
 
 	if (fullhash == entry->fullhash) {
@@ -2731,6 +2732,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 					}
 
 					// Now just use our archived texture, instead of entry.
+					// However, we still need to update the hash of entry!
 					nextTexture_ = secondEntry;
 					return true;
 				}

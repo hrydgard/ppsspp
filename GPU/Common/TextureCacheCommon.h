@@ -206,6 +206,7 @@ struct TexCacheEntry {
 	}
 
 	// This is the full size in RAM, not the half size we use sometimes as a "safe" underestimate.
+	// And also not the exact hashed size, see ComputeTextureHash.
 	u32 SizeInRAM() const {
 		return (textureBitsPerPixel[format] * bufw * dimHeight(dim)) / 8;
 	}
@@ -408,10 +409,10 @@ protected:
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
-	void Decimate(TexCacheEntry *exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
+	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
-	void ApplyTextureDepalFramebufferCLUT(TexCacheEntry *entry);
+	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);
 
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
