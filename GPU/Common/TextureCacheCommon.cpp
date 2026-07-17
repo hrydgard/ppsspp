@@ -462,7 +462,7 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutLastFormat_ = gstate.clutformat;
 }
 
-// TODO: This should be called from the through mode bbox check.
+// TODO: This should use information from the through mode bbox check.
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall... otherwise we don't bother.
 	if (entry->dim < 0x900) {
@@ -586,13 +586,17 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 		// Validate the texture still matches the cache entry.
 		bool match = entry->MatchesProperties(dim, texFormat, maxLevel);
-		const char *reason = "different params";
+		const char *reason = "(matches)";
+		if (match == false) {
+			reason = "different params";
+		}
 
 		// Check for dynamic CLUT status
 		if (((entry->status & TexStatus::CLUT_GPU) != 0) != hasClutGPU) {
 			// Need to recreate, suddenly a CLUT GPU texture was used without it, or vice versa.
 			// I think this can only happen on a clut hash collision with the marker value, so highly unlikely.
 			match = false;
+			reason = "clutgpu";
 		}
 
 		// Check for FBO changes.
@@ -600,6 +604,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// Fall through to the end where we'll delete the entry if there's a framebuffer.
 			entry->status &= ~TexStatus::FRAMEBUFFER_OVERLAP;
 			match = false;
+			reason = "fboverlap";
 		}
 
 		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
@@ -662,11 +667,13 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 			if (entry->status & TexStatus::VIDEO) {
 				// Video textures are always rehashed, since they change every frame.
+				// Actually we don't really need to bother re-hashing, we just have to force-recreate it... Well,
+				// let's fix that later.
 				rehash = true;
 			}
 
 			// got one!
-			VERBOSE_LOG(Log::G3D, "Texture at %08x found in cache. rehashing: %d", texaddr, (int)rehash);
+			VERBOSE_LOG(Log::TexCache, "%08x: Texture found in cache. Rehash flag = %d", texaddr, (int)rehash);
 
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
@@ -676,7 +683,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				// Update in case any of these changed.
 				entry->bufw = bufw;
 				if (entry->cluthash != cluthash) {
-					WARN_LOG(Log::G3D, "Mysterious cluthash miss: %08x vs %08x", entry->cluthash, cluthash);
+					WARN_LOG(Log::TexCache, "Mysterious cluthash miss: %08x vs %08x", entry->cluthash, cluthash);
 				}
 				const bool isVideo = IsVideo(entry->addr);
 				if (isVideo) {
@@ -699,7 +706,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					entry->numInvalidated++;
 					gpuStats.perFrame.numTexturesChanged++;
 
-					DEBUG_LOG(Log::G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
+					if (!isVideo) {
+						DEBUG_LOG(Log::TexCache, "%08x: Texture hash not matching: old %08x vs new %08x, reloading (%s) (w=%d h=%d)", entry->addr, entry->fullhash, newFullHash, reason, w, h);
+					}
 					// Mark any textures with the same address but different clut.  They need rechecking. Though, I think this is actually
 					// not needed anymore with the sync domains... Anyway.
 					if (entry->cluthash != 0) {
@@ -722,6 +731,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					if (!isVideo) {
 						TexCache::iterator secondIterOld = secondCache_.find(secondKeyOld);
 						if (secondIterOld == secondCache_.end()) {
+							DEBUG_LOG(Log::TexCache, "%08x: Hash changed from old %08x to new %08x, moving old entry to secondary cache.", texaddr, entry->fullhash, newFullHash);
 							// Not yet in the secondary, put it there.
 							secondCache_[secondKeyOld].reset(entry);
 							// Forget the entry.
@@ -729,13 +739,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 						} else {
 							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
 							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
-							INFO_LOG(Log::G3D, "Second cache already had one with hash %08x!", entry->fullhash);
+							DEBUG_LOG(Log::TexCache, "%08x: Second cache already had one with hash %08x (tex has addr %08x)!", texaddr, entry->fullhash, entry->addr);
 							// Just release the old entry, drop it on the ground.
 							ReleaseTexture(entry, true);
 							entry = nullptr;
 						}
 					} else {
 						// Just release the old video entry, drop it on the ground.
+						VERBOSE_LOG(Log::TexCache, "%08x: Dropping old invalidated video image", texaddr);
 						ReleaseTexture(entry, true);
 						entry = nullptr;
 					}
@@ -751,19 +762,20 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 						// Found it, but does it match our current params?  If not, abort.
 						if (secondIterNew->second->MatchesProperties(dim, texFormat, maxLevel)) {
 							// We got a match in the secondary cache that we can use.
-							// So we take it out of the secondary cache into the primary cache.
+							// So we take it out of the secondary cache and move it back into the primary cache,
+							// updating the address as appropriate.
 							TexCacheEntry *secondEntry = secondIterNew->second.release();
 							secondCache_.erase(secondIterNew);
 							entryIter->second.reset(secondEntry);  // Here we move it into the main cache.
 							entry = secondEntry;
 							// Make sure the address is correct.
 							if (entry->addr != texaddr) {
-								INFO_LOG(Log::G3D, "Texture at %08x matched with secondary cache entry at other address %08x. Updating address.", texaddr, entry->addr);
+								DEBUG_LOG(Log::TexCache, "%08x: Texture matched with secondary cache entry with hash %08x at other address %08x. Updating address.", texaddr, newFullHash, entry->addr);
 								entry->addr = texaddr;
 							}
 							return ApplyTextureFinish(entry, doBind);
 						} else {
-							INFO_LOG(Log::G3D, "Entry in secondary cache not suitable, ignoring and creating new: %08x", newFullHash);
+							DEBUG_LOG(Log::TexCache, "%08x: Entry in secondary cache not suitable, ignoring and creating new: %08x", texaddr, newFullHash);
 							// The entry in the secondary cache doesn't match our current parameters, so we can't use it.
 							// Let's leave it in there for now (revisit later).
 						}
@@ -771,7 +783,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 						if (!isVideo) {
 							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
 							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
-							INFO_LOG(Log::G3D, "No entry for hash %08x in secondary cache, creating new in main cache.", newFullHash);
+							DEBUG_LOG(Log::TexCache, "%08x: No entry for hash %08x in secondary cache, creating new in main cache.", texaddr, newFullHash);
 						}
 						// Well, not found, so we need to create a new entry.
 						cache_.erase(entryIter);
@@ -787,6 +799,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				return ApplyTextureFinish(entry, doBind);
 			}
 		} else {
+			DEBUG_LOG(Log::TexCache, "%08x: Texture was not a match (%s), recreating.", texaddr, reason);
 			// Wasn't a match even in format. Let's just delete it right away, since we know we need to rebuild it,
 			// and it's unlikely that putting it in the secondary cache will do us any good. We do that for things we rehash, though.
 			DeleteTexture(entryIter);
@@ -811,16 +824,29 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	if (GetBestFramebufferCandidate(framebufferManager_, def, 0, &bestCandidate, "texture")) {
 		RasterChannel channel;
 		VirtualFramebuffer *framebuffer = SetTextureFramebuffer(bestCandidate, &channel);  // sets curTexture3D
+		TextureApplyResult result;
+		// Maybe we bound a framebuffer?
+		ForgetLastTexture();
+		if (framebuffer) {
+			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
+			ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), channel);
+			result.framebuffer = framebuffer;
+			result.framebufferTextureChannel = channel;
+			framebuffer = nullptr;
+			gstate_c.SetTextureIsArray(true);
+		} else {
+			// Backends should handle this by binding a black texture with 0 alpha.
+			BindTexture(nullptr);
+			gstate_c.SetTextureIsArray(false);
+		}
 		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
-		gstate_c.SetTextureIsArray(true);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
-		return ApplyTextureFinishFramebuffer(framebuffer, channel, doBind);
+		return result;
 	}
 
 	// Didn't match a framebuffer, keep going and create a brand new texture.
 
-	VERBOSE_LOG(Log::G3D, "No texture in cache for %08x, decoding...", texaddr);
 	TexCacheEntry *entry = new TexCacheEntry{};
 	cache_[cachekey].reset(entry);
 	entry->status = {};
@@ -830,7 +856,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	}
 
 	if (hasClutGPU) {
-		WARN_LOG_N_TIMES(clutUseRender, 5, Log::G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+		WARN_LOG_N_TIMES(clutUseRender, 5, Log::TexCache, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 		entry->status |= TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED;
 	}
 
@@ -869,34 +895,15 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
-	failedTexture_ = false;
-
 	entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+
+	DEBUG_LOG(Log::TexCache, "No texture in cache for %08x, hash %08x, creating...", texaddr, entry->fullhash);
 
 	BuildTexture(entry);
 	UpdateMaxSeenV(entry, gstate.isModeThrough());
 	ForgetLastTexture();  // is this needed?
 
 	return ApplyTextureFinish(entry, doBind);
-}
-
-TextureApplyResult TextureCacheCommon::ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, RasterChannel textureChannel, bool doBind) {
-	TextureApplyResult result;
-	// Maybe we bound a framebuffer?
-	ForgetLastTexture();
-	if (failedTexture_) {
-		// Backends should handle this by binding a black texture with 0 alpha.
-		BindTexture(nullptr);
-	} else if (framebuffer) {
-		// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
-		ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), textureChannel);
-		result.framebuffer = framebuffer;
-		result.framebufferTextureChannel = textureChannel;
-		framebuffer = nullptr;
-	}
-	// We don't set the 3D texture state here or anything else, on some backends (?)
-	// a nextTexture_ of nullptr means keep the current texture.
-	return result;
 }
 
 TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, bool doBind) {
@@ -1060,13 +1067,17 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 			bool hasClutVariants = (iter->second->status & TexStatus::MANY_CLUT_VARIANTS) != 0;
 			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : TEXTURE_KILL_AGE;
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
+				DEBUG_LOG(Log::TexCache, "Decimating cached texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
+				cacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				DeleteTexture(iter++);
 			} else {
 				++iter;
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", (int)(had - cacheSizeEstimate), (int)cacheSizeEstimate);
+		if (had != cacheSizeEstimate) {
+			DEBUG_LOG(Log::TexCache, "Decimated texture cache, saved %d estimated bytes - now %d bytes", (int)(had - cacheSizeEstimate), (int)cacheSizeEstimate);
+		}
 	}
 
 	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
@@ -1080,6 +1091,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 				continue;
 			}
 			if (iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
+				DEBUG_LOG(Log::TexCache, "Decimating second-cache texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
 				ReleaseTexture(iter->second.get(), true);
 				secondCacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				iter = secondCache_.erase(iter);
@@ -1088,10 +1100,12 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", (int)(had - secondCacheSizeEstimate), (int)secondCacheSizeEstimate);
+		if (had != secondCacheSizeEstimate) {
+			DEBUG_LOG(Log::TexCache, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", (int)(had - secondCacheSizeEstimate), (int)secondCacheSizeEstimate);
+		}
 	}
 
-	// Decimate known videos.
+	// Decimate known videos (so the list doesn't grow unboundedly or we start to misidentify textures as video).
 	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
 		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.totals.numFlips) {
 			iter = videos_.erase(iter);
@@ -1105,7 +1119,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 
 bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 	texaddr &= 0x3FFFFFFF;
-	for (auto &info : videos_) {
+	for (const VideoInfo &info : videos_) {
 		if (texaddr < info.addr) {
 			continue;
 		}
@@ -1390,6 +1404,7 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 		gstate_c.SetTextureIsFramebuffer(true);
 
 		if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+			// Hm, this seems a bit iffy.
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 
@@ -1397,10 +1412,8 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
 		u32 texH = (u32)gstate.getTextureHeight(0);
-		gstate_c.SetNeedShaderTexclamp(gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH);
-		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.SetNeedShaderTexclamp(true);
-		}
+		const bool needShaderTexClamp = gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH || gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+		gstate_c.SetNeedShaderTexclamp(needShaderTexClamp);
 		if (channel == RASTER_DEPTH) {
 			framebuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 		}
@@ -1410,7 +1423,6 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
 			framebuffer = nullptr;
-			failedTexture_ = true;
 		} else {
 			*framebufferTextureChannel = channel;
 		}

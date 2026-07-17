@@ -1481,7 +1481,7 @@ void PostPutAction::run(MipsCall &call) {
 		uint32_t dataSize = Memory::ClampValidSizeAt(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
 		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, dataSize) / 2048;
 		if (actuallyAdded != packetsAddedThisRound) {
-			WARN_LOG_REPORT(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
+			WARN_LOG(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames (%d != %d)", actuallyAdded, packetsAddedThisRound);
 		}
 		ringbuffer->packetsRead += packetsAddedThisRound;
 		ringbuffer->packetsWritePos += packetsAddedThisRound;
@@ -1489,7 +1489,7 @@ void PostPutAction::run(MipsCall &call) {
 
 		if (remainingPackets_ > 0) {
 			if (packetsAddedThisRound > remainingPackets_) {
-				WARN_LOG_REPORT(Log::Mpeg, "Wrote more than expected.");
+				WARN_LOG(Log::Mpeg, "Wrote more packets than expected (added %d, remaining %d).", packetsAddedThisRound, remainingPackets_);
 			}
 			else if (packetsAddedThisRound < remainingPackets_) {
 				// Call the callback again to get more packets.
