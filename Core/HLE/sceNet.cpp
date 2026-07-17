@@ -56,6 +56,8 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 #include "Core/HLE/NetAdhocCommon.h"
+#include "Core/HLE/sceNet_lib.h"
+#include "Core/HLE/sceKernelTime.h"
 
 #include "Core/MIPS/MIPSCodeUtils.h" // for macros to implement __CreateHLELoop
 
@@ -1006,6 +1008,10 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 
 	// Clear Socket Translator Memory
 	memset(&adhocSockets, 0, sizeof(adhocSockets));
+
+	// sceNet_lib rng context for sceNetRand
+	u32 seed = hleCall(ThreadManForUser, u32, sceKernelGetSystemTimeLow);
+	InitNetLibRngContext(seed);
 
 	g_netInited = true;
 

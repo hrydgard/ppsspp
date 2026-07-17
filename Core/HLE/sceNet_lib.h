@@ -15,5 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
+#include "Common/CommonTypes.h"
+#include "Common/Serialize/Serializer.h"
+
+// Exported for sceNetInit
+void InitNetLibRngContext(u32 seed);
+
+void __NetLibDoState(PointerWrap& p);
 
 void Register_sceNet_lib();

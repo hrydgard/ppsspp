@@ -20,12 +20,92 @@
 
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLE.h"
+#include "Common/Serialize/SerializeFuncs.h"
 
 #include <cstring>
 
 
 // This is one of the firmware modules (pspnet.prx), the official PSP games can't call these funcs
 
+
+
+// Struct name source: I made it up
+struct SceNetRngContext {
+	u32 state[521];
+	s32 index;
+
+	void Shuffle() {
+		for (int i = 0; i < 32; ++i) {
+			state[i] ^= state[i + 489];
+		}
+		for (int i = 32; i < 521; ++i) {
+			state[i] ^= state[i - 32];
+		}
+	}
+
+	void Init(u32 seed) {
+		uint32_t acc = 0;
+
+		for (int i = 0; i < 17; ++i) {
+			for (int j = 0; j < 32; ++j) {
+				seed = seed * 0x5D588B65u + 1;
+				acc = (acc >> 1) | (seed & 0x80000000);
+			}
+			state[i] = acc;
+		}
+
+		state[16] = (state[16] << 23) ^ (state[0] >> 9) ^ state[15];
+
+		for (int i = 17; i < 521; i++) {
+			state[i] = (state[i - 17] << 23) ^ (state[i - 16] >> 9) ^ state[i - 1];
+		}
+
+		Shuffle();
+		Shuffle();
+		Shuffle();
+
+		index = 520;
+	}
+
+	u32 Next() {
+		++index;
+
+		if (index > 520) {
+			Shuffle();
+			index = 0;
+		}
+
+		return state[index];
+	}
+
+	void DoState(PointerWrap& p) {
+		Do(p, state);
+		Do(p, index);
+	}
+};
+
+
+static SceNetRngContext rng_context;
+
+
+void __NetLibDoState(PointerWrap& p) {
+	auto s = p.Section("sceNet_lib", 0, 1);
+	if (!s) {
+		return;
+	}
+	Do(p, rng_context);
+}
+
+
+void InitNetLibRngContext(u32 seed) {
+	INFO_LOG(Log::sceNet, "Initialized the sceNet_lib rng context, seed=%d", seed);
+	rng_context.Init(seed);
+}
+
+
+u32 sceNetRand() {
+	return hleLogDebug(Log::sceNet, rng_context.Next());
+}
 
 u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
 	// Redirect that to libc
@@ -117,7 +197,7 @@ s32 sceNetMemcmp(u32 lhsPtr, u32 rhsPtr, u32 count) {
 
 
 const HLEFunction sceNet_lib[] = {
-	{0X1858883D, nullptr,                        "sceNetRand",                  'i', ""       },
+	{0X1858883D, &WrapU_V<sceNetRand>,           "sceNetRand",                  'i', ""       },
 	{0X2A73ADDC, &WrapU_CUI<sceNetStrtoul>,      "sceNetStrtoul",               'i', "sxi"    },
 	{0X4753D878, &WrapU_VUU<sceNetMemmove>,      "sceNetMemmove",               'i', "xxx"    },
 	{0X80C9F02A, &WrapU_VC<sceNetStrcpy>,        "sceNetStrcpy",                'i', "xs"     },

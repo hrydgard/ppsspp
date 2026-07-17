@@ -93,6 +93,7 @@
 #include "sceAac.h"
 #include "sceOpenPSID.h"
 #include "sceHttp.h"
+#include "sceNet_lib.h"
 #include "Core/Util/PPGeDraw.h"
 
 /*
@@ -305,6 +306,7 @@ void __KernelDoState(PointerWrap &p)
 		__UsbGpsDoState(p);
 		__UsbMicDoState(p);
 		__RegDoState(p);
+		__NetLibDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
