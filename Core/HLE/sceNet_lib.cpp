@@ -196,6 +196,176 @@ s32 sceNetMemcmp(u32 lhsPtr, u32 rhsPtr, u32 count) {
 }
 
 
+// NOTE: I stole it from SysclibForKernel
+static int sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
+	if (!Memory::IsValidNullTerminatedString(fmt)) {
+		ERROR_LOG(Log::sceNet, "net sprintf bad fmt");
+		return 0;
+	}
+
+	VERBOSE_LOG(Log::sceNet, "net sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
+	VERBOSE_LOG(Log::sceNet, "net sprintf a0-a4, t0-t4: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+		currentMIPS->r[MIPS_REG_A0],
+		currentMIPS->r[MIPS_REG_A1],
+		currentMIPS->r[MIPS_REG_A2],
+		currentMIPS->r[MIPS_REG_A3],
+		currentMIPS->r[MIPS_REG_T0],
+		currentMIPS->r[MIPS_REG_T1],
+		currentMIPS->r[MIPS_REG_T2],
+		currentMIPS->r[MIPS_REG_T3]
+	);
+
+	bool processing_specifier = false;
+	std::string specifier = "";
+	int bytes_to_read = 0;
+	int arg_idx = paramOffset;
+	std::string result = "";
+	for (const char* c = Memory::GetCharPointerUnchecked(fmt); *c != '\0'; c++) {
+		if (!processing_specifier) {
+			if (*c == '%') {
+				specifier = "%";
+				processing_specifier = true;
+				bytes_to_read = 0;
+			}
+			else {
+				result.append(1, *c);
+			}
+		}
+		else {
+			specifier.append(1, *c);
+
+			// going by https://cplusplus.com/reference/cstdio/printf/#compatibility
+			// no idea what the kernel module really supports as of writing this
+			switch (*c) {
+			case '%':
+			{
+				result.append(specifier);
+				processing_specifier = false;
+				break;
+			}
+			case 's':
+			{
+				// consume 4 bytes from arguments
+				u32 val = 0;
+				if (arg_idx <= 1) {
+					val = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+				}
+				else if (arg_idx <= 5) {
+					val = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+				}
+				else {
+					int stack_idx = arg_idx - 6;
+					u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
+
+					if (!Memory::IsValidAddress(stack_cur)) {
+						ERROR_LOG(Log::sceNet, "net sprintf bad stack pointer %08x", stack_cur);
+						return 0;
+					}
+					val = Memory::Read_U32(stack_cur);
+					VERBOSE_LOG(Log::sceNet, "net sprintf fetching %08x from sp + %u", val, stack_idx * 4);
+				}
+				arg_idx++;
+
+				if (!Memory::IsValidNullTerminatedString(val)) {
+					ERROR_LOG(Log::sceNet, "net sprintf bad string reference at %08x", val);
+					return 0;
+				}
+				result.append(Memory::GetCharPointerUnchecked(val));
+				processing_specifier = false;
+				break;
+			}
+			case 'd':
+			case 'i':
+			case 'u':
+			case 'o':
+			case 'x':
+			case 'X':
+			case 'f':
+			case 'e':
+			case 'E':
+			case 'g':
+			case 'G':
+			case 'c':
+			case 'p':
+			case 'n':
+			{
+				u64 val = 0;
+				if (bytes_to_read == 0) {
+					bytes_to_read = 4;
+				}
+				int read_cnt = 0;
+				while (bytes_to_read != 0) {
+					u32 val_from_arg = 0;
+					if (arg_idx <= 1) {
+						val_from_arg = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+					}
+					else if (arg_idx <= 5) {
+						val_from_arg = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+					}
+					else {
+						int stack_idx = arg_idx - 6;
+						u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
+
+						if (!Memory::IsValidAddress(stack_cur)) {
+							ERROR_LOG(Log::sceNet, "net sprintf bad stack pointer %08x", stack_cur);
+							return 0;
+						}
+						val_from_arg = Memory::Read_U32(stack_cur);
+						DEBUG_LOG(Log::sceNet, "net sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
+					}
+					arg_idx++;
+
+					val = val | ((u64)val_from_arg << (read_cnt * 32));
+
+					bytes_to_read = bytes_to_read - 4;
+					read_cnt++;
+				}
+				char buf[128] = { 0 };
+				snprintf(buf, sizeof(buf), specifier.c_str(), val);
+				buf[sizeof(buf) - 1] = '\0';
+				result.append(buf);
+				processing_specifier = false;
+				break;
+			}
+			case 'h':
+			{
+				// allegrex calling convention is 4 bytes aligned
+				bytes_to_read = 4;
+				break;
+			}
+			case 'l':
+			{
+				bytes_to_read = bytes_to_read + 4;
+				break;
+			}
+			}
+		}
+	}
+
+	const size_t retval = result.size();
+
+	// Implement the snprintf length check.
+	if (limit != 0 && result.length() >= limit) {
+		result.resize(limit - 1);
+	}
+
+	VERBOSE_LOG(Log::sceNet, "net sprintf result string has length %d (retval: %d), content:", (int)result.length(), (int)retval);
+	VERBOSE_LOG(Log::sceNet, "%s", result.c_str());
+	// Since this is a sprintf function and not an actual printf, we don't log to the Sprintf log.
+	// INFO_LOG(Log::Printf, "%s", result.c_str());
+	if (!Memory::IsValidRange(dst, (u32)result.length() + 1)) {
+		ERROR_LOG(Log::sceNet, "net sprintf result string is too long or dst is invalid");
+		return 0;
+	}
+	memcpy((char*)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
+	return (int)retval;
+}
+
+static int sceNetSprintf(u32 dst, u32 fmt) {
+	DEBUG_LOG(Log::sceNet, "Untested: sceNetSprintf(dst=%08x, fmt=%08x)", dst, fmt);
+	return hleLogDebug(Log::sceNet, sprintf_impl(dst, 0, fmt, 0));
+}
+
 const HLEFunction sceNet_lib[] = {
 	{0X1858883D, &WrapU_V<sceNetRand>,           "sceNetRand",                  'i', ""       },
 	{0X2A73ADDC, &WrapU_CUI<sceNetStrtoul>,      "sceNetStrtoul",               'i', "sxi"    },
@@ -206,7 +376,7 @@ const HLEFunction sceNet_lib[] = {
 	{0XA0F16ABD, &WrapI_CC<sceNetStrcmp>,        "sceNetStrcmp",                'i', "ss"     },
 	{0XB5CE388A, &WrapU_VCU<sceNetStrncpy>,      "sceNetStrncpy",               'i', "xsx"    },
 	{0XBCBE14CF, &WrapU_VI<sceNetStrchr>,        "sceNetStrchr",                'i', "si"     },
-	{0XCF705E46, nullptr,                        "sceNetSprintf",               'i', ""       },
+	{0XCF705E46, &WrapI_UU<sceNetSprintf>,       "sceNetSprintf",               'i', "xx"     },
 	{0XD8722983, &WrapU_C<sceNetStrlen>,         "sceNetStrlen",                'i', "s"      },
 	{0XE0A81C7C, &WrapI_UUU<sceNetMemcmp>,       "sceNetMemcmp",                'i', "xxx"    },
 };
