@@ -641,26 +641,19 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 
 	FindFiltering(replacementKey, &desc.forceFiltering);
 
-	if (!foundAlias) {
-		// We'll just need to generate the names for each level.
-		// By default, we look for png since that's also what's dumped.
-		// For other file formats, use the ini to create aliases.
-		desc.filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
-		for (int level = 0; level < desc.filenames.size(); level++) {
-			desc.filenames[level] = TextureReplacer::HashName(replacementKey, level) + ".png";
-		}
-		desc.logId = desc.filenames[0];
-		desc.hashfiles = desc.filenames[0];  // The generated filename of the top level is used as the key in the data cache.
-		hashfiles.clear();
-		hashfiles.reserve(desc.filenames[0].size() * (desc.filenames.size() + 1));
-		for (int level = 0; level < desc.filenames.size(); level++) {
-			hashfiles += desc.filenames[level];
-			hashfiles.push_back('|');
-		}
-	} else {
+	if (foundAlias) {
 		desc.logId = hashfiles;
 		SplitString(hashfiles, '|', desc.filenames);
 		desc.hashfiles = hashfiles;
+	} else {
+		DEBUG_LOG(Log::TexReplacement, "Replacement not found in alias list - skipping!");
+		// Not found in the alias map.
+		//
+		// Since we've added aliases generated from the file listing, if we didn't found an alias, that means that
+		// we shouldn't replace this texture. Add a marker to cache_.
+		ReplacedTextureRef ref{};
+		cache_.emplace(std::make_pair(replacementKey, ref));
+		return nullptr;
 	}
 
 	_dbg_assert_(!hashfiles.empty());
