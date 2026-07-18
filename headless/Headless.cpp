@@ -181,6 +181,8 @@ struct AutoTestOptions {
 };
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
+	using namespace Draw;
+
 	// Kinda ugly, trying to guesstimate the test name from filename...
 	currentTestName = GetTestName(coreParameter.fileToStart);
 
@@ -265,6 +267,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		if (gpu) {
 			gpu->SetCurFramebufferDirty(true);
 			gpu->PrepareCopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
+			draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 			gpu->CopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 		}
 
