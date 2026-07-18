@@ -158,7 +158,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 			}
 		}
 		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
-		std::string buf = temp;
+		std::string buf = std::move(temp);
 		if (buf == "BKPT 1") {
 			bkpt_count++;
 		} else {
@@ -222,7 +222,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 			}
 		}
 		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false, Arm64SymbolCallback);
-		std::string buf = temp;
+		std::string buf = std::move(temp);
 		if (buf == "BKPT 1") {
 			bkpt_count++;
 		} else {
@@ -307,7 +307,7 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 			lines.push_back("[bad]");
 			continue;
 		}
-		std::string str = buf;
+		std::string str = std::move(buf);
 		if (str == "int3") {
 			int3_count++;
 		} else {
