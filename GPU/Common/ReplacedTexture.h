@@ -64,11 +64,45 @@ struct GPUFormatSupport {
 	bool etc2;
 };
 
+struct ReplacementCacheKey {
+	u64 cachekey;  // Split into two u32?
+	u32 hash;
+
+	ReplacementCacheKey() : cachekey(0), hash(0) {}
+	ReplacementCacheKey(u64 ckey, u32 h) : cachekey(ckey), hash(h) {}
+
+	bool operator ==(const ReplacementCacheKey &k) const {
+		return k.cachekey == cachekey && k.hash == hash;
+	}
+
+	bool operator <(const ReplacementCacheKey &k) const {
+		if (k.cachekey == cachekey) {
+			return k.hash < hash;
+		}
+		return k.cachekey < cachekey;
+	}
+
+	// Access the parts.
+	u64 CacheKey() const { return cachekey; }
+	u32 ClutHash() const { return (u32)(cachekey & 0xFFFFFFFFULL); }
+	u32 Address() const { return (u32)(cachekey >> 32); }
+	u32 ContentsHash() const { return hash; }
+
+	void ZeroAddress() {
+		cachekey &= 0xFFFFFFFFULL;
+	}
+	void ZeroClutHash() {
+		cachekey &= 0xFFFFFFFF00000000ULL;
+	}
+	void ZeroContentsHash() {
+		hash = 0;
+	}
+};
+
 struct ReplacementDesc {
 	int newW;
 	int newH;
-	uint64_t cachekey;
-	uint32_t hash;
+	ReplacementCacheKey cacheKey;
 	int w;
 	int h;
 	TextureFiltering forceFiltering;

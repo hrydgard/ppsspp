@@ -50,24 +50,6 @@ struct SavedTextureCacheData {
 	double lastTimeSaved = 0.0;
 };
 
-struct ReplacementCacheKey {
-	u64 cachekey;
-	u32 hash;
-
-	ReplacementCacheKey(u64 c, u32 h) : cachekey(c), hash(h) { }
-
-	bool operator ==(const ReplacementCacheKey &k) const {
-		return k.cachekey == cachekey && k.hash == hash;
-	}
-
-	bool operator <(const ReplacementCacheKey &k) const {
-		if (k.cachekey == cachekey) {
-			return k.hash < hash;
-		}
-		return k.cachekey < cachekey;
-	}
-};
-
 namespace std {
 	template <>
 	struct hash<ReplacementCacheKey> {
@@ -109,7 +91,7 @@ public:
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV);
 
 	// Returns nullptr if not found.
-	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h);
+	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h);
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
@@ -126,10 +108,10 @@ public:
 	int GetNumTrackedTextures() const { return (int)cache_.size(); }
 	int GetNumCachedReplacedTextures() const { return (int)levelCache_.size(); }
 
-	static std::string HashName(u64 cachekey, u32 hash, int level);
+	static std::string HashName(ReplacementCacheKey key, int level);
 
 protected:
-	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
+	bool FindFiltering(ReplacementCacheKey key, TextureFiltering *forceFiltering);
 
 	bool LoadIni(std::string *error, bool notify = true);
 	bool LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride, std::string *error);
@@ -138,9 +120,8 @@ protected:
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
 	float LookupReduceHashRange(int w, int h);
-	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
+	std::string LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored);
 
-	static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 	void ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 
 	bool replaceEnabled_ = false;
@@ -158,7 +139,7 @@ protected:
 	std::string gameID_;
 	Path basePath_;
 	Path newTextureDir_;
-	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
+	ReplacedTextureHash textureHash_ = ReplacedTextureHash::QUICK;
 
 	VFSBackend *vfs_ = nullptr;
 	bool vfsIsZip_ = false;
