@@ -859,8 +859,8 @@ void UmdReplaceScreen::CreateViews() {
 }
 
 void UmdReplaceScreen::update() {
+	UIBaseDialogScreen::update();
 	UpdateUIState(UISTATE_PAUSEMENU);
-	UIScreen::update();
 }
 
 void UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
