@@ -221,14 +221,14 @@ void TextureCacheVulkan::DeviceLost() {
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
 	samplerCache_.DeviceLost();
-	if (samplerNearest_)
+	if (samplerNearest_) {
 		vulkan->Delete().QueueDeleteSampler(samplerNearest_);
+	}
 
 	ClearScalingShaders(vulkan);
 
 	computeShaderManager_.DeviceLost();
 
-	nextTexture_ = nullptr;
 	draw_ = nullptr;
 	Unbind();
 }
@@ -1006,7 +1006,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	TextureApplyResult textureResult = ApplyTexture(true);
 	if (textureResult.framebuffer) {
 		*isFramebuffer = true;
-		return GetFramebufferTextureDebug(textureResult.framebuffer, buffer);
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
 	}
 
 	TexCacheEntry *entry = textureResult.texCacheEntry;

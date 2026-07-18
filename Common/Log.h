@@ -37,6 +37,7 @@ enum class Log {
 	CPU,
 	FileSystem,
 	G3D,
+	TexCache,
 	HLE,
 	JIT,
 	Loader,

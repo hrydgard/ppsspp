@@ -37,8 +37,6 @@
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-
-	nextTexture_ = nullptr;
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
@@ -368,7 +366,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 	TextureApplyResult textureResult = ApplyTexture(false);
 	if (textureResult.framebuffer) {
 		*isFramebuffer = true;
-		return GetFramebufferTextureDebug(textureResult.framebuffer, buffer);
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
 	}
 
 	TexCacheEntry *entry = textureResult.texCacheEntry;

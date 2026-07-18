@@ -142,7 +142,7 @@ enum class TexStatus : u16 {
 
 	MANY_CLUT_VARIANTS = (1 << 3),   // Has multiple CLUT variants.
 	RELIABLE = (1 << 4),    // Hash will never change. This only really applies to the font texture.
-	CLUT_RECHECK = (1 << 5),    // Another texture with same addr had a hashfail.
+	// Free bit: 5,
 	HASH_RECHECK = (1 << 6),   // Hash failed, but addr is the same, so we want to check again next time.
 	TO_SCALE = (1 << 7),        // Pending texture scaling in a later frame.
 	IS_SCALED_OR_REPLACED = (1 << 8),  // Has been scaled already (ignored for replacement checks).
@@ -159,8 +159,10 @@ ENUM_CLASS_BITOPS(TexStatus);
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
+#ifdef _DEBUG
 		if (texturePtr || textureName || vkTex)
 			Crash();
+#endif
 	}
 	// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 	const static int FRAMES_REGAIN_TRUST = 1000;
@@ -173,7 +175,6 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
-	s16 numInvalidated;
 	u32 fullhash;
 	u32 cluthash;
 	union {
@@ -329,6 +330,7 @@ struct TextureApplyResult {
 	// At most one of these will be set.
 	TexCacheEntry *texCacheEntry = nullptr;
 	VirtualFramebuffer *framebuffer = nullptr;
+	RasterChannel framebufferTextureChannel = RASTER_COLOR;
 	bool otherTexture = false;
 };
 
@@ -406,22 +408,18 @@ protected:
 	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.
 	// TODO: Return stuff directly instead of keeping state.
 	TextureApplyResult ApplyTextureFinish(TexCacheEntry *entry, bool doBind);
-	TextureApplyResult ApplyTextureFinishFramebuffer(VirtualFramebuffer *framebuffer, bool doBind);
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void BuildTexture(TexCacheEntry *const entry) = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
-	VirtualFramebuffer *SetTextureFramebuffer(const AttachCandidate &candidate);
-	void DeleteTexture(TexCache::iterator it);
+	VirtualFramebuffer *SetTextureFramebuffer(const AttachCandidate &candidate, RasterChannel *framebufferTextureChannel);
 	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
 	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);
 	virtual void ApplySamplerByKey(const SamplerCacheKey &key) = 0;
 
-	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);  // only overridden in GLES
-	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
 	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
 
@@ -439,7 +437,7 @@ protected:
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, GPUDebugBuffer &buffer);
+	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, RasterChannel channel, GPUDebugBuffer &buffer);
 
 	virtual void BoundFramebufferTexture() {}
 
@@ -475,10 +473,6 @@ protected:
 	AlignedVector<u32, 16> tmpTexBuf32_;
 	AlignedVector<u32, 16> tmpTexBufRearrange_;
 
-	TexCacheEntry *nextTexture_ = nullptr;
-	bool failedTexture_ = false;
-	RasterChannel nextFramebufferTextureChannel_ = RASTER_COLOR;
-
 	u32 clutHash_ = 0;
 
 	// Raw is where we keep the original bytes.  Converted is where we swap colors if necessary.
@@ -501,11 +495,6 @@ protected:
 
 	int standardScaleFactor_ = 0;
 	int shaderScaleFactor_ = 0;
-
-	const char *nextChangeReason_ = nullptr;
-	bool nextNeedsRehash_ = false;
-	bool nextNeedsChange_ = false;
-	bool nextNeedsRebuild_ = false;
 
 	u32 *expandClut_;
 };

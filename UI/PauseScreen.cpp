@@ -337,7 +337,7 @@ void GamePauseScreen::update() {
 	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
 		TriggerFinish(DR_BACK);
 	}
-	UIScreen::update();
+	UIBaseDialogScreen::update();
 
 	firstFrame_ = false;
 
