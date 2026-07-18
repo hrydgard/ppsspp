@@ -262,7 +262,7 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 	return desc;
 }
 
-VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
+VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs, const char *tag) {
 	PipelineKey key{ cs };
 	VkPipeline pipeline;
 	if (pipelines_.Get(key, &pipeline)) {
@@ -278,7 +278,11 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 	pci.flags = 0;
 
 	VkResult res = vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
-	_assert_(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "Failed to create compute pipeline from shader module (%s)", tag);
+		pipelines_.Insert(key, VK_NULL_HANDLE);
+	}
+	_dbg_assert_msg_(res == VK_SUCCESS, "Failed to create compute pipeline from shader module (%s)", tag);
 
 	pipelines_.Insert(key, pipeline);
 	return pipeline;

@@ -17,6 +17,6 @@
 
 #pragma once
 
-void MainThread_Start(bool separateRenderThread);
+void MainThread_Start();
 void MainThread_Stop();
 bool MainThread_Ready();

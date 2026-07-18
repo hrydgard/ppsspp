@@ -2792,7 +2792,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			}
 		}
 
-		// Check early for the degenerate case from Tactics Ogre.
+		// Check early for the degenerate case from Tactics Ogre (EN version, japanese is worse!).
 		if (pure3D && plan.levelsToLoad == 2 && gstate.getTextureAddress(0) == gstate.getTextureAddress(1)) {
 			// Simply treat it as a regular 2D texture, no fake mipmaps or anything.
 			// levelsToLoad/Create gets set to 1 on the way out from the surrounding if.

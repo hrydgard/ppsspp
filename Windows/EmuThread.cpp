@@ -43,7 +43,6 @@ static std::thread emuThread;
 static std::atomic<EmuThreadState> g_emuThreadState(EmuThreadState::DISABLED);
 
 static std::thread mainThread;
-static bool useEmuThread;
 static std::string g_error_message;
 static bool g_inLoop;
 
@@ -54,8 +53,7 @@ static GraphicsContext *g_graphicsContext;
 
 void MainThreadFunc();
 
-void MainThread_Start(bool separateEmuThread) {
-	useEmuThread = separateEmuThread;
+void MainThread_Start() {
 	mainThread = std::thread(&MainThreadFunc);
 }
 
@@ -146,7 +144,8 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 }
 
 void MainThreadFunc() {
-	// We'll start up a separate thread we'll call Emu
+	const bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
 	System_SetWindowTitle("");
@@ -154,27 +153,17 @@ void MainThreadFunc() {
 	// We convert command line arguments to UTF-8 immediately.
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	std::vector<std::string> argsUTF8;
-	for (auto& string : wideArgs) {
+	for (const auto &string : wideArgs) {
 		argsUTF8.push_back(ConvertWStringToUTF8(string));
 	}
 	std::vector<const char *> args;
-	for (auto& string : argsUTF8) {
+	for (const auto &string : argsUTF8) {
 		args.push_back(string.c_str());
 	}
-	bool performingRestart = NativeIsRestarting();
+
+	const bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "", "", nullptr);
 
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		if (!useEmuThread) {
-			// Okay, we must've switched to OpenGL.  Let's flip the emu thread on.
-			useEmuThread = true;
-			SetCurrentThreadName("Render");
-		}
-	} else if (useEmuThread) {
-		// We must've failed over from OpenGL, flip the emu thread off.
-		useEmuThread = false;
-		SetCurrentThreadName("EmuThread");
-	}
 
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
@@ -305,7 +294,6 @@ void MainThreadFunc() {
 
 	g_graphicsContext->ThreadEnd();
 	g_graphicsContext->ShutdownFromRenderThread();
-
 	g_graphicsContext->Shutdown();
 
 	delete g_graphicsContext;

@@ -58,7 +58,7 @@ public:
 	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2, VkImageView image2, VkBuffer cbuffer, VkDeviceSize cbufferSize);
 
 	// This of course caches though.
-	VkPipeline GetPipeline(VkShaderModule cs);
+	VkPipeline GetPipeline(VkShaderModule cs, const char *tag);
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void ClearPipelines();
 

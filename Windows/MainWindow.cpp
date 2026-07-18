@@ -1102,7 +1102,7 @@ namespace MainWindow {
 			g_InputManager.StopPolling();
 			MainThread_Stop();
 			UpdateUIState(UISTATE_MENU);
-			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
+			MainThread_Start();
 			g_InputManager.BeginPolling();
 			break;
 
