@@ -2787,27 +2787,78 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
 	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "set socket alert delay", 1000);
 }
 
-static int get_postoffice_fd(int idx) {
+static bool postoffice_can_recv_or_listen_has_request(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->type == SOCK_PTP) {
 		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-			void *socket = ptp_listen_postoffice_recover(idx);
-			if (socket != NULL) {
-				return ptp_listen_get_native_sock(socket);
+			void *ptp_listen_handle = ptp_listen_postoffice_recover(idx);
+			if (ptp_listen_handle == NULL) {
+				return false;
 			}
-		} else {
-			void *socket = internal->postofficeHandle;
-			if (socket != NULL) {
-				return ptp_get_native_sock(socket);
+			int has_request = ptp_listen_has_request(ptp_listen_handle);
+			if (has_request == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+				internal->postofficeHandle = NULL;
+				ptp_listen_close(ptp_listen_handle);
+				return false;
+			}
+			if (has_request) {
+				return true;
+			}
+		} else if (internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
+			void *ptp_handle = internal->postofficeHandle;
+			if (ptp_handle == NULL) {
+				return false;
+			}
+			int peek_len = ptp_peek_next_size(ptp_handle);
+			if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+				return false;
+			}
+			if (peek_len > 0) {
+				return true;
 			}
 		}
 	} else {
-		void *socket = pdp_postoffice_recover(idx);
-		if (socket != NULL){
-			return pdp_get_native_sock(socket);
+		void *pdp_handle = pdp_postoffice_recover(idx);
+		if (pdp_handle == NULL){
+			return false;
+		}
+		int peek_len = pdp_buffered_data_size(pdp_handle);
+		if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			internal->postofficeHandle = NULL;
+			pdp_delete(pdp_handle);
+			return false;
+		}
+		if (peek_len > 0) {
+			return true;
 		}
 	}
-	return -1;
+	return false;
+}
+
+static bool postoffice_can_send(int idx) {
+	AdhocSocket *internal = adhocSockets[idx];
+	if (internal->type == SOCK_PTP && internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
+		void *ptp_handle = internal->postofficeHandle;
+		if (ptp_handle == NULL) {
+			return false;
+		}
+		if (ptp_is_dead(ptp_handle)) {
+			return false;
+		}
+		return ptp_send_buf_not_full(ptp_handle);
+	} else {
+		void *pdp_handle = pdp_postoffice_recover(idx);
+		if (pdp_handle == NULL){
+			return false;
+		}
+		if (pdp_is_dead(pdp_handle)) {
+			internal->postofficeHandle = NULL;
+			pdp_delete(pdp_handle);
+			return false;
+		}
+		return pdp_send_buf_not_full(pdp_handle);
+	}
+	return false;
 }
 
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
@@ -2827,11 +2878,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 			}
 
 			if (serverHasRelay) {
-				int postoffice_fd = get_postoffice_fd(sds[i].id - 1);
-				if (postoffice_fd == -1) {
-					continue;
-				}
-				fd = postoffice_fd;
+				continue;
 			} else {
 				if (sock->type == SOCK_PTP) {
 					fd = sock->data.ptp.id;
@@ -2850,20 +2897,16 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 	timeval tmout;
 	tmout.tv_sec = timeout / 1000000; // seconds
 	tmout.tv_usec = (timeout % 1000000); // microseconds
-	int affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
+	int affectedsockets = 0;
+	if (!serverHasRelay)
+		affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
 	if (affectedsockets >= 0) {
 		affectedsockets = 0;
 		for (int i = 0; i < count; i++) {
 			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
 				auto sock = adhocSockets[sds[i].id - 1];
 
-				if (serverHasRelay) {
-					int postoffice_fd = get_postoffice_fd(sds[i].id - 1);
-					if (postoffice_fd == -1) {
-						continue;
-					}
-					fd = postoffice_fd;
-				} else {
+				if (!serverHasRelay) {
 					if (sock->type == SOCK_PTP) {
 						fd = sock->data.ptp.id;
 					}
@@ -2871,19 +2914,32 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 						fd = sock->data.pdp.id;
 					}
 				}
-				if ((sds[i].events & ADHOC_EV_RECV) && FD_ISSET(fd, &readfds))
-					sds[i].revents |= ADHOC_EV_RECV;
-				if ((sds[i].events & ADHOC_EV_SEND) && FD_ISSET(fd, &writefds))
-					sds[i].revents |= ADHOC_EV_SEND;
-				if (sock->alerted_flags)
-					sds[i].revents |= ADHOC_EV_ALERT;
+				if (serverHasRelay) {
+					if ((sds[i].events & ADHOC_EV_RECV) && postoffice_can_recv_or_listen_has_request(sds[i].id - 1))
+						sds[i].revents |= ADHOC_EV_RECV;
+					if ((sds[i].events & ADHOC_EV_SEND) && postoffice_can_send(sds[i].id - 1))
+						sds[i].revents |= ADHOC_EV_SEND;
+				} else {
+					if ((sds[i].events & ADHOC_EV_RECV) && FD_ISSET(fd, &readfds))
+						sds[i].revents |= ADHOC_EV_RECV;
+					if ((sds[i].events & ADHOC_EV_SEND) && FD_ISSET(fd, &writefds))
+						sds[i].revents |= ADHOC_EV_SEND;
+					if (sock->alerted_flags)
+						sds[i].revents |= ADHOC_EV_ALERT;
+				}
 				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
 
 				if (sock->type == SOCK_PTP) {
 					// FIXME: Should we also make use "retry_interval" for ADHOC_EV_ACCEPT, similar to ADHOC_EV_CONNECT ?
-					if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN && (sds[i].events & ADHOC_EV_ACCEPT) && FD_ISSET(fd, &readfds)) {
-						sds[i].revents |= ADHOC_EV_ACCEPT;
+					if ((sds[i].events & ADHOC_EV_ACCEPT) && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
+						if (serverHasRelay) {
+							if (postoffice_can_recv_or_listen_has_request(sds[i].id - 1))
+								sds[i].revents |= ADHOC_EV_ACCEPT;
+						} else {
+							if (FD_ISSET(fd, &readfds))
+								sds[i].revents |= ADHOC_EV_ACCEPT;
+						}
 					}
 					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
 					else if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
