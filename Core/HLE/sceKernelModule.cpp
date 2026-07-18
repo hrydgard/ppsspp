@@ -1872,7 +1872,7 @@ int __KernelGPUReplay() {
 		Core_Stop();
 	}
 
-	if (PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
+	if (result == GPURecord::ReplayResult::Done && PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);

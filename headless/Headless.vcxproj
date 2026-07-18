@@ -368,6 +368,7 @@
   <ItemGroup>
     <None Include="..\test.py" />
     <None Include="headless.txt" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
