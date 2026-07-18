@@ -317,7 +317,7 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 		outStride = -outStride;
 	}
 
-	// Skip the bottom of the image in the buffer was smaller.  Remember, we're flipped.
+	// Skip the bottom of the image if the buffer was smaller.  Remember, we're flipped.
 	u32 *dst = &data[0];
 	if (safeH < h) {
 		dst += (h - safeH) * stride;
