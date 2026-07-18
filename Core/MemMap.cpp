@@ -342,7 +342,7 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 
 	// We only handle aligned data and sizes.
 	if ((size & 0x3F) != 0 || ((uintptr_t)d & 0x3F) != 0)
-		return p.DoVoid(d, size);
+		return std::move(p).DoVoid(d, size);
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
@@ -367,7 +367,7 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 }
 
 void DoState(PointerWrap &p) {
-	auto s = p.Section("Memory", 1, 3);
+	auto s = std::move(p).Section("Memory", 1, 3);
 	if (!s)
 		return;
 

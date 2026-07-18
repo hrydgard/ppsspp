@@ -331,7 +331,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 		u32 entry = cpu->GetPC();
 		u32 stackTop = 0;
 
-		auto threads = GetThreadsInfo();
+		auto threads = std::move(GetThreadsInfo());
 		for (size_t i = 0; i < threads.size(); i++) {
 			if (threads[i].isCurrent) {
 				entry = threads[i].entrypoint;
@@ -340,7 +340,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 			}
 		}
 
-		auto frames = MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop);
+		auto frames = std::move(MIPSStackWalk::Walk(cpu->GetPC(), cpu->GetRegValue(0, 31), cpu->GetRegValue(0, 29), entry, stackTop));
 		if (frames.size() < 2) {
 			// Failure. PC not moving.
 			return;
@@ -454,9 +454,9 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 		// Stop the tracer
 		mipsTracer.stop_tracing();
 
-		g_breakReason = reason;
+		g_breakReason = std::move(reason);
 		g_cpuStepCommand.type = CPUStepType::None;
-		g_cpuStepCommand.reason = reason;
+		g_cpuStepCommand.reason = std::move(reason);
 		g_cpuStepCommand.relatedAddr = relatedAddress;
 		steppingCounter++;
 		_assert_msg_(reason != BreakReason::None, "No reason specified for break");
