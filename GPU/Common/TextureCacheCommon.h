@@ -175,7 +175,6 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
-	s16 numInvalidated;
 	u32 fullhash;
 	u32 cluthash;
 	union {

@@ -155,7 +155,7 @@ void TextureCacheCommon::StartFrame() {
 	}
 
 	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(Log::G3D, "Scaled %d texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(Log::TexCache, "Scaled %d texels", texelsScaledThisFrame_);
 	}
 	texelsScaledThisFrame_ = 0;
 
@@ -463,6 +463,7 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 // TODO: This should use information from the through mode bbox check.
+// TODO: Also we should feed this information in so we have it during creation, if at all possible.
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall... otherwise we don't bother.
 	if (entry->dim < 0x900) {
@@ -608,7 +609,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		}
 
 		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
+			DEBUG_LOG(Log::TexReplacement, "%08x: Reloading texture to do the scaling we skipped before", texaddr);
 			match = false;
 			reason = "scaling";
 		}
@@ -624,7 +625,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				switch (entry->replacedTexture->State()) {
 				case ReplacementState::NOT_FOUND:
 					// Didn't find a replacement, so stop looking.
-					// DEBUG_LOG(Log::G3D, "No replacement for texture %dx%d", w0, h0);
+					DEBUG_LOG(Log::TexReplacement, "No replacement for texture %dx%d", w0, h0);
 					entry->status &= ~TexStatus::TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
 						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
@@ -677,7 +678,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
-			UpdateMaxSeenV(entry, gstate.isModeThrough());
 
 			if (rehash) {
 				// Update in case any of these changed.
@@ -700,14 +700,13 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				_dbg_assert_(w == gstate.getTextureWidth(0));
 				_dbg_assert_(h == gstate.getTextureHeight(0));
 				_dbg_assert_(entry->addr == texaddr);
+				UpdateMaxSeenV(entry, gstate.isModeThrough());
 				const u32 newFullHash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 				if (newFullHash != entry->fullhash) {
 					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
-					entry->numInvalidated++;
 					gpuStats.perFrame.numTexturesChanged++;
-
 					if (!isVideo) {
-						DEBUG_LOG(Log::TexCache, "%08x: Texture hash not matching: old %08x vs new %08x, reloading (%s) (w=%d h=%d)", entry->addr, entry->fullhash, newFullHash, reason, w, h);
+						DEBUG_LOG(Log::TexCache, "%08x: Texture hash not matching: old %08x vs new %08x, reloading (%s) (w=%d h=%d maxSeenV=%d)", entry->addr, entry->fullhash, newFullHash, reason, w, h, entry->maxSeenV);
 					}
 					// Mark any textures with the same address but different clut.  They need rechecking. Though, I think this is actually
 					// not needed anymore with the sync domains... Anyway.
@@ -895,15 +894,13 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
-
+	UpdateMaxSeenV(entry, gstate.isModeThrough());  // Critical to update this before hashing! As it's used to decide the hash range.
 	entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 
-	DEBUG_LOG(Log::TexCache, "No texture in cache for %08x, hash %08x, creating...", texaddr, entry->fullhash);
+	DEBUG_LOG(Log::TexCache, "%08x: Creating new texture, hash %08x (maxSeenV=%d), w: %d h: %d, creating", texaddr, entry->fullhash, entry->maxSeenV, w, h);
 
 	BuildTexture(entry);
-	UpdateMaxSeenV(entry, gstate.isModeThrough());
 	ForgetLastTexture();  // is this needed?
-
 	return ApplyTextureFinish(entry, doBind);
 }
 
@@ -1026,7 +1023,7 @@ static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, con
 		}
 		cands += "\n";
 
-		WARN_LOG(Log::G3D, "GetBestFramebufferCandidate(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+		WARN_LOG(Log::TexCache, "GetBestFramebufferCandidate(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
 			context,
 			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
@@ -1037,7 +1034,7 @@ static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, con
 
 	if (bestIndex != -1) {
 		if (logging) {
-			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s", (int)bestIndex, candidates[bestIndex].ToString().c_str());
+			WARN_LOG(Log::TexCache, "Chose candidate %d:\n%s", (int)bestIndex, candidates[bestIndex].ToString().c_str());
 		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
@@ -1560,7 +1557,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 							break;
 						}
 					} else {
-						WARN_LOG(Log::G3D, "Ignoring CLUT load from %d frames old buffer at %08x", gpuStats.totals.numFlips - framebuffer->last_frame_render, fb_address);
+						WARN_LOG(Log::TexCache, "Ignoring CLUT load from %d frames old buffer at %08x", gpuStats.totals.numFlips - framebuffer->last_frame_render, fb_address);
 					}
 				}
 			}
@@ -2333,7 +2330,7 @@ static bool CanDepalettizeBufferAs(GETextureFormat texFormat, GEBufferFormat buf
 			// Shouldn't happen here.
 			return false;
 		}
-		WARN_LOG(Log::G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
+		WARN_LOG(Log::TexCache, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
 		return false;
 	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
 		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
@@ -2660,7 +2657,7 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
 	if (cache_.size() + secondCache_.size()) {
-		INFO_LOG(Log::G3D, "Texture cached cleared from %d (s: %d) textures", (int)cache_.size(), (int)secondCache_.size());
+		INFO_LOG(Log::TexCache, "Texture cached cleared from %d (s: %d) textures", (int)cache_.size(), (int)secondCache_.size());
 		cache_.clear();
 		secondCache_.clear();
 	}
@@ -2837,7 +2834,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// These will only work correctly in the top 512x512 part. So, I've increased the threshold quite a bit.
 		// We probably should handle these differently, by clamping the texture size and texture coordinates, but meh.
 		if (plan.w > 2048 || plan.h > 2048) {
-			ERROR_LOG(Log::G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
+			ERROR_LOG(Log::TexCache, "Bad texture dimensions: %dx%d", plan.w, plan.h);
 			return false;
 		}
 	}
