@@ -54,9 +54,6 @@ static GraphicsContext *g_graphicsContext;
 
 void MainThreadFunc();
 
-// On most other platforms, we let the "main" thread become the render thread and
-// start a separate emu thread from that, if needed. Should probably switch to that
-// to make it the same on all platforms.
 void MainThread_Start(bool separateEmuThread) {
 	useEmuThread = separateEmuThread;
 	mainThread = std::thread(&MainThreadFunc);
@@ -151,11 +148,6 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 void MainThreadFunc() {
 	// We'll start up a separate thread we'll call Emu
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
-
-	const HWND console = GetConsoleWindow();
-	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
-		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	}
 
 	System_SetWindowTitle("");
 
@@ -318,12 +310,6 @@ void MainThreadFunc() {
 
 	delete g_graphicsContext;
 	g_graphicsContext = nullptr;
-
-	RECT rc;
-	if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
-		g_Config.iConsoleWindowX = rc.left;
-		g_Config.iConsoleWindowY = rc.top;
-	}
 
 	NativeShutdown();
 

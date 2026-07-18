@@ -575,6 +575,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
 	g_Config.Load();
+	System_Notify(SystemNotification::CONFIG_LOADED);
 #endif
 
 	const char *fileToLog = nullptr;
@@ -1707,6 +1708,8 @@ void NativeShutdown() {
 		delete g_screenManager;
 		g_screenManager = nullptr;
 	}
+
+	System_Notify(SystemNotification::BEFORE_CONFIG_SAVE_ON_EXIT);
 
 	g_Config.Save("NativeShutdown");
 

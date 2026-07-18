@@ -594,6 +594,21 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::APP_SWITCH_MODE_CHANGED:
 	case SystemNotification::UI_STATE_CHANGED:
 		break;
+	case SystemNotification::CONFIG_LOADED:
+	{
+		// This is too early to move the console into position - hasn't been allocated yet.
+		break;
+	}
+	case SystemNotification::BEFORE_CONFIG_SAVE_ON_EXIT:
+	{
+		RECT rc{};
+		const HWND console = GetConsoleWindow();
+		if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
+			g_Config.iConsoleWindowX = rc.left;
+			g_Config.iConsoleWindowY = rc.top;
+		}
+		break;
+	}
 	}
 }
 
@@ -1088,6 +1103,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// if it's not loaded here first.
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename.c_str(), controlsConfigFilename.c_str());
+	System_Notify(SystemNotification::CONFIG_LOADED);
 
 	bool debugLogLevel = false;
 
@@ -1169,6 +1185,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
 	//   - It should be possible to log to a file without showing the console.
 	g_logManager.GetConsoleListener()->Init(showLog, 150, 120);
+
+	// Move the console into position.
+	const HWND console = GetConsoleWindow();
+	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 
 	if (debugLogLevel) {
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
