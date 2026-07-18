@@ -192,12 +192,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		// Shouldn't really happen anymore, the errors happen later in PSP_InitUpdate.
 		fprintf(stderr, "Failed to start '%s'.\n", coreParameter.fileToStart.c_str());
 		printf("TESTERROR\n");
-		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
 		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
 		return false;
 	}
-
-	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", currentTestName.c_str());
 
 	if (opt.compare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
@@ -208,9 +205,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 
 	if (!PSP_IsInited()) {
-		TeamCityPrint("%s", error_string.c_str());
-		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
-		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 		GitHubActionsPrint("error", "Test init failed for %s", currentTestName.c_str());
 		return false;
 	}
@@ -254,7 +248,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 				printf("%s", output.c_str());
 
 				System_SendDebugOutput("TIMEOUT\n");
-				TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}
 
@@ -285,8 +278,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	if (opt.compare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose);
-
-	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
 	return passed;
 }
@@ -445,8 +436,6 @@ int main(int argc, const char* argv[])
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
 		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
 			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
-		else if (!strcmp(argv[i], "--teamcity"))
-			teamCityMode = true;
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
@@ -596,7 +585,7 @@ int main(int argc, const char* argv[])
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
 	if (screenshotSavePath)
 		headlessHost->SetScreenshotSavePath(Path(std::string(screenshotSavePath)));
-	headlessHost->SetWriteFailureScreenshot(!teamCityMode && !getenv("GITHUB_ACTIONS") && !testOptions.bench);
+	headlessHost->SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -689,7 +678,7 @@ int main(int argc, const char* argv[])
 
 	g_threadManager.Teardown();
 
-	if (!failedTests.empty() && !teamCityMode)
+	if (!failedTests.empty())
 		return 1;
 	return 0;
 }

@@ -23,9 +23,7 @@
 
 struct GPUDebugBuffer;
 
-extern bool teamCityMode;
 extern std::string currentTestName;
-void TeamCityPrint(const char *fmt, ...);
 void GitHubActionsPrint(const char *type, const char *fmt, ...);
 
 Path ExpectedFromFilename(const Path &bootFilename);
