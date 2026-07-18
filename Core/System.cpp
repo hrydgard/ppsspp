@@ -149,9 +149,9 @@ static Path SymbolMapFilename(const Path &currentFilename, const char *ext) {
 	// can't fail, definitely exists if it gets this far
 	File::GetFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
-		return currentFilename / (std::string(".ppsspp-symbols") + ext);
+		return std::move(currentFilename) / (std::string(".ppsspp-symbols") + ext);
 	}
-	return currentFilename.WithReplacedExtension(ext);
+	return std::move(currentFilename).WithReplacedExtension(ext);
 };
 
 static bool LoadSymbolsIfSupported() {
@@ -201,10 +201,10 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 
 	// Fall back to using the filename.
-	std::string filename = path.GetFilename();
+	std::string filename = std::move(path).GetFilename();
 	// Could be more discerning, but hey..
 	if (filename.size() > 10 && (filename[0] == 'U' || filename[0] == 'N') && filename[9] == '_') {
-		*id = filename.substr(0, 9);
+		*id = std::move(filename).substr(0, 9);
 		return true;
 	} else {
 		return false;
@@ -285,7 +285,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	g_DoubleTextureCoordinates = false;
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
-	g_CoreParameter.fileType = type;
+	g_CoreParameter.fileType = std::move(type);
 
 	std::string geDumpDiscID;
 
@@ -297,7 +297,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		// Doesn't seem to take ownership of fileLoader?
 		if (!MountGameISO(fileLoader, errorString)) {
-			*errorString = "Failed to mount ISO file: " + *errorString;
+			*errorString = "Failed to mount ISO file: " + std::move(*errorString);
 			return false;
 		}
 		if (LoadParamSFOFromDisc()) {
@@ -453,7 +453,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
-	g_loadedFile = fileLoader;
+	g_loadedFile = std::move(fileLoader);
 
 	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
