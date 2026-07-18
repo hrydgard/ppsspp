@@ -908,7 +908,6 @@ static bool DetectVulkanInExternalProcess() {
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
 	int wargc = -1;
-	// This is used for the WM_USER_RESTART_EMUTHREAD path.
 	if (!restartArgs.empty()) {
 		std::wstring wargs = ConvertUTF8ToWString("PPSSPP " + restartArgs);
 		wargv = CommandLineToArgvW(wargs.c_str(), &wargc);
@@ -919,7 +918,6 @@ std::vector<std::wstring> GetWideCmdLine() {
 
 	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
 	LocalFree(wargv);
-
 	return wideArgs;
 }
 
@@ -1023,7 +1021,7 @@ static void WinMainCleanup() {
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
-	std::vector<std::wstring> wideArgs = GetWideCmdLine();
+	const std::vector<std::wstring> wideArgs = GetWideCmdLine();
 
 	// Check for the Vulkan workaround before any serious init.
 	for (size_t i = 1; i < wideArgs.size(); ++i) {
@@ -1044,7 +1042,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	SetCurrentThreadName("Main");
 
 	TimeInit();
-
 	WinMainInit();
 
 #ifndef _DEBUG
@@ -1230,7 +1227,18 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
 	// manages its own render thread.
-	MainThread_Start();
+
+	// We convert command line arguments to UTF-8.
+	std::vector<std::string> argsUTF8;
+	for (const auto &string : wideArgs) {
+		argsUTF8.push_back(ConvertWStringToUTF8(string));
+	}
+	std::vector<const char *> args;
+	for (const auto &string : argsUTF8) {
+		args.push_back(string.c_str());
+	}
+
+	MainThread_Start((int)args.size(), args.data());
 
 	g_InputManager.BeginPolling();
 

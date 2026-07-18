@@ -46,15 +46,25 @@ static std::thread mainThread;
 static std::string g_error_message;
 static bool g_inLoop;
 
+static const char** g_argv;
+static int g_argc;
+
 extern std::vector<std::wstring> GetWideCmdLine();
 
 class GraphicsContext;
 static GraphicsContext *g_graphicsContext;
 
-void MainThreadFunc();
+void MainThreadFunc(int argc, const char *argv[]);
 
-void MainThread_Start() {
-	mainThread = std::thread(&MainThreadFunc);
+void MainThread_Start(int argc, const char *argv[]) {
+	// This is just to survive WM_USER_RESTART_EMUTHREAD.
+	if (g_argc == 0) {
+		g_argc = argc;
+		g_argv = argv;
+	}
+	mainThread = std::thread([]() {
+		MainThreadFunc(g_argc, g_argv);
+	});
 }
 
 void MainThread_Stop() {
@@ -65,6 +75,9 @@ void MainThread_Stop() {
 }
 
 bool MainThread_Ready() {
+	if (g_inLoop) {
+		_dbg_assert_(mainThread.joinable());
+	}
 	return g_inLoop;
 }
 
@@ -143,26 +156,15 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 	}
 }
 
-void MainThreadFunc() {
+void MainThreadFunc(int argc, const char *argv[]) {
 	const bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
 	System_SetWindowTitle("");
 
-	// We convert command line arguments to UTF-8 immediately.
-	std::vector<std::wstring> wideArgs = GetWideCmdLine();
-	std::vector<std::string> argsUTF8;
-	for (const auto &string : wideArgs) {
-		argsUTF8.push_back(ConvertWStringToUTF8(string));
-	}
-	std::vector<const char *> args;
-	for (const auto &string : argsUTF8) {
-		args.push_back(string.c_str());
-	}
-
 	const bool performingRestart = NativeIsRestarting();
-	NativeInit(static_cast<int>(args.size()), &args[0], "", "", nullptr);
+	NativeInit(argc, argv, "", "", nullptr);
 
 
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {

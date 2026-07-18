@@ -1102,7 +1102,7 @@ namespace MainWindow {
 			g_InputManager.StopPolling();
 			MainThread_Stop();
 			UpdateUIState(UISTATE_MENU);
-			MainThread_Start();
+			MainThread_Start(0, nullptr);
 			g_InputManager.BeginPolling();
 			break;
 

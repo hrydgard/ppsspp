@@ -17,6 +17,8 @@
 
 #pragma once
 
-void MainThread_Start();
+void MainThread_Start(int argc, const char *argv[]);
 void MainThread_Stop();
 bool MainThread_Ready();
+
+void MainThreadFunc(int argc, const char *argv[]);
