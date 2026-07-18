@@ -802,7 +802,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			DEBUG_LOG(Log::TexCache, "%08x: Texture was not a match (%s), recreating.", texaddr, reason);
 			// Wasn't a match even in format. Let's just delete it right away, since we know we need to rebuild it,
 			// and it's unlikely that putting it in the secondary cache will do us any good. We do that for things we rehash, though.
-			DeleteTexture(entryIter);
+			ReleaseTexture(entryIter->second.get(), true);
+			cache_.erase(entryIter);
 			entryIter = cache_.end();  // make sure we don't look at it again.
 			entry = nullptr;
 		}
@@ -1069,7 +1070,8 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
 				DEBUG_LOG(Log::TexCache, "Decimating cached texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
 				cacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
-				DeleteTexture(iter++);
+				ReleaseTexture(iter->second.get(), true);
+				iter = cache_.erase(iter);
 			} else {
 				++iter;
 			}
@@ -1120,10 +1122,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 	texaddr &= 0x3FFFFFFF;
 	for (const VideoInfo &info : videos_) {
-		if (texaddr < info.addr) {
-			continue;
-		}
-		if (texaddr < info.addr + info.size) {
+		if (texaddr >= info.addr && texaddr < info.addr + info.size) {
 			return true;
 		}
 	}
@@ -2653,7 +2652,6 @@ void TextureCacheCommon::DeviceRestore(Draw::DrawContext *draw) {
 
 void TextureCacheCommon::Clear(bool delete_them) {
 	textureShaderCache_.Clear();
-
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
@@ -2662,7 +2660,7 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
 	if (cache_.size() + secondCache_.size()) {
-		INFO_LOG(Log::G3D, "Texture cached cleared from %i textures", (int)(cache_.size() + secondCache_.size()));
+		INFO_LOG(Log::G3D, "Texture cached cleared from %d (s: %d) textures", (int)cache_.size(), (int)secondCache_.size());
 		cache_.clear();
 		secondCache_.clear();
 	}
@@ -2676,11 +2674,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		dynamicClutTemp_->Release();
 		dynamicClutTemp_ = nullptr;
 	}
-}
-
-void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
-	ReleaseTexture(it->second.get(), true);
-	cache_.erase(it);
 }
 
 // One type of texture update can happen without the involvement of the CPU: Block transfers.
