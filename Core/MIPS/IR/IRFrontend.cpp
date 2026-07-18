@@ -302,10 +302,10 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	}
 
 	if (!mipsTracer.tracing_enabled) {
-		instructions = code->GetInstructions();
+		instructions = code->TakeInstructions();
 	}
 	else {
-		std::vector<IRInst> block_instructions = code->GetInstructions();
+		std::vector<IRInst> block_instructions = code->TakeInstructions();
 		instructions.reserve(block_instructions.size() + 2); // +2 for Downcount and LogIRBlock
 		// The first instruction is "Downcount"
 		instructions.push_back(block_instructions.front());
@@ -324,20 +324,22 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		NOTICE_LOG(Log::JIT, "=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
-		for (size_t i = 0; i < ir.GetInstructions().size(); i++) {
+		const auto &instructions = ir.GetInstructions();
+		NOTICE_LOG(Log::JIT, "=============== Original IR (%d instructions) ===============", (int)instructions.size());
+		for (size_t i = 0; i < instructions.size(); i++) {
 			char buf[256];
-			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i]);
+			DisassembleIR(buf, sizeof(buf), instructions[i]);
 			NOTICE_LOG(Log::JIT, "%s", buf);
 		}
 		NOTICE_LOG(Log::JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		NOTICE_LOG(Log::JIT, "=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
-		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
+		const auto &instructions = code->GetInstructions();
+		NOTICE_LOG(Log::JIT, "=============== IR (%d instructions) ===============", (int)instructions.size());
+		for (size_t i = 0; i < instructions.size(); i++) {
 			char buf[256];
-			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i]);
+			DisassembleIR(buf, sizeof(buf), instructions[i]);
 			NOTICE_LOG(Log::JIT, "%s", buf);
 		}
 		NOTICE_LOG(Log::JIT, "===============        end         =================");

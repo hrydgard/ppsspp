@@ -406,6 +406,7 @@ public:
 	void ReplaceConstant(size_t instNumber, u32 newConstant);
 
 	const std::vector<IRInst> &GetInstructions() const { return insts_; }
+	std::vector<IRInst> &&TakeInstructions() { return std::move(insts_); }
 
 private:
 	std::vector<IRInst> insts_;
