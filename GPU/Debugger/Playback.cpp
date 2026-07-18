@@ -522,6 +522,7 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
 	ExecuteOnMain(Operation{ OpType::ReapplyGfxState });
 
+	// Hm, why are we doing this here? Should it be before?
 	for (int i = 0; i < 8; ++i) {
 		lastBufw_[i] = 0;
 		lastTex_[i] = 0;

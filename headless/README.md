@@ -167,7 +167,3 @@ The following configuration is hardcoded for headless mode (config file is never
 | Ignore bad mem access| Enabled    |                                          |
 | Firmware version     | 6.60       |                                          |
 | PSP model            | Slim       |                                          |
-
-## Comparison with `headless.txt`
-
-This README supersedes the older `headless.txt`, which is kept for reference but no longer updated.
