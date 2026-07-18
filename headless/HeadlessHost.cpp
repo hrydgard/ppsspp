@@ -25,11 +25,6 @@
 #include "headless/HeadlessHost.h"
 
 void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
-	// Only if we're actually comparing.
-	if (comparisonScreenshot_.empty()) {
-		return;
-	}
-
 	// We ignore the current framebuffer parameters and just grab the full screen.
 	const static u32 FRAME_STRIDE = 512;
 	const static u32 FRAME_WIDTH = 480;
@@ -38,6 +33,18 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {
 	GPUDebugBuffer buffer;
 	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
+
+	// If a screenshot save path is set, save unconditionally.
+	if (!screenshotSavePath_.empty()) {
+		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
+		if (saver.SaveActualBitmap(screenshotSavePath_))
+			SendAndCollectOutput("Screenshot saved to: " + screenshotSavePath_.ToVisualString() + "\n");
+	}
+
+	// Only compare if we have a reference.
+	if (comparisonScreenshot_.empty()) {
+		return;
+	}
 
 	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
 	double errors = comparer.Compare(comparisonScreenshot_);

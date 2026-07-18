@@ -53,6 +53,9 @@ public:
 		comparisonScreenshot_ = filename;
 		maxScreenshotError_ = maxError;
 	}
+	void SetScreenshotSavePath(const Path &filename) {
+		screenshotSavePath_ = filename;
+	}
 	void SetWriteFailureScreenshot(bool flag) {
 		writeFailureScreenshot_ = flag;
 	}
@@ -65,6 +68,7 @@ protected:
 	void SendAndCollectOutput(const std::string &output);
 
 	Path comparisonScreenshot_;
+	Path screenshotSavePath_;
 	double maxScreenshotError_ = 0.0;
 	std::string debugOutputBuffer_;
 	GPUCore gpuCore_;

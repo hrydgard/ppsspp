@@ -143,6 +143,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  --graphics=BACKEND    use a different gpu backend\n");
 	fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 	fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
+	fprintf(stderr, "  --screenshot-save=FILE  save rendered screenshot to a BMP file\n");
 	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
@@ -376,6 +377,7 @@ int main(int argc, const char* argv[])
 	const char *mountIso = nullptr;
 	const char *mountRoot = nullptr;
 	const char *screenshotFilename = nullptr;
+	const char *screenshotSavePath = nullptr;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -435,6 +437,8 @@ int main(int argc, const char* argv[])
 #endif
 		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
+		else if (!strncmp(argv[i], "--screenshot-save=", strlen("--screenshot-save=")) && strlen(argv[i]) > strlen("--screenshot-save="))
+			screenshotSavePath = argv[i] + strlen("--screenshot-save=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			testOptions.timeout = strtod(argv[i] + strlen("--timeout="), nullptr);
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
@@ -590,6 +594,8 @@ int main(int argc, const char* argv[])
 
 	if (screenshotFilename)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
+	if (screenshotSavePath)
+		headlessHost->SetScreenshotSavePath(Path(std::string(screenshotSavePath)));
 	headlessHost->SetWriteFailureScreenshot(!teamCityMode && !getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 
