@@ -887,8 +887,9 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	lastTextureCacheSizeGB_ = totalSizeGB;
 }
 
-template <typename Key, typename Value>
-static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(const std::unordered_map<Key, Value> &map, Key &key, u64 cachekey, u32 hash, bool ignoreAddress) {
+template <typename Value>
+static typename std::unordered_map<ReplacementCacheKey, Value>::const_iterator LookupWildcard(const std::unordered_map<ReplacementCacheKey, Value> &map, u64 cachekey, u32 hash, bool ignoreAddress) {
+	ReplacementCacheKey key(cachekey, hash);
 	auto alias = map.find(key);
 	if (alias != map.end())
 		return alias;
@@ -938,7 +939,7 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	}
 
 	ReplacementCacheKey replacementKey(cachekey, hash);
-	auto filter = LookupWildcard(filtering_, replacementKey, cachekey, hash, ignoreAddress_);
+	auto filter = LookupWildcard(filtering_, cachekey, hash, ignoreAddress_);
 	if (filter == filtering_.end()) {
 		// Allow a global wildcard.
 		replacementKey.cachekey = 0;
@@ -954,7 +955,7 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 
 std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored) {
 	ReplacementCacheKey key(cachekey, hash);
-	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
+	auto alias = LookupWildcard(aliases_, cachekey, hash, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
 		*foundAlias = true;
