@@ -11,15 +11,12 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/GraphicsContext.h"
-#include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
-#include "Windows/resource.h"
 #include "Core/Reporting.h"
-#include "Core/MemMap.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -165,7 +162,6 @@ void MainThreadFunc(int argc, const char *argv[]) {
 
 	const bool performingRestart = NativeIsRestarting();
 	NativeInit(argc, argv, "", "", nullptr);
-
 
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
