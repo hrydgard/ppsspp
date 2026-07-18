@@ -122,8 +122,6 @@ protected:
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored);
 
-	void ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
-
 	bool replaceEnabled_ = false;
 	bool saveEnabled_ = false;
 	bool allowVideo_ = false;

@@ -52,7 +52,8 @@ static const double MAX_CACHE_SIZE = 4.0;
 // Doesn't need to be deinited.
 static bool basisu_initialized = false;
 
-static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
+static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> *filenameMap);
+static void ComputeAliasMap(std::unordered_map<ReplacementCacheKey, std::string> *aliases, const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 
 TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
 	if (!basisu_initialized) {
@@ -197,14 +198,14 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 			}
 			// Do what we can do anyway: Scan for textures and build the map.
 			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
-			ScanForHashNamedFiles(dir, filenameMap);
+			ScanForHashNamedFiles(dir, &filenameMap);
 
 			if (filenameMap.empty()) {
 				WARN_LOG(Log::TexReplacement, "No replacement textures found.");
 				return false;
 			}
 
-			ComputeAliasMap(filenameMap);
+			ComputeAliasMap(&aliases_, filenameMap);
 		}
 	}
 
@@ -233,7 +234,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	return true;
 }
 
-static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
+static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> *filenameMap) {
 	// Scan the root of the texture folder/zip and preinitialize the hash map.
 	// TODO: Could put VFSFileReference into the map...
 	std::vector<File::FileInfo> filesInRoot;
@@ -256,13 +257,13 @@ static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey,
 			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
 			if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				// INFO_LOG(Log::TexReplacement, "hash-like file in root, adding: %s", file.name.c_str());
-				filenameMap[key][level] = file.name;
+				(*filenameMap)[key][level] = file.name;
 			}
 		}
 	}
 }
 
-void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
+static void ComputeAliasMap(std::unordered_map<ReplacementCacheKey, std::string> *aliases, const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
 	for (auto &pair : filenameMap) {
 		std::string alias;
 		int mipIndex = 0;
@@ -284,7 +285,7 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 				c = '/';
 			}
 		}
-		aliases_[pair.first] = alias;
+		(*aliases)[pair.first] = alias;
 	}
 }
 
@@ -335,7 +336,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 
 	if (dir) {
-		ScanForHashNamedFiles(dir, filenameMap);
+		ScanForHashNamedFiles(dir, &filenameMap);
 	}
 
 	std::string badFilenames;
@@ -385,7 +386,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 
 	// Now, translate the filenameMap to the final aliasMap.
-	ComputeAliasMap(filenameMap);
+	ComputeAliasMap(&aliases_, filenameMap);
 
 	if (badFileNameCount > 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
@@ -617,10 +618,12 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	desc.w = w;
 	desc.h = h;
 	desc.cacheKey = replacementKey;
-	LookupHashRange(replacementKey.Address(), w, h, &desc.newW, &desc.newH);
+	desc.forceFiltering = (TextureFiltering)0;  // invalid value
 
 	if (ignoreAddress_) {
 		replacementKey.ZeroAddress();
+	} else {
+		LookupHashRange(replacementKey.Address(), w, h, &desc.newW, &desc.newH);
 	}
 
 	bool foundAlias = false;
@@ -636,7 +639,6 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 		return nullptr;
 	}
 
-	desc.forceFiltering = (TextureFiltering)0;  // invalid value
 	FindFiltering(replacementKey, &desc.forceFiltering);
 
 	if (!foundAlias) {
@@ -818,7 +820,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		return;
 	}
 
-	// Only save the hashed portion of the PNG.
+	// Only save the hashed portion of the PNG, in case we have specified it in the ini file.
 	int lookupW;
 	int lookupH;
 	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH)) {
@@ -826,8 +828,8 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		h = lookupH * (scaledH / origH);
 	}
 
-
-	size_t saveBufSize = w * h * 4;
+	constexpr int bpp = 4;
+	size_t saveBufSize = w * h * bpp;
 	u8 *saveBuf = (u8 *)malloc(saveBufSize);
 	if (!saveBuf) {
 		ERROR_LOG(Log::TexReplacement, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
@@ -837,7 +839,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
 	// while we're at it.
 	for (int y = 0; y < h; y++) {
-		memcpy(saveBuf + y * w * 4, (const u8 *)data + y * srcPitch, w * 4);
+		memcpy(saveBuf + y * w * bpp, (const u8 *)data + y * srcPitch, w * bpp);
 	}
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));

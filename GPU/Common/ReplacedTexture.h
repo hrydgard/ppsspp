@@ -224,7 +224,7 @@ private:
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;
 	std::mutex lock_;
-	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;  // NOTE: Right now, the only supported format is Draw::DataFormat::R8G8B8A8_UNORM.
+	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;
 	TextureAlpha alphaStatus_ = TextureAlpha::Any;
 	double lastUsed = 0.0;
 
