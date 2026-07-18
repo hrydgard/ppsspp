@@ -1759,8 +1759,8 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 	}
 
 	double replaceStart = time_now_d();
-	u64 cachekey = entry->CacheKey();
-	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, *w, *h);
+	ReplacementCacheKey cacheKey(entry->CacheKey(), entry->fullhash);
+	ReplacedTexture *replaced = replacer_.FindReplacement(cacheKey, *w, *h);
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
 		// TODO: Remove the flag here?

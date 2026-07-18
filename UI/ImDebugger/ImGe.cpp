@@ -208,7 +208,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 							ImGui::Text("Replaced: %dx%d, %d mip levels", w, h, numLevels);
 							ImGui::Text("Level 0 size: %d bytes, format: %s", entry->replacedTexture->GetLevelDataSizeAfterCopy(0), Draw::DataFormatToString(entry->replacedTexture->Format()));
 						}
-						ImGui::Text("Key: %08x_%08x", (u32)(desc.cachekey >> 32), (u32)desc.cachekey);
+						ImGui::Text("Key: %08x_%08x_%08x", desc.cacheKey.Address(), desc.cacheKey.ClutHash(), desc.cacheKey.ContentsHash());
 						ImGui::Text("Hashfiles: %s", desc.hashfiles.c_str());
 						ImGui::Text("Base: %s", desc.basePath.c_str());
 						ImGui::Text("Alpha status: %d", (int)entry->replacedTexture->AlphaStatus());

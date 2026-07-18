@@ -264,7 +264,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 	if (levels_.empty()) {
 		// No replacement found.
-		std::string name = TextureReplacer::HashName(desc_.cachekey, desc_.hash, 0);
+		std::string name = TextureReplacer::HashName(desc_.cacheKey, 0);
 		if (result == LoadLevelResult::LOAD_ERROR) {
 			WARN_LOG(Log::TexReplacement, "Failed to load replacement texture '%s'", name.c_str());
 		}
@@ -273,7 +273,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	}
 
 	// Update the level dimensions.
-	for (auto &level : levels_) {
+	for (ReplacedTextureLevel &level : levels_) {
 		level.fullW = (level.w * desc_.w) / desc_.newW;
 		level.fullH = (level.h * desc_.h) / desc_.newH;
 
