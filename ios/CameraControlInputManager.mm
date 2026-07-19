@@ -154,6 +154,9 @@
     self.status = @"creating interaction...";
 
     // Create interaction and add it directly to parentView.
+    // BOTH primary (full press) and secondary (light press) handlers dispatch the
+    // same NKCODE_EXT_CAMERA_CONTROL, because the system may not deliver light-press
+    // events to the secondary handler outside of a full camera-control interface.
     __weak typeof(self) weakSelf = self;
     AVCaptureEventInteraction *interaction = [[AVCaptureEventInteraction alloc]
         initWithPrimaryEventHandler:^(AVCaptureEvent *event) {
@@ -164,7 +167,8 @@
         secondaryEventHandler:^(AVCaptureEvent *event) {
             typeof(self) strongSelf = weakSelf;
             if (!strongSelf) return;
-            [strongSelf handleEvent:event isFullPress:NO];
+            // Route light-press events to the same key code as full press.
+            [strongSelf handleEvent:event isFullPress:YES];
         }];
     interaction.enabled = YES;
 
