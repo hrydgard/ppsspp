@@ -759,10 +759,9 @@ namespace MIPSAnalyst {
 #if !PPSSPP_PLATFORM(IOS)
 		hashToFunction.reserve(functions.size());
 #endif
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
-			AnalyzedFunction &f = *iter;
-			if (f.hasHash && f.size > 16) {
-				hashToFunction.emplace(f.hash, &f);
+		for (auto &func : functions) {
+			if (func.hasHash && func.size > 16) {
+				hashToFunction.emplace(func.hash, &func);
 			}
 		}
 	}
@@ -878,20 +877,19 @@ namespace MIPSAnalyst {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		std::vector<u32> buffer;
 
-		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
-			AnalyzedFunction &f = *iter;
-			if (!Memory::IsValidRange(f.start, f.end - f.start + 4)) {
+		for (auto &func : functions) {
+			if (!Memory::IsValidRange(func.start, func.end - func.start + 4)) {
 				continue;
 			}
 
 			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
-			buffer.resize((f.end - f.start + 4) / 4);
+			buffer.resize((func.end - func.start + 4) / 4);
 			size_t pos = 0;
-			for (u32 addr = f.start; addr <= f.end; addr += 4) {
+			for (u32 addr = func.start; addr <= func.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
 				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr, true);
 				if (MIPS_IS_EMUHACK(instr)) {
-					f.hasHash = false;
+					func.hasHash = false;
 					goto skip;
 				}
 
@@ -903,8 +901,8 @@ namespace MIPSAnalyst {
 				buffer[pos++] = instr & validbits;
 			}
 
-			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
-			f.hasHash = true;
+			func.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
+			func.hasHash = true;
 skip:
 			;
 		}
@@ -1146,11 +1144,11 @@ skip:
 			new_functions.push_back(currentFunction);
 		}
 
-		for (auto iter = new_functions.begin(); iter != new_functions.end(); iter++) {
-			iter->size = iter->end - iter->start + 4;
-			if (insertSymbols && !iter->foundInSymbolMap) {
+		for (auto &func : new_functions) {
+			func.size = func.end - func.start + 4;
+			if (insertSymbols && !func.foundInSymbolMap) {
 				char temp[256];
-				g_symbolMap->AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
+				g_symbolMap->AddFunction(DefaultFunctionName(temp, func.start), func.start, func.end - func.start + 4);
 			}
 		}
 
@@ -1191,19 +1189,19 @@ skip:
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		// Check if we have this already
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
-			if (iter->start == startAddr) {
+		for (const auto &func : functions) {
+			if (func.start == startAddr) {
 				// Let's just add it to the hashmap.
-				if (iter->hasHash && size > 16 && SkipFuncHash(name)) {
+				if (func.hasHash && size > 16 && SkipFuncHash(name)) {
 					HashMapFunc hfun;
-					hfun.hash = iter->hash;
+					hfun.hash = func.hash;
 					strncpy(hfun.name, name, 64);
 					hfun.name[63] = 0;
 					hfun.size = size;
 					hashMap.insert(hfun);
 					return;
-				} else if (!iter->hasHash || size == 0) {
-					ERROR_LOG(Log::HLE, "%s: %08x %08x : match but no hash (%i) or no size", name, startAddr, size, iter->hasHash);
+				} else if (!func.hasHash || size == 0) {
+					ERROR_LOG(Log::HLE, "%s: %08x %08x : match but no hash (%i) or no size", name, startAddr, size, func.hasHash);
 				}
 			}
 		}
