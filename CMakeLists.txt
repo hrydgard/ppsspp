@@ -1472,6 +1472,7 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/AudioEngine.mm
 		ios/LocationHelper.mm
 		ios/Controls.mm
+		ios/ViewControllerCommon.mm
 		Core/Util/DarwinFileSystemServices.mm
 		Common/Battery/AppleBatteryClient.m
 		Common/Render/Text/draw_text_cocoa.mm
