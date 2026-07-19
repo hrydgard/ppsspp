@@ -411,6 +411,7 @@
     <ClCompile Include="..\..\Core\Util\PathUtil.cpp" />
     <ClCompile Include="..\..\Core\SaveStateRewind.cpp" />
     <ClCompile Include="..\..\Core\Util\VideoPlayer.cpp" />
+    <ClCompile Include="..\..\Core\CmdLine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Core\AVIDump.h" />
@@ -684,6 +685,7 @@
     <ClInclude Include="..\..\Core\Util\PathUtil.h" />
     <ClInclude Include="..\..\Core\SaveStateRewind.h" />
     <ClInclude Include="..\..\Core\Util\VideoPlayer.h" />
+    <ClInclude Include="..\..\Core\CmdLine.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE" />

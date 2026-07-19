@@ -608,6 +608,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ControlMapper.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Compatibility.cpp \
+  $(SRC)/Core/CmdLine.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/ConfigSettings.cpp \
   $(SRC)/Core/CoreTiming.cpp \
