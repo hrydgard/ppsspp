@@ -10,6 +10,8 @@ struct CommandLineOptions {
 	std::optional<bool> softwareRendering;
 	std::optional<bool> enableLogging;
 
+	std::optional<std::string> bootFilename;
+
 #ifndef _DEBUG
 	bool showLogWindow = false;
 #else
