@@ -3,25 +3,16 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AVKit/AVCaptureEventInteraction.h>
 
-// Minimum iOS version required for Camera Control button hardware.
-static const NSUInteger kMinIOSVersionMajor = 18;
-
 @interface CameraControlInputManager ()
 
 @property (nonatomic, copy) CameraControlPressCallback callback;
+@property (nonatomic, weak) UIView *parentView;
 
-// Hidden 1x1pt view that holds the interaction (must be in the responder chain).
-@property (nonatomic, strong) UIView *hiddenView;
-
-// AVFoundation session + input for camera access (required by system for event delivery).
 @property (nonatomic, strong) AVCaptureSession *session;
 @property (nonatomic, strong) AVCaptureDeviceInput *videoInput;
-
-// The interaction object that receives Camera Control button events.
 @property (nonatomic, strong) id interaction;
 
 @property (nonatomic, assign) BOOL sessionActive;
-@property (nonatomic, assign) BOOL permissionRequested;
 
 @end
 
@@ -31,79 +22,47 @@ static const NSUInteger kMinIOSVersionMajor = 18;
     self = [super init];
     if (self) {
         _callback = [callback copy];
-
-        _hiddenView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 1, 1)];
-        _hiddenView.clipsToBounds = YES;
-        _hiddenView.userInteractionEnabled = YES;
-        _hiddenView.translatesAutoresizingMaskIntoConstraints = NO;
-
-        [view addSubview:_hiddenView];
-        [NSLayoutConstraint activateConstraints:@[
-            [_hiddenView.topAnchor constraintEqualToAnchor:view.topAnchor],
-            [_hiddenView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
-            [_hiddenView.widthAnchor constraintEqualToConstant:1],
-            [_hiddenView.heightAnchor constraintEqualToConstant:1],
-        ]];
-
+        _parentView = view;
         _sessionActive = NO;
-        _permissionRequested = NO;
+
+        // Start immediately — don't wait for didBecomeActive (may not fire in LiveContainer).
+        [self requestCameraAccessAndSetup];
     }
     return self;
 }
 
 - (void)dealloc {
-    [self stop];
-    [_hiddenView removeFromSuperview];
+    [self stopInternal];
 }
 
-#pragma mark - Public Lifecycle
+#pragma mark - Public
 
 - (void)start {
-    if (self.sessionActive) {
-        return;
-    }
-
-    if (![self isIOS18OrLater]) {
-        NSLog(@"CameraControlInputManager: iOS 18+ required. Feature not available.");
-        return;
-    }
-
+    if (self.sessionActive) return;
     [self requestCameraAccessAndSetup];
 }
 
 - (void)stop {
-    if (!self.sessionActive) {
-        return;
-    }
-
-    [self stopSessionAndInteraction];
+    [self stopInternal];
 }
 
 #pragma mark - Camera Permission
-
-- (BOOL)isIOS18OrLater {
-    if (@available(iOS 18, *)) {
-        return YES;
-    }
-    return NO;
-}
 
 - (void)requestCameraAccessAndSetup {
     AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
 
     switch (status) {
         case AVAuthorizationStatusAuthorized:
-            [self setupSessionWithCamera];
+            [self setupSession];
             break;
 
         case AVAuthorizationStatusNotDetermined: {
-            self.permissionRequested = YES;
             [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (granted) {
-                        [self setupSessionWithCamera];
+                        [self setupSession];
                     } else {
-                        NSLog(@"CameraControlInputManager: Camera permission denied. Camera Control button will not work.");
+                        NSLog(@"CameraControlInputManager: Permission denied.");
                     }
                 });
             }];
@@ -112,25 +71,31 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 
         case AVAuthorizationStatusDenied:
         case AVAuthorizationStatusRestricted:
-            NSLog(@"CameraControlInputManager: Camera access denied/restricted. Camera Control button will not work.");
+            NSLog(@"CameraControlInputManager: Camera access denied/restricted.");
             break;
     }
+
 }
 
-#pragma mark - Session Setup (requires camera permission)
+#pragma mark - Session Setup (API_AVAILABLE(ios(17.2)))
 
-- (void)setupSessionWithCamera API_AVAILABLE(ios(17.2)) {
+- (void)setupSession API_AVAILABLE(ios(17.2)) {
     NSError *error = nil;
 
-    AVCaptureDevice *camera = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+    // Use discovery session for more reliable device finding.
+    AVCaptureDeviceDiscoverySession *discovery = [AVCaptureDeviceDiscoverySession
+        discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInWideAngleCamera]
+                              mediaType:AVMediaTypeVideo
+                               position:AVCaptureDevicePositionUnspecified];
+    AVCaptureDevice *camera = discovery.devices.firstObject;
     if (!camera) {
-        NSLog(@"CameraControlInputManager: No camera found.");
+        NSLog(@"CameraControlInputManager: No camera device found.");
         return;
     }
 
     AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:camera error:&error];
     if (error || !input) {
-        NSLog(@"CameraControlInputManager: Failed to create camera input: %@", error.localizedDescription);
+        NSLog(@"CameraControlInputManager: Failed to create input: %@", error.localizedDescription);
         return;
     }
     self.videoInput = input;
@@ -139,74 +104,80 @@ static const NSUInteger kMinIOSVersionMajor = 18;
     session.sessionPreset = AVCaptureSessionPresetLow;
 
     if (![session canAddInput:input]) {
-        NSLog(@"CameraControlInputManager: Cannot add video input to session.");
+        NSLog(@"CameraControlInputManager: Cannot add input to session.");
         return;
     }
     [session addInput:input];
+    self.session = session;
 
-    // Create the interaction
+    // Create interaction and add it directly to parentView.
     __weak typeof(self) weakSelf = self;
     AVCaptureEventInteraction *interaction = [[AVCaptureEventInteraction alloc]
         initWithPrimaryEventHandler:^(AVCaptureEvent *event) {
             typeof(self) strongSelf = weakSelf;
             if (!strongSelf) return;
-            [strongSelf handleCaptureEvent:event isFullPress:YES];
+            [strongSelf handleEvent:event isFullPress:YES];
         }
         secondaryEventHandler:^(AVCaptureEvent *event) {
             typeof(self) strongSelf = weakSelf;
             if (!strongSelf) return;
-            [strongSelf handleCaptureEvent:event isFullPress:NO];
+            [strongSelf handleEvent:event isFullPress:NO];
         }];
-
     interaction.enabled = YES;
-    [self.hiddenView addInteraction:interaction];
+
+    UIView *targetView = self.parentView;
+    if (!targetView) {
+        NSLog(@"CameraControlInputManager: Parent view gone.");
+        return;
+    }
+    [targetView addInteraction:interaction];
     self.interaction = interaction;
 
-    self.session = session;
     [session startRunning];
 
-    self.sessionActive = YES;
-    NSLog(@"CameraControlInputManager: Session started with camera input. Camera Control button events active.");
+    // Async check if session actually started.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (session.isRunning) {
+            self.sessionActive = YES;
+            NSLog(@"CameraControlInputManager: Session is RUNNING. Camera Control events active.");
+        } else {
+            NSLog(@"CameraControlInputManager: Session failed to start (isRunning=NO).");
+        }
+    });
 }
 
-- (void)stopSessionAndInteraction {
-    [self.session stopRunning];
-    self.session = nil;
-    self.videoInput = nil;
-
+- (void)stopInternal {
     if (self.interaction) {
-        [self.hiddenView removeInteraction:self.interaction];
+        UIView *targetView = self.parentView;
+        if (targetView) {
+            [targetView removeInteraction:self.interaction];
+        }
         self.interaction = nil;
     }
 
+    [self.session stopRunning];
+    self.session = nil;
+    self.videoInput = nil;
     self.sessionActive = NO;
-    NSLog(@"CameraControlInputManager: Session stopped.");
 }
 
-#pragma mark - Event Handling
+#pragma mark - Event Handling (API_AVAILABLE(ios(17.2)))
 
-- (void)handleCaptureEvent:(AVCaptureEvent *)event isFullPress:(BOOL)isFullPress API_AVAILABLE(ios(17.2)) {
+- (void)handleEvent:(AVCaptureEvent *)event isFullPress:(BOOL)isFullPress API_AVAILABLE(ios(17.2)) {
+    BOOL isDown;
     switch (event.phase) {
         case AVCaptureEventPhaseBegan:
-            if (self.callback) {
-                self.callback(isFullPress, YES);
-            }
+            isDown = YES;
             break;
-
         case AVCaptureEventPhaseEnded:
-            if (self.callback) {
-                self.callback(isFullPress, NO);
-            }
-            break;
-
         case AVCaptureEventPhaseCancelled:
-            if (self.callback) {
-                self.callback(isFullPress, NO);
-            }
+            isDown = NO;
             break;
-
         default:
-            break;
+            return;
+    }
+    if (self.callback) {
+        self.callback(isFullPress, isDown);
     }
 }
 
