@@ -1390,6 +1390,9 @@
     <ClCompile Include="Util\VideoPlayer.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="CmdLine.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2249,6 +2252,9 @@
     </ClInclude>
     <ClInclude Include="Util\VideoPlayer.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="CmdLine.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

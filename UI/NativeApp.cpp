@@ -619,19 +619,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				break;
 			case 'j':
 				g_Config.iCpuCore = (int)CPUCore::JIT;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case 'i':
 				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case 'r':
 				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case 'J':
 				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case '-':
 				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
@@ -649,6 +649,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					g_Config.bFullScreen = true;
 				}
 				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
+					g_Config.DoNotSaveSetting(&g_Config.mountRoot);
 					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
 				if (!strcmp(argv[i], "--windowed")) {

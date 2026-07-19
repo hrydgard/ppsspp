@@ -2142,6 +2142,8 @@ endif()
 add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
 	${CommonJIT}
+	Core/CmdLine.cpp
+	Core/CmdLine.h
 	Core/Config.cpp
 	Core/Config.h
 	Core/ConfigSettings.cpp
