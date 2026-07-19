@@ -8,22 +8,19 @@
 // but the Camera Control button shipped with iPhone 16 / iOS 18.
 static const NSUInteger kMinIOSVersionMajor = 18;
 
-@interface CameraControlInputManager () <AVCaptureVideoDataOutputSampleBufferDelegate>
+@interface CameraControlInputManager ()
 
 @property (nonatomic, copy) CameraControlPressCallback callback;
 
 // Hidden 1x1pt view that holds the interaction (must be in the responder chain).
 @property (nonatomic, strong) UIView *hiddenView;
 
-// AVFoundation session + input for keeping camera hardware active.
+// Lightweight AVCaptureSession (no inputs/outputs) to satisfy system requirement
+// for Camera Control event delivery.
 @property (nonatomic, strong) AVCaptureSession *session;
-@property (nonatomic, strong) AVCaptureDeviceInput *videoInput;
 
 // The interaction object that receives Camera Control button events.
-@property (nonatomic, strong) id interaction API_AVAILABLE(ios(17.2));
-
-// Plan B: data output to keep session "active" for event delivery.
-@property (nonatomic, strong) AVCaptureVideoDataOutput *videoOutput;
+@property (nonatomic, strong) id interaction;
 
 @property (nonatomic, assign) BOOL isRunning;
 
@@ -89,53 +86,7 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 #pragma mark - Internal (iOS 18+)
 
 - (void)startSessionAndInteraction {
-    NSError *error = nil;
-
-    // 1. Find the default video camera (wide-angle).
-    AVCaptureDevice *camera = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
-    if (!camera) {
-        NSLog(@"CameraControlInputManager: No camera found. Camera Control button will not work.");
-        return;
-    }
-
-    // 2. Create device input.
-    self.videoInput = [AVCaptureDeviceInput deviceInputWithDevice:camera error:&error];
-    if (error || !self.videoInput) {
-        NSLog(@"CameraControlInputManager: Failed to create camera input: %@", error.localizedDescription);
-        return;
-    }
-
-    // 3. Create and configure the capture session with the lowest preset.
-    self.session = [[AVCaptureSession alloc] init];
-    self.session.sessionPreset = AVCaptureSessionPresetLow;
-
-    if (![self.session canAddInput:self.videoInput]) {
-        NSLog(@"CameraControlInputManager: Cannot add video input to session.");
-        self.session = nil;
-        return;
-    }
-    [self.session addInput:self.videoInput];
-
-    // 4. (Plan A → B) Add a video data output to keep the session "active".
-    //    Apple's documentation states: "The system sends capture events only to apps
-    //    that actively use the camera." Without a data output, the session may not be
-    //    considered "active" enough to route Camera Control events.
-    //    The frames are discarded in the delegate callback.
-    self.videoOutput = [[AVCaptureVideoDataOutput alloc] init];
-    self.videoOutput.videoSettings = @{
-        (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA)
-    };
-    // Use a serial queue for the sample buffer delegate (frames are discarded immediately).
-    dispatch_queue_t queue = dispatch_queue_create("com.ppsspp.cameracontrol.frame", DISPATCH_QUEUE_SERIAL);
-    [self.videoOutput setSampleBufferDelegate:self queue:queue];
-    if ([self.session canAddOutput:self.videoOutput]) {
-        [self.session addOutput:self.videoOutput];
-    } else {
-        NSLog(@"CameraControlInputManager: Warning - could not add video data output. Events may not arrive.");
-        self.videoOutput = nil;
-    }
-
-    // 5. Create the AVCaptureEventInteraction.
+    // 1. Create the AVCaptureEventInteraction.
     //    Primary handler: receives Camera Control full-press events.
     //    Secondary handler: receives Camera Control half-press / light-press events.
     //    Use weakSelf to avoid a retain cycle (self → interaction → blocks → self).
@@ -156,25 +107,28 @@ static const NSUInteger kMinIOSVersionMajor = 18;
     [self.hiddenView addInteraction:interaction];
     self.interaction = interaction;
 
-    // 6. Start the session. The camera indicator will appear in the status bar.
+    // 2. Create an empty AVCaptureSession (no inputs or outputs).
+    //    The system requires a running AVCaptureSession in the app to deliver
+    //    Camera Control events via AVCaptureEventInteraction. An empty session
+    //    satisfies this requirement without accessing camera hardware — no
+    //    camera permission needed, no camera indicator in the status bar.
+    self.session = [[AVCaptureSession alloc] init];
     [self.session startRunning];
 
     self.isRunning = YES;
-    NSLog(@"CameraControlInputManager: Session started. Camera Control button events should now arrive.");
+    NSLog(@"CameraControlInputManager: Session started (no camera access). Camera Control button events should now arrive.");
 }
 
 - (void)stopSessionAndInteraction {
+    // Stop the session first.
+    [self.session stopRunning];
+    self.session = nil;
+
     // Remove the interaction from the view.
     if (self.interaction) {
         [self.hiddenView removeInteraction:self.interaction];
         self.interaction = nil;
     }
-
-    // Stop and tear down the session.
-    [self.session stopRunning];
-    self.session = nil;
-    self.videoInput = nil;
-    self.videoOutput = nil;
 
     self.isRunning = NO;
     NSLog(@"CameraControlInputManager: Session stopped.");
@@ -209,22 +163,6 @@ static const NSUInteger kMinIOSVersionMajor = 18;
         default:
             break;
     }
-}
-
-#pragma mark - AVCaptureVideoDataOutputSampleBufferDelegate
-
-- (void)captureOutput:(AVCaptureOutput *)output
-        didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
-        fromConnection:(AVCaptureConnection *)connection {
-    // Frames are intentionally discarded. The session exists only to keep the
-    // camera hardware "active" so AVCaptureEventInteraction can deliver events.
-    // The system manages the buffer lifecycle - do nothing.
-}
-
-- (void)captureOutput:(AVCaptureOutput *)output
-        didDropSampleBuffer:(CMSampleBufferRef)sampleBuffer
-        fromConnection:(AVCaptureConnection *)connection {
-    // Dropped frames are expected and harmless — we discard everything anyway.
 }
 
 @end
