@@ -96,7 +96,7 @@ static const NSUInteger kMinIOSVersionMajor = 18;
             [self setupSessionWithCamera];
             break;
 
-        case AVAuthorizationStatusNotDetermined:
+        case AVAuthorizationStatusNotDetermined: {
             self.permissionRequested = YES;
             [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
                 dispatch_async(dispatch_get_main_queue(), ^{
@@ -108,6 +108,7 @@ static const NSUInteger kMinIOSVersionMajor = 18;
                 });
             }];
             break;
+        }
 
         case AVAuthorizationStatusDenied:
         case AVAuthorizationStatusRestricted:
@@ -118,7 +119,7 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 
 #pragma mark - Session Setup (requires camera permission)
 
-- (void)setupSessionWithCamera {
+- (void)setupSessionWithCamera API_AVAILABLE(ios(17.2)) {
     NSError *error = nil;
 
     AVCaptureDevice *camera = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
@@ -184,7 +185,7 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 
 #pragma mark - Event Handling
 
-- (void)handleCaptureEvent:(AVCaptureEvent *)event isFullPress:(BOOL)isFullPress {
+- (void)handleCaptureEvent:(AVCaptureEvent *)event isFullPress:(BOOL)isFullPress API_AVAILABLE(ios(17.2)) {
     switch (event.phase) {
         case AVCaptureEventPhaseBegan:
             if (self.callback) {
