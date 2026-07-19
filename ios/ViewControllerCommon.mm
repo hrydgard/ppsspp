@@ -390,24 +390,34 @@ static int GetPickerRequestId(id picker) {
 			NativeKey(key);
 		}];
 
-	// Debug label for camera status (visible only during development).
-	cameraDebugLabel = [[UILabel alloc] initWithFrame:CGRectMake(8, 50, 300, 20)];
-	cameraDebugLabel.textColor = [UIColor whiteColor];
-	cameraDebugLabel.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
-	cameraDebugLabel.font = [UIFont systemFontOfSize:11];
-	cameraDebugLabel.textAlignment = NSTextAlignmentLeft;
-	cameraDebugLabel.text = @"Camera Control: starting...";
-	[self.view addSubview:cameraDebugLabel];
-
-	[NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) {
-		cameraDebugLabel.text = [NSString stringWithFormat:@"Camera: %@",
-			cameraControlInputManager.status ?: @"?"];
-		if (cameraControlInputManager.sessionActive) {
-			cameraDebugLabel.textColor = [UIColor greenColor];
-		} else {
-			cameraDebugLabel.textColor = [UIColor whiteColor];
+	// Debug label for camera status — added to the window to stay above Metal layer.
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		UIWindow *keyWindow = nil;
+		if (@available(iOS 13.0, *)) {
+			keyWindow = self.view.window;
 		}
-	}];
+		if (!keyWindow) {
+			keyWindow = [[UIApplication sharedApplication] keyWindow];
+		}
+		UIView *targetView = keyWindow ?: self.view;
+
+		cameraDebugLabel = [[UILabel alloc] initWithFrame:CGRectMake(8, 50, 350, 24)];
+		cameraDebugLabel.textColor = [UIColor whiteColor];
+		cameraDebugLabel.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.7];
+		cameraDebugLabel.font = [UIFont boldSystemFontOfSize:13];
+		cameraDebugLabel.textAlignment = NSTextAlignmentLeft;
+		cameraDebugLabel.layer.zPosition = 9999;
+		cameraDebugLabel.userInteractionEnabled = NO;
+		cameraDebugLabel.text = @"Camera: starting...";
+		[targetView addSubview:cameraDebugLabel];
+
+		[NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) {
+			cameraDebugLabel.text = [NSString stringWithFormat:@"Camera: %@",
+				cameraControlInputManager.status ?: @"?"];
+			cameraDebugLabel.textColor = cameraControlInputManager.isSessionActive
+				? [UIColor greenColor] : [UIColor whiteColor];
+		}];
+	});
 }
 
 extern float g_safeInsetLeft;
