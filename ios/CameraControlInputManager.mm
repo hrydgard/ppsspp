@@ -3,13 +3,15 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AVKit/AVCaptureEventInteraction.h>
 
-@interface CameraControlInputManager ()
+@interface CameraControlInputManager () <AVCaptureVideoDataOutputSampleBufferDelegate>
 
 @property (nonatomic, copy) CameraControlPressCallback callback;
 @property (nonatomic, weak) UIView *parentView;
 
 @property (nonatomic, strong) AVCaptureSession *session;
 @property (nonatomic, strong) AVCaptureDeviceInput *videoInput;
+@property (nonatomic, strong) AVCaptureVideoDataOutput *videoOutput;
+@property (nonatomic, strong) dispatch_queue_t cameraQueue;
 @property (nonatomic, strong) id interaction;
 
 @property (nonatomic, assign, getter=isSessionActive) BOOL sessionActive;
@@ -128,6 +130,25 @@
         return;
     }
     [session addInput:input];
+
+    // Add a video data output to force the camera hardware to actually stream.
+    // Without an output, the camera may report isRunning=YES but the hardware
+    // never powers on, so the system doesn't show the green indicator and
+    // AVCaptureEventInteraction doesn't receive events.
+    self.status = @"adding video output...";
+    AVCaptureVideoDataOutput *videoOutput = [[AVCaptureVideoDataOutput alloc] init];
+    videoOutput.alwaysDiscardsLateVideoFrames = YES;
+    videoOutput.videoSettings = nil; // Use default format.
+    // Set delegate to force the camera pipeline to fully activate.
+    self.cameraQueue = dispatch_queue_create("com.ppsspp.camera-frame-queue", DISPATCH_QUEUE_SERIAL);
+    [videoOutput setSampleBufferDelegate:self queue:self.cameraQueue];
+    if ([session canAddOutput:videoOutput]) {
+        [session addOutput:videoOutput];
+    } else {
+        self.status = @"⚠️ cannot add video output";
+        NSLog(@"CameraControlInputManager: Cannot add video output.");
+    }
+    self.videoOutput = videoOutput;
     self.session = session;
 
     self.status = @"creating interaction...";
@@ -181,9 +202,13 @@
         self.interaction = nil;
     }
 
+    // Remove video output delegate to break retain cycle.
+    [self.videoOutput setSampleBufferDelegate:nil queue:nil];
+
     [self.session stopRunning];
     self.session = nil;
     self.videoInput = nil;
+    self.videoOutput = nil;
     self.sessionActive = NO;
 }
 
@@ -205,6 +230,16 @@
     if (self.callback) {
         self.callback(isFullPress, isDown);
     }
+}
+
+#pragma mark - AVCaptureVideoDataOutputSampleBufferDelegate
+
+- (void)captureOutput:(AVCaptureOutput *)output didDropSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
+    // Frames are intentionally discarded — we only need the camera hardware active.
+}
+
+- (void)captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
+    // Frames are intentionally discarded — we only need the camera hardware active.
 }
 
 @end
