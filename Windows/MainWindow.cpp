@@ -1097,15 +1097,6 @@ namespace MainWindow {
 			UpdateWindowTitle();
 			break;
 
-		case WM_USER_RESTART_EMUTHREAD:
-			NativeSetRestarting();
-			g_InputManager.StopPolling();
-			MainThread_Stop();
-			UpdateUIState(UISTATE_MENU);
-			MainThread_Start(0, nullptr);
-			g_InputManager.BeginPolling();
-			break;
-
 		case WM_USER_SWITCHUMD_UPDATED:
 			UpdateSwitchUMD();
 			break;
