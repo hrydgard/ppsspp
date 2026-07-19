@@ -1433,6 +1433,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/IAPManager.h
 		ios/CameraHelper.mm
 		ios/CameraHelper.h
+		ios/CameraControlInputManager.h
+		ios/CameraControlInputManager.mm
 		ios/LocationHelper.mm
 		ios/LocationHelper.h
 		ios/PPSSPPUIApplication.h
@@ -1445,7 +1447,7 @@ elseif(IOS AND NOT LIBRETRO)
 		Common/Battery/AppleBatteryClient.m
 	)
 
-	list(APPEND nativeExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
+	list(APPEND nativeExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework AVKit -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		list(APPEND nativeExtraLibs "-weak_framework GameController")
 	endif()
@@ -1466,6 +1468,7 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/iCade/iCadeReaderView.m
 		ios/main.mm
 		ios/CameraHelper.mm
+		ios/CameraControlInputManager.mm
 		ios/AudioEngine.mm
 		ios/LocationHelper.mm
 		ios/Controls.mm

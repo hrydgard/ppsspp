@@ -16,6 +16,7 @@
 
 @interface PPSSPPBaseViewController () {
 	CameraHelper *cameraHelper;
+	CameraControlInputManager *cameraControlInputManager;
 	LocationHelper *locationHelper;
 	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
@@ -85,6 +86,9 @@ static int GetPickerRequestId(id picker) {
 }
 
 - (void)shutdown {
+	[cameraControlInputManager stop];
+	cameraControlInputManager = nil;
+
 	self.gameController = nil;
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
@@ -101,6 +105,8 @@ static int GetPickerRequestId(id picker) {
 }
 
 - (void)didBecomeActive {
+	[cameraControlInputManager start];
+
 	if (self.motionManager.accelerometerAvailable) {
 		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
 		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
@@ -119,6 +125,8 @@ static int GetPickerRequestId(id picker) {
 }
 
 - (void)willResignActive {
+	[cameraControlInputManager stop];
+
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
 		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
@@ -366,6 +374,20 @@ static int GetPickerRequestId(id picker) {
 	[locationHelper setDelegate:self];
 
 	self.motionManager = [[CMMotionManager alloc] init];
+
+	__weak PPSSPPBaseViewController *weakSelf = self;
+	cameraControlInputManager = [[CameraControlInputManager alloc]
+		initWithParentView:self.view
+		callback:^(BOOL isFullPress, BOOL isDown) {
+			PPSSPPBaseViewController *strongSelf = weakSelf;
+			if (!strongSelf) return;
+
+			KeyInput key{};
+			key.deviceId = DEVICE_ID_IOS_CAMERA_CONTROL;
+			key.keyCode = isFullPress ? NKCODE_EXT_CAMERA_CONTROL : NKCODE_EXT_CAMERA_CONTROL_HALF;
+			key.flags = isDown ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+			NativeKey(key);
+		}];
 }
 
 extern float g_safeInsetLeft;

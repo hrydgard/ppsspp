@@ -6,6 +6,7 @@
 #import <GameController/GameController.h>
 
 #import "CameraHelper.h"
+#import "CameraControlInputManager.h"
 #import "LocationHelper.h"
 #import "iCade/iCadeReaderView.h"
 
