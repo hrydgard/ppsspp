@@ -178,7 +178,7 @@ private:
 // Corresponds to the CDisasm dialog
 class ImDisasmWindow {
 public:
-	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState);
+	void Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState, const char *title = nullptr, bool *openFlag = nullptr);
 	ImDisasmView &View() {
 		return disasmView_;
 	}
@@ -189,10 +189,13 @@ public:
 		symsDirty_ = true;
 	}
 	const char *Title() const {
-		return "CPU Debugger";
+		return isMediaEngine_ ? "ME Debugger" : "CPU Debugger";
 	}
+	void SetIsMediaEngine(bool v) { isMediaEngine_ = v; }
+	bool IsMediaEngine() const { return isMediaEngine_; }
 
 private:
+	bool isMediaEngine_ = false;
 	// We just keep the state directly in the window. Can refactor later.
 
 	enum {

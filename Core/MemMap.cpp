@@ -53,6 +53,7 @@ MemArena g_arena;
 u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
+static u8 *m_pKernelScratchPad;  // kseg0 mirror at 0x80010000 (ME stack lives here)
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
 u8 *m_pPhysicalRAM[3];
@@ -61,6 +62,25 @@ u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at a
 // Technically starts at 0xA0000000, which we don't properly support (but we don't really support kernel code.)
 // This matches how we handle 32-bit masking.
 u8 *m_pUncachedKernelRAM[3];
+
+// Media Engine SRAM: exception vector + context save + shared vars
+static u8 *m_pMeSram;
+static u8 *m_pMeSramCached;
+static u8 *m_pMeSramPhysical;
+
+// Media Engine eDRAM (VRAM alias at physical 0x00000000 for the ME).
+// Physical 0x00020000-0x001FFFFF, kseg0 0x80020000-0x801FFFFF.
+// kseg1 0xA0020000-0xA01FFFFF (uncached kernel).
+// Starts at 0x20000 to avoid overlapping with scratchpad (0x10000).
+static u8 *m_pMeEdramPhysical;
+static u8 *m_pMeEdramCached;
+static u8 *m_pMeEdramUncached;
+
+// Media Engine HW registers: a 4KB page at physical 0x1C100000.
+// Contains the HW mutex (offset 0x48), bus clock enable (0x50), etc.
+// Mapped so the JIT can do raw LDR without faulting.
+static u8 *m_pMeHwRegsPhysical;
+static u8 *m_pMeHwRegsUncached;
 
 // VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled, so actually it's not correct
 // to mirror them like we do here unfortunately.
@@ -87,6 +107,7 @@ static MemoryView views[] = {
 	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	{&m_pKernelScratchPad,    0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
 	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
@@ -112,6 +133,24 @@ static MemoryView views[] = {
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
+
+	// Media Engine SRAM: exception vector at 0xBFC00000 (physical 0x1FC00000)
+	{&m_pMeSramPhysical,      0x1FC00000, 0x00001000, 0},
+	{&m_pMeSramCached,        0x9FC00000, 0x00001000, MV_MIRROR_PREVIOUS | MV_KERNEL},
+	{&m_pMeSram,              0xBFC00000, 0x00001000, MV_MIRROR_PREVIOUS | MV_KERNEL},
+
+	// Media Engine eDRAM: local memory used by the ME for stack and data.
+	// Physical 0x00020000..0x001FFFFF (avoids scratchpad at 0x00010000).
+	// Cached kernel mirror (kseg0) at 0x80020000..0x801FFFFF.
+	// Uncached kernel mirror (kseg1) at 0xA0020000..0xA01FFFFF.
+	{&m_pMeEdramPhysical,     0x00020000, 0x001E0000, 0},
+	{&m_pMeEdramCached,       0x80020000, 0x001E0000, MV_MIRROR_PREVIOUS | MV_KERNEL},
+	{&m_pMeEdramUncached,     0xA0020000, 0x001E0000, MV_MIRROR_PREVIOUS | MV_KERNEL},
+
+	// Media Engine HW registers: 4KB page at physical 0x1C100000 / uncached 0xBC100000.
+	// The JIT does raw LDR/STR here; per-CPU mutex masking is applied at slice boundaries.
+	{&m_pMeHwRegsPhysical,    0x1C100000, 0x00001000, 0},
+	{&m_pMeHwRegsUncached,    0xBC100000, 0x00001000, MV_MIRROR_PREVIOUS | MV_KERNEL},
 };
 
 inline static bool CanIgnoreView(const MemoryView &view) {
@@ -439,9 +478,13 @@ static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode ins
 		return inst;
 	}
 
+	// Use mainCpuJit for EMUHACK resolution: only the main CPU writes
+	// EMUHACKs, and MIPSComp::jit may point to the ME's JIT during ME slices.
+	MIPSComp::JitInterface *resolveJit = MIPSComp::mainCpuJit ? MIPSComp::mainCpuJit : MIPSComp::jit;
+
 	// No mutex on jit access here, but we assume the caller has locked, if necessary.
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		inst = MIPSComp::jit->GetOriginalOp(inst);
+	if (MIPS_IS_RUNBLOCK(inst.encoding) && resolveJit) {
+		inst = resolveJit->GetOriginalOp(inst);
 		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
 			u32 op;
 			if (GetReplacedOpAt(address, &op)) {
@@ -493,9 +536,10 @@ Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
 Opcode Read_Opcode_JIT(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
-	// No mutex around jit access here, but we assume caller has if necessary.
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		return MIPSComp::jit->GetOriginalOp(inst);
+	// Use mainCpuJit: only the main CPU writes EMUHACKs into memory.
+	MIPSComp::JitInterface *resolveJit = MIPSComp::mainCpuJit ? MIPSComp::mainCpuJit : MIPSComp::jit;
+	if (MIPS_IS_RUNBLOCK(inst.encoding) && resolveJit) {
+		return resolveJit->GetOriginalOp(inst);
 	} else {
 		return inst;
 	}

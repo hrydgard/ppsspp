@@ -52,6 +52,8 @@ protected:
 	}
 
 private:
+	friend class Arm64MEJitBackend;
+
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode(bool force = false);
@@ -163,6 +165,67 @@ public:
 
 private:
 	Arm64JitBackend arm64Backend_;
+};
+
+// ME variant with a simpler dispatcher.
+class Arm64MEJitBackend : public Arm64JitBackend {
+public:
+	using Arm64JitBackend::Arm64JitBackend;
+	void GenerateFixedCode(MIPSState *mipsState) override;
+};
+
+class Arm64MEIRJit : public IRNativeJit {
+public:
+	Arm64MEIRJit(MIPSState *mipsState)
+		: IRNativeJit(mipsState), meBackend_(jo, blocks_) {
+		// Do not patch EMUHACKs into RAM. The main CPU JIT shares the same
+		// address space.
+		jo.enableBlocklink = false;
+		// Keep address masking on the MEMBASEREG path for kseg0/kseg1.
+		jo.enablePointerify = false;
+		// Let CompIR_* be conservative around sensitive MMIO accesses.
+		jo.isMeJit = true;
+		blocks_.SetPatchMemory(false);
+		Init(meBackend_);
+		memset(fastCache_, 0, sizeof(fastCache_));
+		g_meFastCache = fastCache_;
+	}
+
+	// Returns the native entry for pc, compiling on demand.
+	const u8 *CompileAndLookup(u32 pc);
+
+	// Runs native blocks until downcount < 0.
+	void EnterDispatcher() {
+		hooks_.enterDispatcher();
+	}
+
+	void ClearCache() override {
+		IRNativeJit::ClearCache();
+		memset(fastCache_, 0, sizeof(fastCache_));
+	}
+
+	void InvalidateCacheAt(u32 em_address, int length = 4) override {
+		IRNativeJit::InvalidateCacheAt(em_address, length);
+		memset(fastCache_, 0, sizeof(fastCache_));
+	}
+
+	// Fast direct-mapped cache: PC -> native entry pointer.
+	static constexpr int kFastCacheShift = 2;  // Instructions are 4-byte aligned
+	static constexpr int kFastCacheSize = 4096;
+	static constexpr int kFastCacheMask = kFastCacheSize - 1;
+	struct FastCacheEntry {
+		u32 pc;
+		u32 pad;  // Align nativeEntry to 8 bytes within 16-byte entry
+		const u8 *nativeEntry;
+	};
+	static_assert(sizeof(FastCacheEntry) == 16, "FastCacheEntry must be 16 bytes for asm indexing");
+
+	// Shared with generated asm.
+	static FastCacheEntry *g_meFastCache;
+
+private:
+	Arm64MEJitBackend meBackend_;
+	FastCacheEntry fastCache_[kFastCacheSize];
 };
 
 } // namespace MIPSComp

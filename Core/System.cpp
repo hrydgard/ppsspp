@@ -434,8 +434,14 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	LoadSymbolsIfSupported();
 
 	mipsr4k.Reset();
+	mipsMe.Reset();
+	currentMIPS = &mipsr4k;  // Restore: mipsMe.Init() overwrites currentMIPS
+
+	Memory::InitMeEdram();
 
 	CoreTiming::Init();
+
+	ME_InitPolling();
 
 	DisplayHWInit();
 
@@ -519,6 +525,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	InstallExceptionHandler(&Memory::HandleFault);
 
+	// ME LLE: Write the PSP fat witness word after __KernelLoadExec has finished zeroing kernel memory.
+	Memory::Write_U32(0x279c1d44, 0x08300018);
+
 	return true;
 }
 
@@ -541,6 +550,8 @@ void CPU_Shutdown(bool success) {
 
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
+	mipsMe.Shutdown();
+	Memory::ShutdownMeEdram();
 	Memory::Shutdown();
 	HLEPlugins::Shutdown();
 

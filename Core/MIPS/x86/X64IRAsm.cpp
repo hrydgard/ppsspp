@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/x86/X64IRJit.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -310,6 +311,165 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	}
 
 	// Let's spare the pre-generated code from unprotect-reprotect.
+	AlignCodePage();
+	jitStartOffset_ = (int)(GetCodePtr() - start);
+	EndWrite();
+}
+
+void X64MEJitBackend::GenerateFixedCode(MIPSState *mipsState) {
+	const u8 *start = AlignCodePage();
+	if (DebugProfilerEnabled()) {
+		ProtectMemoryPages(start, GetMemoryProtectPageSize(), MEM_PROT_READ | MEM_PROT_WRITE);
+		hooks_.profilerPC = (uint32_t *)GetWritableCodePtr();
+		Write32(0);
+		hooks_.profilerStatus = (IRProfilerStatus *)GetWritableCodePtr();
+		Write32(0);
+	}
+
+	EmitFPUConstants();
+	EmitVecConstants();
+
+	const u8 *disasmStart = AlignCodePage();
+	BeginWrite(GetMemoryProtectPageSize());
+
+	jo.downcountInRegister = false;
+#if PPSSPP_ARCH(AMD64)
+	bool jitbaseInR15 = false;
+	intptr_t jitbase = (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE;
+	if ((jitbase < -0x80000000LL || jitbase > 0x7FFFFFFFLL) && !Accessible((const u8 *)&mipsState->f[0], (const u8 *)jitbase)) {
+		jo.reserveR15ForAsm = true;
+		jitbaseInR15 = true;
+	} else {
+		jo.downcountInRegister = true;
+		jo.reserveR15ForAsm = true;
+	}
+#endif
+
+	if (jo.useStaticAlloc && false) {
+		saveStaticRegisters_ = AlignCode16();
+		if (jo.downcountInRegister)
+			MOV(32, MDisp(CTXREG, downcountOffset), R(DOWNCOUNTREG));
+		RET();
+
+		loadStaticRegisters_ = AlignCode16();
+		if (jo.downcountInRegister)
+			MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
+		RET();
+	} else {
+		saveStaticRegisters_ = nullptr;
+		loadStaticRegisters_ = nullptr;
+	}
+
+	restoreRoundingMode_ = AlignCode16();
+	{
+		STMXCSR(MDisp(CTXREG, tempOffset));
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		LDMXCSR(MDisp(CTXREG, tempOffset));
+		RET();
+	}
+
+	applyRoundingMode_ = AlignCode16();
+	{
+		MOV(32, R(SCRATCH1), MDisp(CTXREG, fcr31Offset));
+		AND(32, R(SCRATCH1), Imm32(0x01000003));
+
+		FixupBranch skip = J_CC(CC_Z);
+		STMXCSR(MDisp(CTXREG, tempOffset));
+
+		TEST(8, R(AL), Imm8(1));
+		FixupBranch skip2 = J_CC(CC_Z);
+		XOR(32, R(SCRATCH1), Imm8(2));
+		SetJumpTarget(skip2);
+
+		SHL(32, R(SCRATCH1), Imm8(13));
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		OR(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
+
+		TEST(32, MDisp(CTXREG, fcr31Offset), Imm32(1 << 24));
+		FixupBranch skip3 = J_CC(CC_Z);
+		OR(32, MDisp(CTXREG, tempOffset), Imm32(1 << 15));
+		SetJumpTarget(skip3);
+
+		LDMXCSR(MDisp(CTXREG, tempOffset));
+		SetJumpTarget(skip);
+		RET();
+	}
+
+	hooks_.enterDispatcher = (IRNativeFuncNoArg)AlignCode16();
+
+	ABI_PushAllCalleeSavedRegsAndAdjustStack();
+#if PPSSPP_ARCH(AMD64)
+	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
+	if (jitbaseInR15)
+		MOV(64, R(JITBASEREG), ImmPtr((const void *)jitbase));
+#endif
+	MOV(PTRBITS, R(CTXREG), ImmPtr(&mipsState->f[0]));
+
+	LoadStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
+
+	FixupBranch skipFirstMovToPC = J();
+
+	dispatcherPCInSCRATCH1_ = GetCodePtr();
+	outerLoopPCInSCRATCH1_ = GetCodePtr();
+	outerLoop_ = GetCodePtr();
+	MovToPC(SCRATCH1);
+
+	hooks_.dispatcher = GetCodePtr();
+	SetJumpTarget(skipFirstMovToPC);
+
+	if (jo.downcountInRegister) {
+		TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
+	} else {
+		CMP(32, MDisp(CTXREG, downcountOffset), Imm8(0));
+	}
+	FixupBranch bail = J_CC(CC_S, true);
+
+	dispatcherNoCheck_ = GetCodePtr();
+	dispatcherCheckCoreState_ = dispatcherNoCheck_;
+	hooks_.dispatchFetch = GetCodePtr();
+
+	SaveStaticRegisters();
+	RestoreRoundingMode(true);
+	WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
+	ABI_CallFunction((const void *)&MECompileAndLookup);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
+	ApplyRoundingMode(true);
+	LoadStaticRegisters();
+
+	TEST(PTRBITS, R(RAX), R(RAX));
+	FixupBranch bail2 = J_CC(CC_Z, true);
+	JMPptr(R(RAX));
+
+	SetJumpTarget(bail);
+	SetJumpTarget(bail2);
+	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
+	SaveStaticRegisters();
+	RestoreRoundingMode(true);
+	ABI_PopAllCalleeSavedRegsAndAdjustStack();
+	RET();
+
+	hooks_.crashHandler = GetCodePtr();
+	if (RipAccessible((const void *)&coreState)) {
+		MOV(32, M(&coreState), Imm32(CORE_RUNTIME_ERROR));
+	} else {
+		MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+		MOV(32, MatR(RAX), Imm32(CORE_RUNTIME_ERROR));
+	}
+	SaveStaticRegisters();
+	RestoreRoundingMode(true);
+	ABI_PopAllCalleeSavedRegsAndAdjustStack();
+	RET();
+
+	if (enableDisasm) {
+#if PPSSPP_ARCH(AMD64)
+		std::vector<std::string> lines = DisassembleX86(disasmStart, (int)(GetCodePtr() - disasmStart));
+		for (const auto &s : lines) {
+			INFO_LOG(Log::JIT, "%s", s.c_str());
+		}
+#endif
+	}
+
 	AlignCodePage();
 	jitStartOffset_ = (int)(GetCodePtr() - start);
 	EndWrite();

@@ -119,12 +119,19 @@ public:
 	void disable(int subIntrNum);
 	SubIntrHandler *get(int subIntrNum);
 	void clear();
+	void setBase(u32 handlerAddress, u32 handlerArg);
+	void clearBase();
+	void enableBase();
+	void disableBase();
 
 
 	void DoState(PointerWrap &p);
 
 private:
 	int intrNumber;
+	bool baseEnabled_ = false;
+	u32 baseHandlerAddress_ = 0;
+	u32 baseHandlerArg_ = 0;
 	std::map<int, SubIntrHandler> subIntrHandlers;
 };
 

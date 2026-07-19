@@ -57,6 +57,7 @@
 
 namespace MIPSComp {
 	JitInterface *jit;
+	JitInterface *mainCpuJit;
 	std::recursive_mutex jitLock;
 
 	void JitAt() {
