@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 
 #include "UI/JitCompareScreen.h"
 #include "Common/Data/Text/I18n.h"
@@ -336,22 +337,28 @@ void JitCompareScreen::OnBlockClick(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnAddressChange(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (!MIPSComp::jit) {
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return;
 	}
 	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
+	if (!blockCache) {
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return;
+	}
 	u32 addr;
-	if (blockAddr_->GetText().size() > 8)
+	if (blockAddr_->GetText().size() > 8) {
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return;
+	}
 	if (1 == sscanf(blockAddr_->GetText().c_str(), "%08x", &addr)) {
 		if (Memory::IsValidAddress(addr)) {
 			currentBlock_ = blockCache->GetBlockNumberFromStartAddress(addr);
 			UpdateDisasm();
 		}
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
@@ -363,14 +370,17 @@ void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (!MIPSComp::jit) {
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return;
 	}
 
 	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
-	if (!blockCache)
+	if (!blockCache) {
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return;
+	}
 
 	if (Memory::IsValidAddress(e.a)) {
 		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
@@ -378,6 +388,7 @@ void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 		currentBlock_ = -1;
 	}
 	UpdateDisasm();
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 /*

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <mutex>
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -170,7 +170,7 @@ namespace MIPSComp {
 	u32 ResolveNotTakenTarget(const BranchInfo &branchInfo);
 
 	extern JitInterface *jit;
-	extern std::recursive_mutex jitLock;
+	extern std::atomic<u32> jitLock;
 
 	void DoDummyJitState(PointerWrap &p);
 

@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <cstdlib>
-#include <mutex>
+#include <atomic>
 
 #include "ext/disarm.h"
 #include "ext/riscv-disas.h"
@@ -57,7 +57,7 @@
 
 namespace MIPSComp {
 	JitInterface *jit;
-	std::recursive_mutex jitLock;
+	std::atomic<u32> jitLock;
 
 	void JitAt() {
 		// TODO: We could probably check for a bad pc here, and fire an exception. Could spare us from some crashes.
@@ -185,14 +185,16 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 #if PPSSPP_ARCH(ARM64) || defined(DISASM_ALL)
 
 static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (MIPSComp::jit) {
 		std::string name;
 		if (MIPSComp::jit->DescribeCodePtr(address, name)) {
 			truncate_cpy(buffer, bufsize, name);
+			MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 			return true;
 		}
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 	return false;
 }
 
@@ -279,12 +281,14 @@ const char *ppsspp_resolver(struct ud*,
 	static char buf[128];
 	std::string str;
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
 		*offset = 0;
 		truncate_cpy(buf, sizeof(buf), str);
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return buf;
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 	return NULL;
 }
 

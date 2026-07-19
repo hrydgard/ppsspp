@@ -358,10 +358,11 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	if (result != DR_BACK) // This only works for BACK here.
 		return;
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void CwCheatScreen::OnDisableAll(UI::EventParams &params) {
@@ -384,10 +385,11 @@ void CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 
 void CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	g_Config.bReloadCheats = true;
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 	if (engine_) {
 		File::OpenFileInEditor(engine_->CheatFilename());
 	}

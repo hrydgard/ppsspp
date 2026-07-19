@@ -17,7 +17,7 @@
 
 #include <cmath>
 #include <limits>
-#include <mutex>
+#include <atomic>
 #include <utility>
 
 
@@ -161,12 +161,13 @@ MIPSState::~MIPSState() {
 }
 
 void MIPSState::Shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	if (oldjit) {
 		MIPSComp::jit = nullptr;
 		delete oldjit;
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void MIPSState::Reset() {
@@ -209,7 +210,7 @@ void MIPSState::Init() {
 
 	memset(vcmpResult, 0, sizeof(vcmpResult));
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
@@ -217,6 +218,7 @@ void MIPSState::Init() {
 	} else {
 		MIPSComp::jit = nullptr;
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 bool MIPSState::HasDefaultPrefix() const {
@@ -232,11 +234,12 @@ void MIPSState::UpdateCore(CPUCore desired) {
 
 	// Get rid of the old JIT first, before switching.
 	{
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+		MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 		if (MIPSComp::jit) {
 			delete MIPSComp::jit;
 			MIPSComp::jit = nullptr;
 		}
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
@@ -264,8 +267,9 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 	}
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	MIPSComp::jit = newjit;
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void MIPSState::DoState(PointerWrap &p) {
@@ -356,7 +360,7 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 static std::vector<std::pair<u32, int>> pendingClears;
 
 void MIPSState::ProcessPendingClears() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	for (auto &p : pendingClears) {
 		if (p.first == 0 && p.second == 0)
 			MIPSComp::jit->ClearCache();
@@ -365,19 +369,21 @@ void MIPSState::ProcessPendingClears() {
 	}
 	pendingClears.clear();
 	hasPendingClears = false;
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	// Note that the backend is responsible for ensuring native code can still be returned to.
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (MIPSComp::jit && length != 0) {
 		MIPSComp::jit->InvalidateCacheAt(address, length);
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void MIPSState::ClearJitCache() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 	if (MIPSComp::jit) {
 		if (coreState == CORE_RUNNING_CPU || insideJit) {
 			pendingClears.emplace_back(0, 0);
@@ -387,4 +393,5 @@ void MIPSState::ClearJitCache() {
 			MIPSComp::jit->ClearCache();
 		}
 	}
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 }

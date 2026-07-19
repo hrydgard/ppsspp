@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <vector>
 #include <thread>
-#include <mutex>
+#include <atomic>
 #include <string>
 #include <set>
 
@@ -165,7 +165,7 @@ int g_screenshotFailures;
 		// These must be saved before copying out memory and restored after.
 		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 			if (MIPSComp::jit) {
 				std::vector<u32> savedBlocks;
 				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
@@ -174,6 +174,7 @@ int g_screenshotFailures;
 			} else {
 				Memory::DoState(p);
 			}
+			MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		} else {
 			Memory::DoState(p);
 		}

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <atomic>
 
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Context.h"
@@ -66,9 +67,10 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	if (message == UIMessage::REQUEST_CLEAR_JIT && PSP_IsInited()) {
 		// TODO: This seems to clearly be the wrong place to handle this.
 		if (MIPSComp::jit) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+			MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 			if (MIPSComp::jit)
 				MIPSComp::jit->ClearCache();
+			MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		}
 		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 	} else if (message == UIMessage::SHOW_CONTROL_MAPPING && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {

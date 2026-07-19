@@ -19,7 +19,7 @@
 
 #include <cstdint>
 #include <unordered_set>
-#include <mutex>
+#include <atomic>
 #include <sstream>
 
 #include "Common/StringUtils.h"
@@ -118,7 +118,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	MIPSComp::jitLock.fetch_add(1, std::memory_order_relaxed);
 
 	// We set this later if we think it can be resumed from.
 	g_lastCrashAddress = nullptr;
@@ -130,6 +130,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// Actually, we could handle crashes from the IR interpreter here, although recovering the call stack
 		// might be tricky...
 		inCrashHandler = false;
+		MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 		return false;
 	}
 
@@ -146,6 +147,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// Host address outside - this was a different kind of crash.
 		if (!invalidHostAddress) {
 			inCrashHandler = false;
+			MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 			return false;
 		}
 	}
@@ -270,6 +272,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			context->CTX_PC = crashHandler;
 			ERROR_LOG(Log::MemMap, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
 			inCrashHandler = false;
+			MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 			return true;
 		}
 
@@ -331,6 +334,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	}
 
 	inCrashHandler = false;
+	MIPSComp::jitLock.fetch_sub(1, std::memory_order_relaxed);
 	return handled;
 }
 
