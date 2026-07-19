@@ -4,8 +4,6 @@
 #import <AVKit/AVCaptureEventInteraction.h>
 
 // Minimum iOS version required for Camera Control button hardware.
-// AVCaptureEventInteraction itself is available since iOS 17.2,
-// but the Camera Control button shipped with iPhone 16 / iOS 18.
 static const NSUInteger kMinIOSVersionMajor = 18;
 
 @interface CameraControlInputManager ()
@@ -15,14 +13,15 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 // Hidden 1x1pt view that holds the interaction (must be in the responder chain).
 @property (nonatomic, strong) UIView *hiddenView;
 
-// Lightweight AVCaptureSession (no inputs/outputs) to satisfy system requirement
-// for Camera Control event delivery.
+// AVFoundation session + input for camera access (required by system for event delivery).
 @property (nonatomic, strong) AVCaptureSession *session;
+@property (nonatomic, strong) AVCaptureDeviceInput *videoInput;
 
 // The interaction object that receives Camera Control button events.
 @property (nonatomic, strong) id interaction;
 
-@property (nonatomic, assign) BOOL isRunning;
+@property (nonatomic, assign) BOOL sessionActive;
+@property (nonatomic, assign) BOOL permissionRequested;
 
 @end
 
@@ -33,15 +32,11 @@ static const NSUInteger kMinIOSVersionMajor = 18;
     if (self) {
         _callback = [callback copy];
 
-        // Create an invisible 1x1pt view positioned off-screen.
-        // The view MUST be in the view hierarchy (responder chain) for the interaction to work.
         _hiddenView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 1, 1)];
-        _hiddenView.alpha = 0.0;
         _hiddenView.clipsToBounds = YES;
         _hiddenView.userInteractionEnabled = YES;
         _hiddenView.translatesAutoresizingMaskIntoConstraints = NO;
 
-        // Position at a safe corner (top-left, behind safe area) so it's never visible.
         [view addSubview:_hiddenView];
         [NSLayoutConstraint activateConstraints:@[
             [_hiddenView.topAnchor constraintEqualToAnchor:view.topAnchor],
@@ -50,7 +45,8 @@ static const NSUInteger kMinIOSVersionMajor = 18;
             [_hiddenView.heightAnchor constraintEqualToConstant:1],
         ]];
 
-        _isRunning = NO;
+        _sessionActive = NO;
+        _permissionRequested = NO;
     }
     return self;
 }
@@ -63,33 +59,91 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 #pragma mark - Public Lifecycle
 
 - (void)start {
-    if (self.isRunning) {
+    if (self.sessionActive) {
         return;
     }
 
-    if (@available(iOS 18, *)) {
-        [self startSessionAndInteraction];
-    } else {
-        // Camera Control button requires iOS 18+. On older versions this is a no-op.
-        NSLog(@"CameraControlInputManager: iOS 18+ required for Camera Control button. Feature not available.");
+    if (![self isIOS18OrLater]) {
+        NSLog(@"CameraControlInputManager: iOS 18+ required. Feature not available.");
+        return;
     }
+
+    [self requestCameraAccessAndSetup];
 }
 
 - (void)stop {
-    if (!self.isRunning) {
+    if (!self.sessionActive) {
         return;
     }
 
     [self stopSessionAndInteraction];
 }
 
-#pragma mark - Internal (iOS 18+)
+#pragma mark - Camera Permission
 
-- (void)startSessionAndInteraction {
-    // 1. Create the AVCaptureEventInteraction.
-    //    Primary handler: receives Camera Control full-press events.
-    //    Secondary handler: receives Camera Control half-press / light-press events.
-    //    Use weakSelf to avoid a retain cycle (self → interaction → blocks → self).
+- (BOOL)isIOS18OrLater {
+    if (@available(iOS 18, *)) {
+        return YES;
+    }
+    return NO;
+}
+
+- (void)requestCameraAccessAndSetup {
+    AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
+
+    switch (status) {
+        case AVAuthorizationStatusAuthorized:
+            [self setupSessionWithCamera];
+            break;
+
+        case AVAuthorizationStatusNotDetermined:
+            self.permissionRequested = YES;
+            [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (granted) {
+                        [self setupSessionWithCamera];
+                    } else {
+                        NSLog(@"CameraControlInputManager: Camera permission denied. Camera Control button will not work.");
+                    }
+                });
+            }];
+            break;
+
+        case AVAuthorizationStatusDenied:
+        case AVAuthorizationStatusRestricted:
+            NSLog(@"CameraControlInputManager: Camera access denied/restricted. Camera Control button will not work.");
+            break;
+    }
+}
+
+#pragma mark - Session Setup (requires camera permission)
+
+- (void)setupSessionWithCamera {
+    NSError *error = nil;
+
+    AVCaptureDevice *camera = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+    if (!camera) {
+        NSLog(@"CameraControlInputManager: No camera found.");
+        return;
+    }
+
+    AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:camera error:&error];
+    if (error || !input) {
+        NSLog(@"CameraControlInputManager: Failed to create camera input: %@", error.localizedDescription);
+        return;
+    }
+    self.videoInput = input;
+
+    AVCaptureSession *session = [[AVCaptureSession alloc] init];
+    session.sessionPreset = AVCaptureSessionPresetLow;
+
+    if (![session canAddInput:input]) {
+        NSLog(@"CameraControlInputManager: Cannot add video input to session.");
+        return;
+    }
+    [session addInput:input];
+
+    // Create the interaction
     __weak typeof(self) weakSelf = self;
     AVCaptureEventInteraction *interaction = [[AVCaptureEventInteraction alloc]
         initWithPrimaryEventHandler:^(AVCaptureEvent *event) {
@@ -107,30 +161,24 @@ static const NSUInteger kMinIOSVersionMajor = 18;
     [self.hiddenView addInteraction:interaction];
     self.interaction = interaction;
 
-    // 2. Create an empty AVCaptureSession (no inputs or outputs).
-    //    The system requires a running AVCaptureSession in the app to deliver
-    //    Camera Control events via AVCaptureEventInteraction. An empty session
-    //    satisfies this requirement without accessing camera hardware — no
-    //    camera permission needed, no camera indicator in the status bar.
-    self.session = [[AVCaptureSession alloc] init];
-    [self.session startRunning];
+    self.session = session;
+    [session startRunning];
 
-    self.isRunning = YES;
-    NSLog(@"CameraControlInputManager: Session started (no camera access). Camera Control button events should now arrive.");
+    self.sessionActive = YES;
+    NSLog(@"CameraControlInputManager: Session started with camera input. Camera Control button events active.");
 }
 
 - (void)stopSessionAndInteraction {
-    // Stop the session first.
     [self.session stopRunning];
     self.session = nil;
+    self.videoInput = nil;
 
-    // Remove the interaction from the view.
     if (self.interaction) {
         [self.hiddenView removeInteraction:self.interaction];
         self.interaction = nil;
     }
 
-    self.isRunning = NO;
+    self.sessionActive = NO;
     NSLog(@"CameraControlInputManager: Session stopped.");
 }
 
@@ -139,22 +187,18 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 - (void)handleCaptureEvent:(AVCaptureEvent *)event isFullPress:(BOOL)isFullPress {
     switch (event.phase) {
         case AVCaptureEventPhaseBegan:
-            // Button pressed down.
             if (self.callback) {
                 self.callback(isFullPress, YES);
             }
             break;
 
         case AVCaptureEventPhaseEnded:
-            // Button released.
             if (self.callback) {
                 self.callback(isFullPress, NO);
             }
             break;
 
         case AVCaptureEventPhaseCancelled:
-            // Event cancelled (e.g., app backgrounded during press).
-            // Send an UP to avoid a stuck key.
             if (self.callback) {
                 self.callback(isFullPress, NO);
             }
