@@ -1062,10 +1062,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	TimeInit();
 	WinMainInit();
 
-	const Path &exePath = File::GetExeDirectory();
-	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
-	g_VFS.Register("", new DirectoryReader(exePath));
-
 	g_langRegion = GetDefaultLangRegion();
 	g_osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
 
@@ -1101,6 +1097,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		VulkanSetAvailable(DetectVulkanInExternalProcess());
 	}
 #endif
+
+	NativeInit((int)args.size(), args.data(), "", "", nullptr);
 
 	// Consider at least the following cases before changing this code:
 	//   - By default in Release, the console should be hidden by default even if logging is enabled.
@@ -1148,8 +1146,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (minimized) {
 		MainWindow::Minimize();
 	}
-
-	NativeInit((int)args.size(), args.data(), "", "", nullptr);
 
 	// Emu thread (and render thread, if any) is always running!
 	// OpenGL uses an externally managed render thread (due to GL's single-threaded context design).
