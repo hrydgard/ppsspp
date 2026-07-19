@@ -88,7 +88,6 @@ static const NSUInteger kMinIOSVersionMajor = 18;
 
 #pragma mark - Internal (iOS 18+)
 
-API_AVAILABLE(ios(18.0))
 - (void)startSessionAndInteraction {
     NSError *error = nil;
 
@@ -164,7 +163,6 @@ API_AVAILABLE(ios(18.0))
     NSLog(@"CameraControlInputManager: Session started. Camera Control button events should now arrive.");
 }
 
-API_AVAILABLE(ios(18.0))
 - (void)stopSessionAndInteraction {
     // Remove the interaction from the view.
     if (self.interaction) {
