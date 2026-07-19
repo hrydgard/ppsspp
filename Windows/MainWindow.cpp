@@ -507,7 +507,7 @@ namespace MainWindow {
 
 		WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
 		if ((g_Config.iWindowX == -1 && g_Config.iWindowY == -1) || g_Config.iWindowWidth < 20 || g_Config.iWindowHeight < 20) {
-			RECT rc = DetermineDefaultWindowRectangle();
+			const RECT rc = DetermineDefaultWindowRectangle();
 			// Should be a first boot, or just bad parameters. Reset.
 			g_Config.iWindowSizeState = (int)WindowSizeState::Normal;
 			g_Config.iWindowX = rc.left;
@@ -1112,6 +1112,11 @@ namespace MainWindow {
 
 		case WM_USER_DESTROY:
 			DestroyWindow(hWnd);
+			break;
+
+		case WM_USER_SHOW_DISASM:
+			CreateDisasmWindow();
+			disasmWindow->Show(g_Config.bShowDebuggerOnLoad, false);
 			break;
 
 		case WM_INITMENUPOPUP:
