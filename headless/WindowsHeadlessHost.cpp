@@ -29,6 +29,7 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
@@ -81,13 +82,11 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 	}
 
 	WindowsGraphicsContext *graphicsContext = nullptr;
-	bool needRenderThread = false;
 	switch (gpuCore_) {
 	case GPUCORE_GLES:
 #if PPSSPP_API(ANY_GL)
 	case GPUCORE_SOFTWARE:
 		graphicsContext = new WindowsGLContext();
-		needRenderThread = true;
 		break;
 #endif
 	case GPUCORE_DIRECTX11:
@@ -112,8 +111,11 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		return false;
 	}
 
+	bool needRenderThread = gpuCore_ == GPUCORE_GLES;
+
 	if (needRenderThread) {
-		std::thread th([&]{
+		renderThread_ = std::thread([this]{
+			SetCurrentThreadName("RenderThread");
 			while (threadState_ == RenderThreadState::IDLE)
 				sleep_ms(1, "render-thread-idle-poll");
 			threadState_ = RenderThreadState::STARTING;
@@ -126,18 +128,13 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 			gfx_->ThreadStart();
 			threadState_ = RenderThreadState::STARTED;
 
-			while (threadState_ != RenderThreadState::STOP_REQUESTED) {
-				if (!gfx_->ThreadFrame(true)) {
-					break;
-				}
-			}
+			gfx_->ThreadFrameUntilCondition([this] { return threadState_ == RenderThreadState::STOP_REQUESTED; });
 
 			threadState_ = RenderThreadState::STOPPING;
 			gfx_->ThreadEnd();
 			gfx_->ShutdownFromRenderThread();
 			threadState_ = RenderThreadState::STOPPED;
 		});
-		th.detach();
 	}
 
 	if (needRenderThread) {
@@ -152,8 +149,12 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 }
 
 void WindowsHeadlessHost::ShutdownGraphics() {
-	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::IDLE)
-		sleep_ms(1, "render-thread-stop-poll");
+	if (renderThread_.joinable()) {
+		threadState_ = RenderThreadState::STOP_REQUESTED;
+		while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::IDLE)
+			sleep_ms(1, "render-thread-stop-poll");
+		renderThread_.join();
+	}
 
 	gfx_->Shutdown();
 	delete gfx_;

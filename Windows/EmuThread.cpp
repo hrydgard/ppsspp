@@ -11,15 +11,12 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/GraphicsContext.h"
-#include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
-#include "Windows/resource.h"
 #include "Core/Reporting.h"
-#include "Core/MemMap.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -43,23 +40,28 @@ static std::thread emuThread;
 static std::atomic<EmuThreadState> g_emuThreadState(EmuThreadState::DISABLED);
 
 static std::thread mainThread;
-static bool useEmuThread;
 static std::string g_error_message;
 static bool g_inLoop;
+
+static const char** g_argv;
+static int g_argc;
 
 extern std::vector<std::wstring> GetWideCmdLine();
 
 class GraphicsContext;
 static GraphicsContext *g_graphicsContext;
 
-void MainThreadFunc();
+void MainThreadFunc(int argc, const char *argv[]);
 
-// On most other platforms, we let the "main" thread become the render thread and
-// start a separate emu thread from that, if needed. Should probably switch to that
-// to make it the same on all platforms.
-void MainThread_Start(bool separateEmuThread) {
-	useEmuThread = separateEmuThread;
-	mainThread = std::thread(&MainThreadFunc);
+void MainThread_Start(int argc, const char *argv[]) {
+	// This is just to survive WM_USER_RESTART_EMUTHREAD.
+	if (g_argc == 0) {
+		g_argc = argc;
+		g_argv = argv;
+	}
+	mainThread = std::thread([]() {
+		MainThreadFunc(g_argc, g_argv);
+	});
 }
 
 void MainThread_Stop() {
@@ -70,6 +72,9 @@ void MainThread_Stop() {
 }
 
 bool MainThread_Ready() {
+	if (g_inLoop) {
+		_dbg_assert_(mainThread.joinable());
+	}
 	return g_inLoop;
 }
 
@@ -148,41 +153,15 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 	}
 }
 
-void MainThreadFunc() {
-	// We'll start up a separate thread we'll call Emu
-	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
+void MainThreadFunc(int argc, const char *argv[]) {
+	const bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
-	const HWND console = GetConsoleWindow();
-	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
-		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	}
+	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
 
 	System_SetWindowTitle("");
 
-	// We convert command line arguments to UTF-8 immediately.
-	std::vector<std::wstring> wideArgs = GetWideCmdLine();
-	std::vector<std::string> argsUTF8;
-	for (auto& string : wideArgs) {
-		argsUTF8.push_back(ConvertWStringToUTF8(string));
-	}
-	std::vector<const char *> args;
-	for (auto& string : argsUTF8) {
-		args.push_back(string.c_str());
-	}
-	bool performingRestart = NativeIsRestarting();
-	NativeInit(static_cast<int>(args.size()), &args[0], "", "", nullptr);
-
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		if (!useEmuThread) {
-			// Okay, we must've switched to OpenGL.  Let's flip the emu thread on.
-			useEmuThread = true;
-			SetCurrentThreadName("Render");
-		}
-	} else if (useEmuThread) {
-		// We must've failed over from OpenGL, flip the emu thread off.
-		useEmuThread = false;
-		SetCurrentThreadName("EmuThread");
-	}
+	const bool performingRestart = NativeIsRestarting();
+	NativeInit(argc, argv, "", "", nullptr);
 
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
@@ -313,17 +292,10 @@ void MainThreadFunc() {
 
 	g_graphicsContext->ThreadEnd();
 	g_graphicsContext->ShutdownFromRenderThread();
-
 	g_graphicsContext->Shutdown();
 
 	delete g_graphicsContext;
 	g_graphicsContext = nullptr;
-
-	RECT rc;
-	if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
-		g_Config.iConsoleWindowX = rc.left;
-		g_Config.iConsoleWindowY = rc.top;
-	}
 
 	NativeShutdown();
 

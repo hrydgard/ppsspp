@@ -515,8 +515,12 @@ bool TextureCacheVulkan::RunMultipassCompute(VulkanContext *vulkan, VkCommandBuf
 			stage.useFinalOutputSize ? dstWidth : srcWidth * stage.dstWidthScale,
 			stage.useFinalOutputSize ? dstHeight : srcHeight * stage.dstHeightScale,
 		};
+		VkPipeline pipeline = computeShaderManager_.GetPipeline(multipassCS_[stage.shaderIndex], "Multipass Compute Shader");
+		if (!pipeline) {
+			return false;
+		}
 		VkDescriptorSet stageSet = computeShaderManager_.GetDescriptorSet(outputView, inputBuffer, inputOffset, inputRange, VK_NULL_HANDLE, 0, 0, inputImage, textureScaleCBuffer_.Buffer(), textureScaleCBuffer_.Size());
-		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(multipassCS_[stage.shaderIndex]));
+		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 		vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &stageSet, 0, nullptr);
 		vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 		vkCmdDispatch(cmdInit, (params.dstWidth + 7) / 8, (params.dstHeight + 7) / 8, 1);
@@ -542,7 +546,11 @@ bool TextureCacheVulkan::ScaleBufferToImage(VulkanContext *vulkan, VkCommandBuff
 		}
 		VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(dstView, texBuf, bufferOffset, srcSize, VK_NULL_HANDLE, 0, 0, VK_NULL_HANDLE, textureScaleCBuffer_.Buffer(), textureScaleCBuffer_.Size());
 		struct Params { int x; int y; } params{ srcWidth, srcHeight };
-		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(singlePassCS_));
+		VkPipeline pipeline = computeShaderManager_.GetPipeline(singlePassCS_, "Single Pass Compute Shader");
+		if (!pipeline) {
+			return false;
+		}
+		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 		vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 		vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 		vkCmdDispatch(cmdInit, (srcWidth + 7) / 8, (srcHeight + 7) / 8, 1);

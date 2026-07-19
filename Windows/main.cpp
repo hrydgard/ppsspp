@@ -594,6 +594,21 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::APP_SWITCH_MODE_CHANGED:
 	case SystemNotification::UI_STATE_CHANGED:
 		break;
+	case SystemNotification::CONFIG_LOADED:
+	{
+		// This is too early to move the console into position - hasn't been allocated yet.
+		break;
+	}
+	case SystemNotification::BEFORE_CONFIG_SAVE_ON_EXIT:
+	{
+		RECT rc{};
+		const HWND console = GetConsoleWindow();
+		if (console && GetWindowRect(console, &rc) && !IsIconic(console)) {
+			g_Config.iConsoleWindowX = rc.left;
+			g_Config.iConsoleWindowY = rc.top;
+		}
+		break;
+	}
 	}
 }
 
@@ -893,7 +908,6 @@ static bool DetectVulkanInExternalProcess() {
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
 	int wargc = -1;
-	// This is used for the WM_USER_RESTART_EMUTHREAD path.
 	if (!restartArgs.empty()) {
 		std::wstring wargs = ConvertUTF8ToWString("PPSSPP " + restartArgs);
 		wargv = CommandLineToArgvW(wargs.c_str(), &wargc);
@@ -904,7 +918,6 @@ std::vector<std::wstring> GetWideCmdLine() {
 
 	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
 	LocalFree(wargv);
-
 	return wideArgs;
 }
 
@@ -1008,7 +1021,7 @@ static void WinMainCleanup() {
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
-	std::vector<std::wstring> wideArgs = GetWideCmdLine();
+	const std::vector<std::wstring> wideArgs = GetWideCmdLine();
 
 	// Check for the Vulkan workaround before any serious init.
 	for (size_t i = 1; i < wideArgs.size(); ++i) {
@@ -1029,7 +1042,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	SetCurrentThreadName("Main");
 
 	TimeInit();
-
 	WinMainInit();
 
 #ifndef _DEBUG
@@ -1088,6 +1100,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// if it's not loaded here first.
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename.c_str(), controlsConfigFilename.c_str());
+	System_Notify(SystemNotification::CONFIG_LOADED);
 
 	bool debugLogLevel = false;
 
@@ -1170,6 +1183,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - It should be possible to log to a file without showing the console.
 	g_logManager.GetConsoleListener()->Init(showLog, 150, 120);
 
+	// Move the console into position.
+	const HWND console = GetConsoleWindow();
+	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
+
 	if (debugLogLevel) {
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 	}
@@ -1208,7 +1227,18 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
 	// manages its own render thread.
-	MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
+
+	// We convert command line arguments to UTF-8.
+	std::vector<std::string> argsUTF8;
+	for (const auto &string : wideArgs) {
+		argsUTF8.push_back(ConvertWStringToUTF8(string));
+	}
+	std::vector<const char *> args;
+	for (const auto &string : argsUTF8) {
+		args.push_back(string.c_str());
+	}
+
+	MainThread_Start((int)args.size(), args.data());
 
 	g_InputManager.BeginPolling();
 

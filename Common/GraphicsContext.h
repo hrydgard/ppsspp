@@ -59,6 +59,5 @@ public:
 				sleep_ms(5, "exit poll");
 			}
 		}
-
 	}
 };
