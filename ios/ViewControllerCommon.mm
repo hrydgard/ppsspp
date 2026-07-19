@@ -20,6 +20,7 @@
 	LocationHelper *locationHelper;
 	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
+	UILabel *cameraDebugLabel;
 }
 
 @property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
@@ -388,6 +389,25 @@ static int GetPickerRequestId(id picker) {
 			key.flags = isDown ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 			NativeKey(key);
 		}];
+
+	// Debug label for camera status (visible only during development).
+	cameraDebugLabel = [[UILabel alloc] initWithFrame:CGRectMake(8, 50, 300, 20)];
+	cameraDebugLabel.textColor = [UIColor whiteColor];
+	cameraDebugLabel.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
+	cameraDebugLabel.font = [UIFont systemFontOfSize:11];
+	cameraDebugLabel.textAlignment = NSTextAlignmentLeft;
+	cameraDebugLabel.text = @"Camera Control: starting...";
+	[self.view addSubview:cameraDebugLabel];
+
+	[NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) {
+		cameraDebugLabel.text = [NSString stringWithFormat:@"Camera: %@",
+			cameraControlInputManager.status ?: @"?"];
+		if (cameraControlInputManager.sessionActive) {
+			cameraDebugLabel.textColor = [UIColor greenColor];
+		} else {
+			cameraDebugLabel.textColor = [UIColor whiteColor];
+		}
+	}];
 }
 
 extern float g_safeInsetLeft;

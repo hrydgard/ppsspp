@@ -22,4 +22,10 @@ typedef void (^CameraControlPressCallback)(BOOL isFullPress, BOOL isDown);
 /// Stop/pause the camera session. Safe to call multiple times.
 - (void)stop;
 
+/// Debug: human-readable status of the camera session.
+@property (nonatomic, readonly) NSString *status;
+
+/// Whether the camera session is active (running).
+@property (nonatomic, readonly, getter=isSessionActive) BOOL sessionActive;
+
 @end

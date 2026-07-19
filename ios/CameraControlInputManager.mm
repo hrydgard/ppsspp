@@ -12,11 +12,14 @@
 @property (nonatomic, strong) AVCaptureDeviceInput *videoInput;
 @property (nonatomic, strong) id interaction;
 
-@property (nonatomic, assign) BOOL sessionActive;
+@property (nonatomic, assign, getter=isSessionActive) BOOL sessionActive;
+@property (nonatomic, copy, readwrite) NSString *status;
 
 @end
 
 @implementation CameraControlInputManager
+
+@synthesize status = _status;
 
 - (instancetype)initWithParentView:(UIView *)view callback:(CameraControlPressCallback)callback {
     self = [super init];
@@ -24,6 +27,7 @@
         _callback = [callback copy];
         _parentView = view;
         _sessionActive = NO;
+        _status = @"starting...";
 
         // Start immediately — don't wait for didBecomeActive (may not fire in LiveContainer).
         [self requestCameraAccessAndSetup];
@@ -53,15 +57,19 @@
 
     switch (status) {
         case AVAuthorizationStatusAuthorized:
+            self.status = @"perm: granted";
             [self setupSession];
             break;
 
         case AVAuthorizationStatusNotDetermined: {
+            self.status = @"perm: requesting...";
             [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (granted) {
+                        self.status = @"perm: granted";
                         [self setupSession];
                     } else {
+                        self.status = @"perm: DENIED";
                         NSLog(@"CameraControlInputManager: Permission denied.");
                     }
                 });
@@ -70,8 +78,13 @@
         }
 
         case AVAuthorizationStatusDenied:
+            self.status = @"perm: DENIED (system)";
+            NSLog(@"CameraControlInputManager: Camera access denied.");
+            break;
+
         case AVAuthorizationStatusRestricted:
-            NSLog(@"CameraControlInputManager: Camera access denied/restricted.");
+            self.status = @"perm: RESTRICTED";
+            NSLog(@"CameraControlInputManager: Camera access restricted.");
             break;
     }
 
@@ -82,6 +95,8 @@
 - (void)setupSession API_AVAILABLE(ios(17.2)) {
     NSError *error = nil;
 
+    self.status = @"discovering camera...";
+
     // Use discovery session for more reliable device finding.
     AVCaptureDeviceDiscoverySession *discovery = [AVCaptureDeviceDiscoverySession
         discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInWideAngleCamera]
@@ -89,26 +104,33 @@
                                position:AVCaptureDevicePositionUnspecified];
     AVCaptureDevice *camera = discovery.devices.firstObject;
     if (!camera) {
+        self.status = @"❌ no camera found";
         NSLog(@"CameraControlInputManager: No camera device found.");
         return;
     }
 
+    self.status = @"creating camera input...";
     AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:camera error:&error];
     if (error || !input) {
+        self.status = [NSString stringWithFormat:@"❌ input failed: %@", error.localizedDescription];
         NSLog(@"CameraControlInputManager: Failed to create input: %@", error.localizedDescription);
         return;
     }
     self.videoInput = input;
 
+    self.status = @"creating session...";
     AVCaptureSession *session = [[AVCaptureSession alloc] init];
     session.sessionPreset = AVCaptureSessionPresetLow;
 
     if (![session canAddInput:input]) {
+        self.status = @"❌ cannot add input";
         NSLog(@"CameraControlInputManager: Cannot add input to session.");
         return;
     }
     [session addInput:input];
     self.session = session;
+
+    self.status = @"creating interaction...";
 
     // Create interaction and add it directly to parentView.
     __weak typeof(self) weakSelf = self;
@@ -127,20 +149,24 @@
 
     UIView *targetView = self.parentView;
     if (!targetView) {
+        self.status = @"❌ parent view gone";
         NSLog(@"CameraControlInputManager: Parent view gone.");
         return;
     }
     [targetView addInteraction:interaction];
     self.interaction = interaction;
 
+    self.status = @"starting session...";
     [session startRunning];
 
     // Async check if session actually started.
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (session.isRunning) {
             self.sessionActive = YES;
+            self.status = @"✅ ACTIVE (session running)";
             NSLog(@"CameraControlInputManager: Session is RUNNING. Camera Control events active.");
         } else {
+            self.status = @"❌ session NOT running (startRunning failed)";
             NSLog(@"CameraControlInputManager: Session failed to start (isRunning=NO).");
         }
     });
