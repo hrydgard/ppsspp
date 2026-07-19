@@ -43,24 +43,16 @@ static std::thread mainThread;
 static std::string g_error_message;
 static bool g_inLoop;
 
-static const char** g_argv;
-static int g_argc;
-
 extern std::vector<std::wstring> GetWideCmdLine();
 
 class GraphicsContext;
 static GraphicsContext *g_graphicsContext;
 
-void MainThreadFunc(int argc, const char *argv[]);
+void MainThreadFunc();
 
-void MainThread_Start(int argc, const char *argv[]) {
-	// This is just to survive WM_USER_RESTART_EMUTHREAD.
-	if (g_argc == 0) {
-		g_argc = argc;
-		g_argv = argv;
-	}
+void MainThread_Start() {
 	mainThread = std::thread([]() {
-		MainThreadFunc(g_argc, g_argv);
+		MainThreadFunc();
 	});
 }
 
@@ -153,7 +145,7 @@ bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
 	}
 }
 
-void MainThreadFunc(int argc, const char *argv[]) {
+void MainThreadFunc() {
 	const bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
@@ -161,7 +153,6 @@ void MainThreadFunc(int argc, const char *argv[]) {
 	System_SetWindowTitle("");
 
 	const bool performingRestart = NativeIsRestarting();
-	NativeInit(argc, argv, "", "", nullptr);
 
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
@@ -249,6 +240,7 @@ void MainThreadFunc(int argc, const char *argv[]) {
 	graphicsContext->ThreadStart();
 
 	if (useEmuThread) {
+		// Again, this thread becomes the render thread.
 		while (true) {
 			if (equals_any(g_emuThreadState, EmuThreadState::QUIT_REQUESTED, EmuThreadState::STOPPED)) {
 				break;
@@ -259,6 +251,7 @@ void MainThreadFunc(int argc, const char *argv[]) {
 			}
 		}
 	} else {
+		// Same contents as EmuThread.
 		while (GetUIState() != UISTATE_EXIT) {  //  && GetUIState() != UISTATE_EXCEPTION
 			// We're here again, so the game quit.  Restart Run() which controls the UI.
 			// This way they can load a new game.
@@ -296,8 +289,6 @@ void MainThreadFunc(int argc, const char *argv[]) {
 
 	delete g_graphicsContext;
 	g_graphicsContext = nullptr;
-
-	NativeShutdown();
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
