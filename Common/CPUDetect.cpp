@@ -288,8 +288,7 @@ void CPUInfo::Detect() {
 		// -- Is the RTM bit set in CPUID? (>>11)
 		// -- No need to check HLE bit because legacy processors ignore HLE hints
 		// -- See https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
-		if (max_std_fn >= 7)
-		{
+		if (max_std_fn >= 7) {
 			do_cpuid(cpu_id, 0x00000007);
 			// careful; we can't enable AVX2 unless the XSAVE/XGETBV checks above passed
 			if ((cpu_id[1] >> 5) & 1)

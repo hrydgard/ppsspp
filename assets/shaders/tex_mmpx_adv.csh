@@ -33,10 +33,18 @@ precision mediump float;
 
 uint srcu(int x, int y) {
 
-	//* out-of-bounds check, return transparent color if coordinates are out of range
-    return (x >= 0 && x < params.width && y >= 0 && y < params.height) 
-           ? readColoru(uvec2(x, y)) 
-           : 0u;
+    ivec2 target = ivec2(x, y);
+    
+    //* clamp target to safe bounds
+    ivec2 safe = clamp(target, ivec2(0), ivec2(params.width - 1, params.height - 1));
+
+    uint color = readColoru(uvec2(safe));
+
+    //* in-bounds check
+    bool is_in = all(equal(target, safe));
+    
+    //* return transparent color if out of range
+    return is_in ? color : 0u;
 }
 
 #define src(c,d) unpackUnorm4x8(srcu(c,d))
@@ -339,9 +347,6 @@ if (eq(E,A)) {
 		return mixXEoff;
 	}
 
-	// Use default connection if center is fully transparent and X is not black
-	if (vE.a<0.002 && !Xisblack) return vX;
-
     eq_B_PC = eq(B,PC);
     eq_B_PA = eq(B,PA);
     eq_D_QG = eq(D,QG);
@@ -350,6 +355,7 @@ if (eq(E,A)) {
 	if ( comboE3 && comboA3 &&
 		(eq_B_PC || eq_D_QG) && eq_D_QA && eq_B_PA) {
 		mixFactor = mixFactor * (-0.618034) + 0.8541;
+		mixFactor = max(mixFactor, float(vE.a < 0.002));
         return mixXEoff;
 	}
 
@@ -359,6 +365,7 @@ if (eq(E,A)) {
 		 && eq_E_H
 		) {
 		mixFactor = mixFactor * (-0.618034) + 0.8541;
+		mixFactor = max(mixFactor, float(vE.a < 0.002));
         return mixXEoff;
 		}
 
@@ -367,6 +374,7 @@ if (eq(E,A)) {
 		 && eq_E_F
 		) {
 		mixFactor = mixFactor * (-0.618034) + 0.8541;
+		mixFactor = max(mixFactor, float(vE.a < 0.002));
         return mixXEoff;
 		}
 
@@ -412,13 +420,14 @@ if (eq(E,A)) {
     En3 = eq_E_F && eq_E_H;
 
 	// Early exit for clean 4/6 rectangles, skip long slope evaluation
-	if ( scoreE<0.1 && mixFactor<0.1 && En4square && eq(E,S)==eq(E,SI) && eq(E,R)==eq(E,RI) ) return theEXIT;
+	if ( scoreE<0.01 && mixFactor<0.01 && En4square && eq(E,S)==eq(E,SI) && eq(E,R)==eq(E,RI) ) return theEXIT;
 
-	if ( scoreE<0.1 && !En3 && neq(E,I) ) {
+	if ( scoreE<0.01 && !En3 && neq(E,I) ) {
 		if ( B_wall && eq_E_F ) return theEXIT;
 		if ( D_wall && eq_E_H ) return theEXIT;
     }
 
+	if (vE.a<0.002 && !Xisblack) return vX;
 	scoreE += float(B_slope && eq_A_P || D_slope && eq_A_Q);
 
     if ( !En3 && eq(F,H) ) {
@@ -437,7 +446,7 @@ if (eq(E,A)) {
 
 	if (eq(P,C)){
 		scoreB -= float(eq_A_AA);
-		scoreZ *= float(scoreE < 0.1);
+		scoreZ *= float(scoreE < 0.01);
 	}
 
 //*  D Zone
@@ -448,20 +457,20 @@ if (eq(E,A)) {
 
 	if (eq(G,Q)){
 		scoreD -= float(eq_A_AA);
-		scoreZ *= float(scoreE < 0.1);
+		scoreZ *= float(scoreE < 0.01);
 	}
 
     float scoreFinal = scoreE + scoreB + scoreD + scoreZ ;
 
 	// Disable blending for long slope patterns with no penalties on B/D zone
-	scoreFinal += float(min(scoreB,scoreD) > -0.1 && (B_wall && D_tower || B_tower && D_wall)) *2.0;
+	scoreFinal += float(min(scoreB,scoreD) > -0.01 && (B_wall && D_tower || B_tower && D_wall)) *2.0;
 
-	mixFactor *= (1.0 - step(1.9, scoreFinal));
-	return mixXE + slopeBAD*(1.0 - step(0.9, scoreFinal));
+	mixFactor *= (1.0 - step(1.99, scoreFinal));
+	return mixXE + slopeBAD*(1.0 - step(0.99, scoreFinal));
 
 }	//* E == A
 
-	
+
 //* ===============================================
 //*              	E - C - G     main rules
 //* ========================================= zz ==
@@ -533,7 +542,7 @@ if (eq(E,A)) {
 	// Exit for high contrast isolated center pixel
 	float E_lumDiff = mix(0.381966, 0.145898, max((El - 0.8541),0.0) * 6.8541);
 
-    if ( mixFactor<0.1 && !sim_EC && !sim_EG && E.a>0.381966 && neq(E,I) && abs(El-Fl)>E_lumDiff && abs(El-Hl)>E_lumDiff ) return slopeBAD;
+    if ( mixFactor<0.01 && !sim_EC && !sim_EG && E.a>0.381966 && neq(E,I) && abs(El-Fl)>E_lumDiff && abs(El-Hl)>E_lumDiff ) return slopeBAD;
 
 
 	eq_E_F = eq(E,F);
@@ -560,7 +569,7 @@ if (eq(E,A)) {
 	// Enclosed 4-cell rectangle
 	if ( En4square ) {
         if ( ( eq_B_C || eq_D_G) && eq_A_B) return theEXIT;
-        if ( ( eq_B_C || eq_D_G || mixFactor<0.1) && (eq(E,S) == eq(E, SI) && eq(E,R) == eq(E, RI)) ) return theEXIT;
+        if ( ( eq_B_C || eq_D_G || mixFactor<0.01) && (eq(E,S) == eq(E, SI) && eq(E,R) == eq(E, RI)) ) return theEXIT;
         return mixXEoff;
     }
 
@@ -624,7 +633,7 @@ vec4 admixS( vec4 A, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec
 
 	if ( sim_E_C && eq(E,D) && eq(B,C) ) return mixXE;
 
-	if ( (sim_E_C || mixFactor>0.1) && all_eq2(B,C,D) ) return mixXE;
+	if ( (sim_E_C || mixFactor>0.01) && all_eq2(B,C,D) ) return mixXE;
 
     return vE;
 }

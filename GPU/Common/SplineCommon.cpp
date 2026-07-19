@@ -469,7 +469,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
 	}
 
-	u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), applySkinInDecode_);
+	u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode());
 	VertexDecoder *origVDecoder = GetVertexDecoder(vertTypeID);
 	*bytesRead = num_points * origVDecoder->VertexSize();
 
@@ -527,7 +527,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
-	vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), applySkinInDecode_);
+	vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 	int generatedBytesRead;
 	if (output.count) {
 		ClipInfoFlags flags{};  // Don't need any special processing.

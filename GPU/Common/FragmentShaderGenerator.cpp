@@ -101,7 +101,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderWriter p(buffer, compat, ShaderStage::Fragment, extensions, flags);
-	p.F("// %s\n", FragmentShaderDesc(id).c_str());
+	p.C("// %").W(id.Description()).endl();
 
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
@@ -414,7 +414,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
-			WRITE(p, "%s vec2 v_zw;\n", compat.varying_fs);
+			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_fs);
 		}
 
 		if (!enableFragmentTestCache) {
@@ -864,7 +864,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  v.rgb = mix(u_fogcolor, v.rgb, fogCoef);\n");
 		}
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
@@ -1094,17 +1094,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		case STENCIL_VALUE_INCR_4BIT:
 		case STENCIL_VALUE_DECR_4BIT:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
+			// We have to set the blend mode to match elsewhere.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
 		case STENCIL_VALUE_INCR_8BIT:
 		case STENCIL_VALUE_DECR_8BIT:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
+			// We have to set the blend mode to match elsewhere.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
 
 		case STENCIL_VALUE_KEEP:
-			// Do nothing. We'll mask out the alpha using color mask.
+			// Do nothing. We'll mask out the alpha using color mask (could also be done with a blend mode).
 			break;
 		}
 	}

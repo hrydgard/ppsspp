@@ -46,7 +46,7 @@
 
 // Keep this in 4 bits.
 enum {
-	DEC_NONE,
+	DEC_NONE = 0,
 	DEC_FLOAT_1,
 	DEC_FLOAT_2,
 	DEC_FLOAT_3,
@@ -62,6 +62,8 @@ enum {
 	DEC_U16_3,
 	DEC_U16_4,
 };
+
+const char *DecFmtComponentToString(u8 fmt);
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
@@ -81,6 +83,8 @@ struct DecVtxFormat {
 	void InitializeFromID(uint32_t id);
 
 	static u8 PosFmt() { return DEC_FLOAT_3; }
+
+	std::string ToString() const;
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
@@ -129,29 +133,23 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBones(int bones);
-
 typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count, const UVScale *uvScaleOffset);
 
 struct VertexDecoderOptions {
-	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 };
 
-inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode, bool skinInDecode) {
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	return (vertType & 0xFFFFFF) | (uvGenMode << 24) | (skinInDecode << 26);
-}
-
-inline bool VertTypeIDSkinInDecode(uint32_t vertType) {
-	return ((vertType >> 26) & 1) != 0;
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
 }
 
 inline GETexMapMode VertTypeIDUVGenMode(uint32_t vertType) {
 	return (GETexMapMode)((vertType >> 24) & 3);
 }
+
+std::string DecFmtIdToString(u32 id);
 
 class VertexDecoder {
 public:
@@ -172,12 +170,6 @@ public:
 	std::string GetString(DebugShaderStringType stringType) const;
 
 	void ComputeSkinMatrix(const float weights[8]) const;
-
-	static void Step_WeightsU8(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsU16(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsU8ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsU16ToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
-	static void Step_WeightsFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 
 	static void Step_WeightsU8Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
 	static void Step_WeightsU16Skin(const VertexDecoder *dec, const u8 *ptr, u8 *decoded);
@@ -258,7 +250,7 @@ public:
 	// output must be big for safety.
 	// Returns number of chars written.
 	// Ugly for speed.
-	int ToString(char *output, bool spaces) const;
+	int ToString(char *buf, int bufSize, bool spaces) const;
 
 	bool IsInSpace(const uint8_t *ptr) const {
 		return ptr >= (const uint8_t *)jitted_ && ptr < ((const uint8_t *)jitted_ + jittedSize_);
@@ -344,12 +336,6 @@ public:
 	// Returns a pointer to the code to run.
 	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize);
 	void Clear();
-
-	void Jit_WeightsU8();
-	void Jit_WeightsU16();
-	void Jit_WeightsU8ToFloat();
-	void Jit_WeightsU16ToFloat();
-	void Jit_WeightsFloat();
 
 	void Jit_WeightsU8Skin();
 	void Jit_WeightsU16Skin();

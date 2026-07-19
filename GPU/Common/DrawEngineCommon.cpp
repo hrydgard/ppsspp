@@ -158,7 +158,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	}
 
 	int bytesRead;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0, applySkinInDecode_);
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
 
 	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
@@ -230,8 +230,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 				GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
 			}
 			// TODO: Avoid normalization if just plain skinning.
-			// Force software skinning.
-			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), true);
+			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode());
 			UVScale uvScale{};  // We don't care about UV.
 			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, uvScale, dec, vertType);
 			IndexConverter conv(vertType, inds);
@@ -908,10 +907,6 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	return true;
 }
 
-void DrawEngineCommon::BeginFrame() {
-	applySkinInDecode_ = g_Config.bSoftwareSkinning;
-}
-
 void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
 	const int numDrawVerts = numDrawVerts_;
 	if (!numDrawVerts) {
@@ -999,7 +994,7 @@ bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 
 	if (found) {
 		char temp[256];
-		found->ToString(temp, false);
+		found->ToString(temp, sizeof(temp), false);
 		name = temp;
 		snprintf(temp, sizeof(temp), "_%08X", foundKey);
 		name += temp;

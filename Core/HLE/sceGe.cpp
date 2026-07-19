@@ -320,6 +320,7 @@ static bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList 
 		wokeThreads |= HLEKernel::ResumeFromWait(threadID, waitType, waitId, 0);
 	waitingThreads.clear();
 	gstate_c.textureSyncTimeDomain++;
+	gpuStats.perFrame.numGEInterrupts++;
 	return wokeThreads;
 }
 

@@ -143,6 +143,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  --graphics=BACKEND    use a different gpu backend\n");
 	fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 	fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
+	fprintf(stderr, "  --screenshot-save=FILE  save rendered screenshot to a BMP file\n");
 	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 
@@ -180,6 +181,8 @@ struct AutoTestOptions {
 };
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
+	using namespace Draw;
+
 	// Kinda ugly, trying to guesstimate the test name from filename...
 	currentTestName = GetTestName(coreParameter.fileToStart);
 
@@ -191,12 +194,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		// Shouldn't really happen anymore, the errors happen later in PSP_InitUpdate.
 		fprintf(stderr, "Failed to start '%s'.\n", coreParameter.fileToStart.c_str());
 		printf("TESTERROR\n");
-		TeamCityPrint("testIgnored name='%s' message='PRX/ELF missing'", currentTestName.c_str());
 		GitHubActionsPrint("error", "PRX/ELF missing for %s", currentTestName.c_str());
 		return false;
 	}
-
-	TeamCityPrint("testStarted name='%s' captureStandardOutput='true'", currentTestName.c_str());
 
 	if (opt.compare)
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
@@ -207,9 +207,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 
 	if (!PSP_IsInited()) {
-		TeamCityPrint("%s", error_string.c_str());
-		TeamCityPrint("testFailed name='%s' message='Startup failed'", currentTestName.c_str());
-		TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 		GitHubActionsPrint("error", "Test init failed for %s", currentTestName.c_str());
 		return false;
 	}
@@ -253,7 +250,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 				printf("%s", output.c_str());
 
 				System_SendDebugOutput("TIMEOUT\n");
-				TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}
 
@@ -266,11 +262,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 
 	if (draw) {
-		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Backbuffer");
+		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "BackBuffer");
 		// Vulkan may get angry if we don't do a final present.
 		if (gpu) {
 			gpu->SetCurFramebufferDirty(true);
 			gpu->PrepareCopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
+			draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 			gpu->CopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 		}
 
@@ -284,8 +281,6 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	if (opt.compare && passed)
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose);
-
-	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
 	return passed;
 }
@@ -376,6 +371,7 @@ int main(int argc, const char* argv[])
 	const char *mountIso = nullptr;
 	const char *mountRoot = nullptr;
 	const char *screenshotFilename = nullptr;
+	const char *screenshotSavePath = nullptr;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -435,14 +431,14 @@ int main(int argc, const char* argv[])
 #endif
 		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
+		else if (!strncmp(argv[i], "--screenshot-save=", strlen("--screenshot-save=")) && strlen(argv[i]) > strlen("--screenshot-save="))
+			screenshotSavePath = argv[i] + strlen("--screenshot-save=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			testOptions.timeout = strtod(argv[i] + strlen("--timeout="), nullptr);
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
 		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
 			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
-		else if (!strcmp(argv[i], "--teamcity"))
-			teamCityMode = true;
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
@@ -541,7 +537,6 @@ int main(int argc, const char* argv[])
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
-	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
 	g_Config.bSoftwareRenderingJit = true;
@@ -591,7 +586,9 @@ int main(int argc, const char* argv[])
 
 	if (screenshotFilename)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
-	headlessHost->SetWriteFailureScreenshot(!teamCityMode && !getenv("GITHUB_ACTIONS") && !testOptions.bench);
+	if (screenshotSavePath)
+		headlessHost->SetScreenshotSavePath(Path(std::string(screenshotSavePath)));
+	headlessHost->SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -684,7 +681,7 @@ int main(int argc, const char* argv[])
 
 	g_threadManager.Teardown();
 
-	if (!failedTests.empty() && !teamCityMode)
+	if (!failedTests.empty())
 		return 1;
 	return 0;
 }

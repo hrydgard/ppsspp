@@ -73,7 +73,7 @@ std::string_view UploadScreen::GetTitle() const {
 }
 
 void UploadScreen::update() {
-	UIScreen::update();
+	UISimpleBaseDialogScreen::update();
 	bool running = WebServerRunning(WebServerFlags::FILE_UPLOAD);
 	if (prevRunning_ != running) {
 		prevRunning_ = running;

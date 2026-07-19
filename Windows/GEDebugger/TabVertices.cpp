@@ -228,7 +228,7 @@ int CtrlVertexList::GetRowCount() {
 
 	VertexDecoderOptions options{};
 	// TODO: Maybe an option?
-	u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);
+	u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode());
 	decoder->SetVertexType(vertTypeID, options);
 	return rowCount_;
 }

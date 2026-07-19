@@ -98,8 +98,6 @@ void GPU_D3D11::BeginHostFrame(const DisplayLayoutConfig &config) {
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	shaderManager_->DirtyLastShader();
-
 	framebufferManager_->BeginFrame(config);
 
 	if (gstate_c.useFlagsChanged) {

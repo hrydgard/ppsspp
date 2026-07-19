@@ -77,7 +77,7 @@ public:
 	virtual bool IsRemote() {
 		return false;
 	}
-	virtual bool Exists() = 0;
+	virtual bool Exists() = 0;  // This is permitted to essentially be "IsReadable" and not actually report existence (let's say the permissions are wrong, for example...)
 	virtual bool ExistsFast() {
 		return Exists();
 	}

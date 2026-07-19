@@ -52,9 +52,8 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
-	VkShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VK_NULL_HANDLE;
 
-	if (!vs || !fs || (!gs && desc->geometryShader)) {
+	if (!vs || !fs) {
 		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - missing shader modules");
 		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		return false;
@@ -66,8 +65,8 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		return false;
 	}
 
-	uint32_t stageCount = 2;
-	VkPipelineShaderStageCreateInfo ss[3]{};
+	constexpr uint32_t stageCount = 2;
+	VkPipelineShaderStageCreateInfo ss[stageCount]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
@@ -78,14 +77,6 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs;
 	ss[1].pName = "main";
-	if (gs) {
-		stageCount++;
-		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
-		ss[2].pSpecializationInfo = nullptr;
-		ss[2].module = gs;
-		ss[2].pName = "main";
-	}
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.pStages = ss;
@@ -242,9 +233,6 @@ u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
 void VKRGraphicsPipeline::LogCreationFailure() const {
 	ERROR_LOG(Log::G3D, "vs: %s\n[END VS]", desc->vertexShaderSource.c_str());
 	ERROR_LOG(Log::G3D, "fs: %s\n[END FS]", desc->fragmentShaderSource.c_str());
-	if (desc->geometryShader) {
-		ERROR_LOG(Log::G3D, "gs: %s\n[END GS]", desc->geometryShaderSource.c_str());
-	}
 	// TODO: Maybe log various other state?
 	ERROR_LOG(Log::G3D, "======== END OF PIPELINE ==========");
 }
@@ -445,7 +433,7 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	_dbg_assert_(renderThread_.joinable());
+	_dbg_assert_(!useRenderThread_ || renderThread_.joinable());
 	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
@@ -1738,7 +1726,7 @@ void VulkanRenderManager::ResetStats() {
 	renderCPUTimeMs_.Reset();
 }
 
-VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, bool geoShadersEnabled, const char *tag) {
+VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, const char *tag) {
 	VKRPipelineLayout *layout = new VKRPipelineLayout();
 	layout->SetTag(tag);
 	layout->bindingTypesCount = (uint32_t)bindingTypesCount;
@@ -1764,9 +1752,6 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-			if (geoShadersEnabled) {
-				bindings[i].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
-			}
 			break;
 		case BindingType::STORAGE_BUFFER_VERTEX:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;

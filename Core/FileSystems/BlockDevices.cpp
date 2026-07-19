@@ -222,7 +222,7 @@ static bool FindUDFLayerFileEntrySectors(FileLoader *fileLoader, u32 rootSector,
 BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString) {
 	if (!fileLoader->Exists()) {
 		// Shouldn't get here really.
-		*errorString = "File doesn't exist";
+		*errorString = "File not readable or doesn't exist";
 		return nullptr;
 	}
 	if (fileLoader->IsDirectory()) {
@@ -230,12 +230,16 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 		*errorString += fileLoader->GetPath().ToString();
 		return nullptr;
 	}
+	if (fileLoader->FileSize() < 8) {
+		*errorString = "File is too small to read the header.";
+		return nullptr;
+	}
 
 	char buffer[8]{};
 	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
 	if (size != 8) {
 		// Bad or empty file
-		*errorString = "File is empty";
+		*errorString = "Failed to read 8-byte header";
 		return nullptr;
 	}
 

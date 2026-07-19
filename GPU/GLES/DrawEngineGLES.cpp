@@ -53,7 +53,6 @@ enum {
 DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), draw_(draw) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
 	InitDeviceObjects();
@@ -235,16 +234,6 @@ void DrawEngineGLES::Flush() {
 		return;
 	}
 
-	bool textureNeedsApply = false;
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
-		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureNeedsApply = true;
-	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
-		// This catches the case of clearing a texture. (#10957)
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-	}
-
 	GEPrimitiveType prim = prevPrim_;
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
@@ -269,7 +258,7 @@ void DrawEngineGLES::Flush() {
 		lastUseHwTransform_ = useHWTransform;
 	}
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), decOptions_.expandAllWeightsToFloat, applySkinInDecode_ || !useHWTransform, clipInfoFlags_, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
 
 	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back. However, this can no longer really happen... Need to fix this.
 
@@ -279,7 +268,7 @@ void DrawEngineGLES::Flush() {
 	uint32_t indexBufferOffset = 0;
 
 	if (useHWTransform) {
-		if (applySkinInDecode_ && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(dec_, decoded_);
 			uint32_t size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
@@ -314,15 +303,20 @@ void DrawEngineGLES::Flush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		if (textureNeedsApply) {
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+		if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			TextureApplyResult textureResult = textureCache_->ApplyTexture(true);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, false);
+			gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
+			// This catches the case of clearing a texture. (#10957)
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_, false);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
@@ -339,14 +333,7 @@ void DrawEngineGLES::Flush() {
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
-		const VertexDecoder *swDec = dec_;
-		if (swDec->nweights != 0) {
-			u32 withSkinning = lastVType_ | (1 << 26);
-			if (withSkinning != lastVType_) {
-				swDec = GetVertexDecoder(withSkinning);
-			}
-		}
-		DecodeVerts(swDec, decoded_);
+		DecodeVerts(dec_, decoded_);
 		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -373,7 +360,19 @@ void DrawEngineGLES::Flush() {
 		// We could piggyback on the viewport transform below, but it gets complicated since it's different per-backend. Which we really
 		// should clean up one day...
 		if (useDepthRaster_) {
-			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, swDec, vertexCount);
+			DepthRasterPredecoded(prim, decoded_, numDecodedVerts_, dec_, vertexCount);
+		}
+
+		bool textureNeedsApply = false;
+		TextureApplyResult textureResult;
+		if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+			gstate_c.dstSquared = false;
+			textureResult = textureCache_->ApplyTexture(true);
+			textureNeedsApply = true;
+		} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
+			// This catches the case of clearing a texture. (#10957)
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
 
 		u16 *inds = decIndex_;
@@ -387,26 +386,19 @@ void DrawEngineGLES::Flush() {
 		params.allowSeparateAlphaClear = true;
 		params.clipInfoFlags = clipInfoFlags_;
 
-		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, swDec->VertexType(), swDec->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
-
-		if (result.setSafeSize)
-			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
-
+		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 		if (textureNeedsApply) {
-			gstate_c.pixelMapped = result.pixelMapped;
-			gstate_c.dstSquared = false;
-			textureCache_->ApplyTexture(true, clipInfoFlags_ & ClipInfoFlags::FlatZ);
+			textureCache_->ApplySampler(textureResult, clipInfoFlags_ & ClipInfoFlags::FlatZ, result.pixelMapped);
 			if (gstate_c.dstSquared) {
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
-			gstate_c.pixelMapped = false;
 		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_);
+		LinkedShader *linked = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_, result.pixelMapped);
 		if (!linked) {
 			// Not much we can do here. Let's skip drawing.
 			goto bail;

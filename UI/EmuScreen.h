@@ -154,6 +154,7 @@ private:
 
 	bool lastImguiEnabled_ = false;
 
+	std::mutex queuedVirtKeysLock_;
 	std::vector<std::pair<VirtKey, bool>> queuedVirtKeys_;
 
 	ImGuiContext *ctx_ = nullptr;

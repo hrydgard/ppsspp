@@ -180,11 +180,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 		gfx_->ThreadStart();
 		threadState_ = RenderThreadState::STARTED;
 
-		while (threadState_ != RenderThreadState::STOP_REQUESTED) {
-			if (!gfx_->ThreadFrame(true)) {
-				break;
-			}
-		}
+		gfx_->ThreadFrameUntilCondition([this] { return threadState_ == RenderThreadState::STOP_REQUESTED; });
 
 		threadState_ = RenderThreadState::STOPPING;
 		gfx_->ThreadEnd();
@@ -201,6 +197,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 }
 
 void SDLHeadlessHost::ShutdownGraphics() {
+	threadState_ = RenderThreadState::STOP_REQUESTED;
 	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
 		sleep_ms(1, "sdl-stop-poll");
 

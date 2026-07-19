@@ -127,11 +127,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_world, "u_world" });
 	queries.push_back({ &u_texmtx, "u_texmtx" });
 
-	if (VSID.Bit(VS_BIT_ENABLE_BONES))
-		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
-	else
-		numBones = 0;
-
 	// These two are only used for VR, but let's always query them for simplicity.
 	queries.push_back({ &u_scaleX, "u_scaleX" });
 	queries.push_back({ &u_scaleY, "u_scaleY" });
@@ -356,7 +351,7 @@ void LinkedShader::use(const ShaderID &VSID) const {
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
-void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc &shaderLanguage) {
+void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc &shaderLanguage, bool pixelMapped) {
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
@@ -374,7 +369,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		return;
 
 	if (dirty & DIRTY_DEPAL) {
-		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, PackDepalBits());
+		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, PackDepalBits(pixelMapped));
 	}
 
 	// Set HUD mode
@@ -406,12 +401,12 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		memcpy(&matrix, gstate.projMatrix, 16 * sizeof(float));
 		render_->SetUniformM4x4(&u_proj, matrix.m);
 	}
-	if (dirty & DIRTY_PROJTHROUGHMATRIX) {
+	if (dirty & DIRTY_FRAMEBUFFER_DIM) {
 		float xywh[4];
 		xywh[0] = (float)gstate_c.curRTOffsetX;
 		xywh[1] = (float)gstate_c.curRTOffsetY;
-		xywh[2] = (float)gstate_c.curRTWidth;
-		xywh[3] = (float)gstate_c.curRTHeight;
+		xywh[2] = (float)(2.0 / gstate_c.curRTWidth);  // intentionally double precision here
+		xywh[3] = (float)(2.0 / gstate_c.curRTHeight);
 		SetFloatUniform4(render_, &u_xywh, xywh);
 		float nan = std::numeric_limits<float>::quiet_NaN();
 		render_->SetUniformF1(&u_NaN, nan);
@@ -543,13 +538,6 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		float f = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
 		render_->SetUniformF(&u_stencilReplaceValue, 1, &f);
 	}
-	float bonetemp[16];
-	for (int i = 0; i < numBones; i++) {
-		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4Transposed(bonetemp, gstate.boneMatrix + 12 * i);
-			render_->SetUniformM4x4(&u_bone[i], bonetemp);
-		}
-	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
 		if (u_blendFixA != -1) {
@@ -624,7 +612,6 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 }
 
 void ShaderManagerGLES::Clear() {
-	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		iter->ls->Delete();
 	}
@@ -637,7 +624,10 @@ void ShaderManagerGLES::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.Clear();
 	vsCache_.Clear();
-	DirtyLastShader();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
+
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void ShaderManagerGLES::ClearShaders() {
@@ -656,16 +646,6 @@ void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 }
 
-void ShaderManagerGLES::DirtyLastShader() {
-	// Forget the last shader ID
-	lastFSID_.set_invalid();
-	lastVSID_.set_invalid();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
-	shaderSwitchDirtyUniforms_ = 0;
-	lastShader_ = nullptr;
-	lastVShaderSame_ = false;
-}
-
 // Can only fail by failing to generate the code (bad FSID).
 // Any actual failures driver-side happens later in the render manager.
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
@@ -677,7 +657,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
-	std::string desc = FragmentShaderDesc(FSID);
+	std::string desc = FSID.Description();
 	ShaderDescGLES params{ GL_FRAGMENT_SHADER, 0, uniformMask };
 	return new Shader(render_, codeBuffer_, desc, params);
 }
@@ -695,16 +675,18 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
-	std::string desc = VertexShaderDesc(VSID);
+	std::string desc = VSID.Description();
 	ShaderDescGLES params{ GL_VERTEX_SHADER, attrMask, uniformMask };
 	params.useHWTransform = useHWTransform;
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType, ClipInfoFlags clipInfoFlags, VShaderID *VSID) {
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(VSID, vertexType, useHWTransform, weightsAsFloat, useSkinInDecode, clipInfoFlags);
+		lastShader_ = nullptr;
+		lastVShaderSame_ = false;
+		ComputeVertexShaderID(VSID, vertexType, useHWTransform, clipInfoFlags);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -737,7 +719,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType
 
 		// Can still work with software transform.
 		VShaderID vsidTemp;
-		ComputeVertexShaderID(&vsidTemp, vertexType, false, weightsAsFloat, true, clipInfoFlags);
+		ComputeVertexShaderID(&vsidTemp, vertexType, false, clipInfoFlags);
 		vs = CompileVertexShader(vsidTemp);
 	}
 
@@ -745,7 +727,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags, bool pixelMapped) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -756,14 +738,15 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
+		lastShader_ = nullptr;
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs(), clipInfoFlags);
 	} else {
 		FSID = lastFSID_;
 	}
 
-	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
+	if (lastShader_ && lastVShaderSame_ && FSID == lastFSID_) {
+		lastShader_->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc(), pixelMapped);
 		return lastShader_;
 	}
 
@@ -815,7 +798,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	} else {
 		ls->use(VSID);
 	}
-	ls->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc());
+	ls->UpdateUniforms(VSID, draw_->GetShaderLanguageDesc(), pixelMapped);
 
 	lastShader_ = ls;
 	return ls;
@@ -826,7 +809,7 @@ std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) con
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
 	case SHADER_STRING_SHORT_DESC:
-		return isFragment_ ? FragmentShaderDesc(FShaderID(id)) : VertexShaderDesc(VShaderID(id));
+		return isFragment_ ? FShaderID(id).Description() : VShaderID(id).Description();
 	default:
 		return "N/A";
 	}
@@ -896,7 +879,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 42
+#define CACHE_VERSION 43
 
 struct CacheHeader {
 	uint32_t magic;

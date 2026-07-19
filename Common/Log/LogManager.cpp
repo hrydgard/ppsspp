@@ -76,6 +76,7 @@ static const char * const g_logTypeNames[] = {
 	"CPU",
 	"FILESYS",
 	"G3D",
+	"TEXCACHE",
 	"HLE",
 	"JIT",
 	"LOADER",

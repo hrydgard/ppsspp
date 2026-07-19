@@ -27,25 +27,24 @@ namespace Draw {
 
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
-	SHADER_TYPE_FRAGMENT = 1,
-	SHADER_TYPE_GEOMETRY = 2,
-	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
-	SHADER_TYPE_PIPELINE = 4,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
-	SHADER_TYPE_TEXTURE = 5,
-	SHADER_TYPE_SAMPLER = 6,  // Not really a shader either. Need to rename this enum...
+	SHADER_TYPE_FRAGMENT,
+	SHADER_TYPE_VERTEXLOADER,  // Not really a shader, but might as well re-use this mechanism
+	SHADER_TYPE_PIPELINE,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
+	SHADER_TYPE_TEXTURE,
+	SHADER_TYPE_SAMPLER,  // Not really a shader either. Need to rename this enum...
 };
 
 enum DebugShaderStringType {
 	SHADER_STRING_SHORT_DESC = 0,
-	SHADER_STRING_SOURCE_CODE = 1,
-	SHADER_STRING_STATS = 2,
+	SHADER_STRING_SOURCE_CODE,
+	SHADER_STRING_STATS,
 };
 
 // Shared between the backends. Not all are necessarily used by each backend, but this lets us share
 // more code than before. TODO: Can probably cut the number of these down without too much slowdown.
 enum : uint64_t {
 	DIRTY_PROJMATRIX = 1ULL << 0,
-	DIRTY_PROJTHROUGHMATRIX = 1ULL << 1,
+	DIRTY_FRAMEBUFFER_DIM = 1ULL << 1,
 	DIRTY_FOGCOLOR = 1ULL << 2,
 	DIRTY_FOGCOEF = 1ULL << 3,
 	DIRTY_TEXENV = 1ULL << 4,
@@ -76,14 +75,8 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX = 1ULL << 21,
 	DIRTY_VIEWMATRIX = 1ULL << 22,
 	DIRTY_TEXMATRIX = 1ULL << 23,
-	DIRTY_BONEMATRIX0 = 1ULL << 24,  // NOTE: These must be under 32
-	DIRTY_BONEMATRIX1 = 1ULL << 25,
-	DIRTY_BONEMATRIX2 = 1ULL << 26,
-	DIRTY_BONEMATRIX3 = 1ULL << 27,
-	DIRTY_BONEMATRIX4 = 1ULL << 28,
-	DIRTY_BONEMATRIX5 = 1ULL << 29,
-	DIRTY_BONEMATRIX6 = 1ULL << 30,
-	DIRTY_BONEMATRIX7 = 1ULL << 31,
+
+	// Free uniform bits 24-31!
 
 	// Free uniform bit 32!,
 	DIRTY_TEXCLAMP = 1ULL << 33,
@@ -100,8 +93,6 @@ enum : uint64_t {
 
 	// Bits 41-42 are free for new uniforms (although the mask below needs updating). Then we're really out and need to start merging.
 	// Don't forget to update DIRTY_ALL_UNIFORMS when you start using them.
-
-	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
 	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFFULL,
 
@@ -136,7 +127,6 @@ public:
 	virtual ~ShaderManagerCommon() {}
 
 	virtual void ClearShaders() = 0;
-	virtual void DirtyLastShader() = 0;
 
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;   // must set draw_ to draw

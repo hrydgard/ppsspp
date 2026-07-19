@@ -392,7 +392,10 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 	// to allow EmuScreen to receive messages from popup menus. Hope this didn't break anything..
 	// NOTE: We do not use the iterator solution here, because the screen array may change by sendMessage!
 	// Although if it does, that's very bad.
-	for (int i = 0; i < stack_.size(); i++) {
+	// We also pick out the stack size before, so we don't get infinite growth if a screen is pushed from the handler.
+	// We probably should delay pushes, though...
+	const size_t stack_size = stack_.size();
+	for (int i = 0; i < stack_size; i++) {
 		if (stack_[i].screen) {
 			stack_[i].screen->sendMessage(message, value);
 		}

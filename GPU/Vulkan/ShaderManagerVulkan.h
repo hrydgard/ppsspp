@@ -46,7 +46,7 @@ public:
 	const std::string &source() const { return source_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	Promise<VkShaderModule> *GetModule() { return module_; }
+	Promise<VkShaderModule> *GetModule() const { return module_; }
 	const FShaderID &GetID() const { return id_; }
 
 	FragmentShaderFlags Flags() const { return flags_;  }
@@ -72,7 +72,7 @@ public:
 	VertexShaderFlags Flags() const { return flags_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	Promise<VkShaderModule> *GetModule() { return module_; }
+	Promise<VkShaderModule> *GetModule() const { return module_; }
 	const VShaderID &GetID() const { return id_; }
 
 protected:
@@ -89,7 +89,6 @@ struct Uniforms {
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base{};
 	UB_VS_Lights ub_lights{};
-	UB_VS_Bones ub_bones{};
 };
 
 enum class ClipInfoFlags;
@@ -102,24 +101,19 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void GetShaders(int prim, u32 vertexType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags);
+	void GetShaderIDs(int prim, u32 vertexType, VShaderID *vshader, FShaderID *fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, ClipInfoFlags clipInfoFlags);
 	void ClearShaders() override;
-	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
-	// Used for saving/loading the cache. Don't need to be particularly fast.
-	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { return vsCache_.GetOrNull(id); }
-	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { return fsCache_.GetOrNull(id); }
-
-	VulkanVertexShader *GetVertexShaderFromModule(VkShaderModule module);
-	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
+	const VulkanVertexShader *GetVertexShaderFromID(VShaderID VSID);
+	const VulkanFragmentShader *GetFragmentShaderFromID(FShaderID FSID);
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
-	uint64_t UpdateUniforms(bool useBufferedRendering);
+	uint64_t UpdateUniforms(bool useBufferedRendering, bool pixelMapped);
 
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
 	// Applies dirty changes and copies the buffer.
@@ -132,10 +126,6 @@ public:
 	}
 	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
 		return dest->Push(&uniforms_->ub_lights, sizeof(uniforms_->ub_lights), uboAlignment_, buf);
-	}
-	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
-		return dest->Push(&uniforms_->ub_bones, sizeof(uniforms_->ub_bones), uboAlignment_, buf);
 	}
 
 	static bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
@@ -158,10 +148,6 @@ private:
 	uint64_t uboAlignment_;
 
 	Uniforms *uniforms_;
-
-	VulkanFragmentShader *lastFShader_ = nullptr;
-	VulkanVertexShader *lastVShader_ = nullptr;
-
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;
 };

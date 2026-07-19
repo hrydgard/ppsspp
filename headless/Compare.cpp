@@ -34,25 +34,7 @@
 #include "GPU/Common/TextureDecoder.h"
 
 
-bool teamCityMode = false;
 std::string currentTestName = "";
-
-void TeamCityPrint(const char *fmt, ...)
-{
-	if (!teamCityMode)
-		return;
-
-	const int TEMP_BUFFER_SIZE = 32768;
-	char temp[TEMP_BUFFER_SIZE];
-
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(temp, TEMP_BUFFER_SIZE - 1, fmt, args);
-	temp[TEMP_BUFFER_SIZE - 1] = '\0';
-	va_end(args);
-
-	printf("##teamcity[%s]\n", temp);
-}
 
 void GitHubActionsPrint(const char *type, const char *fmt, ...) {
 	if (!getenv("GITHUB_ACTIONS"))
@@ -228,7 +210,6 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 
 			if (!failed)
 			{
-				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
 				failed = true;
 			}
@@ -285,12 +266,10 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 			// Okay, just a screenshot then.  Allow a pass with no output (i.e. screenshot match.)
 			failed = output.find_first_not_of(" \r\n\t") != output.npos;
 			if (failed) {
-				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
 			}
 		} else {
 			fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
-			TeamCityPrint("testIgnored name='%s' message='Expects file missing'", currentTestName.c_str());
 			GitHubActionsPrint("error", "Expected file missing for %s", currentTestName.c_str());
 		}
 
@@ -338,7 +317,7 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 		outStride = -outStride;
 	}
 
-	// Skip the bottom of the image in the buffer was smaller.  Remember, we're flipped.
+	// Skip the bottom of the image if the buffer was smaller.  Remember, we're flipped.
 	u32 *dst = &data[0];
 	if (safeH < h) {
 		dst += (h - safeH) * stride;

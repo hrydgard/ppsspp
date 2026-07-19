@@ -516,23 +516,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		graphicsSettings->Add(new SettingHint(gr->T("Faster, input lag"), inflightChoice));  // TODO: This hint could use improvement.
 	}
 
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		const bool usable = draw->GetDeviceCaps().geometryShaderSupported && !draw->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		const bool vertexSupported = draw->GetDeviceCaps().maxClipDistances >= 2 && draw->GetDeviceCaps().maxCullDistances >= 1;
-		if (usable && !vertexSupported) {
-			CheckBox *geometryCulling = graphicsSettings->Add(new CheckBox(&g_Config.bUseGeometryShader, gr->T("Geometry shader culling")));
-			geometryCulling->SetDisabledPtr(&g_Config.bSoftwareRendering);
-		}
-	}
-
 	if (deviceType != DEVICE_TYPE_VR) {
 		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
-
-	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
-	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), swSkin));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
@@ -1298,6 +1285,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickOther);
 	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
+
+	if (!System_GetPropertyBool(SYSPROP_CAN_GET_FREE_SPACE_FAST)) {
+		// It might be slow, so use an option.
+		systemSettings->Add(new CheckBox(&g_Config.bReportAccurateFreeStorageSpace, sy->T("Report free storage space accurately")));
+	}
 
 	const Path &PPSSPPpath = File::GetExeDirectory();
 	const Path installedFile = PPSSPPpath / "installed.txt";

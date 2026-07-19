@@ -472,32 +472,7 @@ EmuScreen::~EmuScreen() {
 		bootPending_ = false;
 	}
 
-	// Catch-all for shutdown paths that didn't go through REQUEST_GAME_STOP (e.g. user navigated
-	// away with the back button, opened a different game, etc.). If an exit callback is registered
-	// and the core is still running, drive the CPU synchronously here so the callback gets a chance
-	// to run - there are no more host frames after this point. Capped tightly so a misbehaving
-	// callback can't stall shutdown.
-	if (!bootPending_ && PSP_IsInited() && coreState != CORE_POWERDOWN) {
-		const bool inflight = __KernelIsExitCallbackPending();
-		if (inflight || __KernelInvokeRegisteredExitCallback()) {
-			INFO_LOG(Log::Loader, "EmuScreen dtor: %s exit callback synchronously before shutdown",
-				inflight ? "finishing in-flight" : "running");
-			if (coreState == CORE_NEXTFRAME)
-				coreState = CORE_RUNNING_CPU;
-			const s64 chunkCycles = usToCycles(100000);  // ~100ms of emulated time per chunk
-			const int maxChunks = 20;                    // hard cap: ~2s of emulated time total
-			for (int i = 0; i < maxChunks && __KernelIsExitCallbackPending(); i++) {
-				if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
-					break;
-				PSP_RunLoopFor((int)chunkCycles);
-				if (coreState == CORE_NEXTFRAME)
-					coreState = CORE_RUNNING_CPU;
-			}
-			if (__KernelIsExitCallbackPending()) {
-				WARN_LOG(Log::Loader, "Exit callback didn't return in time; powering down anyway.");
-			}
-		}
-	}
+	// TODO: We need to somehow handle exit callbacks here, too.
 
 	Achievements::UnloadGame();
 	PSP_Shutdown(true);
@@ -758,14 +733,21 @@ static void ShowFpsLimitNotice() {
 void EmuScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	if (!IsOnTop())
 		return;
+	std::lock_guard<std::mutex> lock(queuedVirtKeysLock_);
 	queuedVirtKeys_.push_back(std::make_pair(virtualKeyCode, down));
 }
 
 void EmuScreen::ProcessQueuedVKeys() {
-	for (auto iter : queuedVirtKeys_) {
+	std::vector<std::pair<VirtKey, bool>> dequeued;
+	{
+		std::lock_guard<std::mutex> lock(queuedVirtKeysLock_);
+		dequeued = std::move(queuedVirtKeys_);
+		queuedVirtKeys_.clear();
+	}
+
+	for (auto iter : dequeued) {
 		ProcessVKey(iter.first, iter.second);
 	}
-	queuedVirtKeys_.clear();
 }
 
 // Synchronized processing of virtkeys.

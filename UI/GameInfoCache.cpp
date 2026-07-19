@@ -558,7 +558,7 @@ public:
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
-		if (!info_->CreateLoader() || !info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
+		if (!info_->CreateLoader() || !info_->GetFileLoader()) {
 			// Mark everything requested as done, so 
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
@@ -582,6 +582,13 @@ public:
 					if (ebootPath != gamePath_) {
 						pbpLoader.reset(ConstructFileLoader(ebootPath));
 					}
+				}
+
+				if (!pbpLoader->Exists()) {
+					ERROR_LOG(Log::Loader, "File doesn't exist: %s\n", pbpLoader->GetPath().c_str());
+					std::unique_lock<std::mutex> lock(info_->lock);
+					info_->MarkReadyNoLock(flags_);
+					return;
 				}
 
 				PBPReader pbp(pbpLoader.get());

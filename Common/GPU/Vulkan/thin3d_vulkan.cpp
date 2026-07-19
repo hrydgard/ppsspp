@@ -836,7 +836,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 	}
 	VulkanBarrierBatch barrier;
 	if (!vkTex_->CreateDirect(width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, &barrier, swizzle)) {
-		ERROR_LOG(Log::G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
+		ERROR_LOG(Log::G3D,  "Failed to create VKTexture: %dx%dx%d fmt %s, %d levels, tag '%s'", width_, height_, depth_, VulkanFormatToString(vulkanFormat), mipLevels_, desc.tag);
 		return false;
 	}
 	barrier.Flush(cmd);
@@ -921,7 +921,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
-	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.standard.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
@@ -1070,12 +1069,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			bugs_.Infest(Bugs::EMPTY_RENDERPASS_BROKEN_MALI);
 		}
 
-		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
-		// Also seen to cause weird issues on 18, so let's lump it in.
-		if (majorVersion <= 18 || isOldVersion) {
-			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		}
-
 		// Attempt to workaround #17386
 		if (isOldVersion) {
 			if (!strcmp(deviceProps.deviceName, "Mali-T880") ||
@@ -1143,7 +1136,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
 		bindings[1 + i] = BindingType::COMBINED_IMAGE_SAMPLER;
 	}
-	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), caps_.geometryShaderSupported, "thin3d_layout");
+	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), "thin3d_layout");
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);

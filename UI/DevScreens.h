@@ -40,12 +40,6 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-protected:
-	void OnJitCompare(UI::EventParams &e);
-	void OnShaderView(UI::EventParams &e);
-	void OnDeveloperTools(UI::EventParams &e);
-	void OnResetLimitedLogging(UI::EventParams &e);
-
 private:
 	Path gamePath_;
 };
@@ -124,7 +118,7 @@ public:
 private:
 	bool ForceHorizontalTabs() const override {return true; }
 	int ListShaders(DebugShaderType shaderType, UI::LinearLayout *view);
-
+	void AddPipelineAnalysis(UI::LinearLayout *view);
 	void OnShaderClick(UI::EventParams &e);
 };
 

@@ -66,6 +66,10 @@
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
+
+// These two are for pipeline analysis, maybe should move elsewhere.
+#include "GPU/Vulkan/PipelineManagerVulkan.h"
+#include "GPU/Vulkan/GPU_Vulkan.h"
 #include "UI/BaseScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
@@ -163,13 +167,23 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		});
 	}
 
-	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
+	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Add([this](UI::EventParams &e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new DeveloperToolsScreen(gamePath_));
+	});
 
 	// Debug overlay
 	AddOverlayList(items, screenManager());
 
-	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
-	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
+	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Add([this](UI::EventParams &e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		screenManager()->push(new JitCompareScreen());
+	});
+	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Add([this](UI::EventParams &e) {
+		UpdateUIState(UISTATE_PAUSEMENU);
+		if (gpu)  // Avoid crashing if chosen while the game is being loaded.
+			screenManager()->push(new ShaderListScreen());
+	});
 
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
 		if (PSP_CoreParameter().frozen) {
@@ -179,9 +193,11 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	});
 
-	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Add([](UI::EventParams &e) {
+		Reporting::ResetCounts();
+	});
 
-	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
+	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([this, dev](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
 
@@ -224,26 +240,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(scroll);
 
 	g_logManager.EnableOutput(LogOutput::RingBuffer);
-}
-
-void DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
-	Reporting::ResetCounts();
-}
-
-void DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new DeveloperToolsScreen(gamePath_));
-}
-
-void DevMenuScreen::OnJitCompare(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new JitCompareScreen());
-}
-
-void DevMenuScreen::OnShaderView(UI::EventParams &e) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
-		screenManager()->push(new ShaderListScreen());
 }
 
 void DevMenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -482,10 +478,9 @@ int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *
 	return count;
 }
 
-struct { DebugShaderType type; const char *name; } shaderTypes[] = {
+static constexpr struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_VERTEX, "Vertex" },
 	{ SHADER_TYPE_FRAGMENT, "Fragment" },
-	{ SHADER_TYPE_GEOMETRY, "Geometry" },
 	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
 	{ SHADER_TYPE_PIPELINE, "Pipeline" },
 	{ SHADER_TYPE_TEXTURE, "Texture" },
@@ -498,11 +493,71 @@ void ShaderListScreen::CreateTabs() {
 	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
 		int count = (int)gpu->DebugGetShaderIDs(shaderTypes[i].type).size();
 		AddTab(shaderTypes[i].name, StringFromFormat("%s (%d)", shaderTypes[i].name, count), [this, i](UI::LinearLayout *tabContent) {
+			if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && shaderTypes[i].type == SHADER_TYPE_PIPELINE) {
+				CollapsibleSection *pipelineAnalysisSection = tabContent->Add(new CollapsibleSection("Pipeline Analysis"));
+				AddPipelineAnalysis(pipelineAnalysisSection);
+				pipelineAnalysisSection->SetOpen(false);
+			}
+
 			LinearLayout *shaderList = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 			int count = ListShaders(shaderTypes[i].type, shaderList);
 			tabContent->Add(shaderList);
 		});
 	}
+}
+
+const bool IsSameExceptForShaders(const VulkanPipelineKey &a, const VulkanPipelineKey &b) {
+	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vtxFmtId == b.vtxFmtId;
+}
+
+const bool IsSameExceptForVertexFormat(const VulkanPipelineKey &a, const VulkanPipelineKey &b) {
+	return a.useHWTransform == b.useHWTransform && a.raster == b.raster && a.vid == b.vid && a.fid == b.fid;
+}
+
+void ShaderListScreen::AddPipelineAnalysis(UI::LinearLayout *tabContent) {
+#if !PPSSPP_PLATFORM(UWP)
+	GPU_Vulkan *vgpu = dynamic_cast<GPU_Vulkan *>(gpu);
+	const PipelineManagerVulkan *pipelineManager = vgpu->GetPipelineManager();
+	// Collect all pipeline keys in a vector.
+	std::vector<VulkanPipelineKey> keys;
+	pipelineManager->GetPipelines().Iterate([&keys](const VulkanPipelineKey &key, VulkanPipeline *pipeline) {
+		keys.push_back(key);
+	});
+
+	using namespace UI;
+
+	// Now, see if there are two pipelines that are identical except for the shader IDs. If so, we may be able to
+	// merge them by making the shaders a bit more "uber".
+	for (size_t i = 0; i < keys.size(); i++) {
+		std::string toBeMerged;
+		for (size_t j = i + 1; j < keys.size(); j++) {
+			const VulkanPipelineKey &keyA = keys[i];
+			const VulkanPipelineKey &keyB = keys[j];
+			if (IsSameExceptForShaders(keyA, keyB)) {
+				// Found a pair of pipelines that are identical except for the shaders.
+				if (keyA.vid != keyB.vid) {
+					toBeMerged += "VShader: " + keyA.vid.Description(false) + " vs " + keyB.vid.Description(false) + "\n";
+				}
+				if (keyA.fid != keyB.fid) {
+					toBeMerged += "FShader: " + keyA.fid.Description(false) + " vs " + keyB.fid.Description(false) + "\n";
+				}
+			}
+			if (IsSameExceptForVertexFormat(keyA, keyB)) {
+				if (keyA.vtxFmtId != 0 && keyB.vtxFmtId != 0 && keyA.vtxFmtId != keyB.vtxFmtId) {
+					DecVtxFormat fmtA;
+					DecVtxFormat fmtB;
+					fmtA.InitializeFromID(keyA.vtxFmtId);
+					fmtB.InitializeFromID(keyB.vtxFmtId);
+					toBeMerged += "VertexFmt: " + fmtA.ToString() + " vs " + fmtB.ToString() + "\n";
+				}
+			}
+		}
+		if (!toBeMerged.empty()) {
+			tabContent->Add(new UI::TextView(keys[i].GetDescription(SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII, true));
+			tabContent->Add(new UI::TextView(toBeMerged, FLAG_DYNAMIC_ASCII, true));
+		}
+	}
+#endif
 }
 
 void ShaderListScreen::OnShaderClick(UI::EventParams &e) {
@@ -516,6 +571,7 @@ void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
@@ -524,6 +580,9 @@ void ShaderViewScreen::CreateViews() {
 	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
 		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
+	});
+	topbar->Add(new Choice(dev->T("Copy source code"), ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
+		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SOURCE_CODE));
 	});
 	topbar->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
 	layout->Add(topbar);
@@ -738,10 +797,10 @@ bool TouchTestScreen::key(const KeyInput &key) {
 		(key.flags & KeyInputFlags::UP) ? "UP " : "",
 		(key.flags & KeyInputFlags::DOWN) ? "DOWN " : "",
 		(key.flags & KeyInputFlags::CHAR) ? "CHAR " : "",
-		(key.flags & KeyInputFlags::MOD_CTRL) ? "CTRL " : "",
-		(key.flags & KeyInputFlags::MOD_SHIFT) ? "SHIFT " : "",
-		(key.flags & KeyInputFlags::MOD_ALT) ? "ALT " : "",
-		(key.flags & KeyInputFlags::MOD_META) ? "META " : "");
+		(key.flags & KeyInputFlags::ModCtrl) ? "CTRL " : "",
+		(key.flags & KeyInputFlags::ModShift) ? "SHIFT " : "",
+		(key.flags & KeyInputFlags::ModAlt) ? "ALT " : "",
+		(key.flags & KeyInputFlags::ModMeta) ? "META " : "");
 	keyEventLog_.push_back(buf);
 	UpdateLogView();
 	return true;
@@ -763,6 +822,8 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 	}
 	UpdateLogView();
 }
+
+#undef DrawText
 
 void TouchTestScreen::DrawForeground(UIContext &dc) {
 	Bounds bounds = GetLayoutBounds(dc);

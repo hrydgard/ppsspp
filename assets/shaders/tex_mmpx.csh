@@ -1,112 +1,210 @@
-/* MMPX.glc
-   Copyright 2020 Morgan McGuire & Mara Gagiu.
-   Provided under the Open Source MIT license https://opensource.org/licenses/MIT
-
-   See js-demo.html for the commented source code.
-   This is an optimized GLSL port of that version
-   by Morgan McGuire and Mara Gagiu.
-*/
+/* =========================================================================
+ * MMPX
+ * by Morgan McGuire and Mara Gagiu
+ * https:/／casual-effects.com/research/McGuire2021PixelArt/
+ * License: MIT
+ * =========================================================================
+ * MMPX Enhanced
+ * =========================================================================
+ * An optimized refinement of the original MMPX shader that addresses key 
+ * visual artifacts while fully preserving the baseline's signature performance and efficiency.
+ *
+ * (C) 2025-2026 by crashGG.
+ * ========================================================================= */
 
 // Performs 2x upscaling.
 
-#define ABGR8 uint
+precision mediump float;
 
-// If we took an image as input, we could use a sampler to do the clamping. But we decode
-// low-bpp texture data directly, so...
-ABGR8 src(int x, int y) {
-    return readColoru(uvec2(clamp(x, 0, params.width - 1), clamp(y, 0, params.height - 1)));
+uint srcu(int x, int y) {
+
+    ivec2 target = ivec2(x, y);
+    
+    //* clamp target to safe bounds
+    ivec2 safe = clamp(target, ivec2(0), ivec2(params.width - 1, params.height - 1));
+
+    uint color = readColoru(uvec2(safe));
+
+    //* in-bounds check
+    bool is_in = all(equal(target, safe));
+    
+    //* return transparent color if out of range
+    return is_in ? color : 0u;
 }
 
-uint luma(ABGR8 C) {
-    uint alpha = (C & 0xFF000000u) >> 24;
-    return (((C & 0x00FF0000u) >> 16) + ((C & 0x0000FF00u) >> 8) + (C & 0x000000FFu) + 1u) * (256u - alpha);
+
+float luma(vec4 col) {
+
+	//Use CRT-era BT.601 standard.
+    return dot(col.rgb, vec3(0.299, 0.587, 0.114)) + (1.0-col.a)*256.0;
 }
 
-bool all_eq2(ABGR8 B, ABGR8 A0, ABGR8 A1) {
-    return ((B ^ A0) | (B ^ A1)) == 0u;
+
+float mixGate(vec4 col1, vec4 col2) {
+
+	highp vec4 diff = col1 - col2;
+
+	float delta_range = max(diff.r, max(diff.g, diff.b)) - min(diff.r, min(diff.g, diff.b));
+
+	highp float dot_diff = dot(diff.rgb, diff.rgb);
+
+	highp float factor = (delta_range * delta_range) * 2.618034;
+
+	float alpha_match_mask = step(0.5, abs(diff.a));
+
+	return step(dot_diff , mix(0.75, 0.0, factor) - alpha_match_mask*5.0);
 }
 
-bool all_eq3(ABGR8 B, ABGR8 A0, ABGR8 A1, ABGR8 A2) {
-    return ((B ^ A0) | (B ^ A1) | (B ^ A2)) == 0u;
+#define all_eq2(a, b1, b2) (a == b1 && a == b2)
+#define all_eq4(a, b1, b2, b3, b4) (a == b1 && a == b2 && a == b3 && a == b4)
+#define any_eq2(a, b1, b2) (a == b1 || a == b2)
+#define none_eq2(a, b1, b2) !any_eq2(a, b1, b2)
+#define none_eq4(a, b1, b2, b3, b4) (a!=b1 && a!=b2 && a!=b3 && a!=b4)
+
+vec4 admixC(vec4 vX, vec4 vE) {
+
+	float mixFactor = mixGate(vX, vE) * (-0.381966) + 1.0;
+
+	return mix(vX,vE,mixFactor);
 }
 
-bool all_eq4(ABGR8 B, ABGR8 A0, ABGR8 A1, ABGR8 A2, ABGR8 A3) {
-    return ((B ^ A0) | (B ^ A1) | (B ^ A2) | (B ^ A3)) == 0u;
-}
+vec4 admixK(vec4 vX, vec4 vE) {
+    vec4 diff = vX - vE;
 
-bool any_eq3(ABGR8 B, ABGR8 A0, ABGR8 A1, ABGR8 A2) {
-    return B == A0 || B == A1 || B == A2;
-}
+	float mixFactor = dot(diff.rgb, diff.rgb) * 0.16666 + 0.5;
 
-bool none_eq2(ABGR8 B, ABGR8 A0, ABGR8 A1) {
-    return (B != A0) && (B != A1);
-}
-
-bool none_eq4(ABGR8 B, ABGR8 A0, ABGR8 A1, ABGR8 A2, ABGR8 A3) {
-    return B != A0 && B != A1 && B != A2 && B != A3;
+	return mix(vX,vE,mixFactor);
 }
 
 void applyScaling(uvec2 xy) {
     int srcX = int(xy.x);
     int srcY = int(xy.y);
 
-    ABGR8 A = src(srcX - 1, srcY - 1), B = src(srcX, srcY - 1), C = src(srcX + 1, srcY - 1);
-    ABGR8 D = src(srcX - 1, srcY + 0), E = src(srcX, srcY + 0), F = src(srcX + 1, srcY + 0);
-    ABGR8 G = src(srcX - 1, srcY + 1), H = src(srcX, srcY + 1), I = src(srcX + 1, srcY + 1);
+	uint E = srcu(srcX, srcY);
+	uint B = srcu(srcX, srcY-1);
+	uint D = srcu(srcX-1, srcY);
+	uint F = srcu(srcX+1, srcY);
+	uint H = srcu(srcX, srcY+1);
 
-    ABGR8 J = E, K = E, L = E, M = E;
+	vec4 vE = unpackUnorm4x8(E);
+	vec4 J = vE, K = vE, L = vE, M = vE;
 
-    if (((A ^ E) | (B ^ E) | (C ^ E) | (D ^ E) | (F ^ E) | (G ^ E) | (H ^ E) | (I ^ E)) != 0u) {
-        ABGR8 P = src(srcX, srcY - 2), S = src(srcX, srcY + 2);
-        ABGR8 Q = src(srcX - 2, srcY), R = src(srcX + 2, srcY);
-        ABGR8 Bl = luma(B), Dl = luma(D), El = luma(E), Fl = luma(F), Hl = luma(H);
+	bool skiprest = (E == D && E == F) || (E == B && E == H) || (B == H && D == F);
 
-        // 1:1 slope rules
-        if ((D == B && D != H && D != F) && (El >= Dl || E == A) && any_eq3(E, A, C, G) && ((El < Dl) || A != D || E != P || E != Q)) J = D;
-        if ((B == F && B != D && B != H) && (El >= Bl || E == C) && any_eq3(E, A, C, I) && ((El < Bl) || C != B || E != P || E != R)) K = B;
-        if ((H == D && H != F && H != B) && (El >= Hl || E == G) && any_eq3(E, A, G, I) && ((El < Hl) || G != H || E != S || E != Q)) L = H;
-        if ((F == H && F != B && F != D) && (El >= Fl || E == I) && any_eq3(E, C, G, I) && ((El < Fl) || I != H || E != R || E != S)) M = F;
+	if (!skiprest) {
 
-        // Intersection rules
-        if ((E != F && all_eq4(E, C, I, D, Q) && all_eq2(F, B, H)) && (F != src(srcX + 3, srcY))) K = M = F;
-        if ((E != D && all_eq4(E, A, G, F, R) && all_eq2(D, B, H)) && (D != src(srcX - 3, srcY))) J = L = D;
-        if ((E != H && all_eq4(E, G, I, B, P) && all_eq2(H, D, F)) && (H != src(srcX, srcY + 3))) L = M = H;
-        if ((E != B && all_eq4(E, A, C, H, S) && all_eq2(B, D, F)) && (B != src(srcX, srcY - 3))) J = K = B;
-        if (Bl < El && all_eq4(E, G, H, I, S) && none_eq4(E, A, D, C, F)) J = K = B;
-        if (Hl < El && all_eq4(E, A, B, C, P) && none_eq4(E, D, G, I, F)) L = M = H;
-        if (Fl < El && all_eq4(E, A, D, G, Q) && none_eq4(E, B, C, I, H)) K = M = F;
-        if (Dl < El && all_eq4(E, C, F, I, R) && none_eq4(E, B, A, G, H)) J = L = D;
+		uint A = srcu(srcX-1, srcY-1);
+		uint C = srcu(srcX+1, srcY-1);
+		uint G = srcu(srcX-1, srcY+1);
+		uint I = srcu(srcX+1, srcY+1);
 
-        // 2:1 slope rules
-        if (H != B) {
-            if (H != A && H != E && H != C) {
-                if (all_eq3(H, G, F, R) && none_eq2(H, D, src(srcX + 2, srcY - 1))) L = M;
-                if (all_eq3(H, I, D, Q) && none_eq2(H, F, src(srcX - 2, srcY - 1))) M = L;
-            }
+		uint P = srcu(srcX, srcY-2);
+		uint Q = srcu(srcX-2, srcY);
+		uint R = srcu(srcX+2, srcY);
+		uint S = srcu(srcX, srcY+2);
 
-            if (B != I && B != G && B != E) {
-                if (all_eq3(B, A, F, R) && none_eq2(B, D, src(srcX + 2, srcY + 1))) J = K;
-                if (all_eq3(B, C, D, Q) && none_eq2(B, F, src(srcX - 2, srcY + 1))) K = J;
-            }
-        } // H !== B
+		uint PA = srcu(srcX-1, srcY-2);
+		uint PC = srcu(srcX+1, srcY-2);
+		uint QA = srcu(srcX-2, srcY-1);
+		uint QG = srcu(srcX-2, srcY+1);
+		uint RC = srcu(srcX+2, srcY-1);
+		uint RI = srcu(srcX+2, srcY+1);
+		uint SG = srcu(srcX-1, srcY+2);
+		uint SI = srcu(srcX+1, srcY+2);
 
-        if (F != D) {
-            if (D != I && D != E && D != C) {
-                if (all_eq3(D, A, H, S) && none_eq2(D, B, src(srcX + 1, srcY + 2))) J = L;
-                if (all_eq3(D, G, B, P) && none_eq2(D, H, src(srcX + 1, srcY - 2))) L = J;
-            }
+		vec4 vB = unpackUnorm4x8(B);
+		vec4 vD = unpackUnorm4x8(D);
+		vec4 vF = unpackUnorm4x8(F);
+		vec4 vH = unpackUnorm4x8(H);
 
-            if (F != E && F != A && F != G) {
-                if (all_eq3(F, C, H, S) && none_eq2(F, B, src(srcX - 1, srcY + 2))) K = M;
-                if (all_eq3(F, I, B, P) && none_eq2(F, H, src(srcX - 1, srcY - 2))) M = K;
-            }
-        } // F !== D
-    } // not constant
+		float Bl = luma(vB);
+		float Dl = luma(vD);
+		float El = luma(vE);
+		float Fl = luma(vF);
+		float Hl = luma(vH);
 
-    // Write four pixels at once.
+		bool slope1 = false;    bool slope2 = false;    bool slope3 = false;    bool slope4 = false;
+
+
+	// B - D
+		if ( E!=B && (D == B && D != H && D != F) && (El >= Dl || E == A && B !=PA && D !=QA) && any_eq2(E, C, G) && ((El < Dl) || A != D || E != P || E != Q)
+			) {
+			J=vB;
+			slope1 = true;
+		}
+
+	// B - F
+		if ( E!=B && (B == F && B != D && B != H) && (El >= Bl || E == C && B !=PC && F !=RC) && any_eq2(E, A, I) && ((El < Bl) || C != B || E != P || E != R)
+		 ) {
+			K=vB;
+			slope2 = true;
+		}
+
+	// D - H
+		if ( E!=H && (H == D && H != F && H != B) && (El >= Hl || E == G && D !=QG && H !=SG) && any_eq2(E, A, I) && ((El < Hl) || G != H || E != S || E != Q)
+		 ) {
+			L=vH;
+			slope3 = true;
+		}
+	// F - H
+		if ( E!=H && (F == H && F != B && F != D) && (El >= Fl || E == I && F !=RI && H !=SI) && any_eq2(E, C, G) && ((El < Fl) || I != H || E != R || E != S)
+		  ) {
+			M=vH;
+			slope4 = true;
+		}
+
+	//  long gentle 2:1 slope
+
+	if (slope4) { //zone4 long slope
+		if (all_eq2(R,F,G) && R != RC && Q != G) L=M;
+		// vertical
+		if (all_eq2(S,H,C) && S != SG && P != C) K=M;
+	}
+
+	if (slope3) { //zone3 long slope
+		// horizontal
+		if (all_eq2(Q,D,I) && Q != QA && R != I) M=L;
+		// vertical
+		if (all_eq2(S,H,A) && S != SI && A != P) J=L;
+	}
+
+	if (slope2) { //zone2 long slope
+		// horizontal
+		if (all_eq2(R,F,A) && R != RI && A != Q) J=K;
+		// vertical
+		if (all_eq2(P,B,I) && P != PA && I != S) M=K;
+	}
+
+	if (slope1) { //zone1 long slope
+		// horizontal
+		if (all_eq2(Q,D,C) && Q != QG && C != R) K=J;
+		// vertical
+		if (all_eq2(P,B,G) && P != PC && G != S) L=J;
+	}
+
+	skiprest = skiprest||slope1||slope2||slope3||slope4||E==0u||B==0u||D==0u||F==0u||H==0u;
+
+	/* Concave + Cross type */
+
+		if (!skiprest && Bl < El && all_eq4(E, G, H, I, S) && none_eq4(E, A, D, C, F)) { J=admixC(vB,J);	K=J;    skiprest = true;}
+		if (!skiprest && Hl < El && all_eq4(E, A, B, C, P) && none_eq4(E, D, G, I, F)) { L=admixC(vH,L);	M=L;    skiprest = true;}
+		if (!skiprest && Fl < El && all_eq4(E, A, D, G, Q) && none_eq4(E, B, C, I, H)) { K=admixC(vF,K);	M=K;    skiprest = true;}
+		if (!skiprest && Dl < El && all_eq4(E, C, F, I, R) && none_eq4(E, B, A, G, H)) { J=admixC(vD,J);	L=J;    skiprest = true;}
+
+	/* K type */
+
+		if (!skiprest && (E != F && all_eq4(E, C, I, D, Q) && all_eq2(F, B, H)) && (F != srcu(srcX + 3, srcY))) {K=admixK(vF,K); M=K;skiprest=true;}	// RIGHT
+		if (!skiprest && (E != D && all_eq4(E, A, G, F, R) && all_eq2(D, B, H)) && (D != srcu(srcX - 3, srcY))) {J=admixK(vD,J); L=J;skiprest=true;}	// LEFT
+		if (!skiprest && (E != H && all_eq4(E, G, I, B, P) && all_eq2(H, D, F)) && (H != srcu(srcX, srcY + 3))) {L=admixK(vH,L); M=L;skiprest=true;}	// BOTTOM
+		if (!skiprest && (E != B && all_eq4(E, A, C, H, S) && all_eq2(B, D, F)) && (B != srcu(srcX, srcY - 3))) {J=admixK(vB,J); K=J;}				// TOP
+
+	} // not constant
+
+	//* final write
+
     ivec2 destXY = ivec2(xy) * 2;
-    writeColorf(destXY, unpackUnorm4x8(J));
-    writeColorf(destXY + ivec2(1, 0), unpackUnorm4x8(K));
-    writeColorf(destXY + ivec2(0, 1), unpackUnorm4x8(L));
-    writeColorf(destXY + ivec2(1, 1), unpackUnorm4x8(M));
+    writeColorf(destXY, J);
+    writeColorf(destXY + ivec2(1, 0), K);
+    writeColorf(destXY + ivec2(0, 1), L);
+    writeColorf(destXY + ivec2(1, 1), M);
 }

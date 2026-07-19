@@ -72,10 +72,10 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 			return;
 		}
 		fd_ = fd;
-		isOpenedByFd_ = true;
 		DetectSizeFd();
 		return;
 	}
+	// else, fall through to normal file loading (legacy build, old Android etc).
 #endif
 
 #if defined(HAVE_LIBRETRO_VFS)
@@ -153,20 +153,13 @@ bool LocalFileLoader::Exists() {
 	// If we opened it for reading, it must exist.  Done.
 #if defined(HAVE_LIBRETRO_VFS)
 	return file_ != nullptr;
+#elif PPSSPP_PLATFORM(IOS)
+	return fd_ != -1;
 #elif !defined(_WIN32)
-	if (isOpenedByFd_) {
-		// As an optimization, if we already tried and failed, quickly return.
-		// This is used because Android Content URIs are so slow.
-		return fd_ != -1;
-	}
-	if (fd_ != -1)
-		return true;
+	return fd_ != -1;
 #else
-	if (handle_ != INVALID_HANDLE_VALUE)
-		return true;
+	return handle_ != INVALID_HANDLE_VALUE;
 #endif
-
-	return File::Exists(filename_);
 }
 
 bool LocalFileLoader::IsDirectory() {
@@ -182,8 +175,9 @@ s64 LocalFileLoader::FileSize() {
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
-	if (bytes == 0)
+	if (bytes == 0) {
 		return 0;
+	}
 
 	if (filesize_ == 0) {
 		ERROR_LOG(Log::FileSystem, "ReadAt from 0-sized file: %s", filename_.c_str());

@@ -809,6 +809,8 @@ case SYSPROP_HAS_FILE_BROWSER:
 #endif
 	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
 		return true;
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return true;
 	case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
 #if PPSSPP_ARCH(64BIT) && !defined(MOBILE_DEVICE)
 		return true;
@@ -1243,13 +1245,6 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				key.flags = (KeyInputFlags)((u32)key.flags | (wheelDelta << 16));
 				NativeKey(key);
 				break;
-			}
-			if (event.wheel.integer_y > 0) {
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-				NativeKey(key);
-			} else if (event.wheel.integer_y < 0) {
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-				NativeKey(key);
 			}
 			break;
 		}

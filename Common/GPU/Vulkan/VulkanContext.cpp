@@ -204,8 +204,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
-		if (!IsInstanceExtensionAvailable(ext))
+		if (!IsInstanceExtensionAvailable(ext)) {
 			WARN_LOG(Log::G3D, "WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
+		}
 	}
 
 	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -286,6 +287,17 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 
 	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceProperties2) {
 		for (uint32_t i = 0; i < gpu_count; i++) {
+			// Now, we need to do a special check for vkGetPhysicalDeviceProperties2. Unfortunately, it is not valid to call it
+			// if the *device* is below 1.1.
+
+			VkPhysicalDeviceProperties tempProps{};
+			vkGetPhysicalDeviceProperties(physical_devices_[i], &tempProps);
+			if (tempProps.apiVersion < VK_API_VERSION_1_1) {
+				// This device is too old to support vkGetPhysicalDeviceProperties2, so we will just use the old function.
+				vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i].properties);
+				continue;
+			}
+
 			VkPhysicalDeviceProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
 			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
 			VkPhysicalDeviceExternalMemoryHostPropertiesEXT extHostMemProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};

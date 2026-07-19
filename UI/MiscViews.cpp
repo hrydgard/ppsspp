@@ -458,7 +458,7 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	} else if (input.flags & KeyInputFlags::DOWN) {
 		if (input.keyCode == NKCODE_DEL) {
 			if (!searchFilter.empty()) {
-				if (input.flags & KeyInputFlags::MOD_CTRL) {
+				if (input.flags & KeyInputFlags::ModCtrl) {
 					// Ctrl+Backspace deletes the last word. Delete until the last space.
 					size_t pos = searchFilter.find_last_of(' ');
 					if (pos != searchFilter.npos) {

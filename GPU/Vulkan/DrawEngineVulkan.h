@@ -24,8 +24,6 @@
 // * binding 2: Depal palette
 // * binding 3: Base Uniform Buffer (includes fragment state)
 // * binding 4: Light uniform buffer
-// * binding 5: Bone uniform buffer
-// * binding 6: Tess data storage buffer
 //
 // All shaders conform to this layout, so they are all compatible with the same descriptor set.
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin

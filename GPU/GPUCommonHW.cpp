@@ -54,8 +54,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BEZIER, FLAG_EXECUTE, 0, &GPUCommonHW::Execute_Bezier },
 	{ GE_CMD_SPLINE, FLAG_EXECUTE, 0, &GPUCommonHW::Execute_Spline },
 
-	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommonHW::Execute_VertexType },
+	// Changing the vertex type requires us to flush - except if we're soft skinning. So handled it in the execute function if needed.
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommonHW::Execute_VertexTypeSkinning },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommonHW::Execute_LoadClut},
 
@@ -465,14 +465,6 @@ void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void GPUCommonHW::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexTypeSkinning;
-	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexType;
-	}
-
 	// Reconfigure for light ubershader or not.
 	for (int i = 0; i < 4; i++) {
 		if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
@@ -520,8 +512,6 @@ void GPUCommonHW::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) 
 	drawEngineCommon_->FlushQueuedDepth();
 	// Flush anything left over.
 	drawEngineCommon_->Flush();
-
-	shaderManager_->DirtyLastShader();
 
 	// after this, render pass is active.
 	framebufferManager_->PrepareCopyDisplayToOutput(config, curFramebufferDirty_);
@@ -619,6 +609,13 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling && !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		features |= GPU_USE_VS_RANGE_CULLING;
+	}
+
+	// Set this to true to easily test our fallback shaders for depth clamp and min/max clipping.
+	// DO NOT check that in! This should be false normally.
+	constexpr bool simulateOldMali = false;
+	if (simulateOldMali) {
+		features &= ~(GPU_USE_CLIP_DISTANCE | GPU_USE_CULL_DISTANCE | GPU_USE_DEPTH_CLAMP);
 	}
 
 	return features;
@@ -836,18 +833,6 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 	downcount = 0;
 }
 
-void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
-	if (diff) {
-		// TODO: We only need to dirty vshader-state here if the output format will be different.
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-
-		if (diff & GE_VTYPE_THROUGH_MASK) {
-			// Switching between through and non-through, we need to invalidate a bunch of stuff.
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
-		}
-	}
-}
-
 void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	// Don't flush when weight count changes.
 	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
@@ -855,12 +840,6 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate.vertType ^= diff;
 		Flush();
 		gstate.vertType ^= diff;
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 
@@ -970,7 +949,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
 	// This is the check from #21678 for Evangelion JO.
@@ -995,8 +974,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
 			cyclesExecuted += cycles;
-			// NOTE! We still have to advance vertex pointers!
-			gstate_c.vertexAddr += bytesRead;   // We know from the above check that it's not an indexed draw.
+			// We still have to advance vertex/index pointers!
+			gstate_c.AdvanceVerts(vertexType, count, bytesRead);
 			return;
 		}
 	}
@@ -1044,7 +1023,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
-	AdvanceVerts(vertexType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertexType, count, bytesRead);
 
 	int totalVertCount = count;
 
@@ -1057,8 +1036,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// above for each one. This can be expanded to support additional games that intersperse
 	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
-
-	const uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
+	constexpr uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
 
 	if (!useFastRunLoop_)
 		goto bail;  // we're either recording or stepping.
@@ -1125,7 +1103,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				drawEngineCommon_->SkipPrim(newPrim, count, decoder, &bytesRead);
 				canExtend = false;
 			}
-			AdvanceVerts(vertexType, count, bytesRead);
+			gstate_c.AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
 			break;
 		}
@@ -1139,7 +1117,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				drawEngineCommon_->FlushSkin();
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = (GEVertexType)(data);
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 				decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 			}
 			break;
@@ -1294,7 +1272,8 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	const u32 vertType = gstate.vertType;
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
@@ -1302,8 +1281,8 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	if (vertTypeIsSkinningEnabled(vertType)) {
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", vertType, (vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
@@ -1334,7 +1313,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	const int count = surface.num_points_u * surface.num_points_v;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
@@ -1363,7 +1342,8 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	const u32 vertType = gstate.vertType;
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
@@ -1371,8 +1351,8 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		WARN_LOG_ONCE(unusualcurve, Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	if (vertTypeIsSkinningEnabled(vertType)) {
+		WARN_LOG_ONCE(unusualcurve, Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", vertType, (vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.
@@ -1405,7 +1385,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void GPUCommonHW::Execute_BlockTransferStart(u32 op, u32 diff) {
@@ -1691,34 +1671,10 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 	}
 
 	if (fastLoad) {
-		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning) {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-			}
-		} else {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				dst[i] = src[i] << 8;
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
 			}
 		}
 	}
@@ -1736,13 +1692,7 @@ void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
 	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning) {
-			Flush();
-			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-		} else {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		} 
+		// Bone matrices should NOT flush, as we're always doing skinning in decode nowadays!
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
@@ -1769,23 +1719,17 @@ int GPUCommonHW::ListSync(int listid, int mode) {
 
 void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 	float vertexAverageCycles = gpuStats.perFrame.numVertsSubmitted > 0 ? (float)gpuStats.perFrame.vertexGPUCycles / (float)gpuStats.perFrame.numVertsSubmitted : 0.0f;
-	w.F(
-		"DL processing time: %0.2f ms\n"
-		"%d enqueue, %d updatestall, %d drawsync, %d listsync\n"
-		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
-		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
-		"FBOs active: %d (evaluations: %d, created %d)\n"
-		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
-		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
-		"block transfers: %d\n"
-		"replacer: tracks %d references, %d unique textures\n"
-		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
-		"GPU cycles: %d (%0.1f per vertex)\n",
-		gpuStats.perFrame.msProcessingDisplayLists * 1000.0f,
+	w.F("DL processing time: %0.2f ms\n", gpuStats.perFrame.msProcessingDisplayLists * 1000.0f);
+	w.F("%d enqueue, %d updstall, %d drawsync, %d listsync, %d geint (td: %d)\n",
 		gpuStats.perFrame.numEnqueue,
 		gpuStats.perFrame.numUpdateStall,
 		gpuStats.perFrame.numDrawSyncs,
 		gpuStats.perFrame.numListSyncs,
+		gpuStats.perFrame.numGEInterrupts,
+		gstate_c.textureSyncTimeDomain);
+	w.F("Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d\n"
+		"%d soft. Vertices: %d dec: %d drawn: %d clipped tris: %d\n"
+		"GPU cycles: %d (%0.1f per vertex)\n",
 		gpuStats.perFrame.numDrawCalls,
 		gpuStats.perFrame.numVertexDecodes,
 		gpuStats.perFrame.numCulledDraws,
@@ -1797,6 +1741,13 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numVertsDecoded,
 		gpuStats.perFrame.numVertsDrawn,
 		gpuStats.perFrame.numSoftClippedTriangles,
+		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
+		vertexAverageCycles);
+	w.F("FBOs active: %d (evaluations: %d, created %d)\n"
+		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
+		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
+		"block transfers: %d\n"
+		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n",
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.perFrame.numFramebufferEvaluations,
 		gpuStats.perFrame.numFBOsCreated,
@@ -1813,15 +1764,17 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numCachedUploads,
 		gpuStats.perFrame.numDepal,
 		gpuStats.perFrame.numBlockTransfers,
-		gpuStats.perFrame.numReplacerTrackedTex,
-		gpuStats.perFrame.numCachedReplacedTextures,
 		gpuStats.perFrame.numDepthCopies,
 		gpuStats.perFrame.numColorCopies,
 		gpuStats.perFrame.numReinterpretCopies,
 		gpuStats.perFrame.numCopiesForShaderBlend,
-		gpuStats.perFrame.numCopiesForSelfTex,
-		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
-		vertexAverageCycles);
+		gpuStats.perFrame.numCopiesForSelfTex);
+
+	if (gpuStats.perFrame.numReplacerTrackedTex) {
+		w.F("replacer: tracks %d references, %d unique textures\n",
+			gpuStats.perFrame.numReplacerTrackedTex,
+			gpuStats.perFrame.numCachedReplacedTextures);
+	}
 
 	if (PSP_CoreParameter().compat.flags().SoftwareRasterDepth) {
 		w.F("Z-rast: %0.2f+%0.2f+%0.2f (total %0.2f/%0.2f) ms\n"

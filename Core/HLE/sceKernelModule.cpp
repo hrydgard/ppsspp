@@ -434,18 +434,18 @@ static std::set<SceUID> loadedModules;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
-static void __KernelModuleInit()
-{
+static void __KernelModuleInit() {
 	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
 }
 
-void __KernelModuleDoState(PointerWrap &p)
-{
+void __KernelModuleDoState(PointerWrap &p) {
 	auto s = p.Section("sceKernelModule", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, actionAfterModule);
+
+	// TODO: Only needed during read, right?
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
 
 	if (s >= 2) {
@@ -463,15 +463,13 @@ void __KernelModuleDoState(PointerWrap &p)
 				}
 			}
 		}
-	}
-
-	if (g_Config.bFuncReplacements) {
-		MIPSAnalyst::ReplaceFunctions();
+		if (g_Config.bFuncReplacements) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
 	}
 }
 
-void __KernelModuleShutdown()
-{
+void __KernelModuleShutdown() {
 	loadedModules.clear();
 	MIPSAnalyst::Reset();
 	HLEPlugins::Unload();
@@ -1874,7 +1872,7 @@ int __KernelGPUReplay() {
 		Core_Stop();
 	}
 
-	if (PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
+	if (result == GPURecord::ReplayResult::Done && PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);

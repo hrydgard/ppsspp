@@ -10,7 +10,7 @@
 
 enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
-	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
+	DIRTY_WORLDMATRIX | DIRTY_FRAMEBUFFER_DIM | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_MATAMBIENTALPHA |
 	DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET,
@@ -35,11 +35,11 @@ struct alignas(16) UB_VS_FS_Base {
 	uint32_t padding3; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
-	float texNoAlpha; float texMul; float padding4[2];  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
+	float texNoAlpha; float texMul; float texClampOffset[2];;  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
+	float fogCoef[2]; float padding4[2];
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
 	float texClamp[4];
-	float texClampOffset[2]; float fogCoef[2];
 	float blendFixA[3]; float stencilReplaceValue;
 	float blendFixB[3]; float rotation;
 	// VR stuff is to go here, later. For normal drawing, we can then get away
@@ -53,8 +53,8 @@ R"(  mat4 u_proj;
   mat3x4 u_world;
   mat3x4 u_texmtx;
   vec4 u_xywh;
-  vec3 u_vpScale; float u_NaN; // w = offsetX
-  vec4 u_vpOffset; // w = offsetY
+  vec3 u_vpScale; float u_NaN;
+  vec4 u_vpOffset;
   vec2 u_rasterOffset; vec2 u_minZmaxZ;
   vec4 u_uvscaleoffset;
   vec4 u_matambientalpha;
@@ -62,11 +62,11 @@ R"(  mat4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
   float u_mipBias;
-  vec2 u_texNoAlphaMul; float pad1; float pad2;
+  vec2 u_texNoAlphaMul; vec2 u_texclampoff;
+  vec2 u_fogcoef; float pad1; float pad2;
   vec3 u_fogcolor;  uint u_alphacolorref;
   vec3 u_texenv;    uint u_alphacolormask;
   vec4 u_texclamp;
-  vec2 u_texclampoff; vec2 u_fogcoef;
   vec3 u_blendFixA; float u_stencilReplaceValue;
   vec3 u_blendFixB; float u_rotation;
 )";
@@ -104,40 +104,24 @@ R"(  vec4 u_ambient;
   vec3 u_lightspecular[4];
 )";
 
-// With some cleverness, we could get away with uploading just half this when only the four or five first
-// bones are being used. This is 384b.
-struct alignas(16) UB_VS_Bones {
-	float bones[8][12];
-};
-static_assert(sizeof(UB_VS_Bones) == 384);  // No way to optimize this further.
-
-static const char * const ub_vs_bonesStr =
-R"(	mat3x4 u_bone0; mat3x4 u_bone1; mat3x4 u_bone2; mat3x4 u_bone3; mat3x4 u_bone4; mat3x4 u_bone5; mat3x4 u_bone6; mat3x4 u_bone7; mat3x4 u_bone8;
-)";
-
 // useBufferedRendering is only used to determine the rotation uniform.
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering);
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
-void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 
 uint32_t PackLightControlBits();
-uint32_t PackDepalBits();
+uint32_t PackDepalBits(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 
 // This happens so much that I want it inline.
 inline void UpdateUVScaleOff(const GEState &state, float uvScaleOff[4]) {
-	float widthFactor;
-	float heightFactor;
 	if (gstate_c.textureIsFramebuffer) {
-		widthFactor = (float)gstate.getTextureWidth(0) / (float)gstate_c.curTextureWidth;
-		heightFactor = (float)gstate.getTextureHeight(0) / (float)gstate_c.curTextureHeight;
+		uvScaleOff[0] = (float)gstate.getTextureWidth(0) / (float)gstate_c.curTextureWidth;
+		uvScaleOff[1] = (float)gstate.getTextureHeight(0) / (float)gstate_c.curTextureHeight;
 	} else {
-		widthFactor = 1.0f;
-		heightFactor = 1.0f;
+		uvScaleOff[0] = 1.0f;
+		uvScaleOff[1] = 1.0f;
 	}
-	uvScaleOff[0] = widthFactor;
-	uvScaleOff[1] = heightFactor;
 	uvScaleOff[2] = 0.0f;
 	uvScaleOff[3] = 0.0f;
 }

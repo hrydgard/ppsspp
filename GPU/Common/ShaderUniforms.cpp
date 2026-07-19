@@ -32,7 +32,7 @@ void UpdateRotation(float rotMatrix[4], bool useBufferedRendering) {
 	}
 }
 
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering) {
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
 	}
@@ -76,11 +76,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
-	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
+	if (dirtyUniforms & DIRTY_FRAMEBUFFER_DIM) {
 		ub->xywh[0] = (float)gstate_c.curRTOffsetX;
 		ub->xywh[1] = (float)gstate_c.curRTOffsetY;
-		ub->xywh[2] = (float)gstate_c.curRTWidth;
-		ub->xywh[3] = (float)gstate_c.curRTHeight;
+		ub->xywh[2] = (float)(2.0 / gstate_c.curRTWidth);  // intentionally do double precision here.
+		ub->xywh[3] = (float)(2.0 / gstate_c.curRTHeight);
 
 		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
@@ -90,13 +90,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		ub->rasterOffset[1] = gstate.getOffsetY();
 		ub->minZmaxZ[0] = (float)gstate.getDepthRangeMin();
 		ub->minZmaxZ[1] = (float)gstate.getDepthRangeMax();
-
 		// test sine wave
 		// ub->minZmaxZ[0] = (sin(time_now_d()) * 0.5f + 0.5f) * 65536.0;
 	}
 
 	if (dirtyUniforms & DIRTY_VIEWPORT_UNIFORMS) {
-		// TODO: This should be a couple of SIMD instructions.
 		Vec4F32 vpScale = Vec4F32::LoadF24x4(&gstate.viewportxscale);
 		Vec4F32 vpOffset = Vec4F32::LoadF24x4(&gstate.viewportxcenter);
 		vpScale.Store(ub->vpScale);
@@ -149,11 +147,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	}
 
 	if (dirtyUniforms & DIRTY_DEPAL) {
-		ub->depal_mask_shift_off_fmt = PackDepalBits();
+		ub->depal_mask_shift_off_fmt = PackDepalBits(pixelMapped);
 	}
 }
 
-uint32_t PackDepalBits() {
+uint32_t PackDepalBits(bool pixelMapped) {
 	const int indexMask = gstate.getClutIndexMask();
 	const int indexShift = gstate.getClutIndexShift();
 	const int indexOffset = gstate.getClutIndexStartPos() >> 4;
@@ -162,7 +160,7 @@ uint32_t PackDepalBits() {
 	// NOTE: This must follow similar logic to TextureCacheCommon::GetSamplingParams -
 	// maybe we can share it somehow.
 	// TOOD: Handle replaced textures.
-	bool bilinear = gstate.isMagnifyFilteringEnabled() && !gstate_c.pixelMapped;
+	bool bilinear = gstate.isMagnifyFilteringEnabled() && !pixelMapped;
 	switch (g_Config.iTexFiltering) {
 	case TEX_FILTER_FORCE_NEAREST:
 		bilinear = false;
@@ -242,14 +240,6 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 			Uint8x3ToFloat4(ub->lightAmbient[i], gstate.lcolor[i * 3]);
 			Uint8x3ToFloat4(ub->lightDiffuse[i], gstate.lcolor[i * 3 + 1]);
 			Uint8x3ToFloat4(ub->lightSpecular[i], gstate.lcolor[i * 3 + 2]);
-		}
-	}
-}
-
-void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
-	for (int i = 0; i < 8; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
 		}
 	}
 }

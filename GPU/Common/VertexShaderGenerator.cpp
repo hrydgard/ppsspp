@@ -32,54 +32,6 @@
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
-static const char * const boneWeightAttrDecl[9] = {
-	"#ERROR#",
-	"attribute mediump float w1;\n",
-	"attribute mediump vec2 w1;\n",
-	"attribute mediump vec3 w1;\n",
-	"attribute mediump vec4 w1;\n",
-	"attribute mediump vec4 w1;\nattribute mediump float w2;\n",
-	"attribute mediump vec4 w1;\nattribute mediump vec2 w2;\n",
-	"attribute mediump vec4 w1;\nattribute mediump vec3 w2;\n",
-	"attribute mediump vec4 w1, w2;\n",
-};
-
-static const char * const boneWeightInDecl[9] = {
-	"#ERROR#",
-	"in mediump float w1;\n",
-	"in mediump vec2 w1;\n",
-	"in mediump vec3 w1;\n",
-	"in mediump vec4 w1;\n",
-	"in mediump vec4 w1;\nin mediump float w2;\n",
-	"in mediump vec4 w1;\nin mediump vec2 w2;\n",
-	"in mediump vec4 w1;\nin mediump vec3 w2;\n",
-	"in mediump vec4 w1, w2;\n",
-};
-
-const char *boneWeightAttrDeclHLSL[9] = {
-	"#ERROR boneWeightAttrDecl#\n",
-	"float  a_w1:TEXCOORD1;\n",
-	"vec2 a_w1:TEXCOORD1;\n",
-	"vec3 a_w1:TEXCOORD1;\n",
-	"vec4 a_w1:TEXCOORD1;\n",
-	"vec4 a_w1:TEXCOORD1;\n  float a_w2:TEXCOORD2;\n",
-	"vec4 a_w1:TEXCOORD1;\n  vec2 a_w2:TEXCOORD2;\n",
-	"vec4 a_w1:TEXCOORD1;\n  vec3 a_w2:TEXCOORD2;\n",
-	"vec4 a_w1:TEXCOORD1;\n  vec4 a_w2:TEXCOORD2;\n",
-};
-
-const char *boneWeightAttrInitHLSL[9] = {
-	"  #ERROR#\n",
-	"  vec4 w1 = vec4(In.a_w1, 0.0, 0.0, 0.0);\n",
-	"  vec4 w1 = vec4(In.a_w1.xy, 0.0, 0.0);\n",
-	"  vec4 w1 = vec4(In.a_w1.xyz, 0.0);\n",
-	"  vec4 w1 = In.a_w1;\n",
-	"  vec4 w1 = In.a_w1;\n  vec4 w2 = vec4(In.a_w2, 0.0, 0.0, 0.0);\n",
-	"  vec4 w1 = In.a_w1;\n  vec4 w2 = vec4(In.a_w2.xy, 0.0, 0.0);\n",
-	"  vec4 w1 = In.a_w1;\n  vec4 w2 = vec4(In.a_w2.xyz, 0.0);\n",
-	"  vec4 w1 = In.a_w1;\n  vec4 w2 = In.a_w2;\n",
-};
-
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -110,18 +62,6 @@ const char *boneWeightAttrInitHLSL[9] = {
 //
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
-
-static const char * const boneWeightDecl[9] = {
-	"#ERROR#",
-	"layout(location = 3) in float w1;\n",
-	"layout(location = 3) in vec2 w1;\n",
-	"layout(location = 3) in vec3 w1;\n",
-	"layout(location = 3) in vec4 w1;\n",
-	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in float w2;\n",
-	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec2 w2;\n",
-	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec3 w2;\n",
-	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
-};
 
 bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint32_t *attrMask, uint64_t *uniformMask, VertexShaderFlags *vertexShaderFlags, std::string *errorString) {
 	*attrMask = 0;
@@ -169,7 +109,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	ShaderWriter p(buffer, compat, ShaderStage::Vertex, extensions);
 
-	p.F("// %s\n", VertexShaderDesc(id).c_str());
+	p.C("// %").W(id.Description()).endl();
 
 	bool lmode = id.Bit(VS_BIT_LMODE);
 
@@ -181,18 +121,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 
 	bool flatBug = bugs.Has(Draw::Bugs::BROKEN_FLAT_IN_SHADER) && g_Config.bVendorBugChecksEnabled;
-	bool needsZWHack = bugs.Has(Draw::Bugs::EQUAL_WZ_CORRUPTS_DEPTH) && g_Config.bVendorBugChecksEnabled;
 	bool nanBug = bugs.Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL) && g_Config.bVendorBugChecksEnabled;
 
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE) && !flatBug;
 
-	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
+	bool hasColor = id.Bit(VS_BIT_HAS_COLOR);
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
-	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES) && useHWTransform;
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -223,11 +161,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 	}
 
-	int numBoneWeights = 0;
-	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
-	if (enableBones) {
-		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
-	}
 	bool texCoordInVec3 = false;
 
 	const char *minZClipPlaneSuffix = "[0]";
@@ -243,12 +176,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
 		if (enableLighting || doShadeMapping)
 			WRITE(p, "layout (std140, set = 0, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
-		if (enableBones)
-			WRITE(p, "layout (std140, set = 0, binding = %d) uniform boneVars {\n%s};\n", DRAW_BINDING_DYNUBO_BONE, ub_vs_bonesStr);
-
-		if (enableBones) {
-			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
-		}
 
 		if (useHWTransform)
 			WRITE(p, "layout (location = %d) in vec3 position;\n", (int)PspAttributeLocation::POSITION);
@@ -268,7 +195,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 			}
 		}
-		if (hasColor) {
+		if (hasColor || !useHWTransform) {
 			WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
 			if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
@@ -292,18 +219,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Note: These two share some code after this hellishly large if/else.
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", ub_baseStr);
 		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", ub_vs_lightsStr);
-		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", ub_vs_bonesStr);
 
 		// And the "varyings".
 		if (useHWTransform) {
 			WRITE(p, "struct VS_IN {\n");
-			if (enableBones) {
-				WRITE(p, "  %s", boneWeightAttrDeclHLSL[numBoneWeights]);
-			}
 			if (hasTexcoord) {
 				WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 			}
-			if (hasColor) {
+			if (hasColor || !useHWTransform) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
 			}
 			if (hasNormal) {
@@ -322,7 +245,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
 				}
 			}
-			if (hasColor) {
+			if (hasColor || !useHWTransform) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
 			}
 			// only software transform supplies color1 as vertex data
@@ -343,7 +266,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
 		if (fsMinmaxDiscard || fsDepthClamp) {
-			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+			WRITE(p, "  highp vec2 v_zw : TEXCOORD2;\n");
 		}
 		// gl_Position must be last for D3D11.
 		WRITE(p, "  vec4 gl_Position   : SV_Position;\n");
@@ -359,17 +282,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 		WRITE(p, "};\n");
 	} else {
-		// Non-Vulkan GLSL.
-		if (enableBones) {
-			const char * const * boneWeightDecl = boneWeightAttrDecl;
-			if (!strcmp(compat.attribute, "in")) {
-				boneWeightDecl = boneWeightInDecl;
-			}
-			WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
-			*attrMask |= 1 << ATTR_W1;
-			if (numBoneWeights >= 5)
-				*attrMask |= 1 << ATTR_W2;
-		}
+		// Non-Vulkan GLSL
 
 		if (useHWTransform)
 			WRITE(p, "%s vec3 position;\n", compat.attribute);
@@ -396,7 +309,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			*attrMask |= 1 << ATTR_TEXCOORD;
 		}
 
-		if (hasColor) {
+		if (hasColor || !useHWTransform) {
 			WRITE(p, "%s lowp vec4 color0;\n", compat.attribute);
 			*attrMask |= 1 << ATTR_COLOR0;
 			if (lmode && !useHWTransform) { // only software transform supplies color1 as vertex data
@@ -407,7 +320,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		WRITE(p, "uniform vec4 u_xywh;\n");
 		WRITE(p, "uniform float u_NaN;\n");
-		*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
+		*uniformMask |= DIRTY_FRAMEBUFFER_DIM;
 
 		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
 		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.
@@ -432,12 +345,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (doTextureTransform) {
 				WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 				*uniformMask |= DIRTY_TEXMATRIX;
-			}
-			if (enableBones) {
-				for (int i = 0; i < numBoneWeights; i++) {
-					WRITE(p, "uniform mat4 u_bone%i;\n", i);
-					*uniformMask |= DIRTY_BONEMATRIX0 << i;
-				}
 			}
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 			*uniformMask |= DIRTY_UVSCALEOFFSET;
@@ -490,7 +397,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp float u_scaleY;\n");
 		}
 
-		if (useHWTransform || !hasColor) {
+		if (useHWTransform) {
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
@@ -518,7 +425,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	if (useHWTransform) {
 		WRITE(p, "vec3 normalizeOr001(vec3 v) {\n");
-		WRITE(p, "   return length(v) == 0.0 ? vec3(0.0, 0.0, 1.0) : normalize(v);\n");
+		WRITE(p, "   float len2 = dot(v, v);\n");
+		WRITE(p, "   return len2 == 0.0 ? vec3(0.0, 0.0, 1.0) : (v * inversesqrt(len2));\n");
 		WRITE(p, "}\n");
 	}
 
@@ -534,7 +442,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec2 texcoord = In.texcoord;\n");
 			}
 		}
-		if (hasColor) {
+		if (hasColor || !useHWTransform) {
 			WRITE(p, "  vec4 color0 = In.color0;\n");
 			if (lmode && !useHWTransform) {
 				WRITE(p, "  vec3 color1 = In.color1;\n");
@@ -551,9 +459,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (!useHWTransform) {
 			WRITE(p, "  float fog = In.fog;\n");
 		}
-		if (enableBones) {
-			WRITE(p, "%s", boneWeightAttrInitHLSL[numBoneWeights]);
-		}
 	}
 
 	WRITE(p, "  bool zClipped = false;\n");
@@ -565,16 +470,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);
 		}
-		if (hasColor) {
-			WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
-			if (lmode) {
-				WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
-			}
-		} else {
-			WRITE(p, "  %sv_color0 = u_matambientalpha;\n", compat.vsOutPrefix);
-			if (lmode) {
-				WRITE(p, "  %sv_color1 = splat3(0.0);\n", compat.vsOutPrefix);
-			}
+		WRITE(p, "  %sv_color0 = color0;\n", compat.vsOutPrefix);
+		if (lmode) {
+			WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
 		}
 		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
 
@@ -585,54 +483,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 	} else {
-		// Step 1: World Transform / Skinning
-		if (!enableBones) {
-		
-			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
-			if (hasNormal) {
-				WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
-			} else {
-				WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(0.0, 0.0, %s1.0, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
-			}
+		// Step 1: World Transform (bones/skinning is now always handled in decode)
+		WRITE(p, "  vec3 worldpos = mul(vec4(position, 1.0), u_world).xyz;\n");
+		if (hasNormal) {
+			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(%snormal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 		} else {
-			static const char * const rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[boneWeightScale];
-
-			static const char * const boneWeightAttr[8] = {
-				"w1.x", "w1.y", "w1.z", "w1.w",
-				"w2.x", "w2.y", "w2.z", "w2.w",
-			};
-
-			const char *boneMatrix = compat.forceMatrix4x4 ? "mat4" : "mat3x4";
-
-			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
-			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1 && ShaderLanguageIsOpenGL(compat.shaderLanguage))
-				WRITE(p, "  %s skinMatrix = mul(w1, u_bone0)", boneMatrix);
-			else
-				WRITE(p, "  %s skinMatrix = mul(w1.x, u_bone0)", boneMatrix);
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue.
-				if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
-					if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
-					if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
-				}
-				WRITE(p, " + mul(%s, u_bone%i)", weightAttr, i);
-			}
-
-			WRITE(p, ";\n");
-
-			WRITE(p, "  vec3 skinnedpos = mul(vec4(position, 1.0), skinMatrix).xyz%s;\n", factor);
-			WRITE(p, "  vec3 worldpos = mul(vec4(skinnedpos, 1.0), u_world).xyz;\n");
-
-			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(%snormal, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
-			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = mul(vec4(0.0, 0.0, %s1.0, 0.0), skinMatrix).xyz%s;\n", flipNormal ? "-" : "", factor);
-			}
-			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(skinnednormal, 0.0), u_world).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(0.0, 0.0, %s1.0, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
@@ -910,7 +766,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (specularIsZero) {
 					WRITE(p, "  %sv_color0 = clamp(lightSum0, 0.0, 1.0);\n", compat.vsOutPrefix);
 				} else {
-					WRITE(p, "  %sv_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n", compat.vsOutPrefix);
+					WRITE(p, "  %sv_color0 = clamp(vec4(lightSum0.rgb + lightSum1, lightSum0.a), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
 			}
 		} else {
@@ -1048,8 +904,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZFar) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
 
-	// Convert to NDC space, using the framebuffer offset and size stored in u_xywh.
-	WRITE(p, "  outPos.xy = ((outPos.xy - u_xywh.xy) / u_xywh.zw) * 2.0 - 1.0;\n");
+	// Convert to NDC space, using the framebuffer offset and (inverse size * 2) stored in u_xywh.
+	WRITE(p, "  outPos.xy = (((outPos.xy + u_xywh.xy) * u_xywh.zw) - vec2(1.0, 1.0)) * outPos.w;\n");
 
 	if (gstate_c.Use(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
@@ -1059,11 +915,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
 	// So even if it seems like 65535 would make more sense, we divide by 65536 here.
-	WRITE(p, "  outPos.z = outPos.z / 65536.0;\n");
-
-	// Convert back to clip space coordinates. This is needed for all modern shader models.
-	// After all our work in projected space, multiply xyz back with z to the get clip space position that the shader model wants.
-	WRITE(p, "  outPos.xyz *= outPos.w;\n");
+	WRITE(p, "  outPos.z *= outPos.w * (1.0 / 65536.0);\n");
 
 	if (compat.shaderLanguage == GLSL_VULKAN && gstate_c.Use(GPU_USE_PRE_ROTATION)) {
 		// Apply rotation from the uniform.
@@ -1100,19 +952,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (fsDepthClamp) {
 		// Overwrite Z with a value that will not be clipped.
 		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
-		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * 0.5 * (1.0 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
 	}
 
 	if (compat.depthMinusOneToOne) {
 		// Convert from 0->1 to -1->1 depth range.
 		WRITE(p, "  %sgl_Position.z = %sgl_Position.z * 2.0 - %sgl_Position.w;\n", compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 		// The formula takes the z component of gl_Position, which is currently in the range [0, w] (where w is the homogeneous coordinate), and transforms it to the range [-w, w]. This is done by first multiplying by 2 to scale the range from [0, w] to [0, 2w], and then subtracting w to shift the range to [-w, w]. This effectively converts the depth range from 0->1 to -1->1 after perspective division (when gl_Position is divided by w).
-	}
-
-	if (needsZWHack) {
-		// See comment in thin3d_vulkan.cpp.
-		WRITE(p, "  if (%sgl_Position.z == %sgl_Position.w) %sgl_Position.z *= 0.999999;\n",
-			compat.vsOutPrefix, compat.vsOutPrefix, compat.vsOutPrefix);
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

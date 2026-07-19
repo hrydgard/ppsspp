@@ -208,7 +208,7 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 							ImGui::Text("Replaced: %dx%d, %d mip levels", w, h, numLevels);
 							ImGui::Text("Level 0 size: %d bytes, format: %s", entry->replacedTexture->GetLevelDataSizeAfterCopy(0), Draw::DataFormatToString(entry->replacedTexture->Format()));
 						}
-						ImGui::Text("Key: %08x_%08x", (u32)(desc.cachekey >> 32), (u32)desc.cachekey);
+						ImGui::Text("Key: %08x_%08x_%08x", desc.cacheKey.Address(), desc.cacheKey.ClutHash(), desc.cacheKey.ContentsHash());
 						ImGui::Text("Hashfiles: %s", desc.hashfiles.c_str());
 						ImGui::Text("Base: %s", desc.basePath.c_str());
 						ImGui::Text("Alpha status: %d", (int)entry->replacedTexture->AlphaStatus());
@@ -959,9 +959,16 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_TRIANGLES:
 	{
 		for (int i = 0; i < count - 2; i += 3) {
-			const auto &v1 = indices.empty() ? verts[i + 0] : verts[indices[indexOffset + i + 0]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
-			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
+			const int index0 = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			const int index2 = indices.empty() ? (i + 2) : indices[indexOffset + i + 2];
+
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size() || index2 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
+			const GPUDebugVertex &v3 = verts[index2];
 			drawList->AddTriangleFilled(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)),
@@ -972,8 +979,14 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_RECTANGLES:
 	{
 		for (int i = 0; i < count - 2; i += 3) {
-			const auto &tl = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
-			const auto &br = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const int indexTL = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int indexBR = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			if (indexTL >= (int)verts.size() || indexBR >= (int)verts.size()) {
+				continue;
+			}
+
+			const GPUDebugVertex &tl = verts[indexTL];
+			const GPUDebugVertex & br = verts[indexBR];
 			drawList->AddRectFilled(
 				ImVec2(p0.x + x(tl), p0.y + y(tl)),
 				ImVec2(p0.x + x(br), p0.y + y(br)), ImColor(defaultColor));
@@ -983,9 +996,17 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_TRIANGLE_FAN:
 	{
 		for (int i = 0; i < count - 2; i++) {
-			const auto &v1 = indices.empty() ? verts[0] : verts[indices[indexOffset + 0]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
-			const auto &v3 = indices.empty() ? verts[i + 2] : verts[indices[indexOffset + i + 2]];
+			const int index0 = indices.empty() ? 0 : indices[indexOffset + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			const int index2 = indices.empty() ? (i + 2) : indices[indexOffset + i + 2];
+
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size() || index2 >= (int)verts.size()) {
+				continue;
+			}
+
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
+			const GPUDebugVertex &v3 = verts[index2];
 			drawList->AddTriangleFilled(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)),
@@ -1000,9 +1021,15 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 			int i0 = i;
 			int i1 = i + t;
 			int i2 = i + (t ^ 3);
-			const auto &v1 = indices.empty() ? verts[i0] : verts[indices[indexOffset + i0]];
-			const auto &v2 = indices.empty() ? verts[i1] : verts[indices[indexOffset + i1]];
-			const auto &v3 = indices.empty() ? verts[i2] : verts[indices[indexOffset + i2]];
+			const int index0 = indices.empty() ? i0 : indices[indexOffset + i0];
+			const int index1 = indices.empty() ? i1 : indices[indexOffset + i1];
+			const int index2 = indices.empty() ? i2 : indices[indexOffset + i2];
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size() || index2 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
+			const GPUDebugVertex &v3 = verts[index2];
 			drawList->AddTriangleFilled(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)),
@@ -1014,8 +1041,13 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_LINES:
 	{
 		for (int i = 0; i < count - 1; i += 2) {
-			const auto &v1 = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const int index0 = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
 			drawList->AddLine(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(defaultColor));
@@ -1025,8 +1057,13 @@ static void DrawPreviewPrimitive(ImDrawList *drawList, ImVec2 p0, GECommand cmd,
 	case GE_PRIM_LINE_STRIP:
 	{
 		for (int i = 0; i < count - 2; i++) {
-			const auto &v1 = indices.empty() ? verts[i] : verts[indices[indexOffset + i]];
-			const auto &v2 = indices.empty() ? verts[i + 1] : verts[indices[indexOffset + i + 1]];
+			const int index0 = indices.empty() ? (i + 0) : indices[indexOffset + i + 0];
+			const int index1 = indices.empty() ? (i + 1) : indices[indexOffset + i + 1];
+			if (index0 >= (int)verts.size() || index1 >= (int)verts.size()) {
+				continue;
+			}
+			const GPUDebugVertex &v1 = verts[index0];
+			const GPUDebugVertex &v2 = verts[index1];
 			drawList->AddLine(
 				ImVec2(p0.x + x(v1), p0.y + y(v1)),
 				ImVec2(p0.x + x(v2), p0.y + y(v2)), ImColor(defaultColor));
@@ -1150,6 +1187,11 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 	if (ImGui::RepeatButtonShift("Single step", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel step")) {
+		gpuDebug->ClearBreakNext();
+	}
+
 	if (disableStepButtons) {
 		ImGui::EndDisabled();
 	}
@@ -1184,13 +1226,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 		}
 		if (showBannerInFrames_ == 0) {
 			ImGui::Text("Step pending: %s", GPUDebug::BreakNextToString(gpuDebug->GetBreakNext()));
-			ImGui::SameLine();
 			if (gpuDebug->GetBreakNext() == GPUDebug::BreakNext::COUNT) {
-				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
 				ImGui::SameLine();
-			}
-			if (ImGui::Button("Cancel step")) {
-				gpuDebug->ClearBreakNext();
+				ImGui::Text("(%d)", gpuDebug->GetBreakCount());
 			}
 		}
 	} else {
@@ -1393,10 +1431,9 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			} else if (!gstate.isTextureMapEnabled()) {
 				ImGui::Text("(texturing not enabled");
 			} else if (TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon()) {  // We don't bother with the texture if previewCmd is BOUNDING_BOX - no texturing happens there.
-				const TexCacheEntry *tex = texcache->SetTexture();
-				if (tex) {
+				TextureApplyResult result = texcache->ApplyTexture(false);
+				if (TexCacheEntry *tex = result.texCacheEntry) {
 					ImGui::Text("Texture: %08x", tex->addr);
-					texcache->ApplyTexture(false, false);
 
 					void *nativeView = texcache->GetNativeTextureView(tex, true);
 					ImTextureID texId = ImGui_ImplThin3d_AddNativeTextureTemp(nativeView);
@@ -1420,12 +1457,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 					}
 
 					drawList->PopClipRect();
-
-				} else if (const VirtualFramebuffer *fb = texcache->NextFramebufferTexture()) {
+				} else if (const VirtualFramebuffer *fb = result.framebuffer) {
 					// A framebuffer.
 					// TODO: More detail here.
 					ImGui::Text("Framebuffer as texture: %08x", fb->fb_address);
 				} else {
+					// Will end up here in the CLUT8 texture cache for now :/
 					ImGui::Text("(no valid texture bound)");
 				}
 			} else {
@@ -1848,7 +1885,9 @@ void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpu) {
 						for (int column = 0; column < colCount; column++) {
 							ImGui::TableNextColumn();
 							char temp[36];
-							if (transformed) {
+							if ((size_t)index >= vertices.size()) {
+								snprintf(temp, sizeof(temp), "(%d: idx out of range)", index);
+							} else if (transformed) {
 								FormatVertColTransformed(temp, sizeof(temp), vertices[index], (VertexListTransformedCol)column);
 							} else {
 								FormatVertColDecoded(temp, sizeof(temp), vertices[index], (VertexListDecodedCol)column);

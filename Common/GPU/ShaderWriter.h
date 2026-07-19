@@ -35,7 +35,7 @@ enum class ShaderWriterFlags {
 };
 ENUM_CLASS_BITOPS(ShaderWriterFlags);
 
-// TODO: Somehow merge with StringWriter from Parsers.h
+// TODO: Somehow merge with StringWriter from StringWriter.h
 class ShaderWriter {
 public:
 	// Extensions are supported for both OpenGL ES and Vulkan (though of course, they're different).
@@ -57,10 +57,11 @@ public:
 		return *this;
 	}
 	// W: Writes a zero-terminated string to the stream.
-	ShaderWriter &W(const char *text) {
-		size_t len = strlen(text);
-		memcpy(p_, text, len + 1);
+	ShaderWriter &W(std::string_view text) {
+		size_t len = text.size();
+		memcpy(p_, text.data(), len);
 		p_ += len;
+		*p_ = '\0';
 		return *this;
 	}
 

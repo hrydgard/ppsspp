@@ -47,13 +47,20 @@ static const std::string ZIP_FILENAME = "textures.zip";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const double MAX_CACHE_SIZE = 4.0;
+
+// basisu only needs to be initialized once, to build some tables. This global is enough to track that.
+// Doesn't need to be deinited.
 static bool basisu_initialized = false;
+
+static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> *filenameMap);
+static void ComputeAliasMap(std::unordered_map<ReplacementCacheKey, std::string> *aliases, const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 
 TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
 	if (!basisu_initialized) {
 		basist::basisu_transcoder_init();
 		basisu_initialized = true;
 	}
+
 	// We don't want to keep the draw object around, so extract the info we need.
 	if (draw->GetDataFormatSupport(Draw::DataFormat::BC3_UNORM_BLOCK)) formatSupport_.bc123 = true;
 	if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) formatSupport_.astc = true;
@@ -62,7 +69,7 @@ TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
 }
 
 TextureReplacer::~TextureReplacer() {
-	for (auto iter : levelCache_) {
+	for (const auto &iter : levelCache_) {
 		delete iter.second;
 	}
 	delete vfs_;
@@ -113,7 +120,7 @@ void TextureReplacer::NotifyConfigChanged() {
 }
 
 bool TextureReplacer::LoadIni(std::string *error, bool notify) {
-	hash_ = ReplacedTextureHash::QUICK;
+	textureHash_ = ReplacedTextureHash::QUICK;
 	aliases_.clear();
 	hashranges_.clear();
 	filtering_.clear();
@@ -191,14 +198,14 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 			}
 			// Do what we can do anyway: Scan for textures and build the map.
 			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
-			ScanForHashNamedFiles(dir, filenameMap);
+			ScanForHashNamedFiles(dir, &filenameMap);
 
 			if (filenameMap.empty()) {
 				WARN_LOG(Log::TexReplacement, "No replacement textures found.");
 				return false;
 			}
 
-			ComputeAliasMap(filenameMap);
+			ComputeAliasMap(&aliases_, filenameMap);
 		}
 	}
 
@@ -227,7 +234,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	return true;
 }
 
-void TextureReplacer::ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
+static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> *filenameMap) {
 	// Scan the root of the texture folder/zip and preinitialize the hash map.
 	// TODO: Could put VFSFileReference into the map...
 	std::vector<File::FileInfo> filesInRoot;
@@ -250,13 +257,13 @@ void TextureReplacer::ScanForHashNamedFiles(VFSBackend *dir, std::map<Replacemen
 			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
 			if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				// INFO_LOG(Log::TexReplacement, "hash-like file in root, adding: %s", file.name.c_str());
-				filenameMap[key][level] = file.name;
+				(*filenameMap)[key][level] = file.name;
 			}
 		}
 	}
 }
 
-void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
+static void ComputeAliasMap(std::unordered_map<ReplacementCacheKey, std::string> *aliases, const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
 	for (auto &pair : filenameMap) {
 		std::string alias;
 		int mipIndex = 0;
@@ -278,7 +285,7 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 				c = '/';
 			}
 		}
-		aliases_[pair.first] = alias;
+		(*aliases)[pair.first] = alias;
 	}
 }
 
@@ -292,11 +299,11 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		return false;
 	}
 	if (strcasecmp(hash.c_str(), "quick") == 0) {
-		hash_ = ReplacedTextureHash::QUICK;
+		textureHash_ = ReplacedTextureHash::QUICK;
 	} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
-		hash_ = ReplacedTextureHash::XXH32;
+		textureHash_ = ReplacedTextureHash::XXH32;
 	} else if (strcasecmp(hash.c_str(), "xxh64") == 0) {
-		hash_ = ReplacedTextureHash::XXH64;
+		textureHash_ = ReplacedTextureHash::XXH64;
 	} else if (!isOverride || !hash.empty()) {
 		*error = "textures.ini: Unsupported hash type: " + hash;
 		return false;
@@ -309,12 +316,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	options->Get("ignoreMipmap", &ignoreMipmap_);
 	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
 	options->Get("skipLastDXT1Blocks128x128", &skipLastDXT1Blocks128x128_);
-	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
+	if (reduceHash_ && textureHash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
 	}
 
-	if (ignoreAddress_ && hash_ == ReplacedTextureHash::QUICK) {
+	if (ignoreAddress_ && textureHash_ == ReplacedTextureHash::QUICK) {
 		ignoreAddress_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: ignoreAddress option requires safer hash, use xxh32 or xxh64 instead.");
 	}
@@ -329,7 +336,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 
 	if (dir) {
-		ScanForHashNamedFiles(dir, filenameMap);
+		ScanForHashNamedFiles(dir, &filenameMap);
 	}
 
 	std::string badFilenames;
@@ -379,7 +386,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 
 	// Now, translate the filenameMap to the final aliasMap.
-	ComputeAliasMap(filenameMap);
+	ComputeAliasMap(&aliases_, filenameMap);
 
 	if (badFileNameCount > 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
@@ -507,7 +514,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(replaceEnabled_ || saveEnabled_, "Replacement not enabled");
 
-	// TODO: Take swizzled into account, like in QuickTexHash().
+	// TODO: Take swizzled into account, like in ComputeTextureHash().
 	// Note: Currently, only the MLB games are known to need this.
 
 	if (!LookupHashRange(addr, w, h, &w, &h)) {
@@ -545,7 +552,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x128_;
 		}
 
-		switch (hash_) {
+		switch (textureHash_) {
 		case ReplacedTextureHash::QUICK:
 			return StableQuickTexHash(checkp, sizeInRAM);
 		case ReplacedTextureHash::XXH32:
@@ -561,7 +568,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 		const u32 stride = (textureBitsPerPixel[fmt] * bufw) / 8;
 
 		u32 result = 0;
-		switch (hash_) {
+		switch (textureHash_) {
 		case ReplacedTextureHash::QUICK:
 			for (int y = 0; y < h; ++y) {
 				u32 rowHash = StableQuickTexHash(checkp, bytesPerLine);
@@ -594,13 +601,12 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 	}
 }
 
-ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
+ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacementKey, int w, int h) {
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (!Enabled() || !g_Config.bReplaceTextures) {
 		return nullptr;
 	}
 
-	ReplacementCacheKey replacementKey(cachekey, hash);
 	auto it = cache_.find(replacementKey);
 	if (it != cache_.end()) {
 		return it->second.texture;
@@ -611,17 +617,18 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	desc.newH = h;
 	desc.w = w;
 	desc.h = h;
-	desc.cachekey = cachekey;
-	desc.hash = hash;
-	LookupHashRange(cachekey >> 32, w, h, &desc.newW, &desc.newH);
+	desc.cacheKey = replacementKey;
+	desc.forceFiltering = (TextureFiltering)0;  // invalid value
 
 	if (ignoreAddress_) {
-		cachekey = cachekey & 0xFFFFFFFFULL;
+		replacementKey.ZeroAddress();
+	} else {
+		LookupHashRange(replacementKey.Address(), w, h, &desc.newW, &desc.newH);
 	}
 
 	bool foundAlias = false;
 	bool ignored = false;
-	std::string hashfiles = LookupHashFile(cachekey, hash, &foundAlias, &ignored);
+	std::string hashfiles = LookupHashFile(replacementKey, &foundAlias, &ignored);
 
 	// Early-out for ignored textures, let's not bother even starting a thread task.
 	if (ignored) {
@@ -632,29 +639,21 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		return nullptr;
 	}
 
-	desc.forceFiltering = (TextureFiltering)0;  // invalid value
-	FindFiltering(cachekey, hash, &desc.forceFiltering);
+	FindFiltering(replacementKey, &desc.forceFiltering);
 
-	if (!foundAlias) {
-		// We'll just need to generate the names for each level.
-		// By default, we look for png since that's also what's dumped.
-		// For other file formats, use the ini to create aliases.
-		desc.filenames.resize(MAX_REPLACEMENT_MIP_LEVELS);
-		for (int level = 0; level < desc.filenames.size(); level++) {
-			desc.filenames[level] = TextureReplacer::HashName(cachekey, hash, level) + ".png";
-		}
-		desc.logId = desc.filenames[0];
-		desc.hashfiles = desc.filenames[0];  // The generated filename of the top level is used as the key in the data cache.
-		hashfiles.clear();
-		hashfiles.reserve(desc.filenames[0].size() * (desc.filenames.size() + 1));
-		for (int level = 0; level < desc.filenames.size(); level++) {
-			hashfiles += desc.filenames[level];
-			hashfiles.push_back('|');
-		}
-	} else {
+	if (foundAlias) {
 		desc.logId = hashfiles;
 		SplitString(hashfiles, '|', desc.filenames);
 		desc.hashfiles = hashfiles;
+	} else {
+		DEBUG_LOG(Log::TexReplacement, "Replacement not found in alias list - skipping!");
+		// Not found in the alias map.
+		//
+		// Since we've added aliases generated from the file listing, if we didn't found an alias, that means that
+		// we shouldn't replace this texture. Add a marker to cache_.
+		ReplacedTextureRef ref{};
+		cache_.emplace(std::make_pair(replacementKey, ref));
+		return nullptr;
 	}
 
 	_dbg_assert_(!hashfiles.empty());
@@ -776,9 +775,11 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		cachekey = cachekey & 0xFFFFFFFFULL;
 	}
 
+	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
+
 	bool foundAlias = false;
 	bool ignored = false;
-	std::string replacedLevelNames = LookupHashFile(cachekey, replacedInfo.hash, &foundAlias, &ignored);
+	std::string replacedLevelNames = LookupHashFile(replacementKey, &foundAlias, &ignored);
 	if (ignored) {
 		// The ini file entry was set to empty string. We can early-out.
 		return;
@@ -793,10 +794,9 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		hashfile = names[std::min(level, (int)(names.size() - 1))];
 	} else {
 		// Generate a new PNG filename, complete with level.
-		hashfile = HashName(cachekey, replacedInfo.hash, level) + ".png";
+		hashfile = HashName(replacementKey, level) + ".png";
 	}
 
-	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
 	if (it != savedCache_.end()) {
 		// We've already saved this texture. Ignore it.
@@ -813,7 +813,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		return;
 	}
 
-	// Only save the hashed portion of the PNG.
+	// Only save the hashed portion of the PNG, in case we have specified it in the ini file.
 	int lookupW;
 	int lookupH;
 	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH)) {
@@ -821,8 +821,8 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		h = lookupH * (scaledH / origH);
 	}
 
-
-	size_t saveBufSize = w * h * 4;
+	constexpr int bpp = 4;
+	size_t saveBufSize = w * h * bpp;
 	u8 *saveBuf = (u8 *)malloc(saveBufSize);
 	if (!saveBuf) {
 		ERROR_LOG(Log::TexReplacement, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
@@ -832,7 +832,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
 	// while we're at it.
 	for (int y = 0; y < h; y++) {
-		memcpy(saveBuf + y * w * 4, (const u8 *)data + y * srcPitch, w * 4);
+		memcpy(saveBuf + y * w * bpp, (const u8 *)data + y * srcPitch, w * bpp);
 	}
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));
@@ -887,8 +887,11 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	lastTextureCacheSizeGB_ = totalSizeGB;
 }
 
-template <typename Key, typename Value>
-static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(const std::unordered_map<Key, Value> &map, Key &key, u64 cachekey, u32 hash, bool ignoreAddress) {
+template <typename Value>
+static typename std::unordered_map<ReplacementCacheKey, Value>::const_iterator LookupWildcard(const std::unordered_map<ReplacementCacheKey, Value> &map, ReplacementCacheKey key, bool ignoreAddress) {
+	u64 cachekey = key.CacheKey();
+	u32 hash = key.ContentsHash();
+
 	auto alias = map.find(key);
 	if (alias != map.end())
 		return alias;
@@ -932,13 +935,12 @@ static typename std::unordered_map<Key, Value>::const_iterator LookupWildcard(co
 	return map.find(key);
 }
 
-bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering) {
+bool TextureReplacer::FindFiltering(ReplacementCacheKey replacementKey, TextureFiltering *forceFiltering) {
 	if (!Enabled() || !g_Config.bReplaceTextures) {
 		return false;
 	}
 
-	ReplacementCacheKey replacementKey(cachekey, hash);
-	auto filter = LookupWildcard(filtering_, replacementKey, cachekey, hash, ignoreAddress_);
+	auto filter = LookupWildcard(filtering_, replacementKey, ignoreAddress_);
 	if (filter == filtering_.end()) {
 		// Allow a global wildcard.
 		replacementKey.cachekey = 0;
@@ -952,9 +954,8 @@ bool TextureReplacer::FindFiltering(u64 cachekey, u32 hash, TextureFiltering *fo
 	return false;
 }
 
-std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored) {
-	ReplacementCacheKey key(cachekey, hash);
-	auto alias = LookupWildcard(aliases_, key, cachekey, hash, ignoreAddress_);
+std::string TextureReplacer::LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored) {
+	auto alias = LookupWildcard(aliases_, key, ignoreAddress_);
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
 		*foundAlias = true;
@@ -966,12 +967,12 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, bool *foundA
 	return "";
 }
 
-std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
+std::string TextureReplacer::HashName(ReplacementCacheKey key, int level) {
 	char hashname[16 + 8 + 1 + 11 + 1] = {};
 	if (level > 0) {
-		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d", cachekey, hash, level);
+		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d", key.cachekey, key.hash, level);
 	} else {
-		snprintf(hashname, sizeof(hashname), "%016llx%08x", cachekey, hash);
+		snprintf(hashname, sizeof(hashname), "%016llx%08x", key.cachekey, key.hash);
 	}
 
 	return hashname;

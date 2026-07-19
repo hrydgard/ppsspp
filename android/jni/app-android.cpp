@@ -540,6 +540,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
 #endif
+	case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+		return false;
 	default:
 		return false;
 	}
@@ -823,6 +825,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 			args.push_back(arg.c_str());
 		}
 	}
+
+	EARLY_LOG("Calling NativeInit with user_data_path %s, externalStorageDir %s, cacheDir %s", user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
 
 	// TODO: We should be able to do the Vulkan init in parallel with NativeInit.
 	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());

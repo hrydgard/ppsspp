@@ -264,7 +264,11 @@ static ShaderModule *GenerateFShader(DrawContext *draw, FragmentShaderPreset pre
 	const bool rbSwizzle = preset == FS_TEXTURE_COLOR_2D_RB_SWIZZLE;
 
 	fsWriter.DeclareSamplers(g_samplers);
-	fsWriter.BeginFSMain(g_uniforms, texturing ? Slice(g_varyingsTex) : Slice(g_varyings));
+
+	// NOTE (first argument): We do not declare the uniforms here, as they aren't used in any of the preset shaders.
+	// Declaring them currently causes a precision clash with some GLSL compilers, see issue #21904.
+	// So if we need them in the future, that needs to be dealt with.
+	fsWriter.BeginFSMain(Slice<UniformDef>::empty(), texturing ? Slice(g_varyingsTex) : Slice(g_varyings));
 	if (texturing) {
 		fsWriter.C("vec4 col = ");
 		fsWriter.SampleTexture2D("tex", "oTexCoord0");
@@ -530,7 +534,6 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case RASPBERRY_SHADER_COMP_HANG: return "RASPBERRY_SHADER_COMP_HANG";
 	case MALI_CONSTANT_LOAD_BUG: return "MALI_CONSTANT_LOAD_BUG";
 	case SUBPASS_FEEDBACK_BROKEN: return "SUBPASS_FEEDBACK_BROKEN";
-	case GEOMETRY_SHADERS_SLOW_OR_BROKEN: return "GEOMETRY_SHADERS_SLOW_OR_BROKEN";
 	case ADRENO_RESOURCE_DEADLOCK: return "ADRENO_RESOURCE_DEADLOCK";
 	case PVR_BAD_16BIT_TEXFORMATS: return "PVR_BAD_16BIT_TEXFORMATS";
 	case EMPTY_RENDERPASS_BROKEN_MALI: return "EMPTY_RENDERPASS_BROKEN_MALI";

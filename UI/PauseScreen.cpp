@@ -337,13 +337,16 @@ void GamePauseScreen::update() {
 	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
 		TriggerFinish(DR_BACK);
 	}
-	UIScreen::update();
+	UIBaseDialogScreen::update();
 
 	firstFrame_ = false;
 
-	if (finishNextFrame_) {
-		TriggerFinish(finishNextFrameResult_);
-		finishNextFrame_ = false;
+	{
+		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
+		if (finishNextFrame_) {
+			TriggerFinish(finishNextFrameResult_);
+			finishNextFrame_ = false;
+		}
 	}
 
 	const bool networkConnected = IsNetworkConnected();
@@ -385,6 +388,7 @@ GamePauseScreen::~GamePauseScreen() {
 void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	// Simple de-bounce using createdTime_, just to be safe.
 	if (down && virtualKeyCode == VIRTKEY_PAUSE && time_now_d() > createdTime_ + 0.1) {
+		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 		finishNextFrame_ = true;
 		finishNextFrameResult_ = DR_BACK;
 	}
@@ -405,6 +409,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 			int slotNum = v->GetSlot();
 			auto doLoad = [this, slotNum]() {
 				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
+				std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 				finishNextFrame_ = true;
 				finishNextFrameResult_ = DR_CANCEL;
 			};
@@ -777,12 +782,14 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [this](bool result) {
 					if (result) {
 						System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-						finishNextFrameResult_ = DR_BACK;  // resume
+						std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 						finishNextFrame_ = true;
+						finishNextFrameResult_ = DR_BACK;  // resume
 					}
 				}));
 			} else {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+				std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 				finishNextFrameResult_ = DR_BACK;  // resume
 				finishNextFrame_ = true;
 			}
@@ -819,6 +826,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	std::string tag = dialog->tag();
 	if (tag == "ScreenshotView") {
 		if (dr == DR_OK) {
+			std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 			finishNextFrame_ = true;
 		} else if (dr != DR_CANCEL && dr != DR_BACK) {
 			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.
@@ -894,6 +902,7 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
 				} else {
+					std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 					finishNextFrameResult_ = DR_OK;  // exit game
 					finishNextFrame_ = true;
 				}

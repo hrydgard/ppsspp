@@ -37,8 +37,6 @@
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-
-	nextTexture_ = nullptr;
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
@@ -93,7 +91,7 @@ static constexpr GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
+void TextureCacheGLES::ApplySamplerByKey(const SamplerCacheKey &key) {
 	if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
 		float minLod = (float)key.minLevel / 256.0f;
 		float maxLod = (float)key.maxLevel / 256.0f;
@@ -127,23 +125,6 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 		if (dst != src)
 			memcpy(dst, src, numPixels * sizeof(u32));
 		break;
-	}
-}
-
-void TextureCacheGLES::StartFrame() {
-	TextureCacheCommon::StartFrame();
-
-	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
-		lowMemoryMode_ = true;
-		decimationCounter_ = 0;
-
-		auto err = GetI18NCategory(I18NCat::ERRORS);
-		if (standardScaleFactor_ > 1) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-		}
 	}
 }
 
@@ -194,19 +175,16 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 		return;
 	}
-	if (entry->textureName != lastBoundTexture) {
+	if (entry->textureName != lastBoundTexture_) {
 		render_->BindTexture(0, entry->textureName);
-		lastBoundTexture = entry->textureName;
+		lastBoundTexture_ = entry->textureName;
 	}
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -381,16 +359,20 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	ForgetLastTexture();
-	SetTexture();
-	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
-	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
-	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-	ApplyTexture(false, false);
+	TextureApplyResult textureResult = ApplyTexture(false);
+	if (textureResult.framebuffer) {
+		*isFramebuffer = true;
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
+	}
+
+	TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (!entry) {
+		return false;
+	}
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 

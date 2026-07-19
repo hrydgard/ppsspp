@@ -221,14 +221,14 @@ void TextureCacheVulkan::DeviceLost() {
 	VulkanContext *vulkan = draw_ ? (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 
 	samplerCache_.DeviceLost();
-	if (samplerNearest_)
+	if (samplerNearest_) {
 		vulkan->Delete().QueueDeleteSampler(samplerNearest_);
+	}
 
 	ClearScalingShaders(vulkan);
 
 	computeShaderManager_.DeviceLost();
 
-	nextTexture_ = nullptr;
 	draw_ = nullptr;
 	Unbind();
 }
@@ -515,8 +515,12 @@ bool TextureCacheVulkan::RunMultipassCompute(VulkanContext *vulkan, VkCommandBuf
 			stage.useFinalOutputSize ? dstWidth : srcWidth * stage.dstWidthScale,
 			stage.useFinalOutputSize ? dstHeight : srcHeight * stage.dstHeightScale,
 		};
+		VkPipeline pipeline = computeShaderManager_.GetPipeline(multipassCS_[stage.shaderIndex], "Multipass Compute Shader");
+		if (!pipeline) {
+			return false;
+		}
 		VkDescriptorSet stageSet = computeShaderManager_.GetDescriptorSet(outputView, inputBuffer, inputOffset, inputRange, VK_NULL_HANDLE, 0, 0, inputImage, textureScaleCBuffer_.Buffer(), textureScaleCBuffer_.Size());
-		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(multipassCS_[stage.shaderIndex]));
+		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 		vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &stageSet, 0, nullptr);
 		vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 		vkCmdDispatch(cmdInit, (params.dstWidth + 7) / 8, (params.dstHeight + 7) / 8, 1);
@@ -542,7 +546,11 @@ bool TextureCacheVulkan::ScaleBufferToImage(VulkanContext *vulkan, VkCommandBuff
 		}
 		VkDescriptorSet descSet = computeShaderManager_.GetDescriptorSet(dstView, texBuf, bufferOffset, srcSize, VK_NULL_HANDLE, 0, 0, VK_NULL_HANDLE, textureScaleCBuffer_.Buffer(), textureScaleCBuffer_.Size());
 		struct Params { int x; int y; } params{ srcWidth, srcHeight };
-		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipeline(singlePassCS_));
+		VkPipeline pipeline = computeShaderManager_.GetPipeline(singlePassCS_, "Single Pass Compute Shader");
+		if (!pipeline) {
+			return false;
+		}
+		vkCmdBindPipeline(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 		vkCmdBindDescriptorSets(cmdInit, VK_PIPELINE_BIND_POINT_COMPUTE, computeShaderManager_.GetPipelineLayout(), 0, 1, &descSet, 0, nullptr);
 		vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 		vkCmdDispatch(cmdInit, (srcWidth + 7) / 8, (srcHeight + 7) / 8, 1);
@@ -576,20 +584,16 @@ void TextureCacheVulkan::StartFrame() {
 	computeShaderManager_.BeginFrame();
 }
 
-void TextureCacheVulkan::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	if (!entry || !entry->vkTex) {
 		Unbind();
 		return;
 	}
-
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
-	imageView_ = entry->vkTex->GetImageView();
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE, false);
+	imageView_ = entry->vkTex->GetImageView();
 }
 
-void TextureCacheVulkan::ApplySamplingParams(const SamplerCacheKey &key) {
+void TextureCacheVulkan::ApplySamplerByKey(const SamplerCacheKey &key) {
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 }
 
@@ -720,16 +724,16 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VulkanBarrierBatch barrier;
 	bool allocSuccess = image->CreateDirect(plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, &barrier, mapping);
 	barrier.Flush(cmdInit);
-	if (!allocSuccess && !lowMemoryMode_) {
-		WARN_LOG_REPORT(Log::G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
-		lowMemoryMode_ = true;
+	if (!allocSuccess) {
+		WARN_LOG(Log::G3D, "Texture cache ran out of GPU memory; decimating");
 		decimationCounter_ = 0;
-		Decimate(entry, true);
+		Decimate(entry, true);  // note: First parameter is "exceptThisOne".
 
 		// TODO: We should stall the GPU here and wipe things out of memory.
 		// As is, it will almost definitely fail the second time, but next frame it may recover.
 
 		auto err = GetI18NCategory(I18NCat::ERRORS);
+		// TODO: These messages are not really accurate.
 		if (plan.scaleFactor > 1) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {
@@ -850,8 +854,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				loadLevel(uploadSize, i == 0 ? plan.baseLevelSrc : i, byteStride, plan.scaleFactor);
 				entry->vkTex->CopyBufferToMipLevel(cmdInit, &copyBatch, i, mipWidth, mipHeight, 0, texBuf, bufferOffset, pixelStride);
 			}
-			// Format might be wrong in lowMemoryMode_, so don't save.
-			if (plan.saveTexture && !lowMemoryMode_) {
+			if (plan.saveTexture) {
 				// When hardware texture scaling is enabled, this saves the original.
 				const int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				const int h = dataScaled ? mipHeight : mipUnscaledHeight;
@@ -1007,17 +1010,17 @@ void TextureCacheVulkan::BoundFramebufferTexture() {
 }
 
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	SetTexture();
-	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
+	TextureApplyResult textureResult = ApplyTexture(true);
+	if (textureResult.framebuffer) {
+		*isFramebuffer = true;
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
 	}
 
-	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
-	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture(true, false);
-
-	if (!entry->vkTex)
+	TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (!entry || !entry->vkTex) {
 		return false;
+	}
 
 	VulkanTexture *texture = entry->vkTex;
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

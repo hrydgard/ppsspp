@@ -46,10 +46,6 @@ struct SoftwareTransformResult {
 	bool setStencil;
 	u8 stencilValue;
 
-	bool setSafeSize;
-	u32 safeWidth;
-	u32 safeHeight;
-
 	TransformedVertex *drawBuffer;
 	int drawVertexCount;
 	int drawIndexCount;

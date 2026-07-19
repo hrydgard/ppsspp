@@ -247,7 +247,6 @@ void GPU_Vulkan::BeginHostFrame(const DisplayLayoutConfig &config) {
 
 	framebufferManager_->BeginFrame(config);
 
-	shaderManagerVulkan_->DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL);
 
 	if (gstate_c.useFlagsChanged) {
@@ -427,7 +426,7 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
 	switch (type) {
 	case SHADER_TYPE_PIPELINE:
-		return pipelineManager_->DebugGetObjectString(id, type, stringType, shaderManagerVulkan_);
+		return pipelineManager_->DebugGetObjectString(id, type, stringType);
 	case SHADER_TYPE_SAMPLER:
 		return textureCacheVulkan_->DebugGetSamplerString(id, stringType);
 	default:

@@ -575,6 +575,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
 	g_Config.Load();
+	System_Notify(SystemNotification::CONFIG_LOADED);
 #endif
 
 	const char *fileToLog = nullptr;
@@ -1521,16 +1522,16 @@ bool NativeKey(const KeyInput &key) {
 	KeyInputFlags modifierFlags{};
 
 	if (g_modifiersPressed & (KeyModifier::LCTRL | KeyModifier::RCTRL)) {
-		modifierFlags |= KeyInputFlags::MOD_CTRL;
+		modifierFlags |= KeyInputFlags::ModCtrl;
 	}
 	if (g_modifiersPressed & (KeyModifier::LSHIFT | KeyModifier::RSHIFT)) {
-		modifierFlags |= KeyInputFlags::MOD_SHIFT;
+		modifierFlags |= KeyInputFlags::ModShift;
 	}
 	if (g_modifiersPressed & (KeyModifier::LALT | KeyModifier::RALT)) {
-		modifierFlags |= KeyInputFlags::MOD_ALT;
+		modifierFlags |= KeyInputFlags::ModAlt;
 	}
 	if (g_modifiersPressed & (KeyModifier::LMETA | KeyModifier::RMETA)) {
-		modifierFlags |= KeyInputFlags::MOD_META;
+		modifierFlags |= KeyInputFlags::ModMeta;
 	}
 
 	KeyInput modKey = key;
@@ -1707,6 +1708,8 @@ void NativeShutdown() {
 		delete g_screenManager;
 		g_screenManager = nullptr;
 	}
+
+	System_Notify(SystemNotification::BEFORE_CONFIG_SAVE_ON_EXIT);
 
 	g_Config.Save("NativeShutdown");
 

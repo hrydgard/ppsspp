@@ -1784,7 +1784,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 		getLocalMac(&localmac);
 
 		// Clear Memory
-		context = {};
+		*context = {};
 
 		// Allocate Receive Buffer
 		context->rxbuf = (uint8_t*)malloc(rxbuflen);

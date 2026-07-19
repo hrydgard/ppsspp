@@ -35,8 +35,29 @@ static NSString *ExtractDeepLinkPath(NSURL *url) {
 	return nil;
 }
 
+// Detects a library-export request of the form "ppsspp://gameInfo?scheme=<callerScheme>"
+// and returns the caller's URL scheme to respond to (or nil if it's not one).
+static NSString *ExtractGameInfoScheme(NSURL *url) {
+	if (![[url scheme] isEqualToString:@"ppsspp"]) {
+		return nil;
+	}
+	if (![[url host] isEqualToString:@"gameInfo"]) {
+		return nil;
+	}
+
+	NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+	for (NSURLQueryItem *item in components.queryItems) {
+		if ([item.name isEqualToString:@"scheme"] && item.value.length > 0) {
+			return item.value;
+		}
+	}
+
+	return nil;
+}
+
 @interface SceneDelegate ()
 @property (nonatomic, strong) NSString *pendingLaunchPath;
+@property (nonatomic, strong) NSString *pendingExportScheme;
 @end
 
 @implementation SceneDelegate
@@ -47,11 +68,18 @@ static NSString *ExtractDeepLinkPath(NSURL *url) {
 
 - (void)capturePendingPathFromURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
 	for (UIOpenURLContext *context in URLContexts) {
+		NSString *exportScheme = ExtractGameInfoScheme(context.URL);
+		if (exportScheme.length > 0) {
+			// The library export is performed after PPSSPP has initialized (and loaded its config)
+			self.pendingExportScheme = exportScheme;
+			NSLog(@"SceneDelegate: captured cold-start gameInfo export scheme: %@", exportScheme);
+			continue;
+		}
+
 		NSString *path = ExtractDeepLinkPath(context.URL);
 		if (path.length > 0) {
 			self.pendingLaunchPath = path;
 			NSLog(@"SceneDelegate: captured cold-start deep link path: %@", self.pendingLaunchPath);
-			break;
 		}
 	}
 }
@@ -60,6 +88,13 @@ static NSString *ExtractDeepLinkPath(NSURL *url) {
 	AppDelegate *appDelegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
 	for (UIOpenURLContext *context in URLContexts) {
 		NSLog(@"SceneDelegate: openURLContexts called with URL: %@", context.URL);
+
+		NSString *exportScheme = ExtractGameInfoScheme(context.URL);
+		if (exportScheme.length > 0) {
+			[appDelegate exportLibraryToScheme:exportScheme];
+			continue;
+		}
+
 		NSString *path = ExtractDeepLinkPath(context.URL);
 		if (path.length > 0) {
 			[appDelegate processFilePath:path];
@@ -117,6 +152,14 @@ static NSString *ExtractDeepLinkPath(NSURL *url) {
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+
+	// If we were cold-started by a library export request, serve it now that
+	// the config (and recent games list) has been loaded by NativeInit.
+	if (self.pendingExportScheme.length > 0) {
+		NSString *exportScheme = self.pendingExportScheme;
+		self.pendingExportScheme = nil;
+		[appDelegate exportLibraryToScheme:exportScheme];
+	}
 
 	self.window = [[UIWindow alloc] initWithWindowScene:self.windowScene];
 //	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
