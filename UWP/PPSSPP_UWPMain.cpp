@@ -30,6 +30,7 @@
 #include "Core/System.h"
 #include "Core/Loaders.h"
 #include "Core/Config.h"
+#include "Core/CmdLine.h"
 
 #include "Windows/InputDevice.h"
 #include "Windows/XinputDevice.h"

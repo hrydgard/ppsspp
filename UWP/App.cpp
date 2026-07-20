@@ -15,6 +15,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Log/LogManager.h"
+#include "Core/CmdLine.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -86,7 +87,8 @@ void App::InitialPPSSPP() {
 
 	// Since we don't have any async operation in `NativeInit`
 	// it's better to call it here
-	const char* argv[2] = { "fake", nullptr };
+	int argc = 1;
+	const char* argv[2] = { "ppsspp", nullptr };
 	std::string cacheFolder = ConvertWStringToUTF8(
 		std::wstring(winrt::Windows::Storage::ApplicationData::Current().TemporaryFolder().Path())
 	);
@@ -94,7 +96,10 @@ void App::InitialPPSSPP() {
 	// since launch parameters usually handled by `OnActivated`
 	// and `OnActivated` will be invoked later, even after `PPSSPP_UWPMain(..)`
 	// so we are handling launch cases using `LaunchItem`
-	NativeInit(1, argv, "", "", cacheFolder.c_str());
+
+	CommandLineOptions cmdLineOptions;
+	cmdLineOptions.Parse(argc, argv);
+	NativeInit(1, argv, cmdLineOptions, "", "", cacheFolder.c_str());
 
 	// Override backend, `DIRECT3D11` is the only way for UWP apps
 	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;

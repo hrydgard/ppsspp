@@ -859,7 +859,7 @@ int main(int argc, char *argv[])
 	g_logManager.EnableOutput(LogOutput::Stdio);
 
 	CommandLineOptions cmdLineOptions;
-	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv);
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, (const char **)argv);
 	switch (parseResult) {
 	case CommandLineParseResult::Exit:
 		return 0;

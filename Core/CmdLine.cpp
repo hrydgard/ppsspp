@@ -2,57 +2,69 @@
 #include "Core/CmdLine.h"
 #include "Common/StringUtils.h"
 
+#ifdef HAVE_LIBRETRO_VFS
+
+// Actually, this probably shouldn't be built at all for libretro! But let's add the guard.
+
+#define PRINT_STDOUT(...) printf(__VA_ARGS__)
+#define PRINT_STDERR(...) printf(__VA_ARGS__)
+
+#else
+
+#define PRINT_STDOUT(...) printf(__VA_ARGS__)
+#define PRINT_STDERR(...) fprintf(stderr, __VA_ARGS__)
+
+#endif
+
 static int printUsage(int argc, const char *argv[]) {
 	// NOTE: by convention, --help outputs to stdout,
 	// not to stderr, since it is intended output in this
 	// case (usage printed under different circumstances,
 	// say in response to error during parsing commandline,
 	// may go to stderr).
-	FILE *dst = stdout;
-
 	const char *progname = argc > 0 ? argv[0] : "ppsspp";
 	// NOTE: wording largely taken from
 	// https://www.ppsspp.org/docs/reference/command-line/
-	fprintf(dst, "PPSSPP - a PSP emulator (SDL build)\n");
-	fprintf(dst, "Usage: %s [options] [FILE]\n\n", progname);
-	fprintf(dst, "Launches FILE (e.g. ISO image) if present.\n");
-	fprintf(dst, "Options (some of these are specific to SDL backend):\n");
-	fprintf(dst, "  -h, --help            show this message and exit\n");
-	fprintf(dst, "  --version             show version information and exit\n");
+	PRINT_STDOUT("PPSSPP - a PSP emulator (SDL build)\n");
+	PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
+	PRINT_STDOUT("Launches FILE (e.g. ISO image) if present.\n");
+	PRINT_STDOUT("Options (some of these are specific to SDL backend):\n");
+	PRINT_STDOUT("  -h, --help            show this message and exit\n");
+	PRINT_STDOUT("  --version             show version information and exit\n");
 
-	fprintf(dst, "  -d                    set the log level to debug\n");
-	fprintf(dst, "  -v                    set the log level to verbose\n");
-	fprintf(dst, "  --loglevel=INTEGER    set the log level to specified value\n");
-	fprintf(dst, "  --log=FILE            output log to FILE\n");
-	fprintf(dst, "  --state=FILE          load state from FILE\n");
+	PRINT_STDOUT("  -d                    set the log level to debug\n");
+	PRINT_STDOUT("  -v                    set the log level to verbose\n");
+	PRINT_STDOUT("  --loglevel=INTEGER    set the log level to specified value\n");
+	PRINT_STDOUT("  --log=FILE            output log to FILE\n");
+	PRINT_STDOUT("  --state=FILE          load state from FILE\n");
 
-	fprintf(dst, "  -i                    use the interpreter\n");
-	fprintf(dst, "  -r                    use IR interpreter\n");
-	fprintf(dst, "  -j                    use JIT\n");
-	fprintf(dst, "  -J                    use IR JIT\n");
+	PRINT_STDOUT("  -i                    use the interpreter\n");
+	PRINT_STDOUT("  -r                    use IR interpreter\n");
+	PRINT_STDOUT("  -j                    use JIT\n");
+	PRINT_STDOUT("  -J                    use IR JIT\n");
 
-	fprintf(dst, "  --fullscreen          force full screen mode, ignoring saved configuration\n");
-	fprintf(dst, "  --windowed            force windowed mode, ignoring saved configuration\n");
-	fprintf(dst, "  --xres PIXELS         set X resolution\n");
-	fprintf(dst, "  --yres PIXELS         set Y resolution\n");
-	fprintf(dst, "  --dpi  FACTOR         set DPI\n");
-	fprintf(dst, "  --scale FACTOR        set scale\n");
-	fprintf(dst, "  --ipad                set resolution to 1024x768\n");
-	fprintf(dst, "  --portrait            portrait mode\n");
-	fprintf(dst, "  --graphics=BACKEND    use a different gpu backend\n");
-	fprintf(dst, "                        options: gles, software, etc. (also opengl3.1, etc.)\n");
+	PRINT_STDOUT("  --fullscreen          force full screen mode, ignoring saved configuration\n");
+	PRINT_STDOUT("  --windowed            force windowed mode, ignoring saved configuration\n");
+	PRINT_STDOUT("  --xres PIXELS         set X resolution\n");
+	PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
+	PRINT_STDOUT("  --dpi  FACTOR         set DPI\n");
+	PRINT_STDOUT("  --scale FACTOR        set scale\n");
+	PRINT_STDOUT("  --ipad                set resolution to 1024x768\n");
+	PRINT_STDOUT("  --portrait            portrait mode\n");
+	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
+	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
 
-	fprintf(dst, "  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
-	fprintf(dst, "  --escape-exit         escape key exits the application\n");
-	fprintf(dst, "  --gamesettings        go directly to settings\n");
-	fprintf(dst, "  --touchscreentest     go directly to the touchscreentest screen\n");
-	fprintf(dst, "  --appendconfig=FILE   merge config FILE into the current configuration\n");
+	PRINT_STDOUT("  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
+	PRINT_STDOUT("  --escape-exit         escape key exits the application\n");
+	PRINT_STDOUT("  --gamesettings        go directly to settings\n");
+	PRINT_STDOUT("  --touchscreentest     go directly to the touchscreentest screen\n");
+	PRINT_STDOUT("  --appendconfig=FILE   merge config FILE into the current configuration\n");
 
 	return 0;
 }
 
 // Logging should be done with plain printf here.
-// Error reporting is done with fprintf(stderr, ....).
+// Error reporting is done with PRINT_STDERR(....).
 // Actually might want to reconsider given Android...
 CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 	constexpr std::string_view gpuBackendStr = "--graphics=";
@@ -74,7 +86,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 				bootFilename = std::string(argv[i]);
 			} else {
 				// Already have a filename.
-				fprintf(stderr, "Warning: Ignoring extra boot filename '%s'.\n", argv[i]);
+				PRINT_STDERR("Warning: Ignoring extra boot filename '%s'.\n", argv[i]);
 			}
 		}
 

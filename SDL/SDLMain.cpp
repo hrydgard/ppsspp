@@ -1390,7 +1390,7 @@ int main(int argc, char *argv[]) {
 	TimeInit();
 
 	CommandLineOptions cmdLineOptions;
-	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv);
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, (const char **)argv);
 	switch (parseResult) {
 	case CommandLineParseResult::Exit:
 		return 0;

@@ -14,6 +14,7 @@
 #import "Common/Log.h"
 #import "IAPManager.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/CmdLine.h"
 
 #import <AVFoundation/AVFoundation.h>
 #include <string>
@@ -150,7 +151,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 	}
 
 	CommandLineOptions cmdLineOptions;
-	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv);
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, (const char **)argv);
 	switch (parseResult) {
 	case CommandLineParseResult::Exit:
 		INFO_LOG(Log::System, "Command line parse said to exit - mobile, so ignoring.");
@@ -165,7 +166,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+	NativeInit(argc, (const char**)argv, cmdLineOptions, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
 
 	// If we were cold-started by a library export request, serve it now that
 	// the config (and recent games list) has been loaded by NativeInit.
