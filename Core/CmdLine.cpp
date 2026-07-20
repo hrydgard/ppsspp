@@ -16,6 +16,51 @@
 
 #endif
 
+// Helper to parse parameters that take an argument.
+// Supports: --param=value, --param value, -p value
+// Returns true if argument was consumed, false otherwise.
+// On success, 'value' contains the argument string and 'i' is incremented if needed.
+static bool ParseParameterWithArg(int argc, const char *argv[], size_t &i,
+	const char *longName, char shortName,
+	const char **outValue) {
+	const char *arg = argv[i];
+	const size_t len = strlen(arg);
+
+	// Check for short form: -p value
+	if (shortName && len == 2 && arg[0] == '-' && arg[1] == shortName) {
+		if (i + 1 < argc) {
+			*outValue = argv[i + 1];
+			i += 2;  // Skip both -p and value
+			return true;
+		}
+		PRINT_STDERR("Error: -%c requires an argument.\n", shortName);
+		return false;
+	}
+
+	// Check for long form with equals: --param=value
+	if (longName) {
+		std::string prefix = std::string("--") + longName + "=";
+		if (startsWith(arg, prefix)) {
+			*outValue = arg + prefix.size();
+			i++;  // Skip --param=value
+			return true;
+		}
+
+		// Check for long form with space: --param value
+		if (equals(arg, std::string("--") + longName)) {
+			if (i + 1 < argc) {
+				*outValue = argv[i + 1];
+				i += 2;  // Skip both --param and value
+				return true;
+			}
+			PRINT_STDERR("Error: --%s requires an argument.\n", longName);
+			return false;
+		}
+	}
+
+	return false;
+}
+
 static int printUsage(int argc, const char *argv[]) {
 	// NOTE: by convention, --help outputs to stdout,
 	// not to stderr, since it is intended output in this
@@ -47,7 +92,7 @@ static int printUsage(int argc, const char *argv[]) {
 	PRINT_STDOUT("  --windowed            force windowed mode, ignoring saved configuration\n");
 	PRINT_STDOUT("  --xres PIXELS         set X resolution\n");
 	PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
-	PRINT_STDOUT("  --dpi  FACTOR         set DPI\n");
+	PRINT_STDOUT("  --dpi DPI             set DPI\n");
 	PRINT_STDOUT("  --scale FACTOR        set scale\n");
 	PRINT_STDOUT("  --ipad                set resolution to 1024x768\n");
 	PRINT_STDOUT("  --portrait            portrait mode\n");
@@ -90,7 +135,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 			}
 		}
 
-		// single char commands, like -l, -s, -d
+		// single char commands, like -l, -s
 		if (len == 2) {
 			switch (argv[i][1]) {
 			case 'l':
@@ -186,4 +231,6 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.bAutoRun = false;
 		g_Config.bSaveSettings = false;
 	}
+	// Note: dpi is not applied here - it's platform-specific.
+	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.
 }
