@@ -1312,16 +1312,32 @@ bool TestFriendlyPath() {
 }
 
 bool TestCmdLine() {
-	const char *argv[] = {
-		"ppsspp",
-		"--fullscreen",
-		"My_Game.iso"
-	};
-	int argc = ARRAY_SIZE(argv);
-	CommandLineOptions options;
-	options.Parse(argc, argv);
-	EXPECT_TRUE(options.fullscreen.value_or(false));
-	EXPECT_EQ_STR(options.bootFilename.value_or(""), std::string("My_Game.iso"));
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--fullscreen",
+			"--graphics=d3d11",
+			"My_Game.iso"
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv);
+		EXPECT_TRUE(options.fullscreen.value_or(false));
+		EXPECT_EQ_STR(options.bootFilename.value_or(""), std::string("My_Game.iso"));
+		EXPECT_TRUE(options.gpuBackend.has_value());
+		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
+	}
+	// Test GL version override
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--graphics=gles3.3",
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv);
+		EXPECT_EQ_INT(options.force_gl_version, 33);
+	}
 	return true;
 }
 

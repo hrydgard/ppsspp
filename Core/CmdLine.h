@@ -18,6 +18,14 @@ struct CommandLineOptions {
 
 	std::optional<std::string> bootFilename;
 
+	// SDL only: Option to force a specific OpenGL version (42="4.2",
+	// etc.; -1 means "try them all").
+	// Implemented as a workaround for https://github.com/hrydgard/ppsspp/issues/20687
+	// NOTE: this is currently not persistent (doesn't
+	// go to config), even though --graphics=openglX.Y
+	// also sets the GPU backend which does persist.
+	int force_gl_version = -1;
+
 #ifndef _DEBUG
 	bool showLogWindow = false;
 #else

@@ -262,16 +262,14 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 			return CommandLineParseResult::Exit;
 		// Commands with parameters. TODO: Should support both space and equals, like --config=foo.ini and --config foo.ini
 		} else if (startsWith(argv[i], gpuBackendStr)) {
-			const std::string_view restOfOption = argv[i] + gpuBackendStr.size();
+			const std::string restOfOption = argv[i] + gpuBackendStr.size();
 			// Force software rendering off, as picking gles implies HW acceleration.
 			// We could add more options for software such as "software-gles",
 			// "software-vulkan" and "software-d3d11", or something similar.
 			// For now, software rendering force-activates OpenGL.
+			double glVersionTemp = 0.0f;
 			if (restOfOption == "directx11" || restOfOption == "d3d11") {
 				gpuBackend = GPUBackend::DIRECT3D11;
-				softwareRendering = false;
-			} else if (restOfOption == "gles") {
-				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = false;
 			} else if (restOfOption == "vulkan") {
 				gpuBackend = GPUBackend::VULKAN;
@@ -279,6 +277,17 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 			} else if (restOfOption == "software") {
 				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = true;
+			} else if (sscanf(restOfOption.c_str(), "gles%lg", &glVersionTemp) == 1 || sscanf(restOfOption.c_str(), "opengl%lg", &glVersionTemp) == 1) {
+				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+				g_Config.bSoftwareRendering = false;
+				force_gl_version = int(10.0 * glVersionTemp + 0.5);
+			} else if (restOfOption == "gles") {
+				gpuBackend = GPUBackend::OPENGL;
+				softwareRendering = false;
+			} else {
+				// Bad value, report error and exit.
+				PRINT_STDERR("Invalid value for --graphics: %s", restOfOption.c_str());
+				return CommandLineParseResult::Exit;
 			}
 		} else if (startsWith(argv[i], configOption)) {
 			configFilename = std::string(argv[i] + configOption.size());
