@@ -64,6 +64,10 @@ struct CommandLineOptions {
 
 	std::optional<bool> oldAtrac;
 
+	// Headless options that may also be mildly useful in application mode
+	std::optional<int> resolutionScale;
+
+
 	// Headless options
 	std::optional<bool> compare;
 	std::optional<bool> bench;
@@ -71,5 +75,5 @@ struct CommandLineOptions {
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
-	std::optional<int> timeout;
+	std::optional<double> timeout;
 };

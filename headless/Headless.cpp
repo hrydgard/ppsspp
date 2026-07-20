@@ -234,6 +234,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 		// If we were rendering, this might be a nice time to do something about it.
 		if (coreState == CORE_NEXTFRAME) {
+			// INFO_LOG(Log::System, "(frame)");
 			coreState = CORE_RUNNING_CPU;
 			headlessHost->SwapBuffers();
 		}
@@ -372,7 +373,7 @@ int main(int argc, const char* argv[]) {
 	AutoTestOptions testOptions{};
 	testOptions.compare = cmdLineOptions.compare.value_or(false);
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
-	testOptions.timeout = cmdLineOptions.timeout.value_or(0);
+	testOptions.timeout = cmdLineOptions.timeout.value_or(std::numeric_limits<double>::infinity());
 
 	bool fullLog = false;
 	const char *stateToLoad = 0;
@@ -477,14 +478,14 @@ int main(int argc, const char* argv[]) {
 	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
-	coreParameter.renderScaleFactor = 1;
-	coreParameter.renderWidth = 480;
-	coreParameter.renderHeight = 272;
-	coreParameter.pixelWidth = 480;
-	coreParameter.pixelHeight = 272;
+	coreParameter.renderScaleFactor = cmdLineOptions.resolutionScale.value_or(1);
+	coreParameter.renderWidth = 480 * coreParameter.renderScaleFactor;
+	coreParameter.renderHeight = 272 * coreParameter.renderScaleFactor;
+	coreParameter.pixelWidth = 480 * coreParameter.renderScaleFactor;
+	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
 	coreParameter.fastForward = true;
 
-	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS, true);
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, true);
 
 	// Somehow this affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
 	// we actually set the cpu core in CoreParameter above. Probably because we end up using the JIT vs non-JIT
@@ -512,7 +513,7 @@ int main(int argc, const char* argv[]) {
 	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
-	g_Config.iInternalResolution = 1;
+	g_Config.iInternalResolution = coreParameter.renderScaleFactor;
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
@@ -589,13 +590,16 @@ int main(int argc, const char* argv[]) {
 		StartWebServer(WebServerFlags::DEBUGGER);
 	}
 
-	if (stateToLoad != NULL)
+	if (stateToLoad) {
 		SaveState::Load(Path(stateToLoad), -1);
+	}
+
+	// Run the tests (or frame dumps), one after another.
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
-	for (size_t i = 0; i < testFilenames.size(); ++i)
-	{
+
+	for (size_t i = 0; i < testFilenames.size(); ++i) {
 		coreParameter.fileToStart = Path(testFilenames[i]);
 		if (testOptions.compare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
@@ -607,9 +611,9 @@ int main(int argc, const char* argv[]) {
 			for (int i = 0; i < 100; ++i) {
 				RunAutoTest(headlessHost, coreParameter, testOptions);
 				runs++;
-
-				if (time_now_d() > deadline)
+				if (time_now_d() > deadline) {
 					break;
+				}
 			}
 			double et = time_now_d();
 
@@ -621,9 +625,9 @@ int main(int argc, const char* argv[]) {
 			if (passed) {
 				passedTests.push_back(testName);
 				printf("  %s - passed!\n", testName.c_str());
-			}
-			else
+			} else {
 				failedTests.push_back(testName);
+			}
 		}
 	}
 
