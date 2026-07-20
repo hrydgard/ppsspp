@@ -149,6 +149,20 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 		NSLog(@"SceneDelegate: startup path passed to argv: %s", gStartupArgStorage.c_str());
 	}
 
+	CommandLineOptions cmdLineOptions;
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv);
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		INFO_LOG(Log::System, "Command line parse said to exit - mobile, so ignoring.");
+		break;
+	case CommandLineParseResult::Error:
+		INFO_LOG(Log::System, "Command line parse reported error - mobile, so ignoring.");
+		break;
+	default:
+		// Continue with launch.
+		break;
+	}
+
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);

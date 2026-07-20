@@ -49,6 +49,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Log/LogManager.h"
 
+#include "Core/CmdLine.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/Camera.h"
@@ -857,11 +858,16 @@ int main(int argc, char *argv[])
 
 	g_logManager.EnableOutput(LogOutput::Stdio);
 
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--version")) {
-			printf("%s\n", PPSSPP_GIT_VERSION);
-			return 0;
-		}
+	CommandLineOptions cmdLineOptions;
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv);
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		return 0;
+	case CommandLineParseResult::Error:
+		return 1;
+	default:
+		// Continue with launch.
+		break;
 	}
 
 	// Ignore sigpipe.
@@ -909,7 +915,7 @@ int main(int argc, char *argv[])
 	savegame_dir += "/";
 	external_dir += "/";
 
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
+	NativeInit(argc, (const char **)argv, cmdLineOptions, savegame_dir.c_str(), external_dir.c_str(), nullptr);
 
 	g_mainWindow = new MainWindow(nullptr, g_Config.bFullScreen);
 	g_mainWindow->show();

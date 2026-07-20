@@ -90,6 +90,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/UI/PopupScreens.h"
+#include "Core/CmdLine.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -393,7 +394,7 @@ static void ClearFailedGPUBackends() {
 	File::Delete(failedBackendsFile);
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
+void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineOptions, const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	g_Config.Init();
@@ -581,6 +582,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.Load();
 	System_Notify(SystemNotification::CONFIG_LOADED);
 #endif
+
+	// Apply parsed command line options to config.
+	cmdLineOptions.ApplyToConfig();
 
 	const char *fileToLog = nullptr;
 	Path stateToLoad;

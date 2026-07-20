@@ -1050,7 +1050,16 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// args provide argc and argv.
 	CommandLineOptions cmdLineOptions;
-	cmdLineOptions.Parse((int)args.size(), args.data());
+	CommandLineParseResult parseResult = cmdLineOptions.Parse((int)args.size(), args.data());
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		return 0;
+	case CommandLineParseResult::Error:
+		return 1;
+	default:
+		// Continue with launch.
+		break;
+	}
 
 	if (iCmdShow == SW_MAXIMIZE) {
 		// Consider this to mean --fullscreen. I guess frontends might use it?
@@ -1088,9 +1097,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_Config.Load(cmdLineOptions.configFilename.c_str(), cmdLineOptions.controlsConfigFilename.c_str());
 	System_Notify(SystemNotification::CONFIG_LOADED);
 
-	// Apply parsed command line options to config.
-	cmdLineOptions.ApplyToConfig();
-
 #ifndef _DEBUG
 	// See #11719 - too many Vulkan drivers crash on basic init.
 	if (g_Config.IsBackendEnabled(GPUBackend::VULKAN)) {
@@ -1098,7 +1104,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 #endif
 
-	NativeInit((int)args.size(), args.data(), "", "", nullptr);
+	NativeInit((int)args.size(), args.data(), cmdLineOptions, "", "", nullptr);
 
 	// Consider at least the following cases before changing this code:
 	//   - By default in Release, the console should be hidden by default even if logging is enabled.

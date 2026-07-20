@@ -3,6 +3,12 @@
 #include <optional>
 #include "Core/ConfigValues.h"
 
+enum class CommandLineParseResult {
+	Continue,
+	Exit,
+	Error,
+};
+
 // We collect command line options in this struct, then we apply it to the config after it's been loaded.
 struct CommandLineOptions {
 	std::optional<bool> fullscreen;
@@ -23,6 +29,7 @@ struct CommandLineOptions {
 
 	bool optionS = true;   // a legacy option
 
-	void Parse(int argc, const char *argv[]);
+	// If returns CommandLineParseResult::Exit or ::Error, the program should exit immediately (with an error return code if Error).
+	CommandLineParseResult Parse(int argc, const char *argv[]);
 	void ApplyToConfig() const;
 };

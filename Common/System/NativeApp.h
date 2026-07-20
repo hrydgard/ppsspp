@@ -40,10 +40,12 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 // Otherwise, just return false.
 bool NativeIsAtTopLevel();
 
+struct CommandLineOptions;
+
 // The very first function to be called after NativeGetAppInfo. Even NativeMix is not called
 // before this, although it may be called at any point in time afterwards (on any thread!)
 // This functions must NOT call OpenGL. Main thread.
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir);
+void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineOptions, const char *savegame_dir, const char *external_dir, const char *cache_dir);
 void NativeSetAchievementsHostOverride(std::string_view host);
 void NativeClearAchievementsHostOverride();
 
