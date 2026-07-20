@@ -28,6 +28,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Audio/AudioBackend.h"
+#include "Core/CmdLine.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Net/Resolve.h"
@@ -1382,69 +1383,23 @@ void UpdateSDLCursor() {
 #endif
 }
 
-static int printUsage(const char *progname)
-{
-	// NOTE: by convention, --help outputs to stdout,
-	// not to stderr, since it is intended output in this
-	// case (usage printed under different circumstances,
-	// say in response to error during parsing commandline,
-	// may go to stderr).
-	FILE *dst = stdout;
-
-	// NOTE: wording largely taken from
-	// https://www.ppsspp.org/docs/reference/command-line/
-	fprintf(dst, "PPSSPP - a PSP emulator (SDL build)\n");
-	fprintf(dst, "Usage: %s [options] [FILE]\n\n", progname);
-	fprintf(dst, "Launches FILE (e.g. ISO image) if present.\n");
-	fprintf(dst, "Options (some of these are specific to SDL backend):\n");
-	fprintf(dst, "  -h, --help            show this message and exit\n");
-	fprintf(dst, "  --version             show version information and exit\n");
-
-	fprintf(dst, "  -d                    set the log level to debug\n");
-	fprintf(dst, "  -v                    set the log level to verbose\n");
-	fprintf(dst, "  --loglevel=INTEGER    set the log level to specified value\n");
-	fprintf(dst, "  --log=FILE            output log to FILE\n");
-	fprintf(dst, "  --state=FILE          load state from FILE\n");
-
-	fprintf(dst, "  -i                    use the interpreter\n");
-	fprintf(dst, "  -r                    use IR interpreter\n");
-	fprintf(dst, "  -j                    use JIT\n");
-	fprintf(dst, "  -J                    use IR JIT\n");
-
-	fprintf(dst, "  --fullscreen          force full screen mode, ignoring saved configuration\n");
-	fprintf(dst, "  --windowed            force windowed mode, ignoring saved configuration\n");
-	fprintf(dst, "  --xres PIXELS         set X resolution\n");
-	fprintf(dst, "  --yres PIXELS         set Y resolution\n");
-	fprintf(dst, "  --dpi  FACTOR         set DPI\n");
-	fprintf(dst, "  --scale FACTOR        set scale\n");
-	fprintf(dst, "  --ipad                set resolution to 1024x768\n");
-	fprintf(dst, "  --portrait            portrait mode\n");
-	fprintf(dst, "  --graphics=BACKEND    use a different gpu backend\n");
-	fprintf(dst, "                        options: gles, software, etc. (also opengl3.1, etc.)\n");
-
-	fprintf(dst, "  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
-	fprintf(dst, "  --escape-exit         escape key exits the application\n");
-	fprintf(dst, "  --gamesettings        go directly to settings\n");
-	fprintf(dst, "  --touchscreentest     go directly to the touchscreentest screen\n");
-	fprintf(dst, "  --appendconfig=FILE   merge config FILE into the current configuration\n");
-
-	return 0;
-}
-
 #ifdef _WIN32
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-			return printUsage(argv[0]);
-		else if (!strcmp(argv[i], "--version")) {
-			printf("%s\n", PPSSPP_GIT_VERSION);
-			return 0;
-		}
-	}
-
 	TimeInit();
+
+	CommandLineOptions cmdLineOptions;
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, (const char **)argv);
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		return 0;
+	case CommandLineParseResult::Error:
+		return 1;
+	default:
+		// Continue with launch.
+		break;
+	}
 
 	g_logManager.EnableOutput(LogOutput::Stdio);
 
@@ -1681,7 +1636,7 @@ int main(int argc, char *argv[]) {
 #else
 	const char *external_dir = "/tmp";
 #endif
-	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
+	NativeInit(remain_argc, (const char **)remain_argv, cmdLineOptions, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen) {

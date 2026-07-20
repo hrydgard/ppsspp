@@ -90,6 +90,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/UI/PopupScreens.h"
+#include "Core/CmdLine.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -393,7 +394,7 @@ static void ClearFailedGPUBackends() {
 	File::Delete(failedBackendsFile);
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
+void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineOptions, const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	g_Config.Init();
@@ -437,6 +438,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	const Path &exePath = File::GetExeDirectory();
+	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
@@ -578,6 +583,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	System_Notify(SystemNotification::CONFIG_LOADED);
 #endif
 
+	// Apply parsed command line options to config.
+	cmdLineOptions.ApplyToConfig();
+
 	const char *fileToLog = nullptr;
 	Path stateToLoad;
 
@@ -619,19 +627,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				break;
 			case 'j':
 				g_Config.iCpuCore = (int)CPUCore::JIT;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case 'i':
 				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case 'r':
 				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case 'J':
 				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
-				g_Config.bSaveSettings = false;
+				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 				break;
 			case '-':
 				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
@@ -649,6 +657,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					g_Config.bFullScreen = true;
 				}
 				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
+					g_Config.DoNotSaveSetting(&g_Config.mountRoot);
 					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
 				if (!strcmp(argv[i], "--windowed")) {

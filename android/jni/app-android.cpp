@@ -95,10 +95,10 @@ struct JNIEnv {};
 #include "AndroidVulkanContext.h"
 #include "AndroidJavaGLContext.h"
 
+#include "Core/CmdLine.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
-#include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
@@ -826,10 +826,24 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 		}
 	}
 
+	CommandLineOptions cmdLineOptions;
+	CommandLineParseResult parseResult = cmdLineOptions.Parse((int)args.size(), args.data());
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		EARLY_LOG("Command line parse said to exit - mobile, so ignoring.");
+		break;
+	case CommandLineParseResult::Error:
+		EARLY_LOG("Command line parse reported error - mobile, so ignoring.");
+		break;
+	default:
+		// Continue with launch.
+		break;
+	}
+
 	EARLY_LOG("Calling NativeInit with user_data_path %s, externalStorageDir %s, cacheDir %s", user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
 
 	// TODO: We should be able to do the Vulkan init in parallel with NativeInit.
-	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
+	NativeInit((int)args.size(), &args[0], cmdLineOptions, user_data_path.c_str(), externalStorageDir.c_str(), cacheDir.c_str());
 
 	bFirstResume = true;
 
