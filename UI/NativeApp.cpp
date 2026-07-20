@@ -631,9 +631,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	}
 
 	// This parameter should be a boot filename. Only accept it if we
-			// don't already have one.
-	if (cmdLineOptions.bootFilename.has_value()) {
-		std::string bootFilename = cmdLineOptions.bootFilename.value();
+	// don't already have one.
+	if (!cmdLineOptions.bootFilenames.empty()) {
+		std::string bootFilename = cmdLineOptions.bootFilenames[0];
 		gotBootFilename = true;
 		INFO_LOG(Log::System, "Boot filename found in args: '%s'", bootFilename.c_str());
 
@@ -656,7 +656,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 			// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
 			if (startsWith(bootFilename, "file:///")) {
 				bootFilename = UriDecode(bootFilename.substr(7));
-				INFO_LOG(Log::IO, "Decoding '%s' to '%s'", cmdLineOptions.bootFilename.value().c_str(), bootFilename.c_str());
+				INFO_LOG(Log::IO, "Decoding '%s' to '%s'", cmdLineOptions.bootFilenames[0].c_str(), bootFilename.c_str());
 			}
 
 			boot_filename = Path(bootFilename);

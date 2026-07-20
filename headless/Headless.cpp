@@ -36,6 +36,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadManager.h"
+#include "Core/CmdLine.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -198,8 +199,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		return false;
 	}
 
-	if (opt.compare)
+	if (opt.compare) {
 		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
+	}
 
 	std::string error_string;
 	while (PSP_InitUpdate(&error_string) == BootState::Booting) {
@@ -226,8 +228,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
-	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU)
-	{
+	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
 		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
 
@@ -276,11 +277,13 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	PSP_Shutdown(true);
 
-	if (!opt.bench)
+	if (!opt.bench) {
 		headlessHost->FlushDebugOutput();
+	}
 
-	if (opt.compare && passed)
+	if (opt.compare && passed) {
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose);
+	}
 
 	return passed;
 }
@@ -324,7 +327,7 @@ static void AddRecursively(std::vector<std::string> *tests, Path actualPath) {
 	}
 }
 
-static void AddTestsByPath(std::vector<std::string> *tests, std::string_view path) {
+static void AddToTestsByPath(std::vector<std::string> *tests, std::string_view path) {
 	if (endsWith(path, "/...")) {
 		path = path.substr(0, path.size() - 4);
 		// Recurse for tests
@@ -337,8 +340,7 @@ static void AddTestsByPath(std::vector<std::string> *tests, std::string_view pat
 	}
 }
 
-int main(int argc, const char* argv[])
-{
+int main(int argc, const char* argv[]) {
 	PROFILE_INIT();
 	TimeInit();
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -356,8 +358,22 @@ int main(int argc, const char* argv[])
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
+	CommandLineOptions cmdLineOptions;
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv, CmdLineMode::Headless);
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		return 0;
+	case CommandLineParseResult::Error:
+		return 1;
+	case CommandLineParseResult::Continue:
+		break;
+	}
+
 	AutoTestOptions testOptions{};
-	testOptions.timeout = std::numeric_limits<double>::infinity();
+	testOptions.compare = cmdLineOptions.compare.value_or(false);
+	testOptions.bench = cmdLineOptions.bench.value_or(false);
+	testOptions.timeout = cmdLineOptions.timeout.value_or(0);
+
 	bool fullLog = false;
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
@@ -370,71 +386,24 @@ int main(int argc, const char* argv[])
 	std::vector<std::string> ignoredTests;
 	const char *mountIso = nullptr;
 	const char *mountRoot = nullptr;
-	const char *screenshotFilename = nullptr;
-	const char *screenshotSavePath = nullptr;
 
-	for (int i = 1; i < argc; i++)
-	{
-		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount"))
-		{
+	if (cmdLineOptions.cpuCore.has_value()) {
+		cpuCore = cmdLineOptions.cpuCore.value();
+	}
+
+
+	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount")) {
 			if (++i >= argc)
 				return printUsage(argv[0], "Missing argument after -m");
 			mountIso = argv[i];
-		}
-		else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--root"))
-		{
-			if (++i >= argc)
-				return printUsage(argv[0], "Missing argument after -r");
-			mountRoot = argv[i];
 		}
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-o") || !strcmp(argv[i], "--odslog"))
 			outputDebugStringLog = true;
-		else if (!strcmp(argv[i], "-i"))
-			cpuCore = CPUCore::INTERPRETER;
-		else if (!strcmp(argv[i], "-j"))
-			cpuCore = CPUCore::JIT;
-		else if (!strcmp(argv[i], "--jit-ir"))
-			cpuCore = CPUCore::JIT_IR;
-		else if (!strcmp(argv[i], "--ir"))
-			cpuCore = CPUCore::IR_INTERPRETER;
-		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
-			testOptions.compare = true;
-		else if (!strcmp(argv[i], "--bench"))
-			testOptions.bench = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
-		else if (!strcmp(argv[i], "--old-atrac"))
-			oldAtrac = true;
-		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
-		{
-			const char *gpuName = argv[i] + strlen("--graphics=");
-			if (!strcasecmp(gpuName, "gles"))
-				gpuCore = GPUCORE_GLES;
-			// There used to be a separate "null" rendering core - just use software.
-			else if (!strcasecmp(gpuName, "software") || !strcasecmp(gpuName, "null"))
-				gpuCore = GPUCORE_SOFTWARE;
-			else if (!strcasecmp(gpuName, "directx11") || !strcasecmp(gpuName, "d3d11"))
-				gpuCore = GPUCORE_DIRECTX11;
-			else if (!strcasecmp(gpuName, "vulkan"))
-				gpuCore = GPUCORE_VULKAN;
-			else
-				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
-		}
-		// Default to GLES if no value selected.
-		else if (!strcmp(argv[i], "--graphics")) {
-#if PPSSPP_API(ANY_GL)
-			gpuCore = GPUCORE_GLES;
-#else
-			gpuCore = GPUCORE_DIRECTX11;
-#endif
-		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
-			screenshotFilename = argv[i] + strlen("--screenshot=");
-		else if (!strncmp(argv[i], "--screenshot-save=", strlen("--screenshot-save=")) && strlen(argv[i]) > strlen("--screenshot-save="))
-			screenshotSavePath = argv[i] + strlen("--screenshot-save=");
-		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
-			testOptions.timeout = strtod(argv[i] + strlen("--timeout="), nullptr);
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
 		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
@@ -447,10 +416,13 @@ int main(int argc, const char* argv[])
 			if (++i >= argc)
 				return printUsage(argv[0], "Missing argument after --ignore");
 			ignoredTests.push_back(argv[i]);
-		} else {
-			AddTestsByPath(&testFilenames, argv[i]);
 		}
 	}
+
+	for (const std::string &filename : cmdLineOptions.bootFilenames) {
+		AddToTestsByPath(&testFilenames, filename);
+	}
+
 
 	if (testFilenames.size() == 1 && testFilenames[0][0] == '@')
 		testFilenames = ReadFromListFile(testFilenames[0].substr(1));
@@ -480,6 +452,8 @@ int main(int argc, const char* argv[])
 		// Only with --log, add the printfLogger.
 		g_logManager.EnableOutput(LogOutput::Printf);
 	}
+
+	cmdLineOptions.ApplyToConfig();
 
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -584,10 +558,10 @@ int main(int argc, const char* argv[])
 		nextPath = nextPath.NavigateUp();
 	}
 
-	if (screenshotFilename)
-		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
-	if (screenshotSavePath)
-		headlessHost->SetScreenshotSavePath(Path(std::string(screenshotSavePath)));
+	if (cmdLineOptions.screenshotFilename.has_value())
+		headlessHost->SetComparisonScreenshot(Path(std::string(cmdLineOptions.screenshotFilename.value())), testOptions.maxScreenshotError);
+	if (cmdLineOptions.screenshotFilenameSave.has_value())
+		headlessHost->SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
 	headlessHost->SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 

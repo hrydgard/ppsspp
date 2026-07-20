@@ -30,6 +30,7 @@ struct CommandLineParam {
 	const char *longName;
 	char shortName;  // can be 0 for no short name
 	const char *docString;
+	CmdLineMode mode;
 };
 
 #define POFF(member) \
@@ -119,29 +120,39 @@ static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &
 				ParseParamResult result = SetValue(options, param, argv[i + 1]);
 				i += 2;  // Skip both --param and value
 				return result;
+			} else {
+				PRINT_STDERR("Error: --%s requires an argument.\n", param.longName);
+				return ParseParamResult::BadValue;
 			}
-			PRINT_STDERR("Error: --%s requires an argument.\n", param.longName);
-			return ParseParamResult::BadValue;
 		}
+
+		// Else no match, continue.
 	}
 	return ParseParamResult::NoMatch;
 }
 
 static const CommandLineParam g_autoParams[] = {
-	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", 0, "Force full screen mode"},
-	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", 0, "Force windowed mode"},
-	{POFF(startScreen), CmdParamType::String, "start-screen", 0, "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')"},
-	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", 0, "Escape key exits the application"},
-	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", 0, "Change \"Exit to menu\" in pause menu to \"Exit\""},
+	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", 0, "Force full screen mode", CmdLineMode::Application},
+	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", 0, "Force windowed mode", CmdLineMode::Application},
+	{POFF(startScreen), CmdParamType::String, "start-screen", 0, "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
+	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", 0, "Escape key exits the application", CmdLineMode::Application},
+	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", 0, "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", 0, "Merge config FILE into the current configuration"},
-	{POFF(root), CmdParamType::String, "root", 0, "Mount root directory"},
+	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
 	{POFF(stateToLoad), CmdParamType::String, "state", 0, "Load state from specified file"},
+	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode"},
+	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode"},
+	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", 0, "Use old ATRAC decoder"},
+	{POFF(log), CmdParamType::String, "log", 0, "Output log to FILE"},
+	{POFF(screenshotFilename), CmdParamType::String, "screenshot", 0, "Take a screenshot and save to FILE"},
+	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", 0, "Save screenshot to specified path"},
+	{POFF(timeout), CmdParamType::Int, "timeout", 0, "Set the timeout value"},
 };
 
 // NOTE: On Windows this prints nothing unfortunately, since PPSSPP is not a "console app".
 // A fun trick we could do is AttachConsole(ATTACH_PARENT_PROCESS) which works at least from git bash and powershell, if we also use WriteConsole.
 // However it's not exactly ideal.
-static int printUsage(int argc, const char *argv[]) {
+static int printUsage(int argc, const char *argv[], CmdLineMode mode) {
 	// NOTE: by convention, --help outputs to stdout,
 	// not to stderr, since it is intended output in this
 	// case (usage printed under different circumstances,
@@ -150,7 +161,13 @@ static int printUsage(int argc, const char *argv[]) {
 	const char *progname = argc > 0 ? argv[0] : "ppsspp";
 	// NOTE: wording largely taken from
 	// https://www.ppsspp.org/docs/reference/command-line/
-	PRINT_STDOUT("PPSSPP - a PSP emulator (SDL build)\n");
+	if (mode == CmdLineMode::Application) {
+		PRINT_STDOUT("PPSSPP - a PSP emulator\n");
+	} else {
+		PRINT_STDOUT("PPSSPP Headless\n");
+		PRINT_STDOUT("This is primarily meant as a non-interactive test tool.\n\n");
+	}
+	PRINT_STDOUT("PPSSPP - a PSP emulator\n");
 	PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
 	PRINT_STDOUT("Launches FILE (e.g. ISO image) if present.\n");
 	PRINT_STDOUT("Options (some of these are specific to SDL backend):\n");
@@ -169,16 +186,23 @@ static int printUsage(int argc, const char *argv[]) {
 	PRINT_STDOUT("  -J                    use IR JIT\n");
 
 	for (const auto &param : g_autoParams) {
+		if (param.mode != CmdLineMode::Both && param.mode != mode) {
+			// Skip mode-irrelevant parameters in help.
+			continue;
+		}
 		PRINT_STDOUT("  --%s%s%s\n", param.longName,
 			param.shortName ? ", -" : "",
 			param.shortName ? std::string(1, param.shortName).c_str() : "");
 		PRINT_STDOUT("                        %s\n", param.docString);
 	}
 
-	PRINT_STDOUT("  --xres PIXELS         set X resolution\n");
-	PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
-	PRINT_STDOUT("  --dpi DPI             set DPI\n");
-	PRINT_STDOUT("  --scale FACTOR        set scale\n");
+	// These are only available in SDL.
+	if (mode == CmdLineMode::Application) {
+		PRINT_STDOUT("  --xres PIXELS         set X resolution\n");
+		PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
+		PRINT_STDOUT("  --dpi DPI             set DPI\n");
+		PRINT_STDOUT("  --scale FACTOR        set scale\n");
+	}
 	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
 	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
 	return 0;
@@ -187,7 +211,7 @@ static int printUsage(int argc, const char *argv[]) {
 // Logging should be done with plain printf here.
 // Error reporting is done with PRINT_STDERR(....).
 // Actually might want to reconsider given Android...
-CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
+CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], CmdLineMode mode) {
 	constexpr std::string_view gpuBackendStr = "--graphics=";
 	constexpr std::string_view configOption = "--config=";
 	constexpr std::string_view controlsOption = "--controlconfig=";
@@ -202,13 +226,14 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 		const size_t len = strlen(argv[i]);
 
 		if (len > 0 && argv[i][0] != '-') {
-			// This is a filename to boot.
-			if (!bootFilename.has_value()) {
-				bootFilename = std::string(argv[i]);
+			// This is a filename to boot. Headless supports multiple filenames.
+			if (bootFilenames.size() == 0 || mode == CmdLineMode::Headless) {
+				bootFilenames.emplace_back(argv[i]);
 			} else {
-				// Already have a filename.
-				PRINT_STDERR("Warning: Ignoring extra boot filename '%s' (can only pass in one).\n", argv[i]);
-				return CommandLineParseResult::Exit;
+				// Already have a filename. Ignore.
+				PRINT_STDERR("Ignoring extra boot filename '%s' (can only pass in one).\n", argv[i]);
+				i++;
+				continue;
 			}
 		}
 
@@ -229,8 +254,9 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 				logLevel = LogLevel::LVERBOSE;
 				break;
 			case 'h':
-				printUsage(argc, argv);
+				printUsage(argc, argv, mode);
 				return CommandLineParseResult::Exit;
+			// Legacy cpucore options.
 			case 'j':
 				cpuCore = CPUCore::JIT;
 				break;
@@ -258,6 +284,9 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 		bool parsedAutoParam = false;
 		// Loop through all the auto commands, call ParseParameterWithArg to handle them.
 		for (const auto &param : g_autoParams) {
+			if (param.mode != CmdLineMode::Both && param.mode != mode) {
+				continue;
+			}
 			ParseParamResult result = ParseParameterStr(argc, argv, i, param, this);
 			if (result == ParseParamResult::Success) {
 				parsedAutoParam = true;
@@ -271,12 +300,18 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 			// We already incremented i.
 			continue;
 		} else if (equals(argv[i], "--help")) {
-			printUsage(argc, argv);
+			printUsage(argc, argv, mode);
 			return CommandLineParseResult::Exit;
 		} else if (equals(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);
 			return CommandLineParseResult::Exit;
-		// Commands with parameters. TODO: Should support both space and equals, like --config=foo.ini and --config foo.ini
+			// Commands with parameters. TODO: Should support both space and equals, like --config=foo.ini and --config foo.ini
+		} else if (equals(argv[i], "--jit-ir")) {
+			// Headless legacy
+			cpuCore = CPUCore::JIT_IR;
+		} else if (equals(argv[i], "--ir")) {
+			// Headless legacy
+			cpuCore = CPUCore::IR_INTERPRETER;
 		} else if (startsWith(argv[i], gpuBackendStr)) {
 			const std::string restOfOption = argv[i] + gpuBackendStr.size();
 			// Force software rendering off, as picking gles implies HW acceleration.
@@ -302,7 +337,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 				softwareRendering = false;
 			} else {
 				// Bad value, report error and exit.
-				PRINT_STDERR("Invalid value for --graphics: %s", restOfOption.c_str());
+				PRINT_STDERR("Invalid value for --graphics=: %s", restOfOption.c_str());
 				return CommandLineParseResult::Exit;
 			}
 		} else if (startsWith(argv[i], configOption)) {
@@ -315,6 +350,13 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 		// To the next argument.
 		i++;
 	}
+
+	// Final adjustments to adjust for old inconsistent code
+	if (log.has_value()) {
+		enableLogging = true;
+		showLogWindow = true;
+	}
+
 	return CommandLineParseResult::Continue;
 }
 
@@ -353,10 +395,16 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_logManager.SetAllLogLevels(logLevel.value());
 	}
 
+	if (oldAtrac.has_value()) {
+		g_Config.bUseOldAtrac = oldAtrac.value();
+		g_Config.DoNotSaveSetting(&g_Config.bUseOldAtrac);
+	}
+
 	if (root.has_value()) {
 		g_Config.DoNotSaveSetting(&g_Config.mountRoot);
 		g_Config.mountRoot = Path(root.value());
 	}
+
 	// Note: dpi is not applied here - it's platform-specific.
 	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.
 }
