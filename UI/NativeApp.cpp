@@ -587,12 +587,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	cmdLineOptions.ApplyToConfig();
 
 	const char *fileToLog = nullptr;
-	Path stateToLoad;
 
 	bool gotBootFilename = false;
-	bool gotoGameSettings = false;
-	bool gotoTouchScreenTest = false;
-	bool gotoDeveloperTools = false;
 	boot_filename.clear();
 
 	// Parse command line
@@ -605,14 +601,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	if (cmdLineOptions.logLevel.has_value()) {
 		setLogLevel(cmdLineOptions.logLevel.value());
-	}
-	if (cmdLineOptions.startScreen.has_value()) {
-		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest"))
-			gotoTouchScreenTest = true;
-		if (equals(cmdLineOptions.startScreen.value(), "gamesettings"))
-			gotoGameSettings = true;
-		if (equals(cmdLineOptions.startScreen.value(), "developertools"))
-			gotoDeveloperTools = true;
 	}
 
 	for (int i = 1; i < argc; i++) {
@@ -630,21 +618,16 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
-				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = Path(argv[i] + strlen("--state="));
-				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
-					g_Config.DoNotSaveSetting(&g_Config.mountRoot);
-					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
-				}
-				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
-					g_Config.SetAppendedConfigIni(Path(argv[i] + strlen("--appendconfig=")));
-					g_Config.LoadAppendedConfig();
-				}
 				break;
 			}
 		} else {
 			// Ignore. Boot filename is extracted in the previous step.
 		}
+	}
+
+	if (cmdLineOptions.appendConfig.has_value()) {
+		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
+		g_Config.LoadAppendedConfig();
 	}
 
 	// This parameter should be a boot filename. Only accept it if we
@@ -730,8 +713,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_BackgroundAudio.SFX().Init();
 
-	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, &ShowMessageAfterSaveStateAction);
+	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
+		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
 
 	if (g_Config.bAchievementsEnable) {
@@ -751,14 +734,18 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
-	} else if (gotoGameSettings) {
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
-	} else if (gotoTouchScreenTest) {
-		g_screenManager->switchScreen(new MainScreen());
+	} else if (cmdLineOptions.startScreen.has_value()) {
+		// Launch into specified start screen. This is useful for testing UI, more screens can be easily added here.
+		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
+			g_screenManager->switchScreen(new MainScreen());
+		}
 		g_screenManager->push(new TouchTestScreen(Path()));
-	} else if (gotoDeveloperTools) {
-		g_screenManager->switchScreen(new MainScreen());
-		g_screenManager->push(new DeveloperToolsScreen(Path()));
+		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
+			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new DeveloperToolsScreen(Path()));
+		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));

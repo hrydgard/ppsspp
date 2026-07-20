@@ -133,8 +133,14 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(startScreen), CmdParamType::String, "start-screen", 0, "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')"},
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", 0, "Escape key exits the application"},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", 0, "Change \"Exit to menu\" in pause menu to \"Exit\""},
+	{POFF(appendConfig), CmdParamType::String, "appendconfig", 0, "Merge config FILE into the current configuration"},
+	{POFF(root), CmdParamType::String, "root", 0, "Mount root directory"},
+	{POFF(stateToLoad), CmdParamType::String, "state", 0, "Load state from specified file"},
 };
 
+// NOTE: On Windows this prints nothing unfortunately, since PPSSPP is not a "console app".
+// A fun trick we could do is AttachConsole(ATTACH_PARENT_PROCESS) which works at least from git bash and powershell, if we also use WriteConsole.
+// However it's not exactly ideal.
 static int printUsage(int argc, const char *argv[]) {
 	// NOTE: by convention, --help outputs to stdout,
 	// not to stderr, since it is intended output in this
@@ -175,9 +181,6 @@ static int printUsage(int argc, const char *argv[]) {
 	PRINT_STDOUT("  --scale FACTOR        set scale\n");
 	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
 	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
-
-	PRINT_STDOUT("  --appendconfig=FILE   merge config FILE into the current configuration\n");
-
 	return 0;
 }
 
@@ -350,6 +353,10 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_logManager.SetAllLogLevels(logLevel.value());
 	}
 
+	if (root.has_value()) {
+		g_Config.DoNotSaveSetting(&g_Config.mountRoot);
+		g_Config.mountRoot = Path(root.value());
+	}
 	// Note: dpi is not applied here - it's platform-specific.
 	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.
 }

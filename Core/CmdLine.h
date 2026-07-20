@@ -26,6 +26,10 @@ struct CommandLineOptions {
 	std::optional<bool> escapeExit;
 	std::optional<bool> pauseMenuExit;
 
+	std::optional<std::string> appendConfig;
+	std::optional<std::string> root;  // mount root, needs more explanation
+	std::optional<std::string> stateToLoad;
+
 	// SDL only: Option to force a specific OpenGL version (42="4.2",
 	// etc.; -1 means "try them all").
 	// Implemented as a workaround for https://github.com/hrydgard/ppsspp/issues/20687
