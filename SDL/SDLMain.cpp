@@ -1467,7 +1467,7 @@ int main(int argc, char *argv[]) {
 			set_dpi = -2;
 		else if (!strcmp(argv[i], "--scale"))
 			set_scale = -2;
-		} else {
+		else {
 			if (remain_argc < remain_argv_cap - 1) {
 				remain_argv[remain_argc++] = argv[i];
 			} else {
@@ -1529,19 +1529,19 @@ int main(int argc, char *argv[]) {
 
 	// Force fullscreen if the resolution is too low to run windowed.
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
-		cmdLineParams.fullscreen = true;
+		cmdLineOptions.fullscreen = true;
 	}
 
 	// If we're on mobile, don't try for windowed either.
 #if defined(MOBILE_DEVICE) && !PPSSPP_PLATFORM(SWITCH)
-	cmdLineParams.fullscreen = true;
+	cmdLineOptions.fullscreen = true;
 #elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
-	cmdLineParams.fullscreen = true;
+	cmdLineOptions.fullscreen = true;
 #else
 	mode |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
 
-	if (cmdLineParams.fullscreen) {
+	if (cmdLineOptions.fullscreen) {
 		g_display.pixel_xres = g_DesktopWidth;
 		g_display.pixel_yres = g_DesktopHeight;
 		g_Config.bFullScreen = true;

@@ -384,13 +384,16 @@ int main(int argc, const char* argv[]) {
 
 	std::vector<std::string> testFilenames;
 	std::vector<std::string> ignoredTests;
-	const char *mountIso = nullptr;
-	const char *mountRoot = nullptr;
+	std::string mountIso;
+	std::string mountRoot;
 
 	if (cmdLineOptions.cpuCore.has_value()) {
 		cpuCore = cmdLineOptions.cpuCore.value();
 	}
 
+	if (cmdLineOptions.root.has_value()) {
+		mountRoot = cmdLineOptions.root.value().c_str();
+	}
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount")) {
@@ -470,8 +473,8 @@ int main(int argc, const char* argv[]) {
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
-	coreParameter.mountIso = mountIso ? Path(mountIso) : Path();
-	coreParameter.mountRoot = mountRoot ? Path(mountRoot) : Path();
+	coreParameter.mountIso = mountIso.empty() ? Path() : Path(mountIso);
+	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
 	coreParameter.renderScaleFactor = 1;
@@ -527,8 +530,6 @@ int main(int argc, const char* argv[]) {
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
 	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
-
-	// g_Config.bUseOldAtrac = true;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
