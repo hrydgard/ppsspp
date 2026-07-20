@@ -27,7 +27,7 @@ struct CommandLineOptions {
 	std::string configFilename = "";
 	std::string controlsConfigFilename = "";
 
-	bool optionS = true;   // a legacy option
+	bool optionS = false;   // a legacy option
 
 	// If returns CommandLineParseResult::Exit or ::Error, the program should exit immediately (with an error return code if Error).
 	CommandLineParseResult Parse(int argc, const char *argv[]);
