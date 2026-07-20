@@ -1050,7 +1050,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// args provide argc and argv.
 	CommandLineOptions cmdLineOptions;
-	CommandLineParseResult parseResult = cmdLineOptions.Parse((int)args.size(), args.data());
+	const CommandLineParseResult parseResult = cmdLineOptions.Parse((int)args.size(), args.data());
 	switch (parseResult) {
 	case CommandLineParseResult::Exit:
 		return 0;

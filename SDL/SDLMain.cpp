@@ -1441,8 +1441,6 @@ int main(int argc, char *argv[]) {
 	const int linked = SDL_GetVersion();
 	int set_xres = -1;
 	int set_yres = -1;
-	bool portrait = false;
-	bool set_ipad = false;
 	float set_dpi = 0.0f;
 	float set_scale = 1.0f;
 
@@ -1461,10 +1459,7 @@ int main(int argc, char *argv[]) {
 
 	Uint32 mode = 0;
 	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--fullscreen")) {
-			mode |= SDL_WINDOW_FULLSCREEN;
-			g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-		} else if (set_xres == -2)
+		if (set_xres == -2)
 			set_xres = parseInt(argv[i]);
 		else if (set_yres == -2)
 			set_yres = parseInt(argv[i]);
@@ -1480,10 +1475,6 @@ int main(int argc, char *argv[]) {
 			set_dpi = -2;
 		else if (!strcmp(argv[i], "--scale"))
 			set_scale = -2;
-		else if (!strcmp(argv[i], "--ipad"))
-			set_ipad = true;
-		else if (!strcmp(argv[i], "--portrait"))
-			portrait = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics="))) {
 			const char *restOfOption = argv[i] + strlen("--graphics=");
 			double val=-1.0; // Yes, floating point.
@@ -1556,6 +1547,7 @@ int main(int argc, char *argv[]) {
 	g_RefreshRate = displayMode->refresh_rate;
 	SDL_free(displayIDs);
 
+	// TODO: Should only call this if we actually intend to use OpenGL.
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -1565,19 +1557,19 @@ int main(int argc, char *argv[]) {
 
 	// Force fullscreen if the resolution is too low to run windowed.
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
-		mode |= SDL_WINDOW_FULLSCREEN;
+		cmdLineParams.fullscreen = true;
 	}
 
 	// If we're on mobile, don't try for windowed either.
 #if defined(MOBILE_DEVICE) && !PPSSPP_PLATFORM(SWITCH)
-	mode |= SDL_WINDOW_FULLSCREEN;
+	cmdLineParams.fullscreen = true;
 #elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
-	mode |= SDL_WINDOW_FULLSCREEN;
+	cmdLineParams.fullscreen = true;
 #else
 	mode |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
 
-	if (mode & SDL_WINDOW_FULLSCREEN) {
+	if (cmdLineParams.fullscreen) {
 		g_display.pixel_xres = g_DesktopWidth;
 		g_display.pixel_yres = g_DesktopHeight;
 		g_Config.bFullScreen = true;
@@ -1585,16 +1577,9 @@ int main(int argc, char *argv[]) {
 		// set a sensible default resolution (2x)
 		g_display.pixel_xres = 480 * 2 * set_scale;
 		g_display.pixel_yres = 272 * 2 * set_scale;
-		if (portrait) {
-			std::swap(g_display.pixel_xres, g_display.pixel_yres);
-		}
 		g_Config.bFullScreen = false;
 	}
 
-	if (set_ipad) {
-		g_display.pixel_xres = 1024;
-		g_display.pixel_yres = 768;
-	}
 	if (!landscape) {
 		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
@@ -1636,6 +1621,9 @@ int main(int argc, char *argv[]) {
 #else
 	const char *external_dir = "/tmp";
 #endif
+
+	// After NativeInit, code should no longer look at cmdLineOptions, they should have been translated
+	// into g_Config settings. This is because NativeInit may modify g_Config settings based on the command line options.
 	NativeInit(remain_argc, (const char **)remain_argv, cmdLineOptions, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.

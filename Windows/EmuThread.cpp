@@ -43,8 +43,6 @@ static std::thread mainThread;
 static std::string g_error_message;
 static bool g_inLoop;
 
-extern std::vector<std::wstring> GetWideCmdLine();
-
 class GraphicsContext;
 static GraphicsContext *g_graphicsContext;
 

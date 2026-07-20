@@ -84,6 +84,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
+#include "Core/CmdLine.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
@@ -1310,6 +1311,20 @@ bool TestFriendlyPath() {
 	return true;
 }
 
+bool TestCmdLine() {
+	const char *argv[] = {
+		"ppsspp",
+		"--fullscreen",
+		"My_Game.iso"
+	};
+	int argc = ARRAY_SIZE(argv);
+	CommandLineOptions options;
+	options.Parse(argc, argv);
+	EXPECT_TRUE(options.fullscreen.value_or(false));
+	EXPECT_EQ_STR(options.bootFilename.value_or(""), std::string("My_Game.iso"));
+	return true;
+}
+
 // Check that RTTI is working.
 bool TestLang() {
 	struct Base { virtual ~Base() = default; };
@@ -1393,6 +1408,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(FriendlyPath),
 	TEST_ITEM(LinAlg),
 	TEST_ITEM(Lang),
+	TEST_ITEM(CmdLine),
 };
 
 int main(int argc, const char *argv[]) {

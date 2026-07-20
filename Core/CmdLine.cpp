@@ -16,50 +16,120 @@
 
 #endif
 
+enum class CmdParamType {
+	Bool,
+	BoolInverse,
+	Int,
+	String,
+};
+
+struct CommandLineParam {
+	size_t offsetInStruct;  // calculate with offsetof(CommandLineOptions, member). NOTE: Must point to an optional<> of the correct type!
+	CmdParamType type;
+	const char *longName;
+	char shortName;  // can be 0 for no short name
+	const char *docString;
+};
+
+#define POFF(member) \
+	{offsetof(CommandLineOptions, member)}
+
+enum class ParseParamResult {
+	Success,
+	NoMatch,
+	BadValue,
+};
+
+ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &param, const std::string &value) {
+	switch (param.type) {
+	case CmdParamType::Bool:
+	case CmdParamType::BoolInverse:
+	{
+		bool v = true;
+		if (value == "true" || value == "1") {
+			v = true;
+		} else if (value == "false" || value == "0") {
+			v = false;
+		} else {
+			PRINT_STDERR("Error: Invalid value for boolean parameter --%s: '%s'. Expected 'true' or 'false'.\n", param.longName, value.c_str());
+			return ParseParamResult::BadValue;
+		}
+
+		if (param.type == CmdParamType::BoolInverse) {
+			v = !v;
+		}
+		*reinterpret_cast<std::optional<bool> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = v;
+		break;
+	}
+	case CmdParamType::Int:
+		*reinterpret_cast<std::optional<int> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = std::stoi(value);
+		break;
+	case CmdParamType::String:
+		*reinterpret_cast<std::optional<std::string> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = value;
+		break;
+	default:
+		break;
+	}
+	return ParseParamResult::Success;
+}
+
 // Helper to parse parameters that take an argument.
 // Supports: --param=value, --param value, -p value
 // Returns true if argument was consumed, false otherwise.
 // On success, 'value' contains the argument string and 'i' is incremented if needed.
-static bool ParseParameterWithArg(int argc, const char *argv[], size_t &i,
-	const char *longName, char shortName,
-	const char **outValue) {
+static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &i, const CommandLineParam &param, CommandLineOptions *options) {
 	const char *arg = argv[i];
 	const size_t len = strlen(arg);
 
 	// Check for short form: -p value
-	if (shortName && len == 2 && arg[0] == '-' && arg[1] == shortName) {
+	if (param.shortName && len == 2 && arg[0] == '-' && arg[1] == param.shortName) {
 		if (i + 1 < argc) {
-			*outValue = argv[i + 1];
+			ParseParamResult result = SetValue(options, param, argv[i + 1]);
 			i += 2;  // Skip both -p and value
-			return true;
+			return result;
 		}
-		PRINT_STDERR("Error: -%c requires an argument.\n", shortName);
-		return false;
+		PRINT_STDERR("Error: -%c requires an argument.\n", param.shortName);
+		return ParseParamResult::BadValue;
 	}
 
 	// Check for long form with equals: --param=value
-	if (longName) {
-		std::string prefix = std::string("--") + longName + "=";
+	if (param.longName) {
+		std::string prefix = std::string("--") + param.longName + "=";
 		if (startsWith(arg, prefix)) {
-			*outValue = arg + prefix.size();
+			ParseParamResult result = SetValue(options, param, arg + prefix.size());
 			i++;  // Skip --param=value
-			return true;
+			return result;
+		}
+
+		// Check for boolean/inverse-boolean parameter - these don't take a separate param value.
+		if (param.type == CmdParamType::Bool && equals(arg, std::string("--") + param.longName)) {
+			ParseParamResult result = SetValue(options, param, "true");
+			i++;  // Skip --param
+			return result;
+		} else if (param.type == CmdParamType::BoolInverse && equals(arg, std::string("--") + param.longName)) {
+			ParseParamResult result = SetValue(options, param, "false");
+			i++;  // Skip --param
+			return result;
 		}
 
 		// Check for long form with space: --param value
-		if (equals(arg, std::string("--") + longName)) {
+		if (equals(arg, std::string("--") + param.longName)) {
 			if (i + 1 < argc) {
-				*outValue = argv[i + 1];
+				ParseParamResult result = SetValue(options, param, argv[i + 1]);
 				i += 2;  // Skip both --param and value
-				return true;
+				return result;
 			}
-			PRINT_STDERR("Error: --%s requires an argument.\n", longName);
-			return false;
+			PRINT_STDERR("Error: --%s requires an argument.\n", param.longName);
+			return ParseParamResult::BadValue;
 		}
 	}
-
-	return false;
+	return ParseParamResult::NoMatch;
 }
+
+static const CommandLineParam g_autoParams[] = {
+	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", 0, "Force full screen mode"},
+	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", 0, "Force windowed mode"},
+};
 
 static int printUsage(int argc, const char *argv[]) {
 	// NOTE: by convention, --help outputs to stdout,
@@ -88,13 +158,17 @@ static int printUsage(int argc, const char *argv[]) {
 	PRINT_STDOUT("  -j                    use JIT\n");
 	PRINT_STDOUT("  -J                    use IR JIT\n");
 
-	PRINT_STDOUT("  --fullscreen          force full screen mode, ignoring saved configuration\n");
-	PRINT_STDOUT("  --windowed            force windowed mode, ignoring saved configuration\n");
+	for (const auto &param : g_autoParams) {
+		PRINT_STDOUT("  --%s%s%s\n", param.longName,
+			param.shortName ? ", -" : "",
+			param.shortName ? std::string(1, param.shortName).c_str() : "");
+		PRINT_STDOUT("                        %s\n", param.docString);
+	}
+
 	PRINT_STDOUT("  --xres PIXELS         set X resolution\n");
 	PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
 	PRINT_STDOUT("  --dpi DPI             set DPI\n");
 	PRINT_STDOUT("  --scale FACTOR        set scale\n");
-	PRINT_STDOUT("  --ipad                set resolution to 1024x768\n");
 	PRINT_STDOUT("  --portrait            portrait mode\n");
 	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
 	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
@@ -107,6 +181,7 @@ static int printUsage(int argc, const char *argv[]) {
 
 	return 0;
 }
+
 
 // Logging should be done with plain printf here.
 // Error reporting is done with PRINT_STDERR(....).
@@ -163,19 +238,28 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 			// Ignore
 		}
 #endif
-		// Simple bool commands
 
-		// NOTE: We need to parse --fullscreen early, before we create the window.
-		if (equals(argv[i], "--help")) {
+		bool parsedAutoParam = false;
+		// Loop through all the auto commands, call ParseParameterWithArg to handle them.
+		for (const auto &param : g_autoParams) {
+			ParseParamResult result = ParseParameterStr(argc, argv, i, param, this);
+			if (result == ParseParamResult::Success) {
+				parsedAutoParam = true;
+				break;
+			} else if (result == ParseParamResult::BadValue) {
+				return CommandLineParseResult::Exit;
+			} // else nomatch
+		}
+
+		if (parsedAutoParam) {
+			// We already incremented i.
+			continue;
+		} else if (equals(argv[i], "--help")) {
 			printUsage(argc, argv);
 			return CommandLineParseResult::Exit;
 		} else if (equals(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);
 			return CommandLineParseResult::Exit;
-		} else if (equals(argv[i], "--fullscreen")) {
-			fullscreen = true;
-		} else if (equals(argv[i], "--windowed")) {
-			fullscreen = false;
 		// Commands with parameters. TODO: Should support both space and equals, like --config=foo.ini and --config foo.ini
 		} else if (startsWith(argv[i], gpuBackendStr)) {
 			const std::string_view restOfOption = argv[i] + gpuBackendStr.size();
@@ -203,7 +287,6 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 		} else {
 			// Report unknown argument later once this is complete.
 		}
-
 		// To the next argument.
 		i++;
 	}
