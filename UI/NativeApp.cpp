@@ -543,7 +543,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
 	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
-#elif !PPSSPP_PLATFORM(WINDOWS)
+#elif PPSSPP_PLATFORM(WINDOWS)
+	// ...
+#else
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
 		config = getenv("XDG_CONFIG_HOME");
@@ -574,25 +576,19 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_logManager.Init(&g_Config.bEnableLogging);
 
-#if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
-	g_Config.Load();
+	g_Config.Load(cmdLineOptions.configFilename.c_str(), cmdLineOptions.controlsConfigFilename.c_str());
 	System_Notify(SystemNotification::CONFIG_LOADED);
-#endif
 
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
 
 	const char *fileToLog = nullptr;
-	Path stateToLoad;
 
 	bool gotBootFilename = false;
-	bool gotoGameSettings = false;
-	bool gotoTouchScreenTest = false;
-	bool gotoDeveloperTools = false;
 	boot_filename.clear();
 
 	// Parse command line
@@ -603,7 +599,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		forceLogLevel = true;
 	};
 
-	// TODO: Need a much better command line argument parser.
+	if (cmdLineOptions.logLevel.has_value()) {
+		setLogLevel(cmdLineOptions.logLevel.value());
+	}
 
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
@@ -615,119 +613,64 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 			}
 #endif
 			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LDEBUG);
-				break;
-			case 'v':
-				// Enable verbose logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LVERBOSE);
-				break;
-			case 'j':
-				g_Config.iCpuCore = (int)CPUCore::JIT;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
-			case 'i':
-				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
-			case 'r':
-				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
-			case 'J':
-				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
 			case '-':
 				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
 					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
-				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = Path(argv[i] + strlen("--state="));
-				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
-					g_Config.bPauseExitsEmulator = true;
-				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
-					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = true;
-				}
-				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
-					g_Config.DoNotSaveSetting(&g_Config.mountRoot);
-					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
-				}
-				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = false;
-				}
-				if (!strcmp(argv[i], "--touchscreentest"))
-					gotoTouchScreenTest = true;
-				if (!strcmp(argv[i], "--gamesettings"))
-					gotoGameSettings = true;
-				if (!strcmp(argv[i], "--developertools"))
-					gotoDeveloperTools = true;
-				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
-					g_Config.SetAppendedConfigIni(Path(argv[i] + strlen("--appendconfig=")));
-					g_Config.LoadAppendedConfig();
-				}
 				break;
 			}
 		} else {
-			// This parameter should be a boot filename. Only accept it if we
-			// don't already have one.
-			if (!gotBootFilename) {
-				gotBootFilename = true;
-				INFO_LOG(Log::System, "Boot filename found in args: '%s'", argv[i]);
+			// Ignore. Boot filename is extracted in the previous step.
+		}
+	}
 
-				bool okToLoad = true;
-				bool okToCheck = true;
-				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
-					if (status == PERMISSION_STATUS_DENIED) {
-						ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
-						okToLoad = false;
-						okToCheck = false;
-					} else if (status != PERMISSION_STATUS_GRANTED) {
-						ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
-						okToCheck = false;
-					} else {
-						INFO_LOG(Log::IO, "Storage permission granted.");
-					}
-				}
-				if (okToLoad) {
-					std::string str = std::string(argv[i]);
-					// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
-					if (startsWith(str, "file:///")) {
-						str = UriDecode(str.substr(7));
-						INFO_LOG(Log::IO, "Decoding '%s' to '%s'", argv[i], str.c_str());
-					}
+	if (cmdLineOptions.appendConfig.has_value()) {
+		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
+		g_Config.LoadAppendedConfig();
+	}
 
-					boot_filename = Path(str);
-					skipLogo = true;
-				}
-				// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
-				TryUpdateSavedPath(&boot_filename);
-				if (okToLoad && okToCheck) {
-					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
-					if (!fileLoader->Exists()) {
-						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+	// This parameter should be a boot filename. Only accept it if we
+	// don't already have one.
+	if (!cmdLineOptions.bootFilenames.empty()) {
+		std::string bootFilename = cmdLineOptions.bootFilenames[0];
+		gotBootFilename = true;
+		INFO_LOG(Log::System, "Boot filename found in args: '%s'", bootFilename.c_str());
 
-#if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
-						boot_filename.clear();
-#else
-						// Bail.
-						exit(1);
-#endif
-					}
-				}
+		bool okToLoad = true;
+		bool okToCheck = true;
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+			PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
+			if (status == PERMISSION_STATUS_DENIED) {
+				ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
+				okToLoad = false;
+				okToCheck = false;
+			} else if (status != PERMISSION_STATUS_GRANTED) {
+				ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
+				okToCheck = false;
 			} else {
-				fprintf(stderr, "Syntax error: Can only boot one file.\nNote: Many command line args need a =, like --appendconfig=FILENAME.ini.\n");
+				INFO_LOG(Log::IO, "Storage permission granted.");
+			}
+		}
+		if (okToLoad) {
+			// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
+			if (startsWith(bootFilename, "file:///")) {
+				bootFilename = UriDecode(bootFilename.substr(7));
+				INFO_LOG(Log::IO, "Decoding '%s' to '%s'", cmdLineOptions.bootFilenames[0].c_str(), bootFilename.c_str());
+			}
+
+			boot_filename = Path(bootFilename);
+			skipLogo = true;
+		}
+		// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
+		TryUpdateSavedPath(&boot_filename);
+		if (okToLoad && okToCheck) {
+			std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
+			if (!fileLoader->Exists()) {
+				fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+
 #if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
-				// Ignore and proceed.
+				boot_filename.clear();
 #else
 				// Bail.
 				exit(1);
@@ -770,8 +713,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_BackgroundAudio.SFX().Init();
 
-	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, &ShowMessageAfterSaveStateAction);
+	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
+		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
 
 	if (g_Config.bAchievementsEnable) {
@@ -791,14 +734,18 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
-	} else if (gotoGameSettings) {
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
-	} else if (gotoTouchScreenTest) {
-		g_screenManager->switchScreen(new MainScreen());
+	} else if (cmdLineOptions.startScreen.has_value()) {
+		// Launch into specified start screen. This is useful for testing UI, more screens can be easily added here.
+		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
+			g_screenManager->switchScreen(new MainScreen());
+		}
 		g_screenManager->push(new TouchTestScreen(Path()));
-	} else if (gotoDeveloperTools) {
-		g_screenManager->switchScreen(new MainScreen());
-		g_screenManager->push(new DeveloperToolsScreen(Path()));
+		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
+			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new DeveloperToolsScreen(Path()));
+		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));

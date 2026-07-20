@@ -84,6 +84,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
+#include "Core/CmdLine.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
@@ -1310,6 +1311,44 @@ bool TestFriendlyPath() {
 	return true;
 }
 
+bool TestCmdLine() {
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--fullscreen",
+			"--graphics=d3d11",
+			"--pause-menu-exit",
+			"--timeout=3",
+			"My_Game.iso"
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv, CmdLineMode::Application);
+		EXPECT_TRUE(options.fullscreen.value_or(false));
+		if (options.bootFilenames.empty()) {
+			EXPECT_TRUE(false);
+			return false;
+		}
+		EXPECT_EQ_STR(options.bootFilenames[0], std::string("My_Game.iso"));
+		EXPECT_TRUE(options.gpuBackend.has_value());
+		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
+		EXPECT_EQ_INT(options.timeout.value_or(0), 3);
+		EXPECT_TRUE(options.pauseMenuExit.value_or(false));
+	}
+	// Test GL version override
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--graphics=gles3.3",
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv);
+		EXPECT_EQ_INT(options.force_gl_version, 33);
+	}
+	return true;
+}
+
 // Check that RTTI is working.
 bool TestLang() {
 	struct Base { virtual ~Base() = default; };
@@ -1393,6 +1432,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(FriendlyPath),
 	TEST_ITEM(LinAlg),
 	TEST_ITEM(Lang),
+	TEST_ITEM(CmdLine),
 };
 
 int main(int argc, const char *argv[]) {
