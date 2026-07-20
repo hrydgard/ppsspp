@@ -579,16 +579,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "enabled"
    },
    {
-      "ppsspp_software_skinning",
-      "Software Skinning",
-      NULL,
-      "Combine skinned model draws on the CPU, faster in most games.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "enabled"
-   },
-   {
       "ppsspp_hardware_tesselation",
       "Hardware Tesselation",
       NULL,
