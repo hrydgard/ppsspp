@@ -1317,6 +1317,7 @@ bool TestCmdLine() {
 			"ppsspp",
 			"--fullscreen",
 			"--graphics=d3d11",
+			"--pause-menu-exit",
 			"My_Game.iso"
 		};
 		int argc = ARRAY_SIZE(argv);
@@ -1326,6 +1327,7 @@ bool TestCmdLine() {
 		EXPECT_EQ_STR(options.bootFilename.value_or(""), std::string("My_Game.iso"));
 		EXPECT_TRUE(options.gpuBackend.has_value());
 		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
+		EXPECT_TRUE(options.pauseMenuExit.value_or(false));
 	}
 	// Test GL version override
 	{

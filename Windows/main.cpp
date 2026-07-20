@@ -1091,12 +1091,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	InitMemstickDirectory();
 	CreateSysDirectories();
 
-	// Load config up here, because those changes below would be overwritten
-	// if it's not loaded here first.
-	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.Load(cmdLineOptions.configFilename.c_str(), cmdLineOptions.controlsConfigFilename.c_str());
-	System_Notify(SystemNotification::CONFIG_LOADED);
-
 #ifndef _DEBUG
 	// See #11719 - too many Vulkan drivers crash on basic init.
 	if (g_Config.IsBackendEnabled(GPUBackend::VULKAN)) {
@@ -1117,10 +1111,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	const HWND console = GetConsoleWindow();
 	if (console && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1) {
 		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	}
-
-	if (cmdLineOptions.debugLogLevel) {
-		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 	}
 
 	// Windows Media Foundation - used for camera and (currently, but not later) microphone support (we'll move to WASAPI for audio input later)

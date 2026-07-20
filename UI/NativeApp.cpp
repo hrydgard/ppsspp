@@ -543,7 +543,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
 	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
-#elif !PPSSPP_PLATFORM(WINDOWS)
+#elif PPSSPP_PLATFORM(WINDOWS)
+	// ...
+#else
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
 		config = getenv("XDG_CONFIG_HOME");
@@ -574,14 +576,12 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_logManager.Init(&g_Config.bEnableLogging);
 
-#if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
-	g_Config.Load();
+	g_Config.Load(cmdLineOptions.configFilename.c_str(), cmdLineOptions.controlsConfigFilename.c_str());
 	System_Notify(SystemNotification::CONFIG_LOADED);
-#endif
 
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
@@ -603,7 +603,17 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		forceLogLevel = true;
 	};
 
-	// TODO: Need a much better command line argument parser.
+	if (cmdLineOptions.logLevel.has_value()) {
+		setLogLevel(cmdLineOptions.logLevel.value());
+	}
+	if (cmdLineOptions.startScreen.has_value()) {
+		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest"))
+			gotoTouchScreenTest = true;
+		if (equals(cmdLineOptions.startScreen.value(), "gamesettings"))
+			gotoGameSettings = true;
+		if (equals(cmdLineOptions.startScreen.value(), "developertools"))
+			gotoDeveloperTools = true;
+	}
 
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
@@ -615,32 +625,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 			}
 #endif
 			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LDEBUG);
-				break;
-			case 'v':
-				// Enable verbose logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LVERBOSE);
-				break;
-			case 'j':
-				g_Config.iCpuCore = (int)CPUCore::JIT;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
-			case 'i':
-				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
-			case 'r':
-				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
-			case 'J':
-				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
-				g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
-				break;
 			case '-':
 				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
 					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
@@ -648,28 +632,10 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 					stateToLoad = Path(argv[i] + strlen("--state="));
-				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
-					g_Config.bPauseExitsEmulator = true;
-				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
-					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = true;
-				}
 				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
 					g_Config.DoNotSaveSetting(&g_Config.mountRoot);
 					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
 				}
-				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = false;
-				}
-				if (!strcmp(argv[i], "--touchscreentest"))
-					gotoTouchScreenTest = true;
-				if (!strcmp(argv[i], "--gamesettings"))
-					gotoGameSettings = true;
-				if (!strcmp(argv[i], "--developertools"))
-					gotoDeveloperTools = true;
 				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
 					g_Config.SetAppendedConfigIni(Path(argv[i] + strlen("--appendconfig=")));
 					g_Config.LoadAppendedConfig();
@@ -677,57 +643,51 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 				break;
 			}
 		} else {
-			// This parameter should be a boot filename. Only accept it if we
+			// Ignore. Boot filename is extracted in the previous step.
+		}
+	}
+
+	// This parameter should be a boot filename. Only accept it if we
 			// don't already have one.
-			if (!gotBootFilename) {
-				gotBootFilename = true;
-				INFO_LOG(Log::System, "Boot filename found in args: '%s'", argv[i]);
+	if (cmdLineOptions.bootFilename.has_value()) {
+		std::string bootFilename = cmdLineOptions.bootFilename.value();
+		gotBootFilename = true;
+		INFO_LOG(Log::System, "Boot filename found in args: '%s'", bootFilename.c_str());
 
-				bool okToLoad = true;
-				bool okToCheck = true;
-				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
-					if (status == PERMISSION_STATUS_DENIED) {
-						ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
-						okToLoad = false;
-						okToCheck = false;
-					} else if (status != PERMISSION_STATUS_GRANTED) {
-						ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
-						okToCheck = false;
-					} else {
-						INFO_LOG(Log::IO, "Storage permission granted.");
-					}
-				}
-				if (okToLoad) {
-					std::string str = std::string(argv[i]);
-					// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
-					if (startsWith(str, "file:///")) {
-						str = UriDecode(str.substr(7));
-						INFO_LOG(Log::IO, "Decoding '%s' to '%s'", argv[i], str.c_str());
-					}
-
-					boot_filename = Path(str);
-					skipLogo = true;
-				}
-				// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
-				TryUpdateSavedPath(&boot_filename);
-				if (okToLoad && okToCheck) {
-					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
-					if (!fileLoader->Exists()) {
-						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-
-#if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
-						boot_filename.clear();
-#else
-						// Bail.
-						exit(1);
-#endif
-					}
-				}
+		bool okToLoad = true;
+		bool okToCheck = true;
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+			PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
+			if (status == PERMISSION_STATUS_DENIED) {
+				ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
+				okToLoad = false;
+				okToCheck = false;
+			} else if (status != PERMISSION_STATUS_GRANTED) {
+				ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
+				okToCheck = false;
 			} else {
-				fprintf(stderr, "Syntax error: Can only boot one file.\nNote: Many command line args need a =, like --appendconfig=FILENAME.ini.\n");
+				INFO_LOG(Log::IO, "Storage permission granted.");
+			}
+		}
+		if (okToLoad) {
+			// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
+			if (startsWith(bootFilename, "file:///")) {
+				bootFilename = UriDecode(bootFilename.substr(7));
+				INFO_LOG(Log::IO, "Decoding '%s' to '%s'", cmdLineOptions.bootFilename.value().c_str(), bootFilename.c_str());
+			}
+
+			boot_filename = Path(bootFilename);
+			skipLogo = true;
+		}
+		// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
+		TryUpdateSavedPath(&boot_filename);
+		if (okToLoad && okToCheck) {
+			std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
+			if (!fileLoader->Exists()) {
+				fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+
 #if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
-				// Ignore and proceed.
+				boot_filename.clear();
 #else
 				// Bail.
 				exit(1);

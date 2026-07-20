@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include "Common/Log.h"
 #include "Core/ConfigValues.h"
 
 enum class CommandLineParseResult {
@@ -15,8 +16,15 @@ struct CommandLineOptions {
 	std::optional<GPUBackend> gpuBackend;
 	std::optional<bool> softwareRendering;
 	std::optional<bool> enableLogging;
-
+	std::optional<LogLevel> logLevel;  // Override log level with this.
 	std::optional<std::string> bootFilename;
+
+	std::optional<CPUCore> cpuCore;
+
+	std::optional<std::string> startScreen;
+
+	std::optional<bool> escapeExit;
+	std::optional<bool> pauseMenuExit;
 
 	// SDL only: Option to force a specific OpenGL version (42="4.2",
 	// etc.; -1 means "try them all").
@@ -31,7 +39,6 @@ struct CommandLineOptions {
 #else
 	bool showLogWindow = true;
 #endif
-	bool debugLogLevel = false;
 	std::string configFilename = "";
 	std::string controlsConfigFilename = "";
 

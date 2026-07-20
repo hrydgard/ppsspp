@@ -1,6 +1,7 @@
 #include "Core/Config.h"
 #include "Core/CmdLine.h"
 #include "Common/StringUtils.h"
+#include "Common/Log/LogManager.h"
 
 #ifdef HAVE_LIBRETRO_VFS
 
@@ -129,6 +130,9 @@ static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &
 static const CommandLineParam g_autoParams[] = {
 	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", 0, "Force full screen mode"},
 	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", 0, "Force windowed mode"},
+	{POFF(startScreen), CmdParamType::String, "start-screen", 0, "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')"},
+	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", 0, "Escape key exits the application"},
+	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", 0, "Change \"Exit to menu\" in pause menu to \"Exit\""},
 };
 
 static int printUsage(int argc, const char *argv[]) {
@@ -169,19 +173,13 @@ static int printUsage(int argc, const char *argv[]) {
 	PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
 	PRINT_STDOUT("  --dpi DPI             set DPI\n");
 	PRINT_STDOUT("  --scale FACTOR        set scale\n");
-	PRINT_STDOUT("  --portrait            portrait mode\n");
 	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
 	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
 
-	PRINT_STDOUT("  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
-	PRINT_STDOUT("  --escape-exit         escape key exits the application\n");
-	PRINT_STDOUT("  --gamesettings        go directly to settings\n");
-	PRINT_STDOUT("  --touchscreentest     go directly to the touchscreentest screen\n");
 	PRINT_STDOUT("  --appendconfig=FILE   merge config FILE into the current configuration\n");
 
 	return 0;
 }
-
 
 // Logging should be done with plain printf here.
 // Error reporting is done with PRINT_STDERR(....).
@@ -206,7 +204,8 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 				bootFilename = std::string(argv[i]);
 			} else {
 				// Already have a filename.
-				PRINT_STDERR("Warning: Ignoring extra boot filename '%s'.\n", argv[i]);
+				PRINT_STDERR("Warning: Ignoring extra boot filename '%s' (can only pass in one).\n", argv[i]);
+				return CommandLineParseResult::Exit;
 			}
 		}
 
@@ -221,21 +220,35 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[]) {
 				optionS = true;
 				break;
 			case 'd':
-				debugLogLevel = true;
+				logLevel = LogLevel::LDEBUG;
+				break;
+			case 'v':
+				logLevel = LogLevel::LVERBOSE;
 				break;
 			case 'h':
 				printUsage(argc, argv);
 				return CommandLineParseResult::Exit;
-			case 'v':
-				printf("%s\n", PPSSPP_GIT_VERSION);
-				return CommandLineParseResult::Exit;
+			case 'j':
+				cpuCore = CPUCore::JIT;
+				break;
+			case 'i':
+				cpuCore = CPUCore::INTERPRETER;
+				break;
+			case 'r':
+				cpuCore = CPUCore::IR_INTERPRETER;
+				break;
+			case 'J':
+				cpuCore = CPUCore::JIT_IR;
+				break;
 			}
 		}
 
 #if defined(__APPLE__)
 		// On Apple system debugged executable may get -NSDocumentRevisionsDebugMode YES in argv.
 		if (equals(argv[i], "-NSDocumentRevisionsDebugMode")) {
-			// Ignore
+			// Ignore the arg and the YES
+			i += 2;
+			continue;
 		}
 #endif
 
@@ -323,6 +336,20 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.bAutoRun = false;
 		g_Config.bSaveSettings = false;
 	}
+	if (cpuCore.has_value()) {
+		g_Config.iCpuCore = (int)cpuCore.value();
+	}
+	if (escapeExit.has_value()) {
+		g_Config.bPauseExitsEmulator = escapeExit.value();
+	}
+	if (pauseMenuExit.has_value()) {
+		g_Config.bPauseMenuExitsEmulator = pauseMenuExit.value();
+	}
+
+	if (logLevel.has_value()) {
+		g_logManager.SetAllLogLevels(logLevel.value());
+	}
+
 	// Note: dpi is not applied here - it's platform-specific.
 	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.
 }
