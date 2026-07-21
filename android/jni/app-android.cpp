@@ -267,35 +267,19 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 static void EmuThreadFunc() {
 	SetCurrentThreadName("Entering EmuThread");
 
-	// Name the thread in the JVM, because why not (might result in better debug output in Play Console).
-	// TODO: Do something clever with getEnv() and stored names from SetCurrentThreadName?
-	JNIEnv *env;
-	JavaVMAttachArgs args{};
-	args.version = JNI_VERSION_1_6;
-	args.name = "EmuThread";
-	gJvm->AttachCurrentThread(&env, &args);
+	AndroidJNIThreadContext jniContext;
+	JNIEnv *env = getEnv();  // TODO: Make it gettable from AndroidJNIThreadContext
 
 	INFO_LOG(Log::System, "Entering emu thread");
 
 	// Wait for render loop to get started.
 	INFO_LOG(Log::System, "Runloop: Waiting for displayInit...");
 	_dbg_assert_(graphicsContext);
-	while (graphicsContext->GetState() == GraphicsContextState::PENDING) {
-		sleep_ms(5, "graphics-poll");
-	}
 
 	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
-	if (graphicsContext->GetState() != GraphicsContextState::INITIALIZED) {
-		ERROR_LOG(Log::G3D, "Failed to initialize the graphics context! %d", (int)graphicsContext->GetState());
-		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
-		gJvm->DetachCurrentThread();
-		return;
-	}
-
 	if (!NativeInitGraphics(graphicsContext)) {
 		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
 		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
-		gJvm->DetachCurrentThread();
 		return;
 	}
 
@@ -323,7 +307,6 @@ static void EmuThreadFunc() {
 
 	NativeShutdownGraphics();
 
-	gJvm->DetachCurrentThread();
 	INFO_LOG(Log::System, "Leaving EmuThread");
 }
 
@@ -865,8 +848,7 @@ retry:
 	case (int)GPUBackend::OPENGL:
 		INFO_LOG(Log::System, "NativeApp.init() -- creating OpenGL context (JavaGL)");
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
-		INFO_LOG(Log::System, "NativeApp.init() - launching emu thread");
-		EmuThreadStart();
+		INFO_LOG(Log::System, "NativeApp.init() - not yet launching emuthread, waiting to displayInit");
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
@@ -1056,6 +1038,8 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
+		// This is where we start the emuthread now - after InitFromRenderThread. This eliminates a race condition.
+		EmuThreadStart();
 
 		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);

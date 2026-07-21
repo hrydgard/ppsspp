@@ -32,7 +32,6 @@ bool AndroidVulkanContext::InitAPI() {
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
 		ERROR_LOG(Log::G3D, "Failed to load Vulkan driver library: %s", errorStr.c_str());
-		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
@@ -49,12 +48,10 @@ bool AndroidVulkanContext::InitAPI() {
 	if (!g_Vulkan->CreateInstanceAndDevice(info)) {
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
-		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
 	INFO_LOG(Log::G3D, "Vulkan device created!");
-	state_ = GraphicsContextState::INITIALIZED;
 	return true;
 }
 
