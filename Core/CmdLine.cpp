@@ -34,9 +34,6 @@ struct CommandLineParam {
 	CmdLineMode mode;
 };
 
-#define POFF(member) \
-	{offsetof(CommandLineOptions, member)}
-
 enum class ParseParamResult {
 	Success,
 	NoMatch,
@@ -135,6 +132,7 @@ static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &
 	return ParseParamResult::NoMatch;
 }
 
+#define POFF(member) offsetof(CommandLineOptions, member)
 static const CommandLineParam g_autoParams[] = {
 	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
 	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", '\0', "Force windowed mode", CmdLineMode::Application},

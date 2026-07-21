@@ -34,6 +34,7 @@ SDL/SDLMain.cpp
 UWP/PPSSPP_UWPMain.cpp
 Qt/main.cpp
 android/jni/app-android.cpp
+libretro/libretro.cpp
 
 ## Headless and unittest builds
 
