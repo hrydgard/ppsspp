@@ -412,6 +412,7 @@
     <ClCompile Include="..\..\Core\SaveStateRewind.cpp" />
     <ClCompile Include="..\..\Core\Util\VideoPlayer.cpp" />
     <ClCompile Include="..\..\Core\CmdLine.cpp" />
+    <ClCompile Include="..\..\Core\EmuThread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Core\AVIDump.h" />
@@ -686,6 +687,7 @@
     <ClInclude Include="..\..\Core\SaveStateRewind.h" />
     <ClInclude Include="..\..\Core\Util\VideoPlayer.h" />
     <ClInclude Include="..\..\Core\CmdLine.h" />
+    <ClInclude Include="..\..\Core\EmuThread.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE" />

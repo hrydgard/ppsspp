@@ -17,6 +17,14 @@
 
 #pragma once
 
-void MainThread_Start();
-void MainThread_Stop();
+// Utilities to manage Emu and Render threads.
+// TODO: Use across platforms, currently Windows-only.
+
 bool MainThread_Ready();
+
+class GraphicsContext;
+
+// Doesn't take ownership of the graphicsContext, you have to delete it.
+// This should be used by platforms that launch a separate thread and doesn't
+// need to run a polling loop in it.
+void MainThreadFunc(GraphicsContext *graphicsContext);

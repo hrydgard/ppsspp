@@ -21,6 +21,7 @@ enum class CmdParamType {
 	Bool,
 	BoolInverse,
 	Int,
+	Double,
 	String,
 };
 
@@ -32,9 +33,6 @@ struct CommandLineParam {
 	const char *docString;
 	CmdLineMode mode;
 };
-
-#define POFF(member) \
-	{offsetof(CommandLineOptions, member)}
 
 enum class ParseParamResult {
 	Success,
@@ -65,6 +63,9 @@ ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &p
 	}
 	case CmdParamType::Int:
 		*reinterpret_cast<std::optional<int> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = std::stoi(value);
+		break;
+	case CmdParamType::Double:
+		*reinterpret_cast<std::optional<double> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = std::stod(value);
 		break;
 	case CmdParamType::String:
 		*reinterpret_cast<std::optional<std::string> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = value;
@@ -131,22 +132,25 @@ static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &
 	return ParseParamResult::NoMatch;
 }
 
+#define POFF(member) offsetof(CommandLineOptions, member)
 static const CommandLineParam g_autoParams[] = {
-	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", 0, "Force full screen mode", CmdLineMode::Application},
-	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", 0, "Force windowed mode", CmdLineMode::Application},
-	{POFF(startScreen), CmdParamType::String, "start-screen", 0, "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
-	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", 0, "Escape key exits the application", CmdLineMode::Application},
-	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", 0, "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
-	{POFF(appendConfig), CmdParamType::String, "appendconfig", 0, "Merge config FILE into the current configuration"},
+	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
+	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", '\0', "Force windowed mode", CmdLineMode::Application},
+	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
+	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
+	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
+	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
-	{POFF(stateToLoad), CmdParamType::String, "state", 0, "Load state from specified file"},
+	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode"},
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode"},
-	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", 0, "Use old ATRAC decoder"},
-	{POFF(log), CmdParamType::String, "log", 0, "Output log to FILE"},
-	{POFF(screenshotFilename), CmdParamType::String, "screenshot", 0, "Take a screenshot and save to FILE"},
-	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", 0, "Save screenshot to specified path"},
-	{POFF(timeout), CmdParamType::Int, "timeout", 0, "Set the timeout value"},
+	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},
+	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE"},
+	{POFF(screenshotFilename), CmdParamType::String, "screenshot", '\0', "Take a screenshot and save to FILE"},
+	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", '\0', "Save screenshot to specified path"},
+	{POFF(timeout), CmdParamType::Double, "timeout", '\0', "Set the timeout value"},
+	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
+	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
 // NOTE: On Windows this prints nothing unfortunately, since PPSSPP is not a "console app".
@@ -403,6 +407,11 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (root.has_value()) {
 		g_Config.DoNotSaveSetting(&g_Config.mountRoot);
 		g_Config.mountRoot = Path(root.value());
+	}
+
+	if (resolutionScale.has_value()) {
+		g_Config.iInternalResolution = resolutionScale.value();
+		g_Config.DoNotSaveSetting(&g_Config.iInternalResolution);
 	}
 
 	// Note: dpi is not applied here - it's platform-specific.

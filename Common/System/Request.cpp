@@ -39,8 +39,6 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT: return "GRAPHICS_BACKEND_FAILED_ALERT";
 	case SystemRequestType::CREATE_GAME_SHORTCUT: return "CREATE_GAME_SHORTCUT";
 	case SystemRequestType::SHOW_FILE_IN_FOLDER: return "SHOW_FILE_IN_FOLDER";
-	case SystemRequestType::SEND_DEBUG_OUTPUT: return "SEND_DEBUG_OUTPUT";
-	case SystemRequestType::SEND_DEBUG_SCREENSHOT: return "SEND_DEBUG_SCREENSHOT";
 	case SystemRequestType::NOTIFY_UI_EVENT: return "NOTIFY_UI_EVENT";
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT: return "SET_KEEP_SCREEN_BRIGHT";
 	case SystemRequestType::CAMERA_COMMAND: return "CAMERA_COMMAND";

@@ -1393,6 +1393,9 @@
     <ClCompile Include="CmdLine.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="EmuThread.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2254,6 +2257,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="CmdLine.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="EmuThread.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

@@ -55,7 +55,8 @@
 #include "Core/Instance.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/RetroAchievements.h"
-#include "Windows/EmuThread.h"
+#include "Core/EmuThread.h"
+#include "Core/Reporting.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
 
@@ -75,7 +76,11 @@
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Windows/GPU/WindowsGLContext.h"
 #endif
+#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Windows/GPU/D3D11Context.h"
+
 #include "Windows/W32Util/ContextMenu.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/DarkMode.h"
@@ -885,6 +890,9 @@ static std::string GetDefaultLangRegion() {
 	}
 }
 
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
+
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
 #ifndef _DEBUG
@@ -1020,6 +1028,108 @@ static void WinMainCleanup() {
 	}
 }
 
+bool CreateGraphicsBackend(std::string *error_message, GraphicsContext **ctx) {
+	WindowsGraphicsContext *graphicsContext = nullptr;
+	switch (g_Config.iGPUBackend) {
+#if PPSSPP_API(ANY_GL)
+	case (int)GPUBackend::OPENGL:
+		graphicsContext = new WindowsGLContext();
+		break;
+#endif
+	case (int)GPUBackend::DIRECT3D11:
+		graphicsContext = new D3D11Context();
+		break;
+	case (int)GPUBackend::VULKAN:
+		graphicsContext = new WindowsVulkanContext();
+		break;
+	default:
+		return false;
+	}
+
+	if (graphicsContext->Init(MainWindow::GetHInstance(), MainWindow::GetHWND(), error_message)) {
+		*ctx = graphicsContext;
+		return true;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		return false;
+	}
+}
+
+// returns null if failed.
+static GraphicsContext *CreateGraphicsContextOrExit() {
+	const bool performingRestart = NativeIsRestarting();
+
+	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
+		Reporting::ReportMessage("Graphics init error: %s", "ALL");
+
+		auto err = GetI18NCategory(I18NCat::ERRORS);
+		const char *defaultErrorAll = "PPSSPP failed to startup with any graphics backend. Try upgrading your graphics and other drivers.";
+		std::string_view genericError = err->T("GenericAllStartupError", defaultErrorAll);
+		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+		MessageBox(0, ConvertUTF8ToWString(genericError).c_str(), title.c_str(), MB_OK);
+
+		// Let's continue (and probably crash) just so they have a way to keep trying.
+	}
+
+	System_Notify(SystemNotification::UI);
+
+	GraphicsContext *graphicsContext = nullptr;
+	std::string error_string;
+	const bool success = CreateGraphicsBackend(&error_string, &graphicsContext);
+	if (success) {
+		return graphicsContext;
+	}
+
+	// Before anything: are we restarting right now?
+	if (performingRestart) {
+		// Okay, switching graphics didn't work out.  Probably a driver bug - fallback to restart.
+		// This happens on NVIDIA when switching OpenGL -> Vulkan.
+		g_Config.Save("switch_graphics_failed");
+		W32Util::ExitAndRestart();
+		return nullptr;
+	}
+
+	auto err = GetI18NCategory(I18NCat::ERRORS);
+	Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
+
+	const char *defaultErrorVulkan = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to OpenGL?\n\nError message:";
+	const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
+	const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
+	std::string_view genericError;
+	GPUBackend nextBackend = GPUBackend::VULKAN;
+	switch (g_Config.iGPUBackend) {
+	case (int)GPUBackend::VULKAN:
+		nextBackend = GPUBackend::OPENGL;
+		genericError = err->T("GenericVulkanError", defaultErrorVulkan);
+		break;
+	case (int)GPUBackend::OPENGL:
+	default:
+		nextBackend = GPUBackend::DIRECT3D11;
+		genericError = err->T("GenericOpenGLError", defaultErrorOpenGL);
+		break;
+	}
+	std::string full_error = StringFromFormat("%.*s\n\n%s", (int)genericError.size(), genericError.data(), error_string.c_str());
+	std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+	bool yes = IDYES == MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
+	ERROR_LOG(Log::Boot, "%s", full_error.c_str());
+
+	if (yes) {
+		// Change the config to the alternative and restart.
+		g_Config.iGPUBackend = (int)nextBackend;
+		// Clear this to ensure we try their selection.
+		g_Config.sFailedGPUBackends.clear();
+		g_Config.Save("save_graphics_fallback");
+
+		W32Util::ExitAndRestart();
+		return nullptr;
+	}
+
+	// No safe way out without graphics.
+	ExitProcess(1);
+	return nullptr;
+}
+
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
 	const std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	// Check for the Vulkan workaround before any serious init.
@@ -1143,11 +1253,25 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::Minimize();
 	}
 
-	// Emu thread (and render thread, if any) is always running!
+	// Emu thread is always running!
 	// OpenGL uses an externally managed render thread (due to GL's single-threaded context design).
 	// Vulkan manages its own render thread. Our D3D backend doesn't have a render thread.
 	// The Emu thread calls NativeInit() and NativeMain() etc.
-	MainThread_Start();
+
+	System_SetWindowTitle("");
+
+	std::thread mainThread = std::thread([]() {
+		std::unique_ptr<GraphicsContext> graphicsContext(CreateGraphicsContextOrExit());
+		if (!graphicsContext) {
+			// We're screwed. Should never get here.
+			_dbg_assert_(false);
+			return;
+		}
+		MainThreadFunc(graphicsContext.get());
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+	});
+
+	// This thread can become the render thread or the emu thread depending on the backend.
 
 	g_InputManager.BeginPolling();
 
@@ -1187,15 +1311,21 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 		if (!wnd || !accel || !TranslateAccelerator(wnd, accel, &msg)) {
 			if (!DialogManager::IsDialogMessage(&msg)) {
-				//and finally translate and dispatch
+				// and finally translate and dispatch
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
 		}
 	}
 
-	// When we've exited the loop, MainThread_Stop has already been called.
-	// So it's safe to call NativeShutdown.
+	// This is what breaks the emuthread out of its loop - it checks the UIState.
+	UpdateUIState(UISTATE_EXIT);
+
+	// Already stopped?
+	_dbg_assert_(mainThread.joinable());
+	mainThread.join();
+
+	// It's safe to call NativeShutdown, we've joined the main thread.
 	NativeShutdown();
 
 	g_VFS.Clear();

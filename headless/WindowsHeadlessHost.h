@@ -32,8 +32,6 @@ public:
 
 	void SwapBuffers() override;
 
-	void SendDebugOutput(const std::string &output) override;
-
 protected:
 	enum class RenderThreadState {
 		IDLE,

@@ -2259,6 +2259,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/PrxDecrypter.h
 	Core/ELF/ParamSFO.cpp
 	Core/ELF/ParamSFO.h
+	Core/EmuThread.cpp
+	Core/EmuThread.h
 	Core/FFMPEGCompat.h
 	Core/FileSystems/tlzrc.cpp
 	Core/FileSystems/BlobFileSystem.cpp
@@ -2845,8 +2847,6 @@ set(WindowsFiles
 	Windows/Hid/DualShock.cpp
 	Windows/Hid/SwitchPro.h
 	Windows/Hid/SwitchPro.cpp
-	Windows/EmuThread.cpp
-	Windows/EmuThread.h
 	Windows/GPU/D3D11Context.cpp
 	Windows/GPU/D3D11Context.h
 	Windows/GPU/WindowsGLContext.cpp

@@ -2060,7 +2060,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 			__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
 			// TODO: Convert based on pixel format / mode / something?
-			System_SendDebugScreenshot(std::string((const char *)&topaddr[0], linesize * 272), 272);
+			System_SendDebugScreenshot(&topaddr[0], linesize, 272);
 			return hleLogDebug(Log::sceIo, 0);
 		}
 		case EMULATOR_DEVCTL__TOGGLE_FASTFORWARD:

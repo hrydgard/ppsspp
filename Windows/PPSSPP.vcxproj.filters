@@ -103,9 +103,6 @@
     <ClCompile Include="Debugger\Debugger_Disasm.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="EmuThread.cpp">
-      <Filter>Windows</Filter>
-    </ClCompile>
     <ClCompile Include="XinputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
@@ -325,9 +322,6 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="Debugger\Debugger_Disasm.h">
       <Filter>Windows\Debugger</Filter>
-    </ClInclude>
-    <ClInclude Include="EmuThread.h">
-      <Filter>Windows</Filter>
     </ClInclude>
     <ClInclude Include="InputDevice.h">
       <Filter>Windows\Input</Filter>
@@ -842,6 +836,7 @@
     <None Include="..\assets\cheats.json">
       <Filter>assets</Filter>
     </None>
+    <None Include="..\AGENTS.md" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

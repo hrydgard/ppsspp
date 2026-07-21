@@ -416,6 +416,9 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
+
 extern AudioBackend *g_audioBackend;
 
 int64_t System_GetPropertyInt(SystemProperty prop) {
