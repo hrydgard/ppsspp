@@ -22,4 +22,9 @@
 
 bool MainThread_Ready();
 
-void MainThreadFunc();
+class GraphicsContext;
+
+// Doesn't take ownership of the graphicsContext, you have to delete it.
+// This should be used by platforms that launch a separate thread and doesn't
+// need to run a polling loop in it.
+void MainThreadFunc(GraphicsContext *graphicsContext);
