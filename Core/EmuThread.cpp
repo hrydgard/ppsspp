@@ -43,7 +43,6 @@ enum class EmuThreadState {
 static std::thread emuThread;
 static std::atomic<EmuThreadState> g_emuThreadState(EmuThreadState::DISABLED);
 
-static std::thread mainThread;
 static std::string g_error_message;
 static bool g_inLoop;
 
@@ -52,23 +51,7 @@ static GraphicsContext *g_graphicsContext;
 
 void MainThreadFunc();
 
-void MainThread_Start() {
-	mainThread = std::thread([]() {
-		MainThreadFunc();
-	});
-}
-
-void MainThread_Stop() {
-	// Already stopped?
-	UpdateUIState(UISTATE_EXIT);
-	_dbg_assert_(mainThread.joinable());
-	mainThread.join();
-}
-
 bool MainThread_Ready() {
-	if (g_inLoop) {
-		_dbg_assert_(mainThread.joinable());
-	}
 	return g_inLoop;
 }
 
@@ -151,8 +134,6 @@ void MainThreadFunc() {
 	const bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SetCurrentThreadName(useEmuThread ? "RenderThread" : "EmuThread");
-
-	System_SetWindowTitle("");
 
 	const bool performingRestart = NativeIsRestarting();
 

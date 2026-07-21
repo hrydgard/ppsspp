@@ -1146,11 +1146,18 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::Minimize();
 	}
 
-	// Emu thread (and render thread, if any) is always running!
+	// Emu thread is always running!
 	// OpenGL uses an externally managed render thread (due to GL's single-threaded context design).
 	// Vulkan manages its own render thread. Our D3D backend doesn't have a render thread.
 	// The Emu thread calls NativeInit() and NativeMain() etc.
-	MainThread_Start();
+
+	System_SetWindowTitle("");
+
+	std::thread mainThread = std::thread([]() {
+		MainThreadFunc();
+	});
+
+	// This thread can become the render thread or the emu thread depending on the backend.
 
 	g_InputManager.BeginPolling();
 
@@ -1190,15 +1197,18 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 		if (!wnd || !accel || !TranslateAccelerator(wnd, accel, &msg)) {
 			if (!DialogManager::IsDialogMessage(&msg)) {
-				//and finally translate and dispatch
+				// and finally translate and dispatch
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
 		}
 	}
 
-	// When we've exited the loop, MainThread_Stop has already been called.
-	// So it's safe to call NativeShutdown.
+	// Already stopped?
+	_dbg_assert_(mainThread.joinable());
+	mainThread.join();
+
+	// It's safe to call NativeShutdown, we've joined the main thread.
 	NativeShutdown();
 
 	g_VFS.Clear();
