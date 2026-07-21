@@ -55,6 +55,7 @@ public:
 	~IOSGLESContext() {
 		delete draw_;
 	}
+	bool NeedsRenderThread() const override { return true; }
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}

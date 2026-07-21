@@ -13,6 +13,8 @@ class WindowsGLContext : public WindowsGraphicsContext {
 public:
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 
+	bool NeedsRenderThread() const override { return true; }
+
 	bool InitFromRenderThread(std::string *errorMessage) override;
 	void ShutdownFromRenderThread() override;
 

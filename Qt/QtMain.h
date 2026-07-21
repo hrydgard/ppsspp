@@ -65,6 +65,8 @@ public:
 		renderManager_ = nullptr;
 	}
 
+	bool NeedsRenderThread() const override { return true; }
+
 	void Shutdown() override {}
 	void Resize() override {}
 

@@ -74,23 +74,24 @@ std::thread EmuThread_Start(GraphicsContext *graphicsContext, std::function<void
 }
 
 void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
-	_dbg_assert_(emuThread.joinable());
 	const EmuThreadState state = g_emuThreadState;
 	if (state != EmuThreadState::QUIT_REQUESTED &&
 		state != EmuThreadState::STOPPED) {
 		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
 	}
-	graphicsContext->ThreadFrameUntilCondition([] {
-		// Need to keep eating frames to allow the EmuThread to exit correctly.
-		return g_emuThreadState == EmuThreadState::STOPPED;
-	});
+	_dbg_assert_(emuThread.joinable());
+	if (graphicsContext->NeedsRenderThread()) {
+		graphicsContext->ThreadFrameUntilCondition([] {
+			// Need to keep eating frames to allow the EmuThread to exit correctly.
+			return g_emuThreadState == EmuThreadState::STOPPED;
+		});
+	}
 	emuThread.join();
 	emuThread = std::thread();
 }
 
 void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
-	const bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
-	if (useEmuThread) {
+	if (graphicsContext->NeedsRenderThread()) {
 		SetCurrentThreadName("RenderThread");
 		// This is now the render thread, and will spawn the emu thread below.
 
@@ -139,7 +140,6 @@ void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> post
 		g_inLoop = true;
 
 		graphicsContext->ThreadStart();
-
 		while (GetUIState() != UISTATE_EXIT) {
 			// We're here again, so the game quit.  Restart Run() which controls the UI.
 			// This way they can load a new game.
@@ -158,7 +158,6 @@ void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> post
 
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
-
 	}
 
 	graphicsContext->Shutdown();

@@ -16,6 +16,8 @@ public:
 		hw_render_.bottom_left_origin = true;
 	}
 
+   bool NeedsRenderThread() const override { return true; }
+
 	bool Init() override;
 	void CreateDrawContext() override;
 	void DestroyDrawContext() override;

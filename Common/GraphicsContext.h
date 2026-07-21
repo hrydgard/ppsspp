@@ -29,6 +29,9 @@ public:
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
 	virtual void *GetAPIContext() { return nullptr; }
 
+	// OpenGL returns true here.
+	virtual bool NeedsRenderThread() const { return false; }
+
 	// Called from the render thread from threaded backends.
 	virtual void ThreadStart() {}
 	virtual bool ThreadFrame(bool waitIfEmpty) { return true; }   // waitIfEmpty should normally be true, except in exit scenarios.
@@ -41,6 +44,8 @@ public:
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 
 	void ThreadFrameUntilCondition(std::function<bool()> conditionStopped) {
+		_dbg_assert_(NeedsRenderThread());
+
 		bool exitOnEmpty = false;
 
 		INFO_LOG(Log::System, "Executing graphicsContext->ThreadFrame to clear buffers");

@@ -9,6 +9,8 @@ public:
 	AndroidJavaEGLGraphicsContext();
 	~AndroidJavaEGLGraphicsContext() override { delete draw_; }
 
+	bool NeedsRenderThread() const override { return true; }
+
 	// This performs the actual initialization,
 	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 
