@@ -55,8 +55,8 @@ bool AndroidVulkanContext::InitAPI() {
 	return true;
 }
 
-bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
-	INFO_LOG(Log::G3D, "AndroidVulkanContext::InitFromRenderThread: desiredwidth=%d desiredheight=%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
+bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd) {
+	INFO_LOG(Log::G3D, "AndroidVulkanContext::InitFromRenderThread");
 	if (!g_Vulkan) {
 		ERROR_LOG(Log::G3D, "AndroidVulkanContext::InitFromRenderThread: No Vulkan context");
 		return false;

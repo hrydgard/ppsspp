@@ -12,7 +12,7 @@ public:
 	bool NeedsRenderThread() const override { return true; }
 
 	// This performs the actual initialization,
-	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
+	bool InitFromRenderThread(ANativeWindow *wnd) override;
 
 	void ShutdownFromRenderThread() override;
 

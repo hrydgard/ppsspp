@@ -10,7 +10,7 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
 }
 
-bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd) {
 	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	if (!CheckGLExtensions()) {
 		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
