@@ -1070,7 +1070,6 @@ namespace MainWindow {
 			g_InputManager.Shutdown();
 			WindowsRawInput::Shutdown();
 
-			UpdateUIState(UISTATE_EXIT);
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			// Main window is gone, this tells the message loop to exit.

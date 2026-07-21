@@ -12,6 +12,7 @@ class GraphicsContext {
 public:
 	virtual ~GraphicsContext() = default;
 
+	// These should be no-ops on backends that manage their own render thread.
 	virtual bool InitFromRenderThread(std::string *errorMessage) { return true; }
 	virtual void ShutdownFromRenderThread() {}
 

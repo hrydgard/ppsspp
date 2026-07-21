@@ -1318,6 +1318,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
+	// This is what breaks the emuthread out of its loop - it checks the UIState.
+	UpdateUIState(UISTATE_EXIT);
+
 	// Already stopped?
 	_dbg_assert_(mainThread.joinable());
 	mainThread.join();
