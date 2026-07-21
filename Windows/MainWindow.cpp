@@ -46,6 +46,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/EmuThread.h"
 #include "Core/Instance.h"
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -65,7 +66,6 @@
 #ifndef _M_ARM
 #include "Windows/DinputDevice.h"
 #endif
-#include "Windows/EmuThread.h"
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"

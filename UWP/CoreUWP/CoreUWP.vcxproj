@@ -136,6 +136,7 @@
     <ClInclude Include="..\..\Core\ELF\ParamSFO.h" />
     <ClInclude Include="..\..\Core\ELF\PBPReader.h" />
     <ClInclude Include="..\..\Core\ELF\PrxDecrypter.h" />
+    <ClInclude Include="..\..\Core\EmuThread.h" />
     <ClInclude Include="..\..\Core\FileLoaders\CachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\DiskCachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\HTTPFileLoader.h" />
@@ -407,6 +408,7 @@
     <ClCompile Include="..\..\Core\ELF\ParamSFO.cpp" />
     <ClCompile Include="..\..\Core\ELF\PBPReader.cpp" />
     <ClCompile Include="..\..\Core\ELF\PrxDecrypter.cpp" />
+    <ClCompile Include="..\..\Core\EmuThread.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\CachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\DiskCachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\HTTPFileLoader.cpp" />

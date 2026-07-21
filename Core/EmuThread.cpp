@@ -1,3 +1,7 @@
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+
 #include <mutex>
 #include <atomic>
 #include <thread>
@@ -13,9 +17,9 @@
 #include "Common/GraphicsContext.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
+#include "Core/EmuThread.h"
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -290,3 +294,5 @@ void MainThreadFunc() {
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
+
+#endif

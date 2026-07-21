@@ -17,6 +17,9 @@
 
 #pragma once
 
+// Utilities to manage Emu and Render threads.
+// TODO: Use across platforms, currently Windows-only.
+
 void MainThread_Start();
 void MainThread_Stop();
 bool MainThread_Ready();

@@ -55,7 +55,7 @@
 #include "Core/Instance.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/RetroAchievements.h"
-#include "Windows/EmuThread.h"
+#include "Core/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
 

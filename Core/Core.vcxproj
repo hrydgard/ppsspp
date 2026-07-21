@@ -463,6 +463,7 @@
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="Dialog\PSPOskConstants.cpp" />
+    <ClCompile Include="EmuThread.cpp" />
     <ClCompile Include="FileLoaders\ZipFileLoader.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="FrameTiming.cpp" />
@@ -1000,6 +1001,7 @@
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="Dialog\PSPOskConstants.h" />
+    <ClInclude Include="EmuThread.h" />
     <ClInclude Include="FileLoaders\ZipFileLoader.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
     <ClInclude Include="FrameTiming.h" />
