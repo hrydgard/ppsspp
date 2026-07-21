@@ -42,6 +42,7 @@ bool MainThread_Ready() {
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
 	SetCurrentThreadName("EmuThread");
+	AndroidJNIThreadContext context;
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.

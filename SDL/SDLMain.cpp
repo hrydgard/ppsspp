@@ -1713,7 +1713,6 @@ int main(int argc, char *argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if (File::IsDirectory(Path(argv[i]))) {
 			// Display the toast warning
-			System_Toast("Warning: Playing unpacked games may cause issues.");
 			break;
 		}
 	}

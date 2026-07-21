@@ -16,7 +16,6 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
 		displayRender();
 	}
-
 	public void onSurfaceCreated(GL10 gl, EGLConfig config) {
 		Log.i(TAG, "NativeRenderer (OpenGL): onSurfaceCreated");
 
