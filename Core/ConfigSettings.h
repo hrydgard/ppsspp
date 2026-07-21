@@ -241,4 +241,6 @@ private:
 	// We only support transform for ints.
 	std::string (*translateTo_)(int) = nullptr;
 	int (*translateFrom_)(const std::string &) = nullptr;
+
+	static std::unordered_map<void*, ConfigSetting*> &getPtrLUT();
 };

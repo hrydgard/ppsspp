@@ -28,9 +28,12 @@
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
+#include "Core/LuaContext.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "ext/sol/sol.hpp"
 
 namespace HLEPlugins {
 
@@ -42,6 +45,12 @@ static bool anyEnabled = false;
 
 static std::vector<PluginInfo> prxPlugins;
 
+struct LuaPlugin {
+	std::string filename;
+	std::unique_ptr<LuaContext> context;
+};
+static std::vector<LuaPlugin> luaPlugins;
+
 static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	PluginInfo info;
 
@@ -51,6 +60,10 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	if (options->Get("type", &value)) {
 		if (value == "prx") {
 			info.type = PluginType::PRX;
+		} else if (value == "lua") {
+			info.type = PluginType::LUA;
+		} else {
+			info.type = PluginType::INVALID;
 		}
 	}
 
@@ -177,6 +190,11 @@ void Init() {
 		if (plugin.type == PluginType::PRX) {
 			prxPlugins.push_back(plugin);
 			anyEnabled = true;
+		} else if (plugin.type == PluginType::LUA) {
+			luaPlugins.emplace_back(LuaPlugin{
+				plugin.filename, nullptr
+			});
+			anyEnabled = true;
 		}
 	}
 }
@@ -214,6 +232,32 @@ bool Load(PSPModule *pluginWaitingModule, SceUID threadID) {
 		INFO_LOG(Log::System, "Loaded plugin: '%s'", plugin.name.c_str());
 	}
 
+	bool anyLua = false;
+
+	for (LuaPlugin &luaPlugin : luaPlugins) {
+		if (!g_Config.bEnablePlugins) {
+			WARN_LOG(Log::System, "Plugins are disabled, ignoring enabled Lua plugin %s", luaPlugin.filename.c_str());
+			continue;
+		}
+		luaPlugin.context.reset(new LuaContext());
+		luaPlugin.context->Init();
+		// Load the file and inject into the context.
+		std::vector<u8> luaCodeBytes;
+		if (pspFileSystem.ReadEntireFile(luaPlugin.filename, luaCodeBytes, false) == 0) {
+			// Loaded the code. Let's copy it to a string.
+			std::string s;
+			s.resize(luaCodeBytes.size());
+			memcpy(s.data(), luaCodeBytes.data(), luaCodeBytes.size());
+			luaPlugin.context->RunCode(s);
+
+			anyLua = true;
+		}
+	}
+
+	if (anyLua) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Lua plugins are EXPERIMENTAL and the lua API WILL CHANGE in future versions!", 4.0f);
+	}
+
 	std::lock_guard<std::mutex> guard(g_inputMutex);
 	PluginDataKeys.clear();
 	return started;
@@ -225,6 +269,7 @@ void Unload() {
 
 void Shutdown() {
 	prxPlugins.clear();
+	luaPlugins.clear();
 	anyEnabled = false;
 	std::lock_guard<std::mutex> guard(g_inputMutex);
 	PluginDataKeys.clear();
@@ -237,6 +282,8 @@ void DoState(PointerWrap &p) {
 
 	// Remember if any were enabled.
 	Do(p, anyEnabled);
+
+	// Lua state needs to be serialized and reloaded. Ugh! Makes it hard to upgrade lua versions.
 }
 
 bool HasEnabled() {
