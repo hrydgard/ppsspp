@@ -50,8 +50,7 @@ SDL_Window *CreateHiddenWindow() {
 
 class GLDummyGraphicsContext : public GraphicsContext {
 public:
-	GLDummyGraphicsContext() {
-	}
+	GLDummyGraphicsContext() {}
 	~GLDummyGraphicsContext() { delete draw_; }
 
 	bool InitFromRenderThread(std::string *errorMessage) override;
@@ -165,8 +164,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 	gfx_ = graphicsContext;
 
 	std::thread th([&]{
-		// This is the "EmuThread".
-		SetCurrentThreadName("SDL-EmuThread");
+		SetCurrentThreadName("SDL-RenderThread");
 
 		while (threadState_ == RenderThreadState::IDLE)
 			sleep_ms(1, "sdl-idle-poll");

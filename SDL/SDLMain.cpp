@@ -838,6 +838,9 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
+
 // returns -1 on failure
 static int parseInt(const char *str) {
 	int val;

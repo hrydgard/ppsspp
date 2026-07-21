@@ -842,6 +842,7 @@
     <None Include="..\assets\cheats.json">
       <Filter>assets</Filter>
     </None>
+    <None Include="..\AGENTS.md" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

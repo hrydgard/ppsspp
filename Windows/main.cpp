@@ -885,6 +885,9 @@ static std::string GetDefaultLangRegion() {
 	}
 }
 
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
+
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
 #ifndef _DEBUG

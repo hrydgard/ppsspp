@@ -60,6 +60,13 @@
 
 static HeadlessHost *g_headlessHost;
 
+static Path g_comparisonScreenshot;
+static Path g_screenshotSavePath;
+static double g_maxScreenshotError = 0.0;
+static std::string g_debugOutputBuffer;
+static bool g_writeFailureScreenshot = true;
+static bool g_writeDebugOutput = true;
+
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;
@@ -98,29 +105,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
-	switch (type) {
-	case SystemRequestType::SEND_DEBUG_OUTPUT:
-		if (g_headlessHost) {
-			g_headlessHost->SendDebugOutput(param1);
-			return true;
-		}
-		return false;
-	case SystemRequestType::SEND_DEBUG_SCREENSHOT:
-		if (g_headlessHost) {
-			g_headlessHost->SendDebugScreenshot((const u8 *)param1.data(), (uint32_t)(param1.size() / param3), param3);
-			return true;
-		}
-		return false;
-	default:
-		return false;
-	}
-}
+
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
 bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) { return false; }
@@ -128,8 +119,7 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 	return "";
 }
 
-int printUsage(const char *progname, const char *reason)
-{
+int printUsage(const char *progname, const char *reason) {
 	if (reason != NULL)
 		fprintf(stderr, "Error: %s\n\n", reason);
 	fprintf(stderr, "PPSSPP Headless\n");
@@ -173,6 +163,98 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 	}
 }
 
+void FlushDebugOutput() {
+	if (!g_debugOutputBuffer.empty()) {
+		fwrite(g_debugOutputBuffer.data(), sizeof(char), g_debugOutputBuffer.length(), stdout);
+		g_debugOutputBuffer.clear();
+	}
+}
+
+void SetWriteDebugOutput(bool flag) {
+	g_writeDebugOutput = flag;
+}
+
+void SetComparisonScreenshot(const Path &filename, double maxError) {
+	g_comparisonScreenshot = filename;
+	g_maxScreenshotError = maxError;
+}
+void SetScreenshotSavePath(const Path &filename) {
+	g_screenshotSavePath = filename;
+}
+void SetWriteFailureScreenshot(bool flag) {
+	g_writeFailureScreenshot = flag;
+}
+
+void SendDebugOutput(std::string_view output) {
+	if (!g_writeDebugOutput)
+		return;
+#ifdef _WIN32
+	std::string str(output);
+	OutputDebugStringUTF8(str.c_str());
+#endif
+	if (output.find('\n') != output.npos) {
+		g_debugOutputBuffer += output;
+		FlushDebugOutput();
+	} else {
+		g_debugOutputBuffer += output;
+	}
+}
+
+bool System_SendDebugOutput(std::string_view data) {
+	SendDebugOutput(data);
+	return true;
+}
+
+void SendAndCollectOutput(const std::string &output) {
+	SendDebugOutput(output);
+	if (PSP_CoreParameter().collectDebugOutput) {
+		*PSP_CoreParameter().collectDebugOutput += output;
+	}
+}
+
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
+	const u8 *pixbuf = (const u8 *)data;
+	u32 w = width;
+	u32 h = height;
+
+	// We ignore the current framebuffer parameters and just grab the full screen.
+	const static u32 FRAME_STRIDE = 512;
+	const static u32 FRAME_WIDTH = 480;
+	const static u32 FRAME_HEIGHT = 272;
+
+	GPUDebugBuffer buffer;
+	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
+	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
+
+	// If a screenshot save path is set, save unconditionally.
+	if (!g_screenshotSavePath.empty()) {
+		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
+		if (saver.SaveActualBitmap(g_screenshotSavePath))
+			SendAndCollectOutput("Screenshot saved to: " + g_screenshotSavePath.ToVisualString() + "\n");
+	}
+
+	// Only compare if we have a reference.
+	if (g_comparisonScreenshot.empty()) {
+		return;
+	}
+
+	ScreenshotComparer comparer(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
+	double errors = comparer.Compare(g_comparisonScreenshot);
+	if (errors < 0) {
+		SendAndCollectOutput(comparer.GetError() + "\n");
+	}
+
+	if (errors > g_maxScreenshotError) {
+		SendAndCollectOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
+	}
+
+	if (errors > g_maxScreenshotError && g_writeFailureScreenshot) {
+		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
+			SendAndCollectOutput("Actual output written to: __testfailure.bmp\n");
+		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));
+	}
+}
+
 struct AutoTestOptions {
 	double timeout;
 	double maxScreenshotError;
@@ -200,7 +282,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 
 	if (opt.compare) {
-		headlessHost->SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
+		SetComparisonScreenshot(ExpectedScreenshotFromFilename(coreParameter.fileToStart), opt.maxScreenshotError);
 	}
 
 	std::string error_string;
@@ -251,7 +333,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 			if (!opt.bench) {
 				printf("%s", output.c_str());
 
-				System_SendDebugOutput("TIMEOUT\n");
+				SendDebugOutput("TIMEOUT\n");
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}
 
@@ -279,7 +361,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	PSP_Shutdown(true);
 
 	if (!opt.bench) {
-		headlessHost->FlushDebugOutput();
+		FlushDebugOutput();
 	}
 
 	if (opt.compare && passed) {
@@ -561,11 +643,11 @@ int main(int argc, const char* argv[]) {
 	}
 
 	if (cmdLineOptions.screenshotFilename.has_value())
-		headlessHost->SetComparisonScreenshot(Path(std::string(cmdLineOptions.screenshotFilename.value())), testOptions.maxScreenshotError);
+		SetComparisonScreenshot(Path(std::string(cmdLineOptions.screenshotFilename.value())), testOptions.maxScreenshotError);
 	if (cmdLineOptions.screenshotFilenameSave.has_value())
-		headlessHost->SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
-	headlessHost->SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
-	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
+		SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
+	SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
+	SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?

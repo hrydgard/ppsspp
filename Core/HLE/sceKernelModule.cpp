@@ -1876,7 +1876,7 @@ int __KernelGPUReplay() {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
-		System_SendDebugScreenshot(std::string((const char *)&topaddr[0], linesize * 272), 272);
+		System_SendDebugScreenshot(&topaddr[0], linesize, 272);
 		Core_Stop();
 	}
 
