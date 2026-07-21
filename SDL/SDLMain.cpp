@@ -29,6 +29,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/NativeApp.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Core/CmdLine.h"
+#include "Core/EmuThread.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Net/Resolve.h"
@@ -878,48 +879,6 @@ void UpdateWindowState(SDL_Window *window) {
 	g_windowState.update = false;
 }
 
-enum class EmuThreadState {
-	DISABLED,
-	START_REQUESTED,
-	RUNNING,
-	QUIT_REQUESTED,
-	STOPPED,
-};
-
-static std::thread emuThread;
-static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
-
-static void EmuThreadFunc(GraphicsContext *graphicsContext) {
-	SetCurrentThreadName("EmuThread");
-
-	// There's no real requirement that NativeInit happen on this thread.
-	// We just call the update/render loop here.
-	emuThreadState = (int)EmuThreadState::RUNNING;
-
-	NativeInitGraphics(graphicsContext);
-
-	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		NativeFrame(graphicsContext);
-	}
-	emuThreadState = (int)EmuThreadState::STOPPED;
-
-	NativeShutdownGraphics();
-}
-
-static void EmuThreadStart(GraphicsContext *context) {
-	emuThreadState = (int)EmuThreadState::START_REQUESTED;
-	emuThread = std::thread(&EmuThreadFunc, context);
-}
-
-static void EmuThreadStop(const char *reason) {
-	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
-}
-
-static void EmuThreadJoin() {
-	emuThread.join();
-	emuThread = std::thread();
-}
-
 struct InputStateTracker {
 	void MouseCaptureControl(SDL_Window *window) {
 		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_IsMappingMouseInput);
@@ -1682,8 +1641,6 @@ int main(int argc, char *argv[]) {
 
 	Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
-	bool mainThreadIsRender = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
-
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 	char iconPath[PATH_MAX];
@@ -1741,7 +1698,7 @@ int main(int argc, char *argv[]) {
 	}
 	EnableFZ();
 
-	EmuThreadStart(graphicsContext);
+	std::thread emuThread = EmuThread_Start(graphicsContext, nullptr);
 
 	graphicsContext->ThreadStart();
 
@@ -1752,8 +1709,6 @@ int main(int argc, char *argv[]) {
 	initializeOSXExtras();
 #endif
 
-	bool waitOnExit = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
-
 	// Check if the path to a directory containing an unpacked ISO is passed as a command line argument
 	for (int i = 1; i < argc; i++) {
 		if (File::IsDirectory(Path(argv[i]))) {
@@ -1763,10 +1718,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	const bool mainThreadIsRender = graphicsContext->NeedsRenderThread();
 	if (!mainThreadIsRender) {
 		// Vulkan mode uses this.
 		// We should only be a message pump. This allows for lower latency
-		// input events, and so on.
+		// input events, and so on. The spawned EmuThread runs emulation and rendering.
 		while (true) {
 			SDL_Event event;
 			if (SDL_WaitEventTimeout(&event, 100)) {
@@ -1794,16 +1750,12 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	} else while (true) {
+		// OpenGL mode uses this.
 		{
 			SDL_Event event;
 			while (SDL_PollEvent(&event)) {
 				ProcessSDLEvent(window, event, &inputTracker);
 			}
-		}
-		if (g_QuitRequested || g_RestartRequested)
-			break;
-		if (emuThreadState == (int)EmuThreadState::DISABLED) {
-			NativeFrame(graphicsContext);
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
@@ -1813,8 +1765,8 @@ int main(int argc, char *argv[]) {
 
 		inputTracker.MouseCaptureControl(window);
 
-		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
-		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
+		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized;
+		if (graphicsContext->NeedsRenderThread() && !renderThreadPaused) {
 			if (!graphicsContext->ThreadFrame(true))
 				break;
 		}
@@ -1829,11 +1781,7 @@ int main(int argc, char *argv[]) {
 		if (g_rebootEmuThread) {
 			fprintf(stderr, "rebooting emu thread");
 			g_rebootEmuThread = false;
-			EmuThreadStop("shutdown");
-			graphicsContext->ThreadFrameUntilCondition([]() {
-				return emuThreadState == (int)EmuThreadState::STOPPED || emuThreadState == (int)EmuThreadState::DISABLED;
-			});
-			EmuThreadJoin();
+			EmuThread_Join(graphicsContext, emuThread);
 			graphicsContext->ThreadEnd();
 			graphicsContext->ShutdownFromRenderThread();
 
@@ -1851,20 +1799,12 @@ int main(int argc, char *argv[]) {
 				return 1;
 			}
 
-			EmuThreadStart(graphicsContext);
+			emuThread = EmuThread_Start(graphicsContext, nullptr);
 			graphicsContext->ThreadStart();
 		}
 	}
 
-	EmuThreadStop("shutdown");
-
-	if (waitOnExit) {
-		graphicsContext->ThreadFrameUntilCondition([]() {
-			return emuThreadState == (int)EmuThreadState::STOPPED || emuThreadState == (int)EmuThreadState::DISABLED;
-		});
-	}
-
-	EmuThreadJoin();
+	EmuThread_Join(graphicsContext, emuThread);
 
 	delete joystick;
 

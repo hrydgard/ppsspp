@@ -30,7 +30,7 @@ class GraphicsContext;
 // need to run a polling loop in it.
 void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> postFrame);
 
-
-// If you're not using MainThreadFunc, you can at least use these to manage an emu thread.
+// If you're not using MainThreadFunc, you can at least use these to manage a spinning EmuThread (that calls NativeFrame),
+// whether your graphics context requires multithreading or not.
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, std::function<void()> postFrame);
 void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread);
