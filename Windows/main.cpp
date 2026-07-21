@@ -1267,7 +1267,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			_dbg_assert_(false);
 			return;
 		}
-		MainThreadFunc(graphicsContext.get());
+		MainThreadFunc(graphicsContext.get(), []() {});
 		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 	});
 

@@ -1018,6 +1018,10 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	if (!(Core_IsActive() || Core_IsStepping()))
+		UpdateUIState(UISTATE_MENU);
+	Core_StateProcessed();
+
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
 			sleep_ms(16, "window-hidden");
