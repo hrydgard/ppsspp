@@ -272,11 +272,7 @@ static void EmuThreadFunc() {
 
 	INFO_LOG(Log::System, "Entering emu thread");
 
-	// Wait for render loop to get started.
-	INFO_LOG(Log::System, "Runloop: Waiting for displayInit...");
-	_dbg_assert_(graphicsContext);
-
-	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
+	_assert_(graphicsContext);
 	if (!NativeInitGraphics(graphicsContext)) {
 		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
 		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
@@ -1754,14 +1750,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 
 	AndroidJNIThreadContext ctx;
 	JNIEnv *env = getEnv();
-
-	if (!graphicsContext) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
-		renderLoopRunning = false;
-		exitRenderLoop = false;
-		ANativeWindow_release(wnd);
-		return;
-	}
+	_assert_(graphicsContext);
 
 	if (exitRenderLoop) {
 		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");

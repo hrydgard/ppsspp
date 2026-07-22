@@ -41,14 +41,22 @@ bool MainThread_Ready() {
 }
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
+	INFO_LOG(Log::G3D, "Entering emu thread");
 	SetCurrentThreadName("EmuThread");
+
 	AndroidJNIThreadContext context;
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
 	g_emuThreadState = EmuThreadState::RUNNING;
 
-	NativeInitGraphics(graphicsContext);
+	if (!NativeInitGraphics(graphicsContext)) {
+		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
+		// If this fails, which it normally shouldn't, let's bail.
+		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
+	} else {
+		INFO_LOG(Log::G3D, "EmuThread: Entering loop");
+	}
 
 	while (g_emuThreadState != EmuThreadState::QUIT_REQUESTED) {
 		// We're here again, so the game quit.  Restart Run() which controls the UI.
@@ -63,9 +71,12 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()
 		}
 	}
 
+	INFO_LOG(Log::System, "emuThreadState was set to QUIT_REQUESTED, left EmuThreadFunc loop. Setting state to STOPPED.");
+
 	g_emuThreadState = EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
+	INFO_LOG(Log::System, "Leaving emu thread");
 }
 
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
