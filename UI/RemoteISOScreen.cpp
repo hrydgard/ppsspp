@@ -338,7 +338,7 @@ void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 	PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
 	if (status != PERMISSION_STATUS_GRANTED) {
 		// Proceed with local network functionality
-		tab->Add(new Choice(ri->T("Ask for network permission")))->OnClick.Add([this](UI::EventParams &e) {
+		tab->Add(new Choice(ri->T("Ask for network permission")))->OnClick.Add([](UI::EventParams &e) {
 			System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
 		});
 		return;

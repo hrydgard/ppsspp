@@ -22,6 +22,7 @@ AndroidVulkanContext::~AndroidVulkanContext() {
 }
 
 bool AndroidVulkanContext::InitAPI() {
+	_dbg_assert_(!g_Vulkan);
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Init");
 	init_glslang();
 
@@ -117,6 +118,7 @@ void AndroidVulkanContext::Shutdown() {
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyInstance();
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
+	// TODO: Actually the above is inaccurate..
 	finalize_glslang();
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Shutdown completed");
 }
@@ -124,17 +126,22 @@ void AndroidVulkanContext::Shutdown() {
 void AndroidVulkanContext::Resize() {
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
+	// This stuff does not seem to be needed, as the window doesn't change here.
+#if 0
 	g_Vulkan->DestroySwapchain();
 
 	// TODO: We should only destroy the surface here if the window changed. We can track this inside g_Vulkan.
+	// Actually, the window can't really change, can it?
 	g_Vulkan->DestroySurface();
 
 	// ==========================================
 
 	g_Vulkan->ReinitSurface();
+#endif
 
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-	g_Vulkan->InitSwapchain(presentMode);
+	g_Vulkan->InitSwapchain(presentMode);  // This also destroys the old swapchain and makes a nice transition.
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }

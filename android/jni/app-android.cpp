@@ -130,7 +130,7 @@ struct FrameCommand {
 };
 
 static std::mutex frameCommandLock;
-static std::queue<FrameCommand> frameCommands;
+static std::vector<FrameCommand> g_frameCommands;
 
 static std::string systemName;
 static std::string langRegion;
@@ -286,15 +286,6 @@ static void EmuThreadFunc() {
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		NativeFrame(graphicsContext);
-
-		std::lock_guard<std::mutex> guard(frameCommandLock);
-		if (!ppssppActivity) {
-			ERROR_LOG(Log::System, "No activity, clearing commands");
-			while (!frameCommands.empty())
-				frameCommands.pop();
-			break;
-		}
-		// Still under lock here.
 		ProcessFrameCommands(env);
 	}
 
@@ -328,7 +319,7 @@ static void EmuThreadJoin() {
 
 static void PushCommand(std::string_view cmd, std::string_view param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
-	frameCommands.emplace(std::string(cmd), std::string(param));
+	g_frameCommands.emplace_back(std::string(cmd), std::string(param));
 }
 
 // Android implementation of callbacks to the Java part of the app
@@ -1007,8 +998,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	{
 		std::lock_guard<std::mutex> guard(frameCommandLock);
-		while (!frameCommands.empty())
-			frameCommands.pop();
+		g_frameCommands.clear();
 	}
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");
 }
@@ -1685,9 +1675,18 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 
 // Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
-	while (!frameCommands.empty()) {
-		const FrameCommand &frameCmd = frameCommands.front();
-
+	std::vector<FrameCommand> frameCommands;
+	{
+		std::lock_guard<std::mutex> guard(frameCommandLock);
+		if (!ppssppActivity) {
+			ERROR_LOG(Log::System, "No activity, clearing commands");
+		} else {
+			frameCommands = std::move(g_frameCommands);
+			INFO_LOG(Log::System, "Processing %zu frame commands", g_frameCommands.size());
+		}
+		g_frameCommands.clear();
+	}
+	for (const FrameCommand &frameCmd : frameCommands) {
 		DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
 		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
@@ -1695,8 +1694,6 @@ static void ProcessFrameCommands(JNIEnv *env) {
 		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd);
 		env->DeleteLocalRef(param);
-
-		frameCommands.pop();
 	}
 }
 
@@ -1718,6 +1715,8 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRende
 		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
 		return false;
 	}
+
+	_assert_(!exitRenderLoop);
 
 	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
 
@@ -1789,13 +1788,8 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		renderer_inited = true;
 
 		while (!exitRenderLoop) {
-			{
-				NativeFrame(graphicsContext);
-			}
-			{
-				std::lock_guard<std::mutex> guard(frameCommandLock);
-				ProcessFrameCommands(env);
-			}
+			NativeFrame(graphicsContext);
+			ProcessFrameCommands(env);
 		}
 		INFO_LOG(Log::G3D, "Leaving Vulkan main loop.");
 	} else {
