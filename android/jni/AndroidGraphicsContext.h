@@ -20,9 +20,6 @@ class AndroidGraphicsContext : public GraphicsContext {
 public:
 	// This is different than the base class function since on
 	// Android (EGL, Vulkan) we do have all this info on the render thread.
-	virtual bool InitFromRenderThread(ANativeWindow *wnd) = 0;
+	virtual bool Init(ANativeWindow *wnd) { return true; }
 	virtual void BeginAndroidShutdown() {}
-
-private:
-	using GraphicsContext::InitFromRenderThread;
 };

@@ -12,8 +12,7 @@ public:
 	bool NeedsRenderThread() const override { return true; }
 
 	// This performs the actual initialization,
-	bool InitFromRenderThread(ANativeWindow *wnd) override;
-
+	bool InitFromRenderThread(std::string *errorMessage) override;
 	void ShutdownFromRenderThread() override;
 
 	void Shutdown() override {}

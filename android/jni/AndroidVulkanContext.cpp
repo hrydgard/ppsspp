@@ -55,7 +55,7 @@ bool AndroidVulkanContext::InitAPI() {
 	return true;
 }
 
-bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd) {
+bool AndroidVulkanContext::Init(ANativeWindow *wnd) {
 	INFO_LOG(Log::G3D, "AndroidVulkanContext::InitFromRenderThread");
 	if (!g_Vulkan) {
 		ERROR_LOG(Log::G3D, "AndroidVulkanContext::InitFromRenderThread: No Vulkan context");
@@ -101,7 +101,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd) {
 }
 
 void AndroidVulkanContext::ShutdownFromRenderThread() {
-	INFO_LOG(Log::G3D, "AndroidVulkanContext::Shutdown");
+	INFO_LOG(Log::G3D, "AndroidVulkanContext::ShutdownFromRenderThread");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	delete draw_;
 	draw_ = nullptr;
@@ -113,7 +113,7 @@ void AndroidVulkanContext::ShutdownFromRenderThread() {
 }
 
 void AndroidVulkanContext::Shutdown() {
-	INFO_LOG(Log::G3D, "Calling NativeShutdownGraphics");
+	INFO_LOG(Log::G3D, "AndroidVulkanContext::Shutdown");
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyInstance();
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
@@ -128,6 +128,9 @@ void AndroidVulkanContext::Resize() {
 
 	// TODO: We should only destroy the surface here if the window changed. We can track this inside g_Vulkan.
 	g_Vulkan->DestroySurface();
+
+	// ==========================================
+
 	g_Vulkan->ReinitSurface();
 
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);

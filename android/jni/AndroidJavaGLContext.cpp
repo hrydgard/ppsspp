@@ -10,9 +10,10 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
 }
 
-bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd) {
+bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	if (!CheckGLExtensions()) {
+		*errorMessage = "CheckExtensions failed";
 		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
 		return false;
 	}

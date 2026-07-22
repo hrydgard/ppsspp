@@ -1034,7 +1034,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 	std::string errorMessage;
 	if (!renderer_inited) {
 		INFO_LOG(Log::G3D, "NativeApp.displayInit() first time");
-		if (!graphicsContext->InitFromRenderThread((ANativeWindow *)nullptr)) {
+		if (!graphicsContext->InitFromRenderThread(&errorMessage)) {
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
@@ -1068,8 +1068,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 
 		INFO_LOG(Log::G3D, "Shut down both threads. Now let's bring it up again!");
 
-		if (!graphicsContext->InitFromRenderThread((ANativeWindow *)nullptr)) {
-			System_Toast("Graphics initialization failed. Quitting.");
+		std::string errorMessage;
+		if (!graphicsContext->InitFromRenderThread(&errorMessage)) {
+			System_Toast(("Graphics initialization failed: Quitting: " + errorMessage).c_str());
 			return false;
 		}
 
@@ -1232,7 +1233,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 }
 
 // This doesn't get called on the Vulkan path.
-// We don't need a render thread "loop" as this gets called repeatedly by the system.
+// We don't need a render thread "loop" as this gets called repeatedly by the system, by a system
+// render thread.
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
@@ -1240,14 +1242,20 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		SetCurrentThreadName("AndroidRender");
 	}
 
-	if (IsVREnabled() && !StartVRRender())
+	if (IsVREnabled() && !StartVRRender()) {
 		return;
+	}
 
 	// This is the "GPU thread". Call ThreadFrame.
-	if (!graphicsContext || !graphicsContext->ThreadFrame(true)) {
+	if (!graphicsContext) {
 		return;
 	}
 	_assert_(graphicsContext->NeedsRenderThread());
+
+	if (!graphicsContext->ThreadFrame(true)) {
+		INFO_LOG(Log::G3D, "ThreadFrame returned false");
+		return;
+	}
 
 	if (IsVREnabled()) {
 		UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
@@ -1769,7 +1777,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	WARN_LOG(Log::G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
 		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
-	if (!graphicsContext->InitFromRenderThread(wnd)) {
+	if (!graphicsContext->Init(wnd)) {
 		// On Android, if we get here, really no point in continuing.
 		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
 		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
