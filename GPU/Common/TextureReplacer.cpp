@@ -1053,6 +1053,14 @@ ignoreAddress = false    # Reduces duplicates at the cost of making hash less re
 # Use / for folders not \\, avoid special characters, and stick to lowercase.
 # See wiki for more info.
 
+[buttons]
+# Optional mapping for UI button textures used by the on-screen controls.
+# Keys can be either the button id (I_CROSS) or short name (cross).
+# Values are paths relative to this TEXTURES/<GAMEID> folder.
+# Example:
+# cross = ui/buttons/cross.png
+# I_CIRCLE = ui/buttons/circle.png
+
 [hashranges]
 # This is useful for images that very clearly have smaller dimensions, like 480x272 image. They'll need to be redumped, since the hash will change. See the documentation.
 # Example: 08b31020,512,512 = 480,272
