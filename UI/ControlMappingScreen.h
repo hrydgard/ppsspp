@@ -134,7 +134,7 @@ public:
 
 	void update() override;
 
-	InputMode PassInputToMapper() const {
+	InputMode PassInputToMapper() const override {
 		return InputMode::Other | InputMode::Keyboard | InputMode::Mouse;
 	}
 

@@ -55,7 +55,6 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 std::vector<std::string> __mac_getDeviceList();
 int __mac_startCapture(int width, int height);
 int __mac_stopCapture();
-
 #elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
 #include <fcntl.h>
 #include <linux/videodev2.h>

@@ -56,6 +56,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/StringUtils.h"
+#include "Core/HW/Camera.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -503,6 +504,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 #endif /* PPSSPP_PLATFORM(WINDOWS) */
 		return true;
 	}
+	case SystemRequestType::CAMERA_COMMAND:
+#if PPSSPP_PLATFORM(MAC)
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
+			__mac_startCapture(width, height);
+		} else if (!strcmp(param1.c_str(), "stopVideo")) {
+			__mac_stopCapture();
+		}
+		return true;
+#else
+		return false;
+#endif
 	case SystemRequestType::NOTIFY_UI_EVENT:
 	{
 		switch ((UIEventNotification)param3) {
@@ -531,6 +545,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
+std::vector<std::string> System_GetCameraDeviceList() {
+#if PPSSPP_PLATFORM(MAC)
+	return __mac_getDeviceList();
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+	return __v4l_getDeviceList();
+#endif
+}
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
