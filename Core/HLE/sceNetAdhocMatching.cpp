@@ -1624,20 +1624,20 @@ int NetAdhocMatching_Delete(int matchingId) {
 	SceNetAdhocMatchingContext* prev = NULL;
 
 	// Context Pointer
-	SceNetAdhocMatchingContext* item = contexts;
+	SceNetAdhocMatchingContext* context = contexts;
 
 	// Iterate contexts
-	for (; item != NULL; item = item->next) {
+	for (; context != NULL; context = context->next) {
 		// Found matching ID
-		if (item->id == matchingId) {
+		if (context->id == matchingId) {
 			// Unlink Left (Beginning)
-			if (prev == NULL) contexts = item->next;
+			if (prev == NULL) contexts = context->next;
 
 			// Unlink Left (Other)
-			else prev->next = item->next;
+			else prev->next = context->next;
 
 			// Stop it first if it's still running
-			if (item->running) {
+			if (context->running) {
 				NetAdhocMatching_Stop(matchingId);
 			}
 			// Delete the Fake PSP Thread
@@ -1645,24 +1645,24 @@ int NetAdhocMatching_Delete(int matchingId) {
 			//delete item->matchingThread;
 
 			// Free allocated memories
-			free(item->hello);
-			free(item->rxbuf);
-			clearPeerList(item); //deleteAllMembers(item);
-			(*item->peerPort).clear();
-			delete item->peerPort;
+			free(context->hello);
+			free(context->rxbuf);
+			clearPeerList(context); //deleteAllMembers(item);
+			(*context->peerPort).clear();
+			delete context->peerPort;
 			// Destroy locks
-			item->eventlock->lock(); // Make sure it's not locked when being deleted
-			item->eventlock->unlock();
-			delete item->eventlock;
-			item->inputlock->lock(); // Make sure it's not locked when being deleted
-			item->inputlock->unlock();
-			delete item->inputlock;
-			item->socketlock->lock(); // Make sure it's not locked when being deleted
-			item->socketlock->unlock();
-			delete item->socketlock;
+			context->eventlock->lock(); // Make sure it's not locked when being deleted
+			context->eventlock->unlock();
+			delete context->eventlock;
+			context->inputlock->lock(); // Make sure it's not locked when being deleted
+			context->inputlock->unlock();
+			delete context->inputlock;
+			context->socketlock->lock(); // Make sure it's not locked when being deleted
+			context->socketlock->unlock();
+			delete context->socketlock;
 			// Free item context memory
-			free(item);
-			item = NULL;
+			delete context;
+			context = nullptr;
 
 			// Making sure there are no leftover matching events from this session which could cause a crash on the next session
 			deleteMatchingEvents(matchingId);
@@ -1672,7 +1672,7 @@ int NetAdhocMatching_Delete(int matchingId) {
 		}
 
 		// Set Previous Reference
-		prev = item;
+		prev = context;
 	}
 
 	return 0;
@@ -1775,10 +1775,10 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	}
 
 	// Allocate Context Memory
-	SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
+	SceNetAdhocMatchingContext *context = new SceNetAdhocMatchingContext();
 
 	// Allocated Memory
-	if (context != NULL) {
+	if (context) {  // This can't be null but let's not reformat all this code..
 		// Create PDP Socket
 		SceNetEtherAddr localmac;
 		getLocalMac(&localmac);
@@ -1842,7 +1842,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 		}
 
 		// Free Memory
-		free(context);
+		delete context;
 	}
 
 	// Out of Memory
