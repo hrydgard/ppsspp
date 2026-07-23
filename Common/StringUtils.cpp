@@ -92,13 +92,7 @@ bool containsNoCase(std::string_view haystack, std::string_view needle) {
 }
 
 int CountChar(std::string_view haystack, char needle) {
-	int count = 0;
-	for (int i = 0; i < (int)haystack.size(); i++) {
-		if (haystack[i] == needle) {
-			count++;
-		}
-	}
-	return count;
+	return std::count(haystack.begin(), haystack.end(), needle);
 }
 
 std::string SanitizeString(std::string_view input, StringRestriction restriction, int minLength, int maxLength) {

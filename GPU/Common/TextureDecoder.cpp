@@ -55,7 +55,7 @@ static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
 		__m128i cursor2 = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
-		__m128i update = _mm_set1_epi16(0x2455U);
+		const __m128i update = _mm_set1_epi16(0x2455U);
 		const __m128i *p = (const __m128i *)checkp;
 		for (u32 i = 0; i < size / 16; i += 4) {
 			__m128i chunk = _mm_mullo_epi16(_mm_load_si128(&p[i]), cursor2);
@@ -94,7 +94,7 @@ static u32 QuickTexHashNEON(const void *checkp, u32 size) {
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER) || !PPSSPP_ARCH(ARMV7)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
-		uint16x8_t update = vdupq_n_u16(0x2455U);
+		const uint16x8_t update = vdupq_n_u16(0x2455U);
 
 		const u32 *p = (const u32 *)checkp;
 		const u32 *pend = p + size / 4;
@@ -193,7 +193,7 @@ static u32 QuickTexHashLSX(const void *checkp, u32 size) {
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 		__m128i cursor = __lsx_vrepli_d(0);
 		__m128i cursor2 = __lsx_vld(QuickTexHashInitial, 0);
-		__m128i update = __lsx_vreplgr2vr_h(0x2455U);
+		const __m128i update = __lsx_vreplgr2vr_h(0x2455U);
 		const __m128i *p = (const __m128i *)checkp;
 		for (u32 i = 0; i < size / 16; i += 4) {
 			__m128i chunk = __lsx_vmul_h(__lsx_vld(&p[i], 0), cursor2);

@@ -556,33 +556,34 @@ bool GEExpressionFunctions::parseReference(char *str, uint32_t &referenceIndex) 
 	// And matrix data.  Maybe should allow column/row specification.
 	int subindex = -1;
 	int len = -1;
+	size_t str_len = strlen(str);
 
 	if (sscanf(str, "bone%i%n", &subindex, &len) == 1) {
-		if (len == strlen(str) && subindex < 96) {
+		if (len == str_len && subindex < 96) {
 			referenceIndex = (uint32_t)GEReferenceIndex::BONE_MATRIX + subindex;
 			return true;
 		}
 	}
 	if (sscanf(str, "world%i%n", &subindex, &len) == 1) {
-		if (len == strlen(str) && subindex < 12) {
+		if (len == str_len && subindex < 12) {
 			referenceIndex = (uint32_t)GEReferenceIndex::WORLD_MATRIX + subindex;
 			return true;
 		}
 	}
 	if (sscanf(str, "view%i%n", &subindex, &len) == 1) {
-		if (len == strlen(str) && subindex < 12) {
+		if (len == str_len && subindex < 12) {
 			referenceIndex = (uint32_t)GEReferenceIndex::VIEW_MATRIX + subindex;
 			return true;
 		}
 	}
 	if (sscanf(str, "proj%i%n", &subindex, &len) == 1) {
-		if (len == strlen(str) && subindex < 16) {
+		if (len == str_len && subindex < 16) {
 			referenceIndex = (uint32_t)GEReferenceIndex::PROJ_MATRIX + subindex;
 			return true;
 		}
 	}
 	if (sscanf(str, "tgen%i%n", &subindex, &len) == 1 || sscanf(str, "texgen%i%n", &subindex, &len) == 1) {
-		if (len == strlen(str) && subindex < 12) {
+		if (len == str_len && subindex < 12) {
 			referenceIndex = (uint32_t)GEReferenceIndex::TGEN_MATRIX + subindex;
 			return true;
 		}

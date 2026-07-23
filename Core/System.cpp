@@ -821,6 +821,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 	if (!(g_Config.iDumpFileTypes & (int)type)) {
 		return;
 	}
+	const char *typeStr = DumpFileTypeToString(type);
 	if (!dataPtr) {
 		ERROR_LOG(Log::Loader, "Error dumping %s: invalid pointer", DumpFileTypeToString(DumpFileType::EBOOT));
 		return;
@@ -842,7 +843,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 
 	std::string_view titleStr = "Dump Decrypted Eboot";
 	if (type != DumpFileType::EBOOT) {
-		titleStr = s->T(DumpFileTypeToString(type));
+		titleStr = s->T(typeStr);
 	}
 
 	// If the file already exists, don't dump it again.
@@ -877,7 +878,7 @@ void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view nam
 	fwrite(dataPtr, sizeof(u8), lengthToWrite, file);
 	fclose(file);
 
-	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", DumpFileTypeToString(type), fullPath.ToVisualString().c_str());
+	INFO_LOG(Log::sceModule, "Successfully wrote %s to %s", typeStr, fullPath.ToVisualString().c_str());
 
 	// Re-using the translation string here.
 	g_OSD.Show(OSDType::MESSAGE_SUCCESS, titleStr, fullPath.ToVisualString(), 5.0f, "decr");

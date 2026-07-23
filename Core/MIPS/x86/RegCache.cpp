@@ -127,17 +127,18 @@ X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 		X64Reg reg = allocOrder[i];
 		if (xregs[reg].allocLocked)
 			continue;
-		if (xregs[reg].mipsReg != MIPS_REG_INVALID && regs[xregs[reg].mipsReg].locked)
+		MIPSGPReg mipsReg = xregs[reg].mipsReg;
+		if (mipsReg != MIPS_REG_INVALID && regs[mipsReg].locked)
 			continue;
 
 		// Awesome, a clobbered reg.  Let's use it.
-		if (MIPSAnalyst::IsRegisterClobbered(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+		if (MIPSAnalyst::IsRegisterClobbered(mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
 			*clobbered = true;
 			return reg;
 		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.
-		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
 			continue;
 		}
 

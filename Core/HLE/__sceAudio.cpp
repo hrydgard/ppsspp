@@ -59,8 +59,8 @@ int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
 int srcFrequency = 0;
 
-const int hwSampleRate = 44100;
-const int hwBlockSize = 64;
+constexpr int hwSampleRate = 44100;
+constexpr int hwBlockSize = 64;
 
 static int audioIntervalCycles;
 static int audioHostIntervalCycles;
@@ -333,7 +333,7 @@ void __AudioUpdate(bool resetRecording) {
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
 	bool firstChannel = true;
-	const int16_t srcBufferSize = hwBlockSize * 2;
+	constexpr int16_t srcBufferSize = hwBlockSize * 2;
 	int16_t srcBuffer[srcBufferSize];
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{

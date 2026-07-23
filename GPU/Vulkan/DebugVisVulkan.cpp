@@ -59,7 +59,7 @@ void DrawGPUMemoryVis(UIContext *ui, GPUCommon *gpu) {
 
 		size_t totalBudget = 0;
 		size_t totalUsedBytes = 0;
-		for (auto &budget : budgets) {
+		for (const auto &budget : budgets) {
 			totalBudget += budget.budget;
 			totalUsedBytes += budget.usage;
 		}

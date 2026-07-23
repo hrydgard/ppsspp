@@ -332,19 +332,20 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);
-		VkViewport &vp = dynState.viewport;
-		vp.x = vpAndScissor.viewportX;
-		vp.y = vpAndScissor.viewportY;
-		vp.width = vpAndScissor.viewportW;
-		vp.height = vpAndScissor.viewportH;
-		vp.minDepth = 0.0f;
-		vp.maxDepth = 1.0f;
-
-		ScissorRect &scissor = dynState.scissor;
-		scissor.x = vpAndScissor.scissorX;
-		scissor.y = vpAndScissor.scissorY;
-		scissor.width = std::max(0, vpAndScissor.scissorW);
-		scissor.height = std::max(0, vpAndScissor.scissorH);
+		dynState.viewport = {
+			(float)vpAndScissor.viewportX,
+			(float)vpAndScissor.viewportY,
+			(float)vpAndScissor.viewportW,
+			(float)vpAndScissor.viewportH,
+			0.0f,
+			1.0f
+		};
+		dynState.scissor = {
+			vpAndScissor.scissorX,
+			vpAndScissor.scissorY,
+			std::max(0, vpAndScissor.scissorW),
+			std::max(0, vpAndScissor.scissorH)
+		};
 	}
 }
 

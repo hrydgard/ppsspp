@@ -103,11 +103,11 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 }
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code)
-	: vulkan_(vulkan), id_(id), flags_(flags) {
+	: vulkan_(vulkan), id_(id), flags_(flags), source_(code) {
 	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), new std::string(id.Description()));
-	VERBOSE_LOG(Log::G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
+	VERBOSE_LOG(Log::G3D, "Compiled fragment shader:\n%s\n", code);
 }
 
 VulkanFragmentShader::~VulkanFragmentShader() {
@@ -134,11 +134,11 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 }
 
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, VertexShaderFlags flags, const char *code, bool useHWTransform)
-	: vulkan_(vulkan), useHWTransform_(useHWTransform), flags_(flags), id_(id) {
+	: vulkan_(vulkan), useHWTransform_(useHWTransform), flags_(flags), id_(id), source_(code) {
 	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(id.Description()));
-	VERBOSE_LOG(Log::G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
+	VERBOSE_LOG(Log::G3D, "Compiled vertex shader:\n%s\n", code);
 }
 
 VulkanVertexShader::~VulkanVertexShader() {

@@ -142,7 +142,7 @@ bool IsDepthTestEffectivelyDisabled() {
 	return !gstate.isDepthWriteEnabled();
 }
 
-const bool nonAlphaSrcFactors[16] = {
+static constexpr bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,
 	false, // GE_SRCBLEND_SRCALPHA,
@@ -161,7 +161,7 @@ const bool nonAlphaSrcFactors[16] = {
 	true,
 };
 
-const bool nonAlphaDestFactors[16] = {
+static constexpr bool nonAlphaDestFactors[16] = {
 	true,  // GE_DSTBLEND_SRCCOLOR,
 	true,  // GE_DSTBLEND_INVSRCCOLOR,
 	false, // GE_DSTBLEND_SRCALPHA,
