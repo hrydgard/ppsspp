@@ -110,27 +110,32 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice p
    newInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
    newInfo.ppEnabledExtensionNames = newInfo.enabledExtensionCount ? enabledExtensionNames.data() : nullptr;
 
-   // Then check for VkPhysicalDeviceFeatures2 chaining or pEnabledFeatures to enable required features. Note that when both
-   // structs are present Features2 takes precedence. vkCreateDevice parameters don't give us a simple way to detect
-   // VK_KHR_get_physical_device_properties2 usage so we'll always try both paths.
+   // Add required features through VkPhysicalDeviceFeatures2 when it is present.
+   // Vulkan requires pEnabledFeatures to be NULL in that case.
    std::unordered_map<VkPhysicalDeviceFeatures *, VkPhysicalDeviceFeatures> originalFeaturePointers;
    VkPhysicalDeviceFeatures placeholderEnabledFeatures{};
+   bool has_features2 = false;
 
    for (const VkBaseOutStructure *next = (const VkBaseOutStructure *)pCreateInfo->pNext; next != nullptr;) {
       if (next->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2) {
          VkPhysicalDeviceFeatures *enabledFeatures = &((VkPhysicalDeviceFeatures2 *)next)->features;
          originalFeaturePointers.try_emplace(enabledFeatures, *enabledFeatures);
+         has_features2 = true;
       }
 
       next = (const VkBaseOutStructure *)next->pNext;
    }
 
-   if (newInfo.pEnabledFeatures) {
-      placeholderEnabledFeatures = *newInfo.pEnabledFeatures;
-   }
+   if (!has_features2) {
+      if (newInfo.pEnabledFeatures) {
+         placeholderEnabledFeatures = *newInfo.pEnabledFeatures;
+      }
 
-   newInfo.pEnabledFeatures = &placeholderEnabledFeatures;
-   originalFeaturePointers.try_emplace((VkPhysicalDeviceFeatures *)newInfo.pEnabledFeatures, *newInfo.pEnabledFeatures);
+      newInfo.pEnabledFeatures = &placeholderEnabledFeatures;
+      originalFeaturePointers.try_emplace((VkPhysicalDeviceFeatures *)newInfo.pEnabledFeatures, *newInfo.pEnabledFeatures);
+   } else {
+      newInfo.pEnabledFeatures = nullptr;
+   }
 
    for (const auto& pair : originalFeaturePointers) {
       for (uint32_t i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++) {
