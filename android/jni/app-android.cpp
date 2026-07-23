@@ -291,7 +291,7 @@ static void EmuThreadFunc() {
 	INFO_LOG(Log::System, "emuThreadState was set to QUIT_REQUESTED, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
-	NativeShutdownGraphics();
+	NativeShutdownGraphics(graphicsContext);
 
 	INFO_LOG(Log::System, "Leaving EmuThread");
 }
@@ -1796,7 +1796,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		INFO_LOG(Log::G3D, "Not entering main loop.");
 	}
 
-	NativeShutdownGraphics();
+	NativeShutdownGraphics(graphicsContext);
 
 	renderer_inited = false;
 	graphicsContext->ThreadEnd();

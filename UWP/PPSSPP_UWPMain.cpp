@@ -101,7 +101,7 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 	g_InputManager.Shutdown();
 
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
-	NativeShutdownGraphics();
+	NativeShutdownGraphics(ctx_.get());
 	NativeShutdown();
 	g_VFS.Clear();
 

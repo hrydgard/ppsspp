@@ -543,7 +543,7 @@ void MainUI::EmuThreadFunc() {
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
-	NativeShutdownGraphics();
+	NativeShutdownGraphics(graphicsContext);
 }
 
 void MainUI::EmuThreadStart() {

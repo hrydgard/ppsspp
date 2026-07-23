@@ -134,7 +134,7 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 
 	INFO_LOG(Log::System, "Emulation thread shutting down\n");
-	NativeShutdownGraphics();
+	NativeShutdownGraphics(graphicsContext);
 
 	// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
 	INFO_LOG(Log::System, "Emulation thread stopping\n");
