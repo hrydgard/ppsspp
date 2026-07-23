@@ -2137,13 +2137,21 @@ if((MACOSX OR IOS) AND NOT LIBRETRO)
 		Core/Util/DarwinFileSystemServices.h)
 endif()
 
+set(CmdLine)
+
+if(NOT LIBRETRO)
+    list(APPEND CmdLine
+        Core/CmdLine.cpp
+        Core/CmdLine.h
+    )
+endif()
+
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
 	${CommonJIT}
-	Core/CmdLine.cpp
-	Core/CmdLine.h
+	${CmdLine}
 	Core/Config.cpp
 	Core/Config.h
 	Core/ConfigSettings.cpp
