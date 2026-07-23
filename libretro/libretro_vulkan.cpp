@@ -29,14 +29,15 @@ static struct {
 } vk_init_info;
 static bool DEDICATED_ALLOCATION;
 
-#define VULKAN_MAX_SWAPCHAIN_IMAGES 8
+struct VkSwapchainImage {
+	VkImage handle;
+	VkDeviceMemory memory;
+	retro_vulkan_image retro_image;
+};
+
 struct VkSwapchainKHR_T {
 	uint32_t count;
-	struct {
-		VkImage handle;
-		VkDeviceMemory memory;
-		retro_vulkan_image retro_image;
-	} images[VULKAN_MAX_SWAPCHAIN_IMAGES];
+	std::vector<VkSwapchainImage> images;
 	std::mutex mutex;
 	std::condition_variable condVar;
 	int current_index;
@@ -209,7 +210,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice dev
 		chain.count++;
 		swapchain_mask >>= 1;
 	}
-	assert(chain.count <= VULKAN_MAX_SWAPCHAIN_IMAGES);
+	chain.images.resize(chain.count);
 
 	for (uint32_t i = 0; i < chain.count; i++) {
 		{
@@ -329,7 +330,7 @@ static VKAPI_ATTR void VKAPI_CALL vkDestroySwapchainKHR_libretro(VkDevice device
 		vkFreeMemory(device, chain.images[i].memory, pAllocator);
 	}
 
-	memset(&chain.images, 0x00, sizeof(chain.images));
+	chain.images.clear();
 	chain.count = 0;
 	chain.current_index = -1;
 	chain.ever_presented = false;
