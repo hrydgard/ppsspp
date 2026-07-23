@@ -45,7 +45,7 @@ public:
 	bool InitAPI();
 
 	bool Init(CAMetalLayer *layer);
-	void ShutdownFromRenderThread() override;  // Inverses InitFromRenderThread.
+	void ShutdownFromRenderThread() override;
 
 	void Shutdown() override;
 	void Resize() override {}
@@ -202,7 +202,7 @@ void VulkanRenderLoop(IOSVulkanContext *graphicsContext, CAMetalLayer *metalLaye
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
 
-	if (!graphicsContext->InitFromRenderThread(metalLayer)) {
+	if (!graphicsContext->Init(metalLayer)) {
 		// On Android, if we get here, really no point in continuing.
 		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
 		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
