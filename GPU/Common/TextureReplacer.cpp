@@ -929,6 +929,15 @@ static typename std::unordered_map<ReplacementCacheKey, Value>::const_iterator L
 			return alias;
 	}
 
+	if (!ignoreAddress) {
+		// Address Only.
+		key.cachekey = cachekey & ~0xFFFFFFFFULL;
+		key.hash = 0;
+		alias = map.find(key);
+		if (alias != map.end())
+			return alias;
+	}
+
 	// Anything with this data hash (a little dangerous.)
 	key.cachekey = 0;
 	key.hash = hash;
