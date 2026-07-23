@@ -203,7 +203,7 @@ int utimensat(int fd, const char *path, const struct timespec times[2]) {
 }
 #endif
 
-static void ProcessFrameCommands(JNIEnv *env);
+static void ProcessFrameCommands();
 
 JNIEnv* getEnv() {
 	JNIEnv *env;
@@ -268,7 +268,6 @@ static void EmuThreadFunc() {
 	SetCurrentThreadName("Entering EmuThread");
 
 	AndroidJNIThreadContext jniContext;
-	JNIEnv *env = getEnv();  // TODO: Make it gettable from AndroidJNIThreadContext
 
 	INFO_LOG(Log::System, "Entering emu thread");
 
@@ -286,7 +285,7 @@ static void EmuThreadFunc() {
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		NativeFrame(graphicsContext);
-		ProcessFrameCommands(env);
+		ProcessFrameCommands();
 	}
 
 	INFO_LOG(Log::System, "emuThreadState was set to QUIT_REQUESTED, left EmuThreadFunc loop. Setting state to STOPPED.");
@@ -723,7 +722,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
-	ProcessFrameCommands(env);
+	ProcessFrameCommands();
 
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
@@ -1674,7 +1673,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 }
 
 // Call this under frameCommandLock.
-static void ProcessFrameCommands(JNIEnv *env) {
+static void ProcessFrameCommands() {
+	JNIEnv *env = getEnv();
 	std::vector<FrameCommand> frameCommands;
 	{
 		std::lock_guard<std::mutex> guard(frameCommandLock);
@@ -1789,7 +1789,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 
 		while (!exitRenderLoop) {
 			NativeFrame(graphicsContext);
-			ProcessFrameCommands(env);
+			ProcessFrameCommands();
 		}
 		INFO_LOG(Log::G3D, "Leaving Vulkan main loop.");
 	} else {

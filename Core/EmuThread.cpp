@@ -4,9 +4,9 @@
 #include <atomic>
 #include <thread>
 
-#include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Common/System/Application.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -40,7 +40,7 @@ bool MainThread_Ready() {
 	return g_inLoop;
 }
 
-static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
+static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
 	INFO_LOG(Log::G3D, "Entering emu thread");
 	SetCurrentThreadName("EmuThread");
 
@@ -50,7 +50,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()
 	// We just call the update/render loop here.
 	g_emuThreadState = EmuThreadState::RUNNING;
 
-	if (!NativeInitGraphics(graphicsContext)) {
+	if (!application->InitGraphics(graphicsContext)) {
 		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
 		// If this fails, which it normally shouldn't, let's bail.
 		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
@@ -61,7 +61,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()
 	while (g_emuThreadState != EmuThreadState::QUIT_REQUESTED) {
 		// We're here again, so the game quit.  Restart Run() which controls the UI.
 		// This way they can load a new game.
-		NativeFrame(graphicsContext);
+		application->Frame(graphicsContext);
 		if (postFrame) {
 			postFrame();
 		}
@@ -75,13 +75,13 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, std::function<void()
 
 	g_emuThreadState = EmuThreadState::STOPPED;
 
-	NativeShutdownGraphics();
+	application->ShutdownGraphics(graphicsContext);
 	INFO_LOG(Log::System, "Leaving emu thread");
 }
 
-std::thread EmuThread_Start(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
+std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
 	g_emuThreadState = EmuThreadState::START_REQUESTED;
-	std::thread emuThread = std::thread(&EmuThreadFunc, graphicsContext, postFrame);
+	std::thread emuThread = std::thread(&EmuThreadFunc, graphicsContext, application, postFrame);
 	return emuThread;
 }
 
@@ -102,7 +102,7 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 	emuThread = std::thread();
 }
 
-void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> postFrame) {
+void MainThreadFunc(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
 	if (graphicsContext->NeedsRenderThread()) {
 		SetCurrentThreadName("RenderThread");
 		// This is now the render thread, and will spawn the emu thread below.
@@ -114,7 +114,7 @@ void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> post
 
 		g_inLoop = true;
 
-		std::thread emuThread = EmuThread_Start(graphicsContext, postFrame);
+		std::thread emuThread = EmuThread_Start(graphicsContext, application, postFrame);
 
 		graphicsContext->ThreadStart();
 		// This thread becomes the render thread.
@@ -144,8 +144,8 @@ void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> post
 		std::string error_string;
 		bool success = graphicsContext->InitFromRenderThread(&error_string);
 
-		NativeInitGraphics(graphicsContext);
-		NativeResized();
+		application->InitGraphics(graphicsContext);
+		// NativeResized();
 
 		DEBUG_LOG(Log::Boot, "Done.");
 
@@ -155,18 +155,18 @@ void MainThreadFunc(GraphicsContext *graphicsContext, std::function<void()> post
 		while (GetUIState() != UISTATE_EXIT) {
 			// We're here again, so the game quit.  Restart Run() which controls the UI.
 			// This way they can load a new game.
-			NativeFrame(graphicsContext);
+			application->Frame(graphicsContext);
 			postFrame();
 		}
 		Core_Stop();
 
 		// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
 		Core_StateProcessed();
-		NativeFrame(graphicsContext);
+		application->Frame(graphicsContext);
 
 		g_inLoop = false;
 
-		NativeShutdownGraphics();
+		application->ShutdownGraphics(graphicsContext);
 
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();

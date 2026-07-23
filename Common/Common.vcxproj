@@ -536,6 +536,7 @@
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
+    <ClInclude Include="System\Application.h" />
     <ClInclude Include="System\Display.h" />
     <ClInclude Include="System\OSD.h" />
     <ClInclude Include="System\Request.h" />

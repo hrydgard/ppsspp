@@ -784,6 +784,9 @@
     <ClInclude Include="Data\Text\StringWriter.h">
       <Filter>Data\Text</Filter>
     </ClInclude>
+    <ClInclude Include="System\Application.h">
+      <Filter>System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

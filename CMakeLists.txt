@@ -874,6 +874,7 @@ add_library(Common STATIC
 	Common/Audio/AudioBackend.h
 	Common/System/Display.cpp
 	Common/System/Display.h
+	Common/System/Application.h
 	Common/System/System.h
 	Common/System/NativeApp.h
 	Common/System/Request.cpp

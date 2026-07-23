@@ -1261,13 +1261,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	System_SetWindowTitle("");
 
 	std::thread mainThread = std::thread([]() {
+		NativeApplication application;
 		std::unique_ptr<GraphicsContext> graphicsContext(CreateGraphicsContextOrExit());
 		if (!graphicsContext) {
 			// We're screwed. Should never get here.
 			_dbg_assert_(false);
 			return;
 		}
-		MainThreadFunc(graphicsContext.get(), []() {});
+		MainThreadFunc(graphicsContext.get(), &application, []() {});
 		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 	});
 

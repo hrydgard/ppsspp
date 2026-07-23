@@ -953,7 +953,7 @@ bool CreateGlobalPipelines() {
 	return true;
 }
 
-void NativeShutdownGraphics() {
+void NativeShutdownGraphics(GraphicsContext *graphicContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
 
 	if (g_screenManager) {
@@ -1032,7 +1032,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
 	if (g_restartGraphics == 1) {
 		// Used for debugging only.
-		NativeShutdownGraphics();
+		NativeShutdownGraphics(graphicsContext);
 		g_restartGraphics++;
 		return;
 	}
