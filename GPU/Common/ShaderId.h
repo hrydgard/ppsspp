@@ -115,9 +115,7 @@ static inline FShaderBit operator +(FShaderBit bit, int i) {
 }
 
 struct ShaderID {
-	ShaderID() {
-		clear();
-	}
+	ShaderID() : d(0) {}
 	void clear() {
 		d = 0;
 	}
