@@ -1,0 +1,125 @@
+set(UISource)
+if(NOT LIBRETRO)
+	list(APPEND UISource
+		AudioCommon.h
+		AudioCommon.cpp
+	)
+endif()
+
+list(APPEND UISource
+	ImDebugger/ImDebugger.cpp
+	ImDebugger/ImDebugger.h
+	ImDebugger/ImGe.cpp
+	ImDebugger/ImGe.h
+	ImDebugger/ImConsole.cpp
+	ImDebugger/ImConsole.h
+	ImDebugger/ImDisasmView.cpp
+	ImDebugger/ImDisasmView.h
+	ImDebugger/ImMemView.cpp
+	ImDebugger/ImMemView.h
+	ImDebugger/ImStructViewer.cpp
+	ImDebugger/ImStructViewer.h
+	ImDebugger/ImJitViewer.cpp
+	ImDebugger/ImJitViewer.h
+	DiscordIntegration.cpp
+	NativeApp.cpp
+	AdhocServerScreen.h
+	AdhocServerScreen.cpp
+	BackgroundAudio.h
+	BackgroundAudio.cpp
+	Background.h
+	Background.cpp
+	ChatScreen.h
+	ChatScreen.cpp
+	BaseScreens.h
+	BaseScreens.cpp
+	DebugOverlay.cpp
+	DebugOverlay.h
+	DevScreens.cpp
+	DevScreens.h
+	DisplayLayoutScreen.cpp
+	DisplayLayoutScreen.h
+	EmuScreen.h
+	EmuScreen.cpp
+	GameInfoCache.h
+	GameInfoCache.cpp
+	IAPScreen.cpp
+	IAPScreen.h
+	MainScreen.h
+	MainScreen.cpp
+	GameBrowser.h
+	GameBrowser.cpp
+	MiscScreens.h
+	MiscScreens.cpp
+	MiscViews.h
+	MiscViews.cpp
+	PauseScreen.h
+	PauseScreen.cpp
+	SimpleDialogScreen.h
+	SimpleDialogScreen.cpp
+	TabbedDialogScreen.h
+	TabbedDialogScreen.cpp
+	GameScreen.h
+	GameScreen.cpp
+	GameSettingsScreen.h
+	GameSettingsScreen.cpp
+	DeveloperToolsScreen.h
+	DeveloperToolsScreen.cpp
+	DriverManagerScreen.h
+	DriverManagerScreen.cpp
+	GPUDriverTestScreen.h
+	GPUDriverTestScreen.cpp
+	TiltAnalogSettingsScreen.h
+	TiltAnalogSettingsScreen.cpp
+	TouchControlLayoutScreen.h
+	TouchControlLayoutScreen.cpp
+	TouchControlVisibilityScreen.h
+	TouchControlVisibilityScreen.cpp
+	GamepadEmu.h
+	GamepadEmu.cpp
+	JoystickHistoryView.h
+	JoystickHistoryView.cpp
+	LoadStateConfirmScreen.h
+	LoadStateConfirmScreen.cpp
+	OnScreenDisplay.h
+	OnScreenDisplay.cpp
+	ControlMappingScreen.h
+	ControlMappingScreen.cpp
+	RemoteISOScreen.h
+	RemoteISOScreen.cpp
+	ReportScreen.h
+	ReportScreen.cpp
+	SavedataScreen.h
+	SavedataScreen.cpp
+	SystemInfoScreen.h
+	SystemInfoScreen.cpp
+	Store.h
+	Store.cpp
+	UploadScreen.h
+	UploadScreen.cpp
+	CwCheatScreen.h
+	CwCheatScreen.cpp
+	InstallZipScreen.h
+	InstallZipScreen.cpp
+	JitCompareScreen.h
+	JitCompareScreen.cpp
+	MemStickScreen.h
+	MemStickScreen.cpp
+	ProfilerDraw.h
+	ProfilerDraw.cpp
+	CustomButtonMappingScreen.h
+	CustomButtonMappingScreen.cpp
+	Theme.h
+	Theme.cpp
+	UIAtlas.h
+	UIAtlas.cpp
+	RetroAchievementScreens.cpp
+	RetroAchievementScreens.h
+)
+
+# Headless and unit test builds never link this - they don't have a UI to show. See the
+# comment above add_subdirectory(UI) in the root CMakeLists.txt for why USE_DISCORD=1 has
+# to be defined before this add_subdirectory() call rather than in here.
+add_library(ppsspp_ui STATIC ${UISource})
+target_link_libraries(ppsspp_ui Common Core)
+setup_target_project(ppsspp_ui UI)
