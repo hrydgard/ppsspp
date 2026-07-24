@@ -953,7 +953,7 @@ bool CreateGlobalPipelines() {
 	return true;
 }
 
-void NativeShutdownGraphics() {
+void NativeShutdownGraphics(GraphicsContext *graphicContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
 
 	if (g_screenManager) {
@@ -1018,6 +1018,10 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	if (!(Core_IsActive() || Core_IsStepping()))
+		UpdateUIState(UISTATE_MENU);
+	Core_StateProcessed();
+
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
 			sleep_ms(16, "window-hidden");
@@ -1028,7 +1032,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
 	if (g_restartGraphics == 1) {
 		// Used for debugging only.
-		NativeShutdownGraphics();
+		NativeShutdownGraphics(graphicsContext);
 		g_restartGraphics++;
 		return;
 	}

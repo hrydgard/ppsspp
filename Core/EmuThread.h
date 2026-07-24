@@ -16,6 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include <functional>
+
+#include "Common/System/Application.h"
 
 // Utilities to manage Emu and Render threads.
 // TODO: Use across platforms, currently Windows-only.
@@ -27,4 +30,9 @@ class GraphicsContext;
 // Doesn't take ownership of the graphicsContext, you have to delete it.
 // This should be used by platforms that launch a separate thread and doesn't
 // need to run a polling loop in it.
-void MainThreadFunc(GraphicsContext *graphicsContext);
+void MainThreadFunc(GraphicsContext * graphicsContext, Application *application, std::function<void()> postFrame);
+
+// If you're not using MainThreadFunc, you can at least use these to manage a spinning EmuThread (that calls NativeFrame),
+// whether your graphics context requires multithreading or not.
+std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame);
+void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread);

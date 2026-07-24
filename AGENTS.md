@@ -44,3 +44,11 @@ when making cross platform changes.
 
 New unit tests are added by listing them in availableTests in unittest.cpp. If they are large, put them in
 separate files in the unittest subdirectory. Remember to update both CMakeLists.txt and the visual studio project.
+
+## Quick rebuild on Linux
+
+You don't need to do ./b.sh --debug to verify every single little change, instead use this shortcut:
+
+```bash
+cd build ; make -j32; cd ..
+```

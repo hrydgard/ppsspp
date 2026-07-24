@@ -874,6 +874,7 @@ add_library(Common STATIC
 	Common/Audio/AudioBackend.h
 	Common/System/Display.cpp
 	Common/System/Display.h
+	Common/System/Application.h
 	Common/System/System.h
 	Common/System/NativeApp.h
 	Common/System/Request.cpp
@@ -1385,15 +1386,15 @@ add_library(pugixml STATIC
 	ext/pugixml/pugixml.hpp
 )
 
-set(nativeExtra)
-set(nativeExtraLibs)
+set(platformExtra)
+set(platformExtraLibs)
 
 if(OPENXR AND NOT ARMV7_DEVICE)
-	list(APPEND nativeExtraLibs openxr_loader)
+	list(APPEND platformExtraLibs openxr_loader)
 endif()
 
 if(IOS OR MACOSX)
-	list(APPEND nativeExtra
+	list(APPEND platformExtra
 		Common/Render/Text/draw_text_cocoa.mm
 		Common/Render/Text/draw_text_cocoa.h)
 endif()
@@ -1413,7 +1414,7 @@ if(ANDROID)
 	)
 	# No target
 elseif(IOS AND NOT LIBRETRO)
-	list(APPEND nativeExtra
+	list(APPEND platformExtra
 		ios/main.mm
 		ios/AppDelegate.mm
 		ios/AppDelegate.h
@@ -1445,16 +1446,16 @@ elseif(IOS AND NOT LIBRETRO)
 		Common/Battery/AppleBatteryClient.m
 	)
 
-	list(APPEND nativeExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
+	list(APPEND platformExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
-		list(APPEND nativeExtraLibs "-weak_framework GameController")
+		list(APPEND platformExtraLibs "-weak_framework GameController")
 	endif()
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
-		list(APPEND nativeExtraLibs "-weak_framework PhotosUI")
+		list(APPEND platformExtraLibs "-weak_framework PhotosUI")
 	endif()
 
 	if(NOT ICONV_LIBRARY)
-		list(APPEND nativeExtraLibs iconv)
+		list(APPEND platformExtraLibs iconv)
 	endif()
 
 	# TODO: Enable arc globally?
@@ -1476,7 +1477,7 @@ elseif(IOS AND NOT LIBRETRO)
 
 	set(TargetBin PPSSPP)
 elseif(IOS AND LIBRETRO)
-	list(APPEND nativeExtraLibs "-framework GLKit")
+	list(APPEND platformExtraLibs "-framework GLKit")
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
 	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
@@ -1496,21 +1497,21 @@ elseif(USING_QT_UI)
 		set_source_files_properties(Common/Battery/AppleBatteryClient.m
 			Common/Render/Text/draw_text_cocoa.mm
 			PROPERTIES COMPILE_FLAGS -fobjc-arc)
-		list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
+		list(APPEND platformExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
 	endif()
 	include_directories(Qt)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
-	list(APPEND nativeExtraLibs Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
+	list(APPEND platformExtraLibs Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
 	set(TargetBin PPSSPPQt)
 
 	# Enable SDL joystick if SDL is found
 	if(SDL_LIB_TARGET)
 		add_compile_definitions(SDL)
-		list(APPEND nativeExtra
+		list(APPEND platformExtra
 			SDL/SDLJoystick.h
 			SDL/SDLJoystick.cpp
 		)
-		list(APPEND nativeExtraLibs ${SDL_LIB_TARGET})
+		list(APPEND platformExtraLibs ${SDL_LIB_TARGET})
 	endif()
 
 elseif(WIN32)
@@ -1528,25 +1529,31 @@ else()
 	endif()
 	# Require SDL
 	add_compile_definitions(SDL)
-	list(APPEND nativeExtra
+	# SDLMain and its close relatives are the entry point for this frontend, so they're
+	# compiled directly into the executable (like Windows/main.cpp is for PPSSPPWindows),
+	# not into the "native" static library. SDLMain.cpp calls into Core (EmuThread_Start),
+	# and Core calls back into the UI target (NativeInitGraphics etc) - keeping SDLMain out
+	# of an intermediate static library avoids a link order dependency cycle that GNU ld
+	# can't resolve in its single left-to-right archive scan.
+	list(APPEND NativeAppSource
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
 		SDL/SDLMain.cpp
 		SDL/SDLGLGraphicsContext.cpp
 	)
 	if(NOT USE_LIBNX)
-		list(APPEND nativeExtra
+		list(APPEND NativeAppSource
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
 	if(SDL_TTF_LIB_TARGET)
-		list(APPEND nativeExtraLibs ${SDL_TTF_LIB_TARGET})
+		list(APPEND platformExtraLibs ${SDL_TTF_LIB_TARGET})
 	endif()
 	if(FONTCONFIG_LIB_TARGET)
-		list(APPEND nativeExtraLibs ${FONTCONFIG_LIB_TARGET})
+		list(APPEND platformExtraLibs ${FONTCONFIG_LIB_TARGET})
 	endif()
 	if(APPLE)
-		list(APPEND nativeExtra
+		list(APPEND NativeAppSource
 			SDL/SDLCocoaMetalLayer.h
 			SDL/SDLCocoaMetalLayer.mm
 			SDL/CocoaBarItems.mm
@@ -1567,12 +1574,12 @@ else()
 			Common/Battery/AppleBatteryClient.m
 			Common/Render/Text/draw_text_cocoa.mm
 			PROPERTIES COMPILE_FLAGS -fobjc-arc)
-		list(APPEND nativeExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
-		list(APPEND nativeExtraLibs ${SDL_LIB_TARGET})
+		list(APPEND platformExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+		list(APPEND platformExtraLibs ${SDL_LIB_TARGET})
 	elseif(USING_EGL)
-		list(APPEND nativeExtraLibs pthread ${SDL_LIB_TARGET})
+		list(APPEND platformExtraLibs pthread ${SDL_LIB_TARGET})
 	else()
-		list(APPEND nativeExtraLibs ${SDL_LIB_TARGET})
+		list(APPEND platformExtraLibs ${SDL_LIB_TARGET})
 	endif()
 endif()
 
@@ -1580,14 +1587,15 @@ if(WIN32)
 	target_link_libraries(Common winmm dsound dxguid d2d1 dwrite d3d11 Version)
 endif()
 
+set(UISource)
 if(NOT LIBRETRO)
-	list(APPEND NativeAppSource
+	list(APPEND UISource
 		UI/AudioCommon.h
 		UI/AudioCommon.cpp
 	)
 endif()
 
-list(APPEND NativeAppSource
+list(APPEND UISource
 	UI/ImDebugger/ImDebugger.cpp
 	UI/ImDebugger/ImDebugger.h
 	UI/ImDebugger/ImGe.cpp
@@ -1698,6 +1706,13 @@ list(APPEND NativeAppSource
 	UI/RetroAchievementScreens.h
 )
 
+# The UI screens and NativeApp callbacks live in their own target, mirroring UI.vcxproj on
+# Windows. Core calls back into it (e.g. NativeInitGraphics), while frontend entry points like
+# SDLMain.cpp call into Core, so it's kept out of "native" and linked directly into the final
+# executable to avoid archive link-order cycles.
+add_library(UI OBJECT ${UISource})
+target_compile_features(UI PUBLIC cxx_std_17)
+
 if(ANDROID)
 	if(ARM)
 		list(APPEND NativeAppSource android/jni/ArmEmitterTest.cpp)
@@ -1706,16 +1721,16 @@ if(ANDROID)
 	endif()
 
 	if (NOT LIBRETRO)
-		list(APPEND nativeExtra ${NativeAppSource})
+		list(APPEND platformExtra ${NativeAppSource} ${UISource})
 	endif()
 endif()
 
 if (IOS AND NOT LIBRETRO)
-	list(APPEND nativeExtra ${NativeAppSource})
+	list(APPEND platformExtra ${NativeAppSource} ${UISource})
 endif()
 
 add_library(native STATIC
-	${nativeExtra}
+	${platformExtra}
 	Common/Render/Text/draw_text_qt.cpp
 	Common/Render/Text/draw_text_qt.h
 	ext/jpge/jpgd.cpp
@@ -1737,7 +1752,7 @@ if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64) OR (LINUX AND LOONGA
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${LIB7ZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} pugixml vma gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB} Common)
+target_link_libraries(native ${LIBZIP_LIBRARY} ${LIB7ZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} pugixml vma gason udis86 ${RT_LIB} ${platformExtraLibs} ${ATOMIC_LIB} Common)
 
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
@@ -3118,7 +3133,7 @@ if(TargetBin)
 	if(ANDROID AND ARM64)
 		target_link_options(${TargetBin} PRIVATE "-Wl,-z,max-page-size=16384")
 	endif()
-	target_link_libraries(${TargetBin} ${LinkCommon} Common)
+	target_link_libraries(${TargetBin} ${LinkCommon} Common UI)
 endif()
 
 # installs

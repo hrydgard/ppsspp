@@ -11,7 +11,7 @@ public:
 
 	bool InitAPI();
 
-	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
+	bool Init(ANativeWindow *wnd) override;
 	void ShutdownFromRenderThread() override;  // Inverses InitFromRenderThread.
 
 	void Shutdown() override;

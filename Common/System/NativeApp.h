@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Common/Common.h"
+#include "Common/System/Application.h"
 
 // The Native App API.
 //
@@ -91,7 +92,7 @@ void NativeMix(short *audio, int num_samples, int sampleRateHz, void *userdata);
 // The graphics context should still be active when calling this, as freeing
 // of graphics resources happens here.
 // Main thread.
-void NativeShutdownGraphics();
+void NativeShutdownGraphics(GraphicsContext *graphicsContext);
 void NativeShutdown();
 
 void PostLoadConfig();
@@ -112,3 +113,17 @@ bool Native_IsWindowHidden();
 bool Native_UpdateScreenScale(int width, int height, float customScale);
 
 AudioBackend *System_CreateAudioBackend();
+
+class NativeApplication : public Application {
+public:
+	NativeApplication() {}
+	bool InitGraphics(GraphicsContext *graphicsContext) override {
+		return NativeInitGraphics(graphicsContext);
+	}
+	void ShutdownGraphics(GraphicsContext *graphicsContext) override {
+		return NativeShutdownGraphics(graphicsContext);
+	}
+	void Frame(GraphicsContext *graphicsContext) override {
+		return NativeFrame(graphicsContext);
+	}
+};

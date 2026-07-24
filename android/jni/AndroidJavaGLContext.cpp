@@ -10,11 +10,11 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
 }
 
-bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	if (!CheckGLExtensions()) {
+		*errorMessage = "CheckExtensions failed";
 		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
-		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
 
@@ -29,10 +29,8 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 	if (!draw_->CreatePresets()) {
 		// This can't really happen now that compilation is async - they're only really queued for compile here.
 		_assert_msg_(false, "Failed to compile preset shaders");
-		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
-	state_ = GraphicsContextState::INITIALIZED;
 	return true;
 }
 
@@ -41,5 +39,4 @@ void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;
-	state_ = GraphicsContextState::SHUTDOWN;
 }
