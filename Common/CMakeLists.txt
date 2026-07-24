@@ -382,6 +382,14 @@ endif()
 
 target_link_libraries(Common ${LIBZIP_LIBRARY} 7zip ${PNG_LIBRARIES} basis_universal ${ZLIB_LIBRARY} pugixml vma gason udis86 ${RT_LIB} ${ATOMIC_LIB})
 
+# ZIMLoad.cpp/ZIMSave.cpp, Serializer.cpp, and Render/TextureAtlas.cpp call directly into zstd.
+if(USE_SYSTEM_ZSTD)
+	target_include_directories(Common PRIVATE ${ZSTD_INCLUDE_DIR})
+	target_link_libraries(Common ${ZSTD_LIBRARY})
+else()
+	target_link_libraries(Common libzstd_static)
+endif()
+
 # Common/GPU/ShaderTranslation.cpp and Common/GPU/Vulkan/VulkanContext.cpp call directly into
 # glslang/spirv-cross, so Common needs to declare this dependency itself rather than relying on
 # some downstream consumer happening to also link it (that was the previous, fragile setup: this
