@@ -691,7 +691,7 @@ add_library(Core STATIC
 	${CMAKE_SOURCE_DIR}/ext/riscv-disas.h
 	${CMAKE_SOURCE_DIR}/ext/loongarch-disasm.cpp
 	${CMAKE_SOURCE_DIR}/ext/loongarch-disasm.h
-	${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
+	${CMAKE_BINARY_DIR}/git-version.cpp
 )
 
 if((MACOSX OR IOS) AND NOT LIBRETRO)
@@ -793,11 +793,11 @@ endif()
 
 add_custom_command(OUTPUT something_that_never_exists
 	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-		-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
+		-DOUTPUT_DIR=${CMAKE_BINARY_DIR}
 		-P ${CMAKE_SOURCE_DIR}/git-version.cmake
 	${WIN_VERSION_CMD})
 
-set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/git-version.cpp
+set_source_files_properties(${CMAKE_BINARY_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE
 	SKIP_AUTOMOC ON)
 add_dependencies(Core GitVersion)
