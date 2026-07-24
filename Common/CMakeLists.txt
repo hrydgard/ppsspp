@@ -381,3 +381,10 @@ if(WIN32)
 endif()
 
 target_link_libraries(Common ${LIBZIP_LIBRARY} ${LIB7ZIP_LIBRARY} ${PNG_LIBRARIES} ${BASISU_LIBRARIES} ${ZLIB_LIBRARY} pugixml vma gason udis86 ${RT_LIB} ${ATOMIC_LIB})
+
+# Common/GPU/ShaderTranslation.cpp and Common/GPU/Vulkan/VulkanContext.cpp call directly into
+# glslang/spirv-cross, so Common needs to declare this dependency itself rather than relying on
+# some downstream consumer happening to also link it (that was the previous, fragile setup: this
+# was only linked to the old combined "core" target, which happened to always be linked after
+# Common everywhere it mattered).
+target_link_libraries(Common ${GlslangLibs})
