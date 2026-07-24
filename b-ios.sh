@@ -34,6 +34,11 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 # There are 2 ways to build PPSSPP for iOS, using make or xcodebuild
 # Generate xcodeproject (only needed when building using xcode, similar to ./b.sh --ios-xcode)
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
+# Xcode's new build system validates that source files exist before running script phases.
+# CMake places git-version.cpp at Core/git-version.cpp (CMAKE_CURRENT_BINARY_DIR for Core/).
+# Copy the pre-created git-version.cpp so Xcode can find it.
+mkdir -p Core
+cp git-version.cpp Core/git-version.cpp
 # Build PPSSPP using xcode
 #xcodebuild clean build -project PPSSPP.xcodeproj CODE_SIGNING_ALLOWED=NO -sdk iphoneos -configuration Release
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release -quiet clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
