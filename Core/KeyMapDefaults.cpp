@@ -318,6 +318,7 @@ static const DefMappingStruct defaultPadMapIOS[] = {
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, JOYSTICK_AXIS_RZ, +1},
 	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBL },
 	{VIRTKEY_FASTFORWARD , JOYSTICK_AXIS_RTRIGGER, +1},
+	{VIRTKEY_PAUSE       , NKCODE_EXT_CAMERA_CONTROL },
 };
 
 static const DefMappingStruct defaultXperiaPlay[] = {
