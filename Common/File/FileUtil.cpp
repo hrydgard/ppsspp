@@ -20,6 +20,12 @@
 #ifndef UNICODE
 #error Win32 build requires a unicode build
 #endif
+#elif defined(__APPLE__)
+// _POSIX_SOURCE alone restricts Darwin's libc headers to POSIX.1-1990 declarations,
+// which predates fseeko/ftello/ftruncate (POSIX.1-2001+) and hides them entirely -
+// unlike glibc, Darwin doesn't fall back to a broader feature set here.
+#define _DARWIN_C_SOURCE
+#define _LARGE_TIME_API
 #else
 #define _POSIX_SOURCE
 #define _LARGE_TIME_API
