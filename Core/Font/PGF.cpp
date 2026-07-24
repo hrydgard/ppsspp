@@ -21,6 +21,7 @@
 // Some parts, especially in this file, were simply copied, so I guess this really makes this file GPL3.
 
 #include <algorithm>
+#include <limits>
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/MemMap.h"
@@ -34,44 +35,50 @@ static bool isJPCSPFont(const char *fontName) {
 	return !strcmp(fontName, "Liberation Sans") || !strcmp(fontName, "Liberation Serif") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum") || !strcmp(fontName, "Microsoft YaHei");
 }
 
+static bool BitsToBytes(size_t count, int bpe, size_t *bytes) {
+	if (bpe < 0 || bpe > 32) {
+		return false;
+	}
+	const size_t bits_per_entry = (size_t)bpe;
+	if (bits_per_entry != 0 && count > (std::numeric_limits<size_t>::max() - 31) / bits_per_entry) {
+		return false;
+	}
+	const size_t bits = count * bits_per_entry;
+	*bytes = ((bits + 31) / 32) * sizeof(u32);
+	return true;
+}
+
 // Gets a number of bits from an offset.
-static int getBits(int numBits, const u8 *buf, size_t pos) {
-	_dbg_assert_msg_(numBits <= 32, "Unable to return more than 32 bits, %d requested", numBits);
-
-	const size_t wordpos = pos >> 5;
-	const u32_le *wordbuf = (const u32_le *)buf;
-	const u8 bitoff = pos & 31;
-
-	// Might just be in one, has to be within two.
-	if (bitoff + numBits < 32) {
-		const u32 mask = (1 << numBits) - 1;
-		return (wordbuf[wordpos] >> bitoff) & mask;
-	} else {
-		int v = wordbuf[wordpos] >> bitoff;
-
-		const u8 done = 32 - bitoff;
-		const u8 remaining = numBits - done;
-		if (remaining > 0) {
-			const u32 mask = (1 << remaining) - 1;
-			v |= (wordbuf[wordpos + 1] & mask) << done;
-		}
-		return v;
+static bool getBits(int numBits, const u8 *buf, size_t bufferBits, size_t pos, int *value) {
+	if (numBits < 0 || numBits > 32 || pos > bufferBits || (size_t)numBits > bufferBits - pos) {
+		return false;
 	}
+
+	u32 result = 0;
+	for (int i = 0; i < numBits; ++i) {
+		const size_t bit = pos + i;
+		result |= ((buf[bit / 8] >> (bit & 7)) & 1) << i;
+	}
+	*value = (int)result;
+	return true;
 }
 
-static inline int consumeBits(int numBits, const u8 *buf, size_t &pos) {
-	int v = getBits(numBits, buf, pos);
+static bool consumeBits(int numBits, const u8 *buf, size_t bufferBits, size_t &pos, int *value) {
+	if (!getBits(numBits, buf, bufferBits, pos, value)) {
+		return false;
+	}
 	pos += numBits;
-	return v;
+	return true;
 }
 
-static std::vector<int> getTable(const u8 *buf, int bpe, size_t length) {
-	std::vector<int> vec;
-	vec.resize(length);
+static bool getTable(const u8 *buf, size_t bufferBits, int bpe, size_t length, std::vector<int> *vec) {
+	vec->resize(length);
 	for (size_t i = 0; i < length; i++) {
-		vec[i] = getBits(bpe, buf, bpe * i);
+		if (!getBits(bpe, buf, bufferBits, bpe * i, &(*vec)[i])) {
+			return false;
+		}
 	}
-	return vec;
+	return true;
 }
 
 PGF::PGF()
@@ -179,21 +186,57 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	if (dataSize < sizeof(header)) {
 		return false;
 	}
+	size_t offset = sizeof(header);
+	auto advance = [&](size_t size) {
+		if (size > dataSize - offset) {
+			return false;
+		}
+		offset += size;
+		return true;
+	};
 
 	DEBUG_LOG(Log::sceFont, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
-	ptr += sizeof(header);
 
-	fileName = header.fontName;
+	const char *nameEnd = (const char *)memchr(header.fontName, 0, sizeof(header.fontName));
+	fileName.assign(header.fontName, nameEnd ? nameEnd - header.fontName : sizeof(header.fontName));
 
-	if (header.revision == 3) {
-		memcpy(&rev3extra, ptr, sizeof(rev3extra));
-		rev3extra.compCharMapLength1 &= 0xFFFF;
-		rev3extra.compCharMapLength2 &= 0xFFFF;
-		ptr += sizeof(rev3extra);
+	if (header.charMapLength < 0 || header.charPointerLength < 0 || header.shadowMapLength < 0) {
+		return false;
 	}
 
-	const u32_le *wptr = (const u32_le *)ptr;
+	const size_t charMapLength = (size_t)(int)header.charMapLength;
+	const size_t charPointerLength = (size_t)(int)header.charPointerLength;
+	const size_t shadowMapLength = (size_t)(int)header.shadowMapLength;
+	const int charMapBpe = header.charMapBpe;
+	const int charPointerBpe = header.charPointerBpe;
+	const int shadowMapBpe = header.shadowMapBpe;
+
+	size_t charMapSize;
+	size_t charPointerSize;
+	size_t shadowCharMapSize;
+	if (!BitsToBytes(charMapLength, charMapBpe, &charMapSize) ||
+		!BitsToBytes(charPointerLength, charPointerBpe, &charPointerSize) ||
+		!BitsToBytes(shadowMapLength, shadowMapBpe, &shadowCharMapSize)) {
+		return false;
+	}
+
+	if (header.revision == 3) {
+		if (!advance(sizeof(rev3extra))) {
+			return false;
+		}
+		memcpy(&rev3extra, startPtr + offset - sizeof(rev3extra), sizeof(rev3extra));
+		rev3extra.compCharMapLength1 &= 0xFFFF;
+		rev3extra.compCharMapLength2 &= 0xFFFF;
+	}
+
+	const size_t metricTableEntries = header.dimTableLength + header.xAdjustTableLength +
+		header.yAdjustTableLength + header.advanceTableLength;
+	const size_t metricTableSize = metricTableEntries * 2 * sizeof(u32_le);
+	if (!advance(metricTableSize)) {
+		return false;
+	}
+	const u32_le *wptr = (const u32_le *)(startPtr + offset - metricTableSize);
 	dimensionTable[0].resize(header.dimTableLength);
 	dimensionTable[1].resize(header.dimTableLength);
 	for (int i = 0; i < header.dimTableLength; i++) {
@@ -222,18 +265,17 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		advanceTable[1][i] = *wptr++;
 	}
 
-	const u8 *uptr = (const u8 *)wptr;
-
-	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
-	const u8 *shadowCharMap = uptr;
-	uptr += shadowCharMapSize;
-
-	if (uptr < startPtr || uptr >= startPtr + dataSize) {
+	if (!advance(shadowCharMapSize)) {
 		return false;
 	}
+	const u8 *shadowCharMap = startPtr + offset - shadowCharMapSize;
 
-	const u16_le *sptr = (const u16_le *)uptr;
 	if (header.revision == 3) {
+		const size_t compressionTableSize = ((size_t)(int)rev3extra.compCharMapLength1 + (size_t)(int)rev3extra.compCharMapLength2) * 2 * sizeof(u16_le);
+		if (!advance(compressionTableSize)) {
+			return false;
+		}
+		const u16_le *sptr = (const u16_le *)(startPtr + offset - compressionTableSize);
 		charmapCompressionTable1[0].resize(rev3extra.compCharMapLength1);
 		charmapCompressionTable1[1].resize(rev3extra.compCharMapLength1);
 		for (int i = 0; i < rev3extra.compCharMapLength1; i++) {
@@ -249,50 +291,51 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		}
 	}
 
-	uptr = (const u8 *)sptr;
-
-	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
-	const u8 *charMap = uptr;
-	uptr += charMapSize;
-
-	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
-	const u8 *charPointerTable = uptr;
-	uptr += charPointerSize;
-
-	if (uptr < startPtr || uptr >= startPtr + dataSize) {
+	if (!advance(charMapSize)) {
 		return false;
 	}
+	const u8 *charMap = startPtr + offset - charMapSize;
+	if (!advance(charPointerSize)) {
+		return false;
+	}
+	const u8 *charPointerTable = startPtr + offset - charPointerSize;
 
 	// PGF Fontdata.
-	u32 fontDataOffset = (u32)(uptr - startPtr);
-
-	fontDataSize = dataSize - fontDataOffset;
+	fontDataSize = dataSize - offset;
 	fontData = new u8[fontDataSize];
-	memcpy(fontData, uptr, fontDataSize);
+	memcpy(fontData, startPtr + offset, fontDataSize);
 
 	// charmap.resize();
-	charmap.resize(header.charMapLength);
+	charmap.resize(charMapLength);
 	int charmap_compr_len = header.revision == 3 ? 7 : 1;
 	charmap_compr.resize(charmap_compr_len * 4);
-	glyphs.resize(header.charPointerLength);
-	shadowGlyphs.resize(header.charPointerLength);
+	glyphs.resize(charPointerLength);
+	shadowGlyphs.resize(charPointerLength);
 	firstGlyph = header.firstGlyph;
 
 	// Parse out the char map (array where each entry is an irregular number of bits)
 	// BPE = bits per entry, I think.
-	for (int i = 0; i < header.charMapLength; i++) {
-		charmap[i] = getBits(header.charMapBpe, charMap, i * header.charMapBpe);
+	for (size_t i = 0; i < charMapLength; i++) {
+		if (!getBits(charMapBpe, charMap, charMapSize * 8, i * (size_t)charMapBpe, &charmap[i])) {
+			return false;
+		}
 		// This check seems a little odd.
 		if ((size_t)charmap[i] >= glyphs.size())
 			charmap[i] = 65535;
 	}
 
-	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
-	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, (s32)header.shadowMapLength);
+	std::vector<int> charPointers;
+	std::vector<int> shadowMap;
+	if (!getTable(charPointerTable, charPointerSize * 8, charPointerBpe, glyphs.size(), &charPointers) ||
+		!getTable(shadowCharMap, shadowCharMapSize * 8, shadowMapBpe, shadowMapLength, &shadowMap)) {
+		return false;
+	}
 
 	// Pregenerate glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
-		ReadCharGlyph(fontData, charPointers[i] * 4 * 8  /* ??? */, glyphs[i]);
+		if (!ReadCharGlyph(fontData, charPointers[i] * 4 * 8  /* ??? */, glyphs[i])) {
+			return false;
+		}
 	}
 
 	// And shadow glyphs.
@@ -302,7 +345,9 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 			size_t charId = shadowMap[shadowId];
 			if (charId < shadowGlyphs.size()) {
 				// TODO: check for pre existing shadow glyph
-				ReadShadowGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, shadowGlyphs[charId]);
+				if (!ReadShadowGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, shadowGlyphs[charId])) {
+					return false;
+				}
 			}
 		}
 	}
@@ -391,25 +436,33 @@ bool PGF::ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	if (!ReadCharGlyph(fontdata, charPtr, glyph))
 		return false;
 
+	const size_t fontDataBits = fontDataSize * 8;
 	// Skip over the char data.
-	if (charPtr + 96 > fontDataSize * 8)
+	if (charPtr > fontDataBits || 14 > fontDataBits - charPtr)
 		return false;
-	charPtr += getBits(14, fontdata, charPtr) * 8;
-	if (charPtr + 96 > fontDataSize * 8)
+	int glyphSize;
+	if (!getBits(14, fontdata, fontDataBits, charPtr, &glyphSize))
+		return false;
+	if ((size_t)glyphSize > (fontDataBits - charPtr) / 8)
+		return false;
+	charPtr += (size_t)glyphSize * 8;
+	if (charPtr > fontDataBits || 42 > fontDataBits - charPtr)
 		return false;
 
 	// Skip size.
 	charPtr += 14;
 
-	glyph.w = consumeBits(7, fontdata, charPtr);
-	glyph.h = consumeBits(7, fontdata, charPtr);
+	if (!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.w) ||
+		!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.h) ||
+		!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.left) ||
+		!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.top)) {
+		return false;
+	}
 
-	glyph.left = consumeBits(7, fontdata, charPtr);
 	if (glyph.left >= 64) {
 		glyph.left -= 128;
 	}
 
-	glyph.top = consumeBits(7, fontdata, charPtr);
 	if (glyph.top >= 64) {
 		glyph.top -= 128;
 	}
@@ -419,33 +472,46 @@ bool PGF::ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 }
 
 bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
+	const size_t fontDataBits = fontDataSize * 8;
+	if (charPtr > fontDataBits || 14 > fontDataBits - charPtr) {
+		return false;
+	}
 	// Skip size.
 	charPtr += 14;
 
-	glyph.w = consumeBits(7, fontdata, charPtr);
-	glyph.h = consumeBits(7, fontdata, charPtr);
-
-	glyph.left = consumeBits(7, fontdata, charPtr);
+	if (!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.w) ||
+		!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.h) ||
+		!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.left) ||
+		!consumeBits(7, fontdata, fontDataBits, charPtr, &glyph.top) ||
+		!consumeBits(6, fontdata, fontDataBits, charPtr, &glyph.flags)) {
+		return false;
+	}
 	if (glyph.left >= 64) {
 		glyph.left -= 128;
 	}
 
-	glyph.top = consumeBits(7, fontdata, charPtr);
 	if (glyph.top >= 64) {
 		glyph.top -= 128;
 	}
 
-	glyph.flags = consumeBits(6, fontdata, charPtr);
-
-	glyph.shadowFlags = consumeBits(2, fontdata, charPtr) << (2 + 3);
-	glyph.shadowFlags |= consumeBits(2, fontdata, charPtr) << 3;
-	glyph.shadowFlags |= consumeBits(3, fontdata, charPtr);
-
-	glyph.shadowID = consumeBits(9, fontdata, charPtr);
+	int shadowFlagHigh;
+	int shadowFlagMiddle;
+	int shadowFlagLow;
+	if (!consumeBits(2, fontdata, fontDataBits, charPtr, &shadowFlagHigh) ||
+		!consumeBits(2, fontdata, fontDataBits, charPtr, &shadowFlagMiddle) ||
+		!consumeBits(3, fontdata, fontDataBits, charPtr, &shadowFlagLow) ||
+		!consumeBits(9, fontdata, fontDataBits, charPtr, &glyph.shadowID)) {
+		return false;
+	}
+	glyph.shadowFlags = shadowFlagHigh << (2 + 3);
+	glyph.shadowFlags |= shadowFlagMiddle << 3;
+	glyph.shadowFlags |= shadowFlagLow;
 
 	if ((glyph.flags & FONT_PGF_METRIC_DIMENSION_INDEX) == FONT_PGF_METRIC_DIMENSION_INDEX)
 	{
-		int dimensionIndex = consumeBits(8, fontdata, charPtr);
+		int dimensionIndex;
+		if (!consumeBits(8, fontdata, fontDataBits, charPtr, &dimensionIndex))
+			return false;
 
 		if (dimensionIndex < header.dimTableLength) {
 			glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
@@ -461,13 +527,16 @@ bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	}
 	else
 	{
-		glyph.dimensionWidth = consumeBits(32, fontdata, charPtr);
-		glyph.dimensionHeight = consumeBits(32, fontdata, charPtr);
+		if (!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.dimensionWidth) ||
+			!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.dimensionHeight))
+			return false;
 	}
 
 	if ((glyph.flags & FONT_PGF_METRIC_BEARING_X_INDEX) == FONT_PGF_METRIC_BEARING_X_INDEX)
 	{
-		int xAdjustIndex = consumeBits(8, fontdata, charPtr);
+		int xAdjustIndex;
+		if (!consumeBits(8, fontdata, fontDataBits, charPtr, &xAdjustIndex))
+			return false;
 
 		if (xAdjustIndex < header.xAdjustTableLength) {
 			glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
@@ -484,13 +553,16 @@ bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	}
 	else
 	{
-		glyph.xAdjustH = consumeBits(32, fontdata, charPtr);
-		glyph.xAdjustV = consumeBits(32, fontdata, charPtr);
+		if (!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.xAdjustH) ||
+			!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.xAdjustV))
+			return false;
 	}
 
 	if ((glyph.flags & FONT_PGF_METRIC_BEARING_Y_INDEX) == FONT_PGF_METRIC_BEARING_Y_INDEX)
 	{
-		int yAdjustIndex = consumeBits(8, fontdata, charPtr);
+		int yAdjustIndex;
+		if (!consumeBits(8, fontdata, fontDataBits, charPtr, &yAdjustIndex))
+			return false;
 
 		if (yAdjustIndex < header.yAdjustTableLength) {
 			glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
@@ -507,13 +579,16 @@ bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	}
 	else
 	{
-		glyph.yAdjustH = consumeBits(32, fontdata, charPtr);
-		glyph.yAdjustV = consumeBits(32, fontdata, charPtr);
+		if (!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.yAdjustH) ||
+			!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.yAdjustV))
+			return false;
 	}
 
 	if ((glyph.flags & FONT_PGF_METRIC_ADVANCE_INDEX) == FONT_PGF_METRIC_ADVANCE_INDEX)
 	{
-		int advanceIndex = consumeBits(8, fontdata, charPtr);
+		int advanceIndex;
+		if (!consumeBits(8, fontdata, fontDataBits, charPtr, &advanceIndex))
+			return false;
 
 		if (advanceIndex < header.advanceTableLength) {
 			glyph.advanceH = advanceTable[0][advanceIndex];
@@ -522,8 +597,9 @@ bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	}
 	else
 	{
-		glyph.advanceH = consumeBits(32, fontdata, charPtr);
-		glyph.advanceV = consumeBits(32, fontdata, charPtr);
+		if (!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.advanceH) ||
+			!consumeBits(32, fontdata, fontDataBits, charPtr, &glyph.advanceV))
+			return false;
 	}
 
 	glyph.ptr = (u32)(charPtr / 8);
@@ -574,7 +650,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 		return;
 	}
 
-	size_t bitPtr = glyph.ptr * 8;
+	size_t bitPtr = (size_t)glyph.ptr * 8;
 	int numberPixels = glyph.w * glyph.h;
 	int pixelIndex = 0;
 
@@ -598,14 +674,18 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	std::vector<u8> decodedPixels;
 	decodedPixels.resize(numberPixels);
 
-	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
+	const size_t fontDataBits = fontDataSize * 8;
+	while (pixelIndex < numberPixels && bitPtr <= fontDataBits && 8 <= fontDataBits - bitPtr) {
 		// This is some kind of nibble based RLE compression.
-		int nibble = consumeBits(4, fontData, bitPtr);
+		int nibble;
+		if (!consumeBits(4, fontData, fontDataBits, bitPtr, &nibble))
+			return;
 
 		int count;
 		int value = 0;
 		if (nibble < 8) {
-			value = consumeBits(4, fontData, bitPtr);
+			if (!consumeBits(4, fontData, fontDataBits, bitPtr, &value))
+				return;
 			count = nibble + 1;
 		} else {
 			count = 16 - nibble;
@@ -613,7 +693,8 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 		for (int i = 0; i < count && pixelIndex < numberPixels; i++) {
 			if (nibble >= 8) {
-				value = consumeBits(4, fontData, bitPtr);
+				if (!consumeBits(4, fontData, fontDataBits, bitPtr, &value))
+					return;
 			}
 
 			decodedPixels[pixelIndex++] = value | (value << 4);
