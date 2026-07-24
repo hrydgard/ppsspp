@@ -959,10 +959,8 @@ add_library(pugixml STATIC
 	ext/pugixml/pugixml.hpp
 )
 
-set(nativeExtra)
 set(targetExtra)
 set(targetExtraLibs)
-set(UISource)
 
 if(IOS OR MACOSX)
 	list(APPEND targetExtra
@@ -1165,131 +1163,15 @@ else()
 	endif()
 endif()
 
-set(UISource)
 if(NOT LIBRETRO)
-	list(APPEND UISource
-		UI/AudioCommon.h
-		UI/AudioCommon.cpp
-	)
-endif()
-
-list(APPEND UISource
-	UI/ImDebugger/ImDebugger.cpp
-	UI/ImDebugger/ImDebugger.h
-	UI/ImDebugger/ImGe.cpp
-	UI/ImDebugger/ImGe.h
-	UI/ImDebugger/ImConsole.cpp
-	UI/ImDebugger/ImConsole.h
-	UI/ImDebugger/ImDisasmView.cpp
-	UI/ImDebugger/ImDisasmView.h
-	UI/ImDebugger/ImMemView.cpp
-	UI/ImDebugger/ImMemView.h
-	UI/ImDebugger/ImStructViewer.cpp
-	UI/ImDebugger/ImStructViewer.h
-	UI/ImDebugger/ImJitViewer.cpp
-	UI/ImDebugger/ImJitViewer.h
-	UI/DiscordIntegration.cpp
-	UI/NativeApp.cpp
-	UI/AdhocServerScreen.h
-	UI/AdhocServerScreen.cpp
-	UI/BackgroundAudio.h
-	UI/BackgroundAudio.cpp
-	UI/Background.h
-	UI/Background.cpp
-	UI/ChatScreen.h
-	UI/ChatScreen.cpp
-	UI/BaseScreens.h
-	UI/BaseScreens.cpp
-	UI/DebugOverlay.cpp
-	UI/DebugOverlay.h
-	UI/DevScreens.cpp
-	UI/DevScreens.h
-	UI/DisplayLayoutScreen.cpp
-	UI/DisplayLayoutScreen.h
-	UI/EmuScreen.h
-	UI/EmuScreen.cpp
-	UI/GameInfoCache.h
-	UI/GameInfoCache.cpp
-	UI/IAPScreen.cpp
-	UI/IAPScreen.h
-	UI/MainScreen.h
-	UI/MainScreen.cpp
-	UI/GameBrowser.h
-	UI/GameBrowser.cpp
-	UI/MiscScreens.h
-	UI/MiscScreens.cpp
-	UI/MiscViews.h
-	UI/MiscViews.cpp
-	UI/PauseScreen.h
-	UI/PauseScreen.cpp
-	UI/SimpleDialogScreen.h
-	UI/SimpleDialogScreen.cpp
-	UI/TabbedDialogScreen.h
-	UI/TabbedDialogScreen.cpp
-	UI/GameScreen.h
-	UI/GameScreen.cpp
-	UI/GameSettingsScreen.h
-	UI/GameSettingsScreen.cpp
-	UI/DeveloperToolsScreen.h
-	UI/DeveloperToolsScreen.cpp
-	UI/DriverManagerScreen.h
-	UI/DriverManagerScreen.cpp
-	UI/GPUDriverTestScreen.h
-	UI/GPUDriverTestScreen.cpp
-	UI/TiltAnalogSettingsScreen.h
-	UI/TiltAnalogSettingsScreen.cpp
-	UI/TouchControlLayoutScreen.h
-	UI/TouchControlLayoutScreen.cpp
-	UI/TouchControlVisibilityScreen.h
-	UI/TouchControlVisibilityScreen.cpp
-	UI/GamepadEmu.h
-	UI/GamepadEmu.cpp
-	UI/JoystickHistoryView.h
-	UI/JoystickHistoryView.cpp
-	UI/LoadStateConfirmScreen.h
-	UI/LoadStateConfirmScreen.cpp
-	UI/OnScreenDisplay.h
-	UI/OnScreenDisplay.cpp
-	UI/ControlMappingScreen.h
-	UI/ControlMappingScreen.cpp
-	UI/RemoteISOScreen.h
-	UI/RemoteISOScreen.cpp
-	UI/ReportScreen.h
-	UI/ReportScreen.cpp
-	UI/SavedataScreen.h
-	UI/SavedataScreen.cpp
-	UI/SystemInfoScreen.h
-	UI/SystemInfoScreen.cpp
-	UI/Store.h
-	UI/Store.cpp
-	UI/UploadScreen.h
-	UI/UploadScreen.cpp
-	UI/CwCheatScreen.h
-	UI/CwCheatScreen.cpp
-	UI/InstallZipScreen.h
-	UI/InstallZipScreen.cpp
-	UI/JitCompareScreen.h
-	UI/JitCompareScreen.cpp
-	UI/MemStickScreen.h
-	UI/MemStickScreen.cpp
-	UI/ProfilerDraw.h
-	UI/ProfilerDraw.cpp
-	UI/CustomButtonMappingScreen.h
-	UI/CustomButtonMappingScreen.cpp
-	UI/Theme.h
-	UI/Theme.cpp
-	UI/UIAtlas.h
-	UI/UIAtlas.cpp
-	UI/RetroAchievementScreens.cpp
-	UI/RetroAchievementScreens.h
-)
-
-if(NOT LIBRETRO)
+	# add_compile_definitions() only affects targets created after the call, and
+	# add_subdirectory() snapshots the parent's directory-scope state at the point it's
+	# invoked, so this has to happen here rather than inside UI/CMakeLists.txt - see the
+	# commit that fixed this same issue for miniUPnPc in Core/CMakeLists.txt.
 	if(USE_DISCORD AND NOT IOS)
 		add_compile_definitions(USE_DISCORD=1)
 	endif()
-	add_library(ppsspp_ui STATIC ${UISource})
-	target_link_libraries(ppsspp_ui Common Core)
+	add_subdirectory(UI)
 endif()
 
 if(ANDROID)
