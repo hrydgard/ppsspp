@@ -571,16 +571,6 @@ if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
 
-add_library(gason STATIC
-				ext/gason/gason.cpp
-				ext/gason/gason.h
-)
-
-add_library(vma STATIC
-				ext/vma/vk_mem_alloc.cpp
-				ext/vma/vk_mem_alloc.h
-)
-
 if(USE_FFMPEG)
 	if(NOT BUILD_BUNDLED_FFMPEG)
 		if(NOT FFMPEG_DIR)
@@ -700,13 +690,6 @@ else()
 	include_directories(ext/zlib)
 	set(ZLIB_LIBRARY zlib)
 endif()
-
-add_library(cityhash STATIC
-	ext/cityhash/city.cpp
-	ext/cityhash/city.h
-	ext/cityhash/citycrc.h
-)
-target_include_directories(cityhash PRIVATE ext/cityhash)
 
 if(NOT MSVC)
 	# These can be fast even for debug.
@@ -859,25 +842,6 @@ else()
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
-add_library(7zip STATIC
-	ext/lzma-sdk/7zArcIn.c
-	ext/lzma-sdk/7zBuf.c
-	ext/lzma-sdk/7zCrc.c
-	ext/lzma-sdk/7zCrcOpt.c
-	ext/lzma-sdk/7zDec.c
-	ext/lzma-sdk/7zFile.c
-	ext/lzma-sdk/7zStream.c
-	ext/lzma-sdk/Bcj2.c
-	ext/lzma-sdk/Bra.c
-	ext/lzma-sdk/Bra86.c
-	ext/lzma-sdk/CpuArch.c
-	ext/lzma-sdk/Delta.c
-	ext/lzma-sdk/Lzma2Dec.c
-	ext/lzma-sdk/LzmaDec.c
-)
-include_directories(ext/lzma-sdk)
-set(LIB7ZIP_LIBRARY 7zip)
-
 # Arm platforms require at least libpng17.
 if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
 	set(PNG_REQUIRED_VERSION 1.7)
@@ -932,32 +896,6 @@ else()
 	include_directories(ext/libpng17)
 endif()
 
-add_library(basis_universal STATIC
-	ext/basis_universal/basisu.h
-	ext/basis_universal/basisu_containers.h
-	ext/basis_universal/basisu_containers_impl.h
-	ext/basis_universal/basisu_file_headers.h
-	ext/basis_universal/basisu_transcoder.cpp
-	ext/basis_universal/basisu_transcoder.h
-	ext/basis_universal/basisu_transcoder_internal.h
-	ext/basis_universal/basisu_transcoder_tables_astc.inc
-	ext/basis_universal/basisu_transcoder_tables_astc_0_255.inc
-	ext/basis_universal/basisu_transcoder_tables_atc_55.inc
-	ext/basis_universal/basisu_transcoder_tables_atc_56.inc
-	ext/basis_universal/basisu_transcoder_tables_bc7_m5_alpha.inc
-	ext/basis_universal/basisu_transcoder_tables_bc7_m5_color.inc
-	ext/basis_universal/basisu_transcoder_tables_dxt1_5.inc
-	ext/basis_universal/basisu_transcoder_tables_dxt1_6.inc
-	ext/basis_universal/basisu_transcoder_tables_pvrtc2_45.inc
-	ext/basis_universal/basisu_transcoder_tables_pvrtc2_alpha_33.inc
-	ext/basis_universal/basisu_transcoder_uastc.h
-)
-set(BASISU_LIBRARIES basis_universal)
-
-add_library(pugixml STATIC
-	ext/pugixml/pugixml.cpp
-	ext/pugixml/pugixml.hpp
-)
 
 set(targetExtra)
 set(targetExtraLibs)
@@ -1198,43 +1136,6 @@ set(ATOMIC_LIB)
 if(ANDROID OR (LINUX AND ARM_DEVICE) OR (LINUX AND RISCV64) OR (LINUX AND LOONGARCH64))
 	set(ATOMIC_LIB atomic)
 endif()
-
-add_library(kirk STATIC
-	ext/libkirk/AES.c
-	ext/libkirk/AES.h
-	ext/libkirk/amctrl.c
-	ext/libkirk/amctrl.h
-	ext/libkirk/SHA1.c
-	ext/libkirk/SHA1.h
-	ext/libkirk/bn.c
-	ext/libkirk/ec.c
-	ext/libkirk/kirk_engine.c
-	ext/libkirk/kirk_engine.h
-	ext/libkirk/kirk_common.h
-)
-target_include_directories(kirk PRIVATE ext/libkirk)
-
-add_library(sfmt19937 STATIC
-	ext/sfmt19937/SFMT.c
-	ext/sfmt19937/SFMT.h
-	ext/sfmt19937/SFMT-common.h
-	ext/sfmt19937/SFMT-params.h
-	ext/sfmt19937/SFMT-params19937.h
-)
-target_compile_definitions(sfmt19937 PRIVATE SFMT_MEXP=19937)
-target_include_directories(sfmt19937 PRIVATE ext/sfmt19937)
-
-add_library(xbrz STATIC
-	ext/xbrz/xbrz.cpp
-	ext/xbrz/xbrz.h
-)
-target_include_directories(xbrz PRIVATE ext/xbrz)
-
-add_library(xxhash STATIC
-	ext/xxhash.c
-	ext/xxhash.h
-)
-target_include_directories(xxhash PRIVATE ext/xxhash)
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV spirv-cross-glsl)
 
