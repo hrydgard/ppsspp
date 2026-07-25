@@ -296,7 +296,12 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		context->CTX_PC += info.instructionSize;
 		g_numReportedBadAccesses++;
 		if (g_numReportedBadAccesses < 100) {
-			ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			std::string temp;
+			if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
+				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p) at %s", guestAddress, (void *)hostAddress, temp.c_str());
+			} else {
+				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			}
 		}
 	} else {
 		std::string infoString = "";
