@@ -1076,6 +1076,33 @@ static bool ShouldHLEModuleForLoad(std::string_view modname, bool *wasDisabledMa
 	return ShouldHLEModule(modname, wasDisabledManually);
 }
 
+// vsh_module (vshmain.prx) doesn't import sceKernelLoadModule at all - only StartModule/
+// StopModule/UnloadModule - so unlike a game's auxiliary PRXes, it never loads paf.prx/
+// common_gui.prx/common_util.prx/vshbridge.prx itself. On real hardware these are loaded and
+// started as part of the kernel's own boot sequence, before any user module runs (matches
+// JPCSP's moduleFileNamesToBeLoaded/moduleFileNamesVshOnly). We don't emulate that sequence,
+// so approximate it here: load and start them ourselves right before starting the VSH itself.
+static void LoadAndStartVshKernelModules() {
+	static const char *const vshKernelModulePaths[] = {
+		"flash0:/kd/vshbridge.prx",
+		"flash0:/vsh/module/paf.prx",
+		"flash0:/vsh/module/common_gui.prx",
+		"flash0:/vsh/module/common_util.prx",
+	};
+	for (const char *path : vshKernelModulePaths) {
+		std::string error_string;
+		SceUID moduleId = KernelLoadModule(path, &error_string);
+		if (moduleId < 0) {
+			WARN_LOG(Log::sceModule, "LoadAndStartVshKernelModules: failed to load %s: %s", path, error_string.c_str());
+			continue;
+		}
+		int result = __KernelStartModule(moduleId, 0, 0, 0, nullptr, nullptr);
+		if (result < 0) {
+			WARN_LOG(Log::sceModule, "LoadAndStartVshKernelModules: failed to start %s (uid=%d)", path, moduleId);
+		}
+	}
+}
+
 // filename is only used for dumping/metadata.
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
 	PSPModule *module = new PSPModule();
@@ -1870,6 +1897,10 @@ static bool __KernelLoadExecFromPtr(const u8 *data, size_t size, const char *fil
 		option.priority = module->nm.module_start_thread_priority;
 	if (module->nm.module_start_thread_stacksize != 0)
 		option.stacksize = module->nm.module_start_thread_stacksize;
+
+	if (g_runningVSH) {
+		LoadAndStartVshKernelModules();
+	}
 
 	INFO_LOG(Log::System, "Starting modules...");
 	if (paramPtr)
