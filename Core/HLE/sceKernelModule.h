@@ -28,8 +28,15 @@
 class PointerWrap;
 struct SceKernelSMOption;
 
+// Known bits of PspModuleInfo::moduleAttrs.
+enum {
+	PSP_MODULE_USER_MODE = 0x0000,
+	PSP_MODULE_VSH_MODE = 0x0800,
+	PSP_MODULE_KERNEL_MODE = 0x1000,
+};
+
 struct PspModuleInfo {
-	u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
+	u16_le moduleAttrs; //0x0000 User Mode, 0x0800 VSH Mode, 0x1000 Kernel Mode
 	u16_le moduleVersion;
 	// 28 bytes of module name, packed with 0's.
 	char name[28];

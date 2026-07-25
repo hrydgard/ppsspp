@@ -1304,6 +1304,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
+	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0) {
+		// Used by the PSP's Visual Shell (VSH/XMB) and modules it loads, such as vshmain.prx.
+		// We don't do anything special with this yet, just recognizing it for now.
+		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
+	}
 	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
 	module->nm.version[1] = modinfo->moduleVersion >> 8;
 	module->nm.data_size = 0;
