@@ -163,6 +163,11 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   build-tested here, so double check them by hand against how an existing neighboring file (e.g. `sceVaudio.cpp`) is
   listed in each. Note: New files in the unittest project have to be updated in the unittest part in android/jni/Android.mk.
 
+## Adding HLE functions
+
+Always add new functions at the *end* of an array of const HLEFunction. We store the function index in savestates
+(in resolved syscall opcodes), so inserting a new function in the middle of an existing array will break things.
+
 ## WebSocket debugger
 
 PPSSPP has a JSON/WebSocket debugger and automation API (connect, read/write memory, search memory for values or byte
