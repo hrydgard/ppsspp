@@ -1907,10 +1907,8 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	return hleLogDebug(Log::sceNet, 0);
 }
 
-#define KERNEL_PARTITION_ID  1
-#define USER_PARTITION_ID  2
-#define VSHELL_PARTITION_ID  5
 // This should be similar with sceNetAdhocMatchingStart2 but using USER_PARTITION_ID (2) for PartitionId params
+// (KERNEL_PARTITION_ID/USER_PARTITION_ID/VSHELL_PARTITION_ID come from Core/HLE/sceKernelMemory.h)
 static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
