@@ -412,9 +412,6 @@
     <ClInclude Include="GPU\WindowsVulkanContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidGraphicsContext.h">
-      <Filter>Other Platforms\Android</Filter>
-    </ClInclude>
     <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>

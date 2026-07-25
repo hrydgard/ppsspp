@@ -16,6 +16,7 @@ public:
 	virtual bool InitFromRenderThread(std::string *errorMessage) { return true; }
 	virtual void ShutdownFromRenderThread() {}
 
+	virtual void BeginShutdown() {}  // This is currently only used on Android.
 	virtual void Shutdown() = 0;
 
 	// Used during window resize. Must be called from the window thread,

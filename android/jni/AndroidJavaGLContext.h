@@ -1,10 +1,10 @@
 #pragma once
 
-#include "AndroidGraphicsContext.h"
+#include "Common/GraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d_create.h"
 
-class AndroidJavaEGLGraphicsContext : public AndroidGraphicsContext {
+class AndroidJavaEGLGraphicsContext : public GraphicsContext {
 public:
 	AndroidJavaEGLGraphicsContext();
 	~AndroidJavaEGLGraphicsContext() override { delete draw_; }
@@ -30,7 +30,7 @@ public:
 		return renderManager_->ThreadFrame(waitIfEmpty);
 	}
 
-	void BeginAndroidShutdown() override {
+	void BeginShutdown() override {
 		renderManager_->SetSkipGLCalls();
 	}
 

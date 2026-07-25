@@ -91,7 +91,6 @@ struct JNIEnv {};
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
-#include "AndroidGraphicsContext.h"
 #include "AndroidVulkanContext.h"
 #include "AndroidJavaGLContext.h"
 
@@ -190,7 +189,7 @@ static std::string g_installerName;
 
 static std::map<SystemPermission, PermissionStatus> permissions;
 
-static AndroidGraphicsContext *graphicsContext;
+static GraphicsContext *graphicsContext;
 
 #define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
 
@@ -963,8 +962,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 		// Now we know that more frames won't be coming in.
 
-		INFO_LOG(Log::System, "BeginAndroidShutdown");
-		graphicsContext->BeginAndroidShutdown();  // Makes sure we don't actually perform draws.
+		INFO_LOG(Log::System, "BeginShutdown");
+		graphicsContext->BeginShutdown();  // Makes sure we don't actually perform draws.
 
 		// Now, it could be that we had some frames queued up. Get through them.
 		// We're on the render thread, so this is synchronous.
@@ -1039,7 +1038,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 
 		INFO_LOG(Log::G3D, "NativeApp.displayInit() restoring");
 		EmuThreadStop("displayInit");
-		graphicsContext->BeginAndroidShutdown();
+		graphicsContext->BeginShutdown();
 		INFO_LOG(Log::G3D, "BeginAndroidShutdown. Looping until emu thread done...");
 		// Skipping GL calls here because the old context is lost.
 		graphicsContext->ThreadFrameUntilCondition([]() -> bool {
@@ -1053,7 +1052,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 
 		INFO_LOG(Log::G3D, "Shut down both threads. Now let's bring it up again!");
 
-		std::string errorMessage;
 		if (!graphicsContext->InitFromRenderThread(&errorMessage)) {
 			System_Toast(("Graphics initialization failed: Quitting: " + errorMessage).c_str());
 			return false;
@@ -1699,7 +1697,7 @@ static void ProcessFrameCommands() {
 
 std::thread g_renderLoopThread;
 
-static void VulkanEmuThread(ANativeWindow *wnd);
+static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsContext);
 
 // This runs in Vulkan mode only.
 // This handles the entire lifecycle of the Vulkan context, init and exit.
@@ -1727,7 +1725,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRende
 		return false;
 	}
 
-	g_renderLoopThread = std::thread(VulkanEmuThread, wnd);
+	g_renderLoopThread = std::thread(VulkanEmuThread, wnd, (AndroidVulkanContext *)graphicsContext);
 	return true;
 }
 
@@ -1744,7 +1742,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanR
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
 // This function must release the window reference.
-static void VulkanEmuThread(ANativeWindow *wnd) {
+static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsContext) {
 	SetCurrentThreadName("EmuThread");
 
 	AndroidJNIThreadContext ctx;
