@@ -228,6 +228,7 @@ u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string);
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
+bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string);
