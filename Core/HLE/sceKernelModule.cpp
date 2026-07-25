@@ -1045,6 +1045,37 @@ enum : u32 {
 	ELF_MAGIC = 0x464c457f,
 };
 
+// Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
+// than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
+static bool g_runningVSH = false;
+
+// A few flash0 modules (VSH's own bridge/UI/utility libraries) should only ever be genuinely
+// loaded - rather than faked via any HLE implementation we may have for them - once we know
+// we're actually running the VSH. A regular game never legitimately loads these, so this only
+// matters for VSH boots; mirrors JPCSP's moduleFileNamesVshOnly.
+static bool IsVshOnlyModuleName(std::string_view modname) {
+	static const char *const vshOnlyModules[] = {
+		"sceVshBridge_Driver",
+		"scePaf_Module",
+		"sceVshCommonGui_Module",
+		"sceVshCommonUtil_Module",
+	};
+	for (const char *name : vshOnlyModules) {
+		if (equalsNoCase(modname, name))
+			return true;
+	}
+	return false;
+}
+
+static bool ShouldHLEModuleForLoad(std::string_view modname, bool *wasDisabledManually = nullptr) {
+	if (g_runningVSH && IsVshOnlyModuleName(modname)) {
+		if (wasDisabledManually)
+			*wasDisabledManually = false;
+		return false;
+	}
+	return ShouldHLEModule(modname, wasDisabledManually);
+}
+
 // filename is only used for dumping/metadata.
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
 	PSPModule *module = new PSPModule();
@@ -1082,7 +1113,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		devkitVersion = head->devkitversion;
 
 		bool wasDisabled;
-		if (ShouldHLEModule(head->modname, &wasDisabled)) {
+		if (ShouldHLEModuleForLoad(head->modname, &wasDisabled)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
 
@@ -1295,20 +1326,21 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	modinfo = (const PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
 
-	// OK, even if it's an ELF module, it might be one we shouldn't fully load and execute!
-	// This is seen with mpeg.prx in Tony Hawk's Underground 2, see #20568.
-	if (ShouldHLEModule(modinfo->name)) {
-		// We load it, but at least we don't run any part of it.
-		module->isFake = true;
-	}
-
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
 	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0) {
 		// Used by the PSP's Visual Shell (VSH/XMB) and modules it loads, such as vshmain.prx.
-		// We don't do anything special with this yet, just recognizing it for now.
+		g_runningVSH = true;
 		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
 	}
+
+	// OK, even if it's an ELF module, it might be one we shouldn't fully load and execute!
+	// This is seen with mpeg.prx in Tony Hawk's Underground 2, see #20568.
+	if (ShouldHLEModuleForLoad(modinfo->name)) {
+		// We load it, but at least we don't run any part of it.
+		module->isFake = true;
+	}
+
 	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
 	module->nm.version[1] = modinfo->moduleVersion >> 8;
 	module->nm.data_size = 0;
@@ -1605,7 +1637,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	delete [] newptr;
 
-	if (!reportedModule && ShouldHLEModule(modinfo->name)) {
+	if (!reportedModule && ShouldHLEModuleForLoad(modinfo->name)) {
 		INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
@@ -1746,6 +1778,7 @@ bool KernelModuleIsKernelMode(SceUID uid) {
 
 void __KernelLoadReset() {
 	// Wipe kernel here, loadexec should reset the entire system
+	g_runningVSH = false;
 	if (__KernelIsRunning()) {
 		u32 error;
 		while (!loadedModules.empty()) {
