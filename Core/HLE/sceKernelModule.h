@@ -237,6 +237,7 @@ bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_strin
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
 // Exposed so sceVshBridge can reuse it directly for vshKernelLoadModuleBufferVSH, matching JPCSP.
 SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr);
+bool __KernelLoadExecFromBuffer(const u8 *data, size_t size, u32 paramPtr, std::string *error_string);
 // Exposed for HLE.cpp's "Unknown syscall" diagnostic - see the definition for details.
 bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName);
 // Describes which loaded module (and section within it) an address falls in, e.g. "EBOOT.BIN.text+1234".
