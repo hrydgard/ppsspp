@@ -314,7 +314,7 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 	_assert_(success);
 }
 
-void UWPGraphicsContext::Shutdown() {
+void UWPGraphicsContext::ShutdownAPI() {
 	delete draw_;
 }
 

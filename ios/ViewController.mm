@@ -45,27 +45,43 @@ class IOSGLESContext : public GraphicsContext {
 public:
 	IOSGLESContext() {
 		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext(false);
-		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		SetGPUBackend(GPUBackend::OPENGL);
-		bool success = draw_->CreatePresets();
-		_assert_msg_(success, "Failed to compile preset shaders");
 	}
 	~IOSGLESContext() {
 		delete draw_;
 	}
-	bool NeedsRenderThread() const override { return true; }
+
+	bool InitAPI(void *wnd, std::string *deviceNameSetting, std::string *error_message) override {
+		// Nothing to do here, we already initialized in the constructor.
+		return true;
+	}
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override {
+		draw_ = Draw::T3DCreateGLContext(false);
+		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
+		bool success = draw_->CreatePresets();
+		_assert_msg_(success, "Failed to compile preset shaders");
+		return true;
+	}
+
+	void ShutdownSurface() override {
+		// Nothing to do here, we already initialized in the constructor.
+		if (draw_) {
+			delete draw_;
+			draw_ = nullptr;
+		}
+		renderManager_ = nullptr;
+	}
+	void ShutdownAPI() override {
+		// Nothing to do here.
+	}
+
+	bool NeedsSeparateEmuThread() const override { return true; }
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
 
 	void Resize() override {}
-	void Shutdown() override {}
-
-	void BeginShutdown() {
-		renderManager_->SetSkipGLCalls();
-	}
 
 	void ThreadStart() override {
 		renderManager_->ThreadStart(draw_);
@@ -81,6 +97,11 @@ public:
 
 	void StartThread() {
 		renderManager_->StartThread();
+	}
+
+protected:
+	void BeginShutdown() {
+		renderManager_->SetSkipGLCalls();
 	}
 
 private:
@@ -223,9 +244,14 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	graphicsContext = new IOSGLESContext();
 
-	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
-	}, nullptr);
+	std::string errorMessage;
+	if (!graphicsContext->InitAPI(nullptr, nullptr, &errorMessage)) {
+		ERROR_LOG(Log::G3D, "InitAPI failed: %s", errorMessage.c_str());
+	}
+
+	if (!graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage)) {
+		ERROR_LOG(Log::G3D, "InitAPI failed: %s", errorMessage.c_str());
+	}
 
 	graphicsContext->ThreadStart();
 
@@ -350,14 +376,13 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
-	graphicsContext->BeginShutdown();
 	// Skipping GL calls here because the old context is lost.
 	graphicsContext->ThreadFrameUntilCondition([]() -> bool {
 		return !renderLoopRunning;
 	});
 	graphicsContext->ThreadEnd();
-
-	graphicsContext->Shutdown();
+	graphicsContext->ShutdownSurface();
+	graphicsContext->ShutdownAPI();
 	delete graphicsContext;
 	graphicsContext = nullptr;
 	INFO_LOG(Log::System, "Done shutting down GL");

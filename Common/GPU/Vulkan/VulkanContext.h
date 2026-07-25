@@ -10,6 +10,7 @@
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
@@ -49,32 +50,6 @@ template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
 	newStruct->pNext = root.pNext;
 	root.pNext = newStruct;
 }
-
-// Not all will be usable on all platforms, of course...
-enum WindowSystem {
-	WINDOWSYSTEM_UNINITIALIZED,
-#ifdef _WIN32
-	WINDOWSYSTEM_WIN32,
-#endif
-#ifdef __ANDROID__
-	WINDOWSYSTEM_ANDROID,
-#endif
-#ifdef VK_USE_PLATFORM_METAL_EXT
-	WINDOWSYSTEM_METAL_EXT,
-#endif
-#ifdef VK_USE_PLATFORM_XLIB_KHR
-	WINDOWSYSTEM_XLIB,
-#endif
-#ifdef VK_USE_PLATFORM_XCB_KHR
-	WINDOWSYSTEM_XCB,
-#endif
-#ifdef VK_USE_PLATFORM_WAYLAND_KHR
-	WINDOWSYSTEM_WAYLAND,
-#endif
-#ifdef VK_USE_PLATFORM_DISPLAY_KHR
-	WINDOWSYSTEM_DISPLAY,
-#endif
-};
 
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
@@ -194,7 +169,7 @@ public:
 
 	// Convenience method to avoid code duplication.
 	// If it returns false, delete the context.
-	bool CreateInstanceAndDevice(const CreateInfo &info);
+	bool CreateInstanceAndDevice(const CreateInfo &info, std::string *deviceName);
 
 	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
 	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);

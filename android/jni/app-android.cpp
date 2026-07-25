@@ -841,15 +841,16 @@ retry:
 		// The Vulkan render manager manages its own thread.
 		// We create and destroy the Vulkan graphics context in the app main thread though.
 		AndroidVulkanContext *ctx = new AndroidVulkanContext();
-		if (!ctx->InitAPI()) {
-			INFO_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL");
+		std::string errorMessage;
+		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
+			ERROR_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL: %s", errorMessage.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend(GPUBackend::OPENGL);
 			delete ctx;
 			goto retry;
-		} else {
-			graphicsContext = ctx;
 		}
+		graphicsContext = ctx;
+		// Now, we wait until we get a surface to continue initializing Vulkan.
 		break;
 	}
 	default:
@@ -953,7 +954,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- begin");
 
-	if (renderer_inited && graphicsContext && graphicsContext->NeedsRenderThread()) {
+	if (renderer_inited && graphicsContext && graphicsContext->NeedsSeparateEmuThread()) {
 		// Only used in Java EGL path.
 		EmuThreadStop("shutdown");
 		// NOTE: We know that the GLSurfaceView render thread is stopped here, since we now
@@ -963,7 +964,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		// Now we know that more frames won't be coming in.
 
 		INFO_LOG(Log::System, "BeginShutdown");
-		graphicsContext->BeginShutdown();  // Makes sure we don't actually perform draws.
 
 		// Now, it could be that we had some frames queued up. Get through them.
 		// We're on the render thread, so this is synchronous.
@@ -975,14 +975,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		EmuThreadJoin();
 
 		INFO_LOG(Log::System, "ThreadEnd called.");
-		graphicsContext->ShutdownFromRenderThread();
+		graphicsContext->ShutdownSurface();
 		INFO_LOG(Log::System, "Graphics context now shut down from NativeApp_shutdown");
 	}
 
 	{
 		if (graphicsContext) {
 			INFO_LOG(Log::G3D, "Shutting down renderer");
-			graphicsContext->Shutdown();
+			graphicsContext->ShutdownAPI();
 			delete graphicsContext;
 			graphicsContext = nullptr;
 			renderer_inited = false;
@@ -1009,7 +1009,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		return false;
 	}
 
-	_assert_(graphicsContext->NeedsRenderThread());
+	_assert_(graphicsContext->NeedsSeparateEmuThread());
 
 	INFO_LOG(Log::G3D, "NativeApp.displayInit()");
 	bool firstStart = !renderer_inited;
@@ -1018,7 +1018,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 	std::string errorMessage;
 	if (!renderer_inited) {
 		INFO_LOG(Log::G3D, "NativeApp.displayInit() first time");
-		if (!graphicsContext->InitFromRenderThread(&errorMessage)) {
+		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, &errorMessage)) {
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
@@ -1038,9 +1038,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 
 		INFO_LOG(Log::G3D, "NativeApp.displayInit() restoring");
 		EmuThreadStop("displayInit");
-		graphicsContext->BeginShutdown();
-		INFO_LOG(Log::G3D, "BeginAndroidShutdown. Looping until emu thread done...");
 		// Skipping GL calls here because the old context is lost.
+		INFO_LOG(Log::G3D, "Looping until emu thread done...");
+		// TODO: Why can't we just join the EmuThread first?
 		graphicsContext->ThreadFrameUntilCondition([]() -> bool {
 			return emuThreadState == (int)EmuThreadState::STOPPED;
 		});
@@ -1048,11 +1048,11 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		EmuThreadJoin();
 
 		graphicsContext->ThreadEnd();
-		graphicsContext->ShutdownFromRenderThread();
+		graphicsContext->ShutdownSurface();
 
 		INFO_LOG(Log::G3D, "Shut down both threads. Now let's bring it up again!");
 
-		if (!graphicsContext->InitFromRenderThread(&errorMessage)) {
+		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, &errorMessage)) {
 			System_Toast(("Graphics initialization failed: Quitting: " + errorMessage).c_str());
 			return false;
 		}
@@ -1233,7 +1233,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	if (!graphicsContext) {
 		return;
 	}
-	_assert_(graphicsContext->NeedsRenderThread());
+	_assert_(graphicsContext->NeedsSeparateEmuThread());
 
 	if (!graphicsContext->ThreadFrame(true)) {
 		INFO_LOG(Log::G3D, "ThreadFrame returned false");
@@ -1707,7 +1707,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRende
 		return false;
 	}
 
-	_assert_(!graphicsContext->NeedsRenderThread());
+	_assert_(!graphicsContext->NeedsSeparateEmuThread());
 
 	if (g_renderLoopThread.joinable()) {
 		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
@@ -1763,21 +1763,20 @@ static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsCo
 	WARN_LOG(Log::G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
 		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
-	if (!graphicsContext->Init(wnd)) {
+	std::string errorMessage;
+	if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, wnd, nullptr, &errorMessage)) {
 		// On Android, if we get here, really no point in continuing.
 		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
 		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
-		ERROR_LOG(Log::G3D, "Failed to initialize graphics context.");
-		System_Toast("Failed to initialize graphics context.");
-
-		delete graphicsContext;
-		graphicsContext = nullptr;
+		ERROR_LOG(Log::G3D, "Failed to initialize graphics context for surface: %s", errorMessage.c_str());
+		System_Toast("Failed to initialize graphics context for surface.");
 		renderLoopRunning = false;
 		ANativeWindow_release(wnd);
 		return;
 	}
 
 	if (!exitRenderLoop) {
+		INFO_LOG(Log::G3D, "Calling NativeInitGraphics");
 		if (!NativeInitGraphics(graphicsContext)) {
 			ERROR_LOG(Log::G3D, "Failed to initialize graphics.");
 			// Gonna be in a weird state here..
@@ -1785,10 +1784,12 @@ static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsCo
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
 
+		// The main loop.
 		while (!exitRenderLoop) {
 			NativeFrame(graphicsContext);
 			ProcessFrameCommands();
 		}
+
 		INFO_LOG(Log::G3D, "Leaving Vulkan main loop.");
 	} else {
 		INFO_LOG(Log::G3D, "Not entering main loop.");
@@ -1801,7 +1802,10 @@ static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsCo
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
 	INFO_LOG(Log::G3D, "Shutting down graphics context...");
-	graphicsContext->ShutdownFromRenderThread();
+	graphicsContext->ShutdownSurface();
+
+	// But we don't shut down the API. On some platforms like Android, we keep that around for later.
+
 	renderLoopRunning = false;
 	exitRenderLoop = false;
 	ANativeWindow_release(wnd);

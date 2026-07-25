@@ -19,14 +19,13 @@
 class LibretroGraphicsContext : public GraphicsContext {
 public:
 	LibretroGraphicsContext() {}
-	~LibretroGraphicsContext() override { Shutdown(); }
+	~LibretroGraphicsContext() override { ShutdownAPI(); }
 
-	virtual bool Init() = 0;
 	virtual void SetRenderTarget() {}
 	virtual GPUCore GetGPUCore() = 0;
 	virtual const char *Ident() = 0;
 
-	void Shutdown() override {
+	void ShutdownAPI() override {
 		DestroyDrawContext();
 	}
 	virtual void SwapBuffers() = 0;
@@ -56,7 +55,7 @@ protected:
 class LibretroHWRenderContext : public LibretroGraphicsContext {
 public:
 	LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major = 0, unsigned version_minor = 0);
-	bool Init(bool cache_context);
+	bool InitHW(bool cache_context);
 	void SetRenderTarget() override {}
 	void SwapBuffers() override {
 		video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
@@ -71,7 +70,6 @@ protected:
 class LibretroSoftwareContext : public LibretroGraphicsContext {
 public:
 	LibretroSoftwareContext() {}
-	bool Init() override { return true; }
 	void SwapBuffers() override {
 		GPUDebugBuffer buf;
 		u16 w = NATIVEWIDTH;

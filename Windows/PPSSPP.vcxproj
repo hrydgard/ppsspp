@@ -1119,7 +1119,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="GPU\WindowsGraphicsContext.h" />
     <ClInclude Include="HID\DualSense.h" />
     <ClInclude Include="HID\DualShock.h" />
     <ClInclude Include="Hid\HidCommon.h" />

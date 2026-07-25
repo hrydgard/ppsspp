@@ -10,9 +10,9 @@ public:
 		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 1) {
 		hw_render_.bottom_left_origin = true;
 	}
-   bool NeedsRenderThread() const override { return true; }
+   bool NeedsSeparateEmuThread() const override { return true; }
 
-	bool Init() override;
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *error_message) override;
 	void CreateDrawContext() override;
 	void DestroyDrawContext() override;
 	void SetRenderTarget() override {

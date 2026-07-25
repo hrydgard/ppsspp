@@ -34,14 +34,12 @@ static std::atomic<bool> g_inLoop;
 
 class GraphicsContext;
 
-void MainThreadFunc(GraphicsContext *graphicsContext);
-
 bool MainThread_Ready() {
 	return g_inLoop;
 }
 
 static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
-	INFO_LOG(Log::G3D, "Entering emu thread");
+	INFO_LOG(Log::G3D, "Entering separate emu thread");
 	SetCurrentThreadName("EmuThread");
 
 	AndroidJNIThreadContext context;
@@ -65,7 +63,6 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 		if (postFrame) {
 			postFrame();
 		}
-
 		if (GetUIState() == UISTATE_EXIT) {
 			g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
 		}
@@ -76,7 +73,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 	g_emuThreadState = EmuThreadState::STOPPED;
 
 	application->ShutdownGraphics(graphicsContext);
-	INFO_LOG(Log::System, "Leaving emu thread");
+	INFO_LOG(Log::System, "Leaving separate emu thread");
 }
 
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
@@ -92,7 +89,7 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
 	}
 	_dbg_assert_(emuThread.joinable());
-	if (graphicsContext->NeedsRenderThread()) {
+	if (graphicsContext->NeedsSeparateEmuThread()) {
 		graphicsContext->ThreadFrameUntilCondition([] {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
 			return g_emuThreadState == EmuThreadState::STOPPED;
@@ -102,18 +99,22 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 	emuThread = std::thread();
 }
 
-void MainThreadFunc(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
-	if (graphicsContext->NeedsRenderThread()) {
-		SetCurrentThreadName("RenderThread");
-		// This is now the render thread, and will spawn the emu thread below.
+// Call InitAPI and ShutdownAPI outside this!
+bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, WindowSystem windowSystem, void *windowData1, void *windowData2, std::function<void()> postFrame) {
+	// This is now the render thread, and will spawn the emu thread below.
+	std::string error_string;
+	bool success = graphicsContext->InitSurface(windowSystem, windowData1, windowData2, &error_string);
+	if (!success) {
+		return false;
+	}
 
-		std::string error_string;
-		bool success = graphicsContext->InitFromRenderThread(&error_string);
+	std::string errorMessage;
+	if (graphicsContext->NeedsSeparateEmuThread()) {
+		SetCurrentThreadName("RenderThread");
 
 		DEBUG_LOG(Log::Boot, "Done.");
 
 		g_inLoop = true;
-
 		std::thread emuThread = EmuThread_Start(graphicsContext, application, postFrame);
 
 		graphicsContext->ThreadStart();
@@ -133,16 +134,16 @@ void MainThreadFunc(GraphicsContext *graphicsContext, Application *application, 
 		EmuThread_Join(graphicsContext, emuThread);
 
 		graphicsContext->ThreadEnd();
-		graphicsContext->ShutdownFromRenderThread();
 
-		INFO_LOG(Log::System, "EmuThreadJoin - joined");
+		INFO_LOG(Log::System, "RenderThread - joined");
 
 	} else {
-		SetCurrentThreadName("EmuThread");
-		// This is the emu thread. the graphics contexts will spawn and handle its own threads if needed.
+		SetCurrentThreadName("MainThread");
+
+		// This is the main thread. the graphics contexts will spawn and handle its own threads if needed.
+		// InitFromRenderThread/ShutdownFromRenderThread are not used.
 
 		std::string error_string;
-		bool success = graphicsContext->InitFromRenderThread(&error_string);
 
 		application->InitGraphics(graphicsContext);
 		// NativeResized();
@@ -169,8 +170,8 @@ void MainThreadFunc(GraphicsContext *graphicsContext, Application *application, 
 		application->ShutdownGraphics(graphicsContext);
 
 		graphicsContext->ThreadEnd();
-		graphicsContext->ShutdownFromRenderThread();
 	}
 
-	graphicsContext->Shutdown();
+	graphicsContext->ShutdownSurface();
+	return true;
 }

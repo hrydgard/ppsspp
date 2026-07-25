@@ -90,8 +90,8 @@ static const VkApplicationInfo *GetApplicationInfo(void) {
 	return &app_info;
 }
 
-bool LibretroVulkanContext::Init() {
-	if (!LibretroHWRenderContext::Init(true)) {
+bool LibretroVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *error_message) {
+	if (!LibretroHWRenderContext::InitHW(true)) {
 		return false;
 	}
 
@@ -149,7 +149,7 @@ void LibretroVulkanContext::CreateDrawContext() {
    SetGPUBackend(GPUBackend::VULKAN);
 }
 
-void LibretroVulkanContext::Shutdown() {
+void LibretroVulkanContext::ShutdownAPI() {
    if (!vk) {
       return;
    }
@@ -157,7 +157,7 @@ void LibretroVulkanContext::Shutdown() {
    if (draw_)
       draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vk->GetBackbufferWidth(), vk->GetBackbufferHeight());
 
-   LibretroHWRenderContext::Shutdown();
+   LibretroHWRenderContext::ShutdownAPI();
 
    vk->WaitUntilQueueIdle();
 

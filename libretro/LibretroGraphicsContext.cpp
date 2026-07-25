@@ -22,7 +22,7 @@ void retro_set_video_refresh(retro_video_refresh_t cb) { LibretroGraphicsContext
 static void context_reset() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset(); }
 static void context_destroy() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextDestroy(); }
 
-bool LibretroHWRenderContext::Init(bool cache_context) {
+bool LibretroHWRenderContext::InitHW(bool cache_context) {
 	hw_render_.cache_context = cache_context;
 	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_))
 		return false;
@@ -83,7 +83,7 @@ void LibretroHWRenderContext::ContextDestroy() {
 	}
 
 	if (!hw_render_.cache_context && !Libretro::useEmuThread) {
-		Shutdown();
+		ShutdownAPI();
 	}
 }
 
@@ -101,13 +101,15 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	if (Libretro::backend != RETRO_HW_CONTEXT_DUMMY)
 		preferred = Libretro::backend;
 
+   std::string errorMessage;
 #ifndef USING_GLES2
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {
 		ctx = new LibretroGLCoreContext();
 
-		if (ctx->Init()) {
+		if (ctx->InitAPI(nullptr, nullptr, &errorMessage)) {
 			return ctx;
 		}
+      // Failed? Try next.
 		delete ctx;
 	}
 #endif
@@ -115,20 +117,24 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL || preferred == RETRO_HW_CONTEXT_OPENGLES3) {
 		ctx = new LibretroGLContext();
 
-		if (ctx->Init()) {
+		if (ctx->InitAPI(nullptr, nullptr, &errorMessage)) {
 			return ctx;
 		}
-		delete ctx;
+
+      // Failed? Try next.
+      delete ctx;
 	}
 
 #ifndef HAVE_LIBNX
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_VULKAN) {
 		ctx = new LibretroVulkanContext();
 
-		if (ctx->Init()) {
+		if (ctx->InitAPI(nullptr, nullptr, &errorMessage)) {
 			return ctx;
 		}
-		delete ctx;
+
+      // Failed? Try next.
+      delete ctx;
 	}
 #endif
 
@@ -136,15 +142,18 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_D3D11) {
 		ctx = new LibretroD3D11Context();
 
-		if (ctx->Init()) {
+		if (ctx->InitAPI(nullptr, nullptr, &errorMessage)) {
 			return ctx;
 		}
+
+      // Failed? Try next.
 		delete ctx;
 	}
 #endif
 
+   // End of the line.
 	ctx = new LibretroSoftwareContext();
-	ctx->Init();
+	ctx->InitAPI(nullptr, nullptr, &errorMessage);
 	return ctx;
 }
 

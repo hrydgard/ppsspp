@@ -47,27 +47,30 @@ void SimulateGamepad();
 
 class QtGLGraphicsContext : public GraphicsContext {
 public:
-	QtGLGraphicsContext() {
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override {
 		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext(false);
 		SetGPUBackend(GPUBackend::OPENGL);
+		// Not used in this context.
+		return true;
+	}
+
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override {
+		// Not used in this context.
+		draw_ = Draw::T3DCreateGLContext(false);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		bool success = draw_->CreatePresets();
 		_assert_msg_(success, "Failed to compile preset shaders");
-
-		// TODO: Need to figure out how to implement SetSwapInterval for Qt.
+		return true;
 	}
 
-	~QtGLGraphicsContext() {
+	bool NeedsSeparateEmuThread() const override { return true; }
+
+	void ShutdownSurface() override {
 		delete draw_;
 		draw_ = nullptr;
 		renderManager_ = nullptr;
 	}
-
-	bool NeedsRenderThread() const override { return true; }
-
-	void Shutdown() override {}
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {

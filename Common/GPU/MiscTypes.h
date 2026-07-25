@@ -5,6 +5,21 @@
 #include <functional>
 #include <cstdint>
 
+
+// Not all will be usable on all platforms, of course...
+enum WindowSystem {
+	WINDOWSYSTEM_UNINITIALIZED,
+	WINDOWSYSTEM_WIN32,
+	WINDOWSYSTEM_ANDROID,
+	WINDOWSYSTEM_METAL_EXT,
+	WINDOWSYSTEM_XLIB,
+	WINDOWSYSTEM_XCB,
+	WINDOWSYSTEM_WAYLAND,
+	WINDOWSYSTEM_DISPLAY,
+	WINDOWSYSTEM_SDL,
+	WINDOWSYSTEM_NONE,
+};
+
 // Flags and structs shared between backends that haven't found a good home.
 
 enum class InvalidationFlags {

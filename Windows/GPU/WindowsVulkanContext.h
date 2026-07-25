@@ -18,17 +18,18 @@
 #pragma once
 
 #include "Common/GraphicsContext.h"
-#include "Windows/GPU/WindowsGraphicsContext.h"
 #include "Common/GPU/thin3d.h"
 
 class VulkanContext;
 class VulkanRenderManager;
 
-class WindowsVulkanContext : public WindowsGraphicsContext {
+class WindowsVulkanContext : public GraphicsContext {
 public:
 	WindowsVulkanContext() : draw_(nullptr) {}
-	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
-	void Shutdown() override;
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage);
+	void ShutdownSurface() override;
+	void ShutdownAPI() override;
 	void Resize() override;
 	void Poll() override;
 

@@ -10,17 +10,22 @@ AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
 }
 
-bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
+bool AndroidJavaEGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+	// OpenGL handles rotated rendering in the driver.
+	g_display.rotation = DisplayRotation::ROTATE_0;
+	g_display.rot_matrix.setIdentity();
+	return true;
+}
+
+void AndroidJavaEGLGraphicsContext::ShutdownAPI() {}
+
+bool AndroidJavaEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
 	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	if (!CheckGLExtensions()) {
 		*errorMessage = "CheckExtensions failed";
 		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
 		return false;
 	}
-
-	// OpenGL handles rotated rendering in the driver.
-	g_display.rotation = DisplayRotation::ROTATE_0;
-	g_display.rot_matrix.setIdentity();
 
 	draw_ = Draw::T3DCreateGLContext(false);  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -34,7 +39,7 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(std::string *errorMessa
 	return true;
 }
 
-void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
+void AndroidJavaEGLGraphicsContext::ShutdownSurface() {
 	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::Shutdown");
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;

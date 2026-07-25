@@ -912,7 +912,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
-		INFO_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
+		VERBOSE_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
 		return true;
 	default:
 		INFO_LOG(Log::UI, "Unhandled system request %s", RequestTypeAsString(type));
@@ -1989,10 +1989,21 @@ int main(int argc, char *argv[]) {
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 	}
 
+	window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
+
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-		if (glctx->Init(window, x, y, w, h, mode, &error_message, cmdLineOptions.force_gl_version) != 0) {
+		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
+		if (!window) {
+			fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
+			exit(1);
+		}
+		if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+			SDL_SetWindowPosition(window, x, y);
+		}
+
+		glctx->InitAPI(nullptr, nullptr, &error_message);
+		if (!glctx->InitSurface(WINDOWSYSTEM_NONE, &window, (void *)(uintptr_t)mode, &error_message)) {
 			// Let's try the fallback once per process run.
 			fprintf(stderr, "GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
@@ -2001,7 +2012,8 @@ int main(int argc, char *argv[]) {
 
 			// NOTE : This should match the lines below in the Vulkan case.
 			SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
-			if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
+			vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
+			if (!vkctx->InitSurface(WINDOWSYSTEM_NONE, &window, nullptr, &error_message)) {
 				fprintf(stderr, "Vulkan fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
@@ -2012,7 +2024,8 @@ int main(int argc, char *argv[]) {
 #if !PPSSPP_PLATFORM(SWITCH)
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
-		if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
+		vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
+		if (!vkctx->InitSurface(WINDOWSYSTEM_NONE, &window, nullptr, &error_message)) {
 			// Let's try the fallback once per process run.
 
 			fprintf(stderr, "Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
@@ -2021,8 +2034,9 @@ int main(int argc, char *argv[]) {
 			delete vkctx;
 
 			// NOTE : This should match the three lines above in the OpenGL case.
-			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-			if (glctx->Init(window, x, y, w, h, mode, &error_message, cmdLineOptions.force_gl_version) != 0) {
+			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
+			glctx->InitAPI(nullptr, nullptr, &error_message);
+			if (!glctx->InitSurface(WINDOWSYSTEM_NONE, &window, (void *)(uintptr_t)mode, &error_message)) {
 				fprintf(stderr, "GL fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
@@ -2068,12 +2082,6 @@ int main(int argc, char *argv[]) {
 		imageData = NULL;
 	}
 
-	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
-	if (!graphicsContext->InitFromRenderThread(&error_message)) {
-		fprintf(stderr, "Init from thread error: '%s'\n", error_message.c_str());
-		return 1;
-	}
-
 	// OK, we have a valid graphics backend selected. Let's clear the failures.
 	g_Config.sFailedGPUBackends.clear();
 
@@ -2097,6 +2105,8 @@ int main(int argc, char *argv[]) {
 	EnableFZ();
 
 	NativeApplication application;
+
+	// We use the emuthread both for OpenGL and Vulkan, but in OpenGL mode we also render from the main thread.
 	std::thread emuThread = EmuThread_Start(graphicsContext, &application, nullptr);
 
 	graphicsContext->ThreadStart();
@@ -2116,7 +2126,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	const bool mainThreadIsRender = graphicsContext->NeedsRenderThread();
+	const bool mainThreadIsRender = graphicsContext->NeedsSeparateEmuThread();
 	if (!mainThreadIsRender) {
 		// Vulkan mode uses this.
 		// We should only be a message pump. This allows for lower latency
@@ -2164,7 +2174,7 @@ int main(int argc, char *argv[]) {
 		inputTracker.MouseCaptureControl(window);
 
 		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized;
-		if (graphicsContext->NeedsRenderThread() && !renderThreadPaused) {
+		if (graphicsContext->NeedsSeparateEmuThread() && !renderThreadPaused) {
 			if (!graphicsContext->ThreadFrame(true))
 				break;
 		}
@@ -2181,20 +2191,15 @@ int main(int argc, char *argv[]) {
 			g_rebootEmuThread = false;
 			EmuThread_Join(graphicsContext, emuThread);
 			graphicsContext->ThreadEnd();
-			graphicsContext->ShutdownFromRenderThread();
+			graphicsContext->ShutdownSurface();
 
 			fprintf(stderr, "OK, shutdown complete. starting up graphics again.\n");
 
 			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
-				if (!ctx->Init(window, x, y, w, h, mode, &error_message, cmdLineOptions.force_gl_version)) {
+				if (!ctx->InitSurface(WINDOWSYSTEM_SDL, &window, nullptr, &error_message)) {
 					fprintf(stderr, "Failed to reinit graphics.\n");
 				}
-			}
-
-			if (!graphicsContext->InitFromRenderThread(&error_message)) {
-				System_Toast("Graphics initialization failed. Quitting.");
-				return 1;
 			}
 
 			emuThread = EmuThread_Start(graphicsContext, &application, nullptr);
@@ -2206,14 +2211,16 @@ int main(int argc, char *argv[]) {
 
 	delete joystick;
 
+	// TODO: This seems redundant.
 	graphicsContext->ThreadEnd();
+
+	// Destroys Draw, which is used in NativeShutdown to shutdown.
+	graphicsContext->ShutdownSurface();
+	graphicsContext->ShutdownAPI();
+	delete graphicsContext;
 
 	NativeShutdown();
 
-	// Destroys Draw, which is used in NativeShutdown to shutdown.
-	graphicsContext->ShutdownFromRenderThread();
-	graphicsContext->Shutdown();
-	delete graphicsContext;
 
 	for (int i = 0; i < SDL_SYSTEM_CURSOR_COUNT; ++i) {
 		if (g_builtinCursors[i]) {

@@ -12,14 +12,16 @@ class GraphicsContext {
 public:
 	virtual ~GraphicsContext() = default;
 
-	// These should be no-ops on backends that manage their own render thread.
-	virtual bool InitFromRenderThread(std::string *errorMessage) { return true; }
-	virtual void ShutdownFromRenderThread() {}
+	// Some implementations will separate init of the API and of the rendering surface.
+	// wnd here is only to be used for messageboxes and similar, not for the surface.
+	virtual bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) { return true; }
+	virtual void ShutdownAPI() {}
 
-	virtual void BeginShutdown() {}  // This is currently only used on Android.
-	virtual void Shutdown() = 0;
+	// These should be called on the render thread if NeedsRenderThread.
+	virtual bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) { return true; }
+	virtual void ShutdownSurface() {}
 
-	// Used during window resize. Must be called from the window thread,
+	// Used during window resize on desktop ONLY. Must be called from the window thread,
 	// not the rendering thread or CPU thread.
 	virtual void Pause() {}
 	virtual void Resume() {}
@@ -30,8 +32,8 @@ public:
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
 	virtual void *GetAPIContext() { return nullptr; }
 
-	// OpenGL returns true here.
-	virtual bool NeedsRenderThread() const { return false; }
+	// OpenGL returns true here. Later we will need to do the same with Vulkan.
+	virtual bool NeedsSeparateEmuThread() const { return false; }
 
 	// Called from the render thread from threaded backends.
 	virtual void ThreadStart() {}
@@ -42,11 +44,12 @@ public:
 	// Should strive to get rid of these.
 	virtual void Poll() {}
 
+	// TODO: Store in a protected variable?
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 
 	void ThreadFrameUntilCondition(std::function<bool()> conditionStopped) {
-		_dbg_assert_(NeedsRenderThread());
-
+		_dbg_assert_(NeedsSeparateEmuThread());
+		BeginShutdownSurface();
 		bool exitOnEmpty = false;
 
 		INFO_LOG(Log::System, "Executing graphicsContext->ThreadFrame to clear buffers");
@@ -58,7 +61,7 @@ public:
 				exitOnEmpty = true;
 			}
 
-			bool retval = ThreadFrame(false);
+			const bool retval = ThreadFrame(false);
 			if (!retval && exitOnEmpty) {
 				INFO_LOG(Log::System, "ThreadFrame returned false and emu thread is done, breaking.");
 				break;
@@ -67,4 +70,7 @@ public:
 			}
 		}
 	}
+
+protected:
+	virtual void BeginShutdownSurface() {}  // This is currently only used on Android.
 };

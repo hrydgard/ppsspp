@@ -9,6 +9,7 @@
 #include "Common/System/Display.h"
 #include "Common/Log.h"
 #include "Common/GPU/Shader.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/StringUtils.h"
@@ -915,13 +916,15 @@ VkResult VulkanContext::InitDebugUtilsCallback() {
 	return res;
 }
 
-bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info) {
+bool VulkanContext::CreateInstanceAndDevice(const CreateInfo &info, std::string *deviceName) {
 	VkResult res = CreateInstance(info);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(Log::G3D, "Failed to create vulkan context: %s", InitError().c_str());
 		VulkanSetAvailable(false);
 		return false;
 	}
+
+	// TODO: Take the device name into account.
 
 	int physicalDevice = GetBestPhysicalDevice();
 	if (physicalDevice < 0) {
@@ -977,8 +980,8 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkWin32SurfaceCreateInfoKHR win32{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 		win32.flags = 0;
-		win32.hwnd = (HWND)winsysData2_;
 		win32.hinstance = (HINSTANCE)winsysData1_;
+		win32.hwnd = (HWND)winsysData2_;
 		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
 		break;
 	}
