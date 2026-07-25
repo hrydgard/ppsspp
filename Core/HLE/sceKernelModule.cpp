@@ -1923,7 +1923,10 @@ void __KernelLoadReset() {
 	__KernelInit();
 }
 
-bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string) {
+// Shared by __KernelLoadExec (loading from a file) and __KernelLoadExecFromBuffer (loading
+// from a buffer already in RAM, as used by the VSH's USB/WLAN game-push feature) - everything
+// past the point where we have the executable's bytes in hand.
+static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t size, const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param{};
 
 	auto paramData = PSPPointer<SceKernelLoadExecParam>::Create(paramPtr);
@@ -1948,18 +1951,7 @@ bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::
 
 	__KernelLoadReset();
 
-	std::vector<uint8_t> fileData;
-	if (pspFileSystem.ReadEntireFile(filename, fileData) < 0) {
-		ERROR_LOG(Log::Loader, "Failed to load executable %s - file doesn't exist", filename);
-		*error_string = StringFromFormat("Could not find executable %s", filename);
-		delete[] param_argp;
-		delete[] param_key;
-		__KernelShutdown();
-		return false;
-	}
-
-	size_t size = fileData.size();
-	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, filename, error_string);
+	PSPModule *module = __KernelLoadModule((u8 *)data, size, 0, filename, error_string);
 
 	if (!module || module->isFake) {
 		if (module) {
@@ -2023,11 +2015,27 @@ bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::
 	return true;
 }
 
-bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string) {
+bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string) {
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(filename, fileData) < 0) {
+		ERROR_LOG(Log::Loader, "Failed to load executable %s - file doesn't exist", filename);
+		*error_string = StringFromFormat("Could not find executable %s", filename);
+		__KernelShutdown();
+		return false;
+	}
+
+	return __KernelLoadExecFromPtr(mips, fileData.data(), fileData.size(), filename, paramPtr, error_string);
+}
+
+bool __KernelLoadExecFromBuffer(MIPSState *mips, const u8 *data, size_t size, u32 paramPtr, std::string *error_string) {
+	return __KernelLoadExecFromPtr(mips, data, size, "vshbuffer", paramPtr, error_string);
+}
+
+bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::string *error_string) {
 	__KernelLoadReset();
 
 	constexpr u32 codeStartAddr = PSP_GetUserMemoryBase();
-	mipsr4k.pc = codeStartAddr;
+	mips->pc = codeStartAddr;
 
 	GPURecord::WriteRunDumpCode(codeStartAddr);
 
