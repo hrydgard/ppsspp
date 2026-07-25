@@ -766,6 +766,30 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 	}
 }
 
+// Used to add detail to the "Unknown syscall" log in HLE.cpp's GetSyscallFuncPointer - a call
+// through a still-unresolved import ends up as a generic "invalid syscall" opcode that no
+// longer carries the original module name/NID, but the (fixed, unique) address of the syscall
+// instruction itself does - it's exactly the stubAddr every pending FuncSymbolImport recorded
+// when it was written by WriteFuncMissingStub.
+bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
+		for (const auto &func : module->importedFuncs) {
+			if (func.stubAddr == stubAddr) {
+				*importModuleName = func.moduleName;
+				*nid = func.nid;
+				*importingModuleName = module->GetName();
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 void PSPModule::Cleanup() {
 	MIPSAnalyst::ForgetFunctions(textStart, textEnd);
 
