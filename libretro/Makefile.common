@@ -841,6 +841,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceUsbCam.cpp \
 	       $(COREDIR)/HLE/sceUtility.cpp \
 	       $(COREDIR)/HLE/sceVaudio.cpp \
+	       $(COREDIR)/HLE/sceVshBridge.cpp \
 	       $(COREDIR)/HLE/scePspNpDrm_user.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
 	       $(COREDIR)/HLE/sceNp2.cpp \

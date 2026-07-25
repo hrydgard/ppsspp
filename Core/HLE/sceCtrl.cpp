@@ -495,7 +495,7 @@ static int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 	return hleLogDebug(Log::sceCtrl, 0);
 }
 
-static int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
+int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
 	hleEatCycles(330);

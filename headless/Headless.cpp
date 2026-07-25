@@ -134,6 +134,7 @@ int printUsage(const CommandLineOptions &options, const char *progname, const ch
 	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
+	fprintf(stderr, "  --flash0=DIR          use DIR as flash0: instead of the bundled assets (e.g. a real dump)\n");
 	return 1;
 }
 
@@ -493,6 +494,8 @@ int main(int argc, const char* argv[]) {
 				return printUsage(cmdLineOptions, argv[0], "Missing argument after --ignore");
 			ignoredTests.push_back(argv[i]);
 		}
+		else if (!strncmp(argv[i], "--flash0=", strlen("--flash0=")) && strlen(argv[i]) > strlen("--flash0="))
+			g_Config.flash0Directory = Path(argv[i] + strlen("--flash0="));
 	}
 
 	for (const std::string &filename : cmdLineOptions.bootFilenames) {

@@ -554,6 +554,8 @@ add_library(Core STATIC
 	HLE/sceUtility.h
 	HLE/sceVaudio.cpp
 	HLE/sceVaudio.h
+	HLE/sceVshBridge.cpp
+	HLE/sceVshBridge.h
 	HLE/scePspNpDrm_user.cpp
 	HLE/scePspNpDrm_user.h
 	HLE/sceNp.cpp

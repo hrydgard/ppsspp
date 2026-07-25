@@ -77,6 +77,7 @@
 #include "sceUsbMic.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
+#include "sceVshBridge.h"
 #include "sceMt19937.h"
 #include "sceSha256.h"
 #include "sceAdler.h"
@@ -327,6 +328,7 @@ void RegisterAllModules() {
 	Register_sceReg();
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
+	Register_sceVshBridge();
 
 	// add new modules here.
 }
