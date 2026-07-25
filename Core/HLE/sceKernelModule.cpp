@@ -1135,10 +1135,17 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			_assert_msg_(temp != nullptr, "Failed to allocate gzip decompression buffer (decryptedSize: %d)", decryptedSize);
 			memcpy(temp, ptr, decryptedSize);
 			int outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
-			if (outBytes < 0) {
-				ERROR_LOG(Log::sceModule, "Module gzip decompression failed!");
-			}
 			free(temp);
+			if (outBytes < 0) {
+				// Not necessarily actually gzip - some kd/ system modules (and possibly VSH
+				// modules) use KL4E compression instead, which we don't support decompressing.
+				// Bail out cleanly here rather than falling through to parse whatever's left
+				// in the buffer (still compressed, not a valid ELF) as if it were real code.
+				*error_string = StringFromFormat("Module '%s' decompression failed", head->modname);
+				// TODO: Might be the wrong error code.
+				error = SCE_KERNEL_ERROR_FILEERR;
+				return nullptr;
+			}
 			INFO_LOG(Log::sceModule, "gzip is enabled in '%s', decompressing (%d -> %d bytes, bufmax=%d).", head->modname, decryptedSize, outBytes, maxElfSize);
 		}
 
