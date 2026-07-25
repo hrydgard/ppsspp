@@ -35,6 +35,7 @@ struct CommandLineOptions {
 	std::optional<LogLevel> logLevel;  // Override log level with this.
 	std::optional<std::string> log;
 	std::vector<std::string> bootFilenames;
+	std::optional<std::string> flash0;
 
 	std::optional<CPUCore> cpuCore;
 
