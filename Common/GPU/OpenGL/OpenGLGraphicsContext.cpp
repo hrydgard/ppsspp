@@ -8,7 +8,7 @@
 
 OpenGLGraphicsContext::OpenGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
-
+	CheckGLExtensions();
 	// OpenGL handles rotated rendering in the driver.
 	g_display.rotation = DisplayRotation::ROTATE_0;
 	g_display.rot_matrix.setIdentity();
@@ -16,20 +16,11 @@ OpenGLGraphicsContext::OpenGLGraphicsContext() {
 
 bool OpenGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
 	INFO_LOG(Log::G3D, "OpenGLGraphicsContext::InitSurface");
-	if (!CheckGLExtensions()) {
-		*errorMessage = "CheckExtensions failed";
-		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
-		return false;
-	}
 	draw_ = Draw::T3DCreateGLContext(false);  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
-
-	if (!draw_->CreatePresets()) {
-		// This can't really happen now that compilation is async - they're only really queued for compile here.
-		_assert_msg_(false, "Failed to compile preset shaders");
-		return false;
-	}
+	const bool result = draw_->CreatePresets();
+	_dbg_assert_(result);
 	return true;
 }
 

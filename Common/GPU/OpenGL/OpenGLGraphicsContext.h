@@ -4,6 +4,8 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d_create.h"
 
+// This one is mainly useful for the backends that already initialize GL in platform-specific code.
+// It doesn't have the real initialization that we need to do on some platforms.
 class OpenGLGraphicsContext : public GraphicsContext {
 public:
 	OpenGLGraphicsContext();
