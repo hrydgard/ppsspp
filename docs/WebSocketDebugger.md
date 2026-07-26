@@ -131,18 +131,28 @@ file - this is just an index.
 - **Config**: `RemoteDebuggerOnStartup=true` in `ppsspp.ini`
   (`g_Config.bRemoteDebuggerOnStartup`) starts it automatically on launch
   (`UI/NativeApp.cpp`).
-- **Command line** (application build only): `--debugger` - added in
-  `Core/CmdLine.cpp`/`.h` as an `Application`-only auto-param, so it forces
-  `bRemoteDebuggerOnStartup` on for that run without persisting it to the
-  config file. It's deliberately *not* available in the headless build
-  (`CmdLineMode::Headless`) - see caveat below.
-- **Headless build**: has its own, separate, pre-existing mechanism -
-  `--debugger=PORT` parsed directly in `headless/Headless.cpp` (not through
-  `Core/CmdLine.cpp`'s shared parser). It also forces `startBreak = true` so
-  the CPU halts before running anything. **This is currently known not to
-  work properly** - treat it as unreliable/needs investigation before
-  depending on it, which is also why the new `--debugger` flag intentionally
-  does not apply to `CmdLineMode::Headless`.
+- **Command line** (both application and headless builds): `--debugger=PORT`
+  (`0` = pick a port automatically) - a shared auto-param in
+  `Core/CmdLine.cpp`/`.h` (`CmdLineMode::Both`). `ApplyToConfig()` sets
+  `iRemoteISOPort`/`bRemoteDebuggerOnStartup` for that run without persisting
+  them to the config file.
+  - On the **application** build this is exactly like ticking "Allow remote
+    debugger" - the game boots and runs normally, debugger listening
+    alongside it.
+  - On the **headless** build (`headless/Headless.cpp`) it additionally
+    forces `coreParameter.startBreak = true`, so the CPU halts before
+    running anything - useful for setting breakpoints before init/anti-tamper
+    code runs. Headless also re-applies `iRemoteISOPort` explicitly after
+    `g_Config.RestoreDefaults(...)` (which headless calls for deterministic
+    settings, and which would otherwise wipe the port `ApplyToConfig()` set).
+  - Headless previously parsed `--debugger=PORT` itself, ad hoc, without
+    going through `Core/CmdLine.cpp` - and it never actually worked on
+    Windows, because `headless/Headless.cpp` never called `net::Init()`
+    (`Common/Net/Resolve.cpp`), which does `WSAStartup` - without it, socket
+    binding fails silently (`ERROR_LOG`: "Unable to listen on any port
+    (debugger - webserver)"). Fixed by calling `net::Init()`/`net::Shutdown()`
+    in `headless/Headless.cpp`, gated on `--debugger` being passed (headless
+    has no other use for networking).
 
 ## Discovery
 

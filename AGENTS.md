@@ -76,8 +76,9 @@ patterns, set breakpoints, step the CPU, label data symbols, read GPU state, inj
 the same port as Remote ISO sharing at `/debugger` with subprotocol `debugger.ppsspp.org`. Implementation is in
 `Core/Debugger/WebSocket.cpp` and `Core/Debugger/WebSocket/*Subscriber.cpp` (one file per feature area, each
 documented at the top). Enable it via Settings > Tools > Developer Tools > "Allow remote debugger",
-`RemoteDebuggerOnStartup` in the config, or (application build only, not headless) the `--debugger` command line
-flag. The bundled web GUI at `/debugger/` comes from the `assets/debugger` submodule
+`RemoteDebuggerOnStartup` in the config, or `--debugger=PORT` on the command line (`0` = pick a port automatically) -
+works on both the application and headless builds. On headless it also forces a break at start (`startBreak`), so the
+CPU halts before anything runs. The bundled web GUI at `/debugger/` comes from the `assets/debugger` submodule
 (`unknownbrackets/ppsspp-debugger`, `bundled` branch).
 
 **Before touching this interface, read `docs/WebSocketDebugger.md`** - it has the full protocol reference and event
@@ -86,9 +87,9 @@ parameters from memory; the doc (and each `*Subscriber.cpp` file's per-handler c
 new events get added over time (e.g. `memory.search`, `hle.data.*`).
 
 To quickly get a live session going for manual testing (e.g. after adding/changing an event): build `PPSSPPWindows`
-(see Build and Validation above), then run it with `--debugger` and something that keeps running/looping so the CPU
-stays alive, so requests get a response instead of "CPU not started"/"CPU not active" errors. Any homebrew or game
-works; PSP homebrew isn't checked into this repo, so if you don't already have something installed under
+(see Build and Validation above), then run it with `--debugger=PORT` and something that keeps running/looping so the
+CPU stays alive, so requests get a response instead of "CPU not started"/"CPU not active" errors. Any homebrew or
+game works; PSP homebrew isn't checked into this repo, so if you don't already have something installed under
 `memstick/PSP/GAME/`, ask the user for a `.iso`/`.cso`/`.elf`/`EBOOT.PBP` to boot, or to install one via the in-app
 Homebrew Store. Watch the log output (`--log=somefile.log`) for the line `Listening on port N`, then point
 `Tools/wsdbg/` at that port (`cargo run -- N <event> [key=value...]` for one-shot, or `cargo run -- N` for a REPL).
