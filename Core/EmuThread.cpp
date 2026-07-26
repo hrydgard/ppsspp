@@ -12,7 +12,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Core/EmuThread.h"

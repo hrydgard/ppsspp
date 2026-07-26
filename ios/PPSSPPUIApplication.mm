@@ -31,7 +31,7 @@
 #include "ios/SmartKeyboardMap.hpp"
 
 #include "Core/Config.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>

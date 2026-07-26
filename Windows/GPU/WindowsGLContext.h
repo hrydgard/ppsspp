@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/MiscTypes.h"
 
 namespace Draw {

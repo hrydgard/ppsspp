@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/thin3d.h"
 
 class VulkanContext;

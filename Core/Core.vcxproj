@@ -1308,6 +1308,7 @@
     <Text Include="..\ext\CMakeLists.txt" />
     <Text Include="..\ext\libzip\CMakeLists.txt" />
     <Text Include="..\ext\sha1\CMakeLists.txt" />
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

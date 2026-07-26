@@ -24,7 +24,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

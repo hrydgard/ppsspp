@@ -5,7 +5,7 @@
 
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 class SDLGLGraphicsContext : public GraphicsContext {
 public:

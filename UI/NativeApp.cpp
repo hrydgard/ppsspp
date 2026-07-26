@@ -83,7 +83,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 #include "Common/MemArena.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"

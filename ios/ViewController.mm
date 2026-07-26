@@ -30,7 +30,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

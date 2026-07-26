@@ -2,7 +2,7 @@
 #include <atomic>
 
 #include <libretro.h>
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/thin3d_create.h"
 
 #include "Core/Config.h"

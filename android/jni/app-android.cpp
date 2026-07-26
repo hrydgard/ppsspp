@@ -87,7 +87,7 @@ struct JNIEnv {};
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 

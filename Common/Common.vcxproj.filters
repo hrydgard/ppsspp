@@ -30,7 +30,6 @@
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="BitScan.h" />
@@ -786,6 +785,9 @@
     </ClInclude>
     <ClInclude Include="System\Application.h">
       <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\GraphicsContext.h">
+      <Filter>GPU</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1612,6 +1614,7 @@
     <Text Include="..\ext\imgui\CMakeLists.txt">
       <Filter>ext\imgui</Filter>
     </Text>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc.inc">

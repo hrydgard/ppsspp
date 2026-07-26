@@ -22,7 +22,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Text/StringWriter.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/StringUtils.h"

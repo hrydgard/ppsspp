@@ -18,7 +18,7 @@
 #include <string>
 
 #include "Common/Log.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Text/StringWriter.h"
 

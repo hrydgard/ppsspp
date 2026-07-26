@@ -1,7 +1,7 @@
 #include "ppsspp_config.h"
 #include <SDL3/SDL.h>
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 
