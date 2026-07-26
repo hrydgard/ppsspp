@@ -69,6 +69,18 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   build-tested here, so double check them by hand against how an existing neighboring file (e.g. `sceVaudio.cpp`) is
   listed in each.
 
+## WebSocket debugger
+
+PPSSPP has a JSON/WebSocket debugger and automation API (connect, read/write memory, set breakpoints, step the CPU,
+read GPU state, inject input, tail logs, etc.), served on the same port as Remote ISO sharing at `/debugger` with
+subprotocol `debugger.ppsspp.org`. Implementation is in `Core/Debugger/WebSocket.cpp` and
+`Core/Debugger/WebSocket/*Subscriber.cpp` (one file per feature area, each documented at the top). Enable it via
+Settings > Tools > Developer Tools > "Allow remote debugger", `RemoteDebuggerOnStartup` in the config, or (application
+build only, not headless) the `--debugger` command line flag. The bundled web GUI at `/debugger/` comes from the
+`assets/debugger` submodule (`unknownbrackets/ppsspp-debugger`, `bundled` branch). For the full protocol reference and
+event catalog, see `docs/WebSocketDebugger.md`. A standalone CLI client for talking to it directly lives in
+`Tools/wsdbg/`.
+
 ## Quick rebuild on Linux
 
 You don't need to do ./b.sh --debug to verify every single little change, instead use this shortcut:
