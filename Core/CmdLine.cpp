@@ -139,6 +139,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
+	{POFF(enableDebugger), CmdParamType::Bool, "debugger", '\0', "Enable the WebSocket debugger on startup (see docs/WebSocketDebugger.md)", CmdLineMode::Application},
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
@@ -393,6 +394,11 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 	if (pauseMenuExit.has_value()) {
 		g_Config.bPauseMenuExitsEmulator = pauseMenuExit.value();
+	}
+
+	if (enableDebugger.has_value()) {
+		g_Config.bRemoteDebuggerOnStartup = enableDebugger.value();
+		g_Config.DoNotSaveSetting(&g_Config.bRemoteDebuggerOnStartup);
 	}
 
 	if (logLevel.has_value()) {

@@ -40,6 +40,9 @@ struct CommandLineOptions {
 	std::optional<bool> escapeExit;
 	std::optional<bool> pauseMenuExit;
 
+	// Enables the WebSocket debugger on startup (Application mode only - see docs/WebSocketDebugger.md).
+	std::optional<bool> enableDebugger;
+
 	std::optional<std::string> appendConfig;
 	std::optional<std::string> root;  // mount root, needs more explanation
 	std::optional<std::string> stateToLoad;
