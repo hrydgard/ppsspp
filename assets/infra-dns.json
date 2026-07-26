@@ -32,6 +32,25 @@
 			]
 		},
 		{
+			"name": "FIFA 06",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms. Requires a patch for the EU version!"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "eahub.eu",
+			"domains": {
+				"pspfifa06.ea.com": "eahub.eu"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULES00161",
+				"ULUS10029"
+			]
+		},
+		{
 			"name": "FIFA 07",
 			"comment": {
 				"en_US": "Works but there are incompatibilities between platforms"
@@ -283,7 +302,7 @@
 			},
 			"dns": "eahub.eu",
 			"domains": {
-				"pspmoh07.ea.com": "eahub.eu",
+				"pspmoh07.ea.com": "eahub.eu"
 			},
 			"score": 5,
 			"known_working_ids": [
@@ -312,7 +331,7 @@
 			},
 			"dns": "eahub.eu",
 			"domains": {
-				"pspmoh08.ea.com": "eahub.eu",
+				"pspmoh08.ea.com": "eahub.eu"
 			},
 			"score": 1,
 			"known_working_ids": [
