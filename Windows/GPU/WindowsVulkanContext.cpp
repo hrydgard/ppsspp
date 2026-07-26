@@ -69,7 +69,7 @@ static const bool g_validate_ = true;
 static const bool g_validate_ = false;
 #endif
 
-bool WindowsVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	*errorMessage = "N/A";
 	_dbg_assert_(deviceName);
 
@@ -120,7 +120,7 @@ bool WindowsVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::stri
 	return true;
 }
 
-bool WindowsVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
 	_dbg_assert_(winsys == WINDOWSYSTEM_WIN32);
 	HINSTANCE hInst = (HINSTANCE)data1;
 	HWND hWnd = (HWND)data2;
@@ -162,7 +162,7 @@ bool WindowsVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	return true;
 }
 
-void WindowsVulkanContext::ShutdownSurface() {
+void VulkanGraphicsContext::ShutdownSurface() {
 	if (draw_) {
 		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	}
@@ -175,7 +175,7 @@ void WindowsVulkanContext::ShutdownSurface() {
 	vulkan_->DestroySurface();
 }
 
-void WindowsVulkanContext::ShutdownAPI() {
+void VulkanGraphicsContext::ShutdownAPI() {
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 
@@ -186,7 +186,7 @@ void WindowsVulkanContext::ShutdownAPI() {
 	finalize_glslang();
 }
 
-void WindowsVulkanContext::Resize() {
+void VulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
@@ -200,7 +200,7 @@ void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 
-void WindowsVulkanContext::Poll() {
+void VulkanGraphicsContext::Poll() {
 	// Check for existing swapchain to avoid issues during shutdown.
 	if (vulkan_->IsSwapchainInited() && renderManager_->NeedsSwapchainRecreate()) {
 		Resize();
@@ -210,6 +210,6 @@ void WindowsVulkanContext::Poll() {
 	}
 }
 
-void *WindowsVulkanContext::GetAPIContext() {
+void *VulkanGraphicsContext::GetAPIContext() {
 	return vulkan_;
 }

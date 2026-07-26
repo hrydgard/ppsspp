@@ -88,7 +88,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		break;
 
 	case GPUCORE_VULKAN:
-		graphicsContext = new WindowsVulkanContext();
+		graphicsContext = new VulkanGraphicsContext();
 		break;
 	default:
 		_assert_(false);

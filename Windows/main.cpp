@@ -1041,7 +1041,7 @@ static GraphicsContext *CreateGraphicsContext(GPUBackend backend, std::string **
 		break;
 	case GPUBackend::VULKAN:
 	default:
-		graphicsContext = new WindowsVulkanContext();
+		graphicsContext = new VulkanGraphicsContext();
 		*deviceName = &g_Config.sVulkanDevice;
 		break;
 	}
