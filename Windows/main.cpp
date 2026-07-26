@@ -1232,7 +1232,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	System_Notify(SystemNotification::UI);
 
 	std::thread mainThread = std::thread([]() {
-		NativeApplication application;
 		std::string errorMessage;
 		std::string *deviceNameSetting;
 		std::unique_ptr<GraphicsContext> graphicsContext(CreateGraphicsContext((GPUBackend)g_Config.iGPUBackend, &deviceNameSetting));
@@ -1240,7 +1239,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			HandleGraphicsFailure(errorMessage);
 			return;
 		}
-		if (!MainThreadFunc(graphicsContext.get(), &application, WINDOWSYSTEM_WIN32, MainWindow::GetHInstance(), MainWindow::GetHWND(), []() {})) {
+		if (!MainThreadFunc(graphicsContext.get(), new NativeApplication(), WINDOWSYSTEM_WIN32, MainWindow::GetHInstance(), MainWindow::GetHWND(), []() {})) {
 			HandleGraphicsFailure("Failed to initialize main thread function.");
 			return;
 		}
