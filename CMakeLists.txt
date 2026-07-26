@@ -220,6 +220,10 @@ if(USE_SYSTEM_RAPIDJSON)
 	add_compile_definitions(SYSTEM_RAPIDJSON)
 endif()
 
+if(USE_SYSTEM_MINIUPNPC)
+	add_compile_definitions(USE_SYSTEM_MINIUPNPC)
+endif()
+
 if(WEBOS)
 	set(USING_X11_VULKAN OFF)
 	set(USING_GLES2 ON)

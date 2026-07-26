@@ -179,7 +179,7 @@ endif()
 if(USE_MINIUPNPC)
 	if(USE_SYSTEM_MINIUPNPC)
 		find_package(MINIUPNPC REQUIRED)
-		add_compile_definitions(WITH_UPNP USE_SYSTEM_MINIUPNPC)
+		add_compile_definitions(WITH_UPNP)
 	else()
 		set (MINIUPNPC_VERSION 2.2) # used by miniupnpcstrings.h.cmake
 		set (MINIUPNPC_API_VERSION 18)
