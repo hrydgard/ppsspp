@@ -931,6 +931,8 @@ std::vector<std::string> System_GetCameraDeviceList() {
 	return __mac_getDeviceList();
 #elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
 	return __v4l_getDeviceList();
+#else
+	return {};
 #endif
 }
 
