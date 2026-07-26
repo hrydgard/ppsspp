@@ -915,7 +915,6 @@ void MainUI::initializeGL() {
 	} else {
 		INFO_LOG(Log::System, "Not using thread, backend=%d", (int)g_Config.iGPUBackend);
 	}
-	graphicsContext->ThreadStart();
 }
 
 void MainUI::paintGL() {

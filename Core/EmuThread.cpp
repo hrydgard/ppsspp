@@ -80,6 +80,7 @@ std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *appli
 	_dbg_assert_(g_emuThreadState == EmuThreadState::STOPPED);
 	g_emuThreadState = EmuThreadState::RUNNING;
 	std::thread emuThread = std::thread(&EmuThreadFunc, graphicsContext, application, postFrame);
+	graphicsContext->ThreadStart();
 	return emuThread;
 }
 
@@ -96,6 +97,7 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 			return g_emuThreadState == EmuThreadState::STOPPED;
 		});
 	}
+	graphicsContext->ThreadEnd();
 	emuThread.join();
 	emuThread = std::thread();
 }

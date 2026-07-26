@@ -253,8 +253,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 		ERROR_LOG(Log::G3D, "InitAPI failed: %s", errorMessage.c_str());
 	}
 
-	graphicsContext->ThreadStart();
-
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
@@ -380,7 +378,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	graphicsContext->ThreadFrameUntilCondition([]() -> bool {
 		return !renderLoopRunning;
 	});
-	graphicsContext->ThreadEnd();
 	graphicsContext->ShutdownSurface();
 	graphicsContext->ShutdownAPI();
 	delete graphicsContext;
