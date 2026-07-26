@@ -195,6 +195,7 @@ add_library(Common STATIC
 	GPU/Vulkan/VulkanQueueRunner.h
 	GPU/Vulkan/VulkanFrameData.cpp
 	GPU/Vulkan/VulkanFrameData.h
+	GPU/Vulkan/VulkanGraphicsContext.cpp
 	Input/GestureDetector.cpp
 	Input/GestureDetector.h
 	Input/KeyCodes.h

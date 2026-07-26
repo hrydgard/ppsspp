@@ -333,6 +333,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.cpp" />
     <ClCompile Include="..\ext\glew\glew.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
@@ -343,7 +344,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp" />
     <ClCompile Include="..\Windows\W32Util\Misc.cpp" />
     <ClCompile Include="Compare.cpp" />
     <ClCompile Include="Headless.cpp">
@@ -400,6 +400,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="SDLHeadlessHost.h" />
     <ClInclude Include="HeadlessHost.h" />

@@ -46,7 +46,7 @@
 // and use the same render pass configuration (clear to black). However, we can later change this so we switch
 // to a non-clearing render pass in buffered mode, which might be a tiny bit faster.
 
-#include <crtdbg.h>
+#include "Common/DbgNew.h"
 #include <sstream>
 
 #include "Core/Config.h"
@@ -59,9 +59,9 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/Data/Text/Parsers.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "Windows/GPU/WindowsVulkanContext.h"
 
 #ifdef _DEBUG
 static const bool g_validate_ = true;
@@ -121,11 +121,7 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 }
 
 bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	_dbg_assert_(winsys == WINDOWSYSTEM_WIN32);
-	HINSTANCE hInst = (HINSTANCE)data1;
-	HWND hWnd = (HWND)data2;
-
-	vulkan_->InitSurface(winsys, (void *)hInst, (void *)hWnd);
+	vulkan_->InitSurface(winsys, data1, data2);
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
 	if (g_Config.iInflightFrames == 1) {

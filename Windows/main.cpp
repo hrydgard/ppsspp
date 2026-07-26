@@ -78,7 +78,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
-#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Windows/GPU/D3D11Context.h"
 
 #include "Windows/W32Util/ContextMenu.h"

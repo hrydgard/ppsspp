@@ -39,7 +39,7 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 #include "Windows/GPU/D3D11Context.h"
-#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
