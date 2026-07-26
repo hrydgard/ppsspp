@@ -33,6 +33,7 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GPU/GraphicsContext.h"
+#include "Common/Net/Resolve.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadManager.h"
@@ -453,6 +454,12 @@ int main(int argc, const char* argv[]) {
 		break;
 	}
 
+	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the
+	// WebSocket debugger silently fails to listen. Only done when requested since headless
+	// otherwise has no use for networking.
+	if (cmdLineOptions.debuggerPort.has_value())
+		net::Init();
+
 	AutoTestOptions testOptions{};
 	testOptions.compare = cmdLineOptions.compare.value_or(false);
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
@@ -462,7 +469,6 @@ int main(int argc, const char* argv[]) {
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
-	int debuggerPort = -1;
 	bool oldAtrac = false;
 	bool outputDebugStringLog = false;
 
@@ -493,8 +499,6 @@ int main(int argc, const char* argv[]) {
 			testOptions.verbose = true;
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
-		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
-			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
@@ -667,8 +671,9 @@ int main(int argc, const char* argv[]) {
 
 	UpdateUIState(UISTATE_INGAME);
 
-	if (debuggerPort > 0) {
-		g_Config.iRemoteISOPort = debuggerPort;
+	if (cmdLineOptions.debuggerPort.has_value()) {
+		// RestoreDefaults() above wiped what ApplyToConfig() set, so set it again here.
+		g_Config.iRemoteISOPort = cmdLineOptions.debuggerPort.value();
 		coreParameter.startBreak = true;
 		StartWebServer(WebServerFlags::DEBUGGER);
 	}
@@ -725,7 +730,7 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 
-	if (debuggerPort > 0) {
+	if (cmdLineOptions.debuggerPort.has_value()) {
 		ShutdownWebServer();
 	}
 
@@ -736,6 +741,8 @@ int main(int argc, const char* argv[]) {
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
+	if (cmdLineOptions.debuggerPort.has_value())
+		net::Shutdown();
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	timeEndPeriod(1);

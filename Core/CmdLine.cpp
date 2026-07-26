@@ -139,7 +139,6 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
-	{POFF(enableDebugger), CmdParamType::Bool, "debugger", '\0', "Enable the WebSocket debugger on startup (see docs/WebSocketDebugger.md)", CmdLineMode::Application},
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
@@ -151,6 +150,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", '\0', "Save screenshot to specified path"},
 	{POFF(timeout), CmdParamType::Double, "timeout", '\0', "Set the timeout value"},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
+	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -396,8 +396,10 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.bPauseMenuExitsEmulator = pauseMenuExit.value();
 	}
 
-	if (enableDebugger.has_value()) {
-		g_Config.bRemoteDebuggerOnStartup = enableDebugger.value();
+	if (debuggerPort.has_value()) {
+		g_Config.iRemoteISOPort = debuggerPort.value();
+		g_Config.DoNotSaveSetting(&g_Config.iRemoteISOPort);
+		g_Config.bRemoteDebuggerOnStartup = true;
 		g_Config.DoNotSaveSetting(&g_Config.bRemoteDebuggerOnStartup);
 	}
 
