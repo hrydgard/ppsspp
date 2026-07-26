@@ -5,7 +5,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Input/InputState.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/DeviceResources.h"
 #include "Windows/InputDevice.h"
 

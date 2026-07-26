@@ -39,7 +39,7 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 #include "Windows/GPU/D3D11Context.h"
-#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
@@ -88,7 +88,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		break;
 
 	case GPUCORE_VULKAN:
-		graphicsContext = new WindowsVulkanContext();
+		graphicsContext = new VulkanGraphicsContext();
 		break;
 	default:
 		_assert_(false);

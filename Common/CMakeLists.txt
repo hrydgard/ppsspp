@@ -134,6 +134,7 @@ add_library(Common STATIC
 	File/DirListing.h
 	File/FileDescriptor.cpp
 	File/FileDescriptor.h
+	GPU/GraphicsContext.h
 	GPU/DataFormat.h
 	GPU/MiscTypes.h
 	GPU/GPUBackendCommon.cpp
@@ -194,6 +195,7 @@ add_library(Common STATIC
 	GPU/Vulkan/VulkanQueueRunner.h
 	GPU/Vulkan/VulkanFrameData.cpp
 	GPU/Vulkan/VulkanFrameData.h
+	GPU/Vulkan/VulkanGraphicsContext.cpp
 	Input/GestureDetector.cpp
 	Input/GestureDetector.h
 	Input/KeyCodes.h

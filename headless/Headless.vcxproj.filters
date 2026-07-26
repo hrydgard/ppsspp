@@ -10,9 +10,6 @@
     <ClCompile Include="WindowsHeadlessHost.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
-    <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp">
-      <Filter>Windows</Filter>
-    </ClCompile>
     <ClCompile Include="..\Windows\W32Util\Misc.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
@@ -26,6 +23,9 @@
       <Filter>Windows</Filter>
     </ClCompile>
     <ClCompile Include="HeadlessHost.cpp" />
+    <ClCompile Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
@@ -41,6 +41,9 @@
       <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="HeadlessHost.h" />
+    <ClInclude Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Windows">

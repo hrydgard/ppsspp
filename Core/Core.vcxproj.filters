@@ -2289,5 +2289,6 @@
     <Text Include="..\ext\CMakeLists.txt">
       <Filter>Ext</Filter>
     </Text>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
 </Project>

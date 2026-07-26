@@ -32,7 +32,7 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadManager.h"

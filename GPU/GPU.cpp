@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/TimeUtil.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 

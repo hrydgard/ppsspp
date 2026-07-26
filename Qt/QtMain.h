@@ -34,7 +34,7 @@ QTM_USE_NAMESPACE
 #include "Common/Net/Resolve.h"
 #include "NKCodeFromQt.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

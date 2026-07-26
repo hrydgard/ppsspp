@@ -15,7 +15,7 @@
 #include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/StringUtils.h"
 

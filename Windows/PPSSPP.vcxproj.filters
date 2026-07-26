@@ -187,9 +187,6 @@
     <ClCompile Include="CaptureDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
-    <ClCompile Include="GPU\WindowsVulkanContext.cpp">
-      <Filter>Windows\System</Filter>
-    </ClCompile>
     <ClCompile Include="..\android\jni\AndroidJavaGLContext.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
@@ -405,9 +402,6 @@
     </ClInclude>
     <ClInclude Include="BufferLock.h">
       <Filter>Windows\Input</Filter>
-    </ClInclude>
-    <ClInclude Include="GPU\WindowsVulkanContext.h">
-      <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
       <Filter>Other Platforms\Android</Filter>

@@ -20,7 +20,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/CommonWindows.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/MiscTypes.h"
 #include <d3d11.h>
 #include <d3d11_1.h>

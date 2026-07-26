@@ -142,7 +142,8 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanDescSet.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanProfiler.cpp \
-  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp
+  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanGraphicsContext.cpp
 
 VMA_FILES := \
   $(SRC)/ext/vma/vk_mem_alloc.cpp

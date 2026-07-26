@@ -46,7 +46,7 @@
 // and use the same render pass configuration (clear to black). However, we can later change this so we switch
 // to a non-clearing render pass in buffered mode, which might be a tiny bit faster.
 
-#include <crtdbg.h>
+#include "Common/DbgNew.h"
 #include <sstream>
 
 #include "Core/Config.h"
@@ -59,9 +59,9 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/Data/Text/Parsers.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "Windows/GPU/WindowsVulkanContext.h"
 
 #ifdef _DEBUG
 static const bool g_validate_ = true;
@@ -69,7 +69,7 @@ static const bool g_validate_ = true;
 static const bool g_validate_ = false;
 #endif
 
-bool WindowsVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	*errorMessage = "N/A";
 	_dbg_assert_(deviceName);
 
@@ -120,12 +120,8 @@ bool WindowsVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::stri
 	return true;
 }
 
-bool WindowsVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	_dbg_assert_(winsys == WINDOWSYSTEM_WIN32);
-	HINSTANCE hInst = (HINSTANCE)data1;
-	HWND hWnd = (HWND)data2;
-
-	vulkan_->InitSurface(winsys, (void *)hInst, (void *)hWnd);
+bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+	vulkan_->InitSurface(winsys, data1, data2);
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
 	if (g_Config.iInflightFrames == 1) {
@@ -162,7 +158,7 @@ bool WindowsVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	return true;
 }
 
-void WindowsVulkanContext::ShutdownSurface() {
+void VulkanGraphicsContext::ShutdownSurface() {
 	if (draw_) {
 		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	}
@@ -175,7 +171,7 @@ void WindowsVulkanContext::ShutdownSurface() {
 	vulkan_->DestroySurface();
 }
 
-void WindowsVulkanContext::ShutdownAPI() {
+void VulkanGraphicsContext::ShutdownAPI() {
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 
@@ -186,7 +182,7 @@ void WindowsVulkanContext::ShutdownAPI() {
 	finalize_glslang();
 }
 
-void WindowsVulkanContext::Resize() {
+void VulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
@@ -200,7 +196,7 @@ void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 
-void WindowsVulkanContext::Poll() {
+void VulkanGraphicsContext::Poll() {
 	// Check for existing swapchain to avoid issues during shutdown.
 	if (vulkan_->IsSwapchainInited() && renderManager_->NeedsSwapchainRecreate()) {
 		Resize();
@@ -210,6 +206,6 @@ void WindowsVulkanContext::Poll() {
 	}
 }
 
-void *WindowsVulkanContext::GetAPIContext() {
+void *VulkanGraphicsContext::GetAPIContext() {
 	return vulkan_;
 }

@@ -23,7 +23,7 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
 

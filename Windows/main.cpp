@@ -78,7 +78,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
-#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Windows/GPU/D3D11Context.h"
 
 #include "Windows/W32Util/ContextMenu.h"
@@ -1041,7 +1041,7 @@ static GraphicsContext *CreateGraphicsContext(GPUBackend backend, std::string **
 		break;
 	case GPUBackend::VULKAN:
 	default:
-		graphicsContext = new WindowsVulkanContext();
+		graphicsContext = new VulkanGraphicsContext();
 		*deviceName = &g_Config.sVulkanDevice;
 		break;
 	}
@@ -1232,7 +1232,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	System_Notify(SystemNotification::UI);
 
 	std::thread mainThread = std::thread([]() {
-		NativeApplication application;
 		std::string errorMessage;
 		std::string *deviceNameSetting;
 		std::unique_ptr<GraphicsContext> graphicsContext(CreateGraphicsContext((GPUBackend)g_Config.iGPUBackend, &deviceNameSetting));
@@ -1240,7 +1239,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			HandleGraphicsFailure(errorMessage);
 			return;
 		}
-		if (!MainThreadFunc(graphicsContext.get(), &application, WINDOWSYSTEM_WIN32, MainWindow::GetHInstance(), MainWindow::GetHWND(), []() {})) {
+		if (!MainThreadFunc(graphicsContext.get(), new NativeApplication(), WINDOWSYSTEM_WIN32, MainWindow::GetHInstance(), MainWindow::GetHWND(), []() {})) {
 			HandleGraphicsFailure("Failed to initialize main thread function.");
 			return;
 		}

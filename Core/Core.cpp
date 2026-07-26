@@ -25,7 +25,7 @@
 #include "Common/System/System.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Core/Core.h"

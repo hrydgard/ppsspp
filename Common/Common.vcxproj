@@ -429,6 +429,7 @@
     <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
     <ClInclude Include="GPU\DataFormat.h" />
     <ClInclude Include="GPU\GPUBackendCommon.h" />
+    <ClInclude Include="GPU\GraphicsContext.h" />
     <ClInclude Include="GPU\MiscTypes.h" />
     <ClInclude Include="GPU\OpenGL\DataFormatGL.h" />
     <ClInclude Include="GPU\OpenGL\gl3stub.h" />
@@ -453,6 +454,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanDescSet.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFrameData.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanGraphicsContext.h" />
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="GPU\Vulkan\VulkanMemory.h" />
@@ -525,7 +527,6 @@
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="GhidraClient.h" />
-    <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="Log\LogManager.h" />
     <ClInclude Include="MachineContext.h" />
@@ -935,6 +936,7 @@
     <ClCompile Include="GPU\Vulkan\VulkanDescSet.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFramebuffer.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanGraphicsContext.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp" />
@@ -1039,6 +1041,7 @@
     <Text Include="..\ext\at3_standalone\README.txt" />
     <Text Include="..\ext\imgui\CMakeLists.txt" />
     <Text Include="..\ext\libpng17\CMakeLists.txt" />
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ext\cpu_features.vcxproj">

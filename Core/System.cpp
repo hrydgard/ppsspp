@@ -42,7 +42,7 @@
 #include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"

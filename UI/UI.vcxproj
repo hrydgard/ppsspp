@@ -152,6 +152,9 @@
       <Project>{31694510-a8c0-40f6-b09b-e8df825adefa}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{004B8D11-2BE3-4BD9-AB40-2BE04CF2096F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>

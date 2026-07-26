@@ -1245,7 +1245,6 @@ set(WindowsFiles
 	Windows/GPU/D3D11Context.cpp
 	Windows/GPU/D3D11Context.h
 	Windows/GPU/WindowsGLContext.cpp
-	Windows/GPU/WindowsVulkanContext.cpp
 	Windows/InputBox.cpp
 	Windows/InputBox.h
 	Windows/InputDevice.cpp
@@ -1360,7 +1359,6 @@ if(HEADLESS)
 			Windows/GPU/D3D11Context.cpp
 			Windows/GPU/D3D11Context.h
 			Windows/GPU/WindowsGLContext.cpp
-			Windows/GPU/WindowsVulkanContext.cpp
 			Windows/W32Util/ShellUtil.cpp
 			Windows/W32Util/ShellUtil.h
 			Windows/CaptureDevice.cpp

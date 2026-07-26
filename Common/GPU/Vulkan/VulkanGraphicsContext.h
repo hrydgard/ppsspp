@@ -17,15 +17,15 @@
 
 #pragma once
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/thin3d.h"
 
 class VulkanContext;
 class VulkanRenderManager;
 
-class WindowsVulkanContext : public GraphicsContext {
+class VulkanGraphicsContext : public GraphicsContext {
 public:
-	WindowsVulkanContext() : draw_(nullptr) {}
+	VulkanGraphicsContext() : draw_(nullptr) {}
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
 	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage);
 	void ShutdownSurface() override;

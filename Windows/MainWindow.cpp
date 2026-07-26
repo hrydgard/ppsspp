@@ -60,7 +60,7 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 #include "Windows/main.h"
 #ifndef _M_ARM

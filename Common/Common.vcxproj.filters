@@ -30,7 +30,6 @@
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="BitScan.h" />
@@ -787,6 +786,12 @@
     <ClInclude Include="System\Application.h">
       <Filter>System</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\GraphicsContext.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanGraphicsContext.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1455,6 +1460,9 @@
     <ClCompile Include="..\ext\pugixml\pugixml.cpp">
       <Filter>ext\pugixml</Filter>
     </ClCompile>
+    <ClCompile Include="GPU\Vulkan\VulkanGraphicsContext.cpp">
+      <Filter>GPU\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1612,6 +1620,7 @@
     <Text Include="..\ext\imgui\CMakeLists.txt">
       <Filter>ext\imgui</Filter>
     </Text>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc.inc">
