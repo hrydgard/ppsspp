@@ -74,12 +74,6 @@ bool SDLVulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, voi
 	_dbg_assert_(window);
 	_dbg_assert_(vulkan_);
 
-	vulkan_->SetCbGetDrawSize([window]() {
-		int w=1,h=1;
-		SDL_GetWindowSizeInPixels(window, &w, &h);
-		return VkExtent2D {(uint32_t)w, (uint32_t)h};
-	});
-
 	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
 	bool surfaceInitialized = false;
 	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
