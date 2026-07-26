@@ -30,9 +30,11 @@ class GraphicsContext;
 // Doesn't take ownership of the graphicsContext, you have to delete it.
 // This should be used by platforms that launch a separate thread and doesn't
 // need to run a polling loop in it.
+// NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
 bool MainThreadFunc(GraphicsContext * graphicsContext, Application *application, WindowSystem windowSystem, void *windowData1, void *windowData2, std::function<void()> postFrame);
 
 // If you're not using MainThreadFunc, you can at least use these to manage a spinning EmuThread (that calls NativeFrame),
 // whether your graphics context requires multithreading or not.
+// NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame);
 void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread);

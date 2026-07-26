@@ -11,9 +11,6 @@ public:
 
 	bool NeedsSeparateEmuThread() const override { return true; }
 
-	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
-	void ShutdownAPI() override;
-
 	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
 	void ShutdownSurface() override;
 

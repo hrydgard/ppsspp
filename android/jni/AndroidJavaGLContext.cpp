@@ -8,16 +8,10 @@
 
 AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
-}
-
-bool AndroidJavaEGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	// OpenGL handles rotated rendering in the driver.
 	g_display.rotation = DisplayRotation::ROTATE_0;
 	g_display.rot_matrix.setIdentity();
-	return true;
 }
-
-void AndroidJavaEGLGraphicsContext::ShutdownAPI() {}
 
 bool AndroidJavaEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
 	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");

@@ -71,6 +71,8 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 	// This normally calls NativeShutdownGraphics()
 	application->ShutdownGraphics(graphicsContext);
 
+	delete application;
+
 	INFO_LOG(Log::System, "Leaving separate emu thread");
 }
 
