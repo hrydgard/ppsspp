@@ -22,14 +22,12 @@
 #include "Core/ConfigValues.h"
 
 enum class EmuThreadState {
-	DISABLED,
-	START_REQUESTED,
 	RUNNING,
 	QUIT_REQUESTED,
 	STOPPED,
 };
 
-static std::atomic<EmuThreadState> g_emuThreadState(EmuThreadState::DISABLED);
+static std::atomic<EmuThreadState> g_emuThreadState(EmuThreadState::STOPPED);
 static std::atomic<bool> g_inLoop;
 
 class GraphicsContext;
@@ -44,10 +42,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 
 	AndroidJNIThreadContext context;
 
-	// There's no real requirement that NativeInit happen on this thread.
-	// We just call the update/render loop here.
-	g_emuThreadState = EmuThreadState::RUNNING;
-
+	// This normally calls NativeInitGraphics()
 	if (!application->InitGraphics(graphicsContext)) {
 		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
 		// If this fails, which it normally shouldn't, let's bail.
@@ -59,6 +54,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 	while (g_emuThreadState != EmuThreadState::QUIT_REQUESTED) {
 		// We're here again, so the game quit.  Restart Run() which controls the UI.
 		// This way they can load a new game.
+		// This normally calls NativeFrame()
 		application->Frame(graphicsContext);
 		if (postFrame) {
 			postFrame();
@@ -72,13 +68,19 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 
 	g_emuThreadState = EmuThreadState::STOPPED;
 
+	// This normally calls NativeShutdownGraphics()
 	application->ShutdownGraphics(graphicsContext);
+
+	delete application;
+
 	INFO_LOG(Log::System, "Leaving separate emu thread");
 }
 
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
-	g_emuThreadState = EmuThreadState::START_REQUESTED;
+	_dbg_assert_(g_emuThreadState == EmuThreadState::STOPPED);
+	g_emuThreadState = EmuThreadState::RUNNING;
 	std::thread emuThread = std::thread(&EmuThreadFunc, graphicsContext, application, postFrame);
+	graphicsContext->ThreadStart();
 	return emuThread;
 }
 
@@ -95,6 +97,7 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 			return g_emuThreadState == EmuThreadState::STOPPED;
 		});
 	}
+	graphicsContext->ThreadEnd();
 	emuThread.join();
 	emuThread = std::thread();
 }

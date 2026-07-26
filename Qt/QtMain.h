@@ -104,8 +104,7 @@ enum class EmuThreadState {
 
 
 // GUI, thread manager
-class MainUI : public QGLWidget
-{
+class MainUI : public QGLWidget {
 	Q_OBJECT
 public:
 	explicit MainUI(QWidget *parent = 0);
@@ -130,11 +129,6 @@ protected:
 
 	void updateAccelerometer();
 
-	void EmuThreadFunc();
-	void EmuThreadStart();
-	void EmuThreadStop();
-	void EmuThreadJoin();
-
 private:
 	bool HandleCustomEvent(QEvent *e);
 	QtGLGraphicsContext *graphicsContext;
@@ -144,8 +138,7 @@ private:
 	QAccelerometer* acc;
 #endif
 
-	std::thread emuThread;
-	std::atomic<int> emuThreadState;
+	std::thread emuThread_;
 };
 
 class QTCamera : public QObject {

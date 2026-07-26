@@ -100,6 +100,7 @@ struct JNIEnv {};
 #include "Core/Loaders.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
+#include "Core/EmuThread.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
 #include "Common/CPUDetect.h"
@@ -116,8 +117,7 @@ enum class EmuThreadState {
 };
 
 // OpenGL emu thread
-static std::thread emuThread;
-static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
+static std::thread g_emuThread;
 
 AndroidAudioState *g_audioState;
 
@@ -260,59 +260,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 
 	TimeInit();
 	return JNI_VERSION_1_6;
-}
-
-// Only used in OpenGL mode.
-static void EmuThreadFunc() {
-	SetCurrentThreadName("Entering EmuThread");
-
-	AndroidJNIThreadContext jniContext;
-
-	INFO_LOG(Log::System, "Entering emu thread");
-
-	_assert_(graphicsContext);
-	if (!NativeInitGraphics(graphicsContext)) {
-		_assert_msg_(false, "NativeInitGraphics failed, might as well bail");
-		emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
-		return;
-	}
-
-	INFO_LOG(Log::System, "Graphics initialized. Entering loop.");
-
-	// There's no real requirement that NativeInit happen on this thread.
-	// We just call the update/render loop here.
-	emuThreadState = (int)EmuThreadState::RUNNING;
-	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		NativeFrame(graphicsContext);
-		ProcessFrameCommands();
-	}
-
-	INFO_LOG(Log::System, "emuThreadState was set to QUIT_REQUESTED, left EmuThreadFunc loop. Setting state to STOPPED.");
-	emuThreadState = (int)EmuThreadState::STOPPED;
-
-	NativeShutdownGraphics(graphicsContext);
-
-	INFO_LOG(Log::System, "Leaving EmuThread");
-}
-
-static void EmuThreadStart() {
-	INFO_LOG(Log::System, "EmuThreadStart");
-	emuThreadState = (int)EmuThreadState::START_REQUESTED;
-	emuThread = std::thread(&EmuThreadFunc);
-}
-
-// Call EmuThreadStop first, then keep running the GPU (or eat commands)
-// as long as emuThreadState isn't STOPPED and/or there are still things queued up.
-// Only after that, call EmuThreadJoin.
-static void EmuThreadStop(const char *caller) {
-	INFO_LOG(Log::System, "EmuThreadStop - stopping (%s)...", caller);
-	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
-}
-
-static void EmuThreadJoin() {
-	emuThread.join();
-	emuThread = std::thread();
-	INFO_LOG(Log::System, "EmuThreadJoin - joined");
 }
 
 static void PushCommand(std::string_view cmd, std::string_view param) {
@@ -956,25 +903,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	if (renderer_inited && graphicsContext && graphicsContext->NeedsSeparateEmuThread()) {
 		// Only used in Java EGL path.
-		EmuThreadStop("shutdown");
-		// NOTE: We know that the GLSurfaceView render thread is stopped here, since we now
-		// correctly call GLSurfaceView.onPause/onResume. However, there may still be queued frames.
-		// We can't join until we've cleared the queue by calling ThreadFrame.
+		EmuThread_Join(graphicsContext, g_emuThread);
 
-		// Now we know that more frames won't be coming in.
-
-		INFO_LOG(Log::System, "BeginShutdown");
-
-		// Now, it could be that we had some frames queued up. Get through them.
-		// We're on the render thread, so this is synchronous.
-		graphicsContext->ThreadFrameUntilCondition([]() -> bool {
-			return emuThreadState == (int)EmuThreadState::STOPPED;
-		});
-		graphicsContext->ThreadEnd();
-
-		EmuThreadJoin();
-
-		INFO_LOG(Log::System, "ThreadEnd called.");
+		INFO_LOG(Log::System, "EmuThread joined.");
 		graphicsContext->ShutdownSurface();
 		INFO_LOG(Log::System, "Graphics context now shut down from NativeApp_shutdown");
 	}
@@ -1022,14 +953,15 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
-		// This is where we start the emuthread now - after InitFromRenderThread. This eliminates a race condition.
-		EmuThreadStart();
 
 		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
 		}, nullptr);
 
-		graphicsContext->ThreadStart();
+		// This is where we start the emuthread now - after InitFromRenderThread. This eliminates a race condition.
+		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), []() {
+			ProcessFrameCommands();
+		});
 		renderer_inited = true;
 	} else {
 		// Would be really nice if we could get something on the GL thread immediately when shutting down,
@@ -1037,17 +969,8 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		// which ends up calling displayInit.
 
 		INFO_LOG(Log::G3D, "NativeApp.displayInit() restoring");
-		EmuThreadStop("displayInit");
-		// Skipping GL calls here because the old context is lost.
-		INFO_LOG(Log::G3D, "Looping until emu thread done...");
-		// TODO: Why can't we just join the EmuThread first?
-		graphicsContext->ThreadFrameUntilCondition([]() -> bool {
-			return emuThreadState == (int)EmuThreadState::STOPPED;
-		});
-		INFO_LOG(Log::G3D, "Joining emu thread");
-		EmuThreadJoin();
+		EmuThread_Join(graphicsContext, g_emuThread);
 
-		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownSurface();
 
 		INFO_LOG(Log::G3D, "Shut down both threads. Now let's bring it up again!");
@@ -1061,9 +984,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
 		}, nullptr);
 
-		EmuThreadStart();
-
-		graphicsContext->ThreadStart();
+		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), []() {
+			ProcessFrameCommands();
+		});
 
 		INFO_LOG(Log::G3D, "Restored.");
 	}
@@ -1680,24 +1603,27 @@ static void ProcessFrameCommands() {
 			ERROR_LOG(Log::System, "No activity, clearing commands");
 		} else {
 			frameCommands = std::move(g_frameCommands);
-			INFO_LOG(Log::System, "Processing %zu frame commands", g_frameCommands.size());
 		}
 		g_frameCommands.clear();
 	}
-	for (const FrameCommand &frameCmd : frameCommands) {
-		DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
-		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-		jstring param = env->NewStringUTF(frameCmd.params.c_str());
-		env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
-		env->DeleteLocalRef(cmd);
-		env->DeleteLocalRef(param);
+	if (!frameCommands.empty()) {
+		INFO_LOG(Log::System, "Processing %zu frame commands", g_frameCommands.size());
+		for (const FrameCommand &frameCmd : frameCommands) {
+			DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+
+			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
+			jstring param = env->NewStringUTF(frameCmd.params.c_str());
+			env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
+			env->DeleteLocalRef(cmd);
+			env->DeleteLocalRef(param);
+		}
 	}
 }
 
 std::thread g_renderLoopThread;
 
-static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsContext);
+static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext);
 
 // This runs in Vulkan mode only.
 // This handles the entire lifecycle of the Vulkan context, init and exit.
@@ -1725,7 +1651,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRende
 		return false;
 	}
 
-	g_renderLoopThread = std::thread(VulkanEmuThread, wnd, (AndroidVulkanContext *)graphicsContext);
+	g_renderLoopThread = std::thread(VulkanEmuThread, wnd, graphicsContext);
 	return true;
 }
 
@@ -1741,8 +1667,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanR
 }
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
-// This function must release the window reference.
-static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsContext) {
+// This function must release the wnd reference.
+static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext) {
 	SetCurrentThreadName("EmuThread");
 
 	AndroidJNIThreadContext ctx;
@@ -1781,7 +1707,6 @@ static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsCo
 			ERROR_LOG(Log::G3D, "Failed to initialize graphics.");
 			// Gonna be in a weird state here..
 		}
-		graphicsContext->ThreadStart();
 		renderer_inited = true;
 
 		// The main loop.
@@ -1798,7 +1723,6 @@ static void VulkanEmuThread(ANativeWindow *wnd, AndroidVulkanContext *graphicsCo
 	NativeShutdownGraphics(graphicsContext);
 
 	renderer_inited = false;
-	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
 	INFO_LOG(Log::G3D, "Shutting down graphics context...");

@@ -28,6 +28,10 @@ bool SDLVulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::
 	init_glslang();
 	errorMessage->clear();
 
+	g_LogOptions.breakOnError = true;
+	g_LogOptions.breakOnWarning = true;
+	g_LogOptions.msgBoxOnError = false;
+
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
 		*errorMessage = "Failed to load Vulkan driver library: " + errorStr;

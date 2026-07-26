@@ -823,8 +823,6 @@ public:
 		}
 	}
 
-	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
-
 	// Only supports a common subset.
 	std::string GetGLString(int name) const {
 		return queueRunner_.GetGLString(name);

@@ -2104,10 +2104,8 @@ int main(int argc, char *argv[]) {
 	}
 	EnableFZ();
 
-	NativeApplication application;
-
 	// We use the emuthread both for OpenGL and Vulkan, but in OpenGL mode we also render from the main thread.
-	std::thread emuThread = EmuThread_Start(graphicsContext, &application, nullptr);
+	std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 
 	graphicsContext->ThreadStart();
 
@@ -2202,7 +2200,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
-			emuThread = EmuThread_Start(graphicsContext, &application, nullptr);
+			emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 			graphicsContext->ThreadStart();
 		}
 	}
