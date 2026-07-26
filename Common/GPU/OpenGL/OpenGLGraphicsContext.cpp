@@ -1,26 +1,26 @@
-#include "AndroidJavaGLContext.h"
+#include "OpenGLGraphicsContext.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Log.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/Config.h"
 
-AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
+OpenGLGraphicsContext::OpenGLGraphicsContext() {
 	SetGPUBackend(GPUBackend::OPENGL);
+
 	// OpenGL handles rotated rendering in the driver.
 	g_display.rotation = DisplayRotation::ROTATE_0;
 	g_display.rot_matrix.setIdentity();
 }
 
-bool AndroidJavaEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::InitFromRenderThread");
+bool OpenGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+	INFO_LOG(Log::G3D, "OpenGLGraphicsContext::InitSurface");
 	if (!CheckGLExtensions()) {
 		*errorMessage = "CheckExtensions failed";
 		ERROR_LOG(Log::G3D, "CheckGLExtensions failed - not gonna attempt starting up.");
 		return false;
 	}
-
 	draw_ = Draw::T3DCreateGLContext(false);  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
@@ -33,8 +33,8 @@ bool AndroidJavaEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1
 	return true;
 }
 
-void AndroidJavaEGLGraphicsContext::ShutdownSurface() {
-	INFO_LOG(Log::G3D, "AndroidJavaEGLGraphicsContext::Shutdown");
+void OpenGLGraphicsContext::ShutdownSurface() {
+	INFO_LOG(Log::G3D, "OpenGLGraphicsContext::Shutdown");
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;

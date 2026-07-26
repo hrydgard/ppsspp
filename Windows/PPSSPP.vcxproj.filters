@@ -187,9 +187,6 @@
     <ClCompile Include="CaptureDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
-    <ClCompile Include="..\android\jni\AndroidJavaGLContext.cpp">
-      <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
     <ClCompile Include="..\android\jni\app-android.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
@@ -396,9 +393,6 @@
     </ClInclude>
     <ClInclude Include="BufferLock.h">
       <Filter>Windows\Input</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
-      <Filter>Other Platforms\Android</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\app-android.h">
       <Filter>Other Platforms\Android</Filter>

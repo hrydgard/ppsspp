@@ -170,6 +170,8 @@ add_library(Common STATIC
 	GPU/OpenGL/GLProfiler.h
 	GPU/OpenGL/DataFormatGL.cpp
 	GPU/OpenGL/DataFormatGL.h
+	GPU/OpenGL/OpenGLGraphicsContext.cpp
+	GPU/OpenGL/OpenGLGraphicsContext.h
 	GPU/Vulkan/VulkanBarrier.cpp
 	GPU/Vulkan/VulkanBarrier.h
 	GPU/Vulkan/VulkanDebug.cpp

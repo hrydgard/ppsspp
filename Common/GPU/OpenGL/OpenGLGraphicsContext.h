@@ -4,10 +4,10 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d_create.h"
 
-class AndroidJavaEGLGraphicsContext : public GraphicsContext {
+class OpenGLGraphicsContext : public GraphicsContext {
 public:
-	AndroidJavaEGLGraphicsContext();
-	~AndroidJavaEGLGraphicsContext() override { delete draw_; }
+	OpenGLGraphicsContext();
+	~OpenGLGraphicsContext() override { delete draw_; }
 
 	bool NeedsSeparateEmuThread() const override { return true; }
 
