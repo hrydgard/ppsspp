@@ -1744,6 +1744,55 @@ void UpdateSDLCursor() {
 #endif
 }
 
+bool DetermineVulkanWindowSystem(SDL_Window *window, WindowSystem *windowSystem, void **data1, void **data2) {
+	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
+	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+	if (x11Display != nullptr) {
+		intptr_t x11Window = (intptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+		*windowSystem = WINDOWSYSTEM_XLIB;
+		*data1 = x11Display;
+		*data2 = (void *)x11Window;
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+		*windowSystem = WINDOWSYSTEM_XCB;
+		*data1 = (void *)XGetXCBConnection((Display *)x11Display);
+		*data2 = (void *)x11Window;
+#endif
+		return true;
+	}
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+	void *waylandSurface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+	if (waylandDisplay != nullptr && waylandSurface != nullptr) {
+		*windowSystem = WINDOWSYSTEM_WAYLAND;
+		*data1 = waylandDisplay;
+		*data2 = waylandSurface;
+		return true;
+	}
+#elif defined(VK_USE_PLATFORM_METAL_EXT)
+#if PPSSPP_PLATFORM(MAC)
+	void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+	if (cocoaWindow != nullptr) {
+		*windowSystem = WINDOWSYSTEM_METAL_EXT;
+		*data1 = makeWindowMetalCompatible(cocoaWindow);
+		*data2 = nullptr;
+		return true;
+	}
+#else
+	// This path is currently not used as we do not use SDL on iOS, but it is here for completeness.
+	void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+	if (uikitWindow != nullptr) {
+		*windowSystem = WINDOWSYSTEM_METAL_EXT;
+		*data1 = makeWindowMetalCompatible(uikitWindow);
+		*data2 = nullptr;
+		return true;
+	}
+#endif
+#endif  // VK_USE_PLATFORM_METAL_EXT
+	fprintf(stderr, "Unable to determine Vulkan window system from SDL3 window properties\n");
+	return false;
+}
+
 #ifdef _WIN32
 #undef main
 #endif
@@ -1992,6 +2041,11 @@ int main(int argc, char *argv[]) {
 
 	window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
 
+	// Surface init params. These are set up for OpenGL by default.
+	WindowSystem windowSystem = WINDOWSYSTEM_NONE;
+	void *data1 = &window;
+	void *data2 = nullptr;
+
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
@@ -2011,10 +2065,16 @@ int main(int argc, char *argv[]) {
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			delete glctx;
 
+			// Overwrite the surface init params with what we need for Vulkan..
+			if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2)) {
+				return 1;
+			}
+
 			// NOTE : This should match the lines below in the Vulkan case.
 			SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
 			vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
-			if (!vkctx->InitSurface(WINDOWSYSTEM_NONE, &window, nullptr, &error_message)) {
+
+			if (!vkctx->InitSurface(windowSystem, data1, data2, &error_message)) {
 				fprintf(stderr, "Vulkan fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
@@ -2024,9 +2084,14 @@ int main(int argc, char *argv[]) {
 		}
 #if !PPSSPP_PLATFORM(SWITCH)
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		// Overwrite the surface init params with what we need for Vulkan..
+		if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2)) {
+			return 1;
+		}
+
 		SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
 		vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
-		if (!vkctx->InitSurface(WINDOWSYSTEM_NONE, &window, nullptr, &error_message)) {
+		if (!vkctx->InitSurface(windowSystem, data1, data2, &error_message)) {
 			// Let's try the fallback once per process run.
 
 			fprintf(stderr, "Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
@@ -2037,7 +2102,7 @@ int main(int argc, char *argv[]) {
 			// NOTE : This should match the three lines above in the OpenGL case.
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
 			glctx->InitAPI(nullptr, nullptr, &error_message);
-			if (!glctx->InitSurface(WINDOWSYSTEM_NONE, &window, (void *)(uintptr_t)mode, &error_message)) {
+			if (!glctx->InitSurface(windowSystem, data1, data2, &error_message)) {
 				fprintf(stderr, "GL fallback failed: %s\n", error_message.c_str());
 				return 1;
 			}
@@ -2193,7 +2258,7 @@ int main(int argc, char *argv[]) {
 
 			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
-				if (!ctx->InitSurface(WINDOWSYSTEM_SDL, &window, nullptr, &error_message)) {
+				if (!ctx->InitSurface(windowSystem,data1, data2, &error_message)) {
 					fprintf(stderr, "Failed to reinit graphics.\n");
 				}
 			}

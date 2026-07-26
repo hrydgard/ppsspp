@@ -68,58 +68,11 @@ bool SDLVulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::
 }
 
 bool SDLVulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	SDL_Window *window = *(SDL_Window **)data1;
 	errorMessage->clear();
 
-	_dbg_assert_(window);
 	_dbg_assert_(vulkan_);
 
-	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
-	bool surfaceInitialized = false;
-	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
-	if (x11Display != nullptr) {
-		intptr_t x11Window = (intptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
-#if defined(VK_USE_PLATFORM_XLIB_KHR)
-		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, x11Display, (void *)x11Window);
-		surfaceInitialized = true;
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-		vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void *)XGetXCBConnection((Display *)x11Display), (void *)x11Window);
-		surfaceInitialized = true;
-#endif
- 	}
-#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	if (!surfaceInitialized) {
-		void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
-		void *waylandSurface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
-		if (waylandDisplay != nullptr && waylandSurface != nullptr) {
-			vulkan_->InitSurface(WINDOWSYSTEM_WAYLAND, waylandDisplay, waylandSurface);
- 			surfaceInitialized = true;
-		}
- 	}
-#endif
-#if defined(VK_USE_PLATFORM_METAL_EXT)
-#if PPSSPP_PLATFORM(MAC)
-	if (!surfaceInitialized) {
-		void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-		if (cocoaWindow != nullptr) {
-			vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(cocoaWindow), nullptr);
-			surfaceInitialized = true;
-		}
- 	}
-#else
-	if (!surfaceInitialized) {
-		void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
-		if (uikitWindow != nullptr) {
-			vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(uikitWindow), nullptr);
-			surfaceInitialized = true;
-		}
- 	}
-#endif
-#endif
-	if (!surfaceInitialized) {
-		fprintf(stderr, "Unable to determine Vulkan window system from SDL3 window properties\n");
-		exit(1);
-	}
+	vulkan_->InitSurface(winsys, data1, data2);
 
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 	if (!vulkan_->InitSwapchain(presentMode)) {
