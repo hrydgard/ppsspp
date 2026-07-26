@@ -99,6 +99,7 @@ static const char * const g_logTypeNames[] = {
 	"IAP",
 	"CWCHEATS",
 	"NET",
+	"SCRIPT",
 	"SCEAUDIO",
 	"SCECTRL",
 	"SCEDISP",

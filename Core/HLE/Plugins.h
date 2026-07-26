@@ -39,6 +39,7 @@ bool HasEnabled();
 enum class PluginType {
 	INVALID = 0,
 	PRX,
+	LUA,
 };
 
 struct PluginInfo {
