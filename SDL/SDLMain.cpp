@@ -1,3 +1,4 @@
+
 #include <cstdlib>
 #include <unistd.h>
 #include <pwd.h>
@@ -2107,8 +2108,6 @@ int main(int argc, char *argv[]) {
 	// We use the emuthread both for OpenGL and Vulkan, but in OpenGL mode we also render from the main thread.
 	std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 
-	graphicsContext->ThreadStart();
-
 	InputStateTracker inputTracker{};
 
 #if PPSSPP_PLATFORM(MAC)
@@ -2188,7 +2187,6 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "rebooting emu thread");
 			g_rebootEmuThread = false;
 			EmuThread_Join(graphicsContext, emuThread);
-			graphicsContext->ThreadEnd();
 			graphicsContext->ShutdownSurface();
 
 			fprintf(stderr, "OK, shutdown complete. starting up graphics again.\n");
@@ -2201,16 +2199,12 @@ int main(int argc, char *argv[]) {
 			}
 
 			emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
-			graphicsContext->ThreadStart();
 		}
 	}
 
 	EmuThread_Join(graphicsContext, emuThread);
 
 	delete joystick;
-
-	// TODO: This seems redundant.
-	graphicsContext->ThreadEnd();
 
 	// Destroys Draw, which is used in NativeShutdown to shutdown.
 	graphicsContext->ShutdownSurface();
