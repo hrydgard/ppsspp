@@ -991,7 +991,7 @@ elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
 	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
 	if(NOT Qt5_FOUND)
-		message(FATAL_ERROR "Qt5 not found for USING_QT_UI=ON. On macOS with Homebrew, install qt@5 and set CMAKE_PREFIX_PATH to /opt/homebrew/opt/qt@5 (or use ./b.sh --qtbrew).")
+		message(FATAL_ERROR "Qt5 not found for USING_QT_UI=ON. On linux, sudo apt install qt5-qmake qtsystems5-dev qtmultimedia5-dev qttools5-dev-tools libqt5opengl5-dev libcurl4-openssl-dev. On macOS with Homebrew, install qt@5 and set CMAKE_PREFIX_PATH to /opt/homebrew/opt/qt@5 (or use ./b.sh --qtbrew).")
 	endif()
 	list(APPEND NativeAppSource
 		Qt/QtMain.cpp
