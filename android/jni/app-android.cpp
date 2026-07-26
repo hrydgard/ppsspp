@@ -182,7 +182,8 @@ static jobject ppssppActivity;
 
 static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
-static bool renderer_inited = false;
+
+static bool renderer_inited = false;  // only used with OpenGL.
 
 static bool sustainedPerfSupported = false;
 static std::string g_installerName;
@@ -1701,27 +1702,8 @@ static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext
 		return;
 	}
 
-	if (!exitRenderLoop) {
-		INFO_LOG(Log::G3D, "Calling NativeInitGraphics");
-		if (!NativeInitGraphics(graphicsContext)) {
-			ERROR_LOG(Log::G3D, "Failed to initialize graphics.");
-			// Gonna be in a weird state here..
-		}
-		renderer_inited = true;
-
-		// The main loop.
-		while (!exitRenderLoop) {
-			NativeFrame(graphicsContext);
-			ProcessFrameCommands();
-		}
-
-		INFO_LOG(Log::G3D, "Leaving Vulkan main loop.");
-	} else {
-		INFO_LOG(Log::G3D, "Not entering main loop.");
-	}
-
-	NativeShutdownGraphics(graphicsContext);
-
+	renderer_inited = true;
+	RunMainLoop(graphicsContext, new NativeApplication(), []() { return !exitRenderLoop; }, []() { ProcessFrameCommands(); });
 	renderer_inited = false;
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.

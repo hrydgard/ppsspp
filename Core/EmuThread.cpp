@@ -70,7 +70,6 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 
 	// This normally calls NativeShutdownGraphics()
 	application->ShutdownGraphics(graphicsContext);
-
 	delete application;
 
 	INFO_LOG(Log::System, "Leaving separate emu thread");
@@ -100,6 +99,36 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 	graphicsContext->ThreadEnd();
 	emuThread.join();
 	emuThread = std::thread();
+}
+
+bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std::function<bool()> runCondition, std::function<void()> postFrame) {
+	// This is the main thread. the graphics contexts will spawn and handle its own threads if needed.
+	// InitFromRenderThread/ShutdownFromRenderThread are not used.
+
+	application->InitGraphics(graphicsContext);
+	// NativeResized();
+
+	DEBUG_LOG(Log::Boot, "Done.");
+
+	g_inLoop = true;
+
+	while (runCondition()) {
+		// We're here again, so the game quit.  Restart Run() which controls the UI.
+		// This way they can load a new game.
+		application->Frame(graphicsContext);
+		postFrame();
+	}
+	Core_Stop();
+
+	// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
+	Core_StateProcessed();
+	application->Frame(graphicsContext);
+
+	g_inLoop = false;
+
+	application->ShutdownGraphics(graphicsContext);
+	delete application;
+	return true;
 }
 
 // Call InitAPI and ShutdownAPI outside this!
@@ -143,36 +172,7 @@ bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, 
 	} else {
 		SetCurrentThreadName("MainThread");
 
-		// This is the main thread. the graphics contexts will spawn and handle its own threads if needed.
-		// InitFromRenderThread/ShutdownFromRenderThread are not used.
-
-		std::string error_string;
-
-		application->InitGraphics(graphicsContext);
-		// NativeResized();
-
-		DEBUG_LOG(Log::Boot, "Done.");
-
-		g_inLoop = true;
-
-		graphicsContext->ThreadStart();
-		while (GetUIState() != UISTATE_EXIT) {
-			// We're here again, so the game quit.  Restart Run() which controls the UI.
-			// This way they can load a new game.
-			application->Frame(graphicsContext);
-			postFrame();
-		}
-		Core_Stop();
-
-		// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
-		Core_StateProcessed();
-		application->Frame(graphicsContext);
-
-		g_inLoop = false;
-
-		application->ShutdownGraphics(graphicsContext);
-
-		graphicsContext->ThreadEnd();
+		RunMainLoop(graphicsContext, application, []() { return GetUIState() != UISTATE_EXIT; }, postFrame);
 	}
 
 	graphicsContext->ShutdownSurface();
