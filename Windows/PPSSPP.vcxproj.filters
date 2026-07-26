@@ -190,9 +190,6 @@
     <ClCompile Include="..\android\jni\AndroidJavaGLContext.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
-    <ClCompile Include="..\android\jni\AndroidVulkanContext.cpp">
-      <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
     <ClCompile Include="..\android\jni\app-android.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
@@ -227,9 +224,6 @@
       <Filter>Other Platforms\SDL</Filter>
     </ClCompile>
     <ClCompile Include="..\SDL\SDLMain.cpp">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SDL\SDLVulkanGraphicsContext.cpp">
       <Filter>Other Platforms\SDL</Filter>
     </ClCompile>
     <ClCompile Include="..\UWP\NKCodeFromWindowsSystem.cpp">
@@ -406,9 +400,6 @@
     <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidVulkanContext.h">
-      <Filter>Other Platforms\Android</Filter>
-    </ClInclude>
     <ClInclude Include="..\android\jni\app-android.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
@@ -476,9 +467,6 @@
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
     <ClInclude Include="..\SDL\SDLJoystick.h">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="..\SDL\SDLVulkanGraphicsContext.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
     <ClInclude Include="..\UWP\NKCodeFromWindowsSystem.h">

@@ -911,8 +911,6 @@ if(ANDROID)
 		android/jni/app-android.cpp
 		android/jni/AndroidJavaGLContext.cpp
 		android/jni/AndroidJavaGLContext.h
-		android/jni/AndroidVulkanContext.cpp
-		android/jni/AndroidVulkanContext.h
 		android/jni/AndroidAudio.cpp
 		android/jni/AndroidAudio.h
 		android/jni/OpenSLContext.cpp
@@ -1051,11 +1049,6 @@ else()
 		SDL/SDLMain.cpp
 		SDL/SDLGLGraphicsContext.cpp
 	)
-	if(NOT USE_LIBNX)
-		list(APPEND targetExtra
-			SDL/SDLVulkanGraphicsContext.cpp
-		)
-	endif()
 	if(SDL_TTF_LIB_TARGET)
 		list(APPEND targetExtraLibs ${SDL_TTF_LIB_TARGET})
 	endif()

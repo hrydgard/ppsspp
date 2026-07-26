@@ -84,8 +84,6 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 	g_LogOptions.breakOnWarning = true;
 	g_LogOptions.msgBoxOnError = false;
 
-	Version gitVer(PPSSPP_GIT_VERSION);
-
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
 		*errorMessage = "Failed to load Vulkan driver library: ";

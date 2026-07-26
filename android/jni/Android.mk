@@ -917,7 +917,6 @@ LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
   $(SRC)/android/jni/AndroidJavaGLContext.cpp \
-  $(SRC)/android/jni/AndroidVulkanContext.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/OpenSLContext.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \

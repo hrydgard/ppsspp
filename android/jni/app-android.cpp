@@ -86,12 +86,11 @@ struct JNIEnv {};
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
-
 #include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
-#include "AndroidVulkanContext.h"
 #include "AndroidJavaGLContext.h"
 
 #include "Core/CmdLine.h"
@@ -788,7 +787,7 @@ retry:
 		INFO_LOG(Log::System, "NativeApp.init() -- creating Vulkan context");
 		// The Vulkan render manager manages its own thread.
 		// We create and destroy the Vulkan graphics context in the app main thread though.
-		AndroidVulkanContext *ctx = new AndroidVulkanContext();
+		GraphicsContext *ctx = new VulkanGraphicsContext();
 		std::string errorMessage;
 		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
 			ERROR_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL: %s", errorMessage.c_str());

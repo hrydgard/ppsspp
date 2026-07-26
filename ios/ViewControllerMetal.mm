@@ -7,6 +7,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/Data/Text/Parsers.h"
@@ -28,136 +29,6 @@
 // ViewController lifecycle:
 // https://www.progressconcepts.com/blog/ios-appdelegate-viewcontroller-method-order/
 
-enum class GraphicsContextState {
-	PENDING,
-	INITIALIZED,
-	FAILED_INIT,
-	SHUTDOWN,
-};
-
-class IOSVulkanContext : public GraphicsContext {
-public:
-	IOSVulkanContext() {}
-	~IOSVulkanContext() {
-		delete vulkan_;
-		vulkan_ = nullptr;
-	}
-
-	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
-	void ShutdownAPI() override;
-
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
-	void ShutdownSurface() override;
-
-	void Resize() override {}
-
-	void *GetAPIContext() override { return vulkan_; }
-	Draw::DrawContext *GetDrawContext() override { return draw_; }
-
-private:
-	VulkanContext *vulkan_ = nullptr;
-	Draw::DrawContext *draw_ = nullptr;
-	GraphicsContextState state_ = GraphicsContextState::PENDING;
-};
-
-bool IOSVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Init");
-	init_glslang();
-
-	g_LogOptions.breakOnError = true;
-	g_LogOptions.breakOnWarning = true;
-	g_LogOptions.msgBoxOnError = false;
-
-	INFO_LOG(Log::G3D, "Creating Vulkan context");
-	Version gitVer(PPSSPP_GIT_VERSION);
-
-	if (!VulkanLoad(errorMessage)) {
-		ERROR_LOG(Log::G3D, "Failed to load Vulkan driver library: %s", errorMessage->c_str());
-		state_ = GraphicsContextState::FAILED_INIT;
-		return false;
-	}
-
-	if (!vulkan_) {
-		// TODO: Assert if g_Vulkan already exists here?
-		vulkan_ = new VulkanContext();
-	}
-
-	VulkanContext::CreateInfo info{};
-	InitVulkanCreateInfoFromConfig(&info);
-	if (!vulkan_->CreateInstanceAndDevice(info, &g_Config.sVulkanDevice)) {
-		delete vulkan_;
-		vulkan_ = nullptr;
-		state_ = GraphicsContextState::FAILED_INIT;
-		return false;
-	}
-
-	INFO_LOG(Log::G3D, "Vulkan device created!");
-	return true;
-}
-
-bool IOSVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	_dbg_assert_(winsys == WINDOWSYSTEM_METAL_EXT);
-	CAMetalLayer *layer = (__bridge CAMetalLayer *)data1;
-
-	_assert_(vulkan_);
-
-	VkResult res = vulkan_->InitSurface(winsys, data1, nullptr);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "g_Vulkan->InitSurface failed: '%s'", VulkanResultToString(res));
-		*errorMessage = StringFromFormat("InitSurface failed: %s", VulkanResultToString(res));
-		return false;
-	}
-
-	bool useMultiThreading = g_Config.bRenderMultiThreading;
-	if (g_Config.iInflightFrames == 1) {
-		useMultiThreading = false;
-	}
-
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
-
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-
-	// This MUST run on the main thread. We're taking our chances with a dispatch_sync here.
-	vulkan_->InitSwapchain(presentMode);
-
-	SetGPUBackend(GPUBackend::VULKAN);
-	bool shaderSuccess = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-	_assert_msg_(shaderSuccess, "Failed to compile preset shaders");
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-
-	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	renderManager->SetInflightFrames(g_Config.iInflightFrames);
-	
-	vulkan_->SetCbGetDrawSize([]() {
-		return VkExtent2D {(uint32_t)g_display.pixel_xres, (uint32_t)g_display.pixel_yres};
-	});
-
-	state_ = GraphicsContextState::INITIALIZED;
-	return true;
-}
-
-void IOSVulkanContext::ShutdownSurface() {
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Shutdown");
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	delete draw_;
-	draw_ = nullptr;
-	vulkan_->WaitUntilQueueIdle();
-	vulkan_->PerformPendingDeletes();
-	vulkan_->DestroySwapchain();
-	vulkan_->DestroySurface();
-	INFO_LOG(Log::G3D, "Done with ShutdownFromRenderThread");
-}
-
-void IOSVulkanContext::ShutdownAPI() {
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Shutdown");
-	vulkan_->DestroyDevice();
-	vulkan_->DestroyInstance();
-	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
-	finalize_glslang();
-	INFO_LOG(Log::G3D, "IOSVulkanContext::Shutdown completed");
-}
-
-
 #pragma mark -
 #pragma mark PPSSPPViewControllerMetal
 
@@ -166,7 +37,7 @@ static std::atomic<bool> renderLoopRunning;
 static std::thread g_renderLoopThread;
 
 @interface PPSSPPViewControllerMetal () {
-	IOSVulkanContext *graphicsContext;
+	GraphicsContext *graphicsContext;
 }
 
 @end  // @interface
@@ -328,7 +199,7 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	// self.view.insetsLayoutMarginsFromSafeArea = NO;
 	// self.view.clipsToBounds = YES;
 
-	graphicsContext = new IOSVulkanContext();
+	graphicsContext = new VulkanGraphicsContext();
 	std::string errorMessage;
 	if (!graphicsContext->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
 		ERROR_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL: %s", errorMessage.c_str());
