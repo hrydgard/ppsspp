@@ -69,11 +69,12 @@ static const bool g_validate_ = true;
 static const bool g_validate_ = false;
 #endif
 
-bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_message) {
-	*error_message = "N/A";
+bool WindowsVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+	*errorMessage = "N/A";
+	_dbg_assert_(deviceName);
 
 	if (vulkan_) {
-		*error_message = "Already initialized";
+		*errorMessage = "Already initialized";
 		return false;
 	}
 
@@ -87,8 +88,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
-		*error_message = "Failed to load Vulkan driver library: ";
-		(*error_message) += errorStr;
+		*errorMessage = "Failed to load Vulkan driver library: ";
+		(*errorMessage) += errorStr;
 		return false;
 	}
 
@@ -97,26 +98,34 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	VulkanContext::CreateInfo info{};
 	InitVulkanCreateInfoFromConfig(&info);
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
-		*error_message = vulkan_->InitError();
+		*errorMessage = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;
 		return false;
 	}
-	int deviceNum = vulkan_->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
+	int deviceNum = vulkan_->GetPhysicalDeviceByName(*deviceName);
 	if (deviceNum < 0) {
 		deviceNum = vulkan_->GetBestPhysicalDevice();
-		if (!g_Config.sVulkanDevice.empty())
-			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
+		if (!deviceName->empty()) {
+			*deviceName = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
+		}
 	}
 
 	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
-		*error_message = vulkan_->InitError();
+		*errorMessage = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;
 		return false;
 	}
+	return true;
+}
 
-	vulkan_->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
+bool WindowsVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+	_dbg_assert_(winsys == WINDOWSYSTEM_WIN32);
+	HINSTANCE hInst = (HINSTANCE)data1;
+	HWND hWnd = (HWND)data2;
+
+	vulkan_->InitSurface(winsys, (void *)hInst, (void *)hWnd);
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
 	if (g_Config.iInflightFrames == 1) {
@@ -134,12 +143,11 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 #endif
 
 	if (!vulkan_->InitSwapchain(presentMode)) {
-		*error_message = vulkan_->InitError();
-		Shutdown();
+		*errorMessage = vulkan_->InitError();
 		return false;
 	}
 
-	SetGPUBackend(GPUBackend::VULKAN, vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName);
+	SetGPUBackend(GPUBackend::VULKAN, vulkan_->GetPhysicalDeviceProperties().properties.deviceName);
 	bool success = draw_->CreatePresets();
 	_assert_msg_(success, "Failed to compile preset shaders");
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
@@ -147,15 +155,17 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	renderManager_ = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	if (!renderManager_->HasBackbuffers()) {
-		Shutdown();
+		// WTF?
+		_dbg_assert_(false);
 		return false;
 	}
 	return true;
 }
 
-void WindowsVulkanContext::Shutdown() {
-	if (draw_)
+void WindowsVulkanContext::ShutdownSurface() {
+	if (draw_) {
 		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	}
 
 	delete draw_;
 	draw_ = nullptr;
@@ -163,6 +173,9 @@ void WindowsVulkanContext::Shutdown() {
 	vulkan_->WaitUntilQueueIdle();
 	vulkan_->DestroySwapchain();
 	vulkan_->DestroySurface();
+}
+
+void WindowsVulkanContext::ShutdownAPI() {
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 

@@ -722,7 +722,8 @@ MainUI::~MainUI() {
 #if defined(MOBILE_DEVICE)
 	delete acc;
 #endif
-	graphicsContext->Shutdown();
+	graphicsContext->ShutdownSurface();
+	graphicsContext->ShutdownAPI();
 	delete graphicsContext;
 	graphicsContext = nullptr;
 }
@@ -906,6 +907,9 @@ void MainUI::initializeGL() {
 		// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
 		INFO_LOG(Log::System, "Initializing GL graphics context");
 		graphicsContext = new QtGLGraphicsContext();
+		std::string errorMessage;
+		graphicsContext->InitAPI(nullptr, nullptr, &errorMessage);
+		graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage);
 		INFO_LOG(Log::System, "Using thread, starting emu thread");
 		EmuThreadStart();
 	} else {
@@ -919,11 +923,11 @@ void MainUI::paintGL() {
 	SDL_PumpEvents();
 #endif
 	updateAccelerometer();
-	if (emuThreadState == (int)EmuThreadState::DISABLED) {
-		NativeFrame(graphicsContext);
-	} else {
+	if (graphicsContext->NeedsSeparateEmuThread()) {
 		graphicsContext->ThreadFrame(true);
 		// Do the rest in EmuThreadFunc
+	} else {
+		NativeFrame(graphicsContext);
 	}
 }
 
@@ -981,7 +985,6 @@ void MainAudio::timerEvent(QTimerEvent *) {
 }
 
 #endif
-
 
 void QTCamera::startCamera(int width, int height) {
 	__qt_startCapture(width, height);

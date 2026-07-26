@@ -1,21 +1,22 @@
 #pragma once
 
-#include "AndroidGraphicsContext.h"
+#include "Common/GraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/thin3d_create.h"
 
-class AndroidJavaEGLGraphicsContext : public AndroidGraphicsContext {
+class AndroidJavaEGLGraphicsContext : public GraphicsContext {
 public:
 	AndroidJavaEGLGraphicsContext();
 	~AndroidJavaEGLGraphicsContext() override { delete draw_; }
 
-	bool NeedsRenderThread() const override { return true; }
+	bool NeedsSeparateEmuThread() const override { return true; }
 
-	// This performs the actual initialization,
-	bool InitFromRenderThread(std::string *errorMessage) override;
-	void ShutdownFromRenderThread() override;
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
+	void ShutdownAPI() override;
 
-	void Shutdown() override {}
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
+	void ShutdownSurface() override;
+
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
@@ -30,14 +31,13 @@ public:
 		return renderManager_->ThreadFrame(waitIfEmpty);
 	}
 
-	void BeginAndroidShutdown() override {
-		renderManager_->SetSkipGLCalls();
-	}
-
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
 	}
-
+protected:
+	void BeginShutdownSurface() override {
+		renderManager_->SetSkipGLCalls();
+	}
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;

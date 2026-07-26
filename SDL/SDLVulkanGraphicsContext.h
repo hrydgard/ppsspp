@@ -12,13 +12,12 @@ class VulkanRenderManager;
 class SDLVulkanGraphicsContext : public GraphicsContext {
 public:
 	SDLVulkanGraphicsContext() {}
-	~SDLVulkanGraphicsContext() {
-		delete draw_;
-	}
 
-	bool Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message);
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
 
-	void Shutdown() override;
+	void ShutdownSurface() override;
+	void ShutdownAPI() override;
 
 	void Resize() override;
 

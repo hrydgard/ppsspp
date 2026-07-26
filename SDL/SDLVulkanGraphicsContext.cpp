@@ -24,28 +24,13 @@ static const bool g_Validate = true;
 static const bool g_Validate = false;
 #endif
 
-bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message) {
-	window = SDL_CreateWindow("Initializing Vulkan...", w, h, (SDL_WindowFlags)mode);
-	if (!window) {
-		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
-		exit(1);
-	}
-	if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
-		SDL_SetWindowPosition(window, x, y);
-	}
-
+bool SDLVulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	init_glslang();
-
-	g_LogOptions.breakOnError = true;
-	g_LogOptions.breakOnWarning = true;
-	g_LogOptions.msgBoxOnError = false;
-
-	Version gitVer(PPSSPP_GIT_VERSION);
+	errorMessage->clear();
 
 	std::string errorStr;
 	if (!VulkanLoad(&errorStr)) {
-		*error_message = "Failed to load Vulkan driver library: ";
-		(*error_message) += errorStr;
+		*errorMessage = "Failed to load Vulkan driver library: " + errorStr;
 		return false;
 	}
 
@@ -54,25 +39,36 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 	VulkanContext::CreateInfo info{};
 	InitVulkanCreateInfoFromConfig(&info);
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
-		*error_message = vulkan_->InitError();
+		*errorMessage = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;
 		return false;
 	}
 
-	int deviceNum = vulkan_->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
+	int deviceNum = vulkan_->GetPhysicalDeviceByName(*deviceName);
 	if (deviceNum < 0) {
 		deviceNum = vulkan_->GetBestPhysicalDevice();
-		if (!g_Config.sVulkanDevice.empty())
-			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
+		if (!deviceName->empty()) {
+			*deviceName = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
+		}
 	}
 
 	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
-		*error_message = vulkan_->InitError();
+		*errorMessage = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;
 		return false;
 	}
+
+	return true;
+}
+
+bool SDLVulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+	SDL_Window *window = *(SDL_Window **)data1;
+	errorMessage->clear();
+
+	_dbg_assert_(window);
+	_dbg_assert_(vulkan_);
 
 	vulkan_->SetCbGetDrawSize([window]() {
 		int w=1,h=1;
@@ -106,19 +102,19 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 #if defined(VK_USE_PLATFORM_METAL_EXT)
 #if PPSSPP_PLATFORM(MAC)
 	if (!surfaceInitialized) {
-			void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-			if (cocoaWindow != nullptr) {
-				vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(cocoaWindow), nullptr);
-				surfaceInitialized = true;
- 			}
+		void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+		if (cocoaWindow != nullptr) {
+			vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(cocoaWindow), nullptr);
+			surfaceInitialized = true;
+		}
  	}
 #else
 	if (!surfaceInitialized) {
-			void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
-			if (uikitWindow != nullptr) {
-				vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(uikitWindow), nullptr);
-				surfaceInitialized = true;
- 			}
+		void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+		if (uikitWindow != nullptr) {
+			vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(uikitWindow), nullptr);
+			surfaceInitialized = true;
+		}
  	}
 #endif
 #endif
@@ -127,18 +123,17 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 		exit(1);
 	}
 
+	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
+	if (!vulkan_->InitSwapchain(presentMode)) {
+		*errorMessage = vulkan_->InitError();
+		return false;
+	}
+
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
 	if (g_Config.iInflightFrames == 1) {
 		useMultiThreading = false;
 	}
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
-
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-	if (!vulkan_->InitSwapchain(presentMode)) {
-		*error_message = vulkan_->InitError();
-		Shutdown();
-		return false;
-	}
 
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
@@ -150,7 +145,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 	return true;
 }
 
-void SDLVulkanGraphicsContext::Shutdown() {
+void SDLVulkanGraphicsContext::ShutdownSurface() {
 	if (draw_)
 		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	delete draw_;
@@ -158,6 +153,10 @@ void SDLVulkanGraphicsContext::Shutdown() {
 	vulkan_->WaitUntilQueueIdle();
 	vulkan_->DestroySwapchain();
 	vulkan_->DestroySurface();
+}
+
+void SDLVulkanGraphicsContext::ShutdownAPI() {
+	_dbg_assert_(!draw_);
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 	delete vulkan_;

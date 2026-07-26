@@ -7,8 +7,8 @@
 
 #include "libretro/LibretroGLCoreContext.h"
 
-bool LibretroGLCoreContext::Init() {
-	if (!LibretroHWRenderContext::Init(false))
+bool LibretroGLCoreContext::InitAPI(void *wnd, std::string *deviceName, std::string *error_message) {
+	if (!LibretroHWRenderContext::InitHW(false))
 		return false;
 
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;

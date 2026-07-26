@@ -913,7 +913,6 @@ if(ANDROID)
 		android/jni/AndroidJavaGLContext.h
 		android/jni/AndroidVulkanContext.cpp
 		android/jni/AndroidVulkanContext.h
-		android/jni/AndroidGraphicsContext.h
 		android/jni/AndroidAudio.cpp
 		android/jni/AndroidAudio.h
 		android/jni/OpenSLContext.cpp
@@ -1679,7 +1678,6 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
 			XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
 
-			#XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${BUNDLE_ENTITLEMENTS}
 			XCODE_ATTRIBUTE_SKIP_INSTALL NO
 			XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 		)

@@ -387,9 +387,6 @@
     <ClInclude Include="GPU\WindowsGLContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="GPU\WindowsGraphicsContext.h">
-      <Filter>Windows\System</Filter>
-    </ClInclude>
     <ClInclude Include="..\Qt\mainwindow.h">
       <Filter>Other Platforms\Qt</Filter>
     </ClInclude>
@@ -411,9 +408,6 @@
     </ClInclude>
     <ClInclude Include="GPU\WindowsVulkanContext.h">
       <Filter>Windows\System</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidGraphicsContext.h">
-      <Filter>Other Platforms\Android</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
       <Filter>Other Platforms\Android</Filter>

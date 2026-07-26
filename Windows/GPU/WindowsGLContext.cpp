@@ -37,21 +37,21 @@
 #include "Windows/GPU/WindowsGLContext.h"
 
 // Currently, just compile time for debugging.  May be NVIDIA only.
-static const int simulateGLES = false;
+constexpr bool g_simulateGLES = false;
 
 void WindowsGLContext::Poll() {
 	// We no longer call RenderManager::Swap here, it's handled by the render thread, which
 	// we're not on here.
 
 	// Used during fullscreen switching to prevent rendering.
-	if (pauseRequested) {
+	if (pauseRequested_) {
 		SetEvent(pauseEvent);
-		resumeRequested = true;
+		resumeRequested_ = true;
 		DWORD result = WaitForSingleObject(resumeEvent, INFINITE);
 		if (result == WAIT_TIMEOUT) {
 			ERROR_LOG(Log::G3D, "Wait for resume timed out. Resuming rendering");
 		}
-		pauseRequested = false;
+		pauseRequested_ = false;
 	}
 }
 
@@ -63,7 +63,7 @@ void WindowsGLContext::Pause() {
 		return;
 	}
 
-	pauseRequested = true;
+	pauseRequested_ = true;
 	DWORD result = WaitForSingleObject(pauseEvent, INFINITE);
 	if (result == WAIT_TIMEOUT) {
 		ERROR_LOG(Log::G3D, "Wait for pause timed out");
@@ -75,16 +75,16 @@ void WindowsGLContext::Resume() {
 	if (!hRC) {
 		return;
 	}
-	if (Core_IsStepping() && !resumeRequested) {
+	if (Core_IsStepping() && !resumeRequested_) {
 		return;
 	}
 
-	if (!resumeRequested) {
+	if (!resumeRequested_) {
 		ERROR_LOG(Log::G3D, "Not waiting to get resumed");
 	} else {
 		SetEvent(resumeEvent);
 	}
-	resumeRequested = false;
+	resumeRequested_ = false;
 }
 
 void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenum type,
@@ -172,17 +172,22 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	}
 }
 
-bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
+bool WindowsGLContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	glslang::InitializeProcess();
-
-	hInst_ = hInst;
-	hWnd_ = window;
-	*error_message = "ok";
 	return true;
 }
 
-bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
-	*error_message = "ok";
+void WindowsGLContext::ShutdownAPI() {
+	glslang::FinalizeProcess();
+}
+
+bool WindowsGLContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
+	HINSTANCE hInst = (HINSTANCE)data1;
+	HWND window = (HWND)data2;
+
+	hInst_ = hInst;
+	hWnd_ = window;
+
 	GLuint PixelFormat;
 
 	// TODO: Change to use WGL_ARB_pixel_format instead
@@ -300,7 +305,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
 	// I can't seem to find a way that lets you simply request the newest version available.
 	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
-		if (simulateGLES) {
+		if (g_simulateGLES) {
 			const static int simulateVersions[][2] = { {3, 2}, {3, 1}, {3, 0}, {2, 0} };
 			for (auto ver : simulateVersions) {
 				const int attribsES[] = {
@@ -404,8 +409,8 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 		glEnable(GL_DEBUG_OUTPUT);
 	}
 
-	pauseRequested = false;
-	resumeRequested = false;
+	pauseRequested_ = false;
+	resumeRequested_ = false;
 
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext(wglSwapIntervalEXT != nullptr);
@@ -439,10 +444,6 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	return true;												// Success
 }
 
-void WindowsGLContext::Shutdown() {
-	glslang::FinalizeProcess();
-}
-
 void WindowsGLContext::ReleaseGLContext() {
 	if (hRC) {
 		// Are we able to release the DC and RC contexts?
@@ -467,11 +468,13 @@ void WindowsGLContext::ReleaseGLContext() {
 	hWnd_ = NULL;
 }
 
-void WindowsGLContext::ShutdownFromRenderThread() {
+void WindowsGLContext::ShutdownSurface() {
 	delete draw_;
 	draw_ = nullptr;
 	CloseHandle(pauseEvent);
 	CloseHandle(resumeEvent);
+	pauseEvent = nullptr;
+	resumeEvent = nullptr;
 	ReleaseGLContext();
 }
 

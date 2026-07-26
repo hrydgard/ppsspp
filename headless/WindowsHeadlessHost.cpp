@@ -75,7 +75,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		SetFocus(hWnd);
 	}
 
-	WindowsGraphicsContext *graphicsContext = nullptr;
+	GraphicsContext *graphicsContext = nullptr;
 	switch (gpuCore_) {
 	case GPUCORE_GLES:
 #if PPSSPP_API(ANY_GL)
@@ -95,9 +95,8 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		break;
 	}
 
-	if (graphicsContext->Init(NULL, hWnd, error_message)) {
-		*ctx = graphicsContext;
-		gfx_ = graphicsContext;
+	if (graphicsContext->InitAPI(hWnd, nullptr, error_message)) {
+		// Success
 	} else {
 		delete graphicsContext;
 		*ctx = nullptr;
@@ -115,7 +114,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 			threadState_ = RenderThreadState::STARTING;
 
 			std::string err;
-			if (!gfx_->InitFromRenderThread(&err)) {
+			if (!gfx_->InitSurface(WINDOWSYSTEM_WIN32, nullptr, hWnd, &err)) {
 				threadState_ = RenderThreadState::START_FAILED;
 				return;
 			}
@@ -126,9 +125,19 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 
 			threadState_ = RenderThreadState::STOPPING;
 			gfx_->ThreadEnd();
-			gfx_->ShutdownFromRenderThread();
+			gfx_->ShutdownSurface();
 			threadState_ = RenderThreadState::STOPPED;
 		});
+	} else {
+		if (graphicsContext->InitSurface(WINDOWSYSTEM_WIN32, NULL, hWnd, error_message)) {
+			*ctx = graphicsContext;
+			gfx_ = graphicsContext;
+		} else {
+			delete graphicsContext;
+			*ctx = nullptr;
+			gfx_ = nullptr;
+			return false;
+		}
 	}
 
 	if (needRenderThread) {
@@ -148,9 +157,12 @@ void WindowsHeadlessHost::ShutdownGraphics() {
 		while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::IDLE)
 			sleep_ms(1, "render-thread-stop-poll");
 		renderThread_.join();
+	} else {
+		gfx_->ShutdownSurface();
 	}
 
-	gfx_->Shutdown();
+	gfx_->ShutdownAPI();
+
 	delete gfx_;
 	gfx_ = nullptr;
 	DestroyWindow(hWnd);
