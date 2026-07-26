@@ -51,6 +51,8 @@ SDLJoystick *joystick = NULL;
 #endif
 
 #include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
@@ -64,12 +66,12 @@ SDLJoystick *joystick = NULL;
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "SDLGLGraphicsContext.h"
-#include "SDLVulkanGraphicsContext.h"
 
 #include <SDL3/SDL_vulkan.h>
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DarwinFileSystemServices.h"
+#include "SDL/SDLCocoaMetalLayer.h"
 #endif
 
 #if PPSSPP_PLATFORM(MAC)
@@ -2071,7 +2073,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			// NOTE : This should match the lines below in the Vulkan case.
-			SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
+			VulkanGraphicsContext *vkctx = new VulkanGraphicsContext();
 			vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
 
 			if (!vkctx->InitSurface(windowSystem, data1, data2, &error_message)) {
@@ -2089,7 +2091,7 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 
-		SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
+		VulkanGraphicsContext *vkctx = new VulkanGraphicsContext();
 		vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
 		if (!vkctx->InitSurface(windowSystem, data1, data2, &error_message)) {
 			// Let's try the fallback once per process run.
