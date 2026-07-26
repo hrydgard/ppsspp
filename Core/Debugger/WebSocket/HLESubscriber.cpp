@@ -47,8 +47,37 @@ DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.func.scan"] = &WebSocketHLEFuncScan;
 	map["hle.module.list"] = &WebSocketHLEModuleList;
 	map["hle.backtrace"] = &WebSocketHLEBacktrace;
+	map["hle.data.list"] = &WebSocketHLEDataList;
+	map["hle.data.add"] = &WebSocketHLEDataAdd;
+	map["hle.data.remove"] = &WebSocketHLEDataRemove;
+	map["hle.data.rename"] = &WebSocketHLEDataRename;
 
 	return nullptr;
+}
+
+static const char *DataTypeToString(DataType type) {
+	switch (type) {
+	case DATATYPE_BYTE: return "byte";
+	case DATATYPE_HALFWORD: return "halfword";
+	case DATATYPE_WORD: return "word";
+	case DATATYPE_ASCII: return "ascii";
+	default: return "unknown";
+	}
+}
+
+static bool DataTypeFromString(const std::string &s, DataType *out) {
+	if (s == "byte") {
+		*out = DATATYPE_BYTE;
+	} else if (s == "halfword") {
+		*out = DATATYPE_HALFWORD;
+	} else if (s == "word") {
+		*out = DATATYPE_WORD;
+	} else if (s == "ascii") {
+		*out = DATATYPE_ASCII;
+	} else {
+		return false;
+	}
+	return true;
 }
 
 // List all current HLE threads (hle.thread.list)
@@ -619,4 +648,162 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 		json.pop();
 	}
 	json.pop();
+}
+
+// List all current known data symbols (hle.data.list)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - data: array of objects, each with properties:
+//     - name: current name of the data symbol.
+//     - address: unsigned integer start address.
+//     - size: unsigned integer size in bytes.
+//     - type: string, one of 'byte', 'halfword', 'word', 'ascii', or 'unknown'.
+void WebSocketHLEDataList(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	auto entries = g_symbolMap->GetAllActiveSymbols(ST_DATA);
+
+	JsonWriter &json = req.Respond();
+	json.pushArray("data");
+	for (auto &d : entries) {
+		json.pushDict();
+		json.writeString("name", d.name);
+		json.writeUint("address", d.address);
+		json.writeUint("size", d.size);
+		json.writeString("type", DataTypeToString(g_symbolMap->GetDataType(d.address)));
+		json.pop();
+	}
+	json.pop();
+}
+
+// Add a new data symbol (hle.data.add)
+//
+// Useful for labeling structures, tables, or buffers found while reverse engineering
+// (e.g. after locating something with memory.search.)
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the data.
+//  - size: unsigned integer size in bytes.
+//  - type: string, one of 'byte', 'halfword', 'word', or 'ascii'.
+//  - name: string to name the data, optional and defaults to an auto-generated name.
+//
+// Response (same event name):
+//  - address: the start address, repeated back.
+//  - size: the size, repeated back.
+//  - type: the type, repeated back.
+//  - name: name of the new data symbol.
+void WebSocketHLEDataAdd(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+
+	u32 addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+	u32 size;
+	if (!req.ParamU32("size", &size))
+		return;
+	if (size == 0)
+		return req.Fail("'size' must not be zero");
+
+	std::string typeStr;
+	if (!req.ParamString("type", &typeStr))
+		return;
+	DataType type;
+	if (!DataTypeFromString(typeStr, &type))
+		return req.Fail("Invalid 'type', must be byte, halfword, word, or ascii");
+
+	if (!Memory::IsValidRange(addr, size))
+		return req.Fail("Address or size outside valid memory");
+
+	std::string name;
+	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL))
+		return;
+	if (name.empty())
+		name = StringFromFormat("data_%08x", addr);
+
+	g_symbolMap->AddData(addr, size, type);
+	g_symbolMap->AddLabel(name.c_str(), addr);
+	g_symbolMap->SortSymbols();
+
+	// Clear cache so the disassembly view picks up the new annotation.
+	g_disassemblyManager.clear();
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("address", addr);
+	json.writeUint("size", size);
+	json.writeString("type", typeStr);
+	json.writeString("name", name);
+}
+
+// Remove a data symbol (hle.data.remove)
+//
+// Parameters:
+//  - address: unsigned integer address within the data symbol to remove.
+//
+// Response (same event name):
+//  - address: the start address of the removed data symbol.
+//  - size: the size in bytes of the removed data symbol.
+void WebSocketHLEDataRemove(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+
+	u32 addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+
+	u32 dataBegin = g_symbolMap->GetDataStart(addr);
+	if (dataBegin == -1)
+		return req.Fail("No data symbol found at 'address'");
+	u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
+
+	g_symbolMap->RemoveData(dataBegin, true);
+	g_symbolMap->SortSymbols();
+	g_disassemblyManager.clear();
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("address", dataBegin);
+	json.writeUint("size", dataSize);
+}
+
+// Rename a data symbol (hle.data.rename)
+//
+// Parameters:
+//  - address: unsigned integer address within the data symbol to rename.
+//  - name: string, new name for the data symbol.
+//
+// Response (same event name):
+//  - address: the start address of the renamed data symbol.
+//  - size: the size in bytes of the renamed data symbol.
+//  - name: string, new name repeated back.
+void WebSocketHLEDataRename(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+
+	u32 addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+	std::string name;
+	if (!req.ParamString("name", &name))
+		return;
+
+	u32 dataBegin = g_symbolMap->GetDataStart(addr);
+	if (dataBegin == -1)
+		return req.Fail("No data symbol found at 'address'");
+	u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
+
+	g_symbolMap->SetLabelName(name.c_str(), dataBegin);
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("address", dataBegin);
+	json.writeUint("size", dataSize);
+	json.writeString("name", name);
 }
