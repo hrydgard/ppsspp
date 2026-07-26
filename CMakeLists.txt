@@ -909,8 +909,6 @@ endif()
 if(ANDROID)
 	list(APPEND AndroidJniSource
 		android/jni/app-android.cpp
-		android/jni/AndroidJavaGLContext.cpp
-		android/jni/AndroidJavaGLContext.h
 		android/jni/AndroidAudio.cpp
 		android/jni/AndroidAudio.h
 		android/jni/OpenSLContext.cpp

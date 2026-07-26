@@ -88,10 +88,9 @@ struct JNIEnv {};
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
+#include "Common/GPU/OpenGL/OpenGLGraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
-
-#include "AndroidJavaGLContext.h"
 
 #include "Core/CmdLine.h"
 #include "Core/Config.h"
@@ -779,7 +778,7 @@ retry:
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
 		INFO_LOG(Log::System, "NativeApp.init() -- creating OpenGL context (JavaGL)");
-		graphicsContext = new AndroidJavaEGLGraphicsContext();
+		graphicsContext = new OpenGLGraphicsContext();
 		INFO_LOG(Log::System, "NativeApp.init() - not yet launching emuthread, waiting to displayInit");
 		break;
 	case (int)GPUBackend::VULKAN:

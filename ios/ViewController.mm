@@ -18,7 +18,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/OpenGLGraphicsContext.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -42,77 +42,13 @@
 #error Must be built with ARC, please revise the flags for ViewController.mm to include -fobjc-arc.
 #endif
 
-class IOSGLESContext : public GraphicsContext {
-public:
-	IOSGLESContext() {
-		CheckGLExtensions();
-		SetGPUBackend(GPUBackend::OPENGL);
-	}
-	~IOSGLESContext() {
-		delete draw_;
-	}
-
-	bool InitAPI(void *wnd, std::string *deviceNameSetting, std::string *error_message) override {
-		// Nothing to do here, we already initialized in the constructor.
-		return true;
-	}
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override {
-		draw_ = Draw::T3DCreateGLContext(false);
-		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
-		bool success = draw_->CreatePresets();
-		_assert_msg_(success, "Failed to compile preset shaders");
-		return true;
-	}
-
-	void ShutdownSurface() override {
-		// Nothing to do here, we already initialized in the constructor.
-		if (draw_) {
-			delete draw_;
-			draw_ = nullptr;
-		}
-		renderManager_ = nullptr;
-	}
-	void ShutdownAPI() override {
-		// Nothing to do here.
-	}
-
-	bool NeedsSeparateEmuThread() const override { return true; }
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
-
-	void Resize() override {}
-
-	void ThreadStart() override {
-		renderManager_->ThreadStart(draw_);
-	}
-
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
-	}
-
-	void ThreadEnd() override {
-		renderManager_->ThreadEnd();
-	}
-
-protected:
-	void BeginShutdown() {
-		renderManager_->SetSkipGLCalls();
-	}
-
-private:
-	Draw::DrawContext *draw_;
-	GLRenderManager *renderManager_;
-};
-
 static std::atomic<bool> renderLoopRunning;
 static std::thread g_emuThread;
 
 PPSSPPBaseViewController *sharedViewController;
 
 @interface PPSSPPViewControllerGL () {
-	IOSGLESContext *graphicsContext;
+	GraphicsContext *graphicsContext;
 
 	int imageRequestId;
 	NSString *imageFilename;
@@ -202,7 +138,7 @@ PPSSPPBaseViewController *sharedViewController;
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 
-	graphicsContext = new IOSGLESContext();
+	graphicsContext = new OpenGLGraphicsContext();
 
 	std::string errorMessage;
 	if (!graphicsContext->InitAPI(nullptr, nullptr, &errorMessage)) {
@@ -210,7 +146,7 @@ PPSSPPBaseViewController *sharedViewController;
 	}
 
 	if (!graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage)) {
-		ERROR_LOG(Log::G3D, "InitAPI failed: %s", errorMessage.c_str());
+		ERROR_LOG(Log::G3D, "InitSurface failed: %s", errorMessage.c_str());
 	}
 
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
