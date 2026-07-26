@@ -61,6 +61,8 @@ private:
 };
 
 bool IOSVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+	_assert_(!vulkan_);
+
 	INFO_LOG(Log::G3D, "IOSVulkanContext::Init");
 	init_glslang();
 
@@ -77,10 +79,8 @@ bool IOSVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *
 		return false;
 	}
 
-	if (!vulkan_) {
-		// TODO: Assert if g_Vulkan already exists here?
-		vulkan_ = new VulkanContext();
-	}
+	// TODO: Assert if g_Vulkan already exists here?
+	vulkan_ = new VulkanContext();
 
 	VulkanContext::CreateInfo info{};
 	InitVulkanCreateInfoFromConfig(&info);
@@ -96,9 +96,6 @@ bool IOSVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::string *
 }
 
 bool IOSVulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	_dbg_assert_(winsys == WINDOWSYSTEM_METAL_EXT);
-	CAMetalLayer *layer = (__bridge CAMetalLayer *)data1;
-
 	_assert_(vulkan_);
 
 	VkResult res = vulkan_->InitSurface(winsys, data1, nullptr);

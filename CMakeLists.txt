@@ -911,8 +911,6 @@ if(ANDROID)
 		android/jni/app-android.cpp
 		android/jni/AndroidJavaGLContext.cpp
 		android/jni/AndroidJavaGLContext.h
-		android/jni/AndroidVulkanContext.cpp
-		android/jni/AndroidVulkanContext.h
 		android/jni/AndroidAudio.cpp
 		android/jni/AndroidAudio.h
 		android/jni/OpenSLContext.cpp
