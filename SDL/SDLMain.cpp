@@ -2200,7 +2200,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
-			emuThread = EmuThread_Start(graphicsContext, &application, nullptr);
+			emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 			graphicsContext->ThreadStart();
 		}
 	}
