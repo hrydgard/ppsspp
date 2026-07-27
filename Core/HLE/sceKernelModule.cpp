@@ -2647,6 +2647,31 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	return hleNoLog(0);
 }
 
+std::string KernelModuleAddressDescription(u32 address) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module)
+			continue;
+
+		const NativeModule &nm = module->nm;
+		u32 dataAddr = module->GetDataAddr();
+		u32 bssAddr = module->GetBSSAddr();
+
+		if (nm.text_size != 0 && address >= nm.text_addr && address < nm.text_addr + nm.text_size)
+			return StringFromFormat("%s.text+%x", nm.name, address - nm.text_addr);
+		if (nm.data_size != 0 && address >= dataAddr && address < dataAddr + nm.data_size)
+			return StringFromFormat("%s.data+%x", nm.name, address - dataAddr);
+		if (nm.bss_size != 0 && address >= bssAddr && address < bssAddr + nm.bss_size)
+			return StringFromFormat("%s.bss+%x", nm.name, address - bssAddr);
+		for (int i = 0; i < (int)nm.nsegment && i < 4; i++) {
+			if (nm.segmentsize[i] != 0 && address >= nm.segmentaddr[i] && address < nm.segmentaddr[i] + nm.segmentsize[i])
+				return StringFromFormat("%s.seg%d+%x", nm.name, i, address - nm.segmentaddr[i]);
+		}
+	}
+	return std::string();
+}
+
 //fix for tiger x dragon
 static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u32 optionAddr) {
 	return sceKernelLoadModule(name, flags, optionAddr);

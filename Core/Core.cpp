@@ -39,6 +39,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/MIPS/MIPSTracer.h"
 
 #include "GPU/Debugger/Stepping.h"
@@ -557,15 +558,26 @@ static ExceptionAction ResolveExceptionAction(ExceptionAction action) {
 	return action;
 }
 
+// Looks up which loaded module (and section) an address falls in, formatted for appending
+// straight after an address in a log line, e.g. " [EBOOT.BIN.text+1234]". Empty if no match.
+static std::string ModuleAddressSuffix(u32 address) {
+	std::string desc = KernelModuleAddressDescription(address);
+	if (desc.empty())
+		return std::string();
+	return " [" + desc + "]";
+}
+
 void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 
-	char pcDetails[64];
+	char pcDetails[128];
 	pcDetails[0] = 0;
 	if ((CPUCore)g_Config.iCpuCore == CPUCore::INTERPRETER) {
-		snprintf(pcDetails, sizeof(pcDetails), " PC %08x LR %08x", currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		snprintf(pcDetails, sizeof(pcDetails), " PC %08x%s LR %08x%s", currentMIPS->pc, ModuleAddressSuffix(currentMIPS->pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
 	}
+
+	const std::string addressSuffix = ModuleAddressSuffix(address);
 
 	ExceptionAction action;
 	switch (type) {
@@ -582,13 +594,13 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 
 	if (action == ExceptionAction::Ignore) {
 		// Simplest logging and continue.
-		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) %s%.*s", desc, address, accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data());
+		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x%s (size %08x) %s%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data());
 		return;
 	}
 
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	// Do the most detailed logging we can.
-	ERROR_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) %s%.*s\n%s", desc, address, accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data(), stackTrace.c_str());
+	ERROR_LOG(Log::MemMap, "%s: Invalid access at %08x%s (size %08x) %s%.*s\n%s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data(), stackTrace.c_str());
 	if (action == ExceptionAction::Break) {
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
@@ -606,7 +618,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 // Can't be ignored, must break. Not sure we can get a meaningful stack trace here (since the PC is invalid).
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
-	WARN_LOG(Log::MemMap, "%s: Invalid exec address %08x pc=%08x ra=%08x", desc, address, pc, currentMIPS->r[MIPS_REG_RA]);
+	WARN_LOG(Log::MemMap, "%s: Invalid exec address %08x%s pc=%08x%s ra=%08x%s", desc, address, ModuleAddressSuffix(address).c_str(), pc, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};
@@ -628,15 +640,17 @@ void Core_BreakException(u32 pc) {
 	e.info.clear();
 	e.pc = pc;
 
+	const std::string pcSuffix = ModuleAddressSuffix(pc);
+
 	const ExceptionAction action = ResolveExceptionAction((ExceptionAction)g_Config.iExceptionActionBreak);
 	if (action == ExceptionAction::Ignore) {
 		// Simplest logging and continue.
-		WARN_LOG(Log::CPU, "CPU exception: break instruction hit at %08x. Ignoring (use --break=log for more details or --break=break to break)", pc);
+		WARN_LOG(Log::CPU, "CPU exception: break instruction hit at %08x%s. Ignoring (use --break=log for more details or --break=break to break)", pc, pcSuffix.c_str());
 		return;
 	}
 
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
-	ERROR_LOG(Log::CPU, "CPU exception: break instruction hit at %08x (ra=%08x)\n%s", pc, currentMIPS->r[MIPS_REG_RA], stackTrace.c_str());
+	ERROR_LOG(Log::CPU, "CPU exception: break instruction hit at %08x%s (ra=%08x%s)\n%s", pc, pcSuffix.c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str(), stackTrace.c_str());
 	if (action == ExceptionAction::Break) {
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}

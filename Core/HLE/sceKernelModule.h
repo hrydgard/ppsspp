@@ -236,6 +236,9 @@ bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string);
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
 bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName);
+// Describes which loaded module (and section within it) an address falls in, e.g. "EBOOT.BIN.text+1234".
+// Returns an empty string if the address isn't inside any currently loaded module.
+std::string KernelModuleAddressDescription(u32 address);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string);
