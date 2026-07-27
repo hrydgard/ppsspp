@@ -115,6 +115,7 @@ public:
 	u32 GetDataSize(u32 startAddress);
 	u32 GetDataModuleAddress(u32 startAddress);
 	DataType GetDataType(u32 startAddress);
+	bool RemoveData(u32 startAddress, bool removeName);
 
 	static const u32 INVALID_ADDRESS = (u32)-1;
 

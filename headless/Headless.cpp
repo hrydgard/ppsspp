@@ -33,6 +33,7 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GPU/GraphicsContext.h"
+#include "Common/Net/Resolve.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadManager.h"
@@ -453,6 +454,12 @@ int main(int argc, const char* argv[]) {
 		break;
 	}
 
+	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the
+	// WebSocket debugger silently fails to listen. Only done when requested since headless
+	// otherwise has no use for networking.
+	if (cmdLineOptions.debuggerPort.has_value())
+		net::Init();
+
 	AutoTestOptions testOptions{};
 	testOptions.compare = cmdLineOptions.compare.value_or(false);
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
@@ -462,7 +469,6 @@ int main(int argc, const char* argv[]) {
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
-	int debuggerPort = -1;
 	bool oldAtrac = false;
 	bool outputDebugStringLog = false;
 
@@ -493,8 +499,6 @@ int main(int argc, const char* argv[]) {
 			testOptions.verbose = true;
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
-		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
-			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
@@ -540,7 +544,7 @@ int main(int argc, const char* argv[]) {
 		g_logManager.EnableOutput(LogOutput::Printf);
 	}
 
-	cmdLineOptions.ApplyToConfig();
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, true);
 
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -552,26 +556,12 @@ int main(int argc, const char* argv[]) {
 	GraphicsContext *graphicsContext = nullptr;
 	bool glWorking = headlessHost->InitGraphics(&error_string, &graphicsContext, gpuCore);
 
-	CoreParameter coreParameter;
-	coreParameter.cpuCore = cpuCore;  // apprently this gets overwritten somehow by g_Config below.
-	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
-	coreParameter.graphicsContext = graphicsContext;
-	coreParameter.enableSound = false;
-	coreParameter.mountIso = mountIso.empty() ? Path() : Path(mountIso);
-	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
-	coreParameter.startBreak = false;
-	coreParameter.headLess = true;
-	coreParameter.renderScaleFactor = cmdLineOptions.resolutionScale.value_or(1);
-	coreParameter.renderWidth = 480 * coreParameter.renderScaleFactor;
-	coreParameter.renderHeight = 272 * coreParameter.renderScaleFactor;
-	coreParameter.pixelWidth = 480 * coreParameter.renderScaleFactor;
-	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
-	coreParameter.fastForward = true;
-
-	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, true);
-
+	// Force known values for deterministic test execution. This happens before
+	// ApplyToConfig() below, so a matching command line flag can still override any of it -
+	// ApplyToConfig() always has the final say on the settings in g_Config.
+	//
 	// Somehow this affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
-	// we actually set the cpu core in CoreParameter above. Probably because we end up using the JIT vs non-JIT
+	// we actually set the cpu core in CoreParameter below. Probably because we end up using the JIT vs non-JIT
 	// vertex decoder.
 	g_Config.iCpuCore = 0;
 
@@ -596,10 +586,10 @@ int main(int argc, const char* argv[]) {
 	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
-	g_Config.iInternalResolution = coreParameter.renderScaleFactor;
+	g_Config.iInternalResolution = cmdLineOptions.resolutionScale.value_or(1);
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_Config.bVertexDecoderJit = true;
-	g_Config.bSoftwareRendering = coreParameter.gpuCore == GPUCORE_SOFTWARE;
+	g_Config.bSoftwareRendering = (glWorking ? gpuCore : GPUCORE_SOFTWARE) == GPUCORE_SOFTWARE;
 	g_Config.bSoftwareRenderingJit = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
@@ -614,6 +604,28 @@ int main(int argc, const char* argv[]) {
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
 	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
+
+	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
+	// overrides above, so a matching command line flag always wins.
+	cmdLineOptions.ApplyToConfig();
+
+	// TODO: This whole function should be refactored to set up CoreParameter in one place,
+	// but not now.
+	CoreParameter coreParameter;
+	coreParameter.cpuCore = cpuCore;  // apprently this gets overwritten somehow by g_Config above.
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_SOFTWARE;
+	coreParameter.graphicsContext = graphicsContext;
+	coreParameter.enableSound = false;
+	coreParameter.mountIso = mountIso.empty() ? Path() : Path(mountIso);
+	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
+	coreParameter.startBreak = false;
+	coreParameter.headLess = true;
+	coreParameter.renderScaleFactor = cmdLineOptions.resolutionScale.value_or(1);
+	coreParameter.renderWidth = 480 * coreParameter.renderScaleFactor;
+	coreParameter.renderHeight = 272 * coreParameter.renderScaleFactor;
+	coreParameter.pixelWidth = 480 * coreParameter.renderScaleFactor;
+	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
+	coreParameter.fastForward = true;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
@@ -667,8 +679,7 @@ int main(int argc, const char* argv[]) {
 
 	UpdateUIState(UISTATE_INGAME);
 
-	if (debuggerPort > 0) {
-		g_Config.iRemoteISOPort = debuggerPort;
+	if (cmdLineOptions.debuggerPort.has_value()) {
 		coreParameter.startBreak = true;
 		StartWebServer(WebServerFlags::DEBUGGER);
 	}
@@ -725,7 +736,7 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 
-	if (debuggerPort > 0) {
+	if (cmdLineOptions.debuggerPort.has_value()) {
 		ShutdownWebServer();
 	}
 
@@ -736,6 +747,8 @@ int main(int argc, const char* argv[]) {
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
+	if (cmdLineOptions.debuggerPort.has_value())
+		net::Shutdown();
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	timeEndPeriod(1);
