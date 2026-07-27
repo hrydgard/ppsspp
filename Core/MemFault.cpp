@@ -319,7 +319,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uint32_t approximatePC = currentMIPS->pc;
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.
-		Core_MemoryExceptionInfo(guestAddress, 0, approximatePC, type, infoString, true);
+		Core_MemoryException(guestAddress, 0, approximatePC, type, infoString, true);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;

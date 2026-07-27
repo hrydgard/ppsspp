@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include "Common/CommonTypes.h"
+#include "Core/ConfigValues.h"
 
 class GraphicsContext;
 
@@ -166,11 +167,7 @@ enum class ExecExceptionType {
 	THREAD,
 };
 
-// Separate one for without info, to avoid having to allocate a string
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type);
-
-void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport);
-
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "", bool forceReport = false);
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_BreakException(u32 pc);
 // Call when loading save states, etc.
