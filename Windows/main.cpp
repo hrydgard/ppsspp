@@ -1205,6 +1205,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();
+	Achievements::InitializeRAIntegration(hwndMain);
 
 	//initialize custom controls
 	CtrlDisAsmView::init();

@@ -675,6 +675,16 @@ void Initialize() {
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	if (!g_Config.bAchievementsEnableRAIntegration) {
+		TryLoginByToken(true);
+	}
+#else
+	TryLoginByToken(true);
+#endif
+}
+
+void InitializeRAIntegration(void *windowHandle) {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	if (g_Config.bAchievementsEnableRAIntegration) {
 		wchar_t szFilePath[MAX_PATH];
 		GetModuleFileNameW(NULL, szFilePath, MAX_PATH);
@@ -684,12 +694,15 @@ void Initialize() {
 				break;
 			}
 		}
-		HWND hWnd = (HWND)System_GetPropertyInt(SYSPROP_MAIN_WINDOW_HANDLE);
+		HWND hWnd = (HWND)windowHandle;
+		if (!hWnd) {
+			ERROR_LOG(Log::Achievements, "RAIntegration is enabled, but no main window handle was found.");
+			return;
+		}
 		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", PPSSPP_GIT_VERSION, &load_integration_callback, hWnd);
 		return;
 	}
 #endif
-	TryLoginByToken(true);
 }
 
 bool HasToken() {

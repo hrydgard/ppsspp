@@ -71,6 +71,7 @@ bool RAIntegrationDirty();
 rc_client_t *GetClient();
 
 void Initialize();
+void InitializeRAIntegration(void *windowHandle);  // This must be call after the main window exists.
 void UpdateSettings();
 
 bool LoginProblems(std::string *errorString);
