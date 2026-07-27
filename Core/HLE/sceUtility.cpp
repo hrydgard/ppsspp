@@ -361,6 +361,16 @@ void __UtilityDoState(PointerWrap &p) {
 	if (s >= 4) {
 		Do(p, hasAccessThread);
 		if (hasAccessThread) {
+			if (p.mode == p.MODE_READ && accessThread) {
+				// Do() below would delete the stale host object without Forget(),
+				// letting ~HLEHelperThread run __KernelDeleteThread and free kernel
+				// memory using pre-load ids/blocks against the restored kernel
+				// state. If an id or block was recycled, that kills a live thread
+				// or frees a live allocation. Same pattern as __IoDoState.
+				accessThread->Forget();
+				delete accessThread;
+				accessThread = nullptr;
+			}
 			Do(p, accessThread);
 			if (p.mode == p.MODE_READ)
 				accessThreadState = "from save state";
