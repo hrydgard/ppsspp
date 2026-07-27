@@ -199,6 +199,18 @@
 			"description": "Dedicated regional relay server providing low-latency matchmaking for MENA players.",
 			"data_mode": "AemuPostoffice",
 			"status_data_json": "http://jeddah-relay.ddns.net/data.json"
+		},
+		{
+			"name": "Alpha Adhoc Server",
+			"host": "140.245.237.12",
+			"discord": "https://discord.gg/fenYRERNRy",
+			"web": "http://140.245.237.12:8080/",
+			"location": "India",
+			"location-emoji": "🇮🇳",
+			"description": "Indian adhoc relay from alpha community",
+			"data_mode": "AemuPostoffice",
+			"status_xml": "",
+			"icon": "https://raw.githubusercontent.com/MainPiyushHoon/Alpha-Community-Webpage/refs/heads/main/src/images/ALPHA.webp"
 		}
 	]
 }
