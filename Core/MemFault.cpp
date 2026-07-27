@@ -374,9 +374,9 @@ std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frame
 	std::stringstream str;
 	for (const auto &frame : frames) {
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
-		std::string moduleDesc = KernelModuleAddressDescription(frame.pc);
-		if (!moduleDesc.empty()) {
-			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		char moduleDesc[96];
+		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
+			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
 		} else {
 			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
 		}

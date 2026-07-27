@@ -561,10 +561,12 @@ static ExceptionAction ResolveExceptionAction(ExceptionAction action) {
 // Looks up which loaded module (and section) an address falls in, formatted for appending
 // straight after an address in a log line, e.g. " [EBOOT.BIN.text+1234]". Empty if no match.
 static std::string ModuleAddressSuffix(u32 address) {
-	std::string desc = KernelModuleAddressDescription(address);
-	if (desc.empty())
+	char desc[96];
+	if (DescribeKernelModuleAddress(address, desc, sizeof(desc))) {
+		return std::string(" [") + desc + "]";
+	} else {
 		return std::string();
-	return " [" + desc + "]";
+	}
 }
 
 void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
