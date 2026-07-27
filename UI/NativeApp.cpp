@@ -579,10 +579,12 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
 
-	const char *fileToLog = nullptr;
-
 	bool gotBootFilename = false;
 	boot_filename.clear();
+
+	if (boot_filename.empty() && cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
+		boot_filename = g_Config.flash0Directory / "vsh/module/vshmain.prx";
+	}
 
 	// Parse command line
 	LogLevel logLevel = LogLevel::LINFO;
@@ -596,6 +598,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		setLogLevel(cmdLineOptions.logLevel.value());
 	}
 
+	std::string fileToLog;
 	for (int i = 1; i < argc; i++) {
 		if (argv[i][0] == '-') {
 #if defined(__APPLE__)
@@ -672,7 +675,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		}
 	}
 
-	if (fileToLog) {
+	if (!fileToLog.empty()) {
 		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
 		g_logManager.SetFileLogPath(Path(fileToLog));

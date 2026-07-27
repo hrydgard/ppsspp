@@ -213,6 +213,11 @@ public:
 	// Core
 	bool bIgnoreBadMemAccess;
 
+	// ExceptionAction enum: 0 = default (obey bIgnoreBadMemAccess), 1 = log, 2 = break, 3 = exit
+	int iExceptionActionMemRead;  // this also includes alignment and other odd memory exceptions.
+	int iExceptionActionMemWrite;
+	int iExceptionActionBreak;
+
 	bool bFastMemory;
 	int iCpuCore;
 	bool bCheckForNewVersion;

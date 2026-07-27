@@ -23,6 +23,7 @@ enum class CmdParamType {
 	Int,
 	Double,
 	String,
+	Enum,
 };
 
 struct CommandLineParam {
@@ -32,6 +33,8 @@ struct CommandLineParam {
 	char shortName;  // can be 0 for no short name
 	const char *docString;
 	CmdLineMode mode;
+	const char **enumValues;
+	int enumCount;
 };
 
 enum class ParseParamResult {
@@ -41,6 +44,7 @@ enum class ParseParamResult {
 };
 
 ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &param, const std::string &value) {
+	uint8_t *optionsPtr = reinterpret_cast<uint8_t *>(options);
 	switch (param.type) {
 	case CmdParamType::Bool:
 	case CmdParamType::BoolInverse:
@@ -58,18 +62,37 @@ ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &p
 		if (param.type == CmdParamType::BoolInverse) {
 			v = !v;
 		}
-		*reinterpret_cast<std::optional<bool> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = v;
+		*reinterpret_cast<std::optional<bool> *>(optionsPtr + param.offsetInStruct) = v;
 		break;
 	}
 	case CmdParamType::Int:
-		*reinterpret_cast<std::optional<int> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = std::stoi(value);
+		*reinterpret_cast<std::optional<int> *>(optionsPtr + param.offsetInStruct) = std::stoi(value);
 		break;
 	case CmdParamType::Double:
-		*reinterpret_cast<std::optional<double> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = std::stod(value);
+		*reinterpret_cast<std::optional<double> *>(optionsPtr + param.offsetInStruct) = std::stod(value);
 		break;
 	case CmdParamType::String:
-		*reinterpret_cast<std::optional<std::string> *>(reinterpret_cast<uint8_t *>(options) + param.offsetInStruct) = value;
+		*reinterpret_cast<std::optional<std::string> *>(optionsPtr + param.offsetInStruct) = value;
 		break;
+	case CmdParamType::Enum:
+	{
+		int enumIndex = -1;
+		for (int i = 0; i < param.enumCount; ++i) {
+			if (value == param.enumValues[i]) {
+				enumIndex = i;
+				break;
+			}
+		}
+		if (enumIndex == -1) {
+			PRINT_STDERR("Error: Invalid value for parameter --%s: '%s'. Expected one of: ", param.longName, value.c_str());
+			for (int i = 0; i < param.enumCount; ++i) {
+				PRINT_STDERR("%s%s", param.enumValues[i], (i + 1 < param.enumCount) ? ", " : "\n");
+			}
+			return ParseParamResult::BadValue;
+		}
+		*reinterpret_cast<std::optional<int> *>(optionsPtr + param.offsetInStruct) = enumIndex;
+		break;
+	}
 	default:
 		break;
 	}
@@ -132,6 +155,14 @@ static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &
 	return ParseParamResult::NoMatch;
 }
 
+// Enum ExceptionAction
+const char *g_ExceptionActionValues[] = {
+	"default",
+	"ignore",
+	"log",
+	"break",
+};
+
 #define POFF(member) offsetof(CommandLineOptions, member)
 static const CommandLineParam g_autoParams[] = {
 	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
@@ -151,31 +182,46 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(timeout), CmdParamType::Double, "timeout", '\0', "Set the timeout value"},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
+	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
+	{POFF(memReadAction), CmdParamType::Enum, "memread", '\0', "Set the action for memory read exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
+	{POFF(memWriteAction), CmdParamType::Enum, "memwrite", '\0', "Set the action for memory write exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
+	{POFF(breakAction), CmdParamType::Enum, "break", '\0', "Set the action for break exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
+	{POFF(verbose), CmdParamType::Bool, "verbose", '\0', "Enable verbose output", CmdLineMode::Both},
+
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
-// NOTE: On Windows this prints nothing unfortunately, since PPSSPP is not a "console app".
+// NOTE: On Windows this prints nothing unfortunately, since PPSSPP is not a "console app" (PPSSPPHeadless is though, there it works).
 // A fun trick we could do is AttachConsole(ATTACH_PARENT_PROCESS) which works at least from git bash and powershell, if we also use WriteConsole.
 // However it's not exactly ideal.
-static int printUsage(int argc, const char *argv[], CmdLineMode mode) {
+int CommandLineOptions::PrintUsage(const char *progname, const char *situationText) const {
 	// NOTE: by convention, --help outputs to stdout,
 	// not to stderr, since it is intended output in this
 	// case (usage printed under different circumstances,
 	// say in response to error during parsing commandline,
 	// may go to stderr).
-	const char *progname = argc > 0 ? argv[0] : "ppsspp";
 	// NOTE: wording largely taken from
 	// https://www.ppsspp.org/docs/reference/command-line/
-	if (mode == CmdLineMode::Application) {
-		PRINT_STDOUT("PPSSPP - a PSP emulator\n");
+	if (situationText) {
+		PRINT_STDOUT("%s\n\n", situationText);
 	} else {
-		PRINT_STDOUT("PPSSPP Headless\n");
-		PRINT_STDOUT("This is primarily meant as a non-interactive test tool.\n\n");
+		if (mode == CmdLineMode::Application) {
+			PRINT_STDOUT("PPSSPP - a PSP emulator\n");
+		} else {
+			PRINT_STDOUT("PPSSPP Headless\n");
+			PRINT_STDOUT("This is primarily meant as a non-interactive test tool.\n\n");
+		}
 	}
-	PRINT_STDOUT("PPSSPP - a PSP emulator\n");
-	PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
-	PRINT_STDOUT("Launches FILE (e.g. ISO image) if present.\n");
-	PRINT_STDOUT("Options (some of these are specific to SDL backend):\n");
+
+	if (mode == CmdLineMode::Application) {
+		PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
+	} else {
+		PRINT_STDOUT("Usage: %s [options] [FILE1] [FILE2] [FILE3]...\n\n", progname);
+	}
+
+	PRINT_STDOUT("Launches FILE (for example, an ISO image) if present.\n");
+	PRINT_STDOUT("See headless/README.md for more details.\n\n");
+	PRINT_STDOUT("Options:\n");
 	PRINT_STDOUT("  -h, --help            show this message and exit\n");
 	PRINT_STDOUT("  --version             show version information and exit\n");
 
@@ -195,10 +241,24 @@ static int printUsage(int argc, const char *argv[], CmdLineMode mode) {
 			// Skip mode-irrelevant parameters in help.
 			continue;
 		}
-		PRINT_STDOUT("  --%s%s%s\n", param.longName,
+		char key[25]{};
+		snprintf(key, ARRAY_SIZE(key), "  --%s%s%s", param.longName,
 			param.shortName ? ", -" : "",
 			param.shortName ? std::string(1, param.shortName).c_str() : "");
-		PRINT_STDOUT("                        %s\n", param.docString);
+		// Fill key with spacing.
+		for (size_t j = strlen(key); j < ARRAY_SIZE(key) - 1; ++j) {
+			key[j] = ' ';
+		}
+		if (param.type == CmdParamType::Enum) {
+			PRINT_STDOUT("%s%s\n", key, param.docString);
+			PRINT_STDOUT("                        options: ");
+			for (int i = 0; i < param.enumCount; ++i) {
+				PRINT_STDOUT("%s%s", param.enumValues[i], i + 1 < param.enumCount ? ", " : "");
+			}
+			PRINT_STDOUT("\n");
+		} else {
+			PRINT_STDOUT("%s%s\n", key, param.docString);
+		}
 	}
 
 	// These are only available in SDL.
@@ -217,6 +277,7 @@ static int printUsage(int argc, const char *argv[], CmdLineMode mode) {
 // Error reporting is done with PRINT_STDERR(....).
 // Actually might want to reconsider given Android...
 CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], CmdLineMode mode) {
+	this->mode = mode;
 	constexpr std::string_view gpuBackendStr = "--graphics=";
 	constexpr std::string_view configOption = "--config=";
 	constexpr std::string_view controlsOption = "--controlconfig=";
@@ -259,7 +320,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 				logLevel = LogLevel::LVERBOSE;
 				break;
 			case 'h':
-				printUsage(argc, argv, mode);
+				PrintUsage(argv[0], nullptr);
 				return CommandLineParseResult::Exit;
 			// Legacy cpucore options.
 			case 'j':
@@ -305,7 +366,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			// We already incremented i.
 			continue;
 		} else if (equals(argv[i], "--help")) {
-			printUsage(argc, argv, mode);
+			PrintUsage(argv[0], nullptr);
 			return CommandLineParseResult::Exit;
 		} else if (equals(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);
@@ -421,6 +482,23 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.iInternalResolution = resolutionScale.value();
 		g_Config.DoNotSaveSetting(&g_Config.iInternalResolution);
 	}
+
+	if (memReadAction.has_value()) {
+		g_Config.iExceptionActionMemRead = memReadAction.value();
+		g_Config.DoNotSaveSetting(&g_Config.iExceptionActionMemRead);
+	}
+
+	if (memWriteAction.has_value()) {
+		g_Config.iExceptionActionMemWrite = memWriteAction.value();
+		g_Config.DoNotSaveSetting(&g_Config.iExceptionActionMemWrite);
+	}
+
+	if (breakAction.has_value()) {
+		g_Config.iExceptionActionBreak = breakAction.value();
+		g_Config.DoNotSaveSetting(&g_Config.iExceptionActionBreak);
+	}
+
+	// --vsh is applied by the caller (by setting their boot file name variable).
 
 	// Note: dpi is not applied here - it's platform-specific.
 	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.

@@ -65,11 +65,19 @@ void TimeInit() {
 
 	// The timer will be automatically deleted on process destruction. Don't need to CloseHandle.
 	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+
+	// TODO: We probably don't need this anymore if we are using the high res waitable timers?
 #if !PPSSPP_PLATFORM(UWP)
 	TIMECAPS caps;
 	timeGetDevCaps(&caps, sizeof caps);
 	timeBeginPeriod(caps.wPeriodMin);
 	SchedulerPeriodMs = (int)caps.wPeriodMin;
+#endif
+}
+
+void TimeShutdown() {
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	timeEndPeriod(1);
 #endif
 }
 
@@ -141,6 +149,10 @@ void TimeInit() {
 	// Nothing to do.
 }
 
+void TimeShutdown() {
+	// Nothing to do.
+}
+
 // The only intended use is to match the timings in VK_GOOGLE_display_timing
 uint64_t time_now_raw() {
 	struct timespec tp;
@@ -207,6 +219,10 @@ double Instant::ElapsedSeconds() const {
 #else
 
 void TimeInit() {
+	// Nothing to do.
+}
+
+void TimeShutdown() {
 	// Nothing to do.
 }
 

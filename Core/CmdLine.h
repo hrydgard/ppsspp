@@ -24,6 +24,9 @@ struct CommandLineOptions {
 	// If returns CommandLineParseResult::Exit or ::Error, the program should exit immediately (with an error return code if Error).
 	CommandLineParseResult Parse(int argc, const char *argv[], CmdLineMode mode = CmdLineMode::Application);
 	void ApplyToConfig() const;
+	int PrintUsage(const char *progname, const char *situationText) const;
+
+	CmdLineMode mode;
 
 	std::optional<bool> fullscreen;
 	std::optional<GPUBackend> gpuBackend;
@@ -44,9 +47,17 @@ struct CommandLineOptions {
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
 
+	// Attempts to boot the vsh, which will only work if the correct files are present in the flash
+	// and once we've fixed all the bugs. This is just here to allow testing.
+	std::optional<bool> bootVSH;
+
 	std::optional<std::string> appendConfig;
 	std::optional<std::string> root;  // mount root, needs more explanation
 	std::optional<std::string> stateToLoad;
+
+	std::optional<int> memReadAction;
+	std::optional<int> memWriteAction;
+	std::optional<int> breakAction;
 
 	// SDL only: Option to force a specific OpenGL version (42="4.2",
 	// etc.; -1 means "try them all").
@@ -76,8 +87,8 @@ struct CommandLineOptions {
 	std::optional<bool> compare;
 	std::optional<bool> bench;
 	std::optional<bool> verbose;
+	std::optional<double> timeout;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
-	std::optional<double> timeout;
 };

@@ -68,18 +68,23 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path &
 	static const std::string_view mixedCase = "wJpCzSBNnZfxSgoS";
 	static const std::string_view upperCase = "WJPCZSBNNZFXSGOS";
 
-	// Check for case sensitivity
-	bool checkSucceeded = false;
-	File::CreateEmptyFile(basePath / mixedCase);
-	if (File::Exists(basePath / mixedCase)) {
-		checkSucceeded = true;
-		if (!File::Exists(basePath / upperCase)) {
-			flags |= FileSystemFlags::CASE_SENSITIVE;
+	// Check for case sensitivity. TODO: Add more special cases to avoid the file creation dance.
+#if !PPSSPP_PLATFORM(WINDOWS)
+	if (basePath.Type() == PathType::CONTENT_URI) {
+		// Android: Is not case sensitive.
+	} else {
+		bool checkSucceeded = false;
+		File::CreateEmptyFile(basePath / mixedCase);
+		if (File::Exists(basePath / mixedCase)) {
+			checkSucceeded = true;
+			if (!File::Exists(basePath / upperCase)) {
+				flags |= FileSystemFlags::CASE_SENSITIVE;
+			}
 		}
+		File::Delete(basePath / mixedCase);
+		INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: '%s') (checkOK: %d)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str(), checkSucceeded);
 	}
-	File::Delete(basePath / mixedCase);
-
-	INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: '%s') (checkOK: %d)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str(), checkSucceeded);
+#endif
 
 	hAlloc = _hAlloc;
 }

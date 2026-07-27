@@ -328,13 +328,15 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-	#ifdef HAVE_WIN32_CAMERA
-		if (winCamera) {
-			return winCamera->getDeviceList();
-		}
-	#else
-		return System_GetCameraDeviceList();
-	#endif
+#ifdef HAVE_WIN32_CAMERA
+	if (winCamera) {
+		return winCamera->getDeviceList();
+	} else {
+		return std::vector<std::string>();
+	}
+#else
+	return System_GetCameraDeviceList();
+#endif
 }
 
 int Camera::startCapture() {

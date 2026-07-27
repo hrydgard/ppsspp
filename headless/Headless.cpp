@@ -1,9 +1,13 @@
 
 // Headless version of PPSSPP, for testing using http://code.google.com/p/pspautotests/ .
-// See headless.txt.
+// See headless/README.md.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
+//
 // Example command line to run a test in the VS debugger (useful to debug failures):
 // > --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
+// Example command line for taking screenshots from a frame dump:
+// > -l --graphics=vulkan --screenshot-save=vt_ref.bmp "D:\PSP ISO\dump\Depth\11578 Virtua Tennis pause menu ULES00126_0002.zip" --resolution-scale=2
+//
 // NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 
 #include "ppsspp_config.h"
@@ -17,13 +21,11 @@
 #include <algorithm>
 
 #include "Common/Profiler/Profiler.h"
-#include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
 
 #include "Common/CommonWindows.h"
 #if PPSSPP_PLATFORM(WINDOWS)
-#include <timeapi.h>
 #else
 #include <csignal>
 #endif
@@ -121,33 +123,17 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 	return "";
 }
 
-int printUsage(const char *progname, const char *reason) {
-	if (reason != NULL)
-		fprintf(stderr, "Error: %s\n\n", reason);
-	fprintf(stderr, "PPSSPP Headless\n");
-	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
-	fprintf(stderr, "Usage: %s file.elf... [options]\n\n", progname);
-	fprintf(stderr, "Options:\n");
+int printUsage(const CommandLineOptions &options, const char *progname, const char *reason) {
+	options.PrintUsage(progname, reason);
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
 	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
-	fprintf(stderr, "  --debugger=PORT       enable websocket debugger and break at start\n");
-
-	fprintf(stderr, "  --graphics=BACKEND    use a different gpu backend\n");
 	fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 	fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	fprintf(stderr, "  --screenshot-save=FILE  save rendered screenshot to a BMP file\n");
 	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
-
-	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
-	fprintf(stderr, "  -i                    use the interpreter\n");
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
-	fprintf(stderr, "  -j                    use jit (default)\n");
-	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
-	fprintf(stderr, "  --bench               run multiple times and output speed\n");
-	fprintf(stderr, "\nSee headless.txt for details.\n");
-
 	return 1;
 }
 
@@ -260,9 +246,9 @@ void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
 struct AutoTestOptions {
 	double timeout;
 	double maxScreenshotError;
-	bool compare : 1;
-	bool verbose : 1;
-	bool bench : 1;
+	bool compare;
+	bool verbose;
+	bool bench;
 };
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
@@ -464,6 +450,7 @@ int main(int argc, const char* argv[]) {
 	testOptions.compare = cmdLineOptions.compare.value_or(false);
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
 	testOptions.timeout = cmdLineOptions.timeout.value_or(std::numeric_limits<double>::infinity());
+	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
 
 	bool fullLog = false;
 	const char *stateToLoad = 0;
@@ -488,24 +475,22 @@ int main(int argc, const char* argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount")) {
 			if (++i >= argc)
-				return printUsage(argv[0], "Missing argument after -m");
+				return printUsage(cmdLineOptions, argv[0], "Missing argument after -m");
 			mountIso = argv[i];
 		}
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-o") || !strcmp(argv[i], "--odslog"))
 			outputDebugStringLog = true;
-		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
-			testOptions.verbose = true;
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-			return printUsage(argv[0], NULL);
+			return printUsage(cmdLineOptions, argv[0], NULL);
 		else if (!strcmp(argv[i], "--ignore")) {
 			if (++i >= argc)
-				return printUsage(argv[0], "Missing argument after --ignore");
+				return printUsage(cmdLineOptions, argv[0], "Missing argument after --ignore");
 			ignoredTests.push_back(argv[i]);
 		}
 	}
@@ -513,7 +498,6 @@ int main(int argc, const char* argv[]) {
 	for (const std::string &filename : cmdLineOptions.bootFilenames) {
 		AddToTestsByPath(&testFilenames, filename);
 	}
-
 
 	if (testFilenames.size() == 1 && testFilenames[0][0] == '@')
 		testFilenames = ReadFromListFile(testFilenames[0].substr(1));
@@ -528,23 +512,20 @@ int main(int argc, const char* argv[]) {
 		testFilenames.end()
 	);
 
-	if (testFilenames.empty())
-		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
-
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_logManager.Init(&g_Config.bEnableLogging, outputDebugStringLog);
 
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		Log type = (Log)i;
 		g_logManager.SetEnabled(type, (fullLog || outputDebugStringLog));
-		g_logManager.SetLogLevel(type, LogLevel::LDEBUG);
+		g_logManager.SetLogLevel(type, LogLevel::LDEBUG);  // TODO: Make the level configurable.
 	}
 	if (fullLog) {
 		// Only with --log, add the printfLogger.
 		g_logManager.EnableOutput(LogOutput::Printf);
 	}
 
-	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, true);
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);
 
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -633,7 +614,7 @@ int main(int argc, const char* argv[]) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	// Mount a filesystem
 	g_Config.memStickDirectory = exePath / "memstick";
-	File::CreateDir(g_Config.memStickDirectory);
+	File::CreateDir(g_Config.memStickDirectory, true);
 	CreateSysDirectories();
 #elif !PPSSPP_PLATFORM(ANDROID)
 	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
@@ -678,6 +659,13 @@ int main(int argc, const char* argv[]) {
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
+
+	if (cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
+		AddToTestsByPath(&testFilenames, (g_Config.flash0Directory / "vsh/module/vshmain.prx").ToString());
+	}
+	if (testFilenames.empty()) {
+		return printUsage(cmdLineOptions, argv[0], argc <= 1 ? NULL : "No executables specified");
+	}
 
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		coreParameter.startBreak = true;
@@ -747,12 +735,10 @@ int main(int argc, const char* argv[]) {
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
-	if (cmdLineOptions.debuggerPort.has_value())
+	if (cmdLineOptions.debuggerPort.has_value()) {
 		net::Shutdown();
-
-#if PPSSPP_PLATFORM(WINDOWS)
-	timeEndPeriod(1);
-#endif
+	}
+	TimeShutdown();
 
 	g_threadManager.Teardown();
 

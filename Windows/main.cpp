@@ -1205,6 +1205,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();
+	Achievements::InitializeRAIntegration(hwndMain);
 
 	//initialize custom controls
 	CtrlDisAsmView::init();
@@ -1310,7 +1311,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
-	timeEndPeriod(1);
+
+	TimeShutdown();
 
 	UnRegisterCMPTMFApis();
 
