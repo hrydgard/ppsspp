@@ -1143,6 +1143,10 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 }
 
 int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 outTypeAddr, u32 outSizeAddr) {
+	if (!name) {
+		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
+	}
+
 	auto iter = g_openCategories.find(catHandle);
 	if (iter == g_openCategories.end()) {
 		return hleLogError(Log::sceReg, 0, "Not found");
@@ -1185,7 +1189,42 @@ int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 
 }
 
 int sceRegGetKeyInfoByName(int catHandle, const char *name, u32 typeAddr, u32 sizeAddr) {
-	return hleLogError(Log::sceReg, 0);
+	if (!name) {
+		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
+	}
+
+	auto iter = g_openCategories.find(catHandle);
+	if (iter == g_openCategories.end()) {
+		return hleLogError(Log::sceReg, 0, "Not an open category");
+	}
+
+	int count = 0;
+	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
+	if (!keyvals) {
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+
+	for (int i = 0; i < count; i++) {
+		if (equals(keyvals[i].name, name)) {
+			int size = 0;
+			if (Memory::IsValid4AlignedAddress(typeAddr)) {
+				Memory::WriteUnchecked_U32((int)keyvals[i].type, typeAddr);
+			}
+			if (Memory::IsValid4AlignedAddress(sizeAddr)) {
+				switch (keyvals[i].type) {
+				case ValueType::BIN: size = (int)keyvals[i].intValue; break;
+				case ValueType::STR: size = (int)keyvals[i].intValue; break;
+				case ValueType::DIR: size = 0; break;
+				case ValueType::INT: size = 4; break;
+				default: break;
+				}
+				Memory::WriteUnchecked_U32(size, sizeAddr);
+			}
+			return hleLogInfo(Log::sceReg, 0, "type: %d size: %d", (int)keyvals[i].type, size);
+		}
+	}
+
+	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
 }
 
 int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
@@ -1228,7 +1267,47 @@ int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
 }
 
 int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 size) {
-	return hleLogError(Log::sceReg, 0);
+	if (!name) {
+		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
+	}
+	if (!Memory::IsValidRange(bufAddr, size)) {
+		return -1;
+	}
+
+	auto iter = g_openCategories.find(catHandle);
+	if (iter == g_openCategories.end()) {
+		return hleLogError(Log::sceReg, 0, "Not found");
+	}
+
+	int count = 0;
+	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
+	if (!keyvals) {
+		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+
+	for (int i = 0; i < count; i++) {
+		if (!equals(keyvals[i].name, name))
+			continue;
+
+		const KeyValue &keyval = keyvals[i];
+		switch (keyval.type) {
+		case ValueType::BIN:
+			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
+			return hleLogInfo(Log::sceReg, 0);
+		case ValueType::STR:
+			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
+			return hleLogInfo(Log::sceReg, 0, "value: '%s'", keyval.strValue);
+		case ValueType::INT:
+			Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
+			return hleLogInfo(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
+		case ValueType::DIR:
+		case ValueType::FAIL:
+		default:
+			return hleLogWarning(Log::sceReg, 0, "Unexpected type for sceRegGetKeyValueByName");
+		}
+	}
+
+	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
 }
 
 int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
