@@ -186,6 +186,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(memReadAction), CmdParamType::Enum, "memread", '\0', "Set the action for memory read exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
 	{POFF(memWriteAction), CmdParamType::Enum, "memwrite", '\0', "Set the action for memory write exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
 	{POFF(breakAction), CmdParamType::Enum, "break", '\0', "Set the action for break exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
+	{POFF(verbose), CmdParamType::Bool, "verbose", '\0', "Enable verbose output", CmdLineMode::Both},
 
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
@@ -214,7 +215,7 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 
 	PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
 	PRINT_STDOUT("Launches FILE (e.g. ISO image) if present.\n");
-	PRINT_STDOUT("Options (some of these are specific to SDL backend):\n");
+	PRINT_STDOUT("Options:\n");
 	PRINT_STDOUT("  -h, --help            show this message and exit\n");
 	PRINT_STDOUT("  --version             show version information and exit\n");
 
@@ -234,17 +235,24 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 			// Skip mode-irrelevant parameters in help.
 			continue;
 		}
-		PRINT_STDOUT("  --%s%s%s\n", param.longName,
+		char key[25]{};
+		snprintf(key, ARRAY_SIZE(key), "  --%s%s%s", param.longName,
 			param.shortName ? ", -" : "",
 			param.shortName ? std::string(1, param.shortName).c_str() : "");
+		// Fill key with spacing.
+		for (size_t j = strlen(key); j < ARRAY_SIZE(key) - 1; ++j) {
+			key[j] = ' ';
+		}
 		if (param.type == CmdParamType::Enum) {
+			PRINT_STDOUT("%s%s\n", key, param.docString);
 			PRINT_STDOUT("                        options: ");
 			for (int i = 0; i < param.enumCount; ++i) {
 				PRINT_STDOUT("%s%s", param.enumValues[i], i + 1 < param.enumCount ? ", " : "");
 			}
 			PRINT_STDOUT("\n");
+		} else {
+			PRINT_STDOUT("%s%s\n", key, param.docString);
 		}
-		PRINT_STDOUT("                        %s\n", param.docString);
 	}
 
 	// These are only available in SDL.
@@ -306,7 +314,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 				logLevel = LogLevel::LVERBOSE;
 				break;
 			case 'h':
-				PrintUsage(argv[0], mode, nullptr);
+				PrintUsage(argv[0], nullptr);
 				return CommandLineParseResult::Exit;
 			// Legacy cpucore options.
 			case 'j':
@@ -352,7 +360,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			// We already incremented i.
 			continue;
 		} else if (equals(argv[i], "--help")) {
-			PrintUsage(argv[0], mode, nullptr);
+			PrintUsage(argv[0], nullptr);
 			return CommandLineParseResult::Exit;
 		} else if (equals(argv[i], "--version")) {
 			printf("%s\n", PPSSPP_GIT_VERSION);

@@ -87,8 +87,8 @@ struct CommandLineOptions {
 	std::optional<bool> compare;
 	std::optional<bool> bench;
 	std::optional<bool> verbose;
+	std::optional<double> timeout;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
-	std::optional<double> timeout;
 };
