@@ -1155,7 +1155,7 @@ static void LoadAndStartVshKernelModules() {
 	// declare their own smaller module_start_thread_stacksize, so __KernelStartModule's
 	// generic 0x40000 (256KB) default applies to every one of them. 11 of
 	// them at 256KB each (2.75MB) is a lot relative to the 4MB kernel memory pool.
-	// 
+	//
 	// If we run out of kernel memory for some reason, we can force these to a smaller stack size.
 	static const char *const vshSmallKernelModulePaths[] = {
 		"flash0:/kd/dmacman.prx",
@@ -2086,6 +2086,13 @@ static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t siz
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
 	if (g_runningVSH) {
+		// NOTE: JPCSP's --vsh handler additionally forces the root thread into kernel mode
+		// with the lowest priority (0x7E) after loading, to mirror real hardware. Tried here
+		// and reverted (see docs/VSHBootInvestigation.md, Attempt 17) - it changes thread
+		// scheduling order enough that sceVshBridge_Driver's thread runs before some
+		// precondition it needs is ready, regressing all the way back to the very first
+		// crash this investigation fixed (an immediate `break` in sceVshBridge_Driver). Left
+		// as the default module-declared attr/priority instead.
 		LoadAndStartVshKernelModules();
 	}
 
