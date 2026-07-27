@@ -76,7 +76,7 @@ void TimeInit() {
 }
 
 void TimeShutdown() {
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	timeEndPeriod(1);
 #endif
 }

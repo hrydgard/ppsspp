@@ -61,6 +61,9 @@ struct KeyValue {
 
 // Partial dump of the PSP registry using tests/misc/reg.prx in pspautotests
 // TODO: We will need something more dynamic if we want to support writes, too.
+// NOTE: updating with a new dump can cause tests to fail. These must stay as-is:
+// E    {"game_exec_count", ValueType::INT, "", (int)0x00000046},
+// E    {"usb_connect_count", ValueType::INT, "", (int)0x000000ec},
 
 // Dump of /DATA/FONT/PROPERTY/INFO0
 static const KeyValue tree_DATA_FONT_PROPERTY_INFO0[] = {
@@ -454,9 +457,9 @@ static const KeyValue tree_DATA_FONT[] = {
 // Dump of /DATA/COUNT
 static const KeyValue tree_DATA_COUNT[] = {
 	{ "boot_count", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "game_exec_count", ValueType::INT, "", (int)0x56 },  // decimal: 86
+	{ "game_exec_count", ValueType::INT, "", (int)0x46 },  // decimal: 70
 	{ "slide_count", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "usb_connect_count", ValueType::INT, "", (int)0xf8 },  // decimal: 248
+	{ "usb_connect_count", ValueType::INT, "", (int)0xec },  // decimal: 236
 	{ "wifi_connect_count", ValueType::INT, "", (int)0x0 },  // decimal: 0
 	{ "psn_access_count", ValueType::INT, "", (int)0x0 },  // decimal: 0
 };
