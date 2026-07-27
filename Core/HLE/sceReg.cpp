@@ -1317,6 +1317,10 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
 	return hleLogError(Log::sceReg, 0);
 }
+// Speculated signature
+int sceRegRemoveKey(int catHandle, int key) {
+	return hleLogError(Log::sceReg, 0);
+}
 
 const HLEFunction sceReg[] = {
 	{ 0x92E41280, &WrapI_UIU<sceRegOpenRegistry>, "sceRegOpenRegistry", 'i', "xix" },
@@ -1335,7 +1339,7 @@ const HLEFunction sceReg[] = {
 	{ 0xC5768D02, &WrapI_ICUU<sceRegGetKeyInfoByName>, "sceRegGetKeyInfoByName", 'i', "isxx" },
 	{ 0x30BE0259, &WrapI_ICUU<sceRegGetKeyValueByName>, "sceRegGetKeyValueByName", 'i', "isxx" },
 	{ 0x4CA16893, &WrapI_IC<sceRegRemoveCategory>, "sceRegRemoveCategory", 'i', "i" },
-	{ 0x3615BC87, nullptr, "sceRegRemoveKey", 'i', "i" },
+	{ 0x3615BC87, &WrapI_II<sceRegRemoveKey>, "sceRegRemoveKey", 'i', "ii" },
 	{ 0x9B25EDF1, nullptr, "sceRegExit", 'i', "i" },
 	// TODO: Add test for these.
 	{ 0xBE8C1263, nullptr, "sceRegGetCategoryNumAtRoot", 'i', "ii" },
