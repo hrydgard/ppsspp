@@ -6,8 +6,7 @@ an external tool (a script, a web page, another editor/IDE) inspect and
 control a running emulation session: read/write memory, set breakpoints,
 step the CPU, read GE/GPU state, send fake input, tail the log, etc.
 
-This doc is a local reference; a version of it is planned to also live on the
-[PPSSPP website](https://www.ppsspp.org/) (`../ppsspp-site` next to this repo).
+This doc is a local reference, the user-facing documentation is on the website.
 
 ## Where the code lives
 
@@ -39,8 +38,7 @@ This doc is a local reference; a version of it is planned to also live on the
   simultaneous debugger connections.
 - The debugger only actually does anything while `WebServerFlags::DEBUGGER`
   is enabled (see "Enabling it" below) - the HTTP server itself may also be
-  running for other reasons (Remote ISO, upload) without the debugger being
-  reachable.
+  running for other reasons (Remote ISO, upload).
 
 ## Message protocol
 
@@ -57,8 +55,7 @@ Responses use the *same* event name as the request:
 ```json
 { "event": "cpu.status", "ticket": 1, ... }
 ```
-Responses are not always immediate - some handlers respond asynchronously
-(see `DebuggerRequest::Finish()` in `WebSocketUtils.h`/`.cpp`).
+Responses are not always immediate - some handlers respond asynchronously.
 
 Errors look like this:
 ```json
@@ -141,24 +138,12 @@ file - this is just an index.
     alongside it.
   - On the **headless** build (`headless/Headless.cpp`) it additionally
     forces `coreParameter.startBreak = true`, so the CPU halts before
-    running anything - useful for setting breakpoints before init/anti-tamper
-    code runs. Headless also re-applies `iRemoteISOPort` explicitly after
-    `g_Config.RestoreDefaults(...)` (which headless calls for deterministic
-    settings, and which would otherwise wipe the port `ApplyToConfig()` set).
-  - Headless previously parsed `--debugger=PORT` itself, ad hoc, without
-    going through `Core/CmdLine.cpp` - and it never actually worked on
-    Windows, because `headless/Headless.cpp` never called `net::Init()`
-    (`Common/Net/Resolve.cpp`), which does `WSAStartup` - without it, socket
-    binding fails silently (`ERROR_LOG`: "Unable to listen on any port
-    (debugger - webserver)"). Fixed by calling `net::Init()`/`net::Shutdown()`
-    in `headless/Headless.cpp`, gated on `--debugger` being passed (headless
-    has no other use for networking).
+    running anything - useful for setting breakpoints before launch.
 
 ## Discovery
 
-For LAN auto-discovery (mainly used by the mobile Remote Play/debugger
-flow), the server periodically reports its `(local ip, port)` to
-`report.ppsspp.org/match/update` (see `RegisterServer()` in
+For LAN auto-discovery (mainly useful for mobile), the server periodically
+reports its `(local ip, port)` to `report.ppsspp.org/match/update` (see `RegisterServer()` in
 `Core/WebServer.cpp`). Clients can query `report.ppsspp.org/match/list` to
 get a list of candidate endpoints on the same network and try connecting to
 each in turn.
@@ -176,9 +161,10 @@ checked in here).
 
 From reading the minified bundle (`assets/debugger/static/js/main.*.js`),
 it connects like this:
+
 - Manual connect: `new WebSocket("ws://ip:port/debugger", "debugger.ppsspp.org")`.
 - Auto connect: `fetch("//report.ppsspp.org/match/list")` for a list of
-  `{ip, p}` candidates (as registered by `RegisterServer()` above), then
+  `{ip, port}` candidates (as registered by `RegisterServer()` above), then
   tries each with the same WebSocket call until one succeeds.
 
 ## Talking to it yourself

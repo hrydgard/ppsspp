@@ -52,8 +52,8 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
 `{nid, &WrapX_YYY<func>, "funcName", retChar, argString}` entries, registered via
 `RegisterHLEModule("<name>", ARRAY_SIZE(table), table)` inside a `Register_<name>()` function declared in the header.
 
-- `FunctionWrappers.h` has generic `WrapX_YYY<func>` templates for common signatures (return type X, args YYY) - check
-  there before writing a manual wrapper.
+- `FunctionWrappers.h` has generic `WrapX_YYY<func>` templates for common signatures (return type X, args YYY) - add new
+  wrappers there if you need a new signature.
 - Format string legend for the `retmask`/argmask chars: `x` = u32 (shown as hex), `i` = int/s32, `f` = float, `X` = u64,
   `I` = s64, `v` = void.
 - For functions of genuinely unknown purpose (only known by NID), name them `<moduleName>_<NID>` and stub them with
@@ -64,7 +64,7 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   new module earlier in that list would break save-state compatibility for saves made with older builds.
 - Remember to add any new `.cpp`/`.c` file to **five** places: `Core/CMakeLists.txt`, `Core/Core.vcxproj`,
   `Core/Core.vcxproj.filters`, `android/jni/Android.mk`, and `libretro/Makefile.common`. New `.h` files only need the
-  first three (`Android.mk`/`Makefile.common` are plain compiled-source lists, not project generators, so headers
+  first three (`Android.mk`/`Makefile.common` are plain compiled-source lists so headers
   don't go in them). Only the CMakeLists.txt change can be verified from a Linux/Mac build - the rest can't be
   build-tested here, so double check them by hand against how an existing neighboring file (e.g. `sceVaudio.cpp`) is
   listed in each.
@@ -86,6 +86,8 @@ catalog (including which events are read-only vs. require `cpu.stepping` first).
 parameters from memory; the doc (and each `*Subscriber.cpp` file's per-handler comments) is the source of truth, and
 new events get added over time (e.g. `memory.search`, `hle.data.*`).
 
+When adding new commands, don't forget to update `docs/WebSocketDebugger.md`,
+
 To quickly get a live session going for manual testing (e.g. after adding/changing an event): build `PPSSPPWindows`
 (see Build and Validation above), then run it with `--debugger=PORT` and something that keeps running/looping so the
 CPU stays alive, so requests get a response instead of "CPU not started"/"CPU not active" errors. Any homebrew or
@@ -95,6 +97,9 @@ Homebrew Store. Watch the log output (`--log=somefile.log`) for the line `Listen
 `Tools/wsdbg/` at that port (`cargo run -- N <event> [key=value...]` for one-shot, or `cargo run -- N` for a REPL).
 Most mutating events (`hle.func.*`, `hle.data.*`, memory writes while paused, etc.) require the CPU to be stopped
 first - send `cpu.stepping` and `cpu.resume` to pause/unpause.
+
+Alternatively use the headless build, Windows/{arch}/Debug/PPSSPPHeadless.exe or build/PPSSPPHeadless on CMake-based
+platforms. Where arch is x64 or ARM64.
 
 ## Quick rebuild on Linux
 
