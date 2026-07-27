@@ -1386,6 +1386,26 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
 
+	if (!strcmp(module->nm.name, "scePaf_Module")) {
+		// scePaf's own heap allocator expects a real memory-pool base address to already be
+		// patched into this BSS slot before any of its code runs. Real hardware's loader (or
+		// an early kernel init step) apparently does this - checked all 27 of scePaf's
+		// exported data vars, this address isn't one of them, so it's not the normal NID
+		// var-import linking path. Without this, offsets from scePaf's internal
+		// bump-allocator get used directly as absolute pointers, crashing almost immediately
+		// when a client module (e.g. vsh_module) makes its first heap allocation.
+		// See docs/VSHBootInvestigation.md for the full investigation.
+		const u32 scePafHeapArenaOffset = 0x18D728;  // Offset from module base to the BSS pointer slot.
+		u32 scePafHeapArenaSize = 0x00850000;  // Matches scePaf's own compiled-in default heap size.
+		u32 arenaAddr = userMemory.Alloc(scePafHeapArenaSize, false, "scePafHeapArena");
+		u32 patchAddr = module->memoryBlockAddr + scePafHeapArenaOffset;
+		if (arenaAddr != (u32)-1 && Memory::IsValid4AlignedAddress(patchAddr)) {
+			Memory::WriteUnchecked_U32(arenaAddr, patchAddr);
+		} else {
+			WARN_LOG(Log::sceModule, "Failed to patch scePaf heap arena pointer");
+		}
+	}
+
 	// Let's also get a truncated version.
 	char moduleName[29] = {0};
 	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
