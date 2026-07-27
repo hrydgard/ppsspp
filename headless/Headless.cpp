@@ -1,6 +1,6 @@
 
 // Headless version of PPSSPP, for testing using http://code.google.com/p/pspautotests/ .
-// See headless.txt.
+// See headless/README.md.
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 //
 // Example command line to run a test in the VS debugger (useful to debug failures):
@@ -134,7 +134,6 @@ int printUsage(const CommandLineOptions &options, const char *progname, const ch
 	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
 	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
-	fprintf(stderr, "\nSee headless.txt for details.\n");
 	return 1;
 }
 
@@ -615,7 +614,7 @@ int main(int argc, const char* argv[]) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	// Mount a filesystem
 	g_Config.memStickDirectory = exePath / "memstick";
-	File::CreateDir(g_Config.memStickDirectory);
+	File::CreateDir(g_Config.memStickDirectory, true);
 	CreateSysDirectories();
 #elif !PPSSPP_PLATFORM(ANDROID)
 	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";

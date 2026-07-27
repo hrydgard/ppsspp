@@ -60,6 +60,7 @@ struct KeyValue {
 // TODO: /DATA/FONT/PROPERTY could just be generated from our fontRegistry in sceFont.cpp.
 
 // Partial dump of the PSP registry using tests/misc/reg.prx in pspautotests
+// TODO: We will need something more dynamic if we want to support writes, too.
 
 // Dump of /DATA/FONT/PROPERTY/INFO0
 static const KeyValue tree_DATA_FONT_PROPERTY_INFO0[] = {

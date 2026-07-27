@@ -213,8 +213,14 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 		}
 	}
 
-	PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
-	PRINT_STDOUT("Launches FILE (e.g. ISO image) if present.\n");
+	if (mode == CmdLineMode::Application) {
+		PRINT_STDOUT("Usage: %s [options] [FILE]\n\n", progname);
+	} else {
+		PRINT_STDOUT("Usage: %s [options] [FILE1] [FILE2] [FILE3]...\n\n", progname);
+	}
+
+	PRINT_STDOUT("Launches FILE (for example, an ISO image) if present.\n");
+	PRINT_STDOUT("See headless/README.md for more details.\n\n");
 	PRINT_STDOUT("Options:\n");
 	PRINT_STDOUT("  -h, --help            show this message and exit\n");
 	PRINT_STDOUT("  --version             show version information and exit\n");
