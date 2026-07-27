@@ -57,9 +57,9 @@ struct KeyValue {
 	const KeyValue *dirContents;  // intValue is the count.
 };
 
-
 // TODO: /DATA/FONT/PROPERTY could just be generated from our fontRegistry in sceFont.cpp.
-// Dump of the PSP registry using tests/misc/reg.prx in pspautotests
+
+// Partial dump of the PSP registry using tests/misc/reg.prx in pspautotests
 
 // Dump of /DATA/FONT/PROPERTY/INFO0
 static const KeyValue tree_DATA_FONT_PROPERTY_INFO0[] = {

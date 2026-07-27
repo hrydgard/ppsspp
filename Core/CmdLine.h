@@ -44,6 +44,10 @@ struct CommandLineOptions {
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
 
+	// Attempts to boot the vsh, which will only work if the correct files are present in the flash
+	// and once we've fixed all the bugs. This is just here to allow testing.
+	std::optional<bool> bootVSH;
+
 	std::optional<std::string> appendConfig;
 	std::optional<std::string> root;  // mount root, needs more explanation
 	std::optional<std::string> stateToLoad;

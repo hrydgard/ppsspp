@@ -625,7 +625,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 }
 
 void Core_BreakException(u32 pc) {
-	ERROR_LOG(Log::CPU, "BREAK!");
+	ERROR_LOG(Log::CPU, "CPU exception: break instruction hit at %08x", pc);
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
 	e = {};

@@ -710,7 +710,7 @@ bool CreateDir(const Path &path) {
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
 	if (File::Exists(path)) {
-		DEBUG_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
+		VERBOSE_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
 		return true;
 	}
 

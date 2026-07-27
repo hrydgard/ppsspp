@@ -510,10 +510,13 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 
+	if (!fullLog) {
+		printf("Pass the -l flag to see full log output.\n");
+	}
+
 	for (const std::string &filename : cmdLineOptions.bootFilenames) {
 		AddToTestsByPath(&testFilenames, filename);
 	}
-
 
 	if (testFilenames.size() == 1 && testFilenames[0][0] == '@')
 		testFilenames = ReadFromListFile(testFilenames[0].substr(1));
@@ -528,23 +531,20 @@ int main(int argc, const char* argv[]) {
 		testFilenames.end()
 	);
 
-	if (testFilenames.empty())
-		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
-
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_logManager.Init(&g_Config.bEnableLogging, outputDebugStringLog);
 
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		Log type = (Log)i;
 		g_logManager.SetEnabled(type, (fullLog || outputDebugStringLog));
-		g_logManager.SetLogLevel(type, LogLevel::LDEBUG);
+		g_logManager.SetLogLevel(type, LogLevel::LDEBUG);  // TODO: Make the level configurable.
 	}
 	if (fullLog) {
 		// Only with --log, add the printfLogger.
 		g_logManager.EnableOutput(LogOutput::Printf);
 	}
 
-	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, true);
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);
 
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -678,6 +678,13 @@ int main(int argc, const char* argv[]) {
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
+
+	if (cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
+		AddToTestsByPath(&testFilenames, (g_Config.flash0Directory / "vsh/module/vshmain.prx").ToString());
+	}
+	if (testFilenames.empty()) {
+		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
+	}
 
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		coreParameter.startBreak = true;

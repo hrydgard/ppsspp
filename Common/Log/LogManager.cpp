@@ -27,7 +27,6 @@
 #include <cstring>
 
 #include "Common/Data/Encoding/Utf8.h"
-
 #include "Common/Log/LogManager.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -469,25 +468,27 @@ void LogManager::StdioLog(const LogMessage &message) {
 }
 
 void PrintfLog(const LogMessage &message) {
+	const char *category = message.log;
+
 	switch (message.level) {
 	case LogLevel::LVERBOSE:
-		fprintf(stderr, "V %s", message.msg.c_str());
+		fprintf(stderr, "V %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LDEBUG:
-		fprintf(stderr, "D %s", message.msg.c_str());
+		fprintf(stderr, "D %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LINFO:
-		fprintf(stderr, "I %s", message.msg.c_str());
+		fprintf(stderr, "I %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LERROR:
-		fprintf(stderr, "E %s", message.msg.c_str());
+		fprintf(stderr, "E %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LWARNING:
-		fprintf(stderr, "W %s", message.msg.c_str());
+		fprintf(stderr, "W %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LNOTICE:
 	default:
-		fprintf(stderr, "N %s", message.msg.c_str());
+		fprintf(stderr, "N %s: %s", category, message.msg.c_str());
 		break;
 	}
 }

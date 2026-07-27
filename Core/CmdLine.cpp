@@ -151,6 +151,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(timeout), CmdParamType::Double, "timeout", '\0', "Set the timeout value"},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
+	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -421,6 +422,8 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.iInternalResolution = resolutionScale.value();
 		g_Config.DoNotSaveSetting(&g_Config.iInternalResolution);
 	}
+
+	// --vsh is applied by the caller.
 
 	// Note: dpi is not applied here - it's platform-specific.
 	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.
