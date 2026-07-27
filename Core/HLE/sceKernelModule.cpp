@@ -1136,8 +1136,27 @@ static bool ShouldHLEModuleForLoad(std::string_view modname, bool *wasDisabledMa
 // these just load and run through the normal interpreter/JIT like any other PRX, same as the
 // existing 4 VSH-specific modules below. Order matches JPCSP's load order exactly, in case
 // later modules depend on earlier ones having already initialized.
+static void LoadAndStartVshKernelModule(const char *path, SceKernelSMOption *smoption) {
+	std::string error_string;
+	SceUID moduleId = KernelLoadModule(path, &error_string);
+	if (moduleId < 0) {
+		WARN_LOG(Log::sceModule, "LoadAndStartVshKernelModules: failed to load %s: %s", path, error_string.c_str());
+		return;
+	}
+	int result = __KernelStartModule(moduleId, 0, 0, 0, smoption, nullptr);
+	if (result < 0) {
+		WARN_LOG(Log::sceModule, "LoadAndStartVshKernelModules: failed to start %s (uid=%d)", path, moduleId);
+	}
+}
+
 static void LoadAndStartVshKernelModules() {
-	static const char *const vshKernelModulePaths[] = {
+	// These 11 are small, simple kernel drivers (a few KB to ~100KB of code each) that don't
+	// declare their own smaller module_start_thread_stacksize, so __KernelStartModule's
+	// generic 0x40000 (256KB) default applies to every one of them. 11 of
+	// them at 256KB each (2.75MB) is a lot relative to the 4MB kernel memory pool.
+	// 
+	// If we run out of kernel memory for some reason, we can force these to a smaller stack size.
+	static const char *const vshSmallKernelModulePaths[] = {
 		"flash0:/kd/dmacman.prx",
 		"flash0:/kd/systimer.prx",
 		"flash0:/kd/memlmd_01g.prx",
@@ -1149,22 +1168,24 @@ static void LoadAndStartVshKernelModules() {
 		"flash0:/kd/wlan.prx",
 		"flash0:/kd/wlanfirm_01g.prx",
 		"flash0:/kd/utility.prx",
+	};
+	/*
+	SceKernelSMOption smallStackOption{};
+	smallStackOption.size = sizeof(smallStackOption);
+	smallStackOption.stacksize = 0x40000;
+	*/
+	for (const char *path : vshSmallKernelModulePaths) {
+		LoadAndStartVshKernelModule(path, nullptr);
+	}
+
+	static const char *const vshUiKernelModulePaths[] = {
 		"flash0:/kd/vshbridge.prx",
 		"flash0:/vsh/module/paf.prx",
 		"flash0:/vsh/module/common_gui.prx",
 		"flash0:/vsh/module/common_util.prx",
 	};
-	for (const char *path : vshKernelModulePaths) {
-		std::string error_string;
-		SceUID moduleId = KernelLoadModule(path, &error_string);
-		if (moduleId < 0) {
-			WARN_LOG(Log::sceModule, "LoadAndStartVshKernelModules: failed to load %s: %s", path, error_string.c_str());
-			continue;
-		}
-		int result = __KernelStartModule(moduleId, 0, 0, 0, nullptr, nullptr);
-		if (result < 0) {
-			WARN_LOG(Log::sceModule, "LoadAndStartVshKernelModules: failed to start %s (uid=%d)", path, moduleId);
-		}
+	for (const char *path : vshUiKernelModulePaths) {
+		LoadAndStartVshKernelModule(path, nullptr);
 	}
 }
 
@@ -1473,6 +1494,53 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
+
+	if (!strcmp(module->nm.name, "scePaf_Module")) {
+		// scePaf's own heap allocator expects a real memory-pool base address to already be
+		// patched into this BSS slot before any of its code runs. Real hardware's loader (or
+		// an early kernel init step) apparently does this - checked all 27 of scePaf's
+		// exported data vars, this address isn't one of them, so it's not the normal NID
+		// var-import linking path. Without this, offsets from scePaf's internal
+		// bump-allocator get used directly as absolute pointers, crashing almost immediately
+		// when a client module (e.g. vsh_module) makes its first heap allocation.
+		// See docs/VSHBootInvestigation.md for the full investigation.
+		const u32 scePafHeapArenaOffset = 0x18D728;  // Offset from module base to the BSS pointer slot.
+		u32 scePafHeapArenaSize = 0x00850000;  // Matches scePaf's own compiled-in default heap size.
+		u32 arenaAddr = userMemory.Alloc(scePafHeapArenaSize, false, "scePafHeapArena");
+		u32 patchAddr = module->memoryBlockAddr + scePafHeapArenaOffset;
+		if (arenaAddr != (u32)-1 && Memory::IsValid4AlignedAddress(patchAddr)) {
+			Memory::WriteUnchecked_U32(arenaAddr, patchAddr);
+		} else {
+			WARN_LOG(Log::sceModule, "Failed to patch scePaf heap arena pointer");
+		}
+	}
+
+	if (!strcmp(module->nm.name, "vsh_module")) {
+		// vsh_module's SCE_VSH_GRAPHICS thread runs a scan over a small fixed table of
+		// "alarm task" categories (2 categories, each with a count followed by that many
+		// 4-byte item IDs). Category 0's data is legitimate, compiled-in content (count=8,
+		// items 1..8). Category 1's "count" slot, at this fixed offset, holds leftover
+		// unrelated float-array data instead of a real (small) count - extensive live tracing
+		// (see docs/VSHBootInvestigation.md, Attempts 17-19) found nothing that ever writes a
+		// real value here: no HLE syscall, no other loaded module's own init code (including
+		// the real kd/rtc.prx and kd/syscon.prx drivers), and real hardware/JPCSP running the
+		// identical bytes never even reaches this code path in the first place (confirmed via
+		// instrumenting both emulators - JPCSP's equivalent thread never executes the
+		// PPSSPP-equivalent 0x08818d14 entry point at all, let alone this scan). Whatever
+		// precondition real firmware relies on to skip or safely handle this scan isn't
+		// present here, and hasn't been identified despite substantial investigation - so
+		// zero this specific "count" out directly, matching what an empty/absent category
+		// would look like (the scan's own code already handles count<=0 as "nothing to do"
+		// for category 0 the same way). This is a narrow, targeted patch of one 4-byte value
+		// vsh_module itself never properly initializes, not a general vsh_module patch.
+		const u32 vshAlarmCategory1CountOffset = 0x455C4;  // Offset from module base.
+		u32 patchAddr = module->memoryBlockAddr + vshAlarmCategory1CountOffset;
+		if (Memory::IsValid4AlignedAddress(patchAddr)) {
+			Memory::WriteUnchecked_U32(0, patchAddr);
+		} else {
+			WARN_LOG(Log::sceModule, "Failed to patch vsh_module alarm category 1 count");
+		}
+	}
 
 	// Let's also get a truncated version.
 	char moduleName[29] = {0};

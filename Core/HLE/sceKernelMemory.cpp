@@ -1675,9 +1675,12 @@ static u32 SysMemUserForUser_D8DE5C1E() {
 	return hleLogError(Log::sceKernel, 0, "UNIMPL");
 }
 
+// Real name per uofw's src/kd/sysmem/exports.exp: sceKernelTotalMemSize - the total size (not
+// free size, see sceKernelMaxFreeMemSize above) of the user memory partition. Was previously
+// an unconditional `return 0` - real callers doing size-based decisions (e.g. "is there enough
+// memory to enable feature X") would see 0 total memory instead of a real, sane value.
 static u32 SysMemUserForUser_ACBD88CA() {
-	ERROR_LOG_REPORT_ONCE(SysMemUserForUser_ACBD88CA, Log::sceKernel, "UNIMPL SysMemUserForUser_ACBD88CA()");
-	return hleNoLog(0);
+	return hleLogDebug(Log::sceKernel, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
 }
 
 static u32 SysMemUserForUser_945E45DA() {
