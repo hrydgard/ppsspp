@@ -690,7 +690,7 @@ void Initialize() {
 
 void InitializeRAIntegration(void *windowHandle) {
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
-	if (g_Config.bAchievementsEnableRAIntegration) {
+	if (g_rcClient && g_Config.bAchievementsEnableRAIntegration) {
 		wchar_t szFilePath[MAX_PATH];
 		GetModuleFileNameW(NULL, szFilePath, MAX_PATH);
 		for (int64_t i = wcslen(szFilePath) - 1; i > 0; i--) {
