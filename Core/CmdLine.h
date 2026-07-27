@@ -59,6 +59,9 @@ struct CommandLineOptions {
 	std::optional<int> memWriteAction;
 	std::optional<int> breakAction;
 
+	// Log a native stack trace (Windows only) on an otherwise-unhandled access violation.
+	std::optional<bool> logNativeCrashes;
+
 	// SDL only: Option to force a specific OpenGL version (42="4.2",
 	// etc.; -1 means "try them all").
 	// Implemented as a workaround for https://github.com/hrydgard/ppsspp/issues/20687

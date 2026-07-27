@@ -218,6 +218,11 @@ public:
 	int iExceptionActionMemWrite;
 	int iExceptionActionBreak;
 
+	// If true, log a best-effort native stack trace (Windows only) when a genuinely
+	// unhandled access violation is about to crash the process. Diagnostic only, off by
+	// default - see --log-native-crashes in Core/CmdLine.cpp.
+	bool bLogNativeCrashStackTraces;
+
 	bool bFastMemory;
 	int iCpuCore;
 	bool bCheckForNewVersion;
