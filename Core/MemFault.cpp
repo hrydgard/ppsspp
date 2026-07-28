@@ -48,6 +48,7 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelModule.h"
 
 namespace Memory {
 
@@ -373,7 +374,12 @@ std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frame
 	std::stringstream str;
 	for (const auto &frame : frames) {
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
-		str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		char moduleDesc[96];
+		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
+			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		} else {
+			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		}
 	}
 	return str.str();
 }

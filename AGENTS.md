@@ -101,6 +101,12 @@ first - send `cpu.stepping` and `cpu.resume` to pause/unpause.
 Alternatively use the headless build, Windows/{arch}/Debug/PPSSPPHeadless.exe or build/PPSSPPHeadless on CMake-based
 platforms. Where arch is x64 or ARM64.
 
+## Debugging and breakpoint considerations
+
+It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.
+The JITs are much, much faster and in theory also support breakpoints, but especially from websockets there seem
+to be trouble.
+
 ## Quick rebuild on Linux
 
 You don't need to do ./b.sh --debug to verify every single little change, instead use this shortcut:

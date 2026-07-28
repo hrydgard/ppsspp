@@ -1304,6 +1304,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
+	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0) {
+		// Used by the PSP's Visual Shell (VSH/XMB) and modules it loads, such as vshmain.prx.
+		// We don't do anything special with this yet, just recognizing it for now.
+		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
+	}
 	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
 	module->nm.version[1] = modinfo->moduleVersion >> 8;
 	module->nm.data_size = 0;
@@ -2640,6 +2645,38 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	Memory::Write_U32(idCount, idCountAddr);
 	
 	return hleNoLog(0);
+}
+
+bool DescribeKernelModuleAddress(u32 address, char *buffer, size_t bufferSize) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module)
+			continue;
+
+		const NativeModule &nm = module->nm;
+		u32 dataAddr = module->GetDataAddr();
+		u32 bssAddr = module->GetBSSAddr();
+		if (nm.text_size != 0 && address >= nm.text_addr && address < nm.text_addr + nm.text_size) {
+			snprintf(buffer, bufferSize, "%s.text+%x", nm.name, address - nm.text_addr);
+			return true;
+		}
+		if (nm.data_size != 0 && address >= dataAddr && address < dataAddr + nm.data_size) {
+			snprintf(buffer, bufferSize, "%s.data+%x", nm.name, address - dataAddr);
+			return true;
+		}
+		if (nm.bss_size != 0 && address >= bssAddr && address < bssAddr + nm.bss_size) {
+			snprintf(buffer, bufferSize, "%s.bss+%x", nm.name, address - bssAddr);
+			return true;
+		}
+		for (int i = 0; i < (int)nm.nsegment && i < 4; i++) {
+			if (nm.segmentsize[i] != 0 && address >= nm.segmentaddr[i] && address < nm.segmentaddr[i] + nm.segmentsize[i]) {
+				snprintf(buffer, bufferSize, "%s.seg%d+%x", nm.name, i, address - nm.segmentaddr[i]);
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 //fix for tiger x dragon

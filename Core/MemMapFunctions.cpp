@@ -29,7 +29,7 @@ namespace Memory {
 
 u8 *GetPointerWrite(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
-		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerWriteUnchecked(address);
@@ -42,7 +42,7 @@ u8 *GetPointerWrite(const u32 address) {
 
 const u8 *GetPointer(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
-		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
@@ -88,7 +88,7 @@ const u8 *GetPointerRange(const u32 address, const u32 size) {
 template <typename T>
 inline void ReadFromHardware(T &var, const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
-		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
@@ -101,7 +101,7 @@ inline void ReadFromHardware(T &var, const u32 address) {
 template <typename T>
 inline void WriteToHardware(u32 address, const T data) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
-		(address & 0x3F800000) == 0x04000000 || // VRAM
+		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
