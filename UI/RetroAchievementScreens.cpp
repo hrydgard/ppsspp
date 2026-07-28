@@ -620,10 +620,12 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 	// Download and display the image.
 	const char *url = iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? achievement->badge_url : achievement->badge_locked_url;
-	std::string imageUrl = http::RemoveHttpsIfNeeded(url);
-	Achievements::DownloadImageIfMissing(imageUrl);
-	if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+	if (url && strlen(url) > 0) {
+		std::string imageUrl = http::RemoveHttpsIfNeeded(url);
+		Achievements::DownloadImageIfMissing(imageUrl);
+		if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+		}
 	}
 	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
 	dc.Flush();
@@ -670,11 +672,13 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.Flush();
 
-	std::string imageUrl = http::RemoveHttpsIfNeeded(gameInfo->badge_url);
+	if (gameInfo->badge_url && strlen(gameInfo->badge_url) > 0) {
+		std::string imageUrl = http::RemoveHttpsIfNeeded(gameInfo->badge_url);
 
-	Achievements::DownloadImageIfMissing(imageUrl);
-	if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+		Achievements::DownloadImageIfMissing(imageUrl);
+		if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
+			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y + (bounds.h - iconSpace) * 0.5f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+		}
 	}
 
 	dc.Flush();
