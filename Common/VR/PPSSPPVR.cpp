@@ -289,14 +289,14 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		}
 	}
 
-	//enable or disable mouse
+	//enable or disable mouse for each controller. Only one can be the mouse at a time.
 	for (int j = 0; j < 2; j++) {
 		bool pressed = IN_VRGetButtonState(j) & ovrButton_Trigger;
 		if (pressed) {
-			int lastController = mouseController;
+			const int lastController = mouseController;
 			mouseController = j;
 
-			//prevent misclicks when changing the left/right controller
+			// prevent misclicks when changing the left/right controller
 			if (lastController != mouseController) {
 				mousePressed = true;
 			}
@@ -332,25 +332,39 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		bool pressed = IN_VRGetButtonState(mouseController) & ovrButton_Trigger;
 		if (mousePressed != pressed) {
 			if (pressed) {
-				touch.flags = TouchInputFlags::DOWN;
+				touch.flags = TouchInputFlags::DOWN | TouchInputFlags::MOUSE;
+				touch.buttons = 1;
 				cbNativeTouch(touch);
-				touch.flags = TouchInputFlags::UP;
+			} else {
+				touch.flags = TouchInputFlags::UP | TouchInputFlags::MOUSE;
+				touch.buttons = 1;
 				cbNativeTouch(touch);
 			}
 			mousePressed = pressed;
+		} else {
+			// Simulate mouse move. This allows for dragging stuff in the UI and scrolling without using the mousewheel emulation.
+			touch.flags = TouchInputFlags::MOVE | TouchInputFlags::MOUSE;
+			touch.buttons = mousePressed ? 1 : 0;
+			cbNativeTouch(touch);
 		}
 
 		// mouse wheel emulation
-		// TODO: Spams key-up events if nothing changed!
+		// No longer spams events when scrolling isn't happening.
 		for (int j = 0; j < 2; j++) {
 			keyInput.deviceId = controllerIds[j];
 			float scroll = -IN_VRGetJoystickState(j).y;
-			keyInput.flags = scroll < -0.5f ? KeyInputFlags::DOWN : KeyInputFlags::UP;
-			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-			cbNativeKey(keyInput);
-			keyInput.flags = scroll > 0.5f ? KeyInputFlags::DOWN : KeyInputFlags::UP;
-			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-			cbNativeKey(keyInput);
+			int wheelDelta = (int)(std::min(fabsf(scroll) * 30.0f, 500.0f));
+			if (scroll < -0.5f) {
+				// Scroll upwards
+				keyInput.flags = (KeyInputFlags)((int)(KeyInputFlags::DOWN | KeyInputFlags::UP) | (wheelDelta << 16));
+				keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				cbNativeKey(keyInput);
+			} else if (scroll > 0.5f) {
+				// Scroll downwards
+				keyInput.flags = (KeyInputFlags)((int)(KeyInputFlags::DOWN | KeyInputFlags::UP) | (wheelDelta << 16));
+				keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				cbNativeKey(keyInput);
+			}
 		}
 	} else {
 		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 0);
