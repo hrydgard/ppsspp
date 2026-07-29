@@ -7,6 +7,8 @@
 // > --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
 // Example command line for taking screenshots from a frame dump:
 // > -l --graphics=vulkan --screenshot-save=vt_ref.bmp "D:\PSP ISO\dump\Depth\11578 Virtua Tennis pause menu ULES00126_0002.zip" --resolution-scale=2
+// Example command line for messing with the vsh:
+// > -l --vsh --memread=break --memwrite=break --break=break
 //
 // NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 
@@ -249,9 +251,10 @@ struct AutoTestOptions {
 	bool compare;
 	bool verbose;
 	bool bench;
+	bool printEqualLines;
 };
 
-bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
+static bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
 	using namespace Draw;
 
 	// Kinda ugly, trying to guesstimate the test name from filename...
@@ -353,7 +356,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	}
 
 	if (opt.compare && passed) {
-		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose);
+		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose, opt.printEqualLines);
 	}
 
 	return passed;
@@ -451,6 +454,7 @@ int main(int argc, const char* argv[]) {
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
 	testOptions.timeout = cmdLineOptions.timeout.value_or(std::numeric_limits<double>::infinity());
 	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
+	testOptions.printEqualLines = cmdLineOptions.printEqualLines.value_or(false);
 
 	bool fullLog = false;
 	const char *stateToLoad = 0;
@@ -550,7 +554,7 @@ int main(int argc, const char* argv[]) {
 	g_Config.iDumpFileTypes = 0;
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
-	g_Config.bIgnoreBadMemAccess = true;  // NOTE: A few tests rely on this, which is BAD: threads/mbx/refer/refer , threads/mbx/send/send, threads/vtimers/interrupt
+	g_Config.bIgnoreBadMemAccess = false;
 	// Never report from tests.
 	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
@@ -601,6 +605,7 @@ int main(int argc, const char* argv[]) {
 	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
+	coreParameter.loadGameConfigs = false;
 	coreParameter.renderScaleFactor = cmdLineOptions.resolutionScale.value_or(1);
 	coreParameter.renderWidth = 480 * coreParameter.renderScaleFactor;
 	coreParameter.renderHeight = 272 * coreParameter.renderScaleFactor;
@@ -680,9 +685,15 @@ int main(int argc, const char* argv[]) {
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
+	std::vector<std::string> missingTests;
 
 	for (size_t i = 0; i < testFilenames.size(); ++i) {
 		coreParameter.fileToStart = Path(testFilenames[i]);
+		if (!File::Exists(coreParameter.fileToStart)) {
+			fprintf(stderr, "File not found: %s\n", coreParameter.fileToStart.c_str());
+			missingTests.push_back(testFilenames[i]);
+			continue;
+		}
 		if (testOptions.compare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
 		bool passed = RunAutoTest(headlessHost, coreParameter, testOptions);
@@ -714,9 +725,8 @@ int main(int argc, const char* argv[]) {
 	}
 
 	if (testOptions.compare) {
-		printf("%d tests passed, %d tests failed.\n", (int)passedTests.size(), (int)failedTests.size());
-		if (!failedTests.empty())
-		{
+		printf("%d tests passed, %d tests failed, %d tests missing.\n", (int)passedTests.size(), (int)failedTests.size(), (int)missingTests.size());
+		if (!failedTests.empty()) {
 			printf("Failed tests:\n");
 			for (size_t i = 0; i < failedTests.size(); ++i) {
 				printf("  %s\n", failedTests[i].c_str());

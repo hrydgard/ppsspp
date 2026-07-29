@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 # Automated script to run the pspautotests test suite in PPSSPP.
 
 import sys
@@ -64,6 +65,7 @@ class Command(object):
 
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
+# -g flag runs these.
 tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
@@ -281,8 +283,6 @@ tests_good = [
   "threads/mbx/poll/poll",
   "threads/mbx/priority/priority",
   "threads/mbx/receive/receive",
-  "threads/mbx/refer/refer",
-  "threads/mbx/send/send",
   "threads/msgpipe/msgpipe",
   "threads/msgpipe/cancel",
   "threads/msgpipe/create",
@@ -381,6 +381,8 @@ tests_good = [
   "video/psmfplayer/stop",
 ]
 
+# Broken tests
+# -b flag runs these.
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
@@ -467,6 +469,10 @@ tests_next = [
   "threads/callbacks/cancel",
   "threads/callbacks/count",
   "threads/callbacks/notify",
+  # These two mbx tests only appeared to work because they papered over bugs 
+  "threads/mbx/refer/refer",
+  "threads/mbx/send/send",
+
   "threads/scheduling/dispatch",
   "threads/scheduling/scheduling",
   "threads/threads/create",

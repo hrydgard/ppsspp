@@ -1,6 +1,6 @@
 # PPSSPPHeadless
 
-Non-interactive, headless build of PPSSPP. It boots a PSP executable, PRX, or GE frame dump (`.ppdmp`) without a GUI, outputs emulated debug text to the console, optionally captures and compares screenshots, and exits.
+Non-interactive, headless build of PPSSPP. It boots a PSP executable, PRX, or GE frame dump (`.ppdmp`) without a GUI, outputs emulated debug text to the console, optionally captures and compares text output or screenshots, and exits.
 
 Primarily intended for:
 - Automated regression testing (via [pspautotests](https://github.com/hrydgard/pspautotests/))
@@ -120,7 +120,8 @@ When the MSE exceeds `--max-mse`, the following files are saved in the working d
 The `--compare` flag also compares emulated debug output (`printf` / `sceIoWrite` to the emulator channel) against a `.expected` text file:
 
 - For `.prx` files: same path with `.expected` extension.
-- The comparison is line-based with a diff algorithm that highlights insertions/deletions.
+- The comparison is line-based with a diff algorithm that highlights mismatches and insertions/deletions, although the support for the
+  latter is limited, it's not a full-on diff.
 
 If only a screenshot reference exists and no `.expected` file, the test passes as long as there is no unexpected text output.
 
@@ -157,13 +158,14 @@ Example workflow step:
 
 The following configuration is hardcoded for headless mode (config file is never saved):
 
+(For actual up-to-date hardcoded config, see the headless.cpp file).
+
 | Setting              | Value      | Notes                                    |
 |----------------------|------------|------------------------------------------|
 | Internal resolution  | 1× (480×272) | Fixed.                                 |
 | Hardware transform   | Enabled    |                                          |
 | Vertex decoder JIT   | Enabled    |                                          |
 | Software renderer JIT| Enabled    |                                          |
-| Skip GPU readback    | No skip    | Full readback for accurate screenshots.  |
 | Ignore bad mem access| Enabled    |                                          |
 | Firmware version     | 6.60       |                                          |
 | PSP model            | Slim       |                                          |

@@ -122,28 +122,25 @@ struct Mbx : public KernelObject
 		Memory::Write_U32(ptr, beforePtr);
 	}
 
-	int ReceiveMessage(u32 receivePtr)
-	{
+	int ReceiveMessage(u32 receivePtr) {
 		u32 ptr = nmb.packetListHead;
+		if (!Memory::IsValidAddress(nmb.packetListHead)) {
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		}
 
 		// Check over the linked list and reset the head.
 		int c = 0;
-		while (true)
-		{
+		while (true) {
 			u32 next = Memory::Read_U32(nmb.packetListHead);
 			if (!Memory::IsValidAddress(next))
 				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-			if (next == ptr)
-			{
-				if (nmb.packetListHead != ptr)
-				{
+			if (next == ptr) {
+				if (nmb.packetListHead != ptr) {
 					next = Memory::Read_U32(next);
 					Memory::Write_U32(next, nmb.packetListHead);
 					nmb.packetListHead = next;
 					break;
-				}
-				else
-				{
+				} else {
 					if (c < nmb.numMessages - 1)
 						return PSP_MBX_ERROR_DUPLICATE_MSG;
 
@@ -159,12 +156,10 @@ struct Mbx : public KernelObject
 		// Tell the receiver about the message.
 		Memory::Write_U32(ptr, receivePtr);
 		nmb.numMessages--;
-
 		return 0;
 	}
 
-	void DoState(PointerWrap &p) override
-	{
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("Mbx", 1);
 		if (!s)
 			return;
@@ -565,8 +560,13 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr) {
 	if (!info.IsValid())
 		return hleLogError(Log::sceKernel, -1, "invalid pointer");
 
-	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
-		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);
+	u32 packet = m->nmb.packetListHead;
+	for (int i = 0, n = m->nmb.numMessages; i < n; ++i) {
+		if (packet == 0 || !Memory::IsValidAddress(packet)) {
+			return hleLogError(Log::sceKernel, -1, "invalid packet list head");
+		}
+		packet = Memory::ReadUnchecked_U32(packet);
+	}
 
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_MBX, id, m->waitingThreads);
 

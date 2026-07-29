@@ -467,7 +467,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			dir = ResolvePBPDirectory(Path(dir)).ToString();
 			pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
 		}
-		if (!Load_PSP_ELF_PBP(fileLoader, discId, errorString)) {
+		if (!Load_PSP_ELF_PBP(fileLoader, discId, g_CoreParameter.loadGameConfigs, errorString)) {
 			return false;
 		}
 		break;
@@ -478,7 +478,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ELF:
 	{
 		INFO_LOG(Log::Loader, "File is an ELF or loose PBP %s", fileLoader->GetPath().c_str());
-		if (!Load_PSP_ELF_PBP(fileLoader, discId, errorString)) {
+		if (!Load_PSP_ELF_PBP(fileLoader, discId, g_CoreParameter.loadGameConfigs, errorString)) {
 			ERROR_LOG(Log::Loader, "Failed to load ELF or loose PBP: %s", errorString->c_str());
 			return false;
 		}

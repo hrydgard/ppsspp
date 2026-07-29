@@ -158,6 +158,14 @@ inline const u8* GetPointerUnchecked(const u32 address) {
 #endif
 }
 
+inline u64 ReadUnchecked_U64(const u32 address) {
+#ifdef MASKED_PSP_MEMORY
+	return *(u64_le *)(base + (address & MEMVIEW32_MASK));
+#else
+	return *(u64_le *)(base + address);
+#endif
+}
+
 inline u32 ReadUnchecked_U32(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
 	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
