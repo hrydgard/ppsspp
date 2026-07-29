@@ -283,8 +283,6 @@ tests_good = [
   "threads/mbx/poll/poll",
   "threads/mbx/priority/priority",
   "threads/mbx/receive/receive",
-  "threads/mbx/refer/refer",
-  "threads/mbx/send/send",
   "threads/msgpipe/msgpipe",
   "threads/msgpipe/cancel",
   "threads/msgpipe/create",
@@ -471,6 +469,10 @@ tests_next = [
   "threads/callbacks/cancel",
   "threads/callbacks/count",
   "threads/callbacks/notify",
+  # These two mbx tests only appeared to work because they papered over bugs 
+  "threads/mbx/refer/refer",
+  "threads/mbx/send/send",
+
   "threads/scheduling/dispatch",
   "threads/scheduling/scheduling",
   "threads/threads/create",

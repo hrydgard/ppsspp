@@ -952,6 +952,11 @@ const KeyValue ROOT[] = {
 
 // Updater checks for CONFIG/SYSTEM/XMB.
 
+// not sure what modes exist, this is conjecture.
+enum RegOpenMode {
+	REG_OPEN_READONLY = 2,
+};
+
 void __RegInit() {
 	g_openRegistryMode = 0;
 	g_handleGen = 1337;
@@ -1012,6 +1017,11 @@ int sceRegOpenRegistry(u32 regParamAddr, int mode, u32 regHandleAddr) {
 		Memory::WriteUnchecked_U32(0, regHandleAddr);
 	}
 	g_openRegistryMode = mode;
+
+	if (g_openRegistryMode != REG_OPEN_READONLY) {
+		WARN_LOG(Log::HLE, "sceRegOpenRegistry: Opening registry in non-readonly mode. This is not yet supported (we'll simply emulate it as read-only anyway).");
+	}
+
 	return hleLogInfo(Log::sceReg, 0);
 }
 
@@ -1120,11 +1130,11 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
-	if (!Memory::IsValidRange(bufAddr, num * 27)) {
+	const int keyLen = 27; // 27 bytes per key name, including null terminator. For some reason?!?
+
+	if (!Memory::IsValidRange(bufAddr, num * keyLen)) {
 		return hleLogError(Log::sceReg, -1, "bad output addr");
 	}
-
-	const int addrLen = 27;  // for some reason
 
 	int count = 0;
 	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
@@ -1135,8 +1145,8 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 	count = std::min(count, num);
 
 	for (int i = 0; i < num; i++) {
-		char *dest = (char *)Memory::GetPointerWrite(bufAddr + i * 27);
-		strncpy(dest, keyvals[i].name.c_str(), 27);
+		char *dest = (char *)Memory::GetPointerWrite(bufAddr + i * keyLen);
+		strncpy(dest, keyvals[i].name.c_str(), keyLen);
 	}
 
 	return hleLogInfo(Log::sceReg, 0);

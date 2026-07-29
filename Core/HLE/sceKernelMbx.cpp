@@ -124,18 +124,16 @@ struct Mbx : public KernelObject
 
 	int ReceiveMessage(u32 receivePtr) {
 		u32 ptr = nmb.packetListHead;
+		if (!Memory::IsValidAddress(nmb.packetListHead)) {
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		}
 
 		// Check over the linked list and reset the head.
 		int c = 0;
-		while (true)
-		{
+		while (true) {
 			u32 next = Memory::Read_U32(nmb.packetListHead);
 			if (!Memory::IsValidAddress(next))
 				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-			if (next == nmb.packetListHead) {
-				// This will cause us to spin if we don't check for it. Not sure what the correct behavior here is.
-				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-			}
 			if (next == ptr) {
 				if (nmb.packetListHead != ptr) {
 					next = Memory::Read_U32(next);
@@ -158,12 +156,10 @@ struct Mbx : public KernelObject
 		// Tell the receiver about the message.
 		Memory::Write_U32(ptr, receivePtr);
 		nmb.numMessages--;
-
 		return 0;
 	}
 
-	void DoState(PointerWrap &p) override
-	{
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("Mbx", 1);
 		if (!s)
 			return;

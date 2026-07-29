@@ -21,9 +21,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
 // Most of the code are based on https://github.com/RJ/libportfwd and updated to the latest miniupnp library
 // All credit goes to him and the official miniupnp project! http://miniupnp.free.fr/
-
 
 #include <algorithm>  // find_if
 #include <cstring>
@@ -43,10 +43,10 @@
 #include "Core/Util/PortManager.h"
 
 PortManager g_PortManager;
-bool upnpServiceRunning = false;
-std::thread upnpServiceThread;
-std::recursive_mutex upnpLock;
-std::deque<UPnPArgs> upnpReqs;
+static bool upnpServiceRunning = false;
+static std::thread upnpServiceThread;
+static std::recursive_mutex upnpLock;
+static std::deque<UPnPArgs> upnpReqs;
 
 PortManager::PortManager(): 
 	m_InitState(UPNP_INITSTATE_NONE),
@@ -549,4 +549,3 @@ void UPnP_Remove(const char* protocol, unsigned short port) {
 	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
 	upnpReqs.push_back({ UPNP_CMD_REMOVE, protocol, port, port });
 }
-
