@@ -409,8 +409,14 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 	}
 
 	hleEatCycles(2000);
+	u64 schedule;
+	if (!Memory::IsValidAddress(scheduleAddr)) {
+		ERROR_LOG(Log::sceKernel, "sceKernelSetVTimerHandler: invalid schedule address %08x", scheduleAddr);
+		schedule = 0;
+	} else {
+		schedule = Memory::ReadUnchecked_U64(scheduleAddr);
+	}
 
-	u64 schedule = Memory::Read_U64(scheduleAddr);
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;

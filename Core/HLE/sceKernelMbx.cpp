@@ -122,8 +122,7 @@ struct Mbx : public KernelObject
 		Memory::Write_U32(ptr, beforePtr);
 	}
 
-	int ReceiveMessage(u32 receivePtr)
-	{
+	int ReceiveMessage(u32 receivePtr) {
 		u32 ptr = nmb.packetListHead;
 
 		// Check over the linked list and reset the head.
@@ -133,17 +132,17 @@ struct Mbx : public KernelObject
 			u32 next = Memory::Read_U32(nmb.packetListHead);
 			if (!Memory::IsValidAddress(next))
 				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-			if (next == ptr)
-			{
-				if (nmb.packetListHead != ptr)
-				{
+			if (next == nmb.packetListHead) {
+				// This will cause us to spin if we don't check for it. Not sure what the correct behavior here is.
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			}
+			if (next == ptr) {
+				if (nmb.packetListHead != ptr) {
 					next = Memory::Read_U32(next);
 					Memory::Write_U32(next, nmb.packetListHead);
 					nmb.packetListHead = next;
 					break;
-				}
-				else
-				{
+				} else {
 					if (c < nmb.numMessages - 1)
 						return PSP_MBX_ERROR_DUPLICATE_MSG;
 

@@ -1155,9 +1155,12 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	const char *errStr = nullptr;
 	switch (retmask) {
 	case 'x':
-		// Truncate the high bits of the result (from any sign extension.)
-		res = (u32)res;
-		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+	case 'X':
+		if (retmask == 'x') {
+			// Truncate the high bits of the result (from any sign extension.)
+			res = (u32)res;
+		}
+		if (retmask == 'x' && (int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
 			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
 		} else {
@@ -1167,7 +1170,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		break;
 	case 'i':
 	case 'I':
-		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+		if (retmask == 'i' && (int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
 			fmt = "%s%s=%s(%s)%s";
 		} else {
