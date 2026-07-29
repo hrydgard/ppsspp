@@ -565,8 +565,13 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr) {
 	if (!info.IsValid())
 		return hleLogError(Log::sceKernel, -1, "invalid pointer");
 
-	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
-		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);
+	u32 packet = m->nmb.packetListHead;
+	for (int i = 0, n = m->nmb.numMessages; i < n; ++i) {
+		if (packet == 0 || !Memory::IsValidAddress(packet)) {
+			return hleLogError(Log::sceKernel, -1, "invalid packet list head");
+		}
+		packet = Memory::ReadUnchecked_U32(packet);
+	}
 
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_MBX, id, m->waitingThreads);
 
