@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 # Automated script to run the pspautotests test suite in PPSSPP.
 
 import sys
@@ -64,6 +65,7 @@ class Command(object):
 
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
+# -g flag runs these.
 tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
@@ -381,6 +383,8 @@ tests_good = [
   "video/psmfplayer/stop",
 ]
 
+# Broken tests
+# -b flag runs these.
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
