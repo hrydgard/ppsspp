@@ -339,7 +339,7 @@ static Path NormalizePath(const Path &path) {
 #endif
 }
 
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::string *error_string) {
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool loadGameConfigs, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string));
@@ -441,7 +441,9 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 			File::Rename(oldNamePrefix.WithExtraExtension(".jpg"), newPrefix.WithExtraExtension(".jpg"));
 	}
 
-	g_Config.LoadGameConfig(discID);
+	if (loadGameConfigs) {
+		g_Config.LoadGameConfig(discID);
+	}
 
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }

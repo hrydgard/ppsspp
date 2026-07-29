@@ -58,6 +58,7 @@ struct CoreParameter {
 	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
 	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
 	std::string errorString;
+	bool loadGameConfigs = true;
 
 	bool startBreak = false;
 	std::string *collectDebugOutput = nullptr;
