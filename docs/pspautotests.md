@@ -78,14 +78,43 @@ Failed tests:
 
 Lines prefixed with `O` are from the `.expected` file (real PSP), `E` is what PPSSPP produced, and `+` means a match.
 
+The diff is line-by-line, so an `O` line followed by an `E` line at the same conceptual position means PPSSPP produced different output at that spot. A `+` line means both outputs agreed on that line.
+
 ## Workflow for fixing a test
 
 1. Pick a test from `tests_next` in `test.py`.
 2. Run it with headless to confirm failure and see what differs (`O` vs `E` lines).
 3. Read the test source (`.c`/`.cpp`) and the `.expected` file to understand the API being tested.
-4. Make changes to PPSSPP's HLE or other core code. Do not make super-targeted changes just to fix the test - instead, fix the underlying issue in a way that would also make sense on real PSP hardware.
-5. Rebuild PPSSPPHeadless and re-run the test.
-6. Rinse and repeat until it passes, then move it from `tests_next` to `tests_good` in `test.py`.
+   The `.expected` file was recorded from a real PSP — it's the ground truth. The test source
+   reveals what syscalls are made and in what order. Sometimes the test deliberately corrupts
+   state to probe kernel error handling.
+4. Form a hypothesis: look for a systematic pattern in the diffs (wrong order, wrong error
+   code, missing output). Cross-reference with multiple expected files that exercise the same
+   API — they may reveal the PSP's real behavior from different angles.
+5. Make changes to PPSSPP's HLE or other core code. Do not make super-targeted changes just
+   to fix the test — instead, fix the underlying issue in a way that would also make sense
+   on real PSP hardware.
+6. Rebuild PPSSPPHeadless and re-run the test.
+7. Run the full `tests_good` suite (`py test.py -g`) to check for regressions. A correct fix
+   should not break any previously passing tests.
+8. Rinse and repeat until it passes, then move it from `tests_next` to `tests_good` in `test.py`.
+
+### Tips from experience
+
+- The diff output compares the full text output line-by-line. To see PPSSPP's raw output
+  without the diff overlay, omit `--compare`:
+  ```
+  Windows/x64/Debug/PPSSPPHeadless.exe --root pspautotests/tests/../ --timeout=5 --graphics=software path/to/test.prx
+  ```
+  There's another trick too, --print-equal-lines, which prints matching lines with a '=' prefix, so you can see the full output with context.
+- Tests can show contradictory expected outputs at first glance. For example, the mbx/send
+  test expected file shows FIFO message order (normal sends), while the mbx/refer test shows
+  LIFO (after corruption) — because `sceKernelReferMbxStatus` on a real PSP *updates*
+  `firstMessage` during traversal, changing the apparent head. Understanding the expected
+  file's behavior often requires reading multiple related tests together.
+- When searching for the underlying issue, trace through the HLE implementation with the
+  test's syscall sequence. Check whether the kernel writes into PSP-visible memory — if so,
+  test code can corrupt those values, and the PSP kernel may have specific handling for that.
 
 ## Troubleshooting
 
