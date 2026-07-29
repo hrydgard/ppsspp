@@ -1,5 +1,7 @@
 # VSH Boot Investigation
 
+Also see jpcsp-vsh.md for how JPCSP does it.
+
 Notes from an investigation into booting the PSP's Visual Shell (VSH / `vshmain.prx`) in
 PPSSPP, using a real Sony firmware dump (not checked into the repo - gitignored, placed
 locally under `assets/flash0/`). This is exploratory reverse-engineering of Sony's shipped,
@@ -268,7 +270,8 @@ does not.
   either a self-init routine within `scePaf_Module`'s own code, or a non-NID kernel patch
   step. Searching all of `scePaf_Module`'s ~1.8MB of code for a write to that address (by
   pattern, not by hand) would help confirm there's truly no such write path in this
-  firmware version, versus one we haven't found yet.
+  firmware version, versus one we haven't found yet. It might be worth disassembling reboot.bin
+  which is the real bootloader.
 - Implement the permanent fix (real allocation + patch, done properly relative to
   wherever `scePaf_Module` loads) rather than relying on a debugger-only poke.
 - Once past this crash, continue tracing VSH's boot to find the next blocker (if any)
