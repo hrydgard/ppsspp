@@ -251,6 +251,7 @@ struct AutoTestOptions {
 	bool compare;
 	bool verbose;
 	bool bench;
+	bool printEqualLines;
 };
 
 static bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
@@ -355,7 +356,7 @@ static bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter
 	}
 
 	if (opt.compare && passed) {
-		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose);
+		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose, opt.printEqualLines);
 	}
 
 	return passed;
@@ -453,6 +454,7 @@ int main(int argc, const char* argv[]) {
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
 	testOptions.timeout = cmdLineOptions.timeout.value_or(std::numeric_limits<double>::infinity());
 	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
+	testOptions.printEqualLines = cmdLineOptions.printEqualLines.value_or(false);
 
 	bool fullLog = false;
 	const char *stateToLoad = 0;
@@ -724,8 +726,7 @@ int main(int argc, const char* argv[]) {
 
 	if (testOptions.compare) {
 		printf("%d tests passed, %d tests failed, %d tests missing.\n", (int)passedTests.size(), (int)failedTests.size(), (int)missingTests.size());
-		if (!failedTests.empty())
-		{
+		if (!failedTests.empty()) {
 			printf("Failed tests:\n");
 			for (size_t i = 0; i < failedTests.size(); ++i) {
 				printf("  %s\n", failedTests[i].c_str());

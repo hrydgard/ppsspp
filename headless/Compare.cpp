@@ -189,7 +189,7 @@ std::string GetTestName(const Path &bootFilename)
 	return ChopEnd(ChopFront(ChopFront(bootFilename.ToString(), "tests/"), "pspautotests/tests/"), ".prx");
 }
 
-bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose) {
+bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose, bool printEqualLines) {
 	Path expect_filename = bootFilename.GetFileExtension() == ".prx" ? bootFilename.WithReplacedExtension(".prx", ".expected") : bootFilename.WithExtraExtension(".expected");
 	std::unique_ptr<FileLoader> expect_loader(ConstructFileLoader(expect_filename));
 
@@ -203,8 +203,14 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 
 		bool failed = false;
 		while (expected.HasLines()) {
-			if (expected.Compare(actual))
+			std::string value = expected.Peek(0);
+			if (expected.Compare(actual)) {  // note: Compare actually advances if equal. This is pretty ugly.
+				if (printEqualLines) {
+					printf("= %s\n", value.c_str());
+				}
+				// Lines were equal.
 				continue;
+			}
 
 			if (!failed) {
 				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
@@ -274,8 +280,8 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 	}
 }
 
-static inline double CompareChannel(int pix1, int pix2) {
-	double diff = pix1 - pix2;
+static inline float CompareChannel(int pix1, int pix2) {
+	float diff = pix1 - pix2;
 	return diff * diff;
 }
 
@@ -284,7 +290,6 @@ static inline double ComparePixel(u32 pix1, u32 pix2) {
 	double r = CompareChannel(pix1 & 0xFF, pix2 & 0xFF);
 	double g = CompareChannel((pix1 >> 8) & 0xFF, (pix2 >> 8) & 0xFF);
 	double b = CompareChannel((pix1 >> 16) & 0xFF, (pix2 >> 16) & 0xFF);
-
 	return r + g + b;
 }
 

@@ -173,8 +173,8 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
-	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode"},
-	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode"},
+	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
+	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
 	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},
 	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE"},
 	{POFF(screenshotFilename), CmdParamType::String, "screenshot", '\0', "Take a screenshot and save to FILE"},
@@ -188,7 +188,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(breakAction), CmdParamType::Enum, "break", '\0', "Set the action for break exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
 	{POFF(logNativeCrashes), CmdParamType::Bool, "log-native-crashes", '\0', "Log a native stack trace (Windows only) on an otherwise-unhandled crash", CmdLineMode::Both},
 	{POFF(verbose), CmdParamType::Bool, "verbose", '\0', "Enable verbose output", CmdLineMode::Both},
-
+	{POFF(printEqualLines), CmdParamType::Bool, "print-equal-lines", '\0', "Print lines that are equal during comparison", CmdLineMode::Headless},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
