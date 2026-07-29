@@ -289,6 +289,7 @@ static ShaderModule *GenerateFShader(DrawContext *draw, FragmentShaderPreset pre
 }
 
 bool DrawContext::CreatePresets() {
+	INFO_LOG(Log::G3D, "Creating thin3d preset shaders...");
 	bool tintSupported = !bugs_.Has(Bugs::RASPBERRY_SHADER_COMP_HANG);
 
 	for (int i = 0; i < VS_MAX_PRESET; i++) {

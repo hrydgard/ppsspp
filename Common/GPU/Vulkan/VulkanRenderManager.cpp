@@ -333,7 +333,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	curHeightRaw_ = -1;
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "Vulkan: Updating inflight frames to %d", newInflightFrames_);
 		vulkan_->UpdateInflightFrames(newInflightFrames_);
 		newInflightFrames_ = -1;
 	}
