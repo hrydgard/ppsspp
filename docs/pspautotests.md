@@ -1,0 +1,95 @@
+# pspautotests
+
+This test suite is located in the `pspautotests` submodule/subdirectory at the root of the repo. Its `tests/` subdirectory contains tests arranged by category (audio/, cpu/, gpu/, threads/, etc.).
+
+The runner script `test.py` at the repo root contains two lists: `tests_good` (known-passing regression tests) and `tests_next` (tests that don't yet pass — move things here → `tests_good` by fixing PPSSPP).
+
+Tests are compiled as PRX binaries (a variation on ELF) which PPSSPP can load. They also have an `.expected` file alongside them, containing the reference output from running on a real PSP via PSPLink. The goal is for PPSSPPHeadless's output to match.
+
+## Prerequisites
+
+- **Initialize the submodule** (if not done): `git submodule update --init`
+- The PRX binaries and `.expected` files are already committed inside the submodule — **no need to compile tests yourself** just to run them.
+- To build PPSSPPHeadless itself, see the next section.
+
+## Building PPSSPPHeadless
+
+### Windows (Visual Studio)
+
+Open `Windows/PPSSPP.sln` in Visual Studio and build the **PPSSPPHeadless** project, or use MSBuild directly:
+
+```
+MSBuild.exe -noAutoResponse Windows/PPSSPP.sln -target:PPSSPPHeadless -property:Configuration=Debug -property:Platform=x64 -maxCpuCount
+```
+
+The built executable will be at `Windows/x64/Debug/PPSSPPHeadless.exe`.
+
+> CMake-based builds do exist but are **not the recommended way** on Windows — stick with the VS solution.
+
+### Linux / macOS
+
+Use `./b.sh --debug`, then find the executable under `build/` (e.g. `build/Debug/PPSSPPHeadless`).
+
+## Running tests
+
+### Using test.py (recommended)
+
+Make sure Python is available. On Windows the Microsoft Store alias may interfere; use `py` or the full path to `python.exe`.
+
+- Run all good tests: `py test.py -g`
+- Run all broken/next tests: `py test.py -b`
+- Run all tests (good + next): `py test.py`
+- Run a specific test (or space-separated list): `py test.py -g cpu/cpu_alu/cpu_alu`
+- Run a group of tests by prefix match (add `-m`): `py test.py -g -m audio/atrac`
+
+### Direct headless invocation
+
+```
+Windows/x64/Debug/PPSSPPHeadless.exe --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/audio/atrac/addstreamdata.prx
+```
+
+Instead of a single PRX, you can pass a directory (e.g. `pspautotests/tests/threads/mbx/...`) to run all tests under it, recursively.
+
+**Key flags:**
+- `--root` — points to the directory above `tests/` so the headless can find the expected directory layout.
+- `--compare` — enables output comparison against `.expected` files.
+- `--timeout=N` — seconds per test before killing it (default 5).
+- `--graphics=software` — uses software GPU backend (required for headless; no real GPU available).
+
+### What you'll see
+
+**Passing test:**
+```
+pspautotests/tests/audio/atrac/addstreamdata.prx:
+  audio/atrac/addstreamdata - passed!
+1 tests passed, 0 tests failed, 0 tests missing.
+```
+
+**Failing test:**
+```
+pspautotests/tests/threads/mbx/refer/refer.prx:
+O   hi 0 prio=00 next=OTHER  hi 1 prio=00 next=ITSELF  ...
+E   hi 1 prio=00 next=ITSELF  ...
++   ...
+0 tests passed, 1 tests failed, 0 tests missing.
+Failed tests:
+  threads/mbx/refer/refer
+```
+
+Lines prefixed with `O` are from the `.expected` file (real PSP), `E` is what PPSSPP produced, and `+` means a match.
+
+## Workflow for fixing a test
+
+1. Pick a test from `tests_next` in `test.py`.
+2. Run it with headless to confirm failure and see what differs (`O` vs `E` lines).
+3. Read the test source (`.c`/`.cpp`) and the `.expected` file to understand the API being tested.
+4. Make changes to PPSSPP's HLE or other core code. Do not make super-targeted changes just to fix the test - instead, fix the underlying issue in a way that would also make sense on real PSP hardware.
+5. Rebuild PPSSPPHeadless and re-run the test.
+6. Rinse and repeat until it passes, then move it from `tests_next` to `tests_good` in `test.py`.
+
+## Troubleshooting
+
+- **"Python was not found" on Windows** — the Microsoft Store alias is interfering. Use `py` (the Python launcher) or the full path, e.g. `"C:/Users/.../AppData/Local/Programs/Python/Python314/python.exe" test.py -g`. Or disable the alias in Settings > Apps > Advanced app settings > App execution aliases.
+- **No PRX files found** — run `git submodule update --init` from the repo root to fetch the `pspautotests` submodule.
+- **PPSSPPHeadless exits immediately / "CPU not started"** — the test PRX may be missing or the `--root` path is wrong. Ensure `--root` points to the parent of `tests/`.
+- **MSBuild error MSB1008** — the `MSBuild.rsp` response file may be interfering. Always pass `-noAutoResponse` on Windows builds.
