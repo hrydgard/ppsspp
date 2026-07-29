@@ -115,6 +115,23 @@ The diff is line-by-line, so an `O` line followed by an `E` line at the same con
 - When searching for the underlying issue, trace through the HLE implementation with the
   test's syscall sequence. Check whether the kernel writes into PSP-visible memory — if so,
   test code can corrupt those values, and the PSP kernel may have specific handling for that.
+- **Pointer addresses differ between PSP and PPSSPP.**  A test that prints raw kernel pointers
+  (heap addresses, TLS block addresses, etc.) will always have mismatched expected output
+  because PSPLink shifts memory layout.  Fix by changing the test to print offsets from a
+  base address instead of absolute addresses.  After changing the test, run it on hardware
+  to generate a new `.expected`.
+- **The diff notation:**
+  - `O` line = present in PPSSPP's output but not in expected (PPSSPP-only).
+  - `E` line = present in expected but not in PPSSPP output (expected-only).
+  - `+` line = context line (shown around diffs for context).
+  - `=` line (with `--print-equal-lines`) = matching line.
+  - `[r]` / `[x]` prefix = rescheduling occurred / did not occur since last line.
+- **When a function is a stub** (`UNIMPL` in log), the expected output is a good specification
+  for what to implement.  Look at multiple test cases in the expected file to understand the
+  full range of valid and invalid inputs, return codes, and side effects.
+- **Time-dependent tests** (RTC, timezone conversions) depend on the host machine's clock
+  and timezone.  The PSP's `sceRtcParseDateTime` was a stub — the expected file showed
+  exactly which RFC 3339 / RFC 2822 formats are accepted and which are rejected (return -1).
 
 ## Troubleshooting
 
