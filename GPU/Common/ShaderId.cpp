@@ -138,11 +138,15 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 	}
 
-	if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
-		id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
-	}
-	if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
-		id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
+	if (gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT)) {
+		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+			id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
+		}
+		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+			id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
+		}
+	} else {
+		// TODO: We're gonna need to soft-clip... Ugh.
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
@@ -286,11 +290,15 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 	// NOTE: This check MUST be identical to the one in ComputeVertexShaderID, otherwise we might get mismatches between VS and FS and end up with no shader at all.
 	if (!isModeThrough) {
-		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
-			id.SetBit(FS_BIT_DEPTH_CLAMP);
-		}
-		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
-			id.SetBit(FS_BIT_MINMAX_DISCARD);
+		if (gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT)) {
+			if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+				id.SetBit(FS_BIT_DEPTH_CLAMP);
+			}
+			if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+				id.SetBit(FS_BIT_MINMAX_DISCARD);
+			}
+		} else {
+			// TODO: We're gonna need to soft-clip... Ugh.
 		}
 	} else {
 		_dbg_assert_(0 == (clipInfoFlags & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)));

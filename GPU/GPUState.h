@@ -483,7 +483,7 @@ enum : u32 {
 	// Free bit: 18
 	GPU_USE_FRAMEBUFFER_ARRAYS = FLAG_BIT(19),
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
-	// Free bit: 21
+	GPU_USE_FULL_PRECISION_IN_FRAGMENT = FLAG_BIT(21),  // Required for the min-max/depthclamp in fragment shader stuff
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),

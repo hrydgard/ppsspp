@@ -297,6 +297,7 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);
 
 	caps_.coordConvention = CoordConvention::Direct3D11;
+	caps_.fragmentShaderFullPrecisionFloat = true;
 
 	switch (featureLevel_) {
 	case D3D_FEATURE_LEVEL_11_1:

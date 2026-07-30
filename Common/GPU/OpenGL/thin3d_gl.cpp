@@ -561,11 +561,11 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		} else {
 			caps_.preferredDepthBufferFormat = DataFormat::D16;
 		}
+		if (gl_extensions.FullPrecisionIntInFragment()) {
+			caps_.fragmentShaderInt32Supported = true;
+		}
 		if (gl_extensions.GLES3) {
-			// Mali reports 30 but works fine...
-			if (gl_extensions.range[1][5][1] >= 30) {
-				caps_.fragmentShaderInt32Supported = true;
-			}
+			// 30 is an ok value for the max since it's 2^31-1, which is the max value for a signed int. NVIDIA also reports this.
 			caps_.samplerLodControl = true;
 		}
 		caps_.texture3DSupported = gl_extensions.GLES3 || gl_extensions.OES_texture_3D;
@@ -574,10 +574,15 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		if (gl_extensions.VersionGEThan(3, 3, 0)) {
 			caps_.fragmentShaderInt32Supported = true;
 		}
+		caps_.fragmentShaderFullPrecisionFloat = true;
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 		caps_.texture3DSupported = true;
 		caps_.textureDepthSupported = true;
 		caps_.samplerLodControl = true;
+	}
+
+	if (gl_extensions.HighpFragmentFloatMantissaBits() >= 23 && !(gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_TERRIBLE)) {
+		caps_.fragmentShaderFullPrecisionFloat = true;
 	}
 
 	caps_.maxTextureSize = gl_extensions.maxTextureSize;
