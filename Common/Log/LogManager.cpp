@@ -70,6 +70,7 @@ void GenericLog(Log type, LogLevel level, const char *file, int line, const char
 // NOTE: Needs to be kept in sync with the Log enum.
 static const char * const g_logTypeNames[] = {
 	"System",
+	"Config",
 	"Boot",
 	"Common",
 	"CPU",
