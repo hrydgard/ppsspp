@@ -433,10 +433,14 @@ u32 BlockAllocator::GetTotalFreeBytes() const
 
 void BlockAllocator::DoState(PointerWrap &p)
 {
-	auto s = p.Section("BlockAllocator", 1);
+	// v2: compact per-block form — no per-block Section and no per-save tag
+	// re-zeroing (tags are zero-padded at write time now). v1 states still
+	// load through the old form.
+	auto s = p.Section("BlockAllocator", 1, 2);
 	if (!s)
 		return;
 
+	const bool compact = s >= 2;
 	int count = 0;
 
 	if (p.mode == p.MODE_READ)
@@ -445,14 +449,14 @@ void BlockAllocator::DoState(PointerWrap &p)
 		Do(p, count);
 
 		bottom_ = new Block(0, 0, false, NULL, NULL);
-		bottom_->DoState(p);
+		bottom_->DoState(p, compact);
 		--count;
 
 		top_ = bottom_;
 		for (int i = 0; i < count; ++i)
 		{
 			top_->next = new Block(0, 0, false, top_, NULL);
-			top_->next->DoState(p);
+			top_->next->DoState(p, compact);
 			top_ = top_->next;
 		}
 	}
@@ -463,13 +467,13 @@ void BlockAllocator::DoState(PointerWrap &p)
 			++count;
 		Do(p, count);
 
-		bottom_->DoState(p);
+		bottom_->DoState(p, compact);
 		--count;
 
 		Block *last = bottom_;
 		for (int i = 0; i < count; ++i)
 		{
-			last->next->DoState(p);
+			last->next->DoState(p, compact);
 			last = last->next;
 		}
 	}
@@ -482,19 +486,31 @@ void BlockAllocator::DoState(PointerWrap &p)
 BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
 : start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
 {
+	// Zero the whole tag up front so serialization can store it raw without
+	// a per-save strlen+memset (see the compact DoState form).
+	memset(tag, 0, sizeof(tag));
 	truncate_cpy(tag, "(untitled)");
 }
 
 void BlockAllocator::Block::SetAllocated(const char *_tag, bool suballoc) {
 	NotifyMemInfo(suballoc ? MemBlockFlags::SUB_ALLOC : MemBlockFlags::ALLOC, start, size, _tag ? _tag : "");
+	memset(tag, 0, sizeof(tag));
 	if (_tag)
 		truncate_cpy(tag, _tag);
 	else
 		truncate_cpy(tag, "---");
 }
 
-void BlockAllocator::Block::DoState(PointerWrap &p)
+void BlockAllocator::Block::DoState(PointerWrap &p, bool compact)
 {
+	if (compact) {
+		Do(p, start);
+		Do(p, size);
+		Do(p, taken);
+		DoArray(p, tag, sizeof(tag));
+		return;
+	}
+
 	auto s = p.Section("Block", 1);
 	if (!s)
 		return;
