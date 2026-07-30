@@ -127,14 +127,7 @@ void ScreenManager::update() {
 		overlayScreen_->update();
 	}
 
-	// Only the front screen gets update().
-	if (!stack_.empty()) {
-		stack_.back().screen->update();
-		passInputToMapper_ = stack_.back().screen->PassInputToMapper();
-	}
-
 	// Process queued events.
-
 	std::deque<QueuedEvent> events;
 	{
 		std::lock_guard<std::mutex> eventGuard(eventQueueLock_);
@@ -191,6 +184,13 @@ void ScreenManager::update() {
 			ERROR_LOG(Log::UI, "Unknown queued event type: %d", (int)ev.type);
 			break;
 		}
+	}
+
+	// Only the front screen gets update().
+	if (!stack_.empty()) {
+		Screen *backScreen = stack_.back().screen;
+		backScreen->update();
+		passInputToMapper_ = backScreen->PassInputToMapper();
 	}
 }
 
