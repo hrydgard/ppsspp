@@ -1293,7 +1293,13 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	}
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPSaveDialog", 1, 2);
+	// Version 3 activates the s > 2 branch below, so ioThreadStatus survives
+	// a savestate. Safe to restore: the IO thread was joined above, so the
+	// value is only ever SAVEIO_NONE or SAVEIO_DONE, and the operation's
+	// effects are already part of the serialized state. Without this, loading
+	// a state taken while a savedata operation was in flight would restart
+	// the operation instead of resuming from its recorded status.
+	auto s = p.Section("PSPSaveDialog", 1, 3);
 	if (!s) {
 		return;
 	}
