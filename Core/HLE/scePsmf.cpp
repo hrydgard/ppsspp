@@ -701,6 +701,18 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	if (p.mode == p.MODE_READ) {
+		// The map serializer deletes every existing host PsmfPlayer before
+		// loading. ~PsmfPlayer -> AbortFinish() deletes its helper thread
+		// without Forget(), mutating the freshly restored kernel state with
+		// stale ids/blocks from before the load (see the matching fix in
+		// __UtilityDoState). Forget the helpers first; the kernel-side
+		// objects belong to the restored state, not to these host wrappers.
+		for (auto &it : psmfPlayerMap) {
+			if (it.second && it.second->finishThread)
+				it.second->finishThread->Forget();
+		}
+	}
 	Do(p, psmfPlayerMap);
 	Do(p, videoPixelMode);
 	Do(p, videoLoopStatus);
