@@ -1429,7 +1429,7 @@ static int sceUtilityGameSharingUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogError(Log::sceUtility, 0, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 static int sceUtilityGameSharingGetStatus() {
@@ -1441,30 +1441,21 @@ static int sceUtilityGameSharingGetStatus() {
 	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceUtilityLoadUsbModule(u32 module)
-{
-	if (module < 1 || module > 5)
-	{
-		ERROR_LOG(Log::sceUtility, "sceUtilityLoadUsbModule(%i): invalid module id", module);
+static u32 sceUtilityLoadUsbModule(u32 module) {
+	if (module < 1 || module > 5) {
+		return hleLogError(Log::sceUtility, 0, "invalid module id");
 	}
-
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceUtilityUnloadUsbModule(u32 module)
-{
-	if (module < 1 || module > 5)
-	{
-		ERROR_LOG(Log::sceUtility, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
+static u32 sceUtilityUnloadUsbModule(u32 module) {
+	if (module < 1 || module > 5) {
+		return hleLogError(Log::sceUtility, 0, "invalid module id");
 	}
-
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
-const HLEFunction sceUtility[] =
-{
+const HLEFunction sceUtility[] = {
 	{0X1579A159, &WrapU_U<sceUtilityLoadNetModule>,                "sceUtilityLoadNetModule",                'x', "x"  },
 	{0X64D50C56, &WrapU_U<sceUtilityUnloadNetModule>,              "sceUtilityUnloadNetModule",              'x', "x"  },
 
