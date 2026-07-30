@@ -334,18 +334,19 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 void GamePauseScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
 
-	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
-		TriggerFinish(DR_BACK);
-	}
 	UIBaseDialogScreen::update();
-
-	firstFrame_ = false;
 
 	{
 		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
+		if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
+			finishNextFrame_ = true;
+			finishNextFrameResult_ = DR_BACK;
+		}
+		firstFrame_ = false;
 		if (finishNextFrame_) {
 			TriggerFinish(finishNextFrameResult_);
 			finishNextFrame_ = false;
+			finishNextFrameResult_ = DR_BACK;
 		}
 	}
 
@@ -828,6 +829,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 		if (dr == DR_OK) {
 			std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 			finishNextFrame_ = true;
+			finishNextFrameResult_ = DR_BACK;
 		} else if (dr != DR_CANCEL && dr != DR_BACK) {
 			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.
 			SaveState::Rescan(saveStatePrefix_);
