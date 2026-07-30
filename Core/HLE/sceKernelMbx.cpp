@@ -560,12 +560,69 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr) {
 	if (!info.IsValid())
 		return hleLogError(Log::sceKernel, -1, "invalid pointer");
 
-	u32 packet = m->nmb.packetListHead;
+	// The PSP's ReferMbxStatus doesn't just read packetListHead — it traverses
+	// the linked list and *updates* firstMessage to handle test programs that
+	// corrupt the kernel-managed ->next pointers in PSP memory. This behavior
+	// was confirmed from pspautotests expected output.
+	//
+	// The mailbox uses a circular linked list of NativeMbxPacket nodes:
+	//   head -> msg1 -> msg2 -> ... -> msgN -> head
+	// A single message points to itself (head -> msg -> msg).
+	// numMessages tracks the intended count separately from the chain.
+	//
+	// Three corruption patterns are handled:
+	//
+	// 1. NULL in the chain (msgK->next = 0):
+	//    The list is broken. The PSP sets firstMessage = NULL.
+	//    count stays unchanged (kernel owns it, user can't modify it).
+	//
+	// 2. Self-pointer with count mismatch (msgK->next = msgK, N > 1):
+	//    The test set a message's next to itself. The PSP detects this and
+	//    sets firstMessage = that message. Subsequent ReceiveMessage calls
+	//    then find a self-pointer where count > 1 and return PSP_MBX_ERROR_DUPLICATE_MSG.
+	//
+	// 3. Extra nodes beyond count (count=N but chain has M > N nodes):
+	//    The count-bound walk doesn't return to the original head. The PSP
+	//    keeps walking until it finds the node whose ->next == original_head
+	//    (the wrap point), then sets firstMessage = that node.
+	//    This happens when test code manually splices extra messages into the
+	//    circular chain after a normal sceKernelSendMbx (which only tracks
+	//    count of kernel-sent messages but writes ->next into PSP memory).
+	u32 head = m->nmb.packetListHead;
+	u32 packet = head;
 	for (int i = 0, n = m->nmb.numMessages; i < n; ++i) {
 		if (packet == 0 || !Memory::IsValidAddress(packet)) {
-			return hleLogError(Log::sceKernel, -1, "invalid packet list head");
+			m->nmb.packetListHead = 0;
+			packet = 0;
+			break;
 		}
-		packet = Memory::ReadUnchecked_U32(packet);
+		u32 next = Memory::ReadUnchecked_U32(packet);
+		if (next == 0) {
+			m->nmb.packetListHead = 0;
+			packet = 0;
+			break;
+		}
+		if (next == packet) {
+			if (n > 1)
+				m->nmb.packetListHead = packet;
+			break;
+		}
+		packet = next;
+	}
+	if (packet != 0 && packet != head) {
+		// At most numMessages more steps to complete the circle back to head.
+		for (int i = 0, n = m->nmb.numMessages; i < n; ++i) {
+			if (packet == 0 || !Memory::IsValidAddress(packet))
+				break;
+			u32 next = Memory::ReadUnchecked_U32(packet);
+			if (next == head) {
+				m->nmb.packetListHead = packet;
+				break;
+			}
+			if (next == 0 || next == packet)
+				break;
+			packet = next;
+		}
 	}
 
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_MBX, id, m->waitingThreads);

@@ -45,6 +45,10 @@ when making cross platform changes.
 New unit tests are added by listing them in availableTests in unittest.cpp. If they are large, put them in
 separate files in the unittest subdirectory. Remember to update both CMakeLists.txt and the visual studio project.
 
+pspautotests are a large set of tests of the PSP OS's API surface, and thus tests our HLE implementation.
+
+See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
+
 ## Adding HLE modules
 
 HLE module implementations live in `Core/HLE/sce<ModuleName>.cpp` / `.h` (e.g. `sceOpenPSID.cpp`, `scePauth.cpp` are good

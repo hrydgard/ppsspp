@@ -944,10 +944,10 @@ static const KeyValue tree_REGISTRY[] = {
 
 // There might be more categories.
 const KeyValue ROOT[] = {
+	{ "REGISTRY", ValueType::DIR, "", ARRAY_SIZE(tree_REGISTRY), tree_REGISTRY },
+	{ "CONFIG", ValueType::DIR, "", ARRAY_SIZE(tree_CONFIG), tree_CONFIG },
 	{ "DATA", ValueType::DIR, "", ARRAY_SIZE(tree_DATA), tree_DATA },
 	{ "SYSPROFILE", ValueType::DIR, "", ARRAY_SIZE(tree_SYSPROFILE), tree_SYSPROFILE },
-	{ "CONFIG", ValueType::DIR, "", ARRAY_SIZE(tree_CONFIG), tree_CONFIG },
-	{ "REGISTRY", ValueType::DIR, "", ARRAY_SIZE(tree_REGISTRY), tree_REGISTRY },
 };
 
 // Updater checks for CONFIG/SYSTEM/XMB.
@@ -1308,7 +1308,8 @@ int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 si
 			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
 			return hleLogInfo(Log::sceReg, 0, "value: '%s'", keyval.strValue);
 		case ValueType::INT:
-			Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
+			if (size >= sizeof(u32))
+				Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
 			return hleLogInfo(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
 		case ValueType::DIR:
 		case ValueType::FAIL:
@@ -1332,6 +1333,48 @@ int sceRegRemoveKey(int catHandle, int key) {
 	return hleLogError(Log::sceReg, 0);
 }
 
+int sceRegGetCategoryNumAtRoot(int regHandle, u32 numCategoriesPtr) {
+	if (regHandle != 0) {
+		return hleLogError(Log::sceReg, 0, "Not found");
+	}
+
+	constexpr int numCategories = ARRAY_SIZE(ROOT);
+	static_assert(numCategories == 4);
+
+	if (!Memory::IsValid4AlignedAddress(numCategoriesPtr)) {
+		return hleLogError(Log::sceReg, -1, "Invalid pointer");
+	}
+
+	Memory::WriteUnchecked_U32(numCategories, numCategoriesPtr);
+	return hleLogInfo(Log::sceReg, 0);
+}
+
+int sceRegGetCategoryListAtRoot(int regHandle, u32 bufPtr, int numCategories) {
+	if (regHandle != 0) {
+		return hleLogError(Log::sceReg, 0, "Not found");
+	}
+
+	if (numCategories > ARRAY_SIZE(ROOT)) {
+		WARN_LOG(Log::sceReg, "numCategories too large");
+		numCategories = ARRAY_SIZE(ROOT);
+	}
+
+	if (!Memory::IsValidRange(bufPtr, numCategories * 27)) {
+		return hleLogError(Log::sceReg, -1, "bad output addr");
+	}
+
+	for (int i = 0; i < numCategories; i++) {
+		const KeyValue &kv = ROOT[i];
+		_dbg_assert_msg_(kv.type == ValueType::DIR, "Unexpected non-dir in ROOT");
+		char *dest = (char *)Memory::GetPointerWrite(bufPtr + i * 27);
+		if (dest) {
+			strncpy(dest, kv.name.c_str(), 27);
+		}
+	}
+
+	return hleLogInfo(Log::sceReg, 0);
+}
+
 const HLEFunction sceReg[] = {
 	{ 0x92E41280, &WrapI_UIU<sceRegOpenRegistry>, "sceRegOpenRegistry", 'i', "xix" },
 	{ 0xFA8A5739, &WrapI_I<sceRegCloseRegistry>, "sceRegCloseRegistry", 'i', "i" },
@@ -1351,9 +1394,8 @@ const HLEFunction sceReg[] = {
 	{ 0x4CA16893, &WrapI_IC<sceRegRemoveCategory>, "sceRegRemoveCategory", 'i', "i" },
 	{ 0x3615BC87, &WrapI_II<sceRegRemoveKey>, "sceRegRemoveKey", 'i', "ii" },
 	{ 0x9B25EDF1, nullptr, "sceRegExit", 'i', "i" },
-	// TODO: Add test for these.
-	{ 0xBE8C1263, nullptr, "sceRegGetCategoryNumAtRoot", 'i', "ii" },
-	{ 0x835ECE6F, nullptr, "sceRegGetCategoryListAtRoot", 'i', "ipi" },
+	{ 0xBE8C1263, &WrapI_IU<sceRegGetCategoryNumAtRoot>, "sceRegGetCategoryNumAtRoot", 'i', "ii" },
+	{ 0x835ECE6F, &WrapI_IUI<sceRegGetCategoryListAtRoot>, "sceRegGetCategoryListAtRoot", 'i', "ipi" },
 };
 
 void Register_sceReg() {
