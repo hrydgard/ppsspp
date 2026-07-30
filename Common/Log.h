@@ -32,6 +32,7 @@
 // NOTE: Needs to be kept in sync with the g_logTypeNames array.
 enum class Log {
 	System = 0,  // Catch-all for uncategorized things
+	Config,
 	Boot,
 	Common,
 	CPU,

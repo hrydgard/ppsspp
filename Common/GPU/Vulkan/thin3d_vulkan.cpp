@@ -918,6 +918,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	// Make sure that the surface has been initialized.
 	_dbg_assert_(vulkan->GetAvailablePresentModes().size() > 0);
 
+	caps_.fragmentShaderFullPrecisionFloat = true;
 	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
