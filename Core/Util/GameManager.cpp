@@ -51,6 +51,7 @@
 #include "Core/System.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Util/RecentFiles.h"
 #include "Common/Data/Text/I18n.h"
 
@@ -630,7 +631,14 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
+	// Reject any entry whose path contains a parent-directory ("..") component.
+	// Without this, a crafted zip could write files outside the destination
+	// directory (Zip Slip).
 	auto fileAllowed = [&](const char *fn) {
+		if (HasParentDirComponent(fn)) {
+			INFO_LOG(Log::HLE, "Skipping file %s due to parent directory component", fn);
+			return false;
+		}
 		if (!allowRoot && strchr(fn, '/') == 0) {
 			INFO_LOG(Log::HLE, "Skipping file %s in root of zip (allowRoot == false)", fn);
 			return false;
@@ -656,6 +664,11 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
 		if (zippedName.length() < (size_t)info.stripChars) {
+			continue;
+		}
+		// Skip entries that we'd reject when writing, so we don't create
+		// directories for them either (e.g. ones with parent dir components).
+		if (!fileAllowed(fn)) {
 			continue;
 		}
 		Path outFilename = dest / zippedName.substr(info.stripChars);

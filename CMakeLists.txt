@@ -1389,6 +1389,8 @@ if(UNITTEST)
 		unittest/TestX64Emitter.cpp
 		unittest/TestVertexJit.cpp
 		unittest/TestVFS.cpp
+		unittest/TestZipSlip.cpp
+		unittest/TestLzrc.cpp
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestSoftwareGPUJit.cpp

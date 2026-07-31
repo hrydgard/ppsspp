@@ -543,7 +543,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	// Calc SFO hash for PSP.
 	if (cryptedData != 0 || (subWrite && wasCrypted)) {
-		int offset = sfoFile->GetDataOffset(sfoData, "SAVEDATA_PARAMS");
+		int offset = sfoFile->GetDataOffset(sfoData, sfoSize, "SAVEDATA_PARAMS");
 		if (offset >= 0)
 			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
 	}

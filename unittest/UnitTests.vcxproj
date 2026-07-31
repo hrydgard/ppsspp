@@ -292,9 +292,11 @@
     <ClCompile Include="TestRiscVEmitter.cpp" />
     <ClCompile Include="TestShaderGenerators.cpp" />
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
+    <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="TestVFS.cpp" />
+    <ClCompile Include="TestZipSlip.cpp" />
     <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="TestArmEmitter.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>

@@ -66,73 +66,6 @@ private:
 	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false) const;
 	Path GetLocalPath(std::string_view localpath) const;
 
-	typedef void *HandlerLibrary;
-	typedef int HandlerHandle;
-	typedef s64 HandlerOffset;
-	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
-
-	static void HandlerLogger(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
-
-	// The primary purpose of handlers is to make it easier to work with large archives.
-	// However, they have other uses as well, such as patching individual files.
-	struct Handler {
-		Handler(const char *filename, VirtualDiscFileSystem *const sys);
-		~Handler();
-
-		typedef bool (*InitFunc)(HandlerLogFunc logger, void *loggerArg);
-		typedef void (*ShutdownFunc)();
-		typedef void (*ShutdownV2Func)(void *loggerArg);
-		typedef HandlerHandle (*OpenFunc)(const char *basePath, const char *filename);
-		typedef HandlerOffset (*SeekFunc)(HandlerHandle handle, HandlerOffset offset, FileMove origin);
-		typedef HandlerOffset (*ReadFunc)(HandlerHandle handle, void *data, HandlerOffset size);
-		typedef void (*CloseFunc)(HandlerHandle handle);
-		typedef int (*VersionFunc)();
-
-		HandlerLibrary library;
-		VirtualDiscFileSystem *const sys_;
-		InitFunc Init;
-		ShutdownFunc Shutdown;
-		ShutdownV2Func ShutdownV2;
-		OpenFunc Open;
-		SeekFunc Seek;
-		ReadFunc Read;
-		CloseFunc Close;
-
-		bool IsValid() const { return library != nullptr; }
-	};
-
-	struct HandlerFileHandle {
-		Handler *handler;
-		HandlerHandle handle;
-
-		HandlerFileHandle() : handler(nullptr), handle(0) {}
-		HandlerFileHandle(Handler *handler_) : handler(handler_), handle(-1) {}
-
-		bool Open(const std::string& basePath, const std::string& fileName, FileAccess access) {
-			// Ignore access, read only.
-			handle = handler->Open(basePath.c_str(), fileName.c_str());
-			return handle > 0;
-		}
-		size_t Read(u8 *data, s64 size) {
-			return (size_t)handler->Read(handle, data, size);
-		}
-		size_t Seek(s32 position, FileMove type) {
-			return (size_t)handler->Seek(handle, position, type);
-		}
-		void Close() {
-			handler->Close(handle);
-		}
-
-		bool IsValid() {
-			return handler != nullptr && handler->IsValid();
-		}
-
-		HandlerFileHandle &operator =(Handler *_handler) {
-			handler = _handler;
-			return *this;
-		}
-	};
-
 	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
 
 	struct OpenFileEntry {
@@ -142,7 +75,6 @@ private:
 		}
 
 		DirectoryFileHandle hFile;
-		HandlerFileHandle handler;
 		VirtualFileType type = VFILETYPE_NORMAL;
 		u32 fileIndex = 0;
 		u64 curOffset = 0;
@@ -152,32 +84,16 @@ private:
 		bool Open(const Path &basePath, std::string& fileName, FileAccess access) {
 			// Ignored, we're read only.
 			u32 err;
-			if (handler.IsValid()) {
-				return handler.Open(basePath.ToString(), fileName, access);
-			} else {
-				return hFile.Open(basePath, fileName, access, err);
-			}
+			return hFile.Open(basePath, fileName, access, err);
 		}
 		size_t Read(u8 *data, s64 size) {
-			if (handler.IsValid()) {
-				return handler.Read(data, size);
-			} else {
-				return hFile.Read(data, size);
-			}
+			return hFile.Read(data, size);
 		}
 		size_t Seek(s32 position, FileMove type) {
-			if (handler.IsValid()) {
-				return handler.Seek(position, type);
-			} else {
-				return hFile.Seek(position, type);
-			}
+			return hFile.Seek(position, type);
 		}
 		void Close() {
-			if (handler.IsValid()) {
-				return handler.Close();
-			} else {
-				return hFile.Close();
-			}
+			return hFile.Close();
 		}
 	};
 
@@ -191,12 +107,9 @@ private:
 		std::string fileName;
 		u32 firstBlock;
 		u32 totalSize;
-		Handler *handler;
 	};
 
 	std::vector<FileListEntry> fileList;
 	u32 currentBlockIndex;
 	u32 lastReadBlock_;
-
-	std::map<std::string, Handler *> handlers;
 };
