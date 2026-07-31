@@ -40,9 +40,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <ctype.h>
-#if !PPSSPP_PLATFORM(SWITCH)
-#include <dlfcn.h>
-#endif
 #endif
 
 const std::string INDEX_FILENAME = ".ppsspp-index.lst";
@@ -58,9 +55,6 @@ VirtualDiscFileSystem::~VirtualDiscFileSystem() {
 		if (iter->second.type != VFILETYPE_ISO) {
 			iter->second.Close();
 		}
-	}
-	for (auto iter = handlers.begin(), end = handlers.end(); iter != end; ++iter) {
-		delete iter->second;
 	}
 }
 
@@ -107,39 +101,13 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 			filename_pos++;
 		}
 
-		// Check if there's a handler specified.
-		size_t handler_pos = line.find(':', filename_pos);
-		if (handler_pos != line.npos) {
-			entry.fileName = line.substr(filename_pos, handler_pos - filename_pos);
-
-			std::string handler = line.substr(handler_pos + 1);
-			size_t trunc = handler.find_last_not_of("\r\n");
-			if (trunc != handler.npos && trunc != handler.size())
-				handler.resize(trunc + 1);
-
-			if (handlers.find(handler) == handlers.end())
-				handlers[handler] = new Handler(handler.c_str(), this);
-			if (handlers[handler]->IsValid())
-				entry.handler = handlers[handler];
-		} else {
-			entry.fileName = line.substr(filename_pos);
-		}
+		entry.fileName = line.substr(filename_pos);
 		size_t trunc = entry.fileName.find_last_not_of("\r\n");
 		if (trunc != entry.fileName.npos && trunc != entry.fileName.size())
 			entry.fileName.resize(trunc + 1);
 
 		entry.firstBlock = (u32)strtol(line.c_str(), NULL, 16);
-		if (entry.handler != NULL && entry.handler->IsValid()) {
-			HandlerFileHandle temp = entry.handler;
-			if (temp.Open(basePath.ToString(), entry.fileName, FILEACCESS_READ)) {
-				entry.totalSize = (u32)temp.Seek(0, FILEMOVE_END);
-				temp.Close();
-			} else {
-				ERROR_LOG(Log::FileSystem, "Unable to open virtual file: %s", entry.fileName.c_str());
-			}
-		} else {
-			entry.totalSize = File::GetFileSize(GetLocalPath(entry.fileName));
-		}
+		entry.totalSize = File::GetFileSize(GetLocalPath(entry.fileName));
 
 		// Try to keep currentBlockIndex sane, in case there are other files.
 		u32 nextBlock = entry.firstBlock + (entry.totalSize + 2047) / 2048;
@@ -194,10 +162,6 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 
 			// open file
 			if (of.type != VFILETYPE_ISO) {
-				if (fileList[of.fileIndex].handler != NULL) {
-					of.handler = fileList[of.fileIndex].handler;
-				}
-
 				bool success = of.Open(basePath, fileList[of.fileIndex].fileName, FILEACCESS_READ);
 				if (!success) {
 					ERROR_LOG(Log::FileSystem, "Failed to create file handle for %s.", fileList[of.fileIndex].fileName.c_str());
@@ -332,19 +296,15 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		entry.size = readSize;
 
 		int fileIndex = getFileListIndex(sectorStart,readSize);
-		if (fileIndex == -1)
-		{
+		if (fileIndex == -1) {
 			ERROR_LOG(Log::FileSystem, "VirtualDiscFileSystem: sce_lbn used without calling fileinfo.");
 			return 0;
 		}
 		entry.fileIndex = (u32)fileIndex;
 
-		entry.startOffset = (sectorStart-fileList[entry.fileIndex].firstBlock)*2048;
+		entry.startOffset = (sectorStart-fileList[entry.fileIndex].firstBlock) * 2048;
 
 		// now we just need an actual file handle
-		if (fileList[entry.fileIndex].handler != NULL) {
-			entry.handler = fileList[entry.fileIndex].handler;
-		}
 		bool success = entry.Open(basePath, fileList[entry.fileIndex].fileName, FILEACCESS_READ);
 
 		if (!success) {
@@ -370,9 +330,6 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	entry.type = VFILETYPE_NORMAL;
 	entry.fileIndex = getFileListIndex(filename);
 
-	if (entry.fileIndex != (u32)-1 && fileList[entry.fileIndex].handler != NULL) {
-		entry.handler = fileList[entry.fileIndex].handler;
-	}
 	bool success = entry.Open(basePath, filename, (FileAccess)(access & FILEACCESS_PSP_FLAGS));
 
 	if (!success) {
@@ -461,9 +418,6 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &u
 			}
 
 			OpenFileEntry temp(Flags());
-			if (fileList[fileIndex].handler != NULL) {
-				temp.handler = fileList[fileIndex].handler;
-			}
 			bool success = temp.Open(basePath, fileList[fileIndex].fileName, FILEACCESS_READ);
 
 			if (!success)
@@ -571,22 +525,6 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	}
 
 	int fileIndex = getFileListIndex(filename);
-	if (fileIndex != -1 && fileList[fileIndex].handler != NULL) {
-		x.type = FILETYPE_NORMAL;
-		x.isOnSectorSystem = true;
-		x.startSector = fileList[fileIndex].firstBlock;
-		x.access = 0555;
-
-		HandlerFileHandle temp = fileList[fileIndex].handler;
-		if (temp.Open(basePath.ToString(), filename, FILEACCESS_READ)) {
-			x.exists = true;
-			x.size = temp.Seek(0, FILEMOVE_END);
-			temp.Close();
-		}
-
-		// TODO: Probably should include dates or something...
-		return x;
-	}
 
 	Path fullName = GetLocalPath(filename);
 	if (!File::Exists(fullName)) {
@@ -799,89 +737,3 @@ bool VirtualDiscFileSystem::RemoveFile(const std::string &filename)
 	ERROR_LOG(Log::FileSystem,"VirtualDiscFileSystem: Cannot remove file on virtual disc");
 	return false;
 }
-
-void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogLevel level, const char *msg) {
-	VirtualDiscFileSystem *sys = static_cast<VirtualDiscFileSystem *>(arg);
-
-	// TODO: Probably could do this smarter / use a lookup.
-	const char *filename = NULL;
-	for (auto it = sys->entries.begin(), end = sys->entries.end(); it != end; ++it) {
-		if (it->second.fileIndex != (u32)-1 && it->second.handler.handle == handle) {
-			filename = sys->fileList[it->second.fileIndex].fileName.c_str();
-			break;
-		}
-	}
-
-	if (filename != NULL) {
-		GENERIC_LOG(Log::FileSystem, level, "%s: %s", filename, msg);
-	} else {
-		GENERIC_LOG(Log::FileSystem, level, "%s", msg);
-	}
-}
-
-VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys)
-: sys_(sys) {
-#if !PPSSPP_PLATFORM(SWITCH)
-#ifdef _WIN32
-#if PPSSPP_PLATFORM(UWP)
-#define dlopen(name, ignore) (void *)LoadPackagedLibrary(ConvertUTF8ToWString(name).c_str(), 0)
-#define dlsym(mod, name) GetProcAddress((HMODULE)mod, name)
-#define dlclose(mod) FreeLibrary((HMODULE)mod)
-#else
-#define dlopen(name, ignore) (void *)LoadLibrary(ConvertUTF8ToWString(name).c_str())
-#define dlsym(mod, name) GetProcAddress((HMODULE)mod, name)
-#define dlclose(mod) FreeLibrary((HMODULE)mod)
-#endif
-#endif
-
-	library = dlopen(filename, RTLD_LOCAL | RTLD_NOW);
-	if (library != NULL) {
-		Init = (InitFunc)dlsym(library, "Init");
-		Shutdown = (ShutdownFunc)dlsym(library, "Shutdown");
-		Open = (OpenFunc)dlsym(library, "Open");
-		Seek = (SeekFunc)dlsym(library, "Seek");
-		Read = (ReadFunc)dlsym(library, "Read");
-		Close = (CloseFunc)dlsym(library, "Close");
-
-		VersionFunc Version = (VersionFunc)dlsym(library, "Version");
-		if (Version && Version() >= 2) {
-			ShutdownV2 = (ShutdownV2Func)Shutdown;
-		}
-
-		if (!Init || !Shutdown || !Open || !Seek || !Read || !Close) {
-			ERROR_LOG(Log::FileSystem, "Unable to find all handler functions: %s", filename);
-			dlclose(library);
-			library = NULL;
-		} else if (!Init(&HandlerLogger, sys)) {
-			ERROR_LOG(Log::FileSystem, "Unable to initialize handler: %s", filename);
-			dlclose(library);
-			library = NULL;
-		}
-	} else {
-		ERROR_LOG(Log::FileSystem, "Unable to load handler '%s': %s", filename, GetLastErrorMsg().c_str());
-	}
-#ifdef _WIN32
-#undef dlopen
-#undef dlsym
-#undef dlclose
-#endif
-#endif
-}
-
-VirtualDiscFileSystem::Handler::~Handler() {
-	if (library != NULL) {
-		if (ShutdownV2)
-			ShutdownV2(sys_);
-		else
-			Shutdown();
-
-#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
-#ifdef _WIN32
-		FreeLibrary((HMODULE)library);
-#else
-		dlclose(library);
-#endif
-#endif
-	}
-}
-
