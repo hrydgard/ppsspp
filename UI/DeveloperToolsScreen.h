@@ -40,6 +40,7 @@ private:
 	void OnGPUDriverTest(UI::EventParams &e);
 	void OnMemstickTest(UI::EventParams &e);
 	void OnCopyStatesToRoot(UI::EventParams &e);
+	void OnSaveButtonsTexture(UI::EventParams &e);
 
 	void MemoryMapTest();
 

@@ -580,6 +580,14 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *smartFiltering = graphicsSettings->Add(new CheckBox(&g_Config.bSmart2DTexFiltering, gr->T("Smart 2D texture filtering")));
 	smartFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	// UI button image sharpening for downscaled PNG overrides.
+	CheckBox *uiButtonSharpen = graphicsSettings->Add(new CheckBox(&g_Config.bUIButtonSharpen, gr->T("Sharpen downscaled UI button images")));
+	uiButtonSharpen->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	static const char *uiDownscaleFilters[] = { "Linear", "Bicubic", "Hybrid (area+sharpen)" };
+	PopupMultiChoice *uiDownscaleFilterChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iUIButtonDownscaleFilter, gr->T("UI button downscale filter"), uiDownscaleFilters, 2, ARRAY_SIZE(uiDownscaleFilters), I18NCat::GRAPHICS, screenManager()));
+	uiDownscaleFilterChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
 #else

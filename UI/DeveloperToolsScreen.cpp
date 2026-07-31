@@ -46,6 +46,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/IconCache.h"
 #include "UI/MiscViews.h"
+#include "UI/UIAtlas.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -91,7 +92,13 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
-	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+	CheckBox *replaceTextures = list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+	replaceTextures->OnClick.Add([this](UI::EventParams &) {
+		if (UIContext *ctx = screenManager()->getUIContext()) {
+			ctx->InvalidateAtlas();
+		}
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+	});
 
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
@@ -126,6 +133,8 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	static const char *texLoadSpeeds[] = { "Slow (smooth)", "Medium", "Fast", "Instant (may stutter)" };
 	PopupMultiChoice *texLoadSpeed = list->Add(new PopupMultiChoice(&g_Config.iReplacementTextureLoadSpeed, dev->T("Replacement texture load speed"), texLoadSpeeds, 0, ARRAY_SIZE(texLoadSpeeds), I18NCat::DEVELOPER, screenManager()));
 	texLoadSpeed->SetChoiceIcon(3, ImageID("I_WARNING"));
+
+	list->Add(new Choice(dev->T("Save buttons texture")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveButtonsTexture);
 }
 
 void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
@@ -237,6 +246,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 0.0f, "copyToClip");
 		}
 	});
+
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
@@ -730,6 +740,15 @@ void DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	}
 	// Persist the setting.  Maybe should separate?
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+}
+
+void DeveloperToolsScreen::OnSaveButtonsTexture(UI::EventParams &e) {
+	int dumped = DumpButtonsPNGsToSystem();
+	if (dumped > 0) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Buttons texture saved", StringFromFormat("Saved %d files to PSP/TEXTURES/<GAMEID>/new", dumped), 4.0f, "buttons_png_dump");
+	} else {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Save buttons texture failed", "Could not save PNG files from buttons.svg", 4.0f, "buttons_png_dump");
+	}
 }
 
 void DeveloperToolsScreen::OnMIPSTracerEnabled(UI::EventParams &e) {
