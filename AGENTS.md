@@ -17,7 +17,16 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
 ## Build and Validation
 
 To verify that things build on Linux/Mac, use ./b.sh --debug. For Windows, use the Visual Studio solution in the Windows subdirectory.
-Do not run unit test (I will add instructions for how to run them later).
+
+In addition to the pspautotests runner (test.py), there is a separate binary with C++ unit tests
+in the /unittest subdirectory. After substantial changes (at the end of a chunk of work, not
+necessarily after every edit), run these too:
+
+- Windows: build the `UnitTest` project (unittest/UnitTests.vcxproj), then run `Windows/x64/Debug/UnitTest.exe all`
+- Linux/Mac: configure with `-DUNITTEST=ON`, then run `build/PPSSPPUnitTest all`
+
+This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run a single test by
+passing its name instead of `all`; no arguments lists the available tests.
 
 ## Multiplatform considerations
 
