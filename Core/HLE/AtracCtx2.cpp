@@ -949,9 +949,13 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 					info.curBuffer = 1;
 					info.streamDataByte = info.secondBufferByte;
 					info.secondStreamOff = 0;
+					// Clamp the copy to the main buffer size; sampleSize is file-derived and could be larger.
+					size_t copyLen = info.secondBufferByte % info.sampleSize;
+					if (copyLen > info.bufferByte)
+						copyLen = info.bufferByte;
 					memcpy(Memory::GetPointerWrite(info.buffer),
 						Memory::GetPointer(info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize)),
-						info.secondBufferByte % info.sampleSize);
+						copyLen);
 				}
 			}
 		}
