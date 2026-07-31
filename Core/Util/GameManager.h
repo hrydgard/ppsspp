@@ -88,10 +88,11 @@ public:
 	// Separate kind of functionality from InstallZipOnThread, so doesn't re-use the task struct.
 	bool UninstallGameOnThread(const std::string &name);
 
+	// Extracts the contents of an open zip archive into dest. Exposed for testing.
+	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot);
+
 private:
 	void InstallZipContents(ZipFileTask task);
-
-	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot);
 	bool InstallMemstickZip(const Path &zipFile, const Path &dest, const ZipFileInfo &info);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &destDir);
 	void UninstallGame(const std::string &name);

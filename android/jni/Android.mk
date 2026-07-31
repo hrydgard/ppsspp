@@ -1042,6 +1042,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
     $(SRC)/unittest/TestVFS.cpp \
+    $(SRC)/unittest/TestZipSlip.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp
 
