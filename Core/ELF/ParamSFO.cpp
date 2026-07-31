@@ -129,6 +129,12 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
+	// The index table itself must fit entirely within the buffer before we
+	// can dereference entries; otherwise indexTables[i] reads out of bounds.
+	if (sizeof(Header) + (size_t)header->index_table_entries * sizeof(IndexTable) > size) {
+		return false;
+	}
+
 	if (header->key_table_start > size || header->data_table_start > size) {
 		return false;
 	}
@@ -203,12 +209,20 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	return true;
 }
 
-int ParamSFOData::GetDataOffset(const u8 *paramsfo, const char *dataName) {
+int ParamSFOData::GetDataOffset(const u8 *paramsfo, size_t size, const char *dataName) {
+	if (size < sizeof(Header))
+		return -1;
 	const Header *header = (const Header *)paramsfo;
 	if (header->magic != 0x46535000)
 		return -1;
 	if (header->version != 0x00000101)
 		WARN_LOG(Log::Loader, "Unexpected SFO header version: %08x", header->version);
+
+	// Both the index table and the key/data tables must fit in the buffer.
+	if (sizeof(Header) + (size_t)header->index_table_entries * sizeof(IndexTable) > size)
+		return -1;
+	if (header->key_table_start > size || header->data_table_start > size)
+		return -1;
 
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
@@ -217,7 +231,16 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, const char *dataName) {
 
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
+		size_t key_offset = header->key_table_start + indexTables[i].key_table_offset;
+		if (key_offset >= size)
+			continue;
+		if (data_start + indexTables[i].data_table_offset >= (int)size)
+			continue;
+
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
+		// Ensure the key string is NUL-terminated within the buffer before strcmp.
+		if (strnlen(key, size - key_offset) == size - key_offset)
+			continue;
 		if (!strcmp(key, dataName))
 		{
 			return data_start + indexTables[i].data_table_offset;
