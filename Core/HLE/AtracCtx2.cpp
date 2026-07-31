@@ -1214,6 +1214,15 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
 		DEBUG_LOG(Log::Atrac, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
 
+		// The packet spans two buffers and is reassembled into the fixed
+		// assembly buffer. Bail out if it can't possibly fit there.
+		if ((u32)info.sampleSize > sizeof(assembly)) {
+			ERROR_LOG(Log::Atrac, "SAS packet too large for assembly buffer: %d", info.sampleSize);
+			*bytesWritten = 0;
+			*finish = 1;
+			return;
+		}
+
 		// Compute the part sizes using the current size.
 		int part1Size = sas_.bufSize[sas_.curBuffer] - sas_.streamOffset;
 		int part2Size = info.sampleSize - part1Size;
