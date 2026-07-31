@@ -1391,6 +1391,7 @@ bool TestIRPassSimplify();
 bool TestThreadManager();
 bool TestVFS();
 bool TestZipSlip();
+bool TestLzrc();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1447,6 +1448,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Lang),
 	TEST_ITEM(CmdLine),
 	TEST_ITEM(ZipSlip),
+	TEST_ITEM(Lzrc),
 };
 
 int main(int argc, const char *argv[]) {

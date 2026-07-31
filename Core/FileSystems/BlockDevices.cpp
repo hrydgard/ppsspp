@@ -963,7 +963,9 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	}
 
 	if (table_[block].size < blockSize_) {
-		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
+		// The decompressed block is always blockSize_ bytes; blockBuf_ is exactly
+		// that big. Pass the real size so the decompressor can't write past it.
+		int lzsize = lzrc_decompress(blockBuf_, blockSize_, readBuf, table_[block].size);
 		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();

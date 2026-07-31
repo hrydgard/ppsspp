@@ -45,6 +45,13 @@ Qt/main.cpp
 android/jni/app-android.cpp
 libretro/libretro.cpp
 
+## File formats, codecs, and other format handlers
+
+Before implementing any file format handler, decompressor, codec, or similar from scratch, search the
+codebase first - PPSSPP already has implementations of many formats (CSO, LZRC, zlib-based loaders, ISO
+handlers, PBP, SevenZip, etc.), possibly in several places. Reuse or extend an existing one instead of
+writing a new one (e.g. there is an LZRC decompressor in Core/FileSystems/tlzrc.cpp).
+
 ## Headless and unittest builds
 
 We have additional PPSSPPHeadless and unit test builds (/headless and /unittest), that have their own separate
@@ -80,7 +87,7 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   first three (`Android.mk`/`Makefile.common` are plain compiled-source lists so headers
   don't go in them). Only the CMakeLists.txt change can be verified from a Linux/Mac build - the rest can't be
   build-tested here, so double check them by hand against how an existing neighboring file (e.g. `sceVaudio.cpp`) is
-  listed in each.
+  listed in each. Note: New files in the unittest project have to be updated in the unittest part in android/jni/Android.mk.
 
 ## WebSocket debugger
 
