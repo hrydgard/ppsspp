@@ -1802,7 +1802,7 @@ bool retro_unserialize(const void *data, size_t size)
 
    std::string errorString;
    SaveState::SaveStart state;
-   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
+   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, size, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)

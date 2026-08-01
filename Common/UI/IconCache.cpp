@@ -312,7 +312,7 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 	case IconFormat::PNG:
 	{
 		const std::string &data = entry.data;
-		int result = pngLoadPtr((const unsigned char *)data.data(), data.size(), &width, &height, &buffer);
+		int result = pngLoadPtr((const unsigned char *)data.data(), data.size(), &width, &height, &buffer, 256, 128);
 
 		if (result != 1) {
 			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %.*s", (int)data.size(), STR_VIEW(key));

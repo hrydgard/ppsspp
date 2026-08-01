@@ -290,9 +290,21 @@ public:
 		videoHeight_ = addr[13] * 16;
 
 		const u32 EP_MAP_STRIDE = 1 + 1 + 4 + 4;
-		if (psmf->headerOffset != 0 && !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + EP_MAP_STRIDE * psmf->EPMapEntriesNum)) {
-			ERROR_LOG(Log::ME, "Invalid PSMF EP map entry count: %d", psmf->EPMapEntriesNum);
-			psmf->EPMapEntriesNum = Memory::ClampValidSizeAt(psmf->headerOffset + psmf->EPMapOffset, EP_MAP_STRIDE * psmf->EPMapEntriesNum) / EP_MAP_STRIDE;
+		// Compute in 64-bit so EP_MAP_STRIDE * EPMapEntriesNum can't overflow
+		// and pass a wrapped range check while the loop below still iterates
+		// the unwrapped count.
+		const u64 epMapBytes = EP_MAP_STRIDE * (u64)psmf->EPMapEntriesNum;
+		if (psmf->headerOffset != 0) {
+			if (epMapBytes > 0xFFFFFFFFull - psmf->EPMapOffset || !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + (u32)epMapBytes)) {
+				ERROR_LOG(Log::ME, "Invalid PSMF EP map entry count: %d", psmf->EPMapEntriesNum);
+				psmf->EPMapEntriesNum = Memory::ClampValidSizeAt(psmf->headerOffset + psmf->EPMapOffset, (u32)epMapBytes) / EP_MAP_STRIDE;
+			}
+		} else {
+			// No guest address to validate against (player tempbuf path,
+			// where the buffer is 64KB): cap so the reads below stay in bounds.
+			if (epMapBytes > 0x10000) {
+				psmf->EPMapEntriesNum = 0x10000 / EP_MAP_STRIDE;
+			}
 		}
 
 		psmf->EPMap.clear();

@@ -84,7 +84,14 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 	track->fileSize = Read32(buffer, offset - 8) + 8;
 
 	// Even if the RIFF size is too low, it may simply be incorrect.  This works on real firmware.
+	// But the reads below must stay within mapped guest memory: clamp the
+	// parse bound to the actual mapped region at the buffer, so a crafted,
+	// inflated RIFF size can't push the reads past the end of RAM.
 	u32 maxSize = std::max(track->fileSize, size);
+	const u32 bufferAddr = Memory::GetAddressFromHostPointer(buffer);
+	if (bufferAddr != 0) {
+		maxSize = std::min(maxSize, Memory::MaxSizeAtAddress(bufferAddr));
+	}
 
 	bool bfoundData = false;
 	u32 dataChunkSize = 0;
@@ -374,6 +381,12 @@ int ParseWaveAT3(const u8 *data, u32 dataLength, TrackInfo *track) {
 		if (waveID == RIFF_WAVE_MAGIC) {
 			// We found the WAVE header.
 			break;
+		}
+		// Guard against underflow (blockSize < 4) making the offset negative
+		// and bypassing the loop bounds check, and against advancing past the
+		// end of the buffer.
+		if (blockSize < 4 || (u64)offset + blockSize - 4 > dataLength) {
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		offset += blockSize - 4;
 	}
