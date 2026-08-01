@@ -562,7 +562,7 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	return sfo.GetValueString("DISC_ID");
 }
 
-bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes) {
+bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes, size_t maxTotalSize) {
 	struct zip_stat zstat;
 	zip_stat_index(z, file_index, 0, &zstat);
 	size_t size = zstat.size;
@@ -583,6 +583,16 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 		u8 *buffer = new u8[blockSize];
 		while (pos < size) {
 			size_t readSize = std::min(blockSize, size - pos);
+			// Stop before the total would exceed the limit (zip bomb), even
+			// if the declared sizes in the archive were inaccurate.
+			if (*bytesCopied > maxTotalSize || readSize > maxTotalSize - *bytesCopied) {
+				ERROR_LOG(Log::HLE, "Bailing: zip contents too large, limit %d", (int)maxTotalSize);
+				delete[] buffer;
+				fclose(f);
+				zip_fclose(zf);
+				File::Delete(outFilename);
+				return false;
+			}
 			zip_int64_t retval = zip_fread(zf, buffer, readSize);
 			if (retval < 0 || (size_t)retval < readSize) {
 				ERROR_LOG(Log::HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
@@ -625,7 +635,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 }
 
 // Doesn't care what it is, just extracts the whole ZIP to the requested location.
-bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot) {
+bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, size_t maxTotalSize) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
@@ -659,6 +669,7 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 
 	// Create all the directories first in one pass
 	std::set<Path> createdDirs;
+	std::vector<Path> createdFiles;
 	for (int i = 0; i < info.numFiles; i++) {
 		// Let's count the directories as the first 10%.
 		const char *fn = zip_get_name(z, i, 0);
@@ -688,6 +699,13 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 		if (!isDir && fileAllowed(fn)) {
 			struct zip_stat zstat;
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
+				// Guard against zip bombs: the total declared size must not
+				// exceed the limit. Check before adding to avoid overflow.
+				if (zstat.size > maxTotalSize || allBytes > maxTotalSize - zstat.size) {
+					ERROR_LOG(Log::HLE, "Bailing: zip contents too large (%d bytes), limit %d", (int)allBytes, (int)maxTotalSize);
+					SetInstallError(sy->T("Too large"));
+					goto bail;
+				}
 				allBytes += zstat.size;
 			}
 		}
@@ -697,7 +715,6 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	INFO_LOG(Log::HLE, "Created %d directories", (int)createdDirs.size());
 
 	// Now, loop through again in a second pass, writing files.
-	std::vector<Path> createdFiles;
 	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
@@ -710,7 +727,7 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 			if (isDir)
 				continue;
 
-			if (!ExtractFile(z, i, outFilename, &bytesCopied, allBytes)) {
+			if (!ExtractFile(z, i, outFilename, &bytesCopied, allBytes, maxTotalSize)) {
 				ERROR_LOG(Log::HLE, "Bailing: Failed to extract file: %s -> %s", zippedName.c_str(), outFilename.c_str());
 				goto bail;
 			} else {
