@@ -1547,6 +1547,20 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 		// Get number of fileName in array
 		saveDataListCount = 0;
 		while (saveNameListData[saveDataListCount][0] != 0) {
+			// saveName entries become part of host filesystem paths; reject
+			// path separators and bare dot components (path traversal).
+			const std::string_view entry = StringViewFromFixedSizeField(saveNameListData[saveDataListCount]);
+			bool hasSeparator = false;
+			for (char c : entry) {
+				if (c == '/' || c == '\\') {
+					hasSeparator = true;
+					break;
+				}
+			}
+			if (hasSeparator || entry == "." || entry == "..") {
+				ERROR_LOG(Log::sceUtility, "SavedataParam: invalid saveName in list: %s", std::string(entry).c_str());
+				return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+			}
 			saveDataListCount++;
 		}
 
