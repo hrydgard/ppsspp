@@ -835,8 +835,8 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		entryPos += entry->size;
 
 		const char *modulename;
-		if (Memory::IsValidAddress(entry->name)) {
-			modulename = Memory::GetCharPointer(entry->name);
+		if (Memory::IsValidNullTerminatedString(entry->name)) {
+			modulename = Memory::GetCharPointerUnchecked(entry->name);
 		} else {
 			modulename = "(invalidname)";
 			needReport = true;
@@ -932,7 +932,9 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 
 			char temp[512];
 			const char *modulename;
-			if (Memory::IsValidAddress(entry->name)) {
+			// Check for NUL termination within the mapped region so %s below
+			// can't read past guest RAM on a crafted, unterminated name.
+			if (Memory::IsValidNullTerminatedString(entry->name)) {
 				modulename = Memory::GetCharPointerUnchecked(entry->name);
 			} else {
 				modulename = "(invalidname)";
