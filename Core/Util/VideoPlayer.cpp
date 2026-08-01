@@ -141,6 +141,14 @@ int pmf_init(PMFPlayer* ps, const uint8_t* data, size_t size, int* out_w, int* o
 	AVCodec* codec = avcodec_find_decoder(ps->video_ctx->codec_id);
 	if (!codec || avcodec_open2(ps->video_ctx, codec, nullptr) < 0) return -1;
 
+	// Reject absurd dimensions: PMF video on PSP never exceeds 720x480, and
+	// larger values could overflow the caller's frame buffer allocation
+	// (width * height * 4) and drive huge sws_scale writes.
+	if (ps->video_ctx->width <= 0 || ps->video_ctx->height <= 0 ||
+		ps->video_ctx->width > 720 || ps->video_ctx->height > 480) {
+		return -1;
+	}
+
 	ps->frame = av_frame_alloc();
 	ps->rgb_frame = av_frame_alloc();
 	ps->last_pts = -1.0;
