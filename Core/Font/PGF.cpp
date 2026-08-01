@@ -187,10 +187,35 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	fileName = header.fontName;
 
 	if (header.revision == 3) {
+		if (dataSize < sizeof(header) + sizeof(rev3extra)) {
+			return false;
+		}
 		memcpy(&rev3extra, ptr, sizeof(rev3extra));
 		rev3extra.compCharMapLength1 &= 0xFFFF;
 		rev3extra.compCharMapLength2 &= 0xFFFF;
 		ptr += sizeof(rev3extra);
+	}
+
+	// Validate that all tables fit in the input buffer before reading any of
+	// them. Use 64-bit arithmetic: the original 32-bit signed size math could
+	// overflow for crafted lengths.
+	const u64 headerSize = (u64)(ptr - startPtr);
+	const u64 tablesSize = ((u64)header.dimTableLength + header.xAdjustTableLength + header.yAdjustTableLength + header.advanceTableLength) * 8;
+	const u64 shadowCharMapSize = (((u64)header.shadowMapLength * header.shadowMapBpe + 31) & ~31ull) / 8;
+	const u64 compTableSize = header.revision == 3 ? ((u64)rev3extra.compCharMapLength1 + rev3extra.compCharMapLength2) * 4 : 0;
+	const u64 charMapSize = (((u64)header.charMapLength * header.charMapBpe + 31) & ~31ull) / 8;
+	const u64 charPointerSize = (((u64)header.charPointerLength * header.charPointerBpe + 31) & ~31ull) / 8;
+
+	// Also cap the lengths so a crafted font can't force absurd allocations
+	// or loops downstream. Real PGF fonts are tiny.
+	if (header.charPointerLength < 0 || header.charPointerLength > 0x100000 ||
+		header.charMapLength < 0 || header.charMapLength > 0x100000 ||
+		header.shadowMapLength < 0 || header.shadowMapLength > 0x10000) {
+		return false;
+	}
+
+	if (headerSize + tablesSize + shadowCharMapSize + compTableSize + charMapSize + charPointerSize > dataSize) {
+		return false;
 	}
 
 	const u32_le *wptr = (const u32_le *)ptr;
@@ -224,7 +249,6 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	const u8 *uptr = (const u8 *)wptr;
 
-	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
 	const u8 *shadowCharMap = uptr;
 	uptr += shadowCharMapSize;
 
@@ -251,11 +275,9 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	uptr = (const u8 *)sptr;
 
-	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
 	const u8 *charMap = uptr;
 	uptr += charMapSize;
 
-	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
 	const u8 *charPointerTable = uptr;
 	uptr += charPointerSize;
 
@@ -290,9 +312,17 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
 	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, (s32)header.shadowMapLength);
 
-	// Pregenerate glyphs.
+	// Pregenerate glyphs. charPointers come from the (attacker-controlled)
+	// char pointer table, so their offsets into fontData must be validated.
+	const size_t fontDataBits = (size_t)fontDataSize * 8;
 	for (size_t i = 0; i < glyphs.size(); i++) {
-		ReadCharGlyph(fontData, charPointers[i] * 4 * 8  /* ??? */, glyphs[i]);
+		if (charPointers[i] < 0)
+			continue;
+		size_t charPtr = (size_t)charPointers[i] * 4 * 8;
+		// Leave a margin for the glyph header reads (a few hundred bits).
+		if (charPtr + 1024 > fontDataBits)
+			continue;  // Out of range; leave the glyph empty.
+		ReadCharGlyph(fontData, charPtr, glyphs[i]);
 	}
 
 	// And shadow glyphs.
@@ -300,9 +330,12 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		size_t shadowId = glyphs[i].shadowID;
 		if (shadowId < shadowMap.size()) {
 			size_t charId = shadowMap[shadowId];
-			if (charId < shadowGlyphs.size()) {
+			if (charId < shadowGlyphs.size() && charPointers[charId] >= 0) {
+				size_t charPtr = (size_t)charPointers[charId] * 4 * 8;
+				if (charPtr + 1024 > fontDataBits)
+					continue;  // Out of range.
 				// TODO: check for pre existing shadow glyph
-				ReadShadowGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, shadowGlyphs[charId]);
+				ReadShadowGlyph(fontData, charPtr, shadowGlyphs[charId]);
 			}
 		}
 	}
