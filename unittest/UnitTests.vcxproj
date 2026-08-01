@@ -294,6 +294,7 @@
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
+    <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="TestVFS.cpp" />
     <ClCompile Include="TestZipSlip.cpp" />
