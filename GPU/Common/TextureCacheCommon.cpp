@@ -1957,6 +1957,21 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	const u8 *texptr = Memory::GetPointer(texaddr);
 	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
 
+	// Validate the texture data fits in mapped RAM, like the DXT path does.
+	// texaddr/bufw/w/h are all guest-controlled via the GE display list.
+	const int bpp = textureBitsPerPixel[format];
+	const uint32_t bytesPerRow = (bpp * bufw) / 8;
+	// Swizzled textures are read in 8-row blocks, rounding the height up.
+	const uint32_t rows = swizzled ? ((h + 7) & ~7) : h;
+	const uint32_t neededBytes = bytesPerRow * rows;
+	if (bytesPerRow > 0 && !Memory::IsValidRange(texaddr, neededBytes)) {
+		ERROR_LOG_REPORT(Log::G3D, "Texture extends beyond valid RAM: %08x + %d x %d", texaddr, bufw, h);
+		uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
+		h = limited / bytesPerRow;
+		if (swizzled)
+			h &= ~7;
+	}
+
 	char buf[128];
 	size_t len = snprintf(buf, sizeof(buf), "Tex_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat));
 	NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, buf, len);
@@ -2065,13 +2080,13 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 			// We can't know anything about alpha.
 			return TextureAlpha::Any;
 		}
-		return ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, reverseColors, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, w, h, level, texptr, 1, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT16:
-		return ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, reverseColors, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, w, h, level, texptr, 2, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT32:
-		return ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, reverseColors, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, w, h, level, texptr, 4, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
@@ -2189,10 +2204,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? TextureAlpha::Solid : TextureAlpha::Any;
 }
 
-TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
+TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int w, int h, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
 	if (gstate.isTextureSwizzled()) {
 		tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
 		UnswizzleFromMem(tmpTexBuf32_.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
