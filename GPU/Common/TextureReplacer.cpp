@@ -32,6 +32,7 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
+#include "Core/Util/PathUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
 #include "Common/Thread/ThreadManager.h"
@@ -358,6 +359,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 			truncate_cpy(k, line.Key());
 			std::string_view v = line.Value();
 			if (sscanf(k, "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+				// Reject path traversal: a "../" component could make us read
+				// or write files outside the texture pack directory.
+				if (HasParentDirComponent(v)) {
+					ERROR_LOG(Log::TexReplacement, "Ignoring texture filename with parent dir component: %s", std::string(v).c_str());
+					continue;
+				}
 				// We allow empty filenames, to mark textures that we don't want to keep saving.
 				filenameMap[key][level] = v;
 				if (checkFilenames) {

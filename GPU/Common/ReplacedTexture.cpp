@@ -26,6 +26,7 @@
 
 #include "GPU/Common/ReplacedTexture.h"
 #include "GPU/Common/TextureReplacer.h"
+#include "Core/Util/PathUtil.h"
 
 #include "Common/Data/Format/DDSLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
@@ -224,6 +225,11 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		}
 
 		std::string path(desc_.filenames[i]);
+		// Defense in depth: skip filenames that could escape the pack dir.
+		if (HasParentDirComponent(path)) {
+			SetState(ReplacementState::CANCEL_INIT);
+			return;
+		}
 		VFSFileReference *fileRef = vfs_->GetFile(path.c_str());
 		if (!fileRef) {
 			if (i == 0) {

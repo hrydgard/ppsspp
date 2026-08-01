@@ -429,10 +429,8 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 	// if any of them contain a path separator, skip the migration to avoid
 	// building traversal paths.
 	const bool anyPathSeparator =
-		discID.find('/') != std::string::npos || discID.find('\\') != std::string::npos ||
-		discVersion.find('/') != std::string::npos || discVersion.find('\\') != std::string::npos ||
-		homebrewName.find('/') != std::string::npos || homebrewName.find('\\') != std::string::npos ||
-		madeUpID.find('/') != std::string::npos || madeUpID.find('\\') != std::string::npos;
+		HasPathTraversal(discID) || HasPathTraversal(discVersion) ||
+		HasPathTraversal(homebrewName) || HasPathTraversal(madeUpID);
 	const Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
 	for (int i = 0; i < 5 && !anyPathSeparator; ++i) {
 		Path newPrefix = savestateDir / StringFromFormat("%s_%s_%d", discID.c_str(), discVersion.c_str(), i);
