@@ -217,6 +217,11 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 	(ctx->info).curBuffer = 0;
 	(ctx->info).bufferByte = bufferSize;
 	(ctx->info).streamOff = dataOff;
+	// A packet larger than the buffer can't be streamed or assembled into the
+	// SAS assembly buffer. Reject it early, as sampleSize is file-derived.
+	if ((ctx->info).sampleSize > (u32)bufferSize) {
+		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
+	}
 	if ((ctx->info).loopEnd > endSample) {
 		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 	}
@@ -1219,7 +1224,10 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		DEBUG_LOG(Log::Atrac, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
 
 		// The packet spans two buffers and is reassembled into the fixed
-		// assembly buffer. Bail out if it can't possibly fit there.
+		// assembly buffer below. InitContextFromTrackInfo already rejects
+		// sampleSize > bufferByte, but a crafted file can still pass that with
+		// a large buffer, so also guard against sampleSize exceeding the fixed
+		// assembly buffer here.
 		if ((u32)info.sampleSize > sizeof(assembly)) {
 			ERROR_LOG(Log::Atrac, "SAS packet too large for assembly buffer: %d", info.sampleSize);
 			*bytesWritten = 0;

@@ -340,6 +340,9 @@ public:
 		p.SetMode(PointerWrap::MODE_VERIFY);
 		_class.DoState(p);
 
+		if (p.error == PointerWrap::ERROR_FAILURE) {
+			return ERROR_BROKEN_STATE;
+		}
 		return ERROR_NONE;
 	}
 
