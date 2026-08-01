@@ -314,14 +314,11 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	// Pregenerate glyphs. charPointers come from the (attacker-controlled)
 	// char pointer table, so their offsets into fontData must be validated.
-	const size_t fontDataBits = (size_t)fontDataSize * 8;
+	// ReadCharGlyph/ReadShadowGlyph bounds-check charPtr internally.
 	for (size_t i = 0; i < glyphs.size(); i++) {
 		if (charPointers[i] < 0)
 			continue;
 		size_t charPtr = (size_t)charPointers[i] * 4 * 8;
-		// Leave a margin for the glyph header reads (a few hundred bits).
-		if (charPtr + 1024 > fontDataBits)
-			continue;  // Out of range; leave the glyph empty.
 		ReadCharGlyph(fontData, charPtr, glyphs[i]);
 	}
 
@@ -332,8 +329,6 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 			size_t charId = shadowMap[shadowId];
 			if (charId < shadowGlyphs.size() && charPointers[charId] >= 0) {
 				size_t charPtr = (size_t)charPointers[charId] * 4 * 8;
-				if (charPtr + 1024 > fontDataBits)
-					continue;  // Out of range.
 				// TODO: check for pre existing shadow glyph
 				ReadShadowGlyph(fontData, charPtr, shadowGlyphs[charId]);
 			}
@@ -452,6 +447,13 @@ bool PGF::ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 }
 
 bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
+	// The glyph header reads below stay within a few hundred bits, but
+	// validate the offset here so this function is safe regardless of caller.
+	// charPtr is a bit offset; fontDataSize is in bytes.
+	if (charPtr + 1024 > (size_t)fontDataSize * 8) {
+		return false;
+	}
+
 	// Skip size.
 	charPtr += 14;
 
