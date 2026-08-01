@@ -29,6 +29,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Common/TimeUtil.h"
 #include "Core/HLE/sceCtrl.h"
@@ -137,21 +138,11 @@ int PSPSaveDialog::Init(int paramAddr) {
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 
 	// gameName/saveName/fileName become parts of host filesystem paths.
-	// Reject path separators (either direction) and bare dot components so a
-	// crafted request can't escape the save directory (path traversal).
-	auto hasPathTraversal = [](const char *field, size_t fieldSize) {
-		size_t len = 0;
-		while (len < fieldSize && field[len] != 0)
-			len++;
-		for (size_t i = 0; i < len; i++) {
-			if (field[i] == '/' || field[i] == '\\')
-				return true;
-		}
-		return (len == 1 && field[0] == '.') || (len == 2 && field[0] == '.' && field[1] == '.');
-	};
-	if (hasPathTraversal(request.gameName, sizeof(request.gameName)) ||
-		hasPathTraversal(request.saveName, sizeof(request.saveName)) ||
-		hasPathTraversal(request.fileName, sizeof(request.fileName))) {
+	// Reject path separators and bare dot components so a crafted request
+	// can't escape the save directory (path traversal).
+	if (HasPathTraversal(StringViewFromFixedSizeField(request.gameName)) ||
+		HasPathTraversal(StringViewFromFixedSizeField(request.saveName)) ||
+		HasPathTraversal(StringViewFromFixedSizeField(request.fileName))) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilitySavedataInitStart: path separator in name fields");
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}

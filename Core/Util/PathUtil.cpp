@@ -24,6 +24,12 @@ bool HasParentDirComponent(std::string_view path) {
 	return false;
 }
 
+bool HasPathTraversal(std::string_view path) {
+	if (path.find_first_of("/\\") != std::string_view::npos)
+		return true;
+	return path == "." || path == "..";
+}
+
 Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool *exists) {
 	// Don't search for an absolute path.
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
