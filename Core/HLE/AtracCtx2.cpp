@@ -975,7 +975,9 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		// Turns out that games can abuse bufferSize, so we can't verify that it's a valid length with GetPointerRange.
 		const u8 *bufferPtr = Memory::GetPointerUnchecked(bufferAddr);
 		if (!Memory::IsValidRange(bufferAddr, readSize)) {
-			WARN_LOG(Log::Atrac, "Atrac2::SetData: Bad buffer range %08x+%08x - however, proceeeding.", bufferAddr, readSize);
+			WARN_LOG(Log::Atrac, "Atrac2::SetData: Bad buffer range %08x+%08x - clamping to mapped size.", bufferAddr, readSize);
+			// Clamp so the parsers below can't read past the mapped region.
+			readSize = Memory::ClampValidSizeAt(bufferAddr, readSize);
 		}
 		if (!isAA3) {
 			int retval = ParseWaveAT3(bufferPtr, readSize, &trackInfo);
