@@ -286,10 +286,15 @@ void EGL_Close() {
 
 #endif // USING_EGL
 
-// TODO: All this stuff doesn't really belong here.
-bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
-	SDL_Window *window = *(SDL_Window **)data1;
-	int mode = (int)(uintptr_t)data2;
+SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, int forceGLVersion, SDL_GLContext *glContextOut) {
+	// We start hidden because we have to try several windows.
+	// On Mac, full screen animates so each attempt is slow.
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
+	SDL_Window *window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
+	if (!window) {
+		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
+		exit(1);
+	}
 	struct GLVersionPair {
 		int major;
 		int minor;
@@ -303,24 +308,14 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 #endif
 	};
 
-	// We start hidden because we have to try several windows.
-	// On Mac, full screen animates so each attempt is slow.
-	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
-
-	int x;
-	int y;
-	int w;
-	int h;
-	SDL_GetWindowPosition(window, &x, &y);
-	SDL_GetWindowSize(window, &w, &h);
-	glContext_ = nullptr;
+	SDL_GLContext glContext{};
 	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
 		const auto &ver = attemptVersions[i];
 		// If we force a specific OpenGL version, skip the ones
 		// that do not match, which may be all of them - e.g.
 		// requesting nonsensical "--graphics=opengl0" reliably
 		// skips straight to fallback code below.
-		if (force_gl_version_ >= 0 && 10 * ver.major + ver.minor != force_gl_version_)
+		if (forceGLVersion >= 0 && 10 * ver.major + ver.minor != forceGLVersion)
 			continue;
 		// Make sure to request a somewhat modern GL context at least - the
 		// latest supported by MacOS X (really, really sad...)
@@ -343,12 +338,8 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 			continue;
 		}
 
-		if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
-			SDL_SetWindowPosition(window, x, y);
-		}
-
-		glContext_ = SDL_GL_CreateContext(window);
-		if (glContext_ != nullptr) {
+		glContext = SDL_GL_CreateContext(window);
+		if (glContext != nullptr) {
 			// Victory, got one.
 			break;
 		}
@@ -358,7 +349,7 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 		SDL_DestroyWindow(window);
 	}
 
-	if (glContext_ == nullptr) {
+	if (glContext == nullptr) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -366,28 +357,22 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 
 		window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
 		if (window == nullptr) {
-			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return false;
+			return nullptr;
 		}
 
-		if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
-			SDL_SetWindowPosition(window, x, y);
-		}
-
-		glContext_ = SDL_GL_CreateContext(window);
-		if (glContext_ == nullptr) {
+		glContext = SDL_GL_CreateContext(window);
+		if (glContext == nullptr) {
 			// OK, now we really have tried everything.
-			NativeShutdown();
 			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return false;
+			return nullptr;
 		}
 	}
 
-	// At this point, we have a window that we can show finally.
-	SDL_ShowWindow(window);
+	// For some reason we have to set the position here, can't wait until after the window is shown (??).
+	if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+		SDL_SetWindowPosition(window, x, y);
+	}
 
 #ifdef USING_EGL
 	if (EGL_Open(window) != 0) {
@@ -409,7 +394,7 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	// glx is not required, igore.
 	if (glew_err != GLEW_OK && glew_err != GLEW_ERROR_NO_GLX_DISPLAY) {
 		fprintf(stderr, "Failed to initialize glew!\n");
-		return false;
+		return nullptr;
 	}
 	// Unfortunately, glew will generate an invalid enum error, ignore.
 	if (gl_extensions.IsCoreContext)
@@ -419,9 +404,17 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 		fprintf(stderr, "OpenGL 2.0 or higher.\n");
 	} else {
 		fprintf(stderr, "Sorry, this program requires OpenGL 2.0.\n");
-		return false;
+		return nullptr;
 	}
 #endif
+	*glContextOut = glContext;
+	return window;
+}
+
+bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
+	SDL_Window *window = (SDL_Window *)data1;
+	SDL_GLContext glContext = (SDL_GLContext)data2;
+	glContext_ = glContext;
 
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
@@ -441,17 +434,12 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 		SDL_GL_SwapWindow(window_);
 #endif
 	});
-
 	renderManager_->SetSwapIntervalFunction([&](int interval) {
 		INFO_LOG(Log::G3D, "SDL SwapInterval: %d", interval);
 		SDL_GL_SetSwapInterval(interval);
 	});
 
 	window_ = window;
-
-	// HACK: Ensure that the swap interval is set after context creation (needed for kmsdrm)
-	SDL_GL_SetSwapInterval(1);
-
 	return true;
 }
 
@@ -461,7 +449,7 @@ void SDLGLGraphicsContext::ShutdownSurface() {
 	renderManager_ = nullptr;
 }
 
-bool SDLGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+bool SDLGLGraphicsContext::InitAPI(void *ctx, std::string *deviceName, std::string *errorMessage) {
 	return true;
 }
 

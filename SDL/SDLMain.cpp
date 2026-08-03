@@ -96,8 +96,6 @@ static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
-static bool g_rebootEmuThread = false;
-
 static SDL_AudioSpec g_retFmt;
 static int g_audioFramesPerBuffer = 0;
 
@@ -1334,6 +1332,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	#if !defined(MOBILE_DEVICE)
 	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 		{
+			INFO_LOG(Log::UI, "SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: %d x %d", event.window.data1, event.window.data2);
 			int new_width = event.window.data1;
 			int new_height = event.window.data2;
 
@@ -1342,6 +1341,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			Uint64 window_flags = SDL_GetWindowFlags(window);
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN) != 0;
 
+			// !!! This is the wrong thread!
 			// This one calls NativeResized if the size changed.
 			Native_UpdateScreenScale(new_width, new_height, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
@@ -1408,7 +1408,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 #endif
 	case SDL_EVENT_KEY_DOWN:
 		{
-			if (event.key.repeat > 0) { break;}
+			if (event.key.repeat > 0) {
+				break;
+			}
 			int k = event.key.key;
 			KeyInput key;
 			key.flags = KeyInputFlags::DOWN;
@@ -1420,15 +1422,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			key.deviceId = DEVICE_ID_KEYBOARD;
 			NativeKey(key);
 
-#ifdef _DEBUG
-			if (k == SDLK_F7) {
-				fprintf(stderr, "f7 pressed - rebooting emuthread\n");
-				g_rebootEmuThread = true;
-			}
-#endif
-			// Convenience subset of what
-			// "Enable standard shortcut keys"
-			// does on Windows.
+			// Convenience subset of what "Enable standard shortcut keys" does on Windows.
 			if (g_Config.bSystemControls) {
 				bool ctrl = bool(event.key.mod & SDL_KMOD_CTRL);
 				if (ctrl && (k == SDLK_W))
@@ -1539,6 +1533,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
+				INFO_LOG(Log::UI, "SDL_EVENT_MOUSE_BUTTON_DOWN: %f x %f", event.button.x, event.button.y);
 				// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
 				// provided (through --dpi, it is equal to system DPI if unspecified):
 				// - SDL gives us motion events in "system DPI" points
@@ -1749,6 +1744,7 @@ void UpdateSDLCursor() {
 }
 
 bool DetermineVulkanWindowSystem(SDL_Window *window, WindowSystem *windowSystem, void **data1, void **data2) {
+	_dbg_assert_(window);
 	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
 	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
 	if (x11Display != nullptr) {
@@ -2035,88 +2031,101 @@ int main(int argc, char *argv[]) {
 			h = g_Config.iWindowHeight;
 	}
 
-	GraphicsContext *graphicsContext = nullptr;
-	SDL_Window *window = nullptr;
-
 	// Switch away from Vulkan if not available.
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && !vulkanMayBeAvailable) {
-		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+	int fallbackGPUBackend = -1;
+	switch ((GPUBackend)g_Config.iGPUBackend) {
+	case GPUBackend::VULKAN:
+		if (!vulkanMayBeAvailable) {
+			fprintf(stderr, "Vulkan is not available, switching to OpenGL.\n");
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+		} else {
+			fallbackGPUBackend = (int)GPUBackend::OPENGL;
+		}
+		break;
+	case GPUBackend::OPENGL:
+		fallbackGPUBackend = (int)GPUBackend::VULKAN;
+		break;
+	default:
+		fprintf(stderr, "Unknown GPU backend %d, switching to Vulkan.\n", g_Config.iGPUBackend);
+		g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
+		fallbackGPUBackend = (int)GPUBackend::OPENGL;
+		break;
 	}
 
-	window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
+	SDL_Window *window = nullptr;
+	auto initializeBackend = [&](GPUBackend backend, GraphicsContext **graphicsContext, std::string *errorMessage) -> bool {
+		// Surface init params.
+		WindowSystem windowSystem = WINDOWSYSTEM_NONE;
+		void *data1 = nullptr;
+		void *data2 = nullptr;
 
-	// Surface init params. These are set up for OpenGL by default.
-	WindowSystem windowSystem = WINDOWSYSTEM_NONE;
-	void *data1 = &window;
-	void *data2 = nullptr;
+		GraphicsContext *ctx = nullptr;
+		if (backend == GPUBackend::OPENGL) {
+			SDL_GLContext glContext = nullptr;
+			window = CreateSDLGLWindowAndContext(x, y, w, h, mode, cmdLineOptions.force_gl_version, &glContext);
 
-	std::string error_message;
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
-		if (!window) {
-			fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
-			exit(1);
-		}
-		if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
-			SDL_SetWindowPosition(window, x, y);
-		}
+			data1 = (void *)window;
+			data2 = (void *)glContext;
 
-		glctx->InitAPI(nullptr, nullptr, &error_message);
-		if (!glctx->InitSurface(WINDOWSYSTEM_NONE, &window, (void *)(uintptr_t)mode, &error_message)) {
-			// Let's try the fallback once per process run.
-			fprintf(stderr, "GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
-			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			delete glctx;
+			ctx = new SDLGLGraphicsContext();
+		} else {
+			mode |= SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN;
+			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
+			if (!window) {
+				fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
+				exit(1);
+			}
+			if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+				SDL_SetWindowPosition(window, x, y);
+			}
 
 			// Overwrite the surface init params with what we need for Vulkan..
 			if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2)) {
-				return 1;
+				return false;
 			}
-
 			// NOTE : This should match the lines below in the Vulkan case.
-			VulkanGraphicsContext *vkctx = new VulkanGraphicsContext();
-			vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
+			ctx = new VulkanGraphicsContext();
+		}
 
-			if (!vkctx->InitSurface(windowSystem, data1, data2, &error_message)) {
-				fprintf(stderr, "Vulkan fallback failed: %s\n", error_message.c_str());
+		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, errorMessage)) {
+			fprintf(stderr, "Graphics initialization failed: %s\n", errorMessage->c_str());
+			return false;
+		}
+
+		if (!ctx->InitSurface(windowSystem, data1, data2, errorMessage)) {
+			fprintf(stderr, "Surface creation failed: %s\n", errorMessage->c_str());
+			return false;
+		}
+
+		*graphicsContext = ctx;
+		return true;
+	};
+
+	GraphicsContext *graphicsContext = nullptr;
+	std::string error_message;
+	if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
+		fprintf(stderr, "Failed to initialize graphics backend: %s\n", error_message.c_str());
+		if (fallbackGPUBackend != -1) {
+			fprintf(stderr, "Attempting to fall back to %s...\n", fallbackGPUBackend == (int)GPUBackend::OPENGL ? "OpenGL" : "Vulkan");
+			g_Config.iGPUBackend = fallbackGPUBackend;
+			error_message.clear();
+			if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
+				fprintf(stderr, "Fallback failed: %s\n", error_message.c_str());
+				SDL_Quit();
 				return 1;
 			}
-			graphicsContext = vkctx;
 		} else {
-			graphicsContext = glctx;
-		}
-#if !PPSSPP_PLATFORM(SWITCH)
-	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		// Overwrite the surface init params with what we need for Vulkan..
-		if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2)) {
+			fprintf(stderr, "No fallback GPU backend available. Exiting.\n");
+			SDL_Quit();
 			return 1;
 		}
-
-		VulkanGraphicsContext *vkctx = new VulkanGraphicsContext();
-		vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &error_message);
-		if (!vkctx->InitSurface(windowSystem, data1, data2, &error_message)) {
-			// Let's try the fallback once per process run.
-
-			fprintf(stderr, "Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
-			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			delete vkctx;
-
-			// NOTE : This should match the three lines above in the OpenGL case.
-			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
-			glctx->InitAPI(nullptr, nullptr, &error_message);
-			if (!glctx->InitSurface(windowSystem, data1, data2, &error_message)) {
-				fprintf(stderr, "GL fallback failed: %s\n", error_message.c_str());
-				return 1;
-			}
-			graphicsContext = glctx;
-		} else {
-			graphicsContext = vkctx;
-		}
-#endif
 	}
 
+	// At this point, we have a window that we can show finally.
+	SDL_ShowWindow(window);
+	if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+		SDL_SetWindowPosition(window, x, y);
+	}
 	UpdateScreenDPI(window);
 
 	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
@@ -2175,6 +2184,7 @@ int main(int argc, char *argv[]) {
 	EnableFZ();
 
 	// We use the emuthread both for OpenGL and Vulkan, but in OpenGL mode we also render from the main thread.
+	_dbg_assert_(graphicsContext);
 	std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 
 	InputStateTracker inputTracker{};
@@ -2250,24 +2260,6 @@ int main(int argc, char *argv[]) {
 			if (g_windowState.update) {
 				UpdateWindowState(window);
 			}
-		}
-
-		if (g_rebootEmuThread) {
-			fprintf(stderr, "rebooting emu thread");
-			g_rebootEmuThread = false;
-			EmuThread_Join(graphicsContext, emuThread);
-			graphicsContext->ShutdownSurface();
-
-			fprintf(stderr, "OK, shutdown complete. starting up graphics again.\n");
-
-			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
-				if (!ctx->InitSurface(windowSystem,data1, data2, &error_message)) {
-					fprintf(stderr, "Failed to reinit graphics.\n");
-				}
-			}
-
-			emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 		}
 	}
 
