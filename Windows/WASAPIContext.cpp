@@ -208,14 +208,15 @@ bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMo
 		return false;
 	}
 	curSamplesPerSec_ = format_->nSamplesPerSec;
+	curChannels_.store(format_->nChannels);
 
 	// AudioClient3 requires an exact format match because it doesn't support AUTOCONVERTPCM.
 	// Our callback always produces stereo float (see RenderCallback in AudioBackend.h),
 	// so we can only use AudioClient3 when the device's native format is stereo float.
 	// For other formats, we fall back to AudioClient which supports conversion via AUTOCONVERTPCM
 	// or manual conversion through tempBuf_.
-	if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
-		INFO_LOG(Log::Audio, "AudioClient3: Got %d channels or non-float format, falling back to AudioClient", format_->nChannels);
+	if (curChannels_.load() != 2 || Classify(format_) != AudioFormat::Float) {
+		INFO_LOG(Log::Audio, "AudioClient3: Got %d channels or non-float format, falling back to AudioClient", curChannels_.load());
 		audioClient3_.Reset();
 		// Free the format before falling through - AudioClient will allocate a new one
 		CoTaskMemFree(format_);
@@ -302,11 +303,12 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 	const AudioFormat fmt = Classify(format_);
 
 	curSamplesPerSec_ = format_->nSamplesPerSec;
+	curChannels_.store(format_->nChannels);
 
 	bool createBuffer = false;
 	if (fmt == AudioFormat::Float) {
-		if (format_->nChannels != 2) {
-			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead", format_->nChannels);
+		if (curChannels_.load() != 2) {
+			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead", curChannels_.load());
 			WAVEFORMATEXTENSIBLE stereo;
 			BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
 
@@ -320,6 +322,7 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 				memcpy(newFormat, &stereo, sizeof(WAVEFORMATEX) + stereo.Format.cbSize);
 				CoTaskMemFree(format_);
 				format_ = newFormat;
+				curChannels_.store(newFormat->nChannels);
 				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
 				INFO_LOG(Log::Audio, "Successfully asked for two channels");
 			} else if (result == S_FALSE) {
@@ -529,6 +532,7 @@ void WASAPIContext::Stop() {
 		CoTaskMemFree(format_);
 		format_ = nullptr;
 	}
+	curChannels_.store(0);
 	{
 		std::lock_guard<std::mutex> guard(deviceLock_);
 		curDeviceId_.clear();
@@ -622,7 +626,7 @@ void WASAPIContext::AudioLoop() {
 	}
 
 	const AudioFormat format = Classify(format_);
-	const int nChannels = format_->nChannels;
+	const int nChannels = curChannels_.load();
 
 	ClearErrorString();
 
