@@ -186,25 +186,25 @@ jobs:
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
+          args: cd android && ./ab.sh APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
           id: android-arm64
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
+          args: cd android && ./ab.sh APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
           id: android-arm32
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
+          args: cd android && ./ab.sh APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
           id: android-x86_64
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a OPENXR=1
+          args: cd android && ./ab.sh APP_ABI=arm64-v8a OPENXR=1
           id: android-vr
         - os: ubuntu-26.04
           extra: android
@@ -283,7 +283,7 @@ jobs:
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
-        ndk-version: r21e
+        ndk-version: r29
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64'
