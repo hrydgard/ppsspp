@@ -65,12 +65,16 @@ int CheckEGLErrors(const char *file, int line) {
 	}
 
 static bool EGL_OpenInit() {
+	// NOTE: Not using the EGL_ERROR macro here since it always does "return 1",
+	// which means "success" for this bool-returning function.
 	if ((g_eglDisplay = eglGetDisplay(g_Display)) == EGL_NO_DISPLAY) {
-		EGL_ERROR("Unable to create EGL display.", true);
+		CheckEGLErrors(__FILE__, __LINE__);
+		fprintf(stderr, "EGL ERROR: Unable to create EGL display.\n");
 		return false;
 	}
 	if (eglInitialize(g_eglDisplay, NULL, NULL) != EGL_TRUE) {
-		EGL_ERROR("Unable to initialize EGL display.", true);
+		CheckEGLErrors(__FILE__, __LINE__);
+		fprintf(stderr, "EGL ERROR: Unable to initialize EGL display.\n");
 		eglTerminate(g_eglDisplay);
 		g_eglDisplay = EGL_NO_DISPLAY;
 		return false;
@@ -394,6 +398,8 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 	// glx is not required, igore.
 	if (glew_err != GLEW_OK && glew_err != GLEW_ERROR_NO_GLX_DISPLAY) {
 		fprintf(stderr, "Failed to initialize glew!\n");
+		SDL_GL_DestroyContext(glContext);
+		SDL_DestroyWindow(window);
 		return nullptr;
 	}
 	// Unfortunately, glew will generate an invalid enum error, ignore.
@@ -404,6 +410,8 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 		fprintf(stderr, "OpenGL 2.0 or higher.\n");
 	} else {
 		fprintf(stderr, "Sorry, this program requires OpenGL 2.0.\n");
+		SDL_GL_DestroyContext(glContext);
+		SDL_DestroyWindow(window);
 		return nullptr;
 	}
 #endif
@@ -414,6 +422,10 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
 	SDL_Window *window = (SDL_Window *)data1;
 	SDL_GLContext glContext = (SDL_GLContext)data2;
+	if (!window || !glContext) {
+		*error_message = "SDLGLGraphicsContext::InitSurface: no window or GL context (window/context creation must have failed)";
+		return false;
+	}
 	glContext_ = glContext;
 
 	// Finally we can do the regular initialization.
