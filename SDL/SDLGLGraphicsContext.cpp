@@ -290,11 +290,6 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 	// We start hidden because we have to try several windows.
 	// On Mac, full screen animates so each attempt is slow.
 	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
-	SDL_Window *window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
-	if (!window) {
-		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
-		exit(1);
-	}
 	struct GLVersionPair {
 		int major;
 		int minor;
@@ -308,6 +303,8 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 #endif
 	};
 
+	SDL_Window *window = nullptr;
+
 	SDL_GLContext glContext{};
 	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
 		const auto &ver = attemptVersions[i];
@@ -315,8 +312,9 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 		// that do not match, which may be all of them - e.g.
 		// requesting nonsensical "--graphics=opengl0" reliably
 		// skips straight to fallback code below.
-		if (forceGLVersion >= 0 && 10 * ver.major + ver.minor != forceGLVersion)
+		if (forceGLVersion >= 0 && 10 * ver.major + ver.minor != forceGLVersion) {
 			continue;
+		}
 		// Make sure to request a somewhat modern GL context at least - the
 		// latest supported by MacOS X (really, really sad...)
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
@@ -328,9 +326,7 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SetGLCoreContext(true);
 #endif
-		if (!window) {
-			window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
-		}
+		window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
 		if (!window) {
 			// Definitely don't shutdown here: we'll keep trying more GL versions.
 			fprintf(stderr, "SDL_CreateWindow failed for GL %d.%d: %s\n", ver.major, ver.minor, SDL_GetError());
@@ -339,21 +335,24 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 		}
 
 		glContext = SDL_GL_CreateContext(window);
-		if (glContext != nullptr) {
-			// Victory, got one.
+		if (glContext) {
+			// Victory, got one. Window should now be valid.
 			break;
 		}
 
 		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
 		// in practice, it doesn't seem to matter, but maybe it differs by platform.
 		SDL_DestroyWindow(window);
+		window = nullptr;
 	}
 
-	if (glContext == nullptr) {
+	if (!glContext) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		SetGLCoreContext(false);
+
+		_dbg_assert_(window == nullptr);
 
 		window = SDL_CreateWindow("PPSSPP", w, h, (SDL_WindowFlags)mode);
 		if (window == nullptr) {
@@ -362,9 +361,10 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 		}
 
 		glContext = SDL_GL_CreateContext(window);
-		if (glContext == nullptr) {
-			// OK, now we really have tried everything.
+		if (!glContext) {
+			// OK, now we really have tried everything. We give up.
 			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+			SDL_DestroyWindow(window);
 			return nullptr;
 		}
 	}
