@@ -118,7 +118,9 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 		application->Frame(graphicsContext);
 		postFrame();
 	}
-	Core_Stop();
+
+	// NOTE: Don't call stuff like Core_Stop here. On Android, we fully shut down graphics when you switch away from the app,
+	// then boot it up again when returning. That means stopping this thread and restarting it.
 
 	// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
 	Core_StateProcessed();
@@ -160,10 +162,9 @@ bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, 
 				break;
 			}
 		}
-		Core_Stop();
-		g_inLoop = false;
 
 		EmuThread_Join(graphicsContext, emuThread);
+		g_inLoop = false;
 
 		graphicsContext->ThreadEnd();
 
