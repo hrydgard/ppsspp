@@ -578,9 +578,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
 
-	bool gotBootFilename = false;
 	boot_filename.clear();
-
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
 		boot_filename = g_Config.flash0Directory / "vsh/module/vshmain.prx";
 	}
@@ -629,7 +627,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	// don't already have one.
 	if (!cmdLineOptions.bootFilenames.empty()) {
 		std::string bootFilename = cmdLineOptions.bootFilenames[0];
-		gotBootFilename = true;
 		INFO_LOG(Log::System, "Boot filename found in args: '%s'", bootFilename.c_str());
 
 		bool okToLoad = true;
