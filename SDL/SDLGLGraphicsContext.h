@@ -46,4 +46,4 @@ private:
 	GLRenderManager *renderManager_ = nullptr;
 };
 
-SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, int forceGLVersion, SDL_GLContext *glContextOut);
+SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, int forceGLVersion, SDL_GLContext *glContextOut, std::string *errorMessage);

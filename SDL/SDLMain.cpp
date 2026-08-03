@@ -1748,7 +1748,7 @@ void UpdateSDLCursor() {
 #endif
 }
 
-bool DetermineVulkanWindowSystem(SDL_Window *window, WindowSystem *windowSystem, void **data1, void **data2) {
+bool DetermineVulkanWindowSystem(SDL_Window *window, WindowSystem *windowSystem, void **data1, void **data2, std::string *errorMessage) {
 	_dbg_assert_(window);
 	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
 	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
@@ -1794,7 +1794,9 @@ bool DetermineVulkanWindowSystem(SDL_Window *window, WindowSystem *windowSystem,
 	}
 #endif
 #endif  // VK_USE_PLATFORM_METAL_EXT
-	fprintf(stderr, "Unable to determine Vulkan window system from SDL3 window properties\n");
+	if (errorMessage) {
+		*errorMessage = "Unable to determine Vulkan window system from SDL3 window properties";
+	}
 	return false;
 }
 
@@ -2067,25 +2069,29 @@ int main(int argc, char *argv[]) {
 		GraphicsContext *ctx = nullptr;
 		if (backend == GPUBackend::OPENGL) {
 			SDL_GLContext glContext = nullptr;
-			window = CreateSDLGLWindowAndContext(x, y, w, h, mode, cmdLineOptions.force_gl_version, &glContext);
+			window = CreateSDLGLWindowAndContext(x, y, w, h, mode, cmdLineOptions.force_gl_version, &glContext, errorMessage);
 
 			data1 = (void *)window;
 			data2 = (void *)glContext;
 
 			ctx = new SDLGLGraphicsContext();
 		} else {
-			mode |= SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN;
-			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
+			// Use a local copy of mode: this flag combination is Vulkan-specific, and if we fall back to
+			// OpenGL below, we don't want SDL_WINDOW_VULKAN to stick around and get OR'd in there too.
+			Uint32 vulkanMode = mode | SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN;
+			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)vulkanMode);
 			if (!window) {
-				fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
-				exit(1);
+				if (errorMessage) {
+					*errorMessage = StringFromFormat("Error creating SDL window: %s", SDL_GetError());
+				}
+				return false;
 			}
 			if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
 				SDL_SetWindowPosition(window, x, y);
 			}
 
 			// Overwrite the surface init params with what we need for Vulkan..
-			if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2)) {
+			if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2, errorMessage)) {
 				return false;
 			}
 			// NOTE : This should match the lines below in the Vulkan case.
