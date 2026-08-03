@@ -81,7 +81,10 @@ WASAPIContext::WASAPIContext() : notificationClient_(this) {
 		enumerator_ = nullptr;
 		return;
 	}
-	enumerator_->RegisterEndpointNotificationCallback(&notificationClient_);
+	hr = enumerator_->RegisterEndpointNotificationCallback(&notificationClient_);
+	if (FAILED(hr)) {
+		WARN_LOG(Log::Audio, "Failed to register endpoint notification callback: %08lx", hr);
+	}
 }
 
 WASAPIContext::~WASAPIContext() {
