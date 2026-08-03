@@ -28,7 +28,7 @@ bool OpenGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 }
 
 void OpenGLGraphicsContext::ShutdownSurface() {
-	INFO_LOG(Log::G3D, "OpenGLGraphicsContext::Shutdown");
+	INFO_LOG(Log::G3D, "OpenGLGraphicsContext::ShutdownSurface");
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;

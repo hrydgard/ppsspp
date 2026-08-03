@@ -1721,6 +1721,8 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {
+	INFO_LOG(Log::System, "Native_UpdateScreenScale: %dx%d, customScale=%f", pixel_width, pixel_height, customScale);
+
 	_dbg_assert_(customScale > 0.1f);
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
 	float dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
