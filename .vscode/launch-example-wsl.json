@@ -1,0 +1,37 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "(gdb) Launch PPSSPPSDL (WSL)",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "/home/hrydg/ppsspp/build/PPSSPPSDL",
+			"osx": {
+				"program": "${workspaceFolder}/build/PPSSPPSDL.app/Contents/MacOS/PPSSPPSDL"
+			},
+			"linux": {
+				"program": "/home/hrydg/ppsspp/build/PPSSPPSDL"
+			},
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "/home/hrydg/ppsspp",
+			"sourceFileMap": {
+				"/home/hrydg/ppsspp": "${workspaceFolder}"
+			},
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"pipeTransport": {
+				"pipeProgram": "wsl.exe",
+				"pipeArgs": [
+					"-d",
+					"Ubuntu",
+					"--"
+				],
+				"pipeCwd": "C:/",
+				"quoteArgs": false,
+				"debuggerPath": "/usr/bin/gdb"
+			}
+		}
+	]
+}

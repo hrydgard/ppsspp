@@ -1,0 +1,24 @@
+{
+	"comment": "Copy this to launch.json if you want to, or edit as desired first",
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "(lldb) Launch",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "",
+			"osx": {
+				"program": "${workspaceFolder}/build/PPSSPPSDL.app/Contents/MacOS/PPSSPPSDL"
+			},
+			"linux": {
+				"program": "${workspaceRoot}/build/PPSSPPSDL"
+			},
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "lldb"
+		}
+	]
+}

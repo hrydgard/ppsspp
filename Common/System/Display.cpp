@@ -3,6 +3,7 @@
 #include "Common/System/Display.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/MiscTypes.h"
+#include "Common/Log.h"
 
 DisplayProperties g_display;
 
@@ -70,6 +71,7 @@ DisplayProperties::DisplayProperties() {
 }
 
 bool DisplayProperties::Recalculate(int new_pixel_xres, int new_pixel_yres, float new_scale_x, float new_scale_y, float customScale) {
+	INFO_LOG(Log::G3D, "recalculate: %dx%d, %f, %f, %f", new_pixel_xres, new_pixel_yres, new_scale_x, new_scale_y, customScale);
 	bool px_changed = false;
 	if (new_pixel_xres > 0 && pixel_xres != new_pixel_xres) {
 		pixel_xres = new_pixel_xres;

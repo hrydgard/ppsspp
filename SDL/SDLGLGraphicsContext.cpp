@@ -286,6 +286,8 @@ void EGL_Close() {
 
 #endif // USING_EGL
 
+
+
 // TODO: All this stuff doesn't really belong here.
 bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
 	SDL_Window *window = *(SDL_Window **)data1;
@@ -448,10 +450,6 @@ bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	});
 
 	window_ = window;
-
-	// HACK: Ensure that the swap interval is set after context creation (needed for kmsdrm)
-	SDL_GL_SetSwapInterval(1);
-
 	return true;
 }
 

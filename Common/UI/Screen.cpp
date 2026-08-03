@@ -255,7 +255,7 @@ void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
 }
 
 void ScreenManager::resized() {
-	INFO_LOG(Log::UI, "ScreenManager::resized(dp: %dx%d)", g_display.dp_xres, g_display.dp_yres);
+	INFO_LOG(Log::UI, "ScreenManager::resized(g_display.dp_xres/dp_yres: %dx%d)", g_display.dp_xres, g_display.dp_yres);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
 	for (auto &layer : stack_) {
