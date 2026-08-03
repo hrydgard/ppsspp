@@ -23,8 +23,8 @@ static inline s16 ClampFloatToS16(float f) {
 	f *= 32768.0f;
 	if (f >= 32767) {
 		return 32767;
-	} else if (f < -32767) {
-		return -32767;
+	} else if (f < -32768) {
+		return -32768;
 	} else {
 		return (s16)(s32)f;
 	}
