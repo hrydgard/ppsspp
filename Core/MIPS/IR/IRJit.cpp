@@ -268,7 +268,7 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 		return -1;
 	}
 	// TODO: Use memcpy.
-	for (int i = 0; i < insts.size(); i++) {
+	for (size_t i = 0; i < insts.size(); i++) {
 		arena_.push_back(insts[i]);
 	}
 	int newBlockIndex = (int)blocks_.size();

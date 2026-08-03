@@ -864,7 +864,7 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 	const size_t retval = result.size();
 
 	// Implement the snprintf length check.
-	if (limit != 0 && result.length() >= limit) {
+	if (limit != 0 && (int)result.length() >= limit) {
 		result.resize(limit - 1);
 	}
 
