@@ -23,6 +23,56 @@ static constexpr float SURROUND_ATTENUATION = 0.7f;  // For rear/side channels
 static constexpr float CENTER_MIX_ATTENUATION = 0.7f; // For center channel mix
 static constexpr float LFE_MIX_ATTENUATION = 0.5f;    // For LFE channel mix
 
+// Helper to determine channel positions from WAVEFORMATEXTENSIBLE
+struct ChannelMapping {
+	int frontLeft = -1;
+	int frontRight = -1;
+	int center = -1;
+	int lfe = -1;
+	int rearLeft = -1;
+	int rearRight = -1;
+};
+
+static ChannelMapping GetChannelMapping(const WAVEFORMATEX *format) {
+	ChannelMapping mapping;
+
+	if (!format) {
+		return mapping;
+	}
+
+	// For non-extensible formats, assume standard stereo/mono
+	if (format->wFormatTag != WAVE_FORMAT_EXTENSIBLE) {
+		if (format->nChannels >= 1) mapping.frontLeft = 0;
+		if (format->nChannels >= 2) mapping.frontRight = 1;
+		return mapping;
+	}
+
+	const WAVEFORMATEXTENSIBLE *formatEx = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(format);
+	const DWORD mask = formatEx->dwChannelMask;
+
+	// Build mapping based on channel mask
+	int channelIndex = 0;
+
+	// Front speakers
+	if (mask & SPEAKER_FRONT_LEFT) mapping.frontLeft = channelIndex++;
+	if (mask & SPEAKER_FRONT_RIGHT) mapping.frontRight = channelIndex++;
+	if (mask & SPEAKER_FRONT_CENTER) mapping.center = channelIndex++;
+	if (mask & SPEAKER_LOW_FREQUENCY) mapping.lfe = channelIndex++;
+
+	// Rear/back speakers
+	if (mask & SPEAKER_BACK_LEFT) mapping.rearLeft = channelIndex++;
+	if (mask & SPEAKER_BACK_RIGHT) mapping.rearRight = channelIndex++;
+
+	// Side speakers (if no back, use these as rear)
+	if (mapping.rearLeft == -1 && (mask & SPEAKER_SIDE_LEFT)) mapping.rearLeft = channelIndex++;
+	if (mapping.rearRight == -1 && (mask & SPEAKER_SIDE_RIGHT)) mapping.rearRight = channelIndex++;
+
+	// Note: We skip other speaker positions (top, front center of height, etc.)
+	// as they're rarely used and we're just doing stereo upmix anyway
+
+	return mapping;
+}
+
 // We must have one of these already...
 static inline s16 ClampFloatToS16(float f) {
 	f *= 32768.0f;
@@ -635,6 +685,7 @@ void WASAPIContext::AudioLoop() {
 
 	const AudioFormat format = Classify(format_);
 	const int nChannels = curChannels_.load();
+	const ChannelMapping channelMap = GetChannelMapping(format_);
 
 	ClearErrorString();
 
@@ -692,44 +743,46 @@ void WASAPIContext::AudioLoop() {
 				// We decided previously that we need conversion, so mix to our temp buffer...
 				callback_(tempBuf_.get(), framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
-				// NOTE: Channel mapping assumes standard order (FL, FR, RL, RR, C, LFE).
-				// Non-standard channel masks from WAVEFORMATEXTENSIBLE are not currently handled.
+				// Use the channel mapping to place audio in the correct channels
 				if (format == AudioFormat::PCM16 && buffer) {
 					// Need to convert.
 					s16 *dest = reinterpret_cast<s16 *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {
-						if (nChannels == 1) {
-							// Maybe some bluetooth speakers? Mixdown.
-							float sum = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
-							dest[i] = ClampFloatToS16(sum);
-						} else if (nChannels == 2) {
-							// Stereo output
-							dest[i * 2] = ClampFloatToS16(tempBuf_[i * 2]);
-							dest[i * 2 + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
-						} else {
-							// Multi-channel output (e.g., 5.1, 7.1)
-							// Copy stereo to front L/R channels
-							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);      // Front Left
-							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);  // Front Right
+						// Zero the entire frame first
+						for (int j = 0; j < nChannels; j++) {
+							dest[i * nChannels + j] = 0;
+						}
 
-							// For 5.1/7.1 systems, also send audio to rear channels
-							if (nChannels >= 4) {
-								// Rear/Surround Left and Right at reduced volume
-								dest[i * nChannels + 2] = ClampFloatToS16(tempBuf_[i * 2] * SURROUND_ATTENUATION);
-								dest[i * nChannels + 3] = ClampFloatToS16(tempBuf_[i * 2 + 1] * SURROUND_ATTENUATION);
+						// Map stereo input to appropriate output channels
+						const float left = tempBuf_[i * 2];
+						const float right = tempBuf_[i * 2 + 1];
+
+						if (nChannels == 1) {
+							// Mono: mixdown stereo to mono
+							dest[i] = ClampFloatToS16((left + right) * 0.5f);
+						} else if (nChannels == 2) {
+							// Stereo: direct copy
+							dest[i * 2] = ClampFloatToS16(left);
+							dest[i * 2 + 1] = ClampFloatToS16(right);
+						} else {
+							// Multi-channel: use channel mapping
+							if (channelMap.frontLeft >= 0) {
+								dest[i * nChannels + channelMap.frontLeft] = ClampFloatToS16(left);
 							}
-							// Center and LFE (if present)
-							for (int j = 4; j < nChannels; j++) {
-								if (j == 4 && nChannels >= 6) {
-									// Center channel - mix of L+R at reduced volume
-									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * CENTER_MIX_ATTENUATION);
-								} else if (j == 5 && nChannels >= 6) {
-									// LFE channel - bass from L+R at reduced volume
-									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * LFE_MIX_ATTENUATION);
-								} else {
-									// Any extra channels get zeroed
-									dest[i * nChannels + j] = 0;
-								}
+							if (channelMap.frontRight >= 0) {
+								dest[i * nChannels + channelMap.frontRight] = ClampFloatToS16(right);
+							}
+							if (channelMap.center >= 0) {
+								dest[i * nChannels + channelMap.center] = ClampFloatToS16((left + right) * 0.5f * CENTER_MIX_ATTENUATION);
+							}
+							if (channelMap.lfe >= 0) {
+								dest[i * nChannels + channelMap.lfe] = ClampFloatToS16((left + right) * 0.5f * LFE_MIX_ATTENUATION);
+							}
+							if (channelMap.rearLeft >= 0) {
+								dest[i * nChannels + channelMap.rearLeft] = ClampFloatToS16(left * SURROUND_ATTENUATION);
+							}
+							if (channelMap.rearRight >= 0) {
+								dest[i * nChannels + channelMap.rearRight] = ClampFloatToS16(right * SURROUND_ATTENUATION);
 							}
 						}
 					}
@@ -737,38 +790,41 @@ void WASAPIContext::AudioLoop() {
 					// We have a non-2 number of channels (since we're in the tempBuf_ 'if'), so we contract/expand.
 					float *dest = reinterpret_cast<float *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {
-						if (nChannels == 1) {
-							// Maybe some bluetooth speakers? Mixdown.
-							dest[i] = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
-						} else if (nChannels == 2) {
-							// Stereo output
-							dest[i * 2] = tempBuf_[i * 2];
-							dest[i * 2 + 1] = tempBuf_[i * 2 + 1];
-						} else {
-							// Multi-channel output (e.g., 5.1, 7.1)
-							// Copy stereo to front L/R channels
-							dest[i * nChannels] = tempBuf_[i * 2];      // Front Left
-							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];  // Front Right
+						// Zero the entire frame first
+						for (int j = 0; j < nChannels; j++) {
+							dest[i * nChannels + j] = 0.0f;
+						}
 
-							// For 5.1/7.1 systems, also send audio to rear channels
-							// This prevents the "half silent" buffer issue that can cause crackling
-							if (nChannels >= 4) {
-								// Rear/Surround Left and Right at reduced volume
-								dest[i * nChannels + 2] = tempBuf_[i * 2] * SURROUND_ATTENUATION;      // Rear/Side Left
-								dest[i * nChannels + 3] = tempBuf_[i * 2 + 1] * SURROUND_ATTENUATION;  // Rear/Side Right
+						// Map stereo input to appropriate output channels
+						const float left = tempBuf_[i * 2];
+						const float right = tempBuf_[i * 2 + 1];
+
+						if (nChannels == 1) {
+							// Mono: mixdown stereo to mono
+							dest[i] = (left + right) * 0.5f;
+						} else if (nChannels == 2) {
+							// Stereo: direct copy
+							dest[i * 2] = left;
+							dest[i * 2 + 1] = right;
+						} else {
+							// Multi-channel: use channel mapping
+							if (channelMap.frontLeft >= 0) {
+								dest[i * nChannels + channelMap.frontLeft] = left;
 							}
-							// Center and LFE (if present)
-							for (int j = 4; j < nChannels; j++) {
-								if (j == 4 && nChannels >= 6) {
-									// Center channel - mix of L+R at reduced volume
-									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * CENTER_MIX_ATTENUATION;
-								} else if (j == 5 && nChannels >= 6) {
-									// LFE channel - bass from L+R at reduced volume
-									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * LFE_MIX_ATTENUATION;
-								} else {
-									// Any extra channels get zeroed
-									dest[i * nChannels + j] = 0;
-								}
+							if (channelMap.frontRight >= 0) {
+								dest[i * nChannels + channelMap.frontRight] = right;
+							}
+							if (channelMap.center >= 0) {
+								dest[i * nChannels + channelMap.center] = (left + right) * 0.5f * CENTER_MIX_ATTENUATION;
+							}
+							if (channelMap.lfe >= 0) {
+								dest[i * nChannels + channelMap.lfe] = (left + right) * 0.5f * LFE_MIX_ATTENUATION;
+							}
+							if (channelMap.rearLeft >= 0) {
+								dest[i * nChannels + channelMap.rearLeft] = left * SURROUND_ATTENUATION;
+							}
+							if (channelMap.rearRight >= 0) {
+								dest[i * nChannels + channelMap.rearRight] = right * SURROUND_ATTENUATION;
 							}
 						}
 					}
