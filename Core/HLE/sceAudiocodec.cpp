@@ -267,7 +267,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		ctx->srcBytesRead = inDataConsumed;
 		ctx->dstSamplesWritten = outSamples;
 	}
-	return hleLogDebug(Log::ME, 0, "codec %s", GetCodecName(codec));
+	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);
 }
 
 // This is used by sceMp3, in Beats.

@@ -1036,7 +1036,7 @@ void Register_ThreadManForKernel()
 const char *KernelErrorToString(u32 err) {
 	switch (err) {
 	case 0x00000000: return "ERROR_OK";
-	case SCE_KERNEL_ERROR_BAD_ARGUMENT: "BAD_ARGUMENT";
+	case SCE_KERNEL_ERROR_BAD_ARGUMENT: return "BAD_ARGUMENT";
 	case 0x80000020: return "ALREADY";
 	case 0x80000021: return "BUSY";
 	case 0x80000022: return "OUT_OF_MEMORY";

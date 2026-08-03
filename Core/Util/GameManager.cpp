@@ -562,7 +562,7 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	return sfo.GetValueString("DISC_ID");
 }
 
-bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes, size_t maxTotalSize) {
+bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, int64_t *bytesCopied, int64_t allBytes, int64_t maxTotalSize) {
 	struct zip_stat zstat;
 	zip_stat_index(z, file_index, 0, &zstat);
 	size_t size = zstat.size;
@@ -635,9 +635,9 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 }
 
 // Doesn't care what it is, just extracts the whole ZIP to the requested location.
-bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, size_t maxTotalSize) {
-	size_t allBytes = 0;
-	size_t bytesCopied = 0;
+bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, int64_t maxTotalSize) {
+	int64_t allBytes = 0;
+	int64_t bytesCopied = 0;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
@@ -701,12 +701,12 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
 				// Guard against zip bombs: the total declared size must not
 				// exceed the limit. Check before adding to avoid overflow.
-				if (zstat.size > maxTotalSize || allBytes > maxTotalSize - zstat.size) {
+				if ((int64_t)zstat.size > maxTotalSize || allBytes > maxTotalSize - (int64_t)zstat.size) {
 					ERROR_LOG(Log::HLE, "Bailing: zip contents too large (%d bytes), limit %d", (int)allBytes, (int)maxTotalSize);
 					SetInstallError(sy->T("Too large"));
 					goto bail;
 				}
-				allBytes += zstat.size;
+				allBytes += (int64_t)zstat.size;
 			}
 		}
 		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, info.numFiles, (i + 1) * 0.1f, 0.1f);
@@ -835,7 +835,7 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 	}
 	outputISOFilename = outputISOFilename / name;
 
-	size_t bytesCopied = 0;
+	int64_t bytesCopied = 0;
 	bool success = false;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);

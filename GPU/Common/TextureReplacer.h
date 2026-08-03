@@ -93,6 +93,10 @@ public:
 	// Returns nullptr if not found.
 	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h);
 
+	// For testing: point the replacer at a texture pack directory and load its
+	// ini, without touching the global config. Returns true on success.
+	bool LoadPackForTesting(const Path &basePath, std::string *error);
+
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
 

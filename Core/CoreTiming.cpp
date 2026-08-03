@@ -356,7 +356,7 @@ void ProcessEvents() {
 			// INFO_LOG(Log::CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event *evt = first;
 			first = first->next;
-			if (evt->type >= 0 && evt->type < event_types.size()) {
+			if (evt->type >= 0 && evt->type < (int)event_types.size()) {
 				event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
 			} else {
 				_dbg_assert_msg_(false, "Bad event type %d", evt->type);

@@ -142,7 +142,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>winhttp.lib;mfuuid.lib;shlwapi.lib;Ws2_32.lib;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;winhttp.lib;mfuuid.lib;shlwapi.lib;Ws2_32.lib;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib</AdditionalLibraryDirectories>
     </Link>
@@ -294,6 +294,7 @@
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
+    <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="TestVFS.cpp" />
     <ClCompile Include="TestZipSlip.cpp" />

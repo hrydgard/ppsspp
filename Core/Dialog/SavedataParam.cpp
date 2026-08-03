@@ -1261,7 +1261,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		// Log out the listing.
 		if (GenericLogEnabled(Log::sceUtility, LogLevel::LINFO)) {
 			INFO_LOG(Log::sceUtility, "LIST (searchstring=%s): %d files (max: %d)", searchString.c_str(), param->idList->resultCount, maxFileCount);
-			for (int i = 0; i < validDir.size(); i++) {
+			for (size_t i = 0; i < validDir.size(); i++) {
 				NOTICE_LOG(Log::sceUtility, "LIST %s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					entries[i].name, entries[i].st_mode, FmtPspTime(entries[i].st_ctime).c_str(), FmtPspTime(entries[i].st_atime).c_str(), FmtPspTime(entries[i].st_mtime).c_str());
 			}
@@ -1604,7 +1604,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 				// Check if thisSaveName is in the list before processing.
 				// This is hopefully faster than doing file I/O.
 				bool found = false;
-				for (int i = 0; i < allSaves.size(); i++) {
+				for (size_t i = 0; i < allSaves.size(); i++) {
 					if (allSaves[i].name == folderName) {
 						found = true;
 					}

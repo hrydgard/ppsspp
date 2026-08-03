@@ -1392,6 +1392,7 @@ bool TestThreadManager();
 bool TestVFS();
 bool TestZipSlip();
 bool TestLzrc();
+bool TestTextureReplacer();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1449,6 +1450,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(CmdLine),
 	TEST_ITEM(ZipSlip),
 	TEST_ITEM(Lzrc),
+	TEST_ITEM(TextureReplacer),
 };
 
 int main(int argc, const char *argv[]) {

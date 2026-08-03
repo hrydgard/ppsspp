@@ -90,7 +90,7 @@ public:
 
 	// Extracts the contents of an open zip archive into dest. Exposed for testing.
 	// maxTotalSize limits the total decompressed size (zip bomb protection).
-	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, size_t maxTotalSize = 0x100000000);
+	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, int64_t maxTotalSize = 0x100000000ULL);
 
 private:
 	void InstallZipContents(ZipFileTask task);
@@ -100,7 +100,7 @@ private:
 
 	void InstallDone();
 
-	bool ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes, size_t maxTotalSize = 0x100000000);
+	bool ExtractFile(struct zip *z, int file_index, const Path &outFilename, int64_t *bytesCopied, int64_t allBytes, int64_t maxTotalSize = 0x100000000ULL);
 	bool DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest);
 	void SetInstallError(std::string_view err);
 

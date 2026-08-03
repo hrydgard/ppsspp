@@ -1391,6 +1391,7 @@ if(UNITTEST)
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestTextureReplacer.cpp
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestSoftwareGPUJit.cpp
