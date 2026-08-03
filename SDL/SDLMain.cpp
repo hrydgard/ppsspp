@@ -1333,17 +1333,17 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 		{
 			INFO_LOG(Log::UI, "SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: %d x %d", event.window.data1, event.window.data2);
-			int new_width = event.window.data1;
-			int new_height = event.window.data2;
+			const int new_width = event.window.data1;
+			const int new_height = event.window.data2;
 
 			Native_NotifyWindowHidden(false);
 
 			Uint64 window_flags = SDL_GetWindowFlags(window);
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN) != 0;
 
-			// !!! This is the wrong thread!
-			// This one calls NativeResized if the size changed.
-			Native_UpdateScreenScale(new_width, new_height, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+			System_RunOnMainThread([new_width, new_height]() {
+				Native_UpdateScreenScale(new_width, new_height, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+			});
 
 			// Set variable here in case fullscreen was toggled by hotkey
 			if (g_Config.bFullScreen != fullscreen) {
@@ -2130,7 +2130,7 @@ int main(int argc, char *argv[]) {
 
 	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
 
-	Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+	// Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
