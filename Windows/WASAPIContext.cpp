@@ -18,6 +18,11 @@
 
 using Microsoft::WRL::ComPtr;
 
+// Channel upmixing attenuation factors
+static constexpr float SURROUND_ATTENUATION = 0.7f;  // For rear/side channels
+static constexpr float CENTER_MIX_ATTENUATION = 0.7f; // For center channel mix
+static constexpr float LFE_MIX_ATTENUATION = 0.5f;    // For LFE channel mix
+
 // We must have one of these already...
 static inline s16 ClampFloatToS16(float f) {
 	f *= 32768.0f;
@@ -710,17 +715,17 @@ void WASAPIContext::AudioLoop() {
 							// For 5.1/7.1 systems, also send audio to rear channels
 							if (nChannels >= 4) {
 								// Rear/Surround Left and Right at reduced volume
-								dest[i * nChannels + 2] = ClampFloatToS16(tempBuf_[i * 2] * 0.7f);
-								dest[i * nChannels + 3] = ClampFloatToS16(tempBuf_[i * 2 + 1] * 0.7f);
+								dest[i * nChannels + 2] = ClampFloatToS16(tempBuf_[i * 2] * SURROUND_ATTENUATION);
+								dest[i * nChannels + 3] = ClampFloatToS16(tempBuf_[i * 2 + 1] * SURROUND_ATTENUATION);
 							}
 							// Center and LFE (if present)
 							for (int j = 4; j < nChannels; j++) {
 								if (j == 4 && nChannels >= 6) {
 									// Center channel - mix of L+R at reduced volume
-									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.7f);
+									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * CENTER_MIX_ATTENUATION);
 								} else if (j == 5 && nChannels >= 6) {
 									// LFE channel - bass from L+R at reduced volume
-									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.5f);
+									dest[i * nChannels + j] = ClampFloatToS16((tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * LFE_MIX_ATTENUATION);
 								} else {
 									// Any extra channels get zeroed
 									dest[i * nChannels + j] = 0;
@@ -749,17 +754,17 @@ void WASAPIContext::AudioLoop() {
 							// This prevents the "half silent" buffer issue that can cause crackling
 							if (nChannels >= 4) {
 								// Rear/Surround Left and Right at reduced volume
-								dest[i * nChannels + 2] = tempBuf_[i * 2] * 0.7f;      // Rear/Side Left
-								dest[i * nChannels + 3] = tempBuf_[i * 2 + 1] * 0.7f;  // Rear/Side Right
+								dest[i * nChannels + 2] = tempBuf_[i * 2] * SURROUND_ATTENUATION;      // Rear/Side Left
+								dest[i * nChannels + 3] = tempBuf_[i * 2 + 1] * SURROUND_ATTENUATION;  // Rear/Side Right
 							}
 							// Center and LFE (if present)
 							for (int j = 4; j < nChannels; j++) {
 								if (j == 4 && nChannels >= 6) {
 									// Center channel - mix of L+R at reduced volume
-									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.7f;
+									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * CENTER_MIX_ATTENUATION;
 								} else if (j == 5 && nChannels >= 6) {
 									// LFE channel - bass from L+R at reduced volume
-									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * 0.5f;
+									dest[i * nChannels + j] = (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]) * 0.5f * LFE_MIX_ATTENUATION;
 								} else {
 									// Any extra channels get zeroed
 									dest[i * nChannels + j] = 0;
