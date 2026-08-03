@@ -37,6 +37,7 @@
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DevScreens.h"
@@ -237,6 +238,10 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 0.0f, "copyToClip");
 		}
 	});
+
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
+	list->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
+#endif
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
