@@ -532,3 +532,15 @@ void ScreenManager::SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen
 	overlayScreen_ = overlayScreen;
 	overlayScreen_->setScreenManager(this);
 }
+
+const char *DialogResultToString(DialogResult result) {
+	switch (result) {
+	case DR_NONE: return "DR_NONE";
+	case DR_OK: return "DR_OK";
+	case DR_CANCEL: return "DR_CANCEL";
+	case DR_YES: return "DR_YES";
+	case DR_NO: return "DR_NO";
+	case DR_BACK: return "DR_BACK";
+	default: return "(N/A)";
+	}
+}
