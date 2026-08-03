@@ -5,6 +5,7 @@
 			"name": "(gdb) Launch PPSSPPSDL (WSL)",
 			"type": "cppdbg",
 			"request": "launch",
+			"preLaunchTask": "Build PPSSPP (WSL debug)",
 			"program": "/home/hrydg/ppsspp/build/PPSSPPSDL",
 			"osx": {
 				"program": "${workspaceFolder}/build/PPSSPPSDL.app/Contents/MacOS/PPSSPPSDL"
@@ -20,6 +21,10 @@
 			},
 			"environment": [],
 			"externalConsole": false,
+			"internalConsoleOptions": "openOnSessionStart",
+			"logging": {
+				"programOutput": true
+			},
 			"MIMode": "gdb",
 			"pipeTransport": {
 				"pipeProgram": "wsl.exe",

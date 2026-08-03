@@ -9,13 +9,13 @@
 
 class SDLGLGraphicsContext : public GraphicsContext {
 public:
-	SDLGLGraphicsContext(int force_gl_version) : force_gl_version_(force_gl_version) {}
+	SDLGLGraphicsContext() {}
 
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
 	void ShutdownAPI() override;
 
 	// Returns 0 on success.
-	// data1 should be a *pointer* to the SDL_Window pointer, data2 is the SDL_WindowFlags.
+	// data1 should be the SDL_Window pointer, data2 is the SDL_WindowFlags.
 	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
 	void ShutdownSurface() override;
 
@@ -43,6 +43,7 @@ private:
 	Draw::DrawContext *draw_ = nullptr;
 	SDL_Window *window_ = nullptr;
 	SDL_GLContext glContext_ = nullptr;
-	int force_gl_version_ = 0;
 	GLRenderManager *renderManager_ = nullptr;
 };
+
+SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, int forceGLVersion, SDL_GLContext *glContextOut);

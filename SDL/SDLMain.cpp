@@ -2031,9 +2031,6 @@ int main(int argc, char *argv[]) {
 			h = g_Config.iWindowHeight;
 	}
 
-	GraphicsContext *graphicsContext = nullptr;
-	SDL_Window *window = nullptr;
-
 	// Switch away from Vulkan if not available.
 	int fallbackGPUBackend = -1;
 	switch ((GPUBackend)g_Config.iGPUBackend) {
@@ -2055,33 +2052,31 @@ int main(int argc, char *argv[]) {
 		break;
 	}
 
+	SDL_Window *window = nullptr;
 	auto initializeBackend = [&](GPUBackend backend, GraphicsContext **graphicsContext, std::string *errorMessage) -> bool {
 		// Surface init params.
 		WindowSystem windowSystem = WINDOWSYSTEM_NONE;
-		void *data1 = &window;
-		void *data2 = (void *)(uintptr_t)mode;
+		void *data1 = nullptr;
+		void *data2 = nullptr;
+
+		GraphicsContext *ctx = nullptr;
 		if (backend == GPUBackend::OPENGL) {
-			mode |= SDL_WINDOW_OPENGL;
-			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
-			if (!window) {
-				fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
-				exit(1);
-			}
+			SDL_GLContext glContext = nullptr;
+			window = CreateSDLGLWindowAndContext(x, y, w, h, mode, cmdLineOptions.force_gl_version, &glContext);
 
-			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext(cmdLineOptions.force_gl_version);
-			*graphicsContext = glctx;
+			data1 = (void *)window;
+			data2 = (void *)glContext;
 
-			glctx->InitAPI(nullptr, nullptr, errorMessage);
-			if (!glctx->InitSurface(windowSystem, data1, data2, errorMessage)) {
-				fprintf(stderr, "OpenGL surface creation failed: %s\n",  errorMessage->c_str());
-				return false;
-			}
+			ctx = new SDLGLGraphicsContext();
 		} else {
-			mode |= SDL_WINDOW_VULKAN;
+			mode |= SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN;
 			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)mode);
 			if (!window) {
 				fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
 				exit(1);
+			}
+			if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+				SDL_SetWindowPosition(window, x, y);
 			}
 
 			// Overwrite the surface init params with what we need for Vulkan..
@@ -2089,20 +2084,24 @@ int main(int argc, char *argv[]) {
 				return false;
 			}
 			// NOTE : This should match the lines below in the Vulkan case.
-			VulkanGraphicsContext *vkctx = new VulkanGraphicsContext();
-			if (!vkctx->InitAPI(nullptr, &g_Config.sVulkanDevice, errorMessage)) {
-				fprintf(stderr, "Vulkan initialization failed: %s\n", errorMessage->c_str());
-				return false;
-			}
-			if (!vkctx->InitSurface(windowSystem, data1, data2, errorMessage)) {
-				fprintf(stderr, "Vulkan surface creation failed: %s\n", errorMessage->c_str());
-				return false;
-			}
-			*graphicsContext = vkctx;
+			ctx = new VulkanGraphicsContext();
 		}
+
+		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, errorMessage)) {
+			fprintf(stderr, "Graphics initialization failed: %s\n", errorMessage->c_str());
+			return false;
+		}
+
+		if (!ctx->InitSurface(windowSystem, data1, data2, errorMessage)) {
+			fprintf(stderr, "Surface creation failed: %s\n", errorMessage->c_str());
+			return false;
+		}
+
+		*graphicsContext = ctx;
 		return true;
 	};
 
+	GraphicsContext *graphicsContext = nullptr;
 	std::string error_message;
 	if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
 		fprintf(stderr, "Failed to initialize graphics backend: %s\n", error_message.c_str());
@@ -2112,18 +2111,21 @@ int main(int argc, char *argv[]) {
 			error_message.clear();
 			if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
 				fprintf(stderr, "Fallback failed: %s\n", error_message.c_str());
+				SDL_Quit();
 				return 1;
 			}
 		} else {
 			fprintf(stderr, "No fallback GPU backend available. Exiting.\n");
+			SDL_Quit();
 			return 1;
 		}
 	}
 
+	// At this point, we have a window that we can show finally.
+	SDL_ShowWindow(window);
 	if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
 		SDL_SetWindowPosition(window, x, y);
 	}
-
 	UpdateScreenDPI(window);
 
 	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
