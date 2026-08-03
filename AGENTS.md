@@ -45,6 +45,19 @@ Qt/main.cpp
 android/jni/app-android.cpp
 libretro/libretro.cpp
 
+## Legacy Android build (android/jni)
+
+There is a legacy Android build using the raw NDK build system (`android/jni/Android.mk` + `ndk-build`), separate from the
+gradle build in `android/`. It's hooked up on CI (see `.github/workflows/build.yml`, the `android` matrix entries) and is
+useful for quick test builds (it can build `ppsspp_headless` and the unit tests for Android). You do not need to build it
+by default, but if you want to test-build it locally:
+
+- The NDK path is hardcoded in `android/ab.cmd` (Windows) or passed via the `NDK` env var to `android/ab.sh` (POSIX).
+  It should match the `ndkVersion` in `android/build.gradle.kts`. The scripts copy assets first, then run ndk-build with
+  a core count derived from the machine (nproc / %NUMBER_OF_PROCESSORS%).
+- Example (POSIX): `cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1`
+- The `ppsspp_headless` executable ends up in `android/libs/<abi>/`.
+
 ## File formats, codecs, and other format handlers
 
 Before implementing any file format handler, decompressor, codec, or similar from scratch, search the
