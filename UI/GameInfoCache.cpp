@@ -418,7 +418,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 		return;
 	}
 	if (icon.dataLoaded && !icon.texture) {
-		SetupTexture(draw, icon, 256, 128);
+		SetupTexture(draw, icon, 2048, 2048);
 	}
 	if (pic0.dataLoaded && !pic0.texture) {
 		SetupTexture(draw, pic0);
