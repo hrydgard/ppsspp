@@ -606,21 +606,15 @@ static void StopSDLAudioDevice() {
 }
 
 static void UpdateScreenDPI(SDL_Window *window) {
-	int drawable_width, window_width, window_height;
-	SDL_GetWindowSize(window, &window_width, &window_height);
-
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
-		SDL_GetWindowSizeInPixels(window, &drawable_width, NULL);
-	else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN)
-		SDL_GetWindowSizeInPixels(window, &drawable_width, NULL);
-	else {
-		// If we add SDL support for more platforms, we'll end up here.
-		g_DesktopDPI = 1.0f;
-		return;
+	// SDL3's window display scale already accounts for the display's content
+	// scale and the window's pixel density, so we don't need to (incorrectly)
+	// derive it ourselves from the ratio of pixel size to window size.
+	float scale = SDL_GetWindowDisplayScale(window);
+	if (scale <= 0.0f) {
+		WARN_LOG(Log::System, "SDL_GetWindowDisplayScale failed: %s", SDL_GetError());
+		scale = 1.0f;
 	}
-	// Round up a little otherwise there would be a gap sometimes
-	// in fractional scaling
-	g_DesktopDPI = ((float) drawable_width + 1.0f) / window_width;
+	g_DesktopDPI = scale;
 }
 
 // Simple implementations of System functions
@@ -1348,10 +1342,6 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			// Set variable here in case fullscreen was toggled by hotkey
 			if (g_Config.bFullScreen != fullscreen) {
 				g_Config.bFullScreen = fullscreen;
-			} else {
-				// It is possible for the monitor to change DPI, so recalculate
-				// DPI on each resize event.
-				UpdateScreenDPI(window);
 			}
 
 			if (!g_Config.bFullScreen) {
@@ -1367,6 +1357,21 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
 				SDL_ShowCursor();
 			}
+			break;
+		}
+	case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+		{
+			// The window moved to a display with a different content scale, or the
+			// user changed the display's scale setting. Recompute the DPI and
+			// re-derive the screen scale from the window's current pixel size.
+			UpdateScreenDPI(window);
+
+			int pixelWidth = 0;
+			int pixelHeight = 0;
+			SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+			System_RunOnMainThread([pixelWidth, pixelHeight]() {
+				Native_UpdateScreenScale(pixelWidth, pixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+			});
 			break;
 		}
 	case SDL_EVENT_WINDOW_MOVED:
@@ -1484,7 +1489,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1497,7 +1502,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1516,7 +1521,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1540,7 +1545,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
 				// - The UI code expects motion events in "logical DPI" points
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown |= 1;
 				TouchInput input{};
 				input.x = mx;
@@ -1556,7 +1561,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_BUTTON_RIGHT:
 			{
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown |= 2;
 				TouchInput input{};
 				input.x = mx;
@@ -1612,7 +1617,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_EVENT_MOUSE_MOTION:
 		{
 			float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
-			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
+			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_y;
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
@@ -1630,7 +1635,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_BUTTON_LEFT:
 			{
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown &= ~1;
 				TouchInput input{};
 				input.x = mx;
@@ -1645,7 +1650,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_BUTTON_RIGHT:
 			{
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown &= ~2;
 				// Right button only emits mouse move events. This is weird,
 				// but consistent with Windows. Needs cleanup.
@@ -2127,10 +2132,6 @@ int main(int argc, char *argv[]) {
 		SDL_SetWindowPosition(window, x, y);
 	}
 	UpdateScreenDPI(window);
-
-	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
-
-	// Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
