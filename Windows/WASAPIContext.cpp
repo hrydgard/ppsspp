@@ -384,14 +384,29 @@ bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMod
 				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
 				INFO_LOG(Log::Audio, "Successfully asked for two channels");
 			} else if (result == S_FALSE) {
-				// We got another format. Meh, let's just use what we got.
+				// The device suggests a closest match format
 				if (closestMatch) {
-					WARN_LOG(Log::Audio, "Didn't get the format we wanted, but got: %lu ch=%d", closestMatch->nSamplesPerSec, closestMatch->nChannels);
-					CoTaskMemFree(closestMatch);
+					// Check if the closest match is acceptable (stereo float)
+					if (closestMatch->nChannels == 2 && Classify(closestMatch) == AudioFormat::Float) {
+						INFO_LOG(Log::Audio, "Using device's suggested format: %lu Hz, %d channels", 
+							closestMatch->nSamplesPerSec, closestMatch->nChannels);
+						// Use the suggested format
+						CoTaskMemFree(format_);
+						format_ = closestMatch;
+						curChannels_.store(format_->nChannels);
+						curSamplesPerSec_ = format_->nSamplesPerSec;
+						extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+					} else {
+						// Closest match is not stereo float, fall back to manual conversion
+						WARN_LOG(Log::Audio, "Device suggested format (%d channels) isn't stereo float, using manual conversion",
+							closestMatch->nChannels);
+						CoTaskMemFree(closestMatch);
+						createBuffer = true;
+					}
 				} else {
-					WARN_LOG(Log::Audio, "Failed to fall back to two channels. Using workarounds.");
+					WARN_LOG(Log::Audio, "IsFormatSupported returned S_FALSE but no closest match. Using workarounds.");
+					createBuffer = true;
 				}
-				createBuffer = true;
 			} else {
 				// IsFormatSupported failed - log detailed error information
 				const char *errorName = GetAudioClientErrorName(result);
