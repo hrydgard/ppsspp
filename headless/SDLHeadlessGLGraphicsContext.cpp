@@ -37,17 +37,20 @@
 
 const bool WINDOW_VISIBLE = false;
 
-void *CreateHiddenWindow(int w, int h) {
+WindowDesc CreateHiddenWindow(int w, int h) {
 	Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS;
 	if (!WINDOW_VISIBLE) {
 		flags |= SDL_WINDOW_HIDDEN;
 	}
-	return SDL_CreateWindow("PPSSPPHeadless", w, h, flags);
+	WindowDesc desc;
+	desc.data2 = SDL_CreateWindow("PPSSPPHeadless", w, h, flags);
+	desc.winsys = WindowSystem::WINDOWSYSTEM_SDL;
+	return desc;
 }
 
-void DestroyHiddenWindow(void *window) {
-	if (window) {
-		SDL_DestroyWindow(static_cast<SDL_Window *>(window));
+void DestroyHiddenWindow(WindowDesc window) {
+	if (window.data2) {
+		SDL_DestroyWindow(static_cast<SDL_Window *>(window.data2));
 		SDL_Quit();
 	}
 }

@@ -17,6 +17,8 @@
 
 #pragma once
 
+struct WindowDesc;
+
 // Same API as for SDL
-void *CreateHiddenWindow(int w, int h);
-void DestroyHiddenWindow(void *window);
+WindowDesc CreateHiddenWindow(int w, int h);
+void DestroyHiddenWindow(WindowDesc window);

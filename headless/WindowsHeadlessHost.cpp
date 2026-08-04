@@ -19,10 +19,11 @@
 #include "headless/WindowsHeadlessHost.h"
 
 #include "Common/CommonWindows.h"
+#include "Common/GPU/GraphicsContext.h"
 
 const bool WINDOW_VISIBLE = false;
 
-void *CreateHiddenWindow(int w, int h) {
+WindowDesc CreateHiddenWindow(int w, int h) {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -46,11 +47,15 @@ void *CreateHiddenWindow(int w, int h) {
 		ShowWindow(wnd, TRUE);
 		SetFocus(wnd);
 	}
-	return static_cast<void *>(wnd);
+	WindowDesc desc;
+	desc.data1 = GetModuleHandle(NULL);
+	desc.data2 = wnd;
+	desc.winsys = WindowSystem::WINDOWSYSTEM_WIN32;
+	return desc;
 }
 
-void DestroyHiddenWindow(void *window) {
-	if (window) {
-		DestroyWindow(static_cast<HWND>(window));
+void DestroyHiddenWindow(WindowDesc window) {
+	if (window.data2) {
+		DestroyWindow(static_cast<HWND>(window.data2));
 	}
 }

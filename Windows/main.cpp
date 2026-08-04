@@ -1236,7 +1236,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	System_SetWindowTitle("");
 	System_Notify(SystemNotification::UI);
 
-	std::thread mainThread = std::thread([]() {
+	WindowDesc desc;
+	desc.winsys = WINDOWSYSTEM_WIN32;
+	desc.data1 = MainWindow::GetHInstance();
+	desc.data2 = MainWindow::GetHWND();
+
+	std::thread mainThread = std::thread([desc]() {
 		// TODO: We can really merge all of this into MainThreadFunc
 		std::string errorMessage;
 		std::string *deviceNameSetting;
@@ -1245,7 +1250,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			HandleGraphicsFailure(errorMessage);
 			return;
 		}
-		if (!MainThreadFunc(graphicsContext.get(), new NativeApplication(), WINDOWSYSTEM_WIN32, MainWindow::GetHInstance(), MainWindow::GetHWND(),
+		if (!MainThreadFunc(graphicsContext.get(), new NativeApplication(), desc,
 			[](GraphicsContext *graphicsContext) {
 				NativeFrame(graphicsContext);
 				return GetUIState() != UISTATE_EXIT;

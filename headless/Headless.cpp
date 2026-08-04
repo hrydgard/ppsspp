@@ -233,14 +233,12 @@ void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
 	}
 }
 
-static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **deviceSetting, WindowSystem *winsys) {
+static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **deviceSetting) {
 #ifdef SDL
 	*deviceSetting = nullptr;
-	*winsys = WindowSystem::WINDOWSYSTEM_SDL;
 	return new SDLHeadlessGLGraphicsContext();
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	GraphicsContext *graphicsContext = nullptr;
-	*winsys = WINDOWSYSTEM_WIN32;
 	switch (gpuCore) {
 	case GPUCORE_GLES:
 		*deviceSetting = nullptr;
@@ -353,12 +351,11 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	}
 
 	if (draw) {
-		draw->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "BackBuffer");
 		// Vulkan may get angry if we don't do a final present.
 		if (gpu) {
 			gpu->SetCurFramebufferDirty(true);
 			gpu->PrepareCopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
-			draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+			draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE}, "BackBuffer");
 			gpu->CopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 		}
 
@@ -497,8 +494,6 @@ public:
 	void ShutdownGraphics(GraphicsContext *graphicsContext) override {
 		graphicsContext->NotifyEmuThreadExit();
 	}
-private:
-	std::function<void()> frameCallback_;
 };
 
 int main(int argc, const char* argv[]) {
@@ -656,7 +651,7 @@ int main(int argc, const char* argv[]) {
 	g_Config.iInternalResolution = cmdLineOptions.resolutionScale.value_or(1);
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_Config.bVertexDecoderJit = true;
-	g_Config.bSoftwareRendering = gpuCore == GPUCORE_SOFTWARE;
+	g_Config.bSoftwareRendering = cmdLineOptions.softwareRendering.value_or(false);
 	g_Config.bSoftwareRenderingJit = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
@@ -676,19 +671,33 @@ int main(int argc, const char* argv[]) {
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
-	// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-	void *window = nullptr;
+	// Translate backend to core. We probably should consider merging these enums.
+	if (!g_Config.bSoftwareRendering && cmdLineOptions.gpuBackend.has_value()) {
+		switch (cmdLineOptions.gpuBackend.value()) {
+		case GPUBackend::OPENGL:
+			gpuCore = GPUCORE_GLES;
+			break;
+		case GPUBackend::DIRECT3D11:
+			gpuCore = GPUCORE_DIRECTX11;
+			break;
+		case GPUBackend::VULKAN:
+			gpuCore = GPUCORE_VULKAN;
+			break;
+		}
+	}
 
 	// Time to set up graphics
 	GraphicsContext *graphicsContext = nullptr;
 	std::string *deviceSetting = nullptr;
-	WindowSystem winsys = WindowSystem::WINDOWSYSTEM_NONE;
+	WindowDesc windowDesc;
 	if (g_Config.bSoftwareRendering) {
 		// For software rendering, we just create a dummy graphics context (to share as much code as possible).
+		// We don't bother with a window.
 		graphicsContext = new NullGraphicsContext();
 	} else {
-		window = CreateHiddenWindow(480, 272);
-		graphicsContext = CreateGraphicsContext(gpuCore, &deviceSetting, &winsys);
+		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
+		windowDesc = CreateHiddenWindow(480, 272);
+		graphicsContext = CreateGraphicsContext(gpuCore, &deviceSetting);
 		if (!graphicsContext) {
 			// If we don't get the desired context, we DO NOT fall back.
 			fprintf(stderr, "Failed to create a graphics context for GPU core");
@@ -785,31 +794,27 @@ int main(int argc, const char* argv[]) {
 		SaveState::Load(Path(stateToLoad), -1);
 	}
 
-
-	Application *app = new HeadlessApplication([&]() {
-		// This is called from the main thread, so we can run the emulation here if we don't need a separate thread.
-		if (!graphicsContext->NeedsSeparateEmuThread()) {
-			RunTests(graphicsContext, coreParameter, testOptions, testFilenames);
-		}
-	});
-
-	if (graphicsContext->NeedsSeparateEmuThread()) {
-		std::thread emuThread = EmuThread_Start(graphicsContext, app, nullptr);
-
-
-		emuThread.join();
+	std::string errorMessage;
+	if (!graphicsContext->InitAPI(windowDesc.data2, deviceSetting, &errorMessage)) {
+		// No fallbacks in headless - if we can't run it, we can't. Let's not get confusing.
+		fprintf(stderr, "Failed to initialize graphics API: %s\n", errorMessage.c_str());
+		return 1;
 	}
 
+	int retval = 0;
+	MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
+		retval = RunTests(graphicsContext, coreParameter, testOptions, testFilenames);
+		return false;
+	});
 
-	// Run the tests (or frame dumps), one after another.
-	const int retval = RunTests(graphicsContext, coreParameter, testOptions, testFilenames);
+	graphicsContext->ShutdownAPI();
 
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		ShutdownWebServer();
 	}
 
-	if (window) {
-		DestroyHiddenWindow(window);
+	if (windowDesc.Valid()) {
+		DestroyHiddenWindow(windowDesc);
 	}
 
 	g_VFS.Clear();

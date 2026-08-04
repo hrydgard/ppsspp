@@ -6,6 +6,16 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/TimeUtil.h"
 
+struct WindowDesc {
+	WindowSystem winsys{};
+	void *data1 = nullptr;
+	void *data2 = nullptr;
+
+	bool Valid() const {
+		return winsys != WindowSystem::WINDOWSYSTEM_UNINITIALIZED && data2;  // Not all platforms use data1, so don't check it.
+	}
+};
+
 // Init is done differently on each platform, and done close to the creation, so it's
 // expected to be implemented by subclasses.
 class GraphicsContext {

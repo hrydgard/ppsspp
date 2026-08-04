@@ -100,8 +100,6 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 
 	application->InitGraphics(graphicsContext);
 
-	DEBUG_LOG(Log::Boot, "Done.");
-
 	g_inLoop = true;
 
 	while (frame(graphicsContext)) {
@@ -114,7 +112,6 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 
 	// Process the shutdown.  Without this, non-GL delays 800ms on shutdown. TODO: is this still an issue?
 	Core_StateProcessed();
-	frame(graphicsContext);
 
 	g_inLoop = false;
 
@@ -124,19 +121,16 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 }
 
 // Call InitAPI and ShutdownAPI outside this!
-bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, WindowSystem windowSystem, void *windowData1, void *windowData2, std::function<bool(GraphicsContext *)> frame) {
+bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, const WindowDesc &windowDesc, std::function<bool(GraphicsContext *)> frame) {
 	// This is now the render thread, and will spawn the emu thread below.
 	std::string error_string;
-	bool success = graphicsContext->InitSurface(windowSystem, windowData1, windowData2, &error_string);
+	bool success = graphicsContext->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, &error_string);
 	if (!success) {
 		return false;
 	}
-
 	std::string errorMessage;
 	if (graphicsContext->NeedsSeparateEmuThread()) {
 		SetCurrentThreadName("RenderThread");
-
-		DEBUG_LOG(Log::Boot, "Done.");
 
 		g_inLoop = true;
 		std::thread emuThread = EmuThread_Start(graphicsContext, application, frame);

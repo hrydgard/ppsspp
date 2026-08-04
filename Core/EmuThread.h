@@ -26,12 +26,13 @@
 bool MainThread_Ready();
 
 class GraphicsContext;
+struct WindowDesc;
 
 // Doesn't take ownership of the graphicsContext, you have to delete it.
 // This should be used by platforms that launch a separate thread and doesn't
 // need to run a polling loop in it.
 // NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
-bool MainThreadFunc(GraphicsContext * graphicsContext, Application *application, WindowSystem windowSystem, void *windowData1, void *windowData2, std::function<bool(GraphicsContext *)> frame);
+bool MainThreadFunc(GraphicsContext * graphicsContext, Application *application, const WindowDesc &windowDesc, std::function<bool(GraphicsContext *)> frame);
 
 // If you're not using MainThreadFunc, you can at least use these to manage a spinning EmuThread (that calls NativeFrame),
 // whether your graphics context requires multithreading or not. Then use RunMainLoop to implement your main loop for
