@@ -103,6 +103,7 @@ private:
 	HANDLE audioEvent_ = nullptr;
 	std::thread audioThread_;
 	int curSamplesPerSec_ = 0;
+	std::atomic<int> curChannels_{0};  // Cached from format_->nChannels to avoid unsafe pointer access from audio thread
 	UINT32 defaultPeriodFrames_ = 0;
 	UINT32 fundamentalPeriodFrames_ = 0;
 	UINT32 minPeriodFrames_ = 0;
