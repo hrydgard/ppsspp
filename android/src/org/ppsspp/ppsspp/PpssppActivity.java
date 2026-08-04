@@ -996,6 +996,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 		} else if (mSurface != null) {
 			// JavaGL path.
+			// TODO: This might not be the best place to do this. Seems to cause a surface recreation
+			// unnecessarily.
 			Log.i(TAG, "notifySurface: Applying framerate.");
 			applyFrameRate(mSurface, 60.0f);
 		}

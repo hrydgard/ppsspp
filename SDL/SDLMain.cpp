@@ -2192,7 +2192,6 @@ int main(int argc, char *argv[]) {
 
 	// We use the emuthread both for OpenGL and Vulkan, but in OpenGL mode we also render from the main thread.
 	_dbg_assert_(graphicsContext);
-	std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 
 	InputStateTracker inputTracker{};
 
@@ -2211,6 +2210,8 @@ int main(int argc, char *argv[]) {
 
 	const bool mainThreadIsRender = graphicsContext->NeedsSeparateEmuThread();
 	if (!mainThreadIsRender) {
+		// TODO: This shouldn't be the EmuThread, but rather RunMainLoop?
+		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
 		// Vulkan mode uses this.
 		// We should only be a message pump. This allows for lower latency
 		// input events, and so on. The spawned EmuThread runs emulation and rendering.
@@ -2240,37 +2241,46 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-	} else while (true) {
-		// OpenGL mode uses this.
-		{
-			SDL_Event event;
-			while (SDL_PollEvent(&event)) {
-				ProcessSDLEvent(window, event, &inputTracker);
+		EmuThread_Join(graphicsContext, emuThread);
+	} else {
+		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
+		while (true) {
+			// OpenGL mode uses this.
+			{
+				SDL_Event event;
+				while (SDL_PollEvent(&event)) {
+					ProcessSDLEvent(window, event, &inputTracker);
+				}
 			}
-		}
-		if (g_QuitRequested || g_RestartRequested)
-			break;
-
-		UpdateTextFocus(window);
-		UpdateSDLCursor();
-
-		inputTracker.MouseCaptureControl(window);
-
-		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized;
-		if (graphicsContext->NeedsSeparateEmuThread() && !renderThreadPaused) {
-			if (!graphicsContext->ThreadFrame(true))
+			if (g_QuitRequested || g_RestartRequested)
 				break;
-		}
 
-		{
-			std::lock_guard<std::mutex> guard(g_mutexWindow);
-			if (g_windowState.update) {
-				UpdateWindowState(window);
+			UpdateTextFocus(window);
+			UpdateSDLCursor();
+
+			inputTracker.MouseCaptureControl(window);
+
+			bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized;
+			if (graphicsContext->NeedsSeparateEmuThread() && !renderThreadPaused) {
+				if (!graphicsContext->ThreadFrame()) {
+					// The render thread was instructed to exit by the emu thread,
+					// and has now reached the end of the submitted frames.
+					// EmuThread will be in the process of exiting, so below
+					// we can just EmuThread_Join().
+					break;
+				}
+			}
+
+			{
+				std::lock_guard<std::mutex> guard(g_mutexWindow);
+				if (g_windowState.update) {
+					UpdateWindowState(window);
+				}
 			}
 		}
+		EmuThread_Join(graphicsContext, emuThread);
 	}
 
-	EmuThread_Join(graphicsContext, emuThread);
 
 	delete joystick;
 

@@ -37,8 +37,12 @@ public:
 
 	// Called from the render thread from threaded backends.
 	virtual void ThreadStart() {}
-	virtual bool ThreadFrame(bool waitIfEmpty) { return true; }   // waitIfEmpty should normally be true, except in exit scenarios.
+	virtual bool ThreadFrame() { return true; }   // Returns false when it's time to exit the loop.
 	virtual void ThreadEnd() {}
+
+	// When this is called, the emulation thread has stopped producing frames completely.
+	// Called from the emu thread, so be ready for that.
+	virtual void NotifyEmuThreadExit() {}
 
 	// Useful for checks that need to be performed every frame.
 	// Should strive to get rid of these.
@@ -46,31 +50,4 @@ public:
 
 	// TODO: Store in a protected variable?
 	virtual Draw::DrawContext *GetDrawContext() = 0;
-
-	void ThreadFrameUntilCondition(std::function<bool()> conditionStopped) {
-		_dbg_assert_(NeedsSeparateEmuThread());
-		BeginShutdownSurface();
-		bool exitOnEmpty = false;
-
-		INFO_LOG(Log::System, "Executing graphicsContext->ThreadFrame to clear buffers");
-		while (true) {
-			// When EmuThread is done, we know there are no more frames coming. When that happens,
-			// we'll bail.
-			if (!exitOnEmpty && conditionStopped()) {
-				INFO_LOG(Log::System, "Found out that the thread is done.");
-				exitOnEmpty = true;
-			}
-
-			const bool retval = ThreadFrame(false);
-			if (!retval && exitOnEmpty) {
-				INFO_LOG(Log::System, "ThreadFrame returned false and emu thread is done, breaking.");
-				break;
-			} else {
-				sleep_ms(5, "exit poll");
-			}
-		}
-	}
-
-protected:
-	virtual void BeginShutdownSurface() {}  // This is currently only used on Android.
 };

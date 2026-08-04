@@ -96,9 +96,7 @@ extern retro_hw_context_type backend;
 
 enum class EmuThreadState {
 	DISABLED,
-	START_REQUESTED,
 	RUNNING,
-	PAUSE_REQUESTED,
 	PAUSED,
 	QUIT_REQUESTED,
 	STOPPED,

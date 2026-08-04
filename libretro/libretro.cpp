@@ -1384,34 +1384,32 @@ namespace Libretro {
       for (;;) {
          switch ((EmuThreadState)emuThreadState)
          {
-            case EmuThreadState::START_REQUESTED:
-               emuThreadState = EmuThreadState::RUNNING;
-               [[fallthrough]];
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
-            case EmuThreadState::PAUSE_REQUESTED:
-               emuThreadState = EmuThreadState::PAUSED;
-               [[fallthrough]];
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;
-            default:
             case EmuThreadState::QUIT_REQUESTED:
+               ctx->NotifyEmuThreadExit();
                emuThreadState = EmuThreadState::STOPPED;
+               return;
+            default:
+               _dbg_assert_(false);
                return;
          }
       }
+      // Unreachable
    }
 
    void EmuThreadStart() {
       EmuThreadState state = emuThreadState;
       bool wasPaused = state == EmuThreadState::PAUSED;
 
-      if (state == EmuThreadState::RUNNING || state == EmuThreadState::START_REQUESTED || (emuThread.joinable() && !wasPaused))
+      if (state == EmuThreadState::RUNNING || (emuThread.joinable() && !wasPaused))
          return;
 
-      emuThreadState = EmuThreadState::START_REQUESTED;
+      emuThreadState = EmuThreadState::RUNNING;
 
       if (!wasPaused)
       {
@@ -1426,10 +1424,8 @@ namespace Libretro {
 
       emuThreadState = EmuThreadState::QUIT_REQUESTED;
 
-      // Need to keep eating frames to allow the EmuThread to exit correctly.
-      ctx->ThreadFrameUntilCondition([]() -> bool {
-         return emuThreadState == EmuThreadState::STOPPED;
-      });
+      // Eat remaining frames.
+      while (ctx->ThreadFrame()) {}
 
       emuThread.join();
       emuThread = std::thread();
@@ -1440,10 +1436,10 @@ namespace Libretro {
       if (emuThreadState != EmuThreadState::RUNNING)
          return;
 
-      emuThreadState = EmuThreadState::PAUSE_REQUESTED;
+      emuThreadState = EmuThreadState::PAUSED;
 
       // Is this safe?
-      ctx->ThreadFrame(true); // Eat 1 frame
+      ctx->ThreadFrame(); // Eat 1 frame
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1, "libretro-pause-poll");
@@ -1656,6 +1652,7 @@ static void retro_input(void) {
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
 
+// Called every frame by retroarch.
 void retro_run(void) {
    if (g_pendingBoot) {
       BootState state = PSP_InitUpdate(&g_bootErrorString);
@@ -1701,30 +1698,30 @@ void retro_run(void) {
       retro_reset();
    }
 
+   // Update setting if any have changed.
    bool updated;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
-      && updated)
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated)
       check_variables(PSP_CoreParameter());
    else
       check_dynamic_variables(PSP_CoreParameter());
 
+   // Process input.
    retro_input();
 
-   if (useEmuThread)
-   {
-      if (  emuThreadState == EmuThreadState::PAUSED ||
-            emuThreadState == EmuThreadState::PAUSE_REQUESTED)
-      {
+   // Handle thread pumping.
+   if (useEmuThread) {
+      if (emuThreadState == EmuThreadState::PAUSED) {
          VsyncSwapIntervalDetect();
          ctx->SwapBuffers();
          return;
       }
 
-      if (emuThreadState != EmuThreadState::RUNNING)
+      if (emuThreadState != EmuThreadState::RUNNING) {
          EmuThreadStart();
+      }
 
-      if (!ctx->ThreadFrame(true))
-      {
+      if (!ctx->ThreadFrame()) {
+         // We're done processing the last frame from the emu thread.
          VsyncSwapIntervalDetect();
          return;
       }
@@ -1763,22 +1760,21 @@ size_t retro_serialize_size(void)
    // We don't unpause intentionally
 }
 
-bool retro_serialize(void *data, size_t size)
-{
+bool retro_serialize(void *data, size_t size) {
    if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
 
    // TODO: Libretro API extension to use the savestate queue
-   if (useEmuThread)
+   if (useEmuThread) {
       EmuThreadPause(); // Does nothing if already paused
+   }
 
    size_t measuredSize;
    SaveState::SaveStart state;
    auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
    bool retVal = err == CChunkFileReader::ERROR_NONE;
 
-   if (useEmuThread)
-   {
+   if (useEmuThread) {
       EmuThreadStart();
       sleep_ms(4, "libretro-serialize");
    }
@@ -1786,8 +1782,7 @@ bool retro_serialize(void *data, size_t size)
    return retVal;
 }
 
-bool retro_unserialize(const void *data, size_t size)
-{
+bool retro_unserialize(const void *data, size_t size) {
    // The HW renderer isn't ready on first pass.
    // So we save the data until we are ready to use it.
    if (!gpu) {
@@ -1805,8 +1800,7 @@ bool retro_unserialize(const void *data, size_t size)
    bool retVal = CChunkFileReader::LoadPtr((u8 *)data, size, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
-   if (useEmuThread)
-   {
+   if (useEmuThread) {
       EmuThreadStart();
       sleep_ms(4, "libretro-unserialize");
    }

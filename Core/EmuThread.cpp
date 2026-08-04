@@ -40,6 +40,8 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 	INFO_LOG(Log::G3D, "Entering separate emu thread");
 	SetCurrentThreadName("EmuThread");
 
+	g_emuThreadState = EmuThreadState::RUNNING;
+
 	AndroidJNIThreadContext context;
 
 	// This normally calls NativeInitGraphics()
@@ -66,39 +68,34 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 
 	INFO_LOG(Log::System, "emuThreadState was set to QUIT_REQUESTED, left EmuThreadFunc loop. Setting state to STOPPED.");
 
-	g_emuThreadState = EmuThreadState::STOPPED;
-
 	// This normally calls NativeShutdownGraphics()
 	application->ShutdownGraphics(graphicsContext);
 	delete application;
 
 	INFO_LOG(Log::System, "Leaving separate emu thread");
+
+	g_emuThreadState = EmuThreadState::STOPPED;
 }
 
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame) {
+	INFO_LOG(Log::System, "EmuTread_Start");
 	_dbg_assert_(g_emuThreadState == EmuThreadState::STOPPED);
-	g_emuThreadState = EmuThreadState::RUNNING;
 	std::thread emuThread = std::thread(&EmuThreadFunc, graphicsContext, application, postFrame);
 	graphicsContext->ThreadStart();
 	return emuThread;
 }
 
+// This is useful when the render thread is in control.
+void EmuThread_RequestExit() {
+	INFO_LOG(Log::System, "EmuTread_RequestExit");
+	g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
+}
+
 void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
-	const EmuThreadState state = g_emuThreadState;
-	if (state != EmuThreadState::QUIT_REQUESTED &&
-		state != EmuThreadState::STOPPED) {
-		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
-	}
-	_dbg_assert_(emuThread.joinable());
-	if (graphicsContext->NeedsSeparateEmuThread()) {
-		graphicsContext->ThreadFrameUntilCondition([] {
-			// Need to keep eating frames to allow the EmuThread to exit correctly.
-			return g_emuThreadState == EmuThreadState::STOPPED;
-		});
-	}
-	graphicsContext->ThreadEnd();
+	INFO_LOG(Log::System, "EmuTread_Join");
 	emuThread.join();
 	emuThread = std::thread();
+	graphicsContext->ThreadEnd();
 }
 
 bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std::function<bool()> runCondition, std::function<void()> postFrame) {
@@ -150,19 +147,9 @@ bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, 
 
 		g_inLoop = true;
 		std::thread emuThread = EmuThread_Start(graphicsContext, application, postFrame);
-
 		graphicsContext->ThreadStart();
-		// This thread becomes the render thread.
-		while (true) {
-			if (equals_any(g_emuThreadState, EmuThreadState::QUIT_REQUESTED, EmuThreadState::STOPPED)) {
-				break;
-			}
-			graphicsContext->ThreadFrame(true);
-			if (GetUIState() == UISTATE_EXIT) {
-				break;
-			}
-		}
-
+		// This thread becomes the render thread. EmuThread will tell it when to quit by sending a message.
+		while (graphicsContext->ThreadFrame()) {}
 		EmuThread_Join(graphicsContext, emuThread);
 		g_inLoop = false;
 

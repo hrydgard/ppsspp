@@ -485,10 +485,15 @@ void WindowsGLContext::ThreadStart() {
 	renderManager_->ThreadStart(draw_);
 }
 
-bool WindowsGLContext::ThreadFrame(bool waitIfEmpty) {
-	return renderManager_->ThreadFrame(waitIfEmpty);
+bool WindowsGLContext::ThreadFrame() {
+	return renderManager_->ThreadFrame();
 }
 
 void WindowsGLContext::ThreadEnd() {
 	renderManager_->ThreadEnd();
+}
+
+void WindowsGLContext::NotifyEmuThreadExit() {
+	// renderManager_->SetSkipGLCalls();   // not necessary on desktop, maybe unadvisable?
+	renderManager_->NotifyEmuThreadExit();
 }

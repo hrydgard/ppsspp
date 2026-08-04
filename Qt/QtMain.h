@@ -81,12 +81,16 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
 	}
 
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
+	}
+
+	void NotifyEmuThreadExit() override {
+		renderManager_->NotifyEmuThreadExit();
 	}
 
 private:

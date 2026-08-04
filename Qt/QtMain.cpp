@@ -681,6 +681,10 @@ MainUI::MainUI(QWidget *parent)
 MainUI::~MainUI() {
 	INFO_LOG(Log::System, "MainUI::Destructor");
 	if (graphicsContext->NeedsSeparateEmuThread()) {
+		EmuThread_RequestExit();
+		while (graphicsContext->ThreadFrame()) {
+			// Wait for the emu thread to finish.
+		}
 		EmuThread_Join(graphicsContext, emuThread_);
 	}
 #if defined(MOBILE_DEVICE)
@@ -889,7 +893,7 @@ void MainUI::paintGL() {
 #endif
 	updateAccelerometer();
 	if (graphicsContext->NeedsSeparateEmuThread()) {
-		graphicsContext->ThreadFrame(true);
+		graphicsContext->ThreadFrame();
 		// Do the rest in EmuThreadFunc
 	} else {
 		NativeFrame(graphicsContext);

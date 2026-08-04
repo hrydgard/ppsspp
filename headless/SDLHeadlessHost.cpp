@@ -77,8 +77,8 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
 	}
 
 	void ThreadEnd() override {
@@ -185,7 +185,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 		gfx_->ThreadStart();
 		threadState_ = RenderThreadState::STARTED;
 
-		gfx_->ThreadFrameUntilCondition([this] { return threadState_ == RenderThreadState::STOP_REQUESTED; });
+		while (gfx_->ThreadFrame()) {}
 
 		threadState_ = RenderThreadState::STOPPING;
 		gfx_->ThreadEnd();
@@ -202,9 +202,7 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 }
 
 void SDLHeadlessHost::ShutdownGraphics() {
-	threadState_ = RenderThreadState::STOP_REQUESTED;
-	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
-		sleep_ms(1, "sdl-stop-poll");
+	gfx_->NotifyEmuThreadExit();
 
 	gfx_->ShutdownAPI();
 	delete gfx_;

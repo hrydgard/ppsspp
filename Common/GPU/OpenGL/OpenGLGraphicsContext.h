@@ -22,21 +22,23 @@ public:
 		return draw_;
 	}
 
+	// Called from render thread
 	void ThreadStart() override {
 		renderManager_->ThreadStart(draw_);
 	}
-
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
 	}
-
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
 	}
-protected:
-	void BeginShutdownSurface() override {
+
+	// Call from emu thread
+	void NotifyEmuThreadExit() override {
 		renderManager_->SetSkipGLCalls();
+		renderManager_->NotifyEmuThreadExit();
 	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;
