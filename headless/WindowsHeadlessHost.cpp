@@ -16,36 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <cstdio>
-
 #include "headless/WindowsHeadlessHost.h"
 
-#include "Common/GPU/OpenGL/GLCommon.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/DirectoryReader.h"
-
 #include "Common/CommonWindows.h"
-#include "Common/Log.h"
-#include "Common/File/FileUtil.h"
-#include "Common/TimeUtil.h"
-#include "Common/Thread/ThreadUtil.h"
-
-#include "Core/CoreParameter.h"
-#include "Core/System.h"
-#include "GPU/GPUCommon.h"
-#include "GPU/GPUState.h"
-#if PPSSPP_API(ANY_GL)
-#include "Windows/GPU/WindowsGLContext.h"
-#endif
-#include "Windows/GPU/D3D11Context.h"
-#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 
 const bool WINDOW_VISIBLE = false;
-const int WINDOW_WIDTH = 480;
-const int WINDOW_HEIGHT = 272;
 
-HWND CreateHiddenWindow() {
+void *CreateHiddenWindow(int w, int h) {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -63,108 +40,17 @@ HWND CreateHiddenWindow() {
 	RegisterClassEx(&wndClass);
 
 	DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP;
-	return CreateWindowEx(0, L"PPSSPPHeadless", L"PPSSPPHeadless", style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
-}
-
-bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
-	hWnd = CreateHiddenWindow();
-	gpuCore_ = core;
+	HWND wnd = CreateWindowEx(0, L"PPSSPPHeadless", L"PPSSPPHeadless", style, CW_USEDEFAULT, CW_USEDEFAULT, w, h, NULL, NULL, NULL, NULL);
 
 	if (WINDOW_VISIBLE) {
-		ShowWindow(hWnd, TRUE);
-		SetFocus(hWnd);
+		ShowWindow(wnd, TRUE);
+		SetFocus(wnd);
 	}
-
-	GraphicsContext *graphicsContext = nullptr;
-	switch (gpuCore_) {
-	case GPUCORE_GLES:
-#if PPSSPP_API(ANY_GL)
-	case GPUCORE_SOFTWARE:
-		graphicsContext = new WindowsGLContext();
-		break;
-#endif
-	case GPUCORE_DIRECTX11:
-		graphicsContext = new D3D11Context();
-		break;
-
-	case GPUCORE_VULKAN:
-		graphicsContext = new VulkanGraphicsContext();
-		break;
-	default:
-		_assert_(false);
-		break;
-	}
-
-	if (graphicsContext->InitAPI(hWnd, nullptr, error_message)) {
-		// Success
-	} else {
-		delete graphicsContext;
-		*ctx = nullptr;
-		gfx_ = nullptr;
-		return false;
-	}
-
-	bool needRenderThread = gpuCore_ == GPUCORE_GLES;
-
-	if (needRenderThread) {
-		renderThread_ = std::thread([this]{
-			SetCurrentThreadName("RenderThread");
-			while (threadState_ == RenderThreadState::IDLE)
-				sleep_ms(1, "render-thread-idle-poll");
-			threadState_ = RenderThreadState::STARTING;
-
-			std::string err;
-			if (!gfx_->InitSurface(WINDOWSYSTEM_WIN32, nullptr, hWnd, &err)) {
-				threadState_ = RenderThreadState::START_FAILED;
-				return;
-			}
-			gfx_->ThreadStart();
-			threadState_ = RenderThreadState::STARTED;
-
-			while (gfx_->ThreadFrame()) {};
-
-			threadState_ = RenderThreadState::STOPPING;
-			gfx_->ThreadEnd();
-			gfx_->ShutdownSurface();
-			threadState_ = RenderThreadState::STOPPED;
-		});
-	} else {
-		if (graphicsContext->InitSurface(WINDOWSYSTEM_WIN32, NULL, hWnd, error_message)) {
-			*ctx = graphicsContext;
-			gfx_ = graphicsContext;
-		} else {
-			delete graphicsContext;
-			*ctx = nullptr;
-			gfx_ = nullptr;
-			return false;
-		}
-	}
-
-	if (needRenderThread) {
-		threadState_ = RenderThreadState::START_REQUESTED;
-		while (threadState_ == RenderThreadState::START_REQUESTED || threadState_ == RenderThreadState::STARTING)
-			sleep_ms(1, "render-thread-start-poll");
-
-		return threadState_ == RenderThreadState::STARTED;
-	}
-
-	return true;
+	return static_cast<void *>(wnd);
 }
 
-void WindowsHeadlessHost::ShutdownGraphics() {
-	if (renderThread_.joinable()) {
-		gfx_->NotifyEmuThreadExit();
-		renderThread_.join();
-	} else {
-		gfx_->ShutdownSurface();
+void DestroyHiddenWindow(void *window) {
+	if (window) {
+		DestroyWindow(static_cast<HWND>(window));
 	}
-
-	gfx_->ShutdownAPI();
-
-	delete gfx_;
-	gfx_ = nullptr;
-	DestroyWindow(hWnd);
-	hWnd = NULL;
 }
-
-void WindowsHeadlessHost::SwapBuffers() {}

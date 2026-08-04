@@ -1331,8 +1331,8 @@ if(HEADLESS)
 		headless/HeadlessHost.h
 		headless/Compare.cpp
 		headless/Compare.h
-		headless/SDLHeadlessHost.cpp
-		headless/SDLHeadlessHost.h
+		headless/SDLHeadlessGLGraphicsContext.cpp
+		headless/SDLHeadlessGLGraphicsContext.h
 	)
 	if(APPLE)
 		list(APPEND HeadlessSource

@@ -17,36 +17,6 @@
 
 #pragma once
 
-#include "headless/HeadlessHost.h"
-#include <thread>
-
-#undef HEADLESSHOST_CLASS
-#define HEADLESSHOST_CLASS WindowsHeadlessHost
-
-#include "Common/CommonWindows.h"
-
-class WindowsHeadlessHost : public HeadlessHost {
-public:
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) override;
-	void ShutdownGraphics() override;
-
-	void SwapBuffers() override;
-
-protected:
-	enum class RenderThreadState {
-		IDLE,
-		START_REQUESTED,
-		STARTING,
-		START_FAILED,
-		STARTED,
-		STOP_REQUESTED,
-		STOPPING,
-		STOPPED,
-	};
-
-	HWND hWnd;
-	HDC hDC;
-	HGLRC hRC;
-	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
-	std::thread renderThread_;
-};
+// Same API as for SDL
+void *CreateHiddenWindow(int w, int h);
+void DestroyHiddenWindow(void *window);

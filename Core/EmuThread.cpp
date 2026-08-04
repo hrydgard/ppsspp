@@ -95,11 +95,10 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 }
 
 bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std::function<bool(GraphicsContext *)> frame) {
-	// This is the main thread. the graphics contexts will spawn and handle its own threads if needed.
+	// This is the main loop for graphics context that handle their own threading.
 	// InitFromRenderThread/ShutdownFromRenderThread are not used.
 
 	application->InitGraphics(graphicsContext);
-	// NativeResized();
 
 	DEBUG_LOG(Log::Boot, "Done.");
 

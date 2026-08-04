@@ -1035,16 +1035,20 @@ static GraphicsContext *CreateGraphicsContext(GPUBackend backend, std::string **
 		*deviceName = nullptr;
 		break;
 #endif
+#if PPSSPP_PLATFORM(WINDOWS)
 	case GPUBackend::DIRECT3D11:
 		graphicsContext = new D3D11Context();
 		*deviceName = &g_Config.sD3D11Device;
 		break;
+#endif
+#if !PPSSPP_PLATFORM(UWP)
 	case GPUBackend::VULKAN:
 	default:
 		graphicsContext = new VulkanGraphicsContext();
 		*deviceName = &g_Config.sVulkanDevice;
 		break;
 	}
+#endif
 	return graphicsContext;
 }
 

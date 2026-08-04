@@ -51,3 +51,13 @@ public:
 	// TODO: Store in a protected variable?
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 };
+
+// This is used by the headless build, for the case of software rendering where we really don't need any context,
+// unlike the standalone build where we do need a context anyway for UI and stuff.
+class NullGraphicsContext : public GraphicsContext {
+public:
+	NullGraphicsContext() {}
+	Draw::DrawContext *GetDrawContext() override { return nullptr; }
+	void Resize() override {}
+	bool NeedsSeparateEmuThread() const override { return false; }
+};
