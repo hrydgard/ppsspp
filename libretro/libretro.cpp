@@ -1384,34 +1384,32 @@ namespace Libretro {
       for (;;) {
          switch ((EmuThreadState)emuThreadState)
          {
-            case EmuThreadState::START_REQUESTED:
-               emuThreadState = EmuThreadState::RUNNING;
-               [[fallthrough]];
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
-            case EmuThreadState::PAUSE_REQUESTED:
-               emuThreadState = EmuThreadState::PAUSED;
-               [[fallthrough]];
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;
-            default:
             case EmuThreadState::QUIT_REQUESTED:
+               ctx->NotifyEmuThreadExit();
                emuThreadState = EmuThreadState::STOPPED;
+               return;
+            default:
+               _dbg_assert_(false);
                return;
          }
       }
+      // Unreachable
    }
 
    void EmuThreadStart() {
       EmuThreadState state = emuThreadState;
       bool wasPaused = state == EmuThreadState::PAUSED;
 
-      if (state == EmuThreadState::RUNNING || state == EmuThreadState::START_REQUESTED || (emuThread.joinable() && !wasPaused))
+      if (state == EmuThreadState::RUNNING || (emuThread.joinable() && !wasPaused))
          return;
 
-      emuThreadState = EmuThreadState::START_REQUESTED;
+      emuThreadState = EmuThreadState::RUNNING;
 
       if (!wasPaused)
       {
@@ -1426,6 +1424,9 @@ namespace Libretro {
 
       emuThreadState = EmuThreadState::QUIT_REQUESTED;
 
+      // Eat remaining frames.
+      while (ctx->ThreadFrame()) {}
+
       emuThread.join();
       emuThread = std::thread();
       ctx->ThreadEnd();
@@ -1435,7 +1436,7 @@ namespace Libretro {
       if (emuThreadState != EmuThreadState::RUNNING)
          return;
 
-      emuThreadState = EmuThreadState::PAUSE_REQUESTED;
+      emuThreadState = EmuThreadState::PAUSED;
 
       // Is this safe?
       ctx->ThreadFrame(); // Eat 1 frame
@@ -1709,8 +1710,7 @@ void retro_run(void) {
 
    // Handle thread pumping.
    if (useEmuThread) {
-      if (emuThreadState == EmuThreadState::PAUSED ||
-          emuThreadState == EmuThreadState::PAUSE_REQUESTED) {
+      if (emuThreadState == EmuThreadState::PAUSED) {
          VsyncSwapIntervalDetect();
          ctx->SwapBuffers();
          return;

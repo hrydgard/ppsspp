@@ -21,8 +21,11 @@ public:
 	}
 
 	void ThreadStart() override { renderManager_->ThreadStart(draw_); }
-	bool ThreadFrame(bool waitIfEmpty) override { return renderManager_->ThreadFrame(waitIfEmpty); }
+	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
+
+   // Call from emu thread
+   void NotifyEmuThreadExit() override;
 
 	GPUCore GetGPUCore() override { return GPUCORE_GLES; }
 	const char *Ident() override { return "OpenGL Core"; }

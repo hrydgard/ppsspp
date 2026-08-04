@@ -44,3 +44,7 @@ void LibretroGLCoreContext::DestroyDrawContext() {
 	LibretroHWRenderContext::DestroyDrawContext();
 	renderManager_ = nullptr;
 }
+
+void LibretroGLCoreContext::NotifyEmuThreadExit() {
+   renderManager_->NotifyEmuThreadExit();
+}
