@@ -129,14 +129,6 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 
 int printUsage(const CommandLineOptions &options, const char *progname, const char *reason) {
 	options.PrintUsage(progname, reason);
-	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
-	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
-	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
-	fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
-	fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
-	fprintf(stderr, "  --screenshot-save=FILE  save rendered screenshot to a BMP file\n");
-	fprintf(stderr, "  --max-mse=NUMBER      maximum allowed MSE error for screenshot\n");
-	fprintf(stderr, "  --timeout=SECONDS     abort test it if takes longer than SECONDS\n");
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
 	return 1;
 }
@@ -549,17 +541,18 @@ int main(int argc, const char* argv[]) {
 	testOptions.timeout = cmdLineOptions.timeout.value_or(std::numeric_limits<double>::infinity());
 	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
 	testOptions.printEqualLines = cmdLineOptions.printEqualLines.value_or(false);
+	testOptions.maxScreenshotError = cmdLineOptions.maxScreenshotError.value_or(0.0);
 
-	bool fullLog = false;
-	const char *stateToLoad = 0;
+	bool fullLog = cmdLineOptions.enableLogging.value_or(false);
+	const char *stateToLoad = cmdLineOptions.stateToLoad.has_value() ? cmdLineOptions.stateToLoad.value().c_str() : nullptr;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
 	bool oldAtrac = false;
-	bool outputDebugStringLog = false;
+	bool outputDebugStringLog = cmdLineOptions.odsLog.value_or(false);
 
 	std::vector<std::string> testFilenames;
-	std::vector<std::string> ignoredTests;
-	std::string mountIso;
+	const std::vector<std::string> &ignoredTests = cmdLineOptions.ignoredTests;
+	std::string mountIso = cmdLineOptions.mountIso.value_or("");
 	std::string mountRoot;
 
 	if (cmdLineOptions.cpuCore.has_value()) {
@@ -568,29 +561,6 @@ int main(int argc, const char* argv[]) {
 
 	if (cmdLineOptions.root.has_value()) {
 		mountRoot = cmdLineOptions.root.value().c_str();
-	}
-
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount")) {
-			if (++i >= argc)
-				return printUsage(cmdLineOptions, argv[0], "Missing argument after -m");
-			mountIso = argv[i];
-		}
-		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
-			fullLog = true;
-		else if (!strcmp(argv[i], "-o") || !strcmp(argv[i], "--odslog"))
-			outputDebugStringLog = true;
-		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
-			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
-		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-			stateToLoad = argv[i] + strlen("--state=");
-		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-			return printUsage(cmdLineOptions, argv[0], NULL);
-		else if (!strcmp(argv[i], "--ignore")) {
-			if (++i >= argc)
-				return printUsage(cmdLineOptions, argv[0], "Missing argument after --ignore");
-			ignoredTests.push_back(argv[i]);
-		}
 	}
 
 	for (const std::string &filename : cmdLineOptions.bootFilenames) {

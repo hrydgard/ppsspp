@@ -583,41 +583,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		boot_filename = g_Config.flash0Directory / "vsh/module/vshmain.prx";
 	}
 
-	// Parse command line
-	LogLevel logLevel = LogLevel::LINFO;
-	bool forceLogLevel = false;
-	const auto setLogLevel = [&logLevel, &forceLogLevel](LogLevel level) {
-		logLevel = level;
-		forceLogLevel = true;
-	};
-
-	if (cmdLineOptions.logLevel.has_value()) {
-		setLogLevel(cmdLineOptions.logLevel.value());
-	}
-
-	std::string fileToLog;
-	for (int i = 1; i < argc; i++) {
-		if (argv[i][0] == '-') {
-#if defined(__APPLE__)
-			// On Apple system debugged executable may get -NSDocumentRevisionsDebugMode YES in argv.
-			if (!strcmp(argv[i], "-NSDocumentRevisionsDebugMode") && argc - 1 > i) {
-				i++;
-				continue;
-			}
-#endif
-			switch (argv[i][1]) {
-			case '-':
-				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
-					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
-				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
-					fileToLog = argv[i] + strlen("--log=");
-				break;
-			}
-		} else {
-			// Ignore. Boot filename is extracted in the previous step.
-		}
-	}
-
 	if (cmdLineOptions.appendConfig.has_value()) {
 		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
 		g_Config.LoadAppendedConfig();
@@ -671,18 +636,13 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		}
 	}
 
-	if (!fileToLog.empty()) {
+	if (cmdLineOptions.log.has_value() && !cmdLineOptions.log.value().empty()) {
 		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
-		g_logManager.SetFileLogPath(Path(fileToLog));
+		g_logManager.SetFileLogPath(Path(cmdLineOptions.log.value()));
 	} else {
 		// Set a default file logging path, in case the user enables it with the checkbox later.
 		g_logManager.SetFileLogPath(GetSysDirectory(DIRECTORY_DUMP) / "log.txt");
-	}
-
-	if (forceLogLevel) {
-		NOTICE_LOG(Log::System, "Setting log level to %d due to command line override", (int)logLevel);
-		g_logManager.SetAllLogLevels(logLevel);
 	}
 
 	PostLoadConfig();

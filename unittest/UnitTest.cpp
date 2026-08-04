@@ -1330,7 +1330,6 @@ bool TestCmdLine() {
 			"--fullscreen",
 			"--graphics=d3d11",
 			"--pause-menu-exit",
-			"--timeout=3",
 			"My_Game.iso"
 		};
 		int argc = ARRAY_SIZE(argv);
@@ -1344,8 +1343,19 @@ bool TestCmdLine() {
 		EXPECT_EQ_STR(options.bootFilenames[0], std::string("My_Game.iso"));
 		EXPECT_TRUE(options.gpuBackend.has_value());
 		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
-		EXPECT_EQ_INT(options.timeout.value_or(0), 3);
 		EXPECT_TRUE(options.pauseMenuExit.value_or(false));
+	}
+	// --timeout is headless-only (only headless/Headless.cpp reads it), so it must be parsed in Headless mode.
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--timeout=3",
+			"My_Game.iso"
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv, CmdLineMode::Headless);
+		EXPECT_EQ_INT(options.timeout.value_or(0), 3);
 	}
 	// Test GL version override
 	{

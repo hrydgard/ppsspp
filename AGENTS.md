@@ -58,6 +58,28 @@ by default, but if you want to test-build it locally:
 - Example (POSIX): `cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1`
 - The `ppsspp_headless` executable ends up in `android/libs/<abi>/`.
 
+## Command-line parsing
+
+All command-line parsing for both the main app and headless builds belongs in `Core/CmdLine.cpp` /
+`Core/CmdLine.h` (`CommandLineOptions`), not in the platform entry points (`Windows/main.cpp`, `headless/Headless.cpp`,
+`UI/NativeApp.cpp`, etc.). Don't re-parse `argv` manually in those files - add a field to `CommandLineOptions` instead.
+
+- Most options are declared in the `g_autoParams` table in `CmdLine.cpp` as `{offsetof(...), type, longName,
+  shortName, docString, mode}`. `mode` gates the option to `CmdLineMode::Application`, `::Headless`, or `::Both`
+  (the default if the field is omitted from the initializer) - the same long name can be reused for both modes with
+  different types/meanings (e.g. `--log` is a `String` "log to FILE" option in Application mode but a `Bool` "full
+  log output" option in Headless mode; they don't collide because a given `Parse()` call only matches params whose
+  mode is `Both` or equal to the current mode).
+- Options that can be repeated (e.g. `--ignore TESTNAME`, collected into a `std::vector<std::string>`) or that don't
+  fit the generic single-value table need manual handling in the `else if` chain inside `CommandLineOptions::Parse()`,
+  similar to how `--graphics=` and `boot Filenames` are handled.
+- `ApplyToConfig()` is where parsed options get pushed into `g_Config`/`g_logManager`; prefer wiring a new option
+  through there so all platforms get it for free, rather than reading `CommandLineOptions` fields ad-hoc at each
+  call site.
+- `NativeInit()` in `UI/NativeApp.cpp` still takes `argc`/`argv` (several platform entry points pass them in), but
+  it shouldn't read them directly - by the time `NativeInit()` runs, `CommandLineOptions` should already have
+  everything.
+
 ## File formats, codecs, and other format handlers
 
 Before implementing any file format handler, decompressor, codec, or similar from scratch, search the
