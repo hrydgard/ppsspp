@@ -902,6 +902,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	if (renderer_inited && graphicsContext && graphicsContext->NeedsSeparateEmuThread()) {
 		// Only used in Java EGL path.
+		INFO_LOG(Log::System, "Joining emuthread.");
+		EmuThread_RequestExit();
+		// Eat up any remaining frames.
+		while (graphicsContext->ThreadFrame()) {}
 		EmuThread_Join(graphicsContext, g_emuThread);
 
 		INFO_LOG(Log::System, "EmuThread joined.");

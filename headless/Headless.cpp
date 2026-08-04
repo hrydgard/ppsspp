@@ -259,6 +259,11 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	// never actually needs to create a graphics context at runtime.
 	*deviceSetting = nullptr;
 	return nullptr;
+#elif PPSSPP_PLATFORM(ANDROID)
+	// The Android headless build is compile-tested only and never actually needs to create a graphics context at runtime.
+	// However, it would still be nice if hardware rendering worked - it can be executed over adb.
+	*deviceSetting = nullptr;
+	return nullptr;
 #else
 #error The Headless build is not supported on this platform. Please use SDL (Mac/Linux) or Windows (non-UWP).
 #endif
@@ -704,6 +709,10 @@ int main(int argc, const char* argv[]) {
 		// We don't bother with a window.
 		graphicsContext = new NullGraphicsContext();
 	} else {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_ARCH(LOONGARCH64)
+		fprintf(stderr, "Headless graphics context creation is not supported on this platform.\n");
+		return 1;
+#else
 		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
 		windowDesc = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value());
 		if (!windowDesc.Valid()) {
@@ -716,6 +725,7 @@ int main(int argc, const char* argv[]) {
 			fprintf(stderr, "Failed to create a graphics context for GPU core");
 			return 1;
 		}
+#endif
 	}
 
 	// TODO: This whole function should be refactored to set up CoreParameter in one place,
@@ -826,9 +836,13 @@ int main(int argc, const char* argv[]) {
 		ShutdownWebServer();
 	}
 
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_ARCH(LOONGARCH64)
+	// ... see above
+#else
 	if (windowDesc.Valid()) {
 		DestroyHiddenWindow(windowDesc);
 	}
+#endif
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
