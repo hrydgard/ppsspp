@@ -2211,7 +2211,10 @@ int main(int argc, char *argv[]) {
 	const bool mainThreadIsRender = graphicsContext->NeedsSeparateEmuThread();
 	if (!mainThreadIsRender) {
 		// TODO: This shouldn't be the EmuThread, but rather RunMainLoop?
-		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
+		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext){
+			NativeFrame(graphicsContext);
+			return true;
+		});
 		// Vulkan mode uses this.
 		// We should only be a message pump. This allows for lower latency
 		// input events, and so on. The spawned EmuThread runs emulation and rendering.
@@ -2243,7 +2246,10 @@ int main(int argc, char *argv[]) {
 		}
 		EmuThread_Join(graphicsContext, emuThread);
 	} else {
-		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
+		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext){
+			NativeFrame(graphicsContext);
+			return true;
+		});
 		while (true) {
 			// OpenGL mode uses this.
 			{

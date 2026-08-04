@@ -958,8 +958,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		}, nullptr);
 
 		// This is where we start the emuthread now - after InitFromRenderThread. This eliminates a race condition.
-		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), []() {
+		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
+			NativeFrame(graphicsContext);
 			ProcessFrameCommands();
+			return true;
 		});
 		renderer_inited = true;
 	} else {
@@ -985,8 +987,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
 		}, nullptr);
 
-		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), []() {
+		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
+			NativeFrame(graphicsContext);
 			ProcessFrameCommands();
+			return true;
 		});
 
 		INFO_LOG(Log::G3D, "Restored.");

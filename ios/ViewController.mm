@@ -83,7 +83,10 @@ PPSSPPBaseViewController *sharedViewController;
 		return false;
 	}
 
-	g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](){});
+	g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext){
+		NativeFrame(graphicsContext);
+		return true;
+	});
 	return true;
 }
 

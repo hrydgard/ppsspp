@@ -879,8 +879,10 @@ void MainUI::initializeGL() {
 		graphicsContext->InitAPI(nullptr, nullptr, &errorMessage);
 		graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage);
 		INFO_LOG(Log::System, "Using thread, starting emu thread");
-		emuThread_ = EmuThread_Start(graphicsContext, new NativeApplication(), [this](){
+		emuThread_ = EmuThread_Start(graphicsContext, new NativeApplication(), [this](GraphicsContext *graphicsContext){
+			NativeFrame(graphicsContext);
 			updateAccelerometer();
+			return true;
 		});
 	} else {
 		INFO_LOG(Log::System, "Not using thread, backend=%d", (int)g_Config.iGPUBackend);
