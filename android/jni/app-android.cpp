@@ -1708,7 +1708,11 @@ static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext
 	}
 
 	renderer_inited = true;
-	RunMainLoop(graphicsContext, new NativeApplication(), []() { return !exitRenderLoop; }, []() { ProcessFrameCommands(); });
+	RunMainLoop(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
+		NativeFrame(graphicsContext);
+		ProcessFrameCommands();
+		return !exitRenderLoop;
+	});
 	renderer_inited = false;
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.

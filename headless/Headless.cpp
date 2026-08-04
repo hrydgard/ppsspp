@@ -253,6 +253,12 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 		_assert_(false);
 		break;
 	}
+#elif PPSSPP_ARCH(LOONGARCH64)
+	// The loongarch64 cross-compilation toolchain has no SDL3 packages available (see the
+	// LOONGARCH64_DEVICE branch in CMakeLists.txt), so this build is compile-tested only and
+	// never actually needs to create a graphics context at runtime.
+	*deviceSetting = nullptr;
+	return nullptr;
 #else
 #error The Headless build is not supported on this platform. Please use SDL (Mac/Linux) or Windows (non-UWP).
 #endif
