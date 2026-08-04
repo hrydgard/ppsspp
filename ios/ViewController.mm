@@ -42,7 +42,6 @@
 #error Must be built with ARC, please revise the flags for ViewController.mm to include -fobjc-arc.
 #endif
 
-static std::atomic<bool> renderLoopRunning;
 static std::thread g_emuThread;
 
 PPSSPPBaseViewController *sharedViewController;
@@ -90,6 +89,9 @@ PPSSPPBaseViewController *sharedViewController;
 
 - (void)requestExitGLRenderLoop {
 	_assert_(g_emuThread.joinable());
+	EmuThread_RequestExit();
+	// Eat up any remaining frames.
+	while (graphicsContext->ThreadFrame()) {}
 	EmuThread_Join(graphicsContext, g_emuThread);
 	_assert_(!g_emuThread.joinable());
 }
@@ -226,7 +228,9 @@ PPSSPPBaseViewController *sharedViewController;
 		return;
 	}
 	if (sharedViewController) {
-		graphicsContext->ThreadFrame(true);
+		if (!graphicsContext->ThreadFrame()) {
+			INFO_LOG(Log::G3D, "ThreadFrame returned false");
+		}
 	}
 }
 

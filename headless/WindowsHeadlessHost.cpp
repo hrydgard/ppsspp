@@ -121,7 +121,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 			gfx_->ThreadStart();
 			threadState_ = RenderThreadState::STARTED;
 
-			gfx_->ThreadFrameUntilCondition([this] { return threadState_ == RenderThreadState::STOP_REQUESTED; });
+			while (gfx_->ThreadFrame()) {};
 
 			threadState_ = RenderThreadState::STOPPING;
 			gfx_->ThreadEnd();
@@ -153,9 +153,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 
 void WindowsHeadlessHost::ShutdownGraphics() {
 	if (renderThread_.joinable()) {
-		threadState_ = RenderThreadState::STOP_REQUESTED;
-		while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::IDLE)
-			sleep_ms(1, "render-thread-stop-poll");
+		gfx_->NotifyEmuThreadExit();
 		renderThread_.join();
 	} else {
 		gfx_->ShutdownSurface();

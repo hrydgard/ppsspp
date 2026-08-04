@@ -944,17 +944,19 @@ bool CreateGlobalPipelines() {
 	return true;
 }
 
-void NativeShutdownGraphics(GraphicsContext *graphicContext) {
+void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
+
+	graphicsContext->NotifyEmuThreadExit();
 
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
 	g_iconCache.ClearTextures();
 
-	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
-	if (gpu)
+	if (gpu) {
 		gpu->DeviceLost();
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {

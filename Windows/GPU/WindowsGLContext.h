@@ -33,7 +33,11 @@ public:
 	// If these are used, they are called from the render thread. If NeedsRenderThread is false, they are not called.
 	void ThreadStart() override;
 	void ThreadEnd() override;
-	bool ThreadFrame(bool waitIfEmpty) override;
+
+	// If this returns false, the render thread has been instructed to exit.
+	bool ThreadFrame() override;
+
+	void NotifyEmuThreadExit() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 

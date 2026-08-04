@@ -966,8 +966,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		// Would be really nice if we could get something on the GL thread immediately when shutting down,
 		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
 		// which ends up calling displayInit.
-
-		INFO_LOG(Log::G3D, "NativeApp.displayInit() restoring");
+		INFO_LOG(Log::G3D, "NativeApp.displayInit(): Second time, joining the emuthread and starting it up again.");
+		EmuThread_RequestExit();
+		// Eat up any remaining frames.
+		while (graphicsContext->ThreadFrame()) {}
 		EmuThread_Join(graphicsContext, g_emuThread);
 
 		graphicsContext->ShutdownSurface();
@@ -1157,8 +1159,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 	_assert_(graphicsContext->NeedsSeparateEmuThread());
 
-	if (!graphicsContext->ThreadFrame(true)) {
+	if (!graphicsContext->ThreadFrame()) {
 		INFO_LOG(Log::G3D, "ThreadFrame returned false");
+		// TODO: We should stop calling ThreadFrame here.
 		return;
 	}
 

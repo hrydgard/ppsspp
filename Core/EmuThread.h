@@ -38,6 +38,7 @@ bool MainThreadFunc(GraphicsContext * graphicsContext, Application *application,
 // the case where a separate EmuThread is not needed.
 // NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<void()> postFrame);
+void EmuThread_RequestExit();  // Useful when the render thread is in control like on Android.
 void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread);
 
 // Call from the main thread.
