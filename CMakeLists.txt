@@ -1327,8 +1327,6 @@ file(GLOB UIImages CONFIGURE_DEPENDS
 if(HEADLESS)
 	set(HeadlessSource
 		headless/Headless.cpp
-		headless/HeadlessHost.cpp
-		headless/HeadlessHost.h
 		headless/Compare.cpp
 		headless/Compare.h
 		headless/SDLHeadlessGLGraphicsContext.cpp

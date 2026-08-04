@@ -21,9 +21,9 @@
 
 #include <SDL3/SDL.h>
 
-#include "headless/HeadlessHost.h"
-
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Core/ConfigValues.h"
 
 class SDLHeadlessGLGraphicsContext : public GraphicsContext {
 public:
@@ -35,6 +35,8 @@ public:
 
 	void ShutdownSurface() override;
 
+	bool NeedsSeparateEmuThread() const override { return true; }
+
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
@@ -43,8 +45,8 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
 	}
 
 	void ThreadEnd() override {
@@ -53,6 +55,11 @@ public:
 
 	void Resize() override {}
 
+	// Call from emu thread
+	void NotifyEmuThreadExit() override {
+		renderManager_->NotifyEmuThreadExit();
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;
@@ -60,7 +67,7 @@ private:
 	SDL_GLContext glContext_;
 };
 
-void *CreateHiddenWindow(int w, int h);
-void DestroyHiddenWindow(void *window);
+WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend);
+void DestroyHiddenWindow(WindowDesc window);
 
 #endif

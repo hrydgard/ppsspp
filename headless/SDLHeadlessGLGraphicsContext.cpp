@@ -37,14 +37,24 @@
 
 const bool WINDOW_VISIBLE = false;
 
-WindowDesc CreateHiddenWindow(int w, int h) {
-	Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS;
+WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
+	Uint32 flags = SDL_WINDOW_BORDERLESS;
+	if (backend == GPUBackend::OPENGL) {
+		flags |= SDL_WINDOW_OPENGL;
+	} else if (backend == GPUBackend::VULKAN) {
+		flags |= SDL_WINDOW_VULKAN;
+	}
 	if (!WINDOW_VISIBLE) {
 		flags |= SDL_WINDOW_HIDDEN;
 	}
 	WindowDesc desc;
 	desc.data2 = SDL_CreateWindow("PPSSPPHeadless", w, h, flags);
 	desc.winsys = WindowSystem::WINDOWSYSTEM_SDL;
+	if (!desc.data2) {
+		const char *err = SDL_GetError();
+		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
+		return {};
+	}
 	return desc;
 }
 
@@ -83,12 +93,9 @@ bool SDLHeadlessGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, s
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-	screen_ = CreateHiddenWindow();
-	if (!screen_) {
-		const char *err = SDL_GetError();
-		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
-		return false;
-	}
+	screen_ = (SDL_Window *)wnd;
+	_dbg_assert_(screen_);
+
 	glContext_ = SDL_GL_CreateContext(screen_);
 	if (!glContext_) {
 		const char *err = SDL_GetError();

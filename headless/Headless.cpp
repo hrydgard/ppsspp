@@ -238,7 +238,6 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	*deviceSetting = nullptr;
 	return new SDLHeadlessGLGraphicsContext();
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	GraphicsContext *graphicsContext = nullptr;
 	switch (gpuCore) {
 	case GPUCORE_GLES:
 		*deviceSetting = nullptr;
@@ -257,7 +256,7 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 #else
 #error The Headless build is not supported on this platform. Please use SDL (Mac/Linux) or Windows (non-UWP).
 #endif
-	return graphicsContext;
+	return nullptr;
 }
 
 struct AutoTestOptions {
@@ -672,7 +671,11 @@ int main(int argc, const char* argv[]) {
 	cmdLineOptions.ApplyToConfig();
 
 	// Translate backend to core. We probably should consider merging these enums.
-	if (!g_Config.bSoftwareRendering && cmdLineOptions.gpuBackend.has_value()) {
+	if (!g_Config.bSoftwareRendering) {
+		if (!cmdLineOptions.gpuBackend.has_value()) {
+			fprintf(stderr, "No graphics backend specified, but software rendering is disabled. Use --graphics=software, gles, directx11, or vulkan.\n");
+			return 1;
+		}
 		switch (cmdLineOptions.gpuBackend.value()) {
 		case GPUBackend::OPENGL:
 			gpuCore = GPUCORE_GLES;
@@ -696,7 +699,11 @@ int main(int argc, const char* argv[]) {
 		graphicsContext = new NullGraphicsContext();
 	} else {
 		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-		windowDesc = CreateHiddenWindow(480, 272);
+		windowDesc = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value());
+		if (!windowDesc.Valid()) {
+			fprintf(stderr, "Failed to create a window for graphics context");
+			return 1;
+		}
 		graphicsContext = CreateGraphicsContext(gpuCore, &deviceSetting);
 		if (!graphicsContext) {
 			// If we don't get the desired context, we DO NOT fall back.

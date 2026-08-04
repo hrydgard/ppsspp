@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include "Core/ConfigValues.h"
+
 struct WindowDesc;
 
 // Same API as for SDL
-WindowDesc CreateHiddenWindow(int w, int h);
+WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend);
 void DestroyHiddenWindow(WindowDesc window);

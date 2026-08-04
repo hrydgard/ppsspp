@@ -102,10 +102,7 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 
 	g_inLoop = true;
 
-	while (frame(graphicsContext)) {
-		// We're here again, so the game quit.  Restart Run() which controls the UI.
-		// This way they can load a new game.
-	}
+	while (frame(graphicsContext)) {}
 
 	// NOTE: Don't call stuff like Core_Stop here. On Android, we fully shut down graphics when you switch away from the app,
 	// then boot it up again when returning. That means stopping this thread and restarting it.

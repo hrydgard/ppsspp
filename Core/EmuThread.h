@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
 #include <functional>
+#include <thread>
 
 #include "Common/System/Application.h"
 
