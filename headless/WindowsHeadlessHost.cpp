@@ -23,7 +23,7 @@
 
 const bool WINDOW_VISIBLE = false;
 
-WindowDesc CreateHiddenWindow(int w, int h) {
+WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
