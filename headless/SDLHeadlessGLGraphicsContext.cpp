@@ -22,11 +22,10 @@
 #include "ppsspp_config.h"
 #include <SDL3/SDL.h>
 
-#include "headless/SDLHeadlessHost.h"
+#include "headless/SDLHeadlessGLGraphicsContext.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d_create.h"
-#include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GPU/GraphicsContext.h"
@@ -37,64 +36,49 @@
 #include "GPU/GPUState.h"
 
 const bool WINDOW_VISIBLE = false;
-const int WINDOW_WIDTH = 480;
-const int WINDOW_HEIGHT = 272;
 
-SDL_Window *CreateHiddenWindow() {
-	Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS;
+WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
+	Uint32 flags = SDL_WINDOW_BORDERLESS;
+	if (backend == GPUBackend::OPENGL) {
+		flags |= SDL_WINDOW_OPENGL;
+	} else if (backend == GPUBackend::VULKAN) {
+		flags |= SDL_WINDOW_VULKAN;
+	}
 	if (!WINDOW_VISIBLE) {
 		flags |= SDL_WINDOW_HIDDEN;
 	}
-	return SDL_CreateWindow("PPSSPPHeadless", WINDOW_WIDTH, WINDOW_HEIGHT, flags);
+	WindowDesc desc;
+	desc.data2 = SDL_CreateWindow("PPSSPPHeadless", w, h, flags);
+	desc.winsys = WindowSystem::WINDOWSYSTEM_SDL;
+	if (!desc.data2) {
+		const char *err = SDL_GetError();
+		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
+		return {};
+	}
+	return desc;
 }
 
-class GLDummyGraphicsContext : public GraphicsContext {
-public:
-	GLDummyGraphicsContext() {}
-	~GLDummyGraphicsContext() { delete draw_; }
-
-	bool InitAPI(void *wnd, std::string *deviceNameSetting, std::string *errorMessage) override;
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override;
-
-
-	void ShutdownSurface() override {
-		delete draw_;
-		draw_ = nullptr;
-
-		SDL_GL_DestroyContext(glContext_);
-		glContext_ = nullptr;
-		SDL_DestroyWindow(screen_);
-		screen_ = nullptr;
-
+void DestroyHiddenWindow(WindowDesc window) {
+	if (window.data2) {
+		SDL_DestroyWindow(static_cast<SDL_Window *>(window.data2));
 		SDL_Quit();
 	}
+}
 
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
+void SDLHeadlessGLGraphicsContext::ShutdownSurface() {
+	delete draw_;
+	draw_ = nullptr;
 
-	void ThreadStart() override {
-		renderManager_->ThreadStart(draw_);
-	}
+	SDL_GL_DestroyContext(glContext_);
+	glContext_ = nullptr;
+}
 
-	bool ThreadFrame() override {
-		return renderManager_->ThreadFrame();
-	}
+bool SDLHeadlessGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+	// Not used in this context.
+	return true;
+}
 
-	void ThreadEnd() override {
-		renderManager_->ThreadEnd();
-	}
-
-	void Resize() override {}
-
-private:
-	Draw::DrawContext *draw_ = nullptr;
-	GLRenderManager *renderManager_ = nullptr;
-	SDL_Window *screen_;
-	SDL_GLContext glContext_;
-};
-
-bool GLDummyGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+bool SDLHeadlessGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	SDL_Init(SDL_INIT_VIDEO);
 
 	// TODO
@@ -109,12 +93,9 @@ bool GLDummyGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::st
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-	screen_ = CreateHiddenWindow();
-	if (!screen_) {
-		const char *err = SDL_GetError();
-		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
-		return false;
-	}
+	screen_ = (SDL_Window *)wnd;
+	_dbg_assert_(screen_);
+
 	glContext_ = SDL_GL_CreateContext(screen_);
 	if (!glContext_) {
 		const char *err = SDL_GetError();
@@ -157,59 +138,6 @@ bool GLDummyGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::st
 		SDL_GL_SwapWindow(screen_);
 	});
 	return success;
-}
-
-bool GLDummyGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	// Not used in this context.
-	return true;
-}
-
-bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
-	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
-	*ctx = graphicsContext;
-	gfx_ = graphicsContext;
-
-	std::thread th([&]{
-		SetCurrentThreadName("SDL-RenderThread");
-		std::string errorMessage;
-		gfx_->InitAPI(nullptr, nullptr, &errorMessage);
-		while (threadState_ == RenderThreadState::IDLE)
-			sleep_ms(1, "sdl-idle-poll");
-		threadState_ = RenderThreadState::STARTING;
-
-		std::string err;
-		if (!gfx_->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &err)) {
-			threadState_ = RenderThreadState::START_FAILED;
-			return;
-		}
-		gfx_->ThreadStart();
-		threadState_ = RenderThreadState::STARTED;
-
-		while (gfx_->ThreadFrame()) {}
-
-		threadState_ = RenderThreadState::STOPPING;
-		gfx_->ThreadEnd();
-		gfx_->ShutdownSurface();
-		threadState_ = RenderThreadState::STOPPED;
-	});
-	th.detach();
-
-	threadState_ = RenderThreadState::START_REQUESTED;
-	while (threadState_ == RenderThreadState::START_REQUESTED || threadState_ == RenderThreadState::STARTING)
-		sleep_ms(1, "sdl-start-poll");
-
-	return threadState_ == RenderThreadState::STARTED;
-}
-
-void SDLHeadlessHost::ShutdownGraphics() {
-	gfx_->NotifyEmuThreadExit();
-
-	gfx_->ShutdownAPI();
-	delete gfx_;
-	gfx_ = nullptr;
-}
-
-void SDLHeadlessHost::SwapBuffers() {
 }
 
 #endif

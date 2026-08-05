@@ -396,10 +396,10 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = true;
 			} else if (sscanf(restOfOption.c_str(), "gles%lg", &glVersionTemp) == 1 || sscanf(restOfOption.c_str(), "opengl%lg", &glVersionTemp) == 1) {
-				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-				g_Config.bSoftwareRendering = false;
+				gpuBackend = GPUBackend::OPENGL;
+				softwareRendering = false;
 				force_gl_version = int(10.0 * glVersionTemp + 0.5);
-			} else if (restOfOption == "gles") {
+			} else if (restOfOption == "gles" || restOfOption == "opengl") {
 				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = false;
 			} else {

@@ -117,7 +117,4 @@ public:
 	void ShutdownGraphics(GraphicsContext *graphicsContext) override {
 		NativeShutdownGraphics(graphicsContext);
 	}
-	void Frame(GraphicsContext *graphicsContext) override {
-		NativeFrame(graphicsContext);
-	}
 };

@@ -902,6 +902,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	if (renderer_inited && graphicsContext && graphicsContext->NeedsSeparateEmuThread()) {
 		// Only used in Java EGL path.
+		INFO_LOG(Log::System, "Joining emuthread.");
 		EmuThread_Join(graphicsContext, g_emuThread);
 
 		INFO_LOG(Log::System, "EmuThread joined.");
@@ -958,8 +959,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		}, nullptr);
 
 		// This is where we start the emuthread now - after InitFromRenderThread. This eliminates a race condition.
-		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), []() {
+		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
+			NativeFrame(graphicsContext);
 			ProcessFrameCommands();
+			return true;
 		});
 		renderer_inited = true;
 	} else {
@@ -967,9 +970,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
 		// which ends up calling displayInit.
 		INFO_LOG(Log::G3D, "NativeApp.displayInit(): Second time, joining the emuthread and starting it up again.");
-		EmuThread_RequestExit();
-		// Eat up any remaining frames.
-		while (graphicsContext->ThreadFrame()) {}
 		EmuThread_Join(graphicsContext, g_emuThread);
 
 		graphicsContext->ShutdownSurface();
@@ -985,8 +985,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
 		}, nullptr);
 
-		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), []() {
+		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
+			NativeFrame(graphicsContext);
 			ProcessFrameCommands();
+			return true;
 		});
 
 		INFO_LOG(Log::G3D, "Restored.");
@@ -1704,7 +1706,11 @@ static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext
 	}
 
 	renderer_inited = true;
-	RunMainLoop(graphicsContext, new NativeApplication(), []() { return !exitRenderLoop; }, []() { ProcessFrameCommands(); });
+	RunMainLoop(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
+		NativeFrame(graphicsContext);
+		ProcessFrameCommands();
+		return !exitRenderLoop;
+	});
 	renderer_inited = false;
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.

@@ -2139,6 +2139,13 @@ int main(int argc, char *argv[]) {
 	}
 	UpdateScreenDPI(window);
 
+	// Initialize g_display synchronously before starting the EmuThread below, since it renders
+	// immediately without waiting for us to process an initial SDL resize/scale event -
+	// otherwise the first frames can render with dp_xres/dp_yres still at their defaults.
+	int initialPixelWidth = 0, initialPixelHeight = 0;
+	SDL_GetWindowSizeInPixels(window, &initialPixelWidth, &initialPixelHeight);
+	Native_UpdateScreenScale(initialPixelWidth, initialPixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 	char iconPath[PATH_MAX];
@@ -2208,13 +2215,23 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	const bool mainThreadIsRender = graphicsContext->NeedsSeparateEmuThread();
-	if (!mainThreadIsRender) {
-		// TODO: This shouldn't be the EmuThread, but rather RunMainLoop?
-		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
+	const bool needsSeparateEmuThread = graphicsContext->NeedsSeparateEmuThread();
+	if (!needsSeparateEmuThread) {
 		// Vulkan mode uses this.
-		// We should only be a message pump. This allows for lower latency
-		// input events, and so on. The spawned EmuThread runs emulation and rendering.
+
+		std::thread emuThread = std::thread([&] {
+			RunMainLoop(graphicsContext, new NativeApplication(), [&](GraphicsContext *graphicsContext) {
+				NativeFrame(graphicsContext);
+				bool keepRunning = !(g_QuitRequested || g_RestartRequested);
+				if (!keepRunning) {
+					INFO_LOG(Log::System, "EmuThread was requested to exit normally.");
+				}
+				return keepRunning;
+			});
+		});
+
+		// The SDL main thread only becomes a plain message pump. This allows for lower latency
+		// input events, and so on. The spawned main thread runs emulation and rendering.
 		while (true) {
 			SDL_Event event;
 			if (SDL_WaitEventTimeout(&event, 100)) {
@@ -2241,9 +2258,14 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		EmuThread_Join(graphicsContext, emuThread);
+		INFO_LOG(Log::System, "Joining main thread...");
+		emuThread.join();
 	} else {
-		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), nullptr);
+		// OpenGL mode uses this path.
+		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [&](GraphicsContext *graphicsContext){
+			NativeFrame(graphicsContext);
+			return true;
+		});
 		while (true) {
 			// OpenGL mode uses this.
 			{
@@ -2278,6 +2300,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+		INFO_LOG(Log::System, "Requesting render thread exit...");
 		EmuThread_Join(graphicsContext, emuThread);
 	}
 

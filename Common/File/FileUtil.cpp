@@ -668,7 +668,10 @@ bool CreateDir(const Path &path, bool quiet) {
 		return false;
 	}
 
-	DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
+	if (!quiet) {
+		DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
+	}
+
 #ifdef HAVE_LIBRETRO_VFS
 	switch (LibretroMkdir(path.ToString().c_str())) {
 		case -2:

@@ -6,6 +6,16 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/TimeUtil.h"
 
+struct WindowDesc {
+	WindowSystem winsys{};
+	void *data1 = nullptr;
+	void *data2 = nullptr;
+
+	bool Valid() const {
+		return winsys != WindowSystem::WINDOWSYSTEM_UNINITIALIZED && data2;  // Not all platforms use data1, so don't check it.
+	}
+};
+
 // Init is done differently on each platform, and done close to the creation, so it's
 // expected to be implemented by subclasses.
 class GraphicsContext {
@@ -50,4 +60,14 @@ public:
 
 	// TODO: Store in a protected variable?
 	virtual Draw::DrawContext *GetDrawContext() = 0;
+};
+
+// This is used by the headless build, for the case of software rendering where we really don't need any context,
+// unlike the standalone build where we do need a context anyway for UI and stuff.
+class NullGraphicsContext : public GraphicsContext {
+public:
+	NullGraphicsContext() {}
+	Draw::DrawContext *GetDrawContext() override { return nullptr; }
+	void Resize() override {}
+	bool NeedsSeparateEmuThread() const override { return false; }
 };

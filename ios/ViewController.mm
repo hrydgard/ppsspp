@@ -83,15 +83,15 @@ PPSSPPBaseViewController *sharedViewController;
 		return false;
 	}
 
-	g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](){});
+	g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext){
+		NativeFrame(graphicsContext);
+		return true;
+	});
 	return true;
 }
 
 - (void)requestExitGLRenderLoop {
 	_assert_(g_emuThread.joinable());
-	EmuThread_RequestExit();
-	// Eat up any remaining frames.
-	while (graphicsContext->ThreadFrame()) {}
 	EmuThread_Join(graphicsContext, g_emuThread);
 	_assert_(!g_emuThread.joinable());
 }
