@@ -19,7 +19,7 @@ public:
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
 	void ShutdownAPI() override;
 
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) override;
 	void ShutdownSurface() override;
 
 	void Poll() override;
@@ -28,7 +28,6 @@ public:
 	// not the rendering thread or CPU thread.
 	void Pause() override;
 	void Resume() override;
-	void Resize() override;
 
 	// If these are used, they are called from the render thread. If NeedsRenderThread is false, they are not called.
 	void ThreadStart() override;

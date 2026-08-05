@@ -163,7 +163,7 @@ bool D3D11Context::InitAPI(void *wnd, std::string *deviceName, std::string *erro
 	return true;
 }
 
-bool D3D11Context::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
+bool D3D11Context::InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *error_message) {
 	_dbg_assert_(winsys == WINDOWSYSTEM_WIN32);
 	HINSTANCE hInst = (HINSTANCE)data1;
 	HWND wnd = (HWND)data2;

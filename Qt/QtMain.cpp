@@ -873,7 +873,7 @@ void MainUI::initializeGL() {
 		graphicsContext = new QtGLGraphicsContext();
 		std::string errorMessage;
 		graphicsContext->InitAPI(nullptr, nullptr, &errorMessage);
-		graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage);
+		graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, 0, 0, &errorMessage);
 		INFO_LOG(Log::System, "Using thread, starting emu thread");
 		emuThread_ = EmuThread_Start(graphicsContext, new NativeApplication(), [this](GraphicsContext *graphicsContext){
 			NativeFrame(graphicsContext);

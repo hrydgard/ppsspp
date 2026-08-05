@@ -1149,7 +1149,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 #endif
 		}
 
-		graphicsContext->Resize();
+		graphicsContext->Resize(g_display.pixel_xres, g_display.pixel_yres);
 		g_screenManager->resized();
 
 		// TODO: Move this to the GraphicsContext objects for each backend.

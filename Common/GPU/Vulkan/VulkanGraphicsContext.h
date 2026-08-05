@@ -27,10 +27,10 @@ class VulkanGraphicsContext : public GraphicsContext {
 public:
 	VulkanGraphicsContext() : draw_(nullptr) {}
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) override;
 	void ShutdownSurface() override;
 	void ShutdownAPI() override;
-	void Resize() override;
+	void Resize(int widthHint, int heightHint) override;
 	void Poll() override;
 
 	void NotifyWindowRestored() override {

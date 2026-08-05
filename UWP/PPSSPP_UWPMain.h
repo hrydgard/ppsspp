@@ -20,7 +20,6 @@ public:
 	UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources);
 
 	void ShutdownAPI() override;
-	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {
 		return draw_;
 	}

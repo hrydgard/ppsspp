@@ -463,7 +463,7 @@ SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, in
 	return window;
 }
 
-bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
+bool SDLGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *error_message) {
 	SDL_Window *window = (SDL_Window *)data1;
 	SDL_GLContext glContext = (SDL_GLContext)data2;
 	if (!window || !glContext) {

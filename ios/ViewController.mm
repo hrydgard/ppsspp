@@ -147,7 +147,7 @@ PPSSPPBaseViewController *sharedViewController;
 		ERROR_LOG(Log::G3D, "InitAPI failed: %s", errorMessage.c_str());
 	}
 
-	if (!graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage)) {
+	if (!graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, 0, 0, &errorMessage)) {
 		ERROR_LOG(Log::G3D, "InitSurface failed: %s", errorMessage.c_str());
 	}
 

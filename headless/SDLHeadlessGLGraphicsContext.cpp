@@ -73,7 +73,7 @@ void SDLHeadlessGLGraphicsContext::ShutdownSurface() {
 	glContext_ = nullptr;
 }
 
-bool SDLHeadlessGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+bool SDLHeadlessGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) {
 	// Not used in this context.
 	return true;
 }

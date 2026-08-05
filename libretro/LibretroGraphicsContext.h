@@ -29,7 +29,7 @@ public:
 		DestroyDrawContext();
 	}
 	virtual void SwapBuffers() = 0;
-	void Resize() override {}
+	void Resize(int widthHint, int heightHint) override {}
 
 	virtual void GotBackbuffer();
 	virtual void LostBackbuffer();

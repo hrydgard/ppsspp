@@ -129,7 +129,7 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, const WindowDesc &windowDesc, std::function<bool(GraphicsContext *)> frame) {
 	// This is now the render thread, and will spawn the emu thread below.
 	std::string error_string;
-	bool success = graphicsContext->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, &error_string);
+	bool success = graphicsContext->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, 0, 0, &error_string);
 	if (!success) {
 		return false;
 	}

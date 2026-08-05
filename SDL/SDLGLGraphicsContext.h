@@ -16,12 +16,10 @@ public:
 
 	// Returns 0 on success.
 	// data1 should be the SDL_Window pointer, data2 is the SDL_WindowFlags.
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *error_message) override;
 	void ShutdownSurface() override;
 
 	bool NeedsSeparateEmuThread() const override { return true; }
-
-	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;

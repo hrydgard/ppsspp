@@ -190,12 +190,13 @@ public:
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
 	// The parameters are whatever the chosen window system wants.
-	// The extents will be automatically determined.
+	// The extents will be automatically determined. widthHint/heightHint are optional hints for the
+	// initial surface size (0 if unknown), used by window systems that can't otherwise determine it.
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
 	VkResult ReinitSurface();
 
 	// If the present mode is not available, will fall back to the first available (which is almost always FIFO).
-	bool InitSwapchain(VkPresentModeKHR desiredPresentMode);
+	bool InitSwapchain(VkPresentModeKHR desiredPresentMode, int widthHint, int heightHint);
 
 	void DestroySwapchain();
 	void DestroySurface();

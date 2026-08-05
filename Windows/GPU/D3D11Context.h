@@ -31,11 +31,9 @@ class DrawContext;
 class D3D11Context : public GraphicsContext {
 public:
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) override;
 	void ShutdownSurface() override;
 	void ShutdownAPI() override;
-
-	void Resize() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 

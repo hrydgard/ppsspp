@@ -118,7 +118,7 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 	return true;
 }
 
-bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) {
 	vulkan_->InitSurface(winsys, data1, data2);
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
@@ -136,7 +136,7 @@ bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 		: VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT);
 #endif
 
-	if (!vulkan_->InitSwapchain(presentMode)) {
+	if (!vulkan_->InitSwapchain(presentMode, widthHint, heightHint)) {
 		*errorMessage = vulkan_->InitError();
 		return false;
 	}
@@ -180,7 +180,7 @@ void VulkanGraphicsContext::ShutdownAPI() {
 	finalize_glslang();
 }
 
-void VulkanGraphicsContext::Resize() {
+void VulkanGraphicsContext::Resize(int widthHint, int heightHint) {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
@@ -190,16 +190,16 @@ void VulkanGraphicsContext::Resize() {
 		: VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT);
 #endif
 
-	vulkan_->InitSwapchain(presentMode);
+	vulkan_->InitSwapchain(presentMode, widthHint, heightHint);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 
 void VulkanGraphicsContext::Poll() {
 	// Check for existing swapchain to avoid issues during shutdown.
 	if (vulkan_->IsSwapchainInited() && renderManager_->NeedsSwapchainRecreate()) {
-		Resize();
+		Resize(0, 0);
 	} else if (vulkan_->IsSwapchainInited() && windowRestored_) {
-		Resize();
+		Resize(0, 0);
 		windowRestored_ = false;
 	}
 }

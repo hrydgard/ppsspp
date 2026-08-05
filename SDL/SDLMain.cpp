@@ -2058,6 +2058,7 @@ int main(int argc, char *argv[]) {
 		fallbackGPUBackend = (int)GPUBackend::OPENGL;
 		break;
 	}
+	int initialPixelWidth = 0, initialPixelHeight = 0;
 
 	SDL_Window *window = nullptr;
 	auto initializeBackend = [&](GPUBackend backend, GraphicsContext **graphicsContext, std::string *errorMessage) -> bool {
@@ -2103,7 +2104,9 @@ int main(int argc, char *argv[]) {
 			return false;
 		}
 
-		if (!ctx->InitSurface(windowSystem, data1, data2, errorMessage)) {
+		SDL_GetWindowSizeInPixels(window, &initialPixelWidth, &initialPixelHeight);
+
+		if (!ctx->InitSurface(windowSystem, data1, data2, initialPixelWidth, initialPixelHeight, errorMessage)) {
 			fprintf(stderr, "Surface creation failed: %s\n", errorMessage->c_str());
 			return false;
 		}
@@ -2142,7 +2145,6 @@ int main(int argc, char *argv[]) {
 	// Initialize g_display synchronously before starting the EmuThread below, since it renders
 	// immediately without waiting for us to process an initial SDL resize/scale event -
 	// otherwise the first frames can render with dp_xres/dp_yres still at their defaults.
-	int initialPixelWidth = 0, initialPixelHeight = 0;
 	SDL_GetWindowSizeInPixels(window, &initialPixelWidth, &initialPixelHeight);
 	Native_UpdateScreenScale(initialPixelWidth, initialPixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 

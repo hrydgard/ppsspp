@@ -15,7 +15,7 @@ OpenGLGraphicsContext::OpenGLGraphicsContext() {
 	g_display.rot_matrix.setIdentity();
 }
 
-bool OpenGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
+bool OpenGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) {
 	CheckGLExtensions();
 	INFO_LOG(Log::G3D, "OpenGLGraphicsContext::InitSurface");
 	draw_ = Draw::T3DCreateGLContext(false);  // Can't fail

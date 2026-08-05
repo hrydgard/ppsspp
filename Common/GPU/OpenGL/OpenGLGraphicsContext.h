@@ -13,10 +13,10 @@ public:
 
 	bool NeedsSeparateEmuThread() const override { return true; }
 
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *error_message) override;
 	void ShutdownSurface() override;
 
-	void Resize() override {}
+	void Resize(int widthHint, int heightHint) override {}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;

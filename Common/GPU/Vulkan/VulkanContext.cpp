@@ -64,6 +64,23 @@ std::string VulkanVendorString(uint32_t vendorId) {
 	}
 }
 
+const char *WindowSystemToString(WindowSystem winsys) {
+	switch (winsys) {
+	case WINDOWSYSTEM_UNINITIALIZED: return "UNINITIALIZED";
+	case WINDOWSYSTEM_WIN32: return "WIN32";
+	case WINDOWSYSTEM_ANDROID: return "ANDROID";
+	case WINDOWSYSTEM_METAL_EXT: return "METAL_EXT";
+	case WINDOWSYSTEM_XLIB: return "XLIB";
+	case WINDOWSYSTEM_XCB: return "XCB";
+	case WINDOWSYSTEM_WAYLAND: return "WAYLAND";
+	case WINDOWSYSTEM_DISPLAY: return "DISPLAY";
+	case WINDOWSYSTEM_SDL: return "SDL";
+	case WINDOWSYSTEM_NONE: return "NONE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 const char *VulkanPresentModeToString(VkPresentModeKHR presentMode) {
 	switch (presentMode) {
 	case VK_PRESENT_MODE_IMMEDIATE_KHR: return "IMMEDIATE";
@@ -953,10 +970,10 @@ void VulkanContext::SetDebugNameImpl(uint64_t handle, VkObjectType type, const c
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
 	if (winsysData1_ != data1 && winsysData1_ != 0) {
-		WARN_LOG(Log::G3D, "winsysData1 changed from %p to %p", winsysData1_, data1);
+		WARN_LOG(Log::G3D, "%s: winsysData1 changed from %p to %p", WindowSystemToString(winsys_), winsysData1_, data1);
 	}
 	if (winsysData2_ != data2 && winsysData2_ != 0) {
-		WARN_LOG(Log::G3D, "winsysData2 changed from %p to %p", winsysData2_, data2);
+		WARN_LOG(Log::G3D, "%s: winsysData2 changed from %p to %p", WindowSystemToString(winsys_), winsysData2_, data2);
 	}
 	winsysData1_ = data1;
 	winsysData2_ = data2;
@@ -970,7 +987,7 @@ VkResult VulkanContext::ReinitSurface() {
 		surface_ = VK_NULL_HANDLE;
 	}
 
-	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (data1=%p data2=%p)", winsysData1_, winsysData2_);
+	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (winsys=%s data1=%p data2=%p)", WindowSystemToString(winsys_), winsysData1_, winsysData2_);
 
 	VkResult retval = VK_SUCCESS;
 
@@ -1370,7 +1387,7 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 	return str;
 }
 
-bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
+bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode, int widthHint, int heightHint) {
 	_assert_(physical_device_ >= 0 && physical_device_ < (int)physical_devices_.size());
 	if (!surface_) {
 		ERROR_LOG(Log::G3D, "VK: No surface, can't create swapchain");
@@ -1396,14 +1413,21 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		return true;
 	}
 
-	VkExtent2D currentExtent{ surfCapabilities_.currentExtent };
+	VkExtent2D currentExtent = surfCapabilities_.currentExtent;
 
-	INFO_LOG(Log::G3D, "surfCapabilities_.current: %dx%d", currentExtent.width, currentExtent.height);
+	if (currentExtent.width == 0xFFFFFFFF || currentExtent.height == 0xFFFFFFFF) {
+		// If the surface size is undefined, using the hints.
+		currentExtent.width = widthHint;
+		currentExtent.height = heightHint;
+		INFO_LOG(Log::G3D, "Couldn't query surface size. Using hints from window: %dx%d", currentExtent.width, currentExtent.height);
+	} else {
+		INFO_LOG(Log::G3D, "surfCapabilities_.current: %dx%d", currentExtent.width, currentExtent.height);
+	}
 
 	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	INFO_LOG(Log::G3D, "surfCapabilities_.current after clamp: %dx%d min: %dx%d max: %dx%d computed: %dx%d cbdraw",
+	INFO_LOG(Log::G3D, "surfCapabilities_.current: %dx%d min: %dx%d max: %dx%d after clamp: %dx%d",
 		currentExtent.width, currentExtent.height,
 		surfCapabilities_.minImageExtent.width, surfCapabilities_.minImageExtent.height,
 		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,

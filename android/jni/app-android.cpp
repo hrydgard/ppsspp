@@ -949,7 +949,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 	std::string errorMessage;
 	if (!renderer_inited) {
 		INFO_LOG(Log::G3D, "NativeApp.displayInit() first time");
-		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, &errorMessage)) {
+		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, 0, 0, &errorMessage)) {
 			System_Toast("Graphics initialization failed. Quitting.");
 			return false;
 		}
@@ -976,7 +976,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 
 		INFO_LOG(Log::G3D, "Shut down both threads. Now let's bring it up again!");
 
-		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, &errorMessage)) {
+		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, 0, 0, &errorMessage)) {
 			System_Toast(("Graphics initialization failed: Quitting: " + errorMessage).c_str());
 			return false;
 		}
@@ -1694,7 +1694,7 @@ static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext
 		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
 	std::string errorMessage;
-	if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, wnd, nullptr, &errorMessage)) {
+	if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, wnd, nullptr, 0, 0, &errorMessage)) {
 		// On Android, if we get here, really no point in continuing.
 		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
 		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.

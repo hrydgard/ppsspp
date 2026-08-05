@@ -54,7 +54,7 @@ public:
 		return true;
 	}
 
-	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override {
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) override {
 		// Not used in this context.
 		draw_ = Draw::T3DCreateGLContext(false);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -71,7 +71,6 @@ public:
 		draw_ = nullptr;
 		renderManager_ = nullptr;
 	}
-	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;

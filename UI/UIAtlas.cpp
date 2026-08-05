@@ -264,13 +264,13 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 		while (shape) {
 			if (!IsImageID(imageIDs, imageCount, shape->id)) {
 				// Not an image we care about, hide it.
-				DEBUG_LOG(Log::G3D, "Ignoring shape %s", shape->id);
+				DEBUG_LOG(Log::UI, "Ignoring shape %s", shape->id);
 				shape->flags &= ~NSVG_FLAGS_VISIBLE;
 			} else {
 				if (usedShapes.find(shape->id) != usedShapes.end()) {
-					DEBUG_LOG(Log::G3D, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
+					VERBOSE_LOG(Log::UI, "Duplicate shape ID in SVG, merging bboxes: %s", shape->id);
 				} else {
-					DEBUG_LOG(Log::G3D, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
+					VERBOSE_LOG(Log::UI, "Found shape: %s (%0.2f %0.2f %0.2f %0.2f)", shape->id, shape->bounds[0], shape->bounds[1], shape->bounds[2], shape->bounds[3]);
 				}
 				usedShapes[shape->id].Merge(shape);
 			}
@@ -288,14 +288,14 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 		int maxSide = (int)(std::max(image->width, image->height) * scale);
 		if (maxTextureSize > 0 && maxSide > maxTextureSize) {
 			float newScale = (float)maxTextureSize / (float)maxSide;
-			INFO_LOG(Log::G3D, "Reducing SVG scale from %0.2f to %0.2f to fit in max texture size", scale, newScale);
+			INFO_LOG(Log::UI, "Reducing SVG scale from %0.2f to %0.2f to fit in max texture size", scale, newScale);
 			scale = newScale;
 		}
 
 		int svgWidth = image->width * scale;
 		int svgHeight = image->height * scale;
 
-		INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
+		INFO_LOG(Log::UI, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
 
 		char *svgImg = new char[svgWidth * svgHeight * 4];
 		memset(svgImg, 0, svgWidth * svgHeight * 4);
@@ -311,7 +311,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 			Image &img = (*images)[index];
 			if (!img.IsEmpty()) {
-				WARN_LOG(Log::G3D, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
+				WARN_LOG(Log::UI, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
 				continue;
 			}
 
@@ -322,7 +322,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 			int w = maxX - minX;
 			int h = maxY - minY;
 			if (w <= 0 || h <= 0) {
-				ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
+				ERROR_LOG(Log::UI, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
 				continue;
 			}
 			img.resize(w, h);
@@ -341,7 +341,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 			if (SAVE_DEBUG_IMAGES) {
 				std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
-				WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
+				WARN_LOG(Log::UI, "Writing debug image %s", name.c_str());
 				pngSave(Path(name), img.data(), img.width(), img.height(), 4);
 			}
 
@@ -351,7 +351,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 		shapeCount = (int)usedShapes.size();
 
 		if (SAVE_DEBUG_ATLAS) {
-			WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
+			WARN_LOG(Log::UI, "Writing debug image buttons_rasterized.png");
 			pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
 		}
 		delete[] svgImg;
@@ -360,7 +360,7 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 		nsvgDelete(image);
 	}
 
-	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
+	INFO_LOG(Log::UI, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
 	return true;
 }
 
@@ -399,7 +399,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			// Here we could exclude some images from the drop shadow, if desired.
 			if (!images[i].IsEmpty()) {
 				if (imageIDs[i].addShadow) {
-					// DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
+					// DEBUG_LOG(Log::UI, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
 					AddDropShadow(images[i], 3, 0.66f);
 				} else {
 					// Make sure there are transparent pixels to filter from.
@@ -409,7 +409,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 		}
 	}, 0, (int)images.size(), 2, TaskPriority::HIGH);
 
-	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms", shadowStart.ElapsedMs());
+	INFO_LOG(Log::UI, " - Drop-shadowed images in %0.2f ms", shadowStart.ElapsedMs());
 
 	Instant pngStart = Instant::Now();
 
@@ -423,7 +423,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 		if (!img.IsEmpty()) {
 			// Was already loaded from SVG.
-			DEBUG_LOG(Log::G3D, "Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(imageIDs[i].id), i);
+			VERBOSE_LOG(Log::UI, "Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(imageIDs[i].id), i);
 			continue;
 		}
 
@@ -440,14 +440,14 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			name.append(pngName);
 			bool success = img.LoadPNG(name.c_str());
 			if (!success) {
-				ERROR_LOG(Log::G3D, "%.*s is missing. Not present in SVG files and no suitable PNG found (%s)", STR_VIEW(imageIDs[i].id), name.c_str());
+				ERROR_LOG(Log::UI, "%.*s is missing. Not present in SVG files and no suitable PNG found (%s)", STR_VIEW(imageIDs[i].id), name.c_str());
 			} else {
 				pngsLoaded++;
 				img.ConvertToPremultipliedAlpha();
 			}
 		}
 	}
-	INFO_LOG(Log::G3D, " - Loaded %d png images in %.2f ms", pngsLoaded, pngStart.ElapsedMs());
+	INFO_LOG(Log::UI, " - Loaded %d png images in %.2f ms", pngsLoaded, pngStart.ElapsedMs());
 
 	Instant addStart = Instant::Now();
 	int area = 0;
@@ -456,17 +456,17 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 		area += images[i].width() * images[i].height();
 	}
 
-	INFO_LOG(Log::G3D, " - Added %zu images to bucket in %.2f ms", bucket.data.size(), addStart.ElapsedMs());
+	INFO_LOG(Log::UI, " - Added %zu images to bucket in %.2f ms", bucket.data.size(), addStart.ElapsedMs());
 
 	int imageWidth = RoundToNextPowerOf2((int)sqrtf(area));
 
 	Instant bucketStart = Instant::Now();
 	bucket.Pack2(imageWidth);
-	INFO_LOG(Log::G3D, " - Packed in %.2f ms (image size: %dx%d)", bucketStart.ElapsedMs(), bucket.w, bucket.h);
+	INFO_LOG(Log::UI, " - Packed in %.2f ms (image size: %dx%d)", bucketStart.ElapsedMs(), bucket.w, bucket.h);
 
 	Instant resolveStart = Instant::Now();
 	std::vector<Data> results = bucket.Resolve(dest);
-	INFO_LOG(Log::G3D, " - Resolved %zu images in %.2f ms (final image size: %dx%d)", results.size(), resolveStart.ElapsedMs(), dest->width(), dest->height());
+	INFO_LOG(Log::UI, " - Resolved %zu images in %.2f ms (final image size: %dx%d)", results.size(), resolveStart.ElapsedMs(), dest->width(), dest->height());
 
 	_dbg_assert_(!results.empty());
 	// Fill out the atlas structure.
@@ -483,10 +483,10 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 
 	// For debug, write out the atlas.
 	if (SAVE_DEBUG_ATLAS) {
-		WARN_LOG(Log::G3D, "Writing debug image ui_atlas_gen.png");
+		WARN_LOG(Log::UI, "Writing debug image ui_atlas_gen.png");
 		dest->SavePNG("../ui_atlas_gen.png");
 	}
-	INFO_LOG(Log::G3D, "UI atlas generated in %.2f ms, size %dx%d with %zu images", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());
+	INFO_LOG(Log::UI, "UI atlas generated in %.2f ms, size %dx%d with %zu images", svgStart.ElapsedMs(), dest->width(), dest->height(), genAtlasImages.size());
 	return true;
 }
 
@@ -496,12 +496,12 @@ static float g_cachedDpiScale = 0.0f;
 // The caller must cache the Atlas.
 Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiScale, bool invalidate) {
 	if (g_cachedUIAtlasImage.IsEmpty() || dpiScale != g_cachedDpiScale || invalidate) {
-		INFO_LOG(Log::G3D, "Regenerating atlas (empty: %s). Dpi scale (changed: %s): %0.2f (invalidate=%d)",
+		INFO_LOG(Log::UI, "Regenerating atlas (empty: %s). Dpi scale (changed: %s): %0.2f (invalidate=%d)",
 			g_cachedUIAtlasImage.IsEmpty() ? "true" : "false", dpiScale != g_cachedDpiScale ? "true" : "false", dpiScale, invalidate);
 
 		g_cachedUIAtlasImage.clear();
 		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize, g_uiImageIDs, ARRAY_SIZE(g_uiImageIDs))) {
-			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
+			ERROR_LOG(Log::UI, "Failed to generate UI atlas!");
 			return nullptr;
 		}
 	}
@@ -526,7 +526,7 @@ static void LoadAtlasMetadata(Atlas &metadata, const char *filename) {
 	const uint8_t *atlas_data = g_VFS.ReadFile(filename, &atlas_data_size);
 	bool load_success = atlas_data != nullptr && metadata.LoadMeta(atlas_data, atlas_data_size);
 	if (!load_success) {
-		ERROR_LOG(Log::G3D, "Failed to load %s - graphics may be broken", filename);
+		ERROR_LOG(Log::UI, "Failed to load %s - graphics may be broken", filename);
 		// Stumble along with broken visuals instead of dying...
 	}
 	delete[] atlas_data;

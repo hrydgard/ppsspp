@@ -181,7 +181,7 @@ void WindowsGLContext::ShutdownAPI() {
 	glslang::FinalizeProcess();
 }
 
-bool WindowsGLContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) {
+bool WindowsGLContext::InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *error_message) {
 	HINSTANCE hInst = (HINSTANCE)data1;
 	HWND window = (HWND)data2;
 
@@ -476,9 +476,6 @@ void WindowsGLContext::ShutdownSurface() {
 	pauseEvent = nullptr;
 	resumeEvent = nullptr;
 	ReleaseGLContext();
-}
-
-void WindowsGLContext::Resize() {
 }
 
 void WindowsGLContext::ThreadStart() {

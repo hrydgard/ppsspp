@@ -28,7 +28,9 @@ public:
 	virtual void ShutdownAPI() {}
 
 	// These should be called on the render thread if NeedsRenderThread.
-	virtual bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) { return true; }
+	// widthHint/heightHint are optional hints for the initial surface size, used by backends/window systems
+	// that can't otherwise determine it (0 if unknown - most implementations ignore these).
+	virtual bool InitSurface(WindowSystem winsys, void *data1, void *data2, int widthHint, int heightHint, std::string *errorMessage) { return true; }
 	virtual void ShutdownSurface() {}
 
 	// Used during window resize on desktop ONLY. Must be called from the window thread,
@@ -36,7 +38,7 @@ public:
 	virtual void Pause() {}
 	virtual void Resume() {}
 
-	virtual void Resize() = 0;
+	virtual void Resize(int widthHint, int heightHint) {}
 	virtual void NotifyWindowRestored() {}
 
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
@@ -68,6 +70,5 @@ class NullGraphicsContext : public GraphicsContext {
 public:
 	NullGraphicsContext() {}
 	Draw::DrawContext *GetDrawContext() override { return nullptr; }
-	void Resize() override {}
 	bool NeedsSeparateEmuThread() const override { return false; }
 };
