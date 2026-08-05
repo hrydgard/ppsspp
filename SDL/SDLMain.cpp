@@ -2139,6 +2139,13 @@ int main(int argc, char *argv[]) {
 	}
 	UpdateScreenDPI(window);
 
+	// Initialize g_display synchronously before starting the EmuThread below, since it renders
+	// immediately without waiting for us to process an initial SDL resize/scale event -
+	// otherwise the first frames can render with dp_xres/dp_yres still at their defaults.
+	int initialPixelWidth = 0, initialPixelHeight = 0;
+	SDL_GetWindowSizeInPixels(window, &initialPixelWidth, &initialPixelHeight);
+	Native_UpdateScreenScale(initialPixelWidth, initialPixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 	char iconPath[PATH_MAX];
