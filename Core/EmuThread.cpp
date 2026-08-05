@@ -84,11 +84,19 @@ std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *appli
 // This is useful when the render thread is in control.
 void EmuThread_RequestExit() {
 	INFO_LOG(Log::System, "EmuTread_RequestExit");
-	g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
+	if (g_emuThreadState == EmuThreadState::RUNNING) {
+		g_emuThreadState = EmuThreadState::QUIT_REQUESTED;
+	} else {
+		INFO_LOG(Log::System, "EmuTread_RequestExit: g_emuThreadState was not RUNNING, so not requesting exit.");
+	}
 }
 
 void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread) {
 	INFO_LOG(Log::System, "EmuTread_Join");
+	if (graphicsContext->NeedsSeparateEmuThread()) {
+		EmuThread_RequestExit();
+		while (graphicsContext->ThreadFrame()) {}
+	}
 	emuThread.join();
 	emuThread = std::thread();
 	graphicsContext->ThreadEnd();

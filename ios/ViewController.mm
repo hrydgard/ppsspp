@@ -92,9 +92,6 @@ PPSSPPBaseViewController *sharedViewController;
 
 - (void)requestExitGLRenderLoop {
 	_assert_(g_emuThread.joinable());
-	EmuThread_RequestExit();
-	// Eat up any remaining frames.
-	while (graphicsContext->ThreadFrame()) {}
 	EmuThread_Join(graphicsContext, g_emuThread);
 	_assert_(!g_emuThread.joinable());
 }
