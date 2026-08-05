@@ -239,9 +239,11 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	return new SDLHeadlessGLGraphicsContext();
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	switch (gpuCore) {
+#if PPSSPP_API(ANY_GL)
 	case GPUCORE_GLES:
 		*deviceSetting = nullptr;
 		return new WindowsGLContext();
+#endif
 	case GPUCORE_DIRECTX11:
 		*deviceSetting = &g_Config.sD3D11Device;
 		return new D3D11Context();
