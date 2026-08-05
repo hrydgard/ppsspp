@@ -1237,29 +1237,6 @@ void System_Notify(SystemNotification notification) {
 bool System_SendDebugOutput(std::string_view data) { return false; }
 void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
 
-// returns -1 on failure
-static int parseInt(const char *str) {
-	int val;
-	int retval = sscanf(str, "%d", &val);
-	fprintf(stderr, "%i = scanf %s\n", retval, str);
-	if (retval != 1) {
-		return -1;
-	} else {
-		return val;
-	}
-}
-
-static float parseFloat(const char *str) {
-	float val;
-	int retval = sscanf(str, "%f", &val);
-	fprintf(stderr, "%i = sscanf %s\n", retval, str);
-	if (retval != 1) {
-		return -1.0f;
-	} else {
-		return val;
-	}
-}
-
 void UpdateWindowState(SDL_Window *window) {
 	SDL_SetWindowTitle(window, g_windowState.title.c_str());
 	if (g_windowState.applyFullScreenNextFrame) {
@@ -1856,43 +1833,12 @@ int main(int argc, char *argv[]) {
 
 	const int compiled = SDL_VERSION;
 	const int linked = SDL_GetVersion();
-	int set_xres = -1;
-	int set_yres = -1;
-	float set_dpi = 0.0f;
-	float set_scale = 1.0f;
-
-	// Produce a new set of arguments with the ones we skip.
-	int remain_argc = 1;
-	const char *remain_argv[256] = { argv[0] };
-	constexpr int remain_argv_cap = (int)(sizeof(remain_argv) / sizeof(remain_argv[0]));
+	int set_xres = cmdLineOptions.xres.value_or(-1);
+	int set_yres = cmdLineOptions.yres.value_or(-1);
+	float set_dpi = (float)cmdLineOptions.dpi.value_or(0.0);
+	float set_scale = (float)cmdLineOptions.scale.value_or(1.0);
 
 	Uint32 mode = 0;
-	for (int i = 1; i < argc; i++) {
-		if (set_xres == -2)
-			set_xres = parseInt(argv[i]);
-		else if (set_yres == -2)
-			set_yres = parseInt(argv[i]);
-		else if (set_dpi == -2)
-			set_dpi = parseFloat(argv[i]);
-		else if (set_scale == -2)
-			set_scale = parseFloat(argv[i]);
-		else if (!strcmp(argv[i], "--xres"))
-			set_xres = -2;
-		else if (!strcmp(argv[i], "--yres"))
-			set_yres = -2;
-		else if (!strcmp(argv[i], "--dpi"))
-			set_dpi = -2;
-		else if (!strcmp(argv[i], "--scale"))
-			set_scale = -2;
-		else {
-			if (remain_argc < remain_argv_cap - 1) {
-				remain_argv[remain_argc++] = argv[i];
-			} else {
-				fprintf(stderr, "Too many command-line arguments, ignoring: %s\n", argv[i]);
-			}
-		}
-	}
-	remain_argv[remain_argc] = nullptr;
 
 	std::string app_name;
 	std::string app_name_nice;
@@ -2013,7 +1959,7 @@ int main(int argc, char *argv[]) {
 
 	// After NativeInit, code should no longer look at cmdLineOptions, they should have been translated
 	// into g_Config settings. This is because NativeInit may modify g_Config settings based on the command line options.
-	NativeInit(remain_argc, (const char **)remain_argv, cmdLineOptions, path, external_dir, nullptr);
+	NativeInit(argc, (const char **)argv, cmdLineOptions, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen) {

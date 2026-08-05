@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include "Core/Config.h"
 #include "Core/CmdLine.h"
 #include "Common/StringUtils.h"
@@ -176,10 +178,14 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
 	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},
-	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE"},
-	{POFF(screenshotFilename), CmdParamType::String, "screenshot", '\0', "Take a screenshot and save to FILE"},
-	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", '\0', "Save screenshot to specified path"},
-	{POFF(timeout), CmdParamType::Double, "timeout", '\0', "Set the timeout value"},
+	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE", CmdLineMode::Application},
+	{POFF(enableLogging), CmdParamType::Bool, "log", '\0', "Full log output, not just emulated printfs", CmdLineMode::Headless},
+	{POFF(screenshotFilename), CmdParamType::String, "screenshot", '\0', "Compare rendered output against a reference screenshot FILE", CmdLineMode::Headless},
+	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", '\0', "Save rendered screenshot to specified path", CmdLineMode::Headless},
+	{POFF(timeout), CmdParamType::Double, "timeout", '\0', "Set the timeout value", CmdLineMode::Headless},
+	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
+	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1:", CmdLineMode::Headless},
+	{POFF(odsLog), CmdParamType::Bool, "odslog", 'o', "Also log through OutputDebugString (Windows)", CmdLineMode::Headless},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
 	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
@@ -189,6 +195,10 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(logNativeCrashes), CmdParamType::Bool, "log-native-crashes", '\0', "Log a native stack trace (Windows only) on an otherwise-unhandled crash", CmdLineMode::Both},
 	{POFF(verbose), CmdParamType::Bool, "verbose", '\0', "Enable verbose output", CmdLineMode::Both},
 	{POFF(printEqualLines), CmdParamType::Bool, "print-equal-lines", '\0', "Print lines that are equal during comparison", CmdLineMode::Headless},
+	{POFF(xres), CmdParamType::Int, "xres", '\0', "Set X resolution", CmdLineMode::Application},
+	{POFF(yres), CmdParamType::Int, "yres", '\0', "Set Y resolution", CmdLineMode::Application},
+	{POFF(dpi), CmdParamType::Double, "dpi", '\0', "Set DPI", CmdLineMode::Application},
+	{POFF(scale), CmdParamType::Double, "scale", '\0', "Set scale", CmdLineMode::Application},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -229,7 +239,9 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 	PRINT_STDOUT("  -d                    set the log level to debug\n");
 	PRINT_STDOUT("  -v                    set the log level to verbose\n");
 	PRINT_STDOUT("  --loglevel=INTEGER    set the log level to specified value\n");
-	PRINT_STDOUT("  --log=FILE            output log to FILE\n");
+	if (mode == CmdLineMode::Application) {
+		PRINT_STDOUT("  --log=FILE            output log to FILE\n");
+	}
 	PRINT_STDOUT("  --state=FILE          load state from FILE\n");
 
 	PRINT_STDOUT("  -i                    use the interpreter\n");
@@ -262,13 +274,10 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 		}
 	}
 
-	// These are only available in SDL.
-	if (mode == CmdLineMode::Application) {
-		PRINT_STDOUT("  --xres PIXELS         set X resolution\n");
-		PRINT_STDOUT("  --yres PIXELS         set Y resolution\n");
-		PRINT_STDOUT("  --dpi DPI             set DPI\n");
-		PRINT_STDOUT("  --scale FACTOR        set scale\n");
+	if (mode == CmdLineMode::Headless) {
+		PRINT_STDOUT("  --ignore TESTNAME     ignore the specified test (may be repeated)\n");
 	}
+
 	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
 	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
 	return 0;
@@ -282,6 +291,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 	constexpr std::string_view gpuBackendStr = "--graphics=";
 	constexpr std::string_view configOption = "--config=";
 	constexpr std::string_view controlsOption = "--controlconfig=";
+	constexpr std::string_view logLevelOption = "--loglevel=";
 
 #ifdef _DEBUG
 	enableLogging = true;
@@ -411,6 +421,18 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			configFilename = std::string(argv[i] + configOption.size());
 		} else if (startsWith(argv[i], controlsOption)) {
 			controlsConfigFilename = std::string(argv[i] + controlsOption.size());
+		} else if (startsWith(argv[i], logLevelOption)) {
+			logLevel = static_cast<LogLevel>(atoi(argv[i] + logLevelOption.size()));
+		} else if (equals(argv[i], "--ignore")) {
+			// Headless: skip a specific test. Can be repeated, so not a regular auto-param.
+			if (i + 1 < argc) {
+				ignoredTests.emplace_back(argv[i + 1]);
+				i += 2;
+				continue;
+			} else {
+				PRINT_STDERR("Error: --ignore requires an argument.\n");
+				return CommandLineParseResult::Exit;
+			}
 		} else {
 			// Report unknown argument later once this is complete.
 		}

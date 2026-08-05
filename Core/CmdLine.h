@@ -95,4 +95,19 @@ struct CommandLineOptions {
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
+
+	// Headless: mount an ISO/CSO on umd1:.
+	std::optional<std::string> mountIso;
+	// Headless: also log through OutputDebugString (Windows).
+	std::optional<bool> odsLog;
+	// Headless: maximum allowed MSE error for screenshot comparison.
+	std::optional<double> maxScreenshotError;
+	// Headless: test names to skip. May be specified more than once.
+	std::vector<std::string> ignoredTests;
+
+	// SDL only.
+	std::optional<int> xres;
+	std::optional<int> yres;
+	std::optional<double> dpi;
+	std::optional<double> scale;
 };
