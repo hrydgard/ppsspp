@@ -52,6 +52,7 @@ SDLJoystick *joystick = NULL;
 
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
@@ -2047,6 +2048,17 @@ int main(int argc, char *argv[]) {
 		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, errorMessage)) {
 			fprintf(stderr, "Graphics initialization failed: %s\n", errorMessage->c_str());
 			return false;
+		}
+
+		if (backend == GPUBackend::VULKAN) {
+			// linux wayland can give -1x-1 during vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+			VulkanGraphicsContext *vkgfxctx = (VulkanGraphicsContext *)ctx;
+			VulkanContext *vkctx = (VulkanContext *)vkgfxctx->GetAPIContext();
+			vkctx->SetCbGetDrawSize([window]() {
+				int w=1,h=1;
+				SDL_GetWindowSizeInPixels(window, &w, &h);
+				return VkExtent2D {(uint32_t)w, (uint32_t)h};
+			});
 		}
 
 		if (!ctx->InitSurface(windowSystem, data1, data2, errorMessage)) {

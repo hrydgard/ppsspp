@@ -1400,6 +1400,20 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 
 	INFO_LOG(Log::G3D, "surfCapabilities_.current: %dx%d", currentExtent.width, currentExtent.height);
 
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceCapabilitiesKHR.html
+	// currentExtent is the current width and height of the surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
+	if (currentExtent.width == 0xFFFFFFFFu || currentExtent.height == 0xFFFFFFFFu
+		#if PPSSPP_PLATFORM(IOS)
+		|| currentExtent.width == 0 || currentExtent.height == 0
+		#endif
+	) {
+		ERROR_LOG(Log::G3D, "using cbGetDrawSize_ to resolve surface size");
+		_dbg_assert_((bool)cbGetDrawSize_);
+		if (cbGetDrawSize_) {
+			currentExtent = cbGetDrawSize_();
+		}
+	}
+
 	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
@@ -1571,6 +1585,10 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		INFO_LOG(Log::G3D, "Destroyed old swapchain.");
 	}
 	return true;
+}
+
+void VulkanContext::SetCbGetDrawSize(std::function<VkExtent2D()> cb) {
+	cbGetDrawSize_ = cb;
 }
 
 VkFence VulkanContext::CreateFence(bool presignalled) {
