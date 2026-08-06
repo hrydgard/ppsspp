@@ -309,6 +309,15 @@ void sleep_precise(double seconds, const char *reason) {
 #elif defined(__EMSCRIPTEN__)
 	emscripten_sleep(seconds * 1000.0);
 #else
+	// Note for Apple platforms: this overshoots by roughly 25% of the requested interval due to
+	// timer coalescing - measured ~0.5ms over on a 2ms request and ~1.9ms over on 8ms, on an
+	// M-series Mac. That lands straight in frame pacing, since this is the frame limiter.
+	// Things that were measured and did *not* help:
+	//   - mach_wait_until() on an absolute deadline: identical overshoot, it ends up in the same
+	//     timer machinery, so it's not worth pulling in mach headers and a cached timebase for.
+	// What does work is the Windows approach above, sleeping short and spinning out the rest
+	// (with a proportional margin, since the overshoot scales with the interval), but that burns
+	// CPU every frame, which is a poor trade on battery-powered devices. Left alone deliberately.
 	usleep(seconds * 1000000.0);
 #endif
 }
