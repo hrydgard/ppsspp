@@ -1,3 +1,5 @@
+#include <memory>
+#include <vector>
 
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -10,24 +12,28 @@
 #include "Common/Data/Text/Parsers.h"
 
 #include "libretro/LibretroVulkanContext.h"
+#include "libretro/LibretroVulkanPresentation.h"
 #include <libretro_vulkan.h>
 #include <GPU/Vulkan/VulkanRenderManager.h>
 #include "ext/glslang/OGLCompilersDLL/InitializeDll.h"
 
 #undef fflush
 
-static VulkanContext *vk;
+using namespace PPSSPP_VK;
 
-void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR surface, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char **required_device_extensions, unsigned num_required_device_extensions, const char **required_device_layers, unsigned num_required_device_layers, const VkPhysicalDeviceFeatures *required_features);
-void vk_libretro_shutdown();
-void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface);
-void vk_libretro_wait_for_presentation();
+static VulkanContext *vk;
+// Non-owning: lifetime is tied to vk (owns it via VulkanContext::presentation_).
+static LibretroVulkanPresentation *presentation;
+// Fetched in ContextReset(), consumed when CreateDrawContext() constructs the presentation backend.
+static retro_hw_render_interface_vulkan *hwRenderInterface;
 
 LibretroVulkanContext::LibretroVulkanContext()
 	: LibretroHWRenderContext(RETRO_HW_CONTEXT_VULKAN, VK_MAKE_VERSION(1, 0, 18)) {}
 
 void LibretroVulkanContext::SwapBuffers() {
-	vk_libretro_wait_for_presentation();
+	if (presentation) {
+		presentation->WaitForPresentation();
+	}
 	LibretroHWRenderContext::SwapBuffers();
 }
 
@@ -36,37 +42,72 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 
 	vk = new VulkanContext();
 
-	vk_libretro_init(instance, gpu, surface, get_instance_proc_addr, required_device_extensions, num_required_device_extensions, required_device_layers, num_required_device_layers, required_features);
-
-	// TODO: Here we'll inject the instance and all of the stuff into the VulkanContext.
-
-	vk->CreateInstance({});
-
-	int physical_device = 0;
-	while (gpu && vk->GetPhysicalDevice(physical_device) != gpu) {
-		physical_device++;
+	if (!VulkanLoadFromGetInstanceProcAddr(instance, get_instance_proc_addr)) {
+		ERROR_LOG(Log::G3D, "Failed to resolve Vulkan functions from libretro-provided get_instance_proc_addr");
+		delete vk;
+		vk = nullptr;
+		return false;
 	}
 
-	if (!gpu) {
+	if (vk->CreateInstanceExternal(instance) != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "Failed to adopt libretro-provided Vulkan instance: %s", vk->InitError().c_str());
+		delete vk;
+		vk = nullptr;
+		return false;
+	}
+
+	int physical_device = -1;
+	if (gpu) {
+		for (int i = 0; i < vk->GetNumPhysicalDevices(); i++) {
+			if (vk->GetPhysicalDevice(i) == gpu) {
+				physical_device = i;
+				break;
+			}
+		}
+		if (physical_device < 0) {
+			WARN_LOG(Log::G3D, "libretro-provided VkPhysicalDevice %p not found among our own enumerated physical devices - falling back to best physical device", (void *)gpu);
+		}
+	}
+	if (physical_device < 0) {
 		physical_device = vk->GetBestPhysicalDevice();
 	}
 
-	vk->CreateDevice(physical_device);
-#ifdef _WIN32
-	vk->InitSurface(WINDOWSYSTEM_WIN32, nullptr, nullptr);
-#elif defined(__ANDROID__)
-	vk->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr);
-#elif defined(VK_USE_PLATFORM_METAL_EXT)
-    vk->InitSurface(WINDOWSYSTEM_METAL_EXT, nullptr, nullptr);
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
-	vk->InitSurface(WINDOWSYSTEM_XLIB, nullptr, nullptr);
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-	vk->InitSurface(WINDOWSYSTEM_XCB, nullptr, nullptr);
-#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
-#elif defined(VK_USE_PLATFORM_DISPLAY_KHR)
-	vk->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
-#endif
+	std::vector<const char *> extraDeviceExtensions(required_device_extensions, required_device_extensions + num_required_device_extensions);
+	if (vk->CreateDevice(physical_device, extraDeviceExtensions, required_features) != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "Failed to create Vulkan device: %s", vk->InitError().c_str());
+		delete vk;
+		vk = nullptr;
+		return false;
+	}
+	// CreateDevice() enables whatever of extraDeviceExtensions is available and silently skips the rest -
+	// if RetroArch's own subsequent Vulkan calls depend on one of these, silently not enabling it could
+	// cause exactly the kind of driver-level crash that's hard to diagnose, so make sure we'd notice.
+	for (const char *extraExtension : extraDeviceExtensions) {
+		bool enabled = false;
+		for (const char *e : vk->GetDeviceExtensionsEnabled()) {
+			if (!strcmp(e, extraExtension)) {
+				enabled = true;
+				break;
+			}
+		}
+		if (!enabled) {
+			WARN_LOG(Log::G3D, "libretro required device extension '%s' was not enabled", extraExtension);
+		}
+	}
+
+	// Per the libretro create_device contract, the frontend takes over responsibility for eventually
+	// destroying the VkDevice we just created and handed back to it below.
+	vk->SetDeviceExternallyOwned();
+
+	// Normally the graphics queue is only resolved as a side effect of ReinitSurface()/ChooseQueue(),
+	// since that also needs to check presentation support against a real WSI surface - libretro has no
+	// such surface (RetroArch owns real presentation itself), so pick the queue directly instead.
+	if (!vk->ChooseGraphicsQueueWithoutSurface()) {
+		ERROR_LOG(Log::G3D, "Failed to choose a graphics queue");
+		delete vk;
+		vk = nullptr;
+		return false;
+	}
 
 	context->gpu = vk->GetPhysicalDevice(physical_device);
 	context->device = vk->GetDevice();
@@ -74,6 +115,8 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	context->queue_family_index = vk->GetGraphicsQueueFamilyIndex();
 	context->presentation_queue = context->queue;
 	context->presentation_queue_family_index = context->queue_family_index;
+	INFO_LOG(Log::G3D, "libretro create_device: gpu=%p device=%p queue=%p queue_family_index=%u",
+		(void *)context->gpu, (void *)context->device, (void *)context->queue, context->queue_family_index);
 #ifdef _DEBUG
 	fflush(stdout);
 #endif
@@ -109,16 +152,16 @@ bool LibretroVulkanContext::InitAPI(void *wnd, std::string *deviceName, std::str
 }
 
 void LibretroVulkanContext::ContextReset() {
-   retro_hw_render_interface *vulkan;
-   if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&vulkan) || !vulkan) {
+   retro_hw_render_interface *iface;
+   if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE, (void **)&iface) || !iface) {
       ERROR_LOG(Log::G3D, "Failed to get HW rendering interface!\n");
       return;
    }
-   if (vulkan->interface_version != RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION) {
-      ERROR_LOG(Log::G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION, vulkan->interface_version);
+   if (iface->interface_version != RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION) {
+      ERROR_LOG(Log::G3D, "HW render interface mismatch, expected %u, got %u!\n", RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION, iface->interface_version);
       return;
    }
-   vk_libretro_set_hwrender_interface(vulkan);
+   hwRenderInterface = (retro_hw_render_interface_vulkan *)iface;
 
    LibretroHWRenderContext::ContextReset();
 }
@@ -132,12 +175,19 @@ void LibretroVulkanContext::ContextDestroy() {
 }
 
 void LibretroVulkanContext::CreateDrawContext() {
-   vk->ReinitSurface();
+   int w = g_Config.iInternalResolution * NATIVEWIDTH;
+   int h = g_Config.iInternalResolution * NATIVEHEIGHT;
+   if (g_Config.bDisplayCropTo16x9) {
+      h -= g_Config.iInternalResolution * 2;
+   }
 
-   // TODO: Integrate properly with libretro vulkan context. We currently use a wacky wrapper (libretro_vulkan.cpp)
-   if (!vk->InitSwapchain(VK_PRESENT_MODE_FIFO_KHR)) {
+   auto libretroPresentation = std::make_unique<LibretroVulkanPresentation>(hwRenderInterface, VK_FORMAT_B8G8R8A8_UNORM, VkExtent2D{ (uint32_t)w, (uint32_t)h });
+   if (!libretroPresentation->Create(vk)) {
+      ERROR_LOG(Log::G3D, "Failed to create libretro Vulkan presentation images");
       return;
    }
+   presentation = libretroPresentation.get();
+   vk->SetPresentation(std::move(libretroPresentation));
 
    bool useMultiThreading = g_Config.bRenderMultiThreading;
    if (g_Config.iInflightFrames == 1) {
@@ -161,17 +211,21 @@ void LibretroVulkanContext::ShutdownAPI() {
 
    vk->WaitUntilQueueIdle();
 
-   vk->DestroySwapchain();
-   vk->DestroySurface();
+   if (presentation) {
+      presentation->Destroy(vk);
+      vk->SetPresentation(nullptr);
+      presentation = nullptr;
+   }
+
    vk->DestroyDevice();
    vk->DestroyInstance();
 
    delete vk;
    vk = nullptr;
+   hwRenderInterface = nullptr;
 
    finalize_glslang();
    glslang::DetachProcess();
-   vk_libretro_shutdown();
 }
 
 void *LibretroVulkanContext::GetAPIContext() { return vk; }

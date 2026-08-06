@@ -49,6 +49,8 @@ bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat 
 		return false;
 	}
 
+	_dbg_assert_(format != VK_FORMAT_UNDEFINED);
+
 	Wipe();
 
 	width_ = (int16_t)w;

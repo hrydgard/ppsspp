@@ -202,7 +202,7 @@
     <ClCompile Include="..\libretro\libretro.cpp">
       <Filter>Other Platforms\libretro</Filter>
     </ClCompile>
-    <ClCompile Include="..\libretro\libretro_vulkan.cpp">
+    <ClCompile Include="..\libretro\LibretroVulkanPresentation.cpp">
       <Filter>Other Platforms\libretro</Filter>
     </ClCompile>
     <ClCompile Include="..\libretro\LibretroD3D11Context.cpp">
@@ -431,6 +431,9 @@
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
     <ClInclude Include="..\libretro\LibretroVulkanContext.h">
+      <Filter>Other Platforms\libretro</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libretro\LibretroVulkanPresentation.h">
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
     <ClInclude Include="..\libretro\libretro.h">
