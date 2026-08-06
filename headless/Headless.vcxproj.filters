@@ -25,6 +25,9 @@
     <ClCompile Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
+    <ClCompile Include="..\SDL\SDLUtil.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\test.py" />
@@ -40,6 +43,9 @@
     </ClInclude>
     <ClInclude Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.h">
       <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SDL\SDLUtil.h">
+      <Filter>Other Platforms</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1344,6 +1344,8 @@ if(HEADLESS)
 		list(APPEND HeadlessSource
 			Common/Render/Text/draw_text_cocoa.mm
 			Common/Render/Text/draw_text_cocoa.h
+			SDL/SDLCocoaMetalLayer.h
+			SDL/SDLCocoaMetalLayer.mm
 		)
 		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm
 			PROPERTIES COMPILE_FLAGS -fobjc-arc)

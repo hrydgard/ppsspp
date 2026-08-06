@@ -1,5 +1,11 @@
 #include <SDL3/SDL.h>
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "SDL/SDLCocoaMetalLayer.h"
+#endif
+
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"

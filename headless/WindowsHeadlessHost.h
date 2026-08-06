@@ -23,4 +23,4 @@ struct WindowDesc;
 
 // Same API as for SDL
 void *CreateHiddenWindow(int w, int h, GPUBackend backend, WindowDesc *desc);
-void DestroyHiddenWindow(WindowDesc window);
+void DestroyHiddenWindow(void *window, WindowDesc desc);
