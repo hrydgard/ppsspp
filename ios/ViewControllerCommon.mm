@@ -84,6 +84,9 @@ static int GetPickerRequestId(id picker) {
 	return self;
 }
 
+// Only means anything for the GL backend, which overrides this.
+- (void)bindDefaultFBO {}
+
 - (void)shutdown {
 	self.gameController = nil;
 	[[NSNotificationCenter defaultCenter] removeObserver:self];

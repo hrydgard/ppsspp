@@ -976,7 +976,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/iCade/iCadeReaderView.m
 		ios/main.mm
 		ios/CameraHelper.mm
-		ios/AudioEngine.mm
 		ios/LocationHelper.mm
 		ios/Controls.mm
 		Core/Util/DarwinFileSystemServices.mm

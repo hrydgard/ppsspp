@@ -1,4 +1,3 @@
-#import "AppDelegate.h"
 #import "ViewControllerMetal.h"
 #import "iOSCoreAudio.h"
 
@@ -193,8 +192,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 
 	INFO_LOG(Log::System, "Metal viewDidLoad");
 
-	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
-	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 	// self.view.insetsLayoutMarginsFromSafeArea = NO;
 	// self.view.clipsToBounds = YES;
@@ -220,10 +217,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
 }
 
-- (UIView *)getView {
-	return [self view];
-}
-
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
 	INFO_LOG(Log::G3D, "viewWillAppear");
@@ -245,10 +238,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 - (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
 	INFO_LOG(Log::G3D, "viewDidDisappear");
-}
-
-- (void)bindDefaultFBO {
-	// Do nothing
 }
 
 - (void)viewWillLayoutSubviews {
