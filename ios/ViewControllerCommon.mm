@@ -481,26 +481,24 @@ extern float g_safeInsetBottom;
 #endif
 #pragma mark - Status Bar Control
 
-// iOS calls this to determine whether to hide the status bar
-- (BOOL)prefersStatusBarHidden {
-	UIInterfaceOrientation orientation;
-
+// The immersive mode setting is per-orientation, so we need to know which way we're facing.
+// Can't just use g_display for this, since it lags behind during rotation.
+// Note: Using viewIfLoaded, since this can get called before the view exists, and we don't want to force it into existence.
+- (DeviceOrientation)currentDeviceOrientation {
 	if (@available(iOS 13.0, *)) {
-		UIWindowScene *scene = self.view.window.windowScene;
+		UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
 		if (scene != nil) {
-			orientation = scene.interfaceOrientation;
-		} else {
-			orientation = UIApplication.sharedApplication.statusBarOrientation;
+			return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
 		}
-	} else {
-		orientation = UIApplication.sharedApplication.statusBarOrientation;
 	}
+	CGSize size = self.viewIfLoaded.bounds.size;
+	return size.height > size.width ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
+}
 
-	BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
-
-	bool userWantsStatusBar = true; // g_Config.bShowStatusBar;
-	// return isLandscape || !userWantsStatusBar;
-	return false;
+// iOS calls this to determine whether to hide the status bar.
+// Note that on iPhone, iOS hides it in landscape regardless of what we return here.
+- (BOOL)prefersStatusBarHidden {
+	return g_Config.GetDisplayLayoutConfig([self currentDeviceOrientation]).bImmersiveMode ? YES : NO;
 }
 
 // Optional: choose light/dark text for the status bar
@@ -508,8 +506,19 @@ extern float g_safeInsetBottom;
 	return UIStatusBarStyleLightContent;
 }
 
-// This should also be called when the user preference changes.
 - (void)onOrientationChanged {
+	[self setNeedsStatusBarAppearanceUpdate];
+}
+
+// Called from the C++ side when the user toggles the immersive mode setting.
+- (void)immersiveModeChanged {
+	[self setNeedsStatusBarAppearanceUpdate];
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size
+		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+	// The immersive mode setting is per-orientation, so the status bar may need to change along with the rotation.
 	[self setNeedsStatusBarAppearanceUpdate];
 }
 

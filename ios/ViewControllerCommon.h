@@ -26,6 +26,7 @@
 - (void)startVideo:(int)width height:(int)height;
 - (void)stopVideo;
 - (void)appSwitchModeChanged;
+- (void)immersiveModeChanged;
 - (void)setupController:(GCController *)controller;
 
 // Forwarded from the AppDelegate

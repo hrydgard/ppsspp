@@ -432,6 +432,13 @@ void System_Notify(SystemNotification notification) {
 			}
 		});
 		break;
+	case SystemNotification::IMMERSIVE_MODE_CHANGE:
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (sharedViewController) {
+				[sharedViewController immersiveModeChanged];
+			}
+		});
+		break;
 	case SystemNotification::UI_STATE_CHANGED:
 		dispatch_async(dispatch_get_main_queue(), ^{
 			if (sharedViewController) {
@@ -452,6 +459,7 @@ void System_Notify(SystemNotification notification) {
 				[UIViewController attemptRotationToDeviceOrientation];
 			}
 		});
+		break;
 	default:
 		break;
 	}
