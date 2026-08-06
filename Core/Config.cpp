@@ -563,7 +563,6 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
-
 		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		if (sFailedGPUBackends.find(",ALL") == std::string::npos) {
 			sFailedGPUBackends += ",ALL";
@@ -1579,7 +1578,7 @@ void Config::PostLoadCleanup() {
 	// Override ppsspp.ini JIT value to prevent crashing
 	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR);
 	if (jitForcedOff) {
-		g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
+		iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 
 	// This caps the aniso level exponent to 4 (so 16x.). No hardware supports more anyway.
@@ -1596,18 +1595,23 @@ void Config::PostLoadCleanup() {
 	iGPUBackend = (int)GPUBackend::DIRECT3D11;
 #endif
 
+	if (!IsBackendEnabled((GPUBackend)iGPUBackend)) {
+		ERROR_LOG(Log::G3D, "Backend %d not enabled - switching to platform default");
+		iGPUBackend = (int)DefaultGPUBackend();
+	}
+
 	// Set a default MAC, and correct if it's an old format.
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 
-	if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
-		g_Config.bSkipBufferEffects = false;
+	if (bAutoFrameSkip && bSkipBufferEffects) {
+		bSkipBufferEffects = false;
 	}
 
 	// Automatically silence secondary instances. Could be an option I guess, but meh.
 	if (PPSSPP_ID > 1) {
 		NOTICE_LOG(Log::Audio, "Secondary instance %d - silencing audio", (int)PPSSPP_ID);
-		g_Config.iGameVolume = 0;
+		iGameVolume = 0;
 	}
 
 	// Automatically switch away from deprecated setting value.
@@ -1616,17 +1620,17 @@ void Config::PostLoadCleanup() {
 	}
 
 	// Remove a legacy value.
-	if (g_Config.sCustomDriver == "Default") {
-		g_Config.sCustomDriver.clear();
+	if (sCustomDriver == "Default") {
+		sCustomDriver.clear();
 	}
 
 	// Squash unsupported screen rotations.
-	if (g_Config.iScreenRotation == ROTATION_LOCKED_VERTICAL180) {
-		g_Config.iScreenRotation = ROTATION_LOCKED_VERTICAL;
+	if (iScreenRotation == ROTATION_LOCKED_VERTICAL180) {
+		iScreenRotation = ROTATION_LOCKED_VERTICAL;
 	}
 
 	// Clamp save state slot count to somewhat sane limits.
-	g_Config.iSaveStateSlotCount = std::clamp(g_Config.iSaveStateSlotCount, 1, 100);
+	iSaveStateSlotCount = std::clamp(iSaveStateSlotCount, 1, 100);
 }
 
 void Config::PreSaveCleanup() {

@@ -281,6 +281,7 @@ struct VulkanExtensions {
 };
 
 // Way to do a quick check before even attempting to load.
+void VulkanSetNativeLibDir(std::string_view nativeLibDir);
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 

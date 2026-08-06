@@ -265,6 +265,7 @@ static VulkanLibraryHandle vulkanLibrary;
 
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
+static std::string g_nativeLibDir;
 
 static PFN_vkVoidFunction LoadInstanceFunc(VkInstance instance, const char *name) {
 	PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, name);
@@ -430,6 +431,10 @@ void VulkanSetAvailable(bool available) {
 	INFO_LOG(Log::G3D, "Setting Vulkan availability to true");
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
+}
+
+void VulkanSetNativeLibDir(std::string_view nativeLibDir) {
+	g_nativeLibDir = nativeLibDir;
 }
 
 bool VulkanMayBeAvailable() {
