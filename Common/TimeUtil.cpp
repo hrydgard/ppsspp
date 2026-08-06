@@ -144,14 +144,6 @@ int64_t Instant::ElapsedNanos() const {
 
 #else  // Everything that isn't Windows. They all have POSIX clock_gettime.
 
-void TimeInit() {
-	// Nothing to do.
-}
-
-void TimeShutdown() {
-	// Nothing to do.
-}
-
 // The only intended use is to match the timings in VK_GOOGLE_display_timing
 uint64_t time_now_raw() {
 	struct timespec tp;
@@ -159,18 +151,23 @@ uint64_t time_now_raw() {
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
+// Subtracted from the raw time so that the doubles we hand out stay small and precise.
 static uint64_t g_startTime;
+
+void TimeInit() {
+	g_startTime = time_now_raw();
+}
+
+void TimeShutdown() {
+	// Nothing to do.
+}
 
 double from_time_raw(uint64_t raw_time) {
 	return (double)(raw_time - g_startTime) * (1.0 / nanos);
 }
 
 double time_now_d() {
-	uint64_t raw_time = time_now_raw();
-	if (g_startTime == 0) {
-		g_startTime = raw_time;
-	}
-	return from_time_raw(raw_time);
+	return from_time_raw(time_now_raw());
 }
 
 double from_time_raw_relative(uint64_t raw_time) {
