@@ -33,7 +33,6 @@
 
 // TODO: https://github.com/floooh/sokol/blob/9a6237fcdf213e6da48e4f9201f144bcb2dcb46f/sokol_time.h#L229-L248
 
-constexpr double micros = 1000000.0;
 constexpr double nanos = 1000000000.0;
 
 
@@ -143,7 +142,7 @@ int64_t Instant::ElapsedNanos() const {
 	return (int64_t)(ElapsedSeconds() * 1000000000.0);
 }
 
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#else  // Everything that isn't Windows. They all have POSIX clock_gettime.
 
 void TimeInit() {
 	// Nothing to do.
@@ -220,80 +219,6 @@ int64_t Instant::ElapsedNanos() const {
 
 double Instant::ElapsedSeconds() const {
 	return (double)ElapsedNanos() * (1.0 / nanos);
-}
-
-#else
-
-void TimeInit() {
-	// Nothing to do.
-}
-
-void TimeShutdown() {
-	// Nothing to do.
-}
-
-static time_t start;
-
-double time_now_d() {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	if (start == 0) {
-		start = tv.tv_sec;
-	}
-	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / micros);
-}
-
-uint64_t time_now_raw() {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	if (start == 0) {
-		start = tv.tv_sec;
-	}
-	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros);
-}
-
-double from_time_raw(uint64_t raw_time) {
-	return (double)raw_time * (1.0 / nanos);
-}
-
-double from_time_raw_relative(uint64_t raw_time) {
-	return from_time_raw(raw_time);
-}
-
-void yield() {}
-
-double time_now_unix_utc() {
-	return time_now_raw();
-}
-
-double time_to_unix_utc(double t) {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros) + t;
-}
-
-Instant::Instant() {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	nativeStart_ = tv.tv_sec;
-	nsecs_ = tv.tv_usec;
-}
-
-int64_t Instant::ElapsedNanos() const {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	int64_t secs = ts.tv_sec - nativeStart_;
-	int64_t usecs = ts.tv_nsec - nsecs_;
-	if (usecs < 0) {
-		secs--;
-		usecs += 1000000;
-	}
-	return secs * 1000000000 + usecs * 1000;
-}
-
-double Instant::ElapsedSeconds() const {
-	return (double)ElapsedNanos() * (1.0 / 1000000000.0);
 }
 
 #endif
