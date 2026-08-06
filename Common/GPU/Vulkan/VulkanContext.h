@@ -196,6 +196,7 @@ public:
 
 	// If the present mode is not available, will fall back to the first available (which is almost always FIFO).
 	bool InitSwapchain(VkPresentModeKHR desiredPresentMode);
+	void SetCbGetDrawSize(std::function<VkExtent2D()>);
 
 	void DestroySwapchain();
 	void DestroySurface();
