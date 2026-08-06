@@ -53,6 +53,10 @@ NSString *getSelectedCamera() {
         case AVAuthorizationStatusAuthorized: {
             return 0;
         }
+        default: {
+            NSLog(@"unknown camera authorization status %ld, treating as denied", (long)status);
+            return 1;
+        }
     }
 }
 
