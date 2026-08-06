@@ -206,7 +206,9 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		SetGPUBackend(GPUBackend::OPENGL);
 		delete graphicsContext;
-		// TODO: What to do here?
+		graphicsContext = nullptr;  // The render loop and shutdown check for this.
+		// TODO: What to do here? We've switched the config over to GL, but we're still the Metal view controller,
+		// so we won't render anything until the app gets restarted.
 	}
 
 	[self updateResolutionWithView:self.view];
