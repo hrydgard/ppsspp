@@ -76,11 +76,11 @@ static int GetPickerRequestId(id picker) {
 												selector:@selector(onOrientationChanged)
 												name:UIDeviceOrientationDidChangeNotification
 												object:nil];
-	}
-	self.accelerometerQueue = [[NSOperationQueue alloc] init];
-	self.accelerometerQueue.name = @"AccelerometerQueue";
-	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 
+		self.accelerometerQueue = [[NSOperationQueue alloc] init];
+		self.accelerometerQueue.name = @"AccelerometerQueue";
+		self.accelerometerQueue.maxConcurrentOperationCount = 1;
+	}
 	return self;
 }
 
