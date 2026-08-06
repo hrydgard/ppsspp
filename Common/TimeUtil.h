@@ -47,10 +47,8 @@ public:
 	double ElapsedMs() const { return ElapsedSeconds() * 1000.0; }
 	int64_t ElapsedNanos() const;
 private:
+	// Windows: raw QPC ticks. Everything else: nanoseconds, as returned by time_now_raw().
 	uint64_t nativeStart_;
-#ifndef _WIN32
-	int64_t nsecs_;
-#endif
 };
 
 class TimeCollector {

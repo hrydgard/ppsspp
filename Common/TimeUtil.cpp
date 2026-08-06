@@ -195,23 +195,10 @@ void yield() {
 #endif
 }
 
-Instant::Instant() {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	nativeStart_ = ts.tv_sec;
-	nsecs_ = ts.tv_nsec;
-}
+Instant::Instant() : nativeStart_(time_now_raw()) {}
 
 int64_t Instant::ElapsedNanos() const {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	int64_t secs = ts.tv_sec - nativeStart_;
-	int64_t nsecs = ts.tv_nsec - nsecs_;
-	if (nsecs < 0) {
-		secs--;
-		nsecs += 1000000000;
-	}
-	return secs * 1000000000ULL + nsecs;
+	return (int64_t)(time_now_raw() - nativeStart_);
 }
 
 double Instant::ElapsedSeconds() const {
