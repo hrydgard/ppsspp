@@ -228,7 +228,15 @@ void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
 static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **deviceSetting) {
 #ifdef SDL
 	*deviceSetting = nullptr;
-	return new SDLHeadlessGLGraphicsContext();
+	switch (gpuCore) {
+	case GPUCORE_GLES:
+		return new SDLHeadlessGLGraphicsContext();
+	case GPUCORE_VULKAN:
+		*deviceSetting = &g_Config.sVulkanDevice;
+		return new VulkanGraphicsContext();
+	default:
+		return nullptr;
+	}
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	switch (gpuCore) {
 #if PPSSPP_API(ANY_GL)
@@ -244,8 +252,7 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 		return new VulkanGraphicsContext();
 	case GPUCORE_SOFTWARE:
 	default:
-		_assert_(false);
-		break;
+		return nullptr;
 	}
 #elif PPSSPP_ARCH(LOONGARCH64)
 	// The loongarch64 cross-compilation toolchain has no SDL3 packages available (see the
@@ -260,8 +267,8 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	return nullptr;
 #else
 #error The Headless build is not supported on this platform. Please use SDL (Mac/Linux) or Windows (non-UWP).
-#endif
 	return nullptr;
+#endif
 }
 
 struct AutoTestOptions {
@@ -675,6 +682,7 @@ int main(int argc, const char* argv[]) {
 	// Time to set up graphics
 	GraphicsContext *graphicsContext = nullptr;
 	std::string *deviceSetting = nullptr;
+	void *window = nullptr;
 	WindowDesc windowDesc;
 	if (g_Config.bSoftwareRendering) {
 		// For software rendering, we just create a dummy graphics context (to share as much code as possible).
@@ -686,7 +694,7 @@ int main(int argc, const char* argv[]) {
 		return 1;
 #else
 		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-		windowDesc = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value());
+		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value(), &windowDesc);
 		if (!windowDesc.Valid()) {
 			fprintf(stderr, "Failed to create a window for graphics context");
 			return 1;
@@ -811,8 +819,8 @@ int main(int argc, const char* argv[]) {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_ARCH(LOONGARCH64)
 	// ... see above
 #else
-	if (windowDesc.Valid()) {
-		DestroyHiddenWindow(windowDesc);
+	if (window) {
+		DestroyHiddenWindow(window,	windowDesc);
 	}
 #endif
 

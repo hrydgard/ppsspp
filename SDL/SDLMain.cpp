@@ -67,6 +67,7 @@ SDLJoystick *joystick = NULL;
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "SDLGLGraphicsContext.h"
+#include "SDLUtil.h"
 
 #include <SDL3/SDL_vulkan.h>
 
@@ -1726,58 +1727,6 @@ void UpdateSDLCursor() {
 #endif
 }
 
-bool DetermineVulkanWindowSystem(SDL_Window *window, WindowSystem *windowSystem, void **data1, void **data2, std::string *errorMessage) {
-	_dbg_assert_(window);
-	SDL_PropertiesID windowProps = SDL_GetWindowProperties(window);
-	void *x11Display = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
-	if (x11Display != nullptr) {
-		intptr_t x11Window = (intptr_t)SDL_GetNumberProperty(windowProps, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
-#if defined(VK_USE_PLATFORM_XLIB_KHR)
-		*windowSystem = WINDOWSYSTEM_XLIB;
-		*data1 = x11Display;
-		*data2 = (void *)x11Window;
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-		*windowSystem = WINDOWSYSTEM_XCB;
-		*data1 = (void *)XGetXCBConnection((Display *)x11Display);
-		*data2 = (void *)x11Window;
-#endif
-		return true;
-	}
-#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	void *waylandDisplay = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
-	void *waylandSurface = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
-	if (waylandDisplay != nullptr && waylandSurface != nullptr) {
-		*windowSystem = WINDOWSYSTEM_WAYLAND;
-		*data1 = waylandDisplay;
-		*data2 = waylandSurface;
-		return true;
-	}
-#elif defined(VK_USE_PLATFORM_METAL_EXT)
-#if PPSSPP_PLATFORM(MAC)
-	void *cocoaWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-	if (cocoaWindow != nullptr) {
-		*windowSystem = WINDOWSYSTEM_METAL_EXT;
-		*data1 = makeWindowMetalCompatible(cocoaWindow);
-		*data2 = nullptr;
-		return true;
-	}
-#else
-	// This path is currently not used as we do not use SDL on iOS, but it is here for completeness.
-	void *uikitWindow = SDL_GetPointerProperty(windowProps, SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
-	if (uikitWindow != nullptr) {
-		*windowSystem = WINDOWSYSTEM_METAL_EXT;
-		*data1 = makeWindowMetalCompatible(uikitWindow);
-		*data2 = nullptr;
-		return true;
-	}
-#endif
-#endif  // VK_USE_PLATFORM_METAL_EXT
-	if (errorMessage) {
-		*errorMessage = "Unable to determine Vulkan window system from SDL3 window properties";
-	}
-	return false;
-}
-
 #ifdef _WIN32
 #undef main
 #endif
@@ -2007,19 +1956,16 @@ int main(int argc, char *argv[]) {
 	}
 
 	SDL_Window *window = nullptr;
+	WindowDesc windowDesc;
 	auto initializeBackend = [&](GPUBackend backend, GraphicsContext **graphicsContext, std::string *errorMessage) -> bool {
-		// Surface init params.
-		WindowSystem windowSystem = WINDOWSYSTEM_NONE;
-		void *data1 = nullptr;
-		void *data2 = nullptr;
-
 		GraphicsContext *ctx = nullptr;
 		if (backend == GPUBackend::OPENGL) {
 			SDL_GLContext glContext = nullptr;
 			window = CreateSDLGLWindowAndContext(x, y, w, h, mode, cmdLineOptions.force_gl_version, &glContext, errorMessage);
 
-			data1 = (void *)window;
-			data2 = (void *)glContext;
+			windowDesc.winsys = WINDOWSYSTEM_SDL;
+			windowDesc.data1 = (void *)window;
+			windowDesc.data2 = (void *)glContext;
 
 			ctx = new SDLGLGraphicsContext();
 		} else {
@@ -2038,7 +1984,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			// Overwrite the surface init params with what we need for Vulkan..
-			if (!DetermineVulkanWindowSystem(window, &windowSystem, &data1, &data2, errorMessage)) {
+			if (!DetermineVulkanWindowSystem(window, &windowDesc, errorMessage)) {
 				return false;
 			}
 			// NOTE : This should match the lines below in the Vulkan case.
@@ -2061,7 +2007,7 @@ int main(int argc, char *argv[]) {
 			});
 		}
 
-		if (!ctx->InitSurface(windowSystem, data1, data2, errorMessage)) {
+		if (!ctx->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, errorMessage)) {
 			fprintf(stderr, "Surface creation failed: %s\n", errorMessage->c_str());
 			return false;
 		}

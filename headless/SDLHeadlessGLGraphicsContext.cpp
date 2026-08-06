@@ -34,10 +34,11 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
+#include "SDL/SDLUtil.h"
 
 const bool WINDOW_VISIBLE = false;
 
-WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
+void *CreateHiddenWindow(int w, int h, GPUBackend backend, WindowDesc *desc) {
 	Uint32 flags = SDL_WINDOW_BORDERLESS;
 	if (backend == GPUBackend::OPENGL) {
 		flags |= SDL_WINDOW_OPENGL;
@@ -47,20 +48,33 @@ WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
 	if (!WINDOW_VISIBLE) {
 		flags |= SDL_WINDOW_HIDDEN;
 	}
-	WindowDesc desc;
-	desc.data2 = SDL_CreateWindow("PPSSPPHeadless", w, h, flags);
-	desc.winsys = WindowSystem::WINDOWSYSTEM_SDL;
-	if (!desc.data2) {
+
+	SDL_Window *window = SDL_CreateWindow("PPSSPPHeadless", w, h, flags);
+	if (!window) {
 		const char *err = SDL_GetError();
-		printf("Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
-		return {};
+		fprintf(stderr, "Failed to create offscreen window: %s\n", err ? err : "(unknown error)");
+		return nullptr;
 	}
-	return desc;
+
+	if (backend == GPUBackend::VULKAN) {
+		// Overwrite the surface init params with what we need for Vulkan..
+		std::string errorMessage;
+		if (!DetermineVulkanWindowSystem(window, desc, &errorMessage)) {
+			fprintf(stderr, "Failed to determine Vulkan window system: %s\n", errorMessage.c_str());
+			SDL_DestroyWindow(window);
+			return nullptr;
+		}
+	} else {
+		desc->winsys = WindowSystem::WINDOWSYSTEM_SDL;
+		// For OpenGL, we just need the SDL_Window pointer.
+		desc->data2 = window;
+	}
+	return window;
 }
 
-void DestroyHiddenWindow(WindowDesc window) {
-	if (window.data2) {
-		SDL_DestroyWindow(static_cast<SDL_Window *>(window.data2));
+void DestroyHiddenWindow(void *window, WindowDesc desc) {
+	if (window) {
+		SDL_DestroyWindow(static_cast<SDL_Window *>(window));
 		SDL_Quit();
 	}
 }

@@ -91,6 +91,23 @@ const char *VulkanImageLayoutToString(VkImageLayout imageLayout) {
 	}
 }
 
+const char *WindowSystemToString(WindowSystem winsys) {
+	switch (winsys) {
+	case WINDOWSYSTEM_UNINITIALIZED: return "UNINITIALIZED";
+	case WINDOWSYSTEM_WIN32: return "WIN32";
+	case WINDOWSYSTEM_ANDROID: return "ANDROID";
+	case WINDOWSYSTEM_METAL_EXT: return "METAL_EXT";
+	case WINDOWSYSTEM_XLIB: return "XLIB";
+	case WINDOWSYSTEM_XCB: return "XCB";
+	case WINDOWSYSTEM_WAYLAND: return "WAYLAND";
+	case WINDOWSYSTEM_DISPLAY: return "DISPLAY";
+	case WINDOWSYSTEM_SDL: return "SDL";
+	case WINDOWSYSTEM_NONE: return "NONE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 VulkanContext::VulkanContext() {
 	// Do nothing here.
 }
@@ -970,9 +987,9 @@ VkResult VulkanContext::ReinitSurface() {
 		surface_ = VK_NULL_HANDLE;
 	}
 
-	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (data1=%p data2=%p)", winsysData1_, winsysData2_);
+	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (winsys=%s data1=%p data2=%p)", WindowSystemToString(winsys_), winsysData1_, winsysData2_);
 
-	VkResult retval = VK_SUCCESS;
+		VkResult retval = VK_SUCCESS;
 
 	switch (winsys_) {
 #ifdef _WIN32
@@ -1233,7 +1250,7 @@ VkResult VulkanContext::ReinitSurface() {
 #endif
 
 	default:
-		_assert_msg_(false, "Vulkan support for chosen window system not implemented");
+		_assert_msg_(false, "Vulkan support for chosen window system (%s) not implemented", WindowSystemToString(winsys_));
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
