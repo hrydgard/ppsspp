@@ -77,6 +77,8 @@ protected:
 	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
 	ViewLayoutMode LayoutMode() const override;
 
+	bool AllowFocusMovement() const override;
+
 private:
 	void CreateViews() override;
 	ScreenRenderFlags RunEmulation(bool skipBufferEffects);

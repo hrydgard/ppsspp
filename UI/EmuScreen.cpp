@@ -1738,6 +1738,14 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	return screenRenderFlags;
 }
 
+bool EmuScreen::AllowFocusMovement() const {
+	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
+		return true;
+	}
+	// We have just a game controller and possibly a chat and debug button. Don't allow focus movement.
+	return false;
+}
+
 ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 	using namespace Draw;
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
