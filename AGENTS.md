@@ -58,6 +58,45 @@ by default, but if you want to test-build it locally:
 - Example (POSIX): `cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1`
 - The `ppsspp_headless` executable ends up in `android/libs/<abi>/`.
 
+## libretro core build (Windows)
+
+Canonical instructions are in `libretro/README_WINDOWS.txt` - read that first, this is a summary plus
+agent-specific gotchas. The libretro core (`ppsspp_libretro.dll`) is built with a real `make`, not the
+Visual Studio solution, even on Windows - it uses `cl.exe`/`link.exe` as the compiler/linker (via
+`platform=windows_msvc2019_desktop_x64`), but orchestrated through GNU Make running inside an MSYS2
+shell (a plain MSYS2 install, not "Git Bash" - typically at `C:\msys64`, needs `pacman -S make`).
+
+```sh
+cd libretro
+make DEBUG=1 platform=windows_msvc2019_desktop_x64 -j32
+```
+
+(drop `DEBUG=1` for a release build; `-j` count doesn't need to match logical CPUs exactly). To test the
+result, copy `ppsspp_libretro.*` into wherever the local RetroArch install reads cores from (e.g. its
+`cores/` directory) and load it from within RetroArch.
+
+An agent can drive this non-interactively by invoking `C:\msys64\usr\bin\bash.exe -lc "..."` directly
+as a subprocess (the `-l` login-shell flag matters - it's what sets up MSYS2's own `PATH`, `make`,
+`cygpath`, etc. correctly). In a sandboxed/agentic invocation (as opposed to a normal interactive MSYS2
+terminal a human opens), two Windows environment variables the Makefile's VS-detection logic depends on
+may not be inherited by the spawned process - `COMSPEC` (breaks the `cmd //c "bash VSWhere.sh ..."` call
+used to locate Visual Studio) and `ProgramFiles(x86)` (which `VSWhere.sh` itself needs to find
+`vswhere.exe`). If VS auto-detection fails this way, skip it by overriding `VsInstallRoot` directly on
+the `make` command line (GNU Make command-line variables take precedence over the Makefile's own `:=`
+assignment of the same name):
+
+```sh
+make VsInstallRoot="/c/Program Files/Microsoft Visual Studio/<year>/<edition>" DEBUG=1 platform=windows_msvc2019_desktop_x64 -j32
+```
+
+(path in MSYS2/cygpath POSIX form, not a raw Windows path; find the real value via `vswhere -latest
+-property installationPath` if unsure of `<year>/<edition>`). This is a real full compile+link - prefer
+it over trying to syntax-check libretro-specific files with a standalone `cl.exe /Zs` invocation, which
+can miss real bugs (e.g. an include-order issue that leaves a platform macro like
+`VK_USE_PLATFORM_WIN32_KHR` undefined before `vulkan.h`'s first, include-guarded inclusion, since a
+narrower manual include-path/define set used for a syntax-only check may not reproduce the actual build
+step's ordering).
+
 ## Command-line parsing
 
 All command-line parsing for both the main app and headless builds belongs in `Core/CmdLine.cpp` /
