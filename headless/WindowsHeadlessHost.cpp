@@ -23,7 +23,7 @@
 
 const bool WINDOW_VISIBLE = false;
 
-WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
+void *CreateHiddenWindow(int w, int h, GPUBackend backend, WindowDesc *desc) {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -47,15 +47,15 @@ WindowDesc CreateHiddenWindow(int w, int h, GPUBackend backend) {
 		ShowWindow(wnd, TRUE);
 		SetFocus(wnd);
 	}
-	WindowDesc desc;
-	desc.data1 = GetModuleHandle(NULL);
-	desc.data2 = wnd;
-	desc.winsys = WindowSystem::WINDOWSYSTEM_WIN32;
-	return desc;
+	desc->data1 = GetModuleHandle(NULL);  // easy way to get the HINSTANCE.
+	desc->data2 = wnd;
+	desc->winsys = WindowSystem::WINDOWSYSTEM_WIN32;
+	return static_cast<void *>(wnd);
 }
 
-void DestroyHiddenWindow(WindowDesc window) {
-	if (window.data2) {
-		DestroyWindow(static_cast<HWND>(window.data2));
+void DestroyHiddenWindow(void *window, WindowDesc desc) {
+	if (window) {
+		DestroyWindow(static_cast<HWND>(window));
+		UnregisterClass(L"PPSSPPHeadless", static_cast<HINSTANCE>(desc.data1));
 	}
 }
