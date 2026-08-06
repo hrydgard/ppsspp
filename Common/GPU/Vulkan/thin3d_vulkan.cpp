@@ -915,8 +915,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread, frameTimeHistory_) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
-	// Make sure that the surface has been initialized.
-	_dbg_assert_(vulkan->GetAvailablePresentModes().size() > 0);
+	// Make sure that the surface has been initialized. Doesn't apply when a pluggable presentation
+	// backend (see VulkanPresentation.h) is in use instead of a real swapchain/surface - there's no
+	// present mode concept there at all.
+	_dbg_assert_(vulkan->GetPresentation() || vulkan->GetAvailablePresentModes().size() > 0);
 
 	caps_.fragmentShaderFullPrecisionFloat = true;
 	caps_.coordConvention = CoordConvention::Vulkan;
@@ -963,12 +965,19 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
 	caps_.presentModesSupported = (PresentMode)0;
 
-	for (auto mode : vulkan->GetAvailablePresentModes()) {
-		switch (mode) {
-		case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
-		case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
-		case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
-		default: break;  // Ignore any other modes.
+	if (vulkan->GetPresentation()) {
+		// No real present modes exist in this model (the host, e.g. libretro, owns real presentation
+		// and controls its own timing) - we always hand back one finished frame at a time serially,
+		// which is closest in spirit to FIFO.
+		caps_.presentModesSupported = PresentMode::FIFO;
+	} else {
+		for (auto mode : vulkan->GetAvailablePresentModes()) {
+			switch (mode) {
+			case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
+			case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
+			case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
+			default: break;  // Ignore any other modes.
+			}
 		}
 	}
 

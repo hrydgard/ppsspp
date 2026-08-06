@@ -1043,7 +1043,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
 	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
-	$(LIBRETRODIR)/libretro_vulkan.cpp
+	$(LIBRETRODIR)/LibretroVulkanPresentation.cpp
 
 
 ifeq ($(PLATFORM_EXT), win32)

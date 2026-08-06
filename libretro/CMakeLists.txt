@@ -5,7 +5,7 @@ set(LIBRETRO_SRCS
 	LibretroGLContext.cpp
 	LibretroGLCoreContext.cpp
 	LibretroVulkanContext.cpp
-	libretro_vulkan.cpp)
+	LibretroVulkanPresentation.cpp)
 
 if(WIN32)
 	set(LIBRETRO_SRCS ${LIBRETRO_SRCS}

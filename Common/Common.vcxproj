@@ -459,6 +459,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="GPU\Vulkan\VulkanMemory.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanPresentation.h" />
     <ClInclude Include="GPU\Vulkan\VulkanProfiler.h" />
     <ClInclude Include="GPU\Vulkan\VulkanQueueRunner.h" />
     <ClInclude Include="GPU\Vulkan\VulkanRenderManager.h" />

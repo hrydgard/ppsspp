@@ -316,14 +316,14 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 }
 
 bool VulkanRenderManager::CreateBackbuffers() {
-	if (!vulkan_->IsSwapchainInited()) {
+	if (!vulkan_->IsSwapchainInited() && !vulkan_->GetPresentation()) {
 		ERROR_LOG(Log::G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (vulkan_->HasRealSwapchain()) {
+	if (vulkan_->HasRealSwapchain() || vulkan_->GetPresentation()) {
 		if (!CreateSwapchainViewsAndDepth(cmdInit, &postInitBarrier_, frameDataShared_)) {
 			return false;
 		}
@@ -351,26 +351,37 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
-	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
+	std::vector<VkImage> swapchainImages;
+	if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
+		frameDataShared.swapchainImageCount_ = presentation->GetImageCount();
+		swapchainImages.resize(frameDataShared.swapchainImageCount_);
+		for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
+			swapchainImages[i] = presentation->GetImage(i);
+		}
+	} else {
+		VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
+		_dbg_assert_(res == VK_SUCCESS);
 
-	VkImage *swapchainImages = new VkImage[frameDataShared.swapchainImageCount_];
-	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
-		delete[] swapchainImages;
-		return false;
+		swapchainImages.resize(frameDataShared.swapchainImageCount_);
+		res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages.data());
+		if (res != VK_SUCCESS) {
+			ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
+			return false;
+		}
 	}
 
 	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
-		res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
+		VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
 		_dbg_assert_(res == VK_SUCCESS);
 
 		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 		color_image_view.format = vulkan_->GetSwapchainFormat();
+
+		_dbg_assert_(color_image_view.format != VK_FORMAT_UNDEFINED);
+
 		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -393,7 +404,6 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 		frameDataShared.swapchainImages_.push_back(sc_buffer);
 		_dbg_assert_(res == VK_SUCCESS);
 	}
-	delete[] swapchainImages;
 
 	// Must be before InitBackbufferRenderPass.
 	if (queueRunner_.InitDepthStencilBuffer(cmdInit, barriers)) {
