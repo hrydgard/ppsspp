@@ -145,6 +145,7 @@ NSString *getSelectedCamera() {
     CGContextDrawImage(outContext, outRect, inImage);
     CGImageRelease(inImage);
     CGImageRef outImage = CGBitmapContextCreateImage(outContext);
+    CGContextRelease(outContext);
 
     CGColorSpaceRelease(colorSpace);
     CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
