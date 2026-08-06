@@ -136,7 +136,6 @@ static std::string boardName;
 
 std::string g_externalDir;  // Original external dir (root of Android storage).
 std::string g_extFilesDir;  // App private external dir.
-std::string g_nativeLibDir;  // App native library dir
 
 static std::vector<std::string> g_additionalStorageDirs;
 
@@ -695,7 +694,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	g_externalDir = externalStorageDir;
 	g_extFilesDir = externalFilesDir;
-	g_nativeLibDir = nativeLibDir;
+	VulkanSetNativeLibDir(nativeLibDir);
 
 	if (!additionalStorageDirsString.empty()) {
 		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);

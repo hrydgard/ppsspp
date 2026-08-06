@@ -563,7 +563,6 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
-
 		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		if (sFailedGPUBackends.find(",ALL") == std::string::npos) {
 			sFailedGPUBackends += ",ALL";
