@@ -130,7 +130,7 @@
 		switch (transaction.transactionState) {
 			case SKPaymentTransactionStatePurchased:
 			case SKPaymentTransactionStateRestored:
-				NSLog(transaction.transactionState == SKPaymentTransactionStatePurchased ? @"IAP Purchase" : @"IAP Restore");
+				NSLog(@"%@", transaction.transactionState == SKPaymentTransactionStatePurchased ? @"IAP Purchase" : @"IAP Restore");
 				// Perform the unlock (updaing the variable and switching the icon).
 				[self unlockGold];
 				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
