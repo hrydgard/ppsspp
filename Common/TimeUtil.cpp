@@ -184,6 +184,12 @@ double time_now_unix_utc() {
 	return (double)tp.tv_sec + (double)tp.tv_nsec / 1000000000.0;
 }
 
+// Converts a timestamp from time_now_d() to seconds since the unix epoch.
+// Both clocks tick at the same rate, so we can just measure the offset between them right now.
+double time_to_unix_utc(double timestamp) {
+	return time_now_unix_utc() - time_now_d() + timestamp;
+}
+
 void yield() {
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	_mm_pause();
