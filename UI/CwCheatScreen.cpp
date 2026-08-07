@@ -27,6 +27,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"

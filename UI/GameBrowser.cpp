@@ -25,6 +25,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Root.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Common/Math/curves.h"
 #include "Common/Net/URL.h"

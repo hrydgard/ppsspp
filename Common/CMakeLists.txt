@@ -281,6 +281,8 @@ add_library(Common STATIC
 	UI/Root.h
 	UI/Screen.cpp
 	UI/Screen.h
+	UI/ScreenManager.cpp
+	UI/ScreenManager.h
 	UI/UI.cpp
 	UI/UI.h
 	UI/Context.cpp

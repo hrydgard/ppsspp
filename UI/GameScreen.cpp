@@ -34,6 +34,7 @@
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"

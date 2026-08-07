@@ -25,6 +25,7 @@
 #include "Common/System/Display.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"

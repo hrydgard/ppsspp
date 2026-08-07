@@ -562,6 +562,7 @@
     <ClInclude Include="UI\PopupScreens.h" />
     <ClInclude Include="UI\Root.h" />
     <ClInclude Include="UI\Screen.h" />
+    <ClInclude Include="UI\ScreenManager.h" />
     <ClInclude Include="UI\ScrollView.h" />
     <ClInclude Include="UI\TabHolder.h" />
     <ClInclude Include="UI\Tween.h" />
@@ -1022,6 +1023,7 @@
     <ClCompile Include="UI\PopupScreens.cpp" />
     <ClCompile Include="UI\Root.cpp" />
     <ClCompile Include="UI\Screen.cpp" />
+    <ClCompile Include="UI\ScreenManager.cpp" />
     <ClCompile Include="UI\ScrollView.cpp" />
     <ClCompile Include="UI\TabHolder.cpp" />
     <ClCompile Include="UI\Tween.cpp" />

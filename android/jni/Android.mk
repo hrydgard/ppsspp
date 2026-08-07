@@ -386,6 +386,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/AsyncImageFileView.cpp \
   $(SRC)/Common/UI/Root.cpp \
   $(SRC)/Common/UI/Screen.cpp \
+  $(SRC)/Common/UI/ScreenManager.cpp \
   $(SRC)/Common/UI/UI.cpp \
   $(SRC)/Common/UI/Context.cpp \
   $(SRC)/Common/UI/UIScreen.cpp \

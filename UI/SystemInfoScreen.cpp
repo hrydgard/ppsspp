@@ -19,6 +19,7 @@
 #include "Common/System/Request.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"  // ugh
