@@ -61,7 +61,7 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 	}
 }
 
-void ScreenManager::update() {
+void ScreenManager::update(const std::vector<QueuedEvent> &events) {
 	if (cancelScreensAbove_) {
 		bool found = false;
 		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
@@ -82,14 +82,6 @@ void ScreenManager::update() {
 	if (overlayScreen_) {
 		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
-	}
-
-	// Process queued events.
-	std::deque<QueuedEvent> events;
-	{
-		std::lock_guard<std::mutex> eventGuard(eventQueueLock_);
-		events = std::move(eventQueue_);
-		eventQueue_.clear();
 	}
 
 	for (const QueuedEvent &ev : events) {
@@ -172,32 +164,6 @@ void ScreenManager::switchToNext() {
 		stack_.push_back(nextStack_[i]);
 	}
 	nextStack_.clear();
-}
-
-void ScreenManager::touch(const TouchInput &touch) {
-	QueuedEvent ev{};
-	ev.type = QueuedEventType::TOUCH;
-	ev.touch = touch;
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	eventQueue_.push_back(ev);
-}
-
-void ScreenManager::key(const KeyInput &key) {
-	QueuedEvent ev{};
-	ev.type = QueuedEventType::KEY;
-	ev.key = key;
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	eventQueue_.push_back(ev);
-}
-
-void ScreenManager::axis(const AxisInput *axes, size_t count) {
-	QueuedEvent ev{};
-	ev.type = QueuedEventType::AXIS;
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	for (size_t i = 0; i < count; i++) {
-		ev.axis = axes[i];
-		eventQueue_.push_back(ev);
-	}
 }
 
 void ScreenManager::deviceLost() {
@@ -331,16 +297,7 @@ void ScreenManager::getFocusPosition(float &x, float &y, float &z) {
 void ScreenManager::sendMessage(UIMessage message, const char *value) {
 	if (message == UIMessage::RECREATE_VIEWS) {
 		RecreateAllViews();
-	} else if (message == UIMessage::LOST_FOCUS) {
-		TouchInput input{};
-		input.x = -50000.0f;
-		input.y = -50000.0f;
-		input.flags = TouchInputFlags::RELEASE_ALL;
-		input.timestamp = time_now_d();
-		input.id = 0;
-		touch(input);
 	}
-
 	if (backgroundScreen_) {
 		backgroundScreen_->sendMessage(message, value);
 	}
@@ -380,13 +337,6 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 
 	// Release touches and unfocus.
 	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
-	TouchInput input{};
-	input.x = -50000.0f;
-	input.y = -50000.0f;
-	input.flags = TouchInputFlags::RELEASE_ALL;
-	input.timestamp = time_now_d();
-	input.id = 0;
-	touch(input);
 
 	Layer layer = {screen, layerFlags};
 

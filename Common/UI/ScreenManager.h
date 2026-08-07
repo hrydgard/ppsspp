@@ -34,7 +34,7 @@ public:
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
-	void update();
+	void update(const std::vector<QueuedEvent> &events);
 
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
@@ -61,11 +61,6 @@ public:
 	// Pops the dialog away.
 	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
 	Screen *dialogParent(const Screen *dialog) const;
-
-	// Instant touch, separate from the update() mechanism.
-	void touch(const TouchInput &touch);
-	void key(const KeyInput &key);
-	void axis(const AxisInput *axes, size_t count);
 
 	void sendMessage(UIMessage message, const char *value);
 
@@ -118,9 +113,6 @@ private:
 	std::vector<Layer> nextStack_;
 
 	std::unordered_map<int64_t, int> lastAxis_;
-
-	std::mutex eventQueueLock_;
-	std::deque<QueuedEvent> eventQueue_;
 
 	InputMode passInputToMapper_ = InputMode::None;
 };
