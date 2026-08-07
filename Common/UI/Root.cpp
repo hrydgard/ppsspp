@@ -124,6 +124,8 @@ void EnableFocusMovement(bool enable) {
 		focusMoves.clear();
 		heldKeys.clear();
 		focusedView = nullptr;
+	} else {
+		enable = enable;
 	}
 }
 
@@ -361,7 +363,7 @@ restart:
 	}
 }
 
-DialogResult UpdateViewHierarchy(ViewGroup *root) {
+DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 	ProcessHeldKeys(root);
 	frameCount++;
 
@@ -370,7 +372,7 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 		return DR_NONE;
 	}
 
-	if (focusMoves.size()) {
+	if (focusMoves.size() && canEnableFocusMovement) {
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			// Find a view to focus.
@@ -397,8 +399,8 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 				}
 			}
 		}
-		focusMoves.clear();
 	}
+	focusMoves.clear();
 
 	root->Update();
 	return DispatchEvents();

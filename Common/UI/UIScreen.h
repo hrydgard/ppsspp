@@ -50,6 +50,7 @@ public:
 
 protected:
 	virtual void CreateViews() = 0;
+	virtual bool AllowFocusMovement() const { return true; }
 
 	Bounds GetLayoutBounds(UIContext &dc) const;
 

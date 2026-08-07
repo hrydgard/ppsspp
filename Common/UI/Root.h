@@ -26,7 +26,7 @@ DialogResult DispatchEvents();
 class ViewGroup;
 
 void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode);
-DialogResult UpdateViewHierarchy(ViewGroup *root);
+DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement = true);
 
 enum class KeyEventResult {
 	IGNORE_KEY,  // Don't let it be processed.
