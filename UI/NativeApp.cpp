@@ -361,6 +361,10 @@ void runImDebugger(Draw::DrawContext *draw) {
 		Bounds centralNode(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
 		SetOverrideScreenFrame(&centralNode);
 
+		if (uiContext) {
+			uiContext->SetOverrideScreenFrame(&centralNode);
+		}
+
 		if (!io.WantCaptureKeyboard) {
 			// Draw a focus rectangle to indicate inputs will be passed through.
 			ImGui::GetBackgroundDrawList()->AddRect
@@ -377,6 +381,9 @@ void runImDebugger(Draw::DrawContext *draw) {
 
 		// Convert to drawlists.
 		ImGui::Render();
+	} else {
+		uiContext->SetOverrideScreenFrame(nullptr);
+		SetOverrideScreenFrame(nullptr);
 	}
 }
 
@@ -1137,8 +1144,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
 
-	SetOverrideScreenFrame(nullptr);
-
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();
 
@@ -1316,8 +1321,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		resized = false;
 
 		if (uiContext) {
-			// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
-			// The UI now supports any offset but not the EmuScreen yet.
 			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
 
 			// OSX 10.6 and SDL 1.2 bug.

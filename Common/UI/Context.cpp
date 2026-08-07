@@ -195,10 +195,23 @@ Bounds UIContext::GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode)
 
 	// Adjust left edge to compensate for cutouts (notches) if any.
 	Bounds bounds = GetBounds();
+
+	if (useOverrideScreenFrame_) {
+		float leftMax = overrideScreenFrame_.x;
+		left = std::max(left, leftMax);
+		float rightMax = bounds.x2() - overrideScreenFrame_.x2();
+		right = std::max(right, rightMax);
+		float topMax = overrideScreenFrame_.y;
+		top = std::max(top, topMax);
+		float bottomMax = bounds.y2() - overrideScreenFrame_.y2();
+		bottom = std::max(bottom, bottomMax);
+	}
+
 	bounds.x += left;
 	bounds.w -= (left + right);
 	bounds.y += top;
 	bounds.h -= (top + bottom);
+
 	return bounds;
 }
 
