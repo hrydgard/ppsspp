@@ -84,7 +84,9 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
+#include "Common/Serialize/Serializer.h"
 #include "Core/CmdLine.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
@@ -368,6 +370,94 @@ bool TestParsers() {
 	EXPECT_TRUE(mac[3] == 255);
 	EXPECT_TRUE(mac[4] == 254);
 	EXPECT_TRUE(mac[5] == 253);
+	return true;
+}
+
+bool TestTruncateCpy() {
+	// Normal in-bounds copy.
+	char buf[8];
+	size_t len = truncate_cpy_len(buf, "abc", 3);
+	EXPECT_EQ_INT((int)len, 3);
+	EXPECT_TRUE(strcmp(buf, "abc") == 0);
+
+	// Exact fit (source length is Count - 1).
+	len = truncate_cpy_len(buf, "abcdefg", 7);
+	EXPECT_EQ_INT((int)len, 7);
+	EXPECT_TRUE(strcmp(buf, "abcdefg") == 0);
+
+	// Overflow - truncated to Count - 1 chars.
+	len = truncate_cpy_len(buf, "abcdefghij", 10);
+	EXPECT_EQ_INT((int)len, 7);
+	EXPECT_TRUE(strcmp(buf, "abcdefg") == 0);
+
+	// Zero-length source used to underflow to out[-1].
+	buf[0] = 'X';
+	len = truncate_cpy_len(buf, "", 0);
+	EXPECT_EQ_INT((int)len, 0);
+	EXPECT_EQ_INT((int)buf[0], 0);
+
+	// Simple concatenation.
+	char catBuf[16];
+	len = truncate_cat(catBuf, sizeof(catBuf), "abc", 3, "def", 3);
+	EXPECT_EQ_INT((int)len, 6);
+	EXPECT_TRUE(strcmp(catBuf, "abcdef") == 0);
+
+	// Truncation when the combined length exceeds the buffer.
+	len = truncate_cat(catBuf, 8, "abcd", 4, "efghij", 6);
+	EXPECT_EQ_INT((int)len, 7);
+	EXPECT_TRUE(strcmp(catBuf, "abcdefg") == 0);
+
+	// src1 alone already fills/overflows the buffer.
+	len = truncate_cat(catBuf, 4, "abcdefg", 7, "xyz", 3);
+	EXPECT_EQ_INT((int)len, 3);
+	EXPECT_TRUE(strcmp(catBuf, "abc") == 0);
+
+	// Both empty used to underflow to out[-1].
+	catBuf[0] = 'X';
+	len = truncate_cat(catBuf, sizeof(catBuf), "", 0, "", 0);
+	EXPECT_EQ_INT((int)len, 0);
+	EXPECT_EQ_INT((int)catBuf[0], 0);
+
+	return true;
+}
+
+bool TestMemBlockInfoSaveState() {
+	MemBlockInfoInit();
+	MemBlockOverrideDetailed();
+
+	// Split the single initial slab (which spans the whole address space) into several
+	// pieces, so the savestate has more than just the first slab.
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08800000, 0x1000, "InitialTag", 10);
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08810000, 0x1000, "SecondTag", 9);
+	// FindMemInfo flushes pending notifications into the actual slab maps.
+	FindMemInfo(0x08800000, 0x20000);
+
+	// Round-trip through the savestate serializer.  This used to leave every slab but
+	// the first with an uninitialized tagLen, which MemSlabMap::Split() would later use
+	// as an unbounded memcpy length into a fixed 128 byte buffer, corrupting the heap.
+	uint8_t *measurePtr = nullptr;
+	PointerWrap pm(&measurePtr, PointerWrap::MODE_MEASURE);
+	MemBlockInfoDoState(pm);
+	size_t stateSize = (size_t)measurePtr;
+	EXPECT_TRUE(stateSize > 0);
+
+	std::vector<uint8_t> buffer(stateSize);
+	uint8_t *writePtr = &buffer[0];
+	PointerWrap pw(&writePtr, PointerWrap::MODE_WRITE);
+	MemBlockInfoDoState(pw);
+
+	uint8_t *readPtr = &buffer[0];
+	PointerWrap pr(&readPtr, PointerWrap::MODE_READ);
+	MemBlockInfoDoState(pr);
+
+	// Force a split on a slab that was just loaded from the savestate - this is what used
+	// to corrupt the heap (or crash outright) before the fix.
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08800100, 0x10, "SplitTag", 8);
+	auto results = FindMemInfo(0x08800000, 0x20000);
+	EXPECT_TRUE(!results.empty());
+
+	MemBlockReleaseDetailed();
+	MemBlockInfoShutdown();
 	return true;
 }
 
@@ -1426,6 +1516,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
+	TEST_ITEM(TruncateCpy),
+	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
 	TEST_ITEM(VFPUMatrixTranspose),
