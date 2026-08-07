@@ -31,7 +31,7 @@ add_library(discord-rpc STATIC ${ALL_SOURCE_FILES})
 
 target_include_directories(discord-rpc PUBLIC ../discord-rpc/src ../discord-rpc/include ../rapidjson/include)
 
-if(UNIX)
+if(UNIX AND NOT ANDROID)
 	target_link_libraries(discord-rpc PUBLIC pthread)
 endif()
 

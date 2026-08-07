@@ -113,33 +113,15 @@ uint32_t u8_nextchar(const char *s, int *index, size_t size) {
 	do {
 		ch = (ch << 6) + (unsigned char)s[i++];
 		sz++;
+		// Prevent reading past the offsetsFromUTF8 array (max valid UTF-8 is 4 bytes, array has 6 elements)
+		if (sz >= 6) {
+			break;
+		}
 	} while (i < size && s[i] && ((s[i]) & 0xC0) == 0x80);
 	*index = i;
+	// Clamp sz to valid range
+	if (sz > 6) sz = 6;
 	return ch - offsetsFromUTF8[sz - 1];
-}
-
-uint32_t u8_nextchar_unsafe(const char *s, int *i) {
-	uint32_t ch = (unsigned char)s[(*i)++];
-	int sz = 1;
-	if (ch >= 0xF0) {
-		sz++;
-		ch &= ~0x10;
-	}
-	if (ch >= 0xE0) {
-		sz++;
-		ch &= ~0x20;
-	}
-	if (ch >= 0xC0) {
-		sz++;
-		ch &= ~0xC0;
-	}
-
-	// Just assume the bytes must be there.  This is the logic used on the PSP.
-	for (int j = 1; j < sz; ++j) {
-		ch <<= 6;
-		ch += ((unsigned char)s[(*i)++]) & 0x3F;
-	}
-	return ch;
 }
 
 void u8_inc(const char *s, int *i) {
@@ -203,11 +185,13 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 }
 
 void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, std::string_view source) {
+	if (destSize == 0) return;
 	int len = (int)source.size();
 	destSize -= 1;  // account for the \0.
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
-	MultiByteToWideChar(CP_UTF8, 0, source.data(), len, dest, std::min((int)destSize, size));
-	dest[std::min((int)destSize, size)] = 0;
+	int actualSize = std::min((int)destSize, size);
+	MultiByteToWideChar(CP_UTF8, 0, source.data(), len, dest, actualSize);
+	dest[actualSize] = 0;  // Write null terminator at the correct position
 }
 
 std::wstring ConvertUTF8ToWString(const std::string_view source) {
@@ -240,13 +224,18 @@ std::string ConvertUCS2ToUTF8(const std::u16string &wstr) {
 std::string SanitizeUTF8(std::string_view utf8string) {
 	UTF8 utf(utf8string);
 	std::string s;
+	// Check for overflow
+	if (utf8string.size() > SIZE_MAX / 4) {
+		ERROR_LOG(Log::Common, "SanitizeUTF8: Input too large");
+		return std::string();
+	}
 	// Worst case.
 	s.resize(utf8string.size() * 4);
 
 	// This stops at invalid start bytes.
 	size_t pos = 0;
 	while (!utf.end() && !utf.invalid()) {
-		int c = utf.next_unsafe();
+		int c = utf.next();
 		pos += UTF8::encode(&s[pos], c);
 	}
 	s.resize(pos);
@@ -371,7 +360,6 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 		}
 	}
 	output->resize(out_idx);
-	_dbg_assert_(output->size() >= input.size());
 }
 
 std::string NormalizeForSearch(std::string_view input) {
