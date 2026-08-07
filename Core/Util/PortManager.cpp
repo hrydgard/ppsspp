@@ -21,14 +21,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
 // Most of the code are based on https://github.com/RJ/libportfwd and updated to the latest miniupnp library
 // All credit goes to him and the official miniupnp project! http://miniupnp.free.fr/
 
-
 #include <algorithm>  // find_if
+#include <chrono>
 #include <cstring>
 #include <string>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
@@ -43,21 +46,10 @@
 #include "Core/Util/PortManager.h"
 
 PortManager g_PortManager;
-bool upnpServiceRunning = false;
-std::thread upnpServiceThread;
-std::recursive_mutex upnpLock;
-std::deque<UPnPArgs> upnpReqs;
-
-PortManager::PortManager(): 
-	m_InitState(UPNP_INITSTATE_NONE),
-	m_LocalPort(UPNP_LOCAL_PORT_ANY),
-	m_leaseDuration("43200") {
-	// Don't call net::Init or similar here, we don't want stuff like that to happen before main.
-}
-
-PortManager::~PortManager() {
-	// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
-}
+static std::thread g_upnpServiceThread;
+static std::mutex g_upnpLock;
+static std::condition_variable g_upnpCond;
+static std::deque<UPnPArgs> g_upnpReqs;
 
 void PortManager::Shutdown() {
 	Clear();
@@ -66,7 +58,7 @@ void PortManager::Shutdown() {
 }
 
 void PortManager::Terminate() {
-	VERBOSE_LOG(Log::Net, "PortManager::Terminate()");
+	DEBUG_LOG(Log::Net, "PortManager::Terminate()");
 	if (urls) {
 #ifdef WITH_UPNP
 		FreeUPNPUrls(urls);
@@ -100,7 +92,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	unsigned char ttl = 2; // defaulting to 2
 	int error = 0;
 	
-	VERBOSE_LOG(Log::Net, "PortManager::Initialize(%d)", timeout);
+	DEBUG_LOG(Log::Net, "PortManager::Initialize(%d)", timeout);
 	if (!g_Config.bEnableUPnP) {
 		ERROR_LOG(Log::Net, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
 		return false;
@@ -195,6 +187,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		//m_LocalPort = localport; // We shouldn't keep the right port for the next game reset if we wanted to redetect UPnP
 		m_InitState = UPNP_INITSTATE_DONE;
 		RefreshPortList();
+
 		return true;
 	}
 
@@ -475,20 +468,35 @@ int upnpService(const unsigned int timeout) {
 	INFO_LOG(Log::Net, "UPnPService: Begin of UPnPService Thread");
 
 	// Service Loop
-	while (upnpServiceRunning) {
-		// Sleep for 1ms for faster response if active, otherwise sleep longer (TODO: Improve on this).
-		sleep_ms(g_Config.bEnableUPnP ? 1 : 500, "upnp-poll");
+	while (true) {
+		UPnPArgs arg;
+		bool haveArg;
+		{
+			std::unique_lock<std::mutex> lock(g_upnpLock);
+			// Also wake up periodically even with nothing queued (and on UPnP_Notify()), so we
+			// can retry a failed/disconnected UPnP init or notice the enable setting flipped,
+			// without needing an explicit Add/Remove request to prod us.
+			g_upnpCond.wait_for(lock, std::chrono::seconds(5), [] { return !g_upnpReqs.empty(); });
+			haveArg = !g_upnpReqs.empty();
+			if (haveArg) {
+				arg = g_upnpReqs.front();
+			}
+		}
+
+		// Exit requests must be handled regardless of whether UPnP is enabled or has
+		// finished initializing, otherwise shutdown could wait on this thread forever.
+		if (haveArg && arg.cmd == UPNP_CMD_EXIT) {
+			std::lock_guard<std::mutex> lock(g_upnpLock);
+			g_upnpReqs.pop_front();
+			break;
+		}
 
 		// Attempts to reconnect if not connected yet or got disconnected
 		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_NONE) {
 			g_PortManager.Initialize(timeout);
 		}
 
-		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE && !upnpReqs.empty()) {
-			upnpLock.lock();
-			UPnPArgs arg = upnpReqs.front();
-			upnpLock.unlock();
-
+		if (haveArg && g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
 			bool ok = true;
 			switch (arg.cmd) {
 				case UPNP_CMD_ADD:
@@ -503,9 +511,8 @@ int upnpService(const unsigned int timeout) {
 
             // It's only considered failed when disconnected (should be retried when reconnected)
 			if (ok) {
-                upnpLock.lock();
-                upnpReqs.pop_front();
-                upnpLock.unlock();
+				std::lock_guard<std::mutex> lock(g_upnpLock);
+				g_upnpReqs.pop_front();
             }
 		}
 	}
@@ -516,37 +523,46 @@ int upnpService(const unsigned int timeout) {
 	}
 
 	// Should we ingore any leftover UPnP requests? instead of processing it on the next game start
-	upnpLock.lock();
-	upnpReqs.clear();
-	upnpLock.unlock();
+	{
+		std::unique_lock<std::mutex> lock(g_upnpLock);
+		g_upnpReqs.clear();
+	}
 
 	INFO_LOG(Log::Net, "UPnPService: End of UPnPService Thread");
 	return 0;
 }
 
-void __UPnPInit(const int timeout_ms) {
-	if (!upnpServiceRunning) {
-		upnpServiceRunning = true;
-		upnpServiceThread = std::thread(upnpService, timeout_ms);
-	}
+void __UPnPInit(const unsigned int timeout) {
+	_dbg_assert_(!g_upnpServiceThread.joinable());
+
+	g_upnpServiceThread = std::thread(upnpService, timeout);
 }
 
 void __UPnPShutdown() {
-	if (upnpServiceRunning) {
-		upnpServiceRunning = false;
-		if (upnpServiceThread.joinable()) {
-			upnpServiceThread.join();
-		}
+	_dbg_assert_(g_upnpServiceThread.joinable());
+	{
+		std::lock_guard<std::mutex> upnpGuard(g_upnpLock);
+		g_upnpReqs.push_back({ UPNP_CMD_EXIT });
+		g_upnpCond.notify_one();
+	}
+
+	if (g_upnpServiceThread.joinable()) {
+		g_upnpServiceThread.join();
 	}
 }
 
 void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport) {
-	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
-	upnpReqs.push_back({ UPNP_CMD_ADD, protocol, port, intport });
+	std::lock_guard<std::mutex> upnpGuard(g_upnpLock);
+	g_upnpReqs.push_back({ UPNP_CMD_ADD, protocol, port, intport });
+	g_upnpCond.notify_one();
 }
 
 void UPnP_Remove(const char* protocol, unsigned short port) {
-	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
-	upnpReqs.push_back({ UPNP_CMD_REMOVE, protocol, port, port });
+	std::lock_guard<std::mutex> upnpGuard(g_upnpLock);
+	g_upnpReqs.push_back({ UPNP_CMD_REMOVE, protocol, port, port });
+	g_upnpCond.notify_one();
 }
 
+void UPnP_Notify() {
+	g_upnpCond.notify_one();
+}

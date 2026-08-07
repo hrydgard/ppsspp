@@ -46,6 +46,9 @@ typedef struct{
 	int out_ptr;
 	int out_len;
 
+	// Set when input/output bounds are exceeded; decompression should abort.
+	int error;
+
 	// range decode
 	u32 range;
 	u32 code;
@@ -63,8 +66,9 @@ typedef struct{
 
 static u8 rc_getbyte(LZRC_DECODE *rc)
 {
-	if(rc->in_ptr == rc->in_len){
-		_dbg_assert_msg_(false, "LZRC: End of input!");
+	if(rc->in_ptr >= rc->in_len){
+		rc->error = 1;
+		return 0;
 	}
 
 	return rc->input[rc->in_ptr++];
@@ -72,8 +76,9 @@ static u8 rc_getbyte(LZRC_DECODE *rc)
 
 static void rc_putbyte(LZRC_DECODE *rc, u8 byte)
 {
-	if(rc->out_ptr == rc->out_len){
-		_dbg_assert_msg_(false, "LZRC: Output overflow!");
+	if(rc->out_ptr >= rc->out_len){
+		rc->error = 1;
+		return;
 	}
 
 	rc->output[rc->out_ptr++] = byte;
@@ -88,6 +93,8 @@ static void rc_init(LZRC_DECODE *rc, void *out, int out_len, void *in, int in_le
 	rc->output = (u8*)out;
 	rc->out_len = out_len;
 	rc->out_ptr = 0;
+
+	rc->error = 0;
 
 	rc->range = 0xffffffff;
 	rc->lc = rc_getbyte(rc);
@@ -115,8 +122,7 @@ static void normalize(LZRC_DECODE *rc)
 {
 	if(rc->range<0x01000000){
 		rc->range <<= 8;
-		rc->code = (rc->code<<8)+rc->input[rc->in_ptr];
-		rc->in_ptr++;
+		rc->code = (rc->code<<8)+rc_getbyte(rc);
 	}
 }
 
@@ -213,20 +219,29 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len)
 
 	rc_init(&rc, out, out_len, in, in_len);
 
+	if(rc.error)
+		return -1;
+
 	if(rc.lc&0x80){
 		/* plain text */
-		int copySize = rc.code;
-		if (copySize > out_len) {
+		u32 copySize = rc.code;
+		if (copySize > (u32)out_len) {
 			copySize = out_len;
 		}
+		if (rc.in_len >= 5 && copySize > (u32)(rc.in_len - 5)) {
+			copySize = rc.in_len - 5;
+		}
 		memcpy(rc.output, rc.input+5, copySize);
-		return copySize;
+		return (int)copySize;
 	}
 
 	rc_state = 0;
 	last_byte = 0;
 
 	while (1) {
+		if(rc.error)
+			return -1;
+
 		round += 1;
 		match_step = 0;
 

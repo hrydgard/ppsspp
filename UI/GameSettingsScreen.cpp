@@ -30,6 +30,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/BitSet.h"
@@ -78,6 +79,7 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Util/PortManager.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/GPU.h"
 
@@ -1047,7 +1049,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	dnsServer->SetDisabledPtr(&g_Config.bInfrastructureAutoDNS);
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")))->OnClick.Add([](UI::EventParams &e) {
+		// Wake the UPnP service thread immediately so it reacts to the new setting instead
+		// of waiting for the next periodic retry (or a port request that may never come).
+		UPnP_Notify();
+	});
 	auto *useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
 	networkingSettings->Add(new SettingHint(n->T("UseOriginalPort Tip", "May not work for all devices or games, see wiki."), useOriPort));
 
@@ -1165,6 +1171,14 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	switchMode->OnChoice.Add([](EventParams &e) {
 		System_Notify(SystemNotification::APP_SWITCH_MODE_CHANGED);
 	});
+
+	{
+		// Note: On iPhone, iOS hides the status bar in landscape no matter what this is set to.
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		systemSettings->Add(new CheckBox(&config.bImmersiveMode, sy->T("Hide status bar")))->OnClick.Add([](EventParams &e) {
+			System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
+		});
+	}
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)

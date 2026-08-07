@@ -181,7 +181,7 @@ protected:
 	std::shared_ptr<FileLoader> fileLoader;
 	Path filePath_;
 
-	void SetupTexture(Draw::DrawContext *draw, GameInfoTex &tex);
+	void SetupTexture(Draw::DrawContext *draw, GameInfoTex &tex, int maxWidth = 8192, int maxHeight = 8192);
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfo);

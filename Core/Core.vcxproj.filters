@@ -1390,6 +1390,12 @@
     <ClCompile Include="Util\VideoPlayer.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="CmdLine.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="EmuThread.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2250,6 +2256,12 @@
     <ClInclude Include="Util\VideoPlayer.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="CmdLine.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="EmuThread.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE.TXT" />
@@ -2277,5 +2289,6 @@
     <Text Include="..\ext\CMakeLists.txt">
       <Filter>Ext</Filter>
     </Text>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
 </Project>

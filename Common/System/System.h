@@ -87,11 +87,6 @@ enum class SystemRequestType {
 	CREATE_GAME_SHORTCUT,
 	SHOW_FILE_IN_FOLDER,
 
-	// Commonly ignored, used when automated tests generate output.
-	SEND_DEBUG_OUTPUT,
-	// Note: height specified as param3, width based on param1.size() / param3.
-	SEND_DEBUG_SCREENSHOT,
-
 	NOTIFY_UI_EVENT,  // Used to manage events that are useful for popup virtual keyboards.
 	SET_KEEP_SCREEN_BRIGHT,
 

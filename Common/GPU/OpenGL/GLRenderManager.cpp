@@ -17,8 +17,6 @@
 #define VLOG(...)
 #endif
 
-std::thread::id renderThreadId;
-
 GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips) {
 	w = width;
 	h = height;
@@ -38,8 +36,6 @@ GLRenderManager::GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY
 }
 
 GLRenderManager::~GLRenderManager() {
-	_dbg_assert_(!runCompileThread_);
-
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
@@ -50,11 +46,16 @@ GLRenderManager::~GLRenderManager() {
 }
 
 void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
+	INFO_LOG(Log::G3D, "GLRenderManager::ThreadStart begin");
+
 	queueRunner_.CreateDeviceObjects();
-	renderThreadId = std::this_thread::get_id();
+
+	exitNotified_ = false;
+	hitExit_ = false;
+	skipGLCalls_ = false;
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "OpenGL: Updating inflight frames to %d", newInflightFrames_);
 		inflightFrames_ = newInflightFrames_;
 		newInflightFrames_ = -1;
 	}
@@ -91,12 +92,12 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	} else {
 		bufferStrategy_ = GLBufferStrategy::SUBDATA;
 	}
+
+	INFO_LOG(Log::G3D, "GLRenderManager::ThreadStart end");
 }
 
 void GLRenderManager::ThreadEnd() {
 	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd begin");
-
-	runCompileThread_ = false;
 
 	queueRunner_.DestroyDeviceObjects();
 
@@ -117,14 +118,28 @@ void GLRenderManager::ThreadEnd() {
 	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd end");
 }
 
+void GLRenderManager::NotifyEmuThreadExit() {
+	_dbg_assert_(!exitNotified_);
+	_dbg_assert_(!hitExit_);
+	exitNotified_ = true;
+	// We need to make sure that the render thread isn't waiting for more work, since the emu thread is gone.
+	// This is a bit of a hack, but it works.
+	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::EXIT);
+	{
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(task);
+	}
+	pushCondVar_.notify_one();
+}
+
 // Unlike in Vulkan, this isn't a full independent function, instead it gets called every frame.
 //
 // This means that we have to block and run the render queue until we've presented one frame,
 // at which point we can leave.
-//
-// NOTE: If run_ is true, we WILL run a task!
-bool GLRenderManager::ThreadFrame(bool waitIfEmpty) {
-	_assert_(runCompileThread_);
+bool GLRenderManager::ThreadFrame() {
+	if (hitExit_) {
+		return false;
+	}
 
 	GLRRenderThreadTask *task = nullptr;
 
@@ -134,20 +149,16 @@ bool GLRenderManager::ThreadFrame(bool waitIfEmpty) {
 		// to keep things uniform.
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
-
-			if (!waitIfEmpty && renderThreadQueue_.empty()) {
-				lock.unlock();
-				// Oh, host wanted out. Let's leave, and also let's notify the host.
-				// This is unlike Vulkan too which can just block on the thread existing.
-				std::unique_lock<std::mutex> lock(syncMutex_);
-				syncCondVar_.notify_one();
-				syncDone_ = true;
-				return false;
-			}
-
 			pushCondVar_.wait(lock, [this] { return !renderThreadQueue_.empty(); });
 			task = renderThreadQueue_.front();
 			renderThreadQueue_.pop();
+		}
+
+		if (task->runType == GLRRunType::EXIT) {
+			VLOG("  PULL: Frame %d EXIT (%0.3f)", task->frame, time_now_d());
+			delete task;
+			hitExit_ = true;
+			return false;
 		}
 
 		// Render the scene.
@@ -159,18 +170,7 @@ bool GLRenderManager::ThreadFrame(bool waitIfEmpty) {
 		}
 		delete task;
 	};
-
 	return true;
-}
-
-void GLRenderManager::StartThread() {
-	// There's not really a lot to do here anymore.
-	INFO_LOG(Log::G3D, "GLRenderManager::StartThread()");
-	if (!runCompileThread_) {
-		runCompileThread_ = true;
-	} else {
-		INFO_LOG(Log::G3D, "GL submission thread was already running.");
-	}
 }
 
 std::string GLRenderManager::GetGpuProfileString() const {
@@ -335,12 +335,12 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 }
 
 void GLRenderManager::BeginFrame(bool enableProfiling) {
+	_dbg_assert_(!exitNotified_);
+	_dbg_assert_(!hitExit_);
+
 #ifdef _DEBUG
 	curProgram_ = nullptr;
 #endif
-
-	// Shouldn't call BeginFrame unless we're in a run state.
-	_dbg_assert_(runCompileThread_);
 
 	int curFrame = GetCurFrame();
 

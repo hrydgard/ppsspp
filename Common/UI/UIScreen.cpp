@@ -8,7 +8,7 @@
 #include "Common/Input/KeyCodes.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/Context.h"
-#include "Common/UI/Screen.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/Root.h"
 #include "Common/Render/DrawBuffer.h"
 
@@ -104,7 +104,7 @@ void UIScreen::update() {
 	DoRecreateViews();
 
 	if (root_) {
-		DialogResult result = UpdateViewHierarchy(root_);
+		DialogResult result = UpdateViewHierarchy(root_, AllowFocusMovement());
 		if (result != DR_NONE) {
 			TriggerFinish(result);
 		}

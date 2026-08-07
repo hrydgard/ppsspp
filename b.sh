@@ -8,10 +8,27 @@ do
 		--qt) echo "Qt enabled"
 			QT=1
 			CMAKE_ARGS="-DUSING_QT_UI=ON ${CMAKE_ARGS}"
+			if [[ "$OSTYPE" == "darwin"* ]]; then
+				if command -v brew >/dev/null 2>&1; then
+					if brew --prefix qt@5 >/dev/null 2>&1; then
+						QT_PREFIX="$(brew --prefix qt@5)"
+						CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${QT_PREFIX} ${CMAKE_ARGS}"
+						echo "Using Homebrew Qt5 from ${QT_PREFIX}"
+					fi
+				fi
+			fi
 			;;
 		--qtbrew) echo "Qt enabled (homebrew)"
 			QT=1
-			CMAKE_ARGS="-DUSING_QT_UI=ON -DCMAKE_PREFIX_PATH=$(brew --prefix qt5) ${CMAKE_ARGS}"
+			if brew --prefix qt@5 >/dev/null 2>&1; then
+				QT_PREFIX="$(brew --prefix qt@5)"
+			elif brew --prefix qt5 >/dev/null 2>&1; then
+				QT_PREFIX="$(brew --prefix qt5)"
+			else
+				echo "Could not find Homebrew Qt5 (qt@5). Install it with: brew install qt@5"
+				exit 1
+			fi
+			CMAKE_ARGS="-DUSING_QT_UI=ON -DCMAKE_PREFIX_PATH=${QT_PREFIX} ${CMAKE_ARGS}"
 			;;
 		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake ${CMAKE_ARGS}"
 			TARGET_OS=iOS
@@ -55,6 +72,9 @@ do
 			;;
 		--debug)
 			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug ${CMAKE_ARGS}"
+			;;
+		--build)
+			# Compatibility flag: build is the default action of this script.
 			;;
 		--reldebug)
 			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=RelWithDebInfo ${CMAKE_ARGS}"

@@ -40,6 +40,7 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 	map["memory.write_u16"] = &WebSocketMemoryWriteU16;
 	map["memory.write_u32"] = &WebSocketMemoryWriteU32;
 	map["memory.write"] = &WebSocketMemoryWrite;
+	map["memory.search"] = &WebSocketMemorySearch;
 
 	return nullptr;
 }
@@ -402,4 +403,143 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 	Memory::MemcpyUnchecked(addr, &value[0], size);
 	Reporting::NotifyDebugger();
 	req.Respond();
+}
+
+// Search memory for a value or byte pattern (memory.search)
+//
+// Useful for reverse engineering - e.g. narrowing down where a known value (health,
+// ammo, a position) lives, or finding a byte signature.
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the range to search.
+//  - size: unsigned integer size in bytes of the range to search.
+//  - type: string, one of 'u8', 'u16', 'u32', 'float', or 'bytes'.
+//  - value: for 'u8'/'u16'/'u32', an unsigned integer to match exactly.
+//    For 'float', a JSON string (e.g. "1.5") - use a string so integers aren't confused
+//    with floats, same convention as cpu.setReg.
+//  - base64: for 'bytes', the byte pattern to match, base64 encoded.
+//  - maskBase64: optional for 'bytes', base64 encoded, same length as 'base64'.  A 0x00
+//    byte means "don't care" at that position, any other byte value means "must match
+//    exactly" at that position.  Defaults to matching every byte of 'base64' exactly.
+//  - align: optional unsigned integer, only check offsets from 'address' that are a
+//    multiple of this many bytes.  Defaults to the size of 'type' in bytes (or 1 for
+//    'bytes'.)
+//  - maxResults: optional unsigned integer, stop after this many matches (default 1000,
+//    hard cap 100000.)
+//
+// Response (same event name):
+//  - matches: array of unsigned integer addresses where a match was found.
+//  - truncated: boolean, true if 'maxResults' was hit before the whole range was searched.
+void WebSocketMemorySearch(DebuggerRequest &req) {
+	uint32_t addr;
+	if (!req.ParamU32("address", &addr))
+		return;
+	uint32_t size;
+	if (!req.ParamU32("size", &size))
+		return;
+	std::string type;
+	if (!req.ParamString("type", &type))
+		return;
+
+	auto memLock = LockMemoryAndCPU(addr, true);
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+		return req.Fail("CPU not started");
+	if (!Memory::IsValidAddress(addr))
+		return req.Fail("Invalid address");
+	else if (!Memory::IsValidRange(addr, size))
+		return req.Fail("Invalid size");
+
+	uint32_t align = 1;
+	uint32_t needleSize = 0;
+	uint32_t needleValue = 0;
+	std::vector<uint8_t> needleBytes;
+	std::vector<uint8_t> maskBytes;
+
+	if (type == "u8" || type == "u16" || type == "u32") {
+		needleSize = type == "u8" ? 1 : type == "u16" ? 2 : 4;
+		align = needleSize;
+		if (!req.ParamU32("value", &needleValue, false))
+			return;
+	} else if (type == "float") {
+		needleSize = 4;
+		align = 4;
+		// allowFloatBits: accepts a string like "1.5" and gives us its raw bit pattern.
+		if (!req.ParamU32("value", &needleValue, true))
+			return;
+	} else if (type == "bytes") {
+		std::string encoded;
+		if (!req.ParamString("base64", &encoded))
+			return;
+		needleBytes = Base64Decode(&encoded[0], encoded.size());
+		if (needleBytes.empty())
+			return req.Fail("'base64' must decode to at least one byte");
+		needleSize = (uint32_t)needleBytes.size();
+		align = 1;
+
+		if (req.HasParam("maskBase64")) {
+			std::string maskEncoded;
+			if (!req.ParamString("maskBase64", &maskEncoded))
+				return;
+			maskBytes = Base64Decode(&maskEncoded[0], maskEncoded.size());
+			if (maskBytes.size() != needleBytes.size())
+				return req.Fail("'maskBase64' must decode to the same length as 'base64'");
+		}
+	} else {
+		return req.Fail("Invalid 'type', must be u8, u16, u32, float, or bytes");
+	}
+
+	if (needleSize > size)
+		return req.Fail("'size' is smaller than the pattern/value being searched for");
+
+	if (!req.ParamU32("align", &align, false, DebuggerParamType::OPTIONAL))
+		return;
+	if (align == 0)
+		return req.Fail("'align' must not be zero");
+
+	uint32_t maxResults = 1000;
+	if (!req.ParamU32("maxResults", &maxResults, false, DebuggerParamType::OPTIONAL))
+		return;
+	if (maxResults == 0)
+		maxResults = 1000;
+	else if (maxResults > 100000)
+		maxResults = 100000;
+
+	const uint8_t *base = Memory::GetPointerUnchecked(addr);
+	std::vector<uint32_t> matches;
+	bool truncated = false;
+	for (uint32_t offset = 0; offset + needleSize <= size; offset += align) {
+		bool match;
+		if (!needleBytes.empty()) {
+			match = true;
+			for (uint32_t i = 0; i < needleSize; ++i) {
+				uint8_t mask = maskBytes.empty() ? 0xFF : maskBytes[i];
+				if ((base[offset + i] & mask) != (needleBytes[i] & mask)) {
+					match = false;
+					break;
+				}
+			}
+		} else {
+			uint32_t actual = base[offset];
+			if (needleSize >= 2)
+				actual |= base[offset + 1] << 8;
+			if (needleSize >= 4)
+				actual |= (base[offset + 2] << 16) | (base[offset + 3] << 24);
+			match = actual == needleValue;
+		}
+
+		if (match) {
+			if (matches.size() >= maxResults) {
+				truncated = true;
+				break;
+			}
+			matches.push_back(addr + offset);
+		}
+	}
+
+	JsonWriter &json = req.Respond();
+	json.pushArray("matches");
+	for (uint32_t m : matches)
+		json.writeUint(m);
+	json.pop();
+	json.writeBool("truncated", truncated);
 }

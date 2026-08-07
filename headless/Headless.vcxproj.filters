@@ -10,25 +10,26 @@
     <ClCompile Include="WindowsHeadlessHost.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
-    <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp">
-      <Filter>Windows</Filter>
-    </ClCompile>
     <ClCompile Include="..\Windows\W32Util\Misc.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
     <ClCompile Include="..\Windows\GPU\D3D11Context.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
-    <ClCompile Include="SDLHeadlessHost.cpp">
+    <ClCompile Include="SDLHeadlessGLGraphicsContext.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
     <ClCompile Include="..\Windows\CaptureDevice.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
-    <ClCompile Include="HeadlessHost.cpp" />
+    <ClCompile Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SDL\SDLUtil.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="headless.txt" />
     <None Include="..\test.py" />
     <None Include="README.md" />
   </ItemGroup>
@@ -37,10 +38,15 @@
     <ClInclude Include="WindowsHeadlessHost.h">
       <Filter>Windows</Filter>
     </ClInclude>
-    <ClInclude Include="SDLHeadlessHost.h">
+    <ClInclude Include="SDLHeadlessGLGraphicsContext.h">
       <Filter>Other Platforms</Filter>
     </ClInclude>
-    <ClInclude Include="HeadlessHost.h" />
+    <ClInclude Include="..\Common\GPU\Vulkan\VulkanGraphicsContext.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SDL\SDLUtil.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Windows">

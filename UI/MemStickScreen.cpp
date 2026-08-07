@@ -24,6 +24,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"

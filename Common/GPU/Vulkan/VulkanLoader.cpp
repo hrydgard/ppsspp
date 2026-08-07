@@ -265,6 +265,7 @@ static VulkanLibraryHandle vulkanLibrary;
 
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
+static std::string g_nativeLibDir;
 
 static PFN_vkVoidFunction LoadInstanceFunc(VkInstance instance, const char *name) {
 	PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, name);
@@ -430,6 +431,10 @@ void VulkanSetAvailable(bool available) {
 	INFO_LOG(Log::G3D, "Setting Vulkan availability to true");
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
+}
+
+void VulkanSetNativeLibDir(std::string_view nativeLibDir) {
+	g_nativeLibDir = nativeLibDir;
 }
 
 bool VulkanMayBeAvailable() {
@@ -684,6 +689,26 @@ bool VulkanLoad(std::string *errorStr) {
 		return false;
 	}
 #endif
+}
+
+bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr) {
+	vkGetInstanceProcAddr = getInstanceProcAddr;
+	vkCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(nullptr, "vkCreateInstance");
+	// Per the Vulkan spec, vkGetDeviceProcAddr is not one of the handful of commands queryable with a
+	// NULL instance - it requires the real, already-existing instance.
+	vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)getInstanceProcAddr(instance, "vkGetDeviceProcAddr");
+	vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)getInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion");
+	vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)getInstanceProcAddr(nullptr, "vkEnumerateInstanceExtensionProperties");
+	vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)getInstanceProcAddr(nullptr, "vkEnumerateInstanceLayerProperties");
+
+	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
+		INFO_LOG(Log::G3D, "VulkanLoadFromGetInstanceProcAddr: Base functions loaded.");
+		// NOTE: It's ok if vkEnumerateInstanceVersion is missing.
+		return true;
+	} else {
+		ERROR_LOG(Log::G3D, "VulkanLoadFromGetInstanceProcAddr: Failed to load Vulkan base functions");
+		return false;
+	}
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanInstanceApiVersion) {

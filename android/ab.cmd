@@ -10,7 +10,7 @@ copy ..\assets\*.png assets\
 copy ..\assets\*.zim assets\
 copy ..\assets\*.meta assets\
 copy ..\assets\*.wav assets\
-SET NDK=C:\Android\sdk\ndk\21.3.6528147
+SET NDK=C:\Android\sdk\ndk\29.0.14206865
 REM SET NDK=C:\Android\ndk
 SET NDK_MODULE_PATH=..\ext
-%NDK%/ndk-build -j32 %*
+%NDK%/ndk-build -j%NUMBER_OF_PROCESSORS% %*

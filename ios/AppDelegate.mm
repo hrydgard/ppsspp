@@ -248,8 +248,6 @@ static std::vector<std::string> GatherGameLibrary() {
 	default:
 		return UIInterfaceOrientationMaskAll;
 	}
-
-	return UIInterfaceOrientationMaskAll; // or at least include Portrait
 }
 
 @end

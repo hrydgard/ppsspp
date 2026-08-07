@@ -350,6 +350,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 	}
 
 	VulkanPipelineKey key{};
+	memset(&key, 0, sizeof(key));
 
 	key.raster = rasterKey;
 	key.useHWTransform = useHwTransform;

@@ -158,6 +158,14 @@ inline const u8* GetPointerUnchecked(const u32 address) {
 #endif
 }
 
+inline u64 ReadUnchecked_U64(const u32 address) {
+#ifdef MASKED_PSP_MEMORY
+	return *(u64_le *)(base + (address & MEMVIEW32_MASK));
+#else
+	return *(u64_le *)(base + address);
+#endif
+}
+
 inline u32 ReadUnchecked_U32(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
 	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
@@ -262,11 +270,13 @@ const T* GetTypedPointerRange(const u32 address, const u32 size) {
 }
 
 bool IsRAMAddress(const u32 address);
+
+// Note that VRAM is not mirrored up into kernel space. So we use BF800000 instead of 3F800000 to check for VRAM addresses.
 inline bool IsVRAMAddress(const u32 address) {
-	return ((address & 0x3F800000) == 0x04000000);
+	return ((address & 0xBF800000) == 0x04000000);
 }
 inline bool IsDepthTexVRAMAddress(const u32 address) {
-	return ((address & 0x3FE00000) == 0x04200000) || ((address & 0x3FE00000) == 0x04600000);
+	return ((address & 0xBFE00000) == 0x04200000) || ((address & 0xBFE00000) == 0x04600000);
 }
 
 // 0x08000000 -> 0x08800000

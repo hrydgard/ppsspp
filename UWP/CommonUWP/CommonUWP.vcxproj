@@ -191,7 +191,7 @@
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
     <ClInclude Include="..\..\Common\GhidraClient.h" />
-    <ClInclude Include="..\..\Common\GraphicsContext.h" />
+    <ClInclude Include="..\..\Common\GPU\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\Log\LogManager.h" />
     <ClInclude Include="..\..\Common\LogReporting.h" />
@@ -221,6 +221,7 @@
     <ClInclude Include="..\..\Common\UI\PopupScreens.h" />
     <ClInclude Include="..\..\Common\UI\Root.h" />
     <ClInclude Include="..\..\Common\UI\Screen.h" />
+    <ClInclude Include="..\..\Common\UI\ScreenManager.h" />
     <ClInclude Include="..\..\Common\UI\ScrollView.h" />
     <ClInclude Include="..\..\Common\UI\TabHolder.h" />
     <ClInclude Include="..\..\Common\UI\Tween.h" />
@@ -406,6 +407,7 @@
     <ClCompile Include="..\..\Common\UI\PopupScreens.cpp" />
     <ClCompile Include="..\..\Common\UI\Root.cpp" />
     <ClCompile Include="..\..\Common\UI\Screen.cpp" />
+    <ClCompile Include="..\..\Common\UI\ScreenManager.cpp" />
     <ClCompile Include="..\..\Common\UI\ScrollView.cpp" />
     <ClCompile Include="..\..\Common\UI\TabHolder.cpp" />
     <ClCompile Include="..\..\Common\UI\Tween.cpp" />

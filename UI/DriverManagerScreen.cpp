@@ -7,6 +7,7 @@
 #include "Common/StringUtils.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"

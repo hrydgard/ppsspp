@@ -113,7 +113,7 @@ jobs:
         Compress-Archive -Path "ppsspp/*" -Update -DestinationPath "releases/PPSSPP-${{ github.ref_name }}-Windows-${{ matrix.platform }}.zip"
 
     - name: Upload release
-      uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+      uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
       if: github.ref_type == 'tag'
       with:
         files: releases/*.zip
@@ -186,25 +186,25 @@ jobs:
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
+          args: cd android && ./ab.sh APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
           id: android-arm64
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
+          args: cd android && ./ab.sh APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
           id: android-arm32
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
+          args: cd android && ./ab.sh APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
           id: android-x86_64
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a OPENXR=1
+          args: cd android && ./ab.sh APP_ABI=arm64-v8a OPENXR=1
           id: android-vr
         - os: ubuntu-26.04
           extra: android
@@ -283,7 +283,7 @@ jobs:
       if: matrix.extra == 'android'
       id: setup-ndk
       with:
-        ndk-version: r21e
+        ndk-version: r29
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64'
@@ -406,7 +406,7 @@ jobs:
       run: mv PPSSPPSDL.zip PPSSPPSDL-macOS-${GITHUB_REF_NAME}.zip
 
     - name: Upload macOS & iOS release
-      uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+      uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
       if: github.ref_type == 'tag' && (matrix.id == 'macos' || matrix.id == 'ios')
       with:
         files: |

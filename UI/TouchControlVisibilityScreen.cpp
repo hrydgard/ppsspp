@@ -21,6 +21,7 @@
 #include "Common/StringUtils.h"
 #include "Common/UI/TabHolder.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Core/Config.h"
 

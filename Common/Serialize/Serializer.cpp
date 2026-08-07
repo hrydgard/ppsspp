@@ -130,11 +130,21 @@ void PointerWrap::SetError(Error error_) {
 }
 
 bool PointerWrap::ExpectVoid(void *data, int size) {
+	if (size < 0) {
+		SetError(ERROR_FAILURE);
+		return false;
+	}
 	switch (mode) {
-	case MODE_READ:	if (memcmp(data, *ptr, size) != 0) return false; break;
+	case MODE_READ:
+		if (!CheckRead(size))
+			return false;
+		if (memcmp(data, *ptr, size) != 0) return false;
+		break;
 	case MODE_WRITE: memcpy(*ptr, data, size); break;
 	case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
 	case MODE_VERIFY:
+		if (!CheckRead(size))
+			return false;
 		for (int i = 0; i < size; i++)
 			_dbg_assert_msg_(((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
 		break;
@@ -145,11 +155,21 @@ bool PointerWrap::ExpectVoid(void *data, int size) {
 }
 
 void PointerWrap::DoVoid(void *data, int size) {
+	if (size < 0) {
+		SetError(ERROR_FAILURE);
+		return;
+	}
 	switch (mode) {
-	case MODE_READ:	memcpy(data, *ptr, size); break;
+	case MODE_READ:
+		if (!CheckRead(size))
+			return;
+		memcpy(data, *ptr, size);
+		break;
 	case MODE_WRITE: memcpy(*ptr, data, size); break;
 	case MODE_MEASURE: break;  // MODE_MEASURE - don't need to do anything
 	case MODE_VERIFY:
+		if (!CheckRead(size))
+			return;
 		for (int i = 0; i < size; i++)
 			_dbg_assert_msg_(((u8*)data)[i] == (*ptr)[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", ((u8*)data)[i], ((u8*)data)[i], &((u8*)data)[i], (*ptr)[i], (*ptr)[i], &(*ptr)[i]);
 		break;
@@ -170,6 +190,11 @@ void Do(PointerWrap &p, std::string &x) {
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
 	}
+	// Ensure the whole string (including NUL terminator) is within bounds before reading.
+	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
+		if (!p.CheckRead(stringLen))
+			return;
+	}
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
@@ -189,6 +214,11 @@ void Do(PointerWrap &p, std::wstring &x) {
 		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
+	}
+	// Ensure the whole string is within bounds before reading.
+	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
+		if (!p.CheckRead(stringLen))
+			return;
 	}
 
 	auto read = [&]() {
@@ -217,6 +247,11 @@ void Do(PointerWrap &p, std::u16string &x) {
 		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
+	}
+	// Ensure the whole string is within bounds before reading.
+	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
+		if (!p.CheckRead(stringLen))
+			return;
 	}
 
 	auto read = [&]() {
@@ -370,6 +405,13 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 	}
 
 	if (header.Compress) {
+		// Sanity cap on the decompressed size to avoid a giant allocation from
+		// an attacker-controlled header field. Real savestates are well under this.
+		if (header.UncompressedSize > 0x40000000) {
+			ERROR_LOG(Log::SaveState, "ChunkReader: UncompressedSize too large: %u", header.UncompressedSize);
+			delete [] buffer;
+			return ERROR_BAD_FILE;
+		}
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
 		bool success = false;

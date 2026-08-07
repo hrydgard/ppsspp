@@ -15,6 +15,7 @@
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/MachineContext.h"
 #include "Common/ExceptionHandlerSetup.h"
@@ -27,7 +28,48 @@ static void *altStack = nullptr;
 // We cannot handle exceptions in UWP builds. Bleh.
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
+
 static PVOID g_vectoredExceptionHandle;
+static bool g_symInitialized = false;
+static bool g_logCrashStackTrace = false;
+
+// Logs a best-effort stack trace when we're about to let a genuinely unhandled access
+// violation crash the process - e.g. a bad host pointer (not a guest PSP memory access)
+// passed to a CRT function like strlen(). Only meant for diagnostics, so failures here are
+// non-fatal; we just lose the extra info.
+static void LogCrashStackTrace() {
+	void *stack[32]{};
+	USHORT captured = CaptureStackBackTrace(0, (ULONG)ARRAY_SIZE(stack), stack, nullptr);
+
+	ERROR_LOG(Log::System, "Unhandled access violation - stack trace (%d frames):", (int)captured);
+
+	HANDLE process = GetCurrentProcess();
+	char symbolBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME]{};
+	SYMBOL_INFO *symbol = (SYMBOL_INFO *)symbolBuffer;
+	symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+	symbol->MaxNameLen = MAX_SYM_NAME;
+
+	for (USHORT i = 0; i < captured; i++) {
+		DWORD64 address = (DWORD64)(uintptr_t)stack[i];
+		std::string line = StringFromFormat("  #%d %016llx", (int)i, (unsigned long long)address);
+
+		DWORD64 displacement = 0;
+		if (SymFromAddr(process, address, &displacement, symbol)) {
+			line += StringFromFormat(" %s+0x%llx", symbol->Name, (unsigned long long)displacement);
+		}
+
+		DWORD lineDisplacement = 0;
+		IMAGEHLP_LINE64 lineInfo{};
+		lineInfo.SizeOfStruct = sizeof(lineInfo);
+		if (SymGetLineFromAddr64(process, address, &lineDisplacement, &lineInfo)) {
+			line += StringFromFormat(" (%s:%d)", lineInfo.FileName, (int)lineInfo.LineNumber);
+		}
+
+		ERROR_LOG(Log::System, "%s", line.c_str());
+	}
+}
 
 static LONG NTAPI GlobalExceptionHandler(PEXCEPTION_POINTERS pPtrs) {
 	switch (pPtrs->ExceptionRecord->ExceptionCode) {
@@ -45,6 +87,11 @@ static LONG NTAPI GlobalExceptionHandler(PEXCEPTION_POINTERS pPtrs) {
 		if (g_badAccessHandler(badAddress, ctx)) {
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 		} else {
+			if (g_logCrashStackTrace) {
+				ERROR_LOG(Log::System, "Unhandled access violation (%s) at address %016llx, pc=%016llx",
+					accessType == 1 ? "write" : "read", (unsigned long long)badAddress, (unsigned long long)(uintptr_t)pPtrs->ExceptionRecord->ExceptionAddress);
+				LogCrashStackTrace();
+			}
 			// Let's not prevent debugging.
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 		}
@@ -75,7 +122,8 @@ static LONG NTAPI GlobalExceptionHandler(PEXCEPTION_POINTERS pPtrs) {
 	}
 }
 
-void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTraceOnCrash) {
+	g_logCrashStackTrace = logStackTraceOnCrash;
 	if (g_vectoredExceptionHandle) {
 		g_badAccessHandler = badAccessHandler;
 		return;
@@ -83,6 +131,12 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 
 	INFO_LOG(Log::System, "Installing exception handler");
 	g_badAccessHandler = badAccessHandler;
+
+	if (logStackTraceOnCrash && !g_symInitialized) {
+		SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+		g_symInitialized = SymInitialize(GetCurrentProcess(), nullptr, TRUE) != FALSE;
+	}
+
 #ifdef USE_ASAN
 	g_vectoredExceptionHandle = AddVectoredExceptionHandler(FALSE, GlobalExceptionHandler);
 #else
@@ -182,7 +236,7 @@ static void ExceptionThread(mach_port_t port) {
 	}
 }
 
-void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTraceOnCrash) {
 	if (g_badAccessHandler) {
 		// The rest of the setup we don't need to do again.
 		g_badAccessHandler = badAccessHandler;
@@ -282,7 +336,7 @@ static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 	}
 }
 
-void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTraceOnCrash) {
 	if (!badAccessHandler) {
 		return;
 	}
@@ -351,7 +405,7 @@ void UninstallExceptionHandler() {
 
 #else  // !MACHINE_CONTEXT_SUPPORTED
 
-void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTraceOnCrash) {
 	ERROR_LOG(Log::System, "Exception handler not implemented on this platform, can't install");
 }
 void UninstallExceptionHandler() { }

@@ -544,17 +544,24 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		++blockShift;
 
 	indexShift = hdr.align;
+	// Sanity check the index shift: index entries are u32 masked to 31 bits,
+	// and are shifted up by indexShift to get byte offsets.  Values above a
+	// couple dozen would be bogus and could overflow the buffer size math.
+	if (indexShift > 20) {
+		errorString_ = StringFromFormat("CSO index alignment %i unsupported", indexShift);
+		return;
+	}
 	const u64 totalSize = hdr.total_bytes;
 	numFrames = (u32)((totalSize + frameSize - 1) / frameSize);
 	numBlocks = (u32)(totalSize / GetBlockSize());
 	VERBOSE_LOG(Log::Loader, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
 
 	// We might read a bit of alignment too, so be prepared.
-	if (frameSize + (1 << indexShift) < CSO_READ_BUFFER_SIZE)
-		readBuffer = new u8[CSO_READ_BUFFER_SIZE];
-	else
-		readBuffer = new u8[frameSize + (1 << indexShift)];
-	zlibBuffer = new u8[frameSize + (1 << indexShift)];
+	readBufferSize = frameSize + (1u << indexShift);
+	if (readBufferSize < CSO_READ_BUFFER_SIZE)
+		readBufferSize = CSO_READ_BUFFER_SIZE;
+	readBuffer = new u8[readBufferSize];
+	zlibBuffer = new u8[frameSize + (1u << indexShift)];
 	zlibBufferFrame = numFrames;
 
 	const u32 indexSize = numFrames + 1;
@@ -592,6 +599,16 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
+	// Index entries must be monotonically non-decreasing, otherwise ReadBlock()
+	// would compute a negative (underflowed) compressed read size from two
+	// adjacent entries.  Reject such files rather than reading into a fixed buffer.
+	for (u32 i = 0; i < indexSize - 1; i++) {
+		if ((index[i] & 0x7FFFFFFF) > (index[i + 1] & 0x7FFFFFFF)) {
+			errorString_ = StringFromFormat("CSO index is not monotonic at entry %d", i);
+			return;
+		}
+	}
+
 	// all ok.
 	_dbg_assert_(errorString_.empty());
 }
@@ -619,7 +636,9 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	const u64 compressedReadPos = (u64)indexPos << indexShift;
 	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
-	const size_t compressedReadSize = (size_t)(compressedReadEnd - compressedReadPos);
+	// A single frame's compressed data must fit in readBuffer.  Guard against
+	// crafted index entries with huge gaps (index[i+1] >> index[i]).
+	const size_t compressedReadSize = std::min<size_t>((size_t)(compressedReadEnd - compressedReadPos), readBufferSize);
 	const u32 compressedOffset = (blockNumber & ((1 << blockShift) - 1)) * GetBlockSize();
 
 	bool plain = (idx & 0x80000000) != 0;
@@ -712,13 +731,14 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 
 		const u64 frameReadPos = (u64)indexPos << indexShift;
 		const u64 frameReadEnd = (u64)nextIndexPos << indexShift;
-		const u32 frameReadSize = (u32)(frameReadEnd - frameReadPos);
+		// A single frame's compressed data must fit in readBuffer.
+		const u32 frameReadSize = (u32)std::min<size_t>((size_t)(frameReadEnd - frameReadPos), readBufferSize);
 		const u32 frameBlockOffset = block & ((1 << blockShift) - 1);
 		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame - frameBlockOffset);
 
 		if (frameReadEnd > readBufferEnd) {
 			const s64 maxNeeded = totalReadEnd - frameReadPos;
-			const size_t chunkSize = (size_t)std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE));
+			const size_t chunkSize = (size_t)std::min<s64>(std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE)), (s64)readBufferSize);
 
 			const u32 readSize = (u32)fileLoader_->ReadAt(frameReadPos, 1, chunkSize, readBuffer);
 			if (readSize < chunkSize) {
@@ -943,7 +963,9 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	}
 
 	if (table_[block].size < blockSize_) {
-		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
+		// The decompressed block is always blockSize_ bytes; blockBuf_ is exactly
+		// that big. Pass the real size so the decompressor can't write past it.
+		int lzsize = lzrc_decompress(blockBuf_, blockSize_, readBuf, table_[block].size);
 		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();

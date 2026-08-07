@@ -7,12 +7,12 @@
 class LibretroGLCoreContext : public LibretroHWRenderContext {
 public:
 	LibretroGLCoreContext()
-		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 1)
-	{
+		: LibretroHWRenderContext(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 1) {
 		hw_render_.bottom_left_origin = true;
 	}
+   bool NeedsSeparateEmuThread() const override { return true; }
 
-	bool Init() override;
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *error_message) override;
 	void CreateDrawContext() override;
 	void DestroyDrawContext() override;
 	void SetRenderTarget() override {
@@ -21,8 +21,11 @@ public:
 	}
 
 	void ThreadStart() override { renderManager_->ThreadStart(draw_); }
-	bool ThreadFrame(bool waitIfEmpty) override { return renderManager_->ThreadFrame(waitIfEmpty); }
+	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
+
+   // Call from emu thread
+   void NotifyEmuThreadExit() override;
 
 	GPUCore GetGPUCore() override { return GPUCORE_GLES; }
 	const char *Ident() override { return "OpenGL Core"; }

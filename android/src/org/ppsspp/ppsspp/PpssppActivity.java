@@ -8,7 +8,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.app.ApplicationExitInfo;
 import android.app.UiModeManager;
 import android.content.ClipData;
@@ -31,12 +30,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
-import android.database.Cursor;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -56,6 +53,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.DisplayCutoutCompat;
@@ -63,9 +61,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.documentfile.provider.DocumentFile;
 
-import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -219,23 +215,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
-	String getApplicationLibraryDir(ApplicationInfo application) {
-		String libdir = null;
-		try {
-			// Starting from Android 2.3, nativeLibraryDir is available:
-			Field field = ApplicationInfo.class.getField("nativeLibraryDir");
-			libdir = (String) field.get(application);
-		} catch (SecurityException | NoSuchFieldException | IllegalArgumentException |
-				 IllegalAccessException e1) {
-			Log.e(TAG, e1.toString());
-		}
-		if (libdir == null) {
-			// Fallback for Android < 2.3:
-			libdir = application.dataDir + "/lib";
-		}
-		return libdir;
-	}
-
 	boolean askForPermissions(String[] permissions, int requestCode) {
 		boolean shouldAsk = false;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -323,81 +302,38 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// Unofficial hacks to get a list of SD cards that are not the main "external storage".
 	private static ArrayList<String> getSdCardPaths(final Context context) {
-		// Q is the last version that will support normal file access.
-		ArrayList<String> list = null;
-		if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-			Log.i(TAG, "getSdCardPaths: Trying KitKat method");
-			list = getSdCardPaths19(context);
-		}
+		ArrayList<String> result = new ArrayList<>();
+		File[] externalFilesDirs = context.getExternalFilesDirs(null);
+		String primaryRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
 
-		if (list == null) {
-			Log.i(TAG, "getSdCardPaths: Attempting fallback");
-			// Try another method.
-			File[] fileList = new File("/storage/").listFiles();
-			if (fileList != null) {
-				list = new ArrayList<>();
-				for (File file : fileList) {
-					if (!file.getAbsolutePath().equalsIgnoreCase(Environment.getExternalStorageDirectory().getAbsolutePath()) && file.isDirectory() && file.canRead()) {
-						list.add(file.getAbsolutePath());
+		if (externalFilesDirs != null) {
+			for (File dir : externalFilesDirs) {
+				// getExternalFilesDirs() can return a non-null path for a card slot with no
+				// media inserted, so make sure it's actually mounted before trusting it.
+				if (dir != null && Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(dir))) {
+					String root = getRootOfInnerSdCardFolder(dir);
+					if (root != null && !root.equalsIgnoreCase(primaryRoot)) {
+						if (!result.contains(root)) {
+							Log.i(TAG, "SD card found: " + root);
+							result.add(root);
+						}
 					}
-				}
-				if (list.isEmpty()) {
-					list = null;
 				}
 			}
 		}
 
-		if (list == null) {
+		if (result.isEmpty()) {
+			// Fallback for some very old or unusual devices.
 			String[] varNames = { "EXTERNAL_SDCARD_STORAGE", "SECONDARY_STORAGE" };
 			for (String var : varNames) {
-				Log.i(TAG, "getSdCardPaths: Checking env " + var);
 				String secStore = System.getenv(var);
 				if (secStore != null && !secStore.isEmpty()) {
-					list = new ArrayList<>();
-					list.add(secStore);
+					result.add(secStore);
 					break;
 				}
 			}
 		}
 
-		if (list == null) {
-			return new ArrayList<>();
-		} else {
-			return list;
-		}
-	}
-
-	private static ArrayList<String> getSdCardPaths19(final Context context) {
-		final File[] externalCacheDirs = context.getExternalCacheDirs();
-		if (externalCacheDirs == null || externalCacheDirs.length==0)
-			return null;
-		if (externalCacheDirs.length == 1) {
-			if (externalCacheDirs[0] == null)
-				return null;
-			final String storageState = Environment.getStorageState(externalCacheDirs[0]);
-			if (!Environment.MEDIA_MOUNTED.equals(storageState))
-				return null;
-			if (Environment.isExternalStorageEmulated())
-				return null;
-		}
-		final ArrayList<String> result = new ArrayList<>();
-		if (externalCacheDirs.length == 1)
-			result.add(getRootOfInnerSdCardFolder(externalCacheDirs[0]));
-		for (int i = 1; i < externalCacheDirs.length; ++i)
-		{
-			final File file = externalCacheDirs[i];
-			if (file == null)
-				continue;
-			final String storageState = Environment.getStorageState(file);
-			if (Environment.MEDIA_MOUNTED.equals(storageState)) {
-				String root = getRootOfInnerSdCardFolder(externalCacheDirs[i]);
-				if (root != null) {
-					result.add(root);
-				}
-			}
-		}
-		if (result.isEmpty())
-			return null;
 		return result;
 	}
 
@@ -405,21 +341,22 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static String getRootOfInnerSdCardFolder(File file) {
 		if (file == null)
 			return null;
-		final long totalSpace = file.getTotalSpace();
+		File current = file;
+		final long totalSpace = current.getTotalSpace();
 		if (totalSpace <= 0) {
 			return null;
 		}
 		while (true) {
-			final File parentFile = file.getParentFile();
+			final File parentFile = current.getParentFile();
 			if (parentFile == null || !parentFile.canRead()) {
 				break;
 			}
 			if (parentFile.getTotalSpace() != totalSpace) {
 				break;
 			}
-			file = parentFile;
+			current = parentFile;
 		}
-		return file.getAbsolutePath();
+		return current.getAbsolutePath();
 	}
 
 	private boolean detectOpenGLES20() {
@@ -454,17 +391,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		boolean landscape = NativeApp.isLandscape();
 		Log.d(TAG, "Landscape: " + landscape);
 
-		// Get system information
-		PackageManager packMgmr = getPackageManager();
-		String packageName = getPackageName();
-
-		ApplicationInfo appInfo;
-		try {
-			appInfo = packMgmr.getApplicationInfo(packageName, 0);
-		} catch (PackageManager.NameNotFoundException e) {
-			e.printStackTrace();
-			throw new RuntimeException("Unable to locate assets, aborting...");
-		}
+		ApplicationInfo appInfo = getApplicationInfo();
 
 		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;
 		if (isVRDevice()) {
@@ -487,7 +414,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		String extStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
 		File externalFiles = this.getExternalFilesDir(null);
 		String externalFilesDir = externalFiles == null ? "" : externalFiles.getAbsolutePath();
-		String nativeLibDir = getApplicationLibraryDir(appInfo);
+		String nativeLibDir = appInfo.nativeLibraryDir;
 
 		Log.i(TAG, "Ext storage: " + extStorageState + " " + extStorageDir);
 		Log.i(TAG, "Ext files dir: " + externalFilesDir);
@@ -573,13 +500,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	@NonNull
-	private static String getInstallerName(PackageManager packageManager) {
+	private String getInstallerName(PackageManager packageManager) {
 		String installerName;
+		String packageName = getPackageName();
 		try {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-				installerName = packageManager.getInstallSourceInfo("package name").getInstallingPackageName();
+				installerName = packageManager.getInstallSourceInfo(packageName).getInstallingPackageName();
 			else {
-				installerName = packageManager.getInstallerPackageName("package name");
+				installerName = packageManager.getInstallerPackageName(packageName);
 			}
 			if (installerName == null || installerName.isEmpty()) {
 				installerName = "unknown";
@@ -718,24 +646,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onCreate(savedInstanceState);
 
 		if (m_hasNoNativeBinary) {
-			new Thread() {
-				@Override
-				public void run() {
-					Looper.prepare();
-					AlertDialog.Builder builder = new AlertDialog.Builder(PpssppActivity.this);
-					builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?").setTitle("Error starting PPSSPP").create().show();
-					Looper.loop();
-				}
-			}.start();
-
-			try {
-				Thread.sleep(3000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-
-			// We don't call super.onCreate, we just bail in an ugly way.
-			System.exit(-1);
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?")
+				.setTitle("Error starting PPSSPP")
+				.setPositiveButton("OK", (dialog, which) -> finish())
+				.setOnCancelListener(dialog -> finish())
+				.show();
 			return;
 		}
 
@@ -996,6 +912,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 		} else if (mSurface != null) {
 			// JavaGL path.
+			// TODO: This might not be the best place to do this. Seems to cause a surface recreation
+			// unnecessarily.
 			Log.i(TAG, "notifySurface: Applying framerate.");
 			applyFrameRate(mSurface, 60.0f);
 		}
@@ -1111,15 +1029,19 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			joinRenderLoopThread();
 			Log.i(TAG, "Joined render thread");
 		} else if (mGLSurfaceView != null) {
+			Log.i(TAG, "mGLSurfaceView.onPause...");
 			mGLSurfaceView.onPause();
 		}
 
+		Log.i(TAG, "mSensorManager.unregisterListener...");
 		mSensorManager.unregisterListener(this);
 
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		sizeManager.onPause();
+		Log.i(TAG, "Calling NativeApp.pause...");
 		NativeApp.pause();
 		if (mCameraHelper != null) {
+			Log.i(TAG, "Calling mCameraHelper.pause");
 			mCameraHelper.pause();
 		}
 		Log.i(TAG, "onPause end");
@@ -1203,9 +1125,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		if (NativeApp.queryConfig("audioMixWithOthers").equals("0")) {
 			// Shouldn't mix with others - take over.
+			Log.i(TAG, "Taking audio focus");
 			audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
 		} else {
 			// Mix with others - abandon focus so we don't kick others out.
+			Log.i(TAG, "Abandoning audio focus");
 			audioManager.abandonAudioFocus(focusChangeListener);
 		}
 	}
@@ -1214,6 +1138,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// instantiate NativeAudioPlayer
 	public static void loseAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
 		if (audioManager != null) {
+			Log.i(TAG, "Abandoning audio focus");
 			audioManager.abandonAudioFocus(focusChangeListener);
 		}
 	}
@@ -1476,21 +1401,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Log.i(TAG, "onActivityResult: packedRequest=" + packedRequest + " resultCode=" + resultCode);
 	}
 
-	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
-		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-	}
-
-	@RequiresApi(Build.VERSION_CODES.M)
-	private AlertDialog.Builder createDialogBuilderNew() {
-		return new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
-	}
-
 	private AlertDialog.Builder createDialogBuilder() {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			return createDialogBuilderNew();
-		} else {
-			return createDialogBuilderWithDeviceThemeAndUiVisibility();
-		}
+		return new AlertDialog.Builder(this);
 	}
 
 	// The return value is sent to C++ via requestID.
@@ -1981,11 +1893,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Keep
 	@SuppressWarnings("unused")
 	public void postCommand(String command, String parameter) {
-		final String cmd = command;
-		final String param = parameter;
 		runOnUiThread(() -> {
-			if (!processCommand(cmd, param)) {
-				Log.e(TAG, "processCommand failed: cmd: '" + cmd + "' param: '" + param + "'");
+			if (!processCommand(command, parameter)) {
+				Log.e(TAG, "processCommand failed: cmd: '" + command + "' param: '" + parameter + "'");
 			}
 		});
 	}

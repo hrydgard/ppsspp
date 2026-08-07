@@ -200,6 +200,7 @@ enum class GLRRunType {
 	SUBMIT,
 	PRESENT,
 	SYNC,
+	EXIT,
 };
 
 class GLRenderManager;
@@ -237,7 +238,9 @@ public:
 
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
-	bool ThreadFrame(bool waitIfEmpty);  // Returns true if it did anything. False means the queue was empty.
+	bool ThreadFrame();  // False means it's time to exit.
+
+	void NotifyEmuThreadExit();
 
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
@@ -823,8 +826,6 @@ public:
 		}
 	}
 
-	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
-
 	// Only supports a common subset.
 	std::string GetGLString(int name) const {
 		return queueRunner_.GetGLString(name);
@@ -862,8 +863,6 @@ private:
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
-	// TODO: Rename this, as we don't actually use a compile thread on OpenGL.
-	bool runCompileThread_ = true;
 
 	// Thread is managed elsewhere, and should call ThreadFrame.
 	GLQueueRunner queueRunner_;
@@ -897,6 +896,9 @@ private:
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;
+
+	bool exitNotified_ = false;
+	bool hitExit_ = false;
 
 #ifdef _DEBUG
 	GLRProgram *curProgram_ = nullptr;

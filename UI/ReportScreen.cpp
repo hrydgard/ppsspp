@@ -23,6 +23,7 @@
 #include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"

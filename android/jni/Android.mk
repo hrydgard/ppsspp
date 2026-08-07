@@ -90,6 +90,8 @@ LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
+# On x86_64, we test all emitters in the unit test so we need them included here.
+
 ifeq ($(TARGET_ARCH_ABI),x86)
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
@@ -101,6 +103,11 @@ ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/x64Analyzer.cpp \
+  $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/Arm64Emitter.cpp \
+  $(SRC)/Common/RiscVEmitter.cpp \
+  $(SRC)/Common/LoongArch64Emitter.cpp \
+  $(SRC)/ext/disarm.cpp \
   $(SRC)/Common/Thunk.cpp
 else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
@@ -127,7 +134,8 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/GLProfiler.cpp \
-  $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
+  $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp \
+  $(SRC)/Common/GPU/OpenGL/OpenGLGraphicsContext.cpp
 
 VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
@@ -142,7 +150,8 @@ VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/VulkanMemory.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanDescSet.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanProfiler.cpp \
-  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp
+  $(SRC)/Common/GPU/Vulkan/VulkanBarrier.cpp \
+  $(SRC)/Common/GPU/Vulkan/VulkanGraphicsContext.cpp
 
 VMA_FILES := \
   $(SRC)/ext/vma/vk_mem_alloc.cpp
@@ -377,6 +386,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/AsyncImageFileView.cpp \
   $(SRC)/Common/UI/Root.cpp \
   $(SRC)/Common/UI/Screen.cpp \
+  $(SRC)/Common/UI/ScreenManager.cpp \
   $(SRC)/Common/UI/UI.cpp \
   $(SRC)/Common/UI/Context.cpp \
   $(SRC)/Common/UI/UIScreen.cpp \
@@ -608,10 +618,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ControlMapper.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Compatibility.cpp \
+  $(SRC)/Core/CmdLine.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/ConfigSettings.cpp \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CwCheat.cpp \
+  $(SRC)/Core/EmuThread.cpp \
   $(SRC)/Core/FrameTiming.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Instance.cpp \
@@ -913,8 +925,6 @@ LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
-  $(SRC)/android/jni/AndroidJavaGLContext.cpp \
-  $(SRC)/android/jni/AndroidVulkanContext.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/OpenSLContext.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \
@@ -990,7 +1000,6 @@ ifeq ($(HEADLESS),1)
   LOCAL_MODULE := ppsspp_headless
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
-    $(SRC)/headless/HeadlessHost.cpp \
     $(SRC)/headless/Compare.cpp
 
   include $(BUILD_EXECUTABLE)
@@ -1009,38 +1018,27 @@ ifeq ($(UNITTEST),1)
   LOCAL_CFLAGS += -fPIE
   LOCAL_LDFLAGS += -fPIE -pie
 
-  ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
-    TESTARMEMITTER_FILE = $(SRC)/unittest/TestArm64Emitter.cpp
-  else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
-    TESTARMEMITTER_FILE = $(SRC)/unittest/TestArmEmitter.cpp
-  else
-    TESTARMEMITTER_FILE = \
-      $(SRC)/Common/ArmEmitter.cpp \
-      $(SRC)/Common/Arm64Emitter.cpp \
-      $(SRC)/Common/RiscVEmitter.cpp \
-      $(SRC)/Common/LoongArch64Emitter.cpp \
-      $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-      $(SRC)/Core/Util/DisArm64.cpp \
-      $(SRC)/ext/disarm.cpp \
-      $(SRC)/ext/riscv-disas.cpp \
-      $(SRC)/ext/loongarch-disasm.cpp \
-      $(SRC)/unittest/TestArmEmitter.cpp \
-      $(SRC)/unittest/TestArm64Emitter.cpp \
-      $(SRC)/unittest/TestRiscVEmitter.cpp \
-      $(SRC)/unittest/TestLoongArch64Emitter.cpp \
-      $(SRC)/unittest/TestX64Emitter.cpp
-  endif
-
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
     $(SRC)/unittest/JitHarness.cpp \
+    $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+    $(SRC)/Core/Util/DisArm64.cpp \
+    $(SRC)/ext/riscv-disas.cpp \
+    $(SRC)/ext/loongarch-disasm.cpp \
+    $(SRC)/unittest/TestArmEmitter.cpp \
+    $(SRC)/unittest/TestArm64Emitter.cpp \
+	$(SRC)/unittest/TestX64Emitter.cpp \
+    $(SRC)/unittest/TestRiscVEmitter.cpp \
+    $(SRC)/unittest/TestLoongArch64Emitter.cpp \
     $(SRC)/unittest/TestIRPassSimplify.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
+    $(SRC)/unittest/TestTextureReplacer.cpp \
     $(SRC)/unittest/TestVFS.cpp \
-    $(TESTARMEMITTER_FILE) \
+    $(SRC)/unittest/TestLzrc.cpp \
+    $(SRC)/unittest/TestZipSlip.cpp \
     $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)

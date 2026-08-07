@@ -18,6 +18,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Common/Net/HTTPClient.h"

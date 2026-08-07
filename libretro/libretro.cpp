@@ -1171,7 +1171,11 @@ void retro_init(void)
    {
       log_cb = log.log;
       g_logManager.Init(&g_Config.bEnableLogging);
-      g_logManager.SetOutputsEnabled(LogOutput::ExternalCallback);
+      // Also enable LogOutput::DebugString unconditionally (not just via Init()'s IsDebuggerPresent()
+      // auto-detection, which only fires if a debugger was already attached before Init() ran) so the
+      // log always shows up in the debugger's Output window when debugging the core in-process with
+      // RetroArch, regardless of where RetroArch itself routes the ExternalCallback log messages.
+      g_logManager.EnableOutput(LogOutput::ExternalCallback | LogOutput::DebugString);
       g_logManager.SetExternalLogCallback(&RetroLogCallback, (void *)log_cb);
    }
 
@@ -1326,14 +1330,12 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
 
-namespace Libretro
-{
+namespace Libretro {
    bool useEmuThread = false;
    std::atomic<EmuThreadState> emuThreadState(EmuThreadState::DISABLED);
 
    static std::thread emuThread;
-   static void EmuFrame()
-   {
+   static void EmuFrame() {
       ctx->SetRenderTarget();
       Draw::DrawContext *draw = ctx->GetDrawContext();
       if (draw) {
@@ -1380,43 +1382,38 @@ namespace Libretro
       }
    }
 
-   static void EmuThreadFunc()
-   {
+   static void EmuThreadFunc() {
       SetCurrentThreadName("EmuThread");
 
-      for (;;)
-      {
+      for (;;) {
          switch ((EmuThreadState)emuThreadState)
          {
-            case EmuThreadState::START_REQUESTED:
-               emuThreadState = EmuThreadState::RUNNING;
-               [[fallthrough]];
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
-            case EmuThreadState::PAUSE_REQUESTED:
-               emuThreadState = EmuThreadState::PAUSED;
-               [[fallthrough]];
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;
-            default:
             case EmuThreadState::QUIT_REQUESTED:
+               ctx->NotifyEmuThreadExit();
                emuThreadState = EmuThreadState::STOPPED;
+               return;
+            default:
+               _dbg_assert_(false);
                return;
          }
       }
+      // Unreachable
    }
 
-   void EmuThreadStart()
-   {
+   void EmuThreadStart() {
       EmuThreadState state = emuThreadState;
       bool wasPaused = state == EmuThreadState::PAUSED;
 
-      if (state == EmuThreadState::RUNNING || state == EmuThreadState::START_REQUESTED || (emuThread.joinable() && !wasPaused))
+      if (state == EmuThreadState::RUNNING || (emuThread.joinable() && !wasPaused))
          return;
 
-      emuThreadState = EmuThreadState::START_REQUESTED;
+      emuThreadState = EmuThreadState::RUNNING;
 
       if (!wasPaused)
       {
@@ -1425,32 +1422,28 @@ namespace Libretro
       }
    }
 
-   void EmuThreadStop()
-   {
+   void EmuThreadStop() {
       if (emuThreadState != EmuThreadState::RUNNING)
          return;
 
       emuThreadState = EmuThreadState::QUIT_REQUESTED;
 
-      // Need to keep eating frames to allow the EmuThread to exit correctly.
-      ctx->ThreadFrameUntilCondition([]() -> bool {
-         return emuThreadState == EmuThreadState::STOPPED;
-      });
+      // Eat remaining frames.
+      while (ctx->ThreadFrame()) {}
 
       emuThread.join();
       emuThread = std::thread();
       ctx->ThreadEnd();
    }
 
-   void EmuThreadPause()
-   {
+   void EmuThreadPause() {
       if (emuThreadState != EmuThreadState::RUNNING)
          return;
 
-      emuThreadState = EmuThreadState::PAUSE_REQUESTED;
+      emuThreadState = EmuThreadState::PAUSED;
 
       // Is this safe?
-      ctx->ThreadFrame(true); // Eat 1 frame
+      ctx->ThreadFrame(); // Eat 1 frame
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1, "libretro-pause-poll");
@@ -1458,13 +1451,11 @@ namespace Libretro
 
 } // namespace Libretro
 
-static void retro_check_backend(void)
-{
+static void retro_check_backend(void) {
    struct retro_variable var = {0};
 
    var.key = "ppsspp_backend";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
       if (!strcmp(var.value, "auto"))
          backend = RETRO_HW_CONTEXT_DUMMY;
       else if (!strcmp(var.value, "opengl"))
@@ -1478,11 +1469,9 @@ static void retro_check_backend(void)
    }
 }
 
-bool retro_load_game(const struct retro_game_info *game)
-{
+bool retro_load_game(const struct retro_game_info *game) {
    retro_pixel_format fmt = retro_pixel_format::RETRO_PIXEL_FORMAT_XRGB8888;
-   if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
-   {
+   if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt)) {
       ERROR_LOG(Log::System, "XRGB8888 is not supported.\n");
       return false;
    }
@@ -1554,10 +1543,10 @@ bool retro_load_game(const struct retro_game_info *game)
    return true;
 }
 
-void retro_unload_game(void)
-{
-	if (Libretro::useEmuThread)
-		Libretro::EmuThreadStop();
+void retro_unload_game(void) {
+   if (Libretro::useEmuThread) {
+      Libretro::EmuThreadStop();
+   }
 
 	PSP_Shutdown(true);
 	g_VFS.Clear();
@@ -1567,19 +1556,16 @@ void retro_unload_game(void)
 	PSP_CoreParameter().graphicsContext = nullptr;
 }
 
-void retro_reset(void)
-{
+void retro_reset(void) {
    PSP_Shutdown(true);
 
-   if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &g_bootErrorString))
-   {
+   if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &g_bootErrorString)) {
       ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
       environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
    }
 }
 
-static void retro_input(void)
-{
+static void retro_input(void) {
    unsigned i;
    int16_t ret = 0;
    // clang-format off
@@ -1605,26 +1591,20 @@ static void retro_input(void)
 
    input_poll_cb();
 
-   if (libretro_supports_bitmasks)
+   if (libretro_supports_bitmasks) {
       ret = input_state_cb(0, RETRO_DEVICE_JOYPAD,
-            0, RETRO_DEVICE_ID_JOYPAD_MASK);
-   else
-   {
+         0, RETRO_DEVICE_ID_JOYPAD_MASK);
+   } else {
       for (i = RETRO_DEVICE_ID_JOYPAD_B; i <= RETRO_DEVICE_ID_JOYPAD_R; i++)
          if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, i))
             ret |= (1 << i);
    }
 
-   for (i = 0; i < sizeof(map) / sizeof(*map); i++)
-   {
+   for (i = 0; i < sizeof(map) / sizeof(*map); i++) {
       bool pressed = ret & (1 << map[i].retro);
-
-      if (pressed)
-      {
+      if (pressed) {
          __CtrlUpdateButtons(map[i].sceCtrl, 0);
-      }
-      else
-      {
+      } else {
          __CtrlUpdateButtons(0, map[i].sceCtrl);
       }
    }
@@ -1676,8 +1656,8 @@ static void retro_input(void)
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
 
-void retro_run(void)
-{
+// Called every frame by retroarch.
+void retro_run(void) {
    if (g_pendingBoot) {
       BootState state = PSP_InitUpdate(&g_bootErrorString);
       switch (state) {
@@ -1715,38 +1695,37 @@ void retro_run(void)
    }
 
    // TODO: This seems dubious.
-   if (softwareRenderInitHack)
-   {
+   if (softwareRenderInitHack) {
       log_cb(RETRO_LOG_DEBUG, "Software rendering init hack for opengl triggered.\n");
       softwareRenderInitHack = false;
       g_Config.bSoftwareRendering = true;
       retro_reset();
    }
 
+   // Update setting if any have changed.
    bool updated;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated)
-      && updated)
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated)
       check_variables(PSP_CoreParameter());
    else
       check_dynamic_variables(PSP_CoreParameter());
 
+   // Process input.
    retro_input();
 
-   if (useEmuThread)
-   {
-      if (  emuThreadState == EmuThreadState::PAUSED ||
-            emuThreadState == EmuThreadState::PAUSE_REQUESTED)
-      {
+   // Handle thread pumping.
+   if (useEmuThread) {
+      if (emuThreadState == EmuThreadState::PAUSED) {
          VsyncSwapIntervalDetect();
          ctx->SwapBuffers();
          return;
       }
 
-      if (emuThreadState != EmuThreadState::RUNNING)
+      if (emuThreadState != EmuThreadState::RUNNING) {
          EmuThreadStart();
+      }
 
-      if (!ctx->ThreadFrame(true))
-      {
+      if (!ctx->ThreadFrame()) {
+         // We're done processing the last frame from the emu thread.
          VsyncSwapIntervalDetect();
          return;
       }
@@ -1785,22 +1764,21 @@ size_t retro_serialize_size(void)
    // We don't unpause intentionally
 }
 
-bool retro_serialize(void *data, size_t size)
-{
+bool retro_serialize(void *data, size_t size) {
    if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
 
    // TODO: Libretro API extension to use the savestate queue
-   if (useEmuThread)
+   if (useEmuThread) {
       EmuThreadPause(); // Does nothing if already paused
+   }
 
    size_t measuredSize;
    SaveState::SaveStart state;
    auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
    bool retVal = err == CChunkFileReader::ERROR_NONE;
 
-   if (useEmuThread)
-   {
+   if (useEmuThread) {
       EmuThreadStart();
       sleep_ms(4, "libretro-serialize");
    }
@@ -1808,8 +1786,7 @@ bool retro_serialize(void *data, size_t size)
    return retVal;
 }
 
-bool retro_unserialize(const void *data, size_t size)
-{
+bool retro_unserialize(const void *data, size_t size) {
    // The HW renderer isn't ready on first pass.
    // So we save the data until we are ready to use it.
    if (!gpu) {
@@ -1824,11 +1801,10 @@ bool retro_unserialize(const void *data, size_t size)
 
    std::string errorString;
    SaveState::SaveStart state;
-   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
+   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, size, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
-   if (useEmuThread)
-   {
+   if (useEmuThread) {
       EmuThreadStart();
       sleep_ms(4, "libretro-unserialize");
    }
@@ -1963,10 +1939,11 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
    return -1;
 }
 
-float System_GetPropertyFloat(SystemProperty prop)
-{
-   switch (prop)
-   {
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+   switch (prop) {
       case SYSPROP_DISPLAY_REFRESH_RATE:
          return 60.0f / 1.001f;
       case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
@@ -1981,10 +1958,8 @@ float System_GetPropertyFloat(SystemProperty prop)
    return -1;
 }
 
-bool System_GetPropertyBool(SystemProperty prop)
-{
-   switch (prop)
-   {
+bool System_GetPropertyBool(SystemProperty prop) {
+   switch (prop) {
    case SYSPROP_CAN_JIT:
 #if PPSSPP_PLATFORM(IOS)
       bool can_jit;
@@ -2047,16 +2022,12 @@ void System_AudioPushSamples(const int32_t *audio, int numSamples, float volume)
 
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
-
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
 bool System_AudioRecordingIsAvailable() { return false; }
 bool System_AudioRecordingState() { return false; }
-#elif PPSSPP_PLATFORM(MAC)
-std::vector<std::string> __mac_getDeviceList() { return std::vector<std::string>(); }
-int __mac_startCapture(int width, int height) { return 0; }
-int __mac_stopCapture() { return 0; }
 #endif
+// Stub for now.
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
 bool NativeSaveSecret(std::string_view nameOfSecret, std::string_view data) { return false; }

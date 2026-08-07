@@ -122,28 +122,25 @@ struct Mbx : public KernelObject
 		Memory::Write_U32(ptr, beforePtr);
 	}
 
-	int ReceiveMessage(u32 receivePtr)
-	{
+	int ReceiveMessage(u32 receivePtr) {
 		u32 ptr = nmb.packetListHead;
+		if (!Memory::IsValidAddress(nmb.packetListHead)) {
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		}
 
 		// Check over the linked list and reset the head.
 		int c = 0;
-		while (true)
-		{
+		while (true) {
 			u32 next = Memory::Read_U32(nmb.packetListHead);
 			if (!Memory::IsValidAddress(next))
 				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-			if (next == ptr)
-			{
-				if (nmb.packetListHead != ptr)
-				{
+			if (next == ptr) {
+				if (nmb.packetListHead != ptr) {
 					next = Memory::Read_U32(next);
 					Memory::Write_U32(next, nmb.packetListHead);
 					nmb.packetListHead = next;
 					break;
-				}
-				else
-				{
+				} else {
 					if (c < nmb.numMessages - 1)
 						return PSP_MBX_ERROR_DUPLICATE_MSG;
 
@@ -159,12 +156,10 @@ struct Mbx : public KernelObject
 		// Tell the receiver about the message.
 		Memory::Write_U32(ptr, receivePtr);
 		nmb.numMessages--;
-
 		return 0;
 	}
 
-	void DoState(PointerWrap &p) override
-	{
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("Mbx", 1);
 		if (!s)
 			return;
@@ -565,8 +560,70 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr) {
 	if (!info.IsValid())
 		return hleLogError(Log::sceKernel, -1, "invalid pointer");
 
-	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
-		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);
+	// The PSP's ReferMbxStatus doesn't just read packetListHead — it traverses
+	// the linked list and *updates* firstMessage to handle test programs that
+	// corrupt the kernel-managed ->next pointers in PSP memory. This behavior
+	// was confirmed from pspautotests expected output.
+	//
+	// The mailbox uses a circular linked list of NativeMbxPacket nodes:
+	//   head -> msg1 -> msg2 -> ... -> msgN -> head
+	// A single message points to itself (head -> msg -> msg).
+	// numMessages tracks the intended count separately from the chain.
+	//
+	// Three corruption patterns are handled:
+	//
+	// 1. NULL in the chain (msgK->next = 0):
+	//    The list is broken. The PSP sets firstMessage = NULL.
+	//    count stays unchanged (kernel owns it, user can't modify it).
+	//
+	// 2. Self-pointer with count mismatch (msgK->next = msgK, N > 1):
+	//    The test set a message's next to itself. The PSP detects this and
+	//    sets firstMessage = that message. Subsequent ReceiveMessage calls
+	//    then find a self-pointer where count > 1 and return PSP_MBX_ERROR_DUPLICATE_MSG.
+	//
+	// 3. Extra nodes beyond count (count=N but chain has M > N nodes):
+	//    The count-bound walk doesn't return to the original head. The PSP
+	//    keeps walking until it finds the node whose ->next == original_head
+	//    (the wrap point), then sets firstMessage = that node.
+	//    This happens when test code manually splices extra messages into the
+	//    circular chain after a normal sceKernelSendMbx (which only tracks
+	//    count of kernel-sent messages but writes ->next into PSP memory).
+	u32 head = m->nmb.packetListHead;
+	u32 packet = head;
+	for (int i = 0, n = m->nmb.numMessages; i < n; ++i) {
+		if (packet == 0 || !Memory::IsValidAddress(packet)) {
+			m->nmb.packetListHead = 0;
+			packet = 0;
+			break;
+		}
+		u32 next = Memory::ReadUnchecked_U32(packet);
+		if (next == 0) {
+			m->nmb.packetListHead = 0;
+			packet = 0;
+			break;
+		}
+		if (next == packet) {
+			if (n > 1)
+				m->nmb.packetListHead = packet;
+			break;
+		}
+		packet = next;
+	}
+	if (packet != 0 && packet != head) {
+		// At most numMessages more steps to complete the circle back to head.
+		for (int i = 0, n = m->nmb.numMessages; i < n; ++i) {
+			if (packet == 0 || !Memory::IsValidAddress(packet))
+				break;
+			u32 next = Memory::ReadUnchecked_U32(packet);
+			if (next == head) {
+				m->nmb.packetListHead = packet;
+				break;
+			}
+			if (next == 0 || next == packet)
+				break;
+			packet = next;
+		}
+	}
 
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_MBX, id, m->waitingThreads);
 

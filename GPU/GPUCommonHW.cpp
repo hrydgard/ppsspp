@@ -578,6 +578,10 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
 
+	if (draw_->GetDeviceCaps().fragmentShaderFullPrecisionFloat) {
+		features |= GPU_USE_FULL_PRECISION_IN_FRAGMENT;
+	}
+
 	if (draw_->GetDeviceCaps().depthClampSupported) {
 		features |= GPU_USE_DEPTH_CLAMP;
 	}

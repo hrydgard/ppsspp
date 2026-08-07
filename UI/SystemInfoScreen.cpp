@@ -19,6 +19,7 @@
 #include "Common/System/Request.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"  // ugh
@@ -184,6 +185,8 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		const int highp_int_max = gl_extensions.range[1][5][1];
 		const int highp_float_min = gl_extensions.range[1][2][0];
 		const int highp_float_max = gl_extensions.range[1][2][1];
+		const int highp_int_precision = gl_extensions.precision[1][5];
+		const int highp_float_precision = gl_extensions.precision[1][2];
 		if (highp_int_max != 0) {
 			char temp[128];
 			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
@@ -191,7 +194,8 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		}
 		if (highp_float_max != 0) {
 			char temp[128];
-			snprintf(temp, sizeof(temp), "%d-%d", highp_float_min, highp_float_max);
+			// if highp_float_precision is 23, full floats are available which is good.
+			snprintf(temp, sizeof(temp), "%d-%d (%d bits)", highp_float_min, highp_float_max, highp_float_precision);
 			gpuInfo->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}

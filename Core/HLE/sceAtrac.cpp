@@ -1093,6 +1093,7 @@ u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		WARN_LOG(Log::Atrac, "bad atrac ID");
+		return 0;
 	}
 	return atrac->EnqueueForSas(bufPtr, bytesToAdd);
 }

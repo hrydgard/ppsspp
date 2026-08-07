@@ -213,6 +213,31 @@ void DrawSchedulerView(ImConfig &cfg) {
 	ImGui::End();
 }
 
+static void DescribeGPRValue(u32 value, char *buffer, size_t bufferSize) {
+	if (Memory::IsValidAddress(value)) {
+		char moduleName[64];
+		const char *kernel = (value & 0x80000000) ? " (kernel)" : "";
+		const char *uncached = (value & 0x40000000) ? " (uncached)" : "";
+
+		if (DescribeKernelModuleAddress(value, moduleName, sizeof(moduleName))) {
+			snprintf(buffer, bufferSize, "[%s]%s%s", moduleName, kernel, uncached);
+			return;
+		} else if (Memory::IsVRAMAddress(value)) {
+			snprintf(buffer, bufferSize, "[VRAM]%s", uncached);  // can't be kernel
+			return;
+		} else if (Memory::IsScratchpadAddress(value)) {
+			snprintf(buffer, bufferSize, "[SCRATCH]%s%s", kernel, uncached);
+			return;
+		} else {
+			// TODO: Symbol lookup
+			snprintf(buffer, bufferSize, "[RAM]%s%s", kernel, uncached);
+			return;
+		}
+	} else {
+		snprintf(buffer, bufferSize, "(value)");
+	}
+}
+
 static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
 	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("GPRs", &config.gprOpen)) {
@@ -236,10 +261,11 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 		delete[] buffer;
 	}
 
-	if (ImGui::BeginTable("gpr", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("gpr", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Reg", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Decimal", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Dec", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Desc", ImGuiTableColumnFlags_WidthStretch);
 
 		ImGui::TableHeadersRow();
 
@@ -261,6 +287,10 @@ static void DrawGPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 			if (value >= -1000000 && value <= 1000000) {
 				ImGui::Text("%d", value);
 			}
+			ImGui::TableNextColumn();
+			char temp[72];
+			DescribeGPRValue(value, temp, sizeof(temp));
+			ImGui::TextUnformatted(temp);
 			if (diff || disabled) {
 				ImGui::PopStyleColor();
 			}

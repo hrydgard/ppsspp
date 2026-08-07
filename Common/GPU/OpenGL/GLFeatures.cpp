@@ -494,7 +494,7 @@ bool CheckGLExtensions() {
 			GL_LOW_FLOAT, GL_MEDIUM_FLOAT, GL_HIGH_FLOAT,
 			GL_LOW_INT, GL_MEDIUM_INT, GL_HIGH_INT
 		};
-		GLint shaderTypes[2] = {
+		const GLint shaderTypes[2] = {
 			GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
 		};
 		for (int st = 0; st < 2; st++) {

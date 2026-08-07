@@ -328,20 +328,15 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-	#ifdef HAVE_WIN32_CAMERA
-		if (winCamera) {
-			return winCamera->getDeviceList();
-		}
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-		return System_GetCameraDeviceList();
-#elif PPSSPP_PLATFORM(MAC)
-	return __mac_getDeviceList();
-	#elif defined(USING_QT_UI) // Qt:macOS / Qt:Linux
-		return __qt_getDeviceList();
-	#elif PPSSPP_PLATFORM(LINUX) // SDL:Linux
-		return __v4l_getDeviceList();
-	#endif
-	return std::vector<std::string>();
+#ifdef HAVE_WIN32_CAMERA
+	if (winCamera) {
+		return winCamera->getDeviceList();
+	} else {
+		return std::vector<std::string>();
+	}
+#else
+	return System_GetCameraDeviceList();
+#endif
 }
 
 int Camera::startCapture() {
@@ -359,15 +354,10 @@ int Camera::startCapture() {
 			void* resolution = static_cast<void*>(new std::vector<int>({ width, height }));
 			winCamera->sendMessage({ CAPTUREDEVICE_COMMAND::START, resolution });
 		}
-	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+	#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
 		char command[40] = {0};
 		snprintf(command, sizeof(command), "startVideo_%dx%d", width, height);
 		System_CameraCommand(command);
-#elif PPSSPP_PLATFORM(MAC)
-	__mac_startCapture(width, height);
-	#elif PPSSPP_PLATFORM(LINUX)
-		__v4l_startCapture(width, height);
-	#else
 		ERROR_LOG(Log::HLE, "%s not implemented", __FUNCTION__);
 	#endif
 	return 0;
@@ -379,12 +369,8 @@ int Camera::stopCapture() {
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
 		}
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+	#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
 		System_CameraCommand("stopVideo");
-#elif PPSSPP_PLATFORM(MAC)
-		__mac_stopCapture();
-	#elif PPSSPP_PLATFORM(LINUX)
-		__v4l_stopCapture();
 	#else
 		ERROR_LOG(Log::HLE, "%s not implemented", __FUNCTION__);
 	#endif

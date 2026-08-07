@@ -29,6 +29,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Common/TimeUtil.h"
 #include "Core/HLE/sceCtrl.h"
@@ -135,6 +136,16 @@ int PSPSaveDialog::Init(int paramAddr) {
 	}
 	Memory::Memcpy(&request, requestAddr, size);
 	Memory::Memcpy(&originalRequest, requestAddr, size);
+
+	// gameName/saveName/fileName become parts of host filesystem paths.
+	// Reject path separators and bare dot components so a crafted request
+	// can't escape the save directory (path traversal).
+	if (HasPathTraversal(StringViewFromFixedSizeField(request.gameName)) ||
+		HasPathTraversal(StringViewFromFixedSizeField(request.saveName)) ||
+		HasPathTraversal(StringViewFromFixedSizeField(request.fileName))) {
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilitySavedataInitStart: path separator in name fields");
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
 
 	param.SetIgnoreTextures(IsNotVisibleAction((SceUtilitySavedataType)(u32)request.mode));
 	param.ClearSFOCache();
@@ -1293,7 +1304,13 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	}
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPSaveDialog", 1, 2);
+	// Version 3 activates the s > 2 branch below, so ioThreadStatus survives
+	// a savestate. Safe to restore: the IO thread was joined above, so the
+	// value is only ever SAVEIO_NONE or SAVEIO_DONE, and the operation's
+	// effects are already part of the serialized state. Without this, loading
+	// a state taken while a savedata operation was in flight would restart
+	// the operation instead of resuming from its recorded status.
+	auto s = p.Section("PSPSaveDialog", 1, 3);
 	if (!s) {
 		return;
 	}

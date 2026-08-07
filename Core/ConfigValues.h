@@ -180,6 +180,13 @@ enum IOTimingMethods {
 	IOTIMING_UMDSLOWREALISTIC = 3,
 };
 
+enum class ExceptionAction {
+	Default = 0,  // Obey the value of "Ignore bad memory accesses" (that corresponds to Ignore vs Crash)
+	Ignore = 1,
+	Log = 2,  // Ignore, but log details
+	Break = 3, // Break execution in the PPSSPP debuggers
+};
+
 enum class AutoLoadSaveState {
 	OFF = 0,
 	OLDEST = 1,

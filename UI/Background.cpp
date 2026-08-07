@@ -151,6 +151,7 @@ private:
 
 	void Regenerate(int xres, int yres) {
 		int count = xres * yres / (120.0f * 120.0f);
+		count = std::clamp(count, 10, 1000);
 		base.resize(count);
 
 		GMRng rng;

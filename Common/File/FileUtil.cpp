@@ -20,6 +20,12 @@
 #ifndef UNICODE
 #error Win32 build requires a unicode build
 #endif
+#elif defined(__APPLE__)
+// _POSIX_SOURCE alone restricts Darwin's libc headers to POSIX.1-1990 declarations,
+// which predates fseeko/ftello/ftruncate (POSIX.1-2001+) and hides them entirely -
+// unlike glibc, Darwin doesn't fall back to a broader feature set here.
+#define _DARWIN_C_SOURCE
+#define _LARGE_TIME_API
 #else
 #define _POSIX_SOURCE
 #define _LARGE_TIME_API
@@ -624,7 +630,7 @@ bool Delete(const Path &filename, bool quiet) {
 }
 
 // Returns true if successful, or path already exists.
-bool CreateDir(const Path &path) {
+bool CreateDir(const Path &path, bool quiet) {
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
 		INFO_LOG(Log::IO, "CreateDir %s", path.c_str());
@@ -645,11 +651,15 @@ bool CreateDir(const Path &path) {
 		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
-			INFO_LOG(Log::IO, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
+			if (!quiet) {
+				INFO_LOG(Log::IO, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
+			}
 			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
 		} else {
 			// Bad path - can't create this directory.
-			WARN_LOG(Log::IO, "CreateDir failed: '%s'", path.c_str());
+			if (!quiet) {
+				WARN_LOG(Log::IO, "CreateDir failed: '%s'", path.c_str());
+			}
 			return false;
 		}
 		break;
@@ -658,7 +668,10 @@ bool CreateDir(const Path &path) {
 		return false;
 	}
 
-	DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
+	if (!quiet) {
+		DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
+	}
+
 #ifdef HAVE_LIBRETRO_VFS
 	switch (LibretroMkdir(path.ToString().c_str())) {
 		case -2:
@@ -680,10 +693,14 @@ bool CreateDir(const Path &path) {
 
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS) {
-		DEBUG_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
+		if (!quiet) {
+			DEBUG_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
+		}
 		return true;
 	}
-	ERROR_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
+	if (!quiet) {
+		ERROR_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
+	}
 	return false;
 #else
 	if (mkdir(path.ToString().c_str(), 0755) == 0) {
@@ -692,11 +709,15 @@ bool CreateDir(const Path &path) {
 
 	int err = errno;
 	if (err == EEXIST) {
-		DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		if (!quiet) {
+			DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		}
 		return true;
 	}
 
-	ERROR_LOG(Log::IO, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
+	if (!quiet) {
+		ERROR_LOG(Log::IO, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
+	}
 	return false;
 #endif
 }
@@ -704,7 +725,7 @@ bool CreateDir(const Path &path) {
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
 	if (File::Exists(path)) {
-		DEBUG_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
+		VERBOSE_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
 		return true;
 	}
 

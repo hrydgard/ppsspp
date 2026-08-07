@@ -32,6 +32,7 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
+#include "Core/Util/PathUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
 #include "Common/Thread/ThreadManager.h"
@@ -62,10 +63,13 @@ TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {
 	}
 
 	// We don't want to keep the draw object around, so extract the info we need.
-	if (draw->GetDataFormatSupport(Draw::DataFormat::BC3_UNORM_BLOCK)) formatSupport_.bc123 = true;
-	if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) formatSupport_.astc = true;
-	if (draw->GetDataFormatSupport(Draw::DataFormat::BC7_UNORM_BLOCK)) formatSupport_.bc7 = true;
-	if (draw->GetDataFormatSupport(Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK)) formatSupport_.etc2 = true;
+	// In tests, draw may be null; formats then just default to unsupported.
+	if (draw) {
+		if (draw->GetDataFormatSupport(Draw::DataFormat::BC3_UNORM_BLOCK)) formatSupport_.bc123 = true;
+		if (draw->GetDataFormatSupport(Draw::DataFormat::ASTC_4x4_UNORM_BLOCK)) formatSupport_.astc = true;
+		if (draw->GetDataFormatSupport(Draw::DataFormat::BC7_UNORM_BLOCK)) formatSupport_.bc7 = true;
+		if (draw->GetDataFormatSupport(Draw::DataFormat::ETC2_R8G8B8_UNORM_BLOCK)) formatSupport_.etc2 = true;
+	}
 }
 
 TextureReplacer::~TextureReplacer() {
@@ -73,6 +77,15 @@ TextureReplacer::~TextureReplacer() {
 		delete iter.second;
 	}
 	delete vfs_;
+}
+
+bool TextureReplacer::LoadPackForTesting(const Path &basePath, std::string *error) {
+	basePath_ = basePath;
+	gameID_ = "";
+	replaceEnabled_ = true;
+	saveEnabled_ = false;
+	replaceEnabled_ = LoadIni(error, false);
+	return replaceEnabled_;
 }
 
 void TextureReplacer::NotifyConfigChanged() {
@@ -358,6 +371,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 			truncate_cpy(k, line.Key());
 			std::string_view v = line.Value();
 			if (sscanf(k, "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+				// Reject path traversal: a "../" component could make us read
+				// or write files outside the texture pack directory.
+				if (HasParentDirComponent(v)) {
+					ERROR_LOG(Log::TexReplacement, "Ignoring texture filename with parent dir component: %s", std::string(v).c_str());
+					continue;
+				}
 				// We allow empty filenames, to mark textures that we don't want to keep saving.
 				filenameMap[key][level] = v;
 				if (checkFilenames) {
@@ -603,7 +622,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 
 ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacementKey, int w, int h) {
 	// Only actually replace if we're replacing.  We might just be saving.
-	if (!Enabled() || !g_Config.bReplaceTextures) {
+	if (!replaceEnabled_) {
 		return nullptr;
 	}
 
@@ -929,6 +948,15 @@ static typename std::unordered_map<ReplacementCacheKey, Value>::const_iterator L
 			return alias;
 	}
 
+	if (!ignoreAddress) {
+		// Address Only.
+		key.cachekey = cachekey & ~0xFFFFFFFFULL;
+		key.hash = 0;
+		alias = map.find(key);
+		if (alias != map.end())
+			return alias;
+	}
+
 	// Anything with this data hash (a little dangerous.)
 	key.cachekey = 0;
 	key.hash = hash;
@@ -936,7 +964,7 @@ static typename std::unordered_map<ReplacementCacheKey, Value>::const_iterator L
 }
 
 bool TextureReplacer::FindFiltering(ReplacementCacheKey replacementKey, TextureFiltering *forceFiltering) {
-	if (!Enabled() || !g_Config.bReplaceTextures) {
+	if (!replaceEnabled_) {
 		return false;
 	}
 

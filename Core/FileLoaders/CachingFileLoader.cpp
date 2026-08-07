@@ -229,7 +229,7 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 			// 0 means it was never used yet or was the first read (e.g. block descriptor.)
 			if (it->second.generation == oldestGeneration_ || it->second.generation == 0) {
 				s64 pos = it->first;
-				delete it->second.ptr;
+				delete [] it->second.ptr;
 				blocks_.erase(it);
 				--cacheSize_;
 

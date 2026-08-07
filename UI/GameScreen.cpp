@@ -34,6 +34,7 @@
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -113,7 +114,9 @@ public:
 
 		Draw::DrawContext *draw = dc.GetDrawContext();
 
-		std::vector<u8> frame(width_ * height_ * 4);
+		// Dimensions are capped by pmf_init, but use size_t arithmetic anyway
+		// so a regression can't overflow the allocation.
+		std::vector<u8> frame((size_t)width_ * (size_t)height_ * 4);
 		if (pmf_update(player_, startTime_.ElapsedSeconds(), frame.data())) {
 			if (curFrame_) {
 				curFrame_->Release();

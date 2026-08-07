@@ -1,3 +1,4 @@
+
 #include <cstdlib>
 #include <unistd.h>
 #include <pwd.h>
@@ -28,6 +29,8 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Audio/AudioBackend.h"
+#include "Core/CmdLine.h"
+#include "Core/EmuThread.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Net/Resolve.h"
@@ -47,7 +50,10 @@ SDLJoystick *joystick = NULL;
 #include <X11/Xlib-xcb.h>
 #endif
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
@@ -55,17 +61,19 @@ SDLJoystick *joystick = NULL;
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/StringUtils.h"
+#include "Core/HW/Camera.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "SDLGLGraphicsContext.h"
-#include "SDLVulkanGraphicsContext.h"
+#include "SDLUtil.h"
 
 #include <SDL3/SDL_vulkan.h>
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DarwinFileSystemServices.h"
+#include "SDL/SDLCocoaMetalLayer.h"
 #endif
 
 #if PPSSPP_PLATFORM(MAC)
@@ -90,8 +98,6 @@ static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
-static bool g_rebootEmuThread = false;
-
 static SDL_AudioSpec g_retFmt;
 static int g_audioFramesPerBuffer = 0;
 
@@ -110,7 +116,374 @@ struct WindowState {
 };
 static WindowState g_windowState;
 
-int getDisplayNumber(void) {
+#if PPSSPP_PLATFORM(MAC)
+
+// These are from MacCameraHelper.mm.
+std::vector<std::string> __mac_getDeviceList();
+int __mac_startCapture(int width, int height);
+int __mac_stopCapture();
+
+#endif
+
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+
+#include "Core/HLE/sceUsbCam.h"
+
+#include "ext/jpge/jpgd.h"
+#include "ext/jpge/jpge.h"
+
+extern "C" {
+#ifdef USE_FFMPEG
+#include "libswscale/swscale.h"
+#include "libavutil/imgutils.h"
+#endif //USE_FFMPEG
+}
+
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+
+#include "Common/Thread/ThreadUtil.h"
+
+typedef struct {
+	void         *start;
+	int           length;
+} v4l_buf_t;
+
+static int        v4l_fd = -1;
+static uint32_t   v4l_format;
+static int        v4l_hw_width;
+static int        v4l_hw_height;
+static int        v4l_height_fixed_aspect;
+static int        v4l_ideal_width;
+static int        v4l_ideal_height;
+
+static pthread_t  v4l_thread;
+static int        v4l_buffer_count;
+static v4l_buf_t *v4l_buffers;
+
+std::vector<std::string> __v4l_getDeviceList();
+int __v4l_startCapture(int width, int height);
+int __v4l_stopCapture();
+
+
+#ifdef USE_FFMPEG
+void convert_frame(int inw, int inh, unsigned char *inData, AVPixelFormat inFormat,
+					int outw, int outh, unsigned char **outData, int *outLen) {
+	struct SwsContext *sws_context = sws_getContext(
+				inw, inh, inFormat,
+				outw, outh, AV_PIX_FMT_RGB24,
+				SWS_BICUBIC, NULL, NULL, NULL);
+
+	// resize
+	uint8_t *src[4] = {0};
+	uint8_t *dst[4] = {0};
+	int srcStride[4], dstStride[4];
+
+	unsigned char *rgbData = (unsigned char*)malloc(outw * outh * 4);
+
+	av_image_fill_linesizes(srcStride, inFormat,         inw);
+	av_image_fill_linesizes(dstStride, AV_PIX_FMT_RGB24, outw);
+
+	av_image_fill_pointers(src, inFormat,         inh,  inData,  srcStride);
+	av_image_fill_pointers(dst, AV_PIX_FMT_RGB24, outh, rgbData, dstStride);
+
+	sws_scale(sws_context,
+		src, srcStride, 0, inh,
+		dst, dstStride);
+
+	// compress jpeg
+	*outLen = outw * outh * 2;
+	*outData = (unsigned char*)malloc(*outLen);
+
+	jpge::params params;
+	params.m_quality = 60;
+	params.m_subsampling = jpge::H2V2;
+	params.m_two_pass_flag = false;
+	jpge::compress_image_to_jpeg_file_in_memory(
+		*outData, *outLen, outw, outh, 3, rgbData, params);
+	free(rgbData);
+}
+#endif //USE_FFMPEG
+
+
+
+#endif
+
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+
+std::vector<std::string> __v4l_getDeviceList() {
+	std::vector<std::string> deviceList;
+#ifdef USE_FFMPEG
+	for (int i = 0; i < 64; i++) {
+		char path[256];
+		snprintf(path, sizeof(path), "/dev/video%d", i);
+		if (access(path, F_OK) < 0) {
+			break;
+		}
+		int fd = -1;
+		if((fd = open(path, O_RDONLY)) < 0) {
+			ERROR_LOG(Log::HLE, "Cannot open '%s'; errno=%d(%s)", path, errno, strerror(errno));
+			continue;
+		}
+		struct v4l2_capability video_cap;
+		if(ioctl(fd, VIDIOC_QUERYCAP, &video_cap) < 0) {
+			ERROR_LOG(Log::HLE, "VIDIOC_QUERYCAP");
+			goto cont;
+		} else {
+			char device[256];
+			snprintf(device, sizeof(device), "%d:%s", i, video_cap.card);
+			deviceList.push_back(device);
+		}
+cont:
+		close(fd);
+		fd = -1;
+	}
+#endif //USE_FFMPEG
+	return deviceList;
+}
+
+void *v4l_loop(void *data) {
+#ifdef USE_FFMPEG
+	SetCurrentThreadName("v4l_loop");
+	while (v4l_fd >= 0) {
+		struct v4l2_buffer buf;
+		memset(&buf, 0, sizeof(buf));
+		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+
+		if (ioctl(v4l_fd, VIDIOC_DQBUF, &buf) == -1) {
+			ERROR_LOG(Log::HLE, "VIDIOC_DQBUF; errno=%d(%s)", errno, strerror(errno));
+			switch (errno) {
+			case EAGAIN:
+				continue;
+			default:
+				return nullptr;
+			}
+		}
+
+		unsigned char *jpegData = nullptr;
+		int jpegLen = 0;
+
+		if (v4l_format == V4L2_PIX_FMT_YUYV) {
+			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)v4l_buffers[buf.index].start, AV_PIX_FMT_YUYV422,
+				v4l_ideal_width, v4l_ideal_height, &jpegData, &jpegLen);
+		} else if (v4l_format == V4L2_PIX_FMT_JPEG
+				|| v4l_format == V4L2_PIX_FMT_MJPEG) {
+			// decompress jpeg
+			int width, height, req_comps;
+			unsigned char *rgbData = jpgd::decompress_jpeg_image_from_memory(
+				(unsigned char*)v4l_buffers[buf.index].start, buf.bytesused, &width, &height, &req_comps, 3);
+
+			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)rgbData, AV_PIX_FMT_RGB24,
+				v4l_ideal_width, v4l_ideal_height, &jpegData, &jpegLen);
+			free(rgbData);
+		}
+
+		if (jpegData) {
+			Camera::pushCameraImage(jpegLen, jpegData);
+			free(jpegData);
+			jpegData = nullptr;
+		}
+
+		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		if (ioctl(v4l_fd, VIDIOC_QBUF, &buf) == -1) {
+			ERROR_LOG(Log::HLE, "VIDIOC_QBUF");
+			return nullptr;
+		}
+	}
+#endif //USE_FFMPEG
+	return nullptr;
+}
+
+int __v4l_startCapture(int ideal_width, int ideal_height) {
+#ifdef USE_FFMPEG
+	if (v4l_fd >= 0) {
+		__v4l_stopCapture();
+	}
+	v4l_ideal_width  = ideal_width;
+	v4l_ideal_height = ideal_height;
+
+	int dev_index = 0;
+	char dev_name[64];
+	sscanf(g_Config.sCameraDevice.c_str(), "%d:", &dev_index);
+	snprintf(dev_name, sizeof(dev_name), "/dev/video%d", dev_index);
+
+	if ((v4l_fd = open(dev_name, O_RDWR)) == -1) {
+		ERROR_LOG(Log::HLE, "Cannot open '%s'; errno=%d(%s)", dev_name, errno, strerror(errno));
+		return -1;
+	}
+
+	struct v4l2_capability cap;
+	memset(&cap, 0, sizeof(cap));
+	if (ioctl(v4l_fd, VIDIOC_QUERYCAP, &cap) == -1) {
+		ERROR_LOG(Log::HLE, "VIDIOC_QUERYCAP");
+		return -1;
+	}
+	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+		ERROR_LOG(Log::HLE, "V4L2_CAP_VIDEO_CAPTURE");
+		return -1;
+	}
+	if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
+		ERROR_LOG(Log::HLE, "V4L2_CAP_STREAMING");
+		return -1;
+	}
+
+	struct v4l2_format fmt;
+	memset(&fmt, 0, sizeof(fmt));
+	fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt.fmt.pix.pixelformat = 0;
+
+	// select a pixel format
+	struct v4l2_fmtdesc desc;
+	memset(&desc, 0, sizeof(desc));
+	desc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	while (ioctl(v4l_fd, VIDIOC_ENUM_FMT, &desc) == 0) {
+		desc.index++;
+		INFO_LOG(Log::HLE, "V4L2: pixel format supported: %s", desc.description);
+		if (fmt.fmt.pix.pixelformat != 0) {
+			continue;
+		} else if (desc.pixelformat == V4L2_PIX_FMT_YUYV
+				|| desc.pixelformat == V4L2_PIX_FMT_JPEG
+				|| desc.pixelformat == V4L2_PIX_FMT_MJPEG) {
+			INFO_LOG(Log::HLE, "V4L2: %s selected", desc.description);
+			fmt.fmt.pix.pixelformat = desc.pixelformat;
+			v4l_format              = desc.pixelformat;
+		}
+	}
+	if (fmt.fmt.pix.pixelformat == 0) {
+		ERROR_LOG(Log::HLE, "V4L2: No supported format found");
+		return -1;
+	}
+
+	// select a frame size
+	fmt.fmt.pix.width  = 0;
+	fmt.fmt.pix.height = 0;
+	struct v4l2_frmsizeenum frmsize;
+	memset(&frmsize, 0, sizeof(frmsize));
+	frmsize.pixel_format = fmt.fmt.pix.pixelformat;
+	while (ioctl(v4l_fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == 0) {
+		frmsize.index++;
+		if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+			INFO_LOG(Log::HLE, "V4L2: frame size supported: %dx%d", frmsize.discrete.width, frmsize.discrete.height);
+			bool matchesIdeal = frmsize.discrete.width >= ideal_width && frmsize.discrete.height >= ideal_height;
+			bool zeroPix = fmt.fmt.pix.width == 0 && fmt.fmt.pix.height == 0;
+			bool pixLarger = frmsize.discrete.width < fmt.fmt.pix.width && frmsize.discrete.height < fmt.fmt.pix.height;
+			if (matchesIdeal && (zeroPix || pixLarger)) {
+				fmt.fmt.pix.width  = frmsize.discrete.width;
+				fmt.fmt.pix.height = frmsize.discrete.height;
+			}
+		}
+	}
+
+	if (fmt.fmt.pix.width == 0 && fmt.fmt.pix.height == 0) {
+		fmt.fmt.pix.width  = ideal_width;
+		fmt.fmt.pix.height = ideal_height;
+	}
+	INFO_LOG(Log::HLE, "V4L2: asking for   %dx%d", fmt.fmt.pix.width, fmt.fmt.pix.height);
+	if (ioctl(v4l_fd, VIDIOC_S_FMT, &fmt) == -1) {
+		ERROR_LOG(Log::HLE, "VIDIOC_S_FMT");
+		return -1;
+	}
+	v4l_hw_width  = fmt.fmt.pix.width;
+	v4l_hw_height = fmt.fmt.pix.height;
+	INFO_LOG(Log::HLE, "V4L2: will receive %dx%d", v4l_hw_width, v4l_hw_height);
+	v4l_height_fixed_aspect = v4l_hw_width * ideal_height / ideal_width;
+	INFO_LOG(Log::HLE, "V4L2: will use     %dx%d", v4l_hw_width, v4l_height_fixed_aspect);
+
+	struct v4l2_requestbuffers req;
+	memset(&req, 0, sizeof(req));
+	req.count  = 1;
+	req.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	req.memory = V4L2_MEMORY_MMAP;
+	if (ioctl(v4l_fd, VIDIOC_REQBUFS, &req) == -1) {
+		ERROR_LOG(Log::HLE, "VIDIOC_REQBUFS");
+		return -1;
+	}
+	v4l_buffer_count = req.count;
+	INFO_LOG(Log::HLE, "V4L2: buffer count: %d", v4l_buffer_count);
+	v4l_buffers = (v4l_buf_t*) calloc(v4l_buffer_count, sizeof(v4l_buf_t));
+
+	for (int buf_id = 0; buf_id < v4l_buffer_count; buf_id++) {
+		struct v4l2_buffer buf;
+		memset(&buf, 0, sizeof(buf));
+		buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.index  = buf_id;
+		if (ioctl(v4l_fd, VIDIOC_QUERYBUF, &buf) == -1) {
+			ERROR_LOG(Log::HLE, "VIDIOC_QUERYBUF");
+			return -1;
+		}
+
+		v4l_buffers[buf_id].length = buf.length;
+		v4l_buffers[buf_id].start = mmap(NULL,
+				buf.length,
+				PROT_READ | PROT_WRITE,
+				MAP_SHARED,
+				v4l_fd, buf.m.offset);
+		if (v4l_buffers[buf_id].start == MAP_FAILED) {
+			ERROR_LOG(Log::HLE, "MAP_FAILED");
+			return -1;
+		}
+
+		memset(&buf, 0, sizeof(buf));
+		buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.index  = buf_id;
+		if (ioctl(v4l_fd, VIDIOC_QBUF, &buf) == -1) {
+			ERROR_LOG(Log::HLE, "VIDIOC_QBUF");
+			return -1;
+		}
+	}
+
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if (ioctl(v4l_fd, VIDIOC_STREAMON, &type) == -1) {
+		ERROR_LOG(Log::HLE, "VIDIOC_STREAMON");
+		return -1;
+	}
+
+	pthread_create(&v4l_thread, NULL, v4l_loop, NULL);
+#endif //USE_FFMPEG
+	return 0;
+}
+
+int __v4l_stopCapture() {
+	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+	if (v4l_fd < 0) {
+		goto exit;
+	}
+
+	if (ioctl(v4l_fd, VIDIOC_STREAMOFF, &type) == -1) {
+		ERROR_LOG(Log::HLE, "VIDIOC_STREAMOFF");
+		goto exit;
+	}
+
+	for (int buf_id = 0; buf_id < v4l_buffer_count; buf_id++) {
+		if (munmap(v4l_buffers[buf_id].start, v4l_buffers[buf_id].length) == -1) {
+			ERROR_LOG(Log::HLE, "munmap");
+			goto exit;
+		}
+	}
+
+	if (close(v4l_fd) == -1) {
+		ERROR_LOG(Log::HLE, "close");
+		goto exit;
+	}
+
+	v4l_fd = -1;
+	//pthread_join(v4l_thread, NULL);
+
+exit:
+	v4l_fd = -1;
+	return 0;
+}
+
+#endif // PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+
+static int getDisplayNumber(void) {
 	int displayNumber = 0;
 	char * displayNumberStr;
 
@@ -124,7 +497,7 @@ int getDisplayNumber(void) {
 	return displayNumber;
 }
 
-void sdl_mixaudio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
+static void sdl_mixaudio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
 	(void)total_amount;
 	if (additional_amount <= 0) {
 		return;
@@ -235,21 +608,15 @@ static void StopSDLAudioDevice() {
 }
 
 static void UpdateScreenDPI(SDL_Window *window) {
-	int drawable_width, window_width, window_height;
-	SDL_GetWindowSize(window, &window_width, &window_height);
-
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
-		SDL_GetWindowSizeInPixels(window, &drawable_width, NULL);
-	else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN)
-		SDL_GetWindowSizeInPixels(window, &drawable_width, NULL);
-	else {
-		// If we add SDL support for more platforms, we'll end up here.
-		g_DesktopDPI = 1.0f;
-		return;
+	// SDL3's window display scale already accounts for the display's content
+	// scale and the window's pixel density, so we don't need to (incorrectly)
+	// derive it ourselves from the ratio of pixel size to window size.
+	float scale = SDL_GetWindowDisplayScale(window);
+	if (scale <= 0.0f) {
+		WARN_LOG(Log::System, "SDL_GetWindowDisplayScale failed: %s", SDL_GetError());
+		scale = 1.0f;
 	}
-	// Round up a little otherwise there would be a gap sometimes
-	// in fractional scaling
-	g_DesktopDPI = ((float) drawable_width + 1.0f) / window_width;
+	g_DesktopDPI = scale;
 }
 
 // Simple implementations of System functions
@@ -502,6 +869,28 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 #endif /* PPSSPP_PLATFORM(WINDOWS) */
 		return true;
 	}
+	case SystemRequestType::CAMERA_COMMAND:
+	{
+		if (!strncmp(param1.c_str(), "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
+#if PPSSPP_PLATFORM(MAC)
+			__mac_startCapture(width, height);
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+			__v4l_startCapture(width, height);
+#endif
+		} else if (!strcmp(param1.c_str(), "stopVideo")) {
+#if PPSSPP_PLATFORM(MAC)
+			__mac_stopCapture();
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+			__v4l_stopCapture();
+#endif
+		} else {
+			ERROR_LOG(Log::System, "Unknown camera command: %s", param1.c_str());
+			return false;
+		}
+		return true;
+	}
 	case SystemRequestType::NOTIFY_UI_EVENT:
 	{
 		switch ((UIEventNotification)param3) {
@@ -520,7 +909,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
-		INFO_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
+		VERBOSE_LOG(Log::UI, "SET_KEEP_SCREEN_BRIGHT not implemented.");
 		return true;
 	default:
 		INFO_LOG(Log::UI, "Unhandled system request %s", RequestTypeAsString(type));
@@ -530,6 +919,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
+std::vector<std::string> System_GetCameraDeviceList() {
+#if PPSSPP_PLATFORM(MAC)
+	return __mac_getDeviceList();
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+	return __v4l_getDeviceList();
+#else
+	return {};
+#endif
+}
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
@@ -837,28 +1236,8 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-// returns -1 on failure
-static int parseInt(const char *str) {
-	int val;
-	int retval = sscanf(str, "%d", &val);
-	fprintf(stderr, "%i = scanf %s\n", retval, str);
-	if (retval != 1) {
-		return -1;
-	} else {
-		return val;
-	}
-}
-
-static float parseFloat(const char *str) {
-	float val;
-	int retval = sscanf(str, "%f", &val);
-	fprintf(stderr, "%i = sscanf %s\n", retval, str);
-	if (retval != 1) {
-		return -1.0f;
-	} else {
-		return val;
-	}
-}
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
 
 void UpdateWindowState(SDL_Window *window) {
 	SDL_SetWindowTitle(window, g_windowState.title.c_str());
@@ -872,48 +1251,6 @@ void UpdateWindowState(SDL_Window *window) {
 		g_windowState.clipboardString.clear();
 	}
 	g_windowState.update = false;
-}
-
-enum class EmuThreadState {
-	DISABLED,
-	START_REQUESTED,
-	RUNNING,
-	QUIT_REQUESTED,
-	STOPPED,
-};
-
-static std::thread emuThread;
-static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
-
-static void EmuThreadFunc(GraphicsContext *graphicsContext) {
-	SetCurrentThreadName("EmuThread");
-
-	// There's no real requirement that NativeInit happen on this thread.
-	// We just call the update/render loop here.
-	emuThreadState = (int)EmuThreadState::RUNNING;
-
-	NativeInitGraphics(graphicsContext);
-
-	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		NativeFrame(graphicsContext);
-	}
-	emuThreadState = (int)EmuThreadState::STOPPED;
-
-	NativeShutdownGraphics();
-}
-
-static void EmuThreadStart(GraphicsContext *context) {
-	emuThreadState = (int)EmuThreadState::START_REQUESTED;
-	emuThread = std::thread(&EmuThreadFunc, context);
-}
-
-static void EmuThreadStop(const char *reason) {
-	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
-}
-
-static void EmuThreadJoin() {
-	emuThread.join();
-	emuThread = std::thread();
 }
 
 struct InputStateTracker {
@@ -968,24 +1305,22 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	#if !defined(MOBILE_DEVICE)
 	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 		{
-			int new_width = event.window.data1;
-			int new_height = event.window.data2;
+			INFO_LOG(Log::UI, "SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: %d x %d", event.window.data1, event.window.data2);
+			const int new_width = event.window.data1;
+			const int new_height = event.window.data2;
 
 			Native_NotifyWindowHidden(false);
 
 			Uint64 window_flags = SDL_GetWindowFlags(window);
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN) != 0;
 
-			// This one calls NativeResized if the size changed.
-			Native_UpdateScreenScale(new_width, new_height, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+			System_RunOnMainThread([new_width, new_height]() {
+				Native_UpdateScreenScale(new_width, new_height, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+			});
 
 			// Set variable here in case fullscreen was toggled by hotkey
 			if (g_Config.bFullScreen != fullscreen) {
 				g_Config.bFullScreen = fullscreen;
-			} else {
-				// It is possible for the monitor to change DPI, so recalculate
-				// DPI on each resize event.
-				UpdateScreenDPI(window);
 			}
 
 			if (!g_Config.bFullScreen) {
@@ -1001,6 +1336,21 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
 				SDL_ShowCursor();
 			}
+			break;
+		}
+	case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+		{
+			// The window moved to a display with a different content scale, or the
+			// user changed the display's scale setting. Recompute the DPI and
+			// re-derive the screen scale from the window's current pixel size.
+			UpdateScreenDPI(window);
+
+			int pixelWidth = 0;
+			int pixelHeight = 0;
+			SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight);
+			System_RunOnMainThread([pixelWidth, pixelHeight]() {
+				Native_UpdateScreenScale(pixelWidth, pixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+			});
 			break;
 		}
 	case SDL_EVENT_WINDOW_MOVED:
@@ -1042,7 +1392,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 #endif
 	case SDL_EVENT_KEY_DOWN:
 		{
-			if (event.key.repeat > 0) { break;}
+			if (event.key.repeat > 0) {
+				break;
+			}
 			int k = event.key.key;
 			KeyInput key;
 			key.flags = KeyInputFlags::DOWN;
@@ -1054,15 +1406,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			key.deviceId = DEVICE_ID_KEYBOARD;
 			NativeKey(key);
 
-#ifdef _DEBUG
-			if (k == SDLK_F7) {
-				fprintf(stderr, "f7 pressed - rebooting emuthread\n");
-				g_rebootEmuThread = true;
-			}
-#endif
-			// Convenience subset of what
-			// "Enable standard shortcut keys"
-			// does on Windows.
+			// Convenience subset of what "Enable standard shortcut keys" does on Windows.
 			if (g_Config.bSystemControls) {
 				bool ctrl = bool(event.key.mod & SDL_KMOD_CTRL);
 				if (ctrl && (k == SDLK_W))
@@ -1124,7 +1468,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1137,7 +1481,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1156,7 +1500,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
 			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1173,13 +1517,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
+				INFO_LOG(Log::UI, "SDL_EVENT_MOUSE_BUTTON_DOWN: %f x %f", event.button.x, event.button.y);
 				// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
 				// provided (through --dpi, it is equal to system DPI if unspecified):
 				// - SDL gives us motion events in "system DPI" points
 				// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
 				// - The UI code expects motion events in "logical DPI" points
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown |= 1;
 				TouchInput input{};
 				input.x = mx;
@@ -1195,7 +1540,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_BUTTON_RIGHT:
 			{
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown |= 2;
 				TouchInput input{};
 				input.x = mx;
@@ -1251,7 +1596,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_EVENT_MOUSE_MOTION:
 		{
 			float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
-			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
+			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_y;
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
@@ -1269,7 +1614,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_BUTTON_LEFT:
 			{
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown &= ~1;
 				TouchInput input{};
 				input.x = mx;
@@ -1284,7 +1629,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		case SDL_BUTTON_RIGHT:
 			{
 				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_x;
+				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
 				inputTracker->mouseDown &= ~2;
 				// Right button only emits mouse move events. This is weird,
 				// but consistent with Windows. Needs cleanup.
@@ -1382,69 +1727,23 @@ void UpdateSDLCursor() {
 #endif
 }
 
-static int printUsage(const char *progname)
-{
-	// NOTE: by convention, --help outputs to stdout,
-	// not to stderr, since it is intended output in this
-	// case (usage printed under different circumstances,
-	// say in response to error during parsing commandline,
-	// may go to stderr).
-	FILE *dst = stdout;
-
-	// NOTE: wording largely taken from
-	// https://www.ppsspp.org/docs/reference/command-line/
-	fprintf(dst, "PPSSPP - a PSP emulator (SDL build)\n");
-	fprintf(dst, "Usage: %s [options] [FILE]\n\n", progname);
-	fprintf(dst, "Launches FILE (e.g. ISO image) if present.\n");
-	fprintf(dst, "Options (some of these are specific to SDL backend):\n");
-	fprintf(dst, "  -h, --help            show this message and exit\n");
-	fprintf(dst, "  --version             show version information and exit\n");
-
-	fprintf(dst, "  -d                    set the log level to debug\n");
-	fprintf(dst, "  -v                    set the log level to verbose\n");
-	fprintf(dst, "  --loglevel=INTEGER    set the log level to specified value\n");
-	fprintf(dst, "  --log=FILE            output log to FILE\n");
-	fprintf(dst, "  --state=FILE          load state from FILE\n");
-
-	fprintf(dst, "  -i                    use the interpreter\n");
-	fprintf(dst, "  -r                    use IR interpreter\n");
-	fprintf(dst, "  -j                    use JIT\n");
-	fprintf(dst, "  -J                    use IR JIT\n");
-
-	fprintf(dst, "  --fullscreen          force full screen mode, ignoring saved configuration\n");
-	fprintf(dst, "  --windowed            force windowed mode, ignoring saved configuration\n");
-	fprintf(dst, "  --xres PIXELS         set X resolution\n");
-	fprintf(dst, "  --yres PIXELS         set Y resolution\n");
-	fprintf(dst, "  --dpi  FACTOR         set DPI\n");
-	fprintf(dst, "  --scale FACTOR        set scale\n");
-	fprintf(dst, "  --ipad                set resolution to 1024x768\n");
-	fprintf(dst, "  --portrait            portrait mode\n");
-	fprintf(dst, "  --graphics=BACKEND    use a different gpu backend\n");
-	fprintf(dst, "                        options: gles, software, etc. (also opengl3.1, etc.)\n");
-
-	fprintf(dst, "  --pause-menu-exit     change \"Exit to menu\" in pause menu to \"Exit\"\n");
-	fprintf(dst, "  --escape-exit         escape key exits the application\n");
-	fprintf(dst, "  --gamesettings        go directly to settings\n");
-	fprintf(dst, "  --touchscreentest     go directly to the touchscreentest screen\n");
-	fprintf(dst, "  --appendconfig=FILE   merge config FILE into the current configuration\n");
-
-	return 0;
-}
-
 #ifdef _WIN32
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-			return printUsage(argv[0]);
-		else if (!strcmp(argv[i], "--version")) {
-			printf("%s\n", PPSSPP_GIT_VERSION);
-			return 0;
-		}
-	}
-
 	TimeInit();
+
+	CommandLineOptions cmdLineOptions;
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, (const char **)argv);
+	switch (parseResult) {
+	case CommandLineParseResult::Exit:
+		return 0;
+	case CommandLineParseResult::Error:
+		return 1;
+	default:
+		// Continue with launch.
+		break;
+	}
 
 	g_logManager.EnableOutput(LogOutput::Stdio);
 
@@ -1484,80 +1783,12 @@ int main(int argc, char *argv[]) {
 
 	const int compiled = SDL_VERSION;
 	const int linked = SDL_GetVersion();
-	int set_xres = -1;
-	int set_yres = -1;
-	bool portrait = false;
-	bool set_ipad = false;
-	float set_dpi = 0.0f;
-	float set_scale = 1.0f;
-
-	// Produce a new set of arguments with the ones we skip.
-	int remain_argc = 1;
-	const char *remain_argv[256] = { argv[0] };
-	constexpr int remain_argv_cap = (int)(sizeof(remain_argv) / sizeof(remain_argv[0]));
-
-	// Option to force a specific OpenGL version (42="4.2",
-	// etc.; -1 means "try them all").
-	// Implemented as a workaround for https://github.com/hrydgard/ppsspp/issues/20687
-	// NOTE: this is currently not persistent (doesn't
-	// go to config), even though --graphics=openglX.Y
-	// also sets the GPU backend which does persist.
-	int force_gl_version = -1;
+	int set_xres = cmdLineOptions.xres.value_or(-1);
+	int set_yres = cmdLineOptions.yres.value_or(-1);
+	float set_dpi = (float)cmdLineOptions.dpi.value_or(0.0);
+	float set_scale = (float)cmdLineOptions.scale.value_or(1.0);
 
 	Uint32 mode = 0;
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--fullscreen")) {
-			mode |= SDL_WINDOW_FULLSCREEN;
-			g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-		} else if (set_xres == -2)
-			set_xres = parseInt(argv[i]);
-		else if (set_yres == -2)
-			set_yres = parseInt(argv[i]);
-		else if (set_dpi == -2)
-			set_dpi = parseFloat(argv[i]);
-		else if (set_scale == -2)
-			set_scale = parseFloat(argv[i]);
-		else if (!strcmp(argv[i], "--xres"))
-			set_xres = -2;
-		else if (!strcmp(argv[i], "--yres"))
-			set_yres = -2;
-		else if (!strcmp(argv[i], "--dpi"))
-			set_dpi = -2;
-		else if (!strcmp(argv[i], "--scale"))
-			set_scale = -2;
-		else if (!strcmp(argv[i], "--ipad"))
-			set_ipad = true;
-		else if (!strcmp(argv[i], "--portrait"))
-			portrait = true;
-		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics="))) {
-			const char *restOfOption = argv[i] + strlen("--graphics=");
-			double val=-1.0; // Yes, floating point.
-			if (!strcmp(restOfOption, "vulkan")) {
-				g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
-				g_Config.bSoftwareRendering = false;
-			} else if (!strcmp(restOfOption, "software")) {
-				// Same as on Windows, software presently implies OpenGL.
-				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-				g_Config.bSoftwareRendering = true;
-			} else if (!strcmp(restOfOption, "gles") || !strcmp(restOfOption, "opengl")) {
-				// NOTE: OpenGL and GLES are treated the same for
-				// the purposes of option parsing.
-				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-				g_Config.bSoftwareRendering = false;
-			} else if (sscanf(restOfOption, "gles%lg", &val) == 1 || sscanf(restOfOption, "opengl%lg", &val) == 1) {
-				g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-				g_Config.bSoftwareRendering = false;
-				force_gl_version = int(10.0 * val + 0.5);
-			}
-		} else {
-			if (remain_argc < remain_argv_cap - 1) {
-				remain_argv[remain_argc++] = argv[i];
-			} else {
-				fprintf(stderr, "Too many command-line arguments, ignoring: %s\n", argv[i]);
-			}
-		}
-	}
-	remain_argv[remain_argc] = nullptr;
 
 	std::string app_name;
 	std::string app_name_nice;
@@ -1601,6 +1832,7 @@ int main(int argc, char *argv[]) {
 	g_RefreshRate = displayMode->refresh_rate;
 	SDL_free(displayIDs);
 
+	// TODO: Should only call this if we actually intend to use OpenGL.
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -1610,19 +1842,19 @@ int main(int argc, char *argv[]) {
 
 	// Force fullscreen if the resolution is too low to run windowed.
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
-		mode |= SDL_WINDOW_FULLSCREEN;
+		cmdLineOptions.fullscreen = true;
 	}
 
 	// If we're on mobile, don't try for windowed either.
 #if defined(MOBILE_DEVICE) && !PPSSPP_PLATFORM(SWITCH)
-	mode |= SDL_WINDOW_FULLSCREEN;
+	cmdLineOptions.fullscreen = true;
 #elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
-	mode |= SDL_WINDOW_FULLSCREEN;
+	cmdLineOptions.fullscreen = true;
 #else
 	mode |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
 
-	if (mode & SDL_WINDOW_FULLSCREEN) {
+	if (cmdLineOptions.fullscreen) {
 		g_display.pixel_xres = g_DesktopWidth;
 		g_display.pixel_yres = g_DesktopHeight;
 		g_Config.bFullScreen = true;
@@ -1630,16 +1862,9 @@ int main(int argc, char *argv[]) {
 		// set a sensible default resolution (2x)
 		g_display.pixel_xres = 480 * 2 * set_scale;
 		g_display.pixel_yres = 272 * 2 * set_scale;
-		if (portrait) {
-			std::swap(g_display.pixel_xres, g_display.pixel_yres);
-		}
 		g_Config.bFullScreen = false;
 	}
 
-	if (set_ipad) {
-		g_display.pixel_xres = 1024;
-		g_display.pixel_yres = 768;
-	}
 	if (!landscape) {
 		std::swap(g_display.pixel_xres, g_display.pixel_yres);
 	}
@@ -1681,7 +1906,10 @@ int main(int argc, char *argv[]) {
 #else
 	const char *external_dir = "/tmp";
 #endif
-	NativeInit(remain_argc, (const char **)remain_argv, path, external_dir, nullptr);
+
+	// After NativeInit, code should no longer look at cmdLineOptions, they should have been translated
+	// into g_Config settings. This is because NativeInit may modify g_Config settings based on the command line options.
+	NativeInit(argc, (const char **)argv, cmdLineOptions, path, external_dir, nullptr);
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen) {
@@ -1706,65 +1934,121 @@ int main(int argc, char *argv[]) {
 			h = g_Config.iWindowHeight;
 	}
 
-	GraphicsContext *graphicsContext = nullptr;
-	SDL_Window *window = nullptr;
-
 	// Switch away from Vulkan if not available.
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && !vulkanMayBeAvailable) {
-		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-	}
-
-	std::string error_message;
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-		if (glctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version) != 0) {
-			// Let's try the fallback once per process run.
-			fprintf(stderr, "GL init error '%s' - falling back to Vulkan\n", error_message.c_str());
-			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			delete glctx;
-
-			// NOTE : This should match the lines below in the Vulkan case.
-			SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
-			if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
-				fprintf(stderr, "Vulkan fallback failed: %s\n", error_message.c_str());
-				return 1;
-			}
-			graphicsContext = vkctx;
-		} else {
-			graphicsContext = glctx;
-		}
-#if !PPSSPP_PLATFORM(SWITCH)
-	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		SDLVulkanGraphicsContext *vkctx = new SDLVulkanGraphicsContext();
-		if (!vkctx->Init(window, x, y, w, h, mode | SDL_WINDOW_VULKAN, &error_message)) {
-			// Let's try the fallback once per process run.
-
-			fprintf(stderr, "Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
+	int fallbackGPUBackend = -1;
+	switch ((GPUBackend)g_Config.iGPUBackend) {
+	case GPUBackend::VULKAN:
+		if (!vulkanMayBeAvailable) {
+			fprintf(stderr, "Vulkan is not available, switching to OpenGL.\n");
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			delete vkctx;
-
-			// NOTE : This should match the three lines above in the OpenGL case.
-			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
-			if (glctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version) != 0) {
-				fprintf(stderr, "GL fallback failed: %s\n", error_message.c_str());
-				return 1;
-			}
-			graphicsContext = glctx;
 		} else {
-			graphicsContext = vkctx;
+			fallbackGPUBackend = (int)GPUBackend::OPENGL;
 		}
-#endif
+		break;
+	case GPUBackend::OPENGL:
+		fallbackGPUBackend = (int)GPUBackend::VULKAN;
+		break;
+	default:
+		fprintf(stderr, "Unknown GPU backend %d, switching to Vulkan.\n", g_Config.iGPUBackend);
+		g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
+		fallbackGPUBackend = (int)GPUBackend::OPENGL;
+		break;
 	}
 
+	SDL_Window *window = nullptr;
+	WindowDesc windowDesc;
+	auto initializeBackend = [&](GPUBackend backend, GraphicsContext **graphicsContext, std::string *errorMessage) -> bool {
+		GraphicsContext *ctx = nullptr;
+		if (backend == GPUBackend::OPENGL) {
+			SDL_GLContext glContext = nullptr;
+			window = CreateSDLGLWindowAndContext(x, y, w, h, mode, cmdLineOptions.force_gl_version, &glContext, errorMessage);
+
+			windowDesc.winsys = WINDOWSYSTEM_SDL;
+			windowDesc.data1 = (void *)window;
+			windowDesc.data2 = (void *)glContext;
+
+			ctx = new SDLGLGraphicsContext();
+		} else {
+			// Use a local copy of mode: this flag combination is Vulkan-specific, and if we fall back to
+			// OpenGL below, we don't want SDL_WINDOW_VULKAN to stick around and get OR'd in there too.
+			Uint32 vulkanMode = mode | SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN;
+			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)vulkanMode);
+			if (!window) {
+				if (errorMessage) {
+					*errorMessage = StringFromFormat("Error creating SDL window: %s", SDL_GetError());
+				}
+				return false;
+			}
+			if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+				SDL_SetWindowPosition(window, x, y);
+			}
+
+			// Overwrite the surface init params with what we need for Vulkan..
+			if (!DetermineVulkanWindowSystem(window, &windowDesc, errorMessage)) {
+				return false;
+			}
+			// NOTE : This should match the lines below in the Vulkan case.
+			ctx = new VulkanGraphicsContext();
+		}
+
+		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, errorMessage)) {
+			fprintf(stderr, "Graphics initialization failed: %s\n", errorMessage->c_str());
+			return false;
+		}
+
+		if (backend == GPUBackend::VULKAN) {
+			// linux wayland can give -1x-1 during vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+			VulkanGraphicsContext *vkgfxctx = (VulkanGraphicsContext *)ctx;
+			VulkanContext *vkctx = (VulkanContext *)vkgfxctx->GetAPIContext();
+			vkctx->SetCbGetDrawSize([window]() {
+				int w=1,h=1;
+				SDL_GetWindowSizeInPixels(window, &w, &h);
+				return VkExtent2D {(uint32_t)w, (uint32_t)h};
+			});
+		}
+
+		if (!ctx->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, errorMessage)) {
+			fprintf(stderr, "Surface creation failed: %s\n", errorMessage->c_str());
+			return false;
+		}
+
+		*graphicsContext = ctx;
+		return true;
+	};
+
+	GraphicsContext *graphicsContext = nullptr;
+	std::string error_message;
+	if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
+		fprintf(stderr, "Failed to initialize graphics backend: %s\n", error_message.c_str());
+		if (fallbackGPUBackend != -1) {
+			fprintf(stderr, "Attempting to fall back to %s...\n", fallbackGPUBackend == (int)GPUBackend::OPENGL ? "OpenGL" : "Vulkan");
+			g_Config.iGPUBackend = fallbackGPUBackend;
+			error_message.clear();
+			if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
+				fprintf(stderr, "Fallback failed: %s\n", error_message.c_str());
+				SDL_Quit();
+				return 1;
+			}
+		} else {
+			fprintf(stderr, "No fallback GPU backend available. Exiting.\n");
+			SDL_Quit();
+			return 1;
+		}
+	}
+
+	// At this point, we have a window that we can show finally.
+	SDL_ShowWindow(window);
+	if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+		SDL_SetWindowPosition(window, x, y);
+	}
 	UpdateScreenDPI(window);
 
-	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
-
-	Native_UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
-
-	bool mainThreadIsRender = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+	// Initialize g_display synchronously before starting the EmuThread below, since it renders
+	// immediately without waiting for us to process an initial SDL resize/scale event -
+	// otherwise the first frames can render with dp_xres/dp_yres still at their defaults.
+	int initialPixelWidth = 0, initialPixelHeight = 0;
+	SDL_GetWindowSizeInPixels(window, &initialPixelWidth, &initialPixelHeight);
+	Native_UpdateScreenScale(initialPixelWidth, initialPixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
@@ -1795,12 +2079,6 @@ int main(int argc, char *argv[]) {
 		imageData = NULL;
 	}
 
-	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
-	if (!graphicsContext->InitFromRenderThread(&error_message)) {
-		fprintf(stderr, "Init from thread error: '%s'\n", error_message.c_str());
-		return 1;
-	}
-
 	// OK, we have a valid graphics backend selected. Let's clear the failures.
 	g_Config.sFailedGPUBackends.clear();
 
@@ -1823,9 +2101,8 @@ int main(int argc, char *argv[]) {
 	}
 	EnableFZ();
 
-	EmuThreadStart(graphicsContext);
-
-	graphicsContext->ThreadStart();
+	// We use the emuthread both for OpenGL and Vulkan, but in OpenGL mode we also render from the main thread.
+	_dbg_assert_(graphicsContext);
 
 	InputStateTracker inputTracker{};
 
@@ -1834,21 +2111,31 @@ int main(int argc, char *argv[]) {
 	initializeOSXExtras();
 #endif
 
-	bool waitOnExit = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
-
 	// Check if the path to a directory containing an unpacked ISO is passed as a command line argument
 	for (int i = 1; i < argc; i++) {
 		if (File::IsDirectory(Path(argv[i]))) {
 			// Display the toast warning
-			System_Toast("Warning: Playing unpacked games may cause issues.");
 			break;
 		}
 	}
 
-	if (!mainThreadIsRender) {
+	const bool needsSeparateEmuThread = graphicsContext->NeedsSeparateEmuThread();
+	if (!needsSeparateEmuThread) {
 		// Vulkan mode uses this.
-		// We should only be a message pump. This allows for lower latency
-		// input events, and so on.
+
+		std::thread emuThread = std::thread([&] {
+			RunMainLoop(graphicsContext, new NativeApplication(), [&](GraphicsContext *graphicsContext) {
+				NativeFrame(graphicsContext);
+				bool keepRunning = !(g_QuitRequested || g_RestartRequested);
+				if (!keepRunning) {
+					INFO_LOG(Log::System, "EmuThread was requested to exit normally.");
+				}
+				return keepRunning;
+			});
+		});
+
+		// The SDL main thread only becomes a plain message pump. This allows for lower latency
+		// input events, and so on. The spawned main thread runs emulation and rendering.
 		while (true) {
 			SDL_Event event;
 			if (SDL_WaitEventTimeout(&event, 100)) {
@@ -1875,89 +2162,62 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-	} else while (true) {
-		{
-			SDL_Event event;
-			while (SDL_PollEvent(&event)) {
-				ProcessSDLEvent(window, event, &inputTracker);
-			}
-		}
-		if (g_QuitRequested || g_RestartRequested)
-			break;
-		if (emuThreadState == (int)EmuThreadState::DISABLED) {
+		INFO_LOG(Log::System, "Joining main thread...");
+		emuThread.join();
+	} else {
+		// OpenGL mode uses this path.
+		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [&](GraphicsContext *graphicsContext){
 			NativeFrame(graphicsContext);
-		}
-		if (g_QuitRequested || g_RestartRequested)
-			break;
-
-		UpdateTextFocus(window);
-		UpdateSDLCursor();
-
-		inputTracker.MouseCaptureControl(window);
-
-		bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
-		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
-			if (!graphicsContext->ThreadFrame(true))
-				break;
-		}
-
-		{
-			std::lock_guard<std::mutex> guard(g_mutexWindow);
-			if (g_windowState.update) {
-				UpdateWindowState(window);
+			return true;
+		});
+		while (true) {
+			// OpenGL mode uses this.
+			{
+				SDL_Event event;
+				while (SDL_PollEvent(&event)) {
+					ProcessSDLEvent(window, event, &inputTracker);
+				}
 			}
-		}
+			if (g_QuitRequested || g_RestartRequested)
+				break;
 
-		if (g_rebootEmuThread) {
-			fprintf(stderr, "rebooting emu thread");
-			g_rebootEmuThread = false;
-			EmuThreadStop("shutdown");
-			graphicsContext->ThreadFrameUntilCondition([]() {
-				return emuThreadState == (int)EmuThreadState::STOPPED || emuThreadState == (int)EmuThreadState::DISABLED;
-			});
-			EmuThreadJoin();
-			graphicsContext->ThreadEnd();
-			graphicsContext->ShutdownFromRenderThread();
+			UpdateTextFocus(window);
+			UpdateSDLCursor();
 
-			fprintf(stderr, "OK, shutdown complete. starting up graphics again.\n");
+			inputTracker.MouseCaptureControl(window);
 
-			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
-				if (!ctx->Init(window, x, y, w, h, mode, &error_message, force_gl_version)) {
-					fprintf(stderr, "Failed to reinit graphics.\n");
+			bool renderThreadPaused = Native_IsWindowHidden() && g_Config.bPauseWhenMinimized;
+			if (graphicsContext->NeedsSeparateEmuThread() && !renderThreadPaused) {
+				if (!graphicsContext->ThreadFrame()) {
+					// The render thread was instructed to exit by the emu thread,
+					// and has now reached the end of the submitted frames.
+					// EmuThread will be in the process of exiting, so below
+					// we can just EmuThread_Join().
+					break;
 				}
 			}
 
-			if (!graphicsContext->InitFromRenderThread(&error_message)) {
-				System_Toast("Graphics initialization failed. Quitting.");
-				return 1;
+			{
+				std::lock_guard<std::mutex> guard(g_mutexWindow);
+				if (g_windowState.update) {
+					UpdateWindowState(window);
+				}
 			}
-
-			EmuThreadStart(graphicsContext);
-			graphicsContext->ThreadStart();
 		}
+		INFO_LOG(Log::System, "Requesting render thread exit...");
+		EmuThread_Join(graphicsContext, emuThread);
 	}
 
-	EmuThreadStop("shutdown");
-
-	if (waitOnExit) {
-		graphicsContext->ThreadFrameUntilCondition([]() {
-			return emuThreadState == (int)EmuThreadState::STOPPED || emuThreadState == (int)EmuThreadState::DISABLED;
-		});
-	}
-
-	EmuThreadJoin();
 
 	delete joystick;
 
-	graphicsContext->ThreadEnd();
+	// Destroys Draw, which is used in NativeShutdown to shutdown.
+	graphicsContext->ShutdownSurface();
+	graphicsContext->ShutdownAPI();
+	delete graphicsContext;
 
 	NativeShutdown();
 
-	// Destroys Draw, which is used in NativeShutdown to shutdown.
-	graphicsContext->ShutdownFromRenderThread();
-	graphicsContext->Shutdown();
-	delete graphicsContext;
 
 	for (int i = 0; i < SDL_SYSTEM_CURSOR_COUNT; ++i) {
 		if (g_builtinCursors[i]) {

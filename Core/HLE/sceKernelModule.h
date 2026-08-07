@@ -28,8 +28,15 @@
 class PointerWrap;
 struct SceKernelSMOption;
 
+// Known bits of PspModuleInfo::moduleAttrs.
+enum {
+	PSP_MODULE_USER_MODE = 0x0000,
+	PSP_MODULE_VSH_MODE = 0x0800,
+	PSP_MODULE_KERNEL_MODE = 0x1000,
+};
+
 struct PspModuleInfo {
-	u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
+	u16_le moduleAttrs; //0x0000 User Mode, 0x0800 VSH Mode, 0x1000 Kernel Mode
 	u16_le moduleVersion;
 	// 28 bytes of module name, packed with 0's.
 	char name[28];
@@ -228,6 +235,10 @@ u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string);
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
+bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName);
+// Describes which loaded module (and section within it) an address falls in, e.g. "EBOOT.BIN.text+1234".
+// Returns an empty string if the address isn't inside any currently loaded module.
+bool DescribeKernelModuleAddress(u32 address, char *buffer, size_t bufferSize);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string);

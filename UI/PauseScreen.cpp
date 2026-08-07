@@ -25,6 +25,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -334,18 +335,19 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 void GamePauseScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
 
-	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
-		TriggerFinish(DR_BACK);
-	}
 	UIBaseDialogScreen::update();
-
-	firstFrame_ = false;
 
 	{
 		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
+		if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
+			finishNextFrame_ = true;
+			finishNextFrameResult_ = DR_BACK;
+		}
+		firstFrame_ = false;
 		if (finishNextFrame_) {
 			TriggerFinish(finishNextFrameResult_);
 			finishNextFrame_ = false;
+			finishNextFrameResult_ = DR_BACK;
 		}
 	}
 
@@ -388,9 +390,7 @@ GamePauseScreen::~GamePauseScreen() {
 void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	// Simple de-bounce using createdTime_, just to be safe.
 	if (down && virtualKeyCode == VIRTKEY_PAUSE && time_now_d() > createdTime_ + 0.1) {
-		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
-		finishNextFrame_ = true;
-		finishNextFrameResult_ = DR_BACK;
+		FinishNextFrame(DR_BACK);
 	}
 }
 
@@ -409,9 +409,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 			int slotNum = v->GetSlot();
 			auto doLoad = [this, slotNum]() {
 				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
-				std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
-				finishNextFrame_ = true;
-				finishNextFrameResult_ = DR_CANCEL;
+				FinishNextFrame(DR_CANCEL);
 			};
 			if (g_Config.bConfirmLoadState) {
 				screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slotNum, [doLoad](bool result) {
@@ -782,16 +780,12 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [this](bool result) {
 					if (result) {
 						System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-						std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
-						finishNextFrame_ = true;
-						finishNextFrameResult_ = DR_BACK;  // resume
+						FinishNextFrame(DR_BACK);  // resume
 					}
 				}));
 			} else {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-				std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
-				finishNextFrameResult_ = DR_BACK;  // resume
-				finishNextFrame_ = true;
+				FinishNextFrame(DR_BACK);  // resume
 			}
 		});
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -826,8 +820,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	std::string tag = dialog->tag();
 	if (tag == "ScreenshotView") {
 		if (dr == DR_OK) {
-			std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
-			finishNextFrame_ = true;
+			FinishNextFrame(DR_BACK);
 		} else if (dr != DR_CANCEL && dr != DR_BACK) {
 			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.
 			SaveState::Rescan(saveStatePrefix_);
@@ -902,9 +895,7 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
 				} else {
-					std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
-					finishNextFrameResult_ = DR_OK;  // exit game
-					finishNextFrame_ = true;
+					FinishNextFrame(DR_OK);  // exit game
 				}
 			}
 		}));
@@ -959,4 +950,15 @@ void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 			screenManager()->RecreateAllViews();
 		}
 	}));
+}
+
+// This is a bit of a hack that we should try to remove.
+void GamePauseScreen::FinishNextFrame(DialogResult finishNextFrameResult) {
+	std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
+	if (!finishNextFrame_) {
+		finishNextFrameResult_ = finishNextFrameResult;
+		finishNextFrame_ = true;
+	} else {
+		WARN_LOG(Log::UI, "Duplicate call to FinishNextFrame - we were already finishing with result %d, now trying to finish with result %d", finishNextFrameResult_, finishNextFrameResult);
+	}
 }

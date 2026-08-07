@@ -1109,6 +1109,38 @@ DataType SymbolMap::GetDataType(u32 startAddress) {
 	return it->second.type;
 }
 
+bool SymbolMap::RemoveData(u32 startAddress, bool removeName) {
+	if (activeNeedUpdate_)
+		UpdateActiveSymbols();
+
+	std::lock_guard<std::recursive_mutex> guard(lock_);
+
+	auto it = activeData.find(startAddress);
+	if (it == activeData.end())
+		return false;
+
+	auto symbolKey = std::make_pair(it->second.module, it->second.start);
+	auto it2 = data.find(symbolKey);
+	if (it2 != data.end()) {
+		data.erase(it2);
+	}
+	activeData.erase(it);
+
+	if (removeName) {
+		auto labelIt = activeLabels.find(startAddress);
+		if (labelIt != activeLabels.end()) {
+			symbolKey = std::make_pair(labelIt->second.module, labelIt->second.addr);
+			auto labelIt2 = labels.find(symbolKey);
+			if (labelIt2 != labels.end()) {
+				labels.erase(labelIt2);
+			}
+			activeLabels.erase(labelIt);
+		}
+	}
+
+	return true;
+}
+
 void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();

@@ -23,6 +23,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Color/RGBAUtil.h"

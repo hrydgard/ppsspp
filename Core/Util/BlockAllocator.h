@@ -62,7 +62,9 @@ private:
 	struct Block {
 		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next);
 		void SetAllocated(const char *_tag, bool suballoc);
-		void DoState(PointerWrap &p);
+		// compact = v2 form: no per-block Section, raw tag store (tags are
+		// zero-padded at write time). v1 states load with compact = false.
+		void DoState(PointerWrap &p, bool compact);
 		u32 start;
 		u32 size;
 		bool taken;

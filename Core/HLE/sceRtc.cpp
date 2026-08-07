@@ -796,10 +796,165 @@ static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 	return hleNoLog(0);
 }
 
+struct RtcParseResult {
+	ScePspDateTime date;
+	int tzOffsetMinutes;
+	bool ok;
+};
+
+static const char *rtcParseMonthName(const char *p, int &month) {
+	static const char *names[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+	for (int i = 0; i < 12; i++) {
+		if (p[0] == names[i][0] && p[1] == names[i][1] && p[2] == names[i][2]) {
+			month = i + 1;
+			return p + 3;
+		}
+	}
+	return nullptr;
+}
+
+static bool rtcParseDigits(const char *&p, int n, int &value) {
+	value = 0;
+	for (int i = 0; i < n; i++) {
+		if (p[i] < '0' || p[i] > '9') return false;
+		value = value * 10 + (p[i] - '0');
+	}
+	p += n;
+	return true;
+}
+
+static bool rtcParseRFC3339(const char *s, RtcParseResult &r) {
+	r.ok = false;
+	memset(&r.date, 0, sizeof(r.date));
+
+	int year, month, day, hour, minute, second, micro = 0;
+	// YYYY-MM-DD
+	if (!rtcParseDigits(s, 4, year) || *s++ != '-') return false;
+	if (!rtcParseDigits(s, 2, month) || *s++ != '-') return false;
+	if (!rtcParseDigits(s, 2, day)) return false;
+	if (*s++ != 'T') return false;
+	// HH:MM:SS
+	if (!rtcParseDigits(s, 2, hour) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, minute) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, second)) return false;
+	// Optional fractional seconds
+	if (*s == '.') {
+		s++;
+		int frac = 0;
+		int fracDigits = 0;
+		while (*s >= '0' && *s <= '9' && fracDigits < 6) {
+			frac = frac * 10 + (*s - '0');
+			fracDigits++;
+			s++;
+		}
+		// Scale to microseconds (6 digits)
+		while (fracDigits < 6) { frac *= 10; fracDigits++; }
+		while (fracDigits > 6) { frac /= 10; fracDigits--; }
+		micro = frac;
+	}
+	// Timezone
+	if (*s == 'Z') {
+		s++;
+		r.tzOffsetMinutes = 0;
+	} else if (*s == '+' || *s == '-') {
+		int tzSign = (*s == '+') ? 1 : -1;
+		s++;
+		int tzHour, tzMin;
+		if (!rtcParseDigits(s, 2, tzHour)) return false;
+		if (*s != ':') return false;
+		s++;
+		if (!rtcParseDigits(s, 2, tzMin)) return false;
+		r.tzOffsetMinutes = tzSign * (tzHour * 60 + tzMin);
+	} else {
+		return false;
+	}
+	// Must consume entire string
+	if (*s != '\0') return false;
+
+	r.date.year = year;
+	r.date.month = month;
+	r.date.day = day;
+	r.date.hour = hour;
+	r.date.minute = minute;
+	r.date.second = second;
+	r.date.microsecond = micro;
+	r.ok = true;
+	return true;
+}
+
+static bool rtcParseRFC2822(const char *s, RtcParseResult &r) {
+	r.ok = false;
+	memset(&r.date, 0, sizeof(r.date));
+
+	// Optional weekday prefix: [weekday,]
+	while (*s && *s != ' ' && *s != ',') s++;
+	if (*s == ',') {
+		s++;
+		if (*s != ' ') return false;
+		s++;
+	} else {
+		return false;
+	}
+
+	int day, month, year, hour, minute, second;
+	// DD
+	if (!rtcParseDigits(s, 2, day)) return false;
+	if (*s++ != ' ') return false;
+	// Mon (3-letter month)
+	if (!rtcParseMonthName(s, month)) return false;
+	s += 3;
+	if (*s++ != ' ') return false;
+	// YYYY
+	if (!rtcParseDigits(s, 4, year)) return false;
+	if (*s++ != ' ') return false;
+	// HH:MM:SS
+	if (!rtcParseDigits(s, 2, hour) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, minute) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, second)) return false;
+	if (*s++ != ' ') return false;
+	// Timezone: ±HHMM
+	if (*s != '+' && *s != '-') return false;
+	int tzSign = (*s == '+') ? 1 : -1;
+	s++;
+	int tzHour, tzMin;
+	if (!rtcParseDigits(s, 2, tzHour)) return false;
+	if (!rtcParseDigits(s, 2, tzMin)) return false;
+	r.tzOffsetMinutes = tzSign * (tzHour * 60 + tzMin);
+	if (*s != '\0') return false;
+
+	r.date.year = year;
+	r.date.month = month;
+	r.date.day = day;
+	r.date.hour = hour;
+	r.date.minute = minute;
+	r.date.second = second;
+	r.ok = true;
+	return true;
+}
+
 static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 {
-	ERROR_LOG_REPORT(Log::sceRtc, "UNIMPL sceRtcParseDateTime(%d,%d)", destTickPtr, dateStringPtr);
-	return 0;
+	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(dateStringPtr))
+		return hleLogError(Log::sceRtc, -1, "bad address");
+
+	const char *s = (const char *)Memory::GetPointer(dateStringPtr);
+	if (!s) {
+		return hleLogError(Log::sceRtc, -1, "null string");
+	}
+
+	RtcParseResult r;
+	memset(&r, 0, sizeof(r));
+
+	if (rtcParseRFC3339(s, r) || rtcParseRFC2822(s, r)) {
+		u64 ticks = __RtcPspTimeToTicks(r.date);
+		s64 offsetUs = (s64)r.tzOffsetMinutes * 60 * 1000000;
+		ticks -= offsetUs;
+		Memory::Write_U64(ticks, destTickPtr);
+		return hleLogDebug(Log::sceRtc, 0);
+	}
+
+	// Parse failed - return -1 without modifying destTickPtr.
+	return hleLogDebug(Log::sceRtc, -1);
 }
 
 static int sceRtcGetLastAdjustedTime(u32 tickPtr)

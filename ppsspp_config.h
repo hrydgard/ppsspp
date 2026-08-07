@@ -127,7 +127,16 @@
 #endif
 
 // Windows ARM/ARM64, and Windows UWP (all), are the only platform that don't do GL at all (until Apple finally removes it)
-#if !PPSSPP_PLATFORM(WINDOWS) || ((!PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)) && !PPSSPP_PLATFORM(UWP))
+#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(ARM) || PPSSPP_PLATFORM(UWP)
+// No GL
+#else
+#define PPSSPP_API_ANY_GL 1
+#endif
+#elif PPSSPP_PLATFORM(IOS_APP_STORE)
+// No GL
+#else
+// All other platforms support GL.
 #define PPSSPP_API_ANY_GL 1
 #endif
 

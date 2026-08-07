@@ -44,7 +44,7 @@ AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void AudioChannel::DoState(PointerWrap &p)
 {
-	auto s = p.Section("AudioChannel", 1, 2);
+	auto s = p.Section("AudioChannel", 1, 3);
 	if (!s)
 		return;
 
@@ -59,7 +59,15 @@ void AudioChannel::DoState(PointerWrap &p)
 		Do(p, defaultRoutingMode);
 		Do(p, defaultRoutingVolMode);
 	}
-	chanSampleQueues[index].DoState(p);
+	if (s >= 3) {
+		// v3: compact queue form — only the live samples, not the whole 512KB
+		// fixed storage per channel. Cuts ~4.6MB of dead bytes from every
+		// savestate. Old savestates (s < 3) still load through the
+		// full-storage path below.
+		chanSampleQueues[index].DoStateCompact(p);
+	} else {
+		chanSampleQueues[index].DoState(p);
+	}
 }
 
 void AudioChannel::reset()

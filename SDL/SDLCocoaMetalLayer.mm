@@ -11,17 +11,18 @@
 void *makeWindowMetalCompatible(void *window) {
 	// https://github.com/KhronosGroup/MoltenVK/issues/78#issuecomment-371118536
 #if PPSSPP_PLATFORM(MAC)
-	NSView *view = ((NSWindow *)window).contentView;
+	NSWindow *nsWindow = (__bridge NSWindow *)window;
+	NSView *view = nsWindow.contentView;
 	assert([view isKindOfClass:[NSView class]]);
 
 	if (![view.layer isKindOfClass:[CAMetalLayer class]])
 	{
 		[view setLayer:[CAMetalLayer layer]];
-		[[view layer] setContentsScale:[window backingScaleFactor]];
+		[[view layer] setContentsScale:[nsWindow backingScaleFactor]];
 	}
-	return view.layer;
+	return (__bridge void *)view.layer;
 #else
-	UIView *view = (UIView *)window;
+	UIView *view = (__bridge UIView *)window;
 	assert([view isKindOfClass:[UIView class]]);
 
 	CAMetalLayer *metalLayer = [CAMetalLayer new];
@@ -33,6 +34,6 @@ void *makeWindowMetalCompatible(void *window) {
 	metalLayer.drawableSize = viewSize;
 	metalLayer.pixelFormat = (MTLPixelFormat)80;//BGRA8Unorm==80
 	[view.layer addSublayer:metalLayer];
-	return metalLayer;
+	return (__bridge void *)metalLayer;
 #endif
 }

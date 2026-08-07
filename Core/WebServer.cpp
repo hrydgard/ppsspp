@@ -548,6 +548,11 @@ enum class MultiPartResult {
 	Done,
 };
 
+static bool IsSafeUploadFilename(std::string_view filename) {
+	return !filename.empty() && filename != "." && filename != ".." &&
+		filename.find_first_of("/\\") == std::string_view::npos;
+}
+
 static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, std::string boundary, const Path &uploadPath, ProgressTracker &progress) {
 	std::string firstBoundary = request.In()->ReadLine();
 	if (firstBoundary != "--" + boundary) {
@@ -588,8 +593,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		}
 	}
 
-	if (filename.empty()) {
-		ERROR_LOG(Log::HTTP, "Didn't receive a filename");
+	if (!IsSafeUploadFilename(filename)) {
+		ERROR_LOG(Log::HTTP, "Invalid upload filename");
 		return MultiPartResult::RequestError;
 	}
 

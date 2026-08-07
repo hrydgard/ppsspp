@@ -38,15 +38,6 @@
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 
-// Temporary hacks around annoying linking errors.  Copied from Headless.
-void NativeFrame(GraphicsContext *graphicsContext) { }
-void NativeResized() { }
-
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
-void System_AskForPermission(SystemPermission permission) {}
-PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
 void UnitTestTerminator() {
 	// Bails out of jit so we can time things.
 	coreState = CORE_POWERDOWN;

@@ -125,7 +125,7 @@ int g_screenshotFailures;
 
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
 		SaveStart state;
-		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
+		return CChunkFileReader::LoadPtr(&data[0], data.size(), state, errorString);
 	}
 
 	// TODO: Should this be configurable?

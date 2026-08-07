@@ -591,6 +591,9 @@
     <ClCompile Include="..\..\ext\pugixml\pugixml.cpp">
       <Filter>ext\pugixml</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\UI\ScreenManager.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -612,7 +615,7 @@
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
     <ClInclude Include="..\..\Common\GhidraClient.h" />
-    <ClInclude Include="..\..\Common\GraphicsContext.h" />
+    <ClInclude Include="..\..\Common\GPU\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\Log\LogManager.h" />
     <ClInclude Include="..\..\Common\LogReporting.h" />
@@ -1144,6 +1147,9 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\pugixml\pugixml.hpp">
       <Filter>ext\pugixml</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\ScreenManager.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

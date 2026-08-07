@@ -19,6 +19,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Text/I18n.h"
@@ -143,7 +144,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	std::string shortFilename = zipPath_.GetFilename();
 
-	bool showDeleteCheckbox = false;
 	returnToHomebrew_ = false;
 	installChoice_ = nullptr;
 	playChoice_ = nullptr;
@@ -186,7 +186,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 
 		returnToHomebrew_ = true;
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::TEXTURE_PACK:
@@ -195,7 +194,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(question));
 		leftColumn->Add(new TextView(shortFilename));
 
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::PRX_PLUGIN:
@@ -241,7 +239,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		destFolders_.push_back(savestateDir);
 
 		// TODO: Use the GameInfoCache to display data about the game if available.
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::SAVE_DATA:
@@ -282,7 +279,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 			}
 		}
 
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::FRAME_DUMP:

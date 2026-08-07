@@ -4,7 +4,7 @@
 
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/CrossSIMD.h"

@@ -30,6 +30,7 @@
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceChnnlsv.h"
@@ -543,7 +544,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 	// Calc SFO hash for PSP.
 	if (cryptedData != 0 || (subWrite && wasCrypted)) {
-		int offset = sfoFile->GetDataOffset(sfoData, "SAVEDATA_PARAMS");
+		int offset = sfoFile->GetDataOffset(sfoData, sfoSize, "SAVEDATA_PARAMS");
 		if (offset >= 0)
 			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
 	}
@@ -1260,7 +1261,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		// Log out the listing.
 		if (GenericLogEnabled(Log::sceUtility, LogLevel::LINFO)) {
 			INFO_LOG(Log::sceUtility, "LIST (searchstring=%s): %d files (max: %d)", searchString.c_str(), param->idList->resultCount, maxFileCount);
-			for (int i = 0; i < validDir.size(); i++) {
+			for (size_t i = 0; i < validDir.size(); i++) {
 				NOTICE_LOG(Log::sceUtility, "LIST %s: mode %08x, ctime: %s, atime: %s, mtime: %s",
 					entries[i].name, entries[i].st_mode, FmtPspTime(entries[i].st_ctime).c_str(), FmtPspTime(entries[i].st_atime).c_str(), FmtPspTime(entries[i].st_mtime).c_str());
 			}
@@ -1547,6 +1548,13 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 		// Get number of fileName in array
 		saveDataListCount = 0;
 		while (saveNameListData[saveDataListCount][0] != 0) {
+			// saveName entries become part of host filesystem paths; reject
+			// path separators and bare dot components (path traversal).
+			const std::string_view entry = StringViewFromFixedSizeField(saveNameListData[saveDataListCount]);
+			if (HasPathTraversal(entry)) {
+				ERROR_LOG(Log::sceUtility, "SavedataParam: invalid saveName in list: %s", std::string(entry).c_str());
+				return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+			}
 			saveDataListCount++;
 		}
 
@@ -1596,7 +1604,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 				// Check if thisSaveName is in the list before processing.
 				// This is hopefully faster than doing file I/O.
 				bool found = false;
-				for (int i = 0; i < allSaves.size(); i++) {
+				for (size_t i = 0; i < allSaves.size(); i++) {
 					if (allSaves[i].name == folderName) {
 						found = true;
 					}

@@ -418,7 +418,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 		return;
 	}
 	if (icon.dataLoaded && !icon.texture) {
-		SetupTexture(draw, icon);
+		SetupTexture(draw, icon, 2048, 2048);
 	}
 	if (pic0.dataLoaded && !pic0.texture) {
 		SetupTexture(draw, pic0);
@@ -428,7 +428,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 	}
 }
 
-void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
+void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex, int maxWidth, int maxHeight) {
 	if (tex.timeLoaded) {
 		// Failed before, skip.
 		return;
@@ -440,7 +440,7 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
 	// TODO: Use TempImage to semi-load the image in the worker task, then here we
 	// could just call CreateTextureFromTempImage.
-	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
+	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str(), maxWidth, maxHeight);
 	tex.timeLoaded = time_now_d();
 	if (!tex.texture) {
 		ERROR_LOG(Log::G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());

@@ -339,7 +339,7 @@ static Path NormalizePath(const Path &path) {
 #endif
 }
 
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::string *error_string) {
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool loadGameConfigs, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string));
@@ -425,8 +425,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 
 	// Migrate old save states from old versions of fake game IDs.
 	// Ugh, this might actually be slow on Android.
+	// The strings here are attacker-controlled (from PARAM.SFO / filenames), so
+	// if any of them contain a path separator, skip the migration to avoid
+	// building traversal paths.
+	const bool anyPathSeparator =
+		HasPathTraversal(discID) || HasPathTraversal(discVersion) ||
+		HasPathTraversal(homebrewName) || HasPathTraversal(madeUpID);
 	const Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
-	for (int i = 0; i < 5; ++i) {
+	for (int i = 0; i < 5 && !anyPathSeparator; ++i) {
 		Path newPrefix = savestateDir / StringFromFormat("%s_%s_%d", discID.c_str(), discVersion.c_str(), i);
 		Path oldNamePrefix = savestateDir / StringFromFormat("%s_%d", homebrewName.c_str(), i);
 		Path oldIDPrefix = savestateDir / StringFromFormat("%s_1.00_%d", madeUpID.c_str(), i);
@@ -441,7 +447,9 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 			File::Rename(oldNamePrefix.WithExtraExtension(".jpg"), newPrefix.WithExtraExtension(".jpg"));
 	}
 
-	g_Config.LoadGameConfig(discID);
+	if (loadGameConfigs) {
+		g_Config.LoadGameConfig(discID);
+	}
 
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }

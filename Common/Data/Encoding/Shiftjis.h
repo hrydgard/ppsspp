@@ -110,8 +110,9 @@ struct ShiftJIS {
 		} else if (row < 0x5F) {
 			// Reduce by 0x40 to account for the above range.
 			*dest++ = 0xE0 + ((row - 0x40 + 1) >> 1);
-		} else if (row >= 0x80) {
-			// TODO
+		} else {
+			// Rows 0x5F-0x7F and 0x80+ are not encodable.
+			return 0;
 		}
 
 		if (row & 1) {

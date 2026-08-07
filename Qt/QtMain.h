@@ -34,7 +34,7 @@ QTM_USE_NAMESPACE
 #include "Common/Net/Resolve.h"
 #include "NKCodeFromQt.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -47,25 +47,30 @@ void SimulateGamepad();
 
 class QtGLGraphicsContext : public GraphicsContext {
 public:
-	QtGLGraphicsContext() {
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override {
 		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext(false);
 		SetGPUBackend(GPUBackend::OPENGL);
+		// Not used in this context.
+		return true;
+	}
+
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override {
+		// Not used in this context.
+		draw_ = Draw::T3DCreateGLContext(false);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		bool success = draw_->CreatePresets();
 		_assert_msg_(success, "Failed to compile preset shaders");
-
-		// TODO: Need to figure out how to implement SetSwapInterval for Qt.
+		return true;
 	}
 
-	~QtGLGraphicsContext() {
+	bool NeedsSeparateEmuThread() const override { return true; }
+
+	void ShutdownSurface() override {
 		delete draw_;
 		draw_ = nullptr;
 		renderManager_ = nullptr;
 	}
-
-	void Shutdown() override {}
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
@@ -76,12 +81,16 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
 	}
 
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
+	}
+
+	void NotifyEmuThreadExit() override {
+		renderManager_->NotifyEmuThreadExit();
 	}
 
 private:
@@ -99,8 +108,7 @@ enum class EmuThreadState {
 
 
 // GUI, thread manager
-class MainUI : public QGLWidget
-{
+class MainUI : public QGLWidget {
 	Q_OBJECT
 public:
 	explicit MainUI(QWidget *parent = 0);
@@ -125,11 +133,6 @@ protected:
 
 	void updateAccelerometer();
 
-	void EmuThreadFunc();
-	void EmuThreadStart();
-	void EmuThreadStop();
-	void EmuThreadJoin();
-
 private:
 	bool HandleCustomEvent(QEvent *e);
 	QtGLGraphicsContext *graphicsContext;
@@ -139,8 +142,7 @@ private:
 	QAccelerometer* acc;
 #endif
 
-	std::thread emuThread;
-	std::atomic<int> emuThreadState;
+	std::thread emuThread_;
 };
 
 class QTCamera : public QObject {

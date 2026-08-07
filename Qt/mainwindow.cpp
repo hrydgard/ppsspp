@@ -3,10 +3,10 @@
 
 #include <QApplication>
 #include <QDesktopServices>
-#include <QDesktopWidget>
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QScreen>
 
 #include "mainwindow.h"
 
@@ -395,11 +395,20 @@ void MainWindow::SetFullScreen(bool fullscreen) {
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 
-		QDesktopWidget *desktop = QApplication::desktop();
 		int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
 
 		// Move window to the center of selected screen
-		QRect rect = desktop->screenGeometry(screenNum);
+		QRect rect;
+		const QList<QScreen *> screens = QGuiApplication::screens();
+		if (!screens.empty()) {
+			if (screenNum < 0)
+				screenNum = 0;
+			if (screenNum >= screens.size())
+				screenNum = screens.size() - 1;
+			rect = screens[screenNum]->geometry();
+		} else {
+			rect = QRect(QPoint(0, 0), size());
+		}
 		move((rect.width() - frameGeometry().width()) / 4, (rect.height() - frameGeometry().height()) / 4);
 	}
 }

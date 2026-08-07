@@ -7,6 +7,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"

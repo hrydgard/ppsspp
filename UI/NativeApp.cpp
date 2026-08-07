@@ -56,6 +56,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/IconCache.h"
@@ -83,13 +84,14 @@
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 #include "Common/MemArena.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/UI/PopupScreens.h"
+#include "Core/CmdLine.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -176,7 +178,6 @@ std::string config_filename;
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool resized = false;
-static bool restarting = false;
 
 static int renderCounter = 0;
 
@@ -191,13 +192,15 @@ static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
-static int g_restartGraphics;
 static bool g_windowHidden = false;
 static std::string g_achievementsHostOverride;
 static std::string g_savedAchievementsHost;
 static bool g_savedAchievementsHardcoreMode = false;
 static bool g_hasSavedAchievementsSettings = false;
 static bool g_nativeMainThreadReady = false;
+
+static std::mutex g_inputEventQueueLock;
+static std::vector<QueuedEvent> g_inputEventQueue;
 
 static void ApplyAchievementsRuntimeSettings() {
 	auto *client = Achievements::GetClient();
@@ -273,12 +276,6 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 	*version = PPSSPP_GIT_VERSION;
-
-#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
-	ArmEmitterTest();
-#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
-	Arm64EmitterTest();
-#endif
 }
 
 #if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
@@ -393,7 +390,7 @@ static void ClearFailedGPUBackends() {
 	File::Delete(failedBackendsFile);
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
+void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineOptions, const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	g_Config.Init();
@@ -437,6 +434,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	const Path &exePath = File::GetExeDirectory();
+	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
@@ -538,7 +539,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
 	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
-#elif !PPSSPP_PLATFORM(WINDOWS)
+#elif PPSSPP_PLATFORM(WINDOWS)
+	// ...
+#else
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
 		config = getenv("XDG_CONFIG_HOME");
@@ -569,156 +572,66 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_logManager.Init(&g_Config.bEnableLogging);
 
-#if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
-	g_Config.Load();
+	g_Config.Load(cmdLineOptions.configFilename.c_str(), cmdLineOptions.controlsConfigFilename.c_str());
 	System_Notify(SystemNotification::CONFIG_LOADED);
-#endif
 
-	const char *fileToLog = nullptr;
-	Path stateToLoad;
+	// Apply parsed command line options to config.
+	cmdLineOptions.ApplyToConfig();
 
-	bool gotBootFilename = false;
-	bool gotoGameSettings = false;
-	bool gotoTouchScreenTest = false;
-	bool gotoDeveloperTools = false;
 	boot_filename.clear();
+	if (boot_filename.empty() && cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
+		boot_filename = g_Config.flash0Directory / "vsh/module/vshmain.prx";
+	}
 
-	// Parse command line
-	LogLevel logLevel = LogLevel::LINFO;
-	bool forceLogLevel = false;
-	const auto setLogLevel = [&logLevel, &forceLogLevel](LogLevel level) {
-		logLevel = level;
-		forceLogLevel = true;
-	};
+	if (cmdLineOptions.appendConfig.has_value()) {
+		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
+		g_Config.LoadAppendedConfig();
+	}
 
-	// TODO: Need a much better command line argument parser.
+	// This parameter should be a boot filename. Only accept it if we
+	// don't already have one.
+	if (!cmdLineOptions.bootFilenames.empty()) {
+		std::string bootFilename = cmdLineOptions.bootFilenames[0];
+		INFO_LOG(Log::System, "Boot filename found in args: '%s'", bootFilename.c_str());
 
-	for (int i = 1; i < argc; i++) {
-		if (argv[i][0] == '-') {
-#if defined(__APPLE__)
-			// On Apple system debugged executable may get -NSDocumentRevisionsDebugMode YES in argv.
-			if (!strcmp(argv[i], "-NSDocumentRevisionsDebugMode") && argc - 1 > i) {
-				i++;
-				continue;
-			}
-#endif
-			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LDEBUG);
-				break;
-			case 'v':
-				// Enable verbose logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LVERBOSE);
-				break;
-			case 'j':
-				g_Config.iCpuCore = (int)CPUCore::JIT;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'i':
-				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'r':
-				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'J':
-				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
-				g_Config.bSaveSettings = false;
-				break;
-			case '-':
-				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
-					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
-				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
-					fileToLog = argv[i] + strlen("--log=");
-				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = Path(argv[i] + strlen("--state="));
-				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
-					g_Config.bPauseExitsEmulator = true;
-				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
-					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = true;
-				}
-				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
-					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
-				}
-				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = false;
-				}
-				if (!strcmp(argv[i], "--touchscreentest"))
-					gotoTouchScreenTest = true;
-				if (!strcmp(argv[i], "--gamesettings"))
-					gotoGameSettings = true;
-				if (!strcmp(argv[i], "--developertools"))
-					gotoDeveloperTools = true;
-				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
-					g_Config.SetAppendedConfigIni(Path(argv[i] + strlen("--appendconfig=")));
-					g_Config.LoadAppendedConfig();
-				}
-				break;
-			}
-		} else {
-			// This parameter should be a boot filename. Only accept it if we
-			// don't already have one.
-			if (!gotBootFilename) {
-				gotBootFilename = true;
-				INFO_LOG(Log::System, "Boot filename found in args: '%s'", argv[i]);
-
-				bool okToLoad = true;
-				bool okToCheck = true;
-				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
-					if (status == PERMISSION_STATUS_DENIED) {
-						ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
-						okToLoad = false;
-						okToCheck = false;
-					} else if (status != PERMISSION_STATUS_GRANTED) {
-						ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
-						okToCheck = false;
-					} else {
-						INFO_LOG(Log::IO, "Storage permission granted.");
-					}
-				}
-				if (okToLoad) {
-					std::string str = std::string(argv[i]);
-					// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
-					if (startsWith(str, "file:///")) {
-						str = UriDecode(str.substr(7));
-						INFO_LOG(Log::IO, "Decoding '%s' to '%s'", argv[i], str.c_str());
-					}
-
-					boot_filename = Path(str);
-					skipLogo = true;
-				}
-				// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
-				TryUpdateSavedPath(&boot_filename);
-				if (okToLoad && okToCheck) {
-					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
-					if (!fileLoader->Exists()) {
-						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-
-#if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
-						boot_filename.clear();
-#else
-						// Bail.
-						exit(1);
-#endif
-					}
-				}
+		bool okToLoad = true;
+		bool okToCheck = true;
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+			PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
+			if (status == PERMISSION_STATUS_DENIED) {
+				ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
+				okToLoad = false;
+				okToCheck = false;
+			} else if (status != PERMISSION_STATUS_GRANTED) {
+				ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
+				okToCheck = false;
 			} else {
-				fprintf(stderr, "Syntax error: Can only boot one file.\nNote: Many command line args need a =, like --appendconfig=FILENAME.ini.\n");
+				INFO_LOG(Log::IO, "Storage permission granted.");
+			}
+		}
+		if (okToLoad) {
+			// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
+			if (startsWith(bootFilename, "file:///")) {
+				bootFilename = UriDecode(bootFilename.substr(7));
+				INFO_LOG(Log::IO, "Decoding '%s' to '%s'", cmdLineOptions.bootFilenames[0].c_str(), bootFilename.c_str());
+			}
+
+			boot_filename = Path(bootFilename);
+			skipLogo = true;
+		}
+		// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
+		TryUpdateSavedPath(&boot_filename);
+		if (okToLoad && okToCheck) {
+			std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
+			if (!fileLoader->Exists()) {
+				fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+
 #if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
-				// Ignore and proceed.
+				boot_filename.clear();
 #else
 				// Bail.
 				exit(1);
@@ -727,18 +640,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	if (fileToLog) {
+	if (cmdLineOptions.log.has_value() && !cmdLineOptions.log.value().empty()) {
 		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
-		g_logManager.SetFileLogPath(Path(fileToLog));
+		g_logManager.SetFileLogPath(Path(cmdLineOptions.log.value()));
 	} else {
 		// Set a default file logging path, in case the user enables it with the checkbox later.
 		g_logManager.SetFileLogPath(GetSysDirectory(DIRECTORY_DUMP) / "log.txt");
-	}
-
-	if (forceLogLevel) {
-		NOTICE_LOG(Log::System, "Setting log level to %d due to command line override", (int)logLevel);
-		g_logManager.SetAllLogLevels(logLevel);
 	}
 
 	PostLoadConfig();
@@ -761,8 +669,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_BackgroundAudio.SFX().Init();
 
-	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, &ShowMessageAfterSaveStateAction);
+	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
+		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
 
 	if (g_Config.bAchievementsEnable) {
@@ -782,14 +690,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
-	} else if (gotoGameSettings) {
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
-	} else if (gotoTouchScreenTest) {
-		g_screenManager->switchScreen(new MainScreen());
+	} else if (cmdLineOptions.startScreen.has_value()) {
+		// Launch into specified start screen. This is useful for testing UI, more screens can be easily added here.
+		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
+			g_screenManager->switchScreen(new MainScreen());
+		}
 		g_screenManager->push(new TouchTestScreen(Path()));
-	} else if (gotoDeveloperTools) {
-		g_screenManager->switchScreen(new MainScreen());
-		g_screenManager->push(new DeveloperToolsScreen(Path()));
+		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
+			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new DeveloperToolsScreen(Path()));
+		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));
@@ -825,7 +737,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	Achievements::Initialize();
 
 	// Must be done restarting by now.
-	restarting = false;
 	g_nativeMainThreadReady = true;
 }
 
@@ -997,17 +908,19 @@ bool CreateGlobalPipelines() {
 	return true;
 }
 
-void NativeShutdownGraphics() {
+void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
+
+	graphicsContext->NotifyEmuThreadExit();
 
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
 	g_iconCache.ClearTextures();
 
-	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
-	if (gpu)
+	if (gpu) {
 		gpu->DeviceLost();
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
@@ -1062,23 +975,15 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	if (!(Core_IsActive() || Core_IsStepping()))
+		UpdateUIState(UISTATE_MENU);
+	Core_StateProcessed();
+
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
 			sleep_ms(16, "window-hidden");
 			return;
 		}
-	}
-
-	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
-	if (g_restartGraphics == 1) {
-		// Used for debugging only.
-		NativeShutdownGraphics();
-		g_restartGraphics++;
-		return;
-	}
-	else if (g_restartGraphics == 2) {
-		NativeInitGraphics(graphicsContext);
-		g_restartGraphics = 0;
 	}
 
 	double startTime = time_now_d();
@@ -1122,7 +1027,14 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 	g_draw->BeginFrame(debugFlags);
 
-	g_screenManager->update();
+	// Process queued events.
+	std::vector<QueuedEvent> inputEvents;
+	{
+		std::lock_guard<std::mutex> eventGuard(g_inputEventQueueLock);
+		inputEvents = std::move(g_inputEventQueue);
+		g_inputEventQueue.clear();
+	}
+	g_screenManager->update(inputEvents);
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
@@ -1150,6 +1062,22 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 				// TODO: Add a to-string thingy.
 				VERBOSE_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
 			}
+
+			if (item.message == UIMessage::LOST_FOCUS) {
+				// This is a bit of a hack, but we need to do this here so that the graphics context is valid.
+				TouchInput input{};
+				input.x = -50000.0f;
+				input.y = -50000.0f;
+				input.flags = TouchInputFlags::RELEASE_ALL;
+				input.timestamp = time_now_d();
+				input.id = 0;
+				std::lock_guard<std::mutex> eventGuard(g_inputEventQueueLock);
+				QueuedEvent q{};
+				q.type = QueuedEventType::TOUCH;
+				q.touch = input;
+				g_inputEventQueue.push_back(q);
+			}
+
 			g_screenManager->sendMessage(item.message, item.value.c_str());
 		}
 	}
@@ -1255,7 +1183,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 	if (message == UIMessage::RESTART_GRAPHICS) {
-		g_restartGraphics = 1;
 		return true;
 	} else if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -1347,7 +1274,12 @@ void NativeTouch(const TouchInput &touch) {
 	if (my_isnan(touch.x) || my_isnan(touch.y)) {
 		return;
 	}
-	g_screenManager->touch(touch);
+
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::TOUCH;
+	ev.touch = touch;
+	std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+	g_inputEventQueue.push_back(ev);
 }
 
 // up, down
@@ -1557,8 +1489,14 @@ bool NativeKey(const KeyInput &key) {
 		return false;
 	}
 
-	// Dispatch the key event.
-	g_screenManager->key(modKey);
+	// Queue up the key event for synchronous processing in the UI.
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::KEY;
+	ev.key = key;
+	{
+		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+		g_inputEventQueue.push_back(ev);
+	}
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
@@ -1586,7 +1524,15 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		g_controlMapper.Axis(axes, count);
 	}
 
-	g_screenManager->axis(axes, count);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::AXIS;
+	{
+		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+		for (size_t i = 0; i < count; i++) {
+			ev.axis = axes[i];
+			g_inputEventQueue.push_back(ev);
+		}
+	}
 
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
@@ -1680,14 +1626,6 @@ void NativeResized() {
 	resized = true;
 }
 
-void NativeSetRestarting() {
-	restarting = true;
-}
-
-bool NativeIsRestarting() {
-	return restarting;
-}
-
 void NativeShutdown() {
 	INFO_LOG(Log::System, "NativeShutdown begin");
 	ClearAchievementsHostOverride();
@@ -1728,10 +1666,7 @@ void NativeShutdown() {
 	ShaderTranslationShutdown();
 
 	// Avoid shutting this down when restarting core.
-	if (!restarting) {
-		g_logManager.Shutdown();
-	}
-
+	g_logManager.Shutdown();
 	g_threadManager.Teardown();
 
 #if !PPSSPP_PLATFORM(IOS)
@@ -1794,6 +1729,8 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {
+	INFO_LOG(Log::System, "Native_UpdateScreenScale: %dx%d, customScale=%f", pixel_width, pixel_height, customScale);
+
 	_dbg_assert_(customScale > 0.1f);
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
 	float dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);

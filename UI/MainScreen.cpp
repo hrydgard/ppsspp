@@ -28,6 +28,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
+#include "Common/UI/ScreenManager.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/System.h"
@@ -320,7 +321,6 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 			if (!g_Config.Save("MainScreen::OnExit")) {
 				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
 			}
-
 			UpdateUIState(UISTATE_EXIT);
 			// Request the framework to exit cleanly.
 			System_ExitApp();

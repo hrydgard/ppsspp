@@ -220,6 +220,9 @@ private:
 
 	std::vector<std::vector<uint8_t>> data_;
 	std::vector<ReplacedTextureLevel> levels_;
+	// Image format of mip level 0; mixing formats across levels is not
+	// allowed (container formats like KTX2/DDS manage their own mip chain).
+	ReplacedImageType firstImageType_ = ReplacedImageType::INVALID;
 
 	double lastUsed_ = 0.0;
 	LimitedWaitable *threadWaitable_ = nullptr;

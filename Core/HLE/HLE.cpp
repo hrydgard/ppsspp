@@ -39,6 +39,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/HLE.h"
 
 enum {
@@ -906,7 +907,16 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
 		std::string_view modName = modulenum >= (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name;
-		ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
+		// This is what a still-unresolved import looks like once written as a syscall opcode -
+		// the original module name/NID aren't recoverable from the opcode itself (see
+		// WriteFuncMissingStub), but the calling address is a stub we may still be tracking.
+		std::string importModuleName, importingModuleName;
+		u32 nid = 0;
+		if (currentMIPS->pc >= 8 && KernelFindImportByStubAddr(currentMIPS->pc - 8, &importModuleName, &nid, &importingModuleName)) {
+			ERROR_LOG(Log::HLE, "Unknown syscall: unresolved import %s/%08x (%s), called from '%s'", importModuleName.c_str(), nid, GetHLEFuncName(importModuleName, nid), importingModuleName.c_str());
+		} else {
+			ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
+		}
 		return NULL;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
@@ -1145,9 +1155,12 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	const char *errStr = nullptr;
 	switch (retmask) {
 	case 'x':
-		// Truncate the high bits of the result (from any sign extension.)
-		res = (u32)res;
-		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+	case 'X':
+		if (retmask == 'x') {
+			// Truncate the high bits of the result (from any sign extension.)
+			res = (u32)res;
+		}
+		if (retmask == 'x' && (int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
 			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
 		} else {
@@ -1157,7 +1170,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		break;
 	case 'i':
 	case 'I':
-		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+		if (retmask == 'i' && (int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
 			fmt = "%s%s=%s(%s)%s";
 		} else {

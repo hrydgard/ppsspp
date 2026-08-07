@@ -26,6 +26,7 @@
 
 #include "GPU/Common/ReplacedTexture.h"
 #include "GPU/Common/TextureReplacer.h"
+#include "Core/Util/PathUtil.h"
 
 #include "Common/Data/Format/DDSLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
@@ -224,6 +225,11 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		}
 
 		std::string path(desc_.filenames[i]);
+		// Defense in depth: skip filenames that could escape the pack dir.
+		if (HasParentDirComponent(path)) {
+			SetState(ReplacementState::CANCEL_INIT);
+			return;
+		}
 		VFSFileReference *fileRef = vfs_->GetFile(path.c_str());
 		if (!fileRef) {
 			if (i == 0) {
@@ -314,6 +320,17 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	std::string magic;
 	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
+
+	// Disallow mixing image formats across mip levels: a KTX2/DDS container
+	// manages its own mip chain, so mixing one in at a higher mip level
+	// would corrupt the shared level data layout.
+	if (mipLevel == 0) {
+		firstImageType_ = imageType;
+	} else if (imageType != firstImageType_) {
+		WARN_LOG(Log::TexReplacement, "Replacement mipmap %d uses image format %d, but mip 0 uses %d. Stopping.", mipLevel, (int)imageType, (int)firstImageType_);
+		vfs_->CloseFile(openFile);
+		return LoadLevelResult::DONE;
+	}
 
 	bool ddsDX10 = false;
 	int numMips = 1;
@@ -525,7 +542,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			WARN_LOG(Log::TexReplacement, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
-		data_.resize(numMips);
+		// Cap the mip count (attacker-controlled header field) and make sure
+		// data_ is large enough for mipLevel + numMips; otherwise the loop
+		// below indexes past the end of data_.
+		numMips = std::max(1, std::min(numMips, MAX_REPLACEMENT_MIP_LEVELS - mipLevel));
+		if ((size_t)(mipLevel + numMips) > data_.size()) {
+			data_.resize(mipLevel + numMips);
+		}
 
 		basist::ktx2_transcoder_state transcodeState;  // Each thread needs one of these.
 
@@ -547,7 +570,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				outputSize = levelInfo.m_orig_width * levelInfo.m_orig_height;
 				outputPitch = levelInfo.m_orig_width;
 			}
-			data_[i].resize(dataSizeBytes);
+			out.resize(dataSizeBytes);
 
 			transcodeState.clear();
 			transcoder.transcode_image_level(i, 0, 0, &out[0], (uint32_t)outputSize, transcoderFormat, 0, (uint32_t)outputPitch, level.h, -1, -1, &transcodeState);
@@ -579,7 +602,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			WARN_LOG(Log::TexReplacement, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
-		data_.resize(numMips);
+		// Cap the mip count (attacker-controlled header field) and make sure
+		// data_ is large enough for mipLevel + numMips; otherwise the loop
+		// below indexes past the end of data_.
+		numMips = std::max(1, std::min(numMips, MAX_REPLACEMENT_MIP_LEVELS - mipLevel));
+		if ((size_t)(mipLevel + numMips) > data_.size()) {
+			data_.resize(mipLevel + numMips);
+		}
 
 		// A DDS File can contain multiple mipmaps.
 		levels_.reserve(numMips);

@@ -10,12 +10,16 @@ import java.util.Arrays;
 import java.util.List;
 
 class InfraredHelper {
-	private static final String TAG = InfraredHelper.class.getSimpleName();
+	private static final String TAG = "PPSSPPActivity";
 	private static final int SIRC_FREQ = 40000;
 	private final ConsumerIrManager mConsumerIrManager;
 
 	InfraredHelper(Context context) throws Exception {
 		mConsumerIrManager = (ConsumerIrManager) context.getSystemService(Context.CONSUMER_IR_SERVICE);
+		if (mConsumerIrManager == null) {
+			Log.i(TAG, "No IR manager detected.");
+			return;
+		}
 		Log.d(TAG, "HasIrEmitter: " + mConsumerIrManager.hasIrEmitter());
 		if (!mConsumerIrManager.hasIrEmitter()) {
 			throw new Exception("No Ir Emitter");

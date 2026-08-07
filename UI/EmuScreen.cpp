@@ -33,6 +33,7 @@ using namespace std::placeholders;
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
 #include "Common/UI/AsyncImageFileView.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -1736,6 +1737,14 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	renderImDebugger();
 	return screenRenderFlags;
+}
+
+bool EmuScreen::AllowFocusMovement() const {
+	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
+		return true;
+	}
+	// We have just a game controller and possibly a chat and debug button. Don't allow focus movement.
+	return false;
 }
 
 ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {

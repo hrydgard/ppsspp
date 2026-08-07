@@ -138,6 +138,15 @@ struct GLExtensions {
 	// greater-or-equal than
 	bool VersionGEThan(int major, int minor, int sub = 0);
 	int GLSLVersion();
+
+	bool FullPrecisionIntInFragment() const {
+		return range[1][5][0] >= 30 && range[1][5][1] >= 30;
+	}
+
+	// If 23, normal floats are supported.
+	int HighpFragmentFloatMantissaBits() const {
+		return precision[1][2];
+	}
 };
 
 extern GLExtensions gl_extensions;

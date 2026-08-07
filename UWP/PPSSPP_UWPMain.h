@@ -5,7 +5,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Input/InputState.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/DeviceResources.h"
 #include "Windows/InputDevice.h"
 
@@ -19,7 +19,7 @@ class UWPGraphicsContext : public GraphicsContext {
 public:
 	UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources);
 
-	void Shutdown() override;
+	void ShutdownAPI() override;
 	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {
 		return draw_;
