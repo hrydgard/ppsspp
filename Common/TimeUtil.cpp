@@ -35,6 +35,20 @@
 
 constexpr double nanos = 1000000000.0;
 
+// A note on suspend, because the clock names are actively misleading across platforms: whether the
+// "monotonic" clock keeps counting while the machine is asleep is not consistent between them, and
+// Apple's CLOCK_MONOTONIC behaves like Linux's CLOCK_BOOTTIME, not like Linux's CLOCK_MONOTONIC.
+//
+//                   excludes suspend                 includes suspend
+//   Linux/Android    CLOCK_MONOTONIC     <- we use    CLOCK_BOOTTIME
+//   Mac/iOS          CLOCK_UPTIME_RAW    <- we use    CLOCK_MONOTONIC
+//   Windows          QueryUnbiasedInterruptTime*      QueryPerformanceCounter  <- we use
+//
+// So time_now_d() skips time spent asleep everywhere except Windows, where QPC is documented to
+// include standby/hibernate/connected standby. That inconsistency is deliberate: the unbiased
+// interrupt time APIs are Win10+ (we still compile for Win7, see CommonWindows.h) and are a
+// coarser clock than QPC, which is a poor trade for the one thing this costs us - a single large
+// delta on resume, which callers have to tolerate regardless since mobile apps get suspended.
 
 #if PPSSPP_PLATFORM(WINDOWS)
 
@@ -147,13 +161,12 @@ int64_t Instant::ElapsedNanos() const {
 // The only intended use is to match the timings in VK_GOOGLE_display_timing
 uint64_t time_now_raw() {
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	// On Apple platforms, CLOCK_MONOTONIC keeps counting while the system is asleep, so it can't
-	// just be a counter read and ends up being the expensive clock. CLOCK_UPTIME_RAW is the raw
-	// counter - the man page notes it's identical to mach_absolute_time() after the timebase
-	// conversion - and _nsec_np hands it to us in nanoseconds without going through a timespec.
-	// Roughly twice as fast to read; measured ~14ns vs ~26ns on an M-series Mac.
-	// The tradeoff is that this clock stops while the system is asleep, which for an emulator is
-	// arguably what we want anyway - no huge delta to absorb on wake.
+	// See the note about suspend at the top of this file for why this isn't CLOCK_MONOTONIC.
+	// Tracking suspend is also what makes Apple's CLOCK_MONOTONIC the expensive clock - it can't
+	// just be a counter read. CLOCK_UPTIME_RAW is the raw counter (the clock_gettime man page notes
+	// it's identical to mach_absolute_time() after the timebase conversion), and the _nsec_np
+	// variant returns nanoseconds directly rather than a timespec we'd have to recombine.
+	// Roughly twice as fast to read: measured ~14ns vs ~26ns on an M-series Mac.
 	return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 #else
 	struct timespec tp;
