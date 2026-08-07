@@ -1001,7 +1001,7 @@ void Register_ExceptionManagerForKernel()
 
 // Seen in some homebrew
 const HLEFunction UtilsForKernel[] = {
-	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            '?', "",       HLE_KERNEL_SYSCALL },
+	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            'i', "xi",     HLE_KERNEL_SYSCALL },
 	{0X78934841, nullptr,                                            "sceKernelGzipDecompress",                   '?', ""        },
 	{0XE8DB3CE6, nullptr,                                            "sceKernelDeflateDecompress",                '?', ""        },
 	{0X840259F1, nullptr,                                            "sceKernelUtilsSha1Digest",                  '?', ""        },
@@ -1017,7 +1017,7 @@ const HLEFunction UtilsForKernel[] = {
 	{0X34B9FA9E, &WrapI_UI<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange",   '?', ""        },
 	{0XB435DEC5, &WrapI_V<sceKernelDcacheWritebackInvalidateAll>,    "sceKernelDcacheWritebackInvalidateAll",     '?', ""        },
 	{0XBFA98062, &WrapI_UI<sceKernelDcacheInvalidateRange>,          "sceKernelDcacheInvalidateRange",            '?', ""        },
-	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",              '?', ""        },
+	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",              'i', "xi"      },
 	{0XE860E75E, nullptr,                                            "sceKernelUtilsMt19937Init",                 '?', ""        },
 	{0X06FB8A63, nullptr,                                            "sceKernelUtilsMt19937UInt",                 '?', ""        },
 };
