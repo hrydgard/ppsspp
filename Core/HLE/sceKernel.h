@@ -82,28 +82,6 @@ struct SceKernelLoadExecParam
 	u32_le keyp; // Encryption key? Not yet used
 };
 
-// Used by the VSH's own LoadExec variants (sceKernelLoadExecVSHMs2 and friends, see
-// LoadExecForKernel in sceKernel.cpp) instead of SceKernelLoadExecParam above. The first four
-// fields share the same layout as SceKernelLoadExecParam, which is why the plain
-// sceKernelLoadExec happens to work fine even when handed one of these. Fields past "flags"
-// are only present if size >= 0x30 - see JPCSP's SceKernelLoadExecVSHParam for the reference
-// this was ported from.
-struct SceKernelLoadExecVSHParam
-{
-	SceSize_le size;             // Size of the structure
-	SceSize_le args;             // Size of the arg string
-	u32_le argp;                 // Pointer to the arg string
-	u32_le keyp;                 // Pointer to the encryption key string
-	SceSize_le vshmainArgsSize;  // Size of the vshmain-specific arg buffer
-	u32_le vshmainArgs;          // Pointer to the vshmain-specific arg buffer
-	u32_le configFilep;          // Pointer to a config file path string
-	u32_le unknownString;
-	u32_le flags;
-	u32_le extArgs;
-	u32_le extArgp;
-	u32_le opt11;
-};
-
 void __KernelInit();
 void __KernelShutdown();
 void __KernelDoState(PointerWrap &p);
