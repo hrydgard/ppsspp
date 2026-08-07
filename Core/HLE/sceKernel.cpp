@@ -142,6 +142,7 @@ void __KernelInit()
 	__UtilityInit();
 	__UmdInit();
 	__MpegInit();
+	__Mp4Init();
 	__PsmfInit();
 	__CtrlInit();
 	__RtcInit();
@@ -205,6 +206,7 @@ void __KernelShutdown()
 
 	__Mp3Shutdown();
 	__MpegShutdown();
+	__Mp4Shutdown();
 	__PsmfShutdown();
 	__PPGeShutdown();
 
@@ -283,6 +285,7 @@ void __KernelDoState(PointerWrap &p)
 		__JpegDoState(p);
 		__Mp3DoState(p);
 		__MpegDoState(p);
+		__Mp4DoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);
 		__PowerDoState(p);
