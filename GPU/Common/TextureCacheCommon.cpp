@@ -829,7 +829,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		ForgetLastTexture();
 		if (framebuffer) {
 			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), channel);
+			if (doBind) {
+				ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), channel);
+			}
 			result.framebuffer = framebuffer;
 			result.framebufferTextureChannel = channel;
 			framebuffer = nullptr;
