@@ -5,7 +5,6 @@
 // Modified by xSacha
 // Reworked by hrydgard
 
-#import "AppDelegate.h"
 #import "ViewController.h"
 #import "iOSCoreAudio.h"
 
@@ -56,7 +55,6 @@ PPSSPPBaseViewController *sharedViewController;
 @property (nonatomic, strong) EAGLContext *glContext;
 @property (nonatomic, strong) GLKView *glView;
 @property (nonatomic, strong) CADisplayLink *displayLink;
-@property (nonatomic, assign) NSTimeInterval lastTimestamp;
 
 @property (nonatomic, strong) EAGLContext* context;
 
@@ -134,10 +132,6 @@ PPSSPPBaseViewController *sharedViewController;
 	}
 	[self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
 
-	self.lastTimestamp = 0;
-
-	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
-	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 
 	graphicsContext = new OpenGLGraphicsContext();
@@ -173,14 +167,12 @@ PPSSPPBaseViewController *sharedViewController;
 
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
-	// Resume display link unless explicitly paused
-	INFO_LOG(Log::G3D, "viewWillAppear - resuming display link");
+	INFO_LOG(Log::G3D, "viewWillAppear");
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
 	[super viewWillDisappear:animated];
-	// stop rendering while not visible
-	INFO_LOG(Log::G3D, "viewWillDisappear - pausing display link");
+	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
 - (void)dealloc {
@@ -205,16 +197,6 @@ PPSSPPBaseViewController *sharedViewController;
 }
 
 - (void)displayLinkFired:(CADisplayLink *)dl {
-	// compute delta time
-	NSTimeInterval timestamp = dl.timestamp;
-	NSTimeInterval delta = 0;
-	if (self.lastTimestamp > 0) {
-		delta = timestamp - self.lastTimestamp;
-	} else {
-		delta = dl.duration; // fallback
-	}
-	self.lastTimestamp = timestamp;
-
 	// Ensure context is current before drawing
 	[EAGLContext setCurrentContext:self.glContext];
 
@@ -284,10 +266,6 @@ PPSSPPBaseViewController *sharedViewController;
 - (void)bindDefaultFBO
 {
 	[(GLKView*)self.glView bindDrawable];
-}
-
-- (UIView *)getView {
-	return [self view];
 }
 
 // Can't consolidate this yet.

@@ -81,7 +81,7 @@
 		key.keyCode = getSmartKeyboardMap((int)eventScanCode);
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		NativeKey(key);
-	} else if (GSEVENT_TYPE_KEYDOWN) {
+	} else if (eventType == GSEVENT_TYPE_KEYDOWN) {
 		struct KeyInput key;
 		key.flags = KeyInputFlags::DOWN;
 		key.keyCode = getSmartKeyboardMap((int)eventScanCode);
