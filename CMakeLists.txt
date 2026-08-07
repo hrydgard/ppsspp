@@ -979,7 +979,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/main.mm
 		ios/CameraHelper.mm
 		ios/CameraControlInputManager.mm
-		ios/AudioEngine.mm
 		ios/LocationHelper.mm
 		ios/Controls.mm
 		ios/ViewControllerCommon.mm
