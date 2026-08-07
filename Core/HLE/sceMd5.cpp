@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <map>
 #include "Common/Crypto/md5.h"
 #include "Common/Crypto/sha1.h"
 #include "Common/Data/Random/Rng.h"
@@ -50,7 +51,7 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 
 // TODO: This MD5 stuff needs tests!
 
-static md5_context md5_ctx;
+static std::map<u32, md5_context> md5_contexts;
 
 static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
@@ -67,10 +68,9 @@ static int sceMd5BlockInit(u32 ctxAddr) {
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
 
-	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
-	// which will work just fine unless games do several MD5 concurrently.
-
-	ppsspp_md5_starts(&md5_ctx);
+	md5_context ctx;
+	ppsspp_md5_starts(&ctx);
+	md5_contexts[ctxAddr] = ctx;
 	return 0;
 }
 
@@ -79,7 +79,11 @@ static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 	
-	ppsspp_md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
+	auto it = md5_contexts.find(ctxAddr);
+	if (it == md5_contexts.end()) {
+		return -1;
+	}
+	ppsspp_md5_update(&it->second, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
 	return 0;
 }
 
@@ -88,7 +92,12 @@ static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	ppsspp_md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
+	auto it = md5_contexts.find(ctxAddr);
+	if (it == md5_contexts.end()) {
+		return -1;
+	}
+	ppsspp_md5_finish(&it->second, Memory::GetPointerWriteUnchecked(digestAddr));
+	md5_contexts.erase(it);
 	return 0;
 }
 
@@ -107,10 +116,9 @@ int sceKernelUtilsMd5BlockInit(u32 ctxAddr) {
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
 
-	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
-	// which will work just fine unless games do several MD5 concurrently.
-
-	ppsspp_md5_starts(&md5_ctx);
+	md5_context ctx;
+	ppsspp_md5_starts(&ctx);
+	md5_contexts[ctxAddr] = ctx;
 	return 0;
 }
 
@@ -119,7 +127,11 @@ int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 
-	ppsspp_md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
+	auto it = md5_contexts.find(ctxAddr);
+	if (it == md5_contexts.end()) {
+		return -1;
+	}
+	ppsspp_md5_update(&it->second, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
 	return 0;
 }
 
@@ -128,12 +140,17 @@ int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	ppsspp_md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
+	auto it = md5_contexts.find(ctxAddr);
+	if (it == md5_contexts.end()) {
+		return -1;
+	}
+	ppsspp_md5_finish(&it->second, Memory::GetPointerWriteUnchecked(digestAddr));
+	md5_contexts.erase(it);
 	return 0;
 }
 
 
-static sha1_context sha1_ctx;
+static std::map<u32, sha1_context> sha1_contexts;
 
 int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
@@ -150,10 +167,9 @@ int sceKernelUtilsSha1BlockInit(u32 ctxAddr) {
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
 
-	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
-	// which will work just fine unless games do several MD5 concurrently.
-
-	sha1_starts(&sha1_ctx);
+	sha1_context ctx;
+	sha1_starts(&ctx);
+	sha1_contexts[ctxAddr] = ctx;
 
 	return 0;
 }
@@ -163,7 +179,11 @@ int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataAddr))
 		return -1;
 
-	sha1_update(&sha1_ctx, Memory::GetPointerWriteUnchecked(dataAddr), (int)len);
+	auto it = sha1_contexts.find(ctxAddr);
+	if (it == sha1_contexts.end()) {
+		return -1;
+	}
+	sha1_update(&it->second, Memory::GetPointerWriteUnchecked(dataAddr), (int)len);
 	return 0;
 }
 
@@ -172,7 +192,12 @@ int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	sha1_finish(&sha1_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
+	auto it = sha1_contexts.find(ctxAddr);
+	if (it == sha1_contexts.end()) {
+		return -1;
+	}
+	sha1_finish(&it->second, Memory::GetPointerWriteUnchecked(digestAddr));
+	sha1_contexts.erase(it);
 	return 0;
 }
 
