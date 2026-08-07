@@ -413,29 +413,6 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*version = PPSSPP_GIT_VERSION;
 }
 
-#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
-static bool CheckFontIsUsable(const wchar_t *fontFace) {
-	wchar_t actualFontFace[1024] = { 0 };
-
-	HFONT f = CreateFont(0, 0, 0, 0, FW_LIGHT, 0, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, VARIABLE_PITCH, fontFace);
-	if (f != nullptr) {
-		HDC hdc = CreateCompatibleDC(nullptr);
-		if (hdc != nullptr) {
-			SelectObject(hdc, f);
-			GetTextFace(hdc, 1024, actualFontFace);
-			DeleteDC(hdc);
-		}
-		DeleteObject(f);
-	}
-
-	// If we were able to get the font name, did it load?
-	if (actualFontFace[0] != 0) {
-		return wcsncmp(actualFontFace, fontFace, ARRAY_SIZE(actualFontFace)) == 0;
-	}
-	return false;
-}
-#endif
-
 void PostLoadConfig() {
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
@@ -1293,7 +1270,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-	// All actual rendering (and also emulation) happens in here.
+	// All actual rendering (and also emulation) happens in this render() call.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();

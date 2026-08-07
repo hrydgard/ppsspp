@@ -1186,6 +1186,10 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		// Void. Return value should not be shown. (the first %s is the "K " string, see below).
 		fmt = "%s%s(%s)%s";
 		break;
+	case '?':
+		// Unknown return format. Should we log extra?
+		fmt = "%s%s(%s)%s";
+		break;
 	default:
 		_dbg_assert_msg_(false, "Invalid return format: %c", retmask);
 		fmt = "%s%08llx=%s(%s)%s";
