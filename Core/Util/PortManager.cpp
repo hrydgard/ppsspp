@@ -179,8 +179,12 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		}
 
 		// Using Game ID & Player Name as default description for mapping
-		std::string gameID = g_paramSFO.GetDiscID();
-		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
+		if (PSP_IsInited()) {
+			std::string gameID = g_paramSFO.GetDiscID();
+			m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
+		} else {
+			m_defaultDesc = "PPSSPP:at_menu:" + g_Config.sNickName;
+		}
 
 		freeUPNPDevlist(devlist);
 

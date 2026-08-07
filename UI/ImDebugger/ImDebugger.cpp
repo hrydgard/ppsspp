@@ -2363,19 +2363,21 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 	// Watch the step counters to figure out when to update things.
 
-	if (lastCpuStepCount_ != Core_GetSteppingCounter()) {
-		lastCpuStepCount_ = Core_GetSteppingCounter();
-		snapshot_ = newSnapshot_;  // Compare against the previous snapshot.
-		Snapshot(currentMIPS);
-		disasm_.NotifyStep();
-	}
+	if (PSP_IsInited()) {
+		if (lastCpuStepCount_ != Core_GetSteppingCounter()) {
+			lastCpuStepCount_ = Core_GetSteppingCounter();
+			snapshot_ = newSnapshot_;  // Compare against the previous snapshot.
+			Snapshot(currentMIPS);
+			disasm_.NotifyStep();
+		}
 
-	if (lastGpuStepCount_ != GPUStepping::GetSteppingCounter()) {
-		// A GPU step has happened since last time. This means that we should re-center the cursor.
-		// Snapshot();
-		lastGpuStepCount_ = GPUStepping::GetSteppingCounter();
-		SnapshotGPU(gpuDebug);
-		geDebugger_.NotifyStep();
+		if (gpuDebug && lastGpuStepCount_ != GPUStepping::GetSteppingCounter()) {
+			// A GPU step has happened since last time. This means that we should re-center the cursor.
+			// Snapshot();
+			lastGpuStepCount_ = GPUStepping::GetSteppingCounter();
+			SnapshotGPU(gpuDebug);
+			geDebugger_.NotifyStep();
+		}
 	}
 
 	ImControl control{};
@@ -2645,12 +2647,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		atracToolWindow_.Draw(cfg_);
 	}
 
-	if (cfg_.framebuffersOpen) {
-		DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
-	}
+	if (gpuDebug) {
+		if (cfg_.framebuffersOpen) {
+			DrawFramebuffersWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
+		}
 
-	if (cfg_.texturesOpen) {
-		DrawTexturesWindow(cfg_, gpuDebug->GetTextureCacheCommon());
+		if (cfg_.texturesOpen) {
+			DrawTexturesWindow(cfg_, gpuDebug->GetTextureCacheCommon());
+		}
 	}
 
 	if (cfg_.logConfigOpen) {
@@ -2661,78 +2665,82 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		logWindow_.Draw(cfg_);
 	}
 
-	if (cfg_.jitViewerOpen) {
-		jitViewer_.Draw(cfg_, control);
-	}
+	if (PSP_IsInited()) {
+		if (cfg_.jitViewerOpen) {
+			jitViewer_.Draw(cfg_, control);
+		}
 
-	if (cfg_.displayOpen) {
-		DrawDisplayWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
-	}
+		if (cfg_.displayOpen) {
+			DrawDisplayWindow(cfg_, gpuDebug->GetFramebufferManagerCommon());
+		}
 
-	if (cfg_.debugStatsOpen) {
-		DrawDebugStatsWindow(cfg_);
+		if (cfg_.debugStatsOpen) {
+			DrawDebugStatsWindow(cfg_);
+		}
 	}
 
 	if (cfg_.structViewerOpen) {
 		structViewer_.Draw(cfg_, control, mipsDebug);
 	}
 
-	if (cfg_.paramSFOOpen) {
-		DrawParamSFO(cfg_, control);
-	}
-
-	if (cfg_.geDebuggerOpen) {
-		geDebugger_.Draw(cfg_, control, gpuDebug, draw);
-	}
-
-	if (cfg_.geStateOpen) {
-		geStateWindow_.Draw(cfg_, control, gpuDebug);
-	}
-
-	if (cfg_.geVertsOpen) {
-		DrawImGeVertsWindow(cfg_, control, gpuDebug);
-	}
-
-	if (cfg_.schedulerOpen) {
-		DrawSchedulerView(cfg_);
-	}
-
-	if (cfg_.timeOpen) {
-		DrawTimeView(cfg_);
-	}
-
-	if (cfg_.pixelViewerOpen) {
-		pixelViewer_.Draw(cfg_, control, gpuDebug, draw);
-	}
-
-	if (cfg_.memDumpOpen) {
-		memDumpWindow_.Draw(cfg_, mipsDebug);
-	}
-
-	if (cfg_.watchOpen) {
-		watchWindow_.Draw(cfg_, control, mipsDebug);
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (cfg_.memViewOpen[i]) {
-			mem_[i].Draw(mipsDebug, cfg_, control, i);
+	if (PSP_IsInited()) {
+		if (cfg_.paramSFOOpen) {
+			DrawParamSFO(cfg_, control);
 		}
-	}
 
-	if (cfg_.socketsOpen) {
-		DrawSockets(cfg_);
-	}
+		if (cfg_.geDebuggerOpen) {
+			geDebugger_.Draw(cfg_, control, gpuDebug, draw);
+		}
 
-	if (cfg_.npOpen) {
-		DrawNp(cfg_);
-	}
+		if (cfg_.geStateOpen) {
+			geStateWindow_.Draw(cfg_, control, gpuDebug);
+		}
 
-	if (cfg_.adhocOpen) {
-		DrawAdhoc(cfg_);
-	}
+		if (cfg_.geVertsOpen) {
+			DrawImGeVertsWindow(cfg_, control, gpuDebug);
+		}
 
-	if (cfg_.apctlOpen) {
-		DrawApctl(cfg_);
+		if (cfg_.schedulerOpen) {
+			DrawSchedulerView(cfg_);
+		}
+
+		if (cfg_.timeOpen) {
+			DrawTimeView(cfg_);
+		}
+
+		if (cfg_.pixelViewerOpen) {
+			pixelViewer_.Draw(cfg_, control, gpuDebug, draw);
+		}
+
+		if (cfg_.memDumpOpen) {
+			memDumpWindow_.Draw(cfg_, mipsDebug);
+		}
+
+		if (cfg_.watchOpen) {
+			watchWindow_.Draw(cfg_, control, mipsDebug);
+		}
+
+		for (int i = 0; i < 4; i++) {
+			if (cfg_.memViewOpen[i]) {
+				mem_[i].Draw(mipsDebug, cfg_, control, i);
+			}
+		}
+
+		if (cfg_.socketsOpen) {
+			DrawSockets(cfg_);
+		}
+
+		if (cfg_.npOpen) {
+			DrawNp(cfg_);
+		}
+
+		if (cfg_.adhocOpen) {
+			DrawAdhoc(cfg_);
+		}
+
+		if (cfg_.apctlOpen) {
+			DrawApctl(cfg_);
+		}
 	}
 
 	if (cfg_.internalsOpen) {

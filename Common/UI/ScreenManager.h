@@ -34,7 +34,9 @@ public:
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
-	void update(const std::vector<QueuedEvent> &events);
+	void ProcessScreenSwitches();
+	void ProcessInputEvent(const QueuedEvent &event);
+	void Update();
 
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }

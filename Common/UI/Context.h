@@ -129,9 +129,18 @@ public:
 	void SetTheme(const UI::Theme *theme) { this->theme = theme; }
 	void SetAtlasProvider(UIAtlasProviderFunc func) { atlasProvider_ = func; }
 	void InvalidateAtlas();
+
+	void SetOverrideScreenFrame(const Bounds *bounds) {
+		useOverrideScreenFrame_ = (bounds != nullptr);
+		if (bounds) overrideScreenFrame_ = *bounds;
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
+
+	bool useOverrideScreenFrame_ = false;
+	Bounds overrideScreenFrame_;
 
 	const UI::Theme *theme = nullptr;
 

@@ -75,7 +75,6 @@ using namespace std::placeholders;
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
-#include "UI/ImDebugger/ImDebugger.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/Display.h"
 
@@ -98,12 +97,6 @@ using namespace std::placeholders;
 #include "UI/ChatScreen.h"
 #include "UI/DebugOverlay.h"
 
-#include "ext/imgui/imgui.h"
-#include "ext/imgui/imgui_internal.h"
-#include "ext/imgui/imgui_impl_thin3d.h"
-#include "ext/imgui/imgui_impl_platform.h"
-
-
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
 #endif
@@ -113,15 +106,6 @@ static AVIDump avi;
 #endif
 
 extern bool g_TakeScreenshot;
-
-static void AssertCancelCallback(const char *message, void *userdata) {
-	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
-	Core_Break(BreakReason::AssertChoice);
-	g_Config.bShowImDebugger = true;
-
-	EmuScreen *emuScreen = (EmuScreen *)userdata;
-	emuScreen->SendImDebuggerCommand(ImCommand{ ImCmd::SHOW_IN_CPU_DISASM, currentMIPS->pc });
-}
 
 // Handles control rotation due to internal screen rotation.
 void EmuScreen::UpdatePSPButtons(uint32_t bitsToSet, uint32_t bitsToClear) {
@@ -282,8 +266,6 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		// Gotta start the boot process! Continue below.
 		break;
 	}
-
-	SetAssertCancelCallback(&AssertCancelCallback, this);
 
 	if (!g_Config.bShaderCache) {
 		// Only developers should ever see this.
@@ -454,11 +436,6 @@ void EmuScreen::bootComplete() {
 EmuScreen::~EmuScreen() {
 	g_controlMapper.RemoveListener(this);
 
-	if (imguiInited_) {
-		ImGui_ImplThin3d_Shutdown();
-		ImGui::DestroyContext(ctx_);
-	}
-
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.TimeTracker().Stop(gameID);
 
@@ -533,9 +510,6 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
-
-	// Make sure we re-enable keyboard mode if it was disabled by the dialog, and if needed.
-	lastImguiEnabled_ = false;
 }
 
 void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
@@ -771,11 +745,6 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 		}
 		break;
 
-	case VIRTKEY_TOGGLE_DEBUGGER:
-		if (down) {
-			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
-		}
-		break;
 	case VIRTKEY_TOGGLE_TILT:
 		if (down) {
 			g_Config.bTiltInputEnabled = !g_Config.bTiltInputEnabled;
@@ -1160,26 +1129,11 @@ InputMode EmuScreen::PassInputToMapper() const {
 		return InputMode::None;
 	}
 
-	InputMode modes = InputMode::Keyboard | InputMode::Mouse | InputMode::Other | InputMode::ImDebuggerToggle;
-	if (g_Config.bShowImDebugger && imguiInited_) {
-		if (ImGui::GetIO().WantCaptureKeyboard) {
-			modes &= ~InputMode::Keyboard;
-		}
-		if (ImGui::GetIO().WantCaptureMouse) {
-			modes &= ~InputMode::Mouse;
-		}
-		return modes;
-	}
-
-	return modes;
+	return InputMode::Keyboard | InputMode::Mouse | InputMode::Other | InputMode::ImDebuggerToggle;
 }
 
 bool EmuScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
-
-	if (!retval && g_Config.bShowImDebugger && imguiInited_) {
-		ImGui_ImplPlatform_KeyEvent(key);
-	}
 
 	if (!retval && (key.flags & KeyInputFlags::DOWN) != 0 && UI::IsEscapeKey(key)) {
 		if (chatMenu_)
@@ -1206,18 +1160,13 @@ bool EmuScreen::touch(const TouchInput &touch) {
 	}
 
 	if (touch.flags & TouchInputFlags::DOWN) {
-		if (!(g_Config.bShowImDebugger && imguiInited_) && !ignoreGamepad) {
+		if (!g_Config.bShowImDebugger && !ignoreGamepad) {
 			// This just prevents the gamepad from timing out.
 			GamepadTouch();
 		}
 	}
 
-	if (g_Config.bShowImDebugger && imguiInited_) {
-		ImGui_ImplPlatform_TouchEvent(touch);
-		if (!ImGui::GetIO().WantCaptureMouse) {
-			return UIScreen::touch(touch);
-		}
-	} else if (g_Config.bMouseControl && !(touch.flags & TouchInputFlags::UP) && (touch.flags & TouchInputFlags::MOUSE)) {
+	if (g_Config.bMouseControl && !(touch.flags & TouchInputFlags::UP) && (touch.flags & TouchInputFlags::MOUSE)) {
 		// don't do anything as the mouse pointer is hidden in this case.
 		// But we let touch-up events through to avoid getting stuck if the user toggles mouse control.
 	} else {
@@ -1385,20 +1334,10 @@ void EmuScreen::deviceLost() {
 	}
 
 	UIScreen::deviceLost();
-
-	if (imguiInited_) {
-		if (imDebugger_) {
-			imDebugger_->DeviceLost();
-		}
-		ImGui_ImplThin3d_DestroyDeviceObjects();
-	}
 }
 
 void EmuScreen::deviceRestored(Draw::DrawContext *draw) {
 	UIScreen::deviceRestored(draw);
-	if (imguiInited_) {
-		ImGui_ImplThin3d_CreateDeviceObjects(draw);
-	}
 }
 
 void EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -1707,7 +1646,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	Draw::BackendState state = draw->GetCurrentBackendState();
 
 	if (!(mode & ScreenRenderMode::TOP)) {
-		renderImDebugger();
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff. We do draw the imdebugger though.
 		// So, darken and bail here.
 		// Reset viewport/scissor to be sure.
@@ -1735,7 +1673,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
 	}
 
-	renderImDebugger();
+	// renderImDebugger();
 	return screenRenderFlags;
 }
 
@@ -1859,106 +1797,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 		}
 	}
 
-	runImDebugger();
-
 	return flags;
-}
-
-void EmuScreen::runImDebugger() {
-	if (!lastImguiEnabled_ && g_Config.bShowImDebugger) {
-#if !defined(MOBILE_DEVICE)
-		// On mobile devices (specifically iOS) we don't want to pop the keyboard
-		// on activating imgui. Instead, we should do it when a text edit field in imgui gets focus,
-		// although we'll still have ugly overlap problems.
-		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
-#endif
-		VERBOSE_LOG(Log::System, "activating keyboard");
-	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
-		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
-		VERBOSE_LOG(Log::System, "deactivating keyboard");
-	}
-	lastImguiEnabled_ = g_Config.bShowImDebugger;
-	if (g_Config.bShowImDebugger) {
-		Draw::DrawContext *draw = screenManager()->getDrawContext();
-		if (!imguiInited_) {
-			// TODO: Do this only on demand.
-			IMGUI_CHECKVERSION();
-			ctx_ = ImGui::CreateContext();
-
-			ImGui_ImplPlatform_Init(GetSysDirectory(DIRECTORY_SYSTEM) / "imgui.ini");
-			imDebugger_ = std::make_unique<ImDebugger>();
-
-			// Read the TTF font
-			size_t propSize = 0;
-			const uint8_t *propFontData = g_VFS.ReadFile("Roboto_Condensed-Regular.ttf", &propSize);
-			size_t fixedSize = 0;
-			const uint8_t *fixedFontData = g_VFS.ReadFile("Inconsolata-Regular.ttf", &fixedSize);
-			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
-			// This takes ownership of the font array.
-			ImGui_ImplThin3d_Init(draw, propFontData, propSize, fixedFontData, fixedSize);
-			imguiInited_ = true;
-		}
-
-		if (PSP_IsInited()) {
-			_dbg_assert_(imDebugger_);
-
-			ImGui_ImplPlatform_NewFrame();
-			ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
-
-			ImGui::NewFrame();
-
-			if (imCmd_.cmd != ImCmd::NONE) {
-				imDebugger_->PostCmd(imCmd_);
-				imCmd_.cmd = ImCmd::NONE;
-			}
-
-			// Update keyboard modifiers.
-			auto &io = ImGui::GetIO();
-
-			KeyModifier modifiers = NativeGetKeyModifiers();
-
-			const bool keyCtrl = (modifiers & KeyModifier::LCTRL) || (modifiers & KeyModifier::RCTRL);
-			const bool keyShift = (modifiers & KeyModifier::LSHIFT) || (modifiers & KeyModifier::RSHIFT);
-			const bool keyAlt = (modifiers & KeyModifier::LALT) || (modifiers & KeyModifier::RALT);
-			io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrl);
-			io.AddKeyEvent(ImGuiMod_Shift, keyShift);
-			io.AddKeyEvent(ImGuiMod_Alt, keyAlt);
-			// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
-
-			ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
-			ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
-
-			// Not elegant! But don't know how else to pass through the bounds, without making a mess.
-			Bounds centralNode(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
-			SetOverrideScreenFrame(&centralNode);
-
-			if (!io.WantCaptureKeyboard) {
-				// Draw a focus rectangle to indicate inputs will be passed through.
-				ImGui::GetBackgroundDrawList()->AddRect
-				(
-					node->Pos,
-					{ node->Pos.x + node->Size.x, node->Pos.y + node->Size.y },
-					IM_COL32(255, 255, 255, 90),
-					0.f,
-					ImDrawFlags_None,
-					1.f
-				);
-			}
-			imDebugger_->Frame(currentDebugMIPS, gpu, draw);
-
-			// Convert to drawlists.
-			ImGui::Render();
-		}
-	}
-}
-
-void EmuScreen::renderImDebugger() {
-	if (g_Config.bShowImDebugger) {
-		Draw::DrawContext *draw = screenManager()->getDrawContext();
-		if (PSP_IsInited() && imDebugger_) {
-			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
-		}
-	}
 }
 
 bool EmuScreen::hasVisibleUI() {
