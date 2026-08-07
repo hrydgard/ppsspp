@@ -308,7 +308,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		if (externalFilesDirs != null) {
 			for (File dir : externalFilesDirs) {
-				if (dir != null) {
+				// getExternalFilesDirs() can return a non-null path for a card slot with no
+				// media inserted, so make sure it's actually mounted before trusting it.
+				if (dir != null && Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(dir))) {
 					String root = getRootOfInnerSdCardFolder(dir);
 					if (root != null && !root.equalsIgnoreCase(primaryRoot)) {
 						if (!result.contains(root)) {
