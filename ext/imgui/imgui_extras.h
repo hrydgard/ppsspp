@@ -10,8 +10,10 @@ inline void TextUnformatted(std::string_view str) {
 }
 
 bool RepeatButton(const char *title);
-int RepeatButtonShift(const char* label, float repeatRate = 0.05f);
+int RepeatButtonShift(const char *label, float repeatRate = 0.05f);
 
 bool CollapsingHeaderWithCount(const char *title, int count, ImGuiTreeNodeFlags flags = 0);
+bool CheckboxInverted(const char *label, bool *v);
+bool MenuItemInverted(const char* label, const char* shortcut = nullptr, bool* p_selected = nullptr, bool enabled = true);
 
 }  // namespace ImGui

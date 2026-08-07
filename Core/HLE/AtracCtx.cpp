@@ -969,7 +969,7 @@ int Atrac::EnqueueForSas(u32 bufPtr, u32 bytesToAdd) {
 	if (addbytes < 0)
 		addbytes = 0;
 	if (addbytes > 0) {
-		Memory::Memcpy(dataBuf_ + destOffset, bufPtr, (size_t)addbytes, "AtracAddStreamData");
+		Memory::Memcpy(dataBuf_ + destOffset, bufPtr, (u32)addbytes, "AtracAddStreamData");
 	}
 	first_.size += bytesToAdd;
 	if (first_.size >= track_.fileSize) {
