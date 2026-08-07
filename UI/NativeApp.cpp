@@ -38,6 +38,13 @@
 #include <mutex>
 #include <thread>
 
+
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
+#include "ext/imgui/imgui_impl_platform.h"
+
+
 #if defined(_WIN32)
 #include "Windows/WindowsAudio.h"
 #include "Windows/MainWindow.h"
@@ -121,6 +128,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "UI/ImDebugger/ImDebugger.h"
 #include "UI/AudioCommon.h"
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
@@ -139,7 +147,6 @@
 #include "UI/Theme.h"
 #include "UI/PauseScreen.h"
 #include "UI/UIAtlas.h"
-
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
 #include "UWP/UWPHelpers/InputHelpers.h"
@@ -202,6 +209,32 @@ static bool g_nativeMainThreadReady = false;
 static std::mutex g_inputEventQueueLock;
 static std::vector<QueuedEvent> g_inputEventQueue;
 
+static std::unique_ptr<ImDebugger> imDebugger_;
+static ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
+static bool imguiInited_ = false;
+static bool lastImguiEnabled_ = false;
+static ImGuiContext *ctx_ = nullptr;
+
+class GlobalListener : public ControlListener {
+	virtual void OnVKey(VirtKey vkey, bool down) {
+		switch (vkey) {
+		case VIRTKEY_TOGGLE_DEBUGGER:
+			if (down) {
+				g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+			}
+			break;
+		}
+	}
+};
+GlobalListener g_globalListener;
+
+static void AssertCancelCallback(const char *message, void *userdata) {
+	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
+	Core_Break(BreakReason::AssertChoice);
+	g_Config.bShowImDebugger = true;
+	imCmd_ = ImCommand{ImCmd::SHOW_IN_CPU_DISASM, currentMIPS->pc};
+}
+
 static void ApplyAchievementsRuntimeSettings() {
 	auto *client = Achievements::GetClient();
 	if (!client) {
@@ -260,6 +293,101 @@ static void RunAchievementsOverrideUpdate(std::function<void()> func) {
 		func();
 	}
 }
+
+void runImDebugger(Draw::DrawContext *draw) {
+	bool lastImguiEnabled_ = false;  // temp
+	if (lastImguiEnabled_ && g_Config.bShowImDebugger) {
+#if !defined(MOBILE_DEVICE)
+		// On mobile devices (specifically iOS) we don't want to pop the keyboard
+		// on activating imgui. Instead, we should do it when a text edit field in imgui gets focus,
+		// although we'll still have ugly overlap problems.
+		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+#endif
+		VERBOSE_LOG(Log::System, "activating keyboard");
+	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
+		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+		VERBOSE_LOG(Log::System, "deactivating keyboard");
+	}
+	lastImguiEnabled_ = g_Config.bShowImDebugger;
+	if (g_Config.bShowImDebugger) {
+		if (!imguiInited_) {
+			// TODO: Do this only on demand.
+			IMGUI_CHECKVERSION();
+			ctx_ = ImGui::CreateContext();
+
+			ImGui_ImplPlatform_Init(GetSysDirectory(DIRECTORY_SYSTEM) / "imgui.ini");
+			imDebugger_ = std::make_unique<ImDebugger>();
+
+			// Read the TTF font
+			size_t propSize = 0;
+			const uint8_t *propFontData = g_VFS.ReadFile("Roboto_Condensed-Regular.ttf", &propSize);
+			size_t fixedSize = 0;
+			const uint8_t *fixedFontData = g_VFS.ReadFile("Inconsolata-Regular.ttf", &fixedSize);
+			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
+			// This takes ownership of the font array.
+			ImGui_ImplThin3d_Init(draw, propFontData, propSize, fixedFontData, fixedSize);
+			imguiInited_ = true;
+		}
+
+		_dbg_assert_(imDebugger_);
+
+		ImGui_ImplPlatform_NewFrame();
+		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
+
+		ImGui::NewFrame();
+
+		if (imCmd_.cmd != ImCmd::NONE) {
+			imDebugger_->PostCmd(imCmd_);
+			imCmd_.cmd = ImCmd::NONE;
+		}
+
+		// Update keyboard modifiers.
+		auto &io = ImGui::GetIO();
+
+		KeyModifier modifiers = NativeGetKeyModifiers();
+
+		const bool keyCtrl = (modifiers & KeyModifier::LCTRL) || (modifiers & KeyModifier::RCTRL);
+		const bool keyShift = (modifiers & KeyModifier::LSHIFT) || (modifiers & KeyModifier::RSHIFT);
+		const bool keyAlt = (modifiers & KeyModifier::LALT) || (modifiers & KeyModifier::RALT);
+		io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrl);
+		io.AddKeyEvent(ImGuiMod_Shift, keyShift);
+		io.AddKeyEvent(ImGuiMod_Alt, keyAlt);
+		// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
+
+		ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
+		ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
+
+		// Not elegant! But don't know how else to pass through the bounds, without making a mess.
+		Bounds centralNode(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
+		SetOverrideScreenFrame(&centralNode);
+
+		if (!io.WantCaptureKeyboard) {
+			// Draw a focus rectangle to indicate inputs will be passed through.
+			ImGui::GetBackgroundDrawList()->AddRect
+			(
+				node->Pos,
+				{node->Pos.x + node->Size.x, node->Pos.y + node->Size.y},
+				IM_COL32(255, 255, 255, 90),
+				0.f,
+				ImDrawFlags_None,
+				1.f
+			);
+		}
+		imDebugger_->Frame(currentDebugMIPS, gpu, draw);
+
+		// Convert to drawlists.
+		ImGui::Render();
+	}
+}
+
+void renderImDebugger(Draw::DrawContext *draw) {
+	if (g_Config.bShowImDebugger) {
+		if (imDebugger_) {
+			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
+		}
+	}
+}
+
 
 std::vector<std::function<void()>> g_pendingClosures;
 
@@ -394,6 +522,10 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	g_Config.Init();
+
+	g_controlMapper.AddListener(&g_globalListener);
+
+	SetAssertCancelCallback(&AssertCancelCallback, nullptr);
 
 	IncrementDebugCounter(DebugCounter::APP_BOOT);
 
@@ -851,6 +983,11 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceRestore(g_draw);
 	}
 
+	if (imguiInited_) {
+		ImGui_ImplThin3d_CreateDeviceObjects(g_draw);
+	}
+
+
 	INFO_LOG(Log::System, "NativeInitGraphics completed");
 
 	return true;
@@ -920,6 +1057,15 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 
 	if (gpu) {
 		gpu->DeviceLost();
+	}
+
+	if (imguiInited_) {
+		if (imDebugger_) {
+			imDebugger_->DeviceLost();
+		}
+		ImGui_ImplThin3d_DestroyDeviceObjects();
+		ImGui_ImplThin3d_Shutdown();
+		ImGui::DestroyContext(ctx_);
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
@@ -1038,8 +1184,47 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 
 	for (auto &event : inputEvents) {
-		g_screenManager->ProcessInputEvent(event);
+		bool filterTouch = false;
+		bool filterKey = false;
+		if (g_Config.bShowImDebugger && imguiInited_) {
+			// Let ImGui handle input if it's active.
+			if (ImGui::GetIO().WantCaptureMouse) {
+				filterTouch = true;
+			}
+			if (ImGui::GetIO().WantCaptureKeyboard) {
+				filterKey = true;
+			}
+		}
+
+		switch (event.type) {
+		case QueuedEventType::KEY:
+			// Let through up events to avoid stuck keys.
+			if (!filterKey || (event.key.flags & KeyInputFlags::UP)) {
+				g_screenManager->ProcessInputEvent(event);
+			}
+			break;
+		case QueuedEventType::TOUCH:
+			if (!filterTouch) {
+				g_screenManager->ProcessInputEvent(event);
+			}
+			break;
+		default:
+			g_screenManager->ProcessInputEvent(event);
+			break;
+		}
+
+		if (g_Config.bShowImDebugger && imguiInited_) {
+			switch (event.type) {
+			case QueuedEventType::KEY:
+				ImGui_ImplPlatform_KeyEvent(event.key);
+				break;
+			case QueuedEventType::TOUCH:
+				ImGui_ImplPlatform_TouchEvent(event.touch);
+				break;
+			}
+		}
 	}
+
 	g_screenManager->Update();  // This must happen *after* input event processing!
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
@@ -1111,6 +1296,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	ui_draw2d.PopDrawMatrix();
 
+	runImDebugger(g_draw);
+	renderImDebugger(g_draw);
 	g_draw->EndFrame();
 
 	// This, between EndFrame and Present, is where we should actually wait to do present time management.
@@ -1379,6 +1566,16 @@ bool NativeKey(const KeyInput &key) {
 
 	// Filtering, detailed rules needed for good imgui behavior without having to ask the screen about what to do.
 	InputMode inputMode = g_screenManager->PassInputToMapper();
+
+	if (g_Config.bShowImDebugger && imguiInited_) {
+		if (ImGui::GetIO().WantCaptureKeyboard) {
+			inputMode &= ~InputMode::Keyboard;
+		}
+		if (ImGui::GetIO().WantCaptureMouse) {
+			inputMode &= ~InputMode::Mouse;
+		}
+	}
+
 	bool passKeyThrough = false;
 	if (inputMode != InputMode::None) {
 		if ((inputMode & InputMode::ImDebuggerToggle) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
@@ -1394,6 +1591,7 @@ bool NativeKey(const KeyInput &key) {
 				}
 			}
 		}
+
 		if (key.deviceId == DEVICE_ID_MOUSE) {
 			if (inputMode & InputMode::Mouse) {
 				passKeyThrough = true;
@@ -1636,6 +1834,8 @@ void NativeShutdown() {
 	INFO_LOG(Log::System, "NativeShutdown begin");
 	ClearAchievementsHostOverride();
 	g_nativeMainThreadReady = false;
+
+	g_controlMapper.RemoveListener(&g_globalListener);
 
 	Achievements::Shutdown();
 

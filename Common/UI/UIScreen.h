@@ -48,6 +48,9 @@ public:
 
 	virtual bool AllowKeyboardNavigation() const { return true; }
 
+	// Process keyboard shortcuts even outside the game.
+	virtual InputMode PassInputToMapper() const { return InputMode::Keyboard; }
+
 protected:
 	virtual void CreateViews() = 0;
 	virtual bool AllowFocusMovement() const { return true; }
