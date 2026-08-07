@@ -692,6 +692,11 @@ bool VulkanLoad(std::string *errorStr) {
 }
 
 bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr) {
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	// MoltenVK is linked statically, the functions are already there - there are no function pointers to fill in.
+	INFO_LOG(Log::G3D, "iOS: Vulkan doesn't need loading");
+	return true;
+#else
 	vkGetInstanceProcAddr = getInstanceProcAddr;
 	vkCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(nullptr, "vkCreateInstance");
 	// Per the Vulkan spec, vkGetDeviceProcAddr is not one of the handful of commands queryable with a
@@ -709,6 +714,7 @@ bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstancePro
 		ERROR_LOG(Log::G3D, "VulkanLoadFromGetInstanceProcAddr: Failed to load Vulkan base functions");
 		return false;
 	}
+#endif
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanInstanceApiVersion) {

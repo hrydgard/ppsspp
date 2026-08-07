@@ -1596,7 +1596,7 @@ void Config::PostLoadCleanup() {
 #endif
 
 	if (!IsBackendEnabled((GPUBackend)iGPUBackend)) {
-		ERROR_LOG(Log::G3D, "Backend %d not enabled - switching to platform default");
+		ERROR_LOG(Log::G3D, "Backend %d not enabled - switching to platform default", iGPUBackend);
 		iGPUBackend = (int)DefaultGPUBackend();
 	}
 
