@@ -798,6 +798,9 @@
     <ClInclude Include="GPU\OpenGL\OpenGLGraphicsContext.h">
       <Filter>GPU\OpenGL</Filter>
     </ClInclude>
+    <ClInclude Include="UI\ScreenManager.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1471,6 +1474,9 @@
     </ClCompile>
     <ClCompile Include="GPU\OpenGL\OpenGLGraphicsContext.cpp">
       <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ScreenManager.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

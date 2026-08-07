@@ -14,6 +14,7 @@
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 
+#include "Common/UI/ScreenManager.h"
 #include "UI/RetroAchievementScreens.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"

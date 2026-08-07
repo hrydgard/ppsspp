@@ -43,6 +43,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Profiler/Profiler.h"
 

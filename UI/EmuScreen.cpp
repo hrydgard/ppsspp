@@ -33,6 +33,7 @@ using namespace std::placeholders;
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
 #include "Common/UI/AsyncImageFileView.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Data/Text/I18n.h"

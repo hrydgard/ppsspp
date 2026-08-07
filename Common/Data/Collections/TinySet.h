@@ -45,7 +45,7 @@ struct TinySet {
 		// The slow lookup is also slow at adding.
 		T t;
 		slowLookup_->push_back(t);
-		return *slowLookup_->back();
+		return slowLookup_->back();
 	}
 	void reserve(size_t size) {
 		if (size < MaxFastSize) {
@@ -169,10 +169,10 @@ struct FixedVec {
 	// WARNING: Can fail if you exceed MaxSize!
 	inline T &push_uninitialized() {
 		if (count_ < MaxSize) {
-			return &data_[count_++];
+			return data_[count_++];
 		}
 		_dbg_assert_(false);
-		return *data_[MaxSize - 1];  // BAD
+		return data_[MaxSize - 1];  // BAD
 	}
 
 	// Invalid if empty().

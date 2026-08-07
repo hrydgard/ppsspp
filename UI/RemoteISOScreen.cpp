@@ -38,6 +38,7 @@
 #include "Common/File/PathBrowser.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Common.h"

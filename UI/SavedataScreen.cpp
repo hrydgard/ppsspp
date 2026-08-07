@@ -31,6 +31,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/AsyncImageFileView.h"
+#include "Common/UI/ScreenManager.h"
 #include "UI/SavedataScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"

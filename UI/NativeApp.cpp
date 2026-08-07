@@ -56,6 +56,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/IconCache.h"
@@ -197,6 +198,9 @@ static std::string g_savedAchievementsHost;
 static bool g_savedAchievementsHardcoreMode = false;
 static bool g_hasSavedAchievementsSettings = false;
 static bool g_nativeMainThreadReady = false;
+
+static std::mutex g_inputEventQueueLock;
+static std::vector<QueuedEvent> g_inputEventQueue;
 
 static void ApplyAchievementsRuntimeSettings() {
 	auto *client = Achievements::GetClient();
@@ -1023,7 +1027,14 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 	g_draw->BeginFrame(debugFlags);
 
-	g_screenManager->update();
+	// Process queued events.
+	std::vector<QueuedEvent> inputEvents;
+	{
+		std::lock_guard<std::mutex> eventGuard(g_inputEventQueueLock);
+		inputEvents = std::move(g_inputEventQueue);
+		g_inputEventQueue.clear();
+	}
+	g_screenManager->update(inputEvents);
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
@@ -1051,6 +1062,22 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 				// TODO: Add a to-string thingy.
 				VERBOSE_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
 			}
+
+			if (item.message == UIMessage::LOST_FOCUS) {
+				// This is a bit of a hack, but we need to do this here so that the graphics context is valid.
+				TouchInput input{};
+				input.x = -50000.0f;
+				input.y = -50000.0f;
+				input.flags = TouchInputFlags::RELEASE_ALL;
+				input.timestamp = time_now_d();
+				input.id = 0;
+				std::lock_guard<std::mutex> eventGuard(g_inputEventQueueLock);
+				QueuedEvent q{};
+				q.type = QueuedEventType::TOUCH;
+				q.touch = input;
+				g_inputEventQueue.push_back(q);
+			}
+
 			g_screenManager->sendMessage(item.message, item.value.c_str());
 		}
 	}
@@ -1247,7 +1274,12 @@ void NativeTouch(const TouchInput &touch) {
 	if (my_isnan(touch.x) || my_isnan(touch.y)) {
 		return;
 	}
-	g_screenManager->touch(touch);
+
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::TOUCH;
+	ev.touch = touch;
+	std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+	g_inputEventQueue.push_back(ev);
 }
 
 // up, down
@@ -1457,8 +1489,14 @@ bool NativeKey(const KeyInput &key) {
 		return false;
 	}
 
-	// Dispatch the key event.
-	g_screenManager->key(modKey);
+	// Queue up the key event for synchronous processing in the UI.
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::KEY;
+	ev.key = key;
+	{
+		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+		g_inputEventQueue.push_back(ev);
+	}
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
@@ -1486,7 +1524,15 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		g_controlMapper.Axis(axes, count);
 	}
 
-	g_screenManager->axis(axes, count);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::AXIS;
+	{
+		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+		for (size_t i = 0; i < count; i++) {
+			ev.axis = axes[i];
+			g_inputEventQueue.push_back(ev);
+		}
+	}
 
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];

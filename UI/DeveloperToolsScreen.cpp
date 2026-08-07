@@ -27,6 +27,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/StringUtils.h"
+#include "Common/UI/ScreenManager.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "Core/MIPS/MIPSTracer.h"

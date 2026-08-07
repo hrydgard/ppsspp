@@ -9,6 +9,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 #include "UI/MiscViews.h"
 #include "Common/UI/Context.h"
 #include "UI/TabbedDialogScreen.h"

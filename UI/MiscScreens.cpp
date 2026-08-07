@@ -37,6 +37,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Render/ManagedTexture.h"
