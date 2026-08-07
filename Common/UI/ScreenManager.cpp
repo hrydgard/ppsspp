@@ -61,7 +61,7 @@ void ScreenManager::cancelScreensAbove(Screen *screen) {
 	}
 }
 
-void ScreenManager::update(const std::vector<QueuedEvent> &events) {
+void ScreenManager::ProcessScreenSwitches() {
 	if (cancelScreensAbove_) {
 		bool found = false;
 		for (int i = (int)stack_.size() - 1; i >= 0; i--) {
@@ -78,64 +78,65 @@ void ScreenManager::update(const std::vector<QueuedEvent> &events) {
 	if (!nextStack_.empty()) {
 		switchToNext();
 	}
+}
 
+void ScreenManager::ProcessInputEvent(const QueuedEvent &event) {
+	switch (event.type) {
+	case QueuedEventType::TOUCH:
+	{
+		const TouchInput &touch = event.touch;
+		// Send release all events to every screen layer.
+		if (touch.flags & TouchInputFlags::RELEASE_ALL) {
+			for (auto &layer : stack_) {
+				Screen *screen = layer.screen;
+				layer.screen->touch(screen->transformTouch(touch));
+			}
+		} else if (!stack_.empty()) {
+			// Let the overlay know about touch-downs, to be able to dismiss popups.
+			bool skip = false;
+			if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
+				skip = overlayScreen_->touch(overlayScreen_->transformTouch(touch));
+			}
+			if (!skip) {
+				Screen *screen = stack_.back().screen;
+				stack_.back().screen->touch(screen->transformTouch(touch));
+			}
+		}
+		break;
+	}
+	case QueuedEventType::KEY:
+	{
+		const KeyInput &key = event.key;
+		// Send key up to every screen layer, to avoid stuck keys.
+		if (key.flags & KeyInputFlags::UP) {
+			for (auto &layer : stack_) {
+				layer.screen->key(key);
+			}
+		} else if (!stack_.empty()) {
+			stack_.back().screen->key(key);
+		}
+		break;
+	}
+	case QueuedEventType::AXIS:
+	{
+		const AxisInput &axis = event.axis;
+		if (!stack_.empty()) {
+			stack_.back().screen->axis(axis);
+		}
+		break;
+	}
+	default:
+		ERROR_LOG(Log::UI, "Unknown queued event type: %d", (int)event.type);
+		break;
+	}
+}
+
+void ScreenManager::Update() {
 	if (overlayScreen_) {
 		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
 	}
 
-	for (const QueuedEvent &ev : events) {
-		switch (ev.type) {
-		case QueuedEventType::TOUCH:
-		{
-			const TouchInput &touch = ev.touch;
-			// Send release all events to every screen layer.
-			if (touch.flags & TouchInputFlags::RELEASE_ALL) {
-				for (auto &layer : stack_) {
-					Screen *screen = layer.screen;
-					layer.screen->touch(screen->transformTouch(touch));
-				}
-			} else if (!stack_.empty()) {
-				// Let the overlay know about touch-downs, to be able to dismiss popups.
-				bool skip = false;
-				if (overlayScreen_ && (touch.flags & TouchInputFlags::DOWN)) {
-					skip = overlayScreen_->touch(overlayScreen_->transformTouch(touch));
-				}
-				if (!skip) {
-					Screen *screen = stack_.back().screen;
-					stack_.back().screen->touch(screen->transformTouch(touch));
-				}
-			}
-			break;
-		}
-		case QueuedEventType::KEY:
-		{
-			const KeyInput &key = ev.key;
-			// Send key up to every screen layer, to avoid stuck keys.
-			if (key.flags & KeyInputFlags::UP) {
-				for (auto &layer : stack_) {
-					layer.screen->key(key);
-				}
-			} else if (!stack_.empty()) {
-				stack_.back().screen->key(key);
-			}
-			break;
-		}
-		case QueuedEventType::AXIS:
-		{
-			const AxisInput &axis = ev.axis;
-			if (!stack_.empty()) {
-				stack_.back().screen->axis(axis);
-			}
-			break;
-		}
-		default:
-			ERROR_LOG(Log::UI, "Unknown queued event type: %d", (int)ev.type);
-			break;
-		}
-	}
-
-	// Only the front screen gets update().
 	if (!stack_.empty()) {
 		Screen *backScreen = stack_.back().screen;
 		backScreen->update();

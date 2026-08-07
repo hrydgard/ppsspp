@@ -1027,6 +1027,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 	g_draw->BeginFrame(debugFlags);
 
+	g_screenManager->ProcessScreenSwitches();
+
 	// Process queued events.
 	std::vector<QueuedEvent> inputEvents;
 	{
@@ -1034,7 +1036,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		inputEvents = std::move(g_inputEventQueue);
 		g_inputEventQueue.clear();
 	}
-	g_screenManager->update(inputEvents);
+
+	for (auto &event : inputEvents) {
+		g_screenManager->ProcessInputEvent(event);
+	}
+	g_screenManager->Update();  // This must happen *after* input event processing!
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
