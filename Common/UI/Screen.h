@@ -36,6 +36,7 @@ enum DialogResult {
 	DR_NO,
 	DR_BACK,
 };
+const char *DialogResultToString(DialogResult result);
 
 class ScreenManager;
 class UIContext;

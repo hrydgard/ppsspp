@@ -146,6 +146,7 @@ void Discord::SetPresenceMenu() {
 	discordPresence.startTimestamp = time(0);
 	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
 	discordPresence.largeImageKey = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "icon_gold_png" : "icon_regular_png";
+	Discord_UpdatePresence(&discordPresence);
 #endif
 }
 
