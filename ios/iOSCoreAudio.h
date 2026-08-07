@@ -21,7 +21,5 @@
 void iOSCoreAudioInit();
 void iOSCoreAudioShutdown();
 
-// Ignore mute switch when connected to external display.
-// Also, obey other settings.
+// Applies the audio settings (mix with others, respect silent mode) to the session.
 void iOSCoreAudioUpdateSession();
-void iOSCoreAudioSetDisplayConnected(bool connected);

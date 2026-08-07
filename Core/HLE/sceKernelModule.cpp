@@ -1776,7 +1776,10 @@ void __KernelLoadReset() {
 	__KernelInit();
 }
 
-bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
+// Shared by __KernelLoadExec (loading from a file) and __KernelLoadExecFromBuffer (loading
+// from a buffer already in RAM, as used by the VSH's USB/WLAN game-push feature) - everything
+// past the point where we have the executable's bytes in hand.
+bool __KernelLoadExecFromPtr(const u8 *data, size_t size, const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param{};
 
 	auto paramData = PSPPointer<SceKernelLoadExecParam>::Create(paramPtr);
@@ -1801,18 +1804,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	__KernelLoadReset();
 
-	std::vector<uint8_t> fileData;
-	if (pspFileSystem.ReadEntireFile(filename, fileData) < 0) {
-		ERROR_LOG(Log::Loader, "Failed to load executable %s - file doesn't exist", filename);
-		*error_string = StringFromFormat("Could not find executable %s", filename);
-		delete[] param_argp;
-		delete[] param_key;
-		__KernelShutdown();
-		return false;
-	}
-
-	size_t size = fileData.size();
-	PSPModule *module = __KernelLoadModule(fileData.data(), size, 0, filename, error_string);
+	PSPModule *module = __KernelLoadModule((u8 *)data, size, 0, filename, error_string);
 
 	if (!module || module->isFake) {
 		if (module) {
@@ -1870,6 +1862,22 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	hleSkipDeadbeef();
 	return true;
+}
+
+bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(filename, fileData) < 0) {
+		ERROR_LOG(Log::Loader, "Failed to load executable %s - file doesn't exist", filename);
+		*error_string = StringFromFormat("Could not find executable %s", filename);
+		__KernelShutdown();
+		return false;
+	}
+
+	return __KernelLoadExecFromPtr(fileData.data(), fileData.size(), filename, paramPtr, error_string);
+}
+
+bool __KernelLoadExecFromBuffer(const u8 *data, size_t size, u32 paramPtr, std::string *error_string) {
+	return __KernelLoadExecFromPtr(data, size, "vshbuffer", paramPtr, error_string);
 }
 
 bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string) {
@@ -2538,8 +2546,8 @@ static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 	return hleNoLog(0);
 }
 
-// Pretty sure this is a badly brute-forced function name...
-static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
+// Suspecting this is a badly brute-forced function name... Although, it's not entirely implausible. Buffer makes sense.
+SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
 {
 	if (flags != 0) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);

@@ -1,4 +1,3 @@
-#import "AppDelegate.h"
 #import "ViewControllerMetal.h"
 #import "iOSCoreAudio.h"
 
@@ -193,8 +192,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 
 	INFO_LOG(Log::System, "Metal viewDidLoad");
 
-	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
-	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 	// self.view.insetsLayoutMarginsFromSafeArea = NO;
 	// self.view.clipsToBounds = YES;
@@ -206,7 +203,9 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		SetGPUBackend(GPUBackend::OPENGL);
 		delete graphicsContext;
-		// TODO: What to do here?
+		graphicsContext = nullptr;  // The render loop and shutdown check for this.
+		// TODO: What to do here? We've switched the config over to GL, but we're still the Metal view controller,
+		// so we won't render anything until the app gets restarted.
 	}
 
 	[self updateResolutionWithView:self.view];
@@ -216,10 +215,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	}
 
 	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
-}
-
-- (UIView *)getView {
-	return [self view];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -243,10 +238,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 - (void)viewDidDisappear:(BOOL)animated {
 	[super viewDidDisappear: animated];
 	INFO_LOG(Log::G3D, "viewDidDisappear");
-}
-
-- (void)bindDefaultFBO {
-	// Do nothing
 }
 
 - (void)viewWillLayoutSubviews {

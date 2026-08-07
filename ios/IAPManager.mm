@@ -130,19 +130,24 @@
 		switch (transaction.transactionState) {
 			case SKPaymentTransactionStatePurchased:
 			case SKPaymentTransactionStateRestored:
-				NSLog(transaction.transactionState == SKPaymentTransactionStatePurchased ? @"IAP Purchase" : @"IAP Restore");
+				NSLog(@"%@", transaction.transactionState == SKPaymentTransactionStatePurchased ? @"IAP Purchase" : @"IAP Restore");
 				// Perform the unlock (updaing the variable and switching the icon).
 				[self unlockGold];
 				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-				g_requestManager.PostSystemSuccess(_pendingRequestID, "", 0);
-				_pendingRequestID = 0;
+				// The queue also delivers transactions we didn't ask for, like unfinished ones at startup.
+				if (_pendingRequestID != 0) {
+					g_requestManager.PostSystemSuccess(_pendingRequestID, "", 0);
+					_pendingRequestID = 0;
+				}
 				break;
 			case SKPaymentTransactionStateFailed:
 				NSLog(@"[IAPManager] Purchase failed (requestID: %d): %@", _pendingRequestID, transaction.error.localizedDescription);
 				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
 				// Optionally post failure callback here
-				g_requestManager.PostSystemFailure(_pendingRequestID);
-				_pendingRequestID = 0;
+				if (_pendingRequestID != 0) {
+					g_requestManager.PostSystemFailure(_pendingRequestID);
+					_pendingRequestID = 0;
+				}
 				break;
 			default:
 				break;

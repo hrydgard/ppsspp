@@ -104,7 +104,7 @@ void UIScreen::update() {
 	DoRecreateViews();
 
 	if (root_) {
-		DialogResult result = UpdateViewHierarchy(root_);
+		DialogResult result = UpdateViewHierarchy(root_, AllowFocusMovement());
 		if (result != DR_NONE) {
 			TriggerFinish(result);
 		}
