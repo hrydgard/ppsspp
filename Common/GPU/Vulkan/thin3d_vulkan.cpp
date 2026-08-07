@@ -1020,10 +1020,13 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	// Only support MSAA levels that have support for all three of color, depth, stencil.
 
 	bool multisampleAllowed = true;
+	bool turnip = false;
 
     caps_.deviceID = deviceProps.deviceID;
 
     if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+		turnip = containsNoCase(deviceProps.deviceName, "turnip");
+
 		if (caps_.deviceID < 0x6000000) { // On sub 6xx series GPUs, disallow multisample.
 			INFO_LOG(Log::G3D, "Multisampling was disabled due to old driver version (Adreno)");
 			multisampleAllowed = false;
@@ -1039,7 +1042,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
 		// Known working on driver 0x801EA000 and Adreno 620.
-		if (deviceProps.driverVersion < 0x801EA000 || deviceProps.deviceID < 0x06000000)
+		if (!turnip && (deviceProps.driverVersion < 0x801EA000 || deviceProps.deviceID < 0x06000000))
 			bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
 
 		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
