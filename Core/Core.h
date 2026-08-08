@@ -159,8 +159,9 @@ void Core_RunLoopUntil(u64 globalticks);
 // Blocks the calling thread until func has actually run, so don't call this from the CPU thread with
 // something that would itself try to wait on the CPU thread - that'll deadlock.
 //
-// Currently only drained while the CPU is stepping/paused (see Core_ProcessStepping in Core.cpp) - fine
-// for debugger use since queuing only makes sense once the CPU is alive, and by then this is reachable.
+// Drained at the top of every Core_RunLoopUntil() iteration, so it's reached continuously (in a tight
+// spin) while the CPU is stepping/paused, and at least once per call (i.e. about once per host frame)
+// even while it's fully running.
 void Core_RunOnCPUThread(std::function<void()> func);
 
 extern volatile CoreState coreState;
