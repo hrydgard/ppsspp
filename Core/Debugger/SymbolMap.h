@@ -20,7 +20,6 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <mutex>
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
@@ -172,7 +171,6 @@ private:
 	std::map<SymbolKey, DataEntry> data;
 	std::vector<ModuleEntry> modules;
 
-	mutable std::recursive_mutex lock_;
 	bool sawUnknownModule = false;
 };
 

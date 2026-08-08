@@ -508,7 +508,7 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::BOOT_DONE:
 	{
 		if (g_symbolMap)
-			g_symbolMap->SortSymbols();  // internal locking is performed here
+			g_symbolMap->SortSymbols();  // Always fired from the CPU/NativeFrame thread, see AGENTS.md
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 
 		if (Achievements::HardcoreModeActive()) {
@@ -548,7 +548,7 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::SYMBOL_MAP_UPDATED:
 		if (g_symbolMap)
-			g_symbolMap->SortSymbols();  // internal locking is performed here
+			g_symbolMap->SortSymbols();  // Always fired from the CPU/NativeFrame thread, see AGENTS.md
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 		break;
 
