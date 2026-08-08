@@ -28,7 +28,7 @@ class CtrlRegisterList {
 	int category = 0;
 
 	int oldSelection = 0;
-	
+
 	bool selecting = false;
 	bool hasFocus = false;
 	MIPSDebugInterface *cpu = nullptr;

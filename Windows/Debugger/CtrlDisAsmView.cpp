@@ -60,6 +60,10 @@ void CtrlDisAsmView::deinit()
 
 void CtrlDisAsmView::scanVisibleFunctions()
 {
+	// Reads live memory/symbol state to detect function boundaries - hold g_frameMutex for the
+	// duration, which NativeFrame() also holds while it's actually touching that state. See
+	// g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 	g_disassemblyManager.analyze(windowStart, g_disassemblyManager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
@@ -453,8 +457,13 @@ void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int
 
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	auto memLock = Memory::Lock();
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
+
+	// Reading live disassembly/symbol/breakpoint state here on the GUI thread would otherwise race
+	// with the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame()
+	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);

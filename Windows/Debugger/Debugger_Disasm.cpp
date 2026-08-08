@@ -726,6 +726,10 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 void CDisasm::Show(bool bShow, bool includeToTop) {
 	if (deferredSymbolFill_ && bShow) {
 		if (g_symbolMap) {
+			// Reading the live symbol map here on the GUI thread would otherwise race with the CPU
+			// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
+			// holds while it's actually touching that state. See g_frameMutex in Core.h.
+			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 			deferredSymbolFill_ = false;
 		}
@@ -735,6 +739,7 @@ void CDisasm::Show(bool bShow, bool includeToTop) {
 
 void CDisasm::NotifyMapLoaded() {
 	if (m_bShowState != SW_HIDE && g_symbolMap) {
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 	} else {
 		deferredSymbolFill_ = true;

@@ -255,7 +255,13 @@ void CtrlThreadList::OnRightClick(int itemIndex, int column, const POINT& point)
 
 void CtrlThreadList::reloadThreads()
 {
-	threads = GetThreadsInfo();
+	// Reading live kernel thread state here on the GUI thread would otherwise race with the CPU
+	// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also holds
+	// while it's actually touching that state. See g_frameMutex in Core.h.
+	{
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		threads = GetThreadsInfo();
+	}
 	Update();
 }
 
@@ -325,9 +331,13 @@ bool CtrlBreakpointList::WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, L
 
 void CtrlBreakpointList::reloadBreakpoints()
 {
-	// Update the items we're displaying from the debugger.
-	displayedBreakPoints_ = g_breakpoints.GetBreakpoints();
-	displayedMemChecks_= g_breakpoints.GetMemChecks();
+	// Update the items we're displaying from the debugger. g_frameMutex guards this against races
+	// with the CPU thread - see g_frameMutex in Core.h.
+	{
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		displayedBreakPoints_ = g_breakpoints.GetBreakpoints();
+		displayedMemChecks_= g_breakpoints.GetMemChecks();
+	}
 
 	for (int i = 0; i < GetRowCount(); i++)
 	{
@@ -744,11 +754,16 @@ void CtrlStackTraceView::OnDoubleClick(int itemIndex, int column)
 }
 
 void CtrlStackTraceView::loadStackTrace() {
-	auto memLock = Memory::Lock();
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return;
 
-	auto threads = GetThreadsInfo();
+	// Reading live thread/register/stack state here on the GUI thread would otherwise race with
+	// the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
+	// holds while it's actually touching that state. See g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+
+	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
 
 	u32 entry = 0, stackTop = 0;
 	for (size_t i = 0; i < threads.size(); i++)
@@ -835,10 +850,16 @@ void CtrlModuleList::OnDoubleClick(int itemIndex, int column)
 
 void CtrlModuleList::loadModules()
 {
-	if (g_symbolMap) {
-		modules = g_symbolMap->getAllModules();
-	} else {
-		modules.clear();
+	// Reading the live symbol map here on the GUI thread would otherwise race with the CPU thread -
+	// hold g_frameMutex for the duration of the read, which NativeFrame() also holds while it's
+	// actually touching that state. See g_frameMutex in Core.h.
+	{
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		if (g_symbolMap) {
+			modules = g_symbolMap->getAllModules();
+		} else {
+			modules.clear();
+		}
 	}
 	Update();
 }
@@ -855,6 +876,11 @@ CtrlWatchList::CtrlWatchList(HWND hwnd, DebugInterface *cpu)
 }
 
 void CtrlWatchList::RefreshValues() {
+	// Evaluating watch expressions reads live registers/memory here on the GUI thread, which would
+	// otherwise race with the CPU thread - hold g_frameMutex for the duration, which NativeFrame()
+	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+
 	int steppingCounter = Core_GetSteppingCounter();
 	int changes = false;
 	for (auto &watch : watches_) {

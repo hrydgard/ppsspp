@@ -129,6 +129,10 @@ static void Core_ProcessCPUQueue() {
 	g_cpuQueueCond.notify_all();
 }
 
+// See Core.h for the rationale. Held by NativeFrame() (in NativeApp.cpp) around the span where it
+// actually touches CPU-thread-owned debugger state.
+std::mutex g_frameMutex;
+
 // This is so that external threads can wait for the CPU to become inactive.
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
