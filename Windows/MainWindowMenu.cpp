@@ -398,6 +398,7 @@ namespace MainWindow {
 	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, std::string_view metadata) {
 		// Reuse the message from the pause screen.
 		ShowMessageAfterSaveStateAction(status, message, metadata);
+		// This is just used to restore the mouse cursor from wait mode.
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 

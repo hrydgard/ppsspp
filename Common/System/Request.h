@@ -105,6 +105,7 @@ inline void System_BrowseForImage(RequesterToken token, std::string_view title, 
 
 enum class BrowseFileType {
 	BOOTABLE,
+	SAVE_STATE,
 	IMAGE,
 	INI,
 	DB,
