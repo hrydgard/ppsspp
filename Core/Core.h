@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -148,6 +149,19 @@ void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
+
+// Runs a function on the CPU thread - the thread that calls Core_RunLoopUntil (and thus, indirectly,
+// NativeFrame). Useful for code running on unrelated threads (like the WebSocket debugger) that needs to
+// safely touch state that's otherwise only ever touched from that thread (breakpoints, stepping, etc.),
+// instead of poking at it directly from wherever the call happens to come from.
+//
+// Safe to call from any thread, including the CPU thread itself (in which case func just runs immediately).
+// Blocks the calling thread until func has actually run, so don't call this from the CPU thread with
+// something that would itself try to wait on the CPU thread - that'll deadlock.
+//
+// Currently only drained while the CPU is stepping/paused (see Core_ProcessStepping in Core.cpp) - fine
+// for debugger use since queuing only makes sense once the CPU is alive, and by then this is reachable.
+void Core_RunOnCPUThread(std::function<void()> func);
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;

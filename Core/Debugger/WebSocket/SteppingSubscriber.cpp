@@ -89,32 +89,40 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive())
 		return req.Fail("CPU not started");
 	if (!Core_IsStepping()) {
+		// Core_Break() is explicitly free-threaded (see Core.cpp), so no need to bounce this to the CPU
+		// thread - and we can't anyway, since Core_RunOnCPUThread() is only drained once the CPU actually
+		// *is* stepping, which this call is what triggers in the first place.
 		Core_Break(BreakReason::DebugStepInto, 0);
 		return;
 	}
 
-	uint32_t threadID;
-	auto cpuDebug = CPUFromRequest(req, &threadID);
-	if (!cpuDebug)
-		return;
+	// The CPU is already stepping/paused, so the CPU thread is spinning in Core_ProcessStepping() and will
+	// promptly drain this. Route the actual breakpoint/stepping manipulation there instead of poking at it
+	// directly from this WebSocket handler thread.
+	Core_RunOnCPUThread([&] {
+		uint32_t threadID;
+		auto cpuDebug = CPUFromRequest(req, &threadID);
+		if (!cpuDebug)
+			return;
 
-	if (cpuDebug == currentDebugMIPS) {
-		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		if (cpuDebug == currentDebugMIPS) {
+			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-		Core_RequestCPUStep(CPUStepType::Into, 1);
-	} else {
-		uint32_t breakpointAddress = cpuDebug->GetPC();
-		PrepareResume();
-		// Could have advanced to the breakpoint already in PrepareResume().
-		// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
-		cpuDebug = CPUFromRequest(req);
-		if (cpuDebug != currentDebugMIPS) {
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
-			AddThreadCondition(breakpointAddress, threadID);
-			Core_Resume();
+			Core_RequestCPUStep(CPUStepType::Into, 1);
+		} else {
+			uint32_t breakpointAddress = cpuDebug->GetPC();
+			PrepareResume();
+			// Could have advanced to the breakpoint already in PrepareResume().
+			// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
+			cpuDebug = CPUFromRequest(req);
+			if (cpuDebug != currentDebugMIPS) {
+				g_breakpoints.AddBreakPoint(breakpointAddress, true);
+				AddThreadCondition(breakpointAddress, threadID);
+				Core_Resume();
+			}
 		}
-	}
+	});
 }
 
 // Step over the next instruction (cpu.stepOver)
