@@ -43,6 +43,9 @@ bool RemoteISOFileSupported(const std::string &filename);
 void WebServerSetUploadPath(const Path &path);
 int WebServerPort();
 
+// Will start the webserver if not running.
+void OpenWebDebugger();
+
 struct UploadProgress {
 	s64 totalBytes = 0;
 	s64 uploadedBytes = 0;

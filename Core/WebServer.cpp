@@ -38,8 +38,8 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Config.h"
-#include "Core/Debugger/WebSocket.h"
 #include "Core/WebServer.h"
+#include "Core/Debugger/WebSocket.h"
 
 enum class ServerStatus {
 	STOPPED,
@@ -760,6 +760,17 @@ void WebServerSetUploadPath(const Path &path) {
 	g_uploadPath = path;
 }
 
+WebServerFlags GetServerFlags() {
+	return serverFlags;
+}
+
+void OpenWebDebugger() {
+	if (!WebServerRunning(WebServerFlags::DEBUGGER)) {
+		StartWebServer(WebServerFlags::DEBUGGER);
+	}
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://localhost:" + std::to_string(g_Config.iRemoteISOPort) + "/debugger/index.html");
+}
+
 static void WebServerThread() {
 	SetCurrentThreadName("HTTPServer");
 
@@ -787,6 +798,14 @@ static void WebServerThread() {
 	double lastRegister = time_now_d();
 
 	INFO_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
+
+	if (serverFlags & WebServerFlags::DEBUGGER) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Debugger web server running on port " + std::to_string(g_Config.iRemoteISOPort), 5.0f, "debugger");
+		g_OSD.SetClickCallback("debugger", []() {
+			OpenWebDebugger();
+		});
+	}
+
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		constexpr double webServerSliceSeconds = 0.2f;
 		http->RunSlice(webServerSliceSeconds);

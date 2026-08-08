@@ -14,6 +14,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/SaveState.h"
+#include "Core/WebServer.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/RetroAchievements.h"
 #include "Core/Core.h"
@@ -2390,6 +2391,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 					Path path(responseString);
 					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.ToString());
 				});
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Open web debugger")) {
+				OpenWebDebugger();
 			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Exit")) {
