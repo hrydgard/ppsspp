@@ -327,12 +327,12 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	std::string title = info_->GetTitle();
 
 	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
+		TextView* tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvTitle->SetShadow(true);
+
 		std::string regionID = ReplaceAll(info_->id_version, "_", " v");
 		if (!regionID.empty()) {
 			regionID += ": ";
-
-			TextView *tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			tvTitle->SetShadow(true);
 		}
 
 		if (info_->region != GameRegion::UNKNOWN) {
