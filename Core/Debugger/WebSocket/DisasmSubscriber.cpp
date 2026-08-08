@@ -78,8 +78,6 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 	json.pushDict();
 	if (l.type == DISTYPE_OPCODE)
 		json.writeString("type", "opcode");
-	else if (l.type == DISTYPE_MACRO)
-		json.writeString("type", "macro");
 	else if (l.type == DISTYPE_DATA)
 		json.writeString("type", "data");
 	else if (l.type == DISTYPE_OTHER)

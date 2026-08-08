@@ -44,7 +44,6 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 
 protected:
 	uint32_t GetNextAddress(DebugInterface *cpuDebug);
-	int GetNextInstructionCount(DebugInterface *cpuDebug);
 	void PrepareResume();
 	void AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID);
 };
@@ -103,8 +102,7 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-		int c = GetNextInstructionCount(cpuDebug);
-		Core_RequestCPUStep(CPUStepType::Into, c);
+		Core_RequestCPUStep(CPUStepType::Into, 1);
 	} else {
 		uint32_t breakpointAddress = cpuDebug->GetPC();
 		PrepareResume();
@@ -265,10 +263,6 @@ void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
 	uint32_t current = g_disassemblyManager.getStartAddress(cpuDebug->GetPC());
 	return g_disassemblyManager.getNthNextAddress(current, 1);
-}
-
-int WebSocketSteppingState::GetNextInstructionCount(DebugInterface *cpuDebug) {
-	return (GetNextAddress(cpuDebug) - cpuDebug->GetPC()) / 4;
 }
 
 void WebSocketSteppingState::PrepareResume() {

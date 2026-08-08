@@ -274,8 +274,7 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 }
 
 // Handles more advanced step types (used by the debugger).
-// stepSize is to support stepping through compound instructions like fused lui+ladd (li).
-// Yes, our disassembler does support those.
+// stepSize is always in instructions (4 bytes each), never bytes.
 // Doesn't return the new address, as that's just mips->getPC().
 // Internal use.
 static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
@@ -283,10 +282,9 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 	case CPUStepType::Into:
 	{
 		u32 currentPc = cpu->GetPC();
-		u32 newAddress = currentPc + stepSize;
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
 		g_breakpoints.SetSkipFirst(currentPc);
-		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
+		for (int i = 0; i < stepSize; i++) {
 			currentMIPS->SingleStep();
 		}
 		break;
@@ -294,7 +292,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 	case CPUStepType::Over:
 	{
 		u32 currentPc = cpu->GetPC();
-		u32 breakpointAddress = currentPc + stepSize;
+		u32 breakpointAddress = currentPc + stepSize * 4;
 
 		g_breakpoints.SetSkipFirst(currentPc);
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());

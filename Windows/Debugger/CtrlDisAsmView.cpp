@@ -602,7 +602,7 @@ void CtrlDisAsmView::followBranch()
 	DisassemblyLineInfo line;
 	g_disassemblyManager.getLine(curAddress, true, line, debugger);
 
-	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
+	if (line.type == DISTYPE_OPCODE)
 	{
 		if (line.info.isBranch)
 		{
@@ -1116,7 +1116,7 @@ void CtrlDisAsmView::updateStatusBarText()
 	g_disassemblyManager.getLine(curAddress,true,line, debugger);
 	
 	text[0] = 0;
-	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
+	if (line.type == DISTYPE_OPCODE)
 	{
 		if (line.info.hasRelevantAddress && IsLikelyStringAt(line.info.relevantAddress)) {
 			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
@@ -1350,9 +1350,3 @@ void CtrlDisAsmView::scrollStepping(u32 newPc)
 	}
 }
 
-u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
-{
-	u32 start = g_disassemblyManager.getStartAddress(address);
-	u32 next  = g_disassemblyManager.getNthNextAddress(start,1);
-	return next - address;
-}

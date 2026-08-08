@@ -32,7 +32,7 @@ typedef u64 HashType;
 typedef u32 HashType;
 #endif
 
-enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_MACRO, DISTYPE_DATA, DISTYPE_OTHER };
+enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_DATA, DISTYPE_OTHER };
 
 struct DisassemblyLineInfo
 {
@@ -114,33 +114,6 @@ public:
 private:
 	u32 address;
 	int num;
-};
-
-
-class DisassemblyMacro: public DisassemblyEntry
-{
-public:
-	DisassemblyMacro(u32 _address): address(_address) { }
-
-	void setMacroLi(u32 _immediate, u8 _rt);
-	void setMacroMemory(std::string_view _name, u32 _immediate, u8 _rt, int _dataSize);
-
-	void recheck() override { };
-	int getNumLines() override { return 1; };
-	int getLineNum(u32 address, bool findStart) override { return 0; };
-	u32 getLineAddress(int line) override { return address; };
-	u32 getTotalSize() override { return numOpcodes * 4; };
-	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols, DebugInterface *cpuDebug) override;
-private:
-	enum MacroType { MACRO_LI, MACRO_MEMORYIMM };
-
-	MacroType type;
-	std::string name;
-	u32 immediate;
-	u32 address;
-	u32 numOpcodes;
-	u8 rt;
-	int dataSize;
 };
 
 
