@@ -3,6 +3,7 @@
 #include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Windows/W32Util/ContextMenu.h"
@@ -416,7 +417,11 @@ void CtrlRegisterList::editRegisterValue()
 	}
 
 	char temp[24];
-	u32 val = getSelectedRegValue(temp, 24);
+	// Route the register read/mutation to the CPU thread instead of poking at it directly from
+	// this GUI thread - see Core_RunOnCPUThread() in Core.h. InputBox_GetString() is modal, so it
+	// must stay outside any queued callback, or we'd block the CPU thread on user input.
+	u32 val = 0;
+	Core_RunOnCPUThread([&] { val = getSelectedRegValue(temp, 24); });
 	int reg = selection;
 
 	std::string value = temp;
@@ -424,22 +429,24 @@ void CtrlRegisterList::editRegisterValue()
 		if (parseExpression(value.c_str(),cpu,val) == false) {
 			displayExpressionError(wnd);
 		} else {
-			switch (reg)
-			{
-			case REGISTER_PC:
-				cpu->SetPC(val);
-				break;
-			case REGISTER_HI:
-				cpu->SetHi(val);
-				break;
-			case REGISTER_LO:
-				cpu->SetLo(val);
-				break;
-			default:
-				cpu->SetRegValue(category, reg, val);
-				break;
-			}
-			Reporting::NotifyDebugger();
+			Core_RunOnCPUThread([&] {
+				switch (reg)
+				{
+				case REGISTER_PC:
+					cpu->SetPC(val);
+					break;
+				case REGISTER_HI:
+					cpu->SetHi(val);
+					break;
+				case REGISTER_LO:
+					cpu->SetLo(val);
+					break;
+				default:
+					cpu->SetRegValue(category, reg, val);
+					break;
+				}
+				Reporting::NotifyDebugger();
+			});
 			redraw();
 			SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);	// registers changed -> disassembly needs to be updated
 		}

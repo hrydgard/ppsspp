@@ -5,6 +5,7 @@
 #include "ext/xxhash.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -416,7 +417,7 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam) {
 }
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
-	auto memLock = Memory::Lock();
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return;
 
@@ -428,12 +429,10 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 		return;
 	}
 
-	bool active = Core_IsActive();
-	if (active)
-		Core_Break(BreakReason::MemoryAccess, curAddress_);
-
+	// Route the actual memory write to the CPU thread instead of poking at it directly from this
+	// GUI thread - see Core_RunOnCPUThread() in Core.h. No need to force the core to pause first.
 	if (asciiSelected_) {
-		Memory::WriteUnchecked_U8((u8)wParam, curAddress_);
+		Core_RunOnCPUThread([&] { Memory::WriteUnchecked_U8((u8)wParam, curAddress_); });
 		ScrollCursor(1, GotoMode::RESET);
 	} else {
 		wParam = tolower(wParam);
@@ -445,17 +444,17 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 		if (inputValue >= 0) {
 			int shiftAmount = (1 - selectedNibble_) * 4;
 
-			u8 oldValue = Memory::ReadUnchecked_U8(curAddress_);
-			oldValue &= ~(0xF << shiftAmount);
-			u8 newValue = oldValue | (inputValue << shiftAmount);
-			Memory::WriteUnchecked_U8(newValue, curAddress_);
+			Core_RunOnCPUThread([&] {
+				u8 oldValue = Memory::ReadUnchecked_U8(curAddress_);
+				oldValue &= ~(0xF << shiftAmount);
+				u8 newValue = oldValue | (inputValue << shiftAmount);
+				Memory::WriteUnchecked_U8(newValue, curAddress_);
+			});
 			ScrollCursor(1, GotoMode::RESET);
 		}
 	}
 
 	Reporting::NotifyDebugger();
-	if (active)
-		Core_Resume();
 }
 
 void CtrlMemView::redraw() {

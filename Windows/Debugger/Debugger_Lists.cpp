@@ -11,6 +11,7 @@
 #include "Windows/resource.h"
 #include "Windows/main.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Core/Core.h"
 #include "Core/HLE/sceKernelThread.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
@@ -148,11 +149,19 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 	switch (TriggerContextMenu(ContextMenuID::THREADLIST, GetHandle(), ContextPoint::FromClient(pt)))
 	{
 	case ID_DISASM_THREAD_FORCERUN:
-		__KernelResumeThreadFromWait(threadInfo.id, 0);
+		{
+			// Route the actual thread-state mutation to the CPU thread instead of poking at it
+			// directly from this GUI thread - see Core_RunOnCPUThread() in Core.h.
+			SceUID threadID = threadInfo.id;
+			Core_RunOnCPUThread([&] { __KernelResumeThreadFromWait(threadID, 0); });
+		}
 		reloadThreads();
 		break;
 	case ID_DISASM_THREAD_KILL:
-		sceKernelTerminateThread(threadInfo.id);
+		{
+			SceUID threadID = threadInfo.id;
+			Core_RunOnCPUThread([&] { sceKernelTerminateThread(threadID); });
+		}
 		reloadThreads();
 		break;
 	}
@@ -342,6 +351,9 @@ void CtrlBreakpointList::editBreakpoint(int itemIndex)
 	int index = getBreakpointIndex(itemIndex, isMemory);
 	if (index == -1) return;
 
+	// Route the breakpoint mutation to the CPU thread instead of poking at it directly from this
+	// GUI thread - see Core_RunOnCPUThread() in Core.h. win.exec() is a modal dialog, so it must
+	// stay outside any queued callback, or we'd block the CPU thread on user input.
 	BreakpointWindow win(GetHandle(),cpu);
 	if (isMemory)
 	{
@@ -349,16 +361,20 @@ void CtrlBreakpointList::editBreakpoint(int itemIndex)
 		win.loadFromMemcheck(mem);
 		if (win.exec())
 		{
-			g_breakpoints.RemoveMemCheck(mem.start,mem.end);
-			win.addBreakpoint();
+			Core_RunOnCPUThread([&] {
+				g_breakpoints.RemoveMemCheck(mem.start,mem.end);
+				win.addBreakpoint();
+			});
 		}
 	} else {
 		auto bp = displayedBreakPoints_[index];
 		win.loadFromBreakpoint(bp);
 		if (win.exec())
 		{
-			g_breakpoints.RemoveBreakPoint(bp.addr);
-			win.addBreakpoint();
+			Core_RunOnCPUThread([&] {
+				g_breakpoints.RemoveBreakPoint(bp.addr);
+				win.addBreakpoint();
+			});
 		}
 	}
 }
@@ -369,12 +385,14 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 	int index = getBreakpointIndex(itemIndex, isMemory);
 	if (index == -1) return;
 
+	// Route the breakpoint mutation to the CPU thread instead of poking at it directly from this
+	// GUI thread - see Core_RunOnCPUThread() in Core.h.
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
 	}
 }
 
@@ -404,12 +422,14 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 	int index = getBreakpointIndex(itemIndex,isMemory);
 	if (index == -1) return;
 
+	// Route the breakpoint mutation to the CPU thread instead of poking at it directly from this
+	// GUI thread - see Core_RunOnCPUThread() in Core.h.
 	if (isMemory) {
 		auto mc = displayedMemChecks_[index];
-		g_breakpoints.RemoveMemCheck(mc.start, mc.end);
+		Core_RunOnCPUThread([&] { g_breakpoints.RemoveMemCheck(mc.start, mc.end); });
 	} else {
 		u32 address = displayedBreakPoints_[index].addr;
-		g_breakpoints.RemoveBreakPoint(address);
+		Core_RunOnCPUThread([&] { g_breakpoints.RemoveBreakPoint(address); });
 	}
 }
 
@@ -583,8 +603,12 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 		{
 		case ID_DISASM_ADDNEWBREAKPOINT:
 			{		
+				// bpw.exec() is a modal dialog - must stay outside any queued callback, or we'd
+				// block the CPU thread on user input - see Core_RunOnCPUThread() in Core.h.
 				BreakpointWindow bpw(GetHandle(),cpu);
-				if (bpw.exec()) bpw.addBreakpoint();
+				if (bpw.exec()) {
+					Core_RunOnCPUThread([&] { bpw.addBreakpoint(); });
+				}
 			}
 			break;
 		}
@@ -607,10 +631,12 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 		switch (TriggerContextMenu(ContextMenuID::BREAKPOINTLIST, GetHandle(), ContextPoint::FromClient(pt)))
 		{
 		case ID_DISASM_DISABLEBREAKPOINT:
+			// Route the breakpoint mutation to the CPU thread instead of poking at it directly
+			// from this GUI thread - see Core_RunOnCPUThread() in Core.h.
 			if (isMemory) {
-				g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
 			} else {
-				g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:
@@ -618,8 +644,12 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			break;
 		case ID_DISASM_ADDNEWBREAKPOINT:
 			{		
+				// bpw.exec() is a modal dialog - must stay outside any queued callback, or we'd
+				// block the CPU thread on user input - see Core_RunOnCPUThread() in Core.h.
 				BreakpointWindow bpw(GetHandle(),cpu);
-				if (bpw.exec()) bpw.addBreakpoint();
+				if (bpw.exec()) {
+					Core_RunOnCPUThread([&] { bpw.addBreakpoint(); });
+				}
 			}
 			break;
 		case ID_DISASM_DELETEBREAKPOINT:
