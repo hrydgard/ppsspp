@@ -3,6 +3,7 @@
 #include "Common/System/Display.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Windows/W32Util/ContextMenu.h"
@@ -198,6 +199,14 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 
 	int numRows=rect.bottom/rowHeight;
 
+	// Reading live CPU-thread-owned register state here on the GUI thread would otherwise race
+	// with the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame()
+	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	// The values are a moving target while the core is running - gray them out rather than trying
+	// to highlight "changes" that are really just noise at that point.
+	bool running = !Core_IsStepping();
+
 	for (int i=0; i<numRows; i++)
 	{
 		int rowY1 = rowHeight*(i+1);
@@ -232,7 +241,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				changedCat0Regs[j] = v != lastCat0Values[j];
 				lastCat0Values[j] = v;
 			}
-			
+
 			changedCat0Regs[REGISTER_PC] = cpu->GetPC() != lastCat0Values[REGISTER_PC];
 			lastCat0Values[REGISTER_PC] = cpu->GetPC();
 			changedCat0Regs[REGISTER_HI] = cpu->GetHi() != lastCat0Values[REGISTER_HI];
@@ -249,12 +258,13 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		{
 			char temp[256];
 			int temp_len = snprintf(temp, sizeof(temp), "%s", cpu->GetRegName(category, i).c_str());
-			SetTextColor(hdc,0x600000);
+			SetTextColor(hdc, running ? 0x808080 : 0x600000);
 			TextOutA(hdc,17,rowY1,temp,temp_len);
-			SetTextColor(hdc,0x000000);
 
 			cpu->PrintRegValue(category, i, temp, sizeof(temp));
-			if (category == 0 && changedCat0Regs[i])
+			if (running)
+				SetTextColor(hdc, 0x808080);
+			else if (category == 0 && changedCat0Regs[i])
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
@@ -285,10 +295,12 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				break;
 			}
 
-			SetTextColor(hdc,0x600000);
+			SetTextColor(hdc, running ? 0x808080 : 0x600000);
 			TextOutA(hdc,17,rowY1,temp,len);
 			len = snprintf(temp, sizeof(temp), "%08X",value);
-			if (changedCat0Regs[i])
+			if (running)
+				SetTextColor(hdc, 0x808080);
+			else if (changedCat0Regs[i])
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
@@ -416,7 +428,11 @@ void CtrlRegisterList::editRegisterValue()
 	}
 
 	char temp[24];
-	u32 val = getSelectedRegValue(temp, 24);
+	// Route the register read/mutation to the CPU thread instead of poking at it directly from
+	// this GUI thread - see Core_RunOnCPUThread() in Core.h. InputBox_GetString() is modal, so it
+	// must stay outside any queued callback, or we'd block the CPU thread on user input.
+	u32 val = 0;
+	Core_RunOnCPUThread([&] { val = getSelectedRegValue(temp, 24); });
 	int reg = selection;
 
 	std::string value = temp;
@@ -424,22 +440,24 @@ void CtrlRegisterList::editRegisterValue()
 		if (parseExpression(value.c_str(),cpu,val) == false) {
 			displayExpressionError(wnd);
 		} else {
-			switch (reg)
-			{
-			case REGISTER_PC:
-				cpu->SetPC(val);
-				break;
-			case REGISTER_HI:
-				cpu->SetHi(val);
-				break;
-			case REGISTER_LO:
-				cpu->SetLo(val);
-				break;
-			default:
-				cpu->SetRegValue(category, reg, val);
-				break;
-			}
-			Reporting::NotifyDebugger();
+			Core_RunOnCPUThread([&] {
+				switch (reg)
+				{
+				case REGISTER_PC:
+					cpu->SetPC(val);
+					break;
+				case REGISTER_HI:
+					cpu->SetHi(val);
+					break;
+				case REGISTER_LO:
+					cpu->SetLo(val);
+					break;
+				default:
+					cpu->SetRegValue(category, reg, val);
+					break;
+				}
+				Reporting::NotifyDebugger();
+			});
 			redraw();
 			SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);	// registers changed -> disassembly needs to be updated
 		}

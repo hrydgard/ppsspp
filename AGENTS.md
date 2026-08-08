@@ -209,6 +209,87 @@ first - send `cpu.stepping` and `cpu.resume` to pause/unpause.
 Alternatively use the headless build, Windows/{arch}/Debug/PPSSPPHeadless.exe or build/PPSSPPHeadless on CMake-based
 platforms. Where arch is x64 or ARM64.
 
+## Debugger threading model (Core_RunOnCPUThread / g_frameMutex)
+
+CPU-thread-owned debugger state (`g_breakpoints`, `g_symbolMap`, `g_disassemblyManager`, registers,
+memory, kernel threads) used to be touched directly from other threads (the WebSocket handler
+thread, and the legacy Win32 debugger's message-pump thread) with no synchronization. Two
+mechanisms now exist for doing this safely - pick based on whether you're mutating or just reading:
+
+- **`Core_RunOnCPUThread(func)`** (`Core.h`/`Core.cpp`) - queues `func` to run on the CPU thread,
+  blocking the caller until it's done. Use for *mutations* (breakpoint add/remove, register/memory
+  writes, symbol map edits, stepping requests, thread wake/kill). Drained at the top of every
+  `Core_RunLoopUntil()` iteration, so it's reached whether the CPU is running or stepping/paused;
+  runs immediately if already called from the CPU thread. Two hard rules learned the hard way:
+  never put a modal Win32 dialog call (`MessageBox`, `DialogBoxParam`, `InputBox_GetString`,
+  `SomeDialog::exec()`) inside the queued lambda - it would block the CPU thread on user input, so
+  split the function into "read/decide", "show modal", "mutate" pieces instead. And never call
+  `SendMessage()` targeting one of your own GUI-thread windows from inside the lambda - the calling
+  GUI thread is blocked waiting on the CPU thread rather than pumping messages, so a cross-thread
+  `SendMessage()` back to it deadlocks; keep such calls outside the lambda instead.
+- **`g_frameMutex`** (`Core.h`/`Core.cpp`) - a plain `std::mutex`, held by `NativeFrame()`
+  (`UI/NativeApp.cpp`) only across the span where it actually touches that state
+  (`g_breakpoints.Frame()` through `g_screenManager->render()` - where `Core_RunLoopUntil()`/actual
+  CPU stepping happens - through `runImDebugger`/`renderImDebugger`), not across input handling or
+  the present/frame-pacing waits. Use for *reads* invoked very frequently (`WM_PAINT`, a list
+  reload triggered on every debugger-state-changed notification) where routing through
+  `Core_RunOnCPUThread` would be too slow/heavy. The legacy Win32 debugger windows do this now -
+  see `CtrlRegisterList::onPaint`, `CtrlDisAsmView::onPaint`, `CtrlMemView::onPaint`,
+  `CtrlBreakpointList::reloadBreakpoints`, `CtrlThreadList::reloadThreads`, etc. in
+  `Windows/Debugger/*.cpp`.
+
+Architecture fact that makes `g_frameMutex` correct: regardless of graphics backend, `NativeFrame()`
+(and thus CPU emulation via `Core_RunLoopUntil()`, and the Dear ImGui debugger) always runs on the
+*same* thread - see `Core/EmuThread.cpp`. When a backend needs its own thread for actual graphics
+API calls (`GraphicsContext::NeedsSeparateEmuThread()` - true for OpenGL, SDL, headless, libretro,
+Qt; false for D3D11/Vulkan on Windows), the *original* thread stays behind purely to pump
+`graphicsContext->ThreadFrame()` (i.e. just executes queued graphics API calls), and a *newly
+spawned* thread takes over `NativeFrame()`/game logic/CPU duty. So `UI/ImDebugger/*.cpp` is always
+safe to read/write this state directly, without either mechanism - it's always on the same thread
+as `Core_RunLoopUntil()`. The legacy Win32 debugger is different: its dialogs are pumped by the
+*original* `WinMain` message-loop thread, which is a genuinely separate OS thread from whichever
+thread ends up running `NativeFrame()`/CPU, regardless of backend (this split happens one level
+above the `NeedsSeparateEmuThread()` branch) - that's the whole reason it needed this mechanism.
+
+**Update (2026-08-08): both `BreakpointManager`'s and `SymbolMap`'s internal mutexes have been
+removed** after auditing every touchpoint across the codebase (WebSocket subscribers,
+`Windows/Debugger/*.cpp`, `Windows/MainWindowMenu.cpp`/`Windows/MainWindow.cpp` main-window menu
+items, `Core/Core.cpp`'s free-threaded `Core_Break`/`Core_Resume`, `UI/ImDebugger/*.cpp`,
+JIT/interpreter backends, `Core/Debugger/MemBlockInfo.cpp`) and confirming each is covered by one of
+the two mechanisms above or is already on the CPU/NativeFrame thread. Notably, `Windows/main.cpp`'s
+`SortSymbols()` calls (fired from `System_Notify(BOOT_DONE)`/`System_Notify(SYMBOL_MAP_UPDATED)`)
+turned out to already be safe without any change - both notifications are only ever fired from the
+CPU/NativeFrame thread (`UI/EmuScreen.cpp`, `Core/HLE/sceKernelModule.cpp`), despite an old comment
+there claiming reliance on the (now-removed) internal lock. `Qt/mainwindow.cpp`/`Qt/QtMain.cpp`
+still poke at `g_symbolMap` directly and unguarded on the Qt UI thread - a pre-existing issue,
+deliberately left alone since Qt isn't a maintained backend and is slated for removal; removing the
+lock doesn't change `SymbolMap`'s public API, so Qt still builds, just without that safety net.
+`GPU/Common/GPUDebugInterface.cpp` (GE debugger expression evaluation) and `Core/MemFault.cpp`
+(crash-time diagnostics) also touch `g_symbolMap` and were deliberately not audited this round -
+different subsystem / best-effort-by-nature respectively, follow up if they ever come up.
+
+Two more things found while doing this:
+- **`Core_RunOnCPUThread()`'s queue is only drained where `Core_RunLoopUntil()` runs, which requires
+  a game to be loaded** (it's called from `EmuScreen::render()`). Calling `Core_RunOnCPUThread()`
+  while at the main menu with nothing loaded used to hang forever. Fixed by also calling the
+  (now public) `Core_ProcessCPUQueue()` directly from `NativeFrame()`, right before
+  `g_screenManager->render()`, inside the same `g_frameMutex`-locked span - so it always runs, not
+  just while a game is active.
+- **Lock-ordering rule**: because `Core_ProcessCPUQueue()` is called from inside `NativeFrame()`'s
+  `g_frameMutex`-locked span, any `Core_RunOnCPUThread()` lambda that itself tries to lock
+  `g_frameMutex` (directly, or indirectly - e.g. by calling something like
+  `CDisasm::NotifyMapLoaded()`, which locks it internally) will deadlock. Keep such calls outside
+  the queued lambda, same as the modal-dialog and `SendMessage()` rules above.
+
+Painting-problem design history, in case a similar tradeoff comes up elsewhere: routing every paint
+through `Core_RunOnCPUThread` was rejected as too slow for something invoked continuously. A
+per-window snapshot/cache with a per-row-rechecked `Core_IsStepping()` guard was tried first and
+worked, but still had a narrow TOCTOU race (the CPU could resume between the check and that row's
+reads) and the per-row-recheck pattern itself wasn't liked. Settled on `g_frameMutex` instead -
+simpler, and actually race-free rather than just lower-risk. `CtrlRegisterList` shows live values
+always now, grayed out by color alone (not cached) while the core is running, since a
+constantly-moving value isn't meaningful to read closely anyway.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.

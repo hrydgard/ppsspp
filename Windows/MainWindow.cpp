@@ -725,8 +725,12 @@ namespace MainWindow {
 			{
 				return 0;
 			}
-			// Get all modules from symbol map
-			auto modules = g_symbolMap->getAllModules();
+			// Get all modules from symbol map. Reading it here on the GUI thread would otherwise
+			// race with the CPU thread - hold g_frameMutex for the duration of the read, which
+			// NativeFrame() also holds while it's actually touching that state. See g_frameMutex
+			// in Core.h.
+			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+			std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 			for (const auto& module : modules)
 			{
 				if (module.name == moduleName)

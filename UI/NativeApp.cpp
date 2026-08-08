@@ -1257,29 +1257,44 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_requestManager.ProcessRequests();
 
-	g_breakpoints.Frame();
+	// Guards the span where we actually touch CPU-thread-owned debugger state (breakpoints,
+	// symbol map, registers, memory, etc.) against unsynchronized reads from other threads' paint
+	// handlers - see g_frameMutex in Core.h.
+	ScreenRenderFlags renderFlags = ScreenRenderFlags::NONE;
+	{
+		std::lock_guard<std::mutex> emuStateGuard(g_frameMutex);
 
-	// Apply the UIContext bounds as a 2D transformation matrix.
-	// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
-	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
+		g_breakpoints.Frame();
 
-	// Can be overridden by sceDisplay which may pass true for the second argument.
-	g_frameTiming.ComputePresentMode(g_draw, false);
+		// Apply the UIContext bounds as a 2D transformation matrix.
+		// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
+		Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
 
-	ui_draw2d.PushDrawMatrix(ortho);
+		// Can be overridden by sceDisplay which may pass true for the second argument.
+		g_frameTiming.ComputePresentMode(g_draw, false);
 
-	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+		ui_draw2d.PushDrawMatrix(ortho);
 
-	// All actual rendering (and also emulation) happens in this render() call.
-	ScreenRenderFlags renderFlags = g_screenManager->render();
-	if (g_screenManager->getUIContext()->Text()) {
-		g_screenManager->getUIContext()->Text()->OncePerFrame();
+		g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+
+		// Drain any work queued by Core_RunOnCPUThread() from other threads. Core_RunLoopUntil()
+		// (called from within render() below, but only while a game is actually loaded/running)
+		// also does this, but that path isn't reached at all outside a game - e.g. from the main
+		// menu - so queued work would otherwise hang forever waiting for it. See Core_ProcessCPUQueue()
+		// in Core.h.
+		Core_ProcessCPUQueue();
+
+		// All actual rendering (and also emulation) happens in this render() call.
+		renderFlags = g_screenManager->render();
+		if (g_screenManager->getUIContext()->Text()) {
+			g_screenManager->getUIContext()->Text()->OncePerFrame();
+		}
+
+		ui_draw2d.PopDrawMatrix();
+
+		runImDebugger(g_draw);
+		renderImDebugger(g_draw);
 	}
-
-	ui_draw2d.PopDrawMatrix();
-
-	runImDebugger(g_draw);
-	renderImDebugger(g_draw);
 	g_draw->EndFrame();
 
 	// This, between EndFrame and Present, is where we should actually wait to do present time management.

@@ -6,6 +6,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
 
+#include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -131,10 +132,15 @@ void CMemoryDlg::searchBoxRedraw(const std::vector<u32> &results) {
 
 
 void CMemoryDlg::NotifyMapLoaded() {
-	if (m_hDlg && g_symbolMap)
+	if (m_hDlg && g_symbolMap) {
+		// Reading the live symbol map here on the GUI thread would otherwise race with the CPU
+		// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also holds
+		// while it's actually touching that state. See g_frameMutex in Core.h.
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 		g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
-	else
+	} else {
 		mapLoadPending_ = true;
+	}
 	Update();
 }
 
@@ -221,6 +227,7 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_DEB_UPDATE:
 		if (mapLoadPending_ && m_hDlg && g_symbolMap) {
+			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 			g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
 			mapLoadPending_ = false;
 		}
