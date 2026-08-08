@@ -289,7 +289,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 
 		// We only support Arabic on platforms where we have support for the native text rendering
 		// APIs, as proper Arabic support is way too difficult to implement ourselves.
-#if !(defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
+#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
@@ -703,9 +703,6 @@ void CreditsScroller::Draw(UIContext &dc) {
 		cr->T("tools", "Free tools used:"),
 #if PPSSPP_PLATFORM(ANDROID)
 		"Android SDK + NDK",
-#endif
-#if defined(USING_QT_UI)
-		"Qt",
 #endif
 #if defined(SDL)
 		"SDL",

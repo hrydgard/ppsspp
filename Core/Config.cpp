@@ -414,7 +414,7 @@ static const ConfigSetting cpuSettings[] = {
 
 static int DefaultInternalResolution() {
 	// Auto on Windows and Linux, 2x on large screens and iOS, 1x elsewhere.
-#if defined(USING_WIN_UI) || defined(USING_QT_UI)
+#if defined(USING_WIN_UI)
 	return 0;
 #elif PPSSPP_PLATFORM(IOS)
 	return 2;
@@ -430,7 +430,7 @@ static int DefaultInternalResolution() {
 }
 
 static int DefaultFastForwardMode() {
-#if PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
 	return (int)FastForwardMode::SKIP_FLIP;
 #else
 	return (int)FastForwardMode::CONTINUOUS;
@@ -1104,7 +1104,7 @@ static const ConfigSetting systemParamSettings[] = {
 	ConfigSetting("ButtonPreference", SETTING(g_Config, iButtonPreference), PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("LockParentalLevel", SETTING(g_Config, iLockParentalLevel), 0, CfgFlag::PER_GAME),
 	ConfigSetting("WlanAdhocChannel", SETTING(g_Config, iWlanAdhocChannel), PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC, CfgFlag::PER_GAME),
-#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
+#if defined(USING_WIN_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	ConfigSetting("BypassOSKWithKeyboard", SETTING(g_Config, bBypassOSKWithKeyboard), false, CfgFlag::PER_GAME),
 #endif
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),

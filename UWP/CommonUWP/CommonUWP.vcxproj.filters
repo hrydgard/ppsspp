@@ -380,9 +380,6 @@
     <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp">
       <Filter>Render\Text</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp">
-      <Filter>Render\Text</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp">
       <Filter>Render\Text</Filter>
     </ClCompile>
@@ -881,9 +878,6 @@
       <Filter>Render\Text</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h">
-      <Filter>Render\Text</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h">
       <Filter>Render\Text</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h">

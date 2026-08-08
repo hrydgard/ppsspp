@@ -183,7 +183,7 @@ ENUM_CLASS_BITOPS(KeyInputFlags);
 
 struct KeyInput {
 	KeyInput() {}
-	// These utility constructors are used a lot in SDL/Qt.
+	// These utility constructors are used a lot in SDL.
 	KeyInput(InputDeviceID devId, InputKeyCode code, KeyInputFlags fl) : deviceId(devId), keyCode(code), flags(fl) {}
 	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KeyInputFlags::CHAR) {}
 	InputDeviceID deviceId;

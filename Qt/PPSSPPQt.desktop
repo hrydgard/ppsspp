@@ -1,8 +1,0 @@
-[Desktop Entry]
-Version=1.0
-Type=Application
-Terminal=false
-Name=PPSSPP
-Categories=Game;
-Exec=PPSSPPQt %f
-Icon=ppsspp.png

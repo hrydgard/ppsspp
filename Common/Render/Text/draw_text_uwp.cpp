@@ -11,7 +11,7 @@
 #include "Common/StringUtils.h"
 #include "Common/File/Path.h"
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(_WIN32)
 
 #include <string>
 

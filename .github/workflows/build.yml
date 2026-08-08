@@ -214,12 +214,6 @@ jobs:
           id: android-libretro
 
         - os: ubuntu-26.04
-          extra: qt
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --qt
-          id: qt
-        - os: ubuntu-26.04
           extra: libretro
           cc: gcc
           cxx: g++
@@ -269,14 +263,6 @@ jobs:
       # This is required for git describe --always to work for git-version.cpp.
       run: |
         git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
-
-    - name: Install Qt
-      uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-      if: matrix.extra == 'qt'
-      with:
-        cache: true
-        version: 5.15.2
-        setup-python: false
 
     - name: Setup Android NDK
       uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
