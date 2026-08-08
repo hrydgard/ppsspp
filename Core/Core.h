@@ -165,6 +165,14 @@ void Core_RunLoopUntil(u64 globalticks);
 // even while it's fully running.
 void Core_RunOnCPUThread(std::function<void()> func);
 
+// Drains the queue Core_RunOnCPUThread() feeds. Normally called from the top of every
+// Core_RunLoopUntil() iteration, but that function is only reached while a game is actually
+// loaded/running (via EmuScreen) - so NativeFrame() (UI/NativeApp.cpp) also calls this directly,
+// just before it calls into the screen manager's render(), so queued work doesn't hang forever
+// waiting for a CPU loop that isn't running (e.g. from the main menu with no game loaded).
+// Called from the CPU thread only - which is whatever thread NativeFrame() itself runs on.
+void Core_ProcessCPUQueue();
+
 // Guards CPU-thread-owned debugger state (breakpoints, symbol map, registers, memory, etc.)
 // against concurrent unsynchronized reads from other threads' paint handlers.
 //

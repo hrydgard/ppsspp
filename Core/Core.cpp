@@ -103,7 +103,7 @@ void Core_RunOnCPUThread(std::function<void()> func) {
 }
 
 // Called from the CPU thread only.
-static void Core_ProcessCPUQueue() {
+void Core_ProcessCPUQueue() {
 	std::call_once(g_cpuThreadIdOnce, [] {
 		g_cpuThreadId = std::this_thread::get_id();
 		g_cpuThreadIdValid.store(true, std::memory_order_release);
