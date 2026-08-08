@@ -135,6 +135,7 @@ protected:
 			grid->Add(undoButton)->OnClick.Handle(this, &ScreenshotViewScreen::OnUndoState);
 		}
 		grid->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		grid->Add(new Choice(di->T("Modify State Name"), ImageID("I_EDIT_TEXT")))->OnClick.Handle(this, &ScreenshotViewScreen::OnChangeState);
 
 		scroll->Add(content);
 		parent->Add(scroll);
@@ -145,11 +146,13 @@ private:
 	void OnLoadState(UI::EventParams &e);
 	void OnUndoState(UI::EventParams &e);
 	void OnDeleteState(UI::EventParams &e);
+	void OnChangeState(UI::EventParams &e);
 
 	Path screenshotFilename_;
 	Path gamePath_;
 	std::string saveStatePrefix_;
 	std::string title_;
+	std::string customNameTemp_;
 	int slot_;
 };
 
@@ -204,6 +207,19 @@ void ScreenshotViewScreen::OnDeleteState(UI::EventParams &e) {
 	}));
 }
 
+void ScreenshotViewScreen::OnChangeState(UI::EventParams &e) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	customNameTemp_ = SaveState::GetSlotCustomName(saveStatePrefix_, slot_);
+
+	UI::TextEditPopupScreen *popupScreen = new UI::TextEditPopupScreen(&customNameTemp_, "", di->T("Modify the state name"), 64);
+	popupScreen->OnChange.Add([this](UI::EventParams &e) {
+		SaveState::SetSlotCustomName(saveStatePrefix_, slot_, customNameTemp_);
+		TriggerFinish(DR_YES);  // DR_YES signals that we need a refresh, but not to close the pause menu.
+	});
+	screenManager()->push(popupScreen);
+}
+
 class SaveSlotView : public UI::LinearLayout {
 public:
 	SaveSlotView(std::string_view saveStatePrefix, int slot, UI::LayoutParams *layoutParams = nullptr);
@@ -224,6 +240,10 @@ public:
 
 	std::string GetScreenshotTitle() const {
 		return SaveState::GetSlotDateAsString(saveStatePrefix_, slot_);
+	}
+
+	std::string GetCustomName() const {
+		return SaveState::GetSlotCustomName(saveStatePrefix_, slot_);
 	}
 
 	UI::Event OnStateLoaded;
@@ -277,7 +297,6 @@ SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::Layou
 
 	saveStateButton_ = buttons->Add(new Button(pa->T("Save State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
-
 	fv->OnClick.Add([this](UI::EventParams &e) {
 		e.v = this;
 		OnScreenshotClicked.Trigger(e);
@@ -289,6 +308,14 @@ SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::Layou
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 		}
 
+		std::string nameStr = SaveState::GetSlotCustomName(saveStatePrefix_, slot_);
+
+		if (!nameStr.empty()) {
+			TextView *nameView = new TextView(nameStr, new LinearLayoutParams(0.0, Gravity::G_VCENTER));
+			nameView->SetSmall(true);
+			lines->Add(nameView)->SetShadow(true);
+		}
+		
 		std::string dateStr = SaveState::GetSlotDateAsString(saveStatePrefix_, slot_);
 
 		if (slot_ == g_Config.iAutoLoadSaveState - 3) {
@@ -425,7 +452,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 			g_Config.iCurrentStateSlot = v->GetSlot();
 			if (SaveState::HasSaveInSlot(saveStatePrefix_, slot)) {
 				Path fn = v->GetScreenshotFilename();
-				std::string title = v->GetScreenshotTitle();
+				std::string title = v->GetCustomName();
 				Screen *screen = new ScreenshotViewScreen(fn, saveStatePrefix_, title, v->GetSlot(), gamePath_);
 				screenManager()->push(screen);
 			}
