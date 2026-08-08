@@ -98,40 +98,44 @@ static bool DataTypeFromString(const std::string &s, DataType *out) {
 //     - waitType: numeric wait type, if the thread is waiting, or 0 if not waiting.
 //     - isCurrent: boolean, true for the currently executing thread.
 void WebSocketHLEThreadList(DebuggerRequest &req) {
-	// Will just return none of the CPU isn't ready yet.
-	auto threads = GetThreadsInfo();
+	// Route the actual kernel thread reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		// Will just return none of the CPU isn't ready yet.
+		std::vector<DebugThreadInfo> threads = GetThreadsInfo();
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("threads");
-	for (const auto &th : threads) {
-		json.pushDict();
-		json.writeUint("id", th.id);
-		json.writeString("name", th.name);
-		json.writeInt("status", th.status);
-		json.pushArray("statuses");
-		if (th.status & THREADSTATUS_RUNNING)
-			json.writeString("running");
-		if (th.status & THREADSTATUS_READY)
-			json.writeString("ready");
-		if (th.status & THREADSTATUS_WAIT)
-			json.writeString("wait");
-		if (th.status & THREADSTATUS_SUSPEND)
-			json.writeString("suspend");
-		if (th.status & THREADSTATUS_DORMANT)
-			json.writeString("dormant");
-		if (th.status & THREADSTATUS_DEAD)
-			json.writeString("dead");
+		JsonWriter &json = req.Respond();
+		json.pushArray("threads");
+		for (const DebugThreadInfo &th : threads) {
+			json.pushDict();
+			json.writeUint("id", th.id);
+			json.writeString("name", th.name);
+			json.writeInt("status", th.status);
+			json.pushArray("statuses");
+			if (th.status & THREADSTATUS_RUNNING)
+				json.writeString("running");
+			if (th.status & THREADSTATUS_READY)
+				json.writeString("ready");
+			if (th.status & THREADSTATUS_WAIT)
+				json.writeString("wait");
+			if (th.status & THREADSTATUS_SUSPEND)
+				json.writeString("suspend");
+			if (th.status & THREADSTATUS_DORMANT)
+				json.writeString("dormant");
+			if (th.status & THREADSTATUS_DEAD)
+				json.writeString("dead");
+			json.pop();
+			json.writeUint("pc", th.curPC);
+			json.writeUint("entry", th.entrypoint);
+			json.writeUint("initialStackSize", th.initialStack);
+			json.writeUint("currentStackSize", th.stackSize);
+			json.writeInt("priority", th.priority);
+			json.writeInt("waitType", (int)th.waitType);
+			json.writeBool("isCurrent", th.isCurrent);
+			json.pop();
+		}
 		json.pop();
-		json.writeUint("pc", th.curPC);
-		json.writeUint("entry", th.entrypoint);
-		json.writeUint("initialStackSize", th.initialStack);
-		json.writeUint("currentStackSize", th.stackSize);
-		json.writeInt("priority", th.priority);
-		json.writeInt("waitType", (int)th.waitType);
-		json.writeBool("isCurrent", th.isCurrent);
-		json.pop();
-	}
-	json.pop();
+	});
 }
 
 static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
@@ -148,8 +152,8 @@ static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
 	if (!req.ParamU32("thread", &threadID))
 		return false;
 
-	auto threads = GetThreadsInfo();
-	for (const auto &t : threads) {
+	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
+	for (const DebugThreadInfo &t : threads) {
 		if (t.id == threadID) {
 			*result = t;
 			return true;
@@ -169,27 +173,34 @@ static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
 //  - thread: id repeated back.
 //  - status: string 'ready'.
 void WebSocketHLEThreadWake(DebuggerRequest &req) {
-	DebugThreadInfo threadInfo{ -1 };
-	if (!ThreadInfoForStatus(req, &threadInfo))
-		return;
+	// Route the actual kernel thread manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugThreadInfo threadInfo{ -1 };
+		if (!ThreadInfoForStatus(req, &threadInfo))
+			return;
 
-	switch (threadInfo.status) {
-	case THREADSTATUS_SUSPEND:
-	case THREADSTATUS_WAIT:
-	case THREADSTATUS_WAITSUSPEND:
-		if (__KernelResumeThreadFromWait(threadInfo.id, 0) != 0)
-			return req.Fail("Failed to resume thread");
-		break;
+		switch (threadInfo.status) {
+		case THREADSTATUS_SUSPEND:
+		case THREADSTATUS_WAIT:
+		case THREADSTATUS_WAITSUSPEND:
+			if (__KernelResumeThreadFromWait(threadInfo.id, 0) != 0) {
+				req.Fail("Failed to resume thread");
+				return;
+			}
+			break;
 
-	default:
-		return req.Fail("Cannot force run thread based on current status");
-	}
+		default:
+			req.Fail("Cannot force run thread based on current status");
+			return;
+		}
 
-	Reporting::NotifyDebugger();
+		Reporting::NotifyDebugger();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("thread", threadInfo.id);
-	json.writeString("status", "ready");
+		JsonWriter &json = req.Respond();
+		json.writeUint("thread", threadInfo.id);
+		json.writeString("status", "ready");
+	});
 }
 
 // Force stop a thread (hle.thread.stop)
@@ -201,33 +212,40 @@ void WebSocketHLEThreadWake(DebuggerRequest &req) {
 //  - thread: id repeated back.
 //  - status: string 'dormant'.
 void WebSocketHLEThreadStop(DebuggerRequest &req) {
-	DebugThreadInfo threadInfo{ -1 };
-	if (!ThreadInfoForStatus(req, &threadInfo))
-		return;
+	// Route the actual kernel thread manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugThreadInfo threadInfo{ -1 };
+		if (!ThreadInfoForStatus(req, &threadInfo))
+			return;
 
-	switch (threadInfo.status) {
-	case THREADSTATUS_SUSPEND:
-	case THREADSTATUS_WAIT:
-	case THREADSTATUS_WAITSUSPEND:
-	case THREADSTATUS_READY:
-		__KernelStopThread(threadInfo.id, 0, "stopped from debugger");
-		break;
+		switch (threadInfo.status) {
+		case THREADSTATUS_SUSPEND:
+		case THREADSTATUS_WAIT:
+		case THREADSTATUS_WAITSUSPEND:
+		case THREADSTATUS_READY:
+			__KernelStopThread(threadInfo.id, 0, "stopped from debugger");
+			break;
 
-	default:
-		return req.Fail("Cannot force stop thread based on current status");
-	}
+		default:
+			req.Fail("Cannot force stop thread based on current status");
+			return;
+		}
 
-	// Get it again to verify.
-	if (!ThreadInfoForStatus(req, &threadInfo))
-		return;
-	if ((threadInfo.status & THREADSTATUS_DORMANT) == 0)
-		return req.Fail("Failed to stop thread");
+		// Get it again to verify.
+		if (!ThreadInfoForStatus(req, &threadInfo))
+			return;
+		if ((threadInfo.status & THREADSTATUS_DORMANT) == 0) {
+			req.Fail("Failed to stop thread");
+			return;
+		}
 
-	Reporting::NotifyDebugger();
+		Reporting::NotifyDebugger();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("thread", threadInfo.id);
-	json.writeString("status", "dormant");
+		JsonWriter &json = req.Respond();
+		json.writeUint("thread", threadInfo.id);
+		json.writeString("status", "dormant");
+	});
 }
 
 // List all current known function symbols (hle.func.list)
@@ -243,18 +261,22 @@ void WebSocketHLEFuncList(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
 
-	auto functions = g_symbolMap->GetAllActiveSymbols(ST_FUNCTION);
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		std::vector<SymbolEntry> functions = g_symbolMap->GetAllActiveSymbols(ST_FUNCTION);
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("functions");
-	for (auto f : functions) {
-		json.pushDict();
-		json.writeString("name", f.name);
-		json.writeUint("address", f.address);
-		json.writeUint("size", f.size);
+		JsonWriter &json = req.Respond();
+		json.pushArray("functions");
+		for (const SymbolEntry &f : functions) {
+			json.pushDict();
+			json.writeString("name", f.name);
+			json.writeUint("address", f.address);
+			json.writeUint("size", f.size);
+			json.pop();
+		}
 		json.pop();
-	}
-	json.pop();
+	});
 }
 
 // Add a new function symbols (hle.func.add)
@@ -297,51 +319,57 @@ void WebSocketHLEFuncAdd(DebuggerRequest &req) {
 	if (name.empty())
 		name = StringFromFormat("z_un_%08x", addr);
 
-	u32 prevBegin = g_symbolMap->GetFunctionStart(addr);
-	u32 endBegin = size == -1 ? prevBegin : g_symbolMap->GetFunctionStart(addr + size - 4);
-	if (prevBegin == addr) {
-		return req.Fail("Function already exists at 'address'");
-	} else if (endBegin != prevBegin) {
-		return req.Fail("Function already exists between 'address' and 'address' + 'size'");
-	} else if (prevBegin != -1) {
-		std::string prevName = g_symbolMap->GetLabelString(prevBegin);
-		u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
-		u32 newPrevSize = addr - prevBegin;
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		u32 prevBegin = g_symbolMap->GetFunctionStart(addr);
+		u32 endBegin = size == -1 ? prevBegin : g_symbolMap->GetFunctionStart(addr + size - 4);
+		if (prevBegin == addr) {
+			req.Fail("Function already exists at 'address'");
+			return;
+		} else if (endBegin != prevBegin) {
+			req.Fail("Function already exists between 'address' and 'address' + 'size'");
+			return;
+		} else if (prevBegin != -1) {
+			std::string prevName = g_symbolMap->GetLabelString(prevBegin);
+			u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
+			u32 newPrevSize = addr - prevBegin;
 
-		// The new function will be the remainder, unless otherwise specified.
-		if (size == -1)
-			size = prevSize - newPrevSize;
+			// The new function will be the remainder, unless otherwise specified.
+			if (size == -1)
+				size = prevSize - newPrevSize;
 
-		// Make sure we register the new length for replacements too.
-		MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + newPrevSize);
-		g_symbolMap->SetFunctionSize(prevBegin, newPrevSize);
-		MIPSAnalyst::RegisterFunction(prevBegin, newPrevSize, prevName.c_str());
-	} else {
-		// There was no function there, so hopefully they specified a size.
-		if (size == -1)
-			size = 4;
-	}
+			// Make sure we register the new length for replacements too.
+			MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + newPrevSize);
+			g_symbolMap->SetFunctionSize(prevBegin, newPrevSize);
+			MIPSAnalyst::RegisterFunction(prevBegin, newPrevSize, prevName.c_str());
+		} else {
+			// There was no function there, so hopefully they specified a size.
+			if (size == -1)
+				size = 4;
+		}
 
-	// To ensure we restore replacements.
-	MIPSAnalyst::ForgetFunctions(addr, addr + size);
-	g_symbolMap->AddFunction(name.c_str(), addr, size);
-	g_symbolMap->SortSymbols();
-	MIPSAnalyst::RegisterFunction(addr, size, name.c_str());
+		// To ensure we restore replacements.
+		MIPSAnalyst::ForgetFunctions(addr, addr + size);
+		g_symbolMap->AddFunction(name.c_str(), addr, size);
+		g_symbolMap->SortSymbols();
+		MIPSAnalyst::RegisterFunction(addr, size, name.c_str());
 
-	MIPSAnalyst::UpdateHashMap();
-	MIPSAnalyst::ApplyHashMap();
+		MIPSAnalyst::UpdateHashMap();
+		MIPSAnalyst::ApplyHashMap();
 
-	if (g_Config.bFuncReplacements) {
-		MIPSAnalyst::ReplaceFunctions();
-	}
+		if (g_Config.bFuncReplacements) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
 
-	// Clear cache for branch lines and such.
-	g_disassemblyManager.clear();
+		// Clear cache for branch lines and such.
+		g_disassemblyManager.clear();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("address", addr);
-	json.writeUint("size", size);
-	json.writeString("name", name);
+		JsonWriter &json = req.Respond();
+		json.writeUint("address", addr);
+		json.writeUint("size", size);
+		json.writeString("name", name);
+	});
 }
 
 // Remove a function symbol (hle.func.remove)
@@ -366,39 +394,45 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 
 	addr = RoundDownToMultipleOf(addr, 4);
 
-	u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
-	if (funcBegin == -1)
-		return req.Fail("No function found at 'address'");
-	u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
+		if (funcBegin == -1) {
+			req.Fail("No function found at 'address'");
+			return;
+		}
+		u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
 
-	// Expand the previous function.
-	u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin - 1);
-	if (prevBegin != -1) {
-		std::string prevName = g_symbolMap->GetLabelString(prevBegin);
-		u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + funcSize;
-		g_symbolMap->SetFunctionSize(prevBegin, expandedSize);
-		MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + expandedSize);
-		MIPSAnalyst::RegisterFunction(prevBegin, expandedSize, prevName.c_str());
-	} else {
-		MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize);
-	}
+		// Expand the previous function.
+		u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin - 1);
+		if (prevBegin != -1) {
+			std::string prevName = g_symbolMap->GetLabelString(prevBegin);
+			u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + funcSize;
+			g_symbolMap->SetFunctionSize(prevBegin, expandedSize);
+			MIPSAnalyst::ForgetFunctions(prevBegin, prevBegin + expandedSize);
+			MIPSAnalyst::RegisterFunction(prevBegin, expandedSize, prevName.c_str());
+		} else {
+			MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize);
+		}
 
-	g_symbolMap->RemoveFunction(funcBegin, true);
-	g_symbolMap->SortSymbols();
+		g_symbolMap->RemoveFunction(funcBegin, true);
+		g_symbolMap->SortSymbols();
 
-	MIPSAnalyst::UpdateHashMap();
-	MIPSAnalyst::ApplyHashMap();
+		MIPSAnalyst::UpdateHashMap();
+		MIPSAnalyst::ApplyHashMap();
 
-	if (g_Config.bFuncReplacements) {
-		MIPSAnalyst::ReplaceFunctions();
-	}
+		if (g_Config.bFuncReplacements) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
 
-	// Clear cache for branch lines and such.
-	g_disassemblyManager.clear();
+		// Clear cache for branch lines and such.
+		g_disassemblyManager.clear();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("address", funcBegin);
-	json.writeUint("size", funcSize);
+		JsonWriter &json = req.Respond();
+		json.writeUint("address", funcBegin);
+		json.writeUint("size", funcSize);
+	});
 }
 
 // This function removes function symbols that intersect or lie inside the range
@@ -461,13 +495,19 @@ void WebSocketHLEFuncRemoveRange(DebuggerRequest &req) {
 	addr = RoundDownToMultipleOf(addr, 4);
 	size = RoundUpToMultipleOf(size, 4);
 
+	// This only depends on addr/size, not on anything CPU-thread-owned, so fail fast here rather than
+	// making a round trip through the queue for a request we already know is invalid.
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
 
-	u32 count = RemoveFuncSymbolsInRange(addr, size);
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		u32 count = RemoveFuncSymbolsInRange(addr, size);
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("count", count);
+		JsonWriter &json = req.Respond();
+		json.writeUint("count", count);
+	});
 }
 
 // Rename a function symbol (hle.func.rename)
@@ -495,25 +535,31 @@ void WebSocketHLEFuncRename(DebuggerRequest &req) {
 
 	addr = RoundDownToMultipleOf(addr, 4);
 
-	u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
-	if (funcBegin == -1)
-		return req.Fail("No function found at 'address'");
-	u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		u32 funcBegin = g_symbolMap->GetFunctionStart(addr);
+		if (funcBegin == -1) {
+			req.Fail("No function found at 'address'");
+			return;
+		}
+		u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
 
-	g_symbolMap->SetLabelName(name.c_str(), funcBegin);
-	// To ensure we reapply replacements (in case we check name there.)
-	MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize);
-	MIPSAnalyst::RegisterFunction(funcBegin, funcSize, name.c_str());
-	MIPSAnalyst::UpdateHashMap();
-	MIPSAnalyst::ApplyHashMap();
-	if (g_Config.bFuncReplacements) {
-		MIPSAnalyst::ReplaceFunctions();
-	}
+		g_symbolMap->SetLabelName(name.c_str(), funcBegin);
+		// To ensure we reapply replacements (in case we check name there.)
+		MIPSAnalyst::ForgetFunctions(funcBegin, funcBegin + funcSize);
+		MIPSAnalyst::RegisterFunction(funcBegin, funcSize, name.c_str());
+		MIPSAnalyst::UpdateHashMap();
+		MIPSAnalyst::ApplyHashMap();
+		if (g_Config.bFuncReplacements) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("address", funcBegin);
-	json.writeUint("size", funcSize);
-	json.writeString("name", name);
+		JsonWriter &json = req.Respond();
+		json.writeUint("address", funcBegin);
+		json.writeUint("size", funcSize);
+		json.writeString("name", name);
+	});
 }
 
 // Auto-detect functions in a memory range (hle.func.scan)
@@ -546,17 +592,26 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 	if (!req.ParamBool("remove", &remove, DebuggerParamType::OPTIONAL))
 		return;
 
+	// This only depends on addr/size, not on anything CPU-thread-owned, so fail fast here rather than
+	// making a round trip through the queue for a request we already know is invalid.
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
 
-	if (remove) {
-		RemoveFuncSymbolsInRange(addr, size);
-	}
+	// Route the actual symbol scan/manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	// Note: like memory.search, 'size' has no cap beyond valid memory range, so a very large scan
+	// will block the CPU thread's own frame pump for its duration.
+	Core_RunOnCPUThread([&] {
 
-	bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size, true);
-	MIPSAnalyst::FinalizeScan(insertSymbols);
+		if (remove) {
+			RemoveFuncSymbolsInRange(addr, size);
+		}
 
-	req.Respond();
+		bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size, true);
+		MIPSAnalyst::FinalizeScan(insertSymbols);
+
+		req.Respond();
+	});
 }
 
 // List all known user modules (hle.module.list)
@@ -573,19 +628,23 @@ void WebSocketHLEModuleList(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
 
-	auto modules = g_symbolMap->getAllModules();
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("modules");
-	for (auto m : modules) {
-		json.pushDict();
-		json.writeString("name", m.name);
-		json.writeUint("address", m.address);
-		json.writeUint("size", m.size);
-		json.writeBool("isActive", m.active);
+		JsonWriter &json = req.Respond();
+		json.pushArray("modules");
+		for (const LoadedModuleInfo &m : modules) {
+			json.pushDict();
+			json.writeString("name", m.name);
+			json.writeUint("address", m.address);
+			json.writeUint("size", m.size);
+			json.writeBool("isActive", m.active);
+			json.pop();
+		}
 		json.pop();
-	}
-	json.pop();
+	});
 }
 
 // Walk the stack and list stack frames (hle.backtrace)
@@ -606,48 +665,54 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 	if (!Core_IsStepping())
 		return req.Fail("CPU currently running (cpu.stepping first)");
 
-	uint32_t threadID = -1;
-	DebugInterface *cpuDebug = currentDebugMIPS;
-	if (req.HasParam("thread")) {
-		if (!req.ParamU32("thread", &threadID))
-			return;
+	// Route the actual CPU/symbol/disassembly reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		uint32_t threadID = -1;
+		DebugInterface *cpuDebug = currentDebugMIPS;
+		if (req.HasParam("thread")) {
+			if (!req.ParamU32("thread", &threadID))
+				return;
 
-		cpuDebug = KernelDebugThread((SceUID)threadID);
-		if (!cpuDebug)
-			return req.Fail("Thread could not be found");
-	}
-
-	auto threads = GetThreadsInfo();
-	uint32_t entry = cpuDebug->GetPC();
-	uint32_t stackTop = 0;
-	for (const DebugThreadInfo &th : threads) {
-		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
-			entry = th.entrypoint;
-			stackTop = th.initialStack;
-			break;
+			cpuDebug = KernelDebugThread((SceUID)threadID);
+			if (!cpuDebug) {
+				req.Fail("Thread could not be found");
+				return;
+			}
 		}
-	}
 
-	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
-	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
-	auto frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
+		std::vector<DebugThreadInfo> threads = GetThreadsInfo();
+		uint32_t entry = cpuDebug->GetPC();
+		uint32_t stackTop = 0;
+		for (const DebugThreadInfo &th : threads) {
+			if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
+				entry = th.entrypoint;
+				stackTop = th.initialStack;
+				break;
+			}
+		}
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("frames");
-	for (auto f : frames) {
-		json.pushDict();
-		json.writeUint("entry", f.entry);
-		json.writeUint("pc", f.pc);
-		json.writeUint("sp", f.sp);
-		json.writeUint("stackSize", f.stackSize);
+		uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
+		uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
+		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
 
-		DisassemblyLineInfo line;
-		g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
-		json.writeString("code", line.name + " " + line.params);
+		JsonWriter &json = req.Respond();
+		json.pushArray("frames");
+		for (const MIPSStackWalk::StackFrame &f : frames) {
+			json.pushDict();
+			json.writeUint("entry", f.entry);
+			json.writeUint("pc", f.pc);
+			json.writeUint("sp", f.sp);
+			json.writeUint("stackSize", f.stackSize);
 
+			DisassemblyLineInfo line;
+			g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
+			json.writeString("code", line.name + " " + line.params);
+
+			json.pop();
+		}
 		json.pop();
-	}
-	json.pop();
+	});
 }
 
 // List all current known data symbols (hle.data.list)
@@ -664,19 +729,23 @@ void WebSocketHLEDataList(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
 
-	auto entries = g_symbolMap->GetAllActiveSymbols(ST_DATA);
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		std::vector<SymbolEntry> entries = g_symbolMap->GetAllActiveSymbols(ST_DATA);
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("data");
-	for (auto &d : entries) {
-		json.pushDict();
-		json.writeString("name", d.name);
-		json.writeUint("address", d.address);
-		json.writeUint("size", d.size);
-		json.writeString("type", DataTypeToString(g_symbolMap->GetDataType(d.address)));
+		JsonWriter &json = req.Respond();
+		json.pushArray("data");
+		for (const SymbolEntry &d : entries) {
+			json.pushDict();
+			json.writeString("name", d.name);
+			json.writeUint("address", d.address);
+			json.writeUint("size", d.size);
+			json.writeString("type", DataTypeToString(g_symbolMap->GetDataType(d.address)));
+			json.pop();
+		}
 		json.pop();
-	}
-	json.pop();
+	});
 }
 
 // Add a new data symbol (hle.data.add)
@@ -717,6 +786,8 @@ void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	if (!DataTypeFromString(typeStr, &type))
 		return req.Fail("Invalid 'type', must be byte, halfword, word, or ascii");
 
+	// This only depends on addr/size, not on anything CPU-thread-owned, so fail fast here rather than
+	// making a round trip through the queue for a request we already know is invalid.
 	if (!Memory::IsValidRange(addr, size))
 		return req.Fail("Address or size outside valid memory");
 
@@ -726,18 +797,22 @@ void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	if (name.empty())
 		name = StringFromFormat("data_%08x", addr);
 
-	g_symbolMap->AddData(addr, size, type);
-	g_symbolMap->AddLabel(name.c_str(), addr);
-	g_symbolMap->SortSymbols();
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_symbolMap->AddData(addr, size, type);
+		g_symbolMap->AddLabel(name.c_str(), addr);
+		g_symbolMap->SortSymbols();
 
-	// Clear cache so the disassembly view picks up the new annotation.
-	g_disassemblyManager.clear();
+		// Clear cache so the disassembly view picks up the new annotation.
+		g_disassemblyManager.clear();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("address", addr);
-	json.writeUint("size", size);
-	json.writeString("type", typeStr);
-	json.writeString("name", name);
+		JsonWriter &json = req.Respond();
+		json.writeUint("address", addr);
+		json.writeUint("size", size);
+		json.writeString("type", typeStr);
+		json.writeString("name", name);
+	});
 }
 
 // Remove a data symbol (hle.data.remove)
@@ -758,18 +833,24 @@ void WebSocketHLEDataRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("address", &addr))
 		return;
 
-	u32 dataBegin = g_symbolMap->GetDataStart(addr);
-	if (dataBegin == -1)
-		return req.Fail("No data symbol found at 'address'");
-	u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		u32 dataBegin = g_symbolMap->GetDataStart(addr);
+		if (dataBegin == -1) {
+			req.Fail("No data symbol found at 'address'");
+			return;
+		}
+		u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
 
-	g_symbolMap->RemoveData(dataBegin, true);
-	g_symbolMap->SortSymbols();
-	g_disassemblyManager.clear();
+		g_symbolMap->RemoveData(dataBegin, true);
+		g_symbolMap->SortSymbols();
+		g_disassemblyManager.clear();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("address", dataBegin);
-	json.writeUint("size", dataSize);
+		JsonWriter &json = req.Respond();
+		json.writeUint("address", dataBegin);
+		json.writeUint("size", dataSize);
+	});
 }
 
 // Rename a data symbol (hle.data.rename)
@@ -795,15 +876,21 @@ void WebSocketHLEDataRename(DebuggerRequest &req) {
 	if (!req.ParamString("name", &name))
 		return;
 
-	u32 dataBegin = g_symbolMap->GetDataStart(addr);
-	if (dataBegin == -1)
-		return req.Fail("No data symbol found at 'address'");
-	u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		u32 dataBegin = g_symbolMap->GetDataStart(addr);
+		if (dataBegin == -1) {
+			req.Fail("No data symbol found at 'address'");
+			return;
+		}
+		u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
 
-	g_symbolMap->SetLabelName(name.c_str(), dataBegin);
+		g_symbolMap->SetLabelName(name.c_str(), dataBegin);
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("address", dataBegin);
-	json.writeUint("size", dataSize);
-	json.writeString("name", name);
+		JsonWriter &json = req.Respond();
+		json.writeUint("address", dataBegin);
+		json.writeUint("size", dataSize);
+		json.writeString("name", name);
+	});
 }

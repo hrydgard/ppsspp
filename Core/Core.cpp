@@ -17,9 +17,13 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
+#include <memory>
 #include <set>
+#include <thread>
+#include <vector>
 #include <condition_variable>
 
 #include "Common/System/System.h"
@@ -66,6 +70,64 @@ struct CPUStepCommand {
 };
 
 static CPUStepCommand g_cpuStepCommand;
+
+// Task queue for Core_RunOnCPUThread(), see Core.h for the rationale. Drained from Core_RunLoopUntil()
+// below, so at least once per call to it (i.e. about once per host frame) even while the CPU is fully
+// running, and continuously (in a tight spin) while it's stepping/paused.
+struct CPUThreadTask {
+	std::function<void()> func;
+	bool done = false;
+};
+static std::mutex g_cpuQueueMutex;
+static std::condition_variable g_cpuQueueCond;
+static std::vector<std::shared_ptr<CPUThreadTask>> g_cpuQueue;
+static std::once_flag g_cpuThreadIdOnce;
+static std::thread::id g_cpuThreadId;
+// Published via release/acquire around g_cpuThreadIdOnce, so it's safe to check from other threads
+// without taking g_cpuQueueMutex - g_cpuThreadId itself never changes once this becomes true.
+static std::atomic<bool> g_cpuThreadIdValid{ false };
+
+void Core_RunOnCPUThread(std::function<void()> func) {
+	if (g_cpuThreadIdValid.load(std::memory_order_acquire) && std::this_thread::get_id() == g_cpuThreadId) {
+		// Already on the CPU thread (or called before it's ever run) - just do it now, avoids deadlock.
+		func();
+		return;
+	}
+
+	auto task = std::make_shared<CPUThreadTask>();
+	task->func = std::move(func);
+
+	std::unique_lock<std::mutex> guard(g_cpuQueueMutex);
+	g_cpuQueue.push_back(task);
+	g_cpuQueueCond.wait(guard, [&] { return task->done; });
+}
+
+// Called from the CPU thread only.
+static void Core_ProcessCPUQueue() {
+	std::call_once(g_cpuThreadIdOnce, [] {
+		g_cpuThreadId = std::this_thread::get_id();
+		g_cpuThreadIdValid.store(true, std::memory_order_release);
+	});
+
+	std::vector<std::shared_ptr<CPUThreadTask>> tasks;
+	{
+		std::lock_guard<std::mutex> guard(g_cpuQueueMutex);
+		if (g_cpuQueue.empty())
+			return;
+		tasks = std::move(g_cpuQueue);
+		g_cpuQueue.clear();
+	}
+
+	for (auto &task : tasks)
+		task->func();
+
+	{
+		std::lock_guard<std::mutex> guard(g_cpuQueueMutex);
+		for (auto &task : tasks)
+			task->done = true;
+	}
+	g_cpuQueueCond.notify_all();
+}
 
 // This is so that external threads can wait for the CPU to become inactive.
 static std::condition_variable m_InactiveCond;
@@ -206,6 +268,11 @@ bool Core_GetPowerSaving() {
 
 void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
+		// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
+		// top of this loop means it's reached at least once per call (i.e. about once per host frame)
+		// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
+		Core_ProcessCPUQueue();
+
 		switch (coreState) {
 		case CORE_POWERDOWN:
 		case CORE_RUNTIME_ERROR:
@@ -274,8 +341,7 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 }
 
 // Handles more advanced step types (used by the debugger).
-// stepSize is to support stepping through compound instructions like fused lui+ladd (li).
-// Yes, our disassembler does support those.
+// stepSize is always in instructions (4 bytes each), never bytes.
 // Doesn't return the new address, as that's just mips->getPC().
 // Internal use.
 static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
@@ -283,10 +349,9 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 	case CPUStepType::Into:
 	{
 		u32 currentPc = cpu->GetPC();
-		u32 newAddress = currentPc + stepSize;
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
 		g_breakpoints.SetSkipFirst(currentPc);
-		for (int i = 0; i < (int)(newAddress - currentPc) / 4; i++) {
+		for (int i = 0; i < stepSize; i++) {
 			currentMIPS->SingleStep();
 		}
 		break;
@@ -294,7 +359,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 	case CPUStepType::Over:
 	{
 		u32 currentPc = cpu->GetPC();
-		u32 breakpointAddress = currentPc + stepSize;
+		u32 breakpointAddress = currentPc + stepSize * 4;
 
 		g_breakpoints.SetSkipFirst(currentPc);
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());

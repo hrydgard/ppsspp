@@ -92,6 +92,7 @@ bool System_AudioRecordingState() { return false; }
 void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 int64_t System_GetPropertyInt(SystemProperty prop) {

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
+#include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -138,8 +139,12 @@ void WebSocketCPUBreakpointAdd(DebuggerRequest &req) {
 	if (!params.Parse(req))
 		return;
 
-	g_breakpoints.AddBreakPoint(params.address);
-	params.Apply();
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.AddBreakPoint(params.address);
+		params.Apply();
+	});
 	req.Respond();
 }
 
@@ -157,11 +162,19 @@ void WebSocketCPUBreakpointUpdate(DebuggerRequest &req) {
 	WebSocketCPUBreakpointParams params;
 	if (!params.Parse(req))
 		return;
-	bool enabled;
-	if (!g_breakpoints.IsAddressBreakPoint(params.address, &enabled))
-		return req.Fail("Breakpoint not found");
 
-	params.Apply();
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	bool found = false;
+	Core_RunOnCPUThread([&] {
+		bool enabled;
+		found = g_breakpoints.IsAddressBreakPoint(params.address, &enabled);
+		if (found)
+			params.Apply();
+	});
+
+	if (!found)
+		return req.Fail("Breakpoint not found");
 	req.Respond();
 }
 
@@ -180,7 +193,11 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("address", &address))
 		return;
 
-	g_breakpoints.RemoveBreakPoint(address);
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.RemoveBreakPoint(address);
+	});
 	req.Respond();
 }
 
@@ -202,38 +219,42 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("breakpoints");
-	auto bps = g_breakpoints.GetBreakpoints();
-	for (const auto &bp : bps) {
-		if (bp.temporary)
-			continue;
+	// Route the breakpoint/symbol/disassembly reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		JsonWriter &json = req.Respond();
+		json.pushArray("breakpoints");
+		std::vector<BreakPoint> bps = g_breakpoints.GetBreakpoints();
+		for (const BreakPoint &bp : bps) {
+			if (bp.temporary)
+				continue;
 
-		json.pushDict();
-		json.writeUint("address", bp.addr);
-		json.writeBool("enabled", bp.IsEnabled());
-		json.writeBool("log", (bp.result & BREAK_ACTION_LOG) != 0);
-		if (bp.hasCond)
-			json.writeString("condition", bp.cond.expressionString);
-		else
-			json.writeNull("condition");
-		if (!bp.logFormat.empty())
-			json.writeString("logFormat", bp.logFormat);
-		else
-			json.writeNull("logFormat");
-		std::string symbol = g_symbolMap->GetLabelString(bp.addr);
-		if (symbol.empty())
-			json.writeNull("symbol");
-		else
-			json.writeString("symbol", symbol);
+			json.pushDict();
+			json.writeUint("address", bp.addr);
+			json.writeBool("enabled", bp.IsEnabled());
+			json.writeBool("log", (bp.result & BREAK_ACTION_LOG) != 0);
+			if (bp.hasCond)
+				json.writeString("condition", bp.cond.expressionString);
+			else
+				json.writeNull("condition");
+			if (!bp.logFormat.empty())
+				json.writeString("logFormat", bp.logFormat);
+			else
+				json.writeNull("logFormat");
+			std::string symbol = g_symbolMap->GetLabelString(bp.addr);
+			if (symbol.empty())
+				json.writeNull("symbol");
+			else
+				json.writeString("symbol", symbol);
 
-		DisassemblyLineInfo line;
-		g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(bp.addr), true, line, currentDebugMIPS);
-		json.writeString("code", line.name + " " + line.params);
+			DisassemblyLineInfo line;
+			g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(bp.addr), true, line, currentDebugMIPS);
+			json.writeString("code", line.name + " " + line.params);
 
+			json.pop();
+		}
 		json.pop();
-	}
-	json.pop();
+	});
 }
 
 struct WebSocketMemoryBreakpointParams {
@@ -361,8 +382,12 @@ void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 	if (!params.Parse(req))
 		return;
 
-	g_breakpoints.AddMemCheck(params.address, params.end, params.cond, params.Result(true));
-	params.Apply();
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.AddMemCheck(params.address, params.end, params.cond, params.Result(true));
+		params.Apply();
+	});
 	req.Respond();
 }
 
@@ -386,12 +411,20 @@ void WebSocketMemoryBreakpointUpdate(DebuggerRequest &req) {
 	if (!params.Parse(req))
 		return;
 
-	MemCheck mc;
-	if (!g_breakpoints.GetMemCheck(params.address, params.end, &mc))
-		return req.Fail("Breakpoint not found");
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	bool found = false;
+	Core_RunOnCPUThread([&] {
+		MemCheck mc;
+		found = g_breakpoints.GetMemCheck(params.address, params.end, &mc);
+		if (found) {
+			g_breakpoints.ChangeMemCheck(params.address, params.end, params.cond, params.Result(true));
+			params.Apply();
+		}
+	});
 
-	g_breakpoints.ChangeMemCheck(params.address, params.end, params.cond, params.Result(true));
-	params.Apply();
+	if (!found)
+		return req.Fail("Breakpoint not found");
 	req.Respond();
 }
 
@@ -414,7 +447,11 @@ void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 	if (!req.ParamU32("size", &size))
 		return;
 
-	g_breakpoints.RemoveMemCheck(address, size == 0 ? 0 : address + size);
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.RemoveMemCheck(address, size == 0 ? 0 : address + size);
+	});
 	req.Respond();
 }
 
@@ -440,34 +477,38 @@ void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("breakpoints");
-	auto mcs = g_breakpoints.GetMemChecks();
-	for (const auto &mc : mcs) {
-		json.pushDict();
-		json.writeUint("address", mc.start);
-		json.writeUint("size", mc.end == 0 ? 0 : mc.end - mc.start);
-		json.writeBool("enabled", mc.IsEnabled());
-		json.writeBool("log", (mc.result & BREAK_ACTION_LOG) != 0);
-		json.writeBool("read", (mc.cond & MEMCHECK_READ) != 0);
-		json.writeBool("write", (mc.cond & MEMCHECK_WRITE) != 0);
-		json.writeBool("change", (mc.cond & MEMCHECK_WRITE_ONCHANGE) != 0);
-		json.writeUint("hits", mc.numHits);
-		if (mc.hasCondition)
-			json.writeString("condition", mc.condition.expressionString);
-		else
-			json.writeNull("condition");
-		if (!mc.logFormat.empty())
-			json.writeString("logFormat", mc.logFormat);
-		else
-			json.writeNull("logFormat");
-		std::string symbol = g_symbolMap->GetLabelString(mc.start);
-		if (symbol.empty())
-			json.writeNull("symbol");
-		else
-			json.writeString("symbol", symbol);
+	// Route the breakpoint/symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		JsonWriter &json = req.Respond();
+		json.pushArray("breakpoints");
+		std::vector<MemCheck> mcs = g_breakpoints.GetMemChecks();
+		for (const MemCheck &mc : mcs) {
+			json.pushDict();
+			json.writeUint("address", mc.start);
+			json.writeUint("size", mc.end == 0 ? 0 : mc.end - mc.start);
+			json.writeBool("enabled", mc.IsEnabled());
+			json.writeBool("log", (mc.result & BREAK_ACTION_LOG) != 0);
+			json.writeBool("read", (mc.cond & MEMCHECK_READ) != 0);
+			json.writeBool("write", (mc.cond & MEMCHECK_WRITE) != 0);
+			json.writeBool("change", (mc.cond & MEMCHECK_WRITE_ONCHANGE) != 0);
+			json.writeUint("hits", mc.numHits);
+			if (mc.hasCondition)
+				json.writeString("condition", mc.condition.expressionString);
+			else
+				json.writeNull("condition");
+			if (!mc.logFormat.empty())
+				json.writeString("logFormat", mc.logFormat);
+			else
+				json.writeNull("logFormat");
+			std::string symbol = g_symbolMap->GetLabelString(mc.start);
+			if (symbol.empty())
+				json.writeNull("symbol");
+			else
+				json.writeString("symbol", symbol);
 
+			json.pop();
+		}
 		json.pop();
-	}
-	json.pop();
+	});
 }

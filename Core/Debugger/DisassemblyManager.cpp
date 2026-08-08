@@ -595,26 +595,6 @@ void DisassemblyFunction::load()
 {
 	generateBranchLines();
 
-	// gather all branch targets
-	std::set<u32> branchTargets;
-	{
-		std::lock_guard<std::recursive_mutex> guard(lock_);
-		for (size_t i = 0; i < lines.size(); i++)
-		{
-			switch (lines[i].type)
-			{
-			case LINE_DOWN:
-				branchTargets.insert(lines[i].second);
-				break;
-			case LINE_UP:
-				branchTargets.insert(lines[i].first);
-				break;
-			default:
-				break;
-			}
-		}
-	}
-	
 	DebugInterface *cpu = g_disassemblyManager.getCpu();
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
@@ -655,7 +635,6 @@ void DisassemblyFunction::load()
 		}
 
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu,funcPos);
-		u32 opAddress = funcPos;
 		funcPos += 4;
 
 		// skip branches and their delay slots
@@ -663,70 +642,6 @@ void DisassemblyFunction::load()
 		{
 			funcPos += 4;
 			continue;
-		}
-
-		// lui
-		if (MIPS_GET_OP(opInfo.encodedOpcode) == 0x0F && funcPos < funcEnd && funcPos != nextData)
-		{
-			MIPSOpcode next = Memory::Read_Instruction(funcPos);
-			MIPSInfo nextInfo = MIPSGetInfo(next);
-
-			u32 immediate = ((opInfo.encodedOpcode & 0xFFFF) << 16) + (s16)(next.encoding & 0xFFFF);
-			int rt = MIPS_GET_RT(opInfo.encodedOpcode);
-
-			int nextRs = MIPS_GET_RS(next.encoding);
-			int nextRt = MIPS_GET_RT(next.encoding);
-
-			// both rs and rt of the second op have to match rt of the first,
-			// otherwise there may be hidden consequences if the macro is displayed.
-			// also, don't create a macro if something branches into the middle of it
-			if (nextRs == rt && nextRt == rt && branchTargets.find(funcPos) == branchTargets.end())
-			{
-				DisassemblyMacro* macro = NULL;
-				switch (MIPS_GET_OP(next.encoding))
-				{
-				case 0x09:	// addiu
-					macro = new DisassemblyMacro(opAddress);
-					macro->setMacroLi(immediate,rt);
-					funcPos += 4;
-					break;
-				case 0x20:	// lb
-				case 0x21:	// lh
-				case 0x23:	// lw
-				case 0x24:	// lbu
-				case 0x25:	// lhu
-				case 0x28:	// sb
-				case 0x29:	// sh
-				case 0x2B:	// sw
-					macro = new DisassemblyMacro(opAddress);
-					
-					int dataSize = MIPSGetMemoryAccessSize(next);
-					if (dataSize == 0) {
-						delete macro;
-						return;
-					}
-
-					macro->setMacroMemory(MIPSGetName(next),immediate,rt,dataSize);
-					funcPos += 4;
-					break;
-				}
-
-				if (macro != NULL)
-				{
-					if (opcodeSequenceStart != opAddress)
-						addOpcodeSequence(opcodeSequenceStart,opAddress);
-
-					std::lock_guard<std::recursive_mutex> guard(lock_);
-					entries[opAddress] = macro;
-					for (int i = 0; i < macro->getNumLines(); i++)
-					{
-						lineAddresses.push_back(macro->getLineAddress(i));
-					}
-
-					opcodeSequenceStart = funcPos;
-					continue;
-				}
-			}
 		}
 
 		// just a normal opcode
@@ -800,76 +715,6 @@ void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLi
 	}
 }
 
-
-void DisassemblyMacro::setMacroLi(u32 _immediate, u8 _rt)
-{
-	type = MACRO_LI;
-	name = "li";
-	immediate = _immediate;
-	rt = _rt;
-	numOpcodes = 2;
-}
-
-void DisassemblyMacro::setMacroMemory(std::string_view _name, u32 _immediate, u8 _rt, int _dataSize)
-{
-	type = MACRO_MEMORYIMM;
-	name = _name;
-	immediate = _immediate;
-	rt = _rt;
-	dataSize = _dataSize;
-	numOpcodes = 2;
-}
-
-bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
-{
-	char buffer[64];
-	dest.type = DISTYPE_MACRO;
-	dest.info = MIPSAnalyst::GetOpcodeInfo(cpuDebug, address);
-
-	std::string addressSymbol;
-	switch (type)
-	{
-	case MACRO_LI:
-		dest.name = name;
-		
-		addressSymbol = g_symbolMap->GetLabelString(immediate);
-		if (!addressSymbol.empty() && insertSymbols) {
-			snprintf(buffer, sizeof(buffer), "%s,%s", MIPSDebugInterface::GetRegName(0, rt).c_str(), addressSymbol.c_str());
-		} else {
-			snprintf(buffer, sizeof(buffer), "%s,0x%08X", MIPSDebugInterface::GetRegName(0, rt).c_str(), immediate);
-		}
-
-		dest.params = buffer;
-		
-		dest.info.hasRelevantAddress = true;
-		dest.info.relevantAddress = immediate;
-		break;
-	case MACRO_MEMORYIMM:
-		dest.name = name;
-
-		addressSymbol = g_symbolMap->GetLabelString(immediate);
-		if (!addressSymbol.empty() && insertSymbols) {
-			snprintf(buffer, sizeof(buffer), "%s,%s", MIPSDebugInterface::GetRegName(0, rt).c_str(), addressSymbol.c_str());
-		} else {
-			snprintf(buffer, sizeof(buffer), "%s,0x%08X", MIPSDebugInterface::GetRegName(0, rt).c_str(), immediate);
-		}
-
-		dest.params = buffer;
-
-		dest.info.isDataAccess = true;
-		dest.info.dataAddress = immediate;
-		dest.info.dataSize = dataSize;
-
-		dest.info.hasRelevantAddress = true;
-		dest.info.relevantAddress = immediate;
-		break;
-	default:
-		return false;
-	}
-
-	dest.totalSize = getTotalSize();
-	return true;
-}
 
 DisassemblyData::DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type)
 {

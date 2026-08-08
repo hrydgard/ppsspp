@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -84,6 +85,7 @@ BreakReason Core_BreakReason();
 
 // This should be called externally.
 // Can fail if another step type was requested this frame.
+// stepSize is always in instructions (4 bytes each), never bytes - see Core_PerformCPUStep in Core.cpp.
 bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
 
 bool Core_NextFrame();
@@ -147,6 +149,20 @@ void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
+
+// Runs a function on the CPU thread - the thread that calls Core_RunLoopUntil (and thus, indirectly,
+// NativeFrame). Useful for code running on unrelated threads (like the WebSocket debugger) that needs to
+// safely touch state that's otherwise only ever touched from that thread (breakpoints, stepping, etc.),
+// instead of poking at it directly from wherever the call happens to come from.
+//
+// Safe to call from any thread, including the CPU thread itself (in which case func just runs immediately).
+// Blocks the calling thread until func has actually run, so don't call this from the CPU thread with
+// something that would itself try to wait on the CPU thread - that'll deadlock.
+//
+// Drained at the top of every Core_RunLoopUntil() iteration, so it's reached continuously (in a tight
+// spin) while the CPU is stepping/paused, and at least once per call (i.e. about once per host frame)
+// even while it's fully running.
+void Core_RunOnCPUThread(std::function<void()> func);
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;

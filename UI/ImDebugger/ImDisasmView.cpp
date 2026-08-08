@@ -465,7 +465,7 @@ void ImDisasmView::FollowBranch() {
 	DisassemblyLineInfo line;
 	g_disassemblyManager.getLine(curAddress_, true, line, debugger_);
 
-	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO) {
+	if (line.type == DISTYPE_OPCODE) {
 		if (line.info.isBranch) {
 			jumpStack_.push_back(curAddress_);
 			gotoAddr(line.info.branchTarget);
@@ -890,7 +890,7 @@ void ImDisasmView::updateStatusBarText() {
 	g_disassemblyManager.getLine(curAddress_, true, line, debugger_);
 
 	text[0] = 0;
-	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO) {
+	if (line.type == DISTYPE_OPCODE) {
 		if (line.info.hasRelevantAddress && IsLikelyStringAt(line.info.relevantAddress)) {
 			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
 		}
@@ -1162,13 +1162,6 @@ void ImDisasmView::scrollStepping(u32 newPc) {
 	}
 }
 
-u32 ImDisasmView::getInstructionSizeAt(u32 address) {
-	u32 start = g_disassemblyManager.getStartAddress(address);
-	u32 next = g_disassemblyManager.getNthNextAddress(start, 1);
-	return next - address;
-}
-
-
 void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &control, CoreState coreState) {
 	disasmView_.setDebugger(mipsDebug);
 
@@ -1181,12 +1174,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestCPUStep(CPUStepType::Over, stepSize);
+			Core_RequestCPUStep(CPUStepType::Over, 1);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-			Core_RequestCPUStep(CPUStepType::Into, stepSize);
+			Core_RequestCPUStep(CPUStepType::Into, 1);
 		}
 	}
 
@@ -1219,8 +1210,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::SameLine();
 
 	if (ImGui::RepeatButtonShift("Into")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Into, stepSize);
+		Core_RequestCPUStep(CPUStepType::Into, 1);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F11");
@@ -1228,8 +1218,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Over")) {
-		u32 stepSize = disasmView_.getInstructionSizeAt(mipsDebug->GetPC());
-		Core_RequestCPUStep(CPUStepType::Over, stepSize);
+		Core_RequestCPUStep(CPUStepType::Over, 1);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F10");
