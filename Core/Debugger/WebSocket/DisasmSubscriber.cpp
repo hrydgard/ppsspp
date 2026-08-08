@@ -21,6 +21,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/StringUtils.h"
+#include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
@@ -51,7 +52,7 @@ protected:
 };
 
 DebuggerSubscriber *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
-	auto p = new WebSocketDisasmState();
+	WebSocketDisasmState *p = new WebSocketDisasmState();
 	map["memory.base"] = [p](DebuggerRequest &req) { p->Base(req); };
 	map["memory.disasm"] = [p](DebuggerRequest &req) { p->Disasm(req); };
 	map["memory.searchDisasm"] = [p](DebuggerRequest &req) { p->SearchDisasm(req); };
@@ -143,7 +144,7 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		json.pushDict("breakpoint");
 		json.writeBool("enabled", enabled);
 		json.writeUint("address", addr + breakpointOffset);
-		auto cond = g_breakpoints.GetBreakPointCondition(addr + breakpointOffset);
+		BreakPointCond *cond = g_breakpoints.GetBreakPointCondition(addr + breakpointOffset);
 		if (cond)
 			json.writeString("condition", cond->expressionString);
 		else
@@ -295,83 +296,88 @@ void WebSocketDisasmState::Base(DebuggerRequest &req) {
 void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
 		return req.Fail("CPU not started");
-	auto cpuDebug = CPUFromRequest(req);
-	if (!cpuDebug)
-		return;
 
 	// In case of client errors, we limit the range to something that won't make us crash.
 	static const uint32_t MAX_RANGE = 10000;
 
-	uint32_t start, end;
-	if (!req.ParamU32("address", &start))
-		return;
-	uint32_t count = 0;
-	if (!req.ParamU32("count", &count, false, DebuggerParamType::OPTIONAL))
-		return;
-	if (count != 0) {
-		count = std::min(count, MAX_RANGE);
-		// Let's assume everything is two instructions.
-		g_disassemblyManager.analyze(start - 4, count * 8 + 8);
-		start = g_disassemblyManager.getStartAddress(start);
-		if (start == -1)
-			req.ParamU32("address", &start);
-		end = g_disassemblyManager.getNthNextAddress(start, count);
-	} else if (req.ParamU32("end", &end)) {
-		end = std::max(start, end);
-		if (end - start > MAX_RANGE * 4)
-			end = start + MAX_RANGE * 4;
-		// Let's assume everything is two instructions at most.
-		g_disassemblyManager.analyze(start - 4, end - start + 8);
-		start = g_disassemblyManager.getStartAddress(start);
-		if (start == -1)
-			req.ParamU32("address", &start);
-		// Correct end and calculate count based on it.
-		// This accounts for macros as one line, although two instructions.
-		u32 stop = end;
-		u32 next = start;
-		count = 0;
-		if (stop < start) {
-			for (next = start; next > stop; next = g_disassemblyManager.getNthNextAddress(next, 1)) {
+	// Route the disassembly manager/symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugInterface *cpuDebug = CPUFromRequest(req);
+		if (!cpuDebug)
+			return;
+
+		uint32_t start, end;
+		if (!req.ParamU32("address", &start))
+			return;
+		uint32_t count = 0;
+		if (!req.ParamU32("count", &count, false, DebuggerParamType::OPTIONAL))
+			return;
+		if (count != 0) {
+			count = std::min(count, MAX_RANGE);
+			// Let's assume everything is two instructions.
+			g_disassemblyManager.analyze(start - 4, count * 8 + 8);
+			start = g_disassemblyManager.getStartAddress(start);
+			if (start == -1)
+				req.ParamU32("address", &start);
+			end = g_disassemblyManager.getNthNextAddress(start, count);
+		} else if (req.ParamU32("end", &end)) {
+			end = std::max(start, end);
+			if (end - start > MAX_RANGE * 4)
+				end = start + MAX_RANGE * 4;
+			// Let's assume everything is two instructions at most.
+			g_disassemblyManager.analyze(start - 4, end - start + 8);
+			start = g_disassemblyManager.getStartAddress(start);
+			if (start == -1)
+				req.ParamU32("address", &start);
+			// Correct end and calculate count based on it.
+			// This accounts for macros as one line, although two instructions.
+			u32 stop = end;
+			u32 next = start;
+			count = 0;
+			if (stop < start) {
+				for (next = start; next > stop; next = g_disassemblyManager.getNthNextAddress(next, 1)) {
+					count++;
+				}
+			}
+			for (end = next; end < stop && end >= next; end = g_disassemblyManager.getNthNextAddress(end, 1)) {
 				count++;
 			}
+		} else {
+			// Error message already sent.
+			return;
 		}
-		for (end = next; end < stop && end >= next; end = g_disassemblyManager.getNthNextAddress(end, 1)) {
-			count++;
+
+		bool displaySymbols = true;
+		if (!req.ParamBool("displaySymbols", &displaySymbols, DebuggerParamType::OPTIONAL))
+			return;
+
+		JsonWriter &json = req.Respond();
+		json.pushDict("range");
+		json.writeUint("start", start);
+		json.writeUint("end", end);
+		json.pop();
+
+		json.pushArray("lines");
+		DisassemblyLineInfo line;
+		uint32_t addr = start;
+		for (uint32_t i = 0; i < count; ++i) {
+			g_disassemblyManager.getLine(addr, displaySymbols, line, cpuDebug);
+			WriteDisasmLine(json, line);
+			addr += line.totalSize;
+
+			// These are pretty long, so let's grease the wheels a bit.
+			if (i % 50 == 0)
+				req.Flush();
 		}
-	} else {
-		// Error message already sent.
-		return;
-	}
+		json.pop();
 
-	bool displaySymbols = true;
-	if (!req.ParamBool("displaySymbols", &displaySymbols, DebuggerParamType::OPTIONAL))
-		return;
-
-	JsonWriter &json = req.Respond();
-	json.pushDict("range");
-	json.writeUint("start", start);
-	json.writeUint("end", end);
-	json.pop();
-
-	json.pushArray("lines");
-	DisassemblyLineInfo line;
-	uint32_t addr = start;
-	for (uint32_t i = 0; i < count; ++i) {
-		g_disassemblyManager.getLine(addr, displaySymbols, line, cpuDebug);
-		WriteDisasmLine(json, line);
-		addr += line.totalSize;
-
-		// These are pretty long, so let's grease the wheels a bit.
-		if (i % 50 == 0)
-			req.Flush();
-	}
-	json.pop();
-
-	json.pushArray("branchGuides");
-	auto branchGuides = g_disassemblyManager.getBranchLines(start, end - start);
-	for (auto bl : branchGuides)
-		WriteBranchGuide(json, bl);
-	json.pop();
+		json.pushArray("branchGuides");
+		std::vector<BranchLine> branchGuides = g_disassemblyManager.getBranchLines(start, end - start);
+		for (const BranchLine &bl : branchGuides)
+			WriteBranchGuide(json, bl);
+		json.pop();
+	});
 }
 
 // Search disassembly for some text (memory.searchDisasm)
@@ -388,9 +394,6 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
 		return req.Fail("CPU not started");
-	auto cpuDebug = CPUFromRequest(req);
-	if (!cpuDebug)
-		return;
 
 	uint32_t start;
 	if (!req.ParamU32("address", &start))
@@ -419,41 +422,51 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 
 	std::transform(match.begin(), match.end(), match.begin(), ::tolower);
 
-	DisassemblyLineInfo line;
-	bool found = false;
-	uint32_t addr = start;
-	do {
-		g_disassemblyManager.getLine(addr, displaySymbols, line, cpuDebug);
-		const std::string addressSymbol = g_symbolMap->GetLabelString(addr);
+	// Route the disassembly manager/symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	// Note: for a very large [start, end) range, this scan itself can take a while - unlike memory.search
+	// there's no size cap here, so a huge range will block the CPU thread's own frame pump for its duration.
+	Core_RunOnCPUThread([&] {
+		DebugInterface *cpuDebug = CPUFromRequest(req);
+		if (!cpuDebug)
+			return;
 
-		std::string mergeForSearch;
-		// Address+space (9) + symbol + colon+space (2) + name + space(1) + params = 12 fixed size worst case.
-		mergeForSearch.resize(12 + addressSymbol.size() + line.name.size() + line.params.size());
+		DisassemblyLineInfo line;
+		bool found = false;
+		uint32_t addr = start;
+		do {
+			g_disassemblyManager.getLine(addr, displaySymbols, line, cpuDebug);
+			const std::string addressSymbol = g_symbolMap->GetLabelString(addr);
 
-		sprintf(&mergeForSearch[0], "%08x ", addr);
-		auto inserter = mergeForSearch.begin() + 9;
-		if (!addressSymbol.empty()) {
-			inserter = std::transform(addressSymbol.begin(), addressSymbol.end(), inserter, ::tolower);
-			*inserter++ = ':';
+			std::string mergeForSearch;
+			// Address+space (9) + symbol + colon+space (2) + name + space(1) + params = 12 fixed size worst case.
+			mergeForSearch.resize(12 + addressSymbol.size() + line.name.size() + line.params.size());
+
+			sprintf(&mergeForSearch[0], "%08x ", addr);
+			std::string::iterator inserter = mergeForSearch.begin() + 9;
+			if (!addressSymbol.empty()) {
+				inserter = std::transform(addressSymbol.begin(), addressSymbol.end(), inserter, ::tolower);
+				*inserter++ = ':';
+				*inserter++ = ' ';
+			}
+			inserter = std::transform(line.name.begin(), line.name.end(), inserter, ::tolower);
 			*inserter++ = ' ';
-		}
-		inserter = std::transform(line.name.begin(), line.name.end(), inserter, ::tolower);
-		*inserter++ = ' ';
-		inserter = std::transform(line.params.begin(), line.params.end(), inserter, ::tolower);
+			inserter = std::transform(line.params.begin(), line.params.end(), inserter, ::tolower);
 
-		if (mergeForSearch.find(match) != mergeForSearch.npos) {
-			found = true;
-			break;
-		}
+			if (mergeForSearch.find(match) != mergeForSearch.npos) {
+				found = true;
+				break;
+			}
 
-		addr = RoundMemAddressUp(addr + line.totalSize);
-	} while (addr != end);
+			addr = RoundMemAddressUp(addr + line.totalSize);
+		} while (addr != end);
 
-	JsonWriter &json = req.Respond();
-	if (found)
-		json.writeUint("address", addr);
-	else
-		json.writeNull("address");
+		JsonWriter &json = req.Respond();
+		if (found)
+			json.writeUint("address", addr);
+		else
+			json.writeNull("address");
+	});
 }
 
 // Assemble an instruction (memory.assemble)
@@ -476,12 +489,22 @@ void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
 	if (!req.ParamString("code", &code))
 		return;
 
+	// Route the actual code assembly to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	std::string error;
-	if (!MipsAssembleOpcode(code, currentDebugMIPS, address, &error)) {
+	uint32_t encoding = 0;
+	bool ok = false;
+	Core_RunOnCPUThread([&] {
+		ok = MipsAssembleOpcode(code, currentDebugMIPS, address, &error);
+		if (ok)
+			encoding = Memory::Read_Instruction(address).encoding;
+	});
+
+	if (!ok) {
 		return req.Fail(StringFromFormat("Could not assemble: %s", error.c_str()));
 	}
 
 	JsonWriter &json = req.Respond();
 	Reporting::NotifyDebugger();
-	json.writeUint("encoding", Memory::Read_Instruction(address).encoding);
+	json.writeUint("encoding", encoding);
 }
