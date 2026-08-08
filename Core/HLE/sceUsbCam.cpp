@@ -354,7 +354,7 @@ int Camera::startCapture() {
 			void* resolution = static_cast<void*>(new std::vector<int>({ width, height }));
 			winCamera->sendMessage({ CAPTUREDEVICE_COMMAND::START, resolution });
 		}
-	#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+	#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 		char command[40] = {0};
 		snprintf(command, sizeof(command), "startVideo_%dx%d", width, height);
 		System_CameraCommand(command);
@@ -369,7 +369,7 @@ int Camera::stopCapture() {
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
 		}
-	#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+	#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 		System_CameraCommand("stopVideo");
 	#else
 		ERROR_LOG(Log::HLE, "%s not implemented", __FUNCTION__);

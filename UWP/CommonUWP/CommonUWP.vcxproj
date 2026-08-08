@@ -168,7 +168,6 @@
     <ClInclude Include="..\..\Common\Render\TextureAtlas.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h" />
-    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_win.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
@@ -367,7 +366,6 @@
     <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp" />
-    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />

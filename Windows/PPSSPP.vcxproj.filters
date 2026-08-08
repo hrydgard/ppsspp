@@ -29,9 +29,6 @@
     <Filter Include="Windows\GE Debugger">
       <UniqueIdentifier>{15f0e146-e39c-4bad-ba10-3c714a7dbf74}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Other Platforms\Qt">
-      <UniqueIdentifier>{45191b1f-33c8-405c-a410-35fe2344d1d1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Other Platforms\SDL">
       <UniqueIdentifier>{5bfed059-8636-4b1e-a3cf-f948d645babb}</UniqueIdentifier>
     </Filter>
@@ -172,9 +169,6 @@
     <ClCompile Include="GPU\WindowsGLContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="..\Qt\mainwindow.cpp">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClCompile>
     <ClCompile Include="GPU\D3D11Context.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -210,9 +204,6 @@
     </ClCompile>
     <ClCompile Include="..\libretro\LibretroGLContext.cpp">
       <Filter>Other Platforms\libretro</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Qt\QtMain.cpp">
-      <Filter>Other Platforms\Qt</Filter>
     </ClCompile>
     <ClCompile Include="..\SDL\SDLGLGraphicsContext.cpp">
       <Filter>Other Platforms\SDL</Filter>
@@ -375,9 +366,6 @@
     <ClInclude Include="GPU\WindowsGLContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="..\Qt\mainwindow.h">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\D3D11Context.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
@@ -447,12 +435,6 @@
     </ClInclude>
     <ClInclude Include="..\libretro\LibretroD3D11Context.h">
       <Filter>Other Platforms\libretro</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Qt\QtMain.h">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Qt\NKCodeFromQt.h">
-      <Filter>Other Platforms\Qt</Filter>
     </ClInclude>
     <ClInclude Include="..\SDL\NKCodeFromSDL.h">
       <Filter>Other Platforms\SDL</Filter>
@@ -673,9 +655,6 @@
     </None>
     <None Include="..\libretro\jni\Application.mk">
       <Filter>Other Platforms\libretro</Filter>
-    </None>
-    <None Include="..\Qt\macbundle.sh">
-      <Filter>Other Platforms\Qt</Filter>
     </None>
     <None Include="..\SDL\macbundle.sh">
       <Filter>Other Platforms\SDL</Filter>

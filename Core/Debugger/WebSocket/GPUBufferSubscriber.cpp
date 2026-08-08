@@ -16,10 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#ifndef USING_QT_UI
 #include <png.h>
 #include <zlib.h>
-#endif
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
@@ -42,10 +40,6 @@ DebuggerSubscriber *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map) {
 
 // Note: Calls req.Respond().  Other data can be added afterward.
 static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &buf, bool isFramebuffer, bool includeAlpha, int stackWidth) {
-#ifdef USING_QT_UI
-	req.Fail("Not supported on Qt yet, pull requests accepted");
-	return false;
-#else
 	u8 *flipbuffer = nullptr;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
@@ -157,7 +151,6 @@ static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &bu
 	// End the string.
 	req.ws->AddFragment(false, "\"");
 	return true;
-#endif
 }
 
 static std::string DescribeFormat(GPUDebugBufferFormat fmt) {

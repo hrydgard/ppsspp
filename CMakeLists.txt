@@ -182,7 +182,6 @@ option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vu
 option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ON)
 option(USE_VULKAN_DISPLAY_KHR "Enable or disable full screen display of Vulkan" ${USE_VULKAN_DISPLAY_KHR})
 # :: Frontends
-option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(ATLAS_TOOL "Set to OFF to not generate the ATLAS_TOOL target" ${ATLAS_TOOL})
@@ -986,49 +985,6 @@ elseif(IOS AND NOT LIBRETRO)
 	set(TargetBin PPSSPP)
 elseif(IOS AND LIBRETRO)
 	list(APPEND targetExtraLibs "-framework GLKit")
-elseif(USING_QT_UI)
-	set(CMAKE_AUTOMOC ON)
-	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
-	if(NOT Qt5_FOUND)
-		message(FATAL_ERROR "Qt5 not found for USING_QT_UI=ON. On linux, sudo apt install qt5-qmake qtsystems5-dev qtmultimedia5-dev qttools5-dev-tools libqt5opengl5-dev libcurl4-openssl-dev. On macOS with Homebrew, install qt@5 and set CMAKE_PREFIX_PATH to /opt/homebrew/opt/qt@5 (or use ./b.sh --qtbrew).")
-	endif()
-	list(APPEND NativeAppSource
-		Qt/QtMain.cpp
-		Qt/QtMain.h
-		Qt/mainwindow.cpp
-		Qt/mainwindow.h
-	)
-	add_compile_definitions(USING_QT_UI)
-	if(USING_GLES2)
-		add_compile_definitions(QT_OPENGL_ES QT_OPENGL_ES_2)
-	endif()
-	if(APPLE)
-		list(APPEND NativeAppSource
-			Common/Battery/AppleBatteryClient.m)
-		set_source_files_properties(Common/Battery/AppleBatteryClient.m
-			Common/Render/Text/draw_text_cocoa.mm
-			PROPERTIES COMPILE_FLAGS -fobjc-arc)
-		list(APPEND targetExtraLibs ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY})
-	endif()
-	include_directories(Qt)
-	include_directories(${CMAKE_CURRENT_BINARY_DIR})
-	list(APPEND targetExtraLibs Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
-	set(TargetBin PPSSPPQt)
-	list(APPEND targetExtra
-		Common/Render/Text/draw_text_qt.cpp
-		Common/Render/Text/draw_text_qt.h
-	)
-
-	# Enable SDL joystick if SDL is found
-	if(SDL_LIB_TARGET)
-		add_compile_definitions(SDL)
-		list(APPEND targetExtra
-			SDL/SDLJoystick.h
-			SDL/SDLJoystick.cpp
-		)
-		list(APPEND targetExtraLibs ${SDL_LIB_TARGET})
-	endif()
-
 elseif(WIN32)
 	# Don't care about SDL.
 	set(TargetBin PPSSPPWindows)
@@ -1528,9 +1484,6 @@ if(TargetBin)
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
-			if(USING_QT_UI)
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
-			endif()
 		endif()
 	elseif(WIN32)
 		add_executable(${TargetBin} WIN32 ${NativeAppSource})

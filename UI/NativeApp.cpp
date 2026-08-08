@@ -1316,7 +1316,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
 
 			// OSX 10.6 and SDL 1.2 bug.
-#if defined(__APPLE__) && !defined(USING_QT_UI)
+#if defined(__APPLE__)
 			static int dp_xres_old = g_display.dp_xres;
 			if (g_display.dp_xres != dp_xres_old) {
 				dp_xres_old = g_display.dp_xres;
