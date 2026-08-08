@@ -593,7 +593,7 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
-	bool showSavestateControls = achievementsAllowSavestates;
+	bool showSavestateControls = achievementsAllowSavestates && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP;
 	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
 		showSavestateControls = false;
 	}
@@ -628,6 +628,19 @@ void GamePauseScreen::CreateViews() {
 		// And tack on an explanation for why savestate options are not available.
 		if (!achievementsAllowSavestates) {
 			saveDataScrollItems->Add(new NoticeView(NoticeLevel::INFO, ac->T("Save states not available in Hardcore Mode"), ""));
+		}
+
+		if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+			// Show some metadata about the frame dump.
+			std::vector<GameDBInfo> info{};
+			std::string id = g_paramSFO.GetDiscID();
+			saveDataScrollItems->Add(new TextView(id, new UI::LinearLayoutParams(Margins(10, 0))));
+			if (g_gameDB.GetGameInfos(id, &info)) {
+				// All we have is the game ID, let's dig out some info if possible.
+				for (const auto &iter : info) {
+					saveDataScrollItems->Add(new TextView(iter.title, new UI::LinearLayoutParams(Margins(10, 0))));
+				}
+			}
 		}
 	}
 
