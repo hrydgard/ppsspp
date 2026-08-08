@@ -19,7 +19,6 @@
 
 #include <vector>
 #include <atomic>
-#include <mutex>
 
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Common/Math/expression_parser.h"
@@ -190,7 +189,6 @@ public:
 	bool EvaluateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt, std::string &result);
 
 private:
-	// Should be called under lock.
 	// 0 means to clear the whole jit cache, to apply some change that has been made.
 	void Update(u32 addr) {
 		needsUpdate_ = true;
@@ -199,14 +197,12 @@ private:
 	size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
 	// Finds exactly, not using a range check.
 	size_t FindMemCheck(u32 start, u32 end);
-	MemCheck *GetMemCheckLocked(u32 address, int size);
+	// Finds a memcheck covering (part of) a range, unlike FindMemCheck() above.
+	MemCheck *FindMemCheckInRange(u32 address, int size);
 	void UpdateCachedMemCheckRanges();
 
 	std::atomic<bool> anyBreakPoints_;
 	std::atomic<bool> anyMemChecks_;
-
-	std::mutex breakPointsMutex_;
-	std::mutex memCheckMutex_;
 
 	std::vector<BreakPoint> breakPoints_;
 	u32 breakSkipFirstAt_ = 0;
