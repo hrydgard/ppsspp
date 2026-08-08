@@ -251,21 +251,35 @@ as `Core_RunLoopUntil()`. The legacy Win32 debugger is different: its dialogs ar
 thread ends up running `NativeFrame()`/CPU, regardless of backend (this split happens one level
 above the `NeedsSeparateEmuThread()` branch) - that's the whole reason it needed this mechanism.
 
-**Known gaps, found while auditing whether `BreakpointManager`'s/`SymbolMap`'s own internal mutexes
-could finally be removed** (as of 2026-08-08, not yet addressed): `Windows/MainWindowMenu.cpp` and
-`Windows/MainWindow.cpp` (outside `Windows/Debugger/`) have their own direct, unguarded
-`g_symbolMap` mutations/reads (Load/Save/Clear Symbol Map menu actions, `getAllModules()` for a
-module list) on the `WinMain` thread. `Qt/mainwindow.cpp` has the same pattern on the Qt UI thread
-(Qt always sets `NeedsSeparateEmuThread() = true`, so it's a separate thread from the CPU there
-too). `Windows/main.cpp` has an existing comment ("internal locking is performed here") explicitly
-documenting current reliance on `SymbolMap`'s own mutex at its `SortSymbols()` call sites. Until
-these are covered the same way, **`SymbolMap`'s internal locking can't be removed**.
-**`BreakpointManager`'s internal locking looks fully redundant** after this session's work (every
-touchpoint across the whole codebase was audited - WebSocket subscribers, `Windows/Debugger/*.cpp`,
-`Core/Core.cpp`'s free-threaded `Core_Break`/`Core_Resume`, `UI/ImDebugger/*.cpp`, JIT/interpreter
-backends, `Core/Debugger/MemBlockInfo.cpp` - and each is covered by one of the two mechanisms above
-or is already on the CPU/NativeFrame thread) - but removal hasn't actually been attempted yet; do
-it as its own careful, separately-tested step, not bundled with unrelated changes.
+**Update (2026-08-08): both `BreakpointManager`'s and `SymbolMap`'s internal mutexes have been
+removed** after auditing every touchpoint across the codebase (WebSocket subscribers,
+`Windows/Debugger/*.cpp`, `Windows/MainWindowMenu.cpp`/`Windows/MainWindow.cpp` main-window menu
+items, `Core/Core.cpp`'s free-threaded `Core_Break`/`Core_Resume`, `UI/ImDebugger/*.cpp`,
+JIT/interpreter backends, `Core/Debugger/MemBlockInfo.cpp`) and confirming each is covered by one of
+the two mechanisms above or is already on the CPU/NativeFrame thread. Notably, `Windows/main.cpp`'s
+`SortSymbols()` calls (fired from `System_Notify(BOOT_DONE)`/`System_Notify(SYMBOL_MAP_UPDATED)`)
+turned out to already be safe without any change - both notifications are only ever fired from the
+CPU/NativeFrame thread (`UI/EmuScreen.cpp`, `Core/HLE/sceKernelModule.cpp`), despite an old comment
+there claiming reliance on the (now-removed) internal lock. `Qt/mainwindow.cpp`/`Qt/QtMain.cpp`
+still poke at `g_symbolMap` directly and unguarded on the Qt UI thread - a pre-existing issue,
+deliberately left alone since Qt isn't a maintained backend and is slated for removal; removing the
+lock doesn't change `SymbolMap`'s public API, so Qt still builds, just without that safety net.
+`GPU/Common/GPUDebugInterface.cpp` (GE debugger expression evaluation) and `Core/MemFault.cpp`
+(crash-time diagnostics) also touch `g_symbolMap` and were deliberately not audited this round -
+different subsystem / best-effort-by-nature respectively, follow up if they ever come up.
+
+Two more things found while doing this:
+- **`Core_RunOnCPUThread()`'s queue is only drained where `Core_RunLoopUntil()` runs, which requires
+  a game to be loaded** (it's called from `EmuScreen::render()`). Calling `Core_RunOnCPUThread()`
+  while at the main menu with nothing loaded used to hang forever. Fixed by also calling the
+  (now public) `Core_ProcessCPUQueue()` directly from `NativeFrame()`, right before
+  `g_screenManager->render()`, inside the same `g_frameMutex`-locked span - so it always runs, not
+  just while a game is active.
+- **Lock-ordering rule**: because `Core_ProcessCPUQueue()` is called from inside `NativeFrame()`'s
+  `g_frameMutex`-locked span, any `Core_RunOnCPUThread()` lambda that itself tries to lock
+  `g_frameMutex` (directly, or indirectly - e.g. by calling something like
+  `CDisasm::NotifyMapLoaded()`, which locks it internally) will deadlock. Keep such calls outside
+  the queued lambda, same as the modal-dialog and `SendMessage()` rules above.
 
 Painting-problem design history, in case a similar tradeoff comes up elsewhere: routing every paint
 through `Core_RunOnCPUThread` was rejected as too slow for something invoked continuously. A
