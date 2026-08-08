@@ -56,23 +56,18 @@ struct AutoDisabledReplacements {
 	std::map<u32, u32> replacements;
 	std::vector<u32> emuhacks;
 	bool saved = false;
-	bool wasStepping = false;
 };
 
-// Important: Only use keepReplacements when reading, not writing.
-static AutoDisabledReplacements LockMemoryAndCPU(uint32_t addr, bool keepReplacements) {
+// Call this from within a Core_RunOnCPUThread() callback - see Core_RunOnCPUThread() in Core.h.
+// No longer needs to pause a running CPU to do this safely: we're already running on the CPU thread
+// by the time this is called, so nothing else can be concurrently executing MIPS code or touching the
+// JIT's emuhack ops on this thread while we hold onto them below.
+//
+// Important: Only use keepReplacements=false when reading, not writing.
+static AutoDisabledReplacements LockMemory(bool keepReplacements) {
 	AutoDisabledReplacements result;
-	CoreState state = coreState;
-	if (Core_IsStepping()) {
-		result.wasStepping = true;
-	} else {
-		while (state != CoreState::CORE_RUNNING_CPU) {
-			state = coreState;
-		}
-		Core_Break(BreakReason::MemoryAccess, addr);
-		Core_WaitInactive();
-	}
-
+	// This still guards against a *different* thread (not the CPU thread) tearing down or
+	// reinitializing the memory system underneath us, e.g. during shutdown.
 	result.lock = new Memory::MemoryInitedLock();
 	if (!keepReplacements) {
 		result.saved = true;
@@ -92,8 +87,6 @@ AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&ot
 	emuhacks = std::move(other.emuhacks);
 	saved = other.saved;
 	other.saved = false;
-	wasStepping = other.wasStepping;
-	other.wasStepping = true;
 }
 
 AutoDisabledReplacements::~AutoDisabledReplacements() {
@@ -103,8 +96,6 @@ AutoDisabledReplacements::~AutoDisabledReplacements() {
 			MIPSComp::jit->RestoreSavedEmuHackOps(emuhacks);
 		RestoreSavedReplacements(replacements);
 	}
-	if (!wasStepping)
-		Core_Resume();
 	delete lock;
 }
 
@@ -121,17 +112,23 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 		return;
 	}
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory read to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr)) {
-		req.Fail("Invalid address");
-		return;
-	}
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("value", Memory::Read_U8(addr));
+		JsonWriter &json = req.Respond();
+		json.writeUint("value", Memory::Read_U8(addr));
+	});
 }
 
 // Read two bytes from memory (memory.read_u16)
@@ -147,17 +144,23 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 		return;
 	}
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory read to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr)) {
-		req.Fail("Invalid address");
-		return;
-	}
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("value", Memory::Read_U16(addr));
+		JsonWriter &json = req.Respond();
+		json.writeUint("value", Memory::Read_U16(addr));
+	});
 }
 
 // Read four bytes from memory (memory.read_u32)
@@ -173,17 +176,23 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 		return;
 	}
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory read to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr)) {
-		req.Fail("Invalid address");
-		return;
-	}
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("value", Memory::Read_U32(addr));
+		JsonWriter &json = req.Respond();
+		json.writeUint("value", Memory::Read_U32(addr));
+	});
 }
 
 // Read bytes from memory (memory.read)
@@ -206,29 +215,40 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 	if (!req.ParamBool("replacements", &replacements, DebuggerParamType::OPTIONAL))
 		return;
 
-	auto memLock = LockMemoryAndCPU(addr, replacements);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory read to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	// Note: for a very large 'size', base64-encoding it is real CPU work that will now happen on the
+	// CPU thread itself, blocking its own frame pump for the duration - same caveat as memory.search.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(replacements);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr))
-		return req.Fail("Invalid address");
-	else if (!Memory::IsValidRange(addr, size))
-		return req.Fail("Invalid size");
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		} else if (!Memory::IsValidRange(addr, size)) {
+			req.Fail("Invalid size");
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	// Start a value without any actual data yet...
-	json.writeRaw("base64", "");
-	req.Flush();
+		JsonWriter &json = req.Respond();
+		// Start a value without any actual data yet...
+		json.writeRaw("base64", "");
+		req.Flush();
 
-	// Now we'll write it directly to the stream.
-	req.ws->AddFragment(false, "\"");
-	// 65535 is an "even" number of base64 characters.
-	static const size_t CHUNK_SIZE = 65535;
-	for (size_t i = 0; i < size; i += CHUNK_SIZE) {
-		size_t left = std::min(size - i, CHUNK_SIZE);
-		req.ws->AddFragment(false, Base64Encode(Memory::GetPointerUnchecked(addr) + i, left));
-	}
-	req.ws->AddFragment(false, "\"");
+		// Now we'll write it directly to the stream.
+		req.ws->AddFragment(false, "\"");
+		// 65535 is an "even" number of base64 characters.
+		static const size_t CHUNK_SIZE = 65535;
+		for (size_t i = 0; i < size; i += CHUNK_SIZE) {
+			size_t left = std::min(size - i, CHUNK_SIZE);
+			req.ws->AddFragment(false, Base64Encode(Memory::GetPointerUnchecked(addr) + i, left));
+		}
+		req.ws->AddFragment(false, "\"");
+	});
 }
 
 // Read a NUL terminated string from memory (memory.readString)
@@ -247,30 +267,40 @@ void WebSocketMemoryReadString(DebuggerRequest &req) {
 	if (!req.ParamU32("address", &addr))
 		return;
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory read to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	std::string type = "utf-8";
-	if (!req.ParamString("type", &type, DebuggerParamType::OPTIONAL))
-		return;
-	if (type != "utf-8" && type != "base64")
-		return req.Fail("Invalid type, must be either utf-8 or base64");
+		std::string type = "utf-8";
+		if (!req.ParamString("type", &type, DebuggerParamType::OPTIONAL))
+			return;
+		if (type != "utf-8" && type != "base64") {
+			req.Fail("Invalid type, must be either utf-8 or base64");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr))
-		return req.Fail("Invalid address");
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
 
-	// Let's try to avoid crashing and get a safe length.
-	const uint8_t *p = Memory::GetPointerUnchecked(addr);
-	size_t longest = Memory::ClampValidSizeAt(addr, Memory::g_MemorySize);
-	size_t len = strnlen((const char *)p, longest);
+		// Let's try to avoid crashing and get a safe length.
+		const uint8_t *p = Memory::GetPointerUnchecked(addr);
+		size_t longest = Memory::ClampValidSizeAt(addr, Memory::g_MemorySize);
+		size_t len = strnlen((const char *)p, longest);
 
-	JsonWriter &json = req.Respond();
-	if (type == "utf-8") {
-		json.writeString("value", std::string((const char *)p, len));
-	} else if (type == "base64") {
-		json.writeString("base64", Base64Encode(p, len));
-	}
+		JsonWriter &json = req.Respond();
+		if (type == "utf-8") {
+			json.writeString("value", std::string((const char *)p, len));
+		} else if (type == "base64") {
+			json.writeString("base64", Base64Encode(p, len));
+		}
+	});
 }
 
 // Write a byte to memory (memory.write_u8)
@@ -290,20 +320,26 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 		return;
 	}
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory write to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr)) {
-		req.Fail("Invalid address");
-		return;
-	}
-	currentMIPS->InvalidateICache(addr, 1);
-	Memory::Write_U8(val, addr);
-	Reporting::NotifyDebugger();
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
+		currentMIPS->InvalidateICache(addr, 1);
+		Memory::Write_U8(val, addr);
+		Reporting::NotifyDebugger();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("value", Memory::Read_U8(addr));
+		JsonWriter &json = req.Respond();
+		json.writeUint("value", Memory::Read_U8(addr));
+	});
 }
 
 // Write two bytes to memory (memory.write_u16)
@@ -323,20 +359,26 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 		return;
 	}
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory write to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr)) {
-		req.Fail("Invalid address");
-		return;
-	}
-	currentMIPS->InvalidateICache(addr, 2);
-	Memory::Write_U16(val, addr);
-	Reporting::NotifyDebugger();
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
+		currentMIPS->InvalidateICache(addr, 2);
+		Memory::Write_U16(val, addr);
+		Reporting::NotifyDebugger();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("value", Memory::Read_U16(addr));
+		JsonWriter &json = req.Respond();
+		json.writeUint("value", Memory::Read_U16(addr));
+	});
 }
 
 // Write four bytes to memory (memory.write_u32)
@@ -356,20 +398,26 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 		return;
 	}
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory write to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	if (!Memory::IsValidAddress(addr)) {
-		req.Fail("Invalid address");
-		return;
-	}
-	currentMIPS->InvalidateICache(addr, 4);
-	Memory::Write_U32(val, addr);
-	Reporting::NotifyDebugger();
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		}
+		currentMIPS->InvalidateICache(addr, 4);
+		Memory::Write_U32(val, addr);
+		Reporting::NotifyDebugger();
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("value", Memory::Read_U32(addr));
+		JsonWriter &json = req.Respond();
+		json.writeUint("value", Memory::Read_U32(addr));
+	});
 }
 
 // Write bytes to memory (memory.write)
@@ -387,22 +435,31 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 	if (!req.ParamString("base64", &encoded))
 		return;
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
+	// Route the actual memory write to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
+			return;
+		}
 
-	std::vector<uint8_t> value = Base64Decode(&encoded[0], encoded.size());
-	uint32_t size = (uint32_t)value.size();
+		std::vector<uint8_t> value = Base64Decode(&encoded[0], encoded.size());
+		uint32_t size = (uint32_t)value.size();
 
-	if (!Memory::IsValidAddress(addr))
-		return req.Fail("Invalid address");
-	else if (value.size() != (size_t)size || !Memory::IsValidRange(addr, size))
-		return req.Fail("Invalid size");
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		} else if (value.size() != (size_t)size || !Memory::IsValidRange(addr, size)) {
+			req.Fail("Invalid size");
+			return;
+		}
 
-	currentMIPS->InvalidateICache(addr, size);
-	Memory::MemcpyUnchecked(addr, &value[0], size);
-	Reporting::NotifyDebugger();
-	req.Respond();
+		currentMIPS->InvalidateICache(addr, size);
+		Memory::MemcpyUnchecked(addr, &value[0], size);
+		Reporting::NotifyDebugger();
+		req.Respond();
+	});
 }
 
 // Search memory for a value or byte pattern (memory.search)
@@ -441,105 +498,125 @@ void WebSocketMemorySearch(DebuggerRequest &req) {
 	if (!req.ParamString("type", &type))
 		return;
 
-	auto memLock = LockMemoryAndCPU(addr, true);
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
-	if (!Memory::IsValidAddress(addr))
-		return req.Fail("Invalid address");
-	else if (!Memory::IsValidRange(addr, size))
-		return req.Fail("Invalid size");
-
-	uint32_t align = 1;
-	uint32_t needleSize = 0;
-	uint32_t needleValue = 0;
-	std::vector<uint8_t> needleBytes;
-	std::vector<uint8_t> maskBytes;
-
-	if (type == "u8" || type == "u16" || type == "u32") {
-		needleSize = type == "u8" ? 1 : type == "u16" ? 2 : 4;
-		align = needleSize;
-		if (!req.ParamU32("value", &needleValue, false))
+	// Route the actual memory scan to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	// Note: 'size' has no cap beyond valid memory range, so a very large scan will now block the CPU
+	// thread's own frame pump for its duration, rather than running unqueued on this thread as before.
+	Core_RunOnCPUThread([&] {
+		AutoDisabledReplacements memLock = LockMemory(true);
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+			req.Fail("CPU not started");
 			return;
-	} else if (type == "float") {
-		needleSize = 4;
-		align = 4;
-		// allowFloatBits: accepts a string like "1.5" and gives us its raw bit pattern.
-		if (!req.ParamU32("value", &needleValue, true))
-			return;
-	} else if (type == "bytes") {
-		std::string encoded;
-		if (!req.ParamString("base64", &encoded))
-			return;
-		needleBytes = Base64Decode(&encoded[0], encoded.size());
-		if (needleBytes.empty())
-			return req.Fail("'base64' must decode to at least one byte");
-		needleSize = (uint32_t)needleBytes.size();
-		align = 1;
-
-		if (req.HasParam("maskBase64")) {
-			std::string maskEncoded;
-			if (!req.ParamString("maskBase64", &maskEncoded))
-				return;
-			maskBytes = Base64Decode(&maskEncoded[0], maskEncoded.size());
-			if (maskBytes.size() != needleBytes.size())
-				return req.Fail("'maskBase64' must decode to the same length as 'base64'");
 		}
-	} else {
-		return req.Fail("Invalid 'type', must be u8, u16, u32, float, or bytes");
-	}
+		if (!Memory::IsValidAddress(addr)) {
+			req.Fail("Invalid address");
+			return;
+		} else if (!Memory::IsValidRange(addr, size)) {
+			req.Fail("Invalid size");
+			return;
+		}
 
-	if (needleSize > size)
-		return req.Fail("'size' is smaller than the pattern/value being searched for");
+		uint32_t align = 1;
+		uint32_t needleSize = 0;
+		uint32_t needleValue = 0;
+		std::vector<uint8_t> needleBytes;
+		std::vector<uint8_t> maskBytes;
 
-	if (!req.ParamU32("align", &align, false, DebuggerParamType::OPTIONAL))
-		return;
-	if (align == 0)
-		return req.Fail("'align' must not be zero");
+		if (type == "u8" || type == "u16" || type == "u32") {
+			needleSize = type == "u8" ? 1 : type == "u16" ? 2 : 4;
+			align = needleSize;
+			if (!req.ParamU32("value", &needleValue, false))
+				return;
+		} else if (type == "float") {
+			needleSize = 4;
+			align = 4;
+			// allowFloatBits: accepts a string like "1.5" and gives us its raw bit pattern.
+			if (!req.ParamU32("value", &needleValue, true))
+				return;
+		} else if (type == "bytes") {
+			std::string encoded;
+			if (!req.ParamString("base64", &encoded))
+				return;
+			needleBytes = Base64Decode(&encoded[0], encoded.size());
+			if (needleBytes.empty()) {
+				req.Fail("'base64' must decode to at least one byte");
+				return;
+			}
+			needleSize = (uint32_t)needleBytes.size();
+			align = 1;
 
-	uint32_t maxResults = 1000;
-	if (!req.ParamU32("maxResults", &maxResults, false, DebuggerParamType::OPTIONAL))
-		return;
-	if (maxResults == 0)
-		maxResults = 1000;
-	else if (maxResults > 100000)
-		maxResults = 100000;
-
-	const uint8_t *base = Memory::GetPointerUnchecked(addr);
-	std::vector<uint32_t> matches;
-	bool truncated = false;
-	for (uint32_t offset = 0; offset + needleSize <= size; offset += align) {
-		bool match;
-		if (!needleBytes.empty()) {
-			match = true;
-			for (uint32_t i = 0; i < needleSize; ++i) {
-				uint8_t mask = maskBytes.empty() ? 0xFF : maskBytes[i];
-				if ((base[offset + i] & mask) != (needleBytes[i] & mask)) {
-					match = false;
-					break;
+			if (req.HasParam("maskBase64")) {
+				std::string maskEncoded;
+				if (!req.ParamString("maskBase64", &maskEncoded))
+					return;
+				maskBytes = Base64Decode(&maskEncoded[0], maskEncoded.size());
+				if (maskBytes.size() != needleBytes.size()) {
+					req.Fail("'maskBase64' must decode to the same length as 'base64'");
+					return;
 				}
 			}
 		} else {
-			uint32_t actual = base[offset];
-			if (needleSize >= 2)
-				actual |= base[offset + 1] << 8;
-			if (needleSize >= 4)
-				actual |= (base[offset + 2] << 16) | (base[offset + 3] << 24);
-			match = actual == needleValue;
+			req.Fail("Invalid 'type', must be u8, u16, u32, float, or bytes");
+			return;
 		}
 
-		if (match) {
-			if (matches.size() >= maxResults) {
-				truncated = true;
-				break;
+		if (needleSize > size) {
+			req.Fail("'size' is smaller than the pattern/value being searched for");
+			return;
+		}
+
+		if (!req.ParamU32("align", &align, false, DebuggerParamType::OPTIONAL))
+			return;
+		if (align == 0) {
+			req.Fail("'align' must not be zero");
+			return;
+		}
+
+		uint32_t maxResults = 1000;
+		if (!req.ParamU32("maxResults", &maxResults, false, DebuggerParamType::OPTIONAL))
+			return;
+		if (maxResults == 0)
+			maxResults = 1000;
+		else if (maxResults > 100000)
+			maxResults = 100000;
+
+		const uint8_t *base = Memory::GetPointerUnchecked(addr);
+		std::vector<uint32_t> matches;
+		bool truncated = false;
+		for (uint32_t offset = 0; offset + needleSize <= size; offset += align) {
+			bool match;
+			if (!needleBytes.empty()) {
+				match = true;
+				for (uint32_t i = 0; i < needleSize; ++i) {
+					uint8_t mask = maskBytes.empty() ? 0xFF : maskBytes[i];
+					if ((base[offset + i] & mask) != (needleBytes[i] & mask)) {
+						match = false;
+						break;
+					}
+				}
+			} else {
+				uint32_t actual = base[offset];
+				if (needleSize >= 2)
+					actual |= base[offset + 1] << 8;
+				if (needleSize >= 4)
+					actual |= (base[offset + 2] << 16) | (base[offset + 3] << 24);
+				match = actual == needleValue;
 			}
-			matches.push_back(addr + offset);
-		}
-	}
 
-	JsonWriter &json = req.Respond();
-	json.pushArray("matches");
-	for (uint32_t m : matches)
-		json.writeUint(m);
-	json.pop();
-	json.writeBool("truncated", truncated);
+			if (match) {
+				if (matches.size() >= maxResults) {
+					truncated = true;
+					break;
+				}
+				matches.push_back(addr + offset);
+			}
+		}
+
+		JsonWriter &json = req.Respond();
+		json.pushArray("matches");
+		for (uint32_t m : matches)
+			json.writeUint(m);
+		json.pop();
+		json.writeBool("truncated", truncated);
+	});
 }
