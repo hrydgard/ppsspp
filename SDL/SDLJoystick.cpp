@@ -25,11 +25,10 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	}
 
 	const char *dbPath = "gamecontrollerdb.txt";
-	INFO_LOG(Log::System, "loading control pad mappings from %s:", dbPath);
-
 	size_t size;
 	u8 *mappingData = g_VFS.ReadFile(dbPath, &size);
 	if (mappingData) {
+		DEBUG_LOG(Log::System, "loading control pad mappings from '%s'", dbPath);
 		SDL_IOStream *io = SDL_IOFromConstMem(mappingData, size);
 		if (SDL_AddGamepadMappingsFromIO(io, true) == -1) {
 			ERROR_LOG(Log::System, "Failed to read mapping data - corrupt?");

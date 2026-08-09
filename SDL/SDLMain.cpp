@@ -1521,7 +1521,6 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
-				INFO_LOG(Log::UI, "SDL_EVENT_MOUSE_BUTTON_DOWN: %f x %f", event.button.x, event.button.y);
 				// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
 				// provided (through --dpi, it is equal to system DPI if unspecified):
 				// - SDL gives us motion events in "system DPI" points

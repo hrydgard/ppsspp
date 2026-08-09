@@ -649,27 +649,33 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		}
 		vfs_->CloseFile(openFile);
 
-		int w, h, f;
-		uint8_t *image;
+		// LoadZIMPtr writes to these as arrays (one entry per mip level, up to
+		// ZIM_MAX_MIP_LEVELS) whenever the file has ZIM_HAS_MIPS set - passing plain
+		// scalars here was an OOB stack write waiting for a mipped (or malicious) ZIM.
+		int w[ZIM_MAX_MIP_LEVELS], h[ZIM_MAX_MIP_LEVELS], f;
+		uint8_t *image[ZIM_MAX_MIP_LEVELS];
 		std::vector<uint8_t> &out = data_[mipLevel];
 		// TODO: Zim files can actually hold mipmaps (although no tool has ever been made to create them :P)
-		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
-			if (w > level.w || h > level.h) {
+		// We only use the first level for now.
+		int numLevels = LoadZIMPtr(&zim[0], fileSize, w, h, &f, image);
+		if (numLevels > 0) {
+			if (w[0] > level.w || h[0] > level.h) {
 				ERROR_LOG(Log::TexReplacement, "Texture replacement changed since header read: %s", filename.c_str());
+				free(image[0]);
 				return LoadLevelResult::LOAD_ERROR;
 			}
 
 			out.resize(level.w * level.h * 4);
-			if (w == level.w) {
-				memcpy(&out[0], image, level.w * 4 * level.h);
+			if (w[0] == level.w) {
+				memcpy(&out[0], image[0], level.w * 4 * level.h);
 			} else {
-				for (int y = 0; y < h; ++y) {
-					memcpy(&out[level.w * 4 * y], image + w * 4 * y, w * 4);
+				for (int y = 0; y < h[0]; ++y) {
+					memcpy(&out[level.w * 4 * y], image[0] + w[0] * 4 * y, w[0] * 4);
 				}
 			}
-			free(image);
+			free(image[0]);
 
-			const TextureAlpha res = CheckAlpha32Rect((u32 *)&out[0], level.w, w, h, 0xFF000000);
+			const TextureAlpha res = CheckAlpha32Rect((u32 *)&out[0], level.w, w[0], h[0], 0xFF000000);
 			if (res == TextureAlpha::Any || mipLevel == 0) {
 				alphaStatus_ = res;
 			}

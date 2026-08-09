@@ -141,7 +141,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 					if (!unreachable) {
 						ERROR_LOG(Log::HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errorCode, errorString.c_str());
 					} else {
-						INFO_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
+						VERBOSE_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
 					}
 					closesocket(sock);
 					continue;

@@ -223,6 +223,8 @@ class GlobalListener : public ControlListener {
 				g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 			}
 			break;
+		default:
+			break;
 		}
 	}
 };
@@ -801,7 +803,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	ApplyAchievementsHostOverride();
 
-	DEBUG_LOG(Log::System, "ScreenManager!");
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
@@ -1202,6 +1203,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 				break;
 			case QueuedEventType::TOUCH:
 				ImGui_ImplPlatform_TouchEvent(event.touch);
+				break;
+			default:
 				break;
 			}
 		}

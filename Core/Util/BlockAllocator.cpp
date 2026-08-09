@@ -134,7 +134,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 	}
 
 	//Out of memory :(
-	ListBlocks();
+	ListBlocks(LogLevel::LINFO);
 	ERROR_LOG(Log::sceKernel, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, size, size);
 	return -1;
 }
@@ -215,7 +215,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 
 
 	//Out of memory :(
-	ListBlocks();
+	ListBlocks(LogLevel::LINFO);
 	ERROR_LOG(Log::sceKernel, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, alignedSize, alignedSize);
 	return -1;
 }
@@ -387,15 +387,14 @@ u32 BlockAllocator::GetBlockSizeFromAddress(u32 addr) const
 		return -1;
 }
 
-void BlockAllocator::ListBlocks() const
-{
-	DEBUG_LOG(Log::sceKernel,"-----------");
+void BlockAllocator::ListBlocks(LogLevel level) const {
+	GENERIC_LOG(Log::sceKernel, level, "-----------");
 	for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{
 		const Block &b = *bp;
-		DEBUG_LOG(Log::sceKernel, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
+		GENERIC_LOG(Log::sceKernel, level, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
 	}
-	DEBUG_LOG(Log::sceKernel,"-----------");
+	GENERIC_LOG(Log::sceKernel, level, "-----------");
 }
 
 u32 BlockAllocator::GetLargestFreeBlockSize() const

@@ -106,7 +106,12 @@ bool JsonGet::getStringVector(std::vector<std::string> *vec) const {
 }
 
 double JsonGet::getFloat(const char *child_name) const {
-	return get(child_name, JSON_NUMBER)->value.toNumber();
+	const JsonNode *val = get(child_name, JSON_NUMBER);
+	if (!val) {
+		ERROR_LOG(Log::IO, "Number '%s' missing from node", child_name);
+		return 0.0;
+	}
+	return val->value.toNumber();
 }
 
 double JsonGet::getFloat(const char *child_name, double default_value) const {
@@ -117,7 +122,12 @@ double JsonGet::getFloat(const char *child_name, double default_value) const {
 }
 
 int JsonGet::getInt(const char *child_name) const {
-	return (int)get(child_name, JSON_NUMBER)->value.toNumber();
+	const JsonNode *val = get(child_name, JSON_NUMBER);
+	if (!val) {
+		ERROR_LOG(Log::IO, "Number '%s' missing from node", child_name);
+		return 0;
+	}
+	return (int)val->value.toNumber();
 }
 
 int JsonGet::getInt(const char *child_name, int default_value) const {
@@ -128,7 +138,12 @@ int JsonGet::getInt(const char *child_name, int default_value) const {
 }
 
 bool JsonGet::getBool(const char *child_name) const {
-	return get(child_name)->value.getTag() == JSON_TRUE;
+	const JsonNode *val = get(child_name);
+	if (!val) {
+		ERROR_LOG(Log::IO, "Value '%s' missing from node", child_name);
+		return false;
+	}
+	return val->value.getTag() == JSON_TRUE;
 }
 
 bool JsonGet::getBoolOr(const char *child_name, bool default_value) const {
