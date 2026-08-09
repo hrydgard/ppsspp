@@ -55,6 +55,13 @@ ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
 }
 
 ThreadManager::~ThreadManager() {
+	// Make sure the worker threads are stopped and joined before we free global_ -
+	// otherwise, if Teardown() was never called (e.g. an early return between Init()
+	// and the caller's normal shutdown path), the still-running threads would go on
+	// touching global_'s mutexes/queues/condition variables after they're freed here.
+	if (IsInitialized()) {
+		Teardown();
+	}
 	delete global_;
 }
 
@@ -65,68 +72,48 @@ void ThreadManager::Teardown() {
 		threadCtx->cond.notify_one();
 	}
 
-	// Purge any cancellable tasks while the threads shut down.
-	if (global_->compute_queue_size > 0 || global_->io_queue_size > 0) {
-		auto drainQueue = [this](std::deque<Task *> queue[TASK_PRIORITY_COUNT], std::atomic<int> &size) {
-			for (size_t i = 0; i < TASK_PRIORITY_COUNT; ++i) {
-				for (auto it = queue[i].begin(); it != queue[i].end(); ++it) {
-					if (TeardownTask(*it, false)) {
-						queue[i].erase(it);
-						size--;
-						return false;
-					}
-				}
-			}
-			return true;
-		};
-
+	// Once cancelled is set, no worker thread will pick up any more tasks from either
+	// queue, so anything still sitting in the global queues at this point will never
+	// run. Drain them here so they're properly cancelled/released instead of leaking
+	// when global_ is destroyed.
+	{
 		std::unique_lock<std::mutex> lock(global_->mutex);
-		while (!drainQueue(global_->compute_queue, global_->compute_queue_size))
-			continue;
-		while (!drainQueue(global_->io_queue, global_->io_queue_size))
-			continue;
+		for (size_t i = 0; i < TASK_PRIORITY_COUNT; ++i) {
+			for (Task *task : global_->compute_queue[i])
+				TeardownTask(task);
+			global_->compute_queue[i].clear();
+			for (Task *task : global_->io_queue[i])
+				TeardownTask(task);
+			global_->io_queue[i].clear();
+		}
+		global_->compute_queue_size = 0;
+		global_->io_queue_size = 0;
 	}
 
 	for (TaskThreadContext *&threadCtx : global_->threads_) {
 		threadCtx->thread.join();
-		// TODO: Is it better to just delete these?
+		// Same reasoning as above - anything left in a thread's private queue at this
+		// point will never run, since the thread has already exited.
 		for (size_t i = 0; i < TASK_PRIORITY_COUNT; ++i) {
 			for (Task *task : threadCtx->private_queue[i]) {
-				TeardownTask(task, true);
+				TeardownTask(task);
 			}
 		}
 		delete threadCtx;
 	}
 	global_->threads_.clear();
-
-	if (global_->compute_queue_size > 0 || global_->io_queue_size > 0) {
-		WARN_LOG(Log::System, "ThreadManager::Teardown() with tasks still enqueued");
-	}
 }
 
-bool ThreadManager::TeardownTask(Task *task, bool enqueue) {
+void ThreadManager::TeardownTask(Task *task) {
 	if (!task)
-		return true;
+		return;
 
 	if (task->Cancellable()) {
 		task->Cancel();
-		task->Release();
-		return true;
+	} else {
+		WARN_LOG(Log::System, "ThreadManager::Teardown() dropping a non-cancellable task that will never run");
 	}
-
-	if (enqueue) {
-		size_t queueIndex = (size_t)task->Priority();
-		if (task->Type() == TaskType::CPU_COMPUTE) {
-			global_->compute_queue[queueIndex].push_back(task);
-			global_->compute_queue_size++;
-		} else if (task->Type() == TaskType::IO_BLOCKING) {
-			global_->io_queue[queueIndex].push_back(task);
-			global_->io_queue_size++;
-		} else {
-			_assert_(false);
-		}
-	}
-	return false;
+	task->Release();
 }
 
 static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thread) {
@@ -155,8 +142,8 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 		if (global_queue_size() > 0) {
 			// Grab one from the global queue if there is any.
 			std::unique_lock<std::mutex> lock(global->mutex);
-			auto queue = isCompute ? global->compute_queue : global->io_queue;
-			auto &queue_size = isCompute ? global->compute_queue_size : global->io_queue_size;
+			std::deque<Task *> *queue = isCompute ? global->compute_queue : global->io_queue;
+			std::atomic<int> &queue_size = isCompute ? global->compute_queue_size : global->io_queue_size;
 
 			for (size_t p = 0; p < TASK_PRIORITY_COUNT; ++p) {
 				if (!queue[p].empty()) {
@@ -169,6 +156,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 					break;
 				} else if (thread->queue_size != 0) {
 					// Check the thread, as we prefer a HIGH thread task to a global NORMAL task.
+					// NOTE: lock order is global->mutex before thread->mutex - never lock them in the opposite order.
 					std::unique_lock<std::mutex> lock(thread->mutex);
 					if (!thread->private_queue[p].empty()) {
 						task = thread->private_queue[p].front();
@@ -262,6 +250,8 @@ void ThreadManager::EnqueueTask(Task *task) {
 		maxThread = numThreads_;
 	}
 
+	_assert_msg_(maxThread > minThread, "ThreadManager: no threads available for task type %d (was Init() called with 0 compute threads?)", (int)task->Type());
+
 	// Find a thread with no outstanding work.
 	_assert_(maxThread <= (int)global_->threads_.size());
 	for (int threadNum = minThread; threadNum < maxThread; threadNum++) {
@@ -316,10 +306,6 @@ void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 
 int ThreadManager::GetNumLooperThreads() const {
 	return numComputeThreads_;
-}
-
-void ThreadManager::TryCancelTask(uint64_t taskID) {
-	// Do nothing for now, just let it finish.
 }
 
 bool ThreadManager::IsInitialized() const {
