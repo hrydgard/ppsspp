@@ -263,13 +263,6 @@ bool OutputSink::Push(const char *buf, size_t bytes) {
 	return true;
 }
 
-bool OutputSink::PushCRLF(const std::string &s) {
-	if (Push(s)) {
-		return Push("r\n", 2);
-	}
-	return false;
-}
-
 size_t OutputSink::PushAtMost(const char *buf, size_t bytes) {
 	Drain();
 
@@ -310,14 +303,9 @@ bool OutputSink::Printf(const char *fmt, ...) {
 		// There wasn't enough space.  Let's use a buffer instead.
 		// This could be caused by wraparound.
 		char temp[4096];
-		result = vsnprintf(temp, sizeof(temp), fmt, args);
+		result = vsnprintf(temp, sizeof(temp), fmt, backup);
 
 		if ((size_t)result < sizeof(temp) && result > 0) {
-			// In case it did return the null terminator.
-			if (temp[result - 1] == '\0') {
-				result--;
-			}
-
 			success = Push(temp, result);
 			// We've written so there's nothing more.
 			result = 0;
@@ -329,10 +317,10 @@ bool OutputSink::Printf(const char *fmt, ...) {
 	// Okay, did we actually write?
 	if (result >= (int)avail) {
 		// This means the result string was too big for the buffer.
-		ERROR_LOG(Log::IO, "Not enough space to format output.");
+		ERROR_LOG(Log::Net, "Not enough space to format output.");
 		return false;
 	} else if (result < 0) {
-		ERROR_LOG(Log::IO, "vsnprintf failed.");
+		ERROR_LOG(Log::Net, "vsnprintf failed.");
 		return false;
 	}
 

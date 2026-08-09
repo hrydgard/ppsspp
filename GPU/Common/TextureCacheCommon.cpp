@@ -730,7 +730,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					if (!isVideo) {
 						TexCache::iterator secondIterOld = secondCache_.find(secondKeyOld);
 						if (secondIterOld == secondCache_.end()) {
-							DEBUG_LOG(Log::TexCache, "%08x: Hash changed from old %08x to new %08x, moving old entry to secondary cache.", texaddr, entry->fullhash, newFullHash);
+							DEBUG_LOG(Log::TexCache, "%08x: Hash changed from old %08x to new %08x, moving old entry to secondary cache (%dx%d)", texaddr, entry->fullhash, newFullHash, w, h);
 							// Not yet in the secondary, put it there.
 							secondCache_[secondKeyOld].reset(entry);
 							// Forget the entry.
@@ -738,14 +738,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 						} else {
 							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
 							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
-							DEBUG_LOG(Log::TexCache, "%08x: Second cache already had one with hash %08x (tex has addr %08x)!", texaddr, entry->fullhash, entry->addr);
+							DEBUG_LOG(Log::TexCache, "%08x: Second cache already had one with hash %08x (tex has addr %08x)! (%dx%d)", texaddr, entry->fullhash, entry->addr, w, h);
 							// Just release the old entry, drop it on the ground.
 							ReleaseTexture(entry, true);
 							entry = nullptr;
 						}
 					} else {
 						// Just release the old video entry, drop it on the ground.
-						VERBOSE_LOG(Log::TexCache, "%08x: Dropping old invalidated video image", texaddr);
+						VERBOSE_LOG(Log::TexCache, "%08x: Dropping old invalidated video image (%dx%d)", texaddr, w, h);
 						ReleaseTexture(entry, true);
 						entry = nullptr;
 					}
@@ -774,7 +774,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 							}
 							return ApplyTextureFinish(entry, doBind);
 						} else {
-							DEBUG_LOG(Log::TexCache, "%08x: Entry in secondary cache not suitable, ignoring and creating new: %08x", texaddr, newFullHash);
+							DEBUG_LOG(Log::TexCache, "%08x: Entry in secondary cache not suitable, ignoring and creating new: %08x (%dx%d)", texaddr, newFullHash, w, h);
 							// The entry in the secondary cache doesn't match our current parameters, so we can't use it.
 							// Let's leave it in there for now (revisit later).
 						}
@@ -798,7 +798,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				return ApplyTextureFinish(entry, doBind);
 			}
 		} else {
-			DEBUG_LOG(Log::TexCache, "%08x: Texture was not a match (%s), recreating.", texaddr, reason);
+			DEBUG_LOG(Log::TexCache, "%08x: Texture was not a match (%s), recreating (%dx%d).", texaddr, reason, w, h);
 			// Wasn't a match even in format. Let's just delete it right away, since we know we need to rebuild it,
 			// and it's unlikely that putting it in the secondary cache will do us any good. We do that for things we rehash, though.
 			ReleaseTexture(entryIter->second.get(), true);

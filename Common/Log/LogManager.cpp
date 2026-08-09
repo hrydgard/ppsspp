@@ -146,9 +146,12 @@ void LogManager::Shutdown() {
 		return;
 	}
 
-	if (fp_) {
-		fclose(fp_);
-		fp_ = nullptr;
+	{
+		std::lock_guard<std::mutex> lk(logFileLock_);
+		if (fp_) {
+			fclose(fp_);
+			fp_ = nullptr;
+		}
 	}
 
 	outputs_ = (LogOutput)0;
@@ -193,6 +196,7 @@ LogManager::~LogManager() {
 }
 
 void LogManager::SetFileLogPath(const Path &filename) {
+	std::lock_guard<std::mutex> lk(logFileLock_);
 	if (fp_ && filename == logFilename_) {
 		// All good
 		return;
@@ -200,6 +204,7 @@ void LogManager::SetFileLogPath(const Path &filename) {
 
 	if (fp_) {
 		fclose(fp_);
+		fp_ = nullptr;
 	}
 
 	logFilename_ = Path(filename);
@@ -315,8 +320,9 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 
 	// OK, now go through the possible listeners in order.
 	if (outputs_ & LogOutput::File) {
+		// Lock covers the fp_ check too - SetFileLogPath()/Shutdown() can close it concurrently.
+		std::lock_guard<std::mutex> lk(logFileLock_);
 		if (fp_) {
-			std::lock_guard<std::mutex> lk(logFileLock_);
 			fprintf(fp_, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 			// Is this really necessary to do every time? I guess to catch the last message before a crash..
 			fflush(fp_);

@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "Common/Common.h"
+
 namespace net {
 
 class InputSink {
@@ -64,8 +66,8 @@ public:
 	bool Push(const std::string &s);
 	bool Push(const char *buf, size_t bytes);
 	size_t PushAtMost(const char *buf, size_t bytes);
-	bool PushCRLF(const std::string &s);
-	bool Printf(const char *fmt, ...);
+	ATTR_FORMAT_PRINTF(2, 3)
+	bool Printf(MSVC_FORMAT_PRINTF const char *fmt, ...);
 
 	bool Flush(bool allowBlock = true);
 	void Discard();

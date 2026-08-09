@@ -565,6 +565,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		case BrowseFileType::BOOTABLE:
 			supportedExtensions = { ".cso", ".iso", ".chd", ".elf", ".pbp", ".zip", ".prx", ".bin" };  // should .bin even be here?
 			break;
+		case BrowseFileType::SAVE_STATE:
+			supportedExtensions = { ".ppst" };
+			break;
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
 			break;

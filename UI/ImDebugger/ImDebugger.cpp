@@ -11,6 +11,7 @@
 #include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
+#include "Core/RetroAchievements.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/SaveState.h"
@@ -68,6 +69,7 @@
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/AudioCommon.h"
 #include "UI/GameInfoCache.h"
+#include "UI/PauseScreen.h"
 
 extern bool g_TakeScreenshot;
 static ImVec4 g_normalTextColor;
@@ -2348,6 +2350,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	// Snapshot the coreState to avoid inconsistency.
 	const CoreState coreState = ::coreState;
 
+	const bool showDebugger = g_Config.bShowImDebugger && PSP_IsInited();  // This will be separated from showing the IM UI in general.
+	const bool allowSaveStates = !Achievements::HardcoreModeActive() && PSP_IsInited() && (!IsNetworkConnected() || g_Config.bAllowSavestateWhileConnected);
+
 	if (Achievements::HardcoreModeActive()) {
 		ImGui::Begin("RetroAchievements hardcore mode");
 		ImGui::Text("The debugger may not be used when the\nRetroAchievements hardcore mode is enabled.");
@@ -2365,7 +2370,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 	// Watch the step counters to figure out when to update things.
 
-	if (PSP_IsInited()) {
+	if (showDebugger) {
 		if (lastCpuStepCount_ != Core_GetSteppingCounter()) {
 			lastCpuStepCount_ = Core_GetSteppingCounter();
 			snapshot_ = newSnapshot_;  // Compare against the previous snapshot.
@@ -2387,14 +2392,51 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("Load")) {
-				System_BrowseForFile(reqToken_, "Load", BrowseFileType::BOOTABLE, [this](std::string_view responseString, int) {
+				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [this](std::string_view responseString, int) {
 					Path path(responseString);
 					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.ToString());
 				});
 			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("Open web debugger")) {
-				OpenWebDebugger();
+			if (ImGui::MenuItem("Open directory...")) {
+				System_BrowseForFolder(reqToken_, "Load", Path(), [](std::string_view value, int) {
+					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, value);
+				});
+			}
+			if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
+				if (ImGui::MenuItem("Open memory stick")) {
+					System_LaunchUrl(LaunchUrlType::LOCAL_FOLDER, g_Config.memStickDirectory.ToString());
+				}
+			}
+			// TODO: Add "Open new instance"
+			if (allowSaveStates) {
+				ImGui::Separator();
+				if (ImGui::MenuItem(StringFromFormat("Load state (%d)", g_Config.iCurrentStateSlot).c_str(), "F4")) {
+					SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, ShowMessageAfterSaveStateAction);
+				}
+				if (ImGui::MenuItem(StringFromFormat("Save state (%d)", g_Config.iCurrentStateSlot).c_str(), "F2")) {
+					SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, ShowMessageAfterSaveStateAction);
+				}
+				if (ImGui::MenuItem("Previous slot")) {
+					SaveState::PrevSlot();
+				}
+				if (ImGui::MenuItem("Next slot", "F3")) {
+					SaveState::NextSlot();
+				}
+				ImGui::Separator();
+				if (ImGui::MenuItem("Load state from file...")) {
+					System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [this](std::string_view fn, int) {
+						SaveState::Load(Path(fn), -1, ShowMessageAfterSaveStateAction);
+					});
+				}
+				if (ImGui::MenuItem("Save state to file...")) {
+					System_BrowseForFile(reqToken_, "Save", BrowseFileType::SAVE_STATE, [this](std::string_view fn, int) {
+						SaveState::Save(Path(fn), -1, ShowMessageAfterSaveStateAction);
+					});
+				}
+			} else {
+				ImGui::BeginDisabled();
+				ImGui::Text("Save states are not available");
+				ImGui::EndDisabled();
 			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Exit")) {
@@ -2417,22 +2459,36 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Debug")) {
-			switch (coreState) {
-			case CoreState::CORE_STEPPING_CPU:
-				if (ImGui::MenuItem("Run")) {
-					Core_Resume();
-				}
-				break;
-			case CoreState::CORE_RUNNING_CPU:
-				if (ImGui::MenuItem("Break")) {
-					Core_Break(BreakReason::DebugBreak);
-				}
-				break;
-			default:
-				break;
+		if (ImGui::BeginMenu("View")) {
+			if (PSP_IsInited()) {
+				ImGui::BeginDisabled();  // Can't change this setting while running.
 			}
-			ImGui::Separator();
+			ImGui::MenuItem("Show DevMenu button", nullptr, &g_Config.bShowDeveloperMenu);
+			if (PSP_IsInited()) {
+				ImGui::EndDisabled();
+			}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Debug")) {
+			if (PSP_IsInited()) {
+				switch (coreState) {
+				case CoreState::CORE_STEPPING_CPU:
+					if (ImGui::MenuItem("Run")) {
+						Core_Resume();
+					}
+					ImGui::Separator();
+					break;
+				case CoreState::CORE_RUNNING_CPU:
+					if (ImGui::MenuItem("Break")) {
+						Core_Break(BreakReason::DebugBreak);
+					}
+					ImGui::Separator();
+					break;
+				default:
+					break;
+				}
+			}
 			ImGui::MenuItemInverted("Break on load", nullptr, &g_Config.bAutoRun);
 			ImGui::MenuItem("Ignore bad memory accesses", nullptr, &g_Config.bIgnoreBadMemAccess);
 			ImGui::MenuItem("Break on frame timeout", nullptr, &g_Config.bBreakOnFrameTimeout);
@@ -2450,15 +2506,24 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 					System_CopyStringToClipboard(StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 				}
 			}
-			ImGui::Separator(); 
+			ImGui::Separator();
+			if (ImGui::MenuItem("Open web debugger")) {
+				OpenWebDebugger();
+			}
+			ImGui::Separator();
 			if (ImGui::MenuItem("Close")) {
 				g_Config.bShowImDebugger = false;
 			}
 			ImGui::EndMenu();
 		}
 
-		if (PSP_IsInited()) {
+		/*
+		if (ImGui::BeginMenu("Options")) {
+			ImGui::EndMenu();
+		}
+		*/
 
+		if (showDebugger) {
 			if (ImGui::BeginMenu("Core")) {
 				ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
 				ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
@@ -2582,12 +2647,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Atrac Tool", nullptr, &cfg_.atracToolOpen);
 			ImGui::EndMenu();
 		}
+
 		if (ImGui::BeginMenu("Misc")) {
 			ImGui::MenuItem("PPSSPP Internals", nullptr, &cfg_.internalsOpen);
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::EndMenu();
 		}
+
 		if (ImGui::MenuItem("Close")) {
 			g_Config.bShowImDebugger = false;
 		}

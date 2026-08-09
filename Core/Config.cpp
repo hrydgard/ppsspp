@@ -437,34 +437,6 @@ static int DefaultFastForwardMode() {
 #endif
 }
 
-static int DefaultAndroidHwScale() {
-#if PPSSPP_PLATFORM(ANDROID)
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19 || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
-		// Arbitrary cutoff at Kitkat - modern devices are usually powerful enough that hw scaling
-		// doesn't really help very much and mostly causes problems. See #11151
-		return 0;
-	}
-
-	// Get the real resolution as passed in during startup, not dp_xres and stuff
-	int xres = System_GetPropertyInt(SYSPROP_DISPLAY_XRES);
-	int yres = System_GetPropertyInt(SYSPROP_DISPLAY_YRES);
-
-	if (xres <= 960) {
-		// Smaller than the PSP*2, let's go native.
-		return 0;
-	} else if (xres <= 480 * 3) {  // 720p xres
-		// Small-ish screen, we should default to 2x
-		return 2 + 1;
-	} else {
-		// Large or very large screen. Default to 3x psp resolution.
-		return 3 + 1;
-	}
-	return 0;
-#else
-	return 1;
-#endif
-}
-
 // See issue 14439. Should possibly even block these devices from selecting VK.
 const char * const vulkanDefaultBlacklist[] = {
 	"Sony:BRAVIA VH1",
@@ -725,7 +697,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TextureFiltering", SETTING(g_Config, iTexFiltering), 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("Smart2DTexFiltering", SETTING(g_Config, bSmart2DTexFiltering), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("InternalResolution", SETTING(g_Config, iInternalResolution), &DefaultInternalResolution, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("AndroidHwScale", SETTING(g_Config, iAndroidHwScale), &DefaultAndroidHwScale, CfgFlag::DEFAULT),
+	ConfigSetting("AndroidHwScale", SETTING(g_Config, iAndroidHwScale), 0, CfgFlag::DEFAULT),
 	ConfigSetting("HighQualityDepth", SETTING(g_Config, bHighQualityDepth), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("FrameSkip", SETTING(g_Config, iFrameSkip), 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("AutoFrameSkip", SETTING(g_Config, bAutoFrameSkip), IsVREnabled(), CfgFlag::PER_GAME | CfgFlag::REPORT),

@@ -649,6 +649,10 @@ static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType 
 		filters.push_back("All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)");
 		filters.push_back("*.pbp *.elf *.iso *.cso *.chd *.prx *.zip *.ppdmp");
 		break;
+	case BrowseFileType::SAVE_STATE:
+		filters.push_back("Save state files (*.ppst)");
+		filters.push_back("*.ppst");
+		break;
 	case BrowseFileType::INI:
 		filters.push_back("Ini files");
 		filters.push_back("*.ini");

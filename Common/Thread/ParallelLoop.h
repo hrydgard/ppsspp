@@ -65,6 +65,16 @@ public:
 		counter_->Count();
 	}
 
+	// Cancellable so a Teardown() racing with an in-flight parallel loop still
+	// counts down the waiter's counter instead of leaving it blocked forever.
+	bool Cancellable() const override {
+		return true;
+	}
+
+	void Cancel() override {
+		counter_->Count();
+	}
+
 	T func_;
 	WaitableCounter *counter_;
 
