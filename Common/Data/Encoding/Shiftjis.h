@@ -43,6 +43,11 @@ struct ShiftJIS {
 		}
 
 		// Okay, if we didn't return, it's time for the second byte (the cell.)
+		if (c_[index_] == 0) {
+			// Truncated sequence right at the end of the string - don't consume the
+			// terminator, or index_ would end up one past it (OOB on the next call).
+			return INVALID;
+		}
 		j = (uint8_t)c_[index_++];
 		// Not a valid second byte.
 		if (j < 0x40 || j == 0x7F || j >= 0xFD) {
