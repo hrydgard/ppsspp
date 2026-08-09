@@ -49,7 +49,9 @@ ConsoleListener::ConsoleListener() : hidden_(true) {
 
 	// useThread_ = false;
 
-	if (useThread_ && !hTriggerEvent) {
+	// Always initialized, since SendToThread() (used by Log() whenever the console
+	// isn't open yet, regardless of useThread_) needs these to be valid.
+	if (!hTriggerEvent) {
 		hTriggerEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		InitializeCriticalSection(&criticalSection);
 		logPending_ = new char[LOG_PENDING_MAX];
