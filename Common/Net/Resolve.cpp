@@ -501,7 +501,7 @@ static bool encode_domain_name(const char *domain, unsigned char *encoded, size_
 // Function to parse and print the DNS response
 static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint32_t *output) {
 	if (response_len < sizeof(DNSHeader)) {
-		ERROR_LOG(Log::sceNet, "DNS response too short");
+		ERROR_LOG(Log::Net, "DNS response too short");
 		return false;
 	}
 
@@ -524,13 +524,13 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 			int jump = *ptr;
 			ptr += jump + 1;
 			if (ptr >= end) {
-				ERROR_LOG(Log::sceNet, "DNS response malformed (question section)");
+				ERROR_LOG(Log::Net, "DNS response malformed (question section)");
 				return false;
 			}
 		}
 		ptr += 5; // Null byte + QTYPE (2 bytes) + QCLASS (2 bytes)
 		if (ptr > end) {
-			ERROR_LOG(Log::sceNet, "DNS response malformed (question section end)");
+			ERROR_LOG(Log::Net, "DNS response malformed (question section end)");
 			return false;
 		}
 	}
@@ -544,13 +544,13 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 
 		// Skip the name (can be a pointer or a sequence)
 		if (ptr >= end) {
-			ERROR_LOG(Log::sceNet, "DNS response malformed (answer %d name)", i);
+			ERROR_LOG(Log::Net, "DNS response malformed (answer %d name)", i);
 			return false;
 		}
 
 		if ((*ptr & 0xC0) == 0xC0) {
 			if (ptr + 2 > end) {
-				ERROR_LOG(Log::sceNet, "DNS response malformed (answer %d name pointer)", i);
+				ERROR_LOG(Log::Net, "DNS response malformed (answer %d name pointer)", i);
 				return false;
 			}
 			ptr += 2; // Pointer (2 bytes)
@@ -559,7 +559,7 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 				int jump = *ptr;
 				ptr += jump + 1;
 				if (ptr >= end) {
-					ERROR_LOG(Log::sceNet, "DNS response malformed (answer %d name loop)", i);
+					ERROR_LOG(Log::Net, "DNS response malformed (answer %d name loop)", i);
 					return false;
 				}
 			}
@@ -567,7 +567,7 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 		}
 
 		if (ptr + 10 > end) {
-			ERROR_LOG(Log::sceNet, "DNS response too short for answer %d header", i);
+			ERROR_LOG(Log::Net, "DNS response too short for answer %d header", i);
 			return false;
 		}
 
@@ -587,7 +587,7 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 		DEBUG_LOG(Log::Net, "  Data length: %d", (int)data_len);
 
 		if (ptr + data_len > end) {
-			ERROR_LOG(Log::sceNet, "DNS response data exceeds buffer");
+			ERROR_LOG(Log::Net, "DNS response data exceeds buffer");
 			return false;
 		}
 
@@ -649,13 +649,13 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	timeout.tv_sec = 5;
 	timeout.tv_usec = 0;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-		WARN_LOG(Log::sceNet, "Failed to set socket timeout for DNS query");
+		WARN_LOG(Log::Net, "Failed to set socket timeout for DNS query");
 	}
 #else
 	// Windows version
 	DWORD timeout = 5000; // 5 seconds
 	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
-		WARN_LOG(Log::sceNet, "Failed to set socket timeout for DNS query");
+		WARN_LOG(Log::Net, "Failed to set socket timeout for DNS query");
 	}
 #endif
 
@@ -679,7 +679,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	unsigned char *qname = buffer + sizeof(DNSHeader);
 	size_t qname_space = sizeof(buffer) - sizeof(DNSHeader) - 4;  // Reserve 4 bytes for qtype and qclass
 	if (!encode_domain_name(domain, qname, qname_space)) {
-		ERROR_LOG(Log::sceNet, "Domain name too long or invalid: %s", domain);
+		ERROR_LOG(Log::Net, "Domain name too long or invalid: %s", domain);
 		closesocket(sockfd);
 		return false;
 	}
@@ -700,7 +700,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	socklen_t server_len = sizeof(server_addr);
 	int response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len);
 	if (response_len < 0) {
-		ERROR_LOG(Log::sceNet, "Failed to receive DNS response (timeout or error)");
+		ERROR_LOG(Log::Net, "Failed to receive DNS response (timeout or error)");
 		closesocket(sockfd);
 		return false;
 	}
