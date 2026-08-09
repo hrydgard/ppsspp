@@ -162,15 +162,23 @@ The headless binary is located, in order of preference:
 
 In CI (`GITHUB_ACTIONS` is set) the runner behaves as if `--strict` was
 passed and prints `::error` annotations for each failing test, so failures
-show up inline in the GitHub Actions log. A typical CI job:
+show up inline in the GitHub Actions log.
+
+The CI workflow extends the existing `test` job (Linux leg) in
+`.github/workflows/build.yml`: after the pspautotests run it executes the
+frametests and uploads the report as an artifact. The steps only run when
+the test set (`frametests/dumps/`) is present in the checkout - the test
+data and config are maintained separately from the runner and may not be
+committed. Once committed, CI looks like:
 
 ```yaml
-- name: Build headless
-  run: ./b.sh --headless
-- name: Run frametests
+- name: Execute frametests
+  if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != ''
   run: python3 frametests.py frametests/frametests.json --out-mode=failures
-- name: Upload report
-  uses: actions/upload-artifact@v4
+
+- name: Upload frametest report
+  uses: actions/upload-artifact@v8
+  if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && always()
   with:
     name: frametest-report
     path: frametests/out/

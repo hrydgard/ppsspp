@@ -458,6 +458,21 @@ jobs:
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
 
+    # Runs only when the frametests test set is present in the checkout
+    # (dumps + references + frametests.json are maintained separately from
+    # the runner and may not be committed yet).
+    - name: Execute frametests
+      if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && hashFiles('frametests/frametests.json') != ''
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: python3 frametests.py frametests/frametests.json --out-mode=failures
+
+    - name: Upload frametest report
+      uses: actions/upload-artifact@v8
+      if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && hashFiles('frametests/frametests.json') != '' && always()
+      with:
+        name: frametest-report
+        path: frametests/out/
+
   test-headless-alpine:
     runs-on: ubuntu-latest
     container: 
