@@ -459,7 +459,7 @@ bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
 	return false;
 }
 
-bool ScreenshotComparer::SaveActualPNG(const Path &resultFilename) {
+bool ScreenshotComparer::SaveActualPNG(const Path &resultFilename, bool keepAlpha) {
 	std::vector<u8> rgba((size_t)stride_ * h_ * 4);
 	const u32 *pixels = pixels_.data();
 	for (size_t i = 0; i < (size_t)stride_ * h_; ++i) {
@@ -467,7 +467,10 @@ bool ScreenshotComparer::SaveActualPNG(const Path &resultFilename) {
 		rgba[i * 4 + 0] = (p >> 16) & 0xFF;
 		rgba[i * 4 + 1] = (p >> 8) & 0xFF;
 		rgba[i * 4 + 2] = p & 0xFF;
-		rgba[i * 4 + 3] = (p >> 24) & 0xFF;
+		// Games often use the alpha channel for non-visual purposes, which
+		// results in fully transparent images in PNG viewers.  By default,
+		// force alpha to 255 when writing the image.
+		rgba[i * 4 + 3] = keepAlpha ? ((p >> 24) & 0xFF) : 0xFF;
 	}
 	return pngSave(resultFilename, rgba.data(), stride_, h_, 4);
 }

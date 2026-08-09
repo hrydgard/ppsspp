@@ -71,6 +71,7 @@
 static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
 static Path g_screenshotDiffPath;
+static bool g_screenshotSaveKeepAlpha = false;
 static double g_maxScreenshotError = 0.0;
 static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
@@ -202,7 +203,7 @@ void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
 	// If a screenshot save path is set, save unconditionally.
 	if (!g_screenshotSavePath.empty()) {
 		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
-		bool saved = g_screenshotSavePath.GetFileExtension() == ".png" ? saver.SaveActualPNG(g_screenshotSavePath) : saver.SaveActualBitmap(g_screenshotSavePath);
+		bool saved = g_screenshotSavePath.GetFileExtension() == ".png" ? saver.SaveActualPNG(g_screenshotSavePath, g_screenshotSaveKeepAlpha) : saver.SaveActualBitmap(g_screenshotSavePath);
 		if (saved)
 			SendAndCollectOutput("Screenshot saved to: " + g_screenshotSavePath.ToVisualString() + "\n");
 	}
@@ -781,6 +782,9 @@ int main(int argc, const char* argv[]) {
 	}
 	if (cmdLineOptions.screenshotFilenameDiff.has_value()) {
 		g_screenshotDiffPath = Path(std::string(cmdLineOptions.screenshotFilenameDiff.value()));
+	}
+	if (cmdLineOptions.screenshotSaveKeepAlpha.has_value()) {
+		g_screenshotSaveKeepAlpha = cmdLineOptions.screenshotSaveKeepAlpha.value();
 	}
 	SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);

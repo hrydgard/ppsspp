@@ -108,6 +108,10 @@ test is kept in `<outputRoot>/logs/`.
 - PNG, 512×272 (480×272 display in a 512-wide framebuffer), stored top-down
   (row 0 = top of screen). The BMP output format is bottom-up per the BMP
   spec; the flip is applied only when writing BMPs.
+- The alpha channel is forced to 255 when writing PNGs (games often use alpha
+  for non-visual purposes, which would otherwise produce transparent-looking
+  images); pass `--screenshot-keep-alpha` to the headless binary to preserve
+  it (e.g. via a variant). The MSE comparison ignores alpha either way.
 - Generated with `--graphics=software` they are fully deterministic: a
   subsequent run produces byte-identical output, so `maxMse` can be 0.
 - If rendering code changes the output, existing references may need

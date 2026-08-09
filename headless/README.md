@@ -45,6 +45,7 @@ PPSSPPHeadless file.elf|file.prx|file.ppdmp [...] [options]
 | `--screenshot=<file>`           | Compare the rendered output against a reference screenshot. |
 | `--screenshot-save=<file>`      | Save the rendered output to a file (PNG if the path ends in `.png`, BMP otherwise). |
 | `--screenshot-diff=<file>`      | When comparing screenshots, save a visual comparison image to this file (always, regardless of pass/fail). |
+| `--screenshot-keep-alpha`       | Preserve the alpha channel when saving PNG screenshots (default: alpha is forced to 255, since games often use it for non-visual purposes). |
 | `--max-mse=<number>`            | Maximum allowed Mean Squared Error for screenshot comparison (default: 0 = exact). |
 | `--compare` / `-c`              | Compare test output with `.expected` text file and/or screenshot (see below). |
 | `--timeout=<seconds>`           | Abort test if it takes longer than this.                   |
