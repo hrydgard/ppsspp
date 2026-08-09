@@ -41,7 +41,6 @@ private:
 	std::pair<std::string_view, std::string_view> BufferParts() const;
 	void Fill();
 	bool Block();
-	void AccountFill(int bytes);
 	void AccountDrain(size_t bytes);
 	size_t FindNewline() const;
 

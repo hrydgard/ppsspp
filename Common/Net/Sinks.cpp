@@ -191,7 +191,20 @@ void InputSink::Fill() {
 		size_t avail = BUFFER_SIZE - std::max(write_, valid_);
 
 		int bytes = recv(fd_, buf_ + write_, avail, MSG_NOSIGNAL);
-		AccountFill(bytes);
+		if (bytes < 0) {
+			int err = socket_errno;
+			if (err == EWOULDBLOCK || err == EAGAIN)
+				return;
+			ERROR_LOG(Log::Net, "Error reading from socket: %d", err);
+			return;
+		}
+
+		// Okay, move forward (might be by zero.)
+		valid_ += bytes;
+		write_ += bytes;
+		if (write_ >= BUFFER_SIZE) {
+			write_ -= BUFFER_SIZE;
+		}
 	}
 }
 
@@ -202,23 +215,6 @@ bool InputSink::Block() {
 
 	Fill();
 	return true;
-}
-
-void InputSink::AccountFill(int bytes) {
-	if (bytes < 0) {
-		int err = socket_errno;
-		if (err == EWOULDBLOCK || err == EAGAIN)
-			return;
-		ERROR_LOG(Log::Net, "Error reading from socket: %d", err);
-		return;
-	}
-
-	// Okay, move forward (might be by zero.)
-	valid_ += bytes;
-	write_ += bytes;
-	if (write_ >= BUFFER_SIZE) {
-		write_ -= BUFFER_SIZE;
-	}
 }
 
 void InputSink::AccountDrain(size_t bytes) {
