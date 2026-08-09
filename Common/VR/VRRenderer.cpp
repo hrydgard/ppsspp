@@ -267,6 +267,7 @@ void VR_DestroyRenderer( engine_t* engine ) {
 	}
 	ovrRenderer_Destroy(&engine->appState.Renderer);
 	free(projections);
+	projections = nullptr;
 	initialized = false;
 }
 
@@ -531,6 +532,7 @@ void* VR_BindFramebuffer(engine_t *engine) {
 }
 
 XrView VR_GetView(int eye) {
+	if (!initialized || !projections) return XrView{};
 	return projections[eye];
 }
 
