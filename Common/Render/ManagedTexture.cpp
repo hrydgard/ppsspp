@@ -40,13 +40,9 @@ public:
 			return;
 		}
 
-		if (!tempImage_->LoadTextureLevelsFromFileData(buffer, fileSize, type_)) {
-			*state_ = ManagedTexture::LoadState::FAILED;
-			waitable_->Notify();
-			return;
-		}
+		bool success = tempImage_->LoadTextureLevelsFromFileData(buffer, fileSize, type_);
 		delete[] buffer;
-		*state_ = ManagedTexture::LoadState::SUCCESS;
+		*state_ = success ? ManagedTexture::LoadState::SUCCESS : ManagedTexture::LoadState::FAILED;
 		waitable_->Notify();
 	}
 
