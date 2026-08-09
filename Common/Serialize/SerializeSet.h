@@ -29,6 +29,12 @@ void DoSet(PointerWrap &p, std::set<T> &x) {
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
 	{
+		// Guard against an attacker-controlled count driving an enormous number of
+		// loop iterations/allocations, same spirit as DoVector's guard.
+		if (number > p.Remaining() / sizeof(T)) {
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
+		}
 		x.clear();
 		while (number-- > 0) {
 			T it = T();
