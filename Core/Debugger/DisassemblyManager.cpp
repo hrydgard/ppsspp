@@ -790,7 +790,12 @@ void DisassemblyData::createLines()
 	lineAddresses.clear();
 
 	u32 pos = address;
-	const u32 end = address+size;
+	const u32 end = address + size;
+
+	if (!Memory::IsValidRange(address, size)) {
+		ERROR_LOG(Log::CPU, "DisassemblyData can't create lines for invalid range 0x%08X-0x%08X", address, end);
+	}
+
 	const u32 maxChars = g_disassemblyManager.getMaxParamChars();
 	
 	std::string currentLine;
@@ -802,7 +807,7 @@ void DisassemblyData::createLines()
 		bool inString = false;
 		while (pos < end)
 		{
-			u8 b = Memory::Read_U8(pos++);
+			u8 b = Memory::ReadUnchecked_U8(pos++);
 			if (b >= 0x20 && b <= 0x7F)
 			{
 				if (currentLine.size()+1 >= maxChars)
@@ -879,18 +884,18 @@ void DisassemblyData::createLines()
 			switch (type)
 			{
 			case DATATYPE_BYTE:
-				value = Memory::Read_U8(pos);
+				value = Memory::ReadUnchecked_U8(pos);
 				snprintf(buffer, sizeof(buffer), "0x%02X", value);
 				pos++;
 				break;
 			case DATATYPE_HALFWORD:
-				value = Memory::Read_U16(pos);
+				value = Memory::ReadUnchecked_U16(pos);
 				snprintf(buffer, sizeof(buffer), "0x%04X", value);
 				pos += 2;
 				break;
 			case DATATYPE_WORD:
 				{
-					value = Memory::Read_U32(pos);
+					value = Memory::ReadUnchecked_U32(pos);
 					const std::string label = g_symbolMap->GetLabelString(value);
 					if (!label.empty())
 						snprintf(buffer, sizeof(buffer), "%s", label.c_str());

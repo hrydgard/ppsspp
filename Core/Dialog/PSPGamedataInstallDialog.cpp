@@ -43,31 +43,28 @@ const u32 PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS = 1;
 
 static const std::string SFO_FILENAME = "PARAM.SFO";
 
-namespace
-{
-	std::vector<std::string> GetPSPFileList (const std::string &dirpath) {
-		std::vector<std::string> FileList;
-		auto Fileinfos = pspFileSystem.GetDirListing(dirpath);
-		FileList.reserve(Fileinfos.size());
+static std::vector<std::string> GetPSPFileList(std::string_view dirpath) {
+	std::vector<std::string> FileList;
+	auto Fileinfos = pspFileSystem.GetDirListing(dirpath);
+	FileList.reserve(Fileinfos.size());
 
-		for (auto it = Fileinfos.begin(); it != Fileinfos.end(); ++it) {
-			std::string info = (*it).name;
-			FileList.push_back(info);
-		}
-		return FileList;
+	for (auto it = Fileinfos.begin(); it != Fileinfos.end(); ++it) {
+		std::string info = (*it).name;
+		FileList.push_back(info);
 	}
-}
-
-PSPGamedataInstallDialog::PSPGamedataInstallDialog(UtilityDialogType type) : PSPDialog(type) {
-}
-
-PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {
+	return FileList;
 }
 
 int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
 		ERROR_LOG_REPORT(Log::sceUtility, "A game install request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+
+	if (!Memory::IsValidRange(paramAddr, sizeof(SceUtilityGamedataInstallParam))) {
+		// This should probably crash
+		ERROR_LOG(Log::sceUtility, "sceGamedataInstallInitStart: invalid param address 0x%08X", paramAddr);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
 	param.ptr = paramAddr;
@@ -90,7 +87,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 		return -1;
 	}
 
-	int size = Memory::Read_U32(paramAddr);
+	const int size = Memory::ReadUnchecked_U32(paramAddr);
 	if (size != 1424 && size != 1432) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceGamedataInstallInitStart: invalid param size %d", size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;

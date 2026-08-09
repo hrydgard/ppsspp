@@ -1642,7 +1642,7 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	avcAu.write(auAddr);
 
 	if (result == 0) {
-		// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error
+		// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteMemoryOrRaiseException error
 		if (Memory::IsValidAddress(attrAddr)) {
 			Memory::Write_U32(1, attrAddr);
 		}
@@ -1742,7 +1742,7 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	atracAu.write(auAddr);
 
 	if (result == 0) {
-		// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error
+		// 3rd birthday return 00000000 as attrAddr here and cause WriteMemoryOrRaiseException error
 		if (Memory::IsValidAddress(attrAddr)) {
 			Memory::Write_U32(0, attrAddr);
 		}

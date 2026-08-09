@@ -182,7 +182,7 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U32(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
 	});
 }
 
@@ -334,7 +334,7 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 // Write two bytes to memory (memory.write_u16)
 //
 // Parameters:
-//  - address: unsigned integer
+//  - address: unsigned integer (can be unaligned! But not recommended. Should maybe disallow).
 //  - value: unsigned integer
 //
 // Response (same event name):
@@ -352,7 +352,7 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	// This only depends on addr, not on anything CPU-thread-owned, so fail fast here rather than
 	// making a round trip through the queue for a request we already know is invalid.
-	if (!Memory::IsValidAddress(addr))
+	if (!Memory::IsValidRange(addr, 2))
 		return req.Fail("Invalid address");
 
 	// Route the actual memory write to the CPU thread instead of poking at it directly
@@ -360,7 +360,7 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		currentMIPS->InvalidateICache(addr, 2);
-		Memory::Write_U16(val, addr);
+		Memory::WriteUnchecked_U16(val, addr);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
@@ -371,7 +371,7 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 // Write four bytes to memory (memory.write_u32)
 //
 // Parameters:
-//  - address: unsigned integer
+//  - address: unsigned integer (can be unaligned! But not recommended. Should maybe disallow).
 //  - value: unsigned integer
 //
 // Response (same event name):
@@ -389,7 +389,7 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	// This only depends on addr, not on anything CPU-thread-owned, so fail fast here rather than
 	// making a round trip through the queue for a request we already know is invalid.
-	if (!Memory::IsValidAddress(addr))
+	if (!Memory::IsValidRange(addr, 4))
 		return req.Fail("Invalid address");
 
 	// Route the actual memory write to the CPU thread instead of poking at it directly
@@ -397,11 +397,11 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		currentMIPS->InvalidateICache(addr, 4);
-		Memory::Write_U32(val, addr);
+		Memory::WriteUnchecked_U32(val, addr);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U32(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
 	});
 }
 
