@@ -27,6 +27,7 @@ public:
 
 	bool Empty() const;
 	bool TryFill();
+	bool HasError() const { return hasError_; }
 
 	size_t ValidAmount() const {
 		return valid_;
@@ -56,6 +57,7 @@ private:
 	size_t read_;
 	size_t write_;
 	size_t valid_;
+	bool hasError_ = false;
 };
 
 class OutputSink {
