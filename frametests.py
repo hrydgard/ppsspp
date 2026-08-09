@@ -67,7 +67,7 @@ def find_headless(config_dir, config_path):
         candidates.append(Path(env_path))
     for pattern in HEADLESS_CANDIDATES:
         candidates.extend(Path(m) for m in glob.glob(pattern))
-    found = [c for c in candidates if c.is_file()]
+    found = [c.resolve() for c in candidates if c.is_file()]
     if not found:
         return None
     return max(found, key=lambda p: p.stat().st_mtime)
@@ -122,6 +122,9 @@ def run_test(headless, dump_path, variant_args, ref_path, actual_path, diff_path
         proc.kill()
         output, _ = proc.communicate()
         timed_out = True
+    except OSError as e:
+        # e.g. the binary couldn't be launched at all.
+        return STATUS_ERROR, None, "Failed to launch headless binary: %s\n" % e, False
     returncode = proc.returncode
 
     # Headless may drop these in the cwd on failure (outside GITHUB_ACTIONS).

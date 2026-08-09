@@ -8,6 +8,7 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
 
 1. Keep style changes minimal unless requested. Follow existing code patterns and conventions.
 2. Keep cross-platform parity in mind when changing shared code. See below for more multiplatform tips
+3. Never `git push` (to any remote) without asking the user first. Committing locally is fine when asked; pushing requires explicit approval.
 
 ## Core Safety Checks
 
