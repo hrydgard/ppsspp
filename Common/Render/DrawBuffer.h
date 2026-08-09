@@ -89,6 +89,11 @@ public:
 
 	void V(float x, float y, float z, uint32_t color, float u, float v) {
 		_dbg_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
+		if (count_ >= MAX_VERTS) {
+			// _dbg_assert_msg_ above is compiled out in release builds - don't write
+			// past the end of verts_ there either, just drop the vertex.
+			return;
+		}
 
 #ifdef _DEBUG
 		if (my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z)) {
