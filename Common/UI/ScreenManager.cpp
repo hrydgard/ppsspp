@@ -187,7 +187,7 @@ void ScreenManager::resized() {
 	}
 }
 
-ScreenRenderFlags ScreenManager::render() {
+ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 	using namespace Draw;
 
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
@@ -202,6 +202,8 @@ ScreenRenderFlags ScreenManager::render() {
 		}
 		flags |= layer.screen->PreRender(mode);
 	}
+
+	afterPreRender();
 
 	// Now, start the final render pass. This is now the ONLY place where binding the null fb is allowed.
 	draw_->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
