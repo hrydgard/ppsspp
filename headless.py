@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Small wrapper that locates the newest PPSSPPHeadless binary (same way
 test.py does) and forwards all command line arguments to it.
 

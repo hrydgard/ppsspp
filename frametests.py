@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Framedump rendering test runner for PPSSPPHeadless.
 
 Runs GE frame dumps (".ppdmp", possibly zipped) through PPSSPPHeadless with a
