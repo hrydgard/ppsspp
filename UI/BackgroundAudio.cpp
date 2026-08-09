@@ -107,37 +107,42 @@ bool WavData::Read(RIFFReader &file_) {
 		if (file_.Descend('smpl')) {
 			std::vector<u8> smplData;
 			smplData.resize(file_.GetCurrentChunkSize());
-			file_.ReadData(&smplData[0], (int)smplData.size());
+			if (!smplData.empty()) {
+				file_.ReadData(smplData.data(), (int)smplData.size());
+			}
 
-			int numLoops = *(int *)&smplData[28];
-			struct AtracLoopInfo {
-				int cuePointID;
-				int type;
-				int startSample;
-				int endSample;
-				int fraction;
-				int playCount;
-			};
+			// A short/corrupt 'smpl' chunk shouldn't make us read past the buffer.
+			if (smplData.size() >= 32) {
+				int numLoops = *(int *)&smplData[28];
+				struct AtracLoopInfo {
+					int cuePointID;
+					int type;
+					int startSample;
+					int endSample;
+					int fraction;
+					int playCount;
+				};
 
-			if (numLoops > 0 && smplData.size() >= 36 + sizeof(AtracLoopInfo) * numLoops) {
-				AtracLoopInfo *loops = (AtracLoopInfo *)&smplData[36];
-				int samplesPerFrame = codec == PSP_CODEC_AT3PLUS ? 2048 : 1024;
+				if (numLoops > 0 && smplData.size() >= 36 + sizeof(AtracLoopInfo) * numLoops) {
+					AtracLoopInfo *loops = (AtracLoopInfo *)&smplData[36];
+					int samplesPerFrame = codec == PSP_CODEC_AT3PLUS ? 2048 : 1024;
 
-				for (int i = 0; i < numLoops; ++i) {
-					// Only seen forward loops, so let's ignore others.
-					if (loops[i].type != 0)
-						continue;
+					for (int i = 0; i < numLoops; ++i) {
+						// Only seen forward loops, so let's ignore others.
+						if (loops[i].type != 0)
+							continue;
 
-					// We ignore loop interpolation (fraction) and play count for now.
-					raw_offset_loop_start = (loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame;
-					loop_start_offset = loops[i].startSample % samplesPerFrame;
-					raw_offset_loop_end = (loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame;
-					loop_end_offset = loops[i].endSample % samplesPerFrame;
+						// We ignore loop interpolation (fraction) and play count for now.
+						raw_offset_loop_start = (loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame;
+						loop_start_offset = loops[i].startSample % samplesPerFrame;
+						raw_offset_loop_end = (loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame;
+						loop_end_offset = loops[i].endSample % samplesPerFrame;
 
-					if (loops[i].playCount == 0) {
-						// This was an infinite loop, so ignore the rest.
-						// In practice, there's usually only one and it's usually infinite.
-						break;
+						if (loops[i].playCount == 0) {
+							// This was an infinite loop, so ignore the rest.
+							// In practice, there's usually only one and it's usually infinite.
+							break;
+						}
 					}
 				}
 			}

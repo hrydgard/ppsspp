@@ -90,7 +90,19 @@ void RIFFReader::Ascend() {
 }
 
 void RIFFReader::ReadData(void *what, int count) {
-	memcpy(what, data_ + pos_, count);
+	if (count > 0) {
+		int available = pos_ < fileSize_ ? fileSize_ - pos_ : 0;
+		int toRead = count < available ? count : available;
+		if (toRead > 0) {
+			memcpy(what, data_ + pos_, toRead);
+		}
+		if (toRead < count) {
+			// Truncated/corrupt file - don't read past the buffer. Zero the rest so
+			// callers don't read uninitialized data.
+			ERROR_LOG(Log::IO, "RIFFReader::ReadData: wanted %d bytes but only %d available", count, toRead);
+			memset((uint8_t *)what + toRead, 0, count - toRead);
+		}
+	}
 	pos_ += count;
 	count &= 3;
 	if (count) {
