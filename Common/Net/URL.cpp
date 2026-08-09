@@ -150,7 +150,8 @@ std::string UriDecode(std::string_view sSrc)
 	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
-	const unsigned char * const SRC_LAST_DEC = SRC_END - 2;   // last decodable '%' 
+	// Guard against forming a pointer before pSrc (UB) when SRC_LEN < 2.
+	const unsigned char * const SRC_LAST_DEC = SRC_LEN >= 2 ? SRC_END - 2 : pSrc;   // last decodable '%'
 
 	char * const pStart = new char[SRC_LEN];  // Output will be shorter.
 	char * pEnd = pStart;
