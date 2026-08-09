@@ -152,6 +152,16 @@ pspautotests are a large set of tests of the PSP OS's API surface, and thus test
 
 See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
 
+## Framedump rendering tests (frametests)
+
+There is a rendering test system that replays GE frame dumps (`.ppdmp`) through PPSSPPHeadless and compares
+the output against reference images, driven by the `frametests.py` script and a JSON config per test set.
+When changing rendering code, consider running these tests. See docs/frametest.md for full documentation.
+
+Note: `headless/Compare.cpp` reads back framebuffers top-down; the flip to bottom-up is only applied when
+writing BMPs (and when reading BMP references). `TranslateDebugBufferToCompare` also exists as a copy in
+`libretro/LibretroGraphicsContext.cpp` - keep the two in sync.
+
 ## Adding HLE modules
 
 HLE module implementations live in `Core/HLE/sce<ModuleName>.cpp` / `.h` (e.g. `sceOpenPSID.cpp`, `scePauth.cpp` are good

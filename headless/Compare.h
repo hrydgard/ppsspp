@@ -47,6 +47,7 @@ public:
 	}
 
 	bool SaveActualBitmap(const Path &filename);
+	bool SaveActualPNG(const Path &filename);
 	bool SaveVisualComparisonPNG(const Path &filename);
 
 protected:

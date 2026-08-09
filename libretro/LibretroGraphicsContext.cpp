@@ -157,7 +157,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	return ctx;
 }
 
-std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h) {
+std::vector<u32> ConvertFramebufferForLibretro(const GPUDebugBuffer *buffer, u32 stride, u32 h) {
 	// If the output was small, act like everything outside was 0.
 	// This can happen depending on viewport parameters.
 	u32 safeW = std::min(stride, buffer->GetStride());
