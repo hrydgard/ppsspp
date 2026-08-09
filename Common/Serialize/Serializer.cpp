@@ -185,7 +185,9 @@ void Do(PointerWrap &p, std::string &x) {
 	int stringLen = (int)x.length() + 1;
 	Do(p, stringLen);
 
-	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
+	// Must be at least 1 (the NUL terminator alone, for an empty string) so that
+	// stringLen - 1 below is never negative.
+	if (stringLen < 1 || stringLen > MAX_SANE_STRING_LENGTH) {
 		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
@@ -197,7 +199,12 @@ void Do(PointerWrap &p, std::string &x) {
 	}
 
 	switch (p.mode) {
-	case PointerWrap::MODE_READ: x = (char*)*p.ptr; break;
+	case PointerWrap::MODE_READ:
+		// Use a length-bounded assign, not the raw-pointer constructor - the latter
+		// strlen()s for a NUL terminator, which CheckRead() above didn't guarantee
+		// exists within stringLen bytes for corrupted savestate data.
+		x.assign((const char *)*p.ptr, stringLen - 1);
+		break;
 	case PointerWrap::MODE_WRITE: memcpy(*p.ptr, x.c_str(), stringLen); break;
 	case PointerWrap::MODE_MEASURE: break;
 	case PointerWrap::MODE_NOOP: break;
