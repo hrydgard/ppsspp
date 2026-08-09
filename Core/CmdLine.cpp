@@ -295,10 +295,6 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 	constexpr std::string_view controlsOption = "--controlconfig=";
 	constexpr std::string_view logLevelOption = "--loglevel=";
 
-#ifdef _DEBUG
-	enableLogging = true;
-#endif
-
 	// The rest is handled in NativeInit().
 	// NOTE: We don't increment i here, as we'll sometimes handle options that read the next argument.
 	for (size_t i = 1; i < argc; ) {
