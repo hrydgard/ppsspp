@@ -71,4 +71,4 @@
 	branch = ppsspp
 [submodule "frametests"]
 	path = frametests
-	url = git@github.com:hrydgard/ppsspp-frametest-ci.git
+	url = https://github.com/hrydgard/ppsspp-frametest-ci.git

@@ -11,10 +11,11 @@ The system has three parts:
   works against any test data tree pointed to by its configuration.
 - **The configuration**: a JSON file describing where the test data lives and
   which rendering variants to run (e.g. `frametests/frametests.json`).
-- **The test set**: the frame dumps and reference images (e.g.
-  `frametests/dumps/` and `frametests/ref/`). Different environments can use
-  different test sets - GitHub CI uses the one in the repo, custom machines
-  can use their own (possibly much larger) ones.
+- **The test set**: the frame dumps and reference images, maintained as the
+  `frametests` git submodule (repo `hrydgard/ppsspp-frametest-ci`, pinned by
+  commit - its config `frametests.json` lives inside it). Different
+  environments can use different test sets - GitHub CI uses the submodule,
+  custom machines can use their own (possibly much larger) ones.
 
 ## Quick start
 
@@ -165,20 +166,21 @@ passed and prints `::error` annotations for each failing test, so failures
 show up inline in the GitHub Actions log.
 
 The CI workflow extends the existing `test` job (Linux leg) in
-`.github/workflows/build.yml`: after the pspautotests run it executes the
-frametests and uploads the report as an artifact. The steps only run when
-the test set (`frametests/dumps/`) is present in the checkout - the test
-data and config are maintained separately from the runner and may not be
-committed. Once committed, CI looks like:
+`.github/workflows/build.yml`: the `Fetch tests` step inits the `frametests`
+submodule (alongside `pspautotests`), then after the pspautotests run it
+executes the frametests and uploads the report as an artifact:
 
 ```yaml
+- name: Fetch tests
+  run: git submodule update --init pspautotests frametests
+
 - name: Execute frametests
-  if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != ''
+  if: runner.os == 'Linux'
   run: python3 frametests.py frametests/frametests.json --out-mode=failures
 
 - name: Upload frametest report
-  uses: actions/upload-artifact@v8
-  if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && always()
+  uses: actions/upload-artifact@v7
+  if: runner.os == 'Linux' && always()
   with:
     name: frametest-report
     path: frametests/out/
@@ -208,8 +210,10 @@ new flag combinations, as long as the headless binary supports them.
 1. Drop the dump into `frametests/dumps/` (either as a `.ppdmp` or zipped).
 2. Run `python3 frametests.py frametests/frametests.json --filter=<name>` -
    the reference image(s) are generated and copied to `<outputRoot>/generated/`.
-3. Commit the dump and the reference images under `frametests/ref/`.
+3. Commit the dump and the reference images under `frametests/ref/`, and push
+   them to the `frametests` submodule repo (`hrydgard/ppsspp-frametest-ci`).
+   Then bump the submodule pointer in PPSSPP so CI picks up the new test.
 
 The CI test set (dumps and references) is maintained separately from the
-runner; the `frametests/` directory is just one of several possible test sets
-and may become a git submodule at some point.
+runner; the `frametests/` submodule is just one of several possible test sets
+- custom machines can use their own (possibly much larger) ones.

@@ -423,7 +423,7 @@ jobs:
     - name: Fetch tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests
+      run: git submodule update --init pspautotests frametests
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
@@ -458,17 +458,14 @@ jobs:
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
 
-    # Runs only when the frametests test set is present in the checkout
-    # (dumps + references + frametests.json are maintained separately from
-    # the runner and may not be committed yet).
     - name: Execute frametests
-      if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && hashFiles('frametests/frametests.json') != ''
+      if: runner.os == 'Linux'
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python3 frametests.py frametests/frametests.json --out-mode=failures
 
     - name: Upload frametest report
       uses: actions/upload-artifact@v7
-      if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && hashFiles('frametests/frametests.json') != '' && always()
+      if: runner.os == 'Linux' && always()
       with:
         name: frametest-report
         path: frametests/out/
