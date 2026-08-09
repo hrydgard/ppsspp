@@ -61,7 +61,7 @@ imgui.ini
 PPSSPPControls.dat
 
 # Frametest output (see frametests.py)
-frametest-out/
+out/
 
 # Gradle/Android Studio
 .gradle

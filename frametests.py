@@ -268,13 +268,30 @@ def main():
 
     test_root = (config_dir / config["testRoot"]).resolve()
     ref_root = (config_dir / config["refRoot"]).resolve()
-    output_root = (config_dir / config.get("outputRoot", "frametest-out")).resolve()
+    output_root = (config_dir / config.get("outputRoot", "out")).resolve()
     timeout = float(config.get("timeout", 60))
     max_mse = float(config.get("maxMse", 0.0))
-    variants = config.get("variants", {})
-    if not variants:
+    raw_variants = config.get("variants", {})
+    if not raw_variants:
         print("ERROR: no variants defined in %s" % config_path, file=sys.stderr)
         return 2
+
+    # Each variant has a suffix (used for its output images) and a compare-suffix
+    # (the reference image it compares against).  Reference images are only
+    # generated for variants whose suffix matches their compare-suffix, so that
+    # other variants can share a reference (e.g. gl comparing against the soft
+    # reference).  A plain string entry means args only, with both suffixes
+    # defaulting to the variant name.
+    variants = {}
+    for key, entry in raw_variants.items():
+        if isinstance(entry, str):
+            args_str = entry
+            suffix = key
+        else:
+            args_str = entry.get("args", "")
+            suffix = entry.get("suffix", key)
+        compare_suffix = entry.get("compare-suffix", suffix) if not isinstance(entry, str) else suffix
+        variants[key] = {"args": shlex.split(args_str), "suffix": suffix, "compare_suffix": compare_suffix}
 
     headless = find_headless(config_dir, config.get("headlessPath", ""))
     if headless is None:
@@ -303,7 +320,13 @@ def main():
 
     print("Headless: %s" % headless)
     print("Test root: %s" % test_root)
-    print("Variants: %s" % ", ".join(variants.keys()))
+    variant_desc = []
+    for key, v in variants.items():
+        if v["compare_suffix"] == v["suffix"]:
+            variant_desc.append(key)
+        else:
+            variant_desc.append("%s (ref: %s)" % (key, v["compare_suffix"]))
+    print("Variants: %s" % ", ".join(variant_desc))
     print("Running %d dumps..." % len(dumps))
 
     results = []
@@ -316,21 +339,30 @@ def main():
         rel = dump.relative_to(test_root)
         base = strip_dump_extensions(dump.name)
         rel_dir = rel.parent
-        for variant, variant_args_str in variants.items():
-            variant_args = shlex.split(variant_args_str)
-            ref_path = ref_root / rel_dir / ("%s-%s.png" % (base, variant))
+        for variant, vinfo in variants.items():
+            variant_args = vinfo["args"]
+            generate_refs = vinfo["suffix"] == vinfo["compare_suffix"]
+            ref_path = ref_root / rel_dir / ("%s-%s.png" % (base, vinfo["compare_suffix"]))
             actual_path = actual_dir / rel_dir / ("%s-%s.png" % (base, variant))
             diff_path = diff_dir / rel_dir / ("%s-%s.png" % (base, variant))
             log_path = log_dir / rel_dir / ("%s-%s.log" % (base, variant))
             for p in (ref_path, actual_path, diff_path, log_path):
                 p.parent.mkdir(parents=True, exist_ok=True)
 
-            status, mse, output, timed_out = run_test(
-                headless, dump, variant_args, ref_path, actual_path, diff_path,
-                max_mse, timeout, output_root)
+            if not ref_path.exists() and not generate_refs:
+                status = STATUS_ERROR
+                mse = None
+                output = ""
+                timed_out = False
+            else:
+                status, mse, output, timed_out = run_test(
+                    headless, dump, variant_args, ref_path, actual_path, diff_path,
+                    max_mse, timeout, output_root)
 
             detail = ""
-            if status == STATUS_FAIL:
+            if status == STATUS_ERROR and not ref_path.exists() and not generate_refs:
+                detail = "no reference image '%s' available for this variant (references are only generated for variants whose suffix matches their compare-suffix)" % vinfo["compare_suffix"]
+            elif status == STATUS_FAIL:
                 if timed_out:
                     detail = "timed out"
                 elif mse is None:
@@ -357,7 +389,7 @@ def main():
                     print("::error file=%s::%s errored (%s)" % (rel, variant, detail))
             elif status == STATUS_NEW:
                 new_refs += 1
-                gen_path = generated_dir / rel_dir / ("%s-%s.png" % (base, variant))
+                gen_path = generated_dir / rel_dir / ("%s-%s.png" % (base, vinfo["compare_suffix"]))
                 gen_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ref_path, gen_path)
                 if strict:
