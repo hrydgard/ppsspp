@@ -74,12 +74,17 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 		// Step 2: Resource, params (what's after the ?, if any)
 		const char *endptr = strchr(buffer, ' ');
 		const char *q_ptr = strchr(buffer, '?');
+		if (!endptr) {
+			// No trailing space (e.g. a bare HTTP/0.9 "GET /" request). Fall back to
+			// the end of the line instead of leaving endptr null.
+			endptr = buffer + strlen(buffer);
+		}
 
 		int resource_name_len;
 		if (q_ptr)
-			resource_name_len = q_ptr - buffer;
+			resource_name_len = (int)(q_ptr - buffer);
 		else
-			resource_name_len = endptr - buffer;
+			resource_name_len = (int)(endptr - buffer);
 		if (!resource_name_len) {
 			status = 400;
 			return -1;
@@ -88,7 +93,9 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 		memcpy(resource, buffer, resource_name_len);
 		resource[resource_name_len] = '\0';
 		if (q_ptr) {
-			int param_length = endptr - q_ptr - 1;
+			int param_length = (int)(endptr - q_ptr - 1);
+			if (param_length < 0)
+				param_length = 0;
 			params = new char[param_length + 1];
 			memcpy(params, q_ptr + 1, param_length);
 			params[param_length] = '\0';
