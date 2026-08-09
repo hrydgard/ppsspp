@@ -1464,7 +1464,7 @@ bool Config::Save(const char *saveReason) {
 				}
 				if (!ShouldSaveSetting(meta.settings[j].GetVoidPtr(configBlock))) {
 					// Skip settings marked as "don't save".
-					INFO_LOG(Log::Config, "Not saving setting '%.*s' as marked as don't save.", STR_VIEW(meta.settings[j].IniKey()));
+					DEBUG_LOG(Log::Config, "Not saving setting '%.*s' as marked as don't save.", STR_VIEW(meta.settings[j].IniKey()));
 					continue;
 				}
 				meta.settings[j].WriteToIniSection(configBlock, section);

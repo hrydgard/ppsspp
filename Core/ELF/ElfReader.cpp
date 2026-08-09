@@ -560,7 +560,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			}
 		}
 	}
-	memblock.ListBlocks();
+	memblock.ListBlocks(LogLevel::LDEBUG);
 
 	DEBUG_LOG(Log::Loader, "%d sections:", header->e_shnum);
 

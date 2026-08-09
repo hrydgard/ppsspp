@@ -43,7 +43,7 @@ RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 }
 
 void VulkanQueueRunner::CreateDeviceObjects() {
-	INFO_LOG(Log::G3D, "VulkanQueueRunner::CreateDeviceObjects");
+	DEBUG_LOG(Log::G3D, "VulkanQueueRunner::CreateDeviceObjects");
 
 	RPKey key{
 		VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR, VKRRenderPassLoadAction::CLEAR,
@@ -67,7 +67,7 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 }
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
-	INFO_LOG(Log::G3D, "VulkanQueueRunner::DestroyDeviceObjects");
+	DEBUG_LOG(Log::G3D, "VulkanQueueRunner::DestroyDeviceObjects");
 
 	syncReadback_.Destroy(vulkan_);
 

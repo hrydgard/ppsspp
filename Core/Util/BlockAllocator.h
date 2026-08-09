@@ -21,6 +21,8 @@ class PointerWrap;
 
 #include "Common/CommonTypes.h"
 
+#include "Common/Log.h"
+
 class BlockAllocator
 {
 public:
@@ -30,7 +32,7 @@ public:
 	void Init(u32 _rangeStart, u32 _rangeSize, bool suballoc);
 	void Shutdown();
 
-	void ListBlocks() const;
+	void ListBlocks(LogLevel level) const;
 
 	// WARNING: size can be modified upwards!
 	u32 Alloc(u32 &size, bool fromTop = false, const char *tag = 0);

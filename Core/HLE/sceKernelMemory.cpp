@@ -371,18 +371,18 @@ void __KernelMemoryDoState(PointerWrap &p)
 void __KernelMemoryShutdown()
 {
 #ifdef _DEBUG
-	INFO_LOG(Log::sceKernel, "Shutting down volatile memory pool: ");
-	volatileMemory.ListBlocks();
+	DEBUG_LOG(Log::sceKernel, "Shutting down volatile memory pool");
+	volatileMemory.ListBlocks(LogLevel::LDEBUG);
 #endif
 	volatileMemory.Shutdown();
 #ifdef _DEBUG
-	INFO_LOG(Log::sceKernel,"Shutting down user memory pool: ");
-	userMemory.ListBlocks();
+	DEBUG_LOG(Log::sceKernel,"Shutting down user memory pool");
+	userMemory.ListBlocks(LogLevel::LDEBUG);
 #endif
 	userMemory.Shutdown();
 #ifdef _DEBUG
-	INFO_LOG(Log::sceKernel,"Shutting down \"kernel\" memory pool: ");
-	kernelMemory.ListBlocks();
+	DEBUG_LOG(Log::sceKernel,"Shutting down \"kernel\" memory pool");
+	kernelMemory.ListBlocks(LogLevel::LDEBUG);
 #endif
 	kernelMemory.Shutdown();
 	tlsplThreadEndChecks.clear();
@@ -823,7 +823,7 @@ public:
 			else
 				address = alloc->Alloc(size, type == PSP_SMEM_High, name);
 #ifdef _DEBUG
-			alloc->ListBlocks();
+			alloc->ListBlocks(LogLevel::LDEBUG);
 #endif
 		}
 	}
@@ -1914,7 +1914,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	u32 totalSize = alignedSize * count;
 	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, StringFromFormat("TLS/%s", name).c_str());
 #ifdef _DEBUG
-	allocator->ListBlocks();
+	allocator->ListBlocks(LogLevel::LDEBUG);
 #endif
 
 	if (blockPtr == (u32)-1)
