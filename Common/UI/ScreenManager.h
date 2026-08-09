@@ -47,7 +47,7 @@ public:
 		postRenderUserdata_ = userdata;
 	}
 
-	ScreenRenderFlags render();
+	ScreenRenderFlags Render(std::function<void()> afterPreRender);
 	void resized();
 	void shutdown();
 

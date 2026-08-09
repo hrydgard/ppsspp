@@ -1285,15 +1285,14 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		Core_ProcessCPUQueue();
 
 		// All actual rendering (and also emulation) happens in this render() call.
-		renderFlags = g_screenManager->render();
+		renderFlags = g_screenManager->Render([]() {
+			runImDebugger(g_draw);
+		});
+		renderImDebugger(g_draw);
 		if (g_screenManager->getUIContext()->Text()) {
 			g_screenManager->getUIContext()->Text()->OncePerFrame();
 		}
-
 		ui_draw2d.PopDrawMatrix();
-
-		runImDebugger(g_draw);
-		renderImDebugger(g_draw);
 	}
 	g_draw->EndFrame();
 
