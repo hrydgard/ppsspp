@@ -467,7 +467,7 @@ jobs:
       run: python3 frametests.py frametests/frametests.json --out-mode=failures
 
     - name: Upload frametest report
-      uses: actions/upload-artifact@v8
+      uses: actions/upload-artifact@v7
       if: runner.os == 'Linux' && hashFiles('frametests/dumps/**') != '' && hashFiles('frametests/frametests.json') != '' && always()
       with:
         name: frametest-report
