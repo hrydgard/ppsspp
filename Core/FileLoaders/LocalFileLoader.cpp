@@ -192,33 +192,42 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 	// Toolchain has no fancy IO API.  We must lock.
 	std::lock_guard<std::mutex> guard(readLock_);
 	lseek(fd_, absolutePos, SEEK_SET);
-	return read(fd_, data, bytes * count) / bytes;
+	// read() returns -1 on error, not a short count. Dividing that (implicitly
+	// converted to a huge size_t) by bytes would otherwise report a huge bogus
+	// success instead of a failure, so callers would trust unwritten data.
+	ssize_t retval = read(fd_, data, bytes * count);
+	return retval < 0 ? 0 : (size_t)retval / bytes;
 #elif PPSSPP_PLATFORM(ANDROID)
 	// pread64 doesn't appear to actually be 64-bit safe, though such ISOs are uncommon.  See #10862.
 	if (absolutePos <= 0x7FFFFFFF) {
 #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64
-		return pread64(fd_, data, bytes * count, absolutePos) / bytes;
+		ssize_t retval = pread64(fd_, data, bytes * count, absolutePos);
 #else
-		return pread(fd_, data, bytes * count, absolutePos) / bytes;
+		ssize_t retval = pread(fd_, data, bytes * count, absolutePos);
 #endif
+		return retval < 0 ? 0 : (size_t)retval / bytes;
 	} else {
 		// Since pread64 doesn't change the file offset, it should be safe to avoid the lock in the common case.
 		std::lock_guard<std::mutex> guard(readLock_);
 		lseek64(fd_, absolutePos, SEEK_SET);
-		return read(fd_, data, bytes * count) / bytes;
+		ssize_t retval = read(fd_, data, bytes * count);
+		return retval < 0 ? 0 : (size_t)retval / bytes;
 	}
 #elif !defined(_WIN32)
 #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64
-	return pread64(fd_, data, bytes * count, absolutePos) / bytes;
+	ssize_t retval = pread64(fd_, data, bytes * count, absolutePos);
 #else
-	return pread(fd_, data, bytes * count, absolutePos) / bytes;
+	ssize_t retval = pread(fd_, data, bytes * count, absolutePos);
 #endif
+	return retval < 0 ? 0 : (size_t)retval / bytes;
 #else
 	DWORD read = -1;
 	OVERLAPPED offset = { 0 };
 	offset.Offset = (DWORD)(absolutePos & 0xffffffff);
 	offset.OffsetHigh = (DWORD)((absolutePos & 0xffffffff00000000) >> 32);
 	auto result = ReadFile(handle_, data, (DWORD)(bytes * count), &read, &offset);
-	return result == TRUE ? (size_t)read / bytes : -1;
+	// On failure, report 0 bytes read rather than (size_t)-1 - callers treat the
+	// return value as a byte/unit count, not an error sentinel.
+	return result == TRUE ? (size_t)read / bytes : 0;
 #endif
 }
