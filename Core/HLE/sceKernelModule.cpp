@@ -1913,10 +1913,12 @@ int __KernelGPUReplay() {
 	}
 
 	if (result == GPURecord::ReplayResult::Done && PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
+		DebugScreenshotDesc desc;
 		PSPPointer<u8> topaddr;
-		u32 linesize = 512;
-		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
-		System_SendDebugScreenshot(&topaddr[0], linesize, 272);
+		__DisplayGetFramebuf(&topaddr, &desc.stride, &desc.format, 0);
+		desc.data = &topaddr[0];
+		desc.height = 272;
+		Core_SendDebugScreenshot(desc);
 		Core_Stop();
 	}
 

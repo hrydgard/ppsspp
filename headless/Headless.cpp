@@ -144,10 +144,6 @@ void FlushDebugOutput() {
 	}
 }
 
-void SetWriteDebugOutput(bool flag) {
-	g_writeDebugOutput = flag;
-}
-
 void SetComparisonScreenshot(const Path &filename, double maxError) {
 	g_comparisonScreenshot = filename;
 	g_maxScreenshotError = maxError;
@@ -174,31 +170,27 @@ void SendDebugOutput(std::string_view output) {
 	}
 }
 
-bool System_SendDebugOutput(std::string_view data) {
-	SendDebugOutput(data);
-	return true;
-}
-
-void SendAndCollectOutput(const std::string &output) {
+void SendAndCollectOutput(std::string_view output) {
 	SendDebugOutput(output);
 	if (PSP_CoreParameter().collectDebugOutput) {
 		*PSP_CoreParameter().collectDebugOutput += output;
 	}
 }
 
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
-	const u8 *pixbuf = (const u8 *)data;
-	u32 w = width;
-	u32 h = height;
+void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
+	const u8 *pixbuf = (const u8 *)desc.data;
+	u32 w = desc.stride;
+	u32 h = desc.height;
 
 	// We ignore the current framebuffer parameters and just grab the full screen.
+	// TOOD: Uh, why not use them? They should be the same.
 	const static u32 FRAME_STRIDE = 512;
 	const static u32 FRAME_WIDTH = 480;
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
 	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
-	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
+	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, FRAME_STRIDE, FRAME_HEIGHT);
 
 	// If a screenshot save path is set, save unconditionally.
 	if (!g_screenshotSavePath.empty()) {
@@ -301,8 +293,9 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	g_screenshotFailed = false;
 
 	std::string output;
-	if (opt.compare || opt.bench)
+	if (opt.compare || opt.bench) {
 		coreParameter.collectDebugOutput = &output;
+	}
 
 	if (!PSP_InitStart(coreParameter)) {
 		// Shouldn't really happen anymore, the errors happen later in PSP_InitUpdate.
@@ -397,7 +390,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose, opt.printEqualLines);
 	}
 
-	// Screenshot comparison failures are recorded in System_SendDebugScreenshot.
+	// Screenshot comparison failures are recorded in SendDebugScreenshot.
 	if (!g_comparisonScreenshot.empty() && g_screenshotFailed) {
 		passed = false;
 	}
@@ -621,6 +614,8 @@ int main(int argc, const char* argv[]) {
 
 	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);
 
+	Core_RegisterDebugOutputListeners(&SendDebugOutput, &SendDebugScreenshot);
+
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
@@ -786,8 +781,9 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.screenshotSaveKeepAlpha.has_value()) {
 		g_screenshotSaveKeepAlpha = cmdLineOptions.screenshotSaveKeepAlpha.value();
 	}
+
 	SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
-	SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
+	g_writeDebugOutput = !testOptions.compare && !testOptions.bench;
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?

@@ -155,6 +155,28 @@ static MIPSExceptionInfo g_exceptionInfo;
 // This is called on EmuThread before RunLoop.
 static bool Core_ProcessStepping(MIPSDebugInterface *cpu);
 
+static std::function<void(std::string_view)> g_debugOutputListener;
+static std::function<void(const DebugScreenshotDesc &)> g_debugScreenshotListener;
+
+void Core_RegisterDebugOutputListeners(std::function<void(std::string_view)> listener, std::function<void(const DebugScreenshotDesc &)> screenshotListener) {
+	g_debugOutputListener = std::move(listener);
+	g_debugScreenshotListener = std::move(screenshotListener);
+}
+
+void Core_SendDebugOutput(LogLevel level, std::string_view string) {
+	if (g_debugOutputListener) {
+		g_debugOutputListener(string);
+	} else {
+		GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
+	}
+}
+
+void Core_SendDebugScreenshot(const DebugScreenshotDesc &desc) {
+	if (g_debugScreenshotListener) {
+		g_debugScreenshotListener(desc);
+	}
+}
+
 BreakReason Core_BreakReason() {
 	return g_breakReason;
 }

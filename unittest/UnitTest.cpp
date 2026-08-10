@@ -127,8 +127,6 @@ void System_RunOnMainThread(std::function<void()>) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
-bool System_SendDebugOutput(std::string_view data) { return false; }
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
 
 // Temporary hacks around annoying linking errors.  Copied from Headless.

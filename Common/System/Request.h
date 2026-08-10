@@ -207,5 +207,3 @@ void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdat
 // Non-inline to avoid including Path.h
 void System_CreateGameShortcut(const Path &path, std::string_view title);
 void System_ShowFileInFolder(const Path &path);
-bool System_SendDebugOutput(std::string_view string);
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height);

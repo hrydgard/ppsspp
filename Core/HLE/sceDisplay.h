@@ -19,6 +19,8 @@
 
 #include "Core/MemMap.h"
 
+enum GEBufferFormat : uint8_t;
+
 void __DisplayInit();
 void __DisplayDoState(PointerWrap &p);
 void __DisplayShutdown();
@@ -26,7 +28,7 @@ void __DisplayShutdown();
 void Register_sceDisplay();
 
 // Get information about the current framebuffer.
-bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int mode);
+bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, GEBufferFormat *pixelFormat, int mode);
 void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 
 // Call this when resuming to avoid a small speedup burst
