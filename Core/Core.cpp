@@ -711,11 +711,23 @@ void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, Memor
 		HLEFormatLogArgs(mips, args, sizeof(args), func->argmask);
 	}
 
+	const char *extra = "";
+	// We do report some unaligned addresses. There are probably more that should report.
+	// We try to derive the reason here, though maybe it should be passed in explicitly?
+	// TODO: This check should probably be added to regular memory accesses too.
+	if (Memory::IsValidAddress(address)) {
+		if (accessSize == 2 || accessSize == 4 || accessSize == 8 || (address & (accessSize - 1))) {
+			extra = " (unaligned)";
+		} else if (accessSize > 8 && (accessSize & 3)) {
+			extra = " (unaligned struct)";
+		}
+	}
+
 	const u32 pc = mips->pc;
 	char msg[512];
-	snprintf(msg, sizeof(msg), "Invalid access in %s(%s) at %08x%s (size %08x) PC %08x%s RA %08x%s",
+	snprintf(msg, sizeof(msg), "Invalid access in %s(%s) %s at %08x%s (size %08x) PC %08x%s RA %08x%s",
 		funcName, args,
-		address, ModuleAddressSuffix(address).c_str(), accessSize,
+		extra, address, ModuleAddressSuffix(address).c_str(), accessSize,
 		pc, ModuleAddressSuffix(pc).c_str(),
 		mips->r[MIPS_REG_RA], ModuleAddressSuffix(mips->r[MIPS_REG_RA]).c_str());
 

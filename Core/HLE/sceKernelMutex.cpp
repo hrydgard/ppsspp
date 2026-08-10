@@ -18,11 +18,13 @@
 #include <algorithm>
 #include <map>
 #include <unordered_map>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
+#include "Core/Core.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
@@ -317,9 +319,13 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	}
 
 	if (optionsPtr != 0) {
-		u32 size = Memory::Read_U32(optionsPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
+		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
+			u32 size = Memory::ReadUnchecked_U32(optionsPtr);
+			if (size > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
+		} else {
+			Core_MemoryExceptionHLE(currentMIPS, optionsPtr, 4, MemoryExceptionType::HLE_READ);
+		}
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
@@ -327,8 +333,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	return hleLogDebug(Log::sceKernel, id);
 }
 
-int sceKernelDeleteMutex(SceUID id)
-{
+int sceKernelDeleteMutex(SceUID id) {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 	if (!mutex) {
@@ -365,8 +370,7 @@ static bool __KernelLockMutexCheck(PSPMutex *mutex, int count, u32 &error) {
 	else if (count + mutex->nm.lockLevel < 0)
 		error = SCE_MUTEX_ERROR_LOCK_OVERFLOW;
 	// Only a recursive mutex can re-lock.
-	else if (mutex->nm.lockThread == __KernelGetCurThread())
-	{
+	else if (mutex->nm.lockThread == __KernelGetCurThread()) {
 		if (mutexIsRecursive)
 			return true;
 
@@ -457,11 +461,14 @@ void __KernelMutexThreadEnd(SceUID threadID)
 	}
 }
 
+// The timeoutPtr is assumed to be checked by the caller to either be 0 or valid.
 static void __KernelWaitMutex(PSPMutex *mutex, u32 timeoutPtr) {
+	_dbg_assert_(mutexWaitTimer != -1);  // this could only come from extremely old savestates.
+
 	if (timeoutPtr == 0 || mutexWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
+	int micro = (int) Memory::ReadUnchecked_U32(timeoutPtr);
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
@@ -521,12 +528,18 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
-int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
-{
+int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
 	// This ID is always invalid.
 	if (id == 0x80020001 && timeoutPtr == 0) {
 		return hleNoLog(0);
+	}
+
+	if (timeoutPtr != 0) {
+		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
+			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
+			return hleNoLog(0);
+		}
 	}
 
 	u32 error;
@@ -555,8 +568,14 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 }
 
 // int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
-int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
-{
+int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
+	if (timeoutPtr != 0) {
+		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
+			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
+			return hleNoLog(0);
+		}
+	}
+
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
@@ -698,11 +717,14 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	workarea->attr = attr;
 	workarea->uid = id;
 
-	if (optionsPtr != 0)
-	{
-		u32 size = Memory::Read_U32(optionsPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
+	if (optionsPtr != 0) {
+		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
+			u32 size = Memory::ReadUnchecked_U32(optionsPtr);
+			if (size > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
+		} else {
+			Core_MemoryExceptionHLE(currentMIPS, optionsPtr, 4, MemoryExceptionType::HLE_READ);
+		}
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
@@ -723,9 +745,8 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 		workarea->lockThread = threadID;
 	}
 
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
-	{
+	const u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0 && lwMutexWaitTimer != -1) {
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
@@ -849,12 +870,12 @@ void __KernelLwMutexTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<LwMutex, WAITTYPE_LWMUTEX>(threadID);
 }
 
-static void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
-{
+// timeoutPtr is assumed to be checked by the caller to either be 0 or valid.
+static void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || lwMutexWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
+	int micro = (int) Memory::ReadUnchecked_U32(timeoutPtr);
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
@@ -889,8 +910,7 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(Log::sceKernel, "sceKernelLockLwMutexCB: Resuming lock wait for callback");
 }
 
-int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
-{
+int sceKernelTryLockLwMutex(u32 workareaPtr, int count) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
@@ -908,8 +928,7 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 		return hleLogDebug(Log::sceKernel, SCE_MUTEX_ERROR_TRYLOCK_FAILED);
 }
 
-int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
-{
+int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
@@ -926,22 +945,27 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 		return hleLogDebug(Log::sceKernel, SCE_LWMUTEX_ERROR_TRYLOCK_FAILED);
 }
 
-int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
-{
+int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
+	}
+
+	if (timeoutPtr) {
+		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
+			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
+			return hleNoLog(0);
+		}
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	hleEatCycles(48);
 
 	u32 error = 0;
-	if (__KernelLockLwMutex(workarea, count, error))
+	if (__KernelLockLwMutex(workarea, count, error)) {
 		return hleLogVerbose(Log::sceKernel, 0);
-	else if (error)
+	} else if (error) {
 		return hleLogVerbose(Log::sceKernel, error);
-	else
-	{
+	} else {
 		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
 		if (!mutex) {
 			return hleLogError(Log::sceKernel, error);
@@ -959,24 +983,27 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 	}
 }
 
-int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
-{
-	VERBOSE_LOG(Log::sceKernel, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
-
+int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
+	}
+
+	if (timeoutPtr) {
+		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
+			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
+			return hleNoLog(0);
+		}
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	hleEatCycles(48);
 
 	u32 error = 0;
-	if (__KernelLockLwMutex(workarea, count, error))
+	if (__KernelLockLwMutex(workarea, count, error)) {
 		return hleLogVerbose(Log::sceKernel, 0);
-	else if (error)
+	} else if (error) {
 		return hleLogVerbose(Log::sceKernel, error);
-	else
-	{
+	} else {
 		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
 		if (!mutex) {
 			return hleLogError(Log::sceKernel, error);
@@ -994,8 +1021,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	}
 }
 
-int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
-{
+int sceKernelUnlockLwMutex(u32 workareaPtr, int count) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
@@ -1018,8 +1044,7 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 
 	workarea->lockLevel -= count;
 
-	if (workarea->lockLevel == 0)
-	{
+	if (workarea->lockLevel == 0) {
 		u32 error;
 		if (__KernelUnlockLwMutex(workarea, error))
 			hleReSchedule("lwmutex unlocked");
@@ -1032,16 +1057,17 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 static int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr) {
 	u32 error;
 	LwMutex *m = kernelObjects.Get<LwMutex>(uid, error);
-	if (!m)
+	if (!m) {
 		return hleLogError(Log::sceKernel, error, "invalid id");
+	}
 
 	// Should we crash the thread somehow?
 	auto info = PSPPointer<NativeLwMutex>::Create(infoPtr);
-	if (!info.IsValid())
+	if (!info.IsValid()) {
 		return hleLogError(Log::sceKernel, -1, "invalid pointer");
+	}
 
-	if (info->size != 0)
-	{
+	if (info->size != 0) {
 		auto workarea = m->nm.workarea;
 
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_LWMUTEX, uid, m->waitingThreads);
