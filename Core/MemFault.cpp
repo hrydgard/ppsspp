@@ -32,6 +32,8 @@
 #include "Core/Util/DisArm64.h"
 #elif PPSSPP_ARCH(ARM)
 #include "ext/disarm.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "ext/riscv-disas.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
 #include "ext/loongarch-disasm.h"
 #endif
@@ -184,67 +186,12 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	ArmLSInstructionInfo info{};
 	success = ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
 #elif PPSSPP_ARCH(RISCV64)
-	// TODO: Put in a disassembler.
-	struct RiscVLSInstructionInfo {
-		int instructionSize;
-		bool isIntegerLoadStore;
-		bool isFPLoadStore;
-		int size;
-		bool isMemoryWrite;
-	};
-
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
-
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	RiscVLSInstructionInfo info{};
-	// Compressed instructions have low bits 00, 01, or 10.
-	info.instructionSize = (word & 3) == 3 ? 4 : 2;
+	success = RiscVAnalyzeLoadStore((uint64_t)codePtr, word, &info);
 	instructionSize = info.instructionSize;
-
-	success = true;
-	switch (word & 0x7F) {
-	case 3:
-		info.isIntegerLoadStore = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	case 7:
-		info.isFPLoadStore = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	case 35:
-		info.isIntegerLoadStore = true;
-		info.isMemoryWrite = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	case 39:
-		info.isFPLoadStore = true;
-		info.isMemoryWrite = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	default:
-		// Compressed instruction.
-		switch (word & 0x6003) {
-		case 0x4000:
-		case 0x4002:
-		case 0x6000:
-		case 0x6002:
-			info.isIntegerLoadStore = true;
-			info.size = (word & 0x2000) != 0 ? 8 : 4;
-			info.isMemoryWrite = (word & 0x8000) != 0;
-			break;
-		case 0x2000:
-		case 0x2002:
-			info.isFPLoadStore = true;
-			info.size = 8;
-			info.isMemoryWrite = (word & 0x8000) != 0;
-			break;
-		default:
-			// Not a read or a write.
-			success = false;
-			break;
-		}
-		break;
-	}
 #elif PPSSPP_ARCH(LOONGARCH64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
