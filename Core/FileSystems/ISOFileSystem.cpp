@@ -222,6 +222,16 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				ERROR_LOG(Log::FileSystem, "Directory entry crosses sectors, corrupt iso?");
 				return;
 			}
+			// dir.size (the record length actually consumed) must cover at least its
+			// own header and identifier, or a crafted sector could set it to 1 and
+			// make the loop reinterpret the same overlapping bytes as many separate
+			// entries, allocating far more TreeEntry objects than the sector's real
+			// size warrants.
+			if (dir.size < IDENTIFIER_OFFSET + dir.identifierLength) {
+				blockDevice->NotifyReadError();
+				ERROR_LOG(Log::FileSystem, "Directory entry size too small, corrupt iso?");
+				return;
+			}
 
 			offset += dir.size;
 
@@ -455,7 +465,9 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			// The remaining (or, usually, only) partial sector.
 			if (size > 0) {
 				u8 temp[2048];
-				blockDevice->ReadBlock(block, temp);
+				// `blocks` whole sectors starting at `block` were already consumed by
+				// ReadBlocks() above, so the trailing partial sector is the next one.
+				blockDevice->ReadBlock(block + blocks, temp);
 				memcpy(out, temp, size);
 			}
 			return 0;
