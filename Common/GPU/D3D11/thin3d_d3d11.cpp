@@ -293,9 +293,6 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 		swapChain_(swapChain),
 		deviceList_(std::move(deviceList)) {
 
-	// We no longer support Windows Phone.
-	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);
-
 	caps_.coordConvention = CoordConvention::Direct3D11;
 	caps_.fragmentShaderFullPrecisionFloat = true;
 
@@ -1876,7 +1873,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 }
 
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
-	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
+	// TODO: deviceContext1 can actually discard.
 	if (fbo) {
 		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {

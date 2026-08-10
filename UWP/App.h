@@ -1,7 +1,5 @@
 #pragma once
 
-#include <set>
-
 #include "pch.h"
 #include "Common/DeviceResources.h"
 #include "PPSSPP_UWPMain.h"
@@ -47,10 +45,6 @@ namespace UWP {
 		Touch touches[maxTouches]{};
 	};
 
-	enum class HardwareButton {
-		BACK,
-	};
-
 	// Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
 	struct App : winrt::implements<App, winrt::Windows::ApplicationModel::Core::IFrameworkView> {
 	public:
@@ -62,8 +56,6 @@ namespace UWP {
 		void Load(const winrt::hstring& entryPoint);
 		void Run();
 		void Uninitialize();
-
-		bool HasBackButton();
 
 	private:
 		// Application lifecycle event handlers.
@@ -98,12 +90,10 @@ namespace UWP {
 		void InitialPPSSPP();
 
 		std::shared_ptr<DX::DeviceResources> m_deviceResources;
-		std::set<HardwareButton> m_hardwareButtons;
 		std::unique_ptr<PPSSPP_UWPMain> m_main;
 		bool m_windowClosed;
 		bool m_windowVisible;
 
-		bool m_isPhone = false;
 		TouchMapper touchMap_;
 	};
 }
