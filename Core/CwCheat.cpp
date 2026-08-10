@@ -919,7 +919,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 					float f;
 					uint32_t u;
 				} value;
-				value.u = Memory::Read_U32(op.addr);
+				value.u = Memory::ReadUnchecked_U32(op.addr);  // we check the range above
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
 				switch (op.PostShaderUniform.format) {
 				case 0:
@@ -1035,8 +1035,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CwCheatPointerCommands:
 		{
+			if (!Memory::IsValidAddress(op.addr + op.pointerCommands.baseOffset)) {
+				break;
+			}
 			InvalidateICache(op.addr + op.pointerCommands.baseOffset, 4);  // See note at top of file
-			u32 base = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset);
+			u32 base = Memory::ReadUnchecked_U32(op.addr + op.pointerCommands.baseOffset);
 			u32 val = op.val;
 			int type = op.pointerCommands.type;
 			for (int a = 0; a < op.pointerCommands.count; ++a) {

@@ -1576,7 +1576,12 @@ int GPUCommon::GetCurrentPrim(GEPrimitiveType *prim, GECommand *outCmd) const {
 	DisplayList list;
 	u32 cmdWord;
 	if (GetCurrentDisplayList(list)) {
-		cmdWord = Memory::Read_U32(list.pc);
+		if (Memory::IsValid4AlignedAddress(list.pc)) {
+			cmdWord = Memory::ReadUnchecked_U32(list.pc);
+		} else {
+			// We are screwed.
+			return 0;
+		}
 	} else {
 		// Current prim value.
 		cmdWord = gstate.cmdmem[GE_CMD_PRIM];

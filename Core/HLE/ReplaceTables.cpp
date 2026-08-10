@@ -728,16 +728,21 @@ static bool GetMIPSGPAddress(u32 &addr, s32 offset) {
 static int Hook_godseaterburst_blit_texture() {
 	u32 texaddr;
 	// Only if there's no texture.
-	if (!GetMIPSStaticAddress(texaddr, 0x000c, 0x0030)) {
-		return 0;
-	}
-	u32 fb_infoaddr;
-	if (Memory::Read_U32(texaddr) != 0 || !GetMIPSStaticAddress(fb_infoaddr, 0x01d0, 0x01d4)) {
+	if (!GetMIPSStaticAddress(texaddr, 0x000c, 0x0030) || !Memory::IsValid4AlignedAddress(texaddr)) {
 		return 0;
 	}
 
-	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
-	const u32 fb_address = Memory::Read_U32(fb_info);
+	u32 fb_infoaddr;
+	if (Memory::ReadUnchecked_U32(texaddr) != 0 || !GetMIPSStaticAddress(fb_infoaddr, 0x01d0, 0x01d4) || !Memory::IsValid4AlignedAddress(fb_infoaddr)) {
+		return 0;
+	}
+
+	const u32 fb_info = Memory::ReadUnchecked_U32(fb_infoaddr);
+	if (!Memory::IsValid4AlignedAddress(fb_info)) {
+		return 0;
+	}
+
+	const u32 fb_address = Memory::ReadUnchecked_U32(fb_info);
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, 0x00044000);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "godseaterburst_blit_texture");

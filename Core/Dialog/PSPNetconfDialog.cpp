@@ -59,16 +59,21 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
+	if (!Memory::IsValid4AlignedRange(paramAddr, sizeof(request))) {
+		// What to do?
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;
+	}
+
 	NOTICE_LOG(Log::sceUtility, "PSPNetConfDialog Init");
 	jsonReady_ = false;
 	// Kick off a request to the infra-dns.json since we'll need it later.
 	StartInfraJsonDownload();
 
 	requestAddr = paramAddr;
-	int size = Memory::Read_U32(paramAddr);
+	const u32 size = Memory::ReadUnchecked_U32(paramAddr);
 	memset(&request, 0, sizeof(request));
-	// Only copy the right size to support different request format
-	Memory::Memcpy(&request, paramAddr, size);
+	// Only copy the right size (bounded by the struct) to support different request format
+	Memory::Memcpy(&request, paramAddr, std::min(size, (u32)sizeof(request)));
 
 	ChangeStatusInit(NET_INIT_DELAY_US);
 

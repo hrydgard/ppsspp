@@ -635,6 +635,10 @@ void ImStructViewer::DrawType(
 	}
 
 	const u32 address = base + offset;
+	if (!Memory::IsValidAddress(address)) {
+		// Bad!
+		return;
+	}
 	ImGui::PushID(static_cast<int>(address));
 	ImGui::PushID(watchId); // We push watch id too as it's possible to have multiple watches on the same address
 

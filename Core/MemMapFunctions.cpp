@@ -86,7 +86,7 @@ const u8 *GetPointerRange(const u32 address, const u32 size) {
 }
 
 template <typename T>
-inline void ReadFromHardware(T &var, const u32 address) {
+inline void ReadMemoryOrRaiseException(T &var, const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
@@ -99,7 +99,7 @@ inline void ReadFromHardware(T &var, const u32 address) {
 }
 
 template <typename T>
-inline void WriteToHardware(u32 address, const T data) {
+inline void WriteMemoryOrRaiseException(u32 address, const T data) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
@@ -126,25 +126,25 @@ bool IsScratchpadAddress(const u32 address) {
 
 u8 Read_U8(const u32 address) {
 	u8 value = 0;
-	ReadFromHardware<u8>(value, address);
+	ReadMemoryOrRaiseException<u8>(value, address);
 	return (u8)value;
 }
 
 u16 Read_U16(const u32 address) {
 	u16_le value = 0;
-	ReadFromHardware<u16_le>(value, address);
+	ReadMemoryOrRaiseException<u16_le>(value, address);
 	return (u16)value;
 }
 
 u32 Read_U32(const u32 address) {
 	u32_le value = 0;
-	ReadFromHardware<u32_le>(value, address);
+	ReadMemoryOrRaiseException<u32_le>(value, address);
 	return value;
 }
 
 u64 Read_U64(const u32 address) {
 	u64_le value = 0;
-	ReadFromHardware<u64_le>(value, address);
+	ReadMemoryOrRaiseException<u64_le>(value, address);
 	return value;
 }
 
@@ -157,19 +157,19 @@ u32 Read_U16_ZX(const u32 address) {
 }
 
 void Write_U8(const u8 _Data, const u32 address) {
-	WriteToHardware<u8>(address, _Data);
+	WriteMemoryOrRaiseException<u8>(address, _Data);
 }
 
 void Write_U16(const u16 _Data, const u32 address) {
-	WriteToHardware<u16_le>(address, _Data);
+	WriteMemoryOrRaiseException<u16_le>(address, _Data);
 }
 
 void Write_U32(const u32 _Data, const u32 address) {
-	WriteToHardware<u32_le>(address, _Data);
+	WriteMemoryOrRaiseException<u32_le>(address, _Data);
 }
 
 void Write_U64(const u64 _Data, const u32 address) {
-	WriteToHardware<u64_le>(address, _Data);
+	WriteMemoryOrRaiseException<u64_le>(address, _Data);
 }
 
 }	// namespace Memory
