@@ -730,7 +730,7 @@ void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, Memor
 	const HLEFunction *func = HLEGetFunctionBeingCalled();
 	const char *funcName = func ? func->name : "unknown";
 
-	char args[512] = "";
+	char args[256] = "";
 	if (func) {
 		HLEFormatLogArgs(mips, args, sizeof(args), func->argmask);
 	}
