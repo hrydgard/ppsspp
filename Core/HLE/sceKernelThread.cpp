@@ -28,6 +28,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Core/Core.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/HLETables.h"
@@ -357,8 +358,7 @@ bool PSPThread::AllocateStack(u32 &stackSize) {
 
 	bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
 	currentStack.start = StackAllocator().Alloc(stackSize, fromTop, StringFromFormat("stack/%s", nt.name).c_str());
-	if (currentStack.start == (u32)-1)
-	{
+	if (currentStack.start == (u32)-1) {
 		currentStack.start = 0;
 		nt.initialStack = 0;
 		ERROR_LOG(Log::sceKernel, "Failed to allocate stack for thread");
@@ -1155,8 +1155,7 @@ SceUID __KernelGetCurrentCallbackID(SceUID threadID, u32 &error) {
 	}
 }
 
-u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
-{
+u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr) {
 	static const u32 THREADINFO_SIZE = 104;
 	static const u32 THREADINFO_SIZE_AFTER_260 = 108;
 
@@ -1171,7 +1170,12 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 		return hleLogError(Log::sceKernel, error, "bad thread");
 	}
 
-	u32 wantedSize = Memory::Read_U32(statusPtr);
+	if (!Memory::IsValid4AlignedAddress(statusPtr)) {
+		Core_MemoryExceptionHLE(currentMIPS, statusPtr, 0, MemoryExceptionType::HLE_READ);
+		return hleNoLog(0);
+	}
+
+	u32 wantedSize = Memory::ReadUnchecked_U32(statusPtr);
 
 	if (sceKernelGetCompiledSdkVersion() > 0x02060010) {
 		if (wantedSize > THREADINFO_SIZE_AFTER_260) {
@@ -1199,8 +1203,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 }
 
 // Thanks JPCSP
-u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
-{
+u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr) {
 	if (threadID == 0)
 		threadID = __KernelGetCurThread();
 
@@ -1210,8 +1213,10 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 		return hleLogError(Log::sceKernel, error, "bad thread");
 	}
 
-	if (!Memory::IsValidAddress(statusPtr))
+	if (!Memory::IsValidRange(statusPtr, sizeof(SceKernelThreadRunStatus))) {
+		// Raise exception?
 		return hleLogError(Log::sceKernel, -1);
+	}
 
 	auto runStatus = PSPPointer<SceKernelThreadRunStatus>::Create(statusPtr);
 
@@ -2574,7 +2579,7 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr) {
 		if (t->nt.status != THREADSTATUS_DORMANT)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
-				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
+				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::ReadUnchecked_U32(timeoutPtr));
 			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false, "thread wait end");
@@ -2601,7 +2606,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr) {
 		if (t->nt.status != THREADSTATUS_DORMANT)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
-				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
+				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::ReadUnchecked_U32(timeoutPtr));
 			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true, "thread wait end");
@@ -2828,25 +2833,28 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
-void __KernelReturnFromExtendStack()
-{
+void __KernelReturnFromExtendStack() {
 	hleSkipDeadbeef();
 
 	PSPThread *thread = __GetCurrentThread();
-	if (!thread)
-	{
+	if (!thread) {
 		ERROR_LOG_REPORT(Log::sceKernel, "__KernelReturnFromExtendStack() - not on a thread?");
 		hleNoLogVoid();
 		return;
 	}
 
-	// Grab the saved regs at the top of the stack.
-	u32 restoreRA = Memory::Read_U32(thread->currentStack.end - 4);
-	u32 restoreSP = Memory::Read_U32(thread->currentStack.end - 8);
-	u32 restorePC = Memory::Read_U32(thread->currentStack.end - 12);
+	if (!Memory::IsValid4AlignedRange(thread->currentStack.end - 12, 12)) {
+		Core_MemoryExceptionHLE(currentMIPS, thread->currentStack.end, 12, MemoryExceptionType::HLE_READ);
+		hleNoLogVoid();
+		return;
+	}
 
-	if (!thread->PopExtendedStack())
-	{
+	// Grab the saved regs at the top of the stack.
+	u32 restoreRA = Memory::ReadUnchecked_U32(thread->currentStack.end - 4);
+	u32 restoreSP = Memory::ReadUnchecked_U32(thread->currentStack.end - 8);
+	u32 restorePC = Memory::ReadUnchecked_U32(thread->currentStack.end - 12);
+
+	if (!thread->PopExtendedStack()) {
 		ERROR_LOG_REPORT(Log::sceKernel, "__KernelReturnFromExtendStack() - no stack to restore?");
 		return;
 	}
@@ -2944,16 +2952,15 @@ void __KernelSwitchContext(PSPThread *target, const char *reason) {
 			__KernelChangeReadyState(cur, oldUID, true);
 	}
 
-	if (target)
-	{
+	if (target) {
 		__SetCurrentThread(target, target->GetUID(), target->nt.name);
 		__KernelChangeReadyState(target, currentThread, false);
 		target->nt.status = (target->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
 
 		__KernelLoadContext(&target->context, (target->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
-	}
-	else
+	} else {
 		__SetCurrentThread(NULL, 0, NULL);
+	}
 
 	const bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
 	const bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
@@ -3187,14 +3194,21 @@ void __KernelReturnFromMipsCall() {
 		call->doAfter = nullptr;
 	}
 
-	u32 &sp = currentMIPS->r[MIPS_REG_SP];
-	for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; ++i) {
-		currentMIPS->r[i] = Memory::Read_U32(sp + i * 4);
+	u32 sp = currentMIPS->r[MIPS_REG_SP];
+	if (!Memory::IsValid4AlignedRange(sp, 32 * 4)) {
+		// We're really screwed.
+		Core_MemoryExceptionHLE(currentMIPS, sp, 4, MemoryExceptionType::HLE_READ);
+		return hleNoLogVoid();
 	}
-	currentMIPS->r[MIPS_REG_T8] = Memory::Read_U32(sp + MIPS_REG_T8 * 4);
-	currentMIPS->r[MIPS_REG_T9] = Memory::Read_U32(sp + MIPS_REG_T9 * 4);
-	currentMIPS->r[MIPS_REG_RA] = Memory::Read_U32(sp + MIPS_REG_RA * 4);
-	sp += 32 * 4;
+
+	for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; ++i) {
+		currentMIPS->r[i] = Memory::ReadUnchecked_U32(sp + i * 4);
+	}
+	currentMIPS->r[MIPS_REG_T8] = Memory::ReadUnchecked_U32(sp + MIPS_REG_T8 * 4);
+	currentMIPS->r[MIPS_REG_T9] = Memory::ReadUnchecked_U32(sp + MIPS_REG_T9 * 4);
+	currentMIPS->r[MIPS_REG_RA] = Memory::ReadUnchecked_U32(sp + MIPS_REG_RA * 4);
+	// Increment SP.
+	currentMIPS->r[MIPS_REG_SP] += 32 * 4;
 
 	KernelValidateThreadTarget(call->savedPc);
 
@@ -3210,15 +3224,11 @@ void __KernelReturnFromMipsCall() {
 	}
 	currentCallbackThreadID = 0;
 
-	if (cur->nt.waitType != WAITTYPE_NONE)
-	{
-		if (call->cbId > 0)
-		{
-			if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL)
-				waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
-			else
-				ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d", cur->nt.waitType);
-		}
+	if (cur->nt.waitType != WAITTYPE_NONE && call->cbId > 0) {
+		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL)
+			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
+		else
+			ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d", cur->nt.waitType);
 	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
@@ -3568,8 +3578,7 @@ bool __KernelIsExitCallbackPending() {
 }
 
 // Update the exit callback status?
-int LoadExecForUser_362A956B()
-{
+int LoadExecForUser_362A956B() {
 	WARN_LOG_REPORT(Log::sceKernel, "LoadExecForUser_362A956B()");
 	u32 error;
 	PSPCallback *cb = kernelObjects.Get<PSPCallback>(registeredExitCbId, error);
@@ -3577,24 +3586,23 @@ int LoadExecForUser_362A956B()
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_UNKNOWN_CBID, "registeredExitCbId not found 0x%x", registeredExitCbId);
 	}
 	int cbArg = cb->nc.commonArgument;
-	if (!Memory::IsValidAddress(cbArg)) {
+	if (!Memory::IsValidRange(cbArg - 8, 8)) {
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address for cbArg (0x%08X)", cbArg);
 	}
-	u32 unknown1 = Memory::Read_U32(cbArg - 8);
+	const u32 unknown1 = Memory::ReadUnchecked_U32(cbArg - 8);
 	if (unknown1 >= 4) {
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid value unknown1 (0x%08X)", unknown1);
 	}
-	u32 parameterArea = Memory::Read_U32(cbArg - 4);
-	if (!Memory::IsValidAddress(parameterArea)) {
+	const u32 parameterArea = Memory::ReadUnchecked_U32(cbArg - 4);
+	if (!Memory::IsValid4AlignedRange(parameterArea, 12)) {
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address for parameterArea on userMemory  (0x%08X)", parameterArea);
 	}
-
-	u32 size = Memory::Read_U32(parameterArea);
+	const u32 size = Memory::ReadUnchecked_U32(parameterArea);
 	if (size < 12) {
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_SIZE, "invalid parameterArea size %d", size);
 	}
-	Memory::Write_U32(0, parameterArea + 4);
-	Memory::Write_U32(-1, parameterArea + 8);
+	Memory::WriteUnchecked_U32(0, parameterArea + 4);
+	Memory::WriteUnchecked_U32(-1, parameterArea + 8);
 	return hleLogDebug(Log::sceKernel, 0);
 }
 

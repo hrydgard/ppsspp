@@ -426,14 +426,12 @@ static bool __KernelUnlockMutex(PSPMutex *mutex, u32 &error) {
 	return wokeThreads;
 }
 
-void __KernelMutexTimeout(u64 userdata, int cyclesLate)
-{
+void __KernelMutexTimeout(u64 userdata, int cyclesLate) {
 	SceUID threadID = (SceUID)userdata;
 	HLEKernel::WaitExecTimeout<PSPMutex, WAITTYPE_MUTEX>(threadID);
 }
 
-void __KernelMutexThreadEnd(SceUID threadID)
-{
+void __KernelMutexThreadEnd(SceUID threadID) {
 	u32 error;
 
 	// If it was waiting on the mutex, it should finish now.
@@ -480,8 +478,7 @@ static void __KernelWaitMutex(PSPMutex *mutex, u32 timeoutPtr) {
 	CoreTiming::ScheduleEvent(usToCycles(micro), mutexWaitTimer, __KernelGetCurThread());
 }
 
-int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
-{
+int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr) {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(uid, error);
 	if (!mutex) {
@@ -527,7 +524,6 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 	}
 }
 
-// int sceKernelLockMutex(SceUID id, int count, int *timeout)
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
 	// This ID is always invalid.
@@ -567,7 +563,6 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
-// int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
 	if (timeoutPtr != 0) {
 		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
@@ -611,7 +606,6 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
 	}
 }
 
-// int sceKernelTryLockMutex(SceUID id, int count)
 int sceKernelTryLockMutex(SceUID id, int count) {
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
@@ -624,9 +618,7 @@ int sceKernelTryLockMutex(SceUID id, int count) {
 		return hleLogDebug(Log::sceKernel, SCE_MUTEX_ERROR_TRYLOCK_FAILED);
 }
 
-// int sceKernelUnlockMutex(SceUID id, int count)
-int sceKernelUnlockMutex(SceUID id, int count)
-{
+int sceKernelUnlockMutex(SceUID id, int count) {
 	// Tekken 6 hack: Let's avoid the unnecessary logspam. It does this on hardware too.
 	// This ID is always invalid.
 	if (id == 0x80020001) {
@@ -733,8 +725,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 }
 
 template <typename T>
-bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID, u32 &error, int result)
-{
+bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID, u32 &error, int result) {
 	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_LWMUTEX, mutex->GetUID()))
 		return false;
 
@@ -784,8 +775,7 @@ int sceKernelDeleteLwMutex(u32 workareaPtr) {
 	}
 }
 
-static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 &error)
-{
+static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 &error) {
 	if (!error)
 	{
 		if (count <= 0)
@@ -836,11 +826,9 @@ static bool __KernelLockLwMutex(NativeLwMutexWorkarea *workarea, int count, u32 
 }
 
 template <typename T>
-bool __KernelUnlockLwMutex(T workarea, u32 &error)
-{
+bool __KernelUnlockLwMutex(T workarea, u32 &error) {
 	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
-	if (error)
-	{
+	if (error) {
 		workarea->lockThread = 0;
 		return false;
 	}
