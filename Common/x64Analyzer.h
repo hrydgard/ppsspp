@@ -27,9 +27,8 @@ enum class InstructionClass {
 	FP_SIMD,  // Full vector register (movups, movaps, movdqa, ...)
 };
 
-struct LSInstructionInfo
-{
-	int operandSize; //1, 2, 4, 8 (in bytes, despite the field name suggesting bits)
+struct LSInstructionInfo {
+	int operandSizeInBytes;  // 1, 2, 4, 8 (in bytes, despite the field name suggesting bits)
 	int instructionSize;
 	int regOperandReg;
 	int otherReg;
@@ -41,6 +40,8 @@ struct LSInstructionInfo
 	u64 immediate;
 	s32 displacement;
 	InstructionClass instructionClass;
+
+	int OperandSizeInBytes() const { return operandSizeInBytes; }
 };
 
 struct ModRM

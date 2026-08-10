@@ -255,11 +255,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		std::string infoString = "";
 		std::string temp;
 		if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
-			infoString += temp + "\n";
+			infoString += temp + " ";
 		}
 		temp.clear();
 		if (DisassembleNativeAt(codePtr, instructionSize, &temp)) {
-			infoString += temp + "\n";
+			infoString += "(" + temp + ") ";
 		}
 
 		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
@@ -267,7 +267,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uint32_t approximatePC = currentMIPS->pc;
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.
-		Core_MemoryException(guestAddress, 0, approximatePC, type, infoString);
+		Core_MemoryException(guestAddress, info.OperandSizeInBytes(), approximatePC, type, infoString);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
@@ -320,16 +320,13 @@ std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
 std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames) {
 	std::stringstream str;
 	for (const auto &frame : frames) {
-		if (frame.pc == 0xFFFFFFFF) {
-			// Bottom of stack, probably.
-			continue;
-		}
+		const u32 frameEntry = frame.entry == 0xFFFFFFFF ? 0 : frame.entry;
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
 		char moduleDesc[96];
 		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
-			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		} else {
-			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		}
 	}
 	return str.str();

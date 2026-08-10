@@ -32,7 +32,7 @@ static bool CheckAnalyze(const Gen::XEmitter &emit, bool expectWrite, Instructio
 	EXPECT_EQ_INT(info.instructionSize, (int)(emit.GetCodePointer() - prevStart));
 	EXPECT_EQ_INT(info.isMemoryWrite, expectWrite);
 	EXPECT_EQ_INT((int)info.instructionClass, (int)expectClass);
-	EXPECT_EQ_INT(info.operandSize, expectOperandSize);
+	EXPECT_EQ_INT(info.operandSizeInBytes, expectOperandSize);
 	EXPECT_EQ_INT(info.zeroExtend, expectZeroExtend);
 	EXPECT_EQ_INT(info.signExtend, expectSignExtend);
 	return true;

@@ -601,6 +601,7 @@ struct RiscVLSInstructionInfo {
     bool isFPLoadStore;
     int size;  // Size of the access, in bytes (1, 2, 4, or 8).
     bool isMemoryWrite;
+	int OperandSizeInBytes() const { return size; }
 };
 
 bool RiscVAnalyzeLoadStore(uint64_t addr, uint32_t word, RiscVLSInstructionInfo *info);

@@ -630,7 +630,7 @@ int main(int argc, const char* argv[]) {
 	// Somehow this affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
 	// we actually set the cpu core in CoreParameter below. Probably because we end up using the JIT vs non-JIT
 	// vertex decoder.
-	g_Config.iCpuCore = 0;
+	g_Config.iCpuCore = (int)cpuCore;
 
 	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;

@@ -242,10 +242,11 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 	PRINT_STDOUT("  -v                    set the log level to verbose\n");
 	PRINT_STDOUT("  --loglevel=INTEGER    set the log level to specified value\n");
 	if (mode == CmdLineMode::Application) {
-		PRINT_STDOUT("  --log=FILE            output log to FILE\n");
+		PRINT_STDOUT("  --log=FILE        output log to FILE\n");
 	}
 	PRINT_STDOUT("  --state=FILE          load state from FILE\n");
 
+	PRINT_STDOUT("  --cpu=CPU             use the specified CPU core (interpreter, ir, jit, jit-ir)\n");
 	PRINT_STDOUT("  -i                    use the interpreter\n");
 	PRINT_STDOUT("  -r                    use IR interpreter\n");
 	PRINT_STDOUT("  -j                    use JIT\n");
@@ -290,6 +291,7 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 // Actually might want to reconsider given Android...
 CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], CmdLineMode mode) {
 	this->mode = mode;
+	constexpr std::string_view cpuBackendStr = "--cpu=";
 	constexpr std::string_view gpuBackendStr = "--graphics=";
 	constexpr std::string_view configOption = "--config=";
 	constexpr std::string_view controlsOption = "--controlconfig=";
@@ -413,7 +415,27 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			} else {
 				// Bad value, report error and exit.
 				PRINT_STDERR("Invalid value for --graphics=: %s", restOfOption.c_str());
-				return CommandLineParseResult::Exit;
+				return CommandLineParseResult::Error;
+			}
+		} else if (startsWith(argv[i], cpuBackendStr)) {
+			const std::string restOfOption = argv[i] + cpuBackendStr.size();
+			// Force software rendering off, as picking gles implies HW acceleration.
+			// We could add more options for software such as "software-gles",
+			// "software-vulkan" and "software-d3d11", or something similar.
+			// For now, software rendering force-activates OpenGL.
+			double glVersionTemp = 0.0f;
+			if (restOfOption == "interpreter") {
+				cpuCore = CPUCore::INTERPRETER;
+			} else if (restOfOption == "jit") {
+				cpuCore = CPUCore::JIT;
+			} else if (restOfOption == "jit-ir") {
+				cpuCore = CPUCore::JIT_IR;
+			} else if (restOfOption == "ir") {
+				cpuCore = CPUCore::IR_INTERPRETER;
+			} else {
+				// Bad value, report error and exit.
+				PRINT_STDERR("Invalid value for --cpu=: %s", restOfOption.c_str());
+				return CommandLineParseResult::Error;
 			}
 		} else if (startsWith(argv[i], configOption)) {
 			configFilename = std::string(argv[i] + configOption.size());
@@ -429,10 +451,11 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 				continue;
 			} else {
 				PRINT_STDERR("Error: --ignore requires an argument.\n");
-				return CommandLineParseResult::Exit;
+				return CommandLineParseResult::Error;
 			}
-		} else {
-			// Report unknown argument later once this is complete.
+		} else if (startsWith(argv[i], "--")) {
+			PRINT_STDERR("Error: Unknown parameter: %s\n", argv[i]);
+			return CommandLineParseResult::Error;
 		}
 		// To the next argument.
 		i++;
