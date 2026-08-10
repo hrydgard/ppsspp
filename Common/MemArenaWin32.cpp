@@ -21,6 +21,7 @@
 
 #include "MemArena.h"
 #include "CommonWindows.h"
+#include "Common/Log.h"
 
 // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
 size_t MemArena::roundup(size_t x) {
@@ -31,6 +32,10 @@ size_t MemArena::roundup(size_t x) {
 bool MemArena::GrabMemSpace(size_t size) {
 #if !PPSSPP_PLATFORM(UWP)
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
+	if (hMemoryMapping == NULL) {
+		ERROR_LOG(Log::MemMap, "Failed to grab a block of virtual memory (CreateFileMapping failed with error %d)", (int)GetLastError());
+		return false;
+	}
 	GetSystemInfo(&sysInfo);
 #else
 	hMemoryMapping = 0;

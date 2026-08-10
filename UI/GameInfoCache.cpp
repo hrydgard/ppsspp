@@ -781,6 +781,7 @@ handleELF:
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 						info_->ParseParamSFO(info_->fileType);
+						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
 				}
 

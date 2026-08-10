@@ -25,6 +25,13 @@ template<class T>
 void DoDeque(PointerWrap &p, std::deque<T> &x, T &default_val) {
 	u32 deq_size = (u32)x.size();
 	Do(p, deq_size);
+	// Guard against an attacker-controlled size driving a huge resize, same as DoVector.
+	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
+		if (deq_size > p.Remaining() / sizeof(T)) {
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
+		}
+	}
 	x.resize(deq_size, default_val);
 	u32 i;
 	for (i = 0; i < deq_size; i++)
