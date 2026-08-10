@@ -5,6 +5,7 @@
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/thin3d_create.h"
 
+#include "Common/CommonTypes.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -67,6 +68,8 @@ protected:
 	retro_hw_render_callback hw_render_ = {};
 };
 
+std::vector<u32> ConvertFramebufferForLibretro(const GPUDebugBuffer *buffer, u32 stride, u32 h);
+
 class LibretroSoftwareContext : public LibretroGraphicsContext {
 public:
 	LibretroSoftwareContext() {}
@@ -76,7 +79,7 @@ public:
 		u16 h = NATIVEHEIGHT;
 		if (gpu) {
 			gpu->GetOutputFramebuffer(buf);
-			const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buf, w, h);
+			const std::vector<u32> pixels = ConvertFramebufferForLibretro(&buf, w, h);
 			memcpy(soft_bmp, pixels.data(), SOFT_BMP_SIZE);
 		}
 		u32 offset = g_Config.bDisplayCropTo16x9 ? w << 1 : 0;

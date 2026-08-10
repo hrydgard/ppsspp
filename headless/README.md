@@ -43,7 +43,9 @@ PPSSPPHeadless file.elf|file.prx|file.ppdmp [...] [options]
 | `-o`, `--odslog`                | Write log to `OutputDebugString` (Windows only).           |
 | `--graphics=<backend>`          | GPU backend: `software`, `gles`, `directx11`, `vulkan`.    |
 | `--screenshot=<file>`           | Compare the rendered output against a reference screenshot. |
-| `--screenshot-save=<file>`      | Save the rendered output to a BMP file (no comparison).    |
+| `--screenshot-save=<file>`      | Save the rendered output to a file (PNG if the path ends in `.png`, BMP otherwise). |
+| `--screenshot-diff=<file>`      | When comparing screenshots, save a visual comparison image to this file (always, regardless of pass/fail). |
+| `--screenshot-keep-alpha`       | Preserve the alpha channel when saving PNG screenshots (default: alpha is forced to 255, since games often use it for non-visual purposes). |
 | `--max-mse=<number>`            | Maximum allowed Mean Squared Error for screenshot comparison (default: 0 = exact). |
 | `--compare` / `-c`              | Compare test output with `.expected` text file and/or screenshot (see below). |
 | `--timeout=<seconds>`           | Abort test if it takes longer than this.                   |
@@ -80,13 +82,18 @@ GE frame dumps are recordings of a single frame's GE graphics commands. When a `
 3. The framebuffer is captured automatically (512×272 stride, 480×272 visible).
 4. A screenshot is sent for comparison/saving via `--compare`, `--screenshot`, or `--screenshot-save`.
 
+For batch rendering tests over sets of frame dumps, see `docs/frametest.md` (the `frametests.py` runner).
+
 ### Example: Generate a reference screenshot
 
 ```bash
+# BMP:
 PPSSPPHeadless.exe --graphics=software --screenshot-save=reference.bmp frame.ppdmp
+# PNG (lossless, recommended for storing references):
+PPSSPPHeadless.exe --graphics=software --screenshot-save=reference.png frame.ppdmp
 ```
 
-This outputs a 512×272 BMP file with 32-bit BGRA pixel data. The file size is always 557,110 bytes (54-byte header + 512 × 272 × 4 bytes).
+The BMP output is 512×272 with 32-bit BGRA pixel data. The file size is always 557,110 bytes (54-byte header + 512 × 272 × 4 bytes). PNG output is 512×272 RGBA.
 
 ### Example: Compare against a reference
 
@@ -95,8 +102,8 @@ This outputs a 512×272 BMP file with 32-bit BGRA pixel data. The file size is a
 #   frame.ppdmp  →  looks for  frame.png  (next to the .ppdmp)
 PPSSPPHeadless.exe --graphics=software --compare frame.ppdmp
 
-# Explicit reference file:
-PPSSPPHeadless.exe --graphics=software --screenshot=reference.bmp --max-mse=0.5 frame.ppdmp
+# Explicit reference file (saves a visual comparison to diff.png):
+PPSSPPHeadless.exe --graphics=software --screenshot=reference.bmp --screenshot-diff=diff.png --max-mse=0.5 frame.ppdmp
 ```
 
 When the MSE exceeds `--max-mse`, the following files are saved in the working directory:

@@ -69,3 +69,6 @@
 	path = ext/aemu_postoffice
 	url = https://github.com/Kethen/aemu_postoffice.git
 	branch = ppsspp
+[submodule "frametests"]
+	path = frametests
+	url = https://github.com/hrydgard/ppsspp-frametest-ci.git

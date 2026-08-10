@@ -70,7 +70,10 @@
 
 static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
+static Path g_screenshotDiffPath;
+static bool g_screenshotSaveKeepAlpha = false;
 static double g_maxScreenshotError = 0.0;
+static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
 static bool g_writeFailureScreenshot = true;
 static bool g_writeDebugOutput = true;
@@ -200,7 +203,8 @@ void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
 	// If a screenshot save path is set, save unconditionally.
 	if (!g_screenshotSavePath.empty()) {
 		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
-		if (saver.SaveActualBitmap(g_screenshotSavePath))
+		bool saved = g_screenshotSavePath.GetFileExtension() == ".png" ? saver.SaveActualPNG(g_screenshotSavePath, g_screenshotSaveKeepAlpha) : saver.SaveActualBitmap(g_screenshotSavePath);
+		if (saved)
 			SendAndCollectOutput("Screenshot saved to: " + g_screenshotSavePath.ToVisualString() + "\n");
 	}
 
@@ -213,16 +217,24 @@ void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
 	double errors = comparer.Compare(g_comparisonScreenshot);
 	if (errors < 0) {
 		SendAndCollectOutput(comparer.GetError() + "\n");
+		g_screenshotFailed = true;
 	}
 
 	if (errors > g_maxScreenshotError) {
 		SendAndCollectOutput(StringFromFormat("Screenshot MSE: %f\n", errors));
+		g_screenshotFailed = true;
 	}
 
 	if (errors > g_maxScreenshotError && g_writeFailureScreenshot) {
 		if (comparer.SaveActualBitmap(Path("__testfailure.bmp")))
 			SendAndCollectOutput("Actual output written to: __testfailure.bmp\n");
 		comparer.SaveVisualComparisonPNG(Path("__testcompare.png"));
+	}
+
+	// If a diff path is set, always save the visual comparison (regardless of pass/fail).
+	if (!g_screenshotDiffPath.empty() && errors >= 0) {
+		if (comparer.SaveVisualComparisonPNG(g_screenshotDiffPath))
+			SendAndCollectOutput("Screenshot comparison saved to: " + g_screenshotDiffPath.ToVisualString() + "\n");
 	}
 }
 
@@ -286,6 +298,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 
 	// Kinda ugly, trying to guesstimate the test name from filename...
 	currentTestName = GetTestName(coreParameter.fileToStart);
+	g_screenshotFailed = false;
 
 	std::string output;
 	if (opt.compare || opt.bench)
@@ -384,6 +397,11 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose, opt.printEqualLines);
 	}
 
+	// Screenshot comparison failures are recorded in System_SendDebugScreenshot.
+	if (!g_comparisonScreenshot.empty() && g_screenshotFailed) {
+		passed = false;
+	}
+
 	return passed;
 }
 
@@ -472,7 +490,7 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 			std::string testName = GetTestName(coreParameter.fileToStart);
 			printf("  %s - %f seconds average\n", testName.c_str(), (et - st) / runs);
 		}
-		if (testOptions.compare) {
+		if (testOptions.compare || !g_comparisonScreenshot.empty()) {
 			std::string testName = GetTestName(coreParameter.fileToStart);
 			if (passed) {
 				passedTests.push_back(testName);
@@ -483,7 +501,7 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 		}
 	}
 
-	if (testOptions.compare) {
+	if (testOptions.compare || !g_comparisonScreenshot.empty()) {
 		printf("%d tests passed, %d tests failed, %d tests missing.\n", (int)passedTests.size(), (int)failedTests.size(), (int)missingTests.size());
 		if (!failedTests.empty()) {
 			printf("Failed tests:\n");
@@ -761,6 +779,12 @@ int main(int argc, const char* argv[]) {
 	}
 	if (cmdLineOptions.screenshotFilenameSave.has_value()) {
 		SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
+	}
+	if (cmdLineOptions.screenshotFilenameDiff.has_value()) {
+		g_screenshotDiffPath = Path(std::string(cmdLineOptions.screenshotFilenameDiff.value()));
+	}
+	if (cmdLineOptions.screenshotSaveKeepAlpha.has_value()) {
+		g_screenshotSaveKeepAlpha = cmdLineOptions.screenshotSaveKeepAlpha.value();
 	}
 	SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);

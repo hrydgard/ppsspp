@@ -8,6 +8,7 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
 
 1. Keep style changes minimal unless requested. Follow existing code patterns and conventions.
 2. Keep cross-platform parity in mind when changing shared code. See below for more multiplatform tips
+3. Never `git push` (to any remote) without asking the user first. Committing locally is fine when asked; pushing requires explicit approval.
 
 ## Core Safety Checks
 
@@ -151,6 +152,16 @@ separate files in the unittest subdirectory. Remember to update both CMakeLists.
 pspautotests are a large set of tests of the PSP OS's API surface, and thus tests our HLE implementation.
 
 See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
+
+## Framedump rendering tests (frametests)
+
+There is a rendering test system that replays GE frame dumps (`.ppdmp`) through PPSSPPHeadless and compares
+the output against reference images, driven by the `frametests.py` script and a JSON config per test set.
+When changing rendering code, consider running these tests. See docs/frametest.md for full documentation.
+
+Note: `headless/Compare.cpp` reads back framebuffers top-down; the flip to bottom-up is only applied when
+writing BMPs (and when reading BMP references). `TranslateDebugBufferToCompare` also exists as a copy in
+`libretro/LibretroGraphicsContext.cpp` - keep the two in sync.
 
 ## Adding HLE modules
 

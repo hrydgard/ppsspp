@@ -305,19 +305,17 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	const u32 *pixels32 = (const u32 *)buffer->GetData();
 	const u16 *pixels16 = (const u16 *)buffer->GetData();
 	int outStride = buffer->GetStride();
-	if (!buffer->GetFlipped()) {
-		// Bitmaps are flipped, so we have to compare backwards in this case.
+	if (buffer->GetFlipped()) {
+		// The buffer is stored bottom-up (e.g. to fit a bitmap), so read backwards
+		// here to get top-down output.
 		int toLastRow = outStride * (h > buffer->GetHeight() ? buffer->GetHeight() - 1 : h - 1);
 		pixels32 += toLastRow;
 		pixels16 += toLastRow;
 		outStride = -outStride;
 	}
 
-	// Skip the bottom of the image if the buffer was smaller.  Remember, we're flipped.
+	// The output is top-down; if the buffer was smaller, the image starts at the top.
 	u32 *dst = &data[0];
-	if (safeH < h) {
-		dst += (h - safeH) * stride;
-	}
 
 	for (u32 y = 0; y < safeH; ++y) {
 		switch (buffer->GetFormat()) {
@@ -414,17 +412,19 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 
 	double errors = 0;
 	if (asBitmap_) {
-		// The reference is flipped and BGRA by default for the common BMP compare case.
+		// The reference is a BMP, stored bottom-up and BGRA by default for the
+		// common BMP compare case, so read it backwards (pixels_ is top-down).
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = y * referenceStride_;
+			u32 yoff = (h_ - y - 1) * referenceStride_;
 			for (u32 x = 0; x < w_; ++x)
 				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
 	} else {
+		// The reference is a PNG, stored top-down, so no flip needed.
 		// Just convert to BGRA for simplicity.
 		ConvertRGBA8888ToBGRA8888(reference_, reference_, h_ * referenceStride_);
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = (h_ - y - 1) * referenceStride_;
+			u32 yoff = y * referenceStride_;
 			for (u32 x = 0; x < w_; ++x)
 				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
@@ -448,7 +448,9 @@ bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
 	FILE *saved = File::OpenCFile(resultFilename, "wb");
 	if (saved) {
 		fwrite(&header, sizeof(header), 1, saved);
-		fwrite(pixels_.data(), sizeof(u32), stride_ * h_, saved);
+		// Bitmaps are stored bottom-up, so write the rows backwards (pixels_ is top-down).
+		for (u32 y = 0; y < h_; ++y)
+			fwrite(pixels_.data() + (h_ - y - 1) * stride_, sizeof(u32), stride_, saved);
 		fclose(saved);
 
 		return true;
@@ -457,23 +459,39 @@ bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
 	return false;
 }
 
+bool ScreenshotComparer::SaveActualPNG(const Path &resultFilename, bool keepAlpha) {
+	std::vector<u8> rgba((size_t)stride_ * h_ * 4);
+	const u32 *pixels = pixels_.data();
+	for (size_t i = 0; i < (size_t)stride_ * h_; ++i) {
+		u32 p = pixels[i];
+		rgba[i * 4 + 0] = (p >> 16) & 0xFF;
+		rgba[i * 4 + 1] = (p >> 8) & 0xFF;
+		rgba[i * 4 + 2] = p & 0xFF;
+		// Games often use the alpha channel for non-visual purposes, which
+		// results in fully transparent images in PNG viewers.  By default,
+		// force alpha to 255 when writing the image.
+		rgba[i * 4 + 3] = keepAlpha ? ((p >> 24) & 0xFF) : 0xFF;
+	}
+	return pngSave(resultFilename, rgba.data(), stride_, h_, 4);
+}
+
 bool ScreenshotComparer::SaveVisualComparisonPNG(const Path &resultFilename) {
 	std::unique_ptr<u32[]> comparison(new u32[w_ * 2 * h_ * 2]);
 
 	if (asBitmap_) {
-		// The reference is flipped and BGRA by default for the common BMP compare case.
+		// The reference is a BMP, stored bottom-up, so read it backwards.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = y * referenceStride_;
-			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
+			u32 yoff = (h_ - y - 1) * referenceStride_;
+			u32 comparisonRow = y * 2 * w_ * 2;
 			for (u32 x = 0; x < w_; ++x) {
 				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
 			}
 		}
 	} else {
-		// Reference is already in BGRA either way.
+		// Reference is a PNG, stored top-down, so no flip needed.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = (h_ - y - 1) * referenceStride_;
-			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
+			u32 yoff = y * referenceStride_;
+			u32 comparisonRow = y * 2 * w_ * 2;
 			for (u32 x = 0; x < w_; ++x) {
 				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
 			}

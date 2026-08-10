@@ -95,6 +95,9 @@ struct CommandLineOptions {
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
+	std::optional<std::string> screenshotFilenameDiff;
+	// Headless: preserve the alpha channel when saving PNG screenshots.
+	std::optional<bool> screenshotSaveKeepAlpha;
 
 	// Headless: mount an ISO/CSO on umd1:.
 	std::optional<std::string> mountIso;

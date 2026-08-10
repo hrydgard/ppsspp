@@ -423,7 +423,7 @@ jobs:
     - name: Fetch tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests
+      run: git submodule update --init pspautotests frametests
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
@@ -457,6 +457,18 @@ jobs:
     - name: Execute headless tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
+
+    - name: Execute frametests
+      if: runner.os == 'Linux'
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: python3 frametests.py frametests/frametests.json --out-mode=failures
+
+    - name: Upload frametest report
+      uses: actions/upload-artifact@v7
+      if: runner.os == 'Linux' && always()
+      with:
+        name: frametest-report
+        path: frametests/out/
 
   test-headless-alpine:
     runs-on: ubuntu-latest
