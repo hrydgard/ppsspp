@@ -566,8 +566,6 @@ int main(int argc, const char* argv[]) {
 
 	bool fullLog = cmdLineOptions.enableLogging.value_or(false);
 	const char *stateToLoad = cmdLineOptions.stateToLoad.has_value() ? cmdLineOptions.stateToLoad.value().c_str() : nullptr;
-	GPUCore gpuCore = GPUCORE_SOFTWARE;
-	CPUCore cpuCore = CPUCore::JIT;
 	bool oldAtrac = false;
 	bool outputDebugStringLog = cmdLineOptions.odsLog.value_or(false);
 
@@ -575,10 +573,6 @@ int main(int argc, const char* argv[]) {
 	const std::vector<std::string> &ignoredTests = cmdLineOptions.ignoredTests;
 	std::string mountIso = cmdLineOptions.mountIso.value_or("");
 	std::string mountRoot;
-
-	if (cmdLineOptions.cpuCore.has_value()) {
-		cpuCore = cmdLineOptions.cpuCore.value();
-	}
 
 	if (cmdLineOptions.root.has_value()) {
 		mountRoot = cmdLineOptions.root.value().c_str();
@@ -627,10 +621,10 @@ int main(int argc, const char* argv[]) {
 	// ApplyToConfig() below, so a matching command line flag can still override any of it -
 	// ApplyToConfig() always has the final say on the settings in g_Config.
 	//
-	// Somehow this affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
-	// we actually set the cpu core in CoreParameter below. Probably because we end up using the JIT vs non-JIT
-	// vertex decoder.
-	g_Config.iCpuCore = (int)cpuCore;
+	// This affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
+	// we actually set the cpu core in CoreParameter below.
+	// The check that decides that is in the DrawEngineCommon constructor.
+	g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 
 	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;
@@ -676,13 +670,15 @@ int main(int argc, const char* argv[]) {
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
+	CPUCore cpuCore = CPUCore::INTERPRETER;
+	if (cmdLineOptions.cpuCore.has_value()) {
+		cpuCore = cmdLineOptions.cpuCore.value();
+	}
+
+	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	// Translate backend to core. We probably should consider merging these enums.
 	if (!g_Config.bSoftwareRendering) {
-		if (!cmdLineOptions.gpuBackend.has_value()) {
-			fprintf(stderr, "No graphics backend specified, but software rendering is disabled. Use --graphics=software, gles, directx11, or vulkan.\n");
-			return 1;
-		}
-		switch (cmdLineOptions.gpuBackend.value()) {
+		switch ((GPUBackend)g_Config.iGPUBackend) {
 		case GPUBackend::OPENGL:
 			gpuCore = GPUCORE_GLES;
 			break;
@@ -727,8 +723,8 @@ int main(int argc, const char* argv[]) {
 	// TODO: This whole function should be refactored to set up CoreParameter in one place,
 	// but not now.
 	CoreParameter coreParameter;
-	coreParameter.cpuCore = cpuCore;  // apprently this gets overwritten somehow by g_Config above.
-	coreParameter.gpuCore = gpuCore;
+	coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParameter.gpuCore = (GPUCore)gpuCore;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso.empty() ? Path() : Path(mountIso);

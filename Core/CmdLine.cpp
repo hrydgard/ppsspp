@@ -479,6 +479,9 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.iGPUBackend = (int)gpuBackend.value();
 		g_Config.DoNotSaveSetting(&g_Config.iGPUBackend);
 	}
+	if (cpuCore.has_value()) {
+		g_Config.iCpuCore = (int)cpuCore.value();
+	}
 	if (softwareRendering.has_value()) {
 		g_Config.bSoftwareRendering = softwareRendering.value();
 		g_Config.DoNotSaveSetting(&g_Config.bSoftwareRendering);
@@ -490,9 +493,6 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (optionS) {
 		g_Config.bAutoRun = false;
 		g_Config.bSaveSettings = false;
-	}
-	if (cpuCore.has_value()) {
-		g_Config.iCpuCore = (int)cpuCore.value();
 	}
 	if (escapeExit.has_value()) {
 		g_Config.bPauseExitsEmulator = escapeExit.value();
