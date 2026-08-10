@@ -114,7 +114,7 @@ void ServerRequest::WriteHttpResponseHeader(const char *ver, int status, int64_t
 		buffer->Push("Connection: close\r\n");
 	}
 	if (size >= 0) {
-		buffer->Printf("Content-Length: %llu\r\n", size);
+		buffer->Printf("Content-Length: %llu\r\n", (unsigned long long)size);
 	}
 	if (otherHeaders) {
 		buffer->Push(otherHeaders, strlen(otherHeaders));

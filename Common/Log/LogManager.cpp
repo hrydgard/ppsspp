@@ -60,6 +60,7 @@ static const char level_to_char[8] = "-NEWIDV";
 void AndroidLog(const LogMessage &message);
 #endif
 
+// TODO: Get rid of this wrapper, not much point.
 void GenericLog(Log type, LogLevel level, const char *file, int line, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
