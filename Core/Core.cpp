@@ -669,7 +669,9 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	char pcDetails[128];
 	pcDetails[0] = 0;
 	if ((CPUCore)g_Config.iCpuCore == CPUCore::INTERPRETER) {
-		snprintf(pcDetails, sizeof(pcDetails), " PC %08x%s RA %08x%s", currentMIPS->pc, ModuleAddressSuffix(currentMIPS->pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+		snprintf(pcDetails, sizeof(pcDetails), " PC %08x%s RA %08x%s",
+			pc, ModuleAddressSuffix(pc).c_str(),
+			currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
 	}
 
 	const std::string addressSuffix = ModuleAddressSuffix(address);
@@ -689,15 +691,14 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 
 	const char *desc = MemoryExceptionTypeAsString(type);
 	char msg[512];
-	snprintf(msg, sizeof(msg), "%s: Invalid access at %08x%s (size %08x) %s%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data());
+	snprintf(msg, sizeof(msg), "%s: SIGSEGV pc=%08x%s (size %08x) %sHost:%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, STR_VIEW(additionalInfo));
 	if (action == ExceptionAction::Ignore) {
 		Core_SendDebugOutput(LogLevel::LWARNING, msg);
 		return;
 	}
-
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	// Do the most detailed logging we can.
-	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\n%s", msg, stackTrace.c_str()));
+	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%sCall stack:\n%s", msg, stackTrace.c_str()));
 	if (action == ExceptionAction::Break) {
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};

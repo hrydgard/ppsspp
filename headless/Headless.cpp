@@ -9,6 +9,8 @@
 // > -l --graphics=vulkan --screenshot-save=vt_ref.bmp "D:\PSP ISO\dump\Depth\11578 Virtua Tennis pause menu ULES00126_0002.zip" --resolution-scale=2
 // Example command line for messing with the vsh:
 // > -l --vsh --memread=break --memwrite=break --break=break
+// Example command line for looking at crash output:
+// > -l --graphics=software pspautotests/tests/cpu/crash/crash_read_f32.prx
 //
 // NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 

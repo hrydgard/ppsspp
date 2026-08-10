@@ -333,7 +333,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			context->CTX_PC = crashHandler;
 		else
 			handled = false;
-		ERROR_LOG(Log::MemMap, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
+		// ERROR_LOG(Log::MemMap, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
 
 	inCrashHandler = false;
