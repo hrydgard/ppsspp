@@ -131,12 +131,17 @@ static void DrawIntBuiltInEditPopup(const u32 address, const u32 length) {
 }
 
 static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
+	if (!Memory::IsValidRange(address, address + 8)) {
+		// Check a little too crude, but...
+		ImGui::Text("(invalid address: %08x)", address);
+		return;
+	}
 	switch (builtIn.type) {
 		case BuiltInType::Bool:
-			ImGui::Text("= %s", Memory::Read_U8(address) ? "true" : "false");
+			ImGui::Text("= %s", Memory::ReadUnchecked_U8(address) ? "true" : "false");
 			break;
 		case BuiltInType::Char: {
-			const u8 value = Memory::Read_U8(address);
+			const u8 value = Memory::ReadUnchecked_U8(address);
 			if (std::isprint(value)) {
 				ImGui::Text("= %x '%c'", value, value);
 			} else {
@@ -145,26 +150,26 @@ static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
 			break;
 		}
 		case BuiltInType::Int8:
-			ImGui::Text("= %x", Memory::Read_U8(address));
+			ImGui::Text("= %x", Memory::ReadUnchecked_U8(address));
 			break;
 		case BuiltInType::Int16:
-			ImGui::Text("= %x", Memory::Read_U16(address));
+			ImGui::Text("= %x", Memory::ReadUnchecked_U16(address));
 			break;
 		case BuiltInType::Int32:
-			ImGui::Text("= %x", Memory::Read_U32(address));
+			ImGui::Text("= %x", Memory::ReadUnchecked_U32(address));
 			break;
 		case BuiltInType::Int64:
-			ImGui::Text("= %llx", Memory::Read_U64(address));
+			ImGui::Text("= %llx", Memory::ReadUnchecked_U64(address));
 			break;
 		case BuiltInType::TerminatedString:
 			if (Memory::IsValidNullTerminatedString(address)) {
 				ImGui::Text("= \"%s\"", Memory::GetCharPointerUnchecked(address));
 			} else {
-				ImGui::Text("= %x <invalid string @ %x>", Memory::Read_U8(address), address);
+				ImGui::Text("= %x <invalid string @ %x>", Memory::ReadUnchecked_U8(address), address);
 			}
 			break;
 		case BuiltInType::Float:
-			ImGui::Text("= %f", Memory::Read_Float(address));
+			ImGui::Text("= %f", Memory::ReadUnchecked_Float(address));
 			break;
 		case BuiltInType::Void:
 			ImGui::Text("<void type>");
@@ -176,15 +181,18 @@ static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
 }
 
 static u64 ReadMemoryInt(const u32 address, const u32 length) {
+	if (!Memory::IsValidRange(address, length)) {
+		return 0;
+	}
 	switch (length) {
 		case 1:
-			return Memory::Read_U8(address);
+			return Memory::ReadUnchecked_U8(address);
 		case 2:
-			return Memory::Read_U16(address);
+			return Memory::ReadUnchecked_U16(address);
 		case 4:
-			return Memory::Read_U32(address);
+			return Memory::ReadUnchecked_U32(address);
 		case 8:
-			return Memory::Read_U64(address);
+			return Memory::ReadUnchecked_U64(address);
 		default:
 			return 0;
 	}

@@ -683,12 +683,12 @@ uint32_t GEExpressionFunctions::getReferenceValue(uint32_t referenceIndex) {
 		return 0;
 	case GEReferenceIndex::OP:
 		if (gpu_->GetCurrentDisplayList(list)) {
-			return Memory::Read_U32(list.pc);
+			return Memory::IsValid4AlignedAddress(list.pc) ? Memory::ReadUnchecked_U32(list.pc) : 0;
 		}
 		return 0;
 	case GEReferenceIndex::DATA:
 		if (gpu_->GetCurrentDisplayList(list)) {
-			return Memory::Read_U32(list.pc) & 0x00FFFFFF;
+			return Memory::IsValid4AlignedAddress(list.pc) ? Memory::ReadUnchecked_U32(list.pc) & 0x00FFFFFF : 0;
 		}
 		return 0;
 
