@@ -896,21 +896,21 @@ void ImDisasmView::updateStatusBarText() {
 		}
 
 		if (line.info.isDataAccess) {
-			if (!Memory::IsValidAddress(line.info.dataAddress)) {
-				snprintf(text, sizeof(text), "Invalid address %08X", line.info.dataAddress);
+			if (!Memory::IsValidRange(line.info.dataAddress, line.info.dataSize)) {
+				snprintf(text, sizeof(text), "Invalid address range %08X (size %d)", line.info.dataAddress, line.info.dataSize);
 			} else {
 				bool isFloat = MIPSGetInfo(line.info.encodedOpcode) & (IS_FPU | IS_VFPU);
 				switch (line.info.dataSize) {
 				case 1:
-					snprintf(text, sizeof(text), "[%08X] = %02X", line.info.dataAddress, Memory::Read_U8(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %02X", line.info.dataAddress, Memory::ReadUnchecked_U8(line.info.dataAddress));
 					break;
 				case 2:
-					snprintf(text, sizeof(text), "[%08X] = %04X", line.info.dataAddress, Memory::Read_U16(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %04X", line.info.dataAddress, Memory::ReadUnchecked_U16(line.info.dataAddress));
 					break;
 				case 4:
 				{
-					u32 dataInt = Memory::Read_U32(line.info.dataAddress);
-					u32 dataFloat = Memory::Read_Float(line.info.dataAddress);
+					u32 dataInt = Memory::ReadUnchecked_U32(line.info.dataAddress);
+					u32 dataFloat = Memory::ReadUnchecked_Float(line.info.dataAddress);
 					std::string dataString;
 					if (isFloat)
 						dataString = StringFromFormat("%08X / %f", dataInt, dataFloat);
@@ -930,8 +930,8 @@ void ImDisasmView::updateStatusBarText() {
 					uint32_t dataInt[4];
 					float dataFloat[4];
 					for (int i = 0; i < 4; ++i) {
-						dataInt[i] = Memory::Read_U32(line.info.dataAddress + i * 4);
-						dataFloat[i] = Memory::Read_Float(line.info.dataAddress + i * 4);
+						dataInt[i] = Memory::ReadUnchecked_U32(line.info.dataAddress + i * 4);
+						dataFloat[i] = Memory::ReadUnchecked_Float(line.info.dataAddress + i * 4);
 					}
 					std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
 					std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);

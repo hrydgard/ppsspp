@@ -628,8 +628,13 @@ void Recorder::NotifyCommand(u32 pc) {
 		return;
 	}
 
+	if (!Memory::IsValid4AlignedAddress(pc)) {
+		ERROR_LOG(Log::G3D, "Bad pc in Recorder: %08x", pc);
+		return;
+	}
+
 	CheckEdramTrans();
-	const u32 op = Memory::Read_U32(pc);
+	const u32 op = Memory::ReadUnchecked_U32(pc);
 	const GECommand cmd = GECommand(op >> 24);
 
 	switch (cmd) {
