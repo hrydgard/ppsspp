@@ -33,6 +33,7 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 	info.signExtend = false;
 	info.hasImmediate = false;
 	info.isMemoryWrite = false;
+	info.instructionClass = InstructionClass::GPR;
 
 	int addressSize = 8;
 	u8 modRMbyte = 0;
@@ -40,6 +41,7 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
     bool hasModRM = false;
 	bool hasSIBbyte = false;
 	bool hasDisplacement = false;
+	bool hasF3Prefix = false;
 
 	int displacementSize = 0;
 
@@ -47,10 +49,16 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 	{
 		info.operandSize = 2;
 		codePtr++;
-	} 
+	}
 	else if (*codePtr == 0x67)
 	{
 		addressSize = 4;
+		codePtr++;
+	}
+	else if (*codePtr == 0xF3)
+	{
+		// Mandatory prefix, distinguishes MOVSS (scalar) from MOVUPS (full xmm) on the same opcode.
+		hasF3Prefix = true;
 		codePtr++;
 	}
 
@@ -218,6 +226,24 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 			case MOVSX_SHORT: //movsx on short
 				info.signExtend = true;
 				info.operandSize = 2;
+				break;
+			case MOVUPS_MOVSS_FROM_RM: //movups/movss xmm, xmm/m (load)
+				info.instructionClass = hasF3Prefix ? InstructionClass::FP : InstructionClass::FP_SIMD;
+				info.operandSize = hasF3Prefix ? 4 : 16;
+				break;
+			case MOVUPS_MOVSS_TO_RM: //movups/movss xmm/m, xmm (store)
+				info.instructionClass = hasF3Prefix ? InstructionClass::FP : InstructionClass::FP_SIMD;
+				info.operandSize = hasF3Prefix ? 4 : 16;
+				info.isMemoryWrite = true;
+				break;
+			case MOVAPS_FROM_RM: //movaps xmm, xmm/m (load)
+				info.instructionClass = InstructionClass::FP_SIMD;
+				info.operandSize = 16;
+				break;
+			case MOVAPS_TO_RM: //movaps xmm/m, xmm (store)
+				info.instructionClass = InstructionClass::FP_SIMD;
+				info.operandSize = 16;
+				info.isMemoryWrite = true;
 				break;
 			default:
 				return false;
