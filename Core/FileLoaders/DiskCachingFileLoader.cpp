@@ -290,26 +290,34 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 		u8 *buf = new u8[blockSize_];
 		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blockSize_, buf, flags);
 
-		// Check if it was written while we were busy.  Might happen if we thread.
-		if (info.block == INVALID_BLOCK && readBytes != 0) {
-			info.block = AllocateBlock((u32)cacheStartPos);
-			WriteBlockData(info, buf);
-			WriteIndexData((u32)cacheStartPos, info);
-		}
+		// A short/failed read (e.g. a dropped Remote ISO connection) must not be
+		// cached or returned as if it were valid data - only a full block counts.
+		if (readBytes == (size_t)blockSize_) {
+			// Check if it was written while we were busy.  Might happen if we thread.
+			if (info.block == INVALID_BLOCK) {
+				info.block = AllocateBlock((u32)cacheStartPos);
+				WriteBlockData(info, buf);
+				WriteIndexData((u32)cacheStartPos, info);
+			}
 
-		size_t toRead = std::min(bytes - readSize, (size_t)blockSize_ - offset);
-		memcpy(p + readSize, buf + offset, toRead);
-		readSize += toRead;
+			size_t toRead = std::min(bytes - readSize, (size_t)blockSize_ - offset);
+			memcpy(p + readSize, buf + offset, toRead);
+			readSize += toRead;
+		}
 
 		delete [] buf;
 	} else {
 		u8 *wholeRead = new u8[blocksToRead * blockSize_];
 		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blocksToRead * blockSize_, wholeRead, flags);
+		// Only the whole blocks the backend actually delivered are valid; stop at
+		// the first short/missing one instead of caching (and returning) whatever
+		// was left over in the rest of `wholeRead` from a partial or failed read.
+		size_t wholeBlocksRead = readBytes / (size_t)blockSize_;
 
-		for (size_t i = 0; i < blocksToRead; ++i) {
+		for (size_t i = 0; i < wholeBlocksRead; ++i) {
 			auto &info = index_[cacheStartPos + i];
 			// Check if it was written while we were busy.  Might happen if we thread.
-			if (info.block == INVALID_BLOCK && readBytes != 0) {
+			if (info.block == INVALID_BLOCK) {
 				info.block = AllocateBlock((u32)cacheStartPos + (u32)i);
 				WriteBlockData(info, wholeRead + (i * blockSize_));
 				// TODO: Doing each index together would probably be better.
@@ -319,6 +327,8 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 			size_t toRead = std::min(bytes - readSize, (size_t)blockSize_ - offset);
 			memcpy(p + readSize, wholeRead + (i * blockSize_) + offset, toRead);
 			readSize += toRead;
+			// The initial `offset` only applies to the first block of this batch.
+			offset = 0;
 		}
 		delete[] wholeRead;
 	}
@@ -454,10 +464,13 @@ bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t
 	// We might be trying to read an area we've recently written.
 	fflush(f_);
 
+	// `offset` is the position within the block to read from, so it belongs in the
+	// file seek position, not added to the destination pointer (which is exactly
+	// `size` bytes and would otherwise be written past its end).
 	bool failed = false;
-	if (File::Fseek(f_, blockOffset, SEEK_SET) != 0) {
+	if (File::Fseek(f_, blockOffset + (s64)offset, SEEK_SET) != 0) {
 		failed = true;
-	} else if (fread(dest + offset, size, 1, f_) != 1) {
+	} else if (fread(dest, size, 1, f_) != 1) {
 		failed = true;
 	}
 
@@ -567,7 +580,12 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 	cacheSize_ = 0;
 
 	for (size_t i = 0; i < index_.size(); ++i) {
-		if (index_[i].block > maxBlocks_) {
+		// blockIndexLookup_ only has maxBlocks_ entries (valid indices 0..maxBlocks_-1),
+		// so a persisted block value of exactly maxBlocks_ must be rejected too, not
+		// just values greater than it - otherwise a corrupted cache file (e.g. from an
+		// interrupted write) could make the blockIndexLookup_ write below go one past
+		// the end of that array.
+		if (index_[i].block >= maxBlocks_) {
 			index_[i].block = INVALID_BLOCK;
 		}
 		if (index_[i].block == INVALID_BLOCK) {
