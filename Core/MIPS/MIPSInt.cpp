@@ -75,9 +75,12 @@ static inline void SkipLikely() {
 	}
 }
 
-int MIPS_SingleStep()
-{
-	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
+int MIPS_SingleStep() {
+	if (!Memory::IsValid4AlignedAddress(mipsr4k.pc)) {
+		Core_ExecException(mipsr4k.pc, mipsr4k.pc, ExecExceptionType::JUMP);
+		return 0;
+	}
+	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);  // now unchecked
 	if (mipsr4k.inDelaySlot) {
 		MIPSInterpret(op);
 		if (mipsr4k.inDelaySlot) {

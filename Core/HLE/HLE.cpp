@@ -721,7 +721,8 @@ void HLEReturnFromMipsCall() {
 	currentMIPS->pc = stackData->func;
 	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)stackData->argc; i++) {
-		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
+		// The check at the start of the function should be enough to use an unchecked read (well, kinda..)
+		currentMIPS->r[MIPS_REG_A0 + i] = Memory::ReadUnchecked_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
 	}
 	DEBUG_LOG(Log::HLE, "Executing next HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
 	hleNoLogVoid();

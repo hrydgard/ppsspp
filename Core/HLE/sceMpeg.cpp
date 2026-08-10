@@ -238,7 +238,7 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
 		return nullptr;
 
-	u32 mpeg = Memory::Read_U32(mpegAddr);
+	u32 mpeg = Memory::ReadUnchecked_U32(mpegAddr);
 	auto found = g_mpegCtxs.find(mpeg);
 	if (found == g_mpegCtxs.end())
 		return nullptr;
@@ -560,7 +560,7 @@ static int sceMpegDelete(u32 mpeg) {
 	}
 
 	delete ctx;
-	g_mpegCtxs.erase(Memory::Read_U32(mpeg));
+	g_mpegCtxs.erase(Memory::ReadUnchecked_U32(mpeg));
 
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg delete", 40000);
 }
@@ -568,7 +568,7 @@ static int sceMpegDelete(u32 mpeg) {
 
 static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 {
-	if (!Memory::IsValidAddress(modeAddr)) {
+	if (!Memory::IsValidRange(modeAddr, 8)) {
 		return hleLogWarning(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -579,8 +579,8 @@ static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 	DEBUG_LOG(Log::Mpeg, "sceMpegAvcDecodeMode(%08x, %08x)", mpeg, modeAddr);
 
-	int mode = Memory::Read_U32(modeAddr);
-	int pixelMode = Memory::Read_U32(modeAddr + 4);
+	int mode = Memory::ReadUnchecked_U32(modeAddr);
+	int pixelMode = Memory::ReadUnchecked_U32(modeAddr + 4);
 	if (pixelMode >= GE_CMODE_16BIT_BGR5650 && pixelMode <= GE_CMODE_32BIT_ABGR8888) {
 		ctx->videoPixelMode = pixelMode;
 	} else {
@@ -1071,8 +1071,7 @@ void __VideoPmpDoState(PointerWrap &p){
 	}
 }
 
-static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
-{
+static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		return hleLogWarning(Log::Mpeg, -1, "bad mpeg handle");
@@ -1094,8 +1093,12 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 		return hleLogError(Log::Mpeg, -1, "Bogus mpegringbufferaddr");
 	}
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
+	if (!Memory::IsValidRange(bufferAddr, 4) || !Memory::IsValidRange(initAddr, 4)) {
+		return hleLogError(Log::Mpeg, -1, "invalid addresses");
+	}
+
+	u32 buffer = Memory::ReadUnchecked_U32(bufferAddr);
+	u32 init = Memory::ReadUnchecked_U32(initAddr);
 	DEBUG_LOG(Log::Mpeg, "video: bufferAddr = %08x, *buffer = %08x, *init = %08x", bufferAddr, buffer, init);
 
 	// check and decode pmp video
@@ -1244,7 +1247,7 @@ static int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr) {
 }
 
 static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr) {
-	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)) {
+	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValid4AlignedAddress(statusAddr)) {
 		return hleLogError(Log::Mpeg, -1, "UNIMPL + invalid addresses");
 	}
 
@@ -1254,7 +1257,7 @@ static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr) {
 	}
 
 	ERROR_LOG(Log::Mpeg, "UNIMPL sceMpegAvcDecodeStopYCbCr(%08x, %08x, %08x)", mpeg, bufferAddr, statusAddr);
-	Memory::Write_U32(0, statusAddr);
+	Memory::WriteUnchecked_U32(0, statusAddr);
 	return hleNoLog(0);
 }
 
@@ -1282,8 +1285,12 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
+	if (!Memory::IsValidRange(bufferAddr, 4) || !Memory::IsValidRange(initAddr, 4)) {
+		return hleLogError(Log::Mpeg, -1, "invalid addresses");
+	}
+
+	u32 buffer = Memory::ReadUnchecked_U32(bufferAddr);
+	u32 init = Memory::ReadUnchecked_U32(initAddr);
 	DEBUG_LOG(Log::Mpeg, "*buffer = %08x, *init = %08x", buffer, init);
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
@@ -1309,10 +1316,10 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 
 	if (mpegLibVersion >= 0x010A) {
 		// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expect, issue #11060
-		Memory::Write_U32(1, initAddr);
+		Memory::WriteUnchecked_U32(1, initAddr);
 	} else {
 		// Save the current frame's status to initAddr
-		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+		Memory::WriteUnchecked_U32(ctx->avc.avcFrameStatus, initAddr);
 	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -1928,7 +1935,7 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 // YCbCr -> RGB color space conversion
 static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
 {
-	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(rangeAddr) || !Memory::IsValidAddress(destAddr)) {
+	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidRange(rangeAddr, 16) || !Memory::IsValidAddress(destAddr)) {
 		return hleLogError(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -1945,10 +1952,10 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 		}
 	}
 
-	int x = Memory::Read_U32(rangeAddr);
-	int y = Memory::Read_U32(rangeAddr + 4);
-	int width = Memory::Read_U32(rangeAddr + 8);
-	int height = Memory::Read_U32(rangeAddr + 12);
+	int x = Memory::ReadUnchecked_U32(rangeAddr);
+	int y = Memory::ReadUnchecked_U32(rangeAddr + 4);
+	int width = Memory::ReadUnchecked_U32(rangeAddr + 8);
+	int height = Memory::ReadUnchecked_U32(rangeAddr + 12);
 
 	if (x < 0 || y < 0 || width < 0 || height < 0) {
 		WARN_LOG(Log::Mpeg, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
