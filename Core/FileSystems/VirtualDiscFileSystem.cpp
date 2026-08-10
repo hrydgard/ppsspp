@@ -27,6 +27,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/Reporting.h"
+#include "Core/Util/PathUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Config.h"
 
@@ -144,6 +145,16 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		size_t trunc = entry.fileName.find_last_not_of("\r\n");
 		if (trunc != entry.fileName.npos && trunc != entry.fileName.size())
 			entry.fileName.resize(trunc + 1);
+
+		// This index file comes from the (often shared/downloaded) "virtual disc"
+		// folder itself, and fileName is used essentially unsanitized below (and
+		// throughout this class) to build a path under basePath. Without this check,
+		// a ".." component would let a crafted index file probe or open arbitrary
+		// host files/directories outside basePath.
+		if (HasParentDirComponent(entry.fileName)) {
+			ERROR_LOG(Log::FileSystem, "Ignoring index entry with parent directory reference: %s", entry.fileName.c_str());
+			continue;
+		}
 
 		entry.firstBlock = (u32)strtol(line.c_str(), NULL, 16);
 		if (entry.handler != NULL && entry.handler->IsValid()) {
