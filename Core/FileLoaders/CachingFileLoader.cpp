@@ -174,13 +174,21 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		blocksMutex_.unlock();
 
 		u8 *buf = new u8[BLOCK_SIZE];
-		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf, flags);
+		size_t readBytes = backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf, flags);
 
 		blocksMutex_.lock();
 		// While blocksMutex_ was unlocked, another thread may have read.
 		// If so, free the one we just read.
 		if (blocks_.find(cacheStartPos) == blocks_.end()) {
-			blocks_[cacheStartPos] = BlockInfo{buf};
+			// Only cache a block we actually fully read - a short/failed read (e.g. a
+			// dropped connection on a Remote ISO) must not be cached as if valid, or
+			// every later read of this block would silently return the uninitialized
+			// tail of `buf` as if it were real file data.
+			if (readBytes == BLOCK_SIZE) {
+				blocks_[cacheStartPos] = BlockInfo{buf};
+			} else {
+				delete [] buf;
+			}
 		} else {
 			delete [] buf;
 		}
@@ -188,10 +196,11 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		blocksMutex_.unlock();
 
 		u8 *wholeRead = new u8[blocksToRead << BLOCK_SHIFT];
-		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead, flags);
+		size_t readBytes = backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead, flags);
+		size_t wholeBlocksRead = readBytes >> BLOCK_SHIFT;
 
 		blocksMutex_.lock();
-		for (size_t i = 0; i < blocksToRead; ++i) {
+		for (size_t i = 0; i < wholeBlocksRead; ++i) {
 			if (blocks_.find(cacheStartPos + i) != blocks_.end()) {
 				// Written while we were busy, just skip it.  Keep the existing block.
 				continue;
