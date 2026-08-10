@@ -198,6 +198,14 @@ inline u8 ReadUnchecked_U8(const u32 address) {
 #endif
 }
 
+inline void WriteUnchecked_U64(u64 data, u32 address) {
+#ifdef MASKED_PSP_MEMORY
+	*(u64_le *)(base + (address & MEMVIEW32_MASK)) = data;
+#else
+	*(u64_le *)(base + address) = data;
+#endif
+}
+
 inline void WriteUnchecked_U32(u32 data, u32 address) {
 #ifdef MASKED_PSP_MEMORY
 	*(u32_le *)(base + (address & MEMVIEW32_MASK)) = data;

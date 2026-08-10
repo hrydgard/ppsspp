@@ -114,31 +114,34 @@ u64 sceKernelUSec2SysClockWide(u32 usec)
 	return hleNoLog(usec);
 }
 
-int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
-{
+int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr) {
 	DEBUG_LOG(Log::sceKernel, "sceKernelSysClock2USec(clock = %08x, lo = %08x, hi = %08x)", sysclockPtr, highPtr, lowPtr);
-	u64 time = Memory::Read_U64(sysclockPtr);
+	if (!Memory::IsValidRange(sysclockPtr, 8)) {
+		return hleLogError(Log::sceKernel, -1, "sceKernelSysClock2USec: Invalid sysclockPtr %08x", sysclockPtr);
+	}
+	u64 time = Memory::ReadUnchecked_U64(sysclockPtr);
 	u32 highResult = (u32)(time / 1000000);
 	u32 lowResult = (u32)(time % 1000000);
-	if (Memory::IsValidAddress(highPtr))
+	if (Memory::IsValid4AlignedAddress(highPtr))
 		Memory::WriteUnchecked_U32(highResult, highPtr);
-	if (Memory::IsValidAddress(lowPtr))
+	if (Memory::IsValid4AlignedAddress(lowPtr))
 		Memory::WriteUnchecked_U32(lowResult, lowPtr);
 	hleEatCycles(415);
 	return hleNoLog(0);
 }
 
-int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 highPtr)
-{
+int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 highPtr) {
 	u64 sysClock = lowClock | ((u64)highClock << 32);
 	DEBUG_LOG(Log::sceKernel, "sceKernelSysClock2USecWide(clock = %llu, lo = %08x, hi = %08x)", sysClock, lowPtr, highPtr);
-	if (Memory::IsValidAddress(lowPtr)) {
+	if (Memory::IsValid4AlignedAddress(lowPtr)) {
 		Memory::WriteUnchecked_U32((u32)(sysClock / 1000000), lowPtr);
-		if (Memory::IsValidAddress(highPtr)) 
+		if (Memory::IsValid4AlignedAddress(highPtr)) 
 			Memory::WriteUnchecked_U32((u32)(sysClock % 1000000), highPtr);
-	} else 
-		if (Memory::IsValidAddress(highPtr)) 
-			Memory::WriteUnchecked_U32((int) sysClock, highPtr);
+	} else {
+		if (Memory::IsValid4AlignedAddress(highPtr)) {
+			Memory::WriteUnchecked_U32((int)sysClock, highPtr);
+		}
+	}
 	hleEatCycles(385);
 	return hleNoLog(0);
 }

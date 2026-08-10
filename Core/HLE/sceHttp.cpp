@@ -803,8 +803,8 @@ static int sceHttpGetContentLength(int requestID, u32 contentLengthPtr) {
 	if (len < 0)
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_NO_CONTENT_LENGTH, "no content length");
 
-	DEBUG_LOG(Log::sceNet, "ContentLength = %lld (in) => %lld (out)", Memory::Read_U64(contentLengthPtr), (u64)len);
-	Memory::Write_U64((u64)len, contentLengthPtr);
+	DEBUG_LOG(Log::sceNet, "ContentLength = %lld (in) => %lld (out)", Memory::ReadUnchecked_U64(contentLengthPtr), (u64)len);
+	Memory::WriteUnchecked_U64((u64)len, contentLengthPtr);
 	NotifyMemInfo(MemBlockFlags::WRITE, contentLengthPtr, 8, "HttpGetContentLength");
 	return 0;
 }

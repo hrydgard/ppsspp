@@ -319,10 +319,13 @@ u32 sceKernelSetVTimerTime(SceUID uid, u32 timeClockAddr) {
 	if (!vt) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
-
-	u64 time = Memory::Read_U64(timeClockAddr);
-	if (Memory::IsValidAddress(timeClockAddr))
+	
+	if (Memory::IsValidAddress(timeClockAddr)) {
+		u64 time = Memory::Read_U64(timeClockAddr);
 		Memory::Write_U64(__KernelSetVTimer(vt, time), timeClockAddr);
+	} else {
+		_dbg_assert_(false);
+	}
 
 	return hleLogDebug(Log::sceKernel, 0);
 }
