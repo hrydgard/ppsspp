@@ -27,6 +27,7 @@ public:
 
 	bool Empty() const;
 	bool TryFill();
+	bool HasError() const { return hasError_; }
 
 	size_t ValidAmount() const {
 		return valid_;
@@ -41,7 +42,6 @@ private:
 	std::pair<std::string_view, std::string_view> BufferParts() const;
 	void Fill();
 	bool Block();
-	void AccountFill(int bytes);
 	void AccountDrain(size_t bytes);
 	size_t FindNewline() const;
 
@@ -57,6 +57,7 @@ private:
 	size_t read_;
 	size_t write_;
 	size_t valid_;
+	bool hasError_ = false;
 };
 
 class OutputSink {
@@ -74,6 +75,7 @@ public:
 
 	bool Empty() const;
 	size_t BytesRemaining() const;
+	bool HasError() const { return hasError_; }
 
 private:
 	void Drain();
@@ -89,6 +91,7 @@ private:
 	size_t read_;
 	size_t write_;
 	size_t valid_;
+	bool hasError_ = false;
 };
 
 }  // namespace net

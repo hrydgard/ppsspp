@@ -131,6 +131,10 @@ size_t InputSink::FindNewline() const {
 
 bool InputSink::TakeExact(char *buf, size_t bytes) {
 	while (bytes > 0) {
+		if (hasError_) {
+			return false;
+		}
+
 		size_t drained = TakeAtMost(buf, bytes);
 		buf += drained;
 		bytes -= drained;
@@ -162,6 +166,10 @@ size_t InputSink::TakeAtMost(char *buf, size_t bytes) {
 
 bool InputSink::Skip(size_t bytes) {
 	while (bytes > 0) {
+		if (hasError_) {
+			return false;
+		}
+
 		size_t drained = std::min(valid_, bytes);
 		AccountDrain(drained);
 		bytes -= drained;
@@ -182,16 +190,35 @@ void InputSink::Discard() {
 	read_ = 0;
 	write_ = 0;
 	valid_ = 0;
+	hasError_ = false;
 }
 
 void InputSink::Fill() {
+	if (hasError_) {
+		return;
+	}
+
 	// Avoid small reads if possible.
 	if (BUFFER_SIZE - valid_ > PRESSURE) {
 		// Whatever isn't valid and follows write_ is what's available.
 		size_t avail = BUFFER_SIZE - std::max(write_, valid_);
 
 		int bytes = recv(fd_, buf_ + write_, avail, MSG_NOSIGNAL);
-		AccountFill(bytes);
+		if (bytes < 0) {
+			int err = socket_errno;
+			if (err == EWOULDBLOCK || err == EAGAIN)
+				return;
+			ERROR_LOG(Log::Net, "Error reading from socket: %d", err);
+			hasError_ = true;
+			return;
+		}
+
+		// Okay, move forward (might be by zero.)
+		valid_ += bytes;
+		write_ += bytes;
+		if (write_ >= BUFFER_SIZE) {
+			write_ -= BUFFER_SIZE;
+		}
 	}
 }
 
@@ -202,23 +229,6 @@ bool InputSink::Block() {
 
 	Fill();
 	return true;
-}
-
-void InputSink::AccountFill(int bytes) {
-	if (bytes < 0) {
-		int err = socket_errno;
-		if (err == EWOULDBLOCK || err == EAGAIN)
-			return;
-		ERROR_LOG(Log::Net, "Error reading from socket: %d", err);
-		return;
-	}
-
-	// Okay, move forward (might be by zero.)
-	valid_ += bytes;
-	write_ += bytes;
-	if (write_ >= BUFFER_SIZE) {
-		write_ -= BUFFER_SIZE;
-	}
 }
 
 void InputSink::AccountDrain(size_t bytes) {
@@ -248,6 +258,10 @@ bool OutputSink::Push(const std::string &s) {
 
 bool OutputSink::Push(const char *buf, size_t bytes) {
 	while (bytes > 0) {
+		if (hasError_) {
+			return false;
+		}
+
 		size_t pushed = PushAtMost(buf, bytes);
 		buf += pushed;
 		bytes -= pushed;
@@ -342,13 +356,15 @@ bool OutputSink::Block() {
 
 bool OutputSink::Flush(bool allowBlock) {
 	while (valid_ > 0) {
+		if (hasError_) {
+			return false;
+		}
+
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
 		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
-#if !PPSSPP_PLATFORM(WINDOWS)
 		if (bytes == -1 && (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK))
 			bytes = 0;
-#endif
 		AccountDrain(bytes);
 
 		if (bytes == 0) {
@@ -368,19 +384,22 @@ void OutputSink::Discard() {
 	read_ = 0;
 	write_ = 0;
 	valid_ = 0;
+	hasError_ = false;
 }
 
 void OutputSink::Drain() {
+	if (hasError_) {
+		return;
+	}
+
 	// Avoid small reads if possible.
 	if (valid_ > PRESSURE) {
 		// Let's just do contiguous valid.
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
 		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
-#if !PPSSPP_PLATFORM(WINDOWS)
 		if (bytes == -1 && (socket_errno == EAGAIN || socket_errno == EWOULDBLOCK))
-			bytes = 0;
-#endif
+			bytes = 0;  // don't report errors
 		AccountDrain(bytes);
 	}
 }
@@ -399,6 +418,7 @@ void OutputSink::AccountDrain(int bytes) {
 		if (err == EWOULDBLOCK || err == EAGAIN)
 			return;
 		ERROR_LOG(Log::IO, "Error writing to socket: %d", err);
+		hasError_ = true;
 		return;
 	}
 
