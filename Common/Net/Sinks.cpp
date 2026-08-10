@@ -258,6 +258,10 @@ bool OutputSink::Push(const std::string &s) {
 
 bool OutputSink::Push(const char *buf, size_t bytes) {
 	while (bytes > 0) {
+		if (hasError_) {
+			return false;
+		}
+
 		size_t pushed = PushAtMost(buf, bytes);
 		buf += pushed;
 		bytes -= pushed;
@@ -352,6 +356,10 @@ bool OutputSink::Block() {
 
 bool OutputSink::Flush(bool allowBlock) {
 	while (valid_ > 0) {
+		if (hasError_) {
+			return false;
+		}
+
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
 		int bytes = send(fd_, buf_ + read_, avail, MSG_NOSIGNAL);
@@ -376,9 +384,14 @@ void OutputSink::Discard() {
 	read_ = 0;
 	write_ = 0;
 	valid_ = 0;
+	hasError_ = false;
 }
 
 void OutputSink::Drain() {
+	if (hasError_) {
+		return;
+	}
+
 	// Avoid small reads if possible.
 	if (valid_ > PRESSURE) {
 		// Let's just do contiguous valid.
@@ -405,6 +418,7 @@ void OutputSink::AccountDrain(int bytes) {
 		if (err == EWOULDBLOCK || err == EAGAIN)
 			return;
 		ERROR_LOG(Log::IO, "Error writing to socket: %d", err);
+		hasError_ = true;
 		return;
 	}
 

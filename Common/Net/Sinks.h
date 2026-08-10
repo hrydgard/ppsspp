@@ -75,6 +75,7 @@ public:
 
 	bool Empty() const;
 	size_t BytesRemaining() const;
+	bool HasError() const { return hasError_; }
 
 private:
 	void Drain();
@@ -90,6 +91,7 @@ private:
 	size_t read_;
 	size_t write_;
 	size_t valid_;
+	bool hasError_ = false;
 };
 
 }  // namespace net
