@@ -121,7 +121,7 @@ static bool RegisterServer(int port) {
 		double timeout = success ? 2.0 : 10.0;
 
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
-		if (resource4[0] != 0 && http.Connect(timeout)) {
+		if (resource4[0] != 0 && http.Connect(/*maxTries=*/ 2, timeout)) {
 			if (http.GET(http::RequestParams(resource4), &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
@@ -129,7 +129,7 @@ static bool RegisterServer(int port) {
 		}
 
 		// Currently, we're not using keepalive, so gotta reconnect...
-		if (http.Connect(timeout)) {
+		if (http.Connect(/*maxTries=*/ 2, timeout)) {
 			char resource6[1024] = {};
 			std::string ip = http.GetLocalIpAsString();
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
