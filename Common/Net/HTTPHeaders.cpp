@@ -75,8 +75,15 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 		const char *endptr = strchr(buffer, ' ');
 		const char *q_ptr = strchr(buffer, '?');
 		if (!endptr) {
-			// No trailing space (e.g. a bare HTTP/0.9 "GET /" request). Fall back to
+			// No trailing space. Fall back to
 			// the end of the line instead of leaving endptr null.
+			// Nemo's repro (python):
+			// import socket
+			// SERVER_IP = "127.0.0.1"
+			// PORT = 65199  # my port
+			// message = "GET /\n"
+			// client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			// client_socket.connect((SERVER_IP, PORT)); client_socket.sendall(message.encode('utf-8'))
 			endptr = buffer + strlen(buffer);
 		}
 

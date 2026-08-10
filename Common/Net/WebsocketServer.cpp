@@ -17,7 +17,8 @@ static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 // Sanity cap on a single message's total size, so a client can't crash us by simply
 // claiming an enormous frame length before sending any actual data.
-static constexpr uint64_t MAX_WS_MESSAGE_SIZE = 64 * 1024 * 1024;
+// TODO: Make configurable?
+static constexpr uint64_t MAX_WS_MESSAGE_SIZE = 128 * 1024 * 1024;
 
 namespace net {
 
