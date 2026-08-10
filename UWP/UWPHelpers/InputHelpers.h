@@ -46,7 +46,6 @@ bool IsCtrlOnHold();
 // Misc
 std::string GetLangRegion();
 bool IsXBox();
-bool IsMobile();
 
 // Get major, minor, build, revision
 void GetVersionInfo(uint32_t& major, uint32_t& minor, uint32_t& build, uint32_t& revision);
