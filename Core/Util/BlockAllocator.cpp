@@ -338,7 +338,13 @@ void BlockAllocator::CheckBlocks() const
 
 const char *BlockAllocator::GetBlockTag(u32 addr) const {
 	const Block *b = GetBlockFromAddress(addr);
-	return b->tag;
+	// Unlike the other accessors here, this used to dereference a possibly-null
+	// block unconditionally. Callers (e.g. NetAdhocCommon.cpp) pass the result
+	// straight into strcmp() against an expected tag as part of recovering from a
+	// stale address left over from an old/corrupt savestate, so return "" rather
+	// than nullptr - it simply won't match, correctly triggering their recovery
+	// path instead of crashing in strcmp().
+	return b ? b->tag : "";
 }
 
 inline BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
@@ -450,6 +456,18 @@ void BlockAllocator::DoState(PointerWrap &p)
 		bottom_ = new Block(0, 0, false, NULL, NULL);
 		bottom_->DoState(p, compact);
 		--count;
+
+		// A corrupt/malicious savestate could claim an enormous block count. Each
+		// block needs at least sizeof(start)+sizeof(size)+sizeof(taken)+sizeof(tag)
+		// bytes in the stream, so clamp to what could plausibly still be there
+		// instead of always trying to allocate `count` Blocks up front.
+		size_t maxRemainingBlocks = p.Remaining() / (sizeof(u32) + sizeof(u32) + 1 + 32);
+		if (count < 0) {
+			count = 0;
+		} else if ((size_t)count > maxRemainingBlocks) {
+			count = (int)maxRemainingBlocks;
+			p.SetError(PointerWrap::ERROR_FAILURE);
+		}
 
 		top_ = bottom_;
 		for (int i = 0; i < count; ++i)
