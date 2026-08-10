@@ -556,6 +556,18 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	numBlocks = (u32)(totalSize / GetBlockSize());
 	VERBOSE_LOG(Log::Loader, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
 
+	// numFrames and numBlocks are independently truncated to 32 bits from the same
+	// attacker-controlled 64-bit total_bytes, using different divisors (frameSize vs.
+	// the fixed 2048-byte block size). With extreme total_bytes/block_size values these
+	// can disagree so that numBlocks describes more blocks than numFrames actually has
+	// frames for - ReadBlock() would then index the numFrames+1-sized `index` array
+	// (via frameNumber+1, with frameNumber derived from a blockNumber < numBlocks) out
+	// of bounds. Reject any header where that could happen.
+	if ((u64)numBlocks > (u64)numFrames << blockShift) {
+		errorString_ = "Invalid CSO header (block/frame size mismatch)";
+		return;
+	}
+
 	// We might read a bit of alignment too, so be prepared.
 	readBufferSize = frameSize + (1u << indexShift);
 	if (readBufferSize < CSO_READ_BUFFER_SIZE)
