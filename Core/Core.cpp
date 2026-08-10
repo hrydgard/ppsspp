@@ -602,9 +602,11 @@ const char *MemoryExceptionTypeAsString(MemoryExceptionType type) {
 	switch (type) {
 	case MemoryExceptionType::UNKNOWN: return "Unknown";
 	case MemoryExceptionType::READ_WORD: return "Read Word";
-	case MemoryExceptionType::WRITE_WORD: return "Write Word";
 	case MemoryExceptionType::READ_BLOCK: return "Read Block";
+	case MemoryExceptionType::WRITE_WORD: return "Write Word";
 	case MemoryExceptionType::WRITE_BLOCK: return "Read/Write Block";
+	case MemoryExceptionType::HLE_READ: return "HLE Read";
+	case MemoryExceptionType::HLE_WRITE: return "HLE Write";
 	case MemoryExceptionType::ALIGNMENT: return "Alignment";
 	default:
 		return "N/A";
@@ -638,14 +640,13 @@ static std::string ModuleAddressSuffix(u32 address) {
 	}
 }
 
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
-	const char *desc = MemoryExceptionTypeAsString(type);
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo) {
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 
 	char pcDetails[128];
 	pcDetails[0] = 0;
 	if ((CPUCore)g_Config.iCpuCore == CPUCore::INTERPRETER) {
-		snprintf(pcDetails, sizeof(pcDetails), " PC %08x%s LR %08x%s", currentMIPS->pc, ModuleAddressSuffix(currentMIPS->pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+		snprintf(pcDetails, sizeof(pcDetails), " PC %08x%s RA %08x%s", currentMIPS->pc, ModuleAddressSuffix(currentMIPS->pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
 	}
 
 	const std::string addressSuffix = ModuleAddressSuffix(address);
@@ -663,6 +664,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		break;
 	}
 
+	const char *desc = MemoryExceptionTypeAsString(type);
 	if (action == ExceptionAction::Ignore) {
 		// Simplest logging and continue.
 		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x%s (size %08x) %s%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data());
@@ -672,6 +674,60 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	// Do the most detailed logging we can.
 	ERROR_LOG(Log::MemMap, "%s: Invalid access at %08x%s (size %08x) %s%.*s\n%s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, (int)additionalInfo.length(), additionalInfo.data(), stackTrace.c_str());
+	if (action == ExceptionAction::Break) {
+		MIPSExceptionInfo &e = g_exceptionInfo;
+		e = {};
+		e.type = MIPSExceptionType::MEMORY;
+		e.info.clear();
+		e.memory_type = type;
+		e.address = address;
+		e.accessSize = accessSize;
+		e.stackTrace = stackTrace;
+		e.pc = pc;
+		Core_Break(BreakReason::MemoryException, address);
+	}
+}
+
+void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, MemoryExceptionType type) {
+	ExceptionAction action;
+	switch (type) {
+	case MemoryExceptionType::HLE_WRITE:
+		action = ResolveExceptionAction((ExceptionAction)g_Config.iExceptionActionMemWrite);
+		break;
+	case MemoryExceptionType::HLE_READ:
+		action = ResolveExceptionAction((ExceptionAction)g_Config.iExceptionActionMemRead);
+		break;
+	default:
+		_dbg_assert_(false);
+		action = ExceptionAction::Break;
+		break;
+	}
+
+	const HLEFunction *func = HLEGetFunctionBeingCalled();
+	const char *funcName = func ? func->name : "unknown";
+
+	char args[512] = "";
+	if (func) {
+		HLEFormatLogArgs(mips, args, sizeof(args), func->argmask);
+	}
+
+	const u32 pc = mips->pc;
+	char msg[512];
+	snprintf(msg, sizeof(msg), "Invalid access in %s(%s) at %08x%s (size %08x) PC %08x%s RA %08x%s",
+		funcName, args,
+		address, ModuleAddressSuffix(address).c_str(), accessSize,
+		pc, ModuleAddressSuffix(pc).c_str(),
+		mips->r[MIPS_REG_RA], ModuleAddressSuffix(mips->r[MIPS_REG_RA]).c_str());
+
+	const char *desc = MemoryExceptionTypeAsString(type);
+	if (action == ExceptionAction::Ignore) {
+		// Simplest logging and continue.
+		WARN_LOG(Log::MemMap, "HLE %s: %s", MemoryExceptionTypeAsString(type), msg);
+		return;
+	}
+
+	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
+	ERROR_LOG(Log::MemMap, "%s: %s\n%s", desc, msg, stackTrace.c_str());
 	if (action == ExceptionAction::Break) {
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};

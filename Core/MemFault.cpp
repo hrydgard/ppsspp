@@ -320,7 +320,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uint32_t approximatePC = currentMIPS->pc;
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.
-		Core_MemoryException(guestAddress, 0, approximatePC, type, infoString, true);
+		Core_MemoryException(guestAddress, 0, approximatePC, type, infoString);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
@@ -373,6 +373,10 @@ std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
 std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames) {
 	std::stringstream str;
 	for (const auto &frame : frames) {
+		if (frame.pc == 0xFFFFFFFF) {
+			// Bottom of stack, probably.
+			continue;
+		}
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
 		char moduleDesc[96];
 		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {

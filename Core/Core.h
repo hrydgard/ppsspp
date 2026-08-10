@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
-#include <string>
 #include <string_view>
 
 #include "Common/CommonTypes.h"
@@ -199,6 +198,8 @@ enum class MemoryExceptionType {
 	UNKNOWN,
 	READ_WORD,
 	WRITE_WORD,
+	HLE_READ,
+	HLE_WRITE,
 	READ_BLOCK,
 	WRITE_BLOCK,
 	ALIGNMENT,
@@ -208,11 +209,15 @@ enum class ExecExceptionType {
 	THREAD,
 };
 
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "", bool forceReport = false);
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "");
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_BreakException(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
+
+class MIPSState;
+// Shortcut, just calls Core_MemoryException with automatically determined parameters (function name, etc).
+void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, MemoryExceptionType type);
 
 enum class MIPSExceptionType {
 	NONE,

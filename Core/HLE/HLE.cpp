@@ -1009,7 +1009,7 @@ void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
 }
 
 // TODO: Also add support for argument names.
-size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
+size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const char *argmask) {
 	char *p = message;
 	size_t used = 0;
 
@@ -1026,9 +1026,9 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	for (size_t i = 0, n = strlen(argmask); i < n; ++i, ++reg) {
 		u32 regval;
 		if (reg < 8) {
-			regval = PARAM(reg);
+			regval = PARAM_MIPS(mips, reg);
 		} else {
-			u32 sp = currentMIPS->r[MIPS_REG_SP];
+			u32 sp = mips->r[MIPS_REG_SP];
 			// Goes upward on stack.
 			// NOTE: Currently we only support > 8 for 32-bit integer args.
 			regval = Memory::Read_U32(sp + (reg - 8) * 4);
@@ -1036,16 +1036,16 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 
 		switch (argmask[i]) {
 		case 'p':
-			if (Memory::IsValidAddress(regval)) {
-				APPEND_FMT("%08x[%08x]", regval, Memory::Read_U32(regval));
+			if (Memory::IsValidRange(regval, 4)) {
+				APPEND_FMT("%08x[%08x]", regval, Memory::ReadUnchecked_U32(regval));
 			} else {
 				APPEND_FMT("%08x[invalid]", regval);
 			}
 			break;
 
 		case 'P':
-			if (Memory::IsValidAddress(regval)) {
-				APPEND_FMT("%08x[%016llx]", regval, Memory::Read_U64(regval));
+			if (Memory::IsValidRange(regval, 8)) {
+				APPEND_FMT("%08x[%016llx]", regval, Memory::ReadUnchecked_U64(regval));
 			} else {
 				APPEND_FMT("%08x[invalid]", regval);
 			}
@@ -1088,6 +1088,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 			--reg;
 			break;
 
+
 		// TODO: Double?  Does it ever happen?
 
 		default:
@@ -1118,6 +1119,14 @@ void hleLeave() {
 	}  // else warn?
 }
 
+const HLEFunction *HLEGetFunctionBeingCalled() {
+	int stackSize = g_stackSize;
+	if (stackSize > 0) {
+		return g_stack[stackSize - 1];
+	}
+	return nullptr;
+}
+
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason) {
 	char formatted_args[2048];
 	const char *funcName = "?";
@@ -1139,7 +1148,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		// Need to do something smart in hleCall. But it's better than printing function name and args from the wrong function.
 		
 		if (stackSize == 1) {
-			hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);
+			HLEFormatLogArgs(currentMIPS, formatted_args, sizeof(formatted_args), hleFunc->argmask);
 		} else {
 			truncate_cpy(formatted_args, "...N/A...");
 		}
