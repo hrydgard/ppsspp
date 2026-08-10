@@ -56,8 +56,15 @@ typedef struct{
 	u8 lc;
 
 	u8 bm_literal[8][256];
-	u8 bm_dist_bits[8][39];
-	u8 bm_dist[18][8];
+	// rc_bittree() is called on &bm_dist_bits[len_bits][dist_state] with a limit of up
+	// to 44 (dist_state can be 7), and can index up to limit-1 past that base - i.e.
+	// column index up to 7+43=50, so the second dimension must be at least 51 (39 was
+	// too small and let a crafted stream corrupt adjacent probability tables).
+	u8 bm_dist_bits[8][51];
+	// rc_number() is called with &bm_dist[dist_bits][0] where dist_bits can reach 43
+	// (see bm_dist_bits above), so the first dimension must be at least 44 (18 was too
+	// small).
+	u8 bm_dist[44][8];
 	u8 bm_match[8][8];
 	u8 bm_len[8][31];
 }LZRC_DECODE;
@@ -104,11 +111,11 @@ static void rc_init(LZRC_DECODE *rc, void *out, int out_len, void *in, int in_le
 				(rc_getbyte(rc)<< 0) ;
 	rc->out_code = 0xffffffff;
 
-	memset(rc->bm_literal,   0x80, 2048);
-	memset(rc->bm_dist_bits, 0x80, 312);
-	memset(rc->bm_dist,      0x80, 144);
-	memset(rc->bm_match,     0x80, 64);
-	memset(rc->bm_len,       0x80, 248);
+	memset(rc->bm_literal,   0x80, sizeof(rc->bm_literal));
+	memset(rc->bm_dist_bits, 0x80, sizeof(rc->bm_dist_bits));
+	memset(rc->bm_dist,      0x80, sizeof(rc->bm_dist));
+	memset(rc->bm_match,     0x80, sizeof(rc->bm_match));
+	memset(rc->bm_len,       0x80, sizeof(rc->bm_len));
 
 }
 
