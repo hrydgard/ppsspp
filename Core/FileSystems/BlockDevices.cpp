@@ -848,6 +848,10 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
 	u32 lbaEnd   = *(u32*)(np_header+0x64); // LBA end
+	if (lbaEnd < lbaStart) {
+		errorString_ = "Bad LBA range in header";
+		return;
+	}
 	lbaSize_     = (lbaEnd - lbaStart + 1); // LBA size of ISO
 	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
@@ -855,10 +859,11 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	memcpy(psarStr, &psar_id, 4);
 
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
-	_dbg_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+	_dbg_assert_msg_(blockLBAs_ > 0 && blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 
 	// When we remove the above assert, let's just try to survive.
-	if (blockLBAs_ > 4096) {
+	// blockLBAs_ also must not be zero, or we'd divide by zero below.
+	if (blockLBAs_ <= 0 || blockLBAs_ > 4096) {
 		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, GetFriendlyPath(fileLoader->GetPath()).c_str(), psarStr);
 		return;
 	}
@@ -875,7 +880,17 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	tableSize_ = numBlocks_ * 32;
+	// Computed in 64-bit and sanity checked against the file size, since numBlocks_
+	// could otherwise be large enough that numBlocks_ * sizeof(table_info) wraps
+	// around in 32-bit, causing us to only actually read (and XOR-descramble) a
+	// small prefix of the `numBlocks_`-sized table_ allocation, leaving the rest
+	// as uninitialized heap memory that ReadBlock() would later trust.
+	u64 tableSize64 = (u64)numBlocks_ * sizeof(table_info);
+	if (tableSize64 == 0 || tableSize64 > (u64)fileLoader_->FileSize()) {
+		errorString_ = "Invalid NPUMDIMG table size";
+		return;
+	}
+	tableSize_ = (u32)tableSize64;
 	table_ = new table_info[numBlocks_];
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
@@ -930,11 +945,26 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	lba = blockNumber % blockLBAs_;
 	currentBlock_ = block * blockLBAs_;
 
+	// blockNumber comes from the caller (ultimately from guest-controlled reads, e.g.
+	// via /sce_lbn.../_size... on a raw sector open) and isn't otherwise guaranteed to be
+	// within table_'s bounds, so bounds-check it before indexing.
+	if (block < 0 || (u32)block >= numBlocks_) {
+		return false;
+	}
+
 	if (table_[block].unk_1c != 0) {
 		if((u32)block == (numBlocks_ - 1))
 			return true; // demos make by fake_np
 		else
 			return false;
+	}
+
+	// table_[block].size comes straight from the (only reversibly-scrambled, not
+	// otherwise validated) table in the PBP file, so a malicious/corrupt file could
+	// claim a size larger than blockSize_ here - refuse rather than overflowing
+	// blockBuf_/tempBuf_ (both exactly blockSize_ bytes) via ReadAt/CipherUpdate below.
+	if (table_[block].size < 0 || table_[block].size > blockSize_) {
+		return false;
 	}
 
 	u8 *readBuf;
