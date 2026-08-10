@@ -665,12 +665,15 @@ int main(int argc, const char* argv[]) {
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
 	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
+	g_Config.bSkipDeadbeefFilling = false;
 
 	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
-	CPUCore cpuCore = CPUCore::INTERPRETER;
+	// This looks contradictory to the above. But, this preserves the old test behavior which apparently ran the JIT for the CPU
+	// but ended up running software vertex decoding due to the setting in g_Config. Yeah, it's a mess.
+	CPUCore cpuCore = CPUCore::JIT;
 	if (cmdLineOptions.cpuCore.has_value()) {
 		cpuCore = cmdLineOptions.cpuCore.value();
 	}
@@ -723,7 +726,7 @@ int main(int argc, const char* argv[]) {
 	// TODO: This whole function should be refactored to set up CoreParameter in one place,
 	// but not now.
 	CoreParameter coreParameter;
-	coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParameter.cpuCore = (CPUCore)cpuCore;
 	coreParameter.gpuCore = (GPUCore)gpuCore;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
