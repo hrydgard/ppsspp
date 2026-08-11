@@ -131,7 +131,12 @@ bool MultiTouchButton::CanGlide() const {
 }
 
 bool MultiTouchButton::Touch(const TouchInput &input) {
-	_dbg_assert_(input.id >= 0 && input.id < TOUCH_MAX_POINTERS);
+	// input.id comes from platform-specific touch/pointer IDs. Most of our
+	// platforms try to remap to [0, TOUCH_MAX_POINTERS), and all will be updated
+	// to do that in the future.
+	if (input.id < 0 || input.id >= TOUCH_MAX_POINTERS) {
+		return false;
+	}
 
 	bool retval = GamepadComponent::Touch(input);
 	if ((input.flags & TouchInputFlags::DOWN) && bounds_.Contains(input.x, input.y)) {
@@ -347,6 +352,11 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 }
 
 bool PSPDpad::Touch(const TouchInput &input) {
+	// See the comment in MultiTouchButton::Touch().
+	if (input.id < 0 || input.id >= TOUCH_MAX_POINTERS) {
+		return false;
+	}
+
 	bool retval = GamepadComponent::Touch(input);
 
 	if (input.flags & TouchInputFlags::DOWN) {
@@ -540,6 +550,11 @@ void PSPStick::Draw(UIContext &dc) {
 }
 
 bool PSPStick::Touch(const TouchInput &input) {
+	// See the comment in MultiTouchButton::Touch().
+	if (input.id < 0 || input.id >= TOUCH_MAX_POINTERS) {
+		return false;
+	}
+
 	bool retval = GamepadComponent::Touch(input);
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
@@ -652,6 +667,10 @@ void PSPCustomStick::Draw(UIContext &dc) {
 }
 
 bool PSPCustomStick::Touch(const TouchInput &input) {
+	if (input.id < 0 || input.id >= TOUCH_MAX_POINTERS) {
+		return false;
+	}
+
 	bool retval = GamepadComponent::Touch(input);
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
@@ -1140,7 +1159,23 @@ GestureGamepad::~GestureGamepad() {
 	}
 }
 
+// The gesture config ints (iDoubleTapGesture/iSwipeUp/Down/Left/Right) are
+// PER_GAME config values loaded from an ini with no range clamp applied, unlike
+// the UI (a PopupMultiChoice) that normally sets them - a hand-edited, corrupted,
+// or version-skewed config could contain an out-of-range value, which would
+// otherwise index GestureKey::keyList[] out of bounds below. Mirrors the bounds
+// check PSPCustomStick::ProcessTouch already does for its own config->buttons[]
+// lookup.
+static bool ValidGestureKeyConfig(int config) {
+	return config > 0 && (size_t)config <= ARRAY_SIZE(GestureKey::keyList);
+}
+
 bool GestureGamepad::Touch(const TouchInput &input) {
+	// See the comment in MultiTouchButton::Touch().
+	if (input.id < 0 || input.id >= TOUCH_MAX_POINTERS) {
+		return false;
+	}
+
 	const GestureControlConfig &zone = GetZone();
 
 	if (usedPointerMask & (1 << input.id)) {
@@ -1169,7 +1204,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
-				if (zone.iDoubleTapGesture != 0 )
+				if (ValidGestureKeyConfig(zone.iDoubleTapGesture))
 					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[zone.iDoubleTapGesture - 1], KeyInputFlags::DOWN);
 				haveDoubleTapped_ = true;
 			}
@@ -1211,7 +1246,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 				lastTapRelease_ = time_now_d();
 
 			if (haveDoubleTapped_) {
-				if (zone.iDoubleTapGesture != 0)
+				if (ValidGestureKeyConfig(zone.iDoubleTapGesture))
 					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[zone.iDoubleTapGesture - 1], KeyInputFlags::UP);
 				haveDoubleTapped_ = false;
 			}
@@ -1247,7 +1282,7 @@ void GestureGamepad::Update() {
 		return;
 	}
 
-	if (GetZone().iSwipeRight != 0) {
+	if (ValidGestureKeyConfig(GetZone().iSwipeRight)) {
 		if (dx > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight - 1], KeyInputFlags::DOWN);
 			swipeRightReleased_ = false;
@@ -1256,7 +1291,7 @@ void GestureGamepad::Update() {
 			swipeRightReleased_ = true;
 		}
 	}
-	if (GetZone().iSwipeLeft != 0) {
+	if (ValidGestureKeyConfig(GetZone().iSwipeLeft)) {
 		if (dx < -th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeLeft - 1], KeyInputFlags::DOWN);
 			swipeLeftReleased_ = false;
@@ -1265,7 +1300,7 @@ void GestureGamepad::Update() {
 			swipeLeftReleased_ = true;
 		}
 	}
-	if (GetZone().iSwipeUp != 0) {
+	if (ValidGestureKeyConfig(GetZone().iSwipeUp)) {
 		if (dy < -th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeUp - 1], KeyInputFlags::DOWN);
 			swipeUpReleased_ = false;
@@ -1274,7 +1309,7 @@ void GestureGamepad::Update() {
 			swipeUpReleased_ = true;
 		}
 	}
-	if (GetZone().iSwipeDown != 0) {
+	if (ValidGestureKeyConfig(GetZone().iSwipeDown)) {
 		if (dy > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeDown - 1], KeyInputFlags::DOWN);
 			swipeDownReleased_ = false;

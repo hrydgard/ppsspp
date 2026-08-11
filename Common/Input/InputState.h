@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 #include "Common/Common.h"
 #include "Common/Input/KeyCodes.h"
@@ -225,3 +226,45 @@ int GetAnalogYDirection(InputDeviceID deviceId);
 
 // Gross hack unfortunately.
 extern bool g_IsMappingMouseInput;
+
+// General helper for backends that use different types of touch IDs.
+// Warning: If it can't map, IDs come out as -1.
+class TouchMapper {
+public:
+	struct Touch {
+		bool inUse = false;
+		uint64_t uid = 0;
+	};
+
+	int TouchId(uint64_t touch) {
+		for (int touchIx = 0; touchIx < maxTouches; touchIx++)
+			if (touches[touchIx].inUse && touches[touchIx].uid == touch)
+				return touchIx;
+		return -1;
+	}
+
+	int AddNewTouch(uint64_t touch) {
+		for (int touchIx = 0; touchIx < maxTouches; touchIx++) {
+			if (!touches[touchIx].inUse) {
+				touches[touchIx].inUse = true;
+				touches[touchIx].uid = touch;
+				return touchIx;
+			}
+		}
+		return -1;
+	}
+
+	int RemoveTouch(unsigned touch) {
+		for (int touchIx = 0; touchIx < maxTouches; touchIx++) {
+			if (touches[touchIx].inUse && touches[touchIx].uid == touch) {
+				touches[touchIx].inUse = false;
+				return touchIx;
+			}
+		}
+		return -1;
+	}
+
+private:
+	enum { maxTouches = 10 };
+	Touch touches[maxTouches]{};
+};
