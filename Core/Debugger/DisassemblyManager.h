@@ -126,7 +126,13 @@ public:
 	void recheck() override;
 	int getNumLines() override { return (int)lines.size(); };
 	int getLineNum(u32 address, bool findStart) override;
-	u32 getLineAddress(int line) override { return lineAddresses[line]; };
+	u32 getLineAddress(int line) override {
+		// A zero-size data symbol leaves lineAddresses empty; fall back to the
+		// symbol's own base address rather than indexing out of bounds.
+		if (line < 0 || (size_t)line >= lineAddresses.size())
+			return address;
+		return lineAddresses[line];
+	};
 	u32 getTotalSize() override { return size; };
 	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols, DebugInterface *cpuDebug) override;
 

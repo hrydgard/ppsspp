@@ -234,7 +234,10 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 					entries[address] = opcode;
 				}
 
-				DisassemblyData* data = new DisassemblyData(address,next-alignedNext,DATATYPE_BYTE);
+				// This entry represents the misaligned tail [alignedNext, next), stored
+				// under key alignedNext - its own address must match, not the (possibly
+				// much earlier) start of the aligned opcode range above.
+				DisassemblyData* data = new DisassemblyData(alignedNext,next-alignedNext,DATATYPE_BYTE);
 				entries[alignedNext] = data;
 			} else {
 				DisassemblyOpcode* opcode = new DisassemblyOpcode(address,(next-address)/4);
@@ -471,6 +474,11 @@ int DisassemblyFunction::getLineNum(u32 address, bool findStart)
 u32 DisassemblyFunction::getLineAddress(int line)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
+	// A zero-size function leaves lineAddresses empty (e.g. from a symbol added
+	// with size 0 via the WebSocket debugger API or a crafted ELF symtab entry);
+	// fall back to the function's own base address rather than indexing OOB.
+	if (line < 0 || (size_t)line >= lineAddresses.size())
+		return address;
 	return lineAddresses[line];
 }
 
@@ -794,6 +802,10 @@ void DisassemblyData::createLines()
 
 	if (!Memory::IsValidRange(address, size)) {
 		ERROR_LOG(Log::CPU, "DisassemblyData can't create lines for invalid range 0x%08X-0x%08X", address, end);
+		// The loop below reads through [pos, end) with the Unchecked accessors, which
+		// on non-masked builds do a raw *(base+address) with no bounds check at all -
+		// don't fall through into that for a range we just determined is invalid.
+		return;
 	}
 
 	const u32 maxChars = g_disassemblyManager.getMaxParamChars();
@@ -1036,20 +1048,20 @@ void DisassemblyLineInfo::ToString(char *text, size_t bufSize, u32 curAddress) c
 	text[0] = 0;
 	if (type == DISTYPE_OPCODE) {
 		if (info.hasRelevantAddress && IsLikelyStringAt(info.relevantAddress)) {
-			snprintf(text, sizeof(text), "[%08X] = \"%s\"", info.relevantAddress, Memory::GetCharPointer(info.relevantAddress));
+			snprintf(text, bufSize, "[%08X] = \"%s\"", info.relevantAddress, Memory::GetCharPointer(info.relevantAddress));
 		}
 
 		if (info.isDataAccess) {
 			if (!Memory::IsValidRange(info.dataAddress, info.dataSize)) {
-				snprintf(text, sizeof(text), "Invalid address %08X", info.dataAddress);
+				snprintf(text, bufSize, "Invalid address %08X", info.dataAddress);
 			} else {
 				bool isFloat = MIPSGetInfo(info.encodedOpcode) & (IS_FPU | IS_VFPU);
 				switch (info.dataSize) {
 				case 1:
-					snprintf(text, sizeof(text), "[%08X] = %02X", info.dataAddress, Memory::ReadUnchecked_U8(info.dataAddress));
+					snprintf(text, bufSize, "[%08X] = %02X", info.dataAddress, Memory::ReadUnchecked_U8(info.dataAddress));
 					break;
 				case 2:
-					snprintf(text, sizeof(text), "[%08X] = %04X", info.dataAddress, Memory::ReadUnchecked_U16(info.dataAddress));
+					snprintf(text, bufSize, "[%08X] = %04X", info.dataAddress, Memory::ReadUnchecked_U16(info.dataAddress));
 					break;
 				case 4:
 				{
@@ -1063,9 +1075,9 @@ void DisassemblyLineInfo::ToString(char *text, size_t bufSize, u32 curAddress) c
 
 					const std::string addressSymbol = g_symbolMap->GetLabelString(dataInt);
 					if (!addressSymbol.empty()) {
-						snprintf(text, sizeof(text), "[%08X] = %s (%s)", info.dataAddress, addressSymbol.c_str(), dataString.c_str());
+						snprintf(text, bufSize, "[%08X] = %s (%s)", info.dataAddress, addressSymbol.c_str(), dataString.c_str());
 					} else {
-						snprintf(text, sizeof(text), "[%08X] = %s", info.dataAddress, dataString.c_str());
+						snprintf(text, bufSize, "[%08X] = %s", info.dataAddress, dataString.c_str());
 					}
 					break;
 				}
@@ -1080,7 +1092,7 @@ void DisassemblyLineInfo::ToString(char *text, size_t bufSize, u32 curAddress) c
 					std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
 					std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);
 
-					snprintf(text, sizeof(text), "[%08X] = %s / %s", info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
+					snprintf(text, bufSize, "[%08X] = %s / %s", info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
 					break;
 				}
 				}
@@ -1090,9 +1102,9 @@ void DisassemblyLineInfo::ToString(char *text, size_t bufSize, u32 curAddress) c
 		if (info.isBranch) {
 			const std::string addressSymbol = g_symbolMap->GetLabelString(info.branchTarget);
 			if (addressSymbol.empty()) {
-				snprintf(text, sizeof(text), "%08X", info.branchTarget);
+				snprintf(text, bufSize, "%08X", info.branchTarget);
 			} else {
-				snprintf(text, sizeof(text), "%08X = %s", info.branchTarget, addressSymbol.c_str());
+				snprintf(text, bufSize, "%08X = %s", info.branchTarget, addressSymbol.c_str());
 			}
 		}
 	} else if (type == DISTYPE_DATA) {
@@ -1105,14 +1117,14 @@ void DisassemblyLineInfo::ToString(char *text, size_t bufSize, u32 curAddress) c
 
 		if (!label.empty()) {
 			if (diff != 0)
-				snprintf(text, sizeof(text), "%08X (%s) + %08X", start, label.c_str(), diff);
+				snprintf(text, bufSize, "%08X (%s) + %08X", start, label.c_str(), diff);
 			else
-				snprintf(text, sizeof(text), "%08X (%s)", start, label.c_str());
+				snprintf(text, bufSize, "%08X (%s)", start, label.c_str());
 		} else {
 			if (diff != 0)
-				snprintf(text, sizeof(text), "%08X + %08X", start, diff);
+				snprintf(text, bufSize, "%08X + %08X", start, diff);
 			else
-				snprintf(text, sizeof(text), "%08X", start);
+				snprintf(text, bufSize, "%08X", start);
 		}
 	}
 }
