@@ -20,13 +20,14 @@
 
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLE.h"
+#include "Core/Core.h"
 
 #include <cstring>
 
 
 // This is one of the firmware modules (pspnet.prx), the official PSP games can't call these funcs
 
-
+// Ugh, this is ugly.
 u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
 	// Redirect that to libc
 	char* str_end = nullptr;
@@ -34,15 +35,19 @@ u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
 
 	// Remap the pointer
 	u32 psp_str_end = Memory::GetAddressFromHostPointer(str_end);
-	Memory::Write_U32(psp_str_end, strEndAddrPtr);
-
+	if (Memory::IsValid4AlignedAddress(psp_str_end)) {
+		Memory::WriteUnchecked_U32(psp_str_end, strEndAddrPtr);
+	}
 	return hleLogDebug(Log::sceNet, res);
 }
 
 u32 sceNetMemmove(void* dest, u32 srcPtr, u32 count) {
+	if (!Memory::IsValidAddress(srcPtr)) {
+		return hleLogError(Log::sceNet, -1, "sceNetMemmove: Invalid source pointer 0x%08X", srcPtr);
+	}
 	// Redirect that to libc
 	void* host_ptr = std::memmove(
-		dest, Memory::GetPointer(srcPtr), count
+		dest, Memory::GetPointerUnchecked(srcPtr), count
 	);
 
 	// Remap the pointer
