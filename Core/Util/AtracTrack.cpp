@@ -62,12 +62,16 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 	while (Read32(buffer, offset) != RIFF_WAVE_MAGIC) {
 		// Get the size preceding the magic.
 		int chunk = Read32(buffer, offset - 4);
-		// Round the chunk size up to the nearest 2.
-		offset += chunk + (chunk & 1);
-		if (offset + 12 > size) {
+		// Validate and bounds-check in 64-bit *before* mutating offset (a u32).
+		// A negative or huge chunk could otherwise wrap offset (and offset + 12)
+		// around, bypassing the bounds check and making Read32() (whose offset
+		// parameter is a plain `int`) read from a wild pointer far outside buffer.
+		if (chunk < 0 || (u64)offset + (u64)chunk + (chunk & 1) + 12 > size) {
 			*error = StringFromFormat("%d too small for WAVE chunk at offset %d", size, offset);
 			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
+		// Round the chunk size up to the nearest 2.
+		offset += chunk + (chunk & 1);
 		if (Read32(buffer, offset) != RIFF_CHUNK_MAGIC) {
 			*error = "RIFF chunk did not contain WAVE";
 			return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
@@ -201,6 +205,16 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 				*error = StringFromFormat("bad checkNumLoops (%d)", checkNumLoops);
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
+			// checkNumLoops is otherwise just an unvalidated field from the file - left
+			// unclamped, it could both drive an unbounded (up to ~2 billion entry)
+			// allocation here, and (since the loop below compares the loop counter `i`
+			// against chunkSize, rather than the byte offset actually being advanced by
+			// 24 per iteration) let reads run well past the end of this chunk. Clamp it
+			// to how many 24-byte loop entries could actually fit.
+			u32 maxLoops = chunkSize >= 36 ? (chunkSize - 36) / 24 : 0;
+			if ((u32)checkNumLoops > maxLoops) {
+				checkNumLoops = (int)maxLoops;
+			}
 
 			track->loopinfo.resize(checkNumLoops);
 			u32 loopinfoOffset = offset + 36;
@@ -288,7 +302,11 @@ int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 fileSize, Track *track, std:
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
-	if (size < tagSize + 36) {
+	// After rebasing buffer by 10+tagSize below, the codecParams/codec type reads
+	// go up to relative index 35 (buffer[33..35] and buffer[32]) - i.e. absolute
+	// index tagSize+45 - so the required size is tagSize+46, not just tagSize+36
+	// (which only covers up through the EA3 magic check).
+	if (size < tagSize + 46) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 
@@ -594,7 +612,9 @@ static u32 Parse4BytesBE(const u8 *data, int *offset) {
 }
 
 static u32 ParseAA3Headers(u32 readSize, AA3Info *info, u32 fileSize, const u8 *aa3Data) {
-	if ((u32)readSize < 9) {
+	// When the "ea3"/"id3" branch below is taken, Parse28BitIntBE() ends up
+	// reading aa3Data[6..9], so 9 bytes isn't quite enough - need 10.
+	if ((u32)readSize < 10) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 	int offset = 0;
