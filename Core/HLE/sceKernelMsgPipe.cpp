@@ -85,7 +85,7 @@ struct MsgPipeWaitingThread
 			{
 				// Remove any event for this thread.
 				s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
-				Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+				Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 		}
 	}
@@ -369,8 +369,8 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 			if (poll)
 			{
 				// Generally, result is not updated in this case.  But for a 0 size buffer in ASAP mode, it is.
-				if (Memory::IsValidAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
-					Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
+				if (Memory::IsValid4AlignedAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
+					Memory::WriteUnchecked_U32(curSendAddr - sendBufAddr, resultAddr);
 				return SCE_KERNEL_ERROR_MPP_FULL;
 			}
 			else
@@ -424,8 +424,8 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 	}
 
 	// We didn't wait, so update the number of bytes transferred now.
-	if (Memory::IsValidAddress(resultAddr))
-		Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
+	if (Memory::IsValid4AlignedAddress(resultAddr))
+		Memory::WriteUnchecked_U32(curSendAddr - sendBufAddr, resultAddr);
 
 	return 0;
 }
@@ -469,8 +469,8 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 			if (poll)
 			{
 				// Generally, result is not updated in this case.  But for a 0 size buffer in ASAP mode, it is.
-				if (Memory::IsValidAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
-					Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
+				if (Memory::IsValid4AlignedAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
+					Memory::WriteUnchecked_U32(curReceiveAddr - receiveBufAddr, resultAddr);
 				return SCE_KERNEL_ERROR_MPP_EMPTY;
 			}
 			else
@@ -520,8 +520,8 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 		}
 	}
 
-	if (Memory::IsValidAddress(resultAddr))
-		Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
+	if (Memory::IsValid4AlignedAddress(resultAddr))
+		Memory::WriteUnchecked_U32(curReceiveAddr - receiveBufAddr, resultAddr);
 
 	return 0;
 }

@@ -173,8 +173,8 @@ static int sceNpGetContentRatingFlag(u32 parentalControlAddr, u32 userAgeAddr)
 	INFO_LOG(Log::sceNet, "%s - Parental Control: %d", __FUNCTION__, npParentalControl);
 	INFO_LOG(Log::sceNet, "%s - User Age: %d", __FUNCTION__, npUserAge);
 
-	Memory::Write_U32(npParentalControl, parentalControlAddr);
-	Memory::Write_U32(npUserAge, userAgeAddr);
+	Memory::WriteOrException_U32(npParentalControl, parentalControlAddr);
+	Memory::WriteOrException_U32(npUserAge, userAgeAddr);
 
 	return hleLogWarning(Log::sceNet, 0, "UNTESTED");
 }
@@ -184,7 +184,7 @@ static int sceNpGetChatRestrictionFlag(u32 flagAddr)
 	if (!Memory::IsValidAddress(flagAddr))
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	Memory::Write_U32(npChatRestriction, flagAddr);
+	Memory::WriteOrException_U32(npChatRestriction, flagAddr);
 
 	return hleLogWarning(Log::sceNet, 0, "Chat restriction: %d", npChatRestriction);
 }

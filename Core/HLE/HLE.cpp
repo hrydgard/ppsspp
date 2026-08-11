@@ -429,36 +429,41 @@ u32 GetSyscallOp(std::string_view moduleName, u32 nib) {
 	}
 }
 
-void WriteFuncStub(u32 stubAddr, u32 symAddr)
-{
+// It's assumed that stubAddr and symAddr are valid.
+void WriteFuncStub(u32 stubAddr, u32 symAddr) {
+	_dbg_assert_(Memory::IsValid4AlignedAddress(stubAddr));
+	_dbg_assert_(Memory::IsValid4AlignedAddress(symAddr));
+
 	// Note that this should be J not JAL, as otherwise control will return to the stub..
-	Memory::Write_U32(MIPS_MAKE_J(symAddr), stubAddr);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_J(symAddr), stubAddr);
 	// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
 	// Perhaps a syscall here (and verify support in jit), marking the module by uid (debugIdentifier)?
-	Memory::Write_U32(MIPS_MAKE_NOP(), stubAddr + 4);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), stubAddr + 4);
 }
 
-void WriteFuncMissingStub(u32 stubAddr, u32 nid)
-{
+// It's assumed that stubAddr is valid.
+void WriteFuncMissingStub(u32 stubAddr, u32 nid) {
+	_dbg_assert_(Memory::IsValid4AlignedAddress(stubAddr));
 	// Write a trap so we notice this func if it's called before resolving.
-	Memory::Write_U32(MIPS_MAKE_JR_RA(), stubAddr); // jr ra
-	Memory::Write_U32(GetSyscallOp("", nid), stubAddr + 4);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), stubAddr); // jr ra
+	Memory::WriteUnchecked_U32(GetSyscallOp("", nid), stubAddr + 4);
 }
 
-bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address)
-{
+// It's assumed that address is valid.
+bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address) {
+	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
 	if (nib == 0)
 	{
 		WARN_LOG_REPORT(Log::HLE, "Wrote patched out nid=0 syscall (%.*s)", (int)moduleName.size(), moduleName.data());
-		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); //patched out?
-		Memory::Write_U32(MIPS_MAKE_NOP(), address+4); //patched out?
+		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), address); //patched out?
+		Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return true;
 	}
 	int modindex = GetHLEModuleIndex(moduleName);
 	if (modindex != -1)
 	{
-		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
-		Memory::Write_U32(GetSyscallOp(moduleName, nib), address + 4);
+		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), address); // jr ra
+		Memory::WriteUnchecked_U32(GetSyscallOp(moduleName, nib), address + 4);
 		return true;
 	}
 	else
@@ -640,7 +645,7 @@ void hleFlushCalls() {
 		}
 		stackData->argc = (int)info.args.size();
 		for (int j = 0; j < (int)info.args.size(); ++j) {
-			Memory::Write_U32(info.args[j], sp + sizeof(HLEMipsCallStack) + j * sizeof(u32));
+			Memory::WriteUnchecked_U32(info.args[j], sp + sizeof(HLEMipsCallStack) + j * sizeof(u32));
 		}
 	}
 	enqueuedMipsCalls.clear();

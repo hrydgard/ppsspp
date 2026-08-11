@@ -263,7 +263,7 @@ static bool __KernelUnlockMutexForThread(PSPMutex *mutex, SceUID threadID, u32 &
 	{
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -498,8 +498,8 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr) {
 		// Remove threads no longer waiting on this first (so the numWaitThreads value is correct.)
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_MUTEX, uid, mutex->waitingThreads);
 
-		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32((u32)mutex->waitingThreads.size(), numWaitThreadsPtr);
+		if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr))
+			Memory::WriteUnchecked_U32((u32)mutex->waitingThreads.size(), numWaitThreadsPtr);
 
 		bool wokeThreads = false;
 		for (auto iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
@@ -730,8 +730,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 		return false;
 
 	// If result is an error code, we're just letting it go.
-	if (result == 0)
-	{
+	if (result == 0) {
 		workarea->lockLevel = (int) __KernelGetWaitValue(threadID, error);
 		workarea->lockThread = threadID;
 	}
@@ -740,7 +739,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 	if (timeoutPtr != 0 && lwMutexWaitTimer != -1) {
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);

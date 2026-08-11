@@ -382,13 +382,13 @@ bool PSPThread::FillStack() {
 	context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
 	u32 k0 = context.r[MIPS_REG_K0];
 	Memory::Memset(k0, 0, 0x100, "ThreadK0");
-	Memory::Write_U32(GetUID(), k0 + 0xc0);
-	Memory::Write_U32(nt.initialStack, k0 + 0xc8);
-	Memory::Write_U32(0xffffffff, k0 + 0xf8);
-	Memory::Write_U32(0xffffffff, k0 + 0xfc);
+	Memory::WriteOrException_U32(GetUID(), k0 + 0xc0);
+	Memory::WriteOrException_U32(nt.initialStack, k0 + 0xc8);
+	Memory::WriteOrException_U32(0xffffffff, k0 + 0xf8);
+	Memory::WriteOrException_U32(0xffffffff, k0 + 0xfc);
 	// After k0 comes the arguments, which is done by sceKernelStartThread().
 
-	Memory::Write_U32(GetUID(), nt.initialStack);
+	Memory::WriteOrException_U32(GetUID(), nt.initialStack);
 	return true;
 }
 
@@ -418,7 +418,7 @@ bool PSPThread::PushExtendedStack(u32 size) {
 
 	// We still drop the threadID at the bottom and fill it, but there's no k0.
 	Memory::Memset(currentStack.start, 0xFF, nt.stackSize, "ThreadExtendStack");
-	Memory::Write_U32(GetUID(), nt.initialStack);
+	Memory::WriteOrException_U32(GetUID(), nt.initialStack);
 	return true;
 }
 
@@ -715,7 +715,7 @@ static bool __KernelCheckResumeThreadEnd(PSPThread *t, SceUID waitingThreadID, u
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
 		if (timeoutPtr != 0)
-			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+			Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 		s32 exitStatus = t->nt.exitStatus;
 		__KernelResumeThreadFromWait(waitingThreadID, exitStatus);
 		return true;
@@ -1327,7 +1327,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 	}
 
 	if (Memory::IsValidAddress(idCountPtr)) {
-		Memory::Write_U32(total, idCountPtr);
+		Memory::WriteOrException_U32(total, idCountPtr);
 	}
 	return total > readBufSize ? readBufSize : total;
 }
@@ -1420,8 +1420,9 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	thread->waitInfo.waitValue = waitValue;
 	thread->waitInfo.timeoutPtr = timeoutPtr;
 
-	if (!reason)
+	if (!reason) {
 		reason = "started wait";
+	}
 
 	hleReSchedule(processCallbacks, reason);
 }
@@ -1513,7 +1514,7 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 			{
 				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread);
 				if (timeoutPtr != 0)
-					Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+					Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 
 				HLEKernel::ResumeFromWait(waitingThread, WAITTYPE_THREADEND, threadID, exitStatus);
 			}
@@ -1956,8 +1957,8 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	// At the bottom of those 64 bytes, the return syscall and ra is written.
 	// Test Drive Unlimited actually depends on it being in the correct place.
 	WriteHLESyscall("FakeSysCalls", NID_THREADRETURN, sp);
-	Memory::Write_U32(MIPS_MAKE_B(-1), sp + 8);
-	Memory::Write_U32(MIPS_MAKE_NOP(), sp + 12);
+	Memory::WriteOrException_U32(MIPS_MAKE_B(-1), sp + 8);
+	Memory::WriteOrException_U32(MIPS_MAKE_NOP(), sp + 12);
 
 	// Point ra at our return stub, and start fp off matching sp.
 	startThread->context.r[MIPS_REG_RA] = sp;
@@ -2792,9 +2793,9 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter) {
 	// The stack has been changed now, so it's do or die time.
 
 	// Push the old SP, RA, and PC onto the stack (so we can restore them later.)
-	Memory::Write_U32(currentMIPS->r[MIPS_REG_RA], thread->currentStack.end - 4);
-	Memory::Write_U32(currentMIPS->r[MIPS_REG_SP], thread->currentStack.end - 8);
-	Memory::Write_U32(currentMIPS->pc, thread->currentStack.end - 12);
+	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_RA], thread->currentStack.end - 4);
+	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_SP], thread->currentStack.end - 8);
+	Memory::WriteOrException_U32(currentMIPS->pc, thread->currentStack.end - 12);
 
 	KernelValidateThreadTarget(entryAddr);
 
@@ -3116,11 +3117,11 @@ bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	// Let's just save regs generously.  Better to be safe.
 	sp -= 32 * 4;
 	for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; ++i) {
-		Memory::Write_U32(currentMIPS->r[i], sp + i * 4);
+		Memory::WriteOrException_U32(currentMIPS->r[i], sp + i * 4);
 	}
-	Memory::Write_U32(currentMIPS->r[MIPS_REG_T8], sp + MIPS_REG_T8 * 4);
-	Memory::Write_U32(currentMIPS->r[MIPS_REG_T9], sp + MIPS_REG_T9 * 4);
-	Memory::Write_U32(currentMIPS->r[MIPS_REG_RA], sp + MIPS_REG_RA * 4);
+	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_T8], sp + MIPS_REG_T8 * 4);
+	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_T9], sp + MIPS_REG_T9 * 4);
+	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_RA], sp + MIPS_REG_RA * 4);
 
 	// Save the few regs that need saving
 	call->savedPc = currentMIPS->pc;

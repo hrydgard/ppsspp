@@ -346,7 +346,7 @@ void JitSafeMem::IndirectCALL(const void *safeFunc) {
 
 void JitSafeMem::Finish()
 {
-	// Memory::Read_U32/etc. may have tripped coreState.
+	// Memory::ReadOrException_U32/etc. may have tripped coreState.
 	if (needsCheck_ && !g_Config.bIgnoreBadMemAccess)
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE;
 	if (needsSkip_)
@@ -365,18 +365,18 @@ void JitSafeMemFuncs::Init(ThunkManager *thunks) {
 
 	BeginWrite(1024);
 	readU32 = GetCodePtr();
-	CreateReadFunc(32, (const void *)&Memory::Read_U32);
+	CreateReadFunc(32, (const void *)&Memory::ReadOrException_U32);
 	readU16 = GetCodePtr();
-	CreateReadFunc(16, (const void *)&Memory::Read_U16);
+	CreateReadFunc(16, (const void *)&Memory::ReadOrException_U16);
 	readU8 = GetCodePtr();
-	CreateReadFunc(8, (const void *)&Memory::Read_U8);
+	CreateReadFunc(8, (const void *)&Memory::ReadOrException_U8);
 
 	writeU32 = GetCodePtr();
-	CreateWriteFunc(32, (const void *)&Memory::Write_U32);
+	CreateWriteFunc(32, (const void *)&Memory::WriteOrException_U32);
 	writeU16 = GetCodePtr();
-	CreateWriteFunc(16, (const void *)&Memory::Write_U16);
+	CreateWriteFunc(16, (const void *)&Memory::WriteOrException_U16);
 	writeU8 = GetCodePtr();
-	CreateWriteFunc(8, (const void *)&Memory::Write_U8);
+	CreateWriteFunc(8, (const void *)&Memory::WriteOrException_U8);
 	EndWrite();
 }
 

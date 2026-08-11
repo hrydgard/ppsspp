@@ -132,7 +132,7 @@ static bool __KernelUnlockSemaForThread(PSPSemaphore *s, SceUID threadID, u32 &e
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
 		if (cyclesLeft < 0)
 			cyclesLeft = 0;
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -184,7 +184,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 
 		s->ns.numWaitThreads = (int) s->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
+			Memory::WriteOrException_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
 
 		if (newCount < 0)
 			s->ns.currentCount = s->ns.initCount;

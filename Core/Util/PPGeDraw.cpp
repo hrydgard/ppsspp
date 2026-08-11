@@ -156,7 +156,7 @@ void PPGeSetTexture(u32 dataAddr, int width, int height);
 
 //only 0xFFFFFF of data is used
 static void WriteCmd(u8 cmd, u32 data) {
-	Memory::Write_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
+	Memory::WriteUnchecked_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
 	dlWritePtr += 4;
 	_dbg_assert_(dlWritePtr <= dlPtr + dlSize);
 }

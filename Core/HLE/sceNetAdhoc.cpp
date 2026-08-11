@@ -2023,7 +2023,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 
 	int state = NetAdhocctl_GetState();
 	// Output Adhocctl State
-	Memory::Write_U32(state, ptrToStatus);
+	Memory::WriteOrException_U32(state, ptrToStatus);
 
 	// Return Success
 	return hleLogVerbose(Log::sceNet, 0, "state = %d", state);
@@ -5788,7 +5788,7 @@ int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
 		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_SOCKET_ID, "invalid socket id");
 
 	s32_le flg = adhocSockets[id - 1]->flags;
-	Memory::Write_U32(flg, flagPtr);
+	Memory::WriteOrException_U32(flg, flagPtr);
 
 	return hleLogDebug(Log::sceNet, 0, "flags = %08x", flg);
 }
@@ -6216,7 +6216,7 @@ int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
 		Memory::Memset(netAdhocDiscoverBufAddr, 0, bufSize);
 	}
 	// FIME: Not sure what is this address 0x000010B0 used for (current Step may be?), but return 0x80411301 if (*((int *) 0x000010B0) != 0)
-	//if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
+	//if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
 	//	return 0x80411301; // Already Initialized/Started?
 	// TODO: Need to findout whether using invalid params or param address will return an error code or not
 	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointer(paramAddr);
@@ -6292,16 +6292,16 @@ int sceNetAdhocDiscoverTerm() {
 	// if (sceKernelCheckThreadStack() < 0x00000FF0)
 	// 	return 0x80410005;
 	// 
-	// if (!(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
+	// if (!(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
 	// 	return 0x80411301; // Not Initialized/Started yet?
 	
 	// TODO: Use sceNetAdhocctl_lib_1C679240 to remove adhocctl state callback handler setup in sceNetAdhocDiscoverInitStart
-	// if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
-	// 	LinkDiscoverSkip(Memory::Read_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240
-	// 	Memory::Write_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
+	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
+	// 	LinkDiscoverSkip(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240
+	// 	Memory::WriteOrException_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
 	// }
-	// Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0x80);
-	// Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA8);
+	// Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0x80);
+	// Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA8);
 
 	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
 	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND; // Test: Using result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList after DiscoverTerm
@@ -6317,11 +6317,11 @@ int sceNetAdhocDiscoverGetStatus() {
 	DEBUG_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverGetStatus() at %08x", currentMIPS->pc);
 	if (sceKernelCheckThreadStack() < 0x00000FF0)
 		return 0x80410005;
-	// if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) <= 0)
+	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) <= 0)
 	// 	return 0;
-	// if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) <= 0x13)
+	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) <= 0x13)
 	// 	return 1;
-	// if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) == 0x13)
+	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) == 0x13)
 	// 	return 2;
 	return hleLogDebug(Log::sceNet, netAdhocDiscoverStatus); // Returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList (only happened if it was the first sceNetAdhocDiscoverGetStatus after sceNetAdhocDiscoverInitStart)
 }
@@ -6332,13 +6332,13 @@ int sceNetAdhocDiscoverRequestSuspend()
 	// FIXME: Not sure what is this syscall used for, may be related to Sleep Mode and can be triggered by using Power/Hold Switch? (based on what's written on Dissidia 012)
 	if (sceKernelCheckThreadStack() < 0x00000FF0)
 		return 0x80410005;
-	// if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0xA4) == 0)
+	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0xA4) == 0)
 	// 	return 0x80411303; // Already Suspended?
-	// if (Memory::Read_U32(netAdhocDiscoverBufAddr + 0x80) != 0)
+	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0)
 	// 	return 0x80411303; // Already Suspended?
 	// int ret = sceNetAdhocctl_lib_1572422C();
 	// if (ret >= 0)
-	// 	Memory::Write_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+	// 	Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA4);
 	// return ret;
 	// Since we don't know what this supposed to do, and we currently don't have a working AdhocDiscover yet, may be we should cancel the progress for now?
 	netAdhocDiscoverIsStopping = true;

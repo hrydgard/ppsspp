@@ -207,7 +207,7 @@ static bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error,
 	{
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(th.threadID, result);
@@ -254,7 +254,7 @@ static void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 	if (timeoutPtr == 0 || mbxWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
+	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
 
 	// This seems to match the actual timing.
 	if (micro <= 2)
@@ -379,7 +379,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 			m->waitingThreads.erase(iter);
 
 			if (wokeThreads) {
-				Memory::Write_U32(packetAddr, t.packetAddr);
+				Memory::WriteOrException_U32(packetAddr, t.packetAddr);
 				hleReSchedule("mbx sent");
 
 				// We don't need to do anything else, finish here.
@@ -521,7 +521,7 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr) {
 		hleReSchedule("mbx canceled");
 
 	if (numWaitingThreadsAddr)
-		Memory::Write_U32(count, numWaitingThreadsAddr);
+		Memory::WriteOrException_U32(count, numWaitingThreadsAddr);
 	return 0;
 }
 

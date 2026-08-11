@@ -137,9 +137,9 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value);
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
 Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
 
-u8  Read_U8(const u32 _Address);
-u16 Read_U16(const u32 _Address);
-u32 Read_U32(const u32 _Address);
+u8  ReadOrException_U8(const u32 _Address);
+u16 ReadOrException_U16(const u32 _Address);
+u32 ReadOrException_U32(const u32 _Address);
 
 inline u8* GetPointerWriteUnchecked(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
@@ -237,10 +237,10 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
-void Write_U8(const u8 data, const u32 address);
-void Write_U16(const u16 data, const u32 address);
-void Write_U32(const u32 data, const u32 address);
-void Write_U64(const u64 data, const u32 address);
+void WriteOrException_U8(const u8 data, const u32 address);
+void WriteOrException_U16(const u16 data, const u32 address);
+void WriteOrException_U32(const u32 data, const u32 address);
+void WriteOrException_U64(const u64 data, const u32 address);
 
 u8* GetPointerWrite(const u32 address);
 const u8* GetPointer(const u32 address);

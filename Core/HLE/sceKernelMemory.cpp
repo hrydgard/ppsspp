@@ -457,7 +457,7 @@ static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u
 		int blockNum = fpl->AllocateBlock();
 		if (blockNum >= 0) {
 			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-			Memory::Write_U32(blockPtr, threadInfo.addrPtr);
+			Memory::WriteOrException_U32(blockPtr, threadInfo.addrPtr);
 			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
 		} else {
 			return false;
@@ -468,7 +468,7 @@ static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u
 	if (timeoutPtr != 0 && fplWaitTimer != -1) {
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(fplWaitTimer, threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -543,10 +543,10 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
 
 	int alignment = 4;
-	if (Memory::IsValidRange(optPtr, 4)) {
+	if (Memory::IsValidRange(optPtr, 8)) {
 		u32 size = Memory::ReadUnchecked_U32(optPtr);
 		if (size >= 4)
-			alignment = Memory::Read_U32(optPtr + 4);
+			alignment = Memory::ReadUnchecked_U32(optPtr + 4);
 		// Must be a power of 2 to be valid.
 		if ((alignment & (alignment - 1)) != 0)
 			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid alignment %d", alignment);
@@ -614,7 +614,7 @@ static void __KernelSetFplTimeout(u32 timeoutPtr)
 	if (timeoutPtr == 0 || fplWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
+	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
 
 	// TODO: test for fpls.
 	// This happens to be how the hardware seems to time things.
@@ -697,7 +697,7 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr) {
 	int blockNum = fpl->AllocateBlock();
 	if (blockNum >= 0) {
 		u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-		Memory::Write_U32(blockPtr, blockPtrAddr);
+		Memory::WriteOrException_U32(blockPtr, blockPtrAddr);
 		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
 		return hleLogDebug(Log::sceKernel, 0);
 	} else {
@@ -757,8 +757,9 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr) {
 	}
 
 	fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
-	if (Memory::IsValidAddress(numWaitThreadsPtr))
-		Memory::Write_U32(fpl->nf.numWaitThreads, numWaitThreadsPtr);
+	if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr)) {
+		Memory::WriteUnchecked_U32(fpl->nf.numWaitThreads, numWaitThreadsPtr);
+	}
 	bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
 	if (wokeThreads)
 		hleReSchedule("fpl canceled");
@@ -1247,7 +1248,7 @@ static bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u
 			addr = vpl->alloc.Alloc(allocSize, true);
 		}
 		if (addr != (u32) -1) {
-			Memory::Write_U32(addr, threadInfo.addrPtr);
+			Memory::WriteOrException_U32(addr, threadInfo.addrPtr);
 		} else {
 			return false;
 		}
@@ -1257,7 +1258,7 @@ static bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u
 	if (timeoutPtr != 0 && vplWaitTimer != -1) {
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -1428,7 +1429,7 @@ static bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, b
 			addr = vpl->alloc.Alloc(allocSize, true, "VplAllocate");
 		}
 		if (addr != (u32) -1) {
-			Memory::Write_U32(addr, addrPtr);
+			Memory::WriteOrException_U32(addr, addrPtr);
 			error =  0;
 		} else {
 			error = SCE_KERNEL_ERROR_NO_MEMORY;
@@ -1465,7 +1466,7 @@ static void __KernelSetVplTimeout(u32 timeoutPtr)
 	if (timeoutPtr == 0 || vplWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
+	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
@@ -1487,7 +1488,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
+			if (timeoutPtr != 0 && Memory::ReadOrException_U32(timeoutPtr) == 0)
 				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
 			if (vpl) {
@@ -1517,7 +1518,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			if (timeoutPtr != 0 && Memory::Read_U32(timeoutPtr) == 0)
+			if (timeoutPtr != 0 && Memory::ReadOrException_U32(timeoutPtr) == 0)
 				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
 			if (vpl)
@@ -1669,7 +1670,7 @@ static u32 sceKernelGetMemoryBlockAddr(u32 uid, u32 addr) {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
 	if (block) {
-		Memory::Write_U32(block->address, addr);
+		Memory::WriteOrException_U32(block->address, addr);
 		return hleLogInfo(Log::sceKernel, 0, "block address: %08x", block->address);
 	} else {
 		return hleLogError(Log::sceKernel, 0, "failed");

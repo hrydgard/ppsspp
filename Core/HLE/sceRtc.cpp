@@ -449,7 +449,7 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
 #endif
-		Memory::Write_U64(srcTick, tickUTCPtr);
+		Memory::WriteUnchecked_U64(srcTick, tickUTCPtr);
 	}
 	else
 	{
@@ -902,10 +902,10 @@ static bool rtcParseRFC2822(const char *s, RtcParseResult &r) {
 
 static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 {
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(dateStringPtr))
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValidAddress(dateStringPtr))
 		return hleLogError(Log::sceRtc, -1, "bad address");
 
-	const char *s = (const char *)Memory::GetPointer(dateStringPtr);
+	const char *s = Memory::GetCharPointer(dateStringPtr);
 	if (!s) {
 		return hleLogError(Log::sceRtc, -1, "null string");
 	}
@@ -917,7 +917,7 @@ static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 		u64 ticks = __RtcPspTimeToTicks(r.date);
 		s64 offsetUs = (s64)r.tzOffsetMinutes * 60 * 1000000;
 		ticks -= offsetUs;
-		Memory::Write_U64(ticks, destTickPtr);
+		Memory::WriteUnchecked_U64(ticks, destTickPtr);
 		return hleLogDebug(Log::sceRtc, 0);
 	}
 
@@ -927,16 +927,16 @@ static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 
 static int sceRtcGetLastAdjustedTime(u32 tickPtr)
 {
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(rtcLastAdjustedTicks, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8))
+		Memory::WriteUnchecked_U64(rtcLastAdjustedTicks, tickPtr);
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
 	return 0;
 }
 
 static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 {
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(rtcLastReincarnatedTicks, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8))
+		Memory::WriteUnchecked_U64(rtcLastReincarnatedTicks, tickPtr);
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetLastReincarnatedTime(%d)", tickPtr);
 	return 0;
 }

@@ -395,7 +395,7 @@ public:
 };
 
 void AfterModuleEntryCall::run(MipsCall &call) {
-	Memory::Write_U32(retValAddr, currentMIPS->r[MIPS_REG_V0]);
+	Memory::WriteOrException_U32(retValAddr, currentMIPS->r[MIPS_REG_V0]);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -571,7 +571,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 					// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
 					// We add 1 in that case so that it ends up the right value.
 					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
-					Memory::Write_U32((reloc.data & ~0xFFFF) | high, reloc.addr);
+					Memory::WriteUnchecked_U32((reloc.data & ~0xFFFF) | high, reloc.addr);
 					currentMIPS->InvalidateICache(reloc.addr, 4);
 				}
 				state.lastHI16Processed = true;
@@ -586,7 +586,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 		WARN_LOG_REPORT(Log::Loader, "Unsupported var relocation type %d - %08x => %08x", type, exportAddress, relocAddress);
 	}
 
-	Memory::Write_U32(relocData, relocAddress);
+	Memory::WriteUnchecked_U32(relocData, relocAddress);
 	currentMIPS->InvalidateICache(relocAddress, 4);
 }
 
@@ -2138,7 +2138,7 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 		return hleLogWarning(Log::sceModule, error, "error %08x", error);
 	} else if (module->isFake) {
 		if (returnValueAddr)
-			Memory::Write_U32(0, returnValueAddr);
+			Memory::WriteOrException_U32(0, returnValueAddr);
 		return hleLogInfo(Log::sceModule, moduleId, "Faked module");
 	} else if (module->nm.status == MODULE_STATUS_STARTED) {
 		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
@@ -2176,7 +2176,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 
 	if (module->isFake) {
 		if (returnValueAddr)
-			Memory::Write_U32(0, returnValueAddr);
+			Memory::WriteOrException_U32(0, returnValueAddr);
 		return hleLogInfo(Log::sceModule, 0, "faking");
 	}
 	if (module->nm.status != MODULE_STATUS_STARTED) {
@@ -2192,8 +2192,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 		attr = module->nm.module_stop_thread_attr;
 
 	// TODO: Need to test how this really works.  Let's assume it's an override.
-	if (Memory::IsValidAddress(optionAddr))
-	{
+	if (Memory::IsValidRange(optionAddr, sizeof(SceKernelSMOption))) {
 		auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 		// TODO: Check how size handling actually works.
 		if (options->size != 0 && options->priority != 0)
@@ -2207,8 +2206,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 			WARN_LOG_REPORT(Log::sceModule, "Stopping module with attr=%x, but options specify 0", attr);
 	}
 
-	if (Memory::IsValidAddress(stopFunc))
-	{
+	if (Memory::IsValid4AlignedAddress(stopFunc)) {
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
 		_dbg_assert_(threadID > 0);
 		// TOOD: Check the return value and bail?
@@ -2219,14 +2217,10 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 		const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
 		module->nm.status = MODULE_STATUS_STOPPING;
 		module->waitingThreads.push_back(mwt);
-	}
-	else if (stopFunc == 0)
-	{
+	} else if (stopFunc == 0) {
 		module->nm.status = MODULE_STATUS_STOPPED;
 		return hleLogInfo(Log::sceModule, 0, "no stop func, skipping");
-	}
-	else
-	{
+	} else {
 		module->nm.status = MODULE_STATUS_STOPPED;
 		return hleLogError(Log::sceModule, 0, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 	}
@@ -2378,7 +2372,7 @@ void __KernelReturnFromModuleFunc() {
 				hleCall(ThreadManForKernel, int, sceKernelTerminateDeleteThread, it->threadID);
 			} else {
 				if (it->statusPtr != 0)
-					Memory::Write_U32(exitStatus, it->statusPtr);
+					Memory::WriteOrException_U32(exitStatus, it->statusPtr);
 				__KernelResumeThreadFromWait(it->threadID, module->nm.status == MODULE_STATUS_STARTED ? leftModuleID : 0);
 			}
 		}
@@ -2644,14 +2638,14 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 		if (!module->isFake || liedAboutThisModule(module)) {
 			if (resultBufferOffset < resultBufferSize) {
-				Memory::Write_U32(module->GetUID(), resultBuffer + resultBufferOffset);
+				Memory::WriteOrException_U32(module->GetUID(), resultBuffer + resultBufferOffset);
 				resultBufferOffset += 4;
 			}
 			idCount++;
 		}  // Actually, should we return fake modules too? They wouldn't be fake on the real hardware. Not like any games use this function though.
 	}
 
-	Memory::Write_U32(idCount, idCountAddr);
+	Memory::WriteOrException_U32(idCount, idCountAddr);
 	
 	return hleNoLog(0);
 }

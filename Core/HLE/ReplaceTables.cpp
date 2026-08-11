@@ -1501,12 +1501,13 @@ static int Hook_starocean_clear_framebuf_after() {
 	u32 y_address, h_address;
 
 	if (GetMIPSGPAddress(y_address, -204) && GetMIPSGPAddress(h_address, -200)) {
-		int y = (s16)Memory::Read_U16(y_address);
-		int h = (s16)Memory::Read_U16(h_address);
-
-		DEBUG_LOG(Log::HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
-		// TODO: This is always clearing to 0, actually, which could be faster than an upload.
-		gpu->PerformWriteColorFromMemory(framebuf + 512 * y * 4, 512 * h * 4);
+		if (Memory::IsValid2AlignedAddress(y_address) && Memory::IsValid2AlignedAddress(h_address)) {
+			int y = (s16)Memory::ReadUnchecked_U16(y_address);
+			int h = (s16)Memory::ReadUnchecked_U16(h_address);
+			DEBUG_LOG(Log::HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
+			// TODO: This is always clearing to 0, actually, which could be faster than an upload.
+			gpu->PerformWriteColorFromMemory(framebuf + 512 * y * 4, 512 * h * 4);
+		}
 	}
 	return 0;
 }
@@ -1515,9 +1516,9 @@ static int Hook_motorstorm_pixel_read() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x18, 0x20)) {
 		return 0;
 	}
-	u32 fb_address = Memory::ReadUnchecked_U32(currentMIPS->r[MIPS_REG_A0] + 0x18);
-	u32 fb_height = Memory::ReadUnchecked_U16(currentMIPS->r[MIPS_REG_A0] + 0x26);
-	u32 fb_stride = Memory::ReadUnchecked_U16(currentMIPS->r[MIPS_REG_A0] + 0x28);
+	const u32 fb_address = Memory::ReadUnchecked_U32(currentMIPS->r[MIPS_REG_A0] + 0x18);
+	const u32 fb_height = Memory::ReadUnchecked_U16(currentMIPS->r[MIPS_REG_A0] + 0x26);
+	const u32 fb_stride = Memory::ReadUnchecked_U16(currentMIPS->r[MIPS_REG_A0] + 0x28);
 	gpu->PerformReadbackToMemory(fb_address, fb_height * fb_stride);
 	NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_height * fb_stride, "motorstorm_pixel_read");
 	return 0;
@@ -1525,8 +1526,8 @@ static int Hook_motorstorm_pixel_read() {
 
 static int Hook_worms_copy_normalize_alpha() {
 	// At this point in the function (0x0CC), s1 is the framebuf and a2 is the size.
-	u32 fb_address = currentMIPS->r[MIPS_REG_S1];
-	u32 fb_size = currentMIPS->r[MIPS_REG_A2];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S1];
+	const u32 fb_size = currentMIPS->r[MIPS_REG_A2];
 	if (Memory::IsVRAMAddress(fb_address) && Memory::IsValidRange(fb_address, fb_size)) {
 		gpu->PerformReadbackToMemory(fb_address, fb_size);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "worms_copy_normalize_alpha");
@@ -1881,7 +1882,7 @@ std::map<u32, u32> SaveAndClearReplacements() {
 		const u32 curInstr = Memory::Read_Opcode_JIT(addr).encoding;
 		if (MIPS_IS_REPLACEMENT(curInstr)) {
 			saved[addr] = curInstr;
-			Memory::Write_U32(instr, addr);
+			Memory::WriteUnchecked_U32(instr, addr);
 		}
 	}
 
@@ -1892,7 +1893,11 @@ std::map<u32, u32> SaveAndClearReplacements() {
 void RestoreSavedReplacements(const std::map<u32, u32> &saved) {
 	for (const auto &[addr, instr] : saved) {
 		// Just put the replacements back.
-		Memory::Write_U32(instr, addr);
+		if (Memory::IsValid4AlignedAddress(addr)) {
+			Memory::WriteUnchecked_U32(instr, addr);
+		} else {
+			ERROR_LOG(Log::HLE, "RestoreSavedReplacements: Invalid address %08x", addr);
+		}
 	}
 }
 
