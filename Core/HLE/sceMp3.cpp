@@ -263,12 +263,12 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 
 	AuCtx *Au = new AuCtx;
 	if (mp3Addr) {
-		Au->startPos = Memory::Read_U64(mp3Addr); // AUDIO stream start position.
-		Au->endPos = Memory::Read_U64(mp3Addr + 8); // AUDIO stream end position.
-		Au->AuBuf = Memory::Read_U32(mp3Addr + 16); // Input Au data buffer.
-		Au->AuBufSize = Memory::Read_U32(mp3Addr + 20); // Input Au data buffer size.
-		Au->PCMBuf = Memory::Read_U32(mp3Addr + 24); // Output PCM data buffer.
-		Au->PCMBufSize = Memory::Read_U32(mp3Addr + 28); // Output PCM data buffer size.
+		Au->startPos = Memory::ReadUnchecked_U64(mp3Addr); // AUDIO stream start position.
+		Au->endPos = Memory::ReadUnchecked_U64(mp3Addr + 8); // AUDIO stream end position.
+		Au->AuBuf = Memory::ReadUnchecked_U32(mp3Addr + 16); // Input Au data buffer.
+		Au->AuBufSize = Memory::ReadUnchecked_U32(mp3Addr + 20); // Input Au data buffer size.
+		Au->PCMBuf = Memory::ReadUnchecked_U32(mp3Addr + 24); // Output PCM data buffer.
+		Au->PCMBufSize = Memory::ReadUnchecked_U32(mp3Addr + 28); // Output PCM data buffer size.
 
 		if (Au->startPos >= Au->endPos) {
 			delete Au;
@@ -412,7 +412,7 @@ static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 		for (int offset = 0; offset < end; ++offset) {
 			// If we hit valid sync bits, then we've found a header.
 			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
-				header = bswap32(Memory::Read_U32(addr + offset));
+				header = bswap32(Memory::ReadUnchecked_U32(addr + offset));
 				return offset;
 			}
 		}
@@ -437,8 +437,9 @@ static int sceMp3Init(u32 mp3) {
 	// First, let's search for the MP3 header.  It can be offset by at most 1439 bytes.
 	// If we have an ID3 tag, we'll get past it based on frame sync.  Don't modify startPos.
 	int header = 0;
-	if (FindMp3Header(ctx, header, 1440) < 0)
+	if (FindMp3Header(ctx, header, 1440) < 0) {
 		return hleDelayResult(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
+	}
 
 	// Parse the Mp3 header
 	int layerBits = (header >> 17) & 0x3;

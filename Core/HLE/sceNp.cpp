@@ -28,9 +28,9 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEUtil.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNp.h"
-
 
 bool npAuthInited = false;
 int npSigninState = NP_SIGNIN_STATUS_NONE;
@@ -354,14 +354,12 @@ param seems to be a struct where offset:
 	+20: 32-bit a pointer to a random data (4 to 8-bytes data max? both 2x 32-bit seems to be a valid pointer). optional handler args?
 return value >= 0 and <0 seems to be stored at a different location by the game (valid result vs error code?)
 */
-int sceNpAuthCreateStartRequest(u32 paramAddr)
-{
-	if (!Memory::IsValidAddress(paramAddr))
-		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
-
+int sceNpAuthCreateStartRequest(u32 paramAddr) {
 	SceNpAuthRequestParameter params = {};
-	int size = Memory::Read_U32(paramAddr);
-	Memory::Memcpy(&params, paramAddr, size);
+	if (!ReadVariableSizedStruct(paramAddr, &params)) {
+		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+	}
+
 	npServiceId = Memory::GetCharPointer(params.serviceIdAddr);
 
 	INFO_LOG(Log::sceNet, "%s - Max Version: %u.%u", __FUNCTION__, params.version.major, params.version.minor);

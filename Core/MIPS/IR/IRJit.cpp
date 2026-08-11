@@ -547,7 +547,7 @@ bool IRBlock::RestoreOriginalFirstOp(int cookie) {
 void IRBlock::Finalize(int cookie) {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
-	if (origAddr_) {
+	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
 		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		Memory::Write_Opcode_JIT(origAddr_, opcode);
@@ -557,7 +557,7 @@ void IRBlock::Finalize(int cookie) {
 }
 
 void IRBlock::Destroy(int cookie) {
-	if (origAddr_) {
+	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		u32 memOp = Memory::ReadUnchecked_U32(origAddr_);
 		if (memOp == opcode.encoding) {

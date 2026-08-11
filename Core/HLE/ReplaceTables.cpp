@@ -1846,6 +1846,9 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 std::map<u32, u32> SaveAndClearReplacements() {
 	std::map<u32, u32> saved;
 	for (const auto &[addr, instr] : replacedInstructions) {
+		if (!Memory::IsValid4AlignedAddress(addr)) {
+			continue;
+		}
 		// This will not retain jit blocks.
 		const u32 curInstr = Memory::Read_Opcode_JIT(addr).encoding;
 		if (MIPS_IS_REPLACEMENT(curInstr)) {

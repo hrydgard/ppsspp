@@ -435,9 +435,9 @@ static u32 sceRtcIsLeapYear(u32 year)
 static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 {
 	DEBUG_LOG(Log::sceRtc, "sceRtcConvertLocalTimeToUTC(%d, %d)", tickLocalPtr, tickUTCPtr);
-	if (Memory::IsValidAddress(tickLocalPtr) && Memory::IsValidAddress(tickUTCPtr))
+	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidAddress(tickUTCPtr))
 	{
-		u64 srcTick = Memory::Read_U64(tickLocalPtr);
+		u64 srcTick = Memory::ReadUnchecked_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
 #ifdef _WIN32
 		long timezone_val;
@@ -457,12 +457,11 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	return 0;
 }
 
-static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
+static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr, u32 tickLocalPtr)
 {
 	DEBUG_LOG(Log::sceRtc, "sceRtcConvertLocalTimeToUTC(%d, %d)", tickLocalPtr, tickUTCPtr);
-	if (Memory::IsValidAddress(tickLocalPtr) && Memory::IsValidAddress(tickUTCPtr))
-	{
-		u64 srcTick = Memory::Read_U64(tickUTCPtr);
+	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidRange(tickUTCPtr, 8)) {
+		u64 srcTick = Memory::ReadUnchecked_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
 #ifdef _WIN32
 		long timezone_val;
@@ -473,10 +472,8 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
 #endif
-		Memory::Write_U64(srcTick, tickLocalPtr);
-	}
-	else
-	{
+		Memory::WriteUnchecked_U64(srcTick, tickLocalPtr);
+	} else {
 		return 1;
 	}
 	return 0;
@@ -636,10 +633,9 @@ static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
 {
 	DEBUG_LOG(Log::sceRtc, "sceRtcCompareTick(%d,%d)", tick1Ptr, tick2Ptr);
-	if (Memory::IsValidAddress(tick1Ptr) && Memory::IsValidAddress(tick2Ptr))
-	{
-		u64 tick1 = Memory::Read_U64(tick1Ptr);
-		u64 tick2 = Memory::Read_U64(tick2Ptr);
+	if (Memory::IsValid4AlignedAddress(tick1Ptr) && Memory::IsValid4AlignedAddress(tick2Ptr)) {
+		u64 tick1 = Memory::ReadUnchecked_U64(tick1Ptr);
+		u64 tick2 = Memory::ReadUnchecked_U64(tick2Ptr);
 		if (tick1 > tick2)
 			return hleNoLog(1);
 		if (tick1 < tick2)
@@ -652,10 +648,10 @@ static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		u64 srcTick = Memory::Read_U64(srcTickPtr);
+		u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numTicks;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -664,10 +660,10 @@ static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numMS;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -676,10 +672,10 @@ static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numSecs * 1000000UL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -688,10 +684,10 @@ static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numMins*60000000UL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -700,9 +696,9 @@ static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 		srcTick += numHours * 3600ULL * 1000000ULL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -711,10 +707,10 @@ static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numDays * 86400ULL * 1000000ULL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -723,10 +719,10 @@ static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numWeeks * 7ULL * 86400ULL * 1000000ULL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
@@ -740,8 +736,7 @@ static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 
 	u64 srcTick = Memory::Read_U64(srcTickPtr);
 
-	ScePspDateTime pt;
-	memset(&pt, 0, sizeof(pt));
+	ScePspDateTime pt{};
 
 	__RtcTicksToPspTime(pt,srcTick);
 	pt.year += numMonths / 12;
@@ -758,12 +753,11 @@ static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 		pt.year++;
 	}
 
-	if (__RtcValidatePspTime(pt))
-	{
+	if (__RtcValidatePspTime(pt)) {
 		// Did we land on a year that isn't a leap year?
 		if (pt.month == 2 && pt.day == 29 && !__RtcIsLeapYear((s16)pt.year))
 			pt.day = 28;
-		Memory::Write_U64(__RtcPspTimeToTicks(pt), destTickPtr);
+		Memory::WriteUnchecked_U64(__RtcPspTimeToTicks(pt), destTickPtr);
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddMonths(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numMonths);
@@ -776,20 +770,18 @@ static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
-	ScePspDateTime pt;
-	memset(&pt, 0, sizeof(pt));
+	ScePspDateTime pt{};
 
 	__RtcTicksToPspTime(pt, srcTick);
 	pt.year += numYears;
 
-	if (__RtcValidatePspTime(pt))
-	{
+	if (__RtcValidatePspTime(pt)) {
 		// Did we land on a year that isn't a leap year?
 		if (pt.month == 2 && pt.day == 29 && !__RtcIsLeapYear((s16)pt.year))
 			pt.day = 28;
-		Memory::Write_U64(__RtcPspTimeToTicks(pt), destTickPtr);
+		Memory::WriteUnchecked_U64(__RtcPspTimeToTicks(pt), destTickPtr);
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddYears(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numYears);

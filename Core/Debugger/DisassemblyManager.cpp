@@ -1031,3 +1031,88 @@ std::string DisassembleRange(u32 start, u32 size, bool displaySymbols, MIPSDebug
 
 	return result;
 }
+
+void DisassemblyLineInfo::ToString(char *text, size_t bufSize, u32 curAddress) const {
+	text[0] = 0;
+	if (type == DISTYPE_OPCODE) {
+		if (info.hasRelevantAddress && IsLikelyStringAt(info.relevantAddress)) {
+			snprintf(text, sizeof(text), "[%08X] = \"%s\"", info.relevantAddress, Memory::GetCharPointer(info.relevantAddress));
+		}
+
+		if (info.isDataAccess) {
+			if (!Memory::IsValidRange(info.dataAddress, info.dataSize)) {
+				snprintf(text, sizeof(text), "Invalid address %08X", info.dataAddress);
+			} else {
+				bool isFloat = MIPSGetInfo(info.encodedOpcode) & (IS_FPU | IS_VFPU);
+				switch (info.dataSize) {
+				case 1:
+					snprintf(text, sizeof(text), "[%08X] = %02X", info.dataAddress, Memory::ReadUnchecked_U8(info.dataAddress));
+					break;
+				case 2:
+					snprintf(text, sizeof(text), "[%08X] = %04X", info.dataAddress, Memory::ReadUnchecked_U16(info.dataAddress));
+					break;
+				case 4:
+				{
+					u32 dataInt = Memory::ReadUnchecked_U32(info.dataAddress);
+					u32 dataFloat = Memory::ReadUnchecked_Float(info.dataAddress);
+					std::string dataString;
+					if (isFloat)
+						dataString = StringFromFormat("%08X / %f", dataInt, dataFloat);
+					else
+						dataString = StringFromFormat("%08X", dataInt);
+
+					const std::string addressSymbol = g_symbolMap->GetLabelString(dataInt);
+					if (!addressSymbol.empty()) {
+						snprintf(text, sizeof(text), "[%08X] = %s (%s)", info.dataAddress, addressSymbol.c_str(), dataString.c_str());
+					} else {
+						snprintf(text, sizeof(text), "[%08X] = %s", info.dataAddress, dataString.c_str());
+					}
+					break;
+				}
+				case 16:
+				{
+					uint32_t dataInt[4];
+					float dataFloat[4];
+					for (int i = 0; i < 4; ++i) {
+						dataInt[i] = Memory::ReadUnchecked_U32(info.dataAddress + i * 4);
+						dataFloat[i] = Memory::ReadUnchecked_Float(info.dataAddress + i * 4);
+					}
+					std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
+					std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);
+
+					snprintf(text, sizeof(text), "[%08X] = %s / %s", info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
+					break;
+				}
+				}
+			}
+		}
+
+		if (info.isBranch) {
+			const std::string addressSymbol = g_symbolMap->GetLabelString(info.branchTarget);
+			if (addressSymbol.empty()) {
+				snprintf(text, sizeof(text), "%08X", info.branchTarget);
+			} else {
+				snprintf(text, sizeof(text), "%08X = %s", info.branchTarget, addressSymbol.c_str());
+			}
+		}
+	} else if (type == DISTYPE_DATA) {
+		u32 start = g_symbolMap->GetDataStart(curAddress);
+		if (start == -1)
+			start = curAddress;
+
+		u32 diff = curAddress - start;
+		const std::string label = g_symbolMap->GetLabelString(start);
+
+		if (!label.empty()) {
+			if (diff != 0)
+				snprintf(text, sizeof(text), "%08X (%s) + %08X", start, label.c_str(), diff);
+			else
+				snprintf(text, sizeof(text), "%08X (%s)", start, label.c_str());
+		} else {
+			if (diff != 0)
+				snprintf(text, sizeof(text), "%08X + %08X", start, diff);
+			else
+				snprintf(text, sizeof(text), "%08X", start);
+		}
+	}
+}

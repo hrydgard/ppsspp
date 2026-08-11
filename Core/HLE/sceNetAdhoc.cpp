@@ -3200,9 +3200,13 @@ int sceNetAdhocctlScan() {
 
 int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 	s32_le *buflen = NULL;
-	if (Memory::IsValidAddress(sizeAddr)) buflen = (s32_le *)Memory::GetPointer(sizeAddr);
+	if (Memory::IsValidAddress(sizeAddr)) {
+		buflen = (s32_le *)Memory::GetPointer(sizeAddr);
+	}
 	SceNetAdhocctlScanInfoEmu *buf = NULL;
-	if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointer(bufAddr);
+	if (Memory::IsValidAddress(bufAddr)) {
+		buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointer(bufAddr);
+	}
 
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {

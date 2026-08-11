@@ -34,13 +34,14 @@ typedef u32 HashType;
 
 enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_DATA, DISTYPE_OTHER };
 
-struct DisassemblyLineInfo
-{
+struct DisassemblyLineInfo {
 	DisassemblyLineType type;
 	MIPSAnalyst::MipsOpcodeInfo info;
 	std::string name;
 	std::string params;
 	u32 totalSize;
+
+	void ToString(char *dest, size_t size, u32 curAddress) const;
 };
 
 enum DisasmLineType { LINE_UP, LINE_DOWN, LINE_RIGHT };

@@ -1009,6 +1009,7 @@
     <ClInclude Include="HLE\AtracCtx.h" />
     <ClInclude Include="HLE\AtracCtx2.h" />
     <ClInclude Include="HLE\ErrorCodes.h" />
+    <ClInclude Include="HLE\HLEUtil.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\NetInetConstants.h" />

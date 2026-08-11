@@ -1670,10 +1670,10 @@ std::vector<GPUDebugOp> GPUCommon::DisassembleOpRange(u32 startpc, u32 endpc) {
 	GPUDebugOp info;
 
 	// Don't trigger a pause.
-	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
+	u32 prev = Memory::IsValid4AlignedAddress(startpc - 4) ? Memory::ReadUnchecked_U32(startpc - 4) : 0;
 	result.reserve((endpc - startpc) / 4);
 	for (u32 pc = startpc; pc < endpc; pc += 4) {
-		u32 op = Memory::IsValidAddress(pc) ? Memory::Read_U32(pc) : 0;
+		u32 op = Memory::IsValid4AlignedAddress(pc) ? Memory::ReadUnchecked_U32(pc) : 0;
 		GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
 		prev = op;
 
@@ -2151,8 +2151,17 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
 
-		u32 op = Memory::Read_U32(pc);
-		auto info = DisassembleOp(pc, op);
+		GPUDebugOp info;
+		if (Memory::IsValid4AlignedAddress(pc)) {
+			op = Memory::ReadUnchecked_U32(pc);
+			info = DisassembleOp(pc, op);
+		} else {
+			op = 0;
+			info.pc = pc;
+			info.cmd = 0;
+			info.op = 0;
+			info.desc = "(invalid address)";
+		}
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
 
 		skipPcOnce_ = pc;

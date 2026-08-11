@@ -516,7 +516,7 @@ void ImMemView::PopupMenu() {
 
 		if (ImGui::MenuItem("Copy value (float32)")) {
 			char temp[64];
-			snprintf(temp, sizeof(temp), "%f", Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
+			snprintf(temp, sizeof(temp), "%f", Memory::IsValid4AlignedAddress(curAddress_) ? Memory::ReadUnchecked_Float(curAddress_) : NAN);
 			System_CopyStringToClipboard(temp);
 		}
 		/*

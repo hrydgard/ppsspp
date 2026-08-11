@@ -721,7 +721,8 @@ void HLEReturnFromMipsCall() {
 	currentMIPS->pc = stackData->func;
 	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)stackData->argc; i++) {
-		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
+		// The check at the start of the function should be enough to use an unchecked read (well, kinda..)
+		currentMIPS->r[MIPS_REG_A0 + i] = Memory::ReadUnchecked_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
 	}
 	DEBUG_LOG(Log::HLE, "Executing next HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
 	hleNoLogVoid();
@@ -1031,7 +1032,12 @@ size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const c
 			u32 sp = mips->r[MIPS_REG_SP];
 			// Goes upward on stack.
 			// NOTE: Currently we only support > 8 for 32-bit integer args.
-			regval = Memory::Read_U32(sp + (reg - 8) * 4);
+			if (Memory::IsValid4AlignedAddress(sp)) {
+				regval = Memory::ReadUnchecked_U32(sp + (reg - 8) * 4);
+			} else {
+				// This should basically never happen.
+				ERROR_LOG(Log::HLE, "Couldn't read sp=%08x for arg %zu", sp, i);
+			}
 		}
 
 		switch (argmask[i]) {

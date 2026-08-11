@@ -746,6 +746,9 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 	}
 
 	int framebufferAddr = base + (y * bpl) + (pixelBytes == 0 ? x / 2 : x * pixelBytes);
+	if (!Memory::IsValidAddress(framebufferAddr)) {
+		return;
+	}
 
 	switch (pixelformat) {
 	case PSP_FONT_PIXELFORMAT_4:
@@ -753,29 +756,29 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 		{
 			// The two pixels share a byte, so the neighbour's nibble is left alone.
 			const int shift = ((x & 1) != pixelformat) ? 4 : 0;
-			const int oldColor = Memory::Read_U8(framebufferAddr);
+			const int oldColor = Memory::ReadUnchecked_U8(framebufferAddr);
 			const int newPix = std::min(((oldColor >> shift) & 0xF) + pixelColor, 15);
-			Memory::Write_U8((u8)((oldColor & ~(0xF << shift)) | (newPix << shift)), framebufferAddr);
+			Memory::WriteUnchecked_U8((u8)((oldColor & ~(0xF << shift)) | (newPix << shift)), framebufferAddr);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_8:
 		{
-			const int newPix = std::min((int)Memory::Read_U8(framebufferAddr) + pixelColor, 255);
-			Memory::Write_U8((u8)newPix, framebufferAddr);
+			const int newPix = std::min((int)Memory::ReadUnchecked_U8(framebufferAddr) + pixelColor, 255);
+			Memory::WriteUnchecked_U8((u8)newPix, framebufferAddr);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_24:
 		{
 			// Each channel gets the same value.
 			for (int i = 0; i < 3; ++i) {
-				const int newPix = std::min((int)Memory::Read_U8(framebufferAddr + i) + pixelColor, 255);
-				Memory::Write_U8((u8)newPix, framebufferAddr + i);
+				const int newPix = std::min((int)Memory::ReadUnchecked_U8(framebufferAddr + i) + pixelColor, 255);
+				Memory::WriteUnchecked_U8((u8)newPix, framebufferAddr + i);
 			}
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_32:
 		{
-			const u32 oldColor = Memory::Read_U32(framebufferAddr);
+			const u32 oldColor = Memory::ReadUnchecked_U32(framebufferAddr);
 			u32 pix32 = 0;
 			for (int i = 0; i < 4; ++i) {
 				const int newPix = std::min((int)((oldColor >> (i * 8)) & 0xFF) + pixelColor, 255);

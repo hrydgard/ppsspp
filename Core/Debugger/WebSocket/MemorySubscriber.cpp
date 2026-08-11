@@ -124,7 +124,7 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U8(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
 	});
 }
 
@@ -145,7 +145,7 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	// This only depends on addr, not on anything CPU-thread-owned, so fail fast here rather than
 	// making a round trip through the queue for a request we already know is invalid.
-	if (!Memory::IsValidAddress(addr))
+	if (!Memory::IsValidRange(addr, 2))
 		return req.Fail("Invalid address");
 
 	// Route the actual memory read to the CPU thread instead of poking at it directly
@@ -153,7 +153,7 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U16(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
 	});
 }
 
@@ -174,7 +174,7 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	// This only depends on addr, not on anything CPU-thread-owned, so fail fast here rather than
 	// making a round trip through the queue for a request we already know is invalid.
-	if (!Memory::IsValidAddress(addr))
+	if (!Memory::IsValidRange(addr, 4))
 		return req.Fail("Invalid address");
 
 	// Route the actual memory read to the CPU thread instead of poking at it directly

@@ -1552,10 +1552,10 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
 	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
 	int entries = 4;
-	if (!Memory::IsValidAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
+	if (!Memory::IsValid4AlignedAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
-	int size = Memory::Read_U32(sizeAddr);
+	int size = Memory::ReadUnchecked_U32(sizeAddr);
 	// Return size required
 	Memory::Write_U32(entries * userInfoSize, sizeAddr);
 

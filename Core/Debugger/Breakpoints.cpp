@@ -660,7 +660,11 @@ bool BreakpointManager::EvaluateLogFormat(MIPSDebugInterface *cpu, const std::st
 				snprintf(resultString, sizeof(resultString), "%f", expResult.f);
 				break;
 			case 'p':
-				snprintf(resultString, sizeof(resultString), "%08x[%08x]", expResult.u, Memory::IsValidAddress(expResult.u) ? Memory::Read_U32(expResult.u) : 0);
+				if (Memory::IsValidAddress(expResult.u)) {
+					snprintf(resultString, sizeof(resultString), "%08x[%08x]", expResult.u, Memory::ReadUnchecked_U32(expResult.u));
+				} else {
+					snprintf(resultString, sizeof(resultString), "%08x[invalid]", expResult.u);
+				}
 				break;
 			case 's':
 				snprintf(resultString, sizeof(resultString) - 1, "%s", Memory::IsValidAddress(expResult.u) ? Memory::GetCharPointer(expResult.u) : "(invalid)");
