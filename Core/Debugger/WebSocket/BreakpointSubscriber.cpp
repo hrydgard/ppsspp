@@ -446,6 +446,10 @@ void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 	uint32_t size;
 	if (!req.ParamU32("size", &size))
 		return;
+	// Matches the check in WebSocketMemoryBreakpointParams::Parse() (used by add/update) -
+	// without it, a crafted size could wrap address + size below address.
+	if (address + size < address)
+		return req.Fail("Size is too large");
 
 	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
