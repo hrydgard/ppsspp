@@ -601,6 +601,11 @@ std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 	if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
 		FlushPendingMemInfo();
 
+	// pendingReadMutex doesn't just guard the pending queue - it's also what keeps
+	// the background flush thread's Mark() calls (which mutate the slab maps'
+	// linked lists via Split()/Merge()/delete) from running concurrently with the
+	// traversal below, which used to be completely unsynchronized against it.
+	std::lock_guard<std::mutex> guard(pendingReadMutex);
 	std::vector<MemBlockInfo> results;
 	allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
 	suballocMap.Find(MemBlockFlags::SUB_ALLOC, start, size, results);
@@ -617,6 +622,8 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
 		FlushPendingMemInfo();
 
+	// See the comment in FindMemInfo() above.
+	std::lock_guard<std::mutex> guard(pendingReadMutex);
 	std::vector<MemBlockInfo> results;
 	if (flags & MemBlockFlags::ALLOC)
 		allocMap.Find(MemBlockFlags::ALLOC, start, size, results);
@@ -639,6 +646,10 @@ static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint3
 			FlushPendingMemInfo();
 	}
 
+	// See the comment in FindMemInfo() above. Note: the returned tag pointer is
+	// only valid until the next Mark() call per FastFindWriteTag()'s own contract,
+	// so callers must treat it as transient exactly as they already do.
+	std::lock_guard<std::mutex> guard(pendingReadMutex);
 	if (flags & MemBlockFlags::ALLOC) {
 		const char *tag = allocMap.FastFindWriteTag(MemBlockFlags::ALLOC, start, size, tagLen);
 		if (tag)
@@ -745,6 +756,8 @@ void MemBlockInfoDoState(PointerWrap &p) {
 		return;
 
 	FlushPendingMemInfo();
+	// See the comment in FindMemInfo() above.
+	std::lock_guard<std::mutex> guard(pendingReadMutex);
 	allocMap.DoState(p);
 	suballocMap.DoState(p);
 	writeMap.DoState(p);
