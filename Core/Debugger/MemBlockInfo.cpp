@@ -639,17 +639,23 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size, size_t *tagLen, bool flush = true) {
 	start = NormalizeAddress(start);
 
+	// See the comment in FindMemInfo() above. Note: the returned tag pointer is
+	// only valid until the next Mark() call per FastFindWriteTag()'s own contract,
+	// so callers must treat it as transient exactly as they already do.
+	//
+	// flush=false means we're being called from FormatMemWriteTagAtNoFlush(), which
+	// is only ever called from within FlushPendingMemInfo() - which already holds
+	// pendingReadMutex for its whole body. Locking it again here would deadlock (or
+	// be undefined behavior, since it's a plain non-recursive std::mutex), so only
+	// take the lock ourselves when we might not already be holding it.
+	std::unique_lock<std::mutex> guard(pendingReadMutex, std::defer_lock);
 	if (flush) {
 		if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
 			FlushPendingMemInfo();
 		if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
 			FlushPendingMemInfo();
+		guard.lock();
 	}
-
-	// See the comment in FindMemInfo() above. Note: the returned tag pointer is
-	// only valid until the next Mark() call per FastFindWriteTag()'s own contract,
-	// so callers must treat it as transient exactly as they already do.
-	std::lock_guard<std::mutex> guard(pendingReadMutex);
 	if (flags & MemBlockFlags::ALLOC) {
 		const char *tag = allocMap.FastFindWriteTag(MemBlockFlags::ALLOC, start, size, tagLen);
 		if (tag)
