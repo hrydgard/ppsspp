@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HW/MpegDemux.h"
 #include "Core/Reporting.h"
@@ -210,7 +212,10 @@ bool MpegDemux::demux(int audioChannel)
 		}
 		// Not enough data available yet.
 		if (m_readSize - m_index < 16) {
-			m_index -= 4;
+			// The inner scan above may have hit EOF (no start code found at all) after
+			// consuming fewer than 4 bytes, in which case this rewind must not go
+			// negative - that would make the memmove() below read before m_buf.
+			m_index = std::max(0, m_index - 4);
 			break;
 		}
 
@@ -224,7 +229,8 @@ bool MpegDemux::demux(int audioChannel)
 			looksValid = true;
 			int length = read16();
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -236,7 +242,8 @@ bool MpegDemux::demux(int audioChannel)
 			looksValid = true;
 			int length = read16();
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -249,7 +256,8 @@ bool MpegDemux::demux(int audioChannel)
 			// Check for PES header marker.
 			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -266,7 +274,8 @@ bool MpegDemux::demux(int audioChannel)
 			// Check for PES header marker.
 			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
