@@ -229,8 +229,8 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
-	if (optParamAddr != 0 && Memory::IsValid4AlignedAddress(optParamAddr)) {
-		u32 size = Memory::ReadUnchecked_U32(optParamAddr);
+	if (optParamAddr != 0) {
+		u32 size = Memory::ReadOrException_U32(optParamAddr);
 		if (size > 4)
 			WARN_LOG_REPORT_ONCE(vtimeropt, Log::sceKernel, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
 	}

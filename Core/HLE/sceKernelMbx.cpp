@@ -36,14 +36,12 @@
 
 const int PSP_MBX_ERROR_DUPLICATE_MSG = 0x800201C9;
 
-struct MbxWaitingThread
-{
+struct MbxWaitingThread {
 	SceUID threadID;
 	u32 packetAddr;
 	u64 pausedTimeout;
 
-	bool operator ==(const SceUID &otherThreadID) const
-	{
+	bool operator ==(const SceUID &otherThreadID) const {
 		return threadID == otherThreadID;
 	}
 };
@@ -51,8 +49,7 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
 static int mbxWaitTimer = -1;
 
-struct NativeMbx
-{
+struct NativeMbx {
 	SceSize_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	SceUInt_le attr;
@@ -432,13 +429,6 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 }
 
 int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
-	if (!Memory::IsValid4AlignedAddress(packetAddrPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
-	}
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
-	}
-
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m) {
@@ -457,13 +447,6 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
 }
 
 int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
-	if (!Memory::IsValid4AlignedAddress(packetAddrPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
-	}
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
-	}
-
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m) {

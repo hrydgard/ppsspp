@@ -329,12 +329,11 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate) {
 	}
 }
 
-// Assumes timeoutPtr is zero or valid.
 static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || semaWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadUnchecked_U32(timeoutPtr);
+	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
@@ -346,7 +345,6 @@ static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
 	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
 }
 
-// Assumes timeoutPtr is zero or valid.
 static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks) {
 	hleEatCycles(900);
 
@@ -381,10 +379,6 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 }
 
 int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr) {
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_BAD_ARGUMENT, "invalid timeout pointer");  // untested
-	}
-
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
 
 	if (id == 0 && result == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {
@@ -396,10 +390,6 @@ int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr) {
 }
 
 int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr) {
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_BAD_ARGUMENT, "invalid timeout pointer");  // untested
-	}
-
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
 
 	if (id == 0 && result == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {

@@ -630,10 +630,6 @@ static void __KernelSetFplTimeout(u32 timeoutPtr)
 }
 
 int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid timeout ptr");
-	}
-
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (!fpl) {
@@ -643,7 +639,7 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
 	int blockNum = fpl->AllocateBlock();
 	if (blockNum >= 0) {
 		u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-		Memory::WriteUnchecked_U32(blockPtr, blockPtrAddr);
+		Memory::WriteOrException_U32(blockPtr, blockPtrAddr);
 		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
 	} else {
 		SceUID threadID = __KernelGetCurThread();
@@ -659,10 +655,6 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
 }
 
 int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid timeout ptr");
-	}
-
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (!fpl) {
@@ -672,7 +664,7 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
 	int blockNum = fpl->AllocateBlock();
 	if (blockNum >= 0) {
 		u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-		Memory::WriteUnchecked_U32(blockPtr, blockPtrAddr);
+		Memory::WriteOrException_U32(blockPtr, blockPtrAddr);
 		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
 	} else {
 		SceUID threadID = __KernelGetCurThread();

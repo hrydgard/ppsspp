@@ -357,7 +357,7 @@ void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
-// TOOD: Should return 59.997?
+// TODO: Should return 59.997?
 static int FrameTimingLimit() {
 	if (!NetworkAllowSpeedControl()) {
 		return 60;

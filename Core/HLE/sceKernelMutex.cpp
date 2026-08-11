@@ -531,13 +531,6 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 		return hleNoLog(0);
 	}
 
-	if (timeoutPtr != 0) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
-	}
-
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
@@ -564,13 +557,6 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 }
 
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
-	if (timeoutPtr != 0) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
-	}
-
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
@@ -937,13 +923,6 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
-	if (timeoutPtr) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
-	}
-
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	hleEatCycles(48);
 
@@ -973,13 +952,6 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
-	}
-
-	if (timeoutPtr) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);

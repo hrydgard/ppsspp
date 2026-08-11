@@ -26,6 +26,8 @@
 
 
 // This is one of the firmware modules (pspnet.prx), the official PSP games can't call these funcs
+// Fortunately, because this is badly implemented currently. Need to go through all this and make
+// it safe.
 
 // Ugh, this is ugly.
 u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {

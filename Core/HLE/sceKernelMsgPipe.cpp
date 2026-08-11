@@ -315,12 +315,11 @@ static void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<MsgPipe, WAITTYPE_MSGPIPE>(threadID);
 }
 
-// Assumes timeout is valid or 0.
 static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr) {
 	if (timeoutPtr == 0 || waitTimer == -1)
 		return true;
 
-	int micro = (int)Memory::ReadUnchecked_U32(timeoutPtr);
+	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
 	if (micro <= 2) {
 		// Don't wait or reschedule, just timeout immediately.
 		return false;
@@ -779,7 +778,6 @@ static int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize
 	return 0;
 }
 
-// Assumes timeoutPtr is valid or 0.
 static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll) {
 	hleEatCycles(2400);
 
@@ -809,9 +807,6 @@ int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode
 	if (!m) {
 		return hleLogError(Log::sceKernel, error, "bad msgpipe id");
 	}
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad timeout address");
-	}
 
 	int result = __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, false, false);
 	return hleLogDebug(Log::sceKernel, result);
@@ -825,9 +820,6 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		return hleLogError(Log::sceKernel, error, "bad msgpipe id");
-	}
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad timeout address");
 	}
 
 	// TODO: Verify callback behavior.
