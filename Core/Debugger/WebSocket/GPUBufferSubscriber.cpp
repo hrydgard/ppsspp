@@ -51,8 +51,12 @@ static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &bu
 
 	if (stackWidth > 0) {
 		u32 totalPixels = w * h;
-		w = stackWidth;
-		while ((totalPixels % w) != 0)
+		// stackWidth is client-supplied and otherwise unbounded; since totalPixels
+		// is the real (small) buffer size, clamping to it bounds this loop to at
+		// most totalPixels iterations instead of up to ~2 billion for a huge value.
+		// Keep it at least 1 to avoid a divide by zero below.
+		w = std::max<u32>(1, std::min((u32)stackWidth, totalPixels));
+		while (w > 1 && (totalPixels % w) != 0)
 			--w;
 		h = totalPixels / w;
 	}
@@ -384,6 +388,12 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 	u32 level = 0;
 	if (!req.ParamU32("level", &level, false, DebuggerParamType::OPTIONAL))
 		return;
+	// GPU_GetCurrentTexture() takes a plain int; a client-supplied value whose
+	// u32->int conversion is negative would skip backends' "level >= mip count"
+	// bounds check (which only fires for level > 0), reaching backend texture-copy
+	// code with a bogus mip index.
+	if (level > 0x7FFFFFFF)
+		return req.Fail("Invalid level");
 
 	GenericStreamBuffer(req, [level](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
 		return GPUStepping::GPU_GetCurrentTexture(buf, level, isFramebuffer);
