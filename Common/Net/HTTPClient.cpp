@@ -154,6 +154,17 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			}
 		}
 
+		if (sockets.empty()) {
+			// No need to call 'select' if we don't have any plausible sockets.
+			if (cancelConnect && *cancelConnect) {
+				WARN_LOG(Log::Net, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
+				break;
+			}
+			sleep_ms(1, "connect");
+			continue;
+		}
+		// There is at least 1 socket candidate.
+
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
 		while (timeoutHalfSeconds >= 0 && selectResult == 0) {
