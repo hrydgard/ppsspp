@@ -32,11 +32,13 @@
 // NOTE: Needs to be kept in sync with the g_logTypeNames array.
 enum class Log {
 	System = 0,  // Catch-all for uncategorized things
+	Config,
 	Boot,
 	Common,
 	CPU,
 	FileSystem,
 	G3D,
+	TexCache,
 	HLE,
 	JIT,
 	Loader,
@@ -57,6 +59,8 @@ enum class Log {
 	GeDebugger,
 	UI,
 	IAP,
+	CwCheats,
+	Net,  // Non-sce related networking logs.
 
 	sceAudio,
 	sceCtrl,
@@ -108,11 +112,7 @@ inline bool GenericLogEnabled(Log type, LogLevel level) {
 	return g_log[(int)type].IsEnabled(level) && (*g_bLogEnabledSetting);
 }
 
-void GenericLog(Log type, LogLevel level, const char *file, int line, const char *fmt, ...)
-#ifdef __GNUC__
-		__attribute__((format(printf, 5, 6)))
-#endif
-		;
+ATTR_FORMAT_PRINTF(5, 6) void GenericLog(Log type, LogLevel level, const char *file, int line, MSVC_FORMAT_PRINTF const char *fmt, ...);
 
 // If you want to see verbose logs, change this to VERBOSE_LEVEL.
 
@@ -133,11 +133,7 @@ void GenericLog(Log type, LogLevel level, const char *file, int line, const char
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(t, LogLevel::LVERBOSE, __VA_ARGS__) } while (false)
 
 // Currently only actually shows a dialog box on Windows.
-bool HandleAssert(bool isDebugAssert, const char *function, const char *file, int line, const char *expression, const char* format, ...)
-#ifdef __GNUC__
-__attribute__((format(printf, 6, 7)))
-#endif
-;
+ATTR_FORMAT_PRINTF(6, 7) bool HandleAssert(bool isDebugAssert, const char *function, const char *file, int line, const char *expression, MSVC_FORMAT_PRINTF const char *format, ...);
 
 // These allow us to get a small amount of information into assert messages.
 // They can have a value between 0 and 15.

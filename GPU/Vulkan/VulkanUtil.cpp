@@ -27,9 +27,9 @@
 // Disable this on x64 android, causes problems.
 
 #if defined(_DEBUG) && !(PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(AMD64))
-static const bool g_Validate = true;
+static constexpr bool g_Validate = true;
 #else
-static const bool g_Validate = false;
+static constexpr bool g_Validate = false;
 #endif
 
 using namespace PPSSPP_VK;
@@ -38,6 +38,14 @@ const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, VK_COMP
 const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
 const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY };
 const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
+
+static constexpr BindingType g_bindingTypes[] = {
+	BindingType::STORAGE_IMAGE_COMPUTE,
+	BindingType::STORAGE_BUFFER_COMPUTE,
+	BindingType::STORAGE_BUFFER_COMPUTE,
+	BindingType::STORAGE_IMAGE_COMPUTE,
+	BindingType::UNIFORM_BUFFER_COMPUTE,
+};
 
 VkPresentModeKHR ConfigPresentModeToVulkan(Draw::DrawContext *draw) {
 	g_frameTiming.ComputePresentMode(draw, false);
@@ -107,13 +115,7 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
 
-	static const BindingType bindingTypes[3] = {
-		BindingType::STORAGE_IMAGE_COMPUTE,
-		BindingType::STORAGE_BUFFER_COMPUTE,
-		BindingType::STORAGE_BUFFER_COMPUTE,
-	};
-
-	VkDescriptorSetLayoutBinding bindings[3] = {};
+	VkDescriptorSetLayoutBinding bindings[ARRAY_SIZE(g_bindingTypes)] = {};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -126,6 +128,14 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[2].binding = 2;
+	bindings[3].descriptorCount = 1;
+	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[3].binding = 3;
+	bindings[4].descriptorCount = 1;
+	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[4].binding = 4;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -136,7 +146,7 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	_assert_(VK_SUCCESS == res);
 
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
-		frameData_[i].descPool.Create(vulkan_, bindingTypes, ARRAY_SIZE(bindingTypes), 4096);
+		frameData_[i].descPool.Create(vulkan_, g_bindingTypes, ARRAY_SIZE(g_bindingTypes), 4096);
 		frameData_[i].descPoolUsed = false;
 	}
 
@@ -176,7 +186,7 @@ void VulkanComputeShaderManager::DestroyDeviceObjects() {
 	}
 }
 
-VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2) {
+VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2, VkImageView image2, VkBuffer cbuffer, VkDeviceSize cbufferSize) {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	frameData.descPoolUsed = true;
@@ -184,32 +194,34 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 	frameData.descPool.Allocate(&desc, 1, &descriptorSetLayout_);
 	_assert_(desc != VK_NULL_HANDLE);
 
-	VkWriteDescriptorSet writes[3]{};
+	VkWriteDescriptorSet writes[5]{};
 	int n = 0;
-	VkDescriptorImageInfo imageInfo = {};
-	VkDescriptorBufferInfo bufferInfo[2] = {};
+	VkDescriptorImageInfo imageInfo[2] = {};
+	VkDescriptorBufferInfo bufferInfo[3] = {};
 	if (image) {
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		imageInfo.imageView = image;
-		imageInfo.sampler = VK_NULL_HANDLE;
+		imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo[0].imageView = image;
+		imageInfo[0].sampler = VK_NULL_HANDLE;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].dstBinding = 0;
-		writes[n].pImageInfo = &imageInfo;
+		writes[n].pImageInfo = &imageInfo[0];
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 		writes[n].dstSet = desc;
 		n++;
 	}
-	bufferInfo[0].buffer = buffer;
-	bufferInfo[0].offset = offset;
-	bufferInfo[0].range = range;
-	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[n].dstBinding = 1;
-	writes[n].pBufferInfo = &bufferInfo[0];
-	writes[n].descriptorCount = 1;
-	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	writes[n].dstSet = desc;
-	n++;
+	if (buffer) {
+		bufferInfo[0].buffer = buffer;
+		bufferInfo[0].offset = offset;
+		bufferInfo[0].range = range;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 1;
+		writes[n].pBufferInfo = &bufferInfo[0];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
+	}
 	if (buffer2) {
 		bufferInfo[1].buffer = buffer2;
 		bufferInfo[1].offset = offset2;
@@ -222,11 +234,35 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 		writes[n].dstSet = desc;
 		n++;
 	}
+	if (image2) {
+		imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo[1].imageView = image2;
+		imageInfo[1].sampler = VK_NULL_HANDLE;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 3;
+		writes[n].pImageInfo = &imageInfo[1];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		writes[n].dstSet = desc;
+		n++;
+	}
+	if (cbuffer) {
+		bufferInfo[2].buffer = cbuffer;
+		bufferInfo[2].offset = 0;
+		bufferInfo[2].range = cbufferSize;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 4;
+		writes[n].pBufferInfo = &bufferInfo[2];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
+	}
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 	return desc;
 }
 
-VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
+VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs, const char *tag) {
 	PipelineKey key{ cs };
 	VkPipeline pipeline;
 	if (pipelines_.Get(key, &pipeline)) {
@@ -242,10 +278,21 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 	pci.flags = 0;
 
 	VkResult res = vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
-	_assert_(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		ERROR_LOG(Log::G3D, "Failed to create compute pipeline from shader module (%s)", tag);
+		pipelines_.Insert(key, VK_NULL_HANDLE);
+	}
+	_dbg_assert_msg_(res == VK_SUCCESS, "Failed to create compute pipeline from shader module (%s)", tag);
 
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
+}
+
+void VulkanComputeShaderManager::ClearPipelines() {
+	pipelines_.Iterate([&](const PipelineKey &key, VkPipeline pipeline) {
+		vulkan_->Delete().QueueDeletePipeline(pipeline);
+	});
+	pipelines_.Clear();
 }
 
 void VulkanComputeShaderManager::BeginFrame() {

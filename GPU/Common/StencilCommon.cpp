@@ -210,7 +210,6 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		}
 	}
 
-	shaderManager_->DirtyLastShader();
 	textureCache_->ForgetLastTexture();
 
 	if (!stencilWritePipeline_) {

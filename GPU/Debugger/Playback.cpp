@@ -522,6 +522,7 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
 	ExecuteOnMain(Operation{ OpType::ReapplyGfxState });
 
+	// Hm, why are we doing this here? Should it be before?
 	for (int i = 0; i < 8; ++i) {
 		lastBufw_[i] = 0;
 		lastTex_[i] = 0;
@@ -963,7 +964,7 @@ void WriteRunDumpCode(u32 codeStart) {
 // A long term goal is inversion of control here, but it's tricky for a number of reasons that you'll find
 // out if you try.
 ReplayResult RunMountedReplay(const std::string &filename) {
-	_assert_msg_(!gpuDebug->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
+	_assert_msg_(!gpu->GetRecorder()->IsActivePending(), "Cannot run replay while recording.");
 
 	uint32_t version = lastExecVersion;
 	if (lastExecFilename != filename) {

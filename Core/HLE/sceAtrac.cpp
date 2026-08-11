@@ -1093,6 +1093,7 @@ u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		WARN_LOG(Log::Atrac, "bad atrac ID");
+		return 0;
 	}
 	return atrac->EnqueueForSas(bufPtr, bytesToAdd);
 }
@@ -1109,9 +1110,10 @@ void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
 	atrac->DecodeForSas((s16 *)outbuf, SamplesNum, finish);
 }
 
+// The context pointer is assumed to be valid.
 int AtracSasBindContextAndGetID(u32 contextAddr) {
 	// Ugly hack, but needed to support both old and new contexts.
-	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
+	int atracID = (int)Memory::ReadUnchecked_U32(contextAddr + 0xfc);
 	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
 		// We can assume the old atracID hack was used, and atracID is valid.
 	} else {

@@ -31,7 +31,7 @@
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
-static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
+static constexpr GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_ZERO,
 	GL_ONE,
 	GL_SRC_COLOR,
@@ -65,7 +65,7 @@ static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_INVALID_ENUM,
 };
 
-static const GLushort glBlendEqLookup[(size_t)BlendEq::COUNT] = {
+static constexpr GLushort glBlendEqLookup[(size_t)BlendEq::COUNT] = {
 	GL_FUNC_ADD,
 	GL_FUNC_SUBTRACT,
 	GL_FUNC_REVERSE_SUBTRACT,
@@ -73,17 +73,17 @@ static const GLushort glBlendEqLookup[(size_t)BlendEq::COUNT] = {
 	GL_MAX,
 };
 
-static const GLushort cullingMode[] = {
+static constexpr GLushort cullingMode[] = {
 	GL_FRONT,
 	GL_BACK,
 };
 
-static const GLushort compareOps[] = {
+static constexpr GLushort compareOps[] = {
 	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
-static const GLushort stencilOps[] = {
+static constexpr GLushort stencilOps[] = {
 	GL_KEEP,
 	GL_ZERO,
 	GL_REPLACE,
@@ -95,7 +95,7 @@ static const GLushort stencilOps[] = {
 };
 
 #if !defined(USING_GLES2)
-static const GLushort logicOps[] = {
+static constexpr GLushort logicOps[] = {
 	GL_CLEAR,
 	GL_AND,
 	GL_AND_REVERSE,
@@ -223,9 +223,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			depthClampEnable = false;
 		} else {
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
-				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
-				// But the alternate is not clamping in either direction...
-				depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
+				// We get some extra clamping behavior if clipping is enabled.
+				depthClampEnable = gstate.isDepthClipEnabled() && gstate_c.Use(GPU_USE_DEPTH_CLAMP);
 			} else {
 				// We just want to clip in this case, the clamp would be clipped anyway.
 				depthClampEnable = false;
@@ -280,13 +279,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor_);
-		UpdateCachedViewportState(vpAndScissor_);
 
 		renderManager->SetScissor(GLRect2D{ vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH });
 		renderManager->SetViewport({
 			vpAndScissor_.viewportX, vpAndScissor_.viewportY,
-			vpAndScissor_.viewportW, vpAndScissor_.viewportH,
-			vpAndScissor_.depthRangeMin, vpAndScissor_.depthRangeMax });
+			vpAndScissor_.viewportW, vpAndScissor_.viewportH, 0.0f, 1.0f });
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);

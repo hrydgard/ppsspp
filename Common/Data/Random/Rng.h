@@ -21,6 +21,11 @@ public:
 		m_w = 18000 * (m_w & 65535) + (m_w >> 16);
 		return (m_z << 16) + m_w;
 	}
+	uint64_t R64() {
+		const uint32_t bottom = R32();
+		const uint32_t top = R32();
+		return ((uint64_t)top << 32) | bottom;
+	}
 	float F() {
 		return (float)R32() / (float)(0xFFFFFFFF);
 	}

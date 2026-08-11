@@ -1,12 +1,14 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <utility>
 
 #include "Common/Net/HTTPClient.h"
 
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 
 #include "Common/Net/SocketCompat.h"
 #include "Common/Net/Resolve.h"
@@ -53,11 +55,11 @@ std::string Connection::GetLocalIpAsString() const {
 
 bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
-		ERROR_LOG(Log::IO, "Resolve: Already have a socket");
+		ERROR_LOG(Log::Net, "Resolve: Already have a socket");
 		return false;
 	}
 	if (!host || port < 1 || port > 65535) {
-		ERROR_LOG(Log::IO, "Resolve: Invalid host or port (%d)", port);
+		ERROR_LOG(Log::Net, "Resolve: Invalid host or port (%d)", port);
 		return false;
 	}
 
@@ -74,8 +76,8 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	}
 	
 	std::string err;
-	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
-		WARN_LOG(Log::IO, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
+	if (!net::DNSResolve(processedHostname, port_str, &resolved_, err, type)) {
+		WARN_LOG(Log::Net, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;
 		return false;
@@ -86,10 +88,17 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 
 static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 	switch (info->ai_family) {
-	case AF_INET:
-	case AF_INET6:
-		inet_ntop(info->ai_family, &((sockaddr_in *)info->ai_addr)->sin_addr, addrbuf, bufsize);
+	case AF_INET: {
+		auto sock_addr = (sockaddr_in*)info->ai_addr;
+		inet_ntop(info->ai_family, &(sock_addr)->sin_addr, addrbuf, bufsize);
 		break;
+	}
+	case AF_INET6: {
+		auto sock_addr = (sockaddr_in6*)info->ai_addr;
+		// There's also 'sin6_flowinfo' before 'sin6_addr', so we can't combine these cases into one.
+		inet_ntop(info->ai_family, &(sock_addr)->sin6_addr, addrbuf, bufsize);
+		break;
+	}
 	default:
 		snprintf(addrbuf, bufsize, "(Unknown AF %d)", info->ai_family);
 		break;
@@ -98,7 +107,7 @@ static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 
 bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
-		ERROR_LOG(Log::IO, "Bad port");
+		ERROR_LOG(Log::Net, "Bad port");
 		return false;
 	}
 	sock_ = -1;
@@ -114,13 +123,13 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			int sock = socket(possible->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if ((intptr_t)sock == -1) {
-				ERROR_LOG(Log::IO, "Bad socket");
+				ERROR_LOG(Log::Net, "Bad socket");
 				continue;
 			}
 			// Windows sockets aren't limited by socket number, just by count, so checking FD_SETSIZE there is wrong.
 #if !PPSSPP_PLATFORM(WINDOWS)
 			if (sock >= FD_SETSIZE) {
-				ERROR_LOG(Log::IO, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
+				ERROR_LOG(Log::Net, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
 				closesocket(sock);
 				continue;
 			}
@@ -140,7 +149,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 					if (!unreachable) {
 						ERROR_LOG(Log::HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errorCode, errorString.c_str());
 					} else {
-						INFO_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
+						VERBOSE_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
 					}
 					closesocket(sock);
 					continue;
@@ -152,6 +161,17 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 				maxfd = sock + 1;
 			}
 		}
+
+		if (sockets.empty()) {
+			// No need to call 'select' if we don't have any plausible sockets.
+			if (cancelConnect && *cancelConnect) {
+				WARN_LOG(Log::Net, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
+				break;
+			}
+			sleep_ms(1, "connect");
+			continue;
+		}
+		// There is at least 1 socket candidate.
 
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
@@ -193,7 +213,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		}
 
 		if (cancelConnect && *cancelConnect) {
-			WARN_LOG(Log::HTTP, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
+			WARN_LOG(Log::Net, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
 			break;
 		}
 
@@ -219,7 +239,7 @@ namespace http {
 constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
 constexpr const char *HTTP_VERSION = "1.1";
 
-Client::Client(net::ResolveFunc func) : Connection(func) {
+Client::Client(net::ResolveFunc func) : Connection(std::move(func)) {
 	userAgent_ = DEFAULT_USERAGENT;
 	httpVersion_ = HTTP_VERSION;
 }
@@ -228,8 +248,6 @@ Client::~Client() {
 	Disconnect();
 }
 
-// Ignores line folding (deprecated), but respects field combining.
-// Don't use for Set-Cookie, which is a special header per RFC 7230.
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string_view header, std::string *value) {
 	std::string search(header);
 	search.push_back(':');
@@ -262,7 +280,7 @@ static bool DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
 	while (true) {
 		std::string line;
 		inbuffer->TakeLineCRLF(&line);
-		if (!line.size())
+		if (line.empty())
 			return false;
 		unsigned int chunkSize = 0;
 		if (sscanf(line.c_str(), "%x", &chunkSize) != 1) {
@@ -316,7 +334,7 @@ int Client::POST(const RequestParams &req, std::string_view data, std::string_vi
 	if (mime.empty()) {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
 	} else {
-		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %.*s\r\n", (long long)data.size(), (int)mime.size(), mime.data());
+		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %.*s\r\n", (long long)data.size(), STR_VIEW(mime));
 	}
 
 	int err = SendRequestWithData("POST", req, data, otherHeaders, progress);
@@ -347,7 +365,9 @@ int Client::SendRequest(const char *method, const RequestParams &req, const char
 }
 
 int Client::SendRequestWithData(const char *method, const RequestParams &req, std::string_view data, const char *otherHeaders, net::RequestProgress *progress) {
-	progress->Update(0, 0, false);
+	if (progress) {
+		progress->Update(0, 0, false);
+	}
 
 	net::Buffer buffer;
 	const char *tpl =
@@ -366,7 +386,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, st
 		req.acceptMime,
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
-	bool flushed = buffer.FlushSocket(sock(), dataTimeout_, progress->cancelled);
+	bool flushed = buffer.FlushSocket(sock(), headerTimeout_, progress ? progress->cancelled : nullptr);
 	if (!flushed) {
 		return -1;  // TODO error code.
 	}
@@ -377,9 +397,9 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
-	double endTimeout = time_now_d() + dataTimeout_;
+	double endTimeout = time_now_d() + headerTimeout_;
 	while (!ready) {
-		if (progress->cancelled && *progress->cancelled)
+		if (progress && progress->cancelled && *progress->cancelled)
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
 		if (!ready && time_now_d() > endTimeout) {
@@ -416,18 +436,19 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		return -1;
 	}
 
-	if (statusLine)
-		*statusLine = line;
+	if (statusLine) {
+		*statusLine = std::move(line);
+	}
 
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);
 		if (!sz || sz < 0)
 			break;
 		VERBOSE_LOG(Log::HTTP, "Header line: %s", line.c_str());
-		responseHeaders.push_back(line);
+		responseHeaders.push_back(std::move(line));
 	}
 
-	if (responseHeaders.size() == 0) {
+	if (responseHeaders.empty()) {
 		ERROR_LOG(Log::HTTP, "No HTTP response headers");
 		return -1;
 	}
@@ -478,7 +499,9 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 		if (chunked) {
 			if (!DeChunk(readbuf, output, contentLength)) {
 				ERROR_LOG(Log::HTTP, "Bad chunked data, couldn't read chunk size");
-				progress->Update(0, 0, true);
+				if (progress) {
+					progress->Update(0, 0, true);
+				}
 				return -1;
 			}
 		} else {
@@ -492,20 +515,23 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
 				ERROR_LOG(Log::HTTP, "Error decompressing using zlib");
-				progress->Update(0, 0, true);
+				if (progress) {
+					progress->Update(0, 0, true);
+				}
 				return -1;
 			}
 			output->Append(decompressed);
 		}
 	}
 
-	progress->Update(contentLength, contentLength, true);
+	if (progress) {
+		progress->Update(contentLength, contentLength, true);
+	}
 	return 0;
 }
 
 HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name)
-	: Request(method, url, name, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
-	outfile_ = outfile;
+	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(std::move(customResolve)) {
 }
 
 HTTPRequest::~HTTPRequest() {
@@ -529,6 +555,8 @@ void HTTPRequest::Join() {
 }
 
 void HTTPRequest::SetFailed(int code) {
+	// TODO: Why are we not using code here?
+
 	failed_ = true;
 	progress_.Update(0, 0, true);
 	completed_ = true;
@@ -631,6 +659,16 @@ void HTTPRequest::Do() {
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
+}
+
+std::string RemoveHttpsIfNeeded(std::string_view url) {
+	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		// Try with http. Needed on Linux installs currently.
+		if (startsWith(url, "https://")) {
+			return "http://" + std::string(url.substr(8));
+		}
+	}
+	return std::string(url);
 }
 
 }  // namespace http

@@ -16,10 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#ifndef USING_QT_UI
 #include <png.h>
 #include <zlib.h>
-#endif
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
@@ -42,10 +40,6 @@ DebuggerSubscriber *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map) {
 
 // Note: Calls req.Respond().  Other data can be added afterward.
 static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &buf, bool isFramebuffer, bool includeAlpha, int stackWidth) {
-#ifdef USING_QT_UI
-	req.Fail("Not supported on Qt yet, pull requests accepted");
-	return false;
-#else
 	u8 *flipbuffer = nullptr;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
@@ -157,7 +151,6 @@ static bool StreamBufferToDataURI(DebuggerRequest &req, const GPUDebugBuffer &bu
 	// End the string.
 	req.ws->AddFragment(false, "\"");
 	return true;
-#endif
 }
 
 static std::string DescribeFormat(GPUDebugBufferFormat fmt) {
@@ -180,9 +173,6 @@ static std::string DescribeFormat(GPUDebugBufferFormat fmt) {
 	case GPU_DBG_FORMAT_8BIT: return "S8";
 	case GPU_DBG_FORMAT_24BIT_8X: return "D24_X8";
 	case GPU_DBG_FORMAT_24X_8BIT: return "X24_S8";
-
-	case GPU_DBG_FORMAT_FLOAT_DIV_256: return "D32F_DIV_256";
-	case GPU_DBG_FORMAT_24BIT_8X_DIV_256: return "D32F_X8_DIV_256";
 
 	case GPU_DBG_FORMAT_888_RGB: return "R8G8B8_UNORM";
 
@@ -248,14 +238,16 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 	if (!func(buf, &isFramebuffer)) {
 		return req.Fail("Could not download output");
 	}
-	_assert_(buf != nullptr);
+	if (!buf) {
+		return req.Fail("No output available");
+	}
 
 	if (type == "base64") {
 		StreamBufferToBase64(req, *buf, isFramebuffer);
 	} else if (type == "uri") {
 		StreamBufferToDataURI(req, *buf, isFramebuffer, includeAlpha, stackWidth);
 	} else {
-		_assert_(false);
+		return req.Fail("Unexpected output type");
 	}
 }
 

@@ -25,6 +25,7 @@
 #include "Common/System/Display.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
@@ -580,17 +581,19 @@ DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
 }
 
 void TouchControlLayoutScreen::resized() {
+	UIBaseDialogScreen::resized();
 	RecreateViews();
 }
 
 void TouchControlLayoutScreen::onFinish(DialogResult reason) {
+	UIBaseDialogScreen::onFinish(reason);
 	g_Config.Save("TouchControlLayoutScreen::onFinish");
 }
 
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
 
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
 	touch.ResetLayout();
@@ -599,14 +602,8 @@ void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 };
 
 void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	UIBaseDialogScreen::dialogFinished(dialog, result);
 	RecreateViews();
-}
-
-void TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
-	int mode = mode_->GetSelection();
-	if (layoutView_) {
-		layoutView_->mode_ = mode;
-	}
 }
 
 void TouchControlLayoutScreen::update() {
@@ -621,21 +618,13 @@ void TouchControlLayoutScreen::update() {
 	if (!layoutView_->HasCreatedViews()) {
 		layoutView_->CreateViews();
 	}
-
-	Bounds bounds = layoutView_->GetBounds();
-	// Convert virtual pixels to real pixels.
-	bounds.x /= g_display.dpi_scale_x;
-	bounds.y /= g_display.dpi_scale_y;
-	bounds.w /= g_display.dpi_scale_x;
-	bounds.h /= g_display.dpi_scale_y;
-	SetOverrideScreenFrame(&bounds);
 }
 
 void TouchControlLayoutScreen::CreateViews() {
 	using namespace UI;
 
 	// setup g_Config for button layout
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
 	const DeviceOrientation orientation = GetDeviceOrientation();
 	InitPadLayout(&g_Config.GetTouchControlsConfig(orientation), orientation, bounds.w, bounds.h);
 
@@ -659,7 +648,12 @@ void TouchControlLayoutScreen::CreateViews() {
 	mode_->AddChoice(di->T("Move"), ImageID("I_MOVE"));
 	mode_->AddChoice(di->T("Resize"), ImageID("I_RESIZE"));
 	mode_->SetSelection(0, false);
-	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
+	mode_->OnChoice.Add([this](UI::EventParams &e) {
+		int mode = mode_->GetSelection();
+		if (layoutView_) {
+			layoutView_->mode_ = mode;
+		}
+	});
 
 	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
 	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, 64, di->T("Grid"), screenManager(), "");
@@ -675,6 +669,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Spacer(12.0f));
 	leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	leftColumn->Add(new Spacer(0.0f));
+	leftColumnScroll->SetShadows(false);
 
 	LinearLayout* rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0.0f, 12.0f, 12.0f, 12.0f))));
 	rightColumn->Add(new TextView(co->T(DeviceOrientationToString(orientation))))->SetTextSize(TextSize::Small);

@@ -45,13 +45,13 @@ struct GLExtensions {
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	int maxTextureSize;
-	int maxClipPlanes;
+	int maxClipDistances;
+	int maxCullDistances;
 
 	// OES
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
 	bool OES_depth_texture;
-	bool OES_texture_npot;  // If this is set, can wrap non-pow-2 textures. Set on desktop.
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	bool OES_copy_image;
@@ -73,6 +73,7 @@ struct GLExtensions {
 	bool ARB_texture_float;
 	bool ARB_draw_instanced;
 	bool ARB_buffer_storage;
+	bool ARB_clip_distance;
 	bool ARB_cull_distance;
 	bool ARB_depth_clamp;
 	bool ARB_uniform_buffer_object;
@@ -86,6 +87,8 @@ struct GLExtensions {
 	bool KHR_texture_compression_astc_ldr;
 
 	// EXT
+	bool EXT_disjoint_timer_query;
+	bool ARB_timer_query;
 	bool EXT_texture_compression_s3tc;
 	bool EXT_swap_control_tear;
 	bool EXT_discard_framebuffer;
@@ -135,6 +138,15 @@ struct GLExtensions {
 	// greater-or-equal than
 	bool VersionGEThan(int major, int minor, int sub = 0);
 	int GLSLVersion();
+
+	bool FullPrecisionIntInFragment() const {
+		return range[1][5][0] >= 30 && range[1][5][1] >= 30;
+	}
+
+	// If 23, normal floats are supported.
+	int HighpFragmentFloatMantissaBits() const {
+		return precision[1][2];
+	}
 };
 
 extern GLExtensions gl_extensions;

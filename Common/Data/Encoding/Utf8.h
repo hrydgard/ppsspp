@@ -22,7 +22,6 @@
 #include <string_view>
 
 uint32_t u8_nextchar(const char *s, int *i, size_t size);
-uint32_t u8_nextchar_unsafe(const char *s, int *i);
 int u8_wc_toutf8(char *dest, uint32_t ch);
 void u8_inc(const char *s, int *i);
 void u8_dec(const char *s, int *i);
@@ -51,10 +50,6 @@ public:
 	}
 	uint32_t next() {
 		return u8_nextchar(c_, &index_, size_);
-	}
-	// Allow invalid continuation bytes.
-	uint32_t next_unsafe() {
-		return u8_nextchar_unsafe(c_, &index_);
 	}
 	uint32_t peek() const {
 		int tempIndex = index_;
@@ -129,3 +124,6 @@ std::u16string ConvertUTF8ToUCS2(std::string_view source);
 // Java needs 4-byte UTF-8 to be converted to surrogate pairs, each component of which get
 // encoded into 3-byte UTF-8.
 void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input);
+
+// Applies "tolower" and also rewrites full-with japanese characters.
+std::string NormalizeForSearch(std::string_view input);

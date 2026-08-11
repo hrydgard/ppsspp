@@ -490,9 +490,10 @@ Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
 	return Read_Instruction(address, resolveReplacements, inst);
 }
 
-Opcode Read_Opcode_JIT(u32 address)
-{
-	Opcode inst = Opcode(Read_U32(address));
+// WARNING! Caller checks that address is valid!
+Opcode Read_Opcode_JIT(u32 address) {
+	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
 	// No mutex around jit access here, but we assume caller has if necessary.
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		return MIPSComp::jit->GetOriginalOp(inst);

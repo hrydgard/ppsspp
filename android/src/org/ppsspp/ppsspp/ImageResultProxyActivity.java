@@ -1,6 +1,7 @@
 package org.ppsspp.ppsspp;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -110,6 +111,18 @@ public class ImageResultProxyActivity extends AppCompatActivity {
 		}
 	}
 
+	private void returnWithResult(int resultCode, int requestId, String resultPath) {
+		Intent returnIntent = new Intent(this, PpssppActivity.class);
+		returnIntent.putExtra("result_code", resultCode);
+		returnIntent.putExtra("request_id", requestId);
+		if (resultPath != null) {
+			returnIntent.putExtra("result_path", resultPath);
+		}
+		returnIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		startActivity(returnIntent);
+		finish();
+	}
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -125,29 +138,31 @@ public class ImageResultProxyActivity extends AppCompatActivity {
 			result -> {
 				Log.i(TAG, "Packing return intent, requestId = " + requestId);
 
-				Intent returnIntent = new Intent(this, PpssppActivity.class);
+				String localPath;
 				if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-					String localPath = copyAndDownscaleToCache(result.getData().getData());
-					Log.i(TAG, "Putting extra: " + localPath);
-					// Pass the result back to the SingleInstance activity.
-					returnIntent.putExtra("result_path", localPath);
+					localPath = copyAndDownscaleToCache(result.getData().getData());
+				} else {
+					localPath = null;
 				}
 
-				returnIntent.putExtra("result_code", result.getResultCode());
-				returnIntent.putExtra("request_id", requestId);
-
-				// This flag is key: it finds the existing instance of your main activity
-				returnIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-				startActivity(returnIntent);
-				finish();
+				returnWithResult(result.getResultCode(), requestId, localPath);
 			}
 		);
 
-		// Only launch the picker if we are starting fresh. If we're being recreated,
-		// the ActivityResultRegistry will handle delivering the pending result to the launcher.
+		// Only launch the picker if we are starting fresh. If we're being recreated (e.g. rotation),
+		// the ActivityResultRegistry will handle delivering the pending result to the launcher
+		// automatically, and we don't want to launch the picker a second time.
 		if (savedInstanceState == null) {
 			if (pickerIntent != null) {
-				launcher.launch(pickerIntent);
+				try {
+					launcher.launch(pickerIntent);
+				} catch (ActivityNotFoundException e) {
+					NativeApp.reportException(e, "ImageResultProxy: failed to launch picker intent, activity not found: " + pickerIntent.getAction());
+					returnWithResult(NativeApp.RESULT_ERROR_ACTIVITY_NOT_FOUND, requestId, null);
+				} catch (Exception e) {
+					NativeApp.reportException(e, "ImageResultProxy: failed to launch picker intent, other error: " + pickerIntent.getAction());
+					returnWithResult(NativeApp.RESULT_ERROR_OTHER_ACTIVITY_ERROR, requestId, null);
+				}
 			} else {
 				Log.e(TAG, "No picker intent provided");
 				finish();

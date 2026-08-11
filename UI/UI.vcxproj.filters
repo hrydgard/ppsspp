@@ -147,6 +147,10 @@
     <ClCompile Include="AdhocServerScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="GameBrowser.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="LoadStateConfirmScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -291,6 +295,13 @@
     <ClInclude Include="AdhocServerScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="ImDebugger\ImCommand.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="GameBrowser.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="LoadStateConfirmScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
@@ -302,5 +313,8 @@
     <Filter Include="ImDebugger">
       <UniqueIdentifier>{fda6bc55-1386-4650-a274-44fac9605ea3}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
 </Project>

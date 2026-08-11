@@ -35,8 +35,7 @@ struct SceUtilityGamedataInstallParam {
 
 class PSPGamedataInstallDialog: public PSPDialog {
 public:
-	PSPGamedataInstallDialog(UtilityDialogType type);
-	~PSPGamedataInstallDialog();
+	PSPGamedataInstallDialog(UtilityDialogType type) : PSPDialog(type) {}
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;

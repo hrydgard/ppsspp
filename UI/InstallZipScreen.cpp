@@ -19,11 +19,14 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/SevenZipFileReader.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -40,15 +43,27 @@
 
 InstallZipScreen::InstallZipScreen(const Path &zipPath) : UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll), zipPath_(zipPath) {
 	g_GameManager.ResetInstallError();
-	ZipContainer zipFile = ZipOpenPath(zipPath_);
-	if (zipFile) {
-		DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
-		ZipClose(zipFile);
+
+	if (zipPath.GetFileExtension() == ".7z") {
+		SevenZipFileReader *sevenZipFile = SevenZipFileReader::Create(zipPath, "");
+		if (sevenZipFile) {
+			DetectArchiveContents(sevenZipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+			delete sevenZipFile;
+		}
+	} else {
+		ZipContainer zipFile = ZipOpenPath(zipPath_);
+		if (zipFile) {
+			DetectZipFileContents(zipFile, &zipFileInfo_);  // Even if this fails, it sets zipInfo->contents.
+			ZipClose(zipFile);
+		}
 	}
 }
 
 std::string_view InstallZipScreen::GetTitle() const {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+	if (zipFileInfo_.archiveType == ArchiveType::SevenZ) {
+		return iz->T("7z file");
+	}
 	return iz->T("ZIP file");
 }
 
@@ -78,7 +93,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 
 		// NOTE: We detect PBP isos (like demos) as game dirs currently. Can't play them directly.
-		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE && zipFileInfo_.archiveType == ArchiveType::ZIP) {
 			playChoice_ = parent->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
 			playChoice_->OnClick.Handle(this, &InstallZipScreen::OnPlay);
 		}
@@ -129,12 +144,12 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	std::string shortFilename = zipPath_.GetFilename();
 
-	bool showDeleteCheckbox = false;
 	returnToHomebrew_ = false;
 	installChoice_ = nullptr;
 	playChoice_ = nullptr;
 	doneView_ = nullptr;
 	existingSaveView_ = nullptr;
+	overwriteWarning_ = nullptr;
 	destFolders_.clear();
 
 	std::vector<Path> destOptions;
@@ -150,8 +165,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		if (!zipFileInfo_.contentName.empty()) {
 			leftColumn->Add(new TextView(zipFileInfo_.contentName));
 		}
-
-		doneView_ = leftColumn->Add(new TextView(""));
 
 		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
 			const bool isInDownloads = File::IsProbablyInDownloadsFolder(zipPath_);
@@ -173,7 +186,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 
 		returnToHomebrew_ = true;
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::TEXTURE_PACK:
@@ -182,7 +194,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(question));
 		leftColumn->Add(new TextView(shortFilename));
 
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::PRX_PLUGIN:
@@ -191,7 +202,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(GetFriendlyPath(zipPath_)));
 		Path pluginsDir = GetSysDirectory(DIRECTORY_PLUGINS);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, pluginsDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, pluginsDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 		std::stringstream sstream(zipFileInfo_.iniContents);
 		IniFile ini;
@@ -222,13 +233,12 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savestateDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savestateDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savestateDir);
 
 		// TODO: Use the GameInfoCache to display data about the game if available.
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::SAVE_DATA:
@@ -239,7 +249,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savedataDir);
@@ -269,7 +279,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 			}
 		}
 
-		showDeleteCheckbox = true;
 		break;
 	}
 	case ZipFileContents::FRAME_DUMP:
@@ -293,7 +302,8 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		break;
 	}
 
-	doneView_ = leftColumn->Add(new TextView(""));
+	doneView_ = leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, "", ""));
+	doneView_->SetVisibility(Visibility::V_GONE);
 
 	if (destFolders_.size() > 1) {
 		leftColumn->Add(new TextView(iz->T("Install into folder")));
@@ -305,7 +315,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 		leftColumn->Add(new TextView(GetFriendlyPath(destFolders_[0])))->SetAlign(FLAG_WRAP_TEXT);
 	}
 	if (overwrite) {
-		leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+		overwriteWarning_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
 	}
 }
 
@@ -339,6 +349,9 @@ void InstallZipScreen::OnInstall(UI::EventParams &params) {
 		if (installChoice_) {
 			installChoice_->SetEnabled(false);
 		}
+		if (overwriteWarning_) {
+			overwriteWarning_->SetVisibility(UI::Visibility::V_GONE);
+		}
 	}
 }
 
@@ -360,13 +373,26 @@ void InstallZipScreen::update() {
 		}
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
-			if (doneView_)
-				doneView_->SetText(iz->T(err));
+			if (doneView_) {
+				doneView_->SetLevelAndText(NoticeLevel::ERROR, iz->T(err));
+				doneView_->SetVisibility(Visibility::V_VISIBLE);
+			}
 		} else if (installStarted_) {
 			if (doneView_) {
-				doneView_->SetText(iz->T("Installed!"));
+				doneView_->SetLevelAndText(NoticeLevel::SUCCESS, iz->T("Installed!"));
+				doneView_->SetVisibility(Visibility::V_VISIBLE);
+			}
+			if (playChoice_) {
+				// Encourage the user to back out and play directly from the main screen,
+				// instead of unpacking into memory.
+				playChoice_->SetEnabled(false);
 			}
 			MainScreen::showHomebrewTab = returnToHomebrew_;
+		}
+
+		if (zipFileInfo_.contents == ZipFileContents::FRAME_DUMP) {
+			// For frame dumps, just launch them immediately.
+			screenManager()->switchScreen(new EmuScreen(zipPath_));
 		}
 	}
 

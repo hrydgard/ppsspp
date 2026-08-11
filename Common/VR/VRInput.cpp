@@ -78,19 +78,16 @@ XrTime ToXrTime(const double timeInSeconds) {
 }
 
 void INVR_Vibrate( int duration, int chan, float intensity ) {
-	for (int i = 0; i < 2; ++i) {
-		int channel = i & chan;
-		if (channel) {
-			if (vibration_channel_duration[channel] > 0.0f)
-				return;
+	// chan selects the controller directly (0 = left, 1 = right) - it's an index into
+	// vibration_channel_duration/intensity, not a bitmask.
+	if (vibration_channel_duration[chan] > 0.0f)
+		return;
 
-			if (vibration_channel_duration[channel] == -1.0f && duration != 0.0f)
-				return;
+	if (vibration_channel_duration[chan] == -1.0f && duration != 0.0f)
+		return;
 
-			vibration_channel_duration[channel] = (float)duration;
-			vibration_channel_intensity[channel] = intensity;
-		}
-	}
+	vibration_channel_duration[chan] = (float)duration;
+	vibration_channel_intensity[chan] = intensity;
 }
 
 void VR_processHaptics() {

@@ -18,10 +18,12 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+#include <functional>
+#include <mutex>
 #include <string_view>
 
 #include "Common/CommonTypes.h"
+#include "Core/ConfigValues.h"
 
 class GraphicsContext;
 
@@ -83,6 +85,7 @@ BreakReason Core_BreakReason();
 
 // This should be called externally.
 // Can fail if another step type was requested this frame.
+// stepSize is always in instructions (4 bytes each), never bytes - see Core_PerformCPUStep in Core.cpp.
 bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
 
 bool Core_NextFrame();
@@ -147,6 +150,44 @@ bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
 
+// Runs a function on the CPU thread - the thread that calls Core_RunLoopUntil (and thus, indirectly,
+// NativeFrame). Useful for code running on unrelated threads (like the WebSocket debugger) that needs to
+// safely touch state that's otherwise only ever touched from that thread (breakpoints, stepping, etc.),
+// instead of poking at it directly from wherever the call happens to come from.
+//
+// Safe to call from any thread, including the CPU thread itself (in which case func just runs immediately).
+// Blocks the calling thread until func has actually run, so don't call this from the CPU thread with
+// something that would itself try to wait on the CPU thread - that'll deadlock.
+//
+// Drained at the top of every Core_RunLoopUntil() iteration, so it's reached continuously (in a tight
+// spin) while the CPU is stepping/paused, and at least once per call (i.e. about once per host frame)
+// even while it's fully running.
+void Core_RunOnCPUThread(std::function<void()> func);
+
+// Drains the queue Core_RunOnCPUThread() feeds. Normally called from the top of every
+// Core_RunLoopUntil() iteration, but that function is only reached while a game is actually
+// loaded/running (via EmuScreen) - so NativeFrame() (UI/NativeApp.cpp) also calls this directly,
+// just before it calls into the screen manager's render(), so queued work doesn't hang forever
+// waiting for a CPU loop that isn't running (e.g. from the main menu with no game loaded).
+// Called from the CPU thread only - which is whatever thread NativeFrame() itself runs on.
+void Core_ProcessCPUQueue();
+
+// Guards CPU-thread-owned debugger state (breakpoints, symbol map, registers, memory, etc.)
+// against concurrent unsynchronized reads from other threads' paint handlers.
+//
+// Held by NativeFrame() for the span where it actually touches that state: running the CPU
+// (Core_RunLoopUntil(), including draining Core_RunOnCPUThread()'s queue), processing breakpoints,
+// and running the ImGui debugger. Not held for the rest of NativeFrame (input handling, present/
+// vsync waits, frame pacing, etc).
+//
+// A paint handler on another thread (e.g. a legacy Win32 debugger window) that wants to read that
+// state directly - without the overhead/latency of routing through Core_RunOnCPUThread(), which
+// would be too heavy for something called on every WM_PAINT - should hold this lock for the
+// duration of the read instead. Since WM_PAINT only fires reactively rather than every frame, and
+// NativeFrame's locked span is normally just a couple of milliseconds, this should rarely block
+// for long.
+extern std::mutex g_frameMutex;
+
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;
 
@@ -157,6 +198,8 @@ enum class MemoryExceptionType {
 	UNKNOWN,
 	READ_WORD,
 	WRITE_WORD,
+	HLE_READ,
+	HLE_WRITE,
 	READ_BLOCK,
 	WRITE_BLOCK,
 	ALIGNMENT,
@@ -166,15 +209,15 @@ enum class ExecExceptionType {
 	THREAD,
 };
 
-// Separate one for without info, to avoid having to allocate a string
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type);
-
-void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport);
-
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "");
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_BreakException(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
+
+class MIPSState;
+// Shortcut, just calls Core_MemoryException with automatically determined parameters (function name, etc).
+void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, MemoryExceptionType type);
 
 enum class MIPSExceptionType {
 	NONE,

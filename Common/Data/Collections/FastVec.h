@@ -89,9 +89,13 @@ public:
 	// Limited functionality for inserts and similar, add as needed.
 	T &insert(T *iter) {
 		int pos = iter - data_;
+		// Capture the old size before ExtendByOne() bumps size_ - the move should only
+		// cover the elements that actually existed before this insert, not size_ + 1
+		// worth (which would read/write one element past the valid old range).
+		int oldSize = (int)size_;
 		ExtendByOne();
-		if (pos + 1 < (int)size_) {
-			memmove(data_ + pos + 1, data_ + pos, (size_ - pos) * sizeof(T));
+		if (pos < oldSize) {
+			memmove(data_ + pos + 1, data_ + pos, (oldSize - pos) * sizeof(T));
 		}
 		return data_[pos];
 	}

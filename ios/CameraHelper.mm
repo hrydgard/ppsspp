@@ -53,6 +53,10 @@ NSString *getSelectedCamera() {
         case AVAuthorizationStatusAuthorized: {
             return 0;
         }
+        default: {
+            NSLog(@"unknown camera authorization status %ld, treating as denied", (long)status);
+            return 1;
+        }
     }
 }
 
@@ -145,6 +149,7 @@ NSString *getSelectedCamera() {
     CGContextDrawImage(outContext, outRect, inImage);
     CGImageRelease(inImage);
     CGImageRef outImage = CGBitmapContextCreateImage(outContext);
+    CGContextRelease(outContext);
 
     CGColorSpaceRelease(colorSpace);
     CVPixelBufferUnlockBaseAddress(imageBuffer, 0);

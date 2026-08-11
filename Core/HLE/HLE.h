@@ -98,6 +98,8 @@ struct Syscall {
 #define RETURN64(n) {u64 RETURN64_tmp = n; currentMIPS->r[MIPS_REG_V0] = RETURN64_tmp & 0xFFFFFFFF; currentMIPS->r[MIPS_REG_V1] = RETURN64_tmp >> 32;}
 #define RETURNF(fl) currentMIPS->f[0] = fl
 
+#define PARAM_MIPS(mips, n) mips->r[MIPS_REG_A0 + n]
+
 struct HLEModuleMeta {
 	// This is the modname (name from the PRX header). Probably, we should really blacklist on the module names of the exported symbol metadata.
 	const char *modname;
@@ -174,6 +176,8 @@ inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 void HLEInit();
 void HLEDoState(PointerWrap &p);
 void HLEShutdown();
+const HLEFunction *HLEGetFunctionBeingCalled();
+size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const char *argmask);
 u32 GetSyscallOp(std::string_view module, u32 nib);
 bool WriteHLESyscall(std::string_view module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
@@ -190,11 +194,8 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 
 template <bool leave, bool convert_code, typename T>
 [[nodiscard]]
-#ifdef __GNUC__
-__attribute__((format(printf, 7, 8)))
-#endif
 NO_INLINE
-T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, const char *reasonFmt, ...) {
+ATTR_FORMAT_PRINTF(7, 8) T hleDoLog(Log t, LogLevel level, T res, const char *file, int line, const char *reportTag, MSVC_FORMAT_PRINTF const char *reasonFmt, ...) {
 	if (!GenericLogEnabled(t, level)) {
 		if (leave) {
 			hleLeave();

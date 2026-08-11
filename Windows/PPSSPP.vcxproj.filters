@@ -29,9 +29,6 @@
     <Filter Include="Windows\GE Debugger">
       <UniqueIdentifier>{15f0e146-e39c-4bad-ba10-3c714a7dbf74}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Other Platforms\Qt">
-      <UniqueIdentifier>{45191b1f-33c8-405c-a410-35fe2344d1d1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Other Platforms\SDL">
       <UniqueIdentifier>{5bfed059-8636-4b1e-a3cf-f948d645babb}</UniqueIdentifier>
     </Filter>
@@ -68,6 +65,9 @@
     <Filter Include="Windows\Input\Hid">
       <UniqueIdentifier>{55d277d0-1afa-464d-9bde-672334ad73fe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="assets">
+      <UniqueIdentifier>{a5b85611-e50f-4179-814d-426816c1e04d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -99,9 +99,6 @@
     </ClCompile>
     <ClCompile Include="Debugger\Debugger_Disasm.cpp">
       <Filter>Windows\Debugger</Filter>
-    </ClCompile>
-    <ClCompile Include="EmuThread.cpp">
-      <Filter>Windows</Filter>
     </ClCompile>
     <ClCompile Include="XinputDevice.cpp">
       <Filter>Windows\Input</Filter>
@@ -172,9 +169,6 @@
     <ClCompile Include="GPU\WindowsGLContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="..\Qt\mainwindow.cpp">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClCompile>
     <ClCompile Include="GPU\D3D11Context.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -186,15 +180,6 @@
     </ClCompile>
     <ClCompile Include="CaptureDevice.cpp">
       <Filter>Windows\Input</Filter>
-    </ClCompile>
-    <ClCompile Include="GPU\WindowsVulkanContext.cpp">
-      <Filter>Windows\System</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\AndroidJavaGLContext.cpp">
-      <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\AndroidVulkanContext.cpp">
-      <Filter>Other Platforms\Android</Filter>
     </ClCompile>
     <ClCompile Include="..\android\jni\app-android.cpp">
       <Filter>Other Platforms\Android</Filter>
@@ -211,7 +196,7 @@
     <ClCompile Include="..\libretro\libretro.cpp">
       <Filter>Other Platforms\libretro</Filter>
     </ClCompile>
-    <ClCompile Include="..\libretro\libretro_vulkan.cpp">
+    <ClCompile Include="..\libretro\LibretroVulkanPresentation.cpp">
       <Filter>Other Platforms\libretro</Filter>
     </ClCompile>
     <ClCompile Include="..\libretro\LibretroD3D11Context.cpp">
@@ -220,9 +205,6 @@
     <ClCompile Include="..\libretro\LibretroGLContext.cpp">
       <Filter>Other Platforms\libretro</Filter>
     </ClCompile>
-    <ClCompile Include="..\Qt\QtMain.cpp">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClCompile>
     <ClCompile Include="..\SDL\SDLGLGraphicsContext.cpp">
       <Filter>Other Platforms\SDL</Filter>
     </ClCompile>
@@ -230,9 +212,6 @@
       <Filter>Other Platforms\SDL</Filter>
     </ClCompile>
     <ClCompile Include="..\SDL\SDLMain.cpp">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SDL\SDLVulkanGraphicsContext.cpp">
       <Filter>Other Platforms\SDL</Filter>
     </ClCompile>
     <ClCompile Include="..\UWP\NKCodeFromWindowsSystem.cpp">
@@ -323,9 +302,6 @@
     <ClInclude Include="Debugger\Debugger_Disasm.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
-    <ClInclude Include="EmuThread.h">
-      <Filter>Windows</Filter>
-    </ClInclude>
     <ClInclude Include="InputDevice.h">
       <Filter>Windows\Input</Filter>
     </ClInclude>
@@ -390,12 +366,6 @@
     <ClInclude Include="GPU\WindowsGLContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="GPU\WindowsGraphicsContext.h">
-      <Filter>Windows\System</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Qt\mainwindow.h">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\D3D11Context.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
@@ -411,18 +381,6 @@
     </ClInclude>
     <ClInclude Include="BufferLock.h">
       <Filter>Windows\Input</Filter>
-    </ClInclude>
-    <ClInclude Include="GPU\WindowsVulkanContext.h">
-      <Filter>Windows\System</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidGraphicsContext.h">
-      <Filter>Other Platforms\Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
-      <Filter>Other Platforms\Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\AndroidVulkanContext.h">
-      <Filter>Other Platforms\Android</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\app-android.h">
       <Filter>Other Platforms\Android</Filter>
@@ -463,6 +421,9 @@
     <ClInclude Include="..\libretro\LibretroVulkanContext.h">
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
+    <ClInclude Include="..\libretro\LibretroVulkanPresentation.h">
+      <Filter>Other Platforms\libretro</Filter>
+    </ClInclude>
     <ClInclude Include="..\libretro\libretro.h">
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
@@ -475,12 +436,6 @@
     <ClInclude Include="..\libretro\LibretroD3D11Context.h">
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
-    <ClInclude Include="..\Qt\QtMain.h">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Qt\NKCodeFromQt.h">
-      <Filter>Other Platforms\Qt</Filter>
-    </ClInclude>
     <ClInclude Include="..\SDL\NKCodeFromSDL.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
@@ -491,12 +446,6 @@
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
     <ClInclude Include="..\SDL\SDLJoystick.h">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="..\SDL\SDLMain.h">
-      <Filter>Other Platforms\SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="..\SDL\SDLVulkanGraphicsContext.h">
       <Filter>Other Platforms\SDL</Filter>
     </ClInclude>
     <ClInclude Include="..\UWP\NKCodeFromWindowsSystem.h">
@@ -707,16 +656,10 @@
     <None Include="..\libretro\jni\Application.mk">
       <Filter>Other Platforms\libretro</Filter>
     </None>
-    <None Include="..\Qt\macbundle.sh">
-      <Filter>Other Platforms\Qt</Filter>
-    </None>
     <None Include="..\SDL\macbundle.sh">
       <Filter>Other Platforms\SDL</Filter>
     </None>
     <None Include="..\SDL\SDLCocoaMetalLayer.mm">
-      <Filter>Other Platforms\SDL</Filter>
-    </None>
-    <None Include="..\SDL\SDLMain.mm">
       <Filter>Other Platforms\SDL</Filter>
     </None>
     <None Include="..\assets\compatvr.ini">
@@ -830,6 +773,22 @@
     <None Include="..\scripts\websocket-test.py">
       <Filter>Other Platforms</Filter>
     </None>
+    <None Include="..\assets\adhoc-servers.json">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\infra-dns.json">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\redump.csv">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\shaders\defaultshaders.ini">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\cheats.json">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\AGENTS.md" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
@@ -863,6 +822,9 @@
     </Text>
     <Text Include="..\SDL\README.TXT">
       <Filter>Other Platforms\SDL</Filter>
+    </Text>
+    <Text Include="..\assets\gamecontrollerdb.txt">
+      <Filter>assets</Filter>
     </Text>
   </ItemGroup>
 </Project>

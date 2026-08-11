@@ -206,8 +206,9 @@ void CDisasm::step(CPUStepType stepType) {
 	ptr->setDontRedraw(true);
 	lastTicks_ = CoreTiming::GetTicks();
 
-	u32 stepSize = ptr->getInstructionSizeAt(cpu->GetPC());
-	Core_RequestCPUStep(stepType, stepSize);
+	// Route the actual step request to the CPU thread instead of poking at it directly from this
+	// GUI thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] { Core_RequestCPUStep(stepType, 1); });
 }
 
 void CDisasm::runToLine() {
@@ -220,7 +221,9 @@ void CDisasm::runToLine() {
 
 	lastTicks_ = CoreTiming::GetTicks();
 	ptr->setDontRedraw(true);
-	breakpoints_->AddBreakPoint(pos,true);
+	// Route the breakpoint mutation to the CPU thread instead of poking at it directly from this
+	// GUI thread - see Core_RunOnCPUThread() in Core.h. Core_Resume() itself is free-threaded.
+	Core_RunOnCPUThread([&] { breakpoints_->AddBreakPoint(pos,true); });
 	Core_Resume();
 }
 
@@ -295,17 +298,16 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					CtrlDisAsmView *view = DisAsmView();
 					keepStatusBarText = true;
 					view->LockPosition();
-					bool isRunning = Core_IsActive();
-					if (isRunning) {
-						Core_Break(BreakReason::AddBreakpoint, 0);
-						Core_WaitInactive();
-					}
 
 					BreakpointWindow bpw(m_hDlg,cpu);
-					if (bpw.exec()) bpw.addBreakpoint();
+					if (bpw.exec()) {
+						// Route the actual breakpoint mutation to the CPU thread instead of poking
+						// at it directly from this GUI thread - see Core_RunOnCPUThread() in
+						// Core.h. No need to force the core to pause first: Core_RunOnCPUThread()
+						// runs the callback whether the CPU is running or already stepping.
+						Core_RunOnCPUThread([&] { bpw.addBreakpoint(); });
+					}
 
-					if (isRunning)
-						Core_Resume();
 					view->UnlockPosition();
 					keepStatusBarText = false;
 				}
@@ -423,7 +425,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 						break;
 					lastTicks_ = CoreTiming::GetTicks();
 
-					hleDebugBreak();
+					// Route the actual HLE-break mutation to the CPU thread instead of poking at
+					// it directly from this GUI thread - see Core_RunOnCPUThread() in Core.h.
+					// Core_Resume() itself is free-threaded.
+					Core_RunOnCPUThread([&] { hleDebugBreak(); });
 					Core_Resume();
 				}
 				break;
@@ -721,6 +726,10 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 void CDisasm::Show(bool bShow, bool includeToTop) {
 	if (deferredSymbolFill_ && bShow) {
 		if (g_symbolMap) {
+			// Reading the live symbol map here on the GUI thread would otherwise race with the CPU
+			// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
+			// holds while it's actually touching that state. See g_frameMutex in Core.h.
+			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 			deferredSymbolFill_ = false;
 		}
@@ -730,6 +739,7 @@ void CDisasm::Show(bool bShow, bool includeToTop) {
 
 void CDisasm::NotifyMapLoaded() {
 	if (m_bShowState != SW_HIDE && g_symbolMap) {
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
 	} else {
 		deferredSymbolFill_ = true;

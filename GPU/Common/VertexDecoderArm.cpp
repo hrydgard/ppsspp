@@ -24,8 +24,9 @@
 #define ARM
 #endif
 
-#include <stddef.h>
+#include <cfloat>
 
+#include <stddef.h>
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -50,6 +51,7 @@ alignas(16) static float boneMask[4] = {1.0f, 1.0f, 1.0f, 0.0f};
 // When morphing, we never skin.  So we're free to use Q4+.
 // Q4 is for color shift values, and Q5 is a secondary multipler inside the morph.
 // TODO: Maybe load all morph weights to Q6+ to avoid memory access?
+// Also in PosFloat we're free to use Q4.
 
 static const float by128 = 1.0f / 128.0f;
 static const float by16384 = 1.0f / 16384.0f;
@@ -102,9 +104,6 @@ static const ARMReg srcNEON = Q2;
 static const ARMReg accNEON = Q3;
 
 static const JitLookup jitLookup[] = {
-	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
-	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
-	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
@@ -257,7 +256,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			// Reset the code ptr and return zero to indicate that we failed.
 			ResetCodePtr(GetOffset(start));
 			char temp[1024]{};
-			dec.ToString(temp, true);
+			dec.ToString(temp, sizeof(temp), true);
 			WARN_LOG(Log::G3D, "Could not compile vertex decoder, failed at step %s: %s", GetStepFunctionName(dec.steps_[i]), temp);
 			return 0;
 		}
@@ -285,62 +284,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	/*
 	DisassembleArm(start, GetCodePtr() - start);
 	char temp[1024] = {0};
-	dec.ToString(temp, true);
+	dec.ToString(temp, sizeof(temp), true);
 	INFO_LOG(Log::G3D, "%s", temp);
 	*/
 
 	*jittedSize = GetCodePtr() - start;
 	EndWrite();
 	return (JittedVertexDecoder)start;
-}
-
-void VertexDecoderJitCache::Jit_WeightsU8() {
-	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRB(tempReg1, srcReg, dec_->weightoff + j);
-		STRB(tempReg1, dstReg, dec_->decFmt.w0off + j);
-	}
-	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
-	}
-	while (j & 3) {
-		STRB(scratchReg, dstReg, dec_->decFmt.w0off + j);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU16() {
-	// Basic implementation - a short at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
-		STRH(tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
-	}
-	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
-	}
-	while (j & 3) {
-		STRH(scratchReg, dstReg, dec_->decFmt.w0off + j * 2);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsFloat() {
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDR(tempReg1, srcReg, dec_->weightoff + j * 4);
-		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-	}
-	if (j & 3) {
-		EOR(tempReg1, tempReg1, tempReg1);
-	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-		j++;
-	}
 }
 
 static const ARMReg weightRegs[8] = { S8, S9, S10, S11, S12, S13, S14, S15 };
@@ -912,12 +862,33 @@ void VertexDecoderJitCache::Jit_PosS16() {
 	VST1(F_32, srcNEON, scratchReg, 2);
 }
 
-// Just copy 12 bytes.
+// Clean NaNs and Infs from position floats
 void VertexDecoderJitCache::Jit_PosFloat() {
 	ADD(scratchReg, srcReg, dec_->posoff);
-	LDMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	// Load the 3 floats (12 bytes) into srcNEON (Q2)
+	VLD1(F_32, srcNEON, scratchReg, 2, ALIGN_NONE);
+
+	// Efficient NaN/Inf detection: shift left by 1 to remove sign bit, then check if < 0xFF000000
+	// Finite numbers: exponent < 0xFF, so (value << 1) < 0xFF000000
+	// NaN or Inf: exponent == 0xFF, so (value << 1) >= 0xFF000000
+
+	// Shift left by 1 into neonScratchRegQ (Q1), treating srcNEON as integer bits
+	VSHL(I_32, neonScratchRegQ, srcNEON, 1);
+
+	// Create the comparison value 0xFF000000 in Q4 (available, used when skinning but we're not skinning if we're in PosFloat)
+	MOVI2R(scratchReg, 0xFF000000);
+	VDUP(I_32, Q4, scratchReg);
+
+	// Compare unsigned: finite_mask = (abs_shifted < inf_shifted)
+	// Result in neonScratchRegQ (Q1): all-1s where finite, all-0s where NaN/Inf
+	VCLT(I_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ, Q4);
+
+	// AND with the mask to zero out NaN/Inf values, keep finite values
+	VAND(srcNEON, srcNEON, neonScratchRegQ);
+
+	// Store the cleaned result
 	ADD(scratchReg, dstReg, dec_->decFmt.posoff);
-	STMIA(scratchReg, false, 3, tempReg1, tempReg2, tempReg3);
+	VST1(F_32, srcNEON, scratchReg, 2, ALIGN_NONE);
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {

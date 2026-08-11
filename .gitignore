@@ -60,8 +60,8 @@ ppsspp.ini
 imgui.ini
 PPSSPPControls.dat
 
-# Qt Linguist files
-*.qm
+# Frametest output (see frametests.py)
+out/
 
 # Gradle/Android Studio
 .gradle
@@ -90,6 +90,7 @@ __testerror.txt
 __testfinish.txt
 __testfailure.bmp
 __testcompare.png
+vt_ref.bmp
 GameLogNotes.txt
 screenshots
 android/assets/lang

@@ -42,6 +42,7 @@
     <ClCompile Include="DisplayLayoutScreen.cpp" />
     <ClCompile Include="DriverManagerScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
+    <ClCompile Include="GameBrowser.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="GameScreen.cpp" />
@@ -57,6 +58,7 @@
     <ClCompile Include="ImDebugger\ImStructViewer.cpp" />
     <ClCompile Include="JitCompareScreen.cpp" />
     <ClCompile Include="JoystickHistoryView.cpp" />
+    <ClCompile Include="LoadStateConfirmScreen.cpp" />
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MemStickScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
@@ -98,6 +100,7 @@
     <ClInclude Include="DisplayLayoutScreen.h" />
     <ClInclude Include="DriverManagerScreen.h" />
     <ClInclude Include="EmuScreen.h" />
+    <ClInclude Include="GameBrowser.h" />
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="GameScreen.h" />
@@ -105,6 +108,7 @@
     <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
     <ClInclude Include="IAPScreen.h" />
+    <ClInclude Include="ImDebugger\ImCommand.h" />
     <ClInclude Include="ImDebugger\ImConsole.h" />
     <ClInclude Include="ImDebugger\ImDebugger.h" />
     <ClInclude Include="ImDebugger\ImDisasmView.h" />
@@ -114,6 +118,7 @@
     <ClInclude Include="ImDebugger\ImStructViewer.h" />
     <ClInclude Include="JitCompareScreen.h" />
     <ClInclude Include="JoystickHistoryView.h" />
+    <ClInclude Include="LoadStateConfirmScreen.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MemStickScreen.h" />
     <ClInclude Include="MiscScreens.h" />
@@ -146,6 +151,9 @@
     <ProjectReference Include="..\ext\rcheevos-build\rcheevos.vcxproj">
       <Project>{31694510-a8c0-40f6-b09b-e8df825adefa}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{004B8D11-2BE3-4BD9-AB40-2BE04CF2096F}</ProjectGuid>
@@ -226,7 +234,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -246,7 +254,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -267,7 +275,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -291,7 +299,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
@@ -317,7 +325,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -344,7 +352,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>

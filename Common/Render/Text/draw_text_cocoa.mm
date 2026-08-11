@@ -138,6 +138,10 @@ TextDrawerCocoa::~TextDrawerCocoa() {
 
 // TODO: Share with other backends.
 void TextDrawerCocoa::SetOrCreateFont(const FontStyle &style) {
+	if (style.sizePts <= 0) {
+		return;
+	}
+
 	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		fontStyle_ = style;
@@ -158,8 +162,8 @@ void TextDrawerCocoa::ClearFonts() {
 	fontMap_.clear();
 }
 
+// AI added some error checks here.
 void TextDrawerCocoa::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	// INFO_LOG(Log::System, "Measuring %.*s", (int)str.length(), str.data());
 	auto iter = fontMap_.find(fontStyle_);
 	NSDictionary *attributes = nil;
 	if (iter != fontMap_.end()) {
@@ -169,24 +173,57 @@ void TextDrawerCocoa::MeasureStringInternal(std::string_view str, float *w, floa
 	std::vector<std::string_view> lines;
 	SplitString(str, '\n', lines);
 
-	int extW = 0, extH = 0;
+	float extW = 0, extH = 0;
 	for (auto &line : lines) {
-		NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
+		if (line.empty()) {
+			// Handle empty lines by measuring the string "Wg" which typically has a good ascent and descent.
+			NSString *emptyLineString = @"Wg";
+			NSAttributedString* emptyAs = [[NSAttributedString alloc] initWithString:emptyLineString attributes:attributes];
+			CTLineRef emptyCtline = CTLineCreateWithAttributedString((CFAttributedStringRef)emptyAs);
+			CGFloat ascent, descent, leading;
+			CTLineGetTypographicBounds(emptyCtline, &ascent, &descent, &leading);
+			CFRelease(emptyCtline);
+			extH += (float)(ascent + descent + leading); // Use actual line height for empty lines
+			continue;
+		}
+		// Handle potential UTF-8 conversion failure
+		NSString *string = [[NSString alloc] initWithBytes:line.data()
+											 length:line.size()
+											 encoding:NSUTF8StringEncoding];
+
+		// If UTF-8 fails, fallback to Windows-1252 or lossy conversion to prevent nil
+		if (!string) {
+			string = [[NSString alloc] initWithBytes:line.data()
+									   length:line.size()
+									   encoding:NSASCIIStringEncoding];
+		}
+		// Skip empty or failed strings to prevent NSConcreteAttributedString crash
+		if (!string) {
+			continue;
+		}
 		NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
+		// Safety check for AttributedString allocation
+		if (!as) {
+			continue;
+		}
+
 		CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
+		// Core Text safety check
+		if (!ctline) {
+			continue;
+		}
+
 		CGFloat ascent, descent, leading;
 		double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
 
-		size_t width = (size_t)ceilf(fWidth);
-		size_t height = (size_t)ceilf(ascent + descent);
-	
-		if (width > extW)
-			extW = width;
-		extH += height;
+		if (fWidth > extW)
+			extW = (float)fWidth;
+		extH += (float)(ascent + descent + leading); // Included leading for better vertical spacing
+		CFRelease(ctline);  // Needed to avoid memory leak.
 	}
 
-	*w = extW;
-	*h = extH;
+	*w = ceilf(extW);
+	*h = ceilf(extH);
 }
 
 bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
@@ -204,8 +241,22 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 
 	NSString* string = [[NSString alloc] initWithBytes:str.data() length:str.length() encoding: NSUTF8StringEncoding];
 
+	// If UTF-8 fails, fallback to ASCII to prevent nil
+	if (!string) {
+		string = [[NSString alloc] initWithBytes:str.data() length:str.length() encoding:NSASCIIStringEncoding];
+	}
+	// Skip if string creation failed
+	if (!string) {
+		return false;
+	}
+
 	NSDictionary* attributes = iter->second->attributes;
 	NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
+
+	// Safety check for AttributedString allocation
+	if (!as) {
+		return false;
+	}
 
 	// Figure out how big an image we need.
 	// We re-use MeasureString here.
@@ -234,6 +285,14 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedLast;
 	CGContextRef ctx = CGBitmapContextCreate(bitmap, bmWidth, bmHeight, 8, bmWidth*4, space, bitmapInfo);
 	CGColorSpaceRelease(space);
+
+	// Safety check for CGContext creation
+	if (!ctx) {
+		WARN_LOG(Log::G3D, "Failed to create CGBitmapContext");
+		delete [] bitmap;
+		return false;
+	}
+
 	// CGContextSetRGBStrokeColor(ctx, 1.0, 1.0, 1.0, 1.0); // white background
 	CGContextSetStrokeColorWithColor(ctx, [ColorType whiteColor].CGColor);
 	CGContextSetFillColorWithColor(ctx, [ColorType whiteColor].CGColor);
@@ -244,8 +303,30 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	float lineY = 0.0;
 	for (std::string_view line : lines) {
 		NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
+
+		// If UTF-8 fails, fallback to ASCII to prevent nil
+		if (!string) {
+			string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding:NSASCIIStringEncoding];
+		}
+		// Skip empty or failed strings to prevent crash
+		if (!string) {
+			continue;
+		}
+
 		NSAttributedString* as = [[NSAttributedString alloc] initWithString:string attributes:attributes];
+
+		// Safety check for AttributedString allocation
+		if (!as) {
+			continue;
+		}
+
 		CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
+
+		// Core Text safety check
+		if (!ctline) {
+			continue;
+		}
+
 		CGFloat ascent, descent, leading;
 		double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
 
@@ -315,7 +396,8 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	} else {
 		_assert_msg_(false, "Bad TextDrawer format");
 	}
-	
+
+	CGContextRelease(ctx);
 	delete [] bitmap;
 	return true;
 }

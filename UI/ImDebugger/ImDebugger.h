@@ -23,6 +23,7 @@
 #include "UI/ImDebugger/ImJitViewer.h"
 #include "UI/ImDebugger/ImGe.h"
 #include "UI/ImDebugger/ImConsole.h"
+#include "UI/ImDebugger/ImCommand.h"
 
 // This is the main state container of the whole Dear ImGUI-based in-game cross-platform debugger.
 //
@@ -30,7 +31,7 @@
 // * If windows/objects need state, prefix the class name with Im and just store straight in parent struct
 
 class MIPSDebugInterface;
-class GPUDebugInterface;
+class GPUCommon;
 struct ImConfig;
 
 // Snapshot of the MIPS CPU and other things we want to show diffs off.
@@ -111,7 +112,8 @@ struct ImConfig {
 	int selectedMemoryBlock = 0;
 	u32 selectedMpegCtx = 0;
 
-	uint64_t selectedTexAddr = 0;
+	uint64_t selectedTexId = 0;
+	bool selectedTexSecondary = false;
 
 	bool realtimePixelPreview = false;
 	int breakCount = 0;
@@ -120,6 +122,7 @@ struct ImConfig {
 	int requesterToken;
 
 	bool sasShowAllVoices = false;
+	bool vertexListClipped = false;
 
 	float fbViewerZoom = 1.0f;
 
@@ -162,28 +165,7 @@ public:
 	void Draw(ImConfig &cfg);
 
 private:
-	bool                AutoScroll = true;  // Keep scrolling if already at the bottom.
-};
-
-enum class ImCmd {
-	NONE = 0,
-	TRIGGER_FIND_POPUP,
-	SHOW_IN_CPU_DISASM,
-	SHOW_IN_GE_DISASM,
-	SHOW_IN_MEMORY_VIEWER,  // param is address, param2 is viewer index
-	SHOW_IN_PIXEL_VIEWER,  // param is address, param2 is stride, |0x80000000 if depth, param3 is w/h
-	SHOW_IN_MEMORY_DUMPER, // param is address, param2 is size, param3 is mode
-};
-
-struct ImCommand {
-	ImCmd cmd;
-	uint32_t param;
-	uint32_t param2;
-	uint32_t param3;
-};
-
-struct ImControl {
-	ImCommand command;
+	bool AutoScroll = true;  // Keep scrolling if already at the bottom.
 };
 
 class ImDebugger {
@@ -191,12 +173,12 @@ public:
 	ImDebugger();
 	~ImDebugger();
 
-	void Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw::DrawContext *draw);
 
 	// Should be called just before starting a step or run, so that things can
 	// save state that they can later compare with, to highlight changes.
 	void Snapshot(MIPSState *mips);
-	void SnapshotGPU(GPUDebugInterface *mips);
+	void SnapshotGPU(GPUCommon *mips);
 
 	// Call from the outside.
 	void PostCmd(ImCommand cmd) {

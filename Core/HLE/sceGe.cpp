@@ -319,6 +319,8 @@ static bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList 
 	for (int threadID : waitingThreads)
 		wokeThreads |= HLEKernel::ResumeFromWait(threadID, waitType, waitId, 0);
 	waitingThreads.clear();
+	gstate_c.textureSyncTimeDomain++;
+	gpuStats.perFrame.numGEInterrupts++;
 	return wokeThreads;
 }
 
@@ -423,6 +425,7 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 // 0 : wait for completion. 1:check and return
 int sceGeListSync(u32 displayListID, u32 mode) {
 	hleEatCycles(220);  // Fudged without measuring, copying sceGeContinue.
+	gstate_c.textureSyncTimeDomain++;
 	return hleLogDebug(Log::sceGe, gpu->ListSync(LIST_ID_MAGIC ^ displayListID, mode));
 }
 
@@ -432,6 +435,7 @@ static u32 sceGeDrawSync(u32 mode) {
 		hleEatCycles(500000); //HACK(?) : Potential fix for Crash Tag Team Racing and a few Gundam games
 	else if (!PSP_CoreParameter().compat.flags().DrawSyncInstant)
 		hleEatCycles(1240);
+	gstate_c.textureSyncTimeDomain++;
 	return hleLogDebug(Log::sceGe, gpu->DrawSync(mode));
 }
 
@@ -459,7 +463,7 @@ static int sceGeBreak(u32 mode, u32 unknownPtr) {
 		WARN_LOG_REPORT(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
 		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	} else if (unknownPtr != 0) {
-		WARN_LOG_REPORT(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
+		WARN_LOG_REPORT_ONCE(gebreak_unkptr, Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
 	}
 
 	//mode => 0 : current dlist 1: all drawing
@@ -569,7 +573,7 @@ static int sceGeGetMtx(int type, u32 matrixPtr) {
 	if (!gpu || !gpu->GetMatrix24(GEMatrixType(type), dest, 0))
 		return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX, "invalid matrix");
 
-	return hleLogInfo(Log::sceGe, 0);
+	return hleLogDebug(Log::sceGe, 0);
 }
 
 static u32 sceGeGetCmd(int cmd) {
@@ -599,7 +603,7 @@ static u32 sceGeGetCmd(int cmd) {
 		default:
 			break;
 		}
-		return hleLogInfo(Log::sceGe, val);
+		return hleLogDebug(Log::sceGe, val);
 	}
 	return hleLogError(Log::sceGe, SCE_KERNEL_ERROR_INVALID_INDEX);
 }

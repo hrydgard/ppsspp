@@ -52,9 +52,8 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	// Fill in the last part of the desc since now it's time to block.
 	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
 	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
-	VkShaderModule gs = desc->geometryShader ? desc->geometryShader->BlockUntilReady() : VK_NULL_HANDLE;
 
-	if (!vs || !fs || (!gs && desc->geometryShader)) {
+	if (!vs || !fs) {
 		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - missing shader modules");
 		pipeline[(size_t)rpType]->Post(VK_NULL_HANDLE);
 		return false;
@@ -66,8 +65,8 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 		return false;
 	}
 
-	uint32_t stageCount = 2;
-	VkPipelineShaderStageCreateInfo ss[3]{};
+	constexpr uint32_t stageCount = 2;
+	VkPipelineShaderStageCreateInfo ss[stageCount]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
@@ -78,14 +77,6 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs;
 	ss[1].pName = "main";
-	if (gs) {
-		stageCount++;
-		ss[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		ss[2].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
-		ss[2].pSpecializationInfo = nullptr;
-		ss[2].module = gs;
-		ss[2].pName = "main";
-	}
 
 	VkGraphicsPipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipe.pStages = ss;
@@ -223,11 +214,10 @@ void VKRGraphicsPipeline::BlockUntilCompiled() {
 
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 	// Can't destroy variants here, the pipeline still lives for a while.
-	vulkan->Delete().QueueCallback([](VulkanContext *vulkan, void *p) {
-		VKRGraphicsPipeline *pipeline = (VKRGraphicsPipeline *)p;
-		pipeline->DestroyVariantsInstant(vulkan->GetDevice());
-		delete pipeline;
-	}, this);
+	vulkan->Delete().QueueCallback([this](VulkanContext *vulkan) {
+		this->DestroyVariantsInstant(vulkan->GetDevice());
+		delete this;
+	});
 }
 
 u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
@@ -243,9 +233,6 @@ u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
 void VKRGraphicsPipeline::LogCreationFailure() const {
 	ERROR_LOG(Log::G3D, "vs: %s\n[END VS]", desc->vertexShaderSource.c_str());
 	ERROR_LOG(Log::G3D, "fs: %s\n[END FS]", desc->fragmentShaderSource.c_str());
-	if (desc->geometryShader) {
-		ERROR_LOG(Log::G3D, "gs: %s\n[END GS]", desc->geometryShaderSource.c_str());
-	}
 	// TODO: Maybe log various other state?
 	ERROR_LOG(Log::G3D, "======== END OF PIPELINE ==========");
 }
@@ -329,14 +316,14 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 }
 
 bool VulkanRenderManager::CreateBackbuffers() {
-	if (!vulkan_->IsSwapchainInited()) {
+	if (!vulkan_->IsSwapchainInited() && !vulkan_->GetPresentation()) {
 		ERROR_LOG(Log::G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (vulkan_->HasRealSwapchain()) {
+	if (vulkan_->HasRealSwapchain() || vulkan_->GetPresentation()) {
 		if (!CreateSwapchainViewsAndDepth(cmdInit, &postInitBarrier_, frameDataShared_)) {
 			return false;
 		}
@@ -346,7 +333,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	curHeightRaw_ = -1;
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "Vulkan: Updating inflight frames to %d", newInflightFrames_);
 		vulkan_->UpdateInflightFrames(newInflightFrames_);
 		newInflightFrames_ = -1;
 	}
@@ -364,26 +351,37 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
-	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
+	std::vector<VkImage> swapchainImages;
+	if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
+		frameDataShared.swapchainImageCount_ = presentation->GetImageCount();
+		swapchainImages.resize(frameDataShared.swapchainImageCount_);
+		for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
+			swapchainImages[i] = presentation->GetImage(i);
+		}
+	} else {
+		VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
+		_dbg_assert_(res == VK_SUCCESS);
 
-	VkImage *swapchainImages = new VkImage[frameDataShared.swapchainImageCount_];
-	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
-		delete[] swapchainImages;
-		return false;
+		swapchainImages.resize(frameDataShared.swapchainImageCount_);
+		res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages.data());
+		if (res != VK_SUCCESS) {
+			ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
+			return false;
+		}
 	}
 
 	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
-		res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
+		VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
 		_dbg_assert_(res == VK_SUCCESS);
 
 		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 		color_image_view.format = vulkan_->GetSwapchainFormat();
+
+		_dbg_assert_(color_image_view.format != VK_FORMAT_UNDEFINED);
+
 		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -406,7 +404,6 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 		frameDataShared.swapchainImages_.push_back(sc_buffer);
 		_dbg_assert_(res == VK_SUCCESS);
 	}
-	delete[] swapchainImages;
 
 	// Must be before InitBackbufferRenderPass.
 	if (queueRunner_.InitDepthStencilBuffer(cmdInit, barriers)) {
@@ -446,7 +443,7 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	_dbg_assert_(renderThread_.joinable());
+	_dbg_assert_(!useRenderThread_ || renderThread_.joinable());
 	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
@@ -528,6 +525,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
 	vulkan_->WaitUntilQueueIdle();
+	vulkan_->PerformPendingDeletes();  // Some callbacks can contain a reference to the render manager.
 
 	_dbg_assert_(pipelineLayouts_.empty());
 
@@ -977,10 +975,9 @@ void VulkanRenderManager::EndCurRenderStep() {
 		}
 	}
 
-	compileQueueMutex_.lock();
-	if (needsCompile)
+	if (needsCompile) {
 		compileCond_.notify_one();
-	compileQueueMutex_.unlock();
+	}
 	pipelinesToCheck_.clear();
 
 	// We don't do this optimization for very small targets, probably not worth it.
@@ -1633,11 +1630,6 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	}
 	frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
-	// Flush descriptors.
-	double descStart = time_now_d();
-	FlushDescriptors(task.frame);
-	frameData.profile.descWriteTime = time_now_d() - descStart;
-
 	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
 		// We always record main commands first, so we don't need to reset the present command buffer separately.
@@ -1649,6 +1641,12 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		frameData.hasMainCommands = true;
 		_assert_msg_(res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 	}
+
+	// Flush descriptors.
+	double descStart = time_now_d();
+	int f = task.frame;
+	FlushDescriptors(task.frame);
+	frameData.profile.descWriteTime = time_now_d() - descStart;
 
 	queueRunner_.PreprocessSteps(task.steps);
 	// Likely during shutdown, happens in headless.
@@ -1738,7 +1736,7 @@ void VulkanRenderManager::ResetStats() {
 	renderCPUTimeMs_.Reset();
 }
 
-VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, bool geoShadersEnabled, const char *tag) {
+VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, const char *tag) {
 	VKRPipelineLayout *layout = new VKRPipelineLayout();
 	layout->SetTag(tag);
 	layout->bindingTypesCount = (uint32_t)bindingTypesCount;
@@ -1764,9 +1762,6 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-			if (geoShadersEnabled) {
-				bindings[i].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
-			}
 			break;
 		case BindingType::STORAGE_BUFFER_VERTEX:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1778,6 +1773,10 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 			break;
 		case BindingType::STORAGE_IMAGE_COMPUTE:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			break;
+		case BindingType::UNIFORM_BUFFER_COMPUTE:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 			break;
 		default:
@@ -1812,14 +1811,13 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
-	for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
-		if (*iter == layout) {
-			pipelineLayouts_.erase(iter);
-			break;
+	vulkan_->Delete().QueueCallback([this, layout](VulkanContext *vulkan) {
+		for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
+			if (*iter == layout) {
+				pipelineLayouts_.erase(iter);
+				break;
+			}
 		}
-	}
-	vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *userdata) {
-		VKRPipelineLayout *layout = (VKRPipelineLayout *)userdata;
 		for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 			layout->frameData[i].pool.DestroyImmediately();
 		}
@@ -1827,17 +1825,17 @@ void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 		vkDestroyDescriptorSetLayout(vulkan->GetDevice(), layout->descriptorSetLayout, nullptr);
 
 		delete layout;
-	}, layout);
+	});
 }
 
 void VulkanRenderManager::FlushDescriptors(int frame) {
-	for (auto iter : pipelineLayouts_) {
+	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
 	}
 }
 
 void VulkanRenderManager::ResetDescriptorLists(int frame) {
-	for (auto iter : pipelineLayouts_) {
+	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
 
 		data.flushedDescriptors_ = 0;
@@ -1861,7 +1859,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 
 	pool.Reset();
 
-	VkDescriptorSet setCache[8];
+	VkDescriptorSet setCache[16];
 	VkDescriptorSetLayout layoutsForAlloc[ARRAY_SIZE(setCache)];
 	for (int i = 0; i < ARRAY_SIZE(setCache); i++) {
 		layoutsForAlloc[i] = descriptorSetLayout;
@@ -1962,8 +1960,18 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
-				bufferInfo[numBuffers].offset = 0;  // This is supplied by the dynamic offset.
+				bufferInfo[numBuffers].offset = 0;  // This is supplied by the dynamic offset, if available.
 				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
+				writes[numWrites].pImageInfo = nullptr;
+				numBuffers++;
+				break;
+			case BindingType::UNIFORM_BUFFER_COMPUTE:
+				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
+				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
+				bufferInfo[numBuffers].range = data[i].buffer.range;
+				bufferInfo[numBuffers].offset = 0;  // This is supplied by the dynamic offset, if available.
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
 				writes[numWrites].pImageInfo = nullptr;
 				numBuffers++;

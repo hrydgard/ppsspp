@@ -45,6 +45,7 @@ namespace Draw {
 namespace UI {
 
 class View;
+enum class FocusFlags;
 
 enum DrawableType {
 	DRAW_NOTHING,
@@ -118,17 +119,17 @@ struct Theme {
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
-enum FocusDirection {
-	FOCUS_UP,
-	FOCUS_DOWN,
-	FOCUS_LEFT,
-	FOCUS_RIGHT,
-	FOCUS_NEXT,
-	FOCUS_PREV,
-	FOCUS_FIRST,
-	FOCUS_LAST,
-	FOCUS_PREV_PAGE,
-	FOCUS_NEXT_PAGE,
+enum class FocusMove {
+	UP,
+	DOWN,
+	LEFT,
+	RIGHT,
+	NEXT,
+	PREV,
+	FIRST,
+	LAST,
+	PREV_PAGE,
+	NEXT_PAGE,
 };
 
 typedef float Size;  // can also be WRAP_CONTENT or FILL_PARENT.
@@ -181,18 +182,18 @@ enum class BorderStyle {
 	ITEM_DOWN_BG,
 };
 
-inline FocusDirection Opposite(FocusDirection d) {
+inline FocusMove Opposite(FocusMove d) {
 	switch (d) {
-	case FOCUS_UP: return FOCUS_DOWN;
-	case FOCUS_DOWN: return FOCUS_UP;
-	case FOCUS_LEFT: return FOCUS_RIGHT;
-	case FOCUS_RIGHT: return FOCUS_LEFT;
-	case FOCUS_PREV: return FOCUS_NEXT;
-	case FOCUS_NEXT: return FOCUS_PREV;
-	case FOCUS_FIRST: return FOCUS_LAST;
-	case FOCUS_LAST: return FOCUS_FIRST;
-	case FOCUS_PREV_PAGE: return FOCUS_NEXT_PAGE;
-	case FOCUS_NEXT_PAGE: return FOCUS_PREV_PAGE;
+	case FocusMove::UP: return FocusMove::DOWN;
+	case FocusMove::DOWN: return FocusMove::UP;
+	case FocusMove::LEFT: return FocusMove::RIGHT;
+	case FocusMove::RIGHT: return FocusMove::LEFT;
+	case FocusMove::PREV: return FocusMove::NEXT;
+	case FocusMove::NEXT: return FocusMove::PREV;
+	case FocusMove::FIRST: return FocusMove::LAST;
+	case FocusMove::LAST: return FocusMove::FIRST;
+	case FocusMove::PREV_PAGE: return FocusMove::NEXT_PAGE;
+	case FocusMove::NEXT_PAGE: return FocusMove::PREV_PAGE;
 	}
 	return d;
 }
@@ -203,10 +204,20 @@ enum MeasureSpecType {
 	AT_MOST,
 };
 
-enum FocusFlags {
-	FF_LOSTFOCUS = 1,
-	FF_GOTFOCUS = 2
+enum class FocusFlags {
+	LOST_FOCUS = 1 << 0,
+	GOT_FOCUS = 1 << 1,
+
+	// TODO: These can be collapsed into fewer bits if needed.
+	CAUSE_FOCUS_MOVE = 1 << 2,  // Focus changed because of a focus move (e.g. dpad or tab). Otherwise, it was probably a programmatic change.
+	CAUSE_SCREEN_CHANGE = 1 << 3,
+	CAUSE_KB_FOCUS_DISABLED = 1 << 4,
+	CAUSE_VIEW_REMOVED = 1 << 5,
+	CAUSE_FORCED = 1 << 6,
+	CAUSE_RESTORE = 1 << 7,
+	CAUSE_OTHER = 1 << 8,
 };
+ENUM_CLASS_BITOPS(FocusFlags);
 
 enum PersistStatus {
 	PERSIST_SAVE,
@@ -381,11 +392,12 @@ public:
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
+	// Technical description.
 	virtual std::string DescribeLog() const;
 	// Accessible/searchable description.
 	virtual std::string DescribeText() const { return ""; }
 
-	virtual void FocusChanged(int focusFlags) {}
+	virtual void FocusChanged(FocusFlags focusFlags) {}
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 
 	void Move(Bounds bounds) {
@@ -410,10 +422,11 @@ public:
 	virtual void ReplaceLayoutParams(LayoutParams *newLayoutParams) { layoutParams_.reset(newLayoutParams); }
 	const Bounds &GetBounds() const { return bounds_; }
 
-	virtual bool SetFocus();
+	virtual bool SetFocus(FocusFlags cause);
 
 	virtual bool CanBeFocused() const { return true; }
 	virtual bool SubviewFocused(View *view) { return false; }
+	virtual bool CanMoveFocus(FocusMove dir) const { return true; }
 
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
@@ -460,7 +473,7 @@ public:
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	virtual Point2D GetFocusPosition(FocusDirection dir) const;
+	virtual Point2D GetFocusPosition(FocusMove dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -472,6 +485,13 @@ public:
 	virtual void SetAutoResult(DialogResult result) {
 		hasAutoResult_ = true;
 		autoResult_ = result;
+	}
+
+	void SetAlwaysVisibleInSearch(bool alwaysVisible) {
+		alwaysVisibleInSearch_ = alwaysVisible;
+	}
+	bool AlwaysVisibleInSearch() const {
+		return alwaysVisibleInSearch_;
 	}
 
 protected:
@@ -500,6 +520,7 @@ private:
 	bool *enabledPtr_ = nullptr;
 	bool enabled_ = true;
 	bool enabledMeansDisabled_ = false;
+	bool alwaysVisibleInSearch_ = false;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
@@ -524,7 +545,7 @@ public:
 	bool Key(const KeyInput &input) override;
 	bool Touch(const TouchInput &input) override;
 
-	void FocusChanged(int focusFlags) override;
+	void FocusChanged(FocusFlags focusFlags) override;
 
 	Event OnClick;
 
@@ -804,7 +825,7 @@ public:
 
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &touch) override;
-	void FocusChanged(int focusFlags) override;
+	void FocusChanged(FocusFlags focusFlags) override;
 
 	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
@@ -818,6 +839,7 @@ protected:
 class InfoItem : public Item {
 public:
 	InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams = nullptr);
+	InfoItem(std::string_view text, int rightValue, LayoutParams *layoutParams = nullptr);
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -943,14 +965,18 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
-	Point2D GetFocusPosition(FocusDirection dir) const override;
+	Point2D GetFocusPosition(FocusMove dir) const override;
 
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
 	void SetOpenPtr(bool *open) {
 		toggle_ = open;
 	}
+	void SetUnderline(bool underline) {
+		underline_ = underline;
+	}
 private:
 	bool hasSubItems_ = true;
+	bool underline_ = true;
 };
 
 class BitCheckBox : public CheckBox {
@@ -1086,6 +1112,8 @@ public:
 	ClickableTextView(std::string_view text, LayoutParams *layoutParams = 0)
 		: TextView(text, layoutParams) {}
 	bool Touch(const TouchInput &input) override;
+	bool Key(const KeyInput &input) override;
+
 	Event OnClick;
 
 private:
@@ -1104,8 +1132,13 @@ public:
 	void SetPasswordMasking(bool masking) {
 		passwordMasking_ = masking;
 	}
+	void SetPadding(Margins padding) {
+		padding_ = padding;
+	}
 
-	void FocusChanged(int focusFlags) override;
+	void FocusChanged(FocusFlags focusFlags) override;
+
+	bool CanMoveFocus(FocusMove dir) const override { return dir != FocusMove::LEFT && dir != FocusMove::RIGHT; }
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -1121,6 +1154,7 @@ public:
 	Event OnEnter;
 
 private:
+	Margins padding_;
 	std::string text_;
 	std::string title_;
 	std::string undo_;
@@ -1130,7 +1164,6 @@ private:
 	int caret_;
 	int scrollPos_ = 0;
 	size_t maxLen_;
-	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
 	bool passwordMasking_ = false;
 	int align_ = 0;
 	int selectAtX_ = -1;  // on next draw, will select the character closest to this X coordinate. Used for touch selection.

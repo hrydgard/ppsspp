@@ -40,5 +40,5 @@ private:
 	bool promptInput_ = false;
 	int token_;
 	std::string messageTemp_;
-	UI::Button *chatButton_ = nullptr;
+	UI::Clickable *chatButton_ = nullptr;
 };

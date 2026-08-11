@@ -20,7 +20,7 @@
 #include <cstdint>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "Common/GPU/thin3d.h"
 
 struct FormatBuffer {
@@ -139,7 +139,7 @@ public:
 	void SetCurFramebufferDirty(bool dirty) override {}
 	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
-	void GetStats(char *buffer, size_t bufsize) override;
+	void GetStats(StringWriter &w) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
@@ -172,7 +172,6 @@ public:
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-	bool GetCurrentDrawAsDebugVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
@@ -188,9 +187,6 @@ public:
 
 	// Overridden to change flushing behavior.
 	void Execute_Call(u32 op, u32 diff);
-
-	// Overridden for a dirty flag change.
-	void Execute_BoundingBox(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_ViewMtxNum(u32 op, u32 diff);

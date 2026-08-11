@@ -101,13 +101,17 @@ public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	void update() override;
 	void DrawForeground(UIContext &ui) override;
 	void sendMessage(UIMessage message, const char *value) override;
 	void CreateViews() override {}
 
 	const char *tag() const override { return "Logo"; }
+
+protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
+	bool UseImmersiveMode() const override { return true; }
 
 private:
 	void Next();
@@ -123,6 +127,7 @@ public:
 	void update() override;
 
 protected:
+	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
 	std::string_view GetTitle() const override;
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;

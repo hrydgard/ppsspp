@@ -23,6 +23,7 @@
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
+#include "Core/SaveState.h"
 #include "Core/ControlMapper.h"
 #include "UI/BaseScreens.h"
 #include "UI/Screen.h"
@@ -37,15 +38,17 @@ public:
 
 	const char *tag() const override { return "GamePause"; }
 
+	InputMode PassInputToMapper() const override {
+		return InputMode::ImDebuggerToggle;
+	}
+
 protected:
 	void CreateViews() override;
 	void update() override;
 	UI::Margins RootMargins() const override;
-
-	// For processing of certain mapped keys.
-	bool UnsyncKey(const KeyInput &key) override;
-	void UnsyncAxis(const AxisInput *axes, size_t count) override;
-
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
 	void OnVKey(VirtKey virtualKeyCode, bool down) override;
 
 private:
@@ -63,7 +66,10 @@ private:
 
 	void AddExtraOptions(UI::ViewGroup *parent);
 
+	void FinishNextFrame(DialogResult finishNextFrameResult);
+
 	// hack
+	std::mutex finishNextFrameMutex_;
 	bool finishNextFrame_ = false;
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
 
@@ -83,3 +89,4 @@ private:
 };
 
 std::string GetConfirmExitMessage();
+void ShowMessageAfterSaveStateAction(SaveState::Status status, std::string_view message, std::string_view metadata);

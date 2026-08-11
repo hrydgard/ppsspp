@@ -25,6 +25,8 @@
 
 #include "ppsspp_config.h"
 
+#include "ext/rcheevos/include/rc_client.h"
+
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
 #include <errno.h>
@@ -35,6 +37,13 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+
+
+#include "ext/imgui/imgui.h"
+#include "ext/imgui/imgui_internal.h"
+#include "ext/imgui/imgui_impl_thin3d.h"
+#include "ext/imgui/imgui_impl_platform.h"
+
 
 #if defined(_WIN32)
 #include "Windows/WindowsAudio.h"
@@ -54,6 +63,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/IconCache.h"
@@ -81,13 +91,14 @@
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 #include "Common/MemArena.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/UI/PopupScreens.h"
+#include "Core/CmdLine.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -117,6 +128,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "UI/ImDebugger/ImDebugger.h"
 #include "UI/AudioCommon.h"
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
@@ -133,8 +145,8 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
+#include "UI/PauseScreen.h"
 #include "UI/UIAtlas.h"
-
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
 #include "UWP/UWPHelpers/InputHelpers.h"
@@ -173,7 +185,6 @@ std::string config_filename;
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool resized = false;
-static bool restarting = false;
 
 static int renderCounter = 0;
 
@@ -188,8 +199,205 @@ static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
-static int g_restartGraphics;
 static bool g_windowHidden = false;
+static std::string g_achievementsHostOverride;
+static std::string g_savedAchievementsHost;
+static bool g_savedAchievementsHardcoreMode = false;
+static bool g_hasSavedAchievementsSettings = false;
+static bool g_nativeMainThreadReady = false;
+
+static std::mutex g_inputEventQueueLock;
+static std::vector<QueuedEvent> g_inputEventQueue;
+
+static std::unique_ptr<ImDebugger> imDebugger_;
+static ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
+static bool imguiInited_ = false;
+static bool lastImguiEnabled_ = false;
+static ImGuiContext *ctx_ = nullptr;
+
+class GlobalListener : public ControlListener {
+	virtual void OnVKey(VirtKey vkey, bool down) {
+		switch (vkey) {
+		case VIRTKEY_TOGGLE_DEBUGGER:
+			if (down) {
+				g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+};
+GlobalListener g_globalListener;
+
+static void AssertCancelCallback(const char *message, void *userdata) {
+	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
+	Core_Break(BreakReason::AssertChoice);
+	g_Config.bShowImDebugger = true;
+	imCmd_ = ImCommand{ImCmd::SHOW_IN_CPU_DISASM, currentMIPS->pc};
+}
+
+static void ApplyAchievementsRuntimeSettings() {
+	auto *client = Achievements::GetClient();
+	if (!client) {
+		return;
+	}
+
+	if (!g_Config.sAchievementsHost.empty()) {
+		rc_client_set_host(client, g_Config.sAchievementsHost.c_str());
+	} else if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		rc_client_set_host(client, "http://retroachievements.org");
+	} else {
+		rc_client_set_host(client, "https://retroachievements.org");
+	}
+
+	rc_client_set_hardcore_enabled(client, g_Config.bAchievementsHardcoreMode ? 1 : 0);
+}
+
+static void ApplyAchievementsHostOverride() {
+	if (g_achievementsHostOverride.empty()) {
+		return;
+	}
+
+	if (!g_hasSavedAchievementsSettings) {
+		g_savedAchievementsHost = g_Config.sAchievementsHost;
+		g_savedAchievementsHardcoreMode = g_Config.bAchievementsHardcoreMode;
+		g_hasSavedAchievementsSettings = true;
+	}
+
+	g_Config.DoNotSaveSetting(&g_Config.sAchievementsHost);
+	g_Config.sAchievementsHost = g_achievementsHostOverride;
+	g_Config.DoNotSaveSetting(&g_Config.bAchievementsHardcoreMode);
+	g_Config.bAchievementsHardcoreMode = false;
+	ApplyAchievementsRuntimeSettings();
+}
+
+static void ClearAchievementsHostOverride() {
+	g_achievementsHostOverride.clear();
+	if (!g_hasSavedAchievementsSettings) {
+		return;
+	}
+
+	g_Config.DoNotSaveSetting(&g_Config.sAchievementsHost);
+	g_Config.sAchievementsHost = g_savedAchievementsHost;
+	g_Config.DoNotSaveSetting(&g_Config.bAchievementsHardcoreMode);
+	g_Config.bAchievementsHardcoreMode = g_savedAchievementsHardcoreMode;
+	g_savedAchievementsHost.clear();
+	g_savedAchievementsHardcoreMode = false;
+	g_hasSavedAchievementsSettings = false;
+	ApplyAchievementsRuntimeSettings();
+}
+
+static void RunAchievementsOverrideUpdate(std::function<void()> func) {
+	if (g_nativeMainThreadReady) {
+		System_RunOnMainThread(std::move(func));
+	} else {
+		func();
+	}
+}
+
+void runImDebugger(Draw::DrawContext *draw) {
+	bool lastImguiEnabled_ = false;  // temp
+	if (lastImguiEnabled_ && g_Config.bShowImDebugger) {
+#if !defined(MOBILE_DEVICE)
+		// On mobile devices (specifically iOS) we don't want to pop the keyboard
+		// on activating imgui. Instead, we should do it when a text edit field in imgui gets focus,
+		// although we'll still have ugly overlap problems.
+		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+#endif
+		VERBOSE_LOG(Log::System, "activating keyboard");
+	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
+		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+		VERBOSE_LOG(Log::System, "deactivating keyboard");
+	}
+	lastImguiEnabled_ = g_Config.bShowImDebugger;
+	if (g_Config.bShowImDebugger) {
+		if (!imguiInited_) {
+			// TODO: Do this only on demand.
+			IMGUI_CHECKVERSION();
+			ctx_ = ImGui::CreateContext();
+
+			ImGui_ImplPlatform_Init(GetSysDirectory(DIRECTORY_SYSTEM) / "imgui.ini");
+			imDebugger_ = std::make_unique<ImDebugger>();
+
+			// Read the TTF font
+			size_t propSize = 0;
+			const uint8_t *propFontData = g_VFS.ReadFile("Roboto_Condensed-Regular.ttf", &propSize);
+			size_t fixedSize = 0;
+			const uint8_t *fixedFontData = g_VFS.ReadFile("Inconsolata-Regular.ttf", &fixedSize);
+			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
+			// This takes ownership of the font array.
+			ImGui_ImplThin3d_Init(draw, propFontData, propSize, fixedFontData, fixedSize);
+			imguiInited_ = true;
+		}
+
+		_dbg_assert_(imDebugger_);
+
+		ImGui_ImplPlatform_NewFrame();
+		ImGui_ImplThin3d_NewFrame(draw, ui_draw2d.GetDrawMatrix());
+
+		ImGui::NewFrame();
+
+		if (imCmd_.cmd != ImCmd::NONE) {
+			imDebugger_->PostCmd(imCmd_);
+			imCmd_.cmd = ImCmd::NONE;
+		}
+
+		// Update keyboard modifiers.
+		auto &io = ImGui::GetIO();
+
+		KeyModifier modifiers = NativeGetKeyModifiers();
+
+		const bool keyCtrl = (modifiers & KeyModifier::LCTRL) || (modifiers & KeyModifier::RCTRL);
+		const bool keyShift = (modifiers & KeyModifier::LSHIFT) || (modifiers & KeyModifier::RSHIFT);
+		const bool keyAlt = (modifiers & KeyModifier::LALT) || (modifiers & KeyModifier::RALT);
+		io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrl);
+		io.AddKeyEvent(ImGuiMod_Shift, keyShift);
+		io.AddKeyEvent(ImGuiMod_Alt, keyAlt);
+		// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
+
+		ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
+		ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
+
+		// Not elegant! But don't know how else to pass through the bounds, without making a mess.
+		Bounds centralNode(node->Pos.x, node->Pos.y, node->Size.x, node->Size.y);
+		SetOverrideScreenFrame(&centralNode);
+
+		if (uiContext) {
+			uiContext->SetOverrideScreenFrame(&centralNode);
+		}
+
+		if (!io.WantCaptureKeyboard) {
+			// Draw a focus rectangle to indicate inputs will be passed through.
+			ImGui::GetBackgroundDrawList()->AddRect
+			(
+				node->Pos,
+				{node->Pos.x + node->Size.x, node->Pos.y + node->Size.y},
+				IM_COL32(255, 255, 255, 90),
+				0.f,
+				ImDrawFlags_None,
+				1.f
+			);
+		}
+		imDebugger_->Frame(currentDebugMIPS, gpu, draw);
+
+		// Convert to drawlists.
+		ImGui::Render();
+	} else {
+		uiContext->SetOverrideScreenFrame(nullptr);
+		SetOverrideScreenFrame(nullptr);
+	}
+}
+
+void renderImDebugger(Draw::DrawContext *draw) {
+	if (g_Config.bShowImDebugger) {
+		if (imDebugger_) {
+			ImGui_ImplThin3d_RenderDrawData(ImGui::GetDrawData(), draw);
+		}
+	}
+}
+
+
 std::vector<std::function<void()>> g_pendingClosures;
 
 AudioBackend *g_audioBackend = nullptr;
@@ -205,36 +413,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 	*version = PPSSPP_GIT_VERSION;
-
-#if PPSSPP_ARCH(ARM) && defined(__ANDROID__)
-	ArmEmitterTest();
-#elif PPSSPP_ARCH(ARM64) && defined(__ANDROID__)
-	Arm64EmitterTest();
-#endif
 }
-
-#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
-static bool CheckFontIsUsable(const wchar_t *fontFace) {
-	wchar_t actualFontFace[1024] = { 0 };
-
-	HFONT f = CreateFont(0, 0, 0, 0, FW_LIGHT, 0, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, VARIABLE_PITCH, fontFace);
-	if (f != nullptr) {
-		HDC hdc = CreateCompatibleDC(nullptr);
-		if (hdc != nullptr) {
-			SelectObject(hdc, f);
-			GetTextFace(hdc, 1024, actualFontFace);
-			DeleteDC(hdc);
-		}
-		DeleteObject(f);
-	}
-
-	// If we were able to get the font name, did it load?
-	if (actualFontFace[0] != 0) {
-		return wcsncmp(actualFontFace, fontFace, ARRAY_SIZE(actualFontFace)) == 0;
-	}
-	return false;
-}
-#endif
 
 void PostLoadConfig() {
 	if (g_Config.currentDirectory.empty()) {
@@ -325,10 +504,14 @@ static void ClearFailedGPUBackends() {
 	File::Delete(failedBackendsFile);
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
+void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineOptions, const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	g_Config.Init();
+
+	g_controlMapper.AddListener(&g_globalListener);
+
+	SetAssertCancelCallback(&AssertCancelCallback, nullptr);
 
 	IncrementDebugCounter(DebugCounter::APP_BOOT);
 
@@ -369,6 +552,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	const Path &exePath = File::GetExeDirectory();
+	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 #endif
 
 #if PPSSPP_PLATFORM(SWITCH)
@@ -390,6 +577,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
+#ifdef _DEBUG
+	g_logManager.SetAllLogLevels(LogLevel::LINFO);
+	g_logManager.SetAllLogEnable(true);
+	g_logManager.SetOutputsEnabled(LogOutput::Stdio);
+	INFO_LOG(Log::System, "Logging test");
+#endif
+
 	// In Android 12 with scoped storage, due to the above, the external directory
 	// is no longer the plain root of external storage, but it's an app specific directory
 	// on external storage (g_extFilesDir).
@@ -463,7 +657,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
 	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
-#elif !PPSSPP_PLATFORM(WINDOWS)
+#elif PPSSPP_PLATFORM(WINDOWS)
+	// ...
+#else
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
 		config = getenv("XDG_CONFIG_HOME");
@@ -494,153 +690,66 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_logManager.Init(&g_Config.bEnableLogging);
 
-#if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
-	g_Config.Load();
-#endif
+	g_Config.Load(cmdLineOptions.configFilename.c_str(), cmdLineOptions.controlsConfigFilename.c_str());
+	System_Notify(SystemNotification::CONFIG_LOADED);
 
-	const char *fileToLog = nullptr;
-	Path stateToLoad;
+	// Apply parsed command line options to config.
+	cmdLineOptions.ApplyToConfig();
 
-	bool gotBootFilename = false;
-	bool gotoGameSettings = false;
-	bool gotoTouchScreenTest = false;
-	bool gotoDeveloperTools = false;
 	boot_filename.clear();
+	if (boot_filename.empty() && cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
+		boot_filename = g_Config.flash0Directory / "vsh/module/vshmain.prx";
+	}
 
-	// Parse command line
-	LogLevel logLevel = LogLevel::LINFO;
-	bool forceLogLevel = false;
-	const auto setLogLevel = [&logLevel, &forceLogLevel](LogLevel level) {
-		logLevel = level;
-		forceLogLevel = true;
-	};
+	if (cmdLineOptions.appendConfig.has_value()) {
+		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
+		g_Config.LoadAppendedConfig();
+	}
 
-	// TODO: Need a much better command line argument parser.
+	// This parameter should be a boot filename. Only accept it if we
+	// don't already have one.
+	if (!cmdLineOptions.bootFilenames.empty()) {
+		std::string bootFilename = cmdLineOptions.bootFilenames[0];
+		INFO_LOG(Log::System, "Boot filename found in args: '%s'", bootFilename.c_str());
 
-	for (int i = 1; i < argc; i++) {
-		if (argv[i][0] == '-') {
-#if defined(__APPLE__)
-			// On Apple system debugged executable may get -NSDocumentRevisionsDebugMode YES in argv.
-			if (!strcmp(argv[i], "-NSDocumentRevisionsDebugMode") && argc - 1 > i) {
-				i++;
-				continue;
-			}
-#endif
-			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LDEBUG);
-				break;
-			case 'v':
-				// Enable verbose logging
-				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogLevel::LVERBOSE);
-				break;
-			case 'j':
-				g_Config.iCpuCore = (int)CPUCore::JIT;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'i':
-				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'r':
-				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'J':
-				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
-				g_Config.bSaveSettings = false;
-				break;
-			case '-':
-				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
-					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
-				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
-					fileToLog = argv[i] + strlen("--log=");
-				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = Path(argv[i] + strlen("--state="));
-				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
-					g_Config.bPauseExitsEmulator = true;
-				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
-					g_Config.bPauseMenuExitsEmulator = true;
-				if (!strcmp(argv[i], "--fullscreen")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = true;
-				}
-				if (!strncmp(argv[i], "--root=", strlen("--root=")) && strlen(argv[i]) > strlen("--root=")) {
-					g_Config.mountRoot = Path(argv[i] + strlen("--root="));
-				}
-				if (!strcmp(argv[i], "--windowed")) {
-					g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-					g_Config.bFullScreen = false;
-				}
-				if (!strcmp(argv[i], "--touchscreentest"))
-					gotoTouchScreenTest = true;
-				if (!strcmp(argv[i], "--gamesettings"))
-					gotoGameSettings = true;
-				if (!strcmp(argv[i], "--developertools"))
-					gotoDeveloperTools = true;
-				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
-					g_Config.SetAppendedConfigIni(Path(argv[i] + strlen("--appendconfig=")));
-					g_Config.LoadAppendedConfig();
-				}
-				break;
-			}
-		} else {
-			// This parameter should be a boot filename. Only accept it if we
-			// don't already have one.
-			if (!gotBootFilename) {
-				gotBootFilename = true;
-				INFO_LOG(Log::System, "Boot filename found in args: '%s'", argv[i]);
-
-				bool okToLoad = true;
-				bool okToCheck = true;
-				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
-					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
-					if (status == PERMISSION_STATUS_DENIED) {
-						ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
-						okToLoad = false;
-						okToCheck = false;
-					} else if (status != PERMISSION_STATUS_GRANTED) {
-						ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
-						okToCheck = false;
-					} else {
-						INFO_LOG(Log::IO, "Storage permission granted.");
-					}
-				}
-				if (okToLoad) {
-					std::string str = std::string(argv[i]);
-					// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
-					if (startsWith(str, "file:///")) {
-						str = UriDecode(str.substr(7));
-						INFO_LOG(Log::IO, "Decoding '%s' to '%s'", argv[i], str.c_str());
-					}
-
-					boot_filename = Path(str);
-					skipLogo = true;
-				}
-				if (okToLoad && okToCheck) {
-					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
-					if (!fileLoader->Exists()) {
-						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-#if defined(_WIN32) || defined(__ANDROID__)
-						// Ignore and proceed.
-						boot_filename.clear();
-#else
-						// Bail.
-						exit(1);
-#endif
-					}
-				}
+		bool okToLoad = true;
+		bool okToCheck = true;
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+			PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
+			if (status == PERMISSION_STATUS_DENIED) {
+				ERROR_LOG(Log::IO, "Storage permission denied. Launching without argument.");
+				okToLoad = false;
+				okToCheck = false;
+			} else if (status != PERMISSION_STATUS_GRANTED) {
+				ERROR_LOG(Log::IO, "Storage permission not granted. Launching without argument check.");
+				okToCheck = false;
 			} else {
-				fprintf(stderr, "Syntax error: Can only boot one file.\nNote: Many command line args need a =, like --appendconfig=FILENAME.ini.\n");
-#if defined(_WIN32) || defined(__ANDROID__)
-				// Ignore and proceed.
+				INFO_LOG(Log::IO, "Storage permission granted.");
+			}
+		}
+		if (okToLoad) {
+			// Handle file:/// URIs, since you get those when creating shortcuts on some Android systems.
+			if (startsWith(bootFilename, "file:///")) {
+				bootFilename = UriDecode(bootFilename.substr(7));
+				INFO_LOG(Log::IO, "Decoding '%s' to '%s'", cmdLineOptions.bootFilenames[0].c_str(), bootFilename.c_str());
+			}
+
+			boot_filename = Path(bootFilename);
+			skipLogo = true;
+		}
+		// This is needed on iOS, to fixup the path to match the current app directory, if it's stored in it.
+		TryUpdateSavedPath(&boot_filename);
+		if (okToLoad && okToCheck) {
+			std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
+			if (!fileLoader->Exists()) {
+				fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+
+#if defined(_WIN32) || defined(__ANDROID__) || PPSSPP_PLATFORM(IOS)
+				boot_filename.clear();
 #else
 				// Bail.
 				exit(1);
@@ -649,18 +758,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	if (fileToLog) {
+	if (cmdLineOptions.log.has_value() && !cmdLineOptions.log.value().empty()) {
 		// Start logging immediately.
 		g_logManager.EnableOutput(LogOutput::File);
-		g_logManager.SetFileLogPath(Path(fileToLog));
+		g_logManager.SetFileLogPath(Path(cmdLineOptions.log.value()));
 	} else {
 		// Set a default file logging path, in case the user enables it with the checkbox later.
 		g_logManager.SetFileLogPath(GetSysDirectory(DIRECTORY_DUMP) / "log.txt");
-	}
-
-	if (forceLogLevel) {
-		NOTICE_LOG(Log::System, "Setting log level to %d due to command line override", (int)logLevel);
-		g_logManager.SetAllLogLevels(logLevel);
 	}
 
 	PostLoadConfig();
@@ -683,13 +787,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_BackgroundAudio.SFX().Init();
 
-	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message) {
-			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
-					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
-			}
-		});
+	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
+		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
 
 	if (g_Config.bAchievementsEnable) {
@@ -702,19 +801,24 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_DownloadManager.SetCacheDir(GetSysDirectory(DIRECTORY_APP_CACHE));
 
-	DEBUG_LOG(Log::System, "ScreenManager!");
+	ApplyAchievementsHostOverride();
+
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
-	} else if (gotoGameSettings) {
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
-	} else if (gotoTouchScreenTest) {
-		g_screenManager->switchScreen(new MainScreen());
+	} else if (cmdLineOptions.startScreen.has_value()) {
+		// Launch into specified start screen. This is useful for testing UI, more screens can be easily added here.
+		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
+			g_screenManager->switchScreen(new MainScreen());
+		}
 		g_screenManager->push(new TouchTestScreen(Path()));
-	} else if (gotoDeveloperTools) {
-		g_screenManager->switchScreen(new MainScreen());
-		g_screenManager->push(new DeveloperToolsScreen(Path()));
+		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
+			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new DeveloperToolsScreen(Path()));
+		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));
@@ -756,7 +860,21 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	// Must be done restarting by now.
-	restarting = false;
+	g_nativeMainThreadReady = true;
+}
+
+void NativeSetAchievementsHostOverride(std::string_view host) {
+	std::string hostCopy(host);
+	RunAchievementsOverrideUpdate([host = std::move(hostCopy)] {
+		g_achievementsHostOverride = host;
+		ApplyAchievementsHostOverride();
+	});
+}
+
+void NativeClearAchievementsHostOverride() {
+	RunAchievementsOverrideUpdate([] {
+		ClearAchievementsHostOverride();
+	});
 }
 
 void CallbackPostRender(UIContext *dc, void *userdata);
@@ -767,6 +885,7 @@ static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, v
 	static int16_t *buffer;
 	static int bufSize;
 	if (bufSize < framesToWrite * 2) {
+		// This one leaks on exit. Oh well.
 		buffer = new int16_t[framesToWrite * 2];
 		bufSize = framesToWrite * 2;
 	}
@@ -828,10 +947,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (IsWin7OrHigher()) {
-		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
-		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
-		winMic = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::Audio);
-		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::VIDEO);
+		winMic = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::AUDIO);
 	}
 #endif
 
@@ -856,6 +973,11 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 		gpu->DeviceRestore(g_draw);
 	}
+
+	if (imguiInited_) {
+		ImGui_ImplThin3d_CreateDeviceObjects(g_draw);
+	}
+
 
 	INFO_LOG(Log::System, "NativeInitGraphics completed");
 
@@ -893,12 +1015,14 @@ bool CreateGlobalPipelines() {
 
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc, "global_color");
 	if (!colorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
 
 	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc, "global_texcolor");
 	if (!texColorPipeline) {
+		_dbg_assert_(false);
 		// Something really critical is wrong, don't care much about correct releasing of the states.
 		return false;
 	}
@@ -912,17 +1036,28 @@ bool CreateGlobalPipelines() {
 	return true;
 }
 
-void NativeShutdownGraphics() {
+void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
+
+	graphicsContext->NotifyEmuThreadExit();
 
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
 	g_iconCache.ClearTextures();
 
-	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
-	if (gpu)
+	if (gpu) {
 		gpu->DeviceLost();
+	}
+
+	if (imguiInited_) {
+		if (imDebugger_) {
+			imDebugger_->DeviceLost();
+		}
+		ImGui_ImplThin3d_DestroyDeviceObjects();
+		ImGui_ImplThin3d_Shutdown();
+		ImGui::DestroyContext(ctx_);
+	}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
@@ -977,6 +1112,10 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	if (!(Core_IsActive() || Core_IsStepping()))
+		UpdateUIState(UISTATE_MENU);
+	Core_StateProcessed();
+
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
 			sleep_ms(16, "window-hidden");
@@ -984,24 +1123,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		}
 	}
 
-	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
-	if (g_restartGraphics == 1) {
-		// Used for debugging only.
-		NativeShutdownGraphics();
-		g_restartGraphics++;
-		return;
-	}
-	else if (g_restartGraphics == 2) {
-		NativeInitGraphics(graphicsContext);
-		g_restartGraphics = 0;
-	}
-
 	double startTime = time_now_d();
 
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
-
-	SetOverrideScreenFrame(nullptr);
 
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();
@@ -1037,7 +1162,61 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 	g_draw->BeginFrame(debugFlags);
 
-	g_screenManager->update();
+	g_screenManager->ProcessScreenSwitches();
+
+	// Process queued events.
+	std::vector<QueuedEvent> inputEvents;
+	{
+		std::lock_guard<std::mutex> eventGuard(g_inputEventQueueLock);
+		inputEvents = std::move(g_inputEventQueue);
+		g_inputEventQueue.clear();
+	}
+
+	for (auto &event : inputEvents) {
+		bool filterTouch = false;
+		bool filterKey = false;
+		if (g_Config.bShowImDebugger && imguiInited_) {
+			// Let ImGui handle input if it's active.
+			if (ImGui::GetIO().WantCaptureMouse) {
+				filterTouch = true;
+			}
+			if (ImGui::GetIO().WantCaptureKeyboard) {
+				filterKey = true;
+			}
+		}
+
+		switch (event.type) {
+		case QueuedEventType::KEY:
+			// Let through up events to avoid stuck keys.
+			if (!filterKey || (event.key.flags & KeyInputFlags::UP)) {
+				g_screenManager->ProcessInputEvent(event);
+			}
+			break;
+		case QueuedEventType::TOUCH:
+			if (!filterTouch) {
+				g_screenManager->ProcessInputEvent(event);
+			}
+			break;
+		default:
+			g_screenManager->ProcessInputEvent(event);
+			break;
+		}
+
+		if (g_Config.bShowImDebugger && imguiInited_) {
+			switch (event.type) {
+			case QueuedEventType::KEY:
+				ImGui_ImplPlatform_KeyEvent(event.key);
+				break;
+			case QueuedEventType::TOUCH:
+				ImGui_ImplPlatform_TouchEvent(event.touch);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	g_screenManager->Update();  // This must happen *after* input event processing!
 
 	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
 	{
@@ -1065,32 +1244,65 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 				// TODO: Add a to-string thingy.
 				VERBOSE_LOG(Log::System, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
 			}
+
+			if (item.message == UIMessage::LOST_FOCUS) {
+				// This is a bit of a hack, but we need to do this here so that the graphics context is valid.
+				TouchInput input{};
+				input.x = -50000.0f;
+				input.y = -50000.0f;
+				input.flags = TouchInputFlags::RELEASE_ALL;
+				input.timestamp = time_now_d();
+				input.id = 0;
+				std::lock_guard<std::mutex> eventGuard(g_inputEventQueueLock);
+				QueuedEvent q{};
+				q.type = QueuedEventType::TOUCH;
+				q.touch = input;
+				g_inputEventQueue.push_back(q);
+			}
+
 			g_screenManager->sendMessage(item.message, item.value.c_str());
 		}
 	}
 
 	g_requestManager.ProcessRequests();
 
-	g_breakpoints.Frame();
+	// Guards the span where we actually touch CPU-thread-owned debugger state (breakpoints,
+	// symbol map, registers, memory, etc.) against unsynchronized reads from other threads' paint
+	// handlers - see g_frameMutex in Core.h.
+	ScreenRenderFlags renderFlags = ScreenRenderFlags::NONE;
+	{
+		std::lock_guard<std::mutex> emuStateGuard(g_frameMutex);
 
-	// Apply the UIContext bounds as a 2D transformation matrix.
-	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
+		g_breakpoints.Frame();
 
-	// Can be overridden by sceDisplay which may pass true for the second argument.
-	g_frameTiming.ComputePresentMode(g_draw, false);
+		// Apply the UIContext bounds as a 2D transformation matrix.
+		// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
+		Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
 
-	ui_draw2d.PushDrawMatrix(ortho);
+		// Can be overridden by sceDisplay which may pass true for the second argument.
+		g_frameTiming.ComputePresentMode(g_draw, false);
 
-	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+		ui_draw2d.PushDrawMatrix(ortho);
 
-	// All actual rendering (and also emulation) happens in here.
-	ScreenRenderFlags renderFlags = g_screenManager->render();
-	if (g_screenManager->getUIContext()->Text()) {
-		g_screenManager->getUIContext()->Text()->OncePerFrame();
+		g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+
+		// Drain any work queued by Core_RunOnCPUThread() from other threads. Core_RunLoopUntil()
+		// (called from within render() below, but only while a game is actually loaded/running)
+		// also does this, but that path isn't reached at all outside a game - e.g. from the main
+		// menu - so queued work would otherwise hang forever waiting for it. See Core_ProcessCPUQueue()
+		// in Core.h.
+		Core_ProcessCPUQueue();
+
+		// All actual rendering (and also emulation) happens in this render() call.
+		renderFlags = g_screenManager->Render([]() {
+			runImDebugger(g_draw);
+		});
+		renderImDebugger(g_draw);
+		if (g_screenManager->getUIContext()->Text()) {
+			g_screenManager->getUIContext()->Text()->OncePerFrame();
+		}
+		ui_draw2d.PopDrawMatrix();
 	}
-
-	ui_draw2d.PopDrawMatrix();
-
 	g_draw->EndFrame();
 
 	// This, between EndFrame and Present, is where we should actually wait to do present time management.
@@ -1109,12 +1321,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		resized = false;
 
 		if (uiContext) {
-			// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
-			// The UI now supports any offset but not the EmuScreen yet.
 			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
 
 			// OSX 10.6 and SDL 1.2 bug.
-#if defined(__APPLE__) && !defined(USING_QT_UI)
+#if defined(__APPLE__)
 			static int dp_xres_old = g_display.dp_xres;
 			if (g_display.dp_xres != dp_xres_old) {
 				dp_xres_old = g_display.dp_xres;
@@ -1169,7 +1379,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 	if (message == UIMessage::RESTART_GRAPHICS) {
-		g_restartGraphics = 1;
 		return true;
 	} else if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -1261,7 +1470,12 @@ void NativeTouch(const TouchInput &touch) {
 	if (my_isnan(touch.x) || my_isnan(touch.y)) {
 		return;
 	}
-	g_screenManager->touch(touch);
+
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::TOUCH;
+	ev.touch = touch;
+	std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+	g_inputEventQueue.push_back(ev);
 }
 
 // up, down
@@ -1284,8 +1498,16 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 }
 
+KeyModifier g_modifiersPressed{};
+
+KeyModifier NativeGetKeyModifiers() {
+	return g_modifiersPressed;
+}
+
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
+
+	System_Notify(SystemNotification::ACTIVITY);
 
 	// VR actions
 	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRKeys(key)) {
@@ -1295,7 +1517,7 @@ bool NativeKey(const KeyInput &key) {
 #if PPSSPP_PLATFORM(UWP)
 	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active
 	// it's already handled by `OnCharacterReceived`
-	if (IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
+	if (key.deviceId == DEVICE_ID_KEYBOARD && IgnoreInput(key.keyCode) && !(key.flags & KeyInputFlags::CHAR)) {
 		return false;
 	}
 #endif
@@ -1334,18 +1556,154 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
-	if (!g_screenManager) {
-		return false;
-	}
+	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
 
 	// Handle releases of mousewheel keys.
 	if ((key.flags & KeyInputFlags::DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
 		ProcessWheelRelease(key.keyCode, now, true);
 	}
 
-	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
-	// Dispatch the key event.
-	bool retval = g_screenManager->key(key);
+	if (!g_screenManager) {
+		return false;
+	}
+
+	// Filtering, detailed rules needed for good imgui behavior without having to ask the screen about what to do.
+	InputMode inputMode = g_screenManager->PassInputToMapper();
+
+	if (g_Config.bShowImDebugger && imguiInited_) {
+		if (ImGui::GetIO().WantCaptureKeyboard) {
+			inputMode &= ~InputMode::Keyboard;
+		}
+		if (ImGui::GetIO().WantCaptureMouse) {
+			inputMode &= ~InputMode::Mouse;
+		}
+	}
+
+	bool passKeyThrough = false;
+	if (inputMode != InputMode::None) {
+		if ((inputMode & InputMode::ImDebuggerToggle) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
+			InputMapping mapping(key.deviceId, key.keyCode);
+			std::vector<int> pspButtons;
+			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+			if (mappingFound) {
+				for (auto b : pspButtons) {
+					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
+						// TRUE
+						passKeyThrough = true;
+					}
+				}
+			}
+		}
+
+		if (key.deviceId == DEVICE_ID_MOUSE) {
+			if (inputMode & InputMode::Mouse) {
+				passKeyThrough = true;
+			}
+		} else if (key.deviceId == DEVICE_ID_KEYBOARD) {
+			if (inputMode & InputMode::Keyboard) {
+				passKeyThrough = true;
+			}
+		} else if (inputMode & InputMode::Other) {
+			// yes this is different
+			passKeyThrough = true;
+		}
+	} else {
+		// Pass through only up events.
+		if (key.flags & KeyInputFlags::UP) {
+			passKeyThrough = true;
+		}
+	}
+
+	if (passKeyThrough) {
+		g_controlMapper.Key(key);
+	}
+
+	// Ignore volume keys and stuff here - though we do send them through to the control mapper, so they can be mapped to PSP buttons.
+	switch (key.keyCode) {
+	case NKCODE_VOLUME_DOWN:
+	case NKCODE_VOLUME_UP:
+	case NKCODE_VOLUME_MUTE:
+		return false;
+	default:
+		break;
+	}
+
+	// Track modifier keys.
+	if (key.flags & KeyInputFlags::DOWN) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed |= KeyModifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed |= KeyModifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed |= KeyModifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed |= KeyModifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed |= KeyModifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed |= KeyModifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed |= KeyModifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed |= KeyModifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+	if (key.flags & KeyInputFlags::UP) {
+		switch (key.keyCode) {
+		case NKCODE_CTRL_LEFT: g_modifiersPressed &= ~KeyModifier::LCTRL; break;
+		case NKCODE_CTRL_RIGHT: g_modifiersPressed &= ~KeyModifier::RCTRL; break;
+		case NKCODE_SHIFT_LEFT: g_modifiersPressed &= ~KeyModifier::LSHIFT; break;
+		case NKCODE_SHIFT_RIGHT: g_modifiersPressed &= ~KeyModifier::RSHIFT; break;
+		case NKCODE_ALT_LEFT: g_modifiersPressed &= ~KeyModifier::LALT; break;
+		case NKCODE_ALT_RIGHT: g_modifiersPressed &= ~KeyModifier::RALT; break;
+		case NKCODE_META_LEFT: g_modifiersPressed &= ~KeyModifier::LMETA; break;
+		case NKCODE_META_RIGHT: g_modifiersPressed &= ~KeyModifier::RMETA; break;
+		default:
+			break;
+		}
+	}
+
+	KeyInputFlags modifierFlags{};
+
+	if (g_modifiersPressed & (KeyModifier::LCTRL | KeyModifier::RCTRL)) {
+		modifierFlags |= KeyInputFlags::ModCtrl;
+	}
+	if (g_modifiersPressed & (KeyModifier::LSHIFT | KeyModifier::RSHIFT)) {
+		modifierFlags |= KeyInputFlags::ModShift;
+	}
+	if (g_modifiersPressed & (KeyModifier::LALT | KeyModifier::RALT)) {
+		modifierFlags |= KeyInputFlags::ModAlt;
+	}
+	if (g_modifiersPressed & (KeyModifier::LMETA | KeyModifier::RMETA)) {
+		modifierFlags |= KeyInputFlags::ModMeta;
+	}
+
+	KeyInput modKey = key;
+	modKey.flags |= modifierFlags;
+
+	bool retval = false;
+
+	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(key);
+	if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
+		// If a repeat, we follow what KeyEventToFocusMoves set it to.
+		// Otherwise we signal that we used the key, always.
+		kev = UI::KeyEventResult::ACCEPT;
+	}
+
+	switch (kev) {
+	case UI::KeyEventResult::ACCEPT:
+		retval = true;
+		break;
+	case UI::KeyEventResult::PASS_THROUGH:
+		retval = false;
+		break;
+	case UI::KeyEventResult::IGNORE_KEY:
+		return false;
+	}
+
+	// Queue up the key event for synchronous processing in the UI.
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::KEY;
+	ev.key = key;
+	{
+		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+		g_inputEventQueue.push_back(ev);
+	}
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
@@ -1362,12 +1720,26 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		return;
 	}
 
+	System_Notify(SystemNotification::ACTIVITY);
+
 	if (!g_screenManager) {
 		// Too early.
 		return;
 	}
 
-	g_screenManager->axis(axes, count);
+	if (g_screenManager->PassInputToMapper() & (InputMode::Other | InputMode::ImDebuggerToggle)) {
+		g_controlMapper.Axis(axes, count);
+	}
+
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::AXIS;
+	{
+		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
+		for (size_t i = 0; i < count; i++) {
+			ev.axis = axes[i];
+			g_inputEventQueue.push_back(ev);
+		}
+	}
 
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
@@ -1461,16 +1833,12 @@ void NativeResized() {
 	resized = true;
 }
 
-void NativeSetRestarting() {
-	restarting = true;
-}
-
-bool NativeIsRestarting() {
-	return restarting;
-}
-
 void NativeShutdown() {
 	INFO_LOG(Log::System, "NativeShutdown begin");
+	ClearAchievementsHostOverride();
+	g_nativeMainThreadReady = false;
+
+	g_controlMapper.RemoveListener(&g_globalListener);
 
 	Achievements::Shutdown();
 
@@ -1487,6 +1855,8 @@ void NativeShutdown() {
 		delete g_screenManager;
 		g_screenManager = nullptr;
 	}
+
+	System_Notify(SystemNotification::BEFORE_CONFIG_SAVE_ON_EXIT);
 
 	g_Config.Save("NativeShutdown");
 
@@ -1505,10 +1875,7 @@ void NativeShutdown() {
 	ShaderTranslationShutdown();
 
 	// Avoid shutting this down when restarting core.
-	if (!restarting) {
-		g_logManager.Shutdown();
-	}
-
+	g_logManager.Shutdown();
 	g_threadManager.Teardown();
 
 #if !PPSSPP_PLATFORM(IOS)
@@ -1571,6 +1938,8 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {
+	INFO_LOG(Log::System, "Native_UpdateScreenScale: %dx%d, customScale=%f", pixel_width, pixel_height, customScale);
+
 	_dbg_assert_(customScale > 0.1f);
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
 	float dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);

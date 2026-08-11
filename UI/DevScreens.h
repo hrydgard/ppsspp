@@ -40,12 +40,6 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-protected:
-	void OnJitCompare(UI::EventParams &e);
-	void OnShaderView(UI::EventParams &e);
-	void OnDeveloperTools(UI::EventParams &e);
-	void OnResetLimitedLogging(UI::EventParams &e);
-
 private:
 	Path gamePath_;
 };
@@ -124,7 +118,7 @@ public:
 private:
 	bool ForceHorizontalTabs() const override {return true; }
 	int ListShaders(DebugShaderType shaderType, UI::LinearLayout *view);
-
+	void AddPipelineAnalysis(UI::LinearLayout *view);
 	void OnShaderClick(UI::EventParams &e);
 };
 
@@ -154,7 +148,6 @@ public:
 	const char *tag() const override { return "FrameDumpTest"; }
 
 private:
-	void OnLoadDump(UI::EventParams &e);
 	bool ShowSearchControls() const override { return false; }
 
 	std::vector<std::string> files_;
@@ -170,7 +163,7 @@ public:
 		}
 	}
 
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	void DrawForeground(UIContext &dc) override;
 
 	bool key(const KeyInput &key) override;
@@ -179,6 +172,10 @@ public:
 	const char *tag() const override { return "TouchTest"; }
 
 protected:
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
+
 	struct TrackedTouch {
 		int id;
 		float x;

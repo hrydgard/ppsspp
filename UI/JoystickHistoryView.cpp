@@ -1,10 +1,13 @@
 #include <algorithm>
+#include <cmath>
 
 #include "UI/JoystickHistoryView.h"
 
+#include "Common/Math/math_util.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UI.h"
 
+#include "Core/Config.h"
 #include "Core/ControlMapper.h"
 
 void JoystickHistoryView::Draw(UIContext &dc) {
@@ -20,6 +23,22 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	dc.Flush();
 	dc.BeginNoTex();
 	dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
+
+	// Draw cross-shaped deadzone strip outlines on the raw input view (untextured geometry).
+	if (type_ == StickHistoryViewType::INPUT) {
+		float cx = bounds_.centerX();
+		float cy = bounds_.centerY();
+
+		// Cross-shaped (axial) deadzone strips.
+		if (g_Config.iAnalogDeadzoneShape == 2 && g_Config.fAnalogAxialDeadzone > 0.0f) {
+			float axialW = g_Config.fAnalogAxialDeadzone * minRadius;
+			// Vertical strip (X axis deadzone — zeroes X when |x| < threshold).
+			dc.Draw()->RectOutline(cx - axialW, cy - minRadius, axialW * 2.0f, minRadius * 2.0f, 0x604488FF);
+			// Horizontal strip (Y axis deadzone — zeroes Y when |y| < threshold).
+			dc.Draw()->RectOutline(cx - minRadius, cy - axialW, minRadius * 2.0f, axialW * 2.0f, 0x604488FF);
+		}
+	}
+
 	dc.Flush();
 	dc.Begin();
 

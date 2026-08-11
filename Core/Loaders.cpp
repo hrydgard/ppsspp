@@ -40,6 +40,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
 
+// TODO: This is just part of a VolDescriptor, see ISOFileSystem.cpp.
 struct PVD {
 	u8 type;
 	char identifier[5];
@@ -75,29 +76,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	if (!fileLoader->Exists()) {
-		*errorString = "IdentifyFile: File doesn't exist: " + fileLoader->GetPath().ToString();
-		return IdentifiedFileType::ERROR_IDENTIFYING;
-	}
-
 	std::string extension = fileLoader->GetFileExtension();
 
-	bool isDiscImage = false;
-
-	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
-		isDiscImage = true;
-	} else if (extension == ".ppst") {
-		return IdentifiedFileType::PPSSPP_SAVESTATE;
-	} else if (extension == ".ppdmp") {
-		char data[8]{};
-		fileLoader->ReadAt(0, 8, data);
-		if (memcmp(data, "PPSSPPGE", 8) == 0) {
-			return IdentifiedFileType::PPSSPP_GE_DUMP;
-		}
-	}
-
 	// First, check if it's a directory with an EBOOT.PBP in it.
-	if (!isDiscImage && fileLoader->IsDirectory()) {
+	if (fileLoader->IsDirectory()) {
 		Path filename = fileLoader->GetPath();
 		if (filename.size() > 4) {
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
@@ -119,13 +101,31 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::NORMAL_DIRECTORY;
 	}
 
+	if (!fileLoader->Exists()) {
+		*errorString = "IdentifyFile: File doesn't exist: " + fileLoader->GetPath().ToString();
+		return IdentifiedFileType::ERROR_IDENTIFYING;
+	}
+
+	bool isDiscImage = false;
+	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
+		isDiscImage = true;
+	} else if (extension == ".ppst") {
+		return IdentifiedFileType::PPSSPP_SAVESTATE;
+	} else if (extension == ".ppdmp") {
+		char data[8]{};
+		fileLoader->ReadAt(0, 8, data);
+		if (memcmp(data, "PPSSPPGE", 8) == 0) {
+			return IdentifiedFileType::PPSSPP_GE_DUMP;
+		}
+	}
+
 	// OK, quick methods of identification for common types failed. Moving on to more expensive methods,
 	// starting by reading the first few bytes.
 	// This can be necessary for weird Android content storage path types, see issue #17462
 	if (isDiscImage || fileLoader->FileSize() >= 0x8800) {
 		// Do the quick check for PSP ISOs here.
 		std::string bdError;
-		std::unique_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &bdError));
+		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &bdError));
 		if (bd) {
 			u8 block16[2048]{};
 			bd->ReadBlock(16, (u8 *)block16);
@@ -135,12 +135,12 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				// It's a valid DVD-style ISO file. Let's see which type.
 				if (!memcmp(pvd.systemId, "PSP GAME", 8) || !memcmp(pvd.systemId, "\"PSP GAME\"", 10)) {
 					// Yes, a known proper PSP game, let's get it going.
-					return IdentifiedFileType::PSP_ISO;
+					return bd->IsDisc() ? IdentifiedFileType::PSP_ISO : IdentifiedFileType::PSP_ISO_NP;
 				} else if (!memcmp(pvd.systemId, "UMD VIDEO", 9) || !memcmp(pvd.systemId, "UMD AUDIO", 9)) {
 					// This is rare so being slightly slow here shouldn't be a problem. Let's go check for the presence of
 					// actual game data.
 					SequentialHandleAllocator hAlloc;
-					ISOFileSystem umd(&hAlloc, bd.release());
+					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "Found an UMD VIDEO disc with game data. Treating as game.");
 						*errorString = "UMD Video with PSP GAME data";
@@ -163,10 +163,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				} else {
 					// Let's go check for PSP game data.
 					SequentialHandleAllocator hAlloc;
-					ISOFileSystem umd(&hAlloc, bd.release());
+					ISOFileSystem umd(&hAlloc, bd);
 					if (umd.GetFileInfo("/PSP_GAME").exists) {
 						INFO_LOG(Log::Loader, "PSP ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
-						return IdentifiedFileType::PSP_ISO;
+						return bd->IsDisc() ? IdentifiedFileType::PSP_ISO : IdentifiedFileType::PSP_ISO_NP;
 					}
 
 					INFO_LOG(Log::Loader, "Unknown ISO with unknown system ID: %.32s: %s", pvd.systemId, fileLoader->GetPath().c_str());
@@ -225,7 +225,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		Path filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that. Also accept extension-less paths.
 		if (extension == ".plf" || strstr(filename.GetFilename().c_str(), "BOOT.BIN") ||
-			extension == ".elf" || extension == ".prx" || extension == ".pbp" || extension == "") {
+			extension == ".elf" || extension == ".prx" || extension == ".pbp" || extension.empty()) {
 			return IdentifiedFileType::PSP_ELF;
 		}
 		return IdentifiedFileType::UNKNOWN_ELF;
@@ -240,8 +240,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 				paramSFO.ReadSFO(sfoData);
 				// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
 				// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
-				if (paramSFO.GetValueString("CATEGORY") == "ME")
+				if (paramSFO.GetValueString("CATEGORY") == "ME") {
 					return IdentifiedFileType::PSP_PS1_PBP;
+				}
 			}
 		}
 
@@ -451,7 +452,26 @@ static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *da
 	}
 }
 
+// TODO: Make this generic and handle all the things.
+// For now, it'll just handle unpacking ISOs.
+bool DetectArchiveContents(VFSInterface *vfs, ZipFileInfo *info) {
+	info->archiveType = ArchiveType::SevenZ;
+	info->contents = ZipFileContents::UNKNOWN;
+	std::vector<File::FileInfo> listing;
+	vfs->GetFileListing("", &listing, nullptr);
+	for (auto &file : listing) {
+		std::string ext = file.fullName.GetFileExtension();  // always lowercase
+		if (ext == ".iso" || ext == ".cso") {
+			info->contents = ZipFileContents::ISO_FILE;
+			info->isoFilename = file.fullName.ToString();
+			return true;
+		}
+	}
+	return false;
+}
+
 void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
+	info->archiveType = ArchiveType::ZIP;
 	int numFiles = zip_get_num_files(z);
 	if (numFiles < 0) {
 		// Broken zip archive?
@@ -490,21 +510,22 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		totalFileSize += stat.size;
 
 		std::string fileName(fn);
-		std::string zippedName = fileName;  // actually, lowercase-name
-		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
-			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
-		// Ignore macos metadata stuff
-		if (startsWith(zippedName, "__macosx/")) {
-			continue;
-		}
-		if (endsWith(zippedName, "/")) {
+		if (endsWith(fileName, "/")) {
 			// A directory. Not all zips bother including these.
 			continue;
 		}
 
+		std::string lowerCaseName = fileName;  // actually, lowercase-name
+		std::transform(lowerCaseName.begin(), lowerCaseName.end(), lowerCaseName.begin(),
+			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
+		// Ignore macos metadata stuff
+		if (startsWith(lowerCaseName, "__macosx/")) {
+			continue;
+		}
+
 		int prevSlashLocation = -1;
-		int slashCount = countSlashes(zippedName, &prevSlashLocation);
-		if (zippedName.find("eboot.pbp") != std::string::npos) {
+		int slashCount = countSlashes(lowerCaseName, &prevSlashLocation);
+		if (lowerCaseName.find("eboot.pbp") != std::string::npos) {
 			if (slashCount >= 1 && (!isPSPMemstickGame || prevSlashLocation < stripChars + 1)) {
 				stripChars = prevSlashLocation + 1;
 				isPSPMemstickGame = true;
@@ -512,11 +533,11 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 				INFO_LOG(Log::HLE, "Wrong number of slashes (%i) in '%s'", slashCount, fn);
 			}
 			// TODO: Extract icon and param.sfo from the pbp to be able to display it on the install screen.
-		} else if (endsWith(zippedName, ".iso") || endsWith(zippedName, ".cso") || endsWith(zippedName, ".chd")) {
+		} else if (endsWith(lowerCaseName, ".iso") || endsWith(lowerCaseName, ".cso") || endsWith(lowerCaseName, ".chd")) {
 			if (slashCount <= 1) {
 				// We only do this if the ISO file is in the root or one level down.
 				isZippedISO = true;
-				INFO_LOG(Log::HLE, "ISO found in zip: %s", zippedName.c_str());
+				INFO_LOG(Log::HLE, "ISO found in zip: %s", lowerCaseName.c_str());
 				if (info->isoFileIndex != -1) {
 					INFO_LOG(Log::HLE, "More than one ISO file found in zip. Ignoring additional ones.");
 				} else {
@@ -524,27 +545,27 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 					info->contentName = fn;
 				}
 			}
-		} else if (zippedName.find("textures.ini") != std::string::npos) {
-			int slashLocation = (int)zippedName.find_last_of('/');
+		} else if (lowerCaseName.find("textures.ini") != std::string::npos) {
+			int slashLocation = (int)lowerCaseName.find_last_of('/');
 			if (stripCharsTexturePack == -1 || slashLocation < stripCharsTexturePack + 1) {
 				stripCharsTexturePack = slashLocation + 1;
 				isTexturePack = true;
 				info->textureIniIndex = i;
 			}
-		} else if (endsWith(zippedName, ".ppdmp")) {
+		} else if (endsWith(lowerCaseName, ".ppdmp")) {
 			isFrameDump = true;
 			info->isoFileIndex = i;
 			info->contentName = fn;
-		} else if (endsWith(zippedName, ".ppst")) {
-			int slashLocation = (int)zippedName.find_last_of('/');
+		} else if (endsWith(lowerCaseName, ".ppst")) {
+			int slashLocation = (int)lowerCaseName.find_last_of('/');
 			if (stripChars == 0 || slashLocation < stripChars + 1) {
 				stripChars = slashLocation + 1;
 			}
 			isSaveStates = true;
 			info->gameTitle = fn;
-		} else if (endsWith(zippedName, "psp_game/sysdir/eboot.bin") || endsWith(zippedName, "psp_game/sysdir/boot.bin")) {
+		} else if (endsWith(lowerCaseName, "psp_game/sysdir/eboot.bin") || endsWith(lowerCaseName, "psp_game/sysdir/boot.bin")) {
 			isExtractedISO = true;
-		} else if (endsWith(zippedName, "/param.sfo")) {
+		} else if (endsWith(lowerCaseName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
 			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
@@ -562,13 +583,26 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 					}
 				}
 			}
-		} else if (endsWith(zippedName, "/icon0.png")) {
+		} else if (endsWith(lowerCaseName, "/icon0.png")) {
 			hasIcon0PNG = true;
-		} else if (endsWith(zippedName, "/plugin.ini") && slashCount == 1) {
+		} else if (endsWith(lowerCaseName, "/plugin.ini") && slashCount >= 1) {
+			const size_t slashLocation = lowerCaseName.find_last_of('/');  // can't miss, we have a slash in the endsWith check.
+			// Find previous slash to determine the root of the plugin, so we can display it properly.
+			if (slashLocation > 0) {
+				int prevSlashLocation = (int)lowerCaseName.find_last_of('/', slashLocation - 1);
+				if (prevSlashLocation == std::string::npos) {
+					stripChars = 0;
+				} else {
+					stripChars = prevSlashLocation + 1;
+				}
+			} else {
+				// Can't load plugins where plugin.ini is in the root.
+				continue;
+			}
 			hasPluginIni = true;
 			ZipExtractFileToMemory(z, i, &info->iniContents);
 			info->contentName = fileName.substr(0, fileName.find_last_of('/'));
-		} else if (endsWith(zippedName, ".prx") && slashCount == 1) {
+		} else if (endsWith(lowerCaseName, ".prx")) {
 			hasPRX = true;
 		}
 		if (slashCount == 0) {

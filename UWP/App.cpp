@@ -15,6 +15,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Log/LogManager.h"
+#include "Core/CmdLine.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -86,7 +87,8 @@ void App::InitialPPSSPP() {
 
 	// Since we don't have any async operation in `NativeInit`
 	// it's better to call it here
-	const char* argv[2] = { "fake", nullptr };
+	int argc = 1;
+	const char* argv[2] = { "ppsspp", nullptr };
 	std::string cacheFolder = ConvertWStringToUTF8(
 		std::wstring(winrt::Windows::Storage::ApplicationData::Current().TemporaryFolder().Path())
 	);
@@ -94,7 +96,10 @@ void App::InitialPPSSPP() {
 	// since launch parameters usually handled by `OnActivated`
 	// and `OnActivated` will be invoked later, even after `PPSSPP_UWPMain(..)`
 	// so we are handling launch cases using `LaunchItem`
-	NativeInit(1, argv, "", "", cacheFolder.c_str());
+
+	CommandLineOptions cmdLineOptions;
+	cmdLineOptions.Parse(argc, argv);
+	NativeInit(1, argv, cmdLineOptions, "", "", cacheFolder.c_str());
 
 	// Override backend, `DIRECT3D11` is the only way for UWP apps
 	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
@@ -138,14 +143,6 @@ void App::SetWindow(const CoreWindow& window) {
 	window.PointerCaptureLost({ this, &App::OnPointerCaptureLost });
 	window.PointerWheelChanged({ this, &App::OnPointerWheelChanged });
 
-	if (winrt::Windows::Foundation::Metadata::ApiInformation::IsTypePresent(L"Windows.Phone.UI.Input.HardwareButtons")) {
-		m_hardwareButtons.insert(HardwareButton::BACK);
-	}
-
-	if (winrt::Windows::System::Profile::AnalyticsInfo::VersionInfo().DeviceFamily() == L"Windows.Mobile") {
-		m_isPhone = true;
-	}
-
 	winrt::Windows::UI::Core::SystemNavigationManager::GetForCurrentView().BackRequested(
 		{ this, &App::App_BackRequested }
 	);
@@ -153,19 +150,8 @@ void App::SetWindow(const CoreWindow& window) {
 	InitialPPSSPP();
 }
 
-bool App::HasBackButton() {
-	if (m_hardwareButtons.count(HardwareButton::BACK) != 0)
-		return true;
-	else
-		return false;
-}
-
 void App::App_BackRequested(const IInspectable& sender, const BackRequestedEventArgs& e) {
-	if (m_isPhone) {
-		e.Handled(m_main->OnHardwareButton(HardwareButton::BACK));
-	} else {
-		e.Handled(true);
-	}
+	e.Handled(m_main ? m_main->OnBackRequested() : true);
 }
 
 void App::OnKeyDown(const CoreWindow& sender, const KeyEventArgs& args) {
@@ -205,9 +191,7 @@ void App::OnPointerPressed(const CoreWindow& sender, const PointerEventArgs& arg
 	float Y = args.CurrentPoint().Position().Y;
 	int64_t timestamp = args.CurrentPoint().Timestamp();
 	m_main->OnTouchEvent(TouchInputFlags::DOWN | TouchInputFlags::MOVE, pointerId, X, Y, (double)timestamp);
-	if (!m_isPhone) {
-		sender.SetPointerCapture();
-	}
+	sender.SetPointerCapture();
 }
 
 void App::OnPointerReleased(const CoreWindow& sender, const PointerEventArgs& args) {
@@ -218,9 +202,7 @@ void App::OnPointerReleased(const CoreWindow& sender, const PointerEventArgs& ar
 	float Y = args.CurrentPoint().Position().Y;
 	int64_t timestamp = args.CurrentPoint().Timestamp();
 	m_main->OnTouchEvent(TouchInputFlags::UP | TouchInputFlags::MOVE, pointerId, X, Y, (double)timestamp);
-	if (!m_isPhone) {
-		sender.ReleasePointerCapture();
-	}
+	sender.ReleasePointerCapture();
 }
 
 void App::OnPointerCaptureLost(const CoreWindow& sender, const PointerEventArgs& args) {
@@ -262,9 +244,6 @@ void App::Uninitialize() {
 void App::OnActivated(const CoreApplicationView& applicationView, const IActivatedEventArgs& args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread().Activate();
-	// On mobile, we force-enter fullscreen mode.
-	if (m_isPhone)
-		g_Config.bFullScreen = true;
 
 	if (g_Config.bFullScreen)
 		winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().TryEnterFullScreenMode();
@@ -282,8 +261,10 @@ void App::OnSuspending(const IInspectable& sender, const SuspendingEventArgs& ar
 	auto app = this;
 
 	std::thread([app, deferral]() {
-		g_Config.Save("App::OnSuspending");
-		app->m_deviceResources->Trim();
+		try {
+			g_Config.Save("App::OnSuspending");
+			app->m_deviceResources->Trim();
+		} catch (...) {}
 		deferral.Complete();
 	}).detach();
 }

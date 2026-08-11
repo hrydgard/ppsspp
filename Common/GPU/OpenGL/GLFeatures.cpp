@@ -192,6 +192,8 @@ bool CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_VIVANTE;
 		} else if (vendor == "Apple Inc." || vendor == "Apple") {
 			gl_extensions.gpuVendor = GPU_VENDOR_APPLE;
+		} else if (vendor == "Mesa") {
+			gl_extensions.gpuVendor = GPU_VENDOR_MESA;
 		} else {
 			WARN_LOG(Log::G3D, "Unknown GL vendor: '%s'", vendor.c_str());
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
@@ -206,9 +208,6 @@ bool CheckGLExtensions() {
 	gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
 
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &gl_extensions.maxTextureSize);
-#ifndef USING_GLES2
-	glGetIntegerv(GL_MAX_CLIP_PLANES, &gl_extensions.maxClipPlanes);
-#endif
 
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
@@ -236,7 +235,6 @@ bool CheckGLExtensions() {
 			parsed[0] = lastDigit;
 		}
 	}
-
 
 	if (!gl_extensions.IsGLES) { // For desktop GL
 		gl_extensions.ver[0] = parsed[0];
@@ -291,9 +289,13 @@ bool CheckGLExtensions() {
 				}
 				gl_extensions.GLES3 = true;
 				// Though, let's ban Mali from the GLES 3 path for now, see #4078
-				if (strstr(renderer, "Mali") != 0) {
-					INFO_LOG(Log::G3D, "Forcing GLES3 off for Mali driver version: %s\n", versionStr ? versionStr : "N/A");
+				// Only apply to ARM's proprietary driver (GL_VENDOR="ARM"), not Mesa/Panfrost (GL_VENDOR="Mesa")
+				if (cvendor && strcmp(cvendor, "ARM") == 0 && strstr(renderer, "Mali") != 0) {
+					INFO_LOG(Log::G3D, "Forcing GLES3 off for ARM Mali proprietary driver version: %s\n", versionStr ? versionStr : "N/A");
 					gl_extensions.GLES3 = false;
+				} else if (strstr(renderer, "Mali") != 0) {
+					// Mali detected but not ARM vendor (likely Mesa/Panfrost) - allow GLES3
+					INFO_LOG(Log::G3D, "Mali GPU with non-ARM vendor '%s' detected, allowing GLES3\n", cvendor ? cvendor : "N/A");
 				}
 			} else {
 				// Just to be safe.
@@ -352,11 +354,6 @@ bool CheckGLExtensions() {
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
 #endif
 
-	// Check the desktop extension instead of the OES one. They are very similar.
-	// Also explicitly check those ATI devices that claims to support npot
-	gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0
-		&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
-
 	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
 	gl_extensions.ARB_shading_language_420pack = (g_set_gl_extensions.count("GL_ARB_shading_language_420pack") != 0);
@@ -378,6 +375,7 @@ bool CheckGLExtensions() {
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
 	gl_extensions.ARB_shader_stencil_export = g_set_gl_extensions.count("GL_ARB_shader_stencil_export") != 0;
+	gl_extensions.ARB_timer_query = g_set_gl_extensions.count("GL_ARB_timer_query") != 0;
 	gl_extensions.ARB_texture_compression_bptc = g_set_gl_extensions.count("GL_ARB_texture_compression_bptc") != 0;
 	gl_extensions.ARB_texture_compression_rgtc = g_set_gl_extensions.count("GL_ARB_texture_compression_rgtc") != 0;
 	gl_extensions.KHR_texture_compression_astc_ldr = g_set_gl_extensions.count("GL_KHR_texture_compression_astc_ldr") != 0;
@@ -386,7 +384,6 @@ bool CheckGLExtensions() {
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
-		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
 		gl_extensions.OES_packed_depth_stencil = (g_set_gl_extensions.count("GL_OES_packed_depth_stencil") != 0) || gl_extensions.GLES3;
 		gl_extensions.OES_depth24 = g_set_gl_extensions.count("GL_OES_depth24") != 0;
 		gl_extensions.OES_depth_texture = g_set_gl_extensions.count("GL_OES_depth_texture") != 0;
@@ -400,6 +397,7 @@ bool CheckGLExtensions() {
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
 		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 		gl_extensions.EXT_depth_clamp = g_set_gl_extensions.count("GL_EXT_depth_clamp") != 0;
+		gl_extensions.EXT_disjoint_timer_query = g_set_gl_extensions.count("GL_EXT_disjoint_timer_query") != 0;
 		gl_extensions.APPLE_clip_distance = g_set_gl_extensions.count("GL_APPLE_clip_distance") != 0;
 
 #if defined(__ANDROID__)
@@ -496,7 +494,7 @@ bool CheckGLExtensions() {
 			GL_LOW_FLOAT, GL_MEDIUM_FLOAT, GL_HIGH_FLOAT,
 			GL_LOW_INT, GL_MEDIUM_INT, GL_HIGH_INT
 		};
-		GLint shaderTypes[2] = {
+		const GLint shaderTypes[2] = {
 			GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
 		};
 		for (int st = 0; st < 2; st++) {
@@ -574,12 +572,40 @@ bool CheckGLExtensions() {
 		}
 	}
 
-	// Force off clip for a cmomon buggy Samsung version.
+	// Force off clip for a common buggy Samsung version.
 	if (!strcmp(versionStr, "OpenGL ES 3.2 ANGLE git hash: aa8f94c52952")) {
 		// Maybe could use bugs, but for now let's just force it back off.
 		// Seeing errors that gl_ClipDistance is undefined.
 		gl_extensions.EXT_clip_cull_distance = false;
 	}
+
+	bool clipDistanceSupported = false;
+	bool cullDistanceSupported = false;
+
+	if (gl_extensions.IsGLES) {
+		clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
+		cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
+	} else {
+		clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
+		cullDistanceSupported = gl_extensions.ARB_cull_distance;
+	}
+
+	gl_extensions.maxClipDistances = 0;
+	gl_extensions.maxCullDistances = 0;
+
+#if PPSSPP_PLATFORM(IOS)
+	if (clipDistanceSupported) {
+		glGetIntegerv(GL_MAX_CLIP_DISTANCES_APPLE, &gl_extensions.maxClipDistances);
+	}
+	// Apple doesn't support cull distances.
+#else
+	if (clipDistanceSupported) {
+		glGetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &gl_extensions.maxClipDistances);
+	}
+	if (cullDistanceSupported) {
+		glGetIntegerv(GL_MAX_CULL_DISTANCES_EXT, &gl_extensions.maxCullDistances);
+	}
+#endif
 
 	// Check the old query API. It doesn't seem to be very reliable (can miss stuff).
 	GLint numCompressedFormats = 0;

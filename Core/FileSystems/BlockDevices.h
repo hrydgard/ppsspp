@@ -77,6 +77,7 @@ public:
 private:
 	u32 *index = nullptr;
 	u8 *readBuffer = nullptr;
+	size_t readBufferSize = 0;
 	u8 *zlibBuffer = nullptr;
 	u32 zlibBufferFrame = 0;
 	u8 indexShift = 0;
@@ -100,6 +101,53 @@ public:
 	}
 private:
 	u64 filesize_;
+};
+
+class UDFFileBlockDevice : public BlockDevice {
+public:
+	UDFFileBlockDevice(FileLoader *fileLoader);
+	~UDFFileBlockDevice();
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() const override { return numBlocks_; }
+	bool IsDisc() const override { return true; }
+	u64 GetUncompressedSize() const override {
+		return (u64)numBlocks_ * (u64)GetBlockSize();
+	}
+
+private:
+	struct Extent {
+		u32 startBlock = 0;
+		u32 numBlocks = 0;
+	};
+
+	Extent layer0_{};
+	Extent layer1_{};
+	u32 numBlocks_ = 0;
+};
+
+class ISOContainerFileBlockDevice : public BlockDevice {
+public:
+	ISOContainerFileBlockDevice(FileLoader *fileLoader);
+	~ISOContainerFileBlockDevice();
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() const override { return numBlocks_; }
+	bool IsDisc() const override { return true; }
+	u64 GetUncompressedSize() const override {
+		return (u64)numBlocks_ * (u64)GetBlockSize();
+	}
+
+private:
+	struct Extent {
+		u32 startBlock = 0;
+		u32 numBlocks = 0;
+	};
+
+	std::shared_ptr<BlockDevice> outerBlockDevice_;
+	Extent layer0_{};
+	Extent layer1_{};
+	u32 numBlocks_ = 0;
 };
 
 

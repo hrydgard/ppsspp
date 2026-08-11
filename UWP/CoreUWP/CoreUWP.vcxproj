@@ -86,6 +86,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Core\AVIDump.h" />
+    <ClInclude Include="..\..\Core\CmdLine.h" />
     <ClInclude Include="..\..\Core\Compatibility.h" />
     <ClInclude Include="..\..\Core\Config.h" />
     <ClInclude Include="..\..\Core\ConfigSettings.h" />
@@ -135,6 +136,7 @@
     <ClInclude Include="..\..\Core\ELF\ParamSFO.h" />
     <ClInclude Include="..\..\Core\ELF\PBPReader.h" />
     <ClInclude Include="..\..\Core\ELF\PrxDecrypter.h" />
+    <ClInclude Include="..\..\Core\EmuThread.h" />
     <ClInclude Include="..\..\Core\FileLoaders\CachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\DiskCachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\HTTPFileLoader.h" />
@@ -359,6 +361,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Core\AVIDump.cpp" />
+    <ClCompile Include="..\..\Core\CmdLine.cpp" />
     <ClCompile Include="..\..\Core\Compatibility.cpp" />
     <ClCompile Include="..\..\Core\Config.cpp" />
     <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
@@ -405,6 +408,7 @@
     <ClCompile Include="..\..\Core\ELF\ParamSFO.cpp" />
     <ClCompile Include="..\..\Core\ELF\PBPReader.cpp" />
     <ClCompile Include="..\..\Core\ELF\PrxDecrypter.cpp" />
+    <ClCompile Include="..\..\Core\EmuThread.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\CachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\DiskCachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\HTTPFileLoader.cpp" />

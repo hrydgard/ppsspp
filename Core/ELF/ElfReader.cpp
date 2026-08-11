@@ -362,7 +362,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 
 			op = Memory::Read_Instruction(rel_offset, true).encoding;
-			DEBUG_LOG(Log::Loader, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
+			VERBOSE_LOG(Log::Loader, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
 
 			switch(type){
 			case 0:
@@ -560,7 +560,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			}
 		}
 	}
-	memblock.ListBlocks();
+	memblock.ListBlocks(LogLevel::LDEBUG);
 
 	DEBUG_LOG(Log::Loader, "%d sections:", header->e_shnum);
 

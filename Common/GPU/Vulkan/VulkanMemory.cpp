@@ -31,8 +31,8 @@ using namespace PPSSPP_VK;
 // Always keep around push buffers at least this long (seconds).
 static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
 
-VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage)
-	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage) {
+VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, size_t slack, VkBufferUsageFlags usage)
+	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage), slack_(slack) {
 	RegisterGPUMemoryManager(this);
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
@@ -118,8 +118,9 @@ void VulkanPushPool::BeginFrame() {
 	// Still, let's keep around a few big ones (6 - 3).
 	if (blocks_.size() > 6 && blocks_.back().lastUsed < now - PUSH_GARBAGE_COLLECTION_DELAY) {
 		double start = time_now_d();
-		size_t size = blocks_.back().size;
-		blocks_.back().Destroy(vulkan_);
+		Block &last = blocks_.back();
+		size_t size = last.size;
+		last.Destroy(vulkan_);
 		blocks_.pop_back();
 		DEBUG_LOG(Log::G3D, "%s: Garbage collected block of size %s in %0.2f ms", name_, NiceSizeFormat(size).c_str(), time_now_d() - start);
 	}
@@ -149,9 +150,10 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 
 	// We're still here and ran off the end of blocks. Create a new one.
 	blocks_.push_back(CreateBlock(newBlockSize));
-	blocks_.back().frameIndex = curFrameIndex;
-	blocks_.back().used = allocationSize;
-	blocks_.back().lastUsed = time_now_d();
+	Block &newBlock = blocks_.back();
+	newBlock.frameIndex = curFrameIndex;
+	newBlock.used = allocationSize;
+	newBlock.lastUsed = time_now_d();
 	// curBlockIndex_ is already set correctly here.
 	DEBUG_LOG(Log::G3D, "%s: Created new block of size %s in %0.2f ms", name_, NiceSizeFormat(newBlockSize).c_str(), 1000.0 * (time_now_d() - start));
 }
@@ -175,4 +177,36 @@ void VulkanPushPool::GetDebugString(char *buffer, size_t bufSize) const {
 	}
 
 	snprintf(buffer, bufSize, "Pool %s: %s / %s (%d extra blocks)", name_, NiceSizeFormat(used).c_str(), NiceSizeFormat(capacity).c_str(), (int)blocks_.size() - 3);
+}
+
+void VulkanBuffer::Create(VulkanContext *vulkan, const char *name, VkDeviceSize size, VkBufferUsageFlags usage) {
+	if (buffer_) {
+		Destroy(vulkan);
+	}
+
+	size_ = size;
+
+	if (size == 0) {
+		return;
+	}
+
+	VkBufferCreateInfo b{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+	b.size = size;
+	b.usage = usage;
+	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VmaAllocationCreateInfo allocCreateInfo{};
+
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;  // required to not get memory where we have to manually flush.
+	VmaAllocationInfo allocInfo{};
+
+	VkResult result = vmaCreateBuffer(vulkan->Allocator(), &b, &allocCreateInfo, &buffer_, &allocation_, &allocInfo);
+	_dbg_assert_(result == VK_SUCCESS);
+	vulkan->SetDebugName(buffer_, VK_OBJECT_TYPE_BUFFER, name);
+}
+
+void VulkanBuffer::Destroy(VulkanContext *vulkan) {
+	if (buffer_) {
+		vulkan->Delete().QueueDeleteBufferAllocation(buffer_, allocation_);
+	}
 }

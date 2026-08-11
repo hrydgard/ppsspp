@@ -37,13 +37,13 @@ void Matrix4x4::setViewFrame(const Vec3 &pos, const Vec3 &vRight, const Vec3 &vV
 	yx = vRight.y; yy = vUp.y; yz=vView.y; yw = 0.0f;
 	zx = vRight.z; zy = vUp.z; zz=vView.z; zw = 0.0f;
 
-	wx = -pos * vRight;
-	wy = -pos * vUp;
-	wz = -pos * vView;
+	wx = dot(-pos, vRight);
+	wy = dot(-pos, vUp);
+	wz = dot(-pos, vView);
 	ww = 1.0f;
 }
 
-void Matrix4x4::setOrtho(float left, float right, float bottom, float top, float near, float far) {
+void Matrix4x4::setOrthoGL(float left, float right, float bottom, float top, float near, float far) {
 	empty();
 	xx = 2.0f / (right - left);
 	yy = 2.0f / (top - bottom);

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -10,10 +11,12 @@
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanProfiler.h"
+#include "Common/GPU/Vulkan/VulkanPresentation.h"
 
 // Enable or disable a simple logging profiler for Vulkan.
 // Mostly useful for profiling texture uploads currently, but could be useful for
@@ -50,32 +53,6 @@ template<class R, class T> inline void ChainStruct(R &root, T *newStruct) {
 	root.pNext = newStruct;
 }
 
-// Not all will be usable on all platforms, of course...
-enum WindowSystem {
-	WINDOWSYSTEM_UNINITIALIZED,
-#ifdef _WIN32
-	WINDOWSYSTEM_WIN32,
-#endif
-#ifdef __ANDROID__
-	WINDOWSYSTEM_ANDROID,
-#endif
-#ifdef VK_USE_PLATFORM_METAL_EXT
-	WINDOWSYSTEM_METAL_EXT,
-#endif
-#ifdef VK_USE_PLATFORM_XLIB_KHR
-	WINDOWSYSTEM_XLIB,
-#endif
-#ifdef VK_USE_PLATFORM_XCB_KHR
-	WINDOWSYSTEM_XCB,
-#endif
-#ifdef VK_USE_PLATFORM_WAYLAND_KHR
-	WINDOWSYSTEM_WAYLAND,
-#endif
-#ifdef VK_USE_PLATFORM_DISPLAY_KHR
-	WINDOWSYSTEM_DISPLAY,
-#endif
-};
-
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 	bool canBlitToPreferredDepthStencilFormat;
@@ -89,6 +66,8 @@ enum class PerfClass {
 	SLOW,
 	FAST,
 };
+
+typedef std::function<void(VulkanContext *)> DeleteCallback;
 
 // This is a bit repetitive...
 class VulkanDeleteList {
@@ -127,7 +106,7 @@ public:
 	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { _dbg_assert_(pipelineLayout != VK_NULL_HANDLE); pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { _dbg_assert_(descSetLayout != VK_NULL_HANDLE); descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueDeleteQueryPool(VkQueryPool &queryPool) { _dbg_assert_(queryPool != VK_NULL_HANDLE); queryPools_.push_back(queryPool); queryPool = VK_NULL_HANDLE; }
-	void QueueCallback(void (*func)(VulkanContext *vulkan, void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueCallback(DeleteCallback func) { callbacks_.push_back(func); }
 
 	void QueueDeleteBufferAllocation(VkBuffer &buffer, VmaAllocation &alloc) { 
 		_dbg_assert_(buffer != VK_NULL_HANDLE); 
@@ -167,7 +146,7 @@ private:
 	std::vector<VkPipelineLayout> pipelineLayouts_;
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<VkQueryPool> queryPools_;
-	std::vector<Callback> callbacks_;
+	std::vector<DeleteCallback> callbacks_;
 	int deleteCount_ = 0;
 };
 
@@ -185,6 +164,11 @@ public:
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
+	// For adopting an already-created VkInstance (e.g. handed to us by a host application/frontend
+	// like libretro/RetroArch) instead of creating our own. Runs the same post-creation bookkeeping
+	// (function pointer loading, API version/physical device enumeration, etc.) as CreateInstance(), but
+	// does not call vkCreateInstance, and DestroyInstance() will not call vkDestroyInstance either.
+	VkResult CreateInstanceExternal(VkInstance instance);
 	void DestroyInstance();
 
 	int GetBestPhysicalDevice() const;
@@ -192,14 +176,26 @@ public:
 
 	// Convenience method to avoid code duplication.
 	// If it returns false, delete the context.
-	bool CreateInstanceAndDevice(const CreateInfo &info);
+	bool CreateInstanceAndDevice(const CreateInfo &info, std::string *deviceName);
 
 	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
 	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
 	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);
 
 	// Was previously two functions, ChooseDevice and CreateDevice.
-	VkResult CreateDevice(int physical_device);
+	// extraDeviceExtensions/extraRequiredFeatures let a host application (e.g. libretro) merge in extra
+	// requirements it needs on top of what PPSSPP would normally request, without needing to intercept
+	// the underlying vkCreateDevice call.
+	VkResult CreateDevice(int physical_device,
+		const std::vector<const char *> &extraDeviceExtensions = {},
+		const VkPhysicalDeviceFeatures *extraRequiredFeatures = nullptr);
+
+	// Some host applications (e.g. a libretro frontend, per its create_device contract) take over
+	// responsibility for eventually destroying the VkDevice once we've handed it back to them, even
+	// though we're the one that called vkCreateDevice. Call this after CreateDevice() succeeds in that
+	// case - DestroyDevice() will still run all our own device-resource cleanup, just skip the final
+	// vkDestroyDevice call.
+	void SetDeviceExternallyOwned() { ownsDevice_ = false; }
 
 	const std::string &InitError() const { return init_error_; }
 
@@ -275,6 +271,13 @@ public:
 		return graphics_queue_family_index_;
 	}
 
+	// Normally, picking the graphics queue (ChooseQueue(), private below) is entangled with surface
+	// creation (ReinitSurface()) since it also needs to check which queue family can present to that
+	// particular surface. Hosts with no real WSI surface at all (e.g. libretro) still need a graphics
+	// queue, just without that presentation-support check - this does exactly that, and nothing else.
+	// Only valid to call after CreateDevice() has succeeded.
+	bool ChooseGraphicsQueueWithoutSurface();
+
 	struct PhysicalDeviceProps {
 		VkPhysicalDeviceProperties properties;
 		VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProperties;
@@ -289,6 +292,7 @@ public:
 		VkPhysicalDevicePresentIdFeaturesKHR presentId;
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps;
+		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayout;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
@@ -301,11 +305,10 @@ public:
 		return queueFamilyProperties_[family];
 	}
 
-	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> *extensions);
 	VkResult GetInstanceLayerProperties();
 
-	VkResult GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
-	VkResult GetDeviceLayerProperties();
+	VkResult GetDeviceExtensionList(std::vector<VkExtensionProperties> *extensions);
 
 	const std::vector<VkExtensionProperties> &GetDeviceExtensionsAvailable() const {
 		return device_extension_properties_;
@@ -373,12 +376,27 @@ public:
 	}
 
 	VkSwapchainKHR GetSwapchain() const { return swapchain_; }
-	VkFormat GetSwapchainFormat() const { return swapchainFormat_; }
+	VkFormat GetSwapchainFormat() const { return presentation_ ? presentation_->GetFormat() : swapchainFormat_; }
 	bool IsSwapchainInited() const { return swapchainInited_; }
+
+	// Opt-in replacement for the real-swapchain path above (see VulkanPresentation.h for why a host
+	// application might want this). Null (the default) means "use the real swapchain".
+	void SetPresentation(std::unique_ptr<VulkanPresentation> presentation) { presentation_ = std::move(presentation); }
+	VulkanPresentation *GetPresentation() const { return presentation_.get(); }
+
+	VkImageLayout GetPresentLayout() const {
+		return presentation_ ? presentation_->GetPresentLayout() : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	}
+
+	// Wrap every real vkQueueSubmit/vkQueueWaitIdle call with these - no-ops unless a presentation backend
+	// that shares its VkQueue with another owner (e.g. libretro) is active.
+	void LockQueue() { if (presentation_) presentation_->LockQueue(); }
+	void UnlockQueue() { if (presentation_) presentation_->UnlockQueue(); }
+	void PrepareSubmit(VkSubmitInfo &submitInfo) { if (presentation_) presentation_->PrepareSubmit(submitInfo); }
 	bool HasRealSwapchain() const { return swapChainExtent_.width > 0; }
 
-	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
-	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
+	int GetBackbufferWidth() { return (int)(presentation_ ? presentation_->GetExtent().width : swapChainExtent_.width); }
+	int GetBackbufferHeight() { return (int)(presentation_ ? presentation_->GetExtent().height : swapChainExtent_.height); }
 
 	void SetProfilerEnabledPtr(bool *enabled) {
 		for (auto &frame : frame_) {
@@ -412,6 +430,10 @@ public:
 		return presentMode_;
 	}
 
+#ifdef VK_EXT_full_screen_exclusive
+	void SetFullScreenExclusiveMode(VkFullScreenExclusiveEXT mode) { fullScreenExclusiveMode_ = mode; }
+#endif
+
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
 	}
@@ -441,8 +463,17 @@ public:
 		return winsys_;
 	}
 
+	bool SupportsPreRotation() const {
+		return surfCapabilities_.supportedTransforms != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	}
+
 private:
 	bool ChooseQueue();
+
+	// Shared tail of CreateInstance()/CreateInstanceExternal(): function pointer loading, physical device
+	// enumeration, debug callback setup.
+	VkResult FinishInstanceInit();
+	void DetectInstanceApiVersion();
 
 	void SetDebugNameImpl(uint64_t handle, VkObjectType type, const char *name);
 
@@ -471,15 +502,17 @@ private:
 	u32 vulkanInstanceApiVersion_ = 0;
 	u32 vulkanDeviceApiVersion_ = 0;
 
+	// False when instance_/device_ were adopted from an external owner (e.g. a libretro frontend) rather
+	// than created by us - in that case DestroyInstance()/DestroyDevice() must not actually destroy them.
+	bool ownsInstance_ = true;
+	bool ownsDevice_ = true;
+
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names_;
 	std::vector<LayerProperties> instance_layer_properties_;
 
 	std::vector<const char *> instance_extensions_enabled_;
 	std::vector<VkExtensionProperties> instance_extension_properties_;
-
-	std::vector<const char *> device_layer_names_;
-	std::vector<LayerProperties> device_layer_properties_;
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
@@ -524,10 +557,18 @@ private:
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
 	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 
+	// When set, replaces the real-swapchain path above. See VulkanPresentation.h.
+	std::unique_ptr<VulkanPresentation> presentation_;
+
 	uint32_t queue_count = 0;
 	bool swapchainInited_ = false;
 
 	PhysicalDeviceFeatures deviceFeatures_;
+
+#ifdef VK_EXT_full_screen_exclusive
+	VkFullScreenExclusiveEXT fullScreenExclusiveMode_ = VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
+#endif
+
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};

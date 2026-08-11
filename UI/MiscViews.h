@@ -93,9 +93,42 @@ protected:
 class SettingHint : public UI::TextView {
 public:
 	SettingHint(std::string_view text, UI::View *setting);
+	std::string DescribeText() const override { return setting_ ? setting_->DescribeText() : ""; }  // So that descriptions show up in searches under their parent views
 	void Draw(UIContext &dc) override;
 private:
 	UI::View *setting_;
 };
 
 void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text);
+
+class SearchBar : public UI::InertView {
+public:
+	SearchBar(UI::LayoutParams *params);
+	void Draw(UIContext &dc) override;
+
+	bool Touch(const TouchInput &input) override;
+	void SetSearchFilter(std::string_view filter) {
+		searchFilter_ = filter;
+	}
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+	UI::Event OnCancel;
+private:
+	std::string searchFilter_ = "N/A";
+};
+
+enum class SearchState {
+	MATCH,
+	MISMATCH,
+	PENDING,
+};
+
+struct ViewSearch {
+	SearchBar *searchBar;
+	std::string searchFilter;
+	std::vector<SearchState> searchStates;
+	bool searchPending;
+
+	void ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus);
+	bool Key(UI::ViewGroup *viewGroup, const KeyInput &input);
+};

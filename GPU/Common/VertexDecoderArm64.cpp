@@ -18,6 +18,8 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
+#include <cfloat>
+
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
@@ -69,7 +71,6 @@ static const ARM64Reg src[2] = {S2, S3};
 static const ARM64Reg srcD = D2;
 static const ARM64Reg srcQ = Q2;
 
-static const ARM64Reg srcNEON = Q8;
 static const ARM64Reg accNEON = Q9;
 
 static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };  // reverse order to prevent clash with neonScratchReg in Jit_WeightsU*Skin.
@@ -80,9 +81,6 @@ static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };  // reverse order to prev
 // Q16+ are free-for-all for matrices. In 16 registers, we can fit 4 4x4 matrices.
 
 static const JitLookup jitLookup[] = {
-	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
-	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
-	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
@@ -255,7 +253,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
 			ResetCodePtr(GetOffset(start));
 			char temp[1024]{};
-			dec.ToString(temp, true);
+			dec.ToString(temp, sizeof(temp), true);
 			WARN_LOG(Log::G3D, "Could not compile vertex decoder, failed at step %s: %s", GetStepFunctionName(dec.steps_[i]), temp);
 			return nullptr;
 		}
@@ -290,7 +288,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	if (log) {
 		char temp[1024] = { 0 };
-		dec.ToString(temp, true);
+		dec.ToString(temp, sizeof(temp), true);
 		INFO_LOG(Log::JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
 		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {
@@ -355,44 +353,6 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			fp.FMLA(32, Q7, Q11, neonWeightRegsQ[i >> 2], i & 3);
 			break;
 		}
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU8() {
-	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j);
-		STRB(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j);
-	}
-	while (j & 3) {
-		STRB(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU16() {
-	// Basic implementation - a short at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 2);
-		STRH(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
-	}
-	while (j & 3) {
-		STRH(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j * 2);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsFloat() {
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 4);
-		STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		STR(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j * 4);
-		j++;
 	}
 }
 
@@ -648,16 +608,24 @@ void VertexDecoderJitCache::Jit_PosS16() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloat() {
-	// Only need to copy 12 bytes, but copying 16 should be okay (and is faster.)
-	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
-		LDP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), srcReg, dec_->posoff);
-		STP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), dstReg, dec_->decFmt.posoff);
-	} else {
-		LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->posoff);
-		STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.posoff);
-		LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 8);
-		STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
-	}
+	// Load the 3 floats (12 bytes) into neonScratchRegQ (Q2)
+	fp.LDUR(128, neonScratchRegQ, srcReg, dec_->posoff);
+	// Check for NaN: compare each element with itself; NaN != NaN, so comparison produces 0 for NaNs
+	fp.FCMEQ(32, neonScratchReg2Q, neonScratchRegQ, neonScratchRegQ);
+	// Now neonScratchReg2Q contains all 1s for non-NaN values, all 0s for NaN values
+	// AND with the original to zero out NaNs
+	fp.AND(neonScratchRegQ, neonScratchRegQ, neonScratchReg2Q);
+	// Now handle infinities by clamping
+	// Load FLT_MAX into neonScratchReg2Q (Q3)
+	fp.MOVI2FDUP(neonScratchReg2Q, FLT_MAX, tempReg1);
+	// Clamp to FLT_MAX (handles +Inf and values > FLT_MAX)
+	fp.FMINNM(32, neonScratchRegQ, neonScratchRegQ, neonScratchReg2Q);
+	// Negate to get -FLT_MAX
+	fp.FNEG(32, neonScratchReg2Q, neonScratchReg2Q);
+	// Clamp to -FLT_MAX (handles -Inf and values < -FLT_MAX)
+	fp.FMAXNM(32, neonScratchRegQ, neonScratchRegQ, neonScratchReg2Q);
+	// Store the cleaned result
+	fp.STUR(128, neonScratchRegQ, dstReg, dec_->decFmt.posoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS8Through() {
@@ -680,6 +648,8 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloatThrough() {
+	// TODO: Should probably clean out infs just like in Jit_PosFloat...
+
 	// Instead of just copying 12 bytes, we copy 8 and clamp Z.
 	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
 		LDR(INDEX_UNSIGNED, EncodeRegTo64(tempReg1), srcReg, dec_->posoff);

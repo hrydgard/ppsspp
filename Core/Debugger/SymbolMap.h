@@ -20,10 +20,16 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <mutex>
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
+
+// Next plans for the symbol map
+//
+// Symbol maps should auto-load and auto-save. They should be per module with section offsets, and the ID
+// should be the module name plus the hash of the code and data sections. This way
+// symbols will not misapply to the wrong modules.
+// We already have some support for module-specific symbols, but it's just not set up right, as far as I can tell.
 
 enum SymbolType {
 	ST_NONE     = 0,
@@ -115,6 +121,7 @@ public:
 	u32 GetDataSize(u32 startAddress);
 	u32 GetDataModuleAddress(u32 startAddress);
 	DataType GetDataType(u32 startAddress);
+	bool RemoveData(u32 startAddress, bool removeName);
 
 	static const u32 INVALID_ADDRESS = (u32)-1;
 
@@ -171,7 +178,6 @@ private:
 	std::map<SymbolKey, DataEntry> data;
 	std::vector<ModuleEntry> modules;
 
-	mutable std::recursive_mutex lock_;
 	bool sawUnknownModule = false;
 };
 

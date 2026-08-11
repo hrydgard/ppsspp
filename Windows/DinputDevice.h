@@ -59,21 +59,21 @@ private:
 
 	static unsigned int pInstances;
 	static std::vector<DIDEVICEINSTANCE> devices;
-	static Microsoft::WRL::ComPtr<IDirectInput8>   pDI;
+	static Microsoft::WRL::ComPtr<IDirectInput8> pDI;
 	static bool needsCheck_;
 	static std::set<u32> ignoreDevices_;
-	int                     pDevNum;
-	Microsoft::WRL::ComPtr<IDirectInputDevice8>    pJoystick;
-	DIJOYSTATE2             pPrevState;
-	bool                    analog;
-	BYTE                    lastButtons_[128]{};
-	WORD                    lastPOV_[4]{};
-	int                     last_lX_;
-	int                     last_lY_;
-	int                     last_lZ_;
-	int                     last_lRx_;
-	int                     last_lRy_;
-	int                     last_lRz_;
+	int pDevNum = 0;
+	Microsoft::WRL::ComPtr<IDirectInputDevice8> pJoystick;
+	DIJOYSTATE2 pPrevState{};
+	bool analog{};
+	BYTE lastButtons_[128]{};
+	WORD lastPOV_[4]{};
+	int last_lX_ = 0;
+	int last_lY_ = 0;
+	int last_lZ_ = 0;
+	int last_lRx_ = 0;
+	int last_lRy_ = 0;
+	int last_lRz_ = 0;
 };
 
 struct DInputMetaDevice : public InputDevice {

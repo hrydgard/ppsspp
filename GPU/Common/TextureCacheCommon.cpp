@@ -19,6 +19,7 @@
 
 #include <algorithm>
 
+#include "ext/xxhash.h"
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Collections/TinySet.h"
@@ -52,7 +53,8 @@
 #define TEXTURE_KILL_AGE_LOWMEM 60
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
-// Used when there are multiple CLUT variants of a texture.
+// Used when there are multiple CLUT variants of a texture, to avoid blowing up memory. See #10418
+// We should change this to do shader-based palette expansion.
 #define TEXTURE_KILL_AGE_CLUT 6
 
 #define TEXTURE_CLUT_VARIANTS_MIN 6
@@ -62,6 +64,9 @@
 
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+
+static bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, bool useBufferedRendering, FramebufferMatchInfo *matchInfo);
+static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context);
 
 // Just for reference
 
@@ -87,7 +92,7 @@
 // These are Data::Format:: B4G4R4A4_PACK16, B5G6R6_PACK16, B5G5R5A1_PACK16, R8G8B8A8
 
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
-	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
+	: draw_(draw), draw2D_(draw2D), replacer_(draw), textureShaderCache_(draw, draw2D_), clutTextureCache_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// It's only possible to have 1KB of palette entries, although we allow 2KB in a hack.
@@ -106,13 +111,9 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	// These buffers will grow if necessary, but most won't need more than this.
 	tmpTexBuf32_.resize(512 * 512);  // 1MB
 	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
-
-	textureShaderCache_ = new TextureShaderCache(draw, draw2D_);
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
-	delete textureShaderCache_;
-
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
 	FreeAlignedMemory(expandClut_);
@@ -120,8 +121,7 @@ TextureCacheCommon::~TextureCacheCommon() {
 
 void TextureCacheCommon::StartFrame() {
 	ForgetLastTexture();
-	textureShaderCache_->Decimate();
-	timesInvalidatedAllThisFrame_ = 0;
+	clutTextureCache_.Decimate();
 	replacementTimeThisFrame_ = 0.0;
 
 	float fps;
@@ -150,12 +150,12 @@ void TextureCacheCommon::StartFrame() {
 	replacementFrameBudgetSeconds_ = baseValue / fps;
 
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
-		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
-		gpuStats.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
+		gpuStats.perFrame.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
+		gpuStats.perFrame.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
 	}
 
 	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(Log::G3D, "Scaled %d texels", texelsScaledThisFrame_);
+		VERBOSE_LOG(Log::TexCache, "Scaled %d texels", texelsScaledThisFrame_);
 	}
 	texelsScaledThisFrame_ = 0;
 
@@ -182,7 +182,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry) {
+SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped) {
 	SamplerCacheKey key{};
 
 	int minFilt = gstate.texfilter & 0x7;
@@ -224,7 +224,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
 				key.aniso = true;
 			}
 			break;
@@ -260,7 +260,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
 				key.aniso = true;
 			}
 		}
@@ -276,14 +276,13 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
-			if (gstate_c.pixelMapped) {
+			if (pixelMapped) {
 				forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
 			break;
 		case TEX_FILTER_FORCE_LINEAR:
 			// Override to linear filtering if there's no alpha or color testing going on.
-			if ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) &&
-				(!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue())) {
+			if (CanForceBilinear(gstate)) {
 				forceFiltering = TEX_FILTER_FORCE_LINEAR;
 			}
 			break;
@@ -294,7 +293,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		case TEX_FILTER_AUTO_MAX_QUALITY:
 		default:
 			forceFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
 				key.aniso = true;
 			}
 			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
@@ -304,7 +303,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 					key.aniso = false;
 				}
 			}
-			if (gstate_c.pixelMapped) {
+			if (pixelMapped) {
 				forceFiltering = TEX_FILTER_FORCE_NEAREST;
 				key.aniso = false;
 			}
@@ -338,18 +337,40 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	return key;
 }
 
-SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
-	SamplerCacheKey key = GetSamplingParams(0, nullptr);
+SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWidth, u16 bufferHeight, bool pixelMapped) {
+	SamplerCacheKey key{};
 
-	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
-		int minFilt = gstate.texfilter & 0x7;
-		key.minFilt = minFilt & 1;
+	key.magFilt = gstate.isMagnifyFilteringEnabled();
+	int minFilt = gstate.texfilter & 0x7;
+	key.minFilt = minFilt & 1;
+	key.mipEnable = false;
+	key.mipFilt = false;
+	key.mipFilt = false;
+	key.sClamp = gstate.isTexCoordClampedS();
+	key.tClamp = gstate.isTexCoordClampedT();
+	key.aniso = false;
+	key.texture3d = false;
+
+	// Filtering overrides from replacements or settings.
+	switch ((TextureFiltering)g_Config.iTexFiltering) {
+	case TEX_FILTER_AUTO:
+	case TEX_FILTER_AUTO_MAX_QUALITY:
+		if (pixelMapped) {
+			key.magFilt = false;
+			key.minFilt = false;
+		}
+		break;
+	case TEX_FILTER_FORCE_LINEAR:
+		key.magFilt = true;
+		key.minFilt = true;
+		break;
+	case TEX_FILTER_FORCE_NEAREST:
+		key.magFilt = false;
+		key.minFilt = false;
+		break;
 	}
 
 	// Kill any mipmapping settings.
-	key.mipEnable = false;
-	key.mipFilt = false;
 	key.aniso = 0.0f;
 	key.maxLevel = 0.0f;
 	key.lodBias = 0.0f;
@@ -358,64 +379,144 @@ SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	if (w != bufferWidth || h != bufferHeight) {
+		// Actually, maybe we should always do this?
 		key.sClamp = true;
 		key.tClamp = true;
 	}
 	return key;
 }
 
-void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
-	// If the texture is >= 512 pixels tall...
-	if (entry->dim >= 0x900) {
-		if (entry->cluthash != 0 && entry->maxSeenV == 0) {
-			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-				// They should all be the same, just make sure we take any that has already increased.
-				// This is for a new texture.
-				if (it->second->maxSeenV != 0) {
-					entry->maxSeenV = it->second->maxSeenV;
-					break;
-				}
+static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, const TexCacheEntry *entry) {
+	const GETextureFormat format = entry->format;
+	if (replacer.Enabled()) {
+		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
+	}
+
+	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+		h = (int)entry->maxSeenV;
+	}
+
+	u32 sizeInRAM;
+	if (swizzled) {
+		// In swizzle mode, textures are stored in rectangular blocks with the height 8.
+		// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
+		// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
+		// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
+		// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
+		sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
+	} else {
+		sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
+	}
+	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+
+	if (Memory::IsValidAddress(addr + sizeInRAM)) {
+		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
+
+		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
+		return StableQuickTexHash(checkp, sizeInRAM);
+	} else {
+		return 0;
+	}
+}
+
+// NOTE: this is overridden in TextureCacheGLES, with some extra color conversion.
+void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
+	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
+	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
+	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
+	//
+	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
+	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
+	// unrelated old entries for small palettes.
+	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
+	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
+
+	if (replacer_.Enabled()) {
+		// Replacer is still hardcoded to use XXH32 for the CLUT hash, so we need to keep that. It's not a bad one
+		// but XXH3_64bits should be faster (?).
+		clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	} else {
+		clutHash_ = XXH3_64bits((const char *)clutBufRaw_, clutExtendedBytes) & 0xFFFFFFFF;
+	}
+	clutBuf_ = clutBufRaw_;
+
+	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
+	bool alphaLinear = false;
+	u16 alphaLinearColor = 0;
+	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
+		const u16 *clut = (const u16 *)(clutBuf_);
+		alphaLinear = true;
+		alphaLinearColor = clut[15] & 0x0FFF;
+		for (int i = 0; i < 16; ++i) {
+			const u16 step = alphaLinearColor | (i << 12);
+			if (clut[i] != step) {
+				alphaLinear = false;
+				break;
 			}
 		}
+	}
 
-		// Texture scale/offset and gen modes don't apply in through.
-		// So we can optimize how much of the texture we look at.
-		if (throughMode) {
-			if (entry->maxSeenV == 0 && gstate_c.vertBounds.maxV > 0) {
-				// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
-				entry->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
-			} else if (gstate_c.vertBounds.maxV > entry->maxSeenV) {
-				// The max height changed, so we're better off hashing the entire thing.
-				entry->maxSeenV = 512;
-				entry->status |= TexCacheEntry::STATUS_FREE_CHANGE;
+	clutProperties_.clutAlphaLinear = alphaLinear;
+	clutProperties_.clutAlphaLinearColor = alphaLinearColor;
+
+	clutLastFormat_ = gstate.clutformat;
+}
+
+// TODO: This should use information from the through mode bbox check.
+// TODO: Also we should feed this information in so we have it during creation, if at all possible.
+void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
+	// If the texture is >= 512 pixels tall... otherwise we don't bother.
+	if (entry->dim < 0x900) {
+		return;
+	}
+
+	if (entry->cluthash != 0 && entry->maxSeenV == 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+			// They should all be the same, just make sure we take any that has already increased.
+			// This is for a new texture.
+			if (it->second->maxSeenV != 0) {
+				entry->maxSeenV = it->second->maxSeenV;
+				break;
 			}
-		} else {
-			// Otherwise, we need to reset to ensure we use the whole thing.
-			// Can't tell how much is used.
-			// TODO: We could tell for texcoord UV gen, and apply scale to max?
+		}
+	}
+
+	// Texture scale/offset and gen modes don't apply in through.
+	// So we can optimize how much of the texture we look at.
+	if (throughMode) {
+		if (entry->maxSeenV == 0 && gstate_c.vertBounds.maxV > 0) {
+			// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
+			entry->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
+		} else if (gstate_c.vertBounds.maxV > entry->maxSeenV) {
+			// The max height changed, so we're better off hashing the entire thing.
 			entry->maxSeenV = 512;
 		}
+	} else {
+		// Otherwise, we need to reset to ensure we use the whole thing.
+		// Can't tell how much is used.
+		// TODO: We could tell for texcoord UV gen, and apply scale to max?
+		entry->maxSeenV = 512;
+	}
 
-		// We need to keep all CLUT variants in sync so we detect changes properly.
-		// See HandleTextureChange / STATUS_CLUT_RECHECK.
-		if (entry->cluthash != 0) {
-			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-				it->second->maxSeenV = entry->maxSeenV;
-			}
+	// We need to keep all CLUT variants in sync so we detect changes properly.
+	// See HandleTextureChange / STATUS_CLUT_RECHECK.
+	if (entry->cluthash != 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+			it->second->maxSeenV = entry->maxSeenV;
 		}
 	}
 }
 
-TexCacheEntry *TextureCacheCommon::SetTexture() {
+TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	u8 level = 0;
 	if (IsFakeMipmapChange()) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
-	u32 texaddr = gstate.getTextureAddress(level);
+	const u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
@@ -423,7 +524,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
-		return nullptr;
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		return TextureApplyResult();
 	}
 
 	const u16 dim = gstate.getTextureDimension(level);
@@ -436,11 +538,21 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		texFormat = GE_TFMT_5650;
 	}
 
-	bool hasClut = gstate.isTextureFormatIndexed();
 	bool hasClutGPU = false;
+	bool clutInShader = false;
 	u32 cluthash;
-	if (hasClut) {
-		if (clutRenderAddress_ != 0xFFFFFFFF) {
+	if (gstate.isTextureFormatIndexed()) {
+		// Check if we should use dynamic CLUT in shader or some other tricks.
+		if (PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled() && (texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4)) {
+			if (clutLastFormat_ != gstate.clutformat) {
+				// We update here because the clut format can be specified after the load.
+				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
+				UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
+			}
+			// We computed clutHash_ (with underscore) previously. But cluthash we set to 0, so the cache will collapse all the textures with various palettes.
+			cluthash = 0;
+			clutInShader = true;
+		} else if (clutRenderAddress_ != 0xFFFFFFFF) {
 			gstate_c.curTextureXOffset = 0.0f;
 			gstate_c.curTextureYOffset = 0.0f;
 			hasClutGPU = true;
@@ -451,20 +563,19 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
 				UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 			}
+			// Ugh, this xors in the control bits of clutformat... silly.
 			cluthash = clutHash_ ^ gstate.clutformat;
 		}
 	} else {
 		cluthash = 0;
 	}
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
+	const u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
 
 	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
-
-	u32 minihash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
+	const bool swizzled = gstate.isTextureSwizzled();
 
 	TexCache::iterator entryIter = cache_.find(cachekey);
-	TexCacheEntry *entry = nullptr;
 
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
 	// Should probably revisit how this works..
@@ -472,87 +583,38 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
 	if (entryIter != cache_.end()) {
-		entry = entryIter->second.get();
+		TexCacheEntry *entry = entryIter->second.get();
 
 		// Validate the texture still matches the cache entry.
-		bool match = entry->Matches(dim, texFormat, maxLevel);
-		const char *reason = "different params";
+		bool match = entry->MatchesProperties(dim, texFormat, maxLevel);
+		const char *reason = "(matches)";
+		if (match == false) {
+			reason = "different params";
+		}
 
 		// Check for dynamic CLUT status
-		if (((entry->status & TexCacheEntry::STATUS_CLUT_GPU) != 0) != hasClutGPU) {
+		if (((entry->status & TexStatus::CLUT_GPU) != 0) != hasClutGPU) {
 			// Need to recreate, suddenly a CLUT GPU texture was used without it, or vice versa.
 			// I think this can only happen on a clut hash collision with the marker value, so highly unlikely.
 			match = false;
+			reason = "clutgpu";
 		}
 
 		// Check for FBO changes.
-		if (entry->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) {
+		if (entry->status & TexStatus::FRAMEBUFFER_OVERLAP) {
 			// Fall through to the end where we'll delete the entry if there's a framebuffer.
-			entry->status &= ~TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+			entry->status &= ~TexStatus::FRAMEBUFFER_OVERLAP;
 			match = false;
+			reason = "fboverlap";
 		}
 
-		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
-
-		// First let's see if another texture with the same address had a hashfail.
-		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
-			// Always rehash in this case, if one changed the rest all probably did.
-			rehash = true;
-			entry->status &= ~TexCacheEntry::STATUS_CLUT_RECHECK;
-		} else if (!gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE)) {
-			// Okay, just some parameter change - the data didn't change, no need to rehash.
-			rehash = false;
-		}
-
-		// Do we need to recreate?
-		if (entry->status & TexCacheEntry::STATUS_FORCE_REBUILD) {
+		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+			DEBUG_LOG(Log::TexReplacement, "%08x: Reloading texture to do the scaling we skipped before", texaddr);
 			match = false;
-			entry->status &= ~TexCacheEntry::STATUS_FORCE_REBUILD;
+			reason = "scaling";
 		}
 
-		if (match) {
-			if (entry->lastFrame != gpuStats.numFlips) {
-				u32 diff = gpuStats.numFlips - entry->lastFrame;
-				entry->numFrames++;
-
-				if (entry->framesUntilNextFullHash < diff) {
-					// Exponential backoff up to 512 frames.  Textures are often reused.
-					if (entry->numFrames > 32) {
-						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						// textureName is unioned with texturePtr and vkTex so will work for the other backends.
-						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (((intptr_t)(entry->textureName) >> 12) & 15);
-					} else {
-						entry->framesUntilNextFullHash = entry->numFrames;
-					}
-					rehash = true;
-				} else {
-					entry->framesUntilNextFullHash -= diff;
-				}
-			}
-
-			// If it's not huge or has been invalidated many times, recheck the whole texture.
-			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && (dim >> 8) < 9 && (dim & 0xF) < 9)) {
-				entry->invalidHint = 0;
-				rehash = true;
-			}
-
-			if (minihash != entry->minihash) {
-				match = false;
-				reason = "minihash";
-			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				rehash = false;
-			}
-		}
-
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-				// INFO_LOG(Log::G3D, "Reloading texture to do the scaling we skipped..");
-				match = false;
-				reason = "scaling";
-			}
-		}
-
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
+		if (match && (entry->status & TexStatus::TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
@@ -563,8 +625,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 				switch (entry->replacedTexture->State()) {
 				case ReplacementState::NOT_FOUND:
 					// Didn't find a replacement, so stop looking.
-					// DEBUG_LOG(Log::G3D, "No replacement for texture %dx%d", w0, h0);
-					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+					DEBUG_LOG(Log::TexReplacement, "No replacement for texture %dx%d", w0, h0);
+					entry->status &= ~TexStatus::TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
 						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
 						match = false;
@@ -585,38 +647,171 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		}
 
 		if (match) {
+			// !!! Here we will do the check for "sync domain"
+			// NOTE: Reliable is just for the font texture now.
+			bool rehash = (entry->status & TexStatus::RELIABLE) == 0;
+
+			if (entry->lastSyncDomain == gstate_c.textureSyncTimeDomain) {
+				// The texture was last used in the same sync domain.
+				rehash = false;
+			} else {
+				entry->lastSyncDomain = gstate_c.textureSyncTimeDomain;
+				// We don't set rehash = true here, the declaration above did it properly.
+			}
+
+			// CLUT recheck was triggered by a "CLUT twin" (same address, different CLUT) needing a rehash.
+			if (entry->status & TexStatus::HASH_RECHECK) {
+				// If it's reliable, we can skip the sync domain check, since it won't change under us.
+				rehash = true;
+				entry->status &= ~(TexStatus::HASH_RECHECK);
+			}
+
+			if (entry->status & TexStatus::VIDEO) {
+				// Video textures are always rehashed, since they change every frame.
+				// Actually we don't really need to bother re-hashing, we just have to force-recreate it... Well,
+				// let's fix that later.
+				rehash = true;
+			}
+
 			// got one!
+			VERBOSE_LOG(Log::TexCache, "%08x: Texture found in cache. Rehash flag = %d", texaddr, (int)rehash);
+
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
-			gstate_c.SetTextureIsVideo(false);
-			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
-			gstate_c.SetTextureIsArray(false);
-			gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
-			gstate_c.SetTextureIsFramebuffer(false);
 
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->bufw = bufw;
-				entry->cluthash = cluthash;
-			}
+				if (entry->cluthash != cluthash) {
+					WARN_LOG(Log::TexCache, "Mysterious cluthash miss: %08x vs %08x", entry->cluthash, cluthash);
+				}
+				const bool isVideo = IsVideo(entry->addr);
+				if (isVideo) {
+					entry->status |= TexStatus::VIDEO;
+				} else {
+					entry->status &= ~TexStatus::VIDEO;
+				}
 
-			nextTexture_ = entry;
-			nextNeedsRehash_ = rehash;
-			nextNeedsChange_ = false;
-			// Might need a rebuild if the hash fails, but that will be set later.
-			nextNeedsRebuild_ = false;
-			failedTexture_ = false;
-			VERBOSE_LOG(Log::G3D, "Texture at %08x found in cache, applying", texaddr);
-			return entry; //Done!
+				// OK, time to check the contentshash if needed. This might lead to us throwing it in the backoff cache.
+				PROFILE_THIS_SCOPE("texhash");
+				// Update the hash on the texture.
+				// int w = gstate.getTextureWidth(0);
+				// int h = gstate.getTextureHeight(0);
+				_dbg_assert_(w == gstate.getTextureWidth(0));
+				_dbg_assert_(h == gstate.getTextureHeight(0));
+				_dbg_assert_(entry->addr == texaddr);
+				UpdateMaxSeenV(entry, gstate.isModeThrough());
+				const u32 newFullHash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+				if (newFullHash != entry->fullhash) {
+					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
+					gpuStats.perFrame.numTexturesChanged++;
+					if (!isVideo) {
+						DEBUG_LOG(Log::TexCache, "%08x: Texture hash not matching: old %08x vs new %08x, reloading (%s) (w=%d h=%d maxSeenV=%d)", entry->addr, entry->fullhash, newFullHash, reason, w, h, entry->maxSeenV);
+					}
+					// Mark any textures with the same address but different clut.  They need rechecking. Though, I think this is actually
+					// not needed anymore with the sync domains... Anyway.
+					if (entry->cluthash != 0) {
+						const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+						const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+						for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+							if (it->second->cluthash != entry->cluthash) {
+								it->second->status |= TexStatus::HASH_RECHECK;
+							}
+						}
+					}
+
+					// Release the texture from the cache entry, since we're about to throw it away.
+					entryIter->second.release();
+
+					const u64 secondKeyOld = (u64)entry->fullhash | ((u64)cluthash << 32);
+
+					// Start by throwing the old entry into the secondary cache - but only if not video.
+					// If it's video, just drop it.
+					if (!isVideo) {
+						TexCache::iterator secondIterOld = secondCache_.find(secondKeyOld);
+						if (secondIterOld == secondCache_.end()) {
+							DEBUG_LOG(Log::TexCache, "%08x: Hash changed from old %08x to new %08x, moving old entry to secondary cache (%dx%d)", texaddr, entry->fullhash, newFullHash, w, h);
+							// Not yet in the secondary, put it there.
+							secondCache_[secondKeyOld].reset(entry);
+							// Forget the entry.
+							entry = nullptr;
+						} else {
+							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
+							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
+							DEBUG_LOG(Log::TexCache, "%08x: Second cache already had one with hash %08x (tex has addr %08x)! (%dx%d)", texaddr, entry->fullhash, entry->addr, w, h);
+							// Just release the old entry, drop it on the ground.
+							ReleaseTexture(entry, true);
+							entry = nullptr;
+						}
+					} else {
+						// Just release the old video entry, drop it on the ground.
+						VERBOSE_LOG(Log::TexCache, "%08x: Dropping old invalidated video image (%dx%d)", texaddr, w, h);
+						ReleaseTexture(entry, true);
+						entry = nullptr;
+					}
+
+					// We have a new hash: look for that hash in the secondary cache.
+					const u64 secondKeyNew = (u64)newFullHash | ((u64)cluthash << 32);
+
+					// Now, look for the new hash in the secondary cache.
+					// If we find it, we can use that instead of building a new texture. We then pull it out from
+					// the secondary cache and move it to the main cache.
+					TexCache::iterator secondIterNew = secondCache_.find(secondKeyNew);
+					if (secondIterNew != secondCache_.end()) {
+						// Found it, but does it match our current params?  If not, abort.
+						if (secondIterNew->second->MatchesProperties(dim, texFormat, maxLevel)) {
+							// We got a match in the secondary cache that we can use.
+							// So we take it out of the secondary cache and move it back into the primary cache,
+							// updating the address as appropriate.
+							TexCacheEntry *secondEntry = secondIterNew->second.release();
+							secondCache_.erase(secondIterNew);
+							entryIter->second.reset(secondEntry);  // Here we move it into the main cache.
+							entry = secondEntry;
+							// Make sure the address is correct.
+							if (entry->addr != texaddr) {
+								DEBUG_LOG(Log::TexCache, "%08x: Texture matched with secondary cache entry with hash %08x at other address %08x. Updating address.", texaddr, newFullHash, entry->addr);
+								entry->addr = texaddr;
+							}
+							return ApplyTextureFinish(entry, doBind);
+						} else {
+							DEBUG_LOG(Log::TexCache, "%08x: Entry in secondary cache not suitable, ignoring and creating new: %08x (%dx%d)", texaddr, newFullHash, w, h);
+							// The entry in the secondary cache doesn't match our current parameters, so we can't use it.
+							// Let's leave it in there for now (revisit later).
+						}
+					} else {
+						if (!isVideo) {
+							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
+							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
+							DEBUG_LOG(Log::TexCache, "%08x: No entry for hash %08x in secondary cache, creating new in main cache.", texaddr, newFullHash);
+						}
+						// Well, not found, so we need to create a new entry.
+						cache_.erase(entryIter);
+					}
+					entry = nullptr;
+					entryIter = cache_.end();
+				} else {
+					// The texture didn't change after checking the hash, so we can just use it as-is.
+					return ApplyTextureFinish(entry, doBind);
+				}
+			} else {
+				// rehash was false, so let's just use the texture.
+				return ApplyTextureFinish(entry, doBind);
+			}
 		} else {
-			// Wasn't a match, we will rebuild.
-			nextChangeReason_ = reason;
-			nextNeedsChange_ = true;
-			// Fall through to the rebuild case.
+			DEBUG_LOG(Log::TexCache, "%08x: Texture was not a match (%s), recreating (%dx%d).", texaddr, reason, w, h);
+			// Wasn't a match even in format. Let's just delete it right away, since we know we need to rebuild it,
+			// and it's unlikely that putting it in the secondary cache will do us any good. We do that for things we rehash, though.
+			ReleaseTexture(entryIter->second.get(), true);
+			cache_.erase(entryIter);
+			entryIter = cache_.end();  // make sure we don't look at it again.
+			entry = nullptr;
 		}
+		// If we fall out here, the iterator must be gone and entry must be nullptr.
+		_dbg_assert_(entry == nullptr);
+		_dbg_assert_(entryIter == cache_.end());
 	}
 
-	// No texture found, or changed (depending on entry).
+	// No texture found when looking up the key, or changed (depending on entry).
 	// Check for framebuffers.
 
 	TextureDefinition def{};
@@ -626,103 +821,142 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	def.bufw = bufw;
 
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, 0, &bestCandidate, "texture")) {
-		// If we had a texture entry here, let's get rid of it.
-		if (entryIter != cache_.end()) {
-			DeleteTexture(entryIter);
+	if (GetBestFramebufferCandidate(framebufferManager_, def, 0, &bestCandidate, "texture")) {
+		RasterChannel channel;
+		VirtualFramebuffer *framebuffer = SetTextureFramebuffer(bestCandidate, &channel);  // sets curTexture3D
+		TextureApplyResult result;
+		// Maybe we bound a framebuffer?
+		ForgetLastTexture();
+		if (framebuffer) {
+			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
+			if (doBind) {
+				ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), channel);
+			}
+			result.framebuffer = framebuffer;
+			result.framebufferTextureChannel = channel;
+			framebuffer = nullptr;
+			gstate_c.SetTextureIsArray(true);
+		} else {
+			// Backends should handle this by binding a black texture with 0 alpha.
+			BindTexture(nullptr);
+			gstate_c.SetTextureIsArray(false);
 		}
-
-		nextTexture_ = nullptr;
-		nextNeedsRebuild_ = false;
-
-		SetTextureFramebuffer(bestCandidate);  // sets curTexture3D
-		return nullptr;
+		gstate_c.SetTextureIsVideo(false);
+		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		return result;
 	}
 
-	// Didn't match a framebuffer, keep going.
+	// Didn't match a framebuffer, keep going and create a brand new texture.
 
-	if (!entry) {
-		VERBOSE_LOG(Log::G3D, "No texture in cache for %08x, decoding...", texaddr);
-		entry = new TexCacheEntry{};
-		cache_[cachekey].reset(entry);
+	TexCacheEntry *entry = new TexCacheEntry{};
+	cache_[cachekey].reset(entry);
+	entry->status = {};
+	if (PPGeIsFontTextureAddress(texaddr)) {
+		// It's the builtin font texture.
+		entry->status |= TexStatus::RELIABLE;
+	}
 
-		if (PPGeIsFontTextureAddress(texaddr)) {
-			// It's the builtin font texture.
-			entry->status = TexCacheEntry::STATUS_RELIABLE;
-		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
-			entry->status = TexCacheEntry::STATUS_HASHING;
-		} else {
-			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+	if (hasClutGPU) {
+		WARN_LOG_N_TIMES(clutUseRender, 5, Log::TexCache, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+		entry->status |= TexStatus::CLUT_GPU | TexStatus::CLUT8_INDEXED;
+	}
+
+	if (gstate.isTextureFormatIndexed() && clutRenderAddress_ == 0xFFFFFFFF) {
+		const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+
+		int found = 0;
+		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+			found++;
 		}
 
-		if (hasClutGPU) {
-			WARN_LOG_N_TIMES(clutUseRender, 5, Log::G3D, "Using texture with dynamic CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-			entry->status |= TexCacheEntry::STATUS_CLUT_GPU;
-		}
-
-		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
-			const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
-			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-
-			int found = 0;
+		if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
 			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-				found++;
+				it->second->status |= TexStatus::MANY_CLUT_VARIANTS;
 			}
 
-			if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
-				for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-					it->second->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
-				}
-
-				entry->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
-			}
+			entry->status |= TexStatus::MANY_CLUT_VARIANTS;
 		}
-
-		nextNeedsChange_ = false;
 	}
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
-	entry->minihash = minihash;
 	entry->dim = dim;
 	entry->format = texFormat;
 	entry->maxLevel = maxLevel;
-	entry->status &= ~TexCacheEntry::STATUS_BGRA;
-
 	entry->bufw = bufw;
-
 	entry->cluthash = cluthash;
+	if (clutInShader) {
+		entry->status |= TexStatus::CLUT8_INDEXED;
+	}
+	if (IsVideo(entry->addr)) {
+		entry->status |= TexStatus::VIDEO;
+	}
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
-	gstate_c.SetTextureIsVideo(false);
-	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
-	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
-	gstate_c.SetTextureIsFramebuffer(false);
+	UpdateMaxSeenV(entry, gstate.isModeThrough());  // Critical to update this before hashing! As it's used to decide the hash range.
+	entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 
-	failedTexture_ = false;
-	nextTexture_ = entry;
-	nextFramebufferTexture_ = nullptr;
-	nextNeedsRehash_ = true;
-	// We still need to rebuild, to allocate a texture.  But we'll bail early.
-	nextNeedsRebuild_ = true;
-	return entry;
+	VERBOSE_LOG(Log::TexCache, "%08x: Creating new texture, hash %08x (maxSeenV=%d), w: %d h: %d, creating", texaddr, entry->fullhash, entry->maxSeenV, w, h);
+
+	BuildTexture(entry);
+	ForgetLastTexture();  // is this needed?
+	return ApplyTextureFinish(entry, doBind);
 }
 
-bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) const {
-	gpuStats.numFramebufferEvaluations++;
+TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, bool doBind) {
+	_dbg_assert_(entry);
+
+	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
+	gstate_c.SetTextureIsFramebuffer(false);
+	entry->lastFrame = gpuStats.totals.numFlips;
+	if (entry->status & TexStatus::CLUT_GPU) {
+		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
+		// Special process.
+		if (doBind) {
+			ApplyTextureDepalFramebufferCLUT(entry);
+		}
+		gstate_c.SetTextureSolidAlpha(false);
+		gstate_c.SetTextureIs3D(false);
+		return TextureApplyResult{};
+	} else {
+		if (doBind) {
+			BindTexture(entry);
+		}
+		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
+		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
+		if (entry->status & TexStatus::CLUT8_INDEXED) {
+			bool smoothedDepal = false;
+			u32 depthUpperBits = 0;
+			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBuf_);
+			BindAsClutTexture(clutTexture.texture, false);
+			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
+		} else {
+			gstate_c.SetShaderDepal(ShaderDepalMode::OFF, GE_FORMAT_INVALID);
+		}
+	}
+	return TextureApplyResult{entry, nullptr};
+}
+
+static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context) {
+	gpuStats.perFrame.numFramebufferEvaluations++;
 
 	TinySet<AttachCandidate, 6> candidates;
 
-	const std::vector<VirtualFramebuffer *> &framebuffers = framebufferManager_->Framebuffers();
+	const std::vector<VirtualFramebuffer *> &framebuffers = fbManager->Framebuffers();
+
+	const bool useBufferedRendering = fbManager->UseBufferedRendering();
 
 	for (VirtualFramebuffer *framebuffer : framebuffers) {
 		FramebufferMatchInfo match{};
-		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, &match)) {
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_COLOR, useBufferedRendering, &match)) {
 			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_COLOR });
 		}
 		match = {};
-		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, &match)) {
+		if (MatchFramebuffer(entry, framebuffer, texAddrOffset, RASTER_DEPTH, useBufferedRendering, &match)) {
 			candidates.push_back(AttachCandidate{ framebuffer, match, RASTER_DEPTH });
 		}
 	}
@@ -768,7 +1002,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		// Avoid binding as texture the framebuffer we're rendering to.
 		// In Killzone, we split the framebuffer but the matching algorithm can still pick the wrong one,
 		// which this avoids completely.
-		if (kzCompat && candidate.fb == framebufferManager_->GetCurrentRenderVFB()) {
+		if (kzCompat && candidate.fb == fbManager->GetCurrentRenderVFB()) {
 			continue;
 		}
 
@@ -791,7 +1025,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 		}
 		cands += "\n";
 
-		WARN_LOG(Log::G3D, "GetBestFramebufferCandidate(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
+		WARN_LOG(Log::TexCache, "GetBestFramebufferCandidate(%s): Multiple (%d) candidate framebuffers. texaddr: %08x offset: %d (%dx%d stride %d, %s):\n%s",
 			context,
 			(int)candidates.size(),
 			entry.addr, texAddrOffset, dimWidth(entry.dim), dimHeight(entry.dim), entry.bufw, GeTextureFormatToString(entry.format),
@@ -802,7 +1036,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 
 	if (bestIndex != -1) {
 		if (logging) {
-			WARN_LOG(Log::G3D, "Chose candidate %d:\n%s", (int)bestIndex, candidates[bestIndex].ToString().c_str());
+			WARN_LOG(Log::TexCache, "Chose candidate %d:\n%s", (int)bestIndex, candidates[bestIndex].ToString().c_str());
 		}
 		*bestCandidate = candidates[bestIndex];
 		return true;
@@ -812,119 +1046,86 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 }
 
 // Removes old textures.
-void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressure) {
+void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure) {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
 		return;
 	}
 
-	if (forcePressure || cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
+	// Compute the cache size.
+	s64 cacheSizeEstimate = CacheSizeEstimate();
+	if (forcePressure || cacheSizeEstimate >= TEXCACHE_MIN_PRESSURE) {
+		const u32 had = cacheSizeEstimate;
 
 		ForgetLastTexture();
-		int killAgeBase = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ) {
 			if (iter->second.get() == exceptThisOne) {
 				++iter;
 				continue;
 			}
-			bool hasClut = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
-			int killAge = hasClut ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
-			if (iter->second->lastFrame + killAge < gpuStats.numFlips) {
-				DeleteTexture(iter++);
+			bool hasClutVariants = (iter->second->status & TexStatus::MANY_CLUT_VARIANTS) != 0;
+			int killAge = hasClutVariants ? TEXTURE_KILL_AGE_CLUT : TEXTURE_KILL_AGE;
+			if (iter->second->lastFrame + killAge < gpuStats.totals.numFlips) {
+				DEBUG_LOG(Log::TexCache, "Decimating cached texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
+				cacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
+				ReleaseTexture(iter->second.get(), true);
+				iter = cache_.erase(iter);
 			} else {
 				++iter;
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
+		if (had != cacheSizeEstimate) {
+			DEBUG_LOG(Log::TexCache, "Decimated texture cache, saved %d estimated bytes - now %d bytes", (int)(had - cacheSizeEstimate), (int)cacheSizeEstimate);
+		}
 	}
 
+	s64 secondCacheSizeEstimate = SecondCacheSizeEstimate();
 	// If enabled, we also need to clear the secondary cache.
-	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
-		const u32 had = secondCacheSizeEstimate_;
+	if (forcePressure || secondCacheSizeEstimate >= TEXCACHE_SECOND_MIN_PRESSURE) {
+		const u32 had = secondCacheSizeEstimate;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
 			if (iter->second.get() == exceptThisOne) {
 				++iter;
 				continue;
 			}
-			// In low memory mode, we kill them all since secondary cache is disabled.
-			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
+			if (iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.totals.numFlips) {
+				DEBUG_LOG(Log::TexCache, "Decimating second-cache texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
 				ReleaseTexture(iter->second.get(), true);
-				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(iter->second.get());
+				secondCacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				iter = secondCache_.erase(iter);
 			} else {
 				++iter;
 			}
 		}
 
-		VERBOSE_LOG(Log::G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
+		if (had != secondCacheSizeEstimate) {
+			DEBUG_LOG(Log::TexCache, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", (int)(had - secondCacheSizeEstimate), (int)secondCacheSizeEstimate);
+		}
 	}
 
-	DecimateVideos();
-	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
-}
-
-void TextureCacheCommon::DecimateVideos() {
+	// Decimate known videos (so the list doesn't grow unboundedly or we start to misidentify textures as video).
 	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
-		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.numFlips) {
+		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.totals.numFlips) {
 			iter = videos_.erase(iter);
 		} else {
 			++iter;
 		}
 	}
+
+	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
 }
 
 bool TextureCacheCommon::IsVideo(u32 texaddr) const {
 	texaddr &= 0x3FFFFFFF;
-	for (auto &info : videos_) {
-		if (texaddr < info.addr) {
-			continue;
-		}
-		if (texaddr < info.addr + info.size) {
+	for (const VideoInfo &info : videos_) {
+		if (texaddr >= info.addr && texaddr < info.addr + info.size) {
 			return true;
 		}
 	}
 	return false;
-}
-
-void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-	entry->numInvalidated++;
-	gpuStats.numTextureInvalidations++;
-	DEBUG_LOG(Log::G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
-	if (doDelete) {
-		ForgetLastTexture();
-		ReleaseTexture(entry, true);
-		entry->status &= ~(TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED | TexCacheEntry::STATUS_TO_REPLACE);
-	}
-
-	// Mark as hashing, if marked as reliable.
-	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-	}
-
-	// Also, mark any textures with the same address but different clut.  They need rechecking.
-	if (entry->cluthash != 0) {
-		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-			if (it->second->cluthash != entry->cluthash) {
-				it->second->status |= TexCacheEntry::STATUS_CLUT_RECHECK;
-			}
-		}
-	}
-
-	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-		if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
-			entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
-		} else {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-		}
-	}
-	entry->numFrames = 0;
 }
 
 void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
@@ -955,8 +1156,8 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 		// Color - no need to look in the mirrors.
 		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-			it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-			gpuStats.numTextureInvalidationsByFramebuffer++;
+			it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
+			gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 		}
 
 		if (z_stride != 0) {
@@ -965,12 +1166,12 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 			cacheKey = (u64)z_addr << 32;
 			cacheKeyEnd = (u64)z_endAddr << 32;
 			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-				gpuStats.numTextureInvalidationsByFramebuffer++;
+				it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
+				gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 			}
 			for (auto it = cache_.lower_bound(cacheKey | 0x600000), end = cache_.upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-				gpuStats.numTextureInvalidationsByFramebuffer++;
+				it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
+				gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 			}
 		}
 		break;
@@ -980,9 +1181,8 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 	}
 }
 
-bool TextureCacheCommon::MatchFramebuffer(
-	const TextureDefinition &entry,
-	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, FramebufferMatchInfo *matchInfo) const {
+static bool MatchFramebuffer(const TextureDefinition &entry,
+	VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, bool useBufferedRendering, FramebufferMatchInfo *matchInfo) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	uint32_t fb_address = channel == RASTER_DEPTH ? framebuffer->z_address : framebuffer->fb_address;
@@ -1052,12 +1252,9 @@ bool TextureCacheCommon::MatchFramebuffer(
 			// Format incompatible, ignoring without comment. (maybe some really gnarly hacks will end up here...)
 			return false;
 		}
+	} else if (!useBufferedRendering) {
+		return false;
 	} else {
-		// Apply to buffered mode only.
-		if (!framebufferManager_->UseBufferedRendering()) {
-			return false;
-		}
-
 		// Check works for D16 too.
 		// These are combinations that we have special-cased handling for. There are more
 		// ones possible, but rare - we'll add them as we find them used.
@@ -1135,8 +1332,17 @@ bool TextureCacheCommon::MatchFramebuffer(
 				}
 				return true;
 			}
-		} else if (IsClutFormat((GETextureFormat)(entry.format)) || IsDXTFormat((GETextureFormat)(entry.format))) {
-			WARN_LOG_ONCE(fourEightBit, Log::G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+		} else if (IsClutFormat((GETextureFormat)(entry.format))) {
+			WARN_LOG_ONCE(nomatch_clut, Log::G3D, "%s texture format not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
+			// Seen in Silent Hill: Shattered Memories (#6265).
+			if (entry.format == GE_TFMT_CLUT32 && fb_format != GE_FORMAT_8888) {
+				matchInfo->reinterpret = true;
+				matchInfo->reinterpretTo = GE_FORMAT_8888;
+				return true;
+			}
+			return false;
+		} else if (IsDXTFormat((GETextureFormat)(entry.format))) {
+			WARN_LOG_ONCE(nomatch_dxt, Log::G3D, "%s texture format (DXT!) not matching framebuffer of format %s at %08x/%d", GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, fb_stride);
 			return false;
 		}
 
@@ -1158,7 +1364,7 @@ bool TextureCacheCommon::MatchFramebuffer(
 	}
 }
 
-void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
+VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate, RasterChannel *framebufferTextureChannel) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	RasterChannel channel = candidate.channel;
 
@@ -1170,9 +1376,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	// Keep the framebuffer alive.
-	framebuffer->last_frame_used = gpuStats.numFlips;
-
-	nextFramebufferTextureChannel_ = RASTER_COLOR;
+	framebuffer->last_frame_used = gpuStats.totals.numFlips;
+	*framebufferTextureChannel = RASTER_COLOR;
 
 	if (framebufferManager_->UseBufferedRendering()) {
 		FramebufferMatchInfo fbInfo = candidate.match;
@@ -1195,9 +1400,9 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		gstate_c.curTextureWidth = texWidth;
 		gstate_c.curTextureHeight = texHeight;
 		gstate_c.SetTextureIsFramebuffer(true);
-		gstate_c.SetTextureIsBGRA(false);
 
 		if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+			// Hm, this seems a bit iffy.
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 
@@ -1205,10 +1410,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
 		u32 texH = (u32)gstate.getTextureHeight(0);
-		gstate_c.SetNeedShaderTexclamp(gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH);
-		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.SetNeedShaderTexclamp(true);
-		}
+		const bool needShaderTexClamp = gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH || gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+		gstate_c.SetNeedShaderTexclamp(needShaderTexClamp);
 		if (channel == RASTER_DEPTH) {
 			framebuffer->usageFlags |= FB_USAGE_COLOR_MIXED_DEPTH;
 		}
@@ -1217,13 +1420,10 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			WARN_LOG_ONCE(ndepthtex, Log::G3D, "Depth textures not supported, not binding");
 			// Flag to bind a null texture if we can't support depth textures.
 			// Should only happen on old OpenGL.
-			nextFramebufferTexture_ = nullptr;
-			failedTexture_ = true;
+			framebuffer = nullptr;
 		} else {
-			nextFramebufferTexture_ = framebuffer;
-			nextFramebufferTextureChannel_ = channel;
+			*framebufferTextureChannel = channel;
 		}
-		nextTexture_ = nullptr;
 	} else {
 		if (framebuffer->fbo) {
 			framebuffer->fbo->Release();
@@ -1231,55 +1431,12 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 		Unbind();
 		gstate_c.SetNeedShaderTexclamp(false);
-		nextFramebufferTexture_ = nullptr;
-		nextTexture_ = nullptr;
+		framebuffer = nullptr;
 	}
-
-	gstate_c.SetTextureIsVideo(false);
-	gstate_c.SetTextureIs3D(false);
-	gstate_c.SetTextureIsArray(true);
-
-	nextNeedsRehash_ = false;
-	nextNeedsChange_ = false;
-	nextNeedsRebuild_ = false;
+	return framebuffer;
 }
 
-// Only looks for framebuffers.
-bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
-	if (!framebufferManager_->UseBufferedRendering()) {
-		return false;
-	}
-
-	u32 texaddr = gstate.getTextureAddress(0);
-	GETextureFormat fmt = gstate.getTextureFormat();
-	const u32 bpp = fmt == GE_TFMT_8888 ? 4 : 2;
-	const u32 texaddrOffset = yOffset * gstate.getTextureWidth(0) * bpp;
-
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + texaddrOffset)) {
-		return false;
-	}
-
-	TextureDefinition def;
-	def.addr = texaddr;
-	def.format = fmt;
-	def.bufw = GetTextureBufw(0, texaddr, fmt);
-	def.dim = gstate.getTextureDimension(0);
-
-	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(def, texaddrOffset, &bestCandidate, "offsetTexture")) {
-		SetTextureFramebuffer(bestCandidate);
-		return true;
-	} else {
-		return false;
-	}
-}
-
-bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffer, bool *isFramebuffer) {
-	if (!nextFramebufferTexture_)
-		return false;
-	*isFramebuffer = true;
-
-	VirtualFramebuffer *vfb = nextFramebufferTexture_;
+bool TextureCacheCommon::GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, RasterChannel channel, GPUDebugBuffer &buffer) {
 	u8 sf = vfb->renderScaleFactor;
 	int x = gstate_c.curTextureXOffset * sf;
 	int y = gstate_c.curTextureYOffset * sf;
@@ -1289,7 +1446,7 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 	int h = std::min(desiredH, vfb->bufferHeight * sf - y);
 
 	bool retval;
-	if (nextFramebufferTextureChannel_ == RASTER_DEPTH) {
+	if (channel == RASTER_DEPTH) {
 		buffer.Allocate(desiredW, desiredH, GPU_DBG_FORMAT_FLOAT, false);
 		if (w < desiredW || h < desiredH)
 			buffer.ZeroBytes();
@@ -1314,14 +1471,6 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor = g_Config.iTexScalingLevel;
 
-	if (!gstate_c.Use(GPU_USE_TEXTURE_NPOT)) {
-		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
-		// TODO: In addition we should probably remove these options from the UI in this case.
-		while ((scaleFactor & (scaleFactor - 1)) != 0) {
-			--scaleFactor;
-		}
-	}
-
 	// Just in case, small display with auto resolution or something.
 	if (scaleFactor <= 0) {
 		scaleFactor = 1;
@@ -1334,7 +1483,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 
 void TextureCacheCommon::NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt) {
 	addr &= 0x3FFFFFFF;
-	videos_.push_back({ addr, (u32)size, gpuStats.numFlips });
+	videos_.push_back({ addr, (u32)size, gpuStats.totals.numFlips });
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Recorder *recorder) {
@@ -1393,14 +1542,14 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 				// the framebuffer with the smallest offset. This is yet another framebuffer matching
 				// loop with its own rules, eventually we'll probably want to do something
 				// more systematic.
-				bool okAge = !PSP_CoreParameter().compat.flags().LoadCLUTFromCurrentFrameOnly || framebuffer->last_frame_render == gpuStats.numFlips;  // Here we can try heuristics.
+				bool okAge = !PSP_CoreParameter().compat.flags().LoadCLUTFromCurrentFrameOnly || framebuffer->last_frame_render == gpuStats.totals.numFlips;  // Here we can try heuristics.
 				if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
 					if (okAge) {
 						WARN_LOG_N_TIMES(clutfb, 5, Log::G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), last render %d frames ago, byte offset %d, pixel offset %d",
-							loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), gpuStats.numFlips - framebuffer->last_frame_render, offset, offset / fb_bpp);
-						framebuffer->last_frame_clut = gpuStats.numFlips;
+							loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), gpuStats.totals.numFlips - framebuffer->last_frame_render, offset, offset / fb_bpp);
+						framebuffer->last_frame_clut = gpuStats.totals.numFlips;
 						// Also mark used so it's not decimated.
-						framebuffer->last_frame_used = gpuStats.numFlips;
+						framebuffer->last_frame_used = gpuStats.totals.numFlips;
 						framebuffer->usageFlags |= FB_USAGE_CLUT;
 						bestClutAddress = framebuffer->fb_address;
 						clutRenderOffset_ = (u32)offset;
@@ -1410,7 +1559,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 							break;
 						}
 					} else {
-						WARN_LOG(Log::G3D, "Ignoring CLUT load from %d frames old buffer at %08x", gpuStats.numFlips - framebuffer->last_frame_render, fb_address);
+						WARN_LOG(Log::TexCache, "Ignoring CLUT load from %d frames old buffer at %08x", gpuStats.totals.numFlips - framebuffer->last_frame_render, fb_address);
 					}
 				}
 			}
@@ -1546,14 +1695,13 @@ bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 }
 
 // Host memory usage, not PSP memory usage.
-u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
-	const u16 dim = entry->dim;
+u32 TexCacheEntry::EstimateTexMemoryUsage() const {
 	// TODO: This does not take into account the HD remaster's larger textures.
 	const u8 dimW = ((dim >> 0) & 0xf);
 	const u8 dimH = ((dim >> 8) & 0xf);
 
 	u32 pixelSize = 2;
-	switch (entry->format) {
+	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
 	case GE_TFMT_CLUT16:
@@ -1579,6 +1727,22 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 	return pixelSize << (dimW + dimH);
 }
 
+const size_t TextureCacheCommon::CacheSizeEstimate() const {
+	s64 cacheSizeEstimate = 0;
+	for (auto &[_ , value] : cache_) {
+		cacheSizeEstimate += value->EstimateTexMemoryUsage();
+	}
+	return cacheSizeEstimate;
+}
+
+const size_t TextureCacheCommon::SecondCacheSizeEstimate() const {
+	s64 cacheSizeEstimate = 0;
+	for (auto &[_, value] : secondCache_) {
+		cacheSizeEstimate += value->EstimateTexMemoryUsage();
+	}
+	return cacheSizeEstimate;
+}
+
 ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d) {
 	if (*d != 1) {
 		// We don't yet support replacing 3D textures.
@@ -1592,17 +1756,17 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 		return nullptr;
 	}
 
-	if ((entry->status & TexCacheEntry::STATUS_VIDEO) && !replacer_.AllowVideo()) {
+	if ((entry->status & TexStatus::VIDEO) && !replacer_.AllowVideo()) {
 		return nullptr;
 	}
 
 	double replaceStart = time_now_d();
-	u64 cachekey = entry->CacheKey();
-	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, *w, *h);
+	ReplacementCacheKey cacheKey(entry->CacheKey(), entry->fullhash);
+	ReplacedTexture *replaced = replacer_.FindReplacement(cacheKey, *w, *h);
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
 		// TODO: Remove the flag here?
-		// entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+		// entry->status &= ~TexStatus::TO_REPLACE;
 		return nullptr;
 	}
 	entry->replacedTexture = replaced;  // we know it's non-null here.
@@ -1627,11 +1791,11 @@ void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, i
 		if (entry->replacedTexture->State() == ReplacementState::ACTIVE) {
 			entry->replacedTexture->GetSize(0, w, h);
 			// Consider it already "scaled.".
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED;
+			entry->status |= TexStatus::IS_SCALED_OR_REPLACED;
 		}
 
 		// Remove the flag, even if it was invalid.
-		entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
+		entry->status &= ~TexStatus::TO_REPLACE;
 	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 
@@ -1639,7 +1803,7 @@ void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, i
 	case ReplacementState::UNLOADED:
 	case ReplacementState::PENDING:
 		// Make sure we keep polling.
-		entry->status |= TexCacheEntry::STATUS_TO_REPLACE;
+		entry->status |= TexStatus::TO_REPLACE;
 		break;
 	default:
 		break;
@@ -1692,7 +1856,7 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 }
 
 template <typename DXTBlock, int n>
-static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
+static TextureAlpha DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
 	int w, int h, int bufw, bool reverseColors) {
 
 	int minw = std::min(bufw, w);
@@ -1728,10 +1892,10 @@ static CheckAlphaResult DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t tex
 	}
 
 	if constexpr (n == 1) {
-		return alphaSum == 1 ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+		return alphaSum == 1 ? TextureAlpha::Solid : TextureAlpha::Any;
 	} else {
 		// Just report that we don't have full alpha, since these formats are made for that.
-		return CHECKALPHA_ANY;
+		return TextureAlpha::Any;
 	}
 }
 
@@ -1766,7 +1930,7 @@ static void Expand4To8Bits(u8 *dest, const u8 *src, int srcWidth) {
 	}
 }
 
-CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
+TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
 
@@ -1795,6 +1959,21 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 	const u8 *texptr = Memory::GetPointer(texaddr);
 	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
 
+	// Validate the texture data fits in mapped RAM, like the DXT path does.
+	// texaddr/bufw/w/h are all guest-controlled via the GE display list.
+	const int bpp = textureBitsPerPixel[format];
+	const uint32_t bytesPerRow = (bpp * bufw) / 8;
+	// Swizzled textures are read in 8-row blocks, rounding the height up.
+	const uint32_t rows = swizzled ? ((h + 7) & ~7) : h;
+	const uint32_t neededBytes = bytesPerRow * rows;
+	if (bytesPerRow > 0 && !Memory::IsValidRange(texaddr, neededBytes)) {
+		ERROR_LOG_REPORT(Log::G3D, "Texture extends beyond valid RAM: %08x + %d x %d", texaddr, bufw, h);
+		uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
+		h = limited / bytesPerRow;
+		if (swizzled)
+			h &= ~7;
+	}
+
 	char buf[128];
 	size_t len = snprintf(buf, sizeof(buf), "Tex_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat));
 	NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, buf, len);
@@ -1817,7 +1996,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				Expand4To8Bits((u8 *)out + outPitch * y, texptr + (bufw * y) / 2, w);
 			}
 			// We can't know anything about alpha.
-			return CHECKALPHA_ANY;
+			return TextureAlpha::Any;
 		}
 
 		switch (clutformat) {
@@ -1827,23 +2006,23 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		{
 			// The w > 1 check is to not need a case that handles a single pixel
 			// in DeIndexTexture4Optimal<u16>.
-			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit && w >= 4) {
-				// We don't bother with fullalpha here (clutAlphaLinear_)
+			if (clutProperties_.clutAlphaLinear && mipmapShareClut && !expandTo32bit && w >= 4) {
+				// We don't bother with fullalpha here (clutAlphaLinear)
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutProperties_.clutAlphaLinearColor);
 					}
 				} else {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutProperties_.clutAlphaLinearColor);
 					}
 				}
 			} else {
 				// Need to have the "un-reversed" (raw) CLUT here since we are using a generic conversion function.
 				if (expandTo32bit) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
-					const u16 *clut = GetCurrentRawClut<u16>() + clutSharingOffset;
+					const u16 *clut = (const u16 *)(clutBufRaw_) + clutSharingOffset;
 					const int clutStart = gstate.getClutIndexStartPos();
 					if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexMask() <= 16) {
 						ConvertFormatToRGBA8888(clutformat, expandClut_ + clutStart, clut + clutStart, 16);
@@ -1857,7 +2036,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 					}
 				} else {
 					// If we're reversing colors, the CLUT was already reversed, no special handling needed.
-					const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
+					const u16 *clut = (const u16 *)(clutBuf_) + clutSharingOffset;
 					fullAlphaMask = ClutFormatToFullAlpha(clutformat, reverseColors);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4<u16>((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -1867,14 +2046,14 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 
 			if (clutformat == GE_CMODE_16BIT_BGR5650) {
 				// Our formula at the end of the function can't handle this cast so we return early.
-				return CHECKALPHA_FULL;
+				return TextureAlpha::Solid;
 			}
 		}
 		break;
 
 		case GE_CMODE_32BIT_ABGR8888:
 		{
-			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
+			const u32 *clut = (const u32 *)(clutBuf_) + clutSharingOffset;
 			fullAlphaMask = 0xFF000000;
 			for (int y = 0; y < h; ++y) {
 				DeIndexTexture4<u32>((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut, &alphaSum);
@@ -1884,7 +2063,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 
 		default:
 			ERROR_LOG_REPORT(Log::G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return CHECKALPHA_ANY;
+			return TextureAlpha::Any;
 		}
 	}
 	break;
@@ -1901,15 +2080,15 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 				memcpy((u8 *)out + outPitch * y, texptr + (bufw * y), w);
 			}
 			// We can't know anything about alpha.
-			return CHECKALPHA_ANY;
+			return TextureAlpha::Any;
 		}
-		return ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, reverseColors, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, w, h, level, texptr, 1, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT16:
-		return ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, reverseColors, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, w, h, level, texptr, 2, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_CLUT32:
-		return ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, reverseColors, expandTo32bit);
+		return ReadIndexedTex(out, outPitch, w, h, level, texptr, 4, bufw, reverseColors, expandTo32bit);
 
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
@@ -1968,7 +2147,7 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 			}
 		}
 		if (format == GE_TFMT_5650) {
-			return CHECKALPHA_FULL;
+			return TextureAlpha::Solid;
 		}
 		break;
 
@@ -2024,13 +2203,10 @@ CheckAlphaResult TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, G
 		break;
 	}
 
-	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+	return AlphaSumIsFull(alphaSum, fullAlphaMask) ? TextureAlpha::Solid : TextureAlpha::Any;
 }
 
-CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
+TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int w, int h, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
 	if (gstate.isTextureSwizzled()) {
 		tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
 		UnswizzleFromMem(tmpTexBuf32_.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
@@ -2122,106 +2298,28 @@ CheckAlphaResult TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int l
 	}
 
 	if (palFormat == GE_CMODE_16BIT_BGR5650) {
-		return CHECKALPHA_FULL;
+		return TextureAlpha::Solid;
 	} else {
-		return AlphaSumIsFull(alphaSum, fullAlphaMask) ? CHECKALPHA_FULL : CHECKALPHA_ANY;
+		return AlphaSumIsFull(alphaSum, fullAlphaMask) ? TextureAlpha::Solid : TextureAlpha::Any;
 	}
 }
 
-void TextureCacheCommon::ApplyTexture(bool doBind) {
-	TexCacheEntry *entry = nextTexture_;
-	if (!entry) {
-		// Maybe we bound a framebuffer?
-		ForgetLastTexture();
-		if (failedTexture_) {
-			// Backends should handle this by binding a black texture with 0 alpha.
-			BindTexture(nullptr);
-		} else if (nextFramebufferTexture_) {
-			// ApplyTextureFrameBuffer is responsible for setting SetTextureFullAlpha.
-			ApplyTextureFramebuffer(nextFramebufferTexture_, gstate.getTextureFormat(), nextFramebufferTextureChannel_);
-			nextFramebufferTexture_ = nullptr;
-		}
-
-		// We don't set the 3D texture state here or anything else, on some backends (?)
-		// a nextTexture_ of nullptr means keep the current texture.
-		return;
-	}
-
-	nextTexture_ = nullptr;
-
-	UpdateMaxSeenV(entry, gstate.isModeThrough());
-
-	if (nextNeedsRebuild_) {
-		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
-		// This prevents temporary scaling perf hits on the first second of video.
-		if (IsVideo(entry->addr)) {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT | TexCacheEntry::STATUS_VIDEO;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_VIDEO;
-		}
-
-		if (nextNeedsRehash_) {
-			PROFILE_THIS_SCOPE("texhash");
-			// Update the hash on the texture.
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			bool swizzled = gstate.isTextureSwizzled();
-			entry->fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
-
-			// TODO: Here we could check the secondary cache; maybe the texture is in there?
-			// We would need to abort the build if so.
-		}
-		if (nextNeedsChange_) {
-			// This texture existed previously, let's handle the change.
-			HandleTextureChange(entry, nextChangeReason_, false, true);
-		}
-		// We actually build afterward (shared with rehash rebuild.)
-	} else if (nextNeedsRehash_) {
-		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
-		bool doDelete = true;
-		if (!CheckFullHash(entry, doDelete)) {
-			HandleTextureChange(entry, "hash fail", true, doDelete);
-			nextNeedsRebuild_ = true;
-		} else if (nextTexture_ != nullptr) {
-			// The secondary cache may choose an entry from its storage by setting nextTexture_.
-			// This means we should set that, instead of our previous entry.
-			entry = nextTexture_;
-			nextTexture_ = nullptr;
-			UpdateMaxSeenV(entry, gstate.isModeThrough());
-		}
-	}
-
-	// Okay, now actually rebuild the texture if needed.
-	if (nextNeedsRebuild_) {
-		_assert_(!entry->texturePtr);
-		BuildTexture(entry);
-		ForgetLastTexture();
-	}
-
-	gstate_c.SetTextureIsVideo((entry->status & TexCacheEntry::STATUS_VIDEO) != 0);
-	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
-		// Special process.
-		ApplyTextureDepal(entry);
-		entry->lastFrame = gpuStats.numFlips;
-		gstate_c.SetTextureFullAlpha(false);
-		gstate_c.SetTextureIs3D(false);
-		gstate_c.SetTextureIsArray(false);
-		gstate_c.SetTextureIsBGRA(false);
+void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool flatZ, bool pixelMapped) {
+	SamplerCacheKey samplerKey;
+	if (result.texCacheEntry) {
+		int maxLevel = (result.texCacheEntry->status & TexStatus::NO_MIPS) ? 0 : result.texCacheEntry->maxLevel;
+		samplerKey = GetSamplingParams(maxLevel, result.texCacheEntry, flatZ, pixelMapped);
+	} else if (result.framebuffer) {
+		samplerKey = GetFramebufferSamplingParams(gstate, result.framebuffer->bufferWidth, result.framebuffer->bufferHeight, pixelMapped);
 	} else {
-		entry->lastFrame = gpuStats.numFlips;
-		if (doBind) {
-			BindTexture(entry);
-		}
-		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
-		gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
-		gstate_c.SetTextureIsArray(false);
-		gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		samplerKey = GetSamplingParams(0, nullptr, flatZ, pixelMapped);
 	}
+	ApplySamplerByKey(samplerKey);
 }
 
-// Can we depalettize at all? This refers to both in-fragment-shader depal and "traditional" depal through a separate pass.
-static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
+// Can we depalettize the bufferFormat as texFormat at all?
+// This refers to both in-fragment-shader depal and "traditional" depal through a separate pass.
+static bool CanDepalettizeBufferAs(GETextureFormat texFormat, GEBufferFormat bufferFormat) {
 	if (IsClutFormat(texFormat)) {
 		switch (bufferFormat) {
 		case GE_FORMAT_4444:
@@ -2246,7 +2344,7 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 			// Shouldn't happen here.
 			return false;
 		}
-		WARN_LOG(Log::G3D, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
+		WARN_LOG(Log::TexCache, "Invalid CLUT/framebuffer combination: %s vs %s", GeTextureFormatToString(texFormat), GeBufferFormatToString(bufferFormat));
 		return false;
 	} else if (texFormat == GE_TFMT_5650 && bufferFormat == GE_FORMAT_DEPTH16) {
 		// We can also "depal" 565 format, this is used to read depth buffers as 565 on occasion (#15491).
@@ -2259,7 +2357,7 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 // But we only do it if the mask/shift exactly matches a color channel, else something different might be going
 // on and we definitely don't want to interpolate.
 // Great enhancement for Test Drive and Manhunt 2.
-static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, const ClutTexture &clutTexture) {
+static bool CanUseSmoothDepal(const GEState &gstate, GEBufferFormat framebufferFormat, const ClutTexture &clutTexture) {
 	for (int i = 0; i < ClutTexture::MAX_RAMPS; i++) {
 		if (gstate.getClutIndexStartPos() == clutTexture.rampStarts[i] &&
 			gstate.getClutIndexMask() < clutTexture.rampLengths[i]) {
@@ -2287,17 +2385,18 @@ static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebuffe
 
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	Draw2DPipeline *textureShader = nullptr;
-	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
+	const uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool depth = channel == RASTER_DEPTH;
-	bool need_depalettize = CanDepalettize(texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format);
+	const bool depth = channel == RASTER_DEPTH;
+	const GEBufferFormat fbFormat = depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format;
+	const bool need_depalettize = CanDepalettizeBufferAs(texFormat, fbFormat);
+	const bool selfRender = framebufferManager_->GetCurrentRenderVFB() == framebuffer;
 
 	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer &&
-		!depth && clutRenderAddress_ == 0xFFFFFFFF &&
+	bool useShaderDepal = !selfRender && !depth && clutRenderAddress_ == 0xFFFFFFFF &&
 		!gstate_c.curTextureIs3D &&
 		draw_->GetShaderLanguageDesc().bitwiseOps &&
-		!(texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551);  // socom
+		!(texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_5551);  // socom
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
 	case ShaderLanguage::GLSL_1xx:
@@ -2315,8 +2414,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 	if (need_depalettize) {
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
-			clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-			smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture);
+			clutTexture = clutTextureCache_.GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
+			smoothedDepal = CanUseSmoothDepal(gstate, fbFormat, clutTexture);
 		} else {
 			// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
 			// Instead of texturing directly from that, we copy to a temporary CLUT texture.
@@ -2330,6 +2429,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		}
 
 		if (useShaderDepal) {
+			_dbg_assert_(!depth);
+
 			// Very icky conflation here of native and thin3d rendering. This will need careful work per backend in BindAsClutTexture.
 			BindAsClutTexture(clutTexture.texture, smoothedDepal);
 
@@ -2337,28 +2438,27 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			// Vulkan needs to do some extra work here to pick out the native handle from Draw.
 			BoundFramebufferTexture();
 
-			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+			SamplerCacheKey samplerKey = GetFramebufferSamplingParams(gstate, framebuffer->bufferWidth, framebuffer->bufferHeight, false);
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipEnable = false;
-			ApplySamplingParams(samplerKey);
+			ApplySamplerByKey(samplerKey);
 
 			ShaderDepalMode mode = ShaderDepalMode::NORMAL;
-			if (texFormat == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_8888) {
+			if (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888) {
 				mode = ShaderDepalMode::CLUT8_8888;
 				smoothedDepal = false;  // just in case
 			} else if (smoothedDepal) {
 				mode = ShaderDepalMode::SMOOTHED;
 			}
 
-			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(mode);
-			gstate_c.depalFramebufferFormat = framebuffer->fb_format;
+			gstate_c.Dirty(DIRTY_DEPAL | DIRTY_FRAGMENTSHADER_STATE);
+			gstate_c.SetShaderDepal(mode, fbFormat);
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-			CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-			gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+			TextureAlpha alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
+			gstate_c.SetTextureSolidAlpha(alphaStatus == TextureAlpha::Solid);
 
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 			return;
@@ -2366,8 +2466,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
-		textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, texFormat, depth ? GE_FORMAT_DEPTH16 : framebuffer->fb_format, smoothedDepal, depthUpperBits);
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+		textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 	}
 
 	if (textureShader) {
@@ -2411,14 +2511,14 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		} else {
 			draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
 		}
-		Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
-		Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(smoothedDepal);
+		Draw::SamplerState *nearest = textureShaderCache_.GetSampler(false);
+		Draw::SamplerState *clutSampler = textureShaderCache_.GetSampler(smoothedDepal);
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &clutSampler);
 
 		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
 
-		gpuStats.numDepal++;
+		gpuStats.perFrame.numDepal++;
 
 		gstate_c.curTextureWidth = texWidth;
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
@@ -2432,29 +2532,27 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		CheckAlphaResult alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
-		gstate_c.SetTextureFullAlpha(alphaStatus == CHECKALPHA_FULL);
+		TextureAlpha alphaStatus = CheckCLUTAlpha((const uint8_t *)clutBufRaw_, clutFormat, clutTotalColors);
+		gstate_c.SetTextureSolidAlpha(alphaStatus == TextureAlpha::Solid);
 
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-		shaderManager_->DirtyLastShader();
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
-		gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
+		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
+		gstate_c.SetTextureSolidAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
-
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-	ApplySamplingParams(samplerKey);
 
 	// Since we've drawn using thin3d, might need these.
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
 // Applies depal to a normal (non-framebuffer) texture, pre-decoded to CLUT8 format.
-void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
+// TODO: Merge this function with the above. Or rather, we should try to eliminate this in favor
+// of in-shader depal.
+void TextureCacheCommon::ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry) {
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	switch (entry->format) {
@@ -2480,8 +2578,8 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	framebufferManager_->BlitUsingRaster(
 		dynamicClutTemp_, 0.0f, 0.0f, 512.0f, 1.0f, dynamicClutFbo_, 0.0f, 0.0f, scaleFactorX * 512.0f, 1.0f, false, 1.0f, reinterpret, "reinterpret_clut");
 
-	Draw2DPipeline *textureShader = textureShaderCache_->GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
-	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
+	Draw2DPipeline *textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, GE_TFMT_CLUT8, GE_FORMAT_CLUT8, false, 0);
+	gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
 	int texWidth = gstate.getTextureWidth(0);
 	int texHeight = gstate.getTextureHeight(0);
@@ -2502,6 +2600,14 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
+	// If it nearly covers, just make it cover. This fixes Ridge Racer where the UVs are slightly off and it causes a bright line on the lens flare.
+	if (u1 > 0 && u1 < 3) {
+		u1 = 0;
+	}
+	if (v1 > 0 && v1 < 3) {
+		v1 = 0;
+	}
+
 	Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, texWidth, texHeight);
 	draw_->BindTexture(0, nullptr);
 	draw_->BindTexture(1, nullptr);
@@ -2513,14 +2619,14 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 
 	draw_->BindNativeTexture(0, GetNativeTextureView(entry, false));
 	draw_->BindFramebufferAsTexture(dynamicClutFbo_, 1, Draw::Aspect::COLOR_BIT, 0);
-	Draw::SamplerState *nearest = textureShaderCache_->GetSampler(false);
-	Draw::SamplerState *clutSampler = textureShaderCache_->GetSampler(false);
+	Draw::SamplerState *nearest = textureShaderCache_.GetSampler(false);
+	Draw::SamplerState *clutSampler = textureShaderCache_.GetSampler(false);
 	draw_->BindSamplerStates(0, 1, &nearest);
 	draw_->BindSamplerStates(1, 1, &clutSampler);
 
 	draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, texWidth, texHeight, texWidth, texHeight, false, 1);
 
-	gpuStats.numDepal++;
+	gpuStats.perFrame.numDepal++;
 
 	gstate_c.curTextureWidth = texWidth;
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
@@ -2535,21 +2641,28 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
 	// We don't know about alpha at all.
-	gstate_c.SetTextureFullAlpha(false);
+	gstate_c.SetTextureSolidAlpha(false);
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
-	shaderManager_->DirtyLastShader();
-
-	SamplerCacheKey samplerKey = GetFramebufferSamplingParams(texWidth, texHeight);
-	ApplySamplingParams(samplerKey);
 
 	// Since we've drawn using thin3d, might need these.
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
-void TextureCacheCommon::Clear(bool delete_them) {
-	textureShaderCache_->Clear();
+void TextureCacheCommon::DeviceLost() {
+	textureShaderCache_.DeviceLost();
+	clutTextureCache_.DeviceLost();
+	Clear(false);
+}
 
+void TextureCacheCommon::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	textureShaderCache_.DeviceRestore(draw);
+	clutTextureCache_.DeviceRestore(draw);
+}
+
+void TextureCacheCommon::Clear(bool delete_them) {
+	textureShaderCache_.Clear();
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
@@ -2558,11 +2671,9 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
 	if (cache_.size() + secondCache_.size()) {
-		INFO_LOG(Log::G3D, "Texture cached cleared from %i textures", (int)(cache_.size() + secondCache_.size()));
+		INFO_LOG(Log::TexCache, "Texture cached cleared from %d (s: %d) textures", (int)cache_.size(), (int)secondCache_.size());
 		cache_.clear();
 		secondCache_.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
 	}
 	videos_.clear();
 
@@ -2576,97 +2687,9 @@ void TextureCacheCommon::Clear(bool delete_them) {
 	}
 }
 
-void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
-	ReleaseTexture(it->second.get(), true);
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(it->second.get());
-	cache_.erase(it);
-}
-
-bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	bool isVideo = IsVideo(entry->addr);
-	bool swizzled = gstate.isTextureSwizzled();
-
-	// Don't even check the texture, just assume it has changed.
-	if (isVideo && g_Config.bTextureBackoffCache) {
-		// Attempt to ensure the hash doesn't incorrectly match in if the video stops.
-		entry->fullhash = (entry->fullhash + 0xA535A535) * 11 + (entry->fullhash & 4);
-		return false;
-	}
-
-	u32 fullhash;
-	{
-		PROFILE_THIS_SCOPE("texhash");
-		fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
-	}
-
-	if (fullhash == entry->fullhash) {
-		if (g_Config.bTextureBackoffCache && !isVideo) {
-			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				// Reset to STATUS_HASHING.
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-				entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-			}
-		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
-			entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-		}
-
-		return true;
-	}
-
-	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-	if (PSP_CoreParameter().compat.flags().SecondaryTextureCache) {
-		// Don't forget this one was unreliable (in case we match a secondary entry.)
-		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-
-		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-		// In that case, skip.
-		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-			// We have a new hash: look for that hash in the secondary cache.
-			u64 secondKey = fullhash | (u64)entry->cluthash << 32;
-			TexCache::iterator secondIter = secondCache_.find(secondKey);
-			if (secondIter != secondCache_.end()) {
-				// Found it, but does it match our current params?  If not, abort.
-				TexCacheEntry *secondEntry = secondIter->second.get();
-				if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
-					// Reset the numInvalidated value lower, we got a match.
-					if (entry->numInvalidated > 8) {
-						--entry->numInvalidated;
-					}
-
-					// Now just use our archived texture, instead of entry.
-					nextTexture_ = secondEntry;
-					return true;
-				}
-			} else {
-				// It wasn't found, so we're about to throw away the entry and rebuild a texture.
-				// Let's save this in the secondary cache in case it gets used again.
-				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-				secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-
-				// If the entry already exists in the secondary texture cache, drop it nicely.
-				auto oldIter = secondCache_.find(secondKey);
-				if (oldIter != secondCache_.end()) {
-					ReleaseTexture(oldIter->second.get(), true);
-				}
-
-				// Archive the entire texture entry as is, since we'll use its params if it is seen again.
-				// We keep parameters on the current entry, since we are STILL building a new texture here.
-				secondCache_[secondKey].reset(new TexCacheEntry(*entry));
-
-				// Make sure we don't delete the texture we just archived.
-				entry->texturePtr = nullptr;
-				doDelete = false;
-			}
-		}
-	}
-
-	// We know it failed, so update the full hash right away.
-	entry->fullhash = fullhash;
-	return false;
-}
-
+// One type of texture update can happen without the involvement of the CPU: Block transfers.
+// This is done for example for the text rendering in Gran Turismo, where it only uses a single letter
+// worth of texture memory, and for each letter drawn, it just replaces it and then draws.
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	// They could invalidate inside the texture, let's just give a bit of leeway.
 	// TODO: Keep track of the largest texture size in bytes, and use that instead of this
@@ -2689,69 +2712,27 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		}
 	}
 
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache && type != GPU_INVALIDATE_FORCE) {
-		return;
-	}
-
 	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
 	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
 	if (endKey < startKey) {
 		endKey = (u64)-1;
 	}
 
+	// We just loop through all textures in range, and tell them to rehash.
 	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
 		auto &entry = iter->second;
 		u32 texAddr = entry->addr;
 		// Intentional underestimate here.
 		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
-
 		// Quick check for overlap. Yes the check is right.
 		if (addr < texEnd && addr_end > texAddr) {
-			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-			}
-			if (type == GPU_INVALIDATE_FORCE) {
-				// Just random values to force the hash not to match.
-				entry->fullhash = (entry->fullhash ^ 0x12345678) + 13;
-				entry->minihash = (entry->minihash ^ 0x89ABCDEF) + 89;
-			}
-			if (type != GPU_INVALIDATE_ALL) {
-				gpuStats.numTextureInvalidations++;
-				// Start it over from 0 (unless it's safe.)
-				entry->numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
-				if (type == GPU_INVALIDATE_SAFE) {
-					u32 diff = gpuStats.numFlips - entry->lastFrame;
-					// We still need to mark if the texture is frequently changing, even if it's safely changing.
-					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-						entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-					}
-				}
-				entry->framesUntilNextFullHash = 0;
-			} else {
-				entry->invalidHint++;
-			}
+			entry->status |= TexStatus::HASH_RECHECK;
 		}
 	}
 }
 
 void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
-		return;
-	}
-
-	if (timesInvalidatedAllThisFrame_ > 5) {
-		return;
-	}
-	timesInvalidatedAllThisFrame_++;
-
-	for (TexCache::iterator iter = cache_.begin(), end = cache_.end(); iter != end; ++iter) {
-		if (iter->second->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-			iter->second->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-		}
-		iter->second->invalidHint++;
-	}
+	// We don't really do anything here right now.
 }
 
 void TextureCacheCommon::ClearNextFrame() {
@@ -2769,10 +2750,7 @@ std::string AttachCandidate::ToString() const {
 }
 
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
-	gpuStats.numTexturesDecoded++;
-
-	// For the estimate, we assume cluts always point to 8888 for simplicity.
-	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+	gpuStats.perFrame.numTexturesDecoded++;
 
 	plan.badMipSizes = false;
 	// maxLevel here is the max level to upload. Not the count.
@@ -2797,7 +2775,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			int lastW = gstate.getTextureWidth(i - 1);
 			int lastH = gstate.getTextureHeight(i - 1);
 
-			if (gstate_c.Use(GPU_USE_TEXTURE_LOD_CONTROL)) {
+			if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
 				if (tw != 1 && tw != (lastW >> 1))
 					plan.badMipSizes = true;
 				else if (th != 1 && th != (lastH >> 1))
@@ -2809,11 +2787,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.scaleFactor = standardScaleFactor_;
 	plan.depth = 1;
 
-	// Rachet down scale factor in low-memory mode.
-	// TODO: I think really we should just turn it off?
-	if (lowMemoryMode_ && !plan.hardwareScaling) {
-		// Keep it even, though, just in case of npot troubles.
-		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
+	if (plan.hardwareScaling) {
+		plan.scaleFactor = shaderScaleFactor_;
 	}
 
 	bool isFakeMipmapChange = false;
@@ -2821,17 +2796,17 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		isFakeMipmapChange = IsFakeMipmapChange();
 
 		// Check for pure 3D texture.
-		int tw = gstate.getTextureWidth(0);
-		int th = gstate.getTextureHeight(0);
+		const int tw = gstate.getTextureWidth(0);
+		const int th = gstate.getTextureHeight(0);
 		bool pure3D = true;
 		for (int i = 0; i < plan.levelsToLoad; i++) {
-			if (gstate.getTextureWidth(i) != gstate.getTextureWidth(0) || gstate.getTextureHeight(i) != gstate.getTextureHeight(0)) {
+			if (gstate.getTextureWidth(i) != tw || gstate.getTextureHeight(i) != th) {
 				pure3D = false;
 				break;
 			}
 		}
 
-		// Check early for the degenerate case from Tactics Ogre.
+		// Check early for the degenerate case from Tactics Ogre (EN version, japanese is worse!).
 		if (pure3D && plan.levelsToLoad == 2 && gstate.getTextureAddress(0) == gstate.getTextureAddress(1)) {
 			// Simply treat it as a regular 2D texture, no fake mipmaps or anything.
 			// levelsToLoad/Create gets set to 1 on the way out from the surrounding if.
@@ -2839,7 +2814,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			pure3D = false;
 		} else if (isFakeMipmapChange) {
 			// We don't want to create a volume texture, if this is a "fake mipmap change".
-			// In practice due to the compat flag, the only time we end up here is in JP Tactics Ogre.
+			// In practice due to the compat flag, the only time we end up here is in JP Tactics Ogre,
+			// or with OpenGL ES 2.0.
 			pure3D = false;
 		}
 
@@ -2852,10 +2828,6 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToCreate = 1;
 	}
 
-	if (plan.hardwareScaling) {
-		plan.scaleFactor = shaderScaleFactor_;
-	}
-
 	// We generate missing mipmaps from maxLevel+1 up to this level. maxLevel can get overwritten below
 	// such as when using replacement textures - but let's keep the same amount of levels for generation.
 	// Not all backends will generate mipmaps, and in GL we can't really control the number of levels.
@@ -2864,7 +2836,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
 
-	bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd();
+	// TODO: We should move the PPGE texture entirely out from the PSP's memory space, so we don't save it in every save state.
+	const bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd();
 
 	// Don't scale the PPGe texture.
 	if (isPPGETexture) {
@@ -2875,7 +2848,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// These will only work correctly in the top 512x512 part. So, I've increased the threshold quite a bit.
 		// We probably should handle these differently, by clamping the texture size and texture coordinates, but meh.
 		if (plan.w > 2048 || plan.h > 2048) {
-			ERROR_LOG(Log::G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
+			ERROR_LOG(Log::TexCache, "Bad texture dimensions: %dx%d", plan.w, plan.h);
 			return false;
 		}
 	}
@@ -2886,19 +2859,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = 1;
 	}
 
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && plan.scaleFactor != 1 && plan.slowScaler) {
-		// Remember for later that we /wanted/ to scale this texture.
-		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
-		plan.scaleFactor = 1;
-	}
-
 	if (plan.scaleFactor != 1) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && plan.slowScaler) {
-			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+			entry->status |= TexStatus::TO_SCALE;
 			plan.scaleFactor = 1;
 		} else {
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
-			entry->status |= TexCacheEntry::STATUS_IS_SCALED_OR_REPLACED;
+			entry->status &= ~TexStatus::TO_SCALE;
+			entry->status |= TexStatus::IS_SCALED_OR_REPLACED;
 			texelsScaledThisFrame_ += plan.w * plan.h;
 		}
 	}
@@ -2910,16 +2877,15 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (plan.scaleFactor > 1) {
 		plan.levelsToLoad = 1;
 
-		bool enableVideoUpscaling = false;
-
-		if (!enableVideoUpscaling && plan.isVideo) {
+		if (plan.isVideo) {
+			// No upscaling for video textures.
 			plan.scaleFactor = 1;
 			plan.levelsToCreate = 1;
 		}
 	}
 
 	bool canReplace = !isPPGETexture;
-	if (entry->status & TexCacheEntry::TexStatus::STATUS_CLUT_GPU) {
+	if (entry->status & TexStatus::CLUT8_INDEXED) {
 		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
 		plan.decodeToClut8 = true;
 		// We only support 1 mip level when doing CLUT on GPU for now.
@@ -2962,7 +2928,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			replacedInfo.cachekey = entry->CacheKey();
 			replacedInfo.hash = entry->fullhash;
 			replacedInfo.addr = entry->addr;
-			replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 			replacedInfo.isVideo = plan.isVideo;
 			replacedInfo.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			plan.saveTexture = replacer_.WillSave(replacedInfo);
@@ -2997,13 +2963,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (plan.levelsToCreate == 1) {
-		entry->status |= TexCacheEntry::STATUS_NO_MIPS;
+		entry->status |= TexStatus::NO_MIPS;
 	} else {
-		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
+		entry->status &= ~TexStatus::NO_MIPS;
 	}
 
 	// Will be filled in again during decode.
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
+	entry->SetAlphaStatus(TextureAlpha::Any);
 	return true;
 }
 
@@ -3039,11 +3005,12 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 		if (!gstate_c.Use(GPU_USE_16BIT_FORMATS) || dstFmt == Draw::DataFormat::R8G8B8A8_UNORM) {
 			texDecFlags |= TexDecodeFlags::EXPAND32;
 		}
-		if (entry.status & TexCacheEntry::STATUS_CLUT_GPU) {
+		if (entry.status & TexStatus::CLUT8_INDEXED) {
+			_dbg_assert_(entry.format == GE_TFMT_CLUT4 || entry.format == GE_TFMT_CLUT8);
 			texDecFlags |= TexDecodeFlags::TO_CLUT8;
 		}
 
-		CheckAlphaResult alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, texDecFlags);
+		TextureAlpha alphaResult = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, srcLevel, bufw, texDecFlags);
 		entry.SetAlphaStatus(alphaResult, srcLevel);
 
 		int scaledW = w, scaledH = h;
@@ -3065,13 +3032,13 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			}
 		}
 
-		if (plan.saveTexture && !lowMemoryMode_) {
+		if (plan.saveTexture) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
 			replacedInfo.addr = entry.addr;
 			replacedInfo.isVideo = IsVideo(entry.addr);
-			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.isFinal = (entry.status & TexStatus::TO_SCALE) == 0;
 			replacedInfo.fmt = dstFmt;
 
 			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
@@ -3080,7 +3047,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 	}
 }
 
-CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFormat, int w) {
+TextureAlpha TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFormat, int w) {
 	switch (clutFormat) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return CheckAlpha16((const u16 *)pixelData, w, 0xF000);
@@ -3088,8 +3055,40 @@ CheckAlphaResult TextureCacheCommon::CheckCLUTAlpha(const uint8_t *pixelData, GE
 		return CheckAlpha16((const u16 *)pixelData, w, 0x8000);
 	case GE_CMODE_16BIT_BGR5650:
 		// Never has any alpha.
-		return CHECKALPHA_FULL;
+		return TextureAlpha::Solid;
 	default:
 		return CheckAlpha32((const u32 *)pixelData, w, 0xFF000000);
 	}
+}
+
+std::string TexStatusToString(TexStatus status) {
+	std::string result;
+	if (status & TexStatus::ALPHA_SOLID) {
+		result += "SOLID_ALPHA ";
+	}
+	if (status & TexStatus::MANY_CLUT_VARIANTS) {
+		result += "CLUTVARIANTS ";
+	}
+	if (status & TexStatus::TO_SCALE) {
+		result += "TOSCALE ";
+	}
+	if (status & TexStatus::IS_SCALED_OR_REPLACED) {
+		result += "SCALED/REPL ";
+	}
+	if (status & TexStatus::NO_MIPS) {
+		result += "NO_MIPS ";
+	}
+	if (status & TexStatus::CLUT_GPU) {
+		result += "CLUT_GPU ";
+	}
+	if (status & TexStatus::CLUT8_INDEXED) {
+		result += "CLUT8_INDEXED ";
+	}
+	if (status & TexStatus::IS_3D) {
+		result += "3D ";
+	}
+	if (status & TexStatus::VIDEO) {
+		result += "VIDEO ";
+	}
+	return result.empty() ? "None" : result;
 }

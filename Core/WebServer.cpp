@@ -38,8 +38,8 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Config.h"
-#include "Core/Debugger/WebSocket.h"
 #include "Core/WebServer.h"
+#include "Core/Debugger/WebSocket.h"
 
 enum class ServerStatus {
 	STOPPED,
@@ -121,7 +121,7 @@ static bool RegisterServer(int port) {
 		double timeout = success ? 2.0 : 10.0;
 
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
-		if (resource4[0] != 0 && http.Connect(timeout)) {
+		if (resource4[0] != 0 && http.Connect(/*maxTries=*/ 2, timeout)) {
 			if (http.GET(http::RequestParams(resource4), &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
@@ -129,7 +129,7 @@ static bool RegisterServer(int port) {
 		}
 
 		// Currently, we're not using keepalive, so gotta reconnect...
-		if (http.Connect(timeout)) {
+		if (http.Connect(/*maxTries=*/ 2, timeout)) {
 			char resource6[1024] = {};
 			std::string ip = http.GetLocalIpAsString();
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
@@ -548,6 +548,11 @@ enum class MultiPartResult {
 	Done,
 };
 
+static bool IsSafeUploadFilename(std::string_view filename) {
+	return !filename.empty() && filename != "." && filename != ".." &&
+		filename.find_first_of("/\\") == std::string_view::npos;
+}
+
 static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, std::string boundary, const Path &uploadPath, ProgressTracker &progress) {
 	std::string firstBoundary = request.In()->ReadLine();
 	if (firstBoundary != "--" + boundary) {
@@ -588,8 +593,8 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		}
 	}
 
-	if (filename.empty()) {
-		ERROR_LOG(Log::HTTP, "Didn't receive a filename");
+	if (!IsSafeUploadFilename(filename)) {
+		ERROR_LOG(Log::HTTP, "Invalid upload filename");
 		return MultiPartResult::RequestError;
 	}
 
@@ -755,6 +760,17 @@ void WebServerSetUploadPath(const Path &path) {
 	g_uploadPath = path;
 }
 
+WebServerFlags GetServerFlags() {
+	return serverFlags;
+}
+
+void OpenWebDebugger() {
+	if (!WebServerRunning(WebServerFlags::DEBUGGER)) {
+		StartWebServer(WebServerFlags::DEBUGGER);
+	}
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://localhost:" + std::to_string(g_Config.iRemoteISOPort) + "/debugger/index.html");
+}
+
 static void WebServerThread() {
 	SetCurrentThreadName("HTTPServer");
 
@@ -782,6 +798,14 @@ static void WebServerThread() {
 	double lastRegister = time_now_d();
 
 	INFO_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
+
+	if (serverFlags & WebServerFlags::DEBUGGER) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Debugger web server running on port " + std::to_string(g_Config.iRemoteISOPort), 5.0f, "debugger");
+		g_OSD.SetClickCallback("debugger", []() {
+			OpenWebDebugger();
+		});
+	}
+
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		constexpr double webServerSliceSeconds = 0.2f;
 		http->RunSlice(webServerSliceSeconds);

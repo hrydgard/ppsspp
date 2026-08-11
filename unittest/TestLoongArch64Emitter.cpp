@@ -38,7 +38,7 @@ bool TestLoongArch64Emitter(){
     cpu_info.LOONGARCH_LBT_MIPS = true;
     cpu_info.LOONGARCH_PTW = true;
 
-    u32 code[1024];
+	u32 code[1024]{};
     LoongArch64Emitter emitter((u8 *)code, (u8 *)code);
 
     emitter.ADD_W(R12, R13, R14); // t0, t1, t2

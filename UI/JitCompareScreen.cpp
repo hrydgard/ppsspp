@@ -3,6 +3,7 @@
 #include "UI/JitCompareScreen.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"

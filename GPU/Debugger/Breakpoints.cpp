@@ -28,7 +28,7 @@
 
 // These are commands we run before breaking on a texture.
 // They are commands that affect the decoding of the texture.
-const static u8 textureRelatedCmds[] = {
+static constexpr u8 textureRelatedCmds[] = {
 	GE_CMD_TEXADDR0, GE_CMD_TEXADDR1, GE_CMD_TEXADDR2, GE_CMD_TEXADDR3, GE_CMD_TEXADDR4, GE_CMD_TEXADDR5, GE_CMD_TEXADDR6, GE_CMD_TEXADDR7,
 	GE_CMD_TEXBUFWIDTH0, GE_CMD_TEXBUFWIDTH1, GE_CMD_TEXBUFWIDTH2, GE_CMD_TEXBUFWIDTH3, GE_CMD_TEXBUFWIDTH4, GE_CMD_TEXBUFWIDTH5, GE_CMD_TEXBUFWIDTH6, GE_CMD_TEXBUFWIDTH7,
 	GE_CMD_TEXSIZE0, GE_CMD_TEXSIZE1, GE_CMD_TEXSIZE2, GE_CMD_TEXSIZE3, GE_CMD_TEXSIZE4, GE_CMD_TEXSIZE5, GE_CMD_TEXSIZE6, GE_CMD_TEXSIZE7,
@@ -153,7 +153,7 @@ static bool HitBreakpointCond(GPUBreakpoints::BreakpointInfo &bp, u32 op) {
 	gstate.cmdmem[cmd] ^= diff;
 
 	u32 result = 1;
-	if (!GPUDebugExecExpression(gpuDebug, bp.expression, result))
+	if (!GPUDebugExecExpression(gpu, bp.expression, result))
 		result = 0;
 
 	gstate.cmdmem[cmd] ^= diff;
@@ -435,7 +435,7 @@ void GPUBreakpoints::RemoveTextureChangeTempBreakpoint() {
 static bool SetupCond(GPUBreakpoints::BreakpointInfo &bp, const std::string &expression, std::string *error) {
 	bool success = true;
 	if (expression.length() != 0) {
-		if (GPUDebugInitExpression(gpuDebug, expression.c_str(), bp.expression)) {
+		if (GPUDebugInitExpression(gpu, expression.c_str(), bp.expression)) {
 			bp.isConditional = true;
 			bp.expressionString = expression;
 		} else {

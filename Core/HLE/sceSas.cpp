@@ -422,7 +422,7 @@ static u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, in
 	bool overVolume = abs(leftVol) > PSP_SAS_VOL_MAX || abs(rightVol) > PSP_SAS_VOL_MAX;
 	overVolume = overVolume || abs(effectLeftVol) > PSP_SAS_VOL_MAX || abs(effectRightVol) > PSP_SAS_VOL_MAX;
 	if (overVolume) {
-		return hleLogError(Log::sceSas, SCE_SAS_ERROR_INVALID_VOLUME);
+		return hleLogWarning(Log::sceSas, SCE_SAS_ERROR_INVALID_VOLUME, "invalid volume");
 	}
 
 	__SasDrain();
@@ -686,6 +686,12 @@ static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 		return hleLogWarning(Log::sceSas, SCE_SAS_ERROR_INVALID_VOICE, "invalid voicenum");
 	}
 
+	// Not sure what an appropriate range length check is. It's at least 256 though.
+	if (!Memory::IsValid4AlignedRange(atrac3Context, 256)) {
+		// Untested
+		return hleLogError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid ATRAC3 context address");
+	}
+
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (v.type == VOICETYPE_ATRAC3) {
@@ -695,7 +701,7 @@ static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 	v.loop = false;
 	v.playing = true;
 	v.atrac3.SetContext(atrac3Context);
-	Memory::Write_U32(atrac3Context, core + 56 * voiceNum + 20);
+	Memory::WriteUnchecked_U32(atrac3Context, core + 56 * voiceNum + 20);
 	return hleLogDebug(Log::sceSas, 0);
 }
 

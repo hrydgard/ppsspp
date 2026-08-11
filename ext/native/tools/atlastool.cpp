@@ -25,8 +25,13 @@
 #include <vector>
 #include <map>
 #include <string>
+#ifdef SYSTEM_FREETYPE
+#include <freetype2/ft2build.h>
+#include <freetype2/freetype/ftbitmap.h>
+#else
 #include "ft2build.h"
 #include "freetype/ftbitmap.h"
+#endif
 #include "zstd.h"
 
 #include "Common/Render/AtlasGen.h"

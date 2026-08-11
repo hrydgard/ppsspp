@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 
+#include "Common/CommonFuncs.h"
 #include "VulkanLoader.h"
 
 // Simple scoped based profiler, initially meant for instant one-time tasks like texture uploads
@@ -29,11 +30,7 @@ public:
 
 	void BeginFrame(VulkanContext *vulkan, VkCommandBuffer firstCommandBuffer);
 
-	void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, const char *fmt, ...)
-#ifdef __GNUC__
-		__attribute__((format(printf, 4, 5)))
-#endif
-		;
+	ATTR_FORMAT_PRINTF(4, 5) void Begin(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage, MSVC_FORMAT_PRINTF const char *fmt, ...);
 	void End(VkCommandBuffer cmdBuf, VkPipelineStageFlagBits stage);
 
 	void SetEnabledPtr(bool *enabledPtr) {

@@ -322,7 +322,7 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 		} else if (default_.s != nullptr) {
 			*ptr_s = default_.s;
 		} else {
-			*ptr_s = "";
+			ptr_s->clear();
 		}
 		if (*ptr_s != origValue) {
 			if (log) {

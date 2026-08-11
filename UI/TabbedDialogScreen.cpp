@@ -9,9 +9,13 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 #include "UI/MiscViews.h"
 #include "Common/UI/Context.h"
 #include "UI/TabbedDialogScreen.h"
+
+UITabbedBaseDialogScreen::UITabbedBaseDialogScreen(const Path &gamePath, int *currentTabSetting, TabDialogFlags flags)
+	: UIBaseDialogScreen(gamePath), currentTabSetting_(currentTabSetting), flags_(flags) {}
 
 void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, ImageID imageId, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags) {
 	using namespace UI;
@@ -101,6 +105,17 @@ void UITabbedBaseDialogScreen::CreateViews() {
 
 	// Let the subclass create its tabs.
 	CreateTabs();
+	if (currentTabSetting_) {
+		tabHolder_->SetInitialTab(*currentTabSetting_);
+	} else {
+		tabHolder_->EnsureTab(tabHolder_->GetCurrentTab());
+	}
+
+	tabHolder_->OnChangeTab.Add([this](UI::EventParams &e) {
+		if (currentTabSetting_) {
+			*currentTabSetting_ = e.a;
+		}
+	});
 
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD) || System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		// Hide search if screen is too small.

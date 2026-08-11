@@ -21,6 +21,8 @@ class PointerWrap;
 
 #include "Common/CommonTypes.h"
 
+#include "Common/Log.h"
+
 class BlockAllocator
 {
 public:
@@ -30,7 +32,7 @@ public:
 	void Init(u32 _rangeStart, u32 _rangeSize, bool suballoc);
 	void Shutdown();
 
-	void ListBlocks() const;
+	void ListBlocks(LogLevel level) const;
 
 	// WARNING: size can be modified upwards!
 	u32 Alloc(u32 &size, bool fromTop = false, const char *tag = 0);
@@ -62,7 +64,9 @@ private:
 	struct Block {
 		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next);
 		void SetAllocated(const char *_tag, bool suballoc);
-		void DoState(PointerWrap &p);
+		// compact = v2 form: no per-block Section, raw tag store (tags are
+		// zero-padded at write time). v1 states load with compact = false.
+		void DoState(PointerWrap &p, bool compact);
 		u32 start;
 		u32 size;
 		bool taken;

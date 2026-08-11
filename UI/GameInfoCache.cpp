@@ -75,7 +75,7 @@ GameInfo::~GameInfo() {
 	fileLoader.reset();
 }
 
-bool IsReasonableEbootDirectory(Path path) {
+bool IsReasonableEbootDirectory(const Path& path) {
 	// First some sanity checks.
 	if (path == Path("/")) {
 		return false;
@@ -250,7 +250,7 @@ std::string GameInfo::GetMTime() const {
 
 // Not too meaningful if the object itself is a savedata directory...
 // Call this under lock.
-std::vector<Path> GameInfo::GetSaveDataDirectories() {
+std::vector<Path> GameInfo::GetSaveDataDirectories() const {
 	if (!(hasFlags & GameInfoFlags::PARAM_SFO)) {
 		ERROR_LOG(Log::UI, "Can't get savedata directories if we don't have PARAM_SFO.");
 		return std::vector<Path>();
@@ -268,14 +268,14 @@ std::vector<Path> GameInfo::GetSaveDataDirectories() {
 	const std::string &prefix = id;
 	File::GetFilesInDir(memc, &dirs, nullptr, 0, prefix);
 
-	for (size_t i = 0; i < dirs.size(); i++) {
-		directories.push_back(dirs[i].fullName);
+	for (const auto& dir : dirs) {
+		directories.push_back(dir.fullName);
 	}
 
 	return directories;
 }
 
-u64 GameInfo::GetGameSavedataSizeInBytes() {
+u64 GameInfo::GetGameSavedataSizeInBytes() const {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
@@ -283,9 +283,9 @@ u64 GameInfo::GetGameSavedataSizeInBytes() {
 
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
+	for (const auto& dir : saveDataDir) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j], &fileInfo);
+		File::GetFilesInDir(dir, &fileInfo);
 		for (auto const &file : fileInfo) {
 			if (!file.isDirectory)
 				filesSizeInDir += file.size;
@@ -299,7 +299,7 @@ u64 GameInfo::GetGameSavedataSizeInBytes() {
 	return totalSize;
 }
 
-u64 GameInfo::GetInstallDataSizeInBytes() {
+u64 GameInfo::GetInstallDataSizeInBytes() const {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
@@ -307,9 +307,9 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 
 	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
+	for (const auto& dir : saveDataDir) {
 		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j], &fileInfo);
+		File::GetFilesInDir(dir, &fileInfo);
 		for (auto const &file : fileInfo) {
 			// TODO: Might want to recurse here? Don't know games that use directories
 			// for install-data though.
@@ -357,12 +357,12 @@ void GameInfo::DisposeFileLoader() {
 	fileLoader.reset();
 }
 
-bool GameInfo::DeleteAllSaveData() {
+bool GameInfo::DeleteAllSaveData() const {
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		INFO_LOG(Log::System, "Deleting savedata from %s", saveDataDir[j].c_str());
-		if (!MoveDirectoryTreeToTrashOrDelete(saveDataDir[j])) {
-			ERROR_LOG(Log::System, "Failed to delete savedata %s", saveDataDir[j].c_str());
+	for (const auto& dir : saveDataDir) {
+		INFO_LOG(Log::System, "Deleting savedata from %s", dir.c_str());
+		if (!MoveDirectoryTreeToTrashOrDelete(dir)) {
+			ERROR_LOG(Log::System, "Failed to delete savedata %s", dir.c_str());
 		}
 	}
 	return true;
@@ -418,7 +418,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 		return;
 	}
 	if (icon.dataLoaded && !icon.texture) {
-		SetupTexture(draw, icon);
+		SetupTexture(draw, icon, 2048, 2048);
 	}
 	if (pic0.dataLoaded && !pic0.texture) {
 		SetupTexture(draw, pic0);
@@ -428,7 +428,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 	}
 }
 
-void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
+void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex, int maxWidth, int maxHeight) {
 	if (tex.timeLoaded) {
 		// Failed before, skip.
 		return;
@@ -440,13 +440,14 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
 	// TODO: Use TempImage to semi-load the image in the worker task, then here we
 	// could just call CreateTextureFromTempImage.
-	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
+	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str(), maxWidth, maxHeight);
 	tex.timeLoaded = time_now_d();
 	if (!tex.texture) {
 		ERROR_LOG(Log::G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
 	}
 }
 
+// Will clear contents on failure.
 static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::string *contents, std::mutex *mtx) {
 	std::string fn(filename);
 	PSPFileInfo info = fs->GetFileInfo(fn);
@@ -463,16 +464,18 @@ static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::st
 		data.resize(info.size);
 		size_t readSize = fs->ReadFile(handle, (u8 *)data.data(), info.size);
 		fs->CloseFile(handle);
+		std::lock_guard<std::mutex> lock(*mtx);
 		if (readSize != info.size) {
+			contents->clear();
 			return false;
 		}
-		std::lock_guard<std::mutex> lock(*mtx);
 		*contents = std::move(data);
 	} else {
 		contents->resize(info.size);
 		size_t readSize = fs->ReadFile(handle, (u8 *)contents->data(), info.size);
 		fs->CloseFile(handle);
 		if (readSize != info.size) {
+			contents->clear();
 			return false;
 		}
 	}
@@ -555,7 +558,7 @@ public:
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
-		if (!info_->CreateLoader() || !info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
+		if (!info_->CreateLoader() || !info_->GetFileLoader()) {
 			// Mark everything requested as done, so 
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
@@ -579,6 +582,13 @@ public:
 					if (ebootPath != gamePath_) {
 						pbpLoader.reset(ConstructFileLoader(ebootPath));
 					}
+				}
+
+				if (!pbpLoader->Exists()) {
+					ERROR_LOG(Log::Loader, "File doesn't exist: %s\n", pbpLoader->GetPath().c_str());
+					std::unique_lock<std::mutex> lock(info_->lock);
+					info_->MarkReadyNoLock(flags_);
+					return;
 				}
 
 				PBPReader pbp(pbpLoader.get());
@@ -771,6 +781,7 @@ handleELF:
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 						info_->ParseParamSFO(info_->fileType);
+						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
 				}
 
@@ -813,7 +824,7 @@ handleELF:
 					info_->MarkReadyNoLock(flags_);
 					return;
 				}
-				BlockDevice *bd = ConstructBlockDevice(info_->GetFileLoader().get(), &errorString);
+				std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(info_->GetFileLoader().get(), &errorString));
 				if (!bd) {
 					ERROR_LOG(Log::Loader, "Failed constructing block device for ISO %s: %s", info_->GetFilePath().ToVisualString().c_str(), errorString.c_str());
 					std::unique_lock<std::mutex> lock(info_->lock);
@@ -882,26 +893,7 @@ handleELF:
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
 				info_->title = info_->GetFilePath().GetFilename();
-				if (flags_ & GameInfoFlags::ICON) {
-					ReadVFSToString("zip.png", &info_->icon.data, &info_->lock);
-					info_->icon.dataLoaded = true;
-				}
-				break;
-
-			case IdentifiedFileType::ARCHIVE_RAR:
-				info_->title = info_->GetFilePath().GetFilename();
-				if (flags_ & GameInfoFlags::ICON) {
-					ReadVFSToString("rargray.png", &info_->icon.data, &info_->lock);
-					info_->icon.dataLoaded = true;
-				}
-				break;
-
-			case IdentifiedFileType::ARCHIVE_7Z:
-				info_->title = info_->GetFilePath().GetFilename();
-				if (flags_ & GameInfoFlags::ICON) {
-					ReadVFSToString("7z.png", &info_->icon.data, &info_->lock);
-					info_->icon.dataLoaded = true;
-				}
+				info_->icon.dataLoaded = true;
 				break;
 
 			case IdentifiedFileType::NORMAL_DIRECTORY:
@@ -994,7 +986,7 @@ void GameInfoCache::Clear() {
 
 void GameInfoCache::CancelAll() {
 	std::lock_guard<std::mutex> lock(mapLock_);
-	for (auto info : info_) {
+	for (const auto& info : info_) {
 		// GetFileLoader will create one if there isn't one already.
 		// Avoid that by checking.
 		if (info.second->HasFileLoader()) {
@@ -1008,15 +1000,15 @@ void GameInfoCache::CancelAll() {
 
 void GameInfoCache::FlushBGs() {
 	std::lock_guard<std::mutex> lock(mapLock_);
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		std::lock_guard<std::mutex> lock(iter->second->lock);
-		iter->second->pic0.Clear();
-		iter->second->pic1.Clear();
-		if (!iter->second->sndFileData.empty()) {
-			iter->second->sndFileData.clear();
-			iter->second->sndDataLoaded = false;
+	for (const auto& iter : info_) {
+		std::lock_guard<std::mutex> lock(iter.second->lock);
+		iter.second->pic0.Clear();
+		iter.second->pic1.Clear();
+		if (!iter.second->sndFileData.empty()) {
+			iter.second->sndFileData.clear();
+			iter.second->sndDataLoaded = false;
 		}
-		iter->second->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::SND);
+		iter.second->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::SND);
 	}
 }
 

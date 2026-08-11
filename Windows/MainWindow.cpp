@@ -46,6 +46,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/EmuThread.h"
 #include "Core/Instance.h"
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -59,13 +60,12 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 #include "Windows/main.h"
 #ifndef _M_ARM
 #include "Windows/DinputDevice.h"
 #endif
-#include "Windows/EmuThread.h"
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
@@ -198,7 +198,7 @@ namespace MainWindow {
 		wcex.hInstance = hInstance;
 		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
 		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);  // or NULL?
-		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
+		wcex.lpszMenuName = g_Config.bShowMenuBar ? (LPCWSTR)IDR_MENU1 : NULL;
 		wcex.lpszClassName = szWindowClass;
 		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
 		wcex.hIconSm = (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
@@ -375,7 +375,9 @@ namespace MainWindow {
 
 			// Transitioning to Windowed
 			SetWindowLong(hWnd, GWL_STYLE, (prevStyle & ~WS_POPUP) | WS_OVERLAPPEDWINDOW);
-			SetMenu(hWnd, g_hMenu);
+			if (g_Config.bShowMenuBar) {
+				SetMenu(hWnd, g_hMenu);
+			}
 
 			WINDOWPLACEMENT wp = {sizeof(WINDOWPLACEMENT)};
 			wp.showCmd = WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
@@ -505,7 +507,7 @@ namespace MainWindow {
 
 		WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
 		if ((g_Config.iWindowX == -1 && g_Config.iWindowY == -1) || g_Config.iWindowWidth < 20 || g_Config.iWindowHeight < 20) {
-			RECT rc = DetermineDefaultWindowRectangle();
+			const RECT rc = DetermineDefaultWindowRectangle();
 			// Should be a first boot, or just bad parameters. Reset.
 			g_Config.iWindowSizeState = (int)WindowSizeState::Normal;
 			g_Config.iWindowX = rc.left;
@@ -529,7 +531,11 @@ namespace MainWindow {
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 		ApplyFullscreenState(hwndMain, g_Config.bFullScreen);
 
-		MainMenuInit(hwndMain, g_hMenu);
+		if (!g_Config.bShowMenuBar) {
+			SetMenu(hwndMain, NULL);
+		} else {
+			MainMenuInit(hwndMain, g_hMenu);
+		}
 
 		// Accept dragged files.
 		DragAcceptFiles(hwndMain, TRUE);
@@ -630,14 +636,13 @@ namespace MainWindow {
 			return true;
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		if (!actionIsReset) {
 			confirmExitMessage += '\n';
 			confirmExitMessage += di->T("Are you sure you want to exit?");
 		} else {
 			// Reset is bit rarer, let's just omit the extra message for now.
 		}
-		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(mm->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
+		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(di->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
@@ -720,8 +725,12 @@ namespace MainWindow {
 			{
 				return 0;
 			}
-			// Get all modules from symbol map
-			auto modules = g_symbolMap->getAllModules();
+			// Get all modules from symbol map. Reading it here on the GUI thread would otherwise
+			// race with the CPU thread - hold g_frameMutex for the duration of the read, which
+			// NativeFrame() also holds while it's actually touching that state. See g_frameMutex
+			// in Core.h.
+			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+			std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 			for (const auto& module : modules)
 			{
 				if (module.name == moduleName)
@@ -910,7 +919,7 @@ namespace MainWindow {
 						// and recalculate window decorations without actually changing the size of the window).
 						if (pos->cx != monWidth || pos->cy != monHeight) {
 							g_Config.bFullScreen = false;
-							if (GetMenu(hWnd) == NULL) {
+							if (GetMenu(hWnd) == NULL && g_Config.bShowMenuBar) {
 								SetMenu(hWnd, g_hMenu);
 							}
 							const DWORD style = GetWindowLong(hWnd, GWL_STYLE);
@@ -1065,7 +1074,6 @@ namespace MainWindow {
 			g_InputManager.Shutdown();
 			WindowsRawInput::Shutdown();
 
-			MainThread_Stop();
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			// Main window is gone, this tells the message loop to exit.
@@ -1092,21 +1100,17 @@ namespace MainWindow {
 			UpdateWindowTitle();
 			break;
 
-		case WM_USER_RESTART_EMUTHREAD:
-			NativeSetRestarting();
-			g_InputManager.StopPolling();
-			MainThread_Stop();
-			UpdateUIState(UISTATE_MENU);
-			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
-			g_InputManager.BeginPolling();
-			break;
-
 		case WM_USER_SWITCHUMD_UPDATED:
 			UpdateSwitchUMD();
 			break;
 
 		case WM_USER_DESTROY:
 			DestroyWindow(hWnd);
+			break;
+
+		case WM_USER_SHOW_DISASM:
+			CreateDisasmWindow();
+			disasmWindow->Show(g_Config.bShowDebuggerOnLoad, false);
 			break;
 
 		case WM_INITMENUPOPUP:

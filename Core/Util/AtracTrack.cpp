@@ -62,12 +62,16 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 	while (Read32(buffer, offset) != RIFF_WAVE_MAGIC) {
 		// Get the size preceding the magic.
 		int chunk = Read32(buffer, offset - 4);
-		// Round the chunk size up to the nearest 2.
-		offset += chunk + (chunk & 1);
-		if (offset + 12 > size) {
+		// Validate and bounds-check in 64-bit *before* mutating offset (a u32).
+		// A negative or huge chunk could otherwise wrap offset (and offset + 12)
+		// around, bypassing the bounds check and making Read32() (whose offset
+		// parameter is a plain `int`) read from a wild pointer far outside buffer.
+		if (chunk < 0 || (u64)offset + (u64)chunk + (chunk & 1) + 12 > size) {
 			*error = StringFromFormat("%d too small for WAVE chunk at offset %d", size, offset);
 			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
+		// Round the chunk size up to the nearest 2.
+		offset += chunk + (chunk & 1);
 		if (Read32(buffer, offset) != RIFF_CHUNK_MAGIC) {
 			*error = "RIFF chunk did not contain WAVE";
 			return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
@@ -84,7 +88,20 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 	track->fileSize = Read32(buffer, offset - 8) + 8;
 
 	// Even if the RIFF size is too low, it may simply be incorrect.  This works on real firmware.
+	// But the reads below must stay within mapped guest memory: clamp the
+	// parse bound to the actual mapped region at the buffer, so a crafted,
+	// inflated RIFF size can't push the reads past the end of RAM.
 	u32 maxSize = std::max(track->fileSize, size);
+	const u32 bufferAddr = Memory::GetAddressFromHostPointer(buffer);
+	if (bufferAddr != 0) {
+		u32 maxSizeAtAddr = Memory::MaxSizeAtAddress(bufferAddr);
+		if (maxSize > maxSizeAtAddr) {
+			// This is not a big deal - it's ok for the DATA chunk to be larger than RAM as it will
+			// get streamed in in a looping fashion. Note below where we check maxSize, we allow the DATA chunk to extend like that.
+			DEBUG_LOG(Log::ME, "AnalyzeTrack: RIFF size %d exceeds mapped memory at %08x (%d)", maxSize, bufferAddr, maxSizeAtAddr);
+			maxSize = maxSizeAtAddr;
+		}
+	}
 
 	bool bfoundData = false;
 	u32 dataChunkSize = 0;
@@ -99,8 +116,10 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 		}
 		chunkSize += (chunkSize & 1);
 		offset += 8;
-		if (chunkSize > maxSize - offset)
+		if ((chunkSize > maxSize - offset) && chunkMagic != DATA_CHUNK_MAGIC) {
+			ERROR_LOG(Log::Atrac, "Chunk size %d exceeds available data and is not DATA", chunkSize);
 			break;
+		}
 		switch (chunkMagic) {
 		case FMT_CHUNK_MAGIC:
 		{
@@ -185,6 +204,16 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 			if (checkNumLoops < 0) {
 				*error = StringFromFormat("bad checkNumLoops (%d)", checkNumLoops);
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
+			}
+			// checkNumLoops is otherwise just an unvalidated field from the file - left
+			// unclamped, it could both drive an unbounded (up to ~2 billion entry)
+			// allocation here, and (since the loop below compares the loop counter `i`
+			// against chunkSize, rather than the byte offset actually being advanced by
+			// 24 per iteration) let reads run well past the end of this chunk. Clamp it
+			// to how many 24-byte loop entries could actually fit.
+			u32 maxLoops = chunkSize >= 36 ? (chunkSize - 36) / 24 : 0;
+			if ((u32)checkNumLoops > maxLoops) {
+				checkNumLoops = (int)maxLoops;
 			}
 
 			track->loopinfo.resize(checkNumLoops);
@@ -273,7 +302,11 @@ int AnalyzeAA3Track(const u8 *buffer, u32 size, u32 fileSize, Track *track, std:
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
-	if (size < tagSize + 36) {
+	// After rebasing buffer by 10+tagSize below, the codecParams/codec type reads
+	// go up to relative index 35 (buffer[33..35] and buffer[32]) - i.e. absolute
+	// index tagSize+45 - so the required size is tagSize+46, not just tagSize+36
+	// (which only covers up through the EA3 magic check).
+	if (size < tagSize + 46) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 
@@ -349,7 +382,7 @@ static inline int RoundUpToEven(int size) {
 	return (size + 1) & ~1;
 }
 
-int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
+int ParseWaveAT3(const u8 *data, u32 dataLength, TrackInfo *track) {
 	_assert_(data != nullptr);
 	track->loopStart = 0xFFFFFFFF;
 	track->loopEnd = 0xFFFFFFFF;
@@ -374,6 +407,13 @@ int ParseWaveAT3(const u8 *data, int dataLength, TrackInfo *track) {
 		if (waveID == RIFF_WAVE_MAGIC) {
 			// We found the WAVE header.
 			break;
+		}
+		// Guard against underflow (blockSize < 4) making the offset negative
+		// and bypassing the loop bounds check, and against advancing past the
+		// end of the buffer.
+		if (blockSize < 4 || (u64)offset + blockSize - 4 > dataLength) {
+			ERROR_LOG(Log::Atrac, "Invalid RIFF block size %d at offset %d: less than 4 or exceeds data length (%d)", blockSize, offset, dataLength);
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		offset += blockSize - 4;
 	}
@@ -571,8 +611,10 @@ static u32 Parse4BytesBE(const u8 *data, int *offset) {
 	return value;
 }
 
-static u32 ParseAA3Headers(int readSize, AA3Info *info, int fileSize, const u8 *aa3Data) {
-	if ((u32)readSize < 9) {
+static u32 ParseAA3Headers(u32 readSize, AA3Info *info, u32 fileSize, const u8 *aa3Data) {
+	// When the "ea3"/"id3" branch below is taken, Parse28BitIntBE() ends up
+	// reading aa3Data[6..9], so 9 bytes isn't quite enough - need 10.
+	if ((u32)readSize < 10) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 	int offset = 0;
@@ -666,7 +708,7 @@ static int ConvertAA3InfoToTrackInfo(const AA3Info *in, TrackInfo *out) {
 	}
 }
 
-int ParseAA3(const u8 *buffer, int readSize, int fileSize, TrackInfo *track) {
+int ParseAA3(const u8 *buffer, u32 readSize, u32 fileSize, TrackInfo *track) {
 	AA3Info info;
 	int retval = ParseAA3Headers(readSize, &info, fileSize, buffer);
 	if (retval < 0) {

@@ -1,0 +1,11 @@
+[package]
+authors = ["Henrik Rydgård <hrydgard@gmail.com>"]
+edition = "2024"
+name = "wsdbg"
+version = "0.1.0"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+tungstenite = "0.24"
+serde_json = "1.0"
+anyhow = "1.0"

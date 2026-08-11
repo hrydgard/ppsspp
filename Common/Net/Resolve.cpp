@@ -33,7 +33,7 @@ void Init() {
 	// WSA does its own internal reference counting, no need to keep track of if we inited or not.
 	WSADATA wsaData{};
 	if (FAILED(WSAStartup(MAKEWORD(2, 2), &wsaData))) {
-		ERROR_LOG(Log::sceNet, "WSAStartup failed");
+		ERROR_LOG(Log::Net, "WSAStartup failed");
 	} else {
 		g_wsaInitialized = true;
 	}
@@ -59,10 +59,6 @@ void Shutdown() {
 #endif
 }
 
-// This checks whether a TCP connection to host : port can be established within a given timeout.
-// It does this by attempting a new, non - blocking TCP connect() and waiting for it to succeed or time out.
-// The socket is closed immediately after the check.
-// It does not inspect or detect existing connections from other applications; it only tests reachability by making its own connection attempt.
 bool HostPortExists(const std::string &host, int port, int timeout_ms) {
 	if (host.empty() || (port <= 0 || port > 65535) || timeout_ms < 0) return false;
 
@@ -254,8 +250,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	return true;
 }
 
-void DNSResolveFree(addrinfo *res)
-{
+void DNSResolveFree(addrinfo *res) {
 	if (res)
 		freeaddrinfo(res);
 }
@@ -264,7 +259,7 @@ bool GetLocalIP4List(std::vector<std::string> &IP4s) {
 	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
 // getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
 #if defined(_IFADDRS_H_) || (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24)
-	INFO_LOG(Log::sceNet, "GetIPList from getifaddrs");
+	INFO_LOG(Log::Net, "GetIPList from getifaddrs");
 	struct ifaddrs* ifAddrStruct = NULL;
 	struct ifaddrs* ifa = NULL;
 
@@ -292,7 +287,7 @@ bool GetLocalIP4List(std::vector<std::string> &IP4s) {
 		return true;
 	}
 #elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
-	INFO_LOG(Log::IO, "GetIPList from SIOCGIFCONF");
+	INFO_LOG(Log::Net, "GetIPList from SIOCGIFCONF");
 	static struct ifreq ifreqs[32];
 	struct ifconf ifc{};
 	ifc.ifc_req = ifreqs;
@@ -300,13 +295,13 @@ bool GetLocalIP4List(std::vector<std::string> &IP4s) {
 
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) {
-		ERROR_LOG(Log::IO, "GetIPList failed to create socket (result = %i, errno = %i)", sd, socket_errno);
+		ERROR_LOG(Log::Net, "GetIPList failed to create socket (result = %i, errno = %i)", sd, socket_errno);
 		return false;
 	}
 
 	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifc);
 	if (r != 0) {
-		ERROR_LOG(Log::IO, "GetIPList failed ioctl/SIOCGIFCONF (result = %i, errno = %i)", r, socket_errno);
+		ERROR_LOG(Log::Net, "GetIPList failed ioctl/SIOCGIFCONF (result = %i, errno = %i)", r, socket_errno);
 		return false;
 	}
 
@@ -322,7 +317,7 @@ bool GetLocalIP4List(std::vector<std::string> &IP4s) {
 		r = ioctl(sd, SIOCGIFADDR, item);
 		if (r != 0)
 		{
-			ERROR_LOG(Log::IO, "GetIPList failed ioctl/SIOCGIFADDR (i = %i, result = %i, errno = %i)", i, r, socket_errno);
+			ERROR_LOG(Log::Net, "GetIPList failed ioctl/SIOCGIFADDR (i = %i, result = %i, errno = %i)", i, r, socket_errno);
 		}
 
 		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
@@ -342,7 +337,7 @@ bool GetLocalIP4List(std::vector<std::string> &IP4s) {
 	close(sd);
 	return true;
 #else // Fallback to POSIX/Cross-platform way but may not work well on Linux (ie. only shows 127.0.0.1)
-	DEBUG_LOG(Log::IO, "GetIPList from fallback method");
+	DEBUG_LOG(Log::Net, "GetIPList from fallback method");
 	struct addrinfo hints, * res, * p;
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
@@ -472,9 +467,10 @@ struct DNSHeader {
 
 // Function to convert a domain name to DNS query format
 // http://www.tcpipguide.com/free/t_DNSNameNotationandMessageCompressionTechnique.htm
-static void encode_domain_name(const char *domain, unsigned char *encoded) {
+static bool encode_domain_name(const char *domain, unsigned char *encoded, size_t max_len) {
 	const char *pos = domain;
 	unsigned char *ptr = encoded;
+	const unsigned char *end = encoded + max_len;
 
 	while (*pos) {
 		const char *start = pos;
@@ -482,37 +478,61 @@ static void encode_domain_name(const char *domain, unsigned char *encoded) {
 			pos++;
 		}
 
-		*ptr++ = (unsigned char)(pos - start);  // length field
-		memcpy(ptr, start, pos - start);
-		ptr += pos - start;
+		size_t label_len = pos - start;
+		if (label_len > 63 || ptr + label_len + 1 >= end) {
+			return false;  // Label too long or buffer overflow
+		}
+
+		*ptr++ = (unsigned char)label_len;  // length field
+		memcpy(ptr, start, label_len);
+		ptr += label_len;
 
 		if (*pos == '.') {
 			pos++;
 		}
 	}
+	if (ptr >= end) {
+		return false;
+	}
 	*ptr = 0; // End of domain name
+	return true;
 }
 
 // Function to parse and print the DNS response
 static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint32_t *output) {
+	if (response_len < sizeof(DNSHeader)) {
+		ERROR_LOG(Log::Net, "DNS response too short");
+		return false;
+	}
+
 	DNSHeader *dns = (DNSHeader *)buffer;
 	unsigned char *ptr = buffer + sizeof(struct DNSHeader);
+	unsigned char *end = buffer + response_len;
 
-	DEBUG_LOG(Log::sceNet, "DNS Response:");
-	DEBUG_LOG(Log::sceNet, "ID: 0x%x", ntohs(dns->id));
-	DEBUG_LOG(Log::sceNet, "Flags: 0x%x", ntohs(dns->flags));
-	DEBUG_LOG(Log::sceNet, "Questions: %d", ntohs(dns->q_count));
-	DEBUG_LOG(Log::sceNet, "Answers: %d", ntohs(dns->ans_count));
-	DEBUG_LOG(Log::sceNet, "Authority Records: %d", ntohs(dns->auth_count));
-	DEBUG_LOG(Log::sceNet, "Additional Records: %d", ntohs(dns->add_count));
+	DEBUG_LOG(Log::Net, "DNS Response:");
+	DEBUG_LOG(Log::Net, "ID: 0x%x", ntohs(dns->id));
+	DEBUG_LOG(Log::Net, "Flags: 0x%x", ntohs(dns->flags));
+	DEBUG_LOG(Log::Net, "Questions: %d", ntohs(dns->q_count));
+	DEBUG_LOG(Log::Net, "Answers: %d", ntohs(dns->ans_count));
+	DEBUG_LOG(Log::Net, "Authority Records: %d", ntohs(dns->auth_count));
+	DEBUG_LOG(Log::Net, "Additional Records: %d", ntohs(dns->add_count));
 
 	// Skip over the question section
 	const int q_count = ntohs(dns->q_count);
 	for (int i = 0; i < q_count; i++) {
-		while (*ptr != 0) {
-			ptr += (*ptr) + 1;
+		while (ptr < end && *ptr != 0) {
+			int jump = *ptr;
+			ptr += jump + 1;
+			if (ptr >= end) {
+				ERROR_LOG(Log::Net, "DNS response malformed (question section)");
+				return false;
+			}
 		}
 		ptr += 5; // Null byte + QTYPE (2 bytes) + QCLASS (2 bytes)
+		if (ptr > end) {
+			ERROR_LOG(Log::Net, "DNS response malformed (question section end)");
+			return false;
+		}
 	}
 
 	*output = 0;
@@ -520,14 +540,35 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 	// Parse the answer section
 	const int ans_count = ntohs(dns->ans_count);
 	for (int i = 0; i < ans_count; i++) {
-		DEBUG_LOG(Log::sceNet, "Answer %d:\n", i + 1);
+		DEBUG_LOG(Log::Net, "Answer %d:\n", i + 1);
 
 		// Skip the name (can be a pointer or a sequence)
+		if (ptr >= end) {
+			ERROR_LOG(Log::Net, "DNS response malformed (answer %d name)", i);
+			return false;
+		}
+
 		if ((*ptr & 0xC0) == 0xC0) {
+			if (ptr + 2 > end) {
+				ERROR_LOG(Log::Net, "DNS response malformed (answer %d name pointer)", i);
+				return false;
+			}
 			ptr += 2; // Pointer (2 bytes)
 		} else {
-			while (*ptr != 0) ptr += (*ptr) + 1;
+			while (ptr < end && *ptr != 0) {
+				int jump = *ptr;
+				ptr += jump + 1;
+				if (ptr >= end) {
+					ERROR_LOG(Log::Net, "DNS response malformed (answer %d name loop)", i);
+					return false;
+				}
+			}
 			ptr++;
+		}
+
+		if (ptr + 10 > end) {
+			ERROR_LOG(Log::Net, "DNS response too short for answer %d header", i);
+			return false;
 		}
 
 		// TODO: Use a struct or something.
@@ -540,16 +581,21 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 		uint16_t data_len = ntohs(*((uint16_t *)ptr));
 		ptr += 2;
 
-		DEBUG_LOG(Log::sceNet, "  Type: %d", type);
-		DEBUG_LOG(Log::sceNet, "  Class: %d", clazz);
-		DEBUG_LOG(Log::sceNet, "  TTL: %u", ttl);
-		DEBUG_LOG(Log::sceNet, "  Data length: %d", (int)data_len);
+		DEBUG_LOG(Log::Net, "  Type: %d", type);
+		DEBUG_LOG(Log::Net, "  Class: %d", clazz);
+		DEBUG_LOG(Log::Net, "  TTL: %u", ttl);
+		DEBUG_LOG(Log::Net, "  Data length: %d", (int)data_len);
+
+		if (ptr + data_len > end) {
+			ERROR_LOG(Log::Net, "DNS response data exceeds buffer");
+			return false;
+		}
 
 		if (type == DNS_QUERY_TYPE_A && data_len == 4) {
 			// IPv4 address
 			char ip[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, ptr, ip, sizeof(ip));
-			DEBUG_LOG(Log::sceNet, "  IPV4 Address: %s", ip);
+			DEBUG_LOG(Log::Net, "  IPV4 Address: %s", ip);
 			memcpy(output, ptr, 4);
 			// Skipping further responses.
 			return true;
@@ -571,12 +617,12 @@ static std::map<std::string, DNSCacheEntry> g_directDNSCache;
 
 bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t *ipv4_addr) {
 	if (!strlen(dns_server_ip)) {
-		WARN_LOG(Log::sceNet, "Direct lookup: DNS server not specified");
+		WARN_LOG(Log::Net, "Direct lookup: DNS server not specified");
 		return false;
 	}
 
 	if (!strlen(domain)) {
-		ERROR_LOG(Log::sceNet, "Direct lookup: Can't look up an empty domain");
+		ERROR_LOG(Log::Net, "Direct lookup: Can't look up an empty domain");
 		return false;
 	}
 
@@ -584,24 +630,41 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 
 	auto iter = g_directDNSCache.find(key);
 	if (iter != g_directDNSCache.end()) {
-		INFO_LOG(Log::sceNet, "Returning cached response from direct DNS request for '%s' to DNS server '%s", domain, dns_server_ip);
+		INFO_LOG(Log::Net, "Returning cached response from direct DNS request for '%s' to DNS server '%s", domain, dns_server_ip);
 		*ipv4_addr = iter->second.ipv4Address;
 		return true;
 	}
 
 	SOCKET sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	// Create UDP socket
-	if (sockfd < 0) {
-		ERROR_LOG(Log::sceNet, "Socket creation for direct DNS failed");
+	if (sockfd == INVALID_SOCKET) {
+		ERROR_LOG(Log::Net, "Socket creation for direct DNS failed");
 		return false;
 	}
+
+#ifndef _WIN32
+	// On non-Windows, we can't use select() if fd >= FD_SETSIZE
+	// For DNS, just set a socket timeout instead
+	struct timeval timeout;
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		WARN_LOG(Log::Net, "Failed to set socket timeout for DNS query");
+	}
+#else
+	// Windows version
+	DWORD timeout = 5000; // 5 seconds
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
+		WARN_LOG(Log::Net, "Failed to set socket timeout for DNS query");
+	}
+#endif
 
 	struct sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(DNS_PORT);
 
 	if (net::inet_pton(AF_INET, dns_server_ip, &server_addr.sin_addr) <= 0) {
-		ERROR_LOG(Log::sceNet,"Invalid DNS server IP address %s", dns_server_ip);
+		ERROR_LOG(Log::Net,"Invalid DNS server IP address %s", dns_server_ip);
 		closesocket(sockfd);
 		return false;
 	}
@@ -614,25 +677,30 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	dns->q_count = htons(1);    // One question
 
 	unsigned char *qname = buffer + sizeof(DNSHeader);
-	encode_domain_name(domain, qname);
+	size_t qname_space = sizeof(buffer) - sizeof(DNSHeader) - 4;  // Reserve 4 bytes for qtype and qclass
+	if (!encode_domain_name(domain, qname, qname_space)) {
+		ERROR_LOG(Log::Net, "Domain name too long or invalid: %s", domain);
+		closesocket(sockfd);
+		return false;
+	}
 
 	unsigned char *qinfo = qname + strlen((const char *)qname) + 1;
 	*((uint16_t *)qinfo) = htons(DNS_QUERY_TYPE_A); // Query type: A
 	*((uint16_t *)(qinfo + 2)) = htons(DNS_QUERY_CLASS_IN); // Query class: IN
 
 	// Send DNS query
-	size_t query_len = sizeof(DNSHeader) + (qinfo - buffer) + 4;
+	size_t query_len = (qinfo + 4) - buffer;
 	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-		ERROR_LOG(Log::sceNet, "Failed to send DNS query");
+		ERROR_LOG(Log::Net, "Failed to send DNS query");
 		closesocket(sockfd);
 		return false;
 	}
 
 	// Receive DNS response
 	socklen_t server_len = sizeof(server_addr);
-	size_t response_len;
-	if ((response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len)) < 0) {
-		ERROR_LOG(Log::sceNet, "Failed to receive DNS response");
+	int response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len);
+	if (response_len < 0) {
+		ERROR_LOG(Log::Net, "Failed to receive DNS response (timeout or error)");
 		closesocket(sockfd);
 		return false;
 	}
@@ -641,7 +709,7 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	closesocket(sockfd);
 
 	// Done communicating, time to parse.
-	if (!parse_dns_response(buffer, response_len, ipv4_addr)) {
+	if (!parse_dns_response(buffer, (size_t)response_len, ipv4_addr)) {
 		return false;
 	}
 

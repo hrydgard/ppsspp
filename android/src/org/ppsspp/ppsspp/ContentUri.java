@@ -44,7 +44,9 @@ public class ContentUri {
 					Log.e(TAG, "Failed to get file descriptor for " + uriString);
 					return -1;
 				}
-				return filePfd.detachFd();  // Take ownership of the fd.
+				// Review note: We intentionally "leak" the fd here, the caller takes ownership and closes
+				// it when done with it.
+				return filePfd.detachFd();
 			}
 		} catch (java.lang.IllegalArgumentException e) {
 			// This exception is long and ugly and really just means file not found.
@@ -70,13 +72,13 @@ public class ContentUri {
 		final String documentName = c.getString(0);
 		if (prefixLowercase != null && !prefixLowercase.isEmpty()) {
 			// Filter by prefix, case insensitive.
-			if (!documentName.toLowerCase(Locale.ROOT).startsWith(prefixLowercase)) {
+			if (!documentName.regionMatches(true, 0, prefixLowercase, 0, prefixLowercase.length())) {
 				return null;
 			}
 		}
 
 		final String mimeType = c.getString(3);
-		final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+		final boolean isDirectory = DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType);
 		final long size = isDirectory ? 0 : c.getLong(1);
 		final long lastModified = c.getLong(4);
 
@@ -222,6 +224,8 @@ public class ContentUri {
 
 	@Keep
 	@SuppressWarnings("unused")
+	// NOTE: If the file already exists, this will NOT return an error, instead the OS will create a new
+	// file appending an incrementing number, for example (1), to the filename.
 	public static int contentUriCreateFile(Activity activity, String rootTreeUri, String fileName) {
 		try {
 			Uri uri = Uri.parse(rootTreeUri);
@@ -232,7 +236,7 @@ public class ContentUri {
 				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
 				return createdFile != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
 			} else {
-				Log.e(TAG, "contentUriCreateFile: fromTreeUrisv returned null");
+				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
 				return STORAGE_ERROR_UNKNOWN;
 			}
 		} catch (Exception e) {

@@ -25,6 +25,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/TabHolder.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/NativeApp.h"
 #include "Common/VR/PPSSPPVR.h"
@@ -282,15 +283,19 @@ void DisplayLayoutScreen::CreateViews() {
 		supportsInsets = true;
 #endif
 		// Hide insets option if no insets, or OS too old.
+		float insetLeft = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+		float insetRight = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
+		float insetTop = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+		float insetBottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
 		if (supportsInsets && (
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
-			System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
+			insetLeft != 0.0f ||
+			insetTop != 0.0f ||
+			insetRight != 0.0f ||
+			insetBottom != 0.0f) && (insetLeft != insetTop || insetRight != insetBottom)) {
 			rightColumn->Add(new CheckBox(&config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 		}
 
-		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 			rightColumn->Add(new Spacer(12.0f));
 			AddRotationPicker(screenManager(), rightColumn, true);
 		}

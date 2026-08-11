@@ -30,29 +30,11 @@
 #include "Core/Loaders.h"
 
 #include "GPU/GPUState.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 
 
-bool teamCityMode = false;
 std::string currentTestName = "";
-
-void TeamCityPrint(const char *fmt, ...)
-{
-	if (!teamCityMode)
-		return;
-
-	const int TEMP_BUFFER_SIZE = 32768;
-	char temp[TEMP_BUFFER_SIZE];
-
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(temp, TEMP_BUFFER_SIZE - 1, fmt, args);
-	temp[TEMP_BUFFER_SIZE - 1] = '\0';
-	va_end(args);
-
-	printf("##teamcity[%s]\n", temp);
-}
 
 void GitHubActionsPrint(const char *type, const char *fmt, ...) {
 	if (!getenv("GITHUB_ACTIONS"))
@@ -74,8 +56,7 @@ struct BufferedLineReader {
 	const static int MAX_BUFFER = 5;
 	const static int TEMP_BUFFER_SIZE = 32768;
 
-	BufferedLineReader(const std::string &data) : data_(data) {
-	}
+	BufferedLineReader(const std::string &data) : data_(data) {}
 
 	void Fill() {
 		while (valid_ < MAX_BUFFER && HasMoreLines()) {
@@ -208,7 +189,7 @@ std::string GetTestName(const Path &bootFilename)
 	return ChopEnd(ChopFront(ChopFront(bootFilename.ToString(), "tests/"), "pspautotests/tests/"), ".prx");
 }
 
-bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose) {
+bool CompareOutput(const Path &bootFilename, const std::string &output, bool verbose, bool printEqualLines) {
 	Path expect_filename = bootFilename.GetFileExtension() == ".prx" ? bootFilename.WithReplacedExtension(".prx", ".expected") : bootFilename.WithExtraExtension(".expected");
 	std::unique_ptr<FileLoader> expect_loader(ConstructFileLoader(expect_filename));
 
@@ -221,14 +202,17 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 		BufferedLineReader actual(output);
 
 		bool failed = false;
-		while (expected.HasLines())
-		{
-			if (expected.Compare(actual))
+		while (expected.HasLines()) {
+			std::string value = expected.Peek(0);
+			if (expected.Compare(actual)) {  // note: Compare actually advances if equal. This is pretty ugly.
+				if (printEqualLines) {
+					printf("= %s\n", value.c_str());
+				}
+				// Lines were equal.
 				continue;
+			}
 
-			if (!failed)
-			{
-				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", currentTestName.c_str());
+			if (!failed) {
 				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
 				failed = true;
 			}
@@ -236,20 +220,18 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 			// This is a really dirt simple comparing algorithm.
 
 			// Perhaps it was an extra line?
-			if (expected.Peek(0) == actual.Peek(1) || !expected.HasLines())
+			if (expected.Peek(0) == actual.Peek(1) || !expected.HasLines()) {
 				printf("+ %s\n", actual.Consume().c_str());
-			// A single missing line?
-			else if (expected.Peek(1) == actual.Peek(0) || !actual.HasLines())
+				// A single missing line?
+			} else if (expected.Peek(1) == actual.Peek(0) || !actual.HasLines()) {
 				printf("- %s\n", expected.Consume().c_str());
-			else
-			{
+			} else {
 				printf("O %s\n", actual.Consume().c_str());
 				printf("E %s\n", expected.Consume().c_str());
 			}
 		}
 
-		while (actual.HasLines())
-		{
+		while (actual.HasLines()) {
 			// If it's a blank line, this will pass.
 			if (actual.Compare(expected))
 				continue;
@@ -257,16 +239,12 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 			printf("+ %s\n", actual.Consume().c_str());
 		}
 
-		if (verbose)
-		{
-			if (!failed)
-			{
+		if (verbose) {
+			if (!failed) {
 				printf("++++++++++++++ The Equal Output +++++++++++++\n");
 				printf("%s", output.c_str());
 				printf("+++++++++++++++++++++++++++++++++++++++++++++\n");
-			}
-			else
-			{
+			} else {
 				printf("============== output from failed %s:\n", GetTestName(bootFilename).c_str());
 				printf("%s", output.c_str());
 				printf("============== expected output:\n");
@@ -285,12 +263,10 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 			// Okay, just a screenshot then.  Allow a pass with no output (i.e. screenshot match.)
 			failed = output.find_first_not_of(" \r\n\t") != output.npos;
 			if (failed) {
-				TeamCityPrint("testFailed name='%s' message='Output different from expected file'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Incorrect output for %s", currentTestName.c_str());
 			}
 		} else {
 			fprintf(stderr, "Expectation file %s not found\n", expect_filename.c_str());
-			TeamCityPrint("testIgnored name='%s' message='Expects file missing'", currentTestName.c_str());
 			GitHubActionsPrint("error", "Expected file missing for %s", currentTestName.c_str());
 		}
 
@@ -304,8 +280,8 @@ bool CompareOutput(const Path &bootFilename, const std::string &output, bool ver
 	}
 }
 
-static inline double CompareChannel(int pix1, int pix2) {
-	double diff = pix1 - pix2;
+static inline float CompareChannel(int pix1, int pix2) {
+	float diff = pix1 - pix2;
 	return diff * diff;
 }
 
@@ -314,7 +290,6 @@ static inline double ComparePixel(u32 pix1, u32 pix2) {
 	double r = CompareChannel(pix1 & 0xFF, pix2 & 0xFF);
 	double g = CompareChannel((pix1 >> 8) & 0xFF, (pix2 >> 8) & 0xFF);
 	double b = CompareChannel((pix1 >> 16) & 0xFF, (pix2 >> 16) & 0xFF);
-
 	return r + g + b;
 }
 
@@ -330,19 +305,17 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	const u32 *pixels32 = (const u32 *)buffer->GetData();
 	const u16 *pixels16 = (const u16 *)buffer->GetData();
 	int outStride = buffer->GetStride();
-	if (!buffer->GetFlipped()) {
-		// Bitmaps are flipped, so we have to compare backwards in this case.
+	if (buffer->GetFlipped()) {
+		// The buffer is stored bottom-up (e.g. to fit a bitmap), so read backwards
+		// here to get top-down output.
 		int toLastRow = outStride * (h > buffer->GetHeight() ? buffer->GetHeight() - 1 : h - 1);
 		pixels32 += toLastRow;
 		pixels16 += toLastRow;
 		outStride = -outStride;
 	}
 
-	// Skip the bottom of the image in the buffer was smaller.  Remember, we're flipped.
+	// The output is top-down; if the buffer was smaller, the image starts at the top.
 	u32 *dst = &data[0];
-	if (safeH < h) {
-		dst += (h - safeH) * stride;
-	}
 
 	for (u32 y = 0; y < safeH; ++y) {
 		switch (buffer->GetFormat()) {
@@ -439,17 +412,19 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 
 	double errors = 0;
 	if (asBitmap_) {
-		// The reference is flipped and BGRA by default for the common BMP compare case.
+		// The reference is a BMP, stored bottom-up and BGRA by default for the
+		// common BMP compare case, so read it backwards (pixels_ is top-down).
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = y * referenceStride_;
+			u32 yoff = (h_ - y - 1) * referenceStride_;
 			for (u32 x = 0; x < w_; ++x)
 				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
 	} else {
+		// The reference is a PNG, stored top-down, so no flip needed.
 		// Just convert to BGRA for simplicity.
 		ConvertRGBA8888ToBGRA8888(reference_, reference_, h_ * referenceStride_);
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = (h_ - y - 1) * referenceStride_;
+			u32 yoff = y * referenceStride_;
 			for (u32 x = 0; x < w_; ++x)
 				errors += ComparePixel(pixels_[y * stride_ + x], reference_[yoff + x]);
 		}
@@ -473,7 +448,9 @@ bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
 	FILE *saved = File::OpenCFile(resultFilename, "wb");
 	if (saved) {
 		fwrite(&header, sizeof(header), 1, saved);
-		fwrite(pixels_.data(), sizeof(u32), stride_ * h_, saved);
+		// Bitmaps are stored bottom-up, so write the rows backwards (pixels_ is top-down).
+		for (u32 y = 0; y < h_; ++y)
+			fwrite(pixels_.data() + (h_ - y - 1) * stride_, sizeof(u32), stride_, saved);
 		fclose(saved);
 
 		return true;
@@ -482,23 +459,39 @@ bool ScreenshotComparer::SaveActualBitmap(const Path &resultFilename) {
 	return false;
 }
 
+bool ScreenshotComparer::SaveActualPNG(const Path &resultFilename, bool keepAlpha) {
+	std::vector<u8> rgba((size_t)stride_ * h_ * 4);
+	const u32 *pixels = pixels_.data();
+	for (size_t i = 0; i < (size_t)stride_ * h_; ++i) {
+		u32 p = pixels[i];
+		rgba[i * 4 + 0] = (p >> 16) & 0xFF;
+		rgba[i * 4 + 1] = (p >> 8) & 0xFF;
+		rgba[i * 4 + 2] = p & 0xFF;
+		// Games often use the alpha channel for non-visual purposes, which
+		// results in fully transparent images in PNG viewers.  By default,
+		// force alpha to 255 when writing the image.
+		rgba[i * 4 + 3] = keepAlpha ? ((p >> 24) & 0xFF) : 0xFF;
+	}
+	return pngSave(resultFilename, rgba.data(), stride_, h_, 4);
+}
+
 bool ScreenshotComparer::SaveVisualComparisonPNG(const Path &resultFilename) {
 	std::unique_ptr<u32[]> comparison(new u32[w_ * 2 * h_ * 2]);
 
 	if (asBitmap_) {
-		// The reference is flipped and BGRA by default for the common BMP compare case.
+		// The reference is a BMP, stored bottom-up, so read it backwards.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = y * referenceStride_;
-			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
+			u32 yoff = (h_ - y - 1) * referenceStride_;
+			u32 comparisonRow = y * 2 * w_ * 2;
 			for (u32 x = 0; x < w_; ++x) {
 				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
 			}
 		}
 	} else {
-		// Reference is already in BGRA either way.
+		// Reference is a PNG, stored top-down, so no flip needed.
 		for (u32 y = 0; y < h_; ++y) {
-			u32 yoff = (h_ - y - 1) * referenceStride_;
-			u32 comparisonRow = (h_ - y - 1) * 2 * w_ * 2;
+			u32 yoff = y * referenceStride_;
+			u32 comparisonRow = y * 2 * w_ * 2;
 			for (u32 x = 0; x < w_; ++x) {
 				PlotVisualComparison(comparison.get(), comparisonRow + x * 2, pixels_[y * stride_ + x], reference_[yoff + x]);
 			}

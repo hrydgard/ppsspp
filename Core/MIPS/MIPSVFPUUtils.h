@@ -219,8 +219,12 @@ static inline MatrixSize GetMtxSize(MIPSOpcode op) {
 	return (MatrixSize)(a + b + 1);  // Safe, there are no other possibilities
 }
 
+VectorSize GetQuarterVectorSizeSafe(VectorSize sz);
+VectorSize GetQuarterVectorSize(VectorSize sz);
 VectorSize GetHalfVectorSizeSafe(VectorSize sz);
 VectorSize GetHalfVectorSize(VectorSize sz);
+VectorSize GetQuadrupleVectorSizeSafe(VectorSize sz);
+VectorSize GetQuadrupleVectorSize(VectorSize sz);
 VectorSize GetDoubleVectorSizeSafe(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
 VectorSize MatrixVectorSizeSafe(MatrixSize sz);

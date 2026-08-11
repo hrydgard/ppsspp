@@ -46,6 +46,9 @@ typedef struct{
 	int out_ptr;
 	int out_len;
 
+	// Set when input/output bounds are exceeded; decompression should abort.
+	int error;
+
 	// range decode
 	u32 range;
 	u32 code;
@@ -53,8 +56,15 @@ typedef struct{
 	u8 lc;
 
 	u8 bm_literal[8][256];
-	u8 bm_dist_bits[8][39];
-	u8 bm_dist[18][8];
+	// rc_bittree() is called on &bm_dist_bits[len_bits][dist_state] with a limit of up
+	// to 44 (dist_state can be 7), and can index up to limit-1 past that base - i.e.
+	// column index up to 7+43=50, so the second dimension must be at least 51 (39 was
+	// too small and let a crafted stream corrupt adjacent probability tables).
+	u8 bm_dist_bits[8][51];
+	// rc_number() is called with &bm_dist[dist_bits][0] where dist_bits can reach 43
+	// (see bm_dist_bits above), so the first dimension must be at least 44 (18 was too
+	// small).
+	u8 bm_dist[44][8];
 	u8 bm_match[8][8];
 	u8 bm_len[8][31];
 }LZRC_DECODE;
@@ -63,8 +73,9 @@ typedef struct{
 
 static u8 rc_getbyte(LZRC_DECODE *rc)
 {
-	if(rc->in_ptr == rc->in_len){
-		_dbg_assert_msg_(false, "LZRC: End of input!");
+	if(rc->in_ptr >= rc->in_len){
+		rc->error = 1;
+		return 0;
 	}
 
 	return rc->input[rc->in_ptr++];
@@ -72,8 +83,9 @@ static u8 rc_getbyte(LZRC_DECODE *rc)
 
 static void rc_putbyte(LZRC_DECODE *rc, u8 byte)
 {
-	if(rc->out_ptr == rc->out_len){
-		_dbg_assert_msg_(false, "LZRC: Output overflow!");
+	if(rc->out_ptr >= rc->out_len){
+		rc->error = 1;
+		return;
 	}
 
 	rc->output[rc->out_ptr++] = byte;
@@ -89,6 +101,8 @@ static void rc_init(LZRC_DECODE *rc, void *out, int out_len, void *in, int in_le
 	rc->out_len = out_len;
 	rc->out_ptr = 0;
 
+	rc->error = 0;
+
 	rc->range = 0xffffffff;
 	rc->lc = rc_getbyte(rc);
 	rc->code =  (rc_getbyte(rc)<<24) |
@@ -97,11 +111,11 @@ static void rc_init(LZRC_DECODE *rc, void *out, int out_len, void *in, int in_le
 				(rc_getbyte(rc)<< 0) ;
 	rc->out_code = 0xffffffff;
 
-	memset(rc->bm_literal,   0x80, 2048);
-	memset(rc->bm_dist_bits, 0x80, 312);
-	memset(rc->bm_dist,      0x80, 144);
-	memset(rc->bm_match,     0x80, 64);
-	memset(rc->bm_len,       0x80, 248);
+	memset(rc->bm_literal,   0x80, sizeof(rc->bm_literal));
+	memset(rc->bm_dist_bits, 0x80, sizeof(rc->bm_dist_bits));
+	memset(rc->bm_dist,      0x80, sizeof(rc->bm_dist));
+	memset(rc->bm_match,     0x80, sizeof(rc->bm_match));
+	memset(rc->bm_len,       0x80, sizeof(rc->bm_len));
 
 }
 
@@ -115,8 +129,7 @@ static void normalize(LZRC_DECODE *rc)
 {
 	if(rc->range<0x01000000){
 		rc->range <<= 8;
-		rc->code = (rc->code<<8)+rc->input[rc->in_ptr];
-		rc->in_ptr++;
+		rc->code = (rc->code<<8)+rc_getbyte(rc);
 	}
 }
 
@@ -213,20 +226,29 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len)
 
 	rc_init(&rc, out, out_len, in, in_len);
 
+	if(rc.error)
+		return -1;
+
 	if(rc.lc&0x80){
 		/* plain text */
-		int copySize = rc.code;
-		if (copySize > out_len) {
+		u32 copySize = rc.code;
+		if (copySize > (u32)out_len) {
 			copySize = out_len;
 		}
+		if (rc.in_len >= 5 && copySize > (u32)(rc.in_len - 5)) {
+			copySize = rc.in_len - 5;
+		}
 		memcpy(rc.output, rc.input+5, copySize);
-		return copySize;
+		return (int)copySize;
 	}
 
 	rc_state = 0;
 	last_byte = 0;
 
 	while (1) {
+		if(rc.error)
+			return -1;
+
 		round += 1;
 		match_step = 0;
 

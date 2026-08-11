@@ -44,13 +44,12 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 
 protected:
 	uint32_t GetNextAddress(DebugInterface *cpuDebug);
-	int GetNextInstructionCount(DebugInterface *cpuDebug);
 	void PrepareResume();
 	void AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID);
 };
 
 DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
-	auto p = new WebSocketSteppingState();
+	WebSocketSteppingState *p = new WebSocketSteppingState();
 	map["cpu.stepInto"] = [p](DebuggerRequest &req) { p->Into(req); };
 	map["cpu.stepOver"] = [p](DebuggerRequest &req) { p->Over(req); };
 	map["cpu.stepOut"]  = [p](DebuggerRequest &req) { p->Out(req); };
@@ -90,33 +89,39 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive())
 		return req.Fail("CPU not started");
 	if (!Core_IsStepping()) {
+		// Core_Break() is explicitly free-threaded (see Core.cpp), so no need to bounce this to the CPU
+		// thread - and we can't anyway, since queuing to it only makes sense once the CPU actually *is*
+		// stepping, which this call is what triggers in the first place.
 		Core_Break(BreakReason::DebugStepInto, 0);
 		return;
 	}
 
-	uint32_t threadID;
-	auto cpuDebug = CPUFromRequest(req, &threadID);
-	if (!cpuDebug)
-		return;
+	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		uint32_t threadID;
+		DebugInterface *cpuDebug = CPUFromRequest(req, &threadID);
+		if (!cpuDebug)
+			return;
 
-	if (cpuDebug == currentDebugMIPS) {
-		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		if (cpuDebug == currentDebugMIPS) {
+			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-		int c = GetNextInstructionCount(cpuDebug);
-		Core_RequestCPUStep(CPUStepType::Into, c);
-	} else {
-		uint32_t breakpointAddress = cpuDebug->GetPC();
-		PrepareResume();
-		// Could have advanced to the breakpoint already in PrepareResume().
-		// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
-		cpuDebug = CPUFromRequest(req);
-		if (cpuDebug != currentDebugMIPS) {
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
-			AddThreadCondition(breakpointAddress, threadID);
-			Core_Resume();
+			Core_RequestCPUStep(CPUStepType::Into, 1);
+		} else {
+			uint32_t breakpointAddress = cpuDebug->GetPC();
+			PrepareResume();
+			// Could have advanced to the breakpoint already in PrepareResume().
+			// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
+			cpuDebug = CPUFromRequest(req);
+			if (cpuDebug != currentDebugMIPS) {
+				g_breakpoints.AddBreakPoint(breakpointAddress, true);
+				AddThreadCondition(breakpointAddress, threadID);
+				Core_Resume();
+			}
 		}
-	}
+	});
 }
 
 // Step over the next instruction (cpu.stepOver)
@@ -135,41 +140,45 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 	if (!Core_IsStepping())
 		return req.Fail("CPU currently running (cpu.stepping first)");
 
-	uint32_t threadID;
-	auto cpuDebug = CPUFromRequest(req, &threadID);
-	if (!cpuDebug)
-		return;
+	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		uint32_t threadID;
+		DebugInterface *cpuDebug = CPUFromRequest(req, &threadID);
+		if (!cpuDebug)
+			return;
 
-	MipsOpcodeInfo info = GetOpcodeInfo(cpuDebug, cpuDebug->GetPC());
-	uint32_t breakpointAddress = GetNextAddress(cpuDebug);
-	if (info.isBranch) {
-		if (info.isConditional && !info.isLinkedBranch) {
-			if (info.conditionMet) {
-				breakpointAddress = info.branchTarget;
+		MipsOpcodeInfo info = GetOpcodeInfo(cpuDebug, cpuDebug->GetPC());
+		uint32_t breakpointAddress = GetNextAddress(cpuDebug);
+		if (info.isBranch) {
+			if (info.isConditional && !info.isLinkedBranch) {
+				if (info.conditionMet) {
+					breakpointAddress = info.branchTarget;
+				} else {
+					// Skip over the delay slot.
+					breakpointAddress += 4;
+				}
 			} else {
-				// Skip over the delay slot.
-				breakpointAddress += 4;
-			}
-		} else {
-			if (info.isLinkedBranch) {
-				// jal or jalr - a function call.  Skip the delay slot.
-				breakpointAddress += 4;
-			} else {
-				// j - for absolute branches, set the breakpoint at the branch target.
-				breakpointAddress = info.branchTarget;
+				if (info.isLinkedBranch) {
+					// jal or jalr - a function call.  Skip the delay slot.
+					breakpointAddress += 4;
+				} else {
+					// j - for absolute branches, set the breakpoint at the branch target.
+					breakpointAddress = info.branchTarget;
+				}
 			}
 		}
-	}
 
-	PrepareResume();
-	// Could have advanced to the breakpoint already in PrepareResume().
-	cpuDebug = CPUFromRequest(req);
-	if (cpuDebug->GetPC() != breakpointAddress) {
-		g_breakpoints.AddBreakPoint(breakpointAddress, true);
-		if (cpuDebug != currentDebugMIPS)
-			AddThreadCondition(breakpointAddress, threadID);
-		Core_Resume();
-	}
+		PrepareResume();
+		// Could have advanced to the breakpoint already in PrepareResume().
+		cpuDebug = CPUFromRequest(req);
+		if (cpuDebug->GetPC() != breakpointAddress) {
+			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			if (cpuDebug != currentDebugMIPS)
+				AddThreadCondition(breakpointAddress, threadID);
+			Core_Resume();
+		}
+	});
 }
 
 // Step out of a function based on a stack walk (cpu.stepOut)
@@ -186,39 +195,43 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 	if (!Core_IsStepping())
 		return req.Fail("CPU currently running (cpu.stepping first)");
 
-	uint32_t threadID;
-	auto cpuDebug = CPUFromRequest(req, &threadID);
-	if (!cpuDebug)
-		return;
+	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		uint32_t threadID;
+		DebugInterface *cpuDebug = CPUFromRequest(req, &threadID);
+		if (!cpuDebug)
+			return;
 
-	auto threads = GetThreadsInfo();
-	uint32_t entry = cpuDebug->GetPC();
-	uint32_t stackTop = 0;
-	for (const DebugThreadInfo &th : threads) {
-		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
-			entry = th.entrypoint;
-			stackTop = th.initialStack;
-			break;
+		std::vector<DebugThreadInfo> threads = GetThreadsInfo();
+		uint32_t entry = cpuDebug->GetPC();
+		uint32_t stackTop = 0;
+		for (const DebugThreadInfo &th : threads) {
+			if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
+				entry = th.entrypoint;
+				stackTop = th.initialStack;
+				break;
+			}
 		}
-	}
 
-	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
-	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
-	auto frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
-	if (frames.size() < 2) {
-		return req.Fail("Could not find function call to step out into");
-	}
+		uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
+		uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
+		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
+		if (frames.size() < 2) {
+			return req.Fail("Could not find function call to step out into");
+		}
 
-	uint32_t breakpointAddress = frames[1].pc;
-	PrepareResume();
-	// Could have advanced to the breakpoint already in PrepareResume().
-	cpuDebug = CPUFromRequest(req);
-	if (cpuDebug->GetPC() != breakpointAddress) {
-		g_breakpoints.AddBreakPoint(breakpointAddress, true);
-		if (cpuDebug != currentDebugMIPS)
-			AddThreadCondition(breakpointAddress, threadID);
-		Core_Resume();
-	}
+		uint32_t breakpointAddress = frames[1].pc;
+		PrepareResume();
+		// Could have advanced to the breakpoint already in PrepareResume().
+		cpuDebug = CPUFromRequest(req);
+		if (cpuDebug->GetPC() != breakpointAddress) {
+			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			if (cpuDebug != currentDebugMIPS)
+				AddThreadCondition(breakpointAddress, threadID);
+			Core_Resume();
+		}
+	});
 }
 
 // Run until a certain address (cpu.runUntil)
@@ -238,13 +251,17 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 		return;
 	}
 
-	bool wasAtAddress = currentMIPS->pc == address;
-	PrepareResume();
-	// We may have arrived already if PauseResume() stepped out of a delay slot.
-	if (currentMIPS->pc != address || wasAtAddress) {
-		g_breakpoints.AddBreakPoint(address, true);
-		Core_Resume();
-	}
+	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		bool wasAtAddress = currentMIPS->pc == address;
+		PrepareResume();
+		// We may have arrived already if PauseResume() stepped out of a delay slot.
+		if (currentMIPS->pc != address || wasAtAddress) {
+			g_breakpoints.AddBreakPoint(address, true);
+			Core_Resume();
+		}
+	});
 }
 
 // Jump after the next HLE call (cpu.nextHLE)
@@ -257,18 +274,18 @@ void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
-	PrepareResume();
-	hleDebugBreak();
-	Core_Resume();
+	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		PrepareResume();
+		hleDebugBreak();
+		Core_Resume();
+	});
 }
 
 uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
 	uint32_t current = g_disassemblyManager.getStartAddress(cpuDebug->GetPC());
 	return g_disassemblyManager.getNthNextAddress(current, 1);
-}
-
-int WebSocketSteppingState::GetNextInstructionCount(DebugInterface *cpuDebug) {
-	return (GetNextAddress(cpuDebug) - cpuDebug->GetPC()) / 4;
 }
 
 void WebSocketSteppingState::PrepareResume() {

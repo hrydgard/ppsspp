@@ -409,16 +409,24 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	case SCE_KERNEL_ERROR_CAN_NOT_WAIT:
 		{
 			WARN_LOG(Log::HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): dispatch disabled", type, paddr, psize);
-			Memory::Write_U32(0x08400000, paddr);
-			Memory::Write_U32(0x00400000, psize);
+			if (Memory::IsValid4AlignedAddress(paddr)) {
+				Memory::WriteUnchecked_U32(0x08400000, paddr);
+			}
+			if (Memory::IsValid4AlignedAddress(psize)) {
+				Memory::WriteUnchecked_U32(0x00400000, psize);
+			}
 		}
 		break;
 
 	case SCE_KERNEL_ERROR_ILLEGAL_CONTEXT:
 		{
 			WARN_LOG(Log::HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): in interrupt", type, paddr, psize);
-			Memory::Write_U32(0x08400000, paddr);
-			Memory::Write_U32(0x00400000, psize);
+			if (Memory::IsValid4AlignedAddress(paddr)) {
+				Memory::WriteUnchecked_U32(0x08400000, paddr);
+			}
+			if (Memory::IsValid4AlignedAddress(psize)) {
+				Memory::WriteUnchecked_U32(0x00400000, psize);
+			}
 		}
 		break;
 
@@ -441,12 +449,6 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	}
 	if (busfreq == 0 || busfreq > 166) {
 		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid bus frequency");
-	}
-	// TODO: More restrictions.
-	if (GetLockedCPUSpeedMhz() > 0) {
-		INFO_LOG(Log::HLE, "scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, GetLockedCPUSpeedMhz(), GetLockedCPUSpeedMhz(), busFreq);
-	} else {
-		INFO_LOG(Log::HLE, "scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 	}
 	// Only reschedules when the stepped PLL frequency changes.
 	// It seems like the busfreq parameter has no effect (but can cause errors.)
@@ -471,8 +473,15 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 
 		return hleDelayResult(hleNoLog(0), "scepower set clockFrequency", usec);
 	}
-	if (GetLockedCPUSpeedMhz() <= 0)
-		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
+	if (GetLockedCPUSpeedMhz() <= 0) {
+		if (CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq))) {
+			return hleLogInfo(Log::HLE, 0);
+		} else {
+			return hleLogDebug(Log::HLE, 0);
+		}
+	} else {
+		return hleLogInfo(Log::HLE, 0, "locked by user config at %i, %i, %i", GetLockedCPUSpeedMhz(), GetLockedCPUSpeedMhz(), busFreq);
+	}
 	return hleNoLog(0);
 }
 
@@ -546,7 +555,8 @@ static int scePowerTick() {
 	return hleLogDebug(Log::sceMisc, 0);
 }
 
-static u32 IsPSPNonFat() {
+static u32 scePowerCheckWlanCoexistenceClock() {
+	// PSP-1000 vs PSP-2000/3000
 	return hleLogDebug(Log::sceMisc, g_Config.iPSPModel);
 }
 
@@ -603,7 +613,7 @@ static const HLEFunction scePower[] = {
 	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_469989ad",                 'x', "xxx"}, // This is also the same as SetClockFrequency
 	{0X545A7F3C, nullptr,                                     "scePower_545A7F3C",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
 	{0XA4E93389, nullptr,                                     "scePower_A4E93389",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
-	{0XA85880D0, &WrapU_V<IsPSPNonFat>,                       "scePower_a85880d0_IsPSPNonFat",     'x', ""   },
+	{0XA85880D0, &WrapU_V<scePowerCheckWlanCoexistenceClock>, "scePowerCheckWlanCoexistenceClock", 'x', ""   },
 	{0X3951AF53, nullptr,                                     "scePowerWaitRequestCompletion",     '?', ""   },
 	{0X0442D852, nullptr,                                     "scePowerRequestColdReset",          '?', ""   },
 	{0XBAFA3DF0, nullptr,                                     "scePowerGetCallbackMode",           '?', ""   },

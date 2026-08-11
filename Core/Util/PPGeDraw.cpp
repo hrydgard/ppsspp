@@ -911,7 +911,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(std::string_view text, const PPGeSty
 	auto cacheItem = textDrawerImages.find(key);
 	if (cacheItem != textDrawerImages.end()) {
 		im = cacheItem->second;
-		cacheItem->second.entry.lastUsedFrame = gpuStats.numFlips;
+		cacheItem->second.entry.lastUsedFrame = gpuStats.totals.numFlips;
 	} else {
 		std::vector<uint8_t> bitmapData;
 		textDrawer->SetFontScale(style.scale, style.scale);
@@ -944,7 +944,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(std::string_view text, const PPGeSty
 			memset(ramPtr + im.entry.bmHeight * bufwBytes, 0, bufwBytes + sz - origSz);
 		}
 
-		im.entry.lastUsedFrame = gpuStats.numFlips;
+		im.entry.lastUsedFrame = gpuStats.totals.numFlips;
 		textDrawerImages[key] = im;
 	}
 
@@ -1049,7 +1049,7 @@ static void PPGeDrawTextImage(const PPGeTextDrawerImage &im, float x, float y, c
 static void PPGeDecimateTextImages(int age) {
 	// Do this always, in case the platform has no TextDrawer but save state did.
 	for (auto it = textDrawerImages.begin(); it != textDrawerImages.end(); ) {
-		if (gpuStats.numFlips - it->second.entry.lastUsedFrame >= age) {
+		if (gpuStats.totals.numFlips - it->second.entry.lastUsedFrame >= age) {
 			kernelMemory.Free(it->second.ptr);
 			it = textDrawerImages.erase(it);
 		} else {
@@ -1409,7 +1409,7 @@ bool PPGeImage::Load() {
 	Memory::Memset(texture_ + dataSize, 0, texSize - dataSize, "PPGeTexClear");
 	free(textureData);
 
-	lastFrame_ = gpuStats.numFlips;
+	lastFrame_ = gpuStats.totals.numFlips;
 	loadedTextures_.push_back(this);
 	return true;
 }
@@ -1467,7 +1467,7 @@ void PPGeImage::CompatLoad(u32 texture, int width, int height) {
 }
 
 void PPGeImage::Decimate(int age) {
-	int tooOldFrame = gpuStats.numFlips - age;
+	int tooOldFrame = gpuStats.totals.numFlips - age;
 	for (size_t i = 0; i < loadedTextures_.size(); ++i) {
 		if (loadedTextures_[i]->lastFrame_ < tooOldFrame) {
 			loadedTextures_[i]->Free();
@@ -1484,7 +1484,7 @@ void PPGeImage::SetTexture() {
 	}
 
 	if (texture_ != 0) {
-		lastFrame_ = gpuStats.numFlips;
+		lastFrame_ = gpuStats.totals.numFlips;
 		PPGeSetTexture(texture_, width_, height_);
 	} else {
 		PPGeDisableTexture();

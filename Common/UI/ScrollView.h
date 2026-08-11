@@ -8,8 +8,7 @@ namespace UI {
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
-	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), orientation_(orientation) {}
+	ScrollView(Orientation orientation, LayoutParams *layoutParams = nullptr);
 	~ScrollView();
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
@@ -48,7 +47,7 @@ public:
 		shadows_ = shadows;
 	}
 
-	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best) override;
+	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) override;
 
 private:
 	Margins GetMargins() const;

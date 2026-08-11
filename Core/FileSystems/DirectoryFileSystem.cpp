@@ -68,18 +68,23 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path &
 	static const std::string_view mixedCase = "wJpCzSBNnZfxSgoS";
 	static const std::string_view upperCase = "WJPCZSBNNZFXSGOS";
 
-	// Check for case sensitivity
-	bool checkSucceeded = false;
-	File::CreateEmptyFile(basePath / mixedCase);
-	if (File::Exists(basePath / mixedCase)) {
-		checkSucceeded = true;
-		if (!File::Exists(basePath / upperCase)) {
-			flags |= FileSystemFlags::CASE_SENSITIVE;
+	// Check for case sensitivity. TODO: Add more special cases to avoid the file creation dance.
+#if !PPSSPP_PLATFORM(WINDOWS)
+	if (basePath.Type() == PathType::CONTENT_URI) {
+		// Android: Is not case sensitive.
+	} else {
+		bool checkSucceeded = false;
+		File::CreateEmptyFile(basePath / mixedCase);
+		if (File::Exists(basePath / mixedCase)) {
+			checkSucceeded = true;
+			if (!File::Exists(basePath / upperCase)) {
+				flags |= FileSystemFlags::CASE_SENSITIVE;
+			}
 		}
+		File::Delete(basePath / mixedCase);
+		INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: '%s') (checkOK: %d)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str(), checkSucceeded);
 	}
-	File::Delete(basePath / mixedCase);
-
-	INFO_LOG(Log::IO, "Is file system case sensitive? %s (base: '%s') (checkOK: %d)", (flags & FileSystemFlags::CASE_SENSITIVE) ? "yes" : "no", _basePath.c_str(), checkSucceeded);
+#endif
 
 	hAlloc = _hAlloc;
 }
@@ -1165,12 +1170,18 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
-		if(iter->second.seekPos + size > iter->second.size)
-			size = iter->second.size - iter->second.seekPos;
-		if(size < 0) size = 0;
-		size_t bytesRead = size;
-		memcpy(pointer, iter->second.fileData + iter->second.seekPos, size);
-		iter->second.seekPos += size;
+		// Guard against a seekPos at or past the end of the file. Without
+		// this, a wrapped seekPos (near 2^64) makes the clamp arithmetic
+		// below wrap too, leading to an out-of-bounds memcpy.
+		if (iter->second.seekPos >= iter->second.size)
+			return 0;
+
+		size_t bytesRead = (size_t)size;
+		size_t remaining = iter->second.size - iter->second.seekPos;
+		if (bytesRead > remaining)
+			bytesRead = remaining;
+		memcpy(pointer, iter->second.fileData + iter->second.seekPos, bytesRead);
+		iter->second.seekPos += bytesRead;
 		return bytesRead;
 	} else {
 		ERROR_LOG(Log::FileSystem,"Cannot read file that hasn't been opened: %08x", handle);
@@ -1191,11 +1202,17 @@ size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &us
 size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
+		s64 newPos = 0;
 		switch (type) {
-		case FILEMOVE_BEGIN:    iter->second.seekPos = position; break;
-		case FILEMOVE_CURRENT:  iter->second.seekPos += position;  break;
-		case FILEMOVE_END:      iter->second.seekPos = iter->second.size + position; break;
+		case FILEMOVE_BEGIN:    newPos = position; break;
+		case FILEMOVE_CURRENT:  newPos = (s64)iter->second.seekPos + position; break;
+		case FILEMOVE_END:      newPos = (s64)iter->second.size + position; break;
 		}
+		// Clamp to 0 so a negative position can't wrap the unsigned seekPos
+		// to a huge value (which would then read out of bounds).
+		if (newPos < 0)
+			newPos = 0;
+		iter->second.seekPos = (size_t)newPos;
 		return iter->second.seekPos;
 	} else {
 		//This shouldn't happen...

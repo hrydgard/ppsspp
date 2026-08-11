@@ -6,6 +6,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/UI.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -30,11 +31,15 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		// We have direct keyboard input.
-		chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0)));
+		chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat message"), n->T("Chat Here"), new LinearLayoutParams(1.0, Gravity::G_VCENTER)));
+		chatEdit_->SetPadding(Margins(12, 16));
+		Choice *send = bottom->Add(new Choice(ImageID("I_SEND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		send->OnClick.Handle(this, &ChatMenu::OnSubmitMessage);
+		send->SetImageScale(0.8f);
 		chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmitMessage);
 	} else {
 		// If we have a native input box, like on Android, or at least we can do a popup text input with our UI...
-		chatButton_ = bottom->Add(new Button(n->T("Chat message"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		chatButton_ = bottom->Add(new Choice(n->T("Chat message"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		chatButton_->OnClick.Handle(this, &ChatMenu::OnAskForChatMessage);
 	}
 
@@ -88,7 +93,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 		box_->SetHasDropShadow(false);
 
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		View *title = new PopupHeader(n->T("Chat"));
+		View *title = new PopupHeader(std::string(n->T("Chat")) + ": " + g_Config.sNickName);
 		box_->Add(title);
 
 		CreateContents(box_);
@@ -100,7 +105,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 void ChatMenu::OnSubmitMessage(UI::EventParams &e) {
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
-	chatEdit_->SetFocus();
+	chatEdit_->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 	sendChat(chat);
 }
 
@@ -110,7 +115,7 @@ void ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 	using namespace UI;
 
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(token_, n->T("Chat"), "", false, [](const std::string &value, int) {
+		System_InputBoxGetString(token_, n->T("Chat"), "", false, [](std::string_view value, int) {
 			sendChat(value);
 		});
 	} else {
@@ -179,7 +184,7 @@ void ChatMenu::Update() {
 	// Could remove the fullscreen check here, it works now.
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
-		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), false, [](const std::string &value, int) {
+		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), false, [](std::string_view value, int) {
 			sendChat(value);
 		});
 		promptInput_ = false;

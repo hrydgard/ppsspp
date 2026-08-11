@@ -138,15 +138,33 @@ struct VolDescriptor {
 	char zeroos[653];
 };
 
+// Removes version numbers from filenames.
+static std::string_view CleanISOFileName(std::string_view name) {
+	auto pos = name.find(';');
+	if (pos != name.npos) {
+		name = name.substr(0, pos);
+	}
+	return name;
+}
+
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) {
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDevice> _blockDevice) {
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 
 	VolDescriptor desc;
-	if (!blockDevice->ReadBlock(16, (u8*)&desc))
+	if (!blockDevice->ReadBlock(16, (u8*)&desc)) {
+		// TODO: This is kinda wacky.
 		blockDevice->NotifyReadError();
+		errorString_ = "ISO: error reading volume descriptor";
+		return;
+	}
+
+	if (memcmp(desc.cd001, "CD001", 5)) {
+		errorString_ = "ISO: missing CD001 signature";
+		return;
+	}
 
 	entireISO.name.clear();
 	entireISO.isDirectory = false;
@@ -163,17 +181,11 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->parent = NULL;
 	treeroot->valid = false;
 
-	if (memcmp(desc.cd001, "CD001", 5)) {
-		ERROR_LOG(Log::FileSystem, "ISO looks bogus, expected CD001 signature not present? Giving up...");
-		return;
-	}
-
 	treeroot->startsector = desc.root.firstDataSector;
 	treeroot->dirsize = desc.root.dataLength;
 }
 
 ISOFileSystem::~ISOFileSystem() {
-	delete blockDevice;
 	delete treeroot;
 }
 
@@ -210,6 +222,16 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				ERROR_LOG(Log::FileSystem, "Directory entry crosses sectors, corrupt iso?");
 				return;
 			}
+			// dir.size (the record length actually consumed) must cover at least its
+			// own header and identifier, or a crafted sector could set it to 1 and
+			// make the loop reinterpret the same overlapping bytes as many separate
+			// entries, allocating far more TreeEntry objects than the sector's real
+			// size warrants.
+			if (dir.size < IDENTIFIER_OFFSET + dir.identifierLength) {
+				blockDevice->NotifyReadError();
+				ERROR_LOG(Log::FileSystem, "Directory entry size too small, corrupt iso?");
+				return;
+			}
 
 			offset += dir.size;
 
@@ -224,7 +246,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				entry->name = "..";
 				relative = true;
 			} else {
-				entry->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
+				entry->name = std::string(CleanISOFileName(std::string_view((const char *)&dir.firstIdChar, dir.identifierLength)));
 				relative = false;
 			}
 
@@ -443,7 +465,9 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			// The remaining (or, usually, only) partial sector.
 			if (size > 0) {
 				u8 temp[2048];
-				blockDevice->ReadBlock(block, temp);
+				// `blocks` whole sectors starting at `block` were already consumed by
+				// ReadBlocks() above, so the trailing partial sector is the next one.
+				blockDevice->ReadBlock(block + blocks, temp);
 				memcpy(out, temp, size);
 			}
 			return 0;

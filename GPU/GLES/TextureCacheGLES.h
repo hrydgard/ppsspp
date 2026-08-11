@@ -37,18 +37,14 @@ public:
 	~TextureCacheGLES();
 
 	void Clear(bool delete_them) override;
-	void StartFrame() override;
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
-	void SetDepalShaderCache(TextureShaderCache *dpCache) {
-		textureShaderCache_ = dpCache;
-	}
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;
 	}
 
 	void ForgetLastTexture() override {
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 	}
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
@@ -58,6 +54,7 @@ public:
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
+
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
@@ -65,7 +62,7 @@ protected:
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 private:
-	void ApplySamplingParams(const SamplerCacheKey &key) override;
+	void ApplySamplerByKey(const SamplerCacheKey &key) override;
 	static Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) ;
 
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
@@ -73,12 +70,10 @@ private:
 
 	GLRenderManager *render_;
 
-	GLRTexture *lastBoundTexture = nullptr;
+	GLRTexture *lastBoundTexture_ = nullptr;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	DrawEngineGLES *drawEngine_;
 
 	enum { INVALID_TEX = -1 };
 };
-
-static Draw::DataFormat getClutDestFormat(GEPaletteFormat format);

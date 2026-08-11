@@ -94,7 +94,6 @@
 #include "sceOpenPSID.h"
 #include "sceHttp.h"
 #include "Core/Util/PPGeDraw.h"
-#include "sceHttp.h"
 
 /*
 17: [MIPS32 R4K 00000000 ]: Loader: Type: 1 Vaddr: 00000000 Filesz: 2856816 Memsz: 2856816 
@@ -779,7 +778,7 @@ const HLEFunction ThreadManForUser[] =
 	{0X94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx"    },
 	{0X57CF62DD, &WrapU_U<sceKernelGetThreadmanIdType>,              "sceKernelGetThreadmanIdType",               'x', "x"       },
 	{0XBC80EC7C, &WrapU_UUU<sceKernelExtendThreadStack>,             "sceKernelExtendThreadStack",                'x', "xxx"     },
-	// NOTE: Takes a UID from sceKernelMemory's AllocMemoryBlock and seems thread stack related.
+	// NOTE: Takes a UID from sceKernelMemory's sceKernelAllocMemoryBlock and seems thread stack related.
 	//{0x28BFD974, nullptr,                                           "ThreadManForUser_28BFD974",                  '?', ""        },
 
 	{0X82BC5777, &WrapU64_V<sceKernelGetSystemTimeWide>,             "sceKernelGetSystemTimeWide",                'X', ""        },
@@ -945,6 +944,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0xB736E9FF, &WrapI_IU<sceKernelFreeVpl>,                        "sceKernelFreeVpl",                          'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x1D371B8A, &WrapI_IU<sceKernelCancelVpl>,                      "sceKernelCancelVpl",                        'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x39810265, &WrapI_IU<sceKernelReferVplStatus>,                 "sceKernelReferVplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0xBC31C1B9, nullptr, "sceKernelExtendKernelStack"},
 };
 
 void Register_ThreadManForUser()
@@ -974,6 +974,7 @@ const HLEFunction LoadExecForKernel[] =
 	{0XA3D5E142, nullptr,                                            "sceKernelExitVSHVSH",                       '?', ""        },
 	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
 	{0x6D302D3D, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitVSHKernel",                    'v', "x", HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame 	
+	{0x05572A5F, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitGame",                         'v', "", HLE_KERNEL_SYSCALL },
 };
  
 void Register_LoadExecForKernel()
@@ -1000,7 +1001,7 @@ void Register_ExceptionManagerForKernel()
 
 // Seen in some homebrew
 const HLEFunction UtilsForKernel[] = {
-	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            '?', "",       HLE_KERNEL_SYSCALL },
+	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            'i', "xi",     HLE_KERNEL_SYSCALL },
 	{0X78934841, nullptr,                                            "sceKernelGzipDecompress",                   '?', ""        },
 	{0XE8DB3CE6, nullptr,                                            "sceKernelDeflateDecompress",                '?', ""        },
 	{0X840259F1, nullptr,                                            "sceKernelUtilsSha1Digest",                  '?', ""        },
@@ -1016,7 +1017,7 @@ const HLEFunction UtilsForKernel[] = {
 	{0X34B9FA9E, &WrapI_UI<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange",   '?', ""        },
 	{0XB435DEC5, &WrapI_V<sceKernelDcacheWritebackInvalidateAll>,    "sceKernelDcacheWritebackInvalidateAll",     '?', ""        },
 	{0XBFA98062, &WrapI_UI<sceKernelDcacheInvalidateRange>,          "sceKernelDcacheInvalidateRange",            '?', ""        },
-	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",              '?', ""        },
+	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",              'i', "xi"      },
 	{0XE860E75E, nullptr,                                            "sceKernelUtilsMt19937Init",                 '?', ""        },
 	{0X06FB8A63, nullptr,                                            "sceKernelUtilsMt19937UInt",                 '?', ""        },
 };
@@ -1035,7 +1036,7 @@ void Register_ThreadManForKernel()
 const char *KernelErrorToString(u32 err) {
 	switch (err) {
 	case 0x00000000: return "ERROR_OK";
-	case SCE_KERNEL_ERROR_BAD_ARGUMENT: "BAD_ARGUMENT";
+	case SCE_KERNEL_ERROR_BAD_ARGUMENT: return "BAD_ARGUMENT";
 	case 0x80000020: return "ALREADY";
 	case 0x80000021: return "BUSY";
 	case 0x80000022: return "OUT_OF_MEMORY";

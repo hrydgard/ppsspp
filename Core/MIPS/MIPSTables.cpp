@@ -478,22 +478,22 @@ static const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... 
 	//40
 	INVALID_X_8,
 	//48 - 010001 10000 ..... ..... ..... 11xxxx
-	INSTR("c.f",   JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
-	INSTR("c.un",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.eq",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ueq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.olt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ult", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ole", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ule", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.sf",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ngle",JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.seq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ngl", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.lt",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.nge", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.le",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
-	INSTR("c.ngt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.f.s",   JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
+	INSTR("c.un.s",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.eq.s",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ueq.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.olt.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ult.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ole.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ule.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.sf.s",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngle.s",JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.seq.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngl.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.lt.s",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.nge.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.le.s",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngt.s", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
 };
 
 static const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
@@ -609,15 +609,15 @@ static const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . 
 	INSTR("vsbz", JITFUNC(Comp_Generic), Dis_Generic, Int_Vsbz, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vlgb", JITFUNC(Comp_Generic), Dis_Generic, Int_Vlgb, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//24
-	INSTR("vuc2i", JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	INSTR("vc2i",  JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vuc2ifs", JITFUNC(Comp_Vx2i), Dis_Vc2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i",  JITFUNC(Comp_Vx2i), Dis_Vc2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vus2i", JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vs2i",  JITFUNC(Comp_Vx2i), Dis_Vs2i, Int_Vx2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
-	INSTR("vi2uc", JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2c",  JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2us", JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2s",  JITFUNC(Comp_Vi2x), Dis_Vi2x, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2uc", JITFUNC(Comp_Vi2x), Dis_Vi2c, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2c",  JITFUNC(Comp_Vi2x), Dis_Vi2c, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2us", JITFUNC(Comp_Vi2x), Dis_Vi2s, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2s",  JITFUNC(Comp_Vi2x), Dis_Vi2s, Int_Vi2x, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 // 110100 00000 10100 0000000000000000

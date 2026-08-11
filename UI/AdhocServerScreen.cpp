@@ -1,12 +1,169 @@
 #include <algorithm>
+#include <limits>
+
+#include "ppsspp_config.h"
+
+#undef new
+#ifdef SYSTEM_RAPIDJSON
+#include <rapidjson/document.h>
+#else
+#include "ext/rapidjson/include/rapidjson/document.h"
+#endif
+#include "ext/pugixml/pugixml.hpp"
+#include "Common/DbgNew.h"
+
 #include "AdhocServerScreen.h"
+#include "Core/Util/GameDB.h"
 
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
+#include "Common/Net/HTTPClient.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "UI/MiscViews.h"
+
+static void UpgradeGameName(std::string *str) {
+	if (str->size() == 9) {  // TODO: Make a better heuristic, we might make some failed lookup into the DB.
+		// It's probably a game ID. Convert it to a name using the database.
+		std::vector<GameDBInfo> infos;
+		if (g_gameDB.GetGameInfos(*str, &infos)) {
+			*str = infos[0].title;
+		}
+	}
+}
+
+static int ParseUserCountValue(const rapidjson::Value &v) {
+	if (v.IsInt())
+		return v.GetInt();
+	else if (v.IsString()) {
+		int value = 0;
+		if (TryParse(v.GetString(), &value))
+			return value;
+	}
+	return 0;
+}
+
+static int ParsePortValue(const rapidjson::Value &v) {
+	if (v.IsInt())
+		return v.GetInt();
+	return -1;
+}
+
+std::vector<AdhocGame> ParseStatusXML(const std::string& xmlInput) {
+	pugi::xml_document doc;
+	pugi::xml_parse_result result = doc.load_string(xmlInput.c_str());
+
+	std::vector<AdhocGame> gameList;
+	if (!result) {
+		ERROR_LOG(Log::sceNet, "XML Parsing Error: %s", result.description());
+		return gameList;
+	}
+
+	// Root is <prometheus>
+	pugi::xml_node prometheus = doc.child("prometheus");
+
+	for (pugi::xml_node xmlGame : prometheus.children("game")) {
+		AdhocGame game;
+		game.name = xmlGame.attribute("name").as_string();
+		game.usercount = xmlGame.attribute("usercount").as_int();
+
+		for (pugi::xml_node xmlGroup : xmlGame.children("group")) {
+			AdhocGroup group;
+			group.name = xmlGroup.attribute("name").as_string();
+			group.usercount = xmlGroup.attribute("usercount").as_int();
+
+			for (pugi::xml_node xmlUser : xmlGroup.children("user")) {
+				AdhocUser user;
+				// In XML, the username is the text inside the <user> tag
+				user.name = xmlUser.child_value();
+				group.users.push_back(user);
+			}
+			game.groups.push_back(group);
+		}
+		gameList.push_back(game);
+	}
+
+	return gameList;
+}
+
+std::vector<AdhocGame> ParseDataJson(std::string_view json) {
+	rapidjson::Document d;
+	d.Parse(json.data(), json.size());
+
+	std::vector<AdhocGame> gameList;
+
+	if (d.HasParseError() || !d.IsObject() || !d.HasMember("games") || !d["games"].IsArray())
+		return gameList;
+
+	const auto& gamesArray = d["games"];
+	for (auto& g : gamesArray.GetArray()) {
+		if (!g.IsObject())
+			continue;
+
+		AdhocGame game;
+		if (!g.HasMember("name") || !g["name"].IsString())
+			continue;
+		game.name = g["name"].GetString();
+		UpgradeGameName(&game.name);
+
+		game.usercount = g.HasMember("usercount") ? ParseUserCountValue(g["usercount"]) : 0;
+
+		if (g.HasMember("game_ids") && g["game_ids"].IsArray()) {
+			for (auto& id : g["game_ids"].GetArray()) {
+				if (!id.IsString())
+					continue;
+				game.game_ids.push_back(id.GetString());
+			}
+		}
+
+		if (g.HasMember("groups") && g["groups"].IsArray()) {
+			for (auto& grp : g["groups"].GetArray()) {
+				if (!grp.IsObject())
+					continue;
+
+				AdhocGroup group;
+				if (!grp.HasMember("name") || !grp["name"].IsString())
+					continue;
+				group.name = grp["name"].GetString();
+				group.usercount = grp.HasMember("usercount") ? ParseUserCountValue(grp["usercount"]) : 0;
+
+				if (grp.HasMember("users") && grp["users"].IsArray()) {
+					for (auto& u : grp["users"].GetArray()) {
+						if (!u.IsObject() || !u.HasMember("name") || !u["name"].IsString())
+							continue;
+
+						AdhocUser user;
+						user.name = u["name"].GetString();
+
+						if (u.HasMember("pdp_ports") && u["pdp_ports"].IsArray()) {
+							for (auto& p : u["pdp_ports"].GetArray()) {
+								int port = ParsePortValue(p);
+								if (port >= 0)
+									user.pdp_ports.push_back(port);
+							}
+						}
+
+						if (u.HasMember("ptp_ports") && u["ptp_ports"].IsArray()) {
+							for (auto& p : u["ptp_ports"].GetArray()) {
+								int port = ParsePortValue(p);
+								if (port >= 0)
+									user.ptp_ports.push_back(port);
+							}
+						}
+
+						group.users.push_back(user);
+					}
+				}
+				game.groups.push_back(group);
+			}
+		}
+		gameList.push_back(game);
+	}
+	return gameList;
+}
 
 class AdhocAddServerPopupScreen : public UI::PopupScreen {
 public:
@@ -22,7 +179,7 @@ public:
 		parent->Add(new CheckBox(&hasRelay_, ni->T("Relay server mode")));
 	}
 
-	virtual void OnCompleted(DialogResult result) {
+	virtual void OnCompleted(DialogResult result) override {
 		if (result == DialogResult::DR_OK) {
 			std::vector<AdhocServerListEntry> servers = AdhocGetServerList(AdhocLoadListMode::CacheOnlySync);
 			bool preset = false;
@@ -49,17 +206,61 @@ public:
 			*outEditValue_ = editValue_;
 		}
 	}
-	virtual bool CanComplete(DialogResult result) { return result == DR_OK ? !editValue_.empty() : true; }
+	virtual bool CanComplete(DialogResult result) override { return result == DR_OK ? !editValue_.empty() : true; }
 
 	const char *tag() const override { return "AdhocAddServerPopup"; }
 
 private:
 	std::string editValue_;
 	std::string *outEditValue_;
-	bool hasRelay_ = true;
+	bool hasRelay_ = false;
 };
 
-static UI::View *CreateLinkButton(std::string url) {
+AdhocServerCompactInfo::AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams)
+	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), entry_(entry) {
+	using namespace UI;
+
+	SetSpacing(5.0f);
+
+	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
+	lines->SetSpacing(0.0f);
+	TextView *name = lines->Add(new TextView(entry.name));
+
+	std::string secondLine = entry.host;
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	if (!entry.location.empty()) {
+		secondLine += ": " + entry.location;
+	}
+
+	lines->Add(new TextView(secondLine))->SetTextSize(TextSize::Small)->SetWordWrap();
+
+	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
+
+	if (entry.mode == AdhocDataMode::AemuPostoffice) {
+		TextView *relay = Add(new TextView(n->T("Relay"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+	}
+
+	Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
+		System_CopyStringToClipboard(host);
+	});
+}
+
+void AdhocServerCompactInfo::Draw(UIContext &dc) {
+	UI::LinearLayout::Draw(dc);
+	// Underline
+	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
+}
+
+static UI::View *CreateInfoItemWithButton(std::string_view text, ImageID buttonImage, std::function<void(UI::EventParams &)> onClick) {
+	using namespace UI;
+	LinearLayout *line = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0)));
+	line->Add(new TextView(text, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
+	line->Add(new Spacer(0, new LinearLayoutParams(1.0f)));
+	line->Add(new Choice(buttonImage, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add(onClick);
+	return line;
+}
+
+static UI::View *CreateLinkButton(std::string url, std::string_view title = "") {
 	using namespace UI;
 
 	// steal strings from all over the place
@@ -67,14 +268,14 @@ static UI::View *CreateLinkButton(std::string url) {
 	auto st = GetI18NCategory(I18NCat::STORE);
 
 	ImageID icon = ImageID("I_LINK_OUT_QUESTION");
-	std::string title;
-
 	if (startsWith(url, "https://discord")) {
 		icon = ImageID("I_LOGO_DISCORD");
-		title = cr->T("Discord");
+		if (title.empty())
+			title = cr->T("Discord");
 	} else {
 		icon = ImageID("I_LINK_OUT");
-		title = st->T("Website");
+		if (title.empty())
+			title = st->T("Website");
 	}
 
 	Choice *choice = new Choice(title, icon, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
@@ -86,62 +287,169 @@ static UI::View *CreateLinkButton(std::string url) {
 
 // Later, this might also show games-in-progress.
 // For now, it's just a simple metadata viewer.
-class AdhocServerInfoScreen : public UI::PopupScreen {
-public:
-	AdhocServerInfoScreen(const AdhocServerListEntry &entry)
-		: PopupScreen(entry.name, T(I18NCat::DIALOG, "Back")), entry_(entry) {
-	}   // PopupScreen will translate Back on its own
+AdhocServerInfoScreen::AdhocServerInfoScreen(const AdhocServerListEntry &entry)
+	: UI::PopupScreen("", T(I18NCat::DIALOG, "Back")), entry_(entry) {
 
-	const char *tag() const override { return "AdhocServerInfo"; }
-
-protected:
-	bool FillVertical() const override { return false; }
-	UI::Size PopupWidth() const override { return 500; }
-	bool ShowButtons() const override { return true; }
-
-	void CreatePopupContents(UI::ViewGroup *parent) override {
-		using namespace UI;
-		auto pa = GetI18NCategory(I18NCat::PAUSE);
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		auto ni = GetI18NCategory(I18NCat::NETWORKING);
-
-		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
-		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-		Margins contentMargins(10, 0);
-		content->SetSpacing(0.0f);
-		LinearLayout *hostLine = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
-		hostLine->Add(new TextView(entry_.host, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
-		hostLine->Add(new Spacer(0, new LinearLayoutParams(1.0f)));
-		hostLine->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
-			System_CopyStringToClipboard(host);
-		});
-		if (!entry_.ip.empty()) {
-			content->Add(new InfoItem(entry_.ip, ""));
-		}
-		content->Add(new InfoItem(entry_.location, ""));
-		content->Add(new InfoItem(ni->T("Relay server mode"), entry_.mode == AdhocDataMode::AemuPostoffice ? di->T("Yes") : di->T("No")));
-		TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12))));
-		desc->SetTextSize(TextSize::Small);
-		desc->SetWordWrap();
-
-		if (!entry_.web.empty() || !entry_.discord.empty()) {
-			LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12))));
-			buttonStrip->SetSpacing(8);
-			if (!entry_.web.empty()) {
-				buttonStrip->Add(CreateLinkButton(entry_.web));
-			}
-			if (!entry_.discord.empty()) {
-				buttonStrip->Add(CreateLinkButton(entry_.discord));
-			}
-		}
-
-		scroll->Add(content);
-		parent->Add(scroll);
+	std::string dataUrl;
+	if (!entry.dataJsonUrl.empty()) {
+		dataUrl = http::RemoveHttpsIfNeeded(entry.dataJsonUrl);
+	} else if (!entry.statusXmlUrl.empty()) {
+		dataUrl = http::RemoveHttpsIfNeeded(entry.statusXmlUrl);
 	}
 
-private:
-	AdhocServerListEntry entry_;
-};
+	if (!dataUrl.empty()) {
+		statusRequest_ = g_DownloadManager.StartDownload(dataUrl, Path(), http::RequestFlags::KeepInMemory, nullptr, "status");
+	}
+}
+
+void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGame> &games, bool requestInProgress) {
+	using namespace UI;
+	auto ni = GetI18NCategory(I18NCat::NETWORKING);
+	if (games.empty()) {
+		if (requestInProgress) {
+			// Still loading. Show a spinner.
+			content->Add(new Spinner(nullptr, 0, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(8))));
+		} else {
+			content->Add(new TextView(ni->T("No games in progress on this server")));
+		}
+		return;
+	}
+	for (const AdhocGame &game : games) {
+		std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
+		CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
+		gameSection->Header()->SetUnderline(false);
+		for (const AdhocGroup &group : game.groups) {
+			std::string groupName(StripSpaces(group.name));
+			if (groupName.empty()) {
+				groupName = "???";
+			}
+			if (group.usercount >= 1 && groupName == "Groupless") {
+				gameSection->Add(new TextView("  " + ApplySafeSubstitutions(ni->T("Players waiting: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+				continue;
+			}
+			if (g_Config.bAdhocServerShowPlayerPorts) {
+				// Show detailed info, each player on their own line.
+				gameSection->Add(new TextView("  " + groupName + " - " + ApplySafeSubstitutions(ni->T("players: %1"), group.usercount)))->SetTextSize(TextSize::Small);
+				for (const AdhocUser &user : group.users) {
+					std::string portInfo;
+					if (!user.pdp_ports.empty()) {
+						portInfo += "PDP: ";
+						for (int port : user.pdp_ports) {
+							portInfo += std::to_string(port) + " ";
+						}
+					}
+					if (!user.ptp_ports.empty()) {
+						portInfo += "PTP: ";
+						for (int port : user.ptp_ports) {
+							portInfo += std::to_string(port) + " ";
+						}
+					}
+					gameSection->Add(new TextView("    " + user.name + " " + portInfo))->SetTextSize(TextSize::Tiny);
+				}
+			} else {
+				// Show each group on a single line.
+				std::string groupString = "  " + groupName + ApplySafeSubstitutions(" (%1):", group.usercount);
+				bool first = true;
+				for (const AdhocUser &user : group.users) {
+					if (first) {
+						groupString += " ";
+						first = false;
+					} else {
+						groupString += ", ";
+					}
+					groupString += user.name;
+				}
+				gameSection->Add(new TextView(groupString))->SetTextSize(TextSize::Small)->SetWordWrap();
+			}
+		}
+		gameSection->SetOpen(false);  // NOTE: Must be last!
+	}
+}
+
+void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ni = GetI18NCategory(I18NCat::NETWORKING);
+
+	Margins contentMargins(12, 0);
+
+	parent->Add(new AdhocServerCompactInfo(entry_, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
+	parent->Add(new Spacer(5.0f));
+
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
+	content->SetSpacing(6.0f);
+	if (!entry_.ip.empty()) {
+		content->Add(new InfoItem(entry_.ip, ""));
+	}
+	TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
+	desc->SetTextSize(TextSize::Small);
+	desc->SetWordWrap();
+
+	LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
+	buttonStrip->SetSpacing(8);
+	if (!entry_.web.empty() || !entry_.discord.empty()) {
+		if (!entry_.web.empty()) {
+			buttonStrip->Add(CreateLinkButton(entry_.web));
+		}
+		if (!entry_.discord.empty()) {
+			buttonStrip->Add(CreateLinkButton(entry_.discord));
+		}
+	}
+
+	if (entry_.dataJsonUrl.empty() && entry_.statusXmlUrl.empty()) {
+		content->Add(CreateInfoItemWithButton(ni->T("This server has no data.json status page"), ImageID("I_LINK_OUT_QUESTION"), [](UI::EventParams &e) {
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/multiplayer/adhoc-server-status/");
+		}));
+		if (!entry_.statusWebUrl.empty()) {
+			buttonStrip->Add(CreateLinkButton(entry_.statusWebUrl, ni->T("Status")));
+		}
+		if (!entry_.statusXmlUrl.empty()) {
+			buttonStrip->Add(CreateLinkButton(entry_.statusXmlUrl, ni->T("Status")));
+		}
+	} else {
+		CreateAdhocServerGameList(content, games_, statusRequest_.get() ? true : false);
+	}
+
+	scroll->Add(content);
+	parent->Add(scroll);
+}
+
+void AdhocServerInfoScreen::update() {
+	UI::PopupScreen::update();
+	if (statusRequest_ && statusRequest_->Done()) {
+		std::string data;
+		statusRequest_->buffer().TakeAll(&data);
+		if (endsWith(statusRequest_->url(), ".xml")) {
+			games_ = ParseStatusXML(data);
+		} else {
+			games_ = ParseDataJson(data);
+		}
+		statusRequest_.reset();
+		RecreateViews();
+	}
+}
+
+void AddDeleteButton(std::string *editValue, ScreenManager *screenManager, UI::ViewGroup *viewGroup, const AdhocServerListEntry &entry) {
+	using namespace UI;
+	Choice *deleteButton = viewGroup->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
+	deleteButton->OnClick.Add([host = entry.host, screenManager, editValue](UI::EventParams &e) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		const std::string quotedHost = "\"" + host + "\"";
+		const std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1?"), quotedHost);
+		screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host, editValue](bool confirmed) {
+			if (confirmed) {
+				RemoveNoCase(g_Config.vCustomAdhocServerList, host);
+				RemoveNoCase(g_Config.vCustomAdhocServerListWithRelay, host);
+				if (*editValue == host) {
+					// Reset to socom.cc, which will always be in a list.
+					*editValue = DefaultProAdhocServer();
+				}
+			}
+			}));
+		});
+}
 
 class AdhocServerRow : public UI::LinearLayout {
 public:
@@ -203,13 +511,19 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 
 	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
 	lines->SetSpacing(0.0f);
-	lines->Add(new TextView(entry.name));
+	ClickableTextView *name = lines->Add(new ClickableTextView(entry.name));
+	name->SetFocusable(true);
+	name->OnClick.Add([this](UI::EventParams &e) {
+		EventParams e2;
+		e2.v = this;
+		OnSelected.Trigger(e2);
+	});
 
 	std::string secondLine = entry.host;
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (entry.host == "localhost") {
 		// Special case this to add a hint.
-		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		secondLine = n->T("Change proAdhocServer address hint");
+		secondLine = n->T("Ad hoc server address hint");
 	}
 	if (!entry.location.empty()) {
 		secondLine += ": " + entry.location;
@@ -220,25 +534,10 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
 
 	if (entry.mode == AdhocDataMode::AemuPostoffice) {
-		TextView *relay = Add(new TextView("Relay", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+		TextView *relay = Add(new TextView(n->T("Relay"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
 	}
 	if (showDeleteButton) {
-		Choice *deleteButton = Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0, 0, 10, 0))));
-		deleteButton->OnClick.Add([host = entry.host, screenManager, editValue](UI::EventParams &e) {
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			const std::string quotedHost = "\"" + host + "\"";
-			const std::string message = ApplySafeSubstitutions(di->T("Are you sure you want to delete %1?"), quotedHost);
-			screenManager->push(new UI::MessagePopupScreen(di->T("Delete"), message, di->T("Delete"), di->T("Cancel"), [host, editValue](bool confirmed) {
-				if (confirmed) {
-					RemoveNoCase(g_Config.vCustomAdhocServerList, host);
-					RemoveNoCase(g_Config.vCustomAdhocServerListWithRelay, host);
-					if (*editValue == host) {
-						// Reset to socom.cc, which will always be in a list.
-						*editValue = DefaultProAdhocServer();
-					}
-				}
-			}));
-		});
+		AddDeleteButton(editValue, screenManager, this, entry);
 	}
 
 	if (!entry.description.empty()) {
@@ -342,36 +641,44 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		return false;
 	};
 
-	for (const auto &host : g_Config.vCustomAdhocServerListWithRelay) {
+	for (auto iter = g_Config.vCustomAdhocServerListWithRelay.begin(); iter != g_Config.vCustomAdhocServerListWithRelay.end();) {
 		// If the host is already in the public list, skip it. We don't want duplicates.
-		if (hostInEntries(host) || host.empty()) {
+		if (hostInEntries(*iter) || iter->empty()) {
+			// Remove things that duplicate the public list, or that are empty (probably added by mistake).
+			iter = g_Config.vCustomAdhocServerListWithRelay.erase(iter);
+			recreateParent_ = true;
 			continue;
 		}
 		AdhocServerListEntry entry;
-		entry.name = host;
-		entry.host = host;
+		entry.name = *iter;
+		entry.host = *iter;
 		entry.mode = AdhocDataMode::AemuPostoffice;
 		customEntries.push_back(entry);
 
-		if (host == editValue_) {
+		if (*iter == editValue_) {
 			currentServerFound = true;
 		}
+		iter++;
 	}
 
-	for (const auto &host : g_Config.vCustomAdhocServerList) {
+	for (auto iter = g_Config.vCustomAdhocServerList.begin(); iter != g_Config.vCustomAdhocServerList.end();) {
 		// If the host is already in the public list, skip it. We don't want duplicates.
-		if (hostInEntries(host) || host.empty()) {
+		if (hostInEntries(*iter) || iter->empty()) {
+			// Remove things that duplicate the public list, or that are empty (probably added by mistake).
+			iter = g_Config.vCustomAdhocServerList.erase(iter);
+			recreateParent_ = true;
 			continue;
 		}
 		AdhocServerListEntry entry;
-		entry.name = host;
-		entry.host = host;
+		entry.name = *iter;
+		entry.host = *iter;
 		entry.mode = AdhocDataMode::P2P;
 		customEntries.push_back(entry);
 
-		if (host == editValue_) {
+		if (*iter == editValue_) {
 			currentServerFound = true;
 		}
+		iter++;
 	}
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
@@ -394,12 +701,18 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		CollapsibleSection *customSection = innerView->Add(new CollapsibleSection(n->T("Custom server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 		if (!currentServerFound) {
-			// Add a virtual entry.
+			// Add the entry to one of the lists.
 			AdhocServerListEntry entry;
 			entry.name = editValue_;
 			entry.host = editValue_;
 			// Let's do a heuristic, we don't have a good value here..
 			entry.mode = (AdhocServerRelayMode)g_Config.iAdhocServerRelayMode == AdhocServerRelayMode::AlwaysOn ? AdhocDataMode::AemuPostoffice : AdhocDataMode::P2P;
+			if (entry.mode == AdhocDataMode::AemuPostoffice) {
+				g_Config.vCustomAdhocServerListWithRelay.insert(g_Config.vCustomAdhocServerListWithRelay.begin(), editValue_);
+			} else {
+				g_Config.vCustomAdhocServerList.insert(g_Config.vCustomAdhocServerList.begin(), editValue_);
+			}
+			recreateParent_ = true;
 			AddButtonFromEntry(customSection, entry, true);
 		}
 
@@ -410,6 +723,9 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	CollapsibleSection *publicSection = innerView->Add(new CollapsibleSection(n->T("Public server list"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	for (const auto &entry : entries) {
+		// Show even hidden entries, as long as they are chosen currently.
+		if (entry.hidden && entry.host != g_Config.sProAdhocServer)
+			continue;
 		AddButtonFromEntry(publicSection, entry, false);
 	}
 
@@ -546,13 +862,13 @@ void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(requestToken, n->T("Change proAdhocServer Address"), g_Config.sProAdhocServer, false, [](const std::string &enteredValue, int) {
+		System_InputBoxGetString(requestToken, n->T("Ad hoc server address"), g_Config.sProAdhocServer, false, [](std::string_view enteredValue, int) {
 			EditServerName(enteredValue);
 		});
 		return;
 	}
 	static std::string editText = g_Config.sProAdhocServer;
-	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&editText, editText, n->T("Change proAdhocServer Address"), 256);
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&editText, editText, n->T("Ad hoc server address"), 256);
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);
 	}

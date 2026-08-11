@@ -32,7 +32,7 @@ extern "C" {
 #include "Core/System.h"
 #include "Core/Screenshot.h"
 
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceKernelTime.h"
@@ -195,11 +195,11 @@ void AVIDump::AddFrame() {
 	u32 w = 0;
 	u32 h = 0;
 	if (g_Config.bDumpVideoOutput) {
-		gpuDebug->GetOutputFramebuffer(buf);
+		gpu->GetOutputFramebuffer(buf);
 		w = buf.GetStride();
 		h = buf.GetHeight();
 	} else {
-		gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_RENDER);
+		gpu->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_RENDER);
 		w = PSP_CoreParameter().renderWidth;
 		h = PSP_CoreParameter().renderHeight;
 	}

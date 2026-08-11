@@ -30,11 +30,15 @@ public:
 	void SetLevel(NoticeLevel level) {
 		level_ = level;
 	}
-	void SetSquishy(bool squishy) {
-		squishy_ = squishy;
+	void SetLevelAndText(NoticeLevel level, std::string_view text) {
+		level_ = level;
+		text_ = text;
 	}
 	void SetWrapText(bool wrapText) {
 		wrapText_ = wrapText;
+	}
+	void SetDetailsText(std::string_view detailsText) {
+		detailsText_ = detailsText;
 	}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
@@ -46,8 +50,7 @@ private:
 	std::string iconName_;
 	NoticeLevel level_;
 	mutable float height1_ = 0.0f;
-	bool squishy_ = false;
-	bool wrapText_ = false;
+	bool wrapText_ = true;
 };
 
 ImageID GetOSDIcon(NoticeLevel level);

@@ -11,13 +11,16 @@
 
 class Path;
 
-typedef std::function<void(const char *responseString, int responseValue)> RequestCallback;
-typedef std::function<void()> RequestFailedCallback;
+typedef std::function<void(std::string_view responseString, int responseValue)> RequestCallback;
+typedef std::function<void(int responseValue)> RequestFailedCallback;
 
 typedef int RequesterToken;
 
 #define NO_REQUESTER_TOKEN -1
 #define NON_EPHEMERAL_TOKEN -2
+
+// Used on Android for file browsing requests and similar.
+#define NO_ACTIVITY_AVAILABLE 1
 
 // Platforms often have to process requests asynchronously, on wildly different threads,
 // and then somehow pass a response back to the main thread (especially Android...)
@@ -35,7 +38,7 @@ public:
 
 	// Called by the platform implementation, when it's finished with a request.
 	void PostSystemSuccess(int requestId, std::string_view responseString, int responseValue = 0);
-	void PostSystemFailure(int requestId);
+	void PostSystemFailure(int requestId, int responseValue = 0);
 
 	// This must be called every frame from the beginning of NativeFrame().
 	// This will call the callback of any finished requests.
@@ -69,6 +72,7 @@ private:
 
 	struct PendingFailure {
 		RequestFailedCallback failedCallback;
+		int responseValue;  // can have error codes for example.
 	};
 
 	// Let's start at 10 to get a recognizably valid ID in logs.
@@ -101,6 +105,7 @@ inline void System_BrowseForImage(RequesterToken token, std::string_view title, 
 
 enum class BrowseFileType {
 	BOOTABLE,
+	SAVE_STATE,
 	IMAGE,
 	INI,
 	DB,
@@ -183,13 +188,6 @@ inline void System_SetWindowTitle(std::string_view param) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_WINDOW_TITLE, NO_REQUESTER_TOKEN, nullptr, nullptr, param, "", 0);
 }
 
-inline bool System_SendDebugOutput(std::string_view string) {
-	return g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_OUTPUT, NO_REQUESTER_TOKEN, nullptr, nullptr, string, "", 0);
-}
-
-inline void System_SendDebugScreenshot(std::string_view data, int height) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, NO_REQUESTER_TOKEN, nullptr, nullptr, data, "", height);
-}
 
 inline void System_IAPRestorePurchases(RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::IAP_RESTORE_PURCHASES, token, callback, failedCallback, "", "", 0);
@@ -209,3 +207,5 @@ void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdat
 // Non-inline to avoid including Path.h
 void System_CreateGameShortcut(const Path &path, std::string_view title);
 void System_ShowFileInFolder(const Path &path);
+bool System_SendDebugOutput(std::string_view string);
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height);

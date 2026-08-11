@@ -5,7 +5,7 @@
 #include <map>
 #include "Common/Render/Text/draw_text.h"
 
-#if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 struct TextDrawerContext;
 // Internal struct but all details in .cpp file (pimpl to avoid pulling in excessive headers here)
@@ -15,7 +15,7 @@ class TextDrawerWin32 : public TextDrawer {
 public:
 	TextDrawerWin32(Draw::DrawContext *draw);
 	~TextDrawerWin32();
-	
+
 	void SetOrCreateFont(const FontStyle &style) override;
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 

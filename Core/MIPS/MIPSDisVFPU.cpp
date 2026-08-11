@@ -153,7 +153,7 @@ namespace MIPSDis
 	void Dis_VPFXST(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
 		int data = op & 0xFFFFF;
 		const char *name = MIPSGetName(op);
-		size_t outpos = snprintf(out, outSize, "%s\t[", name);
+		size_t outpos = snprintf(out, outSize, "%s\t", name);
 
 		static const char * const regnam[4] = {"X","Y","Z","W"};
 		static const char * const constan[8] = {"0","1","2","1/2","3","1/3","1/4","1/6"};
@@ -181,17 +181,14 @@ namespace MIPSDis
 			if (i != 3 && outpos < outSize)
 				outpos += truncate_cpy(out + outpos, outSize - outpos, ",");
 		}
-
-		if (outpos < outSize)
-			outpos += truncate_cpy(out + outpos, outSize - outpos, "]");
 	}
 
 	void Dis_VPFXD(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
 		int data = op & 0xFFFFF;
 		const char *name = MIPSGetName(op);
-		size_t outpos = snprintf(out, outSize, "%s\t[", name);
+		size_t outpos = snprintf(out, outSize, "%s\t", name);
 
-		static const char * const satNames[4] = {"", "0:1", "X", "-1:1"};
+		static const char * const satNames[4] = {"", "[0:1]", "X", "[-1:1]"};
 		for (int i=0; i<4; i++)
 		{
 			int sat = (data>>i*2)&3;
@@ -203,9 +200,6 @@ namespace MIPSDis
 			if (i < 4 - 1 && outpos < outSize)
 				outpos += truncate_cpy(out + outpos, outSize - outpos, ",");
 		}
-
-		if (outpos < outSize)
-			outpos += truncate_cpy(out + outpos, outSize - outpos, "]");
 	}
 
 
@@ -373,9 +367,9 @@ namespace MIPSDis
 			return;
 		}
 		if (imm3<6)
-			snprintf(out, outSize, "%s%s%s\t%s, %s, CC[%i]", name, tf==0?"t":"f", VSuff(op), VN(vd, sz), VN(vs,sz), imm3);
-		else if (imm3 == 6)
-			snprintf(out, outSize, "%s%s%s\t%s, %s, CC[...]", name, tf==0?"t":"f", VSuff(op), VN(vd, sz), VN(vs,sz));
+			snprintf(out, outSize, "%s%s%s\t%s, %s, %i", name, tf==0?"t":"f", VSuff(op), VN(vd, sz), VN(vs,sz), imm3);
+		else
+			snprintf(out, outSize, "%s%s%s\tERROR", name, tf==0?"t":"f", VSuff(op));
 	}
 
 	void Dis_Vfad(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
@@ -490,24 +484,42 @@ namespace MIPSDis
 		snprintf(out, outSize, "%s%s\t%s, %s, %i", name, VSuff(op), VN(vd, sz), VN(vs, sz), imm);
 	}
 
-	void Dis_Vs2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		VectorSize sz = GetVecSize(op);
-		int vd = _VD;
-		int vs = _VS;
-		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s%s\t%s, %s", name, VSuff(op), VN(vd, sz), VN(vs, sz));
-	}
-
-	void Dis_Vi2x(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		VectorSize sz = GetVecSize(op);
-		VectorSize dsz = GetHalfVectorSizeSafe(sz);
-		if (((op>>16)&3)==0)
-			dsz = V_Single;
-
+	void Dis_Vx2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize, VectorSize sz, VectorSize dsz) {
 		int vd = _VD;
 		int vs = _VS;
 		const char *name = MIPSGetName(op);
 		snprintf(out, outSize, "%s%s\t%s, %s", name, VSuff(op), VN(vd, dsz), VN(vs, sz));
+	}
+
+	void Dis_Vc2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
+		VectorSize sz = GetVecSize(op);
+		VectorSize dsz = GetQuadrupleVectorSizeSafe(sz);
+		Dis_Vx2i(op, pc, out, outSize, sz, dsz);
+	}
+
+	void Dis_Vs2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
+		VectorSize sz = GetVecSize(op);
+		VectorSize dsz = GetDoubleVectorSizeSafe(sz);
+		Dis_Vx2i(op, pc, out, outSize, sz, dsz);
+	}
+
+	void Dis_Vi2x(MIPSOpcode op, uint32_t pc, char *out, size_t outSize, VectorSize sz, VectorSize dsz) {
+		int vd = _VD;
+		int vs = _VS;
+		const char *name = MIPSGetName(op);
+		snprintf(out, outSize, "%s%s\t%s, %s", name, VSuff(op), VN(vd, dsz), VN(vs, sz));
+	}
+
+	void Dis_Vi2c(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
+		VectorSize sz = GetVecSize(op);
+		VectorSize dsz = GetQuarterVectorSizeSafe(sz);
+		Dis_Vi2x(op, pc, out, outSize, sz, dsz);
+	}
+
+	void Dis_Vi2s(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
+		VectorSize sz = GetVecSize(op);
+		VectorSize dsz = GetHalfVectorSizeSafe(sz);
+		Dis_Vi2x(op, pc, out, outSize, sz, dsz);
 	}
 
 	void Dis_Vwbn(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
@@ -572,7 +584,7 @@ namespace MIPSDis
 		int imm3 = (op>>18)&7;
 		off += imm + 4;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s\t->$%08x	(CC[%i])", name, off, imm3);
+		snprintf(out, outSize, "%s\t%i, ->$%08x", name, imm3, off);
 	}
 
 }

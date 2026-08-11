@@ -13,6 +13,7 @@ enum Gesture {
 	GESTURE_DRAG_HORIZONTAL = 2,
 	GESTURE_TWO_FINGER_ZOOM = 4,
 	GESTURE_TWO_FINGER_ZOOM_ROTATE = 8,
+	GESTURE_ALL = 15,
 };
 
 // May track multiple gestures at the same time. You simply call GetGestureInfo
@@ -24,6 +25,7 @@ public:
 	void UpdateFrame();
 	bool IsGestureActive(Gesture gesture, int touchId) const;
 	bool GetGestureInfo(Gesture gesture, int touchId, float info[4]) const;
+	void SetGestureMask(Gesture gestureMask) { gestureMask_ = gestureMask; }
 
 private:
 	enum Locals {
@@ -48,4 +50,6 @@ private:
 	};
 
 	Pointer pointers[MAX_PTRS]{};
+
+	Gesture gestureMask_ = GESTURE_ALL;
 };

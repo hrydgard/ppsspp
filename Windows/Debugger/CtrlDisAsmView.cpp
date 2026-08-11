@@ -6,10 +6,12 @@
 #include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 
+#include "Core/Core.h"
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
 #include "Common/StringUtils.h"
@@ -58,6 +60,10 @@ void CtrlDisAsmView::deinit()
 
 void CtrlDisAsmView::scanVisibleFunctions()
 {
+	// Reads live memory/symbol state to detect function boundaries - hold g_frameMutex for the
+	// duration, which NativeFrame() also holds while it's actually touching that state. See
+	// g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 	g_disassemblyManager.analyze(windowStart, g_disassemblyManager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
@@ -237,7 +243,7 @@ std::string trimString(std::string input)
 
 void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 {
-	auto memLock = Memory::Lock();
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 	if (!Core_IsStepping()) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
@@ -249,7 +255,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 	}
 
 	// check if it changes registers first
-	auto separator = op.find('=');
+	size_t separator = op.find('=');
 	if (separator != std::string::npos)
 	{
 		std::string registerName = trimString(op.substr(0,separator));
@@ -264,8 +270,12 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 				{
 					if (strcasecmp(debugger->GetRegName(cat,reg).c_str(), registerName.c_str()) == 0)
 					{
-						debugger->SetRegValue(cat,reg,value);
-						Reporting::NotifyDebugger();
+						// Route the actual register write to the CPU thread instead of poking at it
+						// directly from this GUI thread - see Core_RunOnCPUThread() in Core.h.
+						Core_RunOnCPUThread([&] {
+							debugger->SetRegValue(cat,reg,value);
+							Reporting::NotifyDebugger();
+						});
 						SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);
 						return;
 					}
@@ -276,9 +286,13 @@ void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 		// try to assemble the input if it failed
 	}
 
+	// Route the actual code assembly to the CPU thread instead of poking at it directly
+	// from this GUI thread - see Core_RunOnCPUThread() in Core.h.
 	std::string error;
-	result = MipsAssembleOpcode(op, debugger, address, &error);
-	Reporting::NotifyDebugger();
+	Core_RunOnCPUThread([&] {
+		result = MipsAssembleOpcode(op, debugger, address, &error);
+		Reporting::NotifyDebugger();
+	});
 	if (result) {
 		scanVisibleFunctions();
 
@@ -443,8 +457,13 @@ void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int
 
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	auto memLock = Memory::Lock();
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
+
+	// Reading live disassembly/symbol/breakpoint state here on the GUI thread would otherwise race
+	// with the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame()
+	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
+	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -602,7 +621,7 @@ void CtrlDisAsmView::followBranch()
 	DisassemblyLineInfo line;
 	g_disassemblyManager.getLine(curAddress, true, line, debugger);
 
-	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
+	if (line.type == DISTYPE_OPCODE)
 	{
 		if (line.info.isBranch)
 		{
@@ -640,29 +659,37 @@ void CtrlDisAsmView::editBreakpoint()
 {
 	BreakpointWindow win(wnd,debugger);
 
+	// Route the actual breakpoint read to the CPU thread instead of poking at it directly
+	// from this GUI thread - see Core_RunOnCPUThread() in Core.h.
 	bool exists = false;
-	if (g_breakpoints.IsAddressBreakPoint(curAddress))
-	{
-		auto breakpoints = g_breakpoints.GetBreakpoints();
-		for (size_t i = 0; i < breakpoints.size(); i++)
+	Core_RunOnCPUThread([&] {
+		if (g_breakpoints.IsAddressBreakPoint(curAddress))
 		{
-			if (breakpoints[i].addr == curAddress)
+			std::vector<BreakPoint> breakpoints = g_breakpoints.GetBreakpoints();
+			for (size_t i = 0; i < breakpoints.size(); i++)
 			{
-				win.loadFromBreakpoint(breakpoints[i]);
-				exists = true;
-				break;
+				if (breakpoints[i].addr == curAddress)
+				{
+					win.loadFromBreakpoint(breakpoints[i]);
+					exists = true;
+					break;
+				}
 			}
 		}
-	}
+	});
 
 	if (!exists)
 		win.initBreakpoint(curAddress);
 
+	// win.exec() is a modal dialog - must stay outside any queued callback, or we'd block the
+	// CPU thread on user input.
 	if (win.exec())
 	{
-		if (exists)
-			g_breakpoints.RemoveBreakPoint(curAddress);
-		win.addBreakpoint();
+		Core_RunOnCPUThread([&] {
+			if (exists)
+				g_breakpoints.RemoveBreakPoint(curAddress);
+			win.addBreakpoint();
+		});
 	}
 }
 
@@ -767,7 +794,10 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			displaySymbols = !displaySymbols;
 			break;
 		case VK_SPACE:
-			debugger->toggleBreakpoint(curAddress);
+			{
+				u32 toggleAddress = curAddress;
+				Core_RunOnCPUThread([&] { debugger->toggleBreakpoint(toggleAddress); });
+			}
 			break;
 		case VK_F3:
 			search(true);
@@ -818,25 +848,34 @@ void CtrlDisAsmView::redraw()
 
 void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
 {
-	bool enabled;
-	if (g_breakpoints.IsAddressBreakPoint(curAddress, &enabled)) {
+	// Route the breakpoint read to the CPU thread instead of poking at it directly from this GUI
+	// thread - see Core_RunOnCPUThread() in Core.h. The possible MessageBox() below is modal, so we
+	// can't just wrap the whole function - figure out what to do first, ask if needed, then mutate.
+	bool exists = false, enabled = false, hasCondition = false;
+	Core_RunOnCPUThread([&] {
+		exists = g_breakpoints.IsAddressBreakPoint(curAddress, &enabled);
+		if (exists)
+			hasCondition = g_breakpoints.GetBreakPointCondition(curAddress) != nullptr;
+	});
+
+	if (exists) {
 		if (!enabled) {
 			// enable disabled breakpoints
-			g_breakpoints.ChangeBreakPoint(curAddress, true);
-		} else if (!toggleEnabled && g_breakpoints.GetBreakPointCondition(curAddress) != nullptr) {
+			Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(curAddress, true); });
+		} else if (!toggleEnabled && hasCondition) {
 			// don't just delete a breakpoint with a custom condition
 			int ret = MessageBox(wnd,L"This breakpoint has a custom condition.\nDo you want to remove it?",L"Confirmation",MB_YESNO);
 			if (ret == IDYES)
-				g_breakpoints.RemoveBreakPoint(curAddress);
+				Core_RunOnCPUThread([&] { g_breakpoints.RemoveBreakPoint(curAddress); });
 		} else if (toggleEnabled) {
 			// disable breakpoint
-			g_breakpoints.ChangeBreakPoint(curAddress, false);
+			Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(curAddress, false); });
 		} else {
 			// otherwise just remove breakpoint
-			g_breakpoints.RemoveBreakPoint(curAddress);
+			Core_RunOnCPUThread([&] { g_breakpoints.RemoveBreakPoint(curAddress); });
 		}
 	} else {
-		g_breakpoints.AddBreakPoint(curAddress);
+		Core_RunOnCPUThread([&] { g_breakpoints.AddBreakPoint(curAddress); });
 	}
 }
 
@@ -912,13 +951,17 @@ void CtrlDisAsmView::CopyFunctionHash(u32 addr) {
 
 
 void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
-	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
-		Memory::Write_U32(0, addr);
-	}
+	// Route the memory writes to the CPU thread instead of poking at it directly from this GUI
+	// thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+			Memory::Write_U32(0, addr);
+		}
 
-	if (currentMIPS) {
-		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
-	}
+		if (currentMIPS) {
+			currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
+		}
+	});
 }
 
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
@@ -970,16 +1013,22 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_EDITSYMBOLS:
 			{
+				// esw.exec() is a modal dialog - must stay outside any queued callback, or we'd
+				// block the CPU thread on user input. Only the resulting mutation is routed to the
+				// CPU thread - see Core_RunOnCPUThread() in Core.h.
 				EditSymbolsWindow esw(wnd, debugger);
 				if (esw.exec()) {
-					esw.eval();
+					Core_RunOnCPUThread([&] { esw.eval(); });
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					redraw();
 				}
 			}
 			break;
 		case ID_DISASM_SETPCTOHERE:
-			debugger->SetPC(curAddress);
+			{
+				u32 newPC = curAddress;
+				Core_RunOnCPUThread([&] { debugger->SetPC(newPC); });
+			}
 			redraw();
 			break;
 		case ID_DISASM_FOLLOWBRANCH:
@@ -993,18 +1042,29 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_RENAMEFUNCTION:
 			{
-				u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress);
+				// Route the symbol map reads/mutations to the CPU thread instead of poking at it
+				// directly from this GUI thread - see Core_RunOnCPUThread() in Core.h.
+				// InputBox_GetString() is modal, so it must stay outside any queued callback, or
+				// we'd block the CPU thread on user input.
+				u32 funcBegin = -1;
+				char name[256] = {0};
+				Core_RunOnCPUThread([&] {
+					funcBegin = g_symbolMap->GetFunctionStart(curAddress);
+					if (funcBegin != -1)
+						truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin));
+				});
+
 				if (funcBegin != -1)
 				{
-					char name[256];
 					std::string newname;
-					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin));
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
-						g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
-						u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
-						MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
-						MIPSAnalyst::UpdateHashMap();
-						MIPSAnalyst::ApplyHashMap();
+						Core_RunOnCPUThread([&] {
+							g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
+							u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
+							MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
+							MIPSAnalyst::UpdateHashMap();
+							MIPSAnalyst::ApplyHashMap();
+						});
 						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);
 						redraw();
 					}
@@ -1017,25 +1077,37 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_REMOVEFUNCTION:
 			{
-				char statusBarTextBuff[256];
-				u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress);
-				if (funcBegin != -1)
-				{
-					u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin-1);
-					if (prevBegin != -1)
+				// Route the symbol map reads/mutations to the CPU thread instead of poking at it
+				// directly from this GUI thread - see Core_RunOnCPUThread() in Core.h. SendMessage()
+				// must stay outside the lambda: this GUI thread is blocked waiting for the CPU
+				// thread while the lambda runs, so a SendMessage() to one of our own windows from
+				// inside it would deadlock.
+				bool found = false;
+				Core_RunOnCPUThread([&] {
+					u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress);
+					if (funcBegin != -1)
 					{
-						u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + g_symbolMap->GetFunctionSize(funcBegin);
-						g_symbolMap->SetFunctionSize(prevBegin,expandedSize);
-					}
-					
-					g_symbolMap->RemoveFunction(funcBegin,true);
-					g_symbolMap->SortSymbols();
-					g_disassemblyManager.clear();
+						found = true;
+						u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin-1);
+						if (prevBegin != -1)
+						{
+							u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + g_symbolMap->GetFunctionSize(funcBegin);
+							g_symbolMap->SetFunctionSize(prevBegin,expandedSize);
+						}
 
+						g_symbolMap->RemoveFunction(funcBegin,true);
+						g_symbolMap->SortSymbols();
+						g_disassemblyManager.clear();
+					}
+				});
+
+				if (found)
+				{
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				else
 				{
+					char statusBarTextBuff[256];
 					snprintf(statusBarTextBuff,256, "WARNING: unable to find function symbol here");
 					SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
 				}
@@ -1044,39 +1116,49 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_ADDFUNCTION:
 			{
-				char statusBarTextBuff[256];
-				u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress);
-				if (prevBegin != -1)
-				{
-					if (prevBegin == curAddress)
+				// Same SendMessage-must-stay-outside-the-lambda reasoning as ID_DISASM_REMOVEFUNCTION
+				// above.
+				bool alreadyExists = false;
+				Core_RunOnCPUThread([&] {
+					u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress);
+					if (prevBegin != -1)
 					{
-						snprintf(statusBarTextBuff,256, "WARNING: There's already a function entry point at this adress");
-						SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
+						if (prevBegin == curAddress)
+						{
+							alreadyExists = true;
+						}
+						else
+						{
+							char symname[128];
+							u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
+							u32 newSize = curAddress-prevBegin;
+							g_symbolMap->SetFunctionSize(prevBegin,newSize);
+
+							newSize = prevSize-newSize;
+							snprintf(symname,128,"u_un_%08X",curAddress);
+							g_symbolMap->AddFunction(symname,curAddress,newSize);
+							g_symbolMap->SortSymbols();
+							g_disassemblyManager.clear();
+						}
 					}
 					else
 					{
 						char symname[128];
-						u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
-						u32 newSize = curAddress-prevBegin;
-						g_symbolMap->SetFunctionSize(prevBegin,newSize);
-
-						newSize = prevSize-newSize;
-						snprintf(symname,128,"u_un_%08X",curAddress);
-						g_symbolMap->AddFunction(symname,curAddress,newSize);
+						int newSize = selectRangeEnd - selectRangeStart;
+						snprintf(symname, 128, "u_un_%08X", selectRangeStart);
+						g_symbolMap->AddFunction(symname, selectRangeStart, newSize);
 						g_symbolMap->SortSymbols();
-						g_disassemblyManager.clear();
-
-						SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					}
+				});
+
+				if (alreadyExists)
+				{
+					char statusBarTextBuff[256];
+					snprintf(statusBarTextBuff,256, "WARNING: There's already a function entry point at this adress");
+					SendMessage(GetParent(wnd), WM_DEB_SETSTATUSBARTEXT, 0, (LPARAM) statusBarTextBuff);
 				}
 				else
 				{
-					char symname[128];
-					int newSize = selectRangeEnd - selectRangeStart;
-					snprintf(symname, 128, "u_un_%08X", selectRangeStart);
-					g_symbolMap->AddFunction(symname, selectRangeStart, newSize);
-					g_symbolMap->SortSymbols();
-
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 				}
 				redraw();
@@ -1115,91 +1197,7 @@ void CtrlDisAsmView::updateStatusBarText()
 	DisassemblyLineInfo line;
 	g_disassemblyManager.getLine(curAddress,true,line, debugger);
 	
-	text[0] = 0;
-	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
-	{
-		if (line.info.hasRelevantAddress && IsLikelyStringAt(line.info.relevantAddress)) {
-			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
-		}
-
-		if (line.info.isDataAccess) {
-			if (!Memory::IsValidAddress(line.info.dataAddress)) {
-				snprintf(text, sizeof(text), "Invalid address %08X",line.info.dataAddress);
-			} else {
-				bool isFloat = MIPSGetInfo(line.info.encodedOpcode) & (IS_FPU | IS_VFPU);
-				switch (line.info.dataSize) {
-				case 1:
-					snprintf(text, sizeof(text), "[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
-					break;
-				case 2:
-					snprintf(text, sizeof(text), "[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
-					break;
-				case 4:
-					{
-						u32 dataInt = Memory::Read_U32(line.info.dataAddress);
-						u32 dataFloat = Memory::Read_Float(line.info.dataAddress);
-						std::string dataString;
-						if (isFloat)
-							dataString = StringFromFormat("%08X / %f", dataInt, dataFloat);
-						else
-							dataString = StringFromFormat("%08X", dataInt);
-
-						const std::string addressSymbol = g_symbolMap->GetLabelString(dataInt);
-						if (!addressSymbol.empty()) {
-							snprintf(text, sizeof(text), "[%08X] = %s (%s)", line.info.dataAddress, addressSymbol.c_str(), dataString.c_str());
-						} else {
-							snprintf(text, sizeof(text), "[%08X] = %s", line.info.dataAddress, dataString.c_str());
-						}
-						break;
-					}
-				case 16:
-					{
-						uint32_t dataInt[4];
-						float dataFloat[4];
-						for (int i = 0; i < 4; ++i) {
-							dataInt[i] = Memory::Read_U32(line.info.dataAddress + i * 4);
-							dataFloat[i] = Memory::Read_Float(line.info.dataAddress + i * 4);
-						}
-						std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
-						std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);
-
-						snprintf(text, sizeof(text), "[%08X] = %s / %s", line.info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
-						break;
-					}
-				}
-			}
-		}
-
-		if (line.info.isBranch)
-		{
-			const std::string addressSymbol = g_symbolMap->GetLabelString(line.info.branchTarget);
-			if (addressSymbol.empty())
-			{
-				snprintf(text, sizeof(text), "%08X", line.info.branchTarget);
-			} else {
-				snprintf(text, sizeof(text), "%08X = %s",line.info.branchTarget,addressSymbol.c_str());
-			}
-		}
-	} else if (line.type == DISTYPE_DATA) {
-		u32 start = g_symbolMap->GetDataStart(curAddress);
-		if (start == -1)
-			start = curAddress;
-
-		u32 diff = curAddress-start;
-		const std::string label = g_symbolMap->GetLabelString(start);
-
-		if (!label.empty()) {
-			if (diff != 0)
-				snprintf(text, sizeof(text), "%08X (%s) + %08X",start,label.c_str(),diff);
-			else
-				snprintf(text, sizeof(text), "%08X (%s)",start,label.c_str());
-		} else {
-			if (diff != 0)
-				snprintf(text, sizeof(text), "%08X + %08X",start,diff);
-			else
-				snprintf(text, sizeof(text), "%08X",start);
-		}
-	}
+	line.ToString(text, sizeof(text), curAddress);
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
 
@@ -1350,9 +1348,3 @@ void CtrlDisAsmView::scrollStepping(u32 newPc)
 	}
 }
 
-u32 CtrlDisAsmView::getInstructionSizeAt(u32 address)
-{
-	u32 start = g_disassemblyManager.getStartAddress(address);
-	u32 next  = g_disassemblyManager.getNthNextAddress(start,1);
-	return next - address;
-}

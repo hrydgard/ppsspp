@@ -1,6 +1,7 @@
 #pragma once
 
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
+#include "Common/GPU/thin3d.h"
 
 // GE-related windows of the ImDebugger
 
@@ -20,7 +21,7 @@ void DrawDebugStatsWindow(ImConfig &cfg);
 
 class ImGeDisasmView {
 public:
-	void Draw(GPUDebugInterface *gpuDebug);
+	void Draw(GPUCommon *gpuDebug);
 
 	bool followPC_ = true;
 
@@ -46,11 +47,11 @@ private:
 
 class ImGeStateWindow {
 public:
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+	void Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug);
 	void Snapshot();
 };
 
-void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug);
+void DrawImGeVertsWindow(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug);
 
 namespace Draw {
 class Texture;
@@ -63,16 +64,20 @@ public:
 	virtual ~PixelLookup() {}
 
 	virtual bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const = 0;
+	virtual float GetHistogramValue(int idx) const = 0;
+	virtual int GetHistogramSize() const = 0;
 };
 
 struct ImGePixelViewer : public PixelLookup {
 	~ImGePixelViewer();
-	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom);
+	bool Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, float zoom);
 	void Snapshot() {
 		dirty_ = true;
 	}
 	bool FormatValueAt(char *buf, size_t bufSize, int x, int y) const override;
 	void DeviceLost();
+	float GetHistogramValue(int idx) const override { return 0; }
+	int GetHistogramSize() const override { return 0; }
 
 	uint32_t addr = 0x04110000;
 	uint16_t stride = 512;
@@ -93,7 +98,7 @@ private:
 struct ImGeReadbackViewer : public PixelLookup {
 	ImGeReadbackViewer();
 	~ImGeReadbackViewer();
-	bool Draw(GPUDebugInterface *gpuDebug, Draw::DrawContext *draw, float zoom);
+	bool Draw(GPUCommon *gpuDebug, Draw::DrawContext *draw, float zoom);
 	void Snapshot() {
 		dirty_ = true;
 	}
@@ -108,11 +113,20 @@ struct ImGeReadbackViewer : public PixelLookup {
 	GEBufferFormat fbFormat = GE_FORMAT_INVALID;
 
 	// This specifies what to show
-	Draw::Aspect aspect;
+	Draw::Aspect aspect_{};
+	bool showAlpha_ = false;
 	float scale = 1.0f;  // Scales depth values.
 
+	const int *Histogram() const { return histogram_; }
+	float GetHistogramValue(int idx) const override {
+		return histogram_[idx];
+	}
+	float GetHistogramMaxValue() const { return histogramMax_; }
+	int GetHistogramSize() const override { return aspect_ == Draw::Aspect::STENCIL_BIT ? 256 : (aspect_ == Draw::Aspect::COLOR_BIT && showAlpha_ ? 256 : 0); }
 private:
 	uint8_t *data_ = nullptr;
+	int histogram_[256 * 3] = {};
+	int histogramMax_ = 0;
 	Draw::DataFormat readbackFmt_;
 	Draw::Texture *texture_ = nullptr;
 	bool dirty_ = true;
@@ -120,7 +134,7 @@ private:
 
 class ImGePixelViewerWindow {
 public:
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug, Draw::DrawContext *draw);
 	void Snapshot() {
 		viewer_.Snapshot();
 	}
@@ -142,7 +156,7 @@ private:
 class ImGeDebuggerWindow {
 public:
 	ImGeDebuggerWindow();
-	void Draw(ImConfig &cfg, ImControl &control, GPUDebugInterface *gpuDebug, Draw::DrawContext *draw);
+	void Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuDebug, Draw::DrawContext *draw);
 	ImGeDisasmView &View() {
 		return disasmView_;
 	}
@@ -158,10 +172,12 @@ private:
 	ImGePixelViewer swViewer_;
 	int showBannerInFrames_ = 0;
 	bool reloadPreview_ = false;
+	GECommand previewCmd_{};
 	GEPrimitiveType previewPrim_ = GEPrimitiveType::GE_PRIM_TRIANGLES;
 	std::vector<u16> previewIndices_;
 	std::vector<GPUDebugVertex> previewVertices_;
-	int previewCount_ = 0;
+	int previewIndexOffset_ = 0;
+	bool previewTransformed_ = true;
 	Draw::Aspect selectedAspect_;
 	float previewZoom_ = 1.0f;
 };

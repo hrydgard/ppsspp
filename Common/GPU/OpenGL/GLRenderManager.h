@@ -45,7 +45,6 @@ public:
 	GLenum magFilter = 0xFFFF;
 	GLenum minFilter = 0xFFFF;
 	uint8_t numMips = 0;
-	bool canWrap = true;
 	float anisotropy = -100000.0f;
 	float minLod = -1000.0f;
 	float maxLod = 1000.0f;
@@ -201,6 +200,7 @@ enum class GLRRunType {
 	SUBMIT,
 	PRESENT,
 	SYNC,
+	EXIT,
 };
 
 class GLRenderManager;
@@ -238,7 +238,9 @@ public:
 
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
-	bool ThreadFrame(bool waitIfEmpty);  // Returns true if it did anything. False means the queue was empty.
+	bool ThreadFrame();  // False means it's time to exit.
+
+	void NotifyEmuThreadExit();
 
 	void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {
 		queueRunner_.SetErrorCallback(callback, userdata);
@@ -341,8 +343,8 @@ public:
 		return step.create_input_layout.inputLayout;
 	}
 
-	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, const char *tag) {
-		GLPushBuffer *push = new GLPushBuffer(this, target, size, tag);
+	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, int slack, const char *tag) {
+		GLPushBuffer *push = new GLPushBuffer(this, target, size, slack, tag);
 		RegisterPushBuffer(frame, push);
 		return push;
 	}
@@ -824,12 +826,6 @@ public:
 		}
 	}
 
-	void StartThread();  // Currently only used on iOS, since we fully recreate the context on Android
-
-	bool SawOutOfMemory() {
-		return queueRunner_.SawOutOfMemory();
-	}
-
 	// Only supports a common subset.
 	std::string GetGLString(int name) const {
 		return queueRunner_.GetGLString(name);
@@ -867,8 +863,6 @@ private:
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
-	// TODO: Rename this, as we don't actually use a compile thread on OpenGL.
-	bool runCompileThread_ = true;
 
 	// Thread is managed elsewhere, and should call ThreadFrame.
 	GLQueueRunner queueRunner_;
@@ -902,6 +896,9 @@ private:
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;
+
+	bool exitNotified_ = false;
+	bool hitExit_ = false;
 
 #ifdef _DEBUG
 	GLRProgram *curProgram_ = nullptr;

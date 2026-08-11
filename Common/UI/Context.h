@@ -56,6 +56,8 @@ struct AtlasData {
 
 typedef std::function<AtlasData(Draw::DrawContext *, AtlasChoice, float dpiScale, bool invalidate)> UIAtlasProviderFunc;
 
+enum class ViewLayoutMode;
+
 class UIContext {
 public:
 	UIContext();
@@ -113,7 +115,7 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Bounds GetLayoutBounds(bool ignoreBottomInset) const;
+	Bounds GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode) const;
 	Draw::DrawContext *GetDrawContext() const { return draw_; }
 	const UI::Theme &GetTheme() const {
 		return *theme;
@@ -127,9 +129,18 @@ public:
 	void SetTheme(const UI::Theme *theme) { this->theme = theme; }
 	void SetAtlasProvider(UIAtlasProviderFunc func) { atlasProvider_ = func; }
 	void InvalidateAtlas();
+
+	void SetOverrideScreenFrame(const Bounds *bounds) {
+		useOverrideScreenFrame_ = (bounds != nullptr);
+		if (bounds) overrideScreenFrame_ = *bounds;
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
+
+	bool useOverrideScreenFrame_ = false;
+	Bounds overrideScreenFrame_;
 
 	const UI::Theme *theme = nullptr;
 

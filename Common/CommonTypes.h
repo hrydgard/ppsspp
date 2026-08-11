@@ -48,8 +48,6 @@ typedef signed __int64 s64;
 #define ThreadContext _ThreadContext
 #include <switch.h>
 // Cleanup
-#undef KeyInputFlags::UP
-#undef KeyInputFlags::DOWN
 #undef Event
 #undef Framebuffer
 #undef Waitable

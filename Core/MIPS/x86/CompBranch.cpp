@@ -524,7 +524,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr) || (targetAddr & 3) != 0) {
 		if (js.nextExit == 0) {
-			ERROR_LOG(Log::JIT, "Jump to invalid address: %08x PC %08x LR %08x", targetAddr, GetCompilerPC(), currentMIPS->r[MIPS_REG_RA]);
+			ERROR_LOG(Log::JIT, "Jump to invalid address: %08x PC %08x RA %08x", targetAddr, GetCompilerPC(), currentMIPS->r[MIPS_REG_RA]);
 		} else {
 			js.compiling = false;
 		}
@@ -562,8 +562,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-void Jit::Comp_JumpReg(MIPSOpcode op)
-{
+void Jit::Comp_JumpReg(MIPSOpcode op) {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(Log::JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);

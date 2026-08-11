@@ -121,7 +121,7 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 				if (delta == 0) {
 					return a.addr < b.addr;
 				}
-				if (spec->SortDirection == ImGuiSortDirection_Ascending) {
+				if (!spec || spec->SortDirection == ImGuiSortDirection_Ascending) {
 					return delta < 0;
 				} else {
 					return delta > 0;

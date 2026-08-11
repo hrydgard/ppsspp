@@ -76,13 +76,16 @@ static int GetPickerRequestId(id picker) {
 												selector:@selector(onOrientationChanged)
 												name:UIDeviceOrientationDidChangeNotification
 												object:nil];
-	}
-	self.accelerometerQueue = [[NSOperationQueue alloc] init];
-	self.accelerometerQueue.name = @"AccelerometerQueue";
-	self.accelerometerQueue.maxConcurrentOperationCount = 1;
 
+		self.accelerometerQueue = [[NSOperationQueue alloc] init];
+		self.accelerometerQueue.name = @"AccelerometerQueue";
+		self.accelerometerQueue.maxConcurrentOperationCount = 1;
+	}
 	return self;
 }
+
+// Only means anything for the GL backend, which overrides this.
+- (void)bindDefaultFBO {}
 
 - (void)shutdown {
 	self.gameController = nil;
@@ -139,7 +142,7 @@ static int GetPickerRequestId(id picker) {
 	// This needs to be called really late during startup, unfortunately.
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
-	NSLog(@"Metal viewDidAppear. updating icon");
+	NSLog(@"viewDidAppear. updating icon");
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 		[[IAPManager sharedIAPManager] updateIcon:false];
 		[self hideKeyboard];
@@ -481,26 +484,24 @@ extern float g_safeInsetBottom;
 #endif
 #pragma mark - Status Bar Control
 
-// iOS calls this to determine whether to hide the status bar
-- (BOOL)prefersStatusBarHidden {
-	UIInterfaceOrientation orientation;
-
+// The immersive mode setting is per-orientation, so we need to know which way we're facing.
+// Can't just use g_display for this, since it lags behind during rotation.
+// Note: Using viewIfLoaded, since this can get called before the view exists, and we don't want to force it into existence.
+- (DeviceOrientation)currentDeviceOrientation {
 	if (@available(iOS 13.0, *)) {
-		UIWindowScene *scene = self.view.window.windowScene;
+		UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
 		if (scene != nil) {
-			orientation = scene.interfaceOrientation;
-		} else {
-			orientation = UIApplication.sharedApplication.statusBarOrientation;
+			return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
 		}
-	} else {
-		orientation = UIApplication.sharedApplication.statusBarOrientation;
 	}
+	CGSize size = self.viewIfLoaded.bounds.size;
+	return size.height > size.width ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
+}
 
-	BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
-
-	bool userWantsStatusBar = true; // g_Config.bShowStatusBar;
-	// return isLandscape || !userWantsStatusBar;
-	return false;
+// iOS calls this to determine whether to hide the status bar.
+// Note that on iPhone, iOS hides it in landscape regardless of what we return here.
+- (BOOL)prefersStatusBarHidden {
+	return g_Config.GetDisplayLayoutConfig([self currentDeviceOrientation]).bImmersiveMode ? YES : NO;
 }
 
 // Optional: choose light/dark text for the status bar
@@ -508,15 +509,26 @@ extern float g_safeInsetBottom;
 	return UIStatusBarStyleLightContent;
 }
 
-// This should also be called when the user preference changes.
 - (void)onOrientationChanged {
 	[self setNeedsStatusBarAppearanceUpdate];
 }
 
+// Called from the C++ side when the user toggles the immersive mode setting.
+- (void)immersiveModeChanged {
+	[self setNeedsStatusBarAppearanceUpdate];
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size
+		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+	// The immersive mode setting is per-orientation, so the status bar may need to change along with the rotation.
+	[self setNeedsStatusBarAppearanceUpdate];
+}
+
 - (void)updateResolutionWithView:(UIView *)view {
-	// 1. Get the scale from the window scene (safest for Metal)
+	// 1. Get the scale from the window scene
 	CGFloat scale = 1.0;
-	if (view.window.windowScene) {
+	if (view.window && view.window.windowScene) {
 		scale = view.window.windowScene.screen.nativeScale;
 	} else {
 		scale = [UITraitCollection currentTraitCollection].displayScale;

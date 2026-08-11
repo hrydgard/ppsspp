@@ -195,10 +195,10 @@ struct FramebufferHeuristicParams {
 	int16_t scissorBottom;
 };
 
-struct GPUgstate;
-extern GPUgstate gstate;
+struct GEState;
+extern GEState gstate;
 
-void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate);
+void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GEState &gstate);
 
 enum BindFramebufferColorFlags {
 	BINDFBCOLOR_SKIP_COPY = 0,
@@ -313,7 +313,7 @@ public:
 	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason, bool *changed) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
-			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
+			currentRenderVfb_->last_frame_render = gpuStats.totals.numFlips;
 			currentRenderVfb_->dirtyAfterDisplay = true;
 			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;
@@ -441,7 +441,7 @@ public:
 			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
-	void SetSafeSize(u16 w, u16 h);
+	void SetSafeSize(int w, int h);
 
 	void NotifyRenderResized(const DisplayLayoutConfig &config, int msaaLevel);
 	virtual void NotifyDisplayResized();
@@ -624,8 +624,6 @@ protected:
 	int pixelHeight_ = 0;
 	int bloomHack_ = 0;
 	bool updatePostShaders_ = false;
-
-	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;

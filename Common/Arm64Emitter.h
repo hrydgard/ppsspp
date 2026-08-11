@@ -858,9 +858,11 @@ public:
 	void FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FADDP(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMAXNM(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMLS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMINNM(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTL2(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);

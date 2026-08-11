@@ -84,7 +84,7 @@ std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
 		}
 		if (key != "Font") {
 			// Font is allowed to be missing.
-			INFO_LOG(Log::UI, "Missing translation [%s] %.*s (%.*s)", name_.c_str(), STR_VIEW(key), STR_VIEW(def));
+			DEBUG_LOG(Log::UI, "Missing translation [%s] %.*s (%.*s)", name_.c_str(), STR_VIEW(key), STR_VIEW(def));
 			std::lock_guard<std::mutex> guard(missedKeyLock_);
 			std::string missedKey(key);
 			if (!def.empty())
@@ -107,7 +107,7 @@ const char *I18NCategory::T_cstr(const char *key, const char *def) {
 		}
 		std::string missedKey(key);
 		if (missedKey != "Font") {
-			INFO_LOG(Log::UI, "Missing translation %s (%s)", key, def);
+			DEBUG_LOG(Log::UI, "Missing translation %s (%s)", key, def);
 
 			std::lock_guard<std::mutex> guard(missedKeyLock_);
 			if (def)

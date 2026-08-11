@@ -46,7 +46,7 @@ static void error(const std::string &message) {
 // only support read/writes that refer to the name of a memory region.
 static int r32(int address) {
 	if (Memory::IsValid4AlignedAddress(address)) {
-		return Memory::Read_U32(address);
+		return Memory::ReadUnchecked_U32(address);
 	} else {
 		g_lua.Print(LogLineType::Error, StringFromFormat("r32: bad address %08x", address));
 		return 0;

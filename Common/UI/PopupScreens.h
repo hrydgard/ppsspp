@@ -25,7 +25,7 @@ public:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	void CreateViews() override;
 	bool isTransparent() const override { return true; }
-	void touch(const TouchInput &touch) override;
+	bool touch(const TouchInput &touch) override;
 	bool key(const KeyInput &key) override;
 
 	void TriggerFinish(DialogResult result) override;
@@ -130,7 +130,7 @@ private:
 
 class MessagePopupScreen : public PopupScreen {
 public:
-	MessagePopupScreen(std::string_view title, std::string_view message, std::string_view button1, std::string_view button2, std::function<void(bool)> callback)
+	MessagePopupScreen(std::string_view title, std::string_view message, std::string_view button1, std::string_view button2, std::function<void(bool)> callback = nullptr)
 		: PopupScreen(title, button1, button2), message_(message), callback_(callback) {}
 
 	const char *tag() const override { return "MessagePopupScreen"; }
@@ -222,12 +222,18 @@ private:
 	bool liveUpdate_;
 };
 
-LinearLayout *CreateSoftKeyboard(TextEdit *edit, bool *upperCase);
+enum class SoftKeyboardState {
+	Upper = 0,
+	Lower,
+	Symbols,
+	MAX,
+};
+
+ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state);
 
 class TextEditPopupScreen : public PopupScreen {
 public:
-	TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen)
-		: PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
+	TextEditPopupScreen(std::string *value, std::string_view placeholder, std::string_view title, int maxLen);
 	void CreatePopupContents(ViewGroup *parent) override;
 
 	const char *tag() const override { return "TextEditPopup"; }
@@ -243,13 +249,13 @@ private:
 
 	void OnCompleted(DialogResult result) override;
 	TextEdit *edit_ = nullptr;
-	LinearLayout *keyboard_ = nullptr;
+	ViewGroup *keyboard_ = nullptr;
 	Choice *showKeyboardChoice_ = nullptr;
 	std::string *value_;
 	std::string textEditValue_;
 	std::string placeholder_;
 	int maxLen_;
-	bool upperCase_ = false;
+	SoftKeyboardState kbState_{};
 	bool passwordMasking_ = false;
 };
 
@@ -538,6 +544,8 @@ private:
 	StringRestriction restriction_;
 };
 
+void AskForInput(ScreenManager *screenManager, RequesterToken token, UI::View *sourceView, std::string_view title, std::function<void(const std::string &, bool)> callback);
+
 class ChoiceWithValueDisplay : public AbstractChoiceWithValueDisplay {
 public:
 	ChoiceWithValueDisplay(int *value, std::string_view text, LayoutParams *layoutParams = 0)
@@ -556,6 +564,18 @@ private:
 	int *iValue_ = nullptr;
 	I18NCat category_ = I18NCat::CATEGORY_COUNT;
 	std::string(*translateCallback_)(std::string_view value) = nullptr;
+};
+
+class ChoiceWithFixedValueDisplay : public AbstractChoiceWithValueDisplay {
+public:
+	ChoiceWithFixedValueDisplay(std::string_view value, std::string_view text, LayoutParams *layoutParams = 0)
+		: AbstractChoiceWithValueDisplay(text, layoutParams), sValue_(value) {}
+private:
+	std::string ValueText(bool *shadow) const override {
+		*shadow = false;
+		return sValue_;
+	}
+	std::string sValue_;
 };
 
 enum class FileChooserFileType {

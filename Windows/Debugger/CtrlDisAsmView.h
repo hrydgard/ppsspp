@@ -119,7 +119,6 @@ public:
 	}
 
 	void scrollStepping(u32 newPc);
-	u32 getInstructionSizeAt(u32 address);
 
 	void gotoAddr(unsigned int addr)
 	{

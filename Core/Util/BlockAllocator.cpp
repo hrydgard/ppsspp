@@ -134,7 +134,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 	}
 
 	//Out of memory :(
-	ListBlocks();
+	ListBlocks(LogLevel::LINFO);
 	ERROR_LOG(Log::sceKernel, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, size, size);
 	return -1;
 }
@@ -215,7 +215,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 
 
 	//Out of memory :(
-	ListBlocks();
+	ListBlocks(LogLevel::LINFO);
 	ERROR_LOG(Log::sceKernel, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, alignedSize, alignedSize);
 	return -1;
 }
@@ -338,7 +338,13 @@ void BlockAllocator::CheckBlocks() const
 
 const char *BlockAllocator::GetBlockTag(u32 addr) const {
 	const Block *b = GetBlockFromAddress(addr);
-	return b->tag;
+	// Unlike the other accessors here, this used to dereference a possibly-null
+	// block unconditionally. Callers (e.g. NetAdhocCommon.cpp) pass the result
+	// straight into strcmp() against an expected tag as part of recovering from a
+	// stale address left over from an old/corrupt savestate, so return "" rather
+	// than nullptr - it simply won't match, correctly triggering their recovery
+	// path instead of crashing in strcmp().
+	return b ? b->tag : "";
 }
 
 inline BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
@@ -387,15 +393,14 @@ u32 BlockAllocator::GetBlockSizeFromAddress(u32 addr) const
 		return -1;
 }
 
-void BlockAllocator::ListBlocks() const
-{
-	DEBUG_LOG(Log::sceKernel,"-----------");
+void BlockAllocator::ListBlocks(LogLevel level) const {
+	GENERIC_LOG(Log::sceKernel, level, "-----------");
 	for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{
 		const Block &b = *bp;
-		DEBUG_LOG(Log::sceKernel, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
+		GENERIC_LOG(Log::sceKernel, level, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
 	}
-	DEBUG_LOG(Log::sceKernel,"-----------");
+	GENERIC_LOG(Log::sceKernel, level, "-----------");
 }
 
 u32 BlockAllocator::GetLargestFreeBlockSize() const
@@ -433,10 +438,14 @@ u32 BlockAllocator::GetTotalFreeBytes() const
 
 void BlockAllocator::DoState(PointerWrap &p)
 {
-	auto s = p.Section("BlockAllocator", 1);
+	// v2: compact per-block form — no per-block Section and no per-save tag
+	// re-zeroing (tags are zero-padded at write time now). v1 states still
+	// load through the old form.
+	auto s = p.Section("BlockAllocator", 1, 2);
 	if (!s)
 		return;
 
+	const bool compact = s >= 2;
 	int count = 0;
 
 	if (p.mode == p.MODE_READ)
@@ -445,14 +454,26 @@ void BlockAllocator::DoState(PointerWrap &p)
 		Do(p, count);
 
 		bottom_ = new Block(0, 0, false, NULL, NULL);
-		bottom_->DoState(p);
+		bottom_->DoState(p, compact);
 		--count;
+
+		// A corrupt/malicious savestate could claim an enormous block count. Each
+		// block needs at least sizeof(start)+sizeof(size)+sizeof(taken)+sizeof(tag)
+		// bytes in the stream, so clamp to what could plausibly still be there
+		// instead of always trying to allocate `count` Blocks up front.
+		size_t maxRemainingBlocks = p.Remaining() / (sizeof(u32) + sizeof(u32) + 1 + 32);
+		if (count < 0) {
+			count = 0;
+		} else if ((size_t)count > maxRemainingBlocks) {
+			count = (int)maxRemainingBlocks;
+			p.SetError(PointerWrap::ERROR_FAILURE);
+		}
 
 		top_ = bottom_;
 		for (int i = 0; i < count; ++i)
 		{
 			top_->next = new Block(0, 0, false, top_, NULL);
-			top_->next->DoState(p);
+			top_->next->DoState(p, compact);
 			top_ = top_->next;
 		}
 	}
@@ -463,13 +484,13 @@ void BlockAllocator::DoState(PointerWrap &p)
 			++count;
 		Do(p, count);
 
-		bottom_->DoState(p);
+		bottom_->DoState(p, compact);
 		--count;
 
 		Block *last = bottom_;
 		for (int i = 0; i < count; ++i)
 		{
-			last->next->DoState(p);
+			last->next->DoState(p, compact);
 			last = last->next;
 		}
 	}
@@ -482,19 +503,31 @@ void BlockAllocator::DoState(PointerWrap &p)
 BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
 : start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
 {
+	// Zero the whole tag up front so serialization can store it raw without
+	// a per-save strlen+memset (see the compact DoState form).
+	memset(tag, 0, sizeof(tag));
 	truncate_cpy(tag, "(untitled)");
 }
 
 void BlockAllocator::Block::SetAllocated(const char *_tag, bool suballoc) {
 	NotifyMemInfo(suballoc ? MemBlockFlags::SUB_ALLOC : MemBlockFlags::ALLOC, start, size, _tag ? _tag : "");
+	memset(tag, 0, sizeof(tag));
 	if (_tag)
 		truncate_cpy(tag, _tag);
 	else
 		truncate_cpy(tag, "---");
 }
 
-void BlockAllocator::Block::DoState(PointerWrap &p)
+void BlockAllocator::Block::DoState(PointerWrap &p, bool compact)
 {
+	if (compact) {
+		Do(p, start);
+		Do(p, size);
+		Do(p, taken);
+		DoArray(p, tag, sizeof(tag));
+		return;
+	}
+
 	auto s = p.Section("Block", 1);
 	if (!s)
 		return;

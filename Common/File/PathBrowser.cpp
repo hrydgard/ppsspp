@@ -123,6 +123,7 @@ PathBrowser::~PathBrowser() {
 }
 
 void PathBrowser::SetPath(const Path &path) {
+	std::lock_guard<std::mutex> guard(pendingLock_);
 	path_ = path;
 	ApplyRestriction();
 	HandlePath();
@@ -130,18 +131,20 @@ void PathBrowser::SetPath(const Path &path) {
 
 void PathBrowser::RestrictToRoot(const Path &root) {
 	VERBOSE_LOG(Log::IO, "Restricting to root: %s", root.c_str());
+	std::lock_guard<std::mutex> guard(pendingLock_);
 	restrictedRoot_ = root;
 }
 
 void PathBrowser::HandlePath() {
 	if (!path_.empty() && path_.ToString()[0] == '!') {
-		if (pendingActive_)
-			ResetPending();
+		if (pendingActive_) {
+			pendingCancel_ = true;
+			pendingPath_.clear();
+		}
 		ready_ = true;
 		return;
 	}
 
-	std::lock_guard<std::mutex> guard(pendingLock_);
 	ready_ = false;
 	pendingActive_ = true;
 	pendingCancel_ = false;
@@ -169,21 +172,24 @@ void PathBrowser::HandlePath() {
 			}
 			lastPath = pendingPath_;
 			if (lastPath.Type() == PathType::HTTP) {
+				std::string userAgentCopy = userAgent_;
 				guard.unlock();
 				results.clear();
-				success_ = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
+				bool tempSuccess = LoadRemoteFileList(lastPath, userAgentCopy, &pendingCancel_, results);
 				guard.lock();
+				success_ = tempSuccess;
 			} else if (lastPath.empty()) {
 				results.clear();
 				success_ = true;
 			} else {
 				guard.unlock();
 				results.clear();
-				success_ = File::GetFilesInDir(lastPath, &results, nullptr);
+				bool tempSuccess = File::GetFilesInDir(lastPath, &results, nullptr);
+				guard.lock();
+				success_ = tempSuccess;
 				if (!success_) {
 					WARN_LOG(Log::IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
 				}
-				guard.lock();
 			}
 
 			if (pendingPath_ == lastPath) {
@@ -198,15 +204,9 @@ void PathBrowser::HandlePath() {
 	});
 }
 
-void PathBrowser::ResetPending() {
-	std::lock_guard<std::mutex> guard(pendingLock_);
-	pendingCancel_ = true;
-	pendingPath_.clear();
-}
-
 bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *extensionFilter, bool *cancel) {
 	std::unique_lock<std::mutex> guard(pendingLock_);
-	while (!IsListingReady() && (!cancel || !*cancel)) {
+	while (!ready_ && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep. TODO: Replace with condition variable.
 		guard.unlock();
 		sleep_ms(50, "pathbrowser-poll");
@@ -224,7 +224,8 @@ void PathBrowser::ApplyRestriction() {
 	}
 }
 
-bool PathBrowser::CanNavigateUp() {
+bool PathBrowser::CanNavigateUp() const {
+	std::unique_lock<std::mutex> guard(pendingLock_);
 	if (path_ == restrictedRoot_) {
 		return false;
 	}
@@ -233,21 +234,26 @@ bool PathBrowser::CanNavigateUp() {
 
 void PathBrowser::NavigateUp() {
 	_dbg_assert_(CanNavigateUp());
+
+	std::unique_lock<std::mutex> guard(pendingLock_);
 	path_ = path_.NavigateUp();
 	ApplyRestriction();
 }
 
 // TODO: Support paths like "../../hello"
 void PathBrowser::Navigate(std::string_view path) {
-	if (path == ".")
+	std::unique_lock<std::mutex> guard(pendingLock_);
+	if (path == ".") {
+		// Same directory, nothing to do.
 		return;
-	if (path == "..") {
-		NavigateUp();
-	} else {
-		if (path.size() >= 2 && path[1] == ':' && path_.IsRoot())
-			path_ = Path(path);
-		else
-			path_ = path_ / path;
 	}
+	if (path == "..") {
+		path_ = path_.NavigateUp();
+	} else if (path.size() >= 2 && path[1] == ':' && path_.IsRoot()) {
+		path_ = Path(path);
+	} else {
+		path_ = path_ / path;
+	}
+	ApplyRestriction();
 	HandlePath();
 }

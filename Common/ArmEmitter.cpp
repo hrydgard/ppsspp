@@ -492,48 +492,21 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	Operand2 op2;
 	bool inverse;
 
-#if PPSSPP_ARCH(ARMV7)
 	// Unused
-	if (!optimize)
-	{
+	if (!optimize) {
 		// For backpatching on ARMv7
 		MOVW(reg, val & 0xFFFF);
 		MOVT(reg, val, true);
 		return;
 	}
-#endif
 
 	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
 		inverse ? MVN(reg, op2) : MOV(reg, op2);
 	} else {
-#if PPSSPP_ARCH(ARMV7)
 		// Use MOVW+MOVT for ARMv7+
 		MOVW(reg, val & 0xFFFF);
-		if(val & 0xFFFF0000)
+		if (val & 0xFFFF0000)
 			MOVT(reg, val, true);
-#else
-		if (!TrySetValue_TwoOp(reg,val)) {
-			bool first = true;
-			for (int i = 0; i < 32; i += 2) {
-				u8 bits = RotR(val, i) & 0xFF;
-				if ((bits & 3) != 0) {
-					u8 rotation = i == 0 ? 0 : 16 - i / 2;
-					if (first) {
-						MOV(reg, Operand2(bits, rotation));
-						first = false;
-					} else {
-						ORR(reg, reg, Operand2(bits, rotation));
-					}
-					// Well, we took care of these other bits while we were at it.
-					i += 8 - 2;
-				}
-			}
-			// Use literal pool for ARMv6.
-			// Disabled for now as it is crashfing since Vertex Decoder JIT
-//			AddNewLit(val);
-//			LDR(reg, R_PC); // To be backpatched later
-		}
-#endif
 	}
 }
 
@@ -2153,6 +2126,7 @@ void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Vm, u8 index)
 	Write32((0xF3 << 24) | (0xB << 20) | (imm4 << 16)  \
 		| EncodeVd(Vd) | (0xC << 8) | (register_quad << 6) | EncodeVm(Vm));
 }
+
 void ARMXEmitter::VDUP(u32 Size, ARMReg Vd, ARMReg Rt)
 {
 	_dbg_assert_msg_(Vd >= D0, "Pass invalid register to %s", __FUNCTION__);

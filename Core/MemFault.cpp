@@ -32,6 +32,8 @@
 #include "Core/Util/DisArm64.h"
 #elif PPSSPP_ARCH(ARM)
 #include "ext/disarm.h"
+#elif PPSSPP_ARCH(LOONGARCH64)
+#include "ext/loongarch-disasm.h"
 #endif
 
 #include "Common/Log.h"
@@ -46,6 +48,7 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelModule.h"
 
 namespace Memory {
 
@@ -242,6 +245,16 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		}
 		break;
 	}
+#elif PPSSPP_ARCH(LOONGARCH64)
+	uint32_t word;
+	memcpy(&word, codePtr, 4);
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
+	LoongArch64LSInstructionInfo info{};
+	success = LoongArch64AnalyzeLoadStore((uint64_t)codePtr, word, &info);
+	if (success)
+		instructionSize = info.instructionSize;
+	// It's quite pointless to ignore bad memory access on LoongArch because we could not handle it correctly.
+	success = false;
 #endif
 
 	if (MIPSComp::jit && MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
@@ -284,7 +297,12 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		context->CTX_PC += info.instructionSize;
 		g_numReportedBadAccesses++;
 		if (g_numReportedBadAccesses < 100) {
-			ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			std::string temp;
+			if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
+				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p) at %s", guestAddress, (void *)hostAddress, temp.c_str());
+			} else {
+				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+			}
 		}
 	} else {
 		std::string infoString = "";
@@ -302,7 +320,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uint32_t approximatePC = currentMIPS->pc;
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.
-		Core_MemoryExceptionInfo(guestAddress, 0, approximatePC, type, infoString, true);
+		Core_MemoryException(guestAddress, 0, approximatePC, type, infoString);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
@@ -355,8 +373,17 @@ std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
 std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames) {
 	std::stringstream str;
 	for (const auto &frame : frames) {
+		if (frame.pc == 0xFFFFFFFF) {
+			// Bottom of stack, probably.
+			continue;
+		}
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
-		str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		char moduleDesc[96];
+		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
+			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		} else {
+			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		}
 	}
 	return str.str();
 }

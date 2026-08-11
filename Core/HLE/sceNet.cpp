@@ -22,6 +22,7 @@
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"
@@ -211,7 +212,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 
 	json::JsonReader reader(jsonStr.data(), jsonStr.length());
 	if (!reader.ok() || !reader.root()) {
-		ERROR_LOG(Log::IO, "Error parsing DNS JSON");
+		ERROR_LOG(Log::sceNet, "Error parsing DNS JSON");
 		return false;
 	}
 
@@ -228,7 +229,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 				dns->revivalTeamURL = revived.getStringOr("url", "");
 			}
 		}
-		dns->connectAdHocForGrouping = def.getBool("connect_adhoc_for_grouping", false);
+		dns->connectAdHocForGrouping = def.getBoolOr("connect_adhoc_for_grouping", false);
 	}
 
 	const JsonNode *games = root.getArray("games");
@@ -290,7 +291,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 		dns->gameName = game.getStringOr("name", "");
 		dns->dns = game.getStringOr("dns", dns->dns.c_str());
 		dns->dyn_dns = game.getStringOr("dyn_dns", "");
-		dns->connectAdHocForGrouping = game.getBool("connect_adhoc_for_grouping", dns->connectAdHocForGrouping);
+		dns->connectAdHocForGrouping = game.getBoolOr("connect_adhoc_for_grouping", dns->connectAdHocForGrouping);
 		if (game.hasChild("domains", JSON_OBJECT)) {
 			const JsonGet domains = game.getDict("domains");
 			for (const auto &iter : domains.value_) {
@@ -1551,10 +1552,10 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
 	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
 	int entries = 4;
-	if (!Memory::IsValidAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
+	if (!Memory::IsValid4AlignedAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
-	int size = Memory::Read_U32(sizeAddr);
+	int size = Memory::ReadUnchecked_U32(sizeAddr);
 	// Return size required
 	Memory::Write_U32(entries * userInfoSize, sizeAddr);
 

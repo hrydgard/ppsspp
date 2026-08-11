@@ -87,7 +87,7 @@ public:
 		ww = 1.0f;
 	}
 
-	void setOrtho(float left, float right, float bottom, float top, float near, float far);
+	void setOrthoGL(float left, float right, float bottom, float top, float near, float far);
 	void setOrthoD3D(float left, float right, float bottom, float top, float near, float far);
 	void setOrthoVulkan(float left, float right, float top, float bottom, float near, float far);
 

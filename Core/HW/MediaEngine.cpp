@@ -569,6 +569,17 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 	return true;
 }
 
+bool MediaEngine::setAudioStream(int streamNum) {
+	if (m_audioStream == streamNum)
+		return true;
+
+	m_audioStream = streamNum;
+	if (m_demux) {
+		m_demux->setAudioChannel(streamNum);
+	}
+	return true;
+}
+
 bool MediaEngine::setVideoDim(int width, int height)
 {
 #ifdef USE_FFMPEG

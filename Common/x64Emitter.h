@@ -659,6 +659,14 @@ public:
 	void RCPPS(X64Reg regOp, OpArg& arg);
 	void RSQRTPS(X64Reg regOp, OpArg arg);
 
+	inline void CMPEQPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_EQ); }
+	inline void CMPLTPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_LT); }
+	inline void CMPLEPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_LE); }
+	inline void CMPUNORDPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_UNORD); }
+	inline void CMPNEQPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_NEQ); }
+	inline void CMPNLTPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_NLT); }
+	inline void CMPORDPS(X64Reg regOp, OpArg arg) { CMPPS(regOp, arg, CMP_ORD); }
+
 	// SSE/SSE2: Floating point packed bitwise (x4 for float, x2 for double)
 	void ANDPS(X64Reg regOp, OpArg arg);
 	void ANDPD(X64Reg regOp, OpArg arg);

@@ -17,15 +17,20 @@
 
 #pragma once
 
-// TODO: Remove the Windows-specific code, FILE is fine there too.
-
 #include <map>
 
+#include "ppsspp_config.h"
 #include "Common/File/Path.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
 extern const std::string INDEX_FILENAME;
+
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(UWP)
+#define PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS 0
+#else
+#define PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS 1
+#endif
 
 class VirtualDiscFileSystem: public IFileSystem {
 public:

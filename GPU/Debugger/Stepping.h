@@ -21,7 +21,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/Core.h"
-#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 namespace GPUStepping {
@@ -47,5 +47,5 @@ namespace GPUStepping {
 	bool GPU_FlushDrawing();
 
 	// Can be used to highlight differences in a debugger.
-	const GPUgstate &LastState();
+	const GEState &LastState();
 };

@@ -13,6 +13,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 
 #include <map>
 
@@ -148,7 +149,6 @@ public:
 		stencilCompareMask_ = compareMask;
 		stencilDirty_ = true;
 	}
-
 
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int indexCount, int offset) override;
@@ -293,10 +293,8 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 		swapChain_(swapChain),
 		deviceList_(std::move(deviceList)) {
 
-	// We no longer support Windows Phone.
-	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);
-
 	caps_.coordConvention = CoordConvention::Direct3D11;
+	caps_.fragmentShaderFullPrecisionFloat = true;
 
 	switch (featureLevel_) {
 	case D3D_FEATURE_LEVEL_11_1:
@@ -316,14 +314,15 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 		caps_.maxTextureSize = 2048;
 		break;
 	}
-	caps_.maxClipPlanes = 8;
 
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	caps_.depthClampSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
 	// SV_ClipDistance# seems to be 10+.
-	caps_.clipDistanceSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
-	caps_.cullDistanceSupported = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
+	if (featureLevel_ >= D3D_FEATURE_LEVEL_10_0) {
+		caps_.maxClipDistances = 8;
+		caps_.maxCullDistances = 8;
+	}
 
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
@@ -337,11 +336,11 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.anisoSupported = true;
-	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
 	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
+	caps_.samplerLodControl = true;
 
 	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately. (and no way to change it).
 
@@ -1125,7 +1124,9 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	}
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ERROR_LOG(Log::G3D, "Failed compiling %s:\n%s\n%s", tag, data, errors.c_str());
+		ERROR_LOG(Log::G3D, "Failed compiling %s:", tag);
+		ERROR_LOG(Log::G3D, "%s", LineNumberString(std::string((const char *)data, dataSize)).c_str());
+		ERROR_LOG(Log::G3D, "%s", errors.c_str());
 	}
 
 	if (result != S_OK) {
@@ -1817,7 +1818,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 	const uint8_t *srcWithOffset = (const uint8_t *)map.pData + srcByteOffset;
 	switch ((Aspect)channelBits) {
 	case Aspect::COLOR_BIT:
-		// Pixel size always 4 here because we always request BGRA8888.
+		// Pixel size always 4 here because we always request RGBA8888.
 		ConvertFromRGBA8888((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, destFormat);
 		break;
 	case Aspect::DEPTH_BIT:
@@ -1872,7 +1873,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 }
 
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
-	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
+	// TODO: deviceContext1 can actually discard.
 	if (fbo) {
 		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {

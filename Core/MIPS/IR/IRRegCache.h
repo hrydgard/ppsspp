@@ -23,7 +23,6 @@
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
-#include "Core/MIPS/IR/IRInst.h"
 
 
 // Have to account for all of them due to temps, etc.
@@ -90,6 +89,8 @@ static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
 static inline MIPSMap operator &(const MIPSMap &lhs, const MIPSMap &rhs) {
 	return MIPSMap((uint8_t)lhs & (uint8_t)rhs);
 }
+
+struct IRInst;
 
 class IRNativeRegCacheBase {
 protected:

@@ -37,6 +37,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Render/ManagedTexture.h"
@@ -240,7 +241,16 @@ TextureShaderScreen::TextureShaderScreen(std::string_view title) : ListPopupScre
 void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+	
 	shaders_ = GetAllTextureShaderInfo();
+	for (int i = 0; i < (int)shaders_.size(); ) {
+		if (shaders_[i].hidden) {
+			shaders_.erase(shaders_.begin() + i);
+		} else {
+			i++;
+		}
+	}
+
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
@@ -279,7 +289,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 
 		// We only support Arabic on platforms where we have support for the native text rendering
 		// APIs, as proper Arabic support is way too difficult to implement ourselves.
-#if !(defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
+#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
@@ -386,7 +396,7 @@ LogoScreen::LogoScreen(AfterLogoScreen afterLogoScreen)
 }
 
 void LogoScreen::update() {
-	UIScreen::update();
+	UIBaseScreen::update();
 	double rate = std::max(30.0, (double)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE));
 
 	if ((double)frames_ / rate > logoScreenSeconds) {
@@ -410,10 +420,12 @@ bool LogoScreen::key(const KeyInput &key) {
 	return false;
 }
 
-void LogoScreen::touch(const TouchInput &touch) {
+bool LogoScreen::touch(const TouchInput &touch) {
 	if (touch.flags & TouchInputFlags::DOWN) {
 		Next();
+		return true;
 	}
+	return false;
 }
 
 void LogoScreen::DrawForeground(UIContext &dc) {
@@ -506,8 +518,6 @@ std::string_view CreditsScreen::GetTitle() const {
 void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	ignoreBottomInset_ = false;
-
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -583,7 +593,7 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 }
 
 void CreditsScreen::update() {
-	UIScreen::update();
+	UISimpleBaseDialogScreen::update();
 	UpdateUIState(UISTATE_MENU);
 }
 
@@ -693,9 +703,6 @@ void CreditsScroller::Draw(UIContext &dc) {
 		cr->T("tools", "Free tools used:"),
 #if PPSSPP_PLATFORM(ANDROID)
 		"Android SDK + NDK",
-#endif
-#if defined(USING_QT_UI)
-		"Qt",
 #endif
 #if defined(SDL)
 		"SDL",

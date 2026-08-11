@@ -33,7 +33,7 @@ public:
 
 // Common interface parts between VFSBackend and VFS.
 // Sometimes you don't need the VFS multiplexing and only have a VFSBackend *, sometimes you do need it,
-// and it would be cool to be able to use the same interface, like when loading INI files.
+// and it's nice to able to use the same interface.
 class VFSInterface {
 public:
 	virtual ~VFSInterface() {}

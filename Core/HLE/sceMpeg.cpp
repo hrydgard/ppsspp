@@ -180,7 +180,7 @@ MpegContext::~MpegContext() {
 	delete mediaengine;
 }
 void MpegContext::DoState(PointerWrap &p) {
-	auto s = p.Section("MpegContext", 1, 3);
+	auto s = p.Section("MpegContext", 1, 4);
 	if (!s)
 		return;
 	if (s >= 3)
@@ -215,6 +215,21 @@ void MpegContext::DoState(PointerWrap &p) {
 	Do(p, ignoreAvc);
 	Do(p, isAnalyzed);
 	Do<u32, StreamInfo>(p, streamMap);
+	if (s >= 4) {
+		Do(p, streamIgnoreMap);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		streamIgnoreMap.clear();
+		for (auto const &it : streamMap) {
+			if (it.second.type == MPEG_AVC_STREAM)
+				streamIgnoreMap[it.first] = ignoreAvc;
+			else if (it.second.type == MPEG_ATRAC_STREAM || it.second.type == MPEG_AUDIO_STREAM)
+				streamIgnoreMap[it.first] = ignoreAtrac;
+			else if (it.second.type == MPEG_PCM_STREAM)
+				streamIgnoreMap[it.first] = ignorePcm;
+			else
+				streamIgnoreMap[it.first] = false;
+		}
+	}
 	DoClass(p, mediaengine);
 	ringbufferNeedsReverse = s < 2;
 }
@@ -223,7 +238,7 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
 		return nullptr;
 
-	u32 mpeg = Memory::Read_U32(mpegAddr);
+	u32 mpeg = Memory::ReadUnchecked_U32(mpegAddr);
 	auto found = g_mpegCtxs.find(mpeg);
 	if (found == g_mpegCtxs.end())
 		return nullptr;
@@ -316,17 +331,22 @@ class PostPutAction : public PSPAction {
 public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
+	void setRemainingPackets(u32 remainingPackets) { remainingPackets_ = remainingPackets; }
 	static PSPAction *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("PostPutAction", 1);
+		auto s = p.Section("PostPutAction", 1, 2);
 		if (!s)
 			return;
 
 		Do(p, ringAddr_);
+		if (s >= 2) {
+			Do(p, remainingPackets_);
+		}
 	}
 	void run(MipsCall &call) override;
 private:
 	u32 ringAddr_ = 0;
+	s32 remainingPackets_ = 0;
 };
 
 void __MpegInit() {
@@ -540,7 +560,7 @@ static int sceMpegDelete(u32 mpeg) {
 	}
 
 	delete ctx;
-	g_mpegCtxs.erase(Memory::Read_U32(mpeg));
+	g_mpegCtxs.erase(Memory::ReadUnchecked_U32(mpeg));
 
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg delete", 40000);
 }
@@ -548,7 +568,7 @@ static int sceMpegDelete(u32 mpeg) {
 
 static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 {
-	if (!Memory::IsValidAddress(modeAddr)) {
+	if (!Memory::IsValidRange(modeAddr, 8)) {
 		return hleLogWarning(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -559,8 +579,8 @@ static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 	DEBUG_LOG(Log::Mpeg, "sceMpegAvcDecodeMode(%08x, %08x)", mpeg, modeAddr);
 
-	int mode = Memory::Read_U32(modeAddr);
-	int pixelMode = Memory::Read_U32(modeAddr + 4);
+	int mode = Memory::ReadUnchecked_U32(modeAddr);
+	int pixelMode = Memory::ReadUnchecked_U32(modeAddr + 4);
 	if (pixelMode >= GE_CMODE_16BIT_BGR5650 && pixelMode <= GE_CMODE_32BIT_ABGR8888) {
 		ctx->videoPixelMode = pixelMode;
 	} else {
@@ -660,6 +680,7 @@ static int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	info.sid = sid;
 	info.needsReset = true;
 	ctx->streamMap[sid] = info;
+	ctx->streamIgnoreMap[sid] = false;
 	return hleLogInfo(Log::Mpeg, sid);
 }
 
@@ -1050,8 +1071,7 @@ void __VideoPmpDoState(PointerWrap &p){
 	}
 }
 
-static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
-{
+static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		return hleLogWarning(Log::Mpeg, -1, "bad mpeg handle");
@@ -1073,8 +1093,12 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 		return hleLogError(Log::Mpeg, -1, "Bogus mpegringbufferaddr");
 	}
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
+	if (!Memory::IsValidRange(bufferAddr, 4) || !Memory::IsValidRange(initAddr, 4)) {
+		return hleLogError(Log::Mpeg, -1, "invalid addresses");
+	}
+
+	u32 buffer = Memory::ReadUnchecked_U32(bufferAddr);
+	u32 init = Memory::ReadUnchecked_U32(initAddr);
 	DEBUG_LOG(Log::Mpeg, "video: bufferAddr = %08x, *buffer = %08x, *init = %08x", bufferAddr, buffer, init);
 
 	// check and decode pmp video
@@ -1223,7 +1247,7 @@ static int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr) {
 }
 
 static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr) {
-	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)) {
+	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValid4AlignedAddress(statusAddr)) {
 		return hleLogError(Log::Mpeg, -1, "UNIMPL + invalid addresses");
 	}
 
@@ -1233,7 +1257,7 @@ static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr) {
 	}
 
 	ERROR_LOG(Log::Mpeg, "UNIMPL sceMpegAvcDecodeStopYCbCr(%08x, %08x, %08x)", mpeg, bufferAddr, statusAddr);
-	Memory::Write_U32(0, statusAddr);
+	Memory::WriteUnchecked_U32(0, statusAddr);
 	return hleNoLog(0);
 }
 
@@ -1261,8 +1285,12 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
+	if (!Memory::IsValidRange(bufferAddr, 4) || !Memory::IsValidRange(initAddr, 4)) {
+		return hleLogError(Log::Mpeg, -1, "invalid addresses");
+	}
+
+	u32 buffer = Memory::ReadUnchecked_U32(bufferAddr);
+	u32 init = Memory::ReadUnchecked_U32(initAddr);
 	DEBUG_LOG(Log::Mpeg, "*buffer = %08x, *init = %08x", buffer, init);
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
@@ -1288,10 +1316,10 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 
 	if (mpegLibVersion >= 0x010A) {
 		// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expect, issue #11060
-		Memory::Write_U32(1, initAddr);
+		Memory::WriteUnchecked_U32(1, initAddr);
 	} else {
 		// Save the current frame's status to initAddr
-		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+		Memory::WriteUnchecked_U32(ctx->avc.avcFrameStatus, initAddr);
 	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -1376,6 +1404,15 @@ static int sceMpegRingbufferAvailableSize(u32 ringbufferAddr) {
 	}
 
 	ctx->mpegRingbufferAddr = ringbufferAddr;
+
+	// PPSSPP doesn't have a fully asynchronous Media Engine thread to constantly drain the buffer.
+	// Games like Ridge Racer 2 rely on this function to implicitly update the available size.
+	// However, we must NOT overwrite packetsAvail if the stream hasn't been initialized/analyzed yet.
+	// This protects manual struct modifications (like in the 'avail' test) prior to stream playback.
+	if (ctx->mediaengine && ctx->isAnalyzed) {
+		ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	}
+
 	hleEatCycles(2020);
 	hleReSchedule("mpeg ringbuffer avail");
 
@@ -1451,11 +1488,28 @@ void PostPutAction::run(MipsCall &call) {
 		uint32_t dataSize = Memory::ClampValidSizeAt(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
 		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, dataSize) / 2048;
 		if (actuallyAdded != packetsAddedThisRound) {
-			WARN_LOG_REPORT(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
+			WARN_LOG(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames (%d != %d)", actuallyAdded, packetsAddedThisRound);
 		}
 		ringbuffer->packetsRead += packetsAddedThisRound;
 		ringbuffer->packetsWritePos += packetsAddedThisRound;
 		ringbuffer->packetsAvail += packetsAddedThisRound;
+
+		if (remainingPackets_ > 0) {
+			if (packetsAddedThisRound > remainingPackets_) {
+				WARN_LOG(Log::Mpeg, "Wrote more packets than expected (added %d, remaining %d).", packetsAddedThisRound, remainingPackets_);
+			}
+			else if (packetsAddedThisRound < remainingPackets_) {
+				// Call the callback again to get more packets.
+				writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
+				u32 desiredPacketsThisRound = std::min(remainingPackets_, (s32)ringbuffer->packets - writeOffset);
+
+				PostPutAction* action = (PostPutAction*)__KernelCreateAction(actionPostPut);
+				action->setRingAddr(ringAddr_);
+				action->setRemainingPackets(remainingPackets_ - desiredPacketsThisRound);
+				u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, desiredPacketsThisRound, (u32)ringbuffer->callback_args };
+				hleEnqueueCall(ringbuffer->callback_addr, 3, args, action); //Calling the callback
+			}
+		}
 	}
 	DEBUG_LOG(Log::Mpeg, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAddedThisRound, ringbuffer->packetsRead, ringbuffer->packets);
 
@@ -1498,19 +1552,17 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
 		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
-		u32 packetsThisRound = 0;
-		while (numPackets) {
+		if (numPackets > 0) {
+			u32 desiredPacketsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset); //min(How many avail, how many will fit)
+
 			PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 			action->setRingAddr(ringbufferAddr);
+			// Old savestate don't use this feature (useRingbufferPutCallbackMulti), just for compatibility.
+			action->setRemainingPackets(useRingbufferPutCallbackMulti ? numPackets - desiredPacketsThisRound : 0);
 
-			packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
-			numPackets -= packetsThisRound;
-			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args };
+			u32 writePosBefore = ringbuffer->packetsWritePos;
+			u32 args[3] = { (u32)ringbuffer->data + (u32)writeOffset * 2048, desiredPacketsThisRound, (u32)ringbuffer->callback_args };
 			hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
-			writeOffset = (writeOffset + packetsThisRound) % (s32)ringbuffer->packets;
-			// Old savestate don't use this feature, just for compatibility.
-			if (!useRingbufferPutCallbackMulti)
-				break;
 		}
 	} else {
 		ERROR_LOG_REPORT(Log::Mpeg, "sceMpegRingbufferPut: callback_addr zero");
@@ -1542,16 +1594,27 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	avcAu.read(auAddr);
 
 	if (ringbuffer->packetsRead == 0 || ringbuffer->packetsAvail == 0) {
-		avcAu.pts = -1;
-		avcAu.dts = -1;
+		avcAu.pts = 0;
+		avcAu.dts = 0;
 		avcAu.write(auAddr);
 		// TODO: Does this really reschedule?
-		return hleDelayResult(hleLogDebug(Log::Mpeg, SCE_MPEG_ERROR_NO_DATA), "mpeg get avc", mpegDecodeErrorDelayMs);
+		return hleDelayResult(hleLogDebug(Log::Mpeg, SCE_MPEG_ERROR_NO_DATA), "mpeg get avc", 2000);
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
 	if (streamInfo == ctx->streamMap.end())	{
 		return hleLogWarning(Log::Mpeg, -1, "invalid video stream %08x", streamId);
+	}
+
+	if (ctx->streamIgnoreMap[streamId]) {
+		avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
+		avcAu.dts = avcAu.pts - videoTimestampStep;
+		avcAu.esBuffer = streamInfo->second.num;
+		avcAu.write(auAddr);
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(1, attrAddr);
+		}
+		return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg get avc ignore", 100);
 	}
 
 	if (streamInfo->second.needsReset) {
@@ -1578,17 +1641,18 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(Log::Mpeg, "video end reach. pts: %i dts: %i", (int)avcAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		ringbuffer->packetsAvail = 0;
-
+		avcAu.dts = -1;
 		result = SCE_MPEG_ERROR_NO_DATA;
 	}
 
 	// The avcau struct may have been modified by mediaengine, write it back.
 	avcAu.write(auAddr);
 
-	// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error
-	if (Memory::IsValidAddress(attrAddr)) {
-		Memory::Write_U32(1, attrAddr);
+	if (result == 0) {
+		// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteMemoryOrRaiseException error
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(1, attrAddr);
+		}
 	}
 
 	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
@@ -1641,8 +1705,22 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// TODO: Why was this changed to not return an error?
 	}
 
+	if (streamInfo != ctx->streamMap.end() && ctx->streamIgnoreMap[streamId]) {
+		atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
+		atracAu.dts = atracAu.pts;
+		atracAu.esBuffer = streamInfo->second.num;
+		atracAu.write(auAddr);
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(0, attrAddr);
+		}
+		return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg get atrac ignore", 100);
+	}
+
 	// The audio can end earlier than the video does.
 	if (ringbuffer->packetsAvail == 0) {
+		atracAu.pts = 0;
+		atracAu.dts = 0;
+		atracAu.write(auAddr);
 		// TODO: Does this really delay?
 		return hleDelayResult(hleLogDebug(Log::Mpeg, SCE_MPEG_ERROR_NO_DATA), "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
@@ -1656,14 +1734,10 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	int result = 0;
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
+	atracAu.dts = atracAu.pts;
 
-	if (ctx->mediaengine->IsVideoEnd()) {
-		INFO_LOG(Log::Mpeg, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		ringbuffer->packetsAvail = 0;
-		// TODO: Is this correct?
-		if (!ctx->mediaengine->IsNoAudioData()) {
-			WARN_LOG_REPORT(Log::Mpeg, "Video end without audio end, potentially skipping some audio?");
-		}
+	if (ctx->mediaengine->IsNoAudioData()) {
+		atracAu.dts = -1;
 		result = SCE_MPEG_ERROR_NO_DATA;
 	}
 
@@ -1671,15 +1745,14 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG(Log::Mpeg, "Audio end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ctx->endOfAudioReached = true;
 	}
-	if (ctx->mediaengine->IsNoAudioData()) {
-		result = SCE_MPEG_ERROR_NO_DATA;
-	}
 
 	atracAu.write(auAddr);
 
-	// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error
-	if (Memory::IsValidAddress(attrAddr)) {
-		Memory::Write_U32(0, attrAddr);
+	if (result == 0) {
+		// 3rd birthday return 00000000 as attrAddr here and cause WriteMemoryOrRaiseException error
+		if (Memory::IsValidAddress(attrAddr)) {
+			Memory::Write_U32(0, attrAddr);
+		}
 	}
 
 	// TODO: Not clear on exactly when this delays.
@@ -1718,34 +1791,8 @@ static u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_INVALID_VALUE, "UNIMPL / unknown streamID");
 	} else {
 		StreamInfo &info = stream->second;
-		DEBUG_LOG(Log::Mpeg, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): changing type=%d", mpeg, streamUid, mode, info.type);
-		switch (info.type) {
-		case MPEG_AVC_STREAM:
-			if (mode == MPEG_AU_MODE_DECODE) {
-				ctx->ignoreAvc = false;
-			} else if (mode == MPEG_AU_MODE_SKIP) {
-				ctx->ignoreAvc = true;
-			}
-			break;
-		case MPEG_AUDIO_STREAM:
-		case MPEG_ATRAC_STREAM:
-			if (mode == MPEG_AU_MODE_DECODE) {
-				ctx->ignoreAtrac = false;
-			} else if (mode == MPEG_AU_MODE_SKIP) {
-				ctx->ignoreAtrac = true;
-			}
-			break;
-		case MPEG_PCM_STREAM:
-			if (mode == MPEG_AU_MODE_DECODE) {
-				ctx->ignorePcm = false;
-			} else if (mode == MPEG_AU_MODE_SKIP) {
-				ctx->ignorePcm = true;
-			}
-			break;
-		default:
-			ERROR_LOG(Log::Mpeg, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): unknown streamID", mpeg, streamUid, mode);
-			break;
-		}
+		DEBUG_LOG(Log::Mpeg, "sceMpegChangeGetAuMode(%08x, %i, %i): changing type=%d", mpeg, streamUid, mode, info.type);
+		ctx->streamIgnoreMap[streamUid] = (mode == MPEG_AU_MODE_SKIP);
 	}
 	return hleNoLog(0);
 }
@@ -1875,6 +1922,11 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 
 	atracAu.write(auAddr);
 
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (ringbuffer.IsValid()) {
+		ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	}
+
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg atrac decode", atracDecodeDelayMs);
 	//hleEatMicro(4000);
 	//return hleDelayResult(0, "mpeg atrac decode", 200);
@@ -1883,7 +1935,7 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 // YCbCr -> RGB color space conversion
 static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
 {
-	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(rangeAddr) || !Memory::IsValidAddress(destAddr)) {
+	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidRange(rangeAddr, 16) || !Memory::IsValidAddress(destAddr)) {
 		return hleLogError(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -1900,10 +1952,10 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 		}
 	}
 
-	int x = Memory::Read_U32(rangeAddr);
-	int y = Memory::Read_U32(rangeAddr + 4);
-	int width = Memory::Read_U32(rangeAddr + 8);
-	int height = Memory::Read_U32(rangeAddr + 12);
+	int x = Memory::ReadUnchecked_U32(rangeAddr);
+	int y = Memory::ReadUnchecked_U32(rangeAddr + 4);
+	int width = Memory::ReadUnchecked_U32(rangeAddr + 8);
+	int height = Memory::ReadUnchecked_U32(rangeAddr + 12);
 
 	if (x < 0 || y < 0 || width < 0 || height < 0) {
 		WARN_LOG(Log::Mpeg, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);

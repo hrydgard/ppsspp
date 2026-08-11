@@ -16,6 +16,7 @@ public:
 
 	bool addStreamData(const u8 *buf, int addSize);
 	bool demux(int audioChannel);
+	void setAudioChannel(int audioChannel);
 
 	// return its framesize
 	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s64 *pts = NULL);

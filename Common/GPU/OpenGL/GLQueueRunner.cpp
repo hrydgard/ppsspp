@@ -75,9 +75,12 @@ void GLQueueRunner::CreateDeviceObjects() {
 #if !PPSSPP_ARCH(X86)  // Doesn't work on AMD for some reason. See issue #17787
 	useDebugGroups_ = !gl_extensions.IsGLES && gl_extensions.VersionGEThan(4, 3);
 #endif
+
+	profiler_.Init();
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
+	profiler_.Shutdown();
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (gl_extensions.ARB_vertex_array_object) {
 		glDeleteVertexArrays(1, &globalVAO_);
@@ -430,8 +433,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 		// Calling glGetError() isn't great, but at the end of init, only after creating textures, shouldn't be too bad...
 		GLenum err = glGetError();
 		if (err == GL_OUT_OF_MEMORY) {
-			WARN_LOG(Log::G3D, "GL ran out of GPU memory; switching to low memory mode");
-			sawOutOfMemory_ = true;
+			WARN_LOG(Log::G3D, "GL ran out of GPU memory! Bad!");
 		} else if (err != GL_NO_ERROR) {
 			// We checked the err anyway, might as well log if there is one.
 			std::string errorString = GLEnumToString(err);
@@ -667,6 +669,12 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		}
 	}
 
+	// GPU timestamp profiling - read results from previous frame and prepare for new queries
+	if (frameData.profile.enabled) {
+		profiler_.SetEnabledPtr(&frameData.profile.enabled);
+	}
+	profiler_.BeginFrame();
+
 	CHECK_GL_ERROR_IF_DEBUG();
 	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -680,24 +688,34 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
 			renderCount++;
+			profiler_.Begin("RenderPass %s", step.tag);
 			if (IsVREnabled()) {
 				PreprocessStepVR(&step);
 				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			} else {
 				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			}
+			profiler_.End();
 			break;
 		case GLRStepType::COPY:
+			profiler_.Begin("Copy");
 			PerformCopy(step);
+			profiler_.End();
 			break;
 		case GLRStepType::BLIT:
+			profiler_.Begin("Blit");
 			PerformBlit(step);
+			profiler_.End();
 			break;
 		case GLRStepType::READBACK:
+			profiler_.Begin("Readback");
 			PerformReadback(step);
+			profiler_.End();
 			break;
 		case GLRStepType::READBACK_IMAGE:
+			profiler_.Begin("ReadbackImage");
 			PerformReadbackImage(step);
+			profiler_.End();
 			break;
 		case GLRStepType::RENDER_SKIP:
 			break;
@@ -1244,15 +1262,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				break;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
-			if (tex->canWrap) {
-				if (tex->wrapS != c.textureSampler.wrapS) {
-					glTexParameteri(tex->target, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
-					tex->wrapS = c.textureSampler.wrapS;
-				}
-				if (tex->wrapT != c.textureSampler.wrapT) {
-					glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
-					tex->wrapT = c.textureSampler.wrapT;
-				}
+			if (tex->wrapS != c.textureSampler.wrapS) {
+				glTexParameteri(tex->target, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+				tex->wrapS = c.textureSampler.wrapS;
+			}
+			if (tex->wrapT != c.textureSampler.wrapT) {
+				glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+				tex->wrapT = c.textureSampler.wrapT;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (tex->magFilter != c.textureSampler.magFilter) {

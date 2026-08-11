@@ -12,6 +12,9 @@
 // md5_hash(PSP_GAME/EBOOT.BIN)
 // hash = md5_finalize()
 
+// To test RAIntegration, get the DLL here: https://github.com/RetroAchievements/RAIntegration/releases
+// Then just place it next to PPSSPP and enable RAIntegration in PPSSPP achivement settings, then restart it.
+
 #include <algorithm>
 #include <set>
 #include <string>
@@ -25,12 +28,17 @@
 #include "ext/rcheevos/include/rc_api_request.h"
 #include "ext/rcheevos/include/rc_api_runtime.h"
 
+#ifdef SYSTEM_RAPIDJSON
+#include <rapidjson/document.h>
+#else
 #include "ext/rapidjson/include/rapidjson/document.h"
+#endif
 
 #include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/Net/HTTPRequest.h"
+#include "Common/Net/HTTPClient.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
@@ -92,7 +100,7 @@ static std::string FormatRCheevosMD5(uint8_t digest[16]) {
 
 // Consumes the blockDevice.
 // If failed, returns an empty string, otherwise a 32-character string with the hash in hex format.
-static std::string ComputePSPISOHash(BlockDevice *blockDevice) {
+static std::string ComputePSPISOHash(std::shared_ptr<BlockDevice> blockDevice) {
 	md5_context md5;
 	ppsspp_md5_starts(&md5);
 
@@ -248,11 +256,15 @@ bool IsActive() {
 
 static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// convert_retroachievements_address_to_real_address
-	uint32_t realAddress = address + PSP_MEMORY_OFFSET;
-	uint8_t *writePtr = Memory::GetPointerWriteRange(realAddress, num_bytes);
-	if (writePtr) {
-		memcpy(writePtr, buffer, num_bytes);
+	const uint32_t realAddress = address + PSP_MEMORY_OFFSET;
+	if (!Memory::IsValidRange(realAddress, num_bytes)) {
+		ERROR_LOG(Log::Achievements, "RAIntegration write memory: Bad address range %08x-%08x (%d bytes) (%08x was passed in)", realAddress, realAddress + num_bytes, num_bytes, address);
+		return;
 	}
+
+	// We checked the pointer above, this is ok.
+	uint8_t *writePtr = Memory::GetPointerWriteUnchecked(realAddress);
+	memcpy(writePtr, buffer, num_bytes);
 }
 
 #endif
@@ -260,22 +272,20 @@ static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer
 static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
 	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
-	uint32_t orig_address = address;
-	address += PSP_MEMORY_OFFSET;
+	const uint32_t realAddress = address + PSP_MEMORY_OFFSET;
 
-	if (!Memory::IsValidRange(address, num_bytes)) {
+	if (!Memory::IsValidRange(realAddress, num_bytes)) {
 		// Some achievement packs are really, really spammy.
 		// So we'll just count the bad accesses.
 		Achievements::g_stats.badMemoryAccessCount++;
 		if (g_Config.bAchievementsLogBadMemReads) {
-			WARN_LOG(Log::G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes) (%08x was passed in)", address, num_bytes, orig_address);
+			WARN_LOG(Log::G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes) (%08x was passed in)", realAddress, num_bytes, address);
 		}
-
 		// This tells rcheevos that the access was bad, which should now be handled properly.
 		return 0;
 	}
 
-	Memory::MemcpyUnchecked(buffer, address, num_bytes);
+	Memory::MemcpyUnchecked(buffer, realAddress, num_bytes);
 	return num_bytes;
 }
 
@@ -286,8 +296,9 @@ static void server_call_callback(const rc_api_request_t *request,
 {
 	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+	std::string url = http::RemoveHttpsIfNeeded(request->url);
 	if (request->post_data) {
-		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
+		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(url, std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
 			[callback, callback_data](http::Request &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
@@ -298,7 +309,7 @@ static void server_call_callback(const rc_api_request_t *request,
 			callback(&response, callback_data);
 		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
-		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(std::string(request->url), Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
+		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
 			ac->T("Contacting RetroAchievements server..."),
 			[callback, callback_data](http::Request &download) {
 			std::string buffer;
@@ -574,6 +585,12 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 		// it's appropriate, but the event lets the frontend do things like enable/disable rewind or cheats.
 		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
 		break;
+	case RC_CLIENT_RAINTEGRATION_EVENT_MENU_CHANGED:
+		System_RunCallbackInWndProc([](void *vhWnd, void *userdata) {
+			HWND hWnd = reinterpret_cast<HWND>(vhWnd);
+			rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		}, nullptr);
+		break;
 	default:
 		ERROR_LOG(Log::Achievements, "Unsupported RAIntegration event %u\n", event->type);
 		break;
@@ -603,7 +620,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 	}
 	case RC_MISSING_VALUE:
 		// This is fine, proceeding to login.
-		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RAIntegration is enabled, but %1 was not found."));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(ac->T("RAIntegration is enabled, but %1 was not found."), RAINTEGRATION_FILENAME));
 		break;
 	case RC_ABORTED:
 		// This is fine(-ish), proceeding to login.
@@ -663,7 +680,17 @@ void Initialize() {
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
-	if (g_Config.bAchievementsEnableRAIntegration) {
+	if (!g_Config.bAchievementsEnableRAIntegration) {
+		TryLoginByToken(true);
+	}
+#else
+	TryLoginByToken(true);
+#endif
+}
+
+void InitializeRAIntegration(void *windowHandle) {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	if (g_rcClient && g_Config.bAchievementsEnableRAIntegration) {
 		wchar_t szFilePath[MAX_PATH];
 		GetModuleFileNameW(NULL, szFilePath, MAX_PATH);
 		for (int64_t i = wcslen(szFilePath) - 1; i > 0; i--) {
@@ -672,12 +699,15 @@ void Initialize() {
 				break;
 			}
 		}
-		HWND hWnd = (HWND)System_GetPropertyInt(SYSPROP_MAIN_WINDOW_HANDLE);
+		HWND hWnd = (HWND)windowHandle;
+		if (!hWnd) {
+			ERROR_LOG(Log::Achievements, "RAIntegration is enabled, but no main window handle was found.");
+			return;
+		}
 		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", PPSSPP_GIT_VERSION, &load_integration_callback, hWnd);
 		return;
 	}
 #endif
-	TryLoginByToken(true);
 }
 
 bool HasToken() {
@@ -908,6 +938,7 @@ bool HasAchievementsOrLeaderboards() {
 }
 
 void DownloadImageIfMissing(std::string_view url) {
+	// On Linux for example, we currently have no way of doing a HTTPS request.
 	if (g_iconCache.MarkPending(url)) {
 		INFO_LOG(Log::Achievements, "Downloading image: %.*s", STR_VIEW(url));
 		g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::Default, nullptr, "", [](http::Request &download) {
@@ -924,11 +955,16 @@ Statistics GetStatistics() {
 	return g_stats;
 }
 
-std::string GetGameAchievementSummary() {
+std::string GetGameAchievementSummary(uint32_t subsetId) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	rc_client_user_game_summary_t summary;
-	rc_client_get_user_game_summary(g_rcClient, &summary);
+
+	if (subsetId) {
+		rc_client_get_user_subset_summary(g_rcClient, subsetId, &summary);
+	} else {
+		rc_client_get_user_game_summary(g_rcClient, &summary);
+	}
 
 	std::string summaryString;
 	if (summary.num_core_achievements + summary.num_unofficial_achievements == 0) {
@@ -970,7 +1006,8 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		// Successful! Show a message that we're active.
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(client);
 
-		DownloadImageIfMissing(gameInfo->badge_url);
+		std::string imageUrl = http::RemoveHttpsIfNeeded(gameInfo->badge_url);
+		DownloadImageIfMissing(imageUrl);
 
 		GameRegion region = DetectGameRegionFromID(g_paramSFO.GetDiscID());
 		auto ga = GetI18NCategory(I18NCat::GAME);
@@ -981,7 +1018,8 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 			title += regionStr;
 			title += ")";
 		}
-		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(), gameInfo->badge_url, 5.0f);
+		// TODO: Detect current subset.
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, GetGameAchievementSummary(0), imageUrl, 5.0f);
 		break;
 	}
 	case RC_NO_GAME_LOADED:
@@ -1064,7 +1102,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here,
 		// we need a temporary blockdevice anyway since it gets consumed by ComputePSPISOHash.
 		std::string errorString;
-		BlockDevice *blockDevice(ConstructBlockDevice(fileLoader, &errorString));
+		std::shared_ptr<BlockDevice> blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 		if (!blockDevice) {
 			ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 			g_isIdentifying = false;
@@ -1128,7 +1166,7 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 	}
 
 	std::string errorString;
-	BlockDevice *blockDevice = ConstructBlockDevice(fileLoader, &errorString);
+	std::shared_ptr<BlockDevice> blockDevice(ConstructBlockDevice(fileLoader, &errorString));
 	if (!blockDevice) {
 		ERROR_LOG(Log::Achievements, "Failed to construct block device for '%s' - can't identify: %s", path.c_str(), errorString.c_str());
 		return;

@@ -611,9 +611,10 @@ fn generate_prompt(filenames: &[String], section: &str, value: &str, extra: &str
     let base_str = format!("Please translate '{value}' from US English to all of these languages: {languages}.
     Output in json format, a single dictionary, key=value. Include en_US first (the original string).
     For context, the string will be in the translation section '{section}', and these strings are UI strings for my PSP emulator application.
-    Keep the strings relatively short, try not to let them become more than 60% longer than the original string.
+    {extra}
+    Keep the strings relatively short, try not to let them become more than 60% longer than the original string unless necessary.
     Do not output any text before or after the list of translated strings, do not ask followups.
-    {extra}");
+    ");
 
     base_str
 }

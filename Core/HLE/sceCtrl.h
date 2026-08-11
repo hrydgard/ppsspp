@@ -69,6 +69,7 @@ const int CTRL_STICK_RIGHT = 1;
 void __CtrlInit();
 void __CtrlDoState(PointerWrap &p);
 void __CtrlShutdown();
+void __CtrlVblank();
 
 // Clears and sets selected buttons. NOTE: Clearing happens first.
 void __CtrlUpdateButtons(u32 bitsToSet, u32 bitsToClear);

@@ -31,4 +31,4 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner);
 void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager &binner);
 
-}
+}  // namespace

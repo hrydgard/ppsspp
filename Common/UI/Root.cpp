@@ -101,13 +101,13 @@ View *GetFocusedView() {
 	return focusedView;
 }
 
-void SetFocusedView(View *view, bool force) {
+void SetFocusedView(View *view, FocusFlags cause, bool force) {
 	if (focusedView) {
-		focusedView->FocusChanged(FF_LOSTFOCUS);
+		focusedView->FocusChanged(FocusFlags::LOST_FOCUS | cause);
 	}
 	focusedView = view;
 	if (focusedView) {
-		focusedView->FocusChanged(FF_GOTFOCUS);
+		focusedView->FocusChanged(FocusFlags::GOT_FOCUS | cause);
 		if (force) {
 			focusForced = true;
 		}
@@ -119,11 +119,13 @@ void EnableFocusMovement(bool enable) {
 	focusMovementEnabled = enable;
 	if (!enable) {
 		if (focusedView) {
-			focusedView->FocusChanged(FF_LOSTFOCUS);
+			focusedView->FocusChanged(FocusFlags::LOST_FOCUS | FocusFlags::CAUSE_KB_FOCUS_DISABLED);
 		}
 		focusMoves.clear();
 		heldKeys.clear();
 		focusedView = nullptr;
+	} else {
+		enable = enable;
 	}
 }
 
@@ -131,8 +133,8 @@ bool IsFocusMovementEnabled() {
 	return focusMovementEnabled;
 }
 
-void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, bool ignoreInsets, bool ignoreBottomInset) {
-	Bounds rootBounds = ignoreInsets ? dc.GetBounds() : dc.GetLayoutBounds(ignoreBottomInset);
+void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode) {
+	Bounds rootBounds = dc.GetLayoutBounds(layoutMode, immersiveMode);
 
 	MeasureSpec horiz(EXACTLY, rootBounds.w - (rootMargins.left + rootMargins.right));
 	MeasureSpec vert(EXACTLY, rootBounds.h - (rootMargins.top + rootMargins.bottom));
@@ -148,18 +150,24 @@ void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, Vi
 	root->Layout();
 }
 
-static void MoveFocus(ViewGroup *root, FocusDirection direction) {
+static void MoveFocus(ViewGroup *root, FocusMove direction) {
 	View *focusedView = GetFocusedView();
 	if (!focusedView) {
 		// Nothing was focused when we got in here. Focus the first non-group in the hierarchy.
-		root->SetFocus();
+		root->SetFocus(FocusFlags::CAUSE_FOCUS_MOVE);
+		return;
+	}
+
+	if (!focusedView->CanMoveFocus(direction)) {
 		return;
 	}
 
 	NeighborResult neigh = root->FindNeighbor(focusedView, direction, NeighborResult());
 	if (neigh.view) {
-		neigh.view->SetFocus();
+		neigh.view->SetFocus(FocusFlags::CAUSE_FOCUS_MOVE);
 		root->SubviewFocused(neigh.view);
+
+		// INFO_LOG(Log::UI, "Focus moved from %s to %s", focusedView->DescribeText().c_str(), neigh.view->DescribeText().c_str());
 
 		PlayUISound(UISound::SELECT);
 	}
@@ -187,7 +195,7 @@ bool IsScrollKey(const KeyInput &input) {
 	}
 }
 
-static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
+KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
 	// Ignore repeats for focus moves.
 	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
@@ -221,27 +229,6 @@ static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 				retval = KeyEventResult::ACCEPT;
 			}
 		}
-	}
-	return retval;
-}
-
-KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
-	KeyEventResult retval = KeyEventToFocusMoves(key);
-
-	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
-	switch (key.keyCode) {
-	case NKCODE_VOLUME_DOWN:
-	case NKCODE_VOLUME_UP:
-	case NKCODE_VOLUME_MUTE:
-		retval = KeyEventResult::PASS_THROUGH;
-		break;
-	default:
-		if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
-			// If a repeat, we follow what KeyEventToFocusMoves set it to.
-			// Otherwise we signal that we used the key, always.
-			retval = KeyEventResult::ACCEPT;
-		}
-		break;
 	}
 	return retval;
 }
@@ -376,7 +363,7 @@ restart:
 	}
 }
 
-DialogResult UpdateViewHierarchy(ViewGroup *root) {
+DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 	ProcessHeldKeys(root);
 	frameCount++;
 
@@ -385,34 +372,35 @@ DialogResult UpdateViewHierarchy(ViewGroup *root) {
 		return DR_NONE;
 	}
 
-	if (focusMoves.size()) {
+	if (focusMoves.size() && canEnableFocusMovement) {
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			// Find a view to focus.
 			View *defaultView = root->GetDefaultFocusView();
 			// Can't focus what you can't see.
 			if (defaultView && defaultView->GetVisibility() == V_VISIBLE) {
-				root->GetDefaultFocusView()->SetFocus();
+				root->GetDefaultFocusView()->SetFocus(UI::FocusFlags::CAUSE_FOCUS_MOVE);
 			} else {
-				root->SetFocus();
+				root->SetFocus(UI::FocusFlags::CAUSE_FOCUS_MOVE);
 			}
 			root->SubviewFocused(GetFocusedView());
 		} else {
 			for (size_t i = 0; i < focusMoves.size(); i++) {
 				switch (focusMoves[i]) {
-				case NKCODE_DPAD_LEFT: MoveFocus(root, FOCUS_LEFT); break;
-				case NKCODE_DPAD_RIGHT: MoveFocus(root, FOCUS_RIGHT); break;
-				case NKCODE_DPAD_UP: MoveFocus(root, FOCUS_UP); break;
-				case NKCODE_DPAD_DOWN: MoveFocus(root, FOCUS_DOWN); break;
-				case NKCODE_PAGE_UP: MoveFocus(root, FOCUS_PREV_PAGE); break;
-				case NKCODE_PAGE_DOWN: MoveFocus(root, FOCUS_NEXT_PAGE); break;
-				case NKCODE_MOVE_HOME: MoveFocus(root, FOCUS_FIRST); break;
-				case NKCODE_MOVE_END: MoveFocus(root, FOCUS_LAST); break;
+				case NKCODE_DPAD_LEFT: MoveFocus(root, FocusMove::LEFT); break;
+				case NKCODE_DPAD_RIGHT: MoveFocus(root, FocusMove::RIGHT); break;
+				case NKCODE_DPAD_UP: MoveFocus(root, FocusMove::UP); break;
+				case NKCODE_DPAD_DOWN: MoveFocus(root, FocusMove::DOWN); break;
+				case NKCODE_PAGE_UP: MoveFocus(root, FocusMove::PREV_PAGE); break;
+				case NKCODE_PAGE_DOWN: MoveFocus(root, FocusMove::NEXT_PAGE); break;
+				case NKCODE_MOVE_HOME: MoveFocus(root, FocusMove::FIRST); break;
+				case NKCODE_MOVE_END: MoveFocus(root, FocusMove::LAST); break;
+				case NKCODE_TAB: MoveFocus(root, FocusMove::NEXT); break;
 				}
 			}
 		}
-		focusMoves.clear();
 	}
+	focusMoves.clear();
 
 	root->Update();
 	return DispatchEvents();

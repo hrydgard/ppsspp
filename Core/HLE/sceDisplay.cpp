@@ -28,6 +28,7 @@
 #endif
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -53,6 +54,7 @@
 #include "Core/HW/Display.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/RetroAchievements.h"
+#include "Core/ControlMapper.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -179,7 +181,6 @@ static void ScheduleLagSync(int over = 0) {
 
 void __DisplayInit() {
 	__DisplaySetFramerate();
-	DisplayHWReset();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
@@ -273,7 +274,7 @@ void __DisplayDoState(PointerWrap &p) {
 	gstate_c.DoState(p);
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
-		// It's unlikely to overlap with the first value in gpuStats.
+		// It's unlikely to overlap with the first value in gpuStats.perFrame.
 		int gpuVendorTemp = 0;
 		p.ExpectVoid(&gpuVendorTemp, sizeof(gpuVendorTemp));
 	}
@@ -395,7 +396,8 @@ static void DoFrameDropLogging(float scaledTimestep) {
 		const double actualTimestep = curFrameTime - lastFrameTime;
 
 		char stats[4096];
-		__DisplayGetDebugStats(stats, sizeof(stats));
+		StringWriter w(stats);
+		__DisplayGetDebugStats(w);
 		NOTICE_LOG(Log::sceDisplay, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
 	}
 }
@@ -541,6 +543,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		__KernelReSchedule("entered vblank");
 	}
 
+	// We use the emulation timebase here, for auto movements to be smooth as seen from the game.
+	g_controlMapper.UpdateAutoMovements(CoreTiming::GetGlobalTimeUs() / 1000000.0);
+
 	numVBlanksSinceFlip++;
 
 	// TODO: Should this be done here or in hleLeaveVblank?
@@ -671,7 +676,7 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	if (fbDirty) {
-		gpuStats.numFlips++;
+		gpuStats.totals.numFlips++;
 	}
 
 	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;
@@ -687,7 +692,7 @@ void __DisplayFlip(int cyclesLate) {
 		// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
 		maxFrameskip = frameSkipNum;
 	}
-	if (numSkippedFrames >= maxFrameskip || gpuDebug->GetRecorder()->IsActivePending()) {
+	if (numSkippedFrames >= maxFrameskip || gpu->GetRecorder()->IsActivePending()) {
 		skipFrame = false;
 	}
 

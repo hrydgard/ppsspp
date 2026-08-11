@@ -516,7 +516,7 @@ void ImMemView::PopupMenu() {
 
 		if (ImGui::MenuItem("Copy value (float32)")) {
 			char temp[64];
-			snprintf(temp, sizeof(temp), "%f", Memory::IsValidAddress(curAddress_) ? Memory::Read_Float(curAddress_) : NAN);
+			snprintf(temp, sizeof(temp), "%f", Memory::IsValid4AlignedAddress(curAddress_) ? Memory::ReadUnchecked_Float(curAddress_) : NAN);
 			System_CopyStringToClipboard(temp);
 		}
 		/*
@@ -998,7 +998,7 @@ void ImMemDumpWindow::Draw(ImConfig &cfg, MIPSDebugInterface *debug) {
 				errorMsg_ = "Couldn't open file for writing";
 			} else {
 				if (mode_ == MemDumpMode::Raw) {
-					const uint8_t *ptr = Memory::GetPointer(address_);
+					const uint8_t *ptr = Memory::GetPointerUnchecked(address_);
 					fwrite(ptr, 1, size_, file);
 				} else {
 					std::string disassembly = DisassembleRange(address_, size_, true, debug);

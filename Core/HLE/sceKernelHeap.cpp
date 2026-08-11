@@ -48,7 +48,7 @@ struct KernelHeap : public KernelObject {
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name) {
 	u32 allocSize = (size + 3) & ~3;
 
-	BlockAllocator *allocator = BlockAllocatorFromAddr(partitionId);
+	BlockAllocator *allocator = BlockAllocatorFromID(partitionId);
 	// TODO: Validate error code.
 	if (!allocator)
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition");

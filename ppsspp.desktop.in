@@ -7,3 +7,4 @@ Comment=ppsspp (fast and portable PSP emulator)
 Keywords=Sony;PlayStation;Portable;PSP;handheld;console;
 Categories=Game;Emulator;
 MimeType=application/x-cd-image;application/x-iso9660-image;application/x-compressed-iso;application/zip;
+StartupWMClass=org.ppsspp.PPSSPP

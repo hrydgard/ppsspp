@@ -7,6 +7,8 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/curves.h"
 #include "Common/StringUtils.h"
+#include "Common/Data/Encoding/Utf8.h"
+#include "Common/UI/Root.h"
 #include "UI/MiscViews.h"
 #include "UI/GameInfoCache.h"
 #include "Common/UI/PopupScreens.h"
@@ -237,12 +239,13 @@ void GameImageView::Draw(UIContext &dc) {
 
 void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text) {
 	using namespace UI;
-	static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed" };
+	static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed", "N/A", "Landscape Auto"};
 	static const std::map<int, ImageID> screenRotationIcons{
 		{ROTATION_AUTO, ImageID("I_DEVICE_ROTATION_AUTO")},
 		{ROTATION_LOCKED_HORIZONTAL, ImageID("I_DEVICE_ROTATION_LANDSCAPE")},
 		{ROTATION_LOCKED_VERTICAL, ImageID("I_DEVICE_ROTATION_PORTRAIT")},
 		{ROTATION_LOCKED_HORIZONTAL180, ImageID("I_DEVICE_ROTATION_LANDSCAPE_REV")},
+		{ROTATION_AUTO_HORIZONTAL, ImageID("I_DEVICE_ROTATION_LANDSCAPE_AUT")},
 	};
 
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
@@ -256,7 +259,7 @@ void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool
 
 	// Portrait Reversed is not recommended on iPhone (and we also ban it in the plist).
 	// However it's recommended to support it on iPad, so maybe we will in the future.
-	rot->HideChoice(4);
+	rot->HideChoice(ROTATION_LOCKED_VERTICAL180);
 	rot->OnChoice.Add([](UI::EventParams &) {
 		INFO_LOG(Log::System, "New display rotation: %d", g_Config.iScreenRotation);
 		System_Notify(SystemNotification::ROTATE_UPDATED);
@@ -305,4 +308,194 @@ void SettingHint::Draw(UIContext &dc) {
 	SetTextColor(style.fgColor);  // bit hacky but works
 	dc.FillRect(style.background, bounds_);
 	UI::TextView::Draw(dc);
+}
+
+void SearchBar::Draw(UIContext &dc) {
+	using namespace UI;
+
+	dc.FillRect(dc.GetTheme().itemStyle.background, bounds_);
+
+	const ImageID searchIcon = ImageID("I_SEARCH");
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
+	int leftMargin = 10;
+	if (image) {
+		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
+		leftMargin += image->w + 10;
+	}
+	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+}
+
+SearchBar::SearchBar(UI::LayoutParams *params) : UI::InertView(params) {
+	SetVisibility(UI::Visibility::V_GONE);
+}
+
+void SearchBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0;
+	h = 0;
+	const ImageID searchIcon = ImageID("I_SEARCH");
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, searchFilter_, &w, &h);
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(searchIcon);
+	if (image) {
+		w += image->w + 10;
+		h = std::max(h, (float)image->h);
+	}
+	w += 20;  // Padding
+	h += 24;
+}
+
+bool SearchBar::Touch(const TouchInput &input) {
+	bool retval = UI::InertView::Touch(input);
+	// Search bar has a simple touch-to-cancel functionality,
+	// for the user to be able to get out of searches without knowing ESC (or backspacing the whole search string).
+	if (input.flags & TouchInputFlags::DOWN) {
+		if (bounds_.Contains(input.x, input.y)) {
+			UI::EventParams params{this};
+			OnCancel.Trigger(params);
+			return true;
+		}
+	}
+	return retval;
+}
+
+void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFocus) {
+	if (searchBar) {
+		searchBar->SetSearchFilter(searchFilter);
+		searchBar->SetVisibility(searchFilter.empty() ? UI::V_GONE : UI::V_VISIBLE);
+	}
+
+	if (searchFilter.empty() && searchStates.empty()) {
+		// We haven't hidden anything, and we're not searching, so do nothing.
+		searchPending = false;
+		return;
+	}
+
+	std::string filter = NormalizeForSearch(searchFilter);
+
+	searchPending = false;
+	// By default, everything is matching.
+	searchStates.resize(viewGroup->GetNumSubviews(), SearchState::MATCH);
+	if (filter.empty()) {
+		// Just quickly mark anything we hid as visible again.
+		for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
+			UI::View *v = viewGroup->GetViewByIndex(i);
+			if (searchStates[i] != SearchState::MATCH)
+				v->SetVisibility(UI::V_VISIBLE);
+		}
+
+		searchStates.clear();
+		return;
+	}
+
+	UI::View *firstMatch = nullptr;
+
+	for (int i = 0; i < viewGroup->GetNumSubviews(); ++i) {
+		UI::View *v = viewGroup->GetViewByIndex(i);
+
+		bool match = false;
+		if (v->AlwaysVisibleInSearch()) {
+			match = true;
+			if (v->CanBeFocused() && !firstMatch) {
+				firstMatch = v;
+			}
+		} else {
+			std::string label = v->DescribeText();
+			// This is a bit of a hack to recognize a pending game title.
+			if (label == "...") {
+				searchPending = true;
+				// Hide anything pending while, we'll pop-in search results as they match.
+				// Note: we leave it at MATCH if gone before, so we don't show it again.
+				if (v->GetVisibility() == UI::V_VISIBLE) {
+					if (searchStates[i] == SearchState::MATCH)
+						v->SetVisibility(UI::V_GONE);
+					searchStates[i] = SearchState::PENDING;
+				}
+				continue;
+			}
+
+			label = NormalizeForSearch(label);
+			match = v->CanBeFocused() && label.find(filter) != label.npos;
+			if (match && !firstMatch) {
+				firstMatch = v;
+			}
+		}
+		if (match && searchStates[i] != SearchState::MATCH) {
+			// It was previously visible and force hidden, so show it again.
+			v->SetVisibility(UI::V_VISIBLE);
+			searchStates[i] = SearchState::MATCH;
+		} else if (!match && searchStates[i] == SearchState::MATCH && v->GetVisibility() == UI::V_VISIBLE) {
+			v->SetVisibility(UI::V_GONE);
+			searchStates[i] = SearchState::MISMATCH;
+		}
+	}
+
+	if (firstMatch) {
+		if (setKeyboardFocus) {
+			UI::EnableFocusMovement(true);
+			UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
+		}
+	}
+}
+
+static bool IsSearchableChar(int unichar) {
+	// 127 gets produced from Ctrl+Backspace on Windows for some reason.
+	return unichar >= 0x20 && unichar != 127;
+}
+
+static bool IsFirstSearchableChar(int unichar) {
+	// Don't allow spaces as the first character, it looks confusing (empty search field)
+	return IsSearchableChar(unichar) && unichar != ' ' && unichar != '`' && unichar != '.' && unichar != ',';
+}
+
+bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
+	bool retval = false;
+	// Only one is visible at a time, so we can just grab all Char input.
+	if (input.flags & KeyInputFlags::CHAR) {
+		const int unichar = input.keyCode;
+		if (IsSearchableChar(unichar)) {
+			// Don't allow spaces as the first character, it looks confusing (empty search field)
+			if (searchFilter.empty() && !IsFirstSearchableChar(unichar)) {
+				return false;
+			}
+
+			// TODO: Save focus state here.
+			// Insert it! (todo: do it with a string insert)
+			char buf[8];
+			buf[u8_wc_toutf8(buf, unichar)] = '\0';
+			searchFilter += buf;
+			ApplySearchFilter(viewGroup, true);
+			retval = true;
+		}
+	} else if (input.flags & KeyInputFlags::DOWN) {
+		if (input.keyCode == NKCODE_DEL) {
+			if (!searchFilter.empty()) {
+				if (input.flags & KeyInputFlags::ModCtrl) {
+					// Ctrl+Backspace deletes the last word. Delete until the last space.
+					size_t pos = searchFilter.find_last_of(' ');
+					if (pos != searchFilter.npos) {
+						searchFilter.erase(pos);
+					} else {
+						searchFilter.clear();
+					}
+				} else {
+					searchFilter.pop_back();
+				}
+				ApplySearchFilter(viewGroup, true);
+				retval = true;
+				if (searchFilter.empty()) {
+					// TODO: Restore focus state here.
+					UI::EnableFocusMovement(false);
+				}
+			} else {
+				// Empty search filter. Navigate upwards on backspace?
+			}
+		} else if (!searchFilter.empty() && input.keyCode == NKCODE_ESCAPE) {
+			searchFilter.clear();
+			ApplySearchFilter(viewGroup, false);
+			retval = true;
+
+			// TODO: Restore focus state here.
+			UI::EnableFocusMovement(false);
+		}
+	}
+	return retval;
 }

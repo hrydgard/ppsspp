@@ -39,7 +39,7 @@ public:
 	// This gets called on startup and when we get back from settings.
 	u32 CheckGPUFeatures() const override;
 
-	void GetStats(char *buffer, size_t bufsize) override;
+	void GetStats(StringWriter &w) override;
 
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore(Draw::DrawContext *draw) override;

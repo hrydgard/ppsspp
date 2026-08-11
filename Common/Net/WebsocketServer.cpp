@@ -15,6 +15,11 @@
 
 static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+// Sanity cap on a single message's total size, so a client can't crash us by simply
+// claiming an enormous frame length before sending any actual data.
+// TODO: Make configurable?
+static constexpr uint64_t MAX_WS_MESSAGE_SIZE = 128 * 1024 * 1024;
+
 namespace net {
 
 enum class Opcode {
@@ -125,7 +130,7 @@ void WebSocketServer::Send(const std::vector<uint8_t> &payload) {
 	_assert_(open_);
 	_assert_(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::BINARY, payload.size());
-	SendBytes((const char *)&payload[0], payload.size());
+	SendBytes((const char *)payload.data(), payload.size());
 }
 
 void WebSocketServer::AddFragment(bool finish, const std::string &str) {
@@ -154,7 +159,7 @@ void WebSocketServer::AddFragment(bool finish, const std::vector<uint8_t> &paylo
 	} else {
 		_assert_(fragmentOpcode_ == (int)Opcode::BINARY || fragmentOpcode_ == -1);
 	}
-	SendBytes((const char *)&payload[0], payload.size());
+	SendBytes((const char *)payload.data(), payload.size());
 	if (finish) {
 		fragmentOpcode_ = -1;
 	}
@@ -164,14 +169,14 @@ void WebSocketServer::Ping(const std::vector<uint8_t> &payload) {
 	_assert_(open_);
 	_assert_(payload.size() <= 125);
 	SendHeader(true, (int)Opcode::PING, payload.size());
-	SendBytes((const char *)&payload[0], payload.size());
+	SendBytes((const char *)payload.data(), payload.size());
 }
 
 void WebSocketServer::Pong(const std::vector<uint8_t> &payload) {
 	_assert_(open_);
 	_assert_(payload.size() <= 125);
 	SendHeader(true, (int)Opcode::PONG, payload.size());
-	SendBytes((const char *)&payload[0], payload.size());
+	SendBytes((const char *)payload.data(), payload.size());
 }
 
 void WebSocketServer::Close(WebSocketClose reason) {
@@ -340,6 +345,13 @@ bool WebSocketServer::ReadFrame() {
 		}
 	}
 
+	// Reject before ReadPending() turns this into a resize() - a client can claim any
+	// length up front, long before actually sending that much data.
+	if (sz > MAX_WS_MESSAGE_SIZE || pendingBuf_.size() + sz > MAX_WS_MESSAGE_SIZE) {
+		Close(WebSocketClose::MESSAGE_TOO_LONG);
+		return false;
+	}
+
 	if (opcode >= (int)Opcode::CONTROL_MIN) {
 		// It's safe to overwrite this since we can be between fragmented frames, but not inside a frame.
 		memcpy(pendingMask_, mask, sizeof(pendingMask_));
@@ -412,7 +424,7 @@ bool WebSocketServer::ReadControlFrame(int opcode, size_t sz) {
 	std::vector<uint8_t> payload;
 	payload.resize(sz);
 	// Just block here to read the payload.
-	if (!in_->TakeExact((char *)&payload[0], sz)) {
+	if (!in_->TakeExact((char *)payload.data(), sz)) {
 		// TODO: Failing on too slow trickle timeout for now.
 		Close(WebSocketClose::POLICY_VIOLATION);
 		return false;

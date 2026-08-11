@@ -127,6 +127,7 @@ struct MpegContext {
 	bool ringbufferNeedsReverse = false;
 
 	StreamInfoMap streamMap;
+	std::map<u32, bool> streamIgnoreMap;
 	MediaEngine *mediaengine = nullptr;
 };
 

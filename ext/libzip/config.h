@@ -40,6 +40,7 @@
 #define HAVE_FTELLO
 #endif
 #define HAVE_SNPRINTF
+#define HAVE_STDBOOL_H 1
 #define HAVE_STRDUP
 #if !defined(__MINGW32__) && defined(_WIN32)
 #define HAVE_STRICMP

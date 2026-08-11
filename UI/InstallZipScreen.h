@@ -24,6 +24,7 @@
 
 #include "UI/BaseScreens.h"
 #include "UI/SimpleDialogScreen.h"
+#include "Common/UI/Notice.h"
 
 class SavedataView;
 
@@ -41,7 +42,9 @@ protected:
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	std::string_view GetTitle() const override;
-
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::ApplyInsets;
+	}
 private:
 	void OnInstall(UI::EventParams &params);
 	void OnPlay(UI::EventParams &params);
@@ -49,7 +52,8 @@ private:
 	UI::Choice *installChoice_ = nullptr;
 	UI::Choice *playChoice_ = nullptr;
 	UI::Choice *backChoice_ = nullptr;
-	UI::TextView *doneView_ = nullptr;
+	NoticeView *doneView_ = nullptr;
+	NoticeView *overwriteWarning_ = nullptr;
 	SavedataView *existingSaveView_ = nullptr;
 	Path savedataToOverwrite_;
 	Path zipPath_;

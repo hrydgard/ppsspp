@@ -242,7 +242,8 @@ void LoongArch64JitBackend::CompIR_Bits(IRInst inst) {
 	case IROp::BSwap32:
         regs_.Map(inst);
 		REVB_2W(regs_.R(inst.dest), regs_.R(inst.src1));
-        regs_.MarkGPRDirty(inst.dest, true);
+		// REVB.2W will also swap the upper 32-bit, so mark normalized32 as false.
+		regs_.MarkGPRDirty(inst.dest, false);
 		break;
 
 	case IROp::Clz:

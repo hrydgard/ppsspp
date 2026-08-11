@@ -27,6 +27,8 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+const UVScale g_uvScale{1.0f, 1.0f, 0.0f, 0.0f};
+
 class VertexDecoderTestHarness {
 	static const int BUFFER_SIZE = 64 * 65536;
 	static const int ROUNDS = 200;
@@ -37,9 +39,6 @@ public:
 		src_ = new u8[BUFFER_SIZE];
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
-
-		gstate_c.uv.uScale = 1.0f;
-		gstate_c.uv.vScale = 1.0f;
 	}
 	~VertexDecoderTestHarness() {
 		delete [] src_;
@@ -69,7 +68,7 @@ public:
 	void Execute(int vtype, int count, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, count);
+		dec_->DecodeVerts(dst_, src_, &g_uvScale, count);
 	}
 
 	double ExecuteTimed(int vtype, int count, bool useJit) {
@@ -79,7 +78,7 @@ public:
 		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, count);
+				dec_->DecodeVerts(dst_, src_, &g_uvScale, count);
 				++total;
 			}
 		} while (time_now_d() - st < 0.5);
@@ -548,7 +547,7 @@ static bool TestVertex8Skin() {
 	gstate.boneMatrix[20] = 5.0f;
 
 	int vtype = GE_VTYPE_POS_8BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_WEIGHT_8BIT | (1 << GE_VTYPE_WEIGHTCOUNT_SHIFT);
-	u32 vertTypeID = GetVertTypeID(vtype, 0, true);  // enable skinning in decode
+	u32 vertTypeID = GetVertTypeID(vtype, 0);
 
 	dec.Add8(128 + 64, 128 - 64);
 	dec.Add8(127, 0, 128);
@@ -580,7 +579,7 @@ static bool TestVertex16Skin() {
 	gstate.boneMatrix[20] = 5.0f;
 
 	int vtype = GE_VTYPE_POS_16BIT | GE_VTYPE_NRM_16BIT | GE_VTYPE_WEIGHT_16BIT | (1 << GE_VTYPE_WEIGHTCOUNT_SHIFT);
-	u32 vertTypeID = GetVertTypeID(vtype, 0, true);  // enable skinning in decode
+	u32 vertTypeID = GetVertTypeID(vtype, 0);
 
 	dec.Add16(32768 + 16384, 32768 - 16384);
 	dec.Add16(32767, 0, 32768);
@@ -612,7 +611,7 @@ static bool TestVertexFloatSkin() {
 	gstate.boneMatrix[20] = 5.0f;
 
 	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_NRM_FLOAT | GE_VTYPE_WEIGHT_FLOAT | (1 << GE_VTYPE_WEIGHTCOUNT_SHIFT);
-	u32 vertTypeID = GetVertTypeID(vtype, 0, true);  // enable skinning in decode
+	u32 vertTypeID = GetVertTypeID(vtype, 0);
 
 	dec.AddFloat(1.5f, 0.5f);
 	dec.AddFloat(1.0f, 0, -1.0f);

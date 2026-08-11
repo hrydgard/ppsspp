@@ -86,7 +86,7 @@ uint64_t GetFileSize(FILE *f);
 uint64_t ComputeRecursiveDirectorySize(const Path &path);
 
 // Returns true if successful, or path already exists.
-bool CreateDir(const Path &filename);
+bool CreateDir(const Path &filename, bool quiet = false);
 
 void ChangeMTime(const Path &path, time_t mtime);
 

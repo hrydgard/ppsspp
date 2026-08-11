@@ -173,13 +173,24 @@ struct Vec4S32 {
 	// NOTE: This uses a CrossSIMD wrapper if we don't compile with SSE4 support, and is thus slow.
 	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ _mm_mullo_epi32_SSE2(v, other.v) }; }  // (ab3,ab2,ab1,ab0)
 
-	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ _mm_cmpeq_epi32(v, other.v) }; }
-	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(v, other.v) }; }
-	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(v, other.v) }; }
+	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ _mm_cmpeq_epi32(v, other.v)}; }
+	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(v, other.v)}; }
+	Vec4S32 CompareLe(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(other.v, v) }; }
+	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ _mm_cmpgt_epi32(v, other.v)}; }
+	Vec4S32 CompareGe(Vec4S32 other) const { return Vec4S32{ _mm_cmplt_epi32(other.v, v) }; }
 };
 
 inline bool AnyZeroSignBit(Vec4S32 value) {
 	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) != 0xF;
+}
+
+// These are for evaluating compare masks. On some archs it might just check the upper bit.
+inline bool AllCompareBitsSet(Vec4S32 value) {
+	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) == 0xF;
+}
+
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+	return _mm_movemask_ps(_mm_castsi128_ps(value.v)) != 0;
 }
 
 struct Vec4F32 {
@@ -190,12 +201,22 @@ struct Vec4F32 {
 
 	static Vec4F32 Load(const float *src) { return Vec4F32{ _mm_loadu_ps(src) }; }
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
+	static Vec4F32 Load2(const float *src) { return Vec4F32{ _mm_castpd_ps(_mm_load_sd((const double *)src)) }; }
+
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
-		__m128i value = _mm_set1_epi32(*((uint32_t *)src));
-		__m128i value32 = _mm_unpacklo_epi16(_mm_unpacklo_epi8(value, value), value);
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
+		__m128i value16 = _mm_unpacklo_epi8(value, value);
+		__m128i value32 = _mm_unpacklo_epi16(value16, value16);
 		// Sign extension. A bit ugly without SSE4.
 		value32 = _mm_srai_epi32(value32, 24);
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 128.0f)) };
+	}
+
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
+		__m128i value16 = _mm_unpacklo_epi8(value, _mm_setzero_si128());
+		__m128i value32 = _mm_unpacklo_epi16(value16, _mm_setzero_si128());
+		return Vec4F32{_mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 255.0f))};
 	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		__m128i bits = _mm_loadl_epi64((const __m128i*)src);
@@ -204,22 +225,22 @@ struct Vec4F32 {
 		return Vec4F32 { _mm_mul_ps(_mm_cvtepi32_ps(bits), _mm_set1_ps(1.0f / 32768.0f)) };
 	}
 
-	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes
+	static Vec4F32 LoadConvertS16(const int16_t *src) {  // Note: will load 8 bytes (4*2)
 		__m128i value = _mm_loadl_epi64((const __m128i *)src);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value, value), 16)) };
 	}
 
-	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes
-		__m128i value = _mm_loadl_epi64((const __m128i *)src);
+	static Vec4F32 LoadConvertS8(const int8_t *src) {
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 24)) };
 	}
 
 	// NOTE: Does not normalize to 0..255 range.
-	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes
-		__m128i value = _mm_loadl_epi64((const __m128i *)src);
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {
+		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
 		__m128i zero = _mm_setzero_si128();
 		__m128i value16 = _mm_unpacklo_epi8(value, zero);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
@@ -232,6 +253,29 @@ struct Vec4F32 {
 
 		__m128 value = _mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8));
 		return Vec4F32{ _mm_or_ps(_mm_and_ps(value, _mm_load_ps((const float *)mask)), _mm_load_ps(onelane3)) };
+	}
+
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
+		return Vec4F32{_mm_castsi128_ps(_mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8))};
+	}
+
+	float Dot3(Vec4F32 b) {
+		// Zero out the W component before multiplying to ensure only X, Y, Z are summed
+		alignas(16) static const uint32_t mask[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0 };
+		__m128 masked = _mm_and_ps(v, _mm_load_ps((const float *)mask));
+		__m128 mul = _mm_mul_ps(masked, b.v);
+		__m128 shuf1 = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 1, 0, 3));
+		__m128 sum1 = _mm_add_ps(mul, shuf1);
+		__m128 shuf2 = _mm_shuffle_ps(sum1, sum1, _MM_SHUFFLE(1, 0, 3, 2));
+		return _mm_cvtss_f32(_mm_add_ps(sum1, shuf2));
+	}
+
+	float Dot4(Vec4F32 b) {
+		__m128 mul = _mm_mul_ps(v, b.v);
+		__m128 shuf1 = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 1, 0, 3));
+		__m128 sum1 = _mm_add_ps(mul, shuf1);
+		__m128 shuf2 = _mm_shuffle_ps(sum1, sum1, _MM_SHUFFLE(1, 0, 3, 2));
+		return _mm_cvtss_f32(_mm_add_ps(sum1, shuf2));
 	}
 
 	void Store(float *dst) { _mm_storeu_ps(dst, v); }
@@ -254,6 +298,9 @@ struct Vec4F32 {
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ _mm_add_ps(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ _mm_sub_ps(v, other.v) }; }
 	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ _mm_mul_ps(v, other.v) }; }
+	Vec4F32 operator &(Vec4S32 other) const { return Vec4F32{ _mm_and_ps(v, _mm_castsi128_ps(other.v))}; }
+	Vec4F32 operator |(Vec4S32 other) const { return Vec4F32{ _mm_or_ps(v, _mm_castsi128_ps(other.v))}; }
+	Vec4F32 operator ^(Vec4S32 other) const { return Vec4F32{ _mm_xor_ps(v, _mm_castsi128_ps(other.v))}; }
 	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ _mm_min_ps(v, other.v) }; }
 	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ _mm_max_ps(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = _mm_add_ps(v, other.v); }
@@ -261,6 +308,8 @@ struct Vec4F32 {
 	void operator *=(Vec4F32 other) { v = _mm_mul_ps(v, other.v); }
 	void operator /=(Vec4F32 other) { v = _mm_div_ps(v, other.v); }
 	void operator &=(Vec4S32 other) { v = _mm_and_ps(v, _mm_castsi128_ps(other.v)); }
+	void operator |=(Vec4S32 other) { v = _mm_or_ps(v, _mm_castsi128_ps(other.v)); }
+	void operator ^=(Vec4S32 other) { v = _mm_xor_ps(v, _mm_castsi128_ps(other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{_mm_mul_ps(v, _mm_set1_ps(f))}; }
 	void operator *=(float f) { v = _mm_mul_ps(v, _mm_set1_ps(f)); }
 	// NOTE: May be slow.
@@ -287,6 +336,21 @@ struct Vec4F32 {
 		return Vec4F32{ _mm_or_ps(_mm_and_ps(v, _mm_load_ps((const float *)mask)), _mm_load_ps((const float *)onelane3)) };
 	}
 
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		alignas(16) static const uint32_t mask[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+		__m128 maskVec = _mm_load_ps((const float *)mask);
+		return Vec4F32{_mm_or_ps(_mm_and_ps(maskVec, v), _mm_andnot_ps(maskVec, other.v))};
+	}
+
+	Vec4F32 ZeroNaNs() const {
+		return Vec4F32{ zero_nans_sse(v) };
+	}
+
+	// The output becomes something that when multiplied by zero, yields 0.
+	Vec4F32 CleanNaNInfs() const {
+		return Vec4F32{ clean_nan_inf_sse(v) };
+	}
+
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
 		return Vec4F32{ _mm_add_ps(
 			_mm_add_ps(
@@ -299,6 +363,14 @@ struct Vec4F32 {
 			)
 		};
 	}
+
+	// Useful shuffles.
+	Vec4F32 ShuffleXXYY() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 0, 0))}; }
+	Vec4F32 ShuffleZZWW() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 2, 2))}; }
+	Vec4F32 ShuffleXXXX() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 0, 0, 0))}; }
+	Vec4F32 ShuffleYYYY() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1))}; }
+	Vec4F32 ShuffleZZZZ() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2))}; }
+	Vec4F32 ShuffleWWWW() const { return Vec4F32{_mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 3, 3))}; }
 
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
 		_MM_TRANSPOSE4_PS(col0.v, col1.v, col2.v, col3.v);
@@ -315,7 +387,9 @@ struct Vec4F32 {
 
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpeq_ps(v, other.v)) }; }
 	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmplt_ps(v, other.v)) }; }
-	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmpgt_ps(v, other.v)) }; }
+	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{_mm_castps_si128(_mm_cmpgt_ps(v, other.v))}; }
+	Vec4S32 CompareGe(Vec4F32 other) const { return Vec4S32{_mm_castps_si128(_mm_cmpge_ps(v, other.v))}; }
+	Vec4S32 CompareLe(Vec4F32 other) const { return Vec4S32{ _mm_castps_si128(_mm_cmple_ps(v, other.v)) }; }
 
 	template<int i> float GetLane() const {
 		return _mm_cvtss_f32(_mm_shuffle_ps(v, v, _MM_SHUFFLE(i, i, i, i)));
@@ -327,6 +401,12 @@ inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) 
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
 	return _mm_movemask_ps(value.v) != 0xF;
+}
+inline bool AllCompareBitsSet(Vec4F32 value) {
+	return _mm_movemask_ps(value.v) == 0xF;
+}
+inline bool AnyCompareBitsSet(Vec4F32 value) {
+	return _mm_movemask_ps(value.v) != 0;
 }
 
 // Make sure the W component of scale is 1.0f.
@@ -523,6 +603,8 @@ struct Vec4S32 {
 	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ vandq_s32(v, vmvnq_s32(inverted.v))}; }
 	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
 	void operator &=(Vec4S32 other) { v = vandq_s32(v, other.v); }
+	void operator |=(Vec4S32 other) { v = vorrq_s32(v, other.v); }
+	void operator ^=(Vec4S32 other) { v = veorq_s32(v, other.v); }
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ vshlq_n_s32(v, imm) }; }
@@ -548,10 +630,19 @@ struct Vec4F32 {
 		const int16x8_t value16 = vmovl_s8(value);
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vget_low_s16(value16)), 7) };
 	}
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		const uint8x8_t value = (uint8x8_t)vdup_n_u32(*((uint32_t *)src));
+		const uint16x8_t value16 = vmovl_u8(value);
+		return Vec4F32{ vmulq_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(value16))), vdupq_n_f32(1.0f / 255.0f))};
+	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vld1_s16(src)), 15) };
 	}
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
+	static Vec4F32 Load2(const float *src) {
+		float32x2_t two = vld1_f32(src);
+		return Vec4F32{ vcombine_f32(two, two) };
+	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
 		int16x4_t value = vld1_s16(src);
@@ -572,6 +663,9 @@ struct Vec4F32 {
 
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
 		return Vec4F32{ vsetq_lane_f32(1.0f, vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8)), 3) };
+	}
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
+		return Vec4F32{vreinterpretq_f32_u32(vshlq_n_u32(vld1q_u32(src), 8))};
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 other) {
@@ -603,7 +697,10 @@ struct Vec4F32 {
 
 	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ vaddq_f32(v, other.v) }; }
 	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ vsubq_f32(v, other.v) }; }
-	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ vmulq_f32(v, other.v) }; }
+	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ vmulq_f32(v, other.v)}; }
+	Vec4F32 operator &(Vec4S32 other) const { return Vec4F32{ vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v))}; }
+	Vec4F32 operator |(Vec4S32 other) const { return Vec4F32{ vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(v), other.v))}; }
+	Vec4F32 operator ^(Vec4S32 other) const { return Vec4F32{ vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(v), other.v))}; }
 	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ vminq_f32(v, other.v) }; }
 	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ vmaxq_f32(v, other.v) }; }
 	void operator +=(Vec4F32 other) { v = vaddq_f32(v, other.v); }
@@ -616,6 +713,8 @@ struct Vec4F32 {
 	void operator /=(Vec4F32 other) { v = vmulq_f32(v, other.Recip().v); }
 #endif
 	void operator &=(Vec4S32 other) { v = vreinterpretq_f32_s32(vandq_s32(vreinterpretq_s32_f32(v), other.v)); }
+	void operator |=(Vec4S32 other) { v = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(v), other.v)); }
+	void operator ^=(Vec4S32 other) { v = vreinterpretq_f32_s32(veorq_s32(vreinterpretq_s32_f32(v), other.v)); }
 	Vec4F32 operator *(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
 	void operator *=(float f) { v = vmulq_f32(v, vdupq_n_f32(f)); }
 
@@ -650,6 +749,34 @@ struct Vec4F32 {
 	Vec4F32 WithLane3One() const {
 		return Vec4F32{ vsetq_lane_f32(1.0f, v, 3) };
 	}
+
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		return Vec4F32{vsetq_lane_f32(vgetq_lane_f32(other.v, 3), v, 3)};
+	}
+
+	Vec4F32 ZeroNaNs() const {
+		return Vec4F32{ zero_nans_neon(v)};
+	}
+
+	Vec4F32 CleanNaNInfs() const {
+		return Vec4F32{ clean_inf_and_nan_neon(v)};
+	}
+
+	Vec4F32 ShuffleXXYY() const {
+		float32x2_t low = vget_low_f32(v);  // {X, Y} pair
+		// Combine them into {X, X, Y, Y}
+		return Vec4F32{vcombine_f32(vdup_lane_f32(low, 0), vdup_lane_f32(low, 1))};
+	}
+	Vec4F32 ShuffleZZWW() const {
+		float32x2_t high = vget_high_f32(v);  // {Z, W} pair
+		// Combine them into {Z, Z, W, W}
+		return Vec4F32{vcombine_f32(vdup_lane_f32(high, 0), vdup_lane_f32(high, 1))};
+	}
+
+	Vec4F32 ShuffleXXXX() const { return Vec4F32{vdupq_lane_f32(vget_low_f32(v), 0)}; }
+	Vec4F32 ShuffleYYYY() const { return Vec4F32{vdupq_lane_f32(vget_low_f32(v), 1)}; }
+	Vec4F32 ShuffleZZZZ() const { return Vec4F32{vdupq_lane_f32(vget_high_f32(v), 0)}; }
+	Vec4F32 ShuffleWWWW() const { return Vec4F32{vdupq_lane_f32(vget_high_f32(v), 1)}; }
 
 	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vceqq_f32(v, other.v)) }; }
 	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ vreinterpretq_s32_u32(vcltq_f32(v, other.v)) }; }
@@ -701,6 +828,34 @@ struct Vec4F32 {
 		return Vec4F32{ sum };
 	}
 
+	float Dot3(Vec4F32 b) {
+		// Zero out the W component before multiplying to ensure only X, Y, Z are summed
+		float32x4_t masked = vsetq_lane_f32(0.0f, v, 3);
+		float32x4_t mul = vmulq_f32(masked, b.v);
+#if PPSSPP_ARCH(ARM64_NEON)
+		return vaddvq_f32(mul);
+#else
+		float32x2_t sum_low = vget_low_f32(mul);
+		float32x2_t sum_high = vget_high_f32(mul);
+		float32x2_t sum = vadd_f32(sum_low, sum_high);
+		sum = vpadd_f32(sum, sum);
+		return vget_lane_f32(sum, 0);
+#endif
+	}
+
+	float Dot4(Vec4F32 b) {
+		float32x4_t mul = vmulq_f32(v, b.v);
+#if PPSSPP_ARCH(ARM64_NEON)
+		return vaddvq_f32(mul);
+#else
+		float32x2_t sum_low = vget_low_f32(mul);
+		float32x2_t sum_high = vget_high_f32(mul);
+		float32x2_t sum = vadd_f32(sum_low, sum_high);
+		sum = vpadd_f32(sum, sum);
+		return vget_lane_f32(sum, 0);
+#endif
+	}
+
 	template<int i> float GetLane() const {
 		return vgetq_lane_f32(v, i);
 	}
@@ -734,6 +889,28 @@ inline bool AnyZeroSignBit(Vec4S32 value) {
 	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
 	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
 	return (mask & 0x80000000) == 0;
+#endif
+}
+
+inline bool AllCompareBitsSet(Vec4S32 value) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return vminvq_u32(vreinterpretq_u32_s32(value.v)) == 0xFFFFFFFF;
+#else
+	// Very suboptimal, let's optimize later.
+	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return mask == 0xFFFFFFFF;
+#endif
+}
+
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return vmaxvq_u32(vreinterpretq_u32_s32(value.v)) != 0;
+#else
+	// Very suboptimal, let's optimize later.
+	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
+	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	return mask != 0;
 #endif
 }
 
@@ -790,6 +967,502 @@ struct Vec8U16 {
 
 	static Vec8U16 Load(const uint16_t *mem) { return Vec8U16{ vld1q_u16(mem) }; }
 	void Store(uint16_t *mem) { vst1q_u16(mem, v); }
+};
+
+
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+
+struct Mat4F32 {
+	Mat4F32() {}
+	Mat4F32(const float *matrix) {
+		col0 = (__m128)__lsx_vld(matrix, 0);
+		col1 = (__m128)__lsx_vld(matrix + 4, 0);
+		col2 = (__m128)__lsx_vld(matrix + 8, 0);
+		col3 = (__m128)__lsx_vld(matrix + 12, 0);
+	}
+	void Store(float *m) {
+		__lsx_vst(col0, m, 0);
+		__lsx_vst(col1, m + 4, 0);
+		__lsx_vst(col2, m + 8, 0);
+		__lsx_vst(col3, m + 12, 0);
+	}
+
+	// Unlike the old one, this one is careful about not loading out-of-range data.
+	// The last two loads overlap.
+	static Mat4F32 Load4x3(const float *m) {
+		Mat4F32 result;
+		constexpr int kOneF32Bits = 0x3F800000;
+		__m128 mask1110 = (__m128)__lsx_vbsrl_v(__lsx_vldi(0b11111111), 4);
+		result.col0 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m, 0), (__m128i)mask1110);
+		result.col1 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 3, 0), (__m128i)mask1110);
+		result.col2 = (__m128)__lsx_vand_v((__m128i)__lsx_vld(m + 6, 0), (__m128i)mask1110);
+		__m128 lastCol = (__m128)__lsx_vld(m + 8, 0);
+		// Shuffle to get [m[9], m[10], m[11], x] then mask and add 1.0f to lane 3
+		lastCol = (__m128)__lsx_vshuf4i_w((__m128i)lastCol, 0b11111001);  // [1, 2, 3, 3]
+		result.col3 = (__m128)__lsx_vand_v((__m128i)lastCol, (__m128i)mask1110);
+		result.col3 = (__m128)__lsx_vfadd_s(result.col3, (__m128)__lsx_vinsgr2vr_w(__lsx_vldi(0), kOneF32Bits, 3));
+		return result;
+	}
+
+	__m128 col0;
+	__m128 col1;
+	__m128 col2;
+	__m128 col3;
+};
+
+// The columns are spread out between the data*. This is just intermediate storage for multiplication.
+struct Mat4x3F32 {
+	Mat4x3F32(const float *matrix) {
+		data0 = (__m128)__lsx_vld(matrix, 0);
+		data1 = (__m128)__lsx_vld(matrix + 4, 0);
+		data2 = (__m128)__lsx_vld(matrix + 8, 0);
+	}
+
+	__m128 data0;
+	__m128 data1;
+	__m128 data2;
+};
+
+inline Mat4F32 Mul4x4By4x4(Mat4F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	__m128 r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.col0, 0b00000000));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.col0, 0b01010101), r_col);
+	r_col = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.col0, 0b10101010), r_col);
+	result.col0 = (__m128)__lsx_vfmadd_s(b.col3, (__m128)__lsx_vshuf4i_w((__m128i)a.col0, 0b11111111), r_col);
+
+	r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.col1, 0b00000000));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.col1, 0b01010101), r_col);
+	r_col = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.col1, 0b10101010), r_col);
+	result.col1 = (__m128)__lsx_vfmadd_s(b.col3, (__m128)__lsx_vshuf4i_w((__m128i)a.col1, 0b11111111), r_col);
+
+	r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.col2, 0b00000000));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.col2, 0b01010101), r_col);
+	r_col = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.col2, 0b10101010), r_col);
+	result.col2 = (__m128)__lsx_vfmadd_s(b.col3, (__m128)__lsx_vshuf4i_w((__m128i)a.col2, 0b11111111), r_col);
+
+	r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.col3, 0b00000000));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.col3, 0b01010101), r_col);
+	r_col = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.col3, 0b10101010), r_col);
+	result.col3 = (__m128)__lsx_vfmadd_s(b.col3, (__m128)__lsx_vshuf4i_w((__m128i)a.col3, 0b11111111), r_col);
+
+	return result;
+}
+
+inline Mat4F32 Mul4x3By4x4(Mat4x3F32 a, Mat4F32 b) {
+	Mat4F32 result;
+
+	__m128 r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.data0, 0b00000000));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.data0, 0b01010101), r_col);
+	result.col0 = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.data0, 0b10101010), r_col);
+
+	r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.data0, 0b11111111));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.data1, 0b00000000), r_col);
+	result.col1 = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.data1, 0b01010101), r_col);
+
+	r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.data1, 0b10101010));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.data1, 0b11111111), r_col);
+	result.col2 = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.data2, 0b00000000), r_col);
+
+	r_col = (__m128)__lsx_vfmul_s(b.col0, (__m128)__lsx_vshuf4i_w((__m128i)a.data2, 0b01010101));
+	r_col = (__m128)__lsx_vfmadd_s(b.col1, (__m128)__lsx_vshuf4i_w((__m128i)a.data2, 0b10101010), r_col);
+	r_col = (__m128)__lsx_vfmadd_s(b.col2, (__m128)__lsx_vshuf4i_w((__m128i)a.data2, 0b11111111), r_col);
+
+	// The last entry has an implied 1.0f.
+	result.col3 = (__m128)__lsx_vfadd_s(r_col, b.col3);
+	return result;
+}
+
+struct Vec4S32 {
+	__m128i v;
+
+	static Vec4S32 Zero() { return Vec4S32{ __lsx_vldi(0) }; }
+	static Vec4S32 Splat(int lane) { return Vec4S32{ __lsx_vreplgr2vr_w(lane) }; }
+
+	static Vec4S32 Load(const int *src) { return Vec4S32{ __lsx_vld(src, 0) }; }
+	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ __lsx_vld(src, 0) }; }
+	void Store(int *dst) { __lsx_vst(v, dst, 0); }
+	void Store2(int *dst) { __lsx_vstelm_d(v, dst, 0, 0); }
+	void StoreAligned(int *dst) { __lsx_vst(v, dst, 0); }
+
+	// Warning: Unlike on x86, this is a full 32-bit multiplication.
+	Vec4S32 Mul16(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_w(v, other.v) }; }
+
+	Vec4S32 SignExtend16() const { return Vec4S32{ __lsx_vsrai_w(__lsx_vslli_w(v, 16), 16) }; }
+	// NOTE: These can be done in sequence, but when done, you must FixupAfterMinMax to get valid output (on SSE2 at least).
+	Vec4S32 Min16(Vec4S32 other) const { return Vec4S32{ __lsx_vmin_w(v, other.v) }; }
+	Vec4S32 Max16(Vec4S32 other) const { return Vec4S32{ __lsx_vmax_w(v, other.v) }; }
+	Vec4S32 FixupAfterMinMax() const { return Vec4S32{ v }; }
+
+	// NOTE: May be slow.
+	int operator[](size_t index) const { return ((int *)&v)[index]; }
+
+	Vec4S32 operator +(Vec4S32 other) const { return Vec4S32{ __lsx_vadd_w(v, other.v) }; }
+	Vec4S32 operator -(Vec4S32 other) const { return Vec4S32{ __lsx_vsub_w(v, other.v) }; }
+	Vec4S32 operator *(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_w(v, other.v) }; }
+	Vec4S32 operator |(Vec4S32 other) const { return Vec4S32{ __lsx_vor_v(v, other.v) }; }
+	Vec4S32 operator &(Vec4S32 other) const { return Vec4S32{ __lsx_vand_v(v, other.v) }; }
+	Vec4S32 operator ^(Vec4S32 other) const { return Vec4S32{ __lsx_vxor_v(v, other.v) }; }
+	Vec4S32 AndNot(Vec4S32 inverted) const { return Vec4S32{ __lsx_vandn_v(inverted.v, v) }; }
+	Vec4S32 Mul(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_w(v, other.v) }; }
+	void operator &=(Vec4S32 other) { v = __lsx_vand_v(v, other.v); }
+	void operator |=(Vec4S32 other) { v = __lsx_vor_v(v, other.v); }
+	void operator ^=(Vec4S32 other) { v = __lsx_vxor_v(v, other.v); }
+
+	template<int imm>
+	Vec4S32 Shl() const { return Vec4S32{ __lsx_vslli_w(v, imm) }; }
+
+	void operator +=(Vec4S32 other) { v = __lsx_vadd_w(v, other.v); }
+	void operator -=(Vec4S32 other) { v = __lsx_vsub_w(v, other.v); }
+
+	Vec4S32 CompareEq(Vec4S32 other) const { return Vec4S32{ __lsx_vseq_w(v, other.v) }; }
+	Vec4S32 CompareLt(Vec4S32 other) const { return Vec4S32{ __lsx_vslt_w(v, other.v) }; }
+	Vec4S32 CompareGt(Vec4S32 other) const { return Vec4S32{ __lsx_vslt_w(other.v, v) }; }
+	Vec4S32 CompareGtZero() const { return Vec4S32{ __lsx_vslt_w(__lsx_vldi(0), v) }; }
+};
+
+struct Vec4F32 {
+	__m128 v;
+
+	static Vec4F32 Zero() { return Vec4F32{ (__m128)__lsx_vldi(0) }; }
+	static Vec4F32 Splat(float lane) { return Vec4F32{ __lsx_vreplfr2vr_s(lane) }; }
+
+	static Vec4F32 Load(const float *src) { return Vec4F32{ (__m128)__lsx_vld(src, 0) }; }
+	static Vec4F32 LoadS8Norm(const int8_t *src) {
+		return LoadConvertS8(src) * (1.0f / 128.0f);
+	}
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		return LoadConvertU8(src) * (1.0f / 255.0f);
+	}
+	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
+		return LoadConvertS16(src) * (1.0f / 32768.0f);
+	}
+	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ (__m128)__lsx_vld(src, 0) }; }
+	static Vec4F32 Load2(const float *src) {
+		// Not the safest. Alternatives are tricky though.
+		return Load(src);
+	}
+
+	static Vec4F32 LoadConvertS16(const int16_t *src) {
+		__m128i value = __lsx_vldrepl_d(src, 0);
+		value = __lsx_vsllwil_w_h(value, 0);
+		return Vec4F32{ (__m128)__lsx_vffint_s_w(value) };
+	}
+
+	static Vec4F32 LoadConvertS8(const int8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
+		__m128i value = __lsx_vldrepl_w(src, 0);
+		value = __lsx_vsllwil_h_b(value, 0);
+		value = __lsx_vsllwil_w_h(value, 0);
+		return Vec4F32{ (__m128)__lsx_vffint_s_w(value) };
+	}
+
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
+		__m128i value = __lsx_vldrepl_w(src, 0);
+		value = __lsx_vsllwil_hu_bu(value, 0);
+		value = __lsx_vsllwil_wu_hu(value, 0);
+		return Vec4F32{ (__m128)__lsx_vffint_s_w(value) };
+	}
+
+	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
+		constexpr int kOneF32Bits = 0x3F800000;
+		__m128i value = __lsx_vslli_w(__lsx_vld(src, 0), 8);
+		// Set lane 3 to 1.0f
+		value = __lsx_vinsgr2vr_w(value, kOneF32Bits, 3);
+		return Vec4F32{ (__m128)value };
+	}
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
+		return Vec4F32{(__m128)__lsx_vslli_w(__lsx_vld(src, 0), 8)};
+	}
+
+	static Vec4F32 FromVec4S32(Vec4S32 other) {
+		return Vec4F32{ (__m128)__lsx_vffint_s_w(other.v) };
+	}
+
+	void Store(float *dst) { __lsx_vst(v, dst, 0); }
+	void Store2(float *dst) { __lsx_vstelm_d((__m128i)v, dst, 0, 0); }
+	void StoreAligned(float *dst) { __lsx_vst(v, dst, 0); }
+	void Store3(float *dst) {
+		__lsx_vstelm_d((__m128i)v, dst, 0, 0);
+		__lsx_vstelm_w((__m128i)v, dst, 8, 2);
+	}
+	void StoreConvertToU8(uint8_t *dest) {
+		__m128i ivalue32 = __lsx_vftintrz_w_s(v);
+		__m128i ivalue16 = __lsx_vssrlrni_hu_w(ivalue32, ivalue32, 0);
+		__m128i ivalue8 = __lsx_vssrlrni_bu_h(ivalue16, ivalue16, 0);
+		uint32_t value = __lsx_vpickve2gr_wu(ivalue8, 0);
+		memcpy(dest, &value, sizeof(uint32_t));
+	}
+
+	// NOTE: May be slow.
+	float operator[](size_t index) const {
+		// index is a compile-time constant parameter to the intrinsic.
+		int ival;
+		switch (index) {
+		case 0: ival = __lsx_vpickve2gr_w((__m128i)v, 0);
+		case 1: ival = __lsx_vpickve2gr_w((__m128i)v, 1);
+		case 2: ival = __lsx_vpickve2gr_w((__m128i)v, 2);
+		default: ival = __lsx_vpickve2gr_w((__m128i)v, 3);
+		}
+		float fval;
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
+
+	Vec4F32 operator +(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfadd_s(v, other.v) }; }
+	Vec4F32 operator -(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfsub_s(v, other.v) }; }
+	Vec4F32 operator *(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, other.v)}; }
+	Vec4F32 operator &(Vec4S32 other) const { return Vec4F32{ (__m128)__lsx_vand_v((__m128i)v, other.v)}; }
+	Vec4F32 operator |(Vec4S32 other) const { return Vec4F32{(__m128)__lsx_vor_v((__m128i)v, other.v)}; }
+	Vec4F32 operator ^(Vec4S32 other) const { return Vec4F32{ (__m128)__lsx_vxor_v((__m128i)v, other.v) }; }
+	Vec4F32 Min(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmin_s(v, other.v) }; }
+	Vec4F32 Max(Vec4F32 other) const { return Vec4F32{ (__m128)__lsx_vfmax_s(v, other.v) }; }
+	void operator +=(Vec4F32 other) { v = (__m128)__lsx_vfadd_s(v, other.v); }
+	void operator -=(Vec4F32 other) { v = (__m128)__lsx_vfsub_s(v, other.v); }
+	void operator *=(Vec4F32 other) { v = (__m128)__lsx_vfmul_s(v, other.v); }
+	void operator /=(Vec4F32 other) { v = (__m128)__lsx_vfdiv_s(v, other.v); }
+	void operator &=(Vec4S32 other) { v = (__m128)__lsx_vand_v((__m128i)v, other.v); }
+
+	Vec4F32 operator *(float f) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)) }; }
+	void operator *=(float f) { v = (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)); }
+
+	Vec4F32 Mul(float f) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)) }; }
+
+	Vec4F32 Recip() const {
+		__m128 recip = (__m128)__lsx_vfrecip_s(v);
+		// LSX vfrecip is fairly accurate, but we can refine if needed
+		// recip = recip * (2.0 - v * recip)
+		__m128 two = __lsx_vreplfr2vr_s(2.0f);
+		recip = (__m128)__lsx_vfmul_s(recip, (__m128)__lsx_vfsub_s(two, (__m128)__lsx_vfmul_s(v, recip)));
+		return Vec4F32{ recip };
+	}
+
+	Vec4F32 RecipApprox() const {
+		return Vec4F32{ (__m128)__lsx_vfrecip_s(v) };
+	}
+
+	Vec4F32 Clamp(float lower, float higher) const {
+		return Vec4F32{
+			(__m128)__lsx_vfmin_s((__m128)__lsx_vfmax_s(v, __lsx_vreplfr2vr_s(lower)), __lsx_vreplfr2vr_s(higher))
+		};
+	}
+
+	Vec4F32 ZeroNaNs() const {
+		return Vec4F32{ zero_nans_lsx(v) };
+	}
+
+	Vec4F32 CleanNaNInfs() const {
+		return Vec4F32{ clean_nan_inf_lsx(v) };
+	}
+
+	Vec4F32 WithLane3Zero() const {
+		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, 0, 3) };
+	}
+
+	Vec4F32 WithLane3One() const {
+		constexpr int kOneF32Bits = 0x3F800000;
+		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, kOneF32Bits, 3) };
+	}
+
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		// Use vinsgr2vr_w to insert just the lane 3
+		// Extract lane 3 from other as an integer, then insert it into v
+		int lane3 = __lsx_vpickve2gr_w((__m128i)other.v, 3);
+		return Vec4F32{ (__m128)__lsx_vinsgr2vr_w((__m128i)v, lane3, 3) };
+	}
+
+	Vec4S32 CompareEq(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_ceq_s(v, other.v) }; }
+	Vec4S32 CompareLt(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_clt_s(v, other.v) }; }
+	Vec4S32 CompareGt(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_clt_s(other.v, v) }; }
+	Vec4S32 CompareLe(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_cle_s(v, other.v) }; }
+	Vec4S32 CompareGe(Vec4F32 other) const { return Vec4S32{ (__m128i)__lsx_vfcmp_cle_s(other.v, v) }; }
+
+	Vec4F32 ShuffleXXYY() const {
+		// __builtin_lsx_vilvl_w interleaves the lower 32-bit elements of two vectors.
+		// Interleaving 'v' with itself pairs X with X and Y with Y -> {X, X, Y, Y}
+		return Vec4F32{(__m128)__lsx_vilvl_w((__m128i)v, (__m128i)v)};
+	}
+
+	Vec4F32 ShuffleZZWW() const {
+		// __builtin_lsx_vilvh_w interleaves the higher 32-bit elements of two vectors.
+		// Interleaving 'v' with itself pairs Z with Z and W with W -> {Z, Z, W, W}
+		return Vec4F32{(__m128)__lsx_vilvh_w((__m128i)v, (__m128i)v)};
+	}
+
+	Vec4F32 ShuffleXXXX() const {
+		// Replicate/splat lane 0 (X) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 0)};
+	}
+
+	Vec4F32 ShuffleYYYY() const {
+		// Replicate/splat lane 1 (Y) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 1)};
+	}
+
+	Vec4F32 ShuffleZZZZ() const {
+		// Replicate/splat lane 2 (Z) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 2)};
+	}
+
+	Vec4F32 ShuffleWWWW() const {
+		// Replicate/splat lane 3 (W) across all 4 elements
+		return Vec4F32{(__m128)__lsx_vreplvei_w((__m128i)v, 3)};
+	}
+
+	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		// Transpose 4x4 matrix using interleave operations
+		__m128 tmp0 = (__m128)__lsx_vilvl_w((__m128i)col1.v, (__m128i)col0.v);  // [a0, b0, a1, b1]
+		__m128 tmp1 = (__m128)__lsx_vilvh_w((__m128i)col1.v, (__m128i)col0.v);  // [a2, b2, a3, b3]
+		__m128 tmp2 = (__m128)__lsx_vilvl_w((__m128i)col3.v, (__m128i)col2.v);  // [c0, d0, c1, d1]
+		__m128 tmp3 = (__m128)__lsx_vilvh_w((__m128i)col3.v, (__m128i)col2.v);  // [c2, d2, c3, d3]
+		col0.v = (__m128)__lsx_vilvl_d((__m128i)tmp2, (__m128i)tmp0);           // [a0, b0, c0, d0]
+		col1.v = (__m128)__lsx_vilvh_d((__m128i)tmp2, (__m128i)tmp0);           // [a1, b1, c1, d1]
+		col2.v = (__m128)__lsx_vilvl_d((__m128i)tmp3, (__m128i)tmp1);           // [a2, b2, c2, d2]
+		col3.v = (__m128)__lsx_vilvh_d((__m128i)tmp3, (__m128i)tmp1);           // [a3, b3, c3, d3]
+	}
+
+	static void LoadTranspose(const float *src, Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		col0.v = (__m128)__lsx_vld(src, 0);
+		col1.v = (__m128)__lsx_vld(src + 4, 0);
+		col2.v = (__m128)__lsx_vld(src + 8, 0);
+		col3.v = (__m128)__lsx_vld(src + 12, 0);
+		Transpose(col0, col1, col2, col3);
+	}
+
+	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
+		__m128 sum = (__m128)__lsx_vfadd_s(
+			(__m128)__lsx_vfadd_s(
+				(__m128)__lsx_vfmul_s(m.col0, (__m128)__lsx_vshuf4i_w((__m128i)v, 0b00000000)),
+				(__m128)__lsx_vfmul_s(m.col1, (__m128)__lsx_vshuf4i_w((__m128i)v, 0b01010101))),
+			(__m128)__lsx_vfadd_s(
+				(__m128)__lsx_vfmul_s(m.col2, (__m128)__lsx_vshuf4i_w((__m128i)v, 0b10101010)),
+				m.col3));
+		return Vec4F32{ sum };
+	}
+
+	float Dot3(Vec4F32 b) {
+		// Zero out the W component before multiplying to ensure only X, Y, Z are summed
+		__m128 masked = (__m128)__lsx_vinsgr2vr_w((__m128i)v, 0, 3);
+		__m128 mul = (__m128)__lsx_vfmul_s(masked, b.v);
+		// Sum all elements: horizontal add
+		__m128i shuf1 = __lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
+		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, (__m128)shuf1);
+		__m128i shuf2 = __lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
+		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, (__m128)shuf2);
+		float fval;
+		int ival = __lsx_vpickve2gr_w((__m128i)sum2, 0);
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
+
+	float Dot4(Vec4F32 b) {
+		__m128 mul = (__m128)__lsx_vfmul_s(v, b.v);
+		// Sum all elements: horizontal add
+		__m128i shuf1 = __lsx_vshuf4i_w((__m128i)mul, 0b10110001); // Rotate elements
+		__m128 sum1 = (__m128)__lsx_vfadd_s(mul, (__m128)shuf1);
+		__m128i shuf2 = __lsx_vshuf4i_w((__m128i)sum1, 0b01001110); // Swap pairs
+		__m128 sum2 = (__m128)__lsx_vfadd_s(sum1, (__m128)shuf2);
+		float fval;
+		int ival = __lsx_vpickve2gr_w((__m128i)sum2, 0);
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
+
+	template<int i> float GetLane() const {
+		int ival = __lsx_vpickve2gr_w((__m128i)v, i);
+		float fval;
+		memcpy(&fval, &ival, sizeof(float));
+		return fval;
+	}
+};
+
+inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ __lsx_vftintrz_w_s(f.v) }; }
+inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ (__m128)__lsx_vffint_s_w(s.v) }; }
+
+// Make sure the W component of scale is 1.0f.
+inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
+	m.col0 = (__m128)__lsx_vfmul_s(m.col0, scale.v);
+	m.col1 = (__m128)__lsx_vfmul_s(m.col1, scale.v);
+	m.col2 = (__m128)__lsx_vfmul_s(m.col2, scale.v);
+	m.col3 = (__m128)__lsx_vfmul_s(m.col3, scale.v);
+}
+
+// Make sure the W component of scale is 1.0f, and the W component of translate should be 0.
+inline void TranslateAndScaleInplace(Mat4F32 &m, Vec4F32 scale, Vec4F32 translate) {
+	m.col0 = (__m128)__lsx_vfadd_s((__m128)__lsx_vfmul_s(m.col0, scale.v), (__m128)__lsx_vfmul_s(translate.v, (__m128)__lsx_vshuf4i_w((__m128i)m.col0, 0b11111111)));
+	m.col1 = (__m128)__lsx_vfadd_s((__m128)__lsx_vfmul_s(m.col1, scale.v), (__m128)__lsx_vfmul_s(translate.v, (__m128)__lsx_vshuf4i_w((__m128i)m.col1, 0b11111111)));
+	m.col2 = (__m128)__lsx_vfadd_s((__m128)__lsx_vfmul_s(m.col2, scale.v), (__m128)__lsx_vfmul_s(translate.v, (__m128)__lsx_vshuf4i_w((__m128i)m.col2, 0b11111111)));
+	m.col3 = (__m128)__lsx_vfadd_s((__m128)__lsx_vfmul_s(m.col3, scale.v), (__m128)__lsx_vfmul_s(translate.v, (__m128)__lsx_vshuf4i_w((__m128i)m.col3, 0b11111111)));
+}
+
+inline bool AnyZeroSignBit(Vec4S32 value) {
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w(value.v), 0);
+	return mask != 0xF;
+}
+
+inline bool AnyZeroSignBit(Vec4F32 value) {
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
+	return mask != 0xF;
+}
+
+inline bool AllCompareBitsSet(Vec4S32 value) {
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
+	return mask == 0xF;
+}
+
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+	int mask = __lsx_vpickve2gr_w(__lsx_vmskltz_w((__m128i)value.v), 0);
+	return mask != 0;
+}
+
+struct Vec4U16 {
+	__m128i v;  // we only use the lower 64 bits.
+
+	static Vec4U16 Zero() { return Vec4U16{ __lsx_vldi(0) }; }
+	static Vec4U16 Splat(uint16_t value) { return Vec4U16{ __lsx_vreplgr2vr_h(value) }; }
+
+	static Vec4U16 Load(const uint16_t *mem) { return Vec4U16{ __lsx_vldrepl_d(mem, 0) }; }
+	void Store(uint16_t *mem) { __lsx_vstelm_d(v, mem, 0, 0); }
+
+	static Vec4U16 FromVec4S32(Vec4S32 v) {
+		// Saturate and pack 32-bit to 16-bit
+		__m128i packed = __lsx_vssrlrni_hu_w(v.v, v.v, 0);
+		return Vec4U16{ packed };
+	}
+	static Vec4U16 FromVec4F32(Vec4F32 v) {
+		__m128i i32 = __lsx_vftint_w_s(v.v);
+		__m128i packed = __lsx_vssrlrni_hu_w(i32, i32, 0);
+		return Vec4U16{ packed };
+	}
+
+	Vec4U16 operator |(Vec4U16 other) const { return Vec4U16{ __lsx_vor_v(v, other.v) }; }
+	Vec4U16 operator &(Vec4U16 other) const { return Vec4U16{ __lsx_vand_v(v, other.v) }; }
+	Vec4U16 operator ^(Vec4U16 other) const { return Vec4U16{ __lsx_vxor_v(v, other.v) }; }
+
+	Vec4U16 Max(Vec4U16 other) const { return Vec4U16{ __lsx_vmax_hu(v, other.v) }; }
+	Vec4U16 Min(Vec4U16 other) const { return Vec4U16{ __lsx_vmin_hu(v, other.v) }; }
+	Vec4U16 CompareLT(Vec4U16 other) { return Vec4U16{ __lsx_vslt_hu(v, other.v) }; }
+
+	Vec4U16 AndNot(Vec4U16 inverted) {
+		return Vec4U16{
+			__lsx_vandn_v(inverted.v, v)
+		};
+	}
+};
+
+inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
+	__m128i sign_mask = __lsx_vsrai_w(v.v, 31);
+	__m128i result = __lsx_vpickev_h(sign_mask, sign_mask);
+	return Vec4U16{ result };
+}
+
+struct Vec8U16 {
+	__m128i v;
+
+	static Vec8U16 Zero() { return Vec8U16{ __lsx_vldi(0) }; }
+	static Vec8U16 Splat(uint16_t value) { return Vec8U16{ __lsx_vreplgr2vr_h(value) }; }
+
+	static Vec8U16 Load(const uint16_t *mem) { return Vec8U16{ __lsx_vld(mem, 0) }; }
+	void Store(uint16_t *mem) { __lsx_vst(v, mem, 0); }
 };
 
 #else
@@ -906,6 +1579,8 @@ struct Vec4S32 {
 	Vec4S32 Mul(Vec4S32 other) const { return *this * other; }
 
 	void operator &=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] &= other.v[i]; }
+	void operator |=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] |= other.v[i]; }
+	void operator ^=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] ^= other.v[i]; }
 	void operator +=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] += other.v[i]; }
 	void operator -=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] -= other.v[i]; }
 
@@ -957,6 +1632,13 @@ struct Vec4F32 {
 		}
 		return temp;
 	}
+	static Vec4F32 LoadU8Norm(const uint8_t *src) {
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (float)src[i] * (1.0f / 255.0f);
+		}
+		return temp;
+	}
 	static Vec4F32 LoadS16Norm(const int16_t *src) {  // Divides by 32768.0f
 		Vec4F32 temp;
 		for (int i = 0; i < 4; i++) {
@@ -964,6 +1646,8 @@ struct Vec4F32 {
 		}
 		return temp;
 	}
+	static Vec4F32 Load2(const float *src) { return Vec4F32{{ src[0], src[1], 0.0f, 0.0f }}; }
+
 	void Store(float *dst) { memcpy(dst, v, sizeof(v)); }
 	void Store2(float *dst) { memcpy(dst, v, sizeof(v[0]) * 2); }
 	void StoreAligned(float *dst) { memcpy(dst, v, sizeof(v)); }
@@ -994,6 +1678,10 @@ struct Vec4F32 {
 		return temp;
 	}
 
+	static Vec4F32 LoadF24x4(const uint32_t *src) {
+		return LoadR24x3_One(src);
+	}
+
 	static Vec4F32 FromVec4S32(Vec4S32 src) {
 		Vec4F32 temp;
 		for (int i = 0; i < 4; i++) {
@@ -1003,6 +1691,22 @@ struct Vec4F32 {
 	}
 
 	float operator[](size_t index) const { return v[index]; }
+
+	Vec4F32 ZeroNaNs() const {
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = isnan(v[i]) ? 0.0f : v[i];
+		}
+		return temp;
+	}
+
+	Vec4F32 CleanNaNInfs() {
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (isnan(v[i]) || isinf(v[i])) ? 0.0f : v[i];
+		}
+		return temp;
+	}
 
 	Vec4F32 operator +(Vec4F32 other) const {
 		return Vec4F32{ { v[0] + other.v[0], v[1] + other.v[1], v[2] + other.v[2], v[3] + other.v[3], } };
@@ -1129,6 +1833,29 @@ struct Vec4F32 {
 		}
 		return temp;
 	}
+	Vec4F32 ShuffleXXYY() const {
+		return Vec4F32{{ v[0], v[0], v[1], v[1] }};
+	}
+
+	Vec4F32 ShuffleZZWW() const {
+		return Vec4F32{{ v[2], v[2], v[3], v[3] }};
+	}
+
+	Vec4F32 ShuffleXXXX() const {
+		return Vec4F32{{ v[0], v[0], v[0], v[0] }};
+	}
+
+	Vec4F32 ShuffleYYYY() const {
+		return Vec4F32{{ v[1], v[1], v[1], v[1] }};
+	}
+
+	Vec4F32 ShuffleZZZZ() const {
+		return Vec4F32{{ v[2], v[2], v[2], v[2] }};
+	}
+
+	Vec4F32 ShuffleWWWW() const {
+		return Vec4F32{{ v[3], v[3], v[3], v[3] }};
+	}
 
 	// In-place transpose.
 	static void Transpose(Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
@@ -1155,6 +1882,15 @@ struct Vec4F32 {
 		return Vec4F32{ { x, y, z, 1.0f } };
 	}
 
+	float Dot3(Vec4F32 b) {
+		// Only sum the first three elements (X, Y, Z), ignore W
+		return v[0] * b.v[0] + v[1] * b.v[1] + v[2] * b.v[2];
+	}
+
+	float Dot4(Vec4F32 b) {
+		return v[0] * b.v[0] + v[1] * b.v[1] + v[2] * b.v[2] + v[3] * b.v[3];
+	}
+
 	template<int i> float GetLane() const {
 		return v[i];
 	}
@@ -1176,6 +1912,11 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 		}
 	}
 	return false;
+}
+
+inline bool AllCompareBitsSet(Vec4S32 value) {
+	if (value.v[0] != 0xFFFFFFFF || value.v[1] != 0xFFFFFFFF || value.v[2] != 0xFFFFFFFF || value.v[3] != 0xFFFFFFFF) return false;
+	return true;
 }
 
 struct Vec4U16 {

@@ -49,7 +49,7 @@ struct PngReadContext {
 };
 
 
-int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr) {
+int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr, int maxWidth, int maxHeight) {
 	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
 	if (!png) {
 		return 0;
@@ -117,6 +117,15 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 
 	*pwidth = png_get_image_width(png, info);
 	*pheight = png_get_image_height(png, info);
+
+	// Reject images larger than the caller's limits to avoid decompression
+	// bombs (attacker-controlled dimensions would otherwise drive a huge
+	// allocation here).
+	if (*pwidth > maxWidth || *pheight > maxHeight) {
+		DEBUG_LOG(Log::IO, "PNG too large: %dx%d (max %dx%d)", *pwidth, *pheight, maxWidth, maxHeight);
+		png_destroy_read_struct(&png, &info, NULL);
+		return 0;
+	}
 
 	size_t row_bytes = png_get_rowbytes(png, info);
 	*image_data_ptr = (unsigned char *)malloc(row_bytes * (*pheight));

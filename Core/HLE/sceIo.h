@@ -23,6 +23,7 @@ class KernelObject;
 void __IoInit();
 void __IoDoState(PointerWrap &p);
 void __IoShutdown();
+void __IoVblank();
 
 struct ScePspDateTime;
 struct tm;
@@ -44,3 +45,4 @@ void Register_IoFileMgrForKernel();
 void Register_IoFileMgrForUser();
 void Register_StdioForKernel();
 void Register_StdioForUser();
+

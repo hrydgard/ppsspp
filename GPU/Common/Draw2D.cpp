@@ -36,12 +36,10 @@ static const SamplerDef samplers[1] = {
 	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
 };
 
-const UniformDef g_draw2Duniforms[5] = {
+// the size is also specified in the header.
+const UniformDef g_draw2Duniforms[2] = {
 	{ "vec2", "texSize", 0 },
 	{ "float", "scaleFactor", 1},
-	{ "float", "z_scale", 2 },
-	{ "float", "z_scale_inv", 3 },
-	{ "float", "z_offset", 4 },
 };
 
 struct Draw2DUB {
@@ -56,9 +54,6 @@ struct Draw2DUB {
 const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
 	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 8 },
-	{ "z_scale", -1, 1, UniformType::FLOAT1, 12 },
-	{ "z_scale_inv", -1, 1, UniformType::FLOAT1, 16 },
-	{ "z_offset", -1, 1, UniformType::FLOAT1, 20 },
 } };
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
@@ -113,7 +108,7 @@ Draw2DPipelineInfo GenerateDraw2DEncodeDepthFs(ShaderWriter &writer) {
 	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	writer.C("  float depthValue = ").SampleTexture2D("tex", "v_texcoord.xy").C(".x;\n");
-	writer.C("  gl_FragDepth = (depthValue * z_scale_inv) + z_offset;\n");
+	writer.C("  gl_FragDepth = depthValue;\n");
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -131,10 +126,9 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
 	// have to apply the scaling.
-	DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
-	writer.F("  float depthValue = ((floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0)) / 65535.0; \n");
-	writer.C("  gl_FragDepth = (depthValue * z_scale_inv) + z_offset;\n");
+	writer.F("  float depthValue = ((floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0)); \n");
+	writer.C("  gl_FragDepth = depthValue / 65535.0;\n");
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -150,9 +144,6 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
-	// Unlike when just copying a depth buffer, here we're generating new depth values so we'll
-	// have to apply the scaling.
-	DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
 	writer.C("  vec2 tsize = texSize;\n");
 	writer.C("  vec2 coord = v_texcoord * tsize;\n");
 	writer.F("  float strip = 4.0 * scaleFactor;\n");
@@ -161,7 +152,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.C("  coord /= tsize;\n");
 	writer.C("  highp vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
 	writer.F("  highp float depthValue = floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0; \n");
-	writer.C("  gl_FragDepth = z_offset + ((depthValue / 65535.0) * z_scale_inv);\n");
+	writer.C("  gl_FragDepth = depthValue / 65535.0;\n");
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -346,11 +337,6 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vert
 	ub.texSizeX = tex ? tex->Width() : texW;
 	ub.texSizeY = tex ? tex->Height() : texH;
 	ub.scaleFactor = (float)scaleFactor;
-
-	DepthScaleFactors zScaleFactors = GetDepthScaleFactors(gstate_c.UseFlags());
-	ub.zScale = zScaleFactors.Scale();
-	ub.zScaleInv = 1.0f / ub.zScale;
-	ub.zOffset = zScaleFactors.Offset();
 
 	draw_->BindPipeline(pipeline->pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));

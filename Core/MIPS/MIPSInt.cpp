@@ -75,9 +75,12 @@ static inline void SkipLikely() {
 	}
 }
 
-int MIPS_SingleStep()
-{
-	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
+int MIPS_SingleStep() {
+	if (!Memory::IsValid4AlignedAddress(mipsr4k.pc)) {
+		Core_ExecException(mipsr4k.pc, mipsr4k.pc, ExecExceptionType::JUMP);
+		return 0;
+	}
+	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);  // now unchecked
 	if (mipsr4k.inDelaySlot) {
 		MIPSInterpret(op);
 		if (mipsr4k.inDelaySlot) {
@@ -290,8 +293,7 @@ namespace MIPSInt
 
 	void Int_JumpRegType(MIPSOpcode op)
 	{
-		if (mipsr4k.inDelaySlot)
-		{
+		if (mipsr4k.inDelaySlot) {
 			// There's one of these in Star Soldier at 0881808c, which seems benign.
 			ERROR_LOG(Log::CPU, "Jump in delay slot :(");
 		}
@@ -315,8 +317,7 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_IType(MIPSOpcode op)
-	{
+	void Int_IType(MIPSOpcode op) {
 		u32 uimm = op & 0xFFFF;
 		u32 suimm = SignExtend16ToU32(op);
 		s32 simm = SignExtend16ToS32(op);
@@ -346,9 +347,8 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_StoreSync(MIPSOpcode op)
-	{
-		int imm = (signed short)(op&0xFFFF);
+	void Int_StoreSync(MIPSOpcode op) {
+		int imm = (signed short)(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
 		u32 addr = R(rs) + imm;
@@ -357,12 +357,20 @@ namespace MIPSInt
 		{
 		case 48: // ll
 			if (rt != 0) {
+				if (!Memory::IsValid4AlignedAddress(addr)) {
+					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
+					return;
+				}
 				R(rt) = Memory::Read_U32(addr);
 			}
 			currentMIPS->llBit = 1;
 			break;
 		case 56: // sc
 			if (currentMIPS->llBit) {
+				if (!Memory::IsValid4AlignedAddress(addr)) {
+					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
+					return;
+				}
 				Memory::Write_U32(R(rt), addr);
 				if (rt != 0) {
 					R(rt) = 1;
@@ -379,21 +387,18 @@ namespace MIPSInt
 	}
 
 
-	void Int_RType3(MIPSOpcode op)
-	{
+	void Int_RType3(MIPSOpcode op) {
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
 
 		// Don't change $zr.
-		if (rd == 0)
-		{
+		if (rd == 0) {
 			PC += 4;
 			return;
 		}
 
-		switch (op & 63)
-		{
+		switch (op & 63) {
 		case 10: if (R(rt) == 0) R(rd) = R(rs); break; //movz
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
 		case 32: R(rd) = R(rs) + R(rt);		break; //add (exception on overflow)
@@ -416,12 +421,11 @@ namespace MIPSInt
 	}
 
 
-	void Int_ITypeMem(MIPSOpcode op)
-	{
+	void Int_ITypeMem(MIPSOpcode op) {
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
-		u32 addr = R(rs) + imm;
+		const u32 addr = R(rs) + imm;
 
 		if (((op >> 29) & 1) == 0 && rt == 0) {
 			// Don't load anything into $zr
@@ -429,23 +433,75 @@ namespace MIPSInt
 			return;
 		}
 
-		switch (op >> 26)
-		{
-		case 32: R(rt) = SignExtend8ToU32(Memory::Read_U8(addr)); break; //lb
-		case 33: R(rt) = SignExtend16ToU32(Memory::Read_U16(addr)); break; //lh
-		case 35: R(rt) = Memory::Read_U32(addr); break; //lw
-		case 36: R(rt) = Memory::Read_U8 (addr); break; //lbu
-		case 37: R(rt) = Memory::Read_U16(addr); break; //lhu
-		case 40: Memory::Write_U8(R(rt), addr); break; //sb
-		case 41: Memory::Write_U16(R(rt), addr); break; //sh
-		case 43: Memory::Write_U32(R(rt), addr); break; //sw
+		switch (op >> 26) {
+		case 32:
+			if (!Memory::IsValidAddress(addr)) {
+				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lb");
+				return;
+			}
+			R(rt) = SignExtend8ToU32(Memory::ReadUnchecked_U8(addr));
+			break; //lb
+		case 33:
+			if (!Memory::IsValid2AlignedAddress(addr)) {
+				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lh");
+				return;
+			}
+			R(rt) = SignExtend16ToU32(Memory::ReadUnchecked_U16(addr));
+			break; //lh
+		case 35:
+			if (!Memory::IsValid4AlignedAddress(addr)) {
+				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lw");
+				return;
+			}
+			R(rt) = Memory::ReadUnchecked_U32(addr);
+			break; //lw
+		case 36:
+			if (!Memory::IsValidAddress(addr)) {
+				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
+				return;
+			}
+			R(rt) = Memory::Read_U8 (addr);
+			break; //lbu
+		case 37:
+			if (!Memory::IsValid2AlignedAddress(addr)) {
+				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
+				return;
+			}
+			R(rt) = Memory::Read_U16(addr);
+			break; //lhu
+		case 40:
+			if (!Memory::IsValidAddress(addr)) {
+				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
+				return;
+			}
+			Memory::Write_U8(R(rt), addr);
+			break; //sb
+		case 41:
+			if (!Memory::IsValid2AlignedAddress(addr)) {
+				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
+				return;
+			}
+			Memory::Write_U16(R(rt), addr);
+			break; //sh
+		case 43:
+			if (!Memory::IsValid4AlignedAddress(addr)) {
+				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
+				return;
+			}
+			Memory::Write_U32(R(rt), addr);
+			break; //sw
 
 		// When there's an LWL and an LWR together, we should be able to peephole optimize that
 		// into a single non-alignment-checking LW.
 		case 34: //lwl
 			{
+				// Not checking for alignment here - the actual read will be aligned.
+				if (!Memory::IsValidAddress(addr)) {
+					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwl");
+					return;
+				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::Read_U32(addr & 0xfffffffc);
+				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 result = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
 				R(rt) = result;
 			}
@@ -453,8 +509,13 @@ namespace MIPSInt
 
 		case 38: //lwr
 			{
+				// Not checking for alignment here - the actual read will be aligned.
+				if (!Memory::IsValidAddress(addr)) {
+					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwr");
+					return;
+				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::Read_U32(addr & 0xfffffffc);
+				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 regval = R(rt);
 				u32 result = ( regval & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
 				R(rt) = result;
@@ -463,19 +524,29 @@ namespace MIPSInt
 
 		case 42: //swl
 			{
+				// Not checking for alignment here - the actual read/write will be aligned.
+				if (!Memory::IsValidAddress(addr)) {
+					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swl");
+					return;
+				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::Read_U32(addr & 0xfffffffc);
+				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 result = ( ( u32(R(rt)) >>	(24 - shift) ) ) | (	mem & (0xffffff00 << shift) );
-				Memory::Write_U32(result, (addr & 0xfffffffc));
+				Memory::WriteUnchecked_U32(result, (addr & 0xfffffffc));
 			}
 			break;
 
 		case 46: //swr
 			{
+				// Not checking for alignment here - the actual read/write will be aligned.
+				if (!Memory::IsValidAddress(addr)) {
+					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swr");
+					return;
+				}
 				u32 shift = (addr & 3) << 3;
-				u32 mem = Memory::Read_U32(addr & 0xfffffffc);
+				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 result = ( ( u32(R(rt)) << shift ) | (mem	& (0x00ffffff >> (24 - shift)) ) );
-				Memory::Write_U32(result, (addr & 0xfffffffc));
+				Memory::WriteUnchecked_U32(result, (addr & 0xfffffffc));
 			}
 			break;
 
@@ -486,17 +557,27 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPULS(MIPSOpcode op)
-	{
-		s32 offset = (s16)(op&0xFFFF);
+	void Int_FPULS(MIPSOpcode op) 	{
+		s32 offset = (s16)(op & 0xFFFF);
 		int ft = _FT;
 		int rs = _RS;
 		u32 addr = R(rs) + offset;
 
-		switch(op >> 26)
-		{
-		case 49: FI(ft) = Memory::Read_U32(addr); break; //lwc1
-		case 57: Memory::Write_U32(FI(ft), addr); break; //swc1
+		switch (op >> 26) {
+		case 49:
+			if (!Memory::IsValid4AlignedAddress(addr)) {
+				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwc1");
+				return;
+			}
+			FI(ft) = Memory::Read_U32(addr);
+			break; //lwc1
+		case 57:
+			if (!Memory::IsValid4AlignedAddress(addr)) {
+				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swc1");
+				return;
+			}
+			Memory::Write_U32(FI(ft), addr);
+			break; //swc1
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret FPULS instruction that can't be interpreted");
 			break;
@@ -764,17 +845,7 @@ namespace MIPSInt
 			break;
 
 		case 20: // bitrev
-			{
-				u32 tmp = 0;
-				for (int i = 0; i < 32; i++)
-				{
-					if (R(rt) & (1 << i))
-					{
-						tmp |= (0x80000000 >> i);
-					}
-				}
-				R(rd) = tmp;
-			}
+			R(rd) = ReverseBits32(R(rt));
 			break;
 
 		case 24: // seh

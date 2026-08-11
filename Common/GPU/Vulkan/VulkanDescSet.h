@@ -12,6 +12,7 @@ enum class BindingType {
 	STORAGE_BUFFER_VERTEX,
 	STORAGE_BUFFER_COMPUTE,
 	STORAGE_IMAGE_COMPUTE,
+	UNIFORM_BUFFER_COMPUTE,
 };
 
 // Only appropriate for use in a per-frame pool.

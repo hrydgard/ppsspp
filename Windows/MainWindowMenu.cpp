@@ -45,6 +45,7 @@
 #include "Core/SaveState.h"
 #include "Core/Core.h"
 #include "Core/RetroAchievements.h"
+#include "UI/PauseScreen.h"
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 #include "ext/rcheevos/include/rc_client_raintegration.h"
@@ -352,7 +353,7 @@ namespace MainWindow {
 		DrawMenuBar(hWnd);
 	}
 
-	void BrowseAndBootDone(std::string filename);
+	void BrowseAndBootDone(std::string_view filename);
 
 	void BrowseAndBoot(RequesterToken token, std::string defaultPath, bool browseDirectory) {
 		bool browsePauseAfter = false;
@@ -366,37 +367,38 @@ namespace MainWindow {
 		W32Util::MakeTopMost(GetHWND(), false);
 
 		if (browseDirectory) {
-			System_BrowseForFolder(token, mm->T("Load"), Path(), [](const std::string &value, int) {
+			System_BrowseForFolder(token, mm->T("Load"), Path(), [](std::string_view value, int) {
 				BrowseAndBootDone(value);
 			});
 		} else {
-			System_BrowseForFile(token, mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			System_BrowseForFile(token, mm->T("Load"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 				BrowseAndBootDone(value);
 			});
 		}
 	}
 
-	void BrowseAndBootDone(std::string filename) {
+	void BrowseAndBootDone(std::string_view filename) {
 		if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_EXCEPTION || GetUIState() == UISTATE_PAUSEMENU) {
 			Core_Resume();
 		}
-		filename = ReplaceAll(filename, "\\", "/");
-		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename);
+		std::string fileStr(filename);
+		fileStr = ReplaceAll(fileStr, "\\", "/");
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, fileStr);
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
 	}
 
 	static void UmdSwitchAction(RequesterToken token) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});
 	}
 
-	static void SaveStateActionFinished(SaveState::Status status, std::string_view message) {
-		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-			g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
-		}
+	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, std::string_view metadata) {
+		// Reuse the message from the pause screen.
+		ShowMessageAfterSaveStateAction(status, message, metadata);
+		// This is just used to restore the mouse cursor from wait mode.
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
@@ -445,12 +447,8 @@ namespace MainWindow {
 	}
 
 	static void RestartApp() {
-		if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
-			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
-		} else {
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_USER_DESTROY, 0, 0);
-		}
+		g_Config.bRestartRequired = true;
+		PostMessage(MainWindow::GetHWND(), WM_USER_DESTROY, 0, 0);
 	}
 
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
@@ -623,8 +621,7 @@ namespace MainWindow {
 		case ID_FILE_QUICKSAVESTATE_HC:
 		{
 			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
-				{
+				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
@@ -772,34 +769,41 @@ namespace MainWindow {
 			break;
 		}
 
+		// g_symbolMap access below is routed through Core_RunOnCPUThread() instead of poking at it
+		// directly from this GUI thread - see Core_RunOnCPUThread() in Core.h. The file-browse
+		// dialogs are modal, so they stay outside the queued callback; NotifyDebuggerMapLoaded()
+		// also stays outside, since it locks g_frameMutex internally (CDisasm/CMemoryDlg's
+		// NotifyMapLoaded()) and Core_RunOnCPUThread's queue can be drained from inside a
+		// g_frameMutex-locked NativeFrame() span, so calling it from within the lambda could
+		// deadlock.
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", nullptr, nullptr, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
-				g_symbolMap->LoadSymbolMap(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->LoadSymbolMap(Path(fn)); });
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVEMAPFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", nullptr, L"map.ppmap", L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
-				g_symbolMap->SaveSymbolMap(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->SaveSymbolMap(Path(fn)); });
 			}
 			break;
 
 		case ID_DEBUG_LOADSYMFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", nullptr, nullptr, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
-				g_symbolMap->LoadNocashSym(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->LoadNocashSym(Path(fn)); });
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVESYMFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", nullptr, L"symbols.sym", L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
-				g_symbolMap->SaveNocashSym(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->SaveNocashSym(Path(fn)); });
 			}
 			break;
 
 		case ID_DEBUG_RESETSYMBOLTABLE:
-			g_symbolMap->Clear();
+			Core_RunOnCPUThread([&] { g_symbolMap->Clear(); });
 			NotifyDebuggerMapLoaded();
 			break;
 
@@ -980,8 +984,8 @@ namespace MainWindow {
 			break;
 
 		default:
-			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				if (wmId >= ID_FILE_SAVESTATE_SLOT_BASE && wmId < ID_FILE_SAVESTATE_SLOT_BASE + g_Config.iSaveStateSlotCount) {
+			if (wmId >= ID_FILE_SAVESTATE_SLOT_BASE && wmId < ID_FILE_SAVESTATE_SLOT_BASE + g_Config.iSaveStateSlotCount) {
+				if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
 					g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_BASE;
 				}
 				break;
@@ -1142,13 +1146,8 @@ namespace MainWindow {
 			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | (selected ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !gl_extensions.OES_texture_npot) {
-			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_GRAYED);
-			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_GRAYED);
-		} else {
-			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
-			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
-		}
+		EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
+		EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
 
 		static const int texscalingtypeitems[] = {
 			ID_TEXTURESCALING_XBRZ,

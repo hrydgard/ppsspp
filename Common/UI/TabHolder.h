@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string_view>
+#include <functional>
 
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -35,6 +36,7 @@ public:
 
 	// Returns true if the tab wasn't created before (but is now).
 	bool SetCurrentTab(int tab, bool skipTween = false);
+	void SetInitialTab(int tab);
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string DescribeLog() const override { return "TabHolder: " + View::DescribeLog(); }
@@ -48,11 +50,13 @@ public:
 	const std::vector<ViewGroup *> &GetTabContentViews() const {
 		return tabs_;
 	}
+	bool EnsureTab(int index);  // return true if it actually created a tab.
+
+	Event OnChangeTab;
 
 private:
 	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
 	void OnTabClick(EventParams &e);
-	bool EnsureTab(int index);  // return true if it actually created a tab.
 
 	View *bannerView_ = nullptr;
 	LinearLayout *tabContainer_ = nullptr;
@@ -64,7 +68,7 @@ private:
 	TabHolderFlags flags_ = TabHolderFlags::Default;
 	int currentTab_ = 0;
 	std::vector<ViewGroup *> tabs_;
-	std::vector<AnchorTranslateTween *> tabTweens_;
+	std::vector<AnchorTranslateTween *> tabTweens_;  // NOTE: The tweens are actually owned by the tabs.
 	std::vector<std::function<ViewGroup *()>> createFuncs_;
 };
 

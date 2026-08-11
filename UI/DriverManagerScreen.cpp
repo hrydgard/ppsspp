@@ -7,6 +7,7 @@
 #include "Common/StringUtils.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -215,14 +216,14 @@ void DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e) {
 void DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	System_BrowseForFile(GetRequesterToken(), gr->T("Install custom driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
+	System_BrowseForFile(GetRequesterToken(), gr->T("Install custom driver..."), BrowseFileType::ZIP, [this](std::string_view value, int) {
 		if (value.empty()) {
 			return;
 		}
 
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-		Path zipPath = Path(value);
+		Path zipPath(value);
 
 		// Don't bother checking the file extension. Can't always do that with files from Download (they have paths like content://com.android.providers.downloads.documents/document/msf%3A1000001095).
 		// Though, it may be possible to get it in other ways.

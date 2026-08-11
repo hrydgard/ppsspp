@@ -13,8 +13,7 @@
 namespace http {
 
 HTTPSRequest::HTTPSRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, std::string_view name)
-	: Request(method, url, name, &cancelled_, flags), method_(method), postData_(postData), postMime_(postMime) {
-	outfile_ = outfile;
+	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime) {
 }
 
 HTTPSRequest::~HTTPSRequest() {
@@ -61,7 +60,7 @@ void HTTPSRequest::Join() {
 		res_ = nullptr;
 		req_ = nullptr;
 	} else {
-		ERROR_LOG(Log::IO, "HTTPSDownload::Join not implemented");
+		ERROR_LOG(Log::HTTP, "HTTPSRequest::Join called before completion");
 	}
 }
 
@@ -88,22 +87,22 @@ bool HTTPSRequest::Done() {
 		// It's a naett error. Translate and handle.
 		switch (resultCode_) {
 		case naettConnectionError:  // -1
-			ERROR_LOG(Log::IO, "Connection error");
+			ERROR_LOG(Log::HTTP, "Connection error");
 			break;
 		case naettProtocolError:  // -2
-			ERROR_LOG(Log::IO, "Protocol error");
+			ERROR_LOG(Log::HTTP, "Protocol error");
 			break;
 		case naettReadError:  // -3
-			ERROR_LOG(Log::IO, "Read error");
+			ERROR_LOG(Log::HTTP, "Read error");
 			break;
 		case naettWriteError:  // -4
-			ERROR_LOG(Log::IO, "Write error");
+			ERROR_LOG(Log::HTTP, "Write error");
 			break;
 		case naettGenericError:  // -5
-			ERROR_LOG(Log::IO, "Generic error");
+			ERROR_LOG(Log::HTTP, "Generic error");
 			break;
 		default:
-			ERROR_LOG(Log::IO, "Unhandled naett error %d", resultCode_);
+			ERROR_LOG(Log::HTTP, "Unhandled naett error %d", resultCode_);
 			break;
 		}
 		failed_ = true;
@@ -111,11 +110,11 @@ bool HTTPSRequest::Done() {
 	} else if (resultCode_ == 200) {
 		bool clear = !(flags_ & RequestFlags::KeepInMemory);
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_, clear)) {
-			ERROR_LOG(Log::IO, "Failed writing download to '%s'", outfile_.c_str());
+			ERROR_LOG(Log::HTTP, "Failed writing download to '%s'", outfile_.c_str());
 		}
 		progress_.Update(bodyLength, bodyLength, true);
 	} else {
-		WARN_LOG(Log::IO, "Naett request failed: %d", resultCode_);
+		WARN_LOG(Log::HTTP, "Naett request failed: %d", resultCode_);
 		failed_ = true;
 		progress_.Update(0, 0, true);
 	}

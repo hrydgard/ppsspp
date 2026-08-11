@@ -21,14 +21,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
 // Most of the code are based on https://github.com/RJ/libportfwd and updated to the latest miniupnp library
 // All credit goes to him and the official miniupnp project! http://miniupnp.free.fr/
 
-
 #include <algorithm>  // find_if
+#include <chrono>
 #include <cstring>
 #include <string>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
@@ -43,21 +46,10 @@
 #include "Core/Util/PortManager.h"
 
 PortManager g_PortManager;
-bool upnpServiceRunning = false;
-std::thread upnpServiceThread;
-std::recursive_mutex upnpLock;
-std::deque<UPnPArgs> upnpReqs;
-
-PortManager::PortManager(): 
-	m_InitState(UPNP_INITSTATE_NONE),
-	m_LocalPort(UPNP_LOCAL_PORT_ANY),
-	m_leaseDuration("43200") {
-	// Don't call net::Init or similar here, we don't want stuff like that to happen before main.
-}
-
-PortManager::~PortManager() {
-	// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
-}
+static std::thread g_upnpServiceThread;
+static std::mutex g_upnpLock;
+static std::condition_variable g_upnpCond;
+static std::deque<UPnPArgs> g_upnpReqs;
 
 void PortManager::Shutdown() {
 	Clear();
@@ -66,7 +58,7 @@ void PortManager::Shutdown() {
 }
 
 void PortManager::Terminate() {
-	VERBOSE_LOG(Log::sceNet, "PortManager::Terminate()");
+	DEBUG_LOG(Log::Net, "PortManager::Terminate()");
 	if (urls) {
 #ifdef WITH_UPNP
 		FreeUPNPUrls(urls);
@@ -100,9 +92,9 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	unsigned char ttl = 2; // defaulting to 2
 	int error = 0;
 	
-	VERBOSE_LOG(Log::sceNet, "PortManager::Initialize(%d)", timeout);
+	DEBUG_LOG(Log::Net, "PortManager::Initialize(%d)", timeout);
 	if (!g_Config.bEnableUPnP) {
-		ERROR_LOG(Log::sceNet, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
+		ERROR_LOG(Log::Net, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
 		return false;
 	}
 
@@ -110,12 +102,12 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		switch (m_InitState)
 		{
 		case UPNP_INITSTATE_BUSY: {
-			WARN_LOG(Log::sceNet, "PortManager - Initialization already in progress");
+			WARN_LOG(Log::Net, "PortManager - Initialization already in progress");
 			return false;
 		}
 		// Should we redetect UPnP? just in case the player switched to a different network in the middle
 		case UPNP_INITSTATE_DONE: {
-			WARN_LOG(Log::sceNet, "PortManager - Already Initialized");
+			WARN_LOG(Log::Net, "PortManager - Already Initialized");
 			return true;
 		}
 		default:
@@ -149,7 +141,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		if (!dev)
 			dev = devlist; // defaulting to first device
 
-		INFO_LOG(Log::sceNet, "PortManager - UPnP device: [desc: %s] [st: %s]", dev->descURL, dev->st);
+		INFO_LOG(Log::Net, "PortManager - UPnP device: [desc: %s] [st: %s]", dev->descURL, dev->st);
 
 		descXML = (char*)miniwget(dev->descURL, &descXMLsize, dev->scope_id, &descXMLstatus);
 		if (descXML)
@@ -175,30 +167,35 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		int status = UPNP_GetValidIGD(devlist, urls, datas, lanaddr, sizeof(lanaddr));
 #endif
 		m_lanip = std::string(lanaddr);
-		INFO_LOG(Log::sceNet, "PortManager - Detected LAN IP: %s (status=%d)", m_lanip.c_str(), status);
+		INFO_LOG(Log::Net, "PortManager - Detected LAN IP: %s (status=%d)", m_lanip.c_str(), status);
 
 		// Additional Info
 		char connectionType[64] = "";
 		if (UPNP_GetConnectionTypeInfo(urls->controlURL, datas->first.servicetype, connectionType) != UPNPCOMMAND_SUCCESS) {
-			WARN_LOG(Log::sceNet, "PortManager - GetConnectionTypeInfo failed");
+			WARN_LOG(Log::Net, "PortManager - GetConnectionTypeInfo failed");
 		}
 		else {
-			INFO_LOG(Log::sceNet, "PortManager - Connection Type: %s", connectionType);
+			INFO_LOG(Log::Net, "PortManager - Connection Type: %s", connectionType);
 		}
 
 		// Using Game ID & Player Name as default description for mapping
-		std::string gameID = g_paramSFO.GetDiscID();
-		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
+		if (PSP_IsInited()) {
+			std::string gameID = g_paramSFO.GetDiscID();
+			m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
+		} else {
+			m_defaultDesc = "PPSSPP:at_menu:" + g_Config.sNickName;
+		}
 
 		freeUPNPDevlist(devlist);
 
 		//m_LocalPort = localport; // We shouldn't keep the right port for the next game reset if we wanted to redetect UPnP
 		m_InitState = UPNP_INITSTATE_DONE;
 		RefreshPortList();
+
 		return true;
 	}
 
-	ERROR_LOG(Log::sceNet, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
+	ERROR_LOG(Log::Net, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	if (g_Config.bEnableUPnP) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, StringFromFormat("%s (%d)", n->T_cstr("Unable to find UPnP device"), error), 0.0f, "upnp_warning");
@@ -221,11 +218,11 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 	
 	if (intport == 0)
 		intport = port;
-	INFO_LOG(Log::sceNet, "PortManager::Add(%s, %d, %d)", protocol, port, intport);
+	INFO_LOG(Log::Net, "PortManager::Add(%s, %d, %d)", protocol, port, intport);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) {
-			WARN_LOG(Log::sceNet, "PortManager::Add - the init was not done !");
+			WARN_LOG(Log::Net, "PortManager::Add - the init was not done !");
 			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 		}
 		Terminate();
@@ -253,7 +250,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 		}
 		if (r != 0)
 		{
-			ERROR_LOG(Log::sceNet, "PortManager - AddPortMapping failed (error: %i)", r);
+			ERROR_LOG(Log::Net, "PortManager - AddPortMapping failed (error: %i)", r);
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
 				if (g_Config.bEnableUPnP) {
 					g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
@@ -277,11 +274,11 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	char port_str[16];
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	INFO_LOG(Log::sceNet, "PortManager::Remove(%s, %d)", protocol, port);
+	INFO_LOG(Log::Net, "PortManager::Remove(%s, %d)", protocol, port);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) {
-			WARN_LOG(Log::sceNet, "PortManager::Remove - the init was not done !");
+			WARN_LOG(Log::Net, "PortManager::Remove - the init was not done !");
 			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 		}
 		Terminate();
@@ -291,7 +288,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	int r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 	if (r != 0)
 	{
-		ERROR_LOG(Log::sceNet, "PortManager - DeletePortMapping failed (error: %i)", r);
+		ERROR_LOG(Log::Net, "PortManager - DeletePortMapping failed (error: %i)", r);
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
 			if (g_Config.bEnableUPnP) {
 				g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
@@ -312,10 +309,10 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 bool PortManager::Restore() {
 #ifdef WITH_UPNP
 	int r;
-	VERBOSE_LOG(Log::sceNet, "PortManager::Restore()");
+	VERBOSE_LOG(Log::Net, "PortManager::Restore()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::sceNet, "PortManager::Remove - the init was not done !");
+		if (g_Config.bEnableUPnP) WARN_LOG(Log::Net, "PortManager::Remove - the init was not done !");
 		return false;
 	}
 	for (auto it = m_otherPortList.begin(); it != m_otherPortList.end(); ++it) {
@@ -331,7 +328,7 @@ bool PortManager::Restore() {
 					m_portList.erase(el_it);
 				}
 				else {
-					ERROR_LOG(Log::sceNet, "PortManager::Restore - DeletePortMapping failed (error: %i)", r);
+					ERROR_LOG(Log::Net, "PortManager::Restore - DeletePortMapping failed (error: %i)", r);
 					if (r == UPNPCOMMAND_HTTP_ERROR)
 						return false; // Might be better not to exit here, but exiting a loop will avoid long timeouts in the case the router is no longer reachable
 				}
@@ -343,7 +340,7 @@ bool PortManager::Restore() {
 				it->taken = false;
 			}
 			else {
-				ERROR_LOG(Log::sceNet, "PortManager::Restore - AddPortMapping failed (error: %i)", r);
+				ERROR_LOG(Log::Net, "PortManager::Restore - AddPortMapping failed (error: %i)", r);
 				if (r == UPNPCOMMAND_HTTP_ERROR)
 					return false; // Might be better not to exit here, but exiting a loop will avoid long timeouts in the case the router is no longer reachable
 			}		
@@ -369,10 +366,10 @@ bool PortManager::Clear() {
 	char rHost[64];
 	char duration[16];
 
-	VERBOSE_LOG(Log::sceNet, "PortManager::Clear()");
+	VERBOSE_LOG(Log::Net, "PortManager::Clear()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::sceNet, "PortManager::Clear - the init was not done !");
+		if (g_Config.bEnableUPnP) WARN_LOG(Log::Net, "PortManager::Clear - the init was not done !");
 		return false;
 	}
 	//unsigned int num = 0;
@@ -394,7 +391,7 @@ bool PortManager::Clear() {
 			int r2 = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, extPort, protocol, rHost);
 			if (r2 != 0)
 			{
-				ERROR_LOG(Log::sceNet, "PortManager::Clear - DeletePortMapping(%s, %s) failed (error: %i)", extPort, protocol, r2);
+				ERROR_LOG(Log::Net, "PortManager::Clear - DeletePortMapping(%s, %s) failed (error: %i)", extPort, protocol, r2);
 				if (r2 == UPNPCOMMAND_HTTP_ERROR)
 					return false;
 			}
@@ -427,10 +424,10 @@ bool PortManager::RefreshPortList() {
 	char rHost[64];
 	char duration[16];
 
-	INFO_LOG(Log::sceNet, "PortManager::RefreshPortList()");
+	INFO_LOG(Log::Net, "PortManager::RefreshPortList()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::sceNet, "PortManager::RefreshPortList - the init was not done !");
+		if (g_Config.bEnableUPnP) WARN_LOG(Log::Net, "PortManager::RefreshPortList - the init was not done !");
 		return false;
 	}
 	m_portList.clear();
@@ -472,23 +469,38 @@ bool PortManager::RefreshPortList() {
 
 int upnpService(const unsigned int timeout) {
 	SetCurrentThreadName("UPnPService");
-	INFO_LOG(Log::sceNet, "UPnPService: Begin of UPnPService Thread");
+	INFO_LOG(Log::Net, "UPnPService: Begin of UPnPService Thread");
 
 	// Service Loop
-	while (upnpServiceRunning) {
-		// Sleep for 1ms for faster response if active, otherwise sleep longer (TODO: Improve on this).
-		sleep_ms(g_Config.bEnableUPnP ? 1 : 500, "upnp-poll");
+	while (true) {
+		UPnPArgs arg;
+		bool haveArg;
+		{
+			std::unique_lock<std::mutex> lock(g_upnpLock);
+			// Also wake up periodically even with nothing queued (and on UPnP_Notify()), so we
+			// can retry a failed/disconnected UPnP init or notice the enable setting flipped,
+			// without needing an explicit Add/Remove request to prod us.
+			g_upnpCond.wait_for(lock, std::chrono::seconds(5), [] { return !g_upnpReqs.empty(); });
+			haveArg = !g_upnpReqs.empty();
+			if (haveArg) {
+				arg = g_upnpReqs.front();
+			}
+		}
+
+		// Exit requests must be handled regardless of whether UPnP is enabled or has
+		// finished initializing, otherwise shutdown could wait on this thread forever.
+		if (haveArg && arg.cmd == UPNP_CMD_EXIT) {
+			std::lock_guard<std::mutex> lock(g_upnpLock);
+			g_upnpReqs.pop_front();
+			break;
+		}
 
 		// Attempts to reconnect if not connected yet or got disconnected
 		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_NONE) {
 			g_PortManager.Initialize(timeout);
 		}
 
-		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE && !upnpReqs.empty()) {
-			upnpLock.lock();
-			UPnPArgs arg = upnpReqs.front();
-			upnpLock.unlock();
-
+		if (haveArg && g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
 			bool ok = true;
 			switch (arg.cmd) {
 				case UPNP_CMD_ADD:
@@ -503,9 +515,8 @@ int upnpService(const unsigned int timeout) {
 
             // It's only considered failed when disconnected (should be retried when reconnected)
 			if (ok) {
-                upnpLock.lock();
-                upnpReqs.pop_front();
-                upnpLock.unlock();
+				std::lock_guard<std::mutex> lock(g_upnpLock);
+				g_upnpReqs.pop_front();
             }
 		}
 	}
@@ -516,37 +527,46 @@ int upnpService(const unsigned int timeout) {
 	}
 
 	// Should we ingore any leftover UPnP requests? instead of processing it on the next game start
-	upnpLock.lock();
-	upnpReqs.clear();
-	upnpLock.unlock();
+	{
+		std::unique_lock<std::mutex> lock(g_upnpLock);
+		g_upnpReqs.clear();
+	}
 
-	INFO_LOG(Log::sceNet, "UPnPService: End of UPnPService Thread");
+	INFO_LOG(Log::Net, "UPnPService: End of UPnPService Thread");
 	return 0;
 }
 
-void __UPnPInit(const int timeout_ms) {
-	if (!upnpServiceRunning) {
-		upnpServiceRunning = true;
-		upnpServiceThread = std::thread(upnpService, timeout_ms);
-	}
+void __UPnPInit(const unsigned int timeout) {
+	_dbg_assert_(!g_upnpServiceThread.joinable());
+
+	g_upnpServiceThread = std::thread(upnpService, timeout);
 }
 
 void __UPnPShutdown() {
-	if (upnpServiceRunning) {
-		upnpServiceRunning = false;
-		if (upnpServiceThread.joinable()) {
-			upnpServiceThread.join();
-		}
+	_dbg_assert_(g_upnpServiceThread.joinable());
+	{
+		std::lock_guard<std::mutex> upnpGuard(g_upnpLock);
+		g_upnpReqs.push_back({ UPNP_CMD_EXIT });
+		g_upnpCond.notify_one();
+	}
+
+	if (g_upnpServiceThread.joinable()) {
+		g_upnpServiceThread.join();
 	}
 }
 
 void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport) {
-	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
-	upnpReqs.push_back({ UPNP_CMD_ADD, protocol, port, intport });
+	std::lock_guard<std::mutex> upnpGuard(g_upnpLock);
+	g_upnpReqs.push_back({ UPNP_CMD_ADD, protocol, port, intport });
+	g_upnpCond.notify_one();
 }
 
 void UPnP_Remove(const char* protocol, unsigned short port) {
-	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
-	upnpReqs.push_back({ UPNP_CMD_REMOVE, protocol, port, port });
+	std::lock_guard<std::mutex> upnpGuard(g_upnpLock);
+	g_upnpReqs.push_back({ UPNP_CMD_REMOVE, protocol, port, port });
+	g_upnpCond.notify_one();
 }
 
+void UPnP_Notify() {
+	g_upnpCond.notify_one();
+}

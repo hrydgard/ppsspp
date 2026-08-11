@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=PPSSPP
 Exec=PPSSPPSDL
+Comment=A PlayStation Portable emulator
 Icon=ppsspp
 Type=Application
 Keywords=Sony;PlayStation;Portable;PSP;handheld;console;

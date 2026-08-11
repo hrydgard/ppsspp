@@ -12,20 +12,99 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "WASAPIContext.h"
 
 using Microsoft::WRL::ComPtr;
+
+// Channel upmixing attenuation factors
+static constexpr float SURROUND_ATTENUATION = 0.7f;  // For rear/side channels
+static constexpr float CENTER_MIX_ATTENUATION = 0.7f; // For center channel mix
+static constexpr float LFE_MIX_ATTENUATION = 0.5f;    // For LFE channel mix
+
+// Helper to determine channel positions from WAVEFORMATEXTENSIBLE
+struct ChannelMapping {
+	int frontLeft = -1;
+	int frontRight = -1;
+	int center = -1;
+	int lfe = -1;
+	int rearLeft = -1;
+	int rearRight = -1;
+};
+
+static ChannelMapping GetChannelMapping(const WAVEFORMATEX *format) {
+	ChannelMapping mapping;
+
+	if (!format) {
+		return mapping;
+	}
+
+	// For non-extensible formats, assume standard stereo/mono
+	if (format->wFormatTag != WAVE_FORMAT_EXTENSIBLE) {
+		if (format->nChannels >= 1) mapping.frontLeft = 0;
+		if (format->nChannels >= 2) mapping.frontRight = 1;
+		return mapping;
+	}
+
+	const WAVEFORMATEXTENSIBLE *formatEx = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(format);
+	const DWORD mask = formatEx->dwChannelMask;
+
+	// Build mapping based on channel mask
+	int channelIndex = 0;
+
+	// Front speakers
+	if (mask & SPEAKER_FRONT_LEFT) mapping.frontLeft = channelIndex++;
+	if (mask & SPEAKER_FRONT_RIGHT) mapping.frontRight = channelIndex++;
+	if (mask & SPEAKER_FRONT_CENTER) mapping.center = channelIndex++;
+	if (mask & SPEAKER_LOW_FREQUENCY) mapping.lfe = channelIndex++;
+
+	// Rear/back speakers
+	if (mask & SPEAKER_BACK_LEFT) mapping.rearLeft = channelIndex++;
+	if (mask & SPEAKER_BACK_RIGHT) mapping.rearRight = channelIndex++;
+
+	// Side speakers (if no back, use these as rear)
+	if (mapping.rearLeft == -1 && (mask & SPEAKER_SIDE_LEFT)) mapping.rearLeft = channelIndex++;
+	if (mapping.rearRight == -1 && (mask & SPEAKER_SIDE_RIGHT)) mapping.rearRight = channelIndex++;
+
+	// Note: We skip other speaker positions (top, front center of height, etc.)
+	// as they're rarely used and we're just doing stereo upmix anyway
+
+	return mapping;
+}
 
 // We must have one of these already...
 static inline s16 ClampFloatToS16(float f) {
 	f *= 32768.0f;
 	if (f >= 32767) {
 		return 32767;
-	} else if (f < -32767) {
-		return -32767;
+	} else if (f < -32768) {
+		return -32768;
 	} else {
 		return (s16)(s32)f;
+	}
+}
+
+static const char *GetAudioClientErrorName(HRESULT hr) {
+	switch (hr) {
+	case AUDCLNT_E_UNSUPPORTED_FORMAT:
+		return "AUDCLNT_E_UNSUPPORTED_FORMAT";
+	case AUDCLNT_E_DEVICE_INVALIDATED:
+		return "AUDCLNT_E_DEVICE_INVALIDATED";
+	case AUDCLNT_E_DEVICE_IN_USE:
+		return "AUDCLNT_E_DEVICE_IN_USE";
+	case AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED:
+		return "AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED";
+	case AUDCLNT_E_BUFFER_SIZE_ERROR:
+		return "AUDCLNT_E_BUFFER_SIZE_ERROR";
+	case E_INVALIDARG:
+		return "E_INVALIDARG";
+	case E_POINTER:
+		return "E_POINTER";
+	case E_OUTOFMEMORY:
+		return "E_OUTOFMEMORY";
+	default:
+		return nullptr;
 	}
 }
 
@@ -57,7 +136,10 @@ WASAPIContext::WASAPIContext() : notificationClient_(this) {
 		enumerator_ = nullptr;
 		return;
 	}
-	enumerator_->RegisterEndpointNotificationCallback(&notificationClient_);
+	hr = enumerator_->RegisterEndpointNotificationCallback(&notificationClient_);
+	if (FAILED(hr)) {
+		WARN_LOG(Log::Audio, "Failed to register endpoint notification callback: %08lx", hr);
+	}
 }
 
 WASAPIContext::~WASAPIContext() {
@@ -97,14 +179,24 @@ WASAPIContext::AudioFormat WASAPIContext::Classify(const WAVEFORMATEX *format) {
 
 bool GetDeviceDesc(IMMDevice *device, AudioDeviceDesc *desc) {
 	ComPtr<IPropertyStore> props;
-	device->OpenPropertyStore(STGM_READ, &props);
+	HRESULT hr = device->OpenPropertyStore(STGM_READ, &props);
+	if (FAILED(hr) || !props) {
+		return false;
+	}
+
 	PROPVARIANT nameProp;
 	PropVariantInit(&nameProp);
-	props->GetValue(PKEY_Device_FriendlyName, &nameProp);
+	hr = props->GetValue(PKEY_Device_FriendlyName, &nameProp);
+
 	LPWSTR id_str = 0;
 	bool success = false;
 	if (SUCCEEDED(device->GetId(&id_str))) {
-		desc->name = ConvertWStringToUTF8(nameProp.pwszVal);
+		// Only use the name if GetValue succeeded, otherwise use empty string
+		if (SUCCEEDED(hr) && nameProp.pwszVal) {
+			desc->name = ConvertWStringToUTF8(nameProp.pwszVal);
+		} else {
+			desc->name = "(Unknown device)";
+		}
 		desc->uniqueId = ConvertWStringToUTF8(id_str);
 		CoTaskMemFree(id_str);
 		success = true;
@@ -127,13 +219,299 @@ void WASAPIContext::EnumerateDevices(std::vector<AudioDeviceDesc> *output, bool 
 
 	for (UINT i = 0; i < count; ++i) {
 		ComPtr<IMMDevice> device;
-		collection->Item(i, &device);
+		if (FAILED(collection->Item(i, &device)) || !device) {
+			continue;
+		}
 
 		AudioDeviceDesc desc{};
 		if (GetDeviceDesc(device.Get(), &desc)) {
 			output->push_back(desc);
 		}
 	}
+}
+
+// Also logs.
+void WASAPIContext::SetErrorString(std::string_view str, HRESULT hr) {
+	std::string temp = StringFromFormat("%s (HRESULT: %08lx)", str.data(), hr);
+	ERROR_LOG(Log::Audio, "%s", temp.c_str());
+	std::lock_guard<std::mutex> guard(errorLock_);
+	errorString_ = temp;
+}
+
+void WASAPIContext::ClearErrorString() {
+	std::lock_guard<std::mutex> guard(errorLock_);
+	errorString_.clear();
+}
+
+bool WASAPIContext::TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMode) {
+	HRESULT hr = E_FAIL;
+	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
+	if (latencyMode != LatencyMode::Safe) {
+		hr = device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&audioClient3_);
+	} else {
+		// Proceed to AudioClient.
+		INFO_LOG(Log::Audio, "LatencyMode::Safe is set, skipping AudioClient3 and going directly to AudioClient");
+		return false;
+	}
+
+	if (!SUCCEEDED(hr)) {
+		audioClient3_.Reset();
+		return false;
+	}
+
+	hr = audioClient3_->GetMixFormat(&format_);
+	if (FAILED(hr)) {
+		audioClient3_.Reset();
+		SetErrorString("AudioClient3 GetMixFormat failed", hr);
+		return false;
+	}
+	curSamplesPerSec_ = format_->nSamplesPerSec;
+	curChannels_.store(format_->nChannels);
+
+	// AudioClient3 requires an exact format match because it doesn't support AUTOCONVERTPCM.
+	// Our callback always produces stereo float (see RenderCallback in AudioBackend.h),
+	// so we can only use AudioClient3 when the device's native format is stereo float.
+	// For other formats, we fall back to AudioClient which supports conversion via AUTOCONVERTPCM
+	// or manual conversion through tempBuf_.
+	if (curChannels_.load() != 2 || Classify(format_) != AudioFormat::Float) {
+		INFO_LOG(Log::Audio, "AudioClient3: Got %d channels or non-float format, falling back to AudioClient", curChannels_.load());
+		audioClient3_.Reset();
+		// Free the format before falling through - AudioClient will allocate a new one
+		CoTaskMemFree(format_);
+		format_ = nullptr;
+		return false;
+	} else {
+		hr = audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
+		if (FAILED(hr)) {
+			audioClient3_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient3 GetSharedModeEnginePeriod failed", hr);
+			return false;
+		}
+
+		INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames_, (int)fundamentalPeriodFrames_, (int)minPeriodFrames_, (int)maxPeriodFrames_);
+		INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames_, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames_, format_->nSamplesPerSec));
+
+		hr = audioClient3_->InitializeSharedAudioStream(
+			AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+			minPeriodFrames_,
+			format_,
+			nullptr
+		);
+		if (FAILED(hr)) {
+			WARN_LOG(Log::Audio, "Error initializing AudioClient3 shared audio stream: %08lx", hr);
+			audioClient3_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient3 init failed", hr);
+			return false;
+		}
+		actualPeriodFrames_ = minPeriodFrames_;
+
+		UINT32 bufSize = 0;
+		hr = audioClient3_->GetBufferSize(&bufSize);
+		reportedBufferSize_.store(bufSize);
+		if (FAILED(hr)) {
+			audioClient3_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient3 GetBufferSize failed", hr);
+			return false;
+		}
+
+		hr = audioClient3_->SetEventHandle(audioEvent_);
+		if (FAILED(hr)) {
+			audioClient3_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient3 SetEventHandle failed", hr);
+			return false;
+		}
+
+		hr = audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
+		if (FAILED(hr)) {
+			audioClient3_.Reset();
+			CoTaskMemFree(format_);
+			format_ = nullptr;
+			SetErrorString("AudioClient3 GetService failed", hr);
+			return false;
+		}
+	}
+	return true;
+}
+
+bool WASAPIContext::TryInitAudioClient(IMMDevice *device, LatencyMode latencyMode) {
+	// Fallback to IAudioClient (older OS)
+	HRESULT hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
+	if (FAILED(hr)) {
+		SetErrorString("Failed to activate audio device", hr);
+		return false;
+	}
+
+	hr = audioClient_->GetMixFormat(&format_);
+	if (FAILED(hr)) {
+		audioClient_.Reset();
+		SetErrorString("AudioClient GetMixFormat failed", hr);
+		return false;
+	}
+
+	// If there are too many channels, try asking for a 2-channel output format.
+	DWORD extraStreamFlags = 0;
+	const AudioFormat fmt = Classify(format_);
+
+	curSamplesPerSec_ = format_->nSamplesPerSec;
+	curChannels_.store(format_->nChannels);
+
+	bool createBuffer = false;
+	if (fmt == AudioFormat::Float) {
+		if (curChannels_.load() != 2) {
+			INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead", curChannels_.load());
+			WAVEFORMATEXTENSIBLE stereo;
+			BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
+
+			WAVEFORMATEX *closestMatch = nullptr;
+			const HRESULT result = audioClient_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, &closestMatch);
+			if (result == S_OK) {
+				// We got the format! Use it and set as current.
+				_dbg_assert_(!closestMatch);
+				WAVEFORMATEX *newFormat = (WAVEFORMATEX *)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
+				_dbg_assert_(newFormat);
+				memcpy(newFormat, &stereo, sizeof(WAVEFORMATEX) + stereo.Format.cbSize);
+				CoTaskMemFree(format_);
+				format_ = newFormat;
+				curChannels_.store(newFormat->nChannels);
+				extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+				INFO_LOG(Log::Audio, "Successfully asked for two channels");
+			} else if (result == S_FALSE) {
+				// The device suggests a closest match format
+				if (closestMatch) {
+					// Check if the closest match is acceptable (stereo float)
+					if (closestMatch->nChannels == 2 && Classify(closestMatch) == AudioFormat::Float) {
+						INFO_LOG(Log::Audio, "Using device's suggested format: %lu Hz, %d channels", 
+							closestMatch->nSamplesPerSec, closestMatch->nChannels);
+						// Use the suggested format
+						CoTaskMemFree(format_);
+						format_ = closestMatch;
+						curChannels_.store(format_->nChannels);
+						curSamplesPerSec_ = format_->nSamplesPerSec;
+						extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+					} else {
+						// Closest match is not stereo float, fall back to manual conversion
+						WARN_LOG(Log::Audio, "Device suggested format (%d channels) isn't stereo float, using manual conversion",
+							closestMatch->nChannels);
+						CoTaskMemFree(closestMatch);
+						createBuffer = true;
+					}
+				} else {
+					WARN_LOG(Log::Audio, "IsFormatSupported returned S_FALSE but no closest match. Using workarounds.");
+					createBuffer = true;
+				}
+			} else {
+				// IsFormatSupported failed - log detailed error information
+				const char *errorName = GetAudioClientErrorName(result);
+				if (errorName) {
+					WARN_LOG(Log::Audio, "IsFormatSupported failed with %s (0x%08lx)", errorName, result);
+				} else {
+					WARN_LOG(Log::Audio, "IsFormatSupported failed with unknown error 0x%08lx", result);
+				}
+
+				// Log the format we tried to request for debugging
+				WARN_LOG(Log::Audio, "  Requested format: %d Hz, %d channels, %d-bit %s",
+					stereo.Format.nSamplesPerSec,
+					stereo.Format.nChannels,
+					stereo.Format.wBitsPerSample,
+					"float");
+
+				// Log the device's native format
+				WARN_LOG(Log::Audio, "  Device native format: %d Hz, %d channels",
+					format_->nSamplesPerSec,
+					format_->nChannels);
+
+				// Common causes based on error code
+				if (result == AUDCLNT_E_UNSUPPORTED_FORMAT) {
+					INFO_LOG(Log::Audio, "  Device doesn't support our requested stereo float format.");
+					INFO_LOG(Log::Audio, "  Will use manual conversion from stereo to %d-channel output.", format_->nChannels);
+				} else if (result == AUDCLNT_E_DEVICE_INVALIDATED) {
+					WARN_LOG(Log::Audio, "  Audio device was removed or disabled. Audio may not work.");
+				} else if (result == AUDCLNT_E_DEVICE_IN_USE) {
+					WARN_LOG(Log::Audio, "  Audio device is in exclusive use by another application.");
+				}
+
+				_dbg_assert_(!closestMatch);
+				createBuffer = true;
+			}
+		} else {
+			// All good, nothing to convert.
+			_dbg_assert_(format_);
+		}
+	} else {
+		// Some other format.
+		WARN_LOG(Log::Audio, "Format not float, applying conversion.");
+		createBuffer = true;
+	}
+
+	// Get engine period info
+	REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
+	hr = audioClient_->GetDevicePeriod(&defaultPeriod, &minPeriod);
+	if (FAILED(hr)) {
+		// Non-fatal, but log it. We'll use a default duration.
+		WARN_LOG(Log::Audio, "GetDevicePeriod failed: %08lx, using default period", hr);
+		minPeriod = 100000;  // 10ms default
+	}
+
+	const REFERENCE_TIME duration = minPeriod;
+	hr = audioClient_->Initialize(
+		AUDCLNT_SHAREMODE_SHARED,
+		AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraStreamFlags,
+		duration,  // This is a minimum, the result might be larger. We use GetBufferSize to check.
+		0,  // ref duration, always 0 in shared mode.
+		format_,
+		nullptr
+	);
+
+	if (FAILED(hr)) {
+		audioClient_.Reset();
+		CoTaskMemFree(format_);
+		format_ = nullptr;
+		SetErrorString("AudioClient init failed", hr);
+		return false;
+	}
+
+	UINT32 bufSize = 0;
+	hr = audioClient_->GetBufferSize(&bufSize);
+	reportedBufferSize_.store(bufSize);
+	if (FAILED(hr)) {
+		audioClient_.Reset();
+		CoTaskMemFree(format_);
+		format_ = nullptr;
+		SetErrorString("AudioClient GetBufferSize failed", hr);
+		return false;
+	}
+	actualPeriodFrames_.store(reportedBufferSize_.load());  // we don't have a better estimate.
+
+	hr = audioClient_->SetEventHandle(audioEvent_);
+	if (FAILED(hr)) {
+		audioClient_.Reset();
+		CoTaskMemFree(format_);
+		format_ = nullptr;
+		SetErrorString("AudioClient SetEventHandle failed", hr);
+		return false;
+	}
+
+	hr = audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
+	if (FAILED(hr)) {
+		audioClient_.Reset();
+		CoTaskMemFree(format_);
+		format_ = nullptr;
+		SetErrorString("AudioClient GetService failed", hr);
+		return false;
+	}
+
+	if (createBuffer) {
+		tempBuf_ = std::make_unique<float[]>(reportedBufferSize_.load() * 2);
+	}
+	return true;
 }
 
 bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode latencyMode, bool *revertedToDefault) {
@@ -144,17 +522,22 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 	ComPtr<IMMDevice> device;
 	if (uniqueId.empty()) {
 		// Use the default device.
-		if (FAILED(enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device))) {
+		HRESULT hr = enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+		if (FAILED(hr)) {
+			SetErrorString("Failed to get the default endpoint", hr);
 			return false;
 		}
 	} else {
 		// Use whatever device.
 		std::wstring wId = ConvertUTF8ToWString(uniqueId);
-		if (FAILED(enumerator_->GetDevice(wId.c_str(), &device))) {
+		HRESULT hr = enumerator_->GetDevice(wId.c_str(), &device);
+		if (FAILED(hr)) {
 			// Fallback to default device
 			INFO_LOG(Log::Audio, "Falling back to default device...\n");
 			*revertedToDefault = true;
-			if (FAILED(enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device))) {
+			hr = enumerator_->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+			if (FAILED(hr)) {
+				SetErrorString("Failed to fallback", hr);
 				return false;
 			}
 		}
@@ -162,146 +545,26 @@ bool WASAPIContext::InitOutputDevice(std::string_view uniqueId, LatencyMode late
 
 	AudioDeviceDesc desc{};
 	GetDeviceDesc(device.Get(), &desc);
-	INFO_LOG(Log::Audio, "Activating audio device: %s", desc.name.c_str());
+	INFO_LOG(Log::Audio, "Activating audio device: %s : %s", desc.name.c_str(), desc.uniqueId.c_str());
 
 	{
 		std::lock_guard<std::mutex> guard(deviceLock_);
-		curDeviceId_ = uniqueId;
-	}
-
-	HRESULT hr = E_FAIL;
-	// Try IAudioClient3 first if not in "safe" mode. It's probably safe anyway, but still, let's use the legacy client as a safe fallback option.
-	if (latencyMode != LatencyMode::Safe) {
-		hr = device->Activate(__uuidof(IAudioClient3), CLSCTX_ALL, nullptr, (void**)&audioClient3_);
+		curDeviceId_ = desc.uniqueId;
+		curDeviceName_ = desc.name;
 	}
 
 	// Get rid of any old tempBuf_.
 	tempBuf_.reset();
 
-	if (SUCCEEDED(hr)) {
-		audioClient3_->GetMixFormat(&format_);
-		curSamplesPerSec_ = format_->nSamplesPerSec;
+	// This is used by both paths.
+	audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-		// We only use AudioClient3 if we got the format we wanted (stereo float).
-		if (format_->nChannels != 2 || Classify(format_) != AudioFormat::Float) {
-			// Let's fall back to the old path. The docs seem to be wrong, if you try to create an
-			// AudioClient3 with low latency audio with AUTOCONVERTPCM, you get the error 0x88890021.
-			audioClient3_.Reset();
-			// Fall through to AudioClient creation below.
-		} else {
-			audioClient3_->GetSharedModeEnginePeriod(format_, &defaultPeriodFrames_, &fundamentalPeriodFrames_, &minPeriodFrames_, &maxPeriodFrames_);
-
-			INFO_LOG(Log::Audio, "AudioClient3: default: %d fundamental: %d min: %d max: %d\n", (int)defaultPeriodFrames_, (int)fundamentalPeriodFrames_, (int)minPeriodFrames_, (int)maxPeriodFrames_);
-			INFO_LOG(Log::Audio, "initializing with %d frame period at %d Hz, meaning %0.1fms\n", (int)minPeriodFrames_, (int)format_->nSamplesPerSec, FramesToMs(minPeriodFrames_, format_->nSamplesPerSec));
-
-			audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			HRESULT result = audioClient3_->InitializeSharedAudioStream(
-				AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-				minPeriodFrames_,
-				format_,
-				nullptr
-			);
-			if (FAILED(result)) {
-				WARN_LOG(Log::Audio, "Error initializing AudioClient3 shared audio stream: %08lx", result);
-				audioClient3_.Reset();
-				return false;
-			}
-			actualPeriodFrames_ = minPeriodFrames_;
-
-			audioClient3_->GetBufferSize(&reportedBufferSize_);
-			audioClient3_->SetEventHandle(audioEvent_);
-			audioClient3_->GetService(IID_PPV_ARGS(&renderClient_));
-		}
-	}
-
-	if (!audioClient3_) {
-		// Fallback to IAudioClient (older OS)
-		HRESULT hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient_);
-		if (FAILED(hr)) {
-			ERROR_LOG(Log::Audio, "Failed to activate audio device: %08lx", hr);
+	if (!TryInitAudioClient3(device.Get(), latencyMode)) {
+		if (!TryInitAudioClient(device.Get(), latencyMode)) {
+			// Failed both client types.
+			CloseHandle(audioEvent_);
+			audioEvent_ = nullptr;
 			return false;
-		}
-
-		hr = audioClient_->GetMixFormat(&format_);
-		if (FAILED(hr)) {
-			_dbg_assert_(false);
-			return false;
-		}
-
-		// If there are too many channels, try asking for a 2-channel output format.
-		DWORD extraStreamFlags = 0;
-		const AudioFormat fmt = Classify(format_);
-
-		curSamplesPerSec_ = format_->nSamplesPerSec;
-
-		bool createBuffer = false;
-		if (fmt == AudioFormat::Float) {
-			if (format_->nChannels != 2) {
-				INFO_LOG(Log::Audio, "Got %d channels, asking for stereo instead", format_->nChannels);
-				WAVEFORMATEXTENSIBLE stereo;
-				BuildStereoFloatFormat((const WAVEFORMATEXTENSIBLE *)format_, &stereo);
-
-				WAVEFORMATEX *closestMatch = nullptr;
-				const HRESULT result = audioClient_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, (const WAVEFORMATEX *)&stereo, &closestMatch);
-				if (result == S_OK) {
-					// We got the format! Use it and set as current.
-					_dbg_assert_(!closestMatch);
-					format_ = (WAVEFORMATEX *)CoTaskMemAlloc(sizeof(WAVEFORMATEXTENSIBLE));
-					memcpy(format_, &stereo, sizeof(WAVEFORMATEX) + stereo.Format.cbSize);
-					extraStreamFlags = AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
-					INFO_LOG(Log::Audio, "Successfully asked for two channels");
-				} else if (result == S_FALSE) {
-					// We got another format. Meh, let's just use what we got.
-					if (closestMatch) {
-						WARN_LOG(Log::Audio, "Didn't get the format we wanted, but got: %lu ch=%d", closestMatch->nSamplesPerSec, closestMatch->nChannels);
-						CoTaskMemFree(closestMatch);
-					} else {
-						WARN_LOG(Log::Audio, "Failed to fall back to two channels. Using workarounds.");
-					}
-					createBuffer = true;
-				} else {
-					WARN_LOG(Log::Audio, "Got other error %08lx", result);
-					_dbg_assert_(!closestMatch);
-				}
-			} else {
-				// All good, nothing to convert.
-				_dbg_assert_(format_);
-			}
-		} else {
-			// Some other format.
-			WARN_LOG(Log::Audio, "Format not float, applying conversion.");
-			createBuffer = true;
-		}
-
-		// Get engine period info
-		REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
-		audioClient_->GetDevicePeriod(&defaultPeriod, &minPeriod);
-
-		audioEvent_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-		const REFERENCE_TIME duration = minPeriod;
-		hr = audioClient_->Initialize(
-			AUDCLNT_SHAREMODE_SHARED,
-			AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraStreamFlags,
-			duration,  // This is a minimum, the result might be larger. We use GetBufferSize to check.
-			0,  // ref duration, always 0 in shared mode.
-			format_,
-			nullptr
-		);
-
-		if (FAILED(hr)) {
-			WARN_LOG(Log::Audio, "ERROR: Failed to initialize audio with all attempted buffer sizes\n");
-			audioClient_.Reset();
-			return false;
-		}
-
-		audioClient_->GetBufferSize(&reportedBufferSize_);
-		actualPeriodFrames_ = reportedBufferSize_;  // we don't have a better estimate.
-		audioClient_->SetEventHandle(audioEvent_);
-		audioClient_->GetService(IID_PPV_ARGS(&renderClient_));
-
-		if (createBuffer) {
-			tempBuf_ = std::make_unique<float[]>(reportedBufferSize_ * 2);
 		}
 	}
 
@@ -342,9 +605,11 @@ void WASAPIContext::Stop() {
 		CoTaskMemFree(format_);
 		format_ = nullptr;
 	}
+	curChannels_.store(0);
 	{
 		std::lock_guard<std::mutex> guard(deviceLock_);
 		curDeviceId_.clear();
+		curDeviceName_.clear();
 	}
 }
 
@@ -385,15 +650,46 @@ void WASAPIContext::AudioLoop() {
 	}
 
 	UINT32 available;
+	HRESULT hr;
 	if (audioClient3_) {
-		audioClient3_->Start();
-		audioClient3_->GetBufferSize(&available);
+		hr = audioClient3_->Start();
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient3::Start failed", hr);
+			return;
+		}
+		hr = audioClient3_->GetBufferSize(&available);
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient3::GetBufferSize failed", hr);
+			audioClient3_->Stop();
+			return;
+		}
+		// Check if buffer grew beyond what we allocated tempBuf_ for
+		if (tempBuf_ && available > reportedBufferSize_.load()) {
+			INFO_LOG(Log::Audio, "Buffer size grew from %d to %d, reallocating tempBuf_", reportedBufferSize_.load(), available);
+			tempBuf_ = std::make_unique<float[]>(available * 2);
+			reportedBufferSize_.store(available);
+		}
 	} else if (audioClient_) {
-		audioClient_->Start();
-		audioClient_->GetBufferSize(&available);
+		hr = audioClient_->Start();
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient::Start failed", hr);
+			return;
+		}
+		hr = audioClient_->GetBufferSize(&available);
+		if (FAILED(hr)) {
+			SetErrorString("AudioClient::GetBufferSize failed", hr);
+			audioClient_->Stop();
+			return;
+		}
+		// Check if buffer grew beyond what we allocated tempBuf_ for
+		if (tempBuf_ && available > reportedBufferSize_.load()) {
+			INFO_LOG(Log::Audio, "Buffer size grew from %d to %d, reallocating tempBuf_", reportedBufferSize_.load(), available);
+			tempBuf_ = std::make_unique<float[]>(available * 2);
+			reportedBufferSize_.store(available);
+		}
 	} else {
 		// No audio client, nothing to do.
-		WARN_LOG(Log::Audio, "No audio client");
+		SetErrorString("No audio client in AudioLoop", 0);
 		return;
 	}
 
@@ -403,7 +699,10 @@ void WASAPIContext::AudioLoop() {
 	}
 
 	const AudioFormat format = Classify(format_);
-	const int nChannels = format_->nChannels;
+	const int nChannels = curChannels_.load();
+	const ChannelMapping channelMap = GetChannelMapping(format_);
+
+	ClearErrorString();
 
 	while (running_) {
 		const DWORD waitResult = WaitForSingleObject(audioEvent_, INFINITE);
@@ -414,15 +713,43 @@ void WASAPIContext::AudioLoop() {
 
 		UINT32 padding = 0;
 		if (audioClient3_) {
-			audioClient3_->GetCurrentPadding(&padding);
+			hr = audioClient3_->GetCurrentPadding(&padding);
+			if (FAILED(hr)) {
+				WARN_LOG(Log::Audio, "AudioClient3::GetCurrentPadding failed: %08lx", hr);
+				continue;
+			}
 		} else {
-			audioClient_->GetCurrentPadding(&padding);
+			hr = audioClient_->GetCurrentPadding(&padding);
+			if (FAILED(hr)) {
+				WARN_LOG(Log::Audio, "AudioClient::GetCurrentPadding failed: %08lx", hr);
+				continue;
+			}
 		}
 
-		const UINT32 framesToWrite = available - padding;
+		// Calculate frames to write, checking for underflow
+		UINT32 framesToWrite = 0;
+		if (padding < available) {
+			framesToWrite = available - padding;
+		} else if (padding > available) {
+			// This shouldn't happen, but log it if it does
+			WARN_LOG(Log::Audio, "Padding (%d) exceeds available (%d), skipping frame", padding, available);
+		}
+
+		// Safety: clamp framesToWrite to tempBuf_ capacity if using conversion path
+		const UINT32 bufCapacity = reportedBufferSize_.load();
+		if (tempBuf_ && framesToWrite > bufCapacity) {
+			WARN_LOG(Log::Audio, "framesToWrite (%d) exceeds buffer capacity (%d), clamping", framesToWrite, bufCapacity);
+			framesToWrite = bufCapacity;
+		}
+
 		BYTE* buffer = nullptr;
 		if (framesToWrite > 0 && SUCCEEDED(renderClient_->GetBuffer(framesToWrite, &buffer))) {
-			if (!tempBuf_) {
+			if (!callback_) {
+				// No callback set, fill with silence
+				if (buffer) {
+					memset(buffer, 0, framesToWrite * format_->nChannels * (format_->wBitsPerSample / 8));
+				}
+			} else if (!tempBuf_) {
 				// Mix directly to the output buffer, avoiding a copy.
 				if (buffer) {
 					callback_(reinterpret_cast<float *>(buffer), framesToWrite, format_->nSamplesPerSec, userdata_);
@@ -431,20 +758,46 @@ void WASAPIContext::AudioLoop() {
 				// We decided previously that we need conversion, so mix to our temp buffer...
 				callback_(tempBuf_.get(), framesToWrite, format_->nSamplesPerSec, userdata_);
 				// .. and convert according to format (we support multi-channel float and s16)
+				// Use the channel mapping to place audio in the correct channels
 				if (format == AudioFormat::PCM16 && buffer) {
 					// Need to convert.
 					s16 *dest = reinterpret_cast<s16 *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {
+						// Zero the entire frame first
+						for (int j = 0; j < nChannels; j++) {
+							dest[i * nChannels + j] = 0;
+						}
+
+						// Map stereo input to appropriate output channels
+						const float left = tempBuf_[i * 2];
+						const float right = tempBuf_[i * 2 + 1];
+
 						if (nChannels == 1) {
-							// Maybe some bluetooth speakers? Mixdown.
-							float sum = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
-							dest[i] = ClampFloatToS16(sum);
+							// Mono: mixdown stereo to mono
+							dest[i] = ClampFloatToS16((left + right) * 0.5f);
+						} else if (nChannels == 2) {
+							// Stereo: direct copy
+							dest[i * 2] = ClampFloatToS16(left);
+							dest[i * 2 + 1] = ClampFloatToS16(right);
 						} else {
-							dest[i * nChannels] = ClampFloatToS16(tempBuf_[i * 2]);
-							dest[i * nChannels + 1] = ClampFloatToS16(tempBuf_[i * 2 + 1]);
-							// Zero other channels.
-							for (int j = 2; j < nChannels; j++) {
-								dest[i * nChannels + j] = 0;
+							// Multi-channel: use channel mapping
+							if (channelMap.frontLeft >= 0) {
+								dest[i * nChannels + channelMap.frontLeft] = ClampFloatToS16(left);
+							}
+							if (channelMap.frontRight >= 0) {
+								dest[i * nChannels + channelMap.frontRight] = ClampFloatToS16(right);
+							}
+							if (channelMap.center >= 0) {
+								dest[i * nChannels + channelMap.center] = ClampFloatToS16((left + right) * 0.5f * CENTER_MIX_ATTENUATION);
+							}
+							if (channelMap.lfe >= 0) {
+								dest[i * nChannels + channelMap.lfe] = ClampFloatToS16((left + right) * 0.5f * LFE_MIX_ATTENUATION);
+							}
+							if (channelMap.rearLeft >= 0) {
+								dest[i * nChannels + channelMap.rearLeft] = ClampFloatToS16(left * SURROUND_ATTENUATION);
+							}
+							if (channelMap.rearRight >= 0) {
+								dest[i * nChannels + channelMap.rearRight] = ClampFloatToS16(right * SURROUND_ATTENUATION);
 							}
 						}
 					}
@@ -452,27 +805,56 @@ void WASAPIContext::AudioLoop() {
 					// We have a non-2 number of channels (since we're in the tempBuf_ 'if'), so we contract/expand.
 					float *dest = reinterpret_cast<float *>(buffer);
 					for (UINT32 i = 0; i < framesToWrite; i++) {
+						// Zero the entire frame first
+						for (int j = 0; j < nChannels; j++) {
+							dest[i * nChannels + j] = 0.0f;
+						}
+
+						// Map stereo input to appropriate output channels
+						const float left = tempBuf_[i * 2];
+						const float right = tempBuf_[i * 2 + 1];
+
 						if (nChannels == 1) {
-							// Maybe some bluetooth speakers? Mixdown.
-							dest[i] = 0.5f * (tempBuf_[i * 2] + tempBuf_[i * 2 + 1]);
+							// Mono: mixdown stereo to mono
+							dest[i] = (left + right) * 0.5f;
+						} else if (nChannels == 2) {
+							// Stereo: direct copy
+							dest[i * 2] = left;
+							dest[i * 2 + 1] = right;
 						} else {
-							dest[i * nChannels] = tempBuf_[i * 2];
-							dest[i * nChannels + 1] = tempBuf_[i * 2 + 1];
-							// Zero other channels.
-							for (int j = 2; j < nChannels; j++) {
-								dest[i * nChannels + j] = 0;
+							// Multi-channel: use channel mapping
+							if (channelMap.frontLeft >= 0) {
+								dest[i * nChannels + channelMap.frontLeft] = left;
+							}
+							if (channelMap.frontRight >= 0) {
+								dest[i * nChannels + channelMap.frontRight] = right;
+							}
+							if (channelMap.center >= 0) {
+								dest[i * nChannels + channelMap.center] = (left + right) * 0.5f * CENTER_MIX_ATTENUATION;
+							}
+							if (channelMap.lfe >= 0) {
+								dest[i * nChannels + channelMap.lfe] = (left + right) * 0.5f * LFE_MIX_ATTENUATION;
+							}
+							if (channelMap.rearLeft >= 0) {
+								dest[i * nChannels + channelMap.rearLeft] = left * SURROUND_ATTENUATION;
+							}
+							if (channelMap.rearRight >= 0) {
+								dest[i * nChannels + channelMap.rearRight] = right * SURROUND_ATTENUATION;
 							}
 						}
 					}
 				}
 			}
 
-			renderClient_->ReleaseBuffer(framesToWrite, 0);
-		}
+			hr = renderClient_->ReleaseBuffer(framesToWrite, 0);
+			if (FAILED(hr)) {
+				WARN_LOG(Log::Audio, "ReleaseBuffer failed: %08lx", hr);
+			}
 
-		// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
-		if (audioClient_ && framesToWrite < actualPeriodFrames_) {
-			actualPeriodFrames_ = framesToWrite;
+			// In the old mode, we just estimate the "actualPeriodFrames_" from the framesToWrite.
+			if (audioClient_ && framesToWrite < actualPeriodFrames_.load()) {
+				actualPeriodFrames_.store(framesToWrite);
+			}
 		}
 	}
 

@@ -22,8 +22,8 @@
 #include "GPU/Common/GPUStateUtils.h"
 
 // These are small, let's give them plenty of frames.
-static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
-static const int FRAGTEST_DECIMATION_INTERVAL = 113;
+static constexpr int FRAGTEST_TEXTURE_OLD_AGE = 307;
+static constexpr int FRAGTEST_DECIMATION_INTERVAL = 113;
 
 FragmentTestCacheGLES::FragmentTestCacheGLES(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -48,7 +48,7 @@ void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	const FragmentTestID id = GenerateTestID();
 	const auto cached = cache_.find(id);
 	if (cached != cache_.end()) {
-		cached->second.lastFrame = gpuStats.numFlips;
+		cached->second.lastFrame = gpuStats.totals.numFlips;
 		GLRTexture *tex = cached->second.texture;
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
@@ -78,7 +78,7 @@ void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	// We only need to do this once for the texture.
 	render_->SetTextureSampler(slot, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 	FragmentTestTexture item;
-	item.lastFrame = gpuStats.numFlips;
+	item.lastFrame = gpuStats.totals.numFlips;
 	item.texture = tex;
 	cache_[id] = item;
 }
@@ -156,7 +156,7 @@ void FragmentTestCacheGLES::Clear(bool deleteThem) {
 void FragmentTestCacheGLES::Decimate() {
 	if (--decimationCounter_ <= 0) {
 		for (auto tex = cache_.begin(); tex != cache_.end(); ) {
-			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.totals.numFlips) {
 				render_->DeleteTexture(tex->second.texture);
 				cache_.erase(tex++);
 			} else {

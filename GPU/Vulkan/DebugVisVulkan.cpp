@@ -42,7 +42,7 @@ bool comparePushBufferNames(const GPUMemoryManager *a, const GPUMemoryManager *b
 	return strcmp(a->Name(), b->Name()) < 0;
 }
 
-void DrawGPUMemoryVis(UIContext *ui, GPUDebugInterface *gpu) {
+void DrawGPUMemoryVis(UIContext *ui, GPUCommon *gpu) {
 	// This one will simply display stats.
 	Draw::DrawContext *draw = ui->GetDrawContext();
 
@@ -93,7 +93,7 @@ void DrawGPUMemoryVis(UIContext *ui, GPUDebugInterface *gpu) {
 	ui->Flush();
 }
 
-void DrawGPUProfilerVis(UIContext *ui, GPUDebugInterface *gpu) {
+void DrawGPUProfilerVis(UIContext *ui, GPUCommon *gpu) {
 	using namespace Draw;
 	const int padding = 10 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 	const int starty = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);

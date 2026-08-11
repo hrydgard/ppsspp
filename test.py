@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 # Automated script to run the pspautotests test suite in PPSSPP.
 
 import sys
@@ -64,6 +65,7 @@ class Command(object):
 
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
+# -g flag runs these.
 tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
@@ -232,6 +234,7 @@ tests_good = [
   "rtc/rtc",
   "rtc/arithmetic",
   "rtc/lookup",
+  "rtc/convert",
   "string/string",
   "sysmem/freesize",
   "sysmem/memblock",
@@ -328,6 +331,7 @@ tests_good = [
   "threads/threads/threads",
   "threads/tls/create",
   "threads/tls/delete",
+  "threads/tls/get",
   "threads/tls/free",
   "threads/tls/priority",
   "threads/tls/refer",
@@ -381,6 +385,8 @@ tests_good = [
   "video/psmfplayer/stop",
 ]
 
+# Broken tests
+# -b flag runs these.
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
@@ -462,16 +468,17 @@ tests_next = [
   "net/http/http",
   "net/primary/ether",
   "power/freq",
-  "rtc/convert",
   "sysmem/partition",
   "threads/callbacks/cancel",
   "threads/callbacks/count",
   "threads/callbacks/notify",
+  # These two mbx tests only appeared to work because they papered over bugs 
+
+
   "threads/scheduling/dispatch",
   "threads/scheduling/scheduling",
   "threads/threads/create",
   "threads/threads/terminate",
-  "threads/tls/get",
   "threads/vpl/create",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",

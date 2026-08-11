@@ -84,6 +84,9 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
+#include "Common/Serialize/Serializer.h"
+#include "Core/CmdLine.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
@@ -99,6 +102,8 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
+// Set to true for more verbose unit tests.
+bool g_testLog = false;
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
@@ -122,6 +127,18 @@ void System_RunOnMainThread(std::function<void()>) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
+bool System_SendDebugOutput(std::string_view data) { return false; }
+void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
+
+// Temporary hacks around annoying linking errors.  Copied from Headless.
+void NativeFrame(GraphicsContext *graphicsContext) {}
+void NativeResized() {}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
 // To clear the secret entirely, just save an empty string.
@@ -312,7 +329,9 @@ bool TestSinCos() {
 		float slowsin = sinf(f * M_PI_2), slowcos = cosf(f * M_PI_2);
 		float fastsin, fastcos;
 		fastsincos(f, fastsin, fastcos);
-		printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+		if (g_testLog) {
+			printf("%f: slow: %0.8f, %0.8f fast: %0.8f, %0.8f\n", f, slowsin, slowcos, fastsin, fastcos);
+		}
 	}
 	return true;
 }
@@ -323,7 +342,9 @@ bool TestAsin() {
 		float f = i / 100.0f;
 		float slowval = asinf(f) / M_PI_2;
 		float fastval = fastasin5(f) / M_PI_2;
-		printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		if (g_testLog) {
+			printf("slow: %0.16f fast: %0.16f\n", slowval, fastval);
+		}
 		float diff = fabsf(slowval - fastval);
 		// EXPECT_TRUE(diff < 0.0001f);
 	}
@@ -349,6 +370,142 @@ bool TestParsers() {
 	EXPECT_TRUE(mac[3] == 255);
 	EXPECT_TRUE(mac[4] == 254);
 	EXPECT_TRUE(mac[5] == 253);
+	return true;
+}
+
+bool TestTruncateCpy() {
+	// Normal in-bounds copy.
+	char buf[8];
+	size_t len = truncate_cpy_len(buf, "abc", 3);
+	EXPECT_EQ_INT((int)len, 3);
+	EXPECT_TRUE(strcmp(buf, "abc") == 0);
+
+	// Exact fit (source length is Count - 1).
+	len = truncate_cpy_len(buf, "abcdefg", 7);
+	EXPECT_EQ_INT((int)len, 7);
+	EXPECT_TRUE(strcmp(buf, "abcdefg") == 0);
+
+	// Overflow - truncated to Count - 1 chars.
+	len = truncate_cpy_len(buf, "abcdefghij", 10);
+	EXPECT_EQ_INT((int)len, 7);
+	EXPECT_TRUE(strcmp(buf, "abcdefg") == 0);
+
+	// Zero-length source used to underflow to out[-1].
+	buf[0] = 'X';
+	len = truncate_cpy_len(buf, "", 0);
+	EXPECT_EQ_INT((int)len, 0);
+	EXPECT_EQ_INT((int)buf[0], 0);
+
+	// Simple concatenation.
+	char catBuf[16];
+	len = truncate_cat(catBuf, sizeof(catBuf), "abc", 3, "def", 3);
+	EXPECT_EQ_INT((int)len, 6);
+	EXPECT_TRUE(strcmp(catBuf, "abcdef") == 0);
+
+	// Truncation when the combined length exceeds the buffer.
+	len = truncate_cat(catBuf, 8, "abcd", 4, "efghij", 6);
+	EXPECT_EQ_INT((int)len, 7);
+	EXPECT_TRUE(strcmp(catBuf, "abcdefg") == 0);
+
+	// src1 alone already fills/overflows the buffer.
+	len = truncate_cat(catBuf, 4, "abcdefg", 7, "xyz", 3);
+	EXPECT_EQ_INT((int)len, 3);
+	EXPECT_TRUE(strcmp(catBuf, "abc") == 0);
+
+	// Both empty used to underflow to out[-1].
+	catBuf[0] = 'X';
+	len = truncate_cat(catBuf, sizeof(catBuf), "", 0, "", 0);
+	EXPECT_EQ_INT((int)len, 0);
+	EXPECT_EQ_INT((int)catBuf[0], 0);
+	return true;
+}
+
+bool TestUtf8() {
+	// Valid multi-byte UTF-8 (ASCII + 2-byte 'é' + 3-byte '€') round-trips unchanged.
+	const std::string valid = "abc \xC3\xA9 \xE2\x82\xAC";
+	EXPECT_TRUE(SanitizeUTF8(valid) == valid);
+
+	// u8_nextchar must stop at the end of the buffer instead of reading past a
+	// truncated multi-byte sequence (a lead byte with no continuation bytes).
+	{
+		std::string s = "abc";
+		s += (char)0xF4;
+		int index = 3;
+		int size = (int)s.size();
+		uint32_t c = u8_nextchar(s.data(), &index, size);
+		EXPECT_EQ_INT(index, size);
+		EXPECT_EQ_INT((int)c, 0xF4);
+	}
+
+	// A long run of stray continuation bytes must not walk off the end of the
+	// internal offsetsFromUTF8 table (used to read arbitrarily far out of bounds).
+	{
+		std::string s(32, (char)0x80);
+		int index = 0;
+		int size = (int)s.size();
+		uint32_t c = u8_nextchar(s.data(), &index, size);
+		EXPECT_TRUE(index > 0 && index <= size);
+	}
+
+	// SanitizeUTF8 on a string that ends mid-sequence must not read or write past
+	// the buffer, and must preserve the well-formed leading portion.
+	{
+		std::string truncated = "abc";
+		truncated += (char)0xF4;
+		std::string sanitized = SanitizeUTF8(truncated);
+		EXPECT_TRUE(sanitized.substr(0, 3) == "abc");
+	}
+
+	// ConvertUTF8ToJavaModifiedUTF8 must simply drop an incomplete trailing
+	// sequence rather than asserting or crashing.
+	{
+		std::string input = "abc";
+		input += (char)0xF0;
+		std::string output;
+		ConvertUTF8ToJavaModifiedUTF8(&output, input);
+		EXPECT_TRUE(output == "abc");
+	}
+
+	return true;
+}
+
+bool TestMemBlockInfoSaveState() {
+	MemBlockInfoInit();
+	MemBlockOverrideDetailed();
+
+	// Split the single initial slab (which spans the whole address space) into several
+	// pieces, so the savestate has more than just the first slab.
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08800000, 0x1000, "InitialTag", 10);
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08810000, 0x1000, "SecondTag", 9);
+	// FindMemInfo flushes pending notifications into the actual slab maps.
+	FindMemInfo(0x08800000, 0x20000);
+
+	// Round-trip through the savestate serializer.  This used to leave every slab but
+	// the first with an uninitialized tagLen, which MemSlabMap::Split() would later use
+	// as an unbounded memcpy length into a fixed 128 byte buffer, corrupting the heap.
+	uint8_t *measurePtr = nullptr;
+	PointerWrap pm(&measurePtr, PointerWrap::MODE_MEASURE);
+	MemBlockInfoDoState(pm);
+	size_t stateSize = (size_t)measurePtr;
+	EXPECT_TRUE(stateSize > 0);
+
+	std::vector<uint8_t> buffer(stateSize);
+	uint8_t *writePtr = &buffer[0];
+	PointerWrap pw(&writePtr, PointerWrap::MODE_WRITE);
+	MemBlockInfoDoState(pw);
+
+	uint8_t *readPtr = &buffer[0];
+	PointerWrap pr(&readPtr, PointerWrap::MODE_READ);
+	MemBlockInfoDoState(pr);
+
+	// Force a split on a slab that was just loaded from the savestate - this is what used
+	// to corrupt the heap (or crash outright) before the fix.
+	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08800100, 0x10, "SplitTag", 8);
+	auto results = FindMemInfo(0x08800000, 0x20000);
+	EXPECT_TRUE(!results.empty());
+
+	MemBlockReleaseDetailed();
+	MemBlockInfoShutdown();
 	return true;
 }
 
@@ -466,7 +623,9 @@ bool TestVFPUSinCos() {
 		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
 		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
 
-		printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+		if (g_testLog) {
+			printf("sine: %f==%f cosine: %f==%f\n", sine, sinf(angle * M_PI_2), cosine, cosf(angle * M_PI_2));
+		}
 	}
 	return true;
 }
@@ -892,47 +1051,6 @@ static bool TestSmallDataConvert() {
 	return true;
 }
 
-float DepthSliceFactor(u32 useFlags);
-
-static bool TestDepthMath() {
-	// These are in normalized space.
-	static const volatile float testValues[] = { 0.0f, 0.1f, 0.5f, M_PI / 4.0f, 0.9f, 1.0f };
-
-	// Flag combinations that can happen (any combination not included here is invalid, see comment
-	// over in GPUStateUtils.cpp):
-	static const u32 useFlagsArray[] = {
-		0,
-		GPU_USE_ACCURATE_DEPTH,
-		GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,
-		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH,
-		GPU_USE_DEPTH_CLAMP | GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT,  // Here, GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT should take precedence over USE_DEPTH_CLAMP.
-	};
-	static const float expectedScale[] = { 65535.0f, 262140.0f, 16777215.0f, 65535.0f, 16777215.0f, };
-	static const float expectedOffset[] = { 0.0f, 0.375f, 0.498047f, 0.0f, 0.498047f, };
-
-	EXPECT_REL_EQ_FLOAT(100000.0f, 100001.0f, 0.00001f);
-
-	for (int j = 0; j < ARRAY_SIZE(useFlagsArray); j++) {
-		u32 useFlags = useFlagsArray[j];
-		printf("j: %d useflags: %d\n", j, useFlags);
-		DepthScaleFactors factors = GetDepthScaleFactors(useFlags);
-
-		EXPECT_EQ_FLOAT(factors.ScaleU16(), expectedScale[j]);
-		EXPECT_REL_EQ_FLOAT(factors.Offset(), expectedOffset[j], 0.00001f);
-		EXPECT_REL_EQ_FLOAT(factors.Scale(), DepthSliceFactor(useFlags), 0.0001f);
-
-		for (int i = 0; i < ARRAY_SIZE(testValues); i++) {
-			float testValue = testValues[i] * 65535.0f;
-
-			float encoded = factors.EncodeFromU16(testValue);
-			float decodedU16 = factors.DecodeToU16(encoded);
-			EXPECT_REL_EQ_FLOAT(decodedU16, testValue, 0.0001f);
-		}
-	}
-
-	return true;
-}
-
 bool TestInputMapping() {
 	InputMapping mapping;
 	mapping.deviceId = DEVICE_ID_PAD_0;
@@ -1218,6 +1336,14 @@ bool TestCrossSIMD() {
 		return false;
 	}
 
+	s8 values[4] = {-1, -128, 127, 45};
+	float fvalues[4];
+	Vec4F32::LoadS8Norm(values).Store(fvalues);
+	static const float known_s8norm_result[4] = {(float)values[0]/128.0f, (float)values[1]/128.0f, (float)values[2]/128.0f, (float)values[3]/128.0f,};
+	if (!CompareFloats(fvalues, known_s8norm_result, ARRAY_SIZE(known_s8norm_result), __LINE__)) {
+		return false;
+	}
+
 	// PrintFloats(result, 16);
 
 	return true;
@@ -1335,6 +1461,54 @@ bool TestFriendlyPath() {
 	return true;
 }
 
+bool TestCmdLine() {
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--fullscreen",
+			"--graphics=d3d11",
+			"--pause-menu-exit",
+			"My_Game.iso"
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv, CmdLineMode::Application);
+		EXPECT_TRUE(options.fullscreen.value_or(false));
+		if (options.bootFilenames.empty()) {
+			EXPECT_TRUE(false);
+			return false;
+		}
+		EXPECT_EQ_STR(options.bootFilenames[0], std::string("My_Game.iso"));
+		EXPECT_TRUE(options.gpuBackend.has_value());
+		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
+		EXPECT_TRUE(options.pauseMenuExit.value_or(false));
+	}
+	// --timeout is headless-only (only headless/Headless.cpp reads it), so it must be parsed in Headless mode.
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--timeout=3",
+			"My_Game.iso"
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv, CmdLineMode::Headless);
+		EXPECT_EQ_INT(options.timeout.value_or(0), 3);
+	}
+	// Test GL version override
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--graphics=gles3.3",
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv);
+		EXPECT_EQ_INT(options.force_gl_version, 33);
+	}
+	return true;
+}
+
 // Check that RTTI is working.
 bool TestLang() {
 	struct Base { virtual ~Base() = default; };
@@ -1364,6 +1538,9 @@ bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
 bool TestThreadManager();
 bool TestVFS();
+bool TestZipSlip();
+bool TestLzrc();
+bool TestTextureReplacer();
 
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
@@ -1387,6 +1564,9 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
+	TEST_ITEM(TruncateCpy),
+	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(Utf8),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
 	TEST_ITEM(VFPUMatrixTranspose),
@@ -1403,7 +1583,6 @@ TestItem availableTests[] = {
 	TEST_ITEM(TinySet),
 	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
-	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
@@ -1419,6 +1598,10 @@ TestItem availableTests[] = {
 	TEST_ITEM(FriendlyPath),
 	TEST_ITEM(LinAlg),
 	TEST_ITEM(Lang),
+	TEST_ITEM(CmdLine),
+	TEST_ITEM(ZipSlip),
+	TEST_ITEM(Lzrc),
+	TEST_ITEM(TextureReplacer),
 };
 
 int main(int argc, const char *argv[]) {
@@ -1453,12 +1636,14 @@ int main(int argc, const char *argv[]) {
 	if (allTests) {
 		int passes = 0;
 		int fails = 0;
+		std::vector<const char *> failedTests;
 		for (const auto &f : availableTests) {
 			printf("\n**** Running test %s ****\n", f.name);
 			if (f.func()) {
 				++passes;
 			} else {
 				printf("%s: FAILED\n", f.name);
+				failedTests.push_back(f.name);
 				++fails;
 			}
 		}
@@ -1467,6 +1652,9 @@ int main(int argc, const char *argv[]) {
 		}
 		if (fails > 0) {
 			printf("%d tests failed!\n", fails);
+			for (auto testName : failedTests) {
+				printf("  * %s\n", testName);
+			}
 			return 2;
 		}
 	} else if (!testFunc) {

@@ -39,8 +39,6 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT: return "GRAPHICS_BACKEND_FAILED_ALERT";
 	case SystemRequestType::CREATE_GAME_SHORTCUT: return "CREATE_GAME_SHORTCUT";
 	case SystemRequestType::SHOW_FILE_IN_FOLDER: return "SHOW_FILE_IN_FOLDER";
-	case SystemRequestType::SEND_DEBUG_OUTPUT: return "SEND_DEBUG_OUTPUT";
-	case SystemRequestType::SEND_DEBUG_SCREENSHOT: return "SEND_DEBUG_SCREENSHOT";
 	case SystemRequestType::NOTIFY_UI_EVENT: return "NOTIFY_UI_EVENT";
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT: return "SET_KEEP_SCREEN_BRIGHT";
 	case SystemRequestType::CAMERA_COMMAND: return "CAMERA_COMMAND";
@@ -114,7 +112,7 @@ void RequestManager::PostSystemSuccess(int requestId, std::string_view responseS
 	callbackMap_.erase(iter);
 }
 
-void RequestManager::PostSystemFailure(int requestId) {
+void RequestManager::PostSystemFailure(int requestId, int responseValue) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
@@ -127,6 +125,7 @@ void RequestManager::PostSystemFailure(int requestId) {
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
 	PendingFailure response;
 	response.failedCallback = iter->second.failedCallback;
+	response.responseValue = responseValue;
 	pendingFailures_.push_back(response);
 	callbackMap_.erase(iter);
 }
@@ -141,7 +140,7 @@ void RequestManager::ProcessRequests() {
 	pendingSuccesses_.clear();
 	for (auto &iter : pendingFailures_) {
 		if (iter.failedCallback) {
-			iter.failedCallback();
+			iter.failedCallback(iter.responseValue);
 		}
 	}
 	pendingFailures_.clear();

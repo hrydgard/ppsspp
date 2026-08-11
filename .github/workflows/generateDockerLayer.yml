@@ -22,14 +22,14 @@ jobs:
         fi
 
     - name: Login to GitHub registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         registry: ghcr.io
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         push: true
         tags: ghcr.io/${{ github.repository }}:${{ steps.metadata.outputs.tag }}

@@ -9,6 +9,59 @@
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"  // for AdhocServerListEntry!
 #include "Common/UI/Notice.h"
+#include "Core/HLE/sceNetAdhoc.h"
+
+struct AdhocUser {
+	std::string name;
+	std::vector<int> pdp_ports;
+	std::vector<int> ptp_ports;
+};
+
+struct AdhocGroup {
+	std::string name;
+	int usercount;
+	std::vector<AdhocUser> users;
+};
+
+struct AdhocGame {
+	std::string name;
+	int usercount;
+	std::vector<AdhocGroup> groups;
+	std::vector<std::string> game_ids;
+};
+
+class AdhocServerCompactInfo : public UI::LinearLayout {
+public:
+	AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams = nullptr);
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 500; h = 100;
+	}
+private:
+	AdhocServerListEntry entry_;
+};
+
+// Later, this might also show games-in-progress.
+// For now, it's just a simple metadata viewer.
+class AdhocServerInfoScreen : public UI::PopupScreen {
+public:
+	AdhocServerInfoScreen(const AdhocServerListEntry &entry);
+
+	const char *tag() const override { return "AdhocServerInfo"; }
+
+protected:
+	bool FillVertical() const override { return false; }
+	UI::Size PopupWidth() const override { return 650; }
+	bool ShowButtons() const override { return true; }
+
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	void update() override;
+
+private:
+	AdhocServerListEntry entry_;
+	std::vector<AdhocGame> games_;
+	std::shared_ptr<http::Request> statusRequest_;
+};
 
 class AdhocServerScreen : public UI::PopupScreen {
 public:
@@ -18,6 +71,10 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "AdhocServer"; }
+
+	bool RecreateParent() const {
+		return recreateParent_;
+	}
 
 protected:
 	void OnCompleted(DialogResult result) override;
@@ -52,7 +109,9 @@ private:
 	bool toResolveResult_ = false;
 	std::string lastResolved_ = "";
 	bool lastResolvedResult_ = false;
+	bool recreateParent_ = false;
 };
 
 void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager);
 bool AdhocServerNameIsCustom();
+void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGame> &games, bool requestInProgress);

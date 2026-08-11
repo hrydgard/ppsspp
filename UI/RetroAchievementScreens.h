@@ -15,7 +15,8 @@
 // Lists the achievements and leaderboards for one game.
 class RetroAchievementsListScreen : public UITabbedBaseDialogScreen {
 public:
-	RetroAchievementsListScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
+	RetroAchievementsListScreen(const Path &gamePath);
+	~RetroAchievementsListScreen();
 	const char *tag() const override { return "RetroAchievementsListScreen"; }
 
 	void CreateTabs() override;
@@ -24,9 +25,10 @@ protected:
 	bool ShowSearchControls() const override { return false; }
 
 private:
-	void CreateAchievementsTab(UI::ViewGroup *viewGroup);
 	void CreateLeaderboardsTab(UI::ViewGroup *viewGroup);
 	void CreateStatisticsTab(UI::ViewGroup *viewGroup);
+
+	rc_client_achievement_list_t *list_ = nullptr;
 };
 
 // Lets you manage your account, and shows some achievement stats and stuff.
@@ -107,12 +109,14 @@ private:
 
 class GameAchievementSummaryView : public UI::Item {
 public:
-	GameAchievementSummaryView(UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams) {
+	GameAchievementSummaryView(u32 subsetId, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), subsetId_(subsetId) {
 		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
 	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
+private:
+	uint32_t subsetId_;
 };
 
 class LeaderboardSummaryView : public UI::ClickableItem {

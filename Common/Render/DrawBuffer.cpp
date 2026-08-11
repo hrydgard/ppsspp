@@ -84,24 +84,6 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	count_ = 0;
 }
 
-void DrawBuffer::V(float x, float y, float z, uint32_t color, float u, float v) {
-	_dbg_assert_msg_(count_ < MAX_VERTS, "Overflowed the DrawBuffer");
-
-#ifdef _DEBUG
-	if (my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z)) {
-		_assert_(false);
-	}
-#endif
-
-	Vertex *vert = &verts_[count_++];
-	vert->x = x;
-	vert->y = y;
-	vert->z = z;
-	vert->rgba = alpha_ == 1.0f ? color : alphaMul(color, alpha_);
-	vert->u = u;
-	vert->v = v;
-}
-
 void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int align) {
 	DoAlign(align, &x, &y, &w, &h);
 	RectVGradient(x, y, x + w, y + h, color, color);

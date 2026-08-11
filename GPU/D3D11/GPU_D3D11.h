@@ -19,6 +19,8 @@
 
 #include <string>
 #include <vector>
+
+#include "Common/CommonWindows.h"
 #include <d3d11.h>
 
 #include "GPU/GPUCommonHW.h"
@@ -28,15 +30,14 @@
 class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
 class TextureCacheD3D11;
+class StringWriter;
 
 class GPU_D3D11 : public GPUCommonHW {
 public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
 
-	u32 CheckGPUFeatures() const override;
-
-	void GetStats(char *buffer, size_t bufsize) override;
+	void GetStats(StringWriter &w) override;
 	void DeviceLost() override;  // Destroy all device objects.
 	void DeviceRestore(Draw::DrawContext *draw) override;
 

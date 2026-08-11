@@ -476,6 +476,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLMemory.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLProfiler.cpp \
 	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
@@ -490,6 +491,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/VulkanDescSet.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanProfiler.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanBarrier.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanGraphicsContext.cpp \
 	$(COMMONDIR)/Input/GestureDetector.cpp \
 	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Math/curves.cpp \
@@ -590,7 +592,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/FragmentShaderGenerator.cpp \
 	$(GPUDIR)/Common/VertexShaderGenerator.cpp \
-	$(GPUDIR)/Common/GeometryShaderGenerator.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
@@ -1042,7 +1043,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
 	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
-	$(LIBRETRODIR)/libretro_vulkan.cpp
+	$(LIBRETRODIR)/LibretroVulkanPresentation.cpp
 
 
 ifeq ($(PLATFORM_EXT), win32)

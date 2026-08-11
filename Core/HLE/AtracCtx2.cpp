@@ -217,6 +217,11 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 	(ctx->info).curBuffer = 0;
 	(ctx->info).bufferByte = bufferSize;
 	(ctx->info).streamOff = dataOff;
+	// A packet larger than the buffer can't be streamed or assembled into the
+	// SAS assembly buffer. Reject it early, as sampleSize is file-derived.
+	if ((ctx->info).sampleSize > (u32)bufferSize) {
+		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
+	}
 	if ((ctx->info).loopEnd > endSample) {
 		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
 	}
@@ -949,9 +954,13 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 					info.curBuffer = 1;
 					info.streamDataByte = info.secondBufferByte;
 					info.secondStreamOff = 0;
+					// Clamp the copy to the main buffer size; sampleSize is file-derived and could be larger.
+					size_t copyLen = info.secondBufferByte % info.sampleSize;
+					if (copyLen > info.bufferByte)
+						copyLen = info.bufferByte;
 					memcpy(Memory::GetPointerWrite(info.buffer),
 						Memory::GetPointer(info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize)),
-						info.secondBufferByte % info.sampleSize);
+						copyLen);
 				}
 			}
 		}
@@ -966,7 +975,9 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		// Turns out that games can abuse bufferSize, so we can't verify that it's a valid length with GetPointerRange.
 		const u8 *bufferPtr = Memory::GetPointerUnchecked(bufferAddr);
 		if (!Memory::IsValidRange(bufferAddr, readSize)) {
-			WARN_LOG(Log::Atrac, "Atrac2::SetData: Bad buffer range %08x+%08x - however, proceeeding.", bufferAddr, readSize);
+			WARN_LOG(Log::Atrac, "Atrac2::SetData: Bad buffer range %08x+%08x - clamping to mapped size.", bufferAddr, readSize);
+			// Clamp so the parsers below can't read past the mapped region.
+			readSize = Memory::ClampValidSizeAt(bufferAddr, readSize);
 		}
 		if (!isAA3) {
 			int retval = ParseWaveAT3(bufferPtr, readSize, &trackInfo);
@@ -1213,6 +1224,18 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 	} else if (sas_.isStreaming) {
 		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
 		DEBUG_LOG(Log::Atrac, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
+
+		// The packet spans two buffers and is reassembled into the fixed
+		// assembly buffer below. InitContextFromTrackInfo already rejects
+		// sampleSize > bufferByte, but a crafted file can still pass that with
+		// a large buffer, so also guard against sampleSize exceeding the fixed
+		// assembly buffer here.
+		if ((u32)info.sampleSize > sizeof(assembly)) {
+			ERROR_LOG(Log::Atrac, "SAS packet too large for assembly buffer: %d", info.sampleSize);
+			*bytesWritten = 0;
+			*finish = 1;
+			return;
+		}
 
 		// Compute the part sizes using the current size.
 		int part1Size = sas_.bufSize[sas_.curBuffer] - sas_.streamOffset;

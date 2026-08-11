@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <array>
 #include <cstring>
+#include <vector>
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
@@ -28,6 +30,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
@@ -38,10 +41,188 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
+static u16 ReadLE16(const u8 *ptr) {
+	return ptr[0] | (ptr[1] << 8);
+}
+
+static u32 ReadLE32(const u8 *ptr) {
+	return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+}
+
+static std::string DecodeUDFFileName(const u8 *data, size_t size) {
+	if (size == 0)
+		return "";
+
+	std::string result;
+	if (data[0] == 8) {
+		result.assign((const char *)(data + 1), size - 1);
+	} else if (data[0] == 16) {
+		for (size_t i = 1; i + 1 < size; i += 2) {
+			result.push_back((char)data[i + 1]);
+		}
+	}
+	return result;
+}
+
+struct UDFShortAd {
+	u32 length = 0;
+	u32 position = 0;
+};
+
+struct UDFLongAd {
+	u32 length = 0;
+	u32 position = 0;
+	u16 partition = 0;
+};
+
+static bool ReadDescriptorSector(FileLoader *fileLoader, u32 sector, std::array<u8, 2048> *out) {
+	return fileLoader->ReadAt((u64)sector * 2048, 1, out->size(), out->data()) == out->size();
+}
+
+static bool ParseUDFLongAd(const u8 *data, UDFLongAd *out) {
+	out->length = ReadLE32(data);
+	out->position = ReadLE32(data + 4);
+	out->partition = ReadLE16(data + 8);
+	return true;
+}
+
+static bool ParseUDFShortAd(const u8 *data, UDFShortAd *out) {
+	out->length = ReadLE32(data) & 0x3FFFFFFF;
+	out->position = ReadLE32(data + 4);
+	return out->length != 0;
+}
+
+static bool ParseUDFFileEntryExtent(FileLoader *fileLoader, u32 sector, UDFShortAd *extent) {
+	std::array<u8, 2048> block{};
+	if (!ReadDescriptorSector(fileLoader, sector, &block))
+		return false;
+	if (ReadLE16(block.data()) != 0x0105)
+		return false;
+
+	u32 extAttrLen = ReadLE32(block.data() + 0xA8);
+	u32 allocDescLen = ReadLE32(block.data() + 0xAC);
+	u32 allocDescOffset = 0xB0 + extAttrLen;
+	if (allocDescLen < 8 || allocDescOffset + 8 > block.size())
+		return false;
+
+	return ParseUDFShortAd(block.data() + allocDescOffset, extent);
+}
+
+static bool ParseUDFRootDirectory(FileLoader *fileLoader, u32 sector, u32 partitionStart, std::vector<u8> *dirData) {
+	UDFShortAd extent{};
+	if (!ParseUDFFileEntryExtent(fileLoader, sector, &extent))
+		return false;
+	if (extent.length == 0)
+		return false;
+
+	dirData->resize(extent.length);
+	const u64 offset = (u64)(partitionStart + extent.position) * 2048;
+	return fileLoader->ReadAt(offset, 1, dirData->size(), dirData->data()) == dirData->size();
+}
+
+static bool FindUDFRootFileEntry(FileLoader *fileLoader, u32 *rootSector, u32 *partitionStart) {
+	std::array<u8, 2048> avdp{};
+	if (!ReadDescriptorSector(fileLoader, 256, &avdp))
+		return false;
+	if (ReadLE16(avdp.data()) != 0x0002)
+		return false;
+
+	u32 mvdsLength = ReadLE32(avdp.data() + 16);
+	u32 mvdsLocation = ReadLE32(avdp.data() + 20);
+	if (mvdsLength < 2048)
+		return false;
+
+	std::array<u8, 2048> block{};
+	bool foundPartition = false;
+	bool foundRoot = false;
+	u32 fsdLocation = 0;
+	u32 fsdPartition = 0;
+
+	for (u32 sector = mvdsLocation; sector < mvdsLocation + mvdsLength / 2048; ++sector) {
+		if (!ReadDescriptorSector(fileLoader, sector, &block))
+			return false;
+
+		switch (ReadLE16(block.data())) {
+		case 0x0005:
+			// Partition Descriptor.
+			fsdPartition = ReadLE32(block.data() + 188);
+			foundPartition = true;
+			break;
+		case 0x0006:
+			// Logical Volume Descriptor. The file set descriptor sequence is stored
+			// in logicalVolumeContentsUse as an extent_ad.
+			fsdLocation = ReadLE32(block.data() + 252);
+			foundRoot = true;
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (!foundPartition || !foundRoot)
+		return false;
+
+	std::array<u8, 2048> fsd{};
+	if (!ReadDescriptorSector(fileLoader, fsdPartition + fsdLocation, &fsd))
+		return false;
+	if (ReadLE16(fsd.data()) != 0x0100)
+		return false;
+
+	UDFLongAd rootIcb{};
+	ParseUDFLongAd(fsd.data() + 400, &rootIcb);
+	if (rootIcb.partition != 0)
+		return false;
+
+	*partitionStart = fsdPartition;
+	*rootSector = fsdPartition + rootIcb.position;
+	return true;
+}
+
+static bool FindUDFLayerFileEntrySectors(FileLoader *fileLoader, u32 rootSector, u32 partitionStart, u32 *layer0Sector, u32 *layer1Sector) {
+	std::vector<u8> dirData;
+	if (!ParseUDFRootDirectory(fileLoader, rootSector, partitionStart, &dirData))
+		return false;
+
+	bool found0 = false;
+	bool found1 = false;
+	for (size_t offset = 0; offset + 16 <= dirData.size();) {
+		u16 tag = ReadLE16(&dirData[offset]);
+		u16 crcLen = ReadLE16(&dirData[offset + 10]);
+		size_t entryLen = 16 + crcLen;
+		entryLen = (entryLen + 3) & ~size_t(3);
+		if (entryLen == 0 || offset + entryLen > dirData.size())
+			break;
+
+		if (tag == 0x0101 && crcLen >= 20) {
+			u8 fileIdLen = dirData[offset + 19];
+			u16 implUseLen = ReadLE16(&dirData[offset + 36]);
+			size_t nameOffset = offset + 38 + implUseLen;
+			if (nameOffset + fileIdLen <= dirData.size()) {
+				std::string name = DecodeUDFFileName(&dirData[nameOffset], fileIdLen);
+				UDFLongAd icb{};
+				ParseUDFLongAd(&dirData[offset + 20], &icb);
+				if (icb.partition == 0) {
+					if (name == "USER_L0.IMG") {
+						*layer0Sector = partitionStart + icb.position;
+						found0 = true;
+					} else if (name == "USER_L1.IMG") {
+						*layer1Sector = partitionStart + icb.position;
+						found1 = true;
+					}
+				}
+			}
+		}
+
+		offset += entryLen;
+	}
+
+	return found0 || found1;
+}
+
 BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorString) {
 	if (!fileLoader->Exists()) {
 		// Shouldn't get here really.
-		*errorString = "File doesn't exist";
+		*errorString = "File not readable or doesn't exist";
 		return nullptr;
 	}
 	if (fileLoader->IsDirectory()) {
@@ -49,12 +230,16 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 		*errorString += fileLoader->GetPath().ToString();
 		return nullptr;
 	}
+	if (fileLoader->FileSize() < 8) {
+		*errorString = "File is too small to read the header.";
+		return nullptr;
+	}
 
 	char buffer[8]{};
 	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
 	if (size != 8) {
 		// Bad or empty file
-		*errorString = "File is empty";
+		*errorString = "Failed to read 8-byte header";
 		return nullptr;
 	}
 
@@ -66,10 +251,27 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
-		if (size == 4 && psarOffset < fileLoader->FileSize())
+		if (size == 4 && psarOffset < fileLoader->FileSize()) {
 			device = new NPDRMDemoBlockDevice(fileLoader);
+		}
 	} else if (!memcmp(buffer, "MComprHD", 8)) {
 		device = new CHDFileBlockDevice(fileLoader);
+	}
+
+	if (!device) {
+		device = new UDFFileBlockDevice(fileLoader);
+		if (!device->IsOK()) {
+			delete device;
+			device = nullptr;
+		}
+	}
+
+	if (!device) {
+		device = new ISOContainerFileBlockDevice(fileLoader);
+		if (!device->IsOK()) {
+			delete device;
+			device = nullptr;
+		}
 	}
 
 	// No check above passed, should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
@@ -116,6 +318,166 @@ bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	if (retval != (size_t)count) {
 		ERROR_LOG(Log::FileSystem, "Could not read %d blocks, at block offset %d. Only got %d blocks", count, minBlock, (int)retval);
 		return false;
+	}
+	return true;
+}
+
+UDFFileBlockDevice::UDFFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader) {
+	u32 partitionStart = 0;
+	u32 rootSector = 0;
+	if (!FindUDFRootFileEntry(fileLoader, &rootSector, &partitionStart)) {
+		errorString_ = "Not a supported UDF disc image";
+		return;
+	}
+
+	u32 layer0Sector = 0;
+	u32 layer1Sector = 0;
+	if (!FindUDFLayerFileEntrySectors(fileLoader, rootSector, partitionStart, &layer0Sector, &layer1Sector) || layer0Sector == 0) {
+		errorString_ = "Not a PSP UDF disc image";
+		return;
+	}
+
+	UDFShortAd layer0Extent{};
+	if (!ParseUDFFileEntryExtent(fileLoader, layer0Sector, &layer0Extent)) {
+		errorString_ = "Failed to read USER_L0.IMG entry";
+		return;
+	}
+	layer0_.startBlock = partitionStart + layer0Extent.position;
+	layer0_.numBlocks = layer0Extent.length / GetBlockSize();
+	numBlocks_ = layer0_.numBlocks;
+
+	if (layer1Sector != 0) {
+		UDFShortAd layer1Extent{};
+		if (ParseUDFFileEntryExtent(fileLoader, layer1Sector, &layer1Extent)) {
+			layer1_.startBlock = partitionStart + layer1Extent.position;
+			layer1_.numBlocks = layer1Extent.length / GetBlockSize();
+			numBlocks_ += layer1_.numBlocks;
+		}
+	}
+
+	if (numBlocks_ == 0) {
+		errorString_ = "UDF disc image had no readable UMD layers";
+		return;
+	}
+
+	DEBUG_LOG(Log::Loader, "Detected PSP DVD-R wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
+		layer0_.numBlocks, layer0_.startBlock, layer1_.numBlocks, layer1_.startBlock);
+}
+
+UDFFileBlockDevice::~UDFFileBlockDevice() = default;
+
+bool UDFFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
+	if ((u32)blockNumber >= numBlocks_) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+
+	u32 sourceBlock = 0;
+	if ((u32)blockNumber < layer0_.numBlocks) {
+		sourceBlock = layer0_.startBlock + blockNumber;
+	} else {
+		u32 layer1Block = (u32)blockNumber - layer0_.numBlocks;
+		if (layer1Block >= layer1_.numBlocks) {
+			memset(outPtr, 0, GetBlockSize());
+			return false;
+		}
+		sourceBlock = layer1_.startBlock + layer1Block;
+	}
+
+	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
+	size_t retval = fileLoader_->ReadAt((u64)sourceBlock * (u64)GetBlockSize(), 1, GetBlockSize(), outPtr, flags);
+	if (retval != GetBlockSize()) {
+		DEBUG_LOG(Log::FileSystem, "Could not read UDF-wrapped block %d from source block %u", blockNumber, sourceBlock);
+		return false;
+	}
+	return true;
+}
+
+bool UDFFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	for (int i = 0; i < count; ++i) {
+		if (!ReadBlock(minBlock + i, outPtr)) {
+			return false;
+		}
+		outPtr += GetBlockSize();
+	}
+	return true;
+}
+
+ISOContainerFileBlockDevice::ISOContainerFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader) {
+	outerBlockDevice_ = std::make_shared<FileBlockDevice>(fileLoader);
+	if (!outerBlockDevice_->IsOK()) {
+		errorString_ = outerBlockDevice_->ErrorString();
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	SequentialHandleAllocator alloc;
+	ISOFileSystem iso(&alloc, outerBlockDevice_);
+	if (!iso.Error().empty()) {
+		errorString_ = iso.Error();
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	PSPFileInfo layer0Info = iso.GetFileInfo("/USER_L0.IMG");
+	if (!layer0Info.exists) {
+		errorString_ = "Not a PSP ISO container image";
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	layer0_.startBlock = layer0Info.startSector;
+	layer0_.numBlocks = (u32)((layer0Info.size + GetBlockSize() - 1) / GetBlockSize());
+	numBlocks_ = layer0_.numBlocks;
+
+	PSPFileInfo layer1Info = iso.GetFileInfo("/USER_L1.IMG");
+	if (layer1Info.exists) {
+		layer1_.startBlock = layer1Info.startSector;
+		layer1_.numBlocks = (u32)((layer1Info.size + GetBlockSize() - 1) / GetBlockSize());
+		numBlocks_ += layer1_.numBlocks;
+	}
+
+	if (numBlocks_ == 0) {
+		errorString_ = "ISO container image had no readable UMD layers";
+		outerBlockDevice_.reset();
+		return;
+	}
+
+	DEBUG_LOG(Log::Loader, "Detected PSP ISO wrapper: USER_L0=%u blocks at %u, USER_L1=%u blocks at %u",
+		layer0_.numBlocks, layer0_.startBlock, layer1_.numBlocks, layer1_.startBlock);
+}
+
+ISOContainerFileBlockDevice::~ISOContainerFileBlockDevice() = default;
+
+bool ISOContainerFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
+	if ((u32)blockNumber >= numBlocks_ || !outerBlockDevice_) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+
+	u32 sourceBlock = 0;
+	if ((u32)blockNumber < layer0_.numBlocks) {
+		sourceBlock = layer0_.startBlock + blockNumber;
+	} else {
+		u32 layer1Block = (u32)blockNumber - layer0_.numBlocks;
+		if (layer1Block >= layer1_.numBlocks) {
+			memset(outPtr, 0, GetBlockSize());
+			return false;
+		}
+		sourceBlock = layer1_.startBlock + layer1Block;
+	}
+
+	return outerBlockDevice_->ReadBlock(sourceBlock, outPtr, uncached);
+}
+
+bool ISOContainerFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	for (int i = 0; i < count; ++i) {
+		if (!ReadBlock(minBlock + i, outPtr)) {
+			return false;
+		}
+		outPtr += GetBlockSize();
 	}
 	return true;
 }
@@ -182,17 +544,36 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		++blockShift;
 
 	indexShift = hdr.align;
+	// Sanity check the index shift: index entries are u32 masked to 31 bits,
+	// and are shifted up by indexShift to get byte offsets.  Values above a
+	// couple dozen would be bogus and could overflow the buffer size math.
+	if (indexShift > 20) {
+		errorString_ = StringFromFormat("CSO index alignment %i unsupported", indexShift);
+		return;
+	}
 	const u64 totalSize = hdr.total_bytes;
 	numFrames = (u32)((totalSize + frameSize - 1) / frameSize);
 	numBlocks = (u32)(totalSize / GetBlockSize());
 	VERBOSE_LOG(Log::Loader, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
 
+	// numFrames and numBlocks are independently truncated to 32 bits from the same
+	// attacker-controlled 64-bit total_bytes, using different divisors (frameSize vs.
+	// the fixed 2048-byte block size). With extreme total_bytes/block_size values these
+	// can disagree so that numBlocks describes more blocks than numFrames actually has
+	// frames for - ReadBlock() would then index the numFrames+1-sized `index` array
+	// (via frameNumber+1, with frameNumber derived from a blockNumber < numBlocks) out
+	// of bounds. Reject any header where that could happen.
+	if ((u64)numBlocks > (u64)numFrames << blockShift) {
+		errorString_ = "Invalid CSO header (block/frame size mismatch)";
+		return;
+	}
+
 	// We might read a bit of alignment too, so be prepared.
-	if (frameSize + (1 << indexShift) < CSO_READ_BUFFER_SIZE)
-		readBuffer = new u8[CSO_READ_BUFFER_SIZE];
-	else
-		readBuffer = new u8[frameSize + (1 << indexShift)];
-	zlibBuffer = new u8[frameSize + (1 << indexShift)];
+	readBufferSize = frameSize + (1u << indexShift);
+	if (readBufferSize < CSO_READ_BUFFER_SIZE)
+		readBufferSize = CSO_READ_BUFFER_SIZE;
+	readBuffer = new u8[readBufferSize];
+	zlibBuffer = new u8[frameSize + (1u << indexShift)];
 	zlibBufferFrame = numFrames;
 
 	const u32 indexSize = numFrames + 1;
@@ -230,6 +611,16 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
+	// Index entries must be monotonically non-decreasing, otherwise ReadBlock()
+	// would compute a negative (underflowed) compressed read size from two
+	// adjacent entries.  Reject such files rather than reading into a fixed buffer.
+	for (u32 i = 0; i < indexSize - 1; i++) {
+		if ((index[i] & 0x7FFFFFFF) > (index[i + 1] & 0x7FFFFFFF)) {
+			errorString_ = StringFromFormat("CSO index is not monotonic at entry %d", i);
+			return;
+		}
+	}
+
 	// all ok.
 	_dbg_assert_(errorString_.empty());
 }
@@ -257,7 +648,9 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	const u64 compressedReadPos = (u64)indexPos << indexShift;
 	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
-	const size_t compressedReadSize = (size_t)(compressedReadEnd - compressedReadPos);
+	// A single frame's compressed data must fit in readBuffer.  Guard against
+	// crafted index entries with huge gaps (index[i+1] >> index[i]).
+	const size_t compressedReadSize = std::min<size_t>((size_t)(compressedReadEnd - compressedReadPos), readBufferSize);
 	const u32 compressedOffset = (blockNumber & ((1 << blockShift) - 1)) * GetBlockSize();
 
 	bool plain = (idx & 0x80000000) != 0;
@@ -350,13 +743,14 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 
 		const u64 frameReadPos = (u64)indexPos << indexShift;
 		const u64 frameReadEnd = (u64)nextIndexPos << indexShift;
-		const u32 frameReadSize = (u32)(frameReadEnd - frameReadPos);
+		// A single frame's compressed data must fit in readBuffer.
+		const u32 frameReadSize = (u32)std::min<size_t>((size_t)(frameReadEnd - frameReadPos), readBufferSize);
 		const u32 frameBlockOffset = block & ((1 << blockShift) - 1);
 		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame - frameBlockOffset);
 
 		if (frameReadEnd > readBufferEnd) {
 			const s64 maxNeeded = totalReadEnd - frameReadPos;
-			const size_t chunkSize = (size_t)std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE));
+			const size_t chunkSize = (size_t)std::min<s64>(std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE)), (s64)readBufferSize);
 
 			const u32 readSize = (u32)fileLoader_->ReadAt(frameReadPos, 1, chunkSize, readBuffer);
 			if (readSize < chunkSize) {
@@ -466,6 +860,10 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
 	u32 lbaEnd   = *(u32*)(np_header+0x64); // LBA end
+	if (lbaEnd < lbaStart) {
+		errorString_ = "Bad LBA range in header";
+		return;
+	}
 	lbaSize_     = (lbaEnd - lbaStart + 1); // LBA size of ISO
 	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
@@ -473,10 +871,11 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	memcpy(psarStr, &psar_id, 4);
 
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
-	_dbg_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+	_dbg_assert_msg_(blockLBAs_ > 0 && blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 
 	// When we remove the above assert, let's just try to survive.
-	if (blockLBAs_ > 4096) {
+	// blockLBAs_ also must not be zero, or we'd divide by zero below.
+	if (blockLBAs_ <= 0 || blockLBAs_ > 4096) {
 		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, GetFriendlyPath(fileLoader->GetPath()).c_str(), psarStr);
 		return;
 	}
@@ -493,7 +892,17 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	tableSize_ = numBlocks_ * 32;
+	// Computed in 64-bit and sanity checked against the file size, since numBlocks_
+	// could otherwise be large enough that numBlocks_ * sizeof(table_info) wraps
+	// around in 32-bit, causing us to only actually read (and XOR-descramble) a
+	// small prefix of the `numBlocks_`-sized table_ allocation, leaving the rest
+	// as uninitialized heap memory that ReadBlock() would later trust.
+	u64 tableSize64 = (u64)numBlocks_ * sizeof(table_info);
+	if (tableSize64 == 0 || tableSize64 > (u64)fileLoader_->FileSize()) {
+		errorString_ = "Invalid NPUMDIMG table size";
+		return;
+	}
+	tableSize_ = (u32)tableSize64;
 	table_ = new table_info[numBlocks_];
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
@@ -548,11 +957,26 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	lba = blockNumber % blockLBAs_;
 	currentBlock_ = block * blockLBAs_;
 
+	// blockNumber comes from the caller (ultimately from guest-controlled reads, e.g.
+	// via /sce_lbn.../_size... on a raw sector open) and isn't otherwise guaranteed to be
+	// within table_'s bounds, so bounds-check it before indexing.
+	if (block < 0 || (u32)block >= numBlocks_) {
+		return false;
+	}
+
 	if (table_[block].unk_1c != 0) {
 		if((u32)block == (numBlocks_ - 1))
 			return true; // demos make by fake_np
 		else
 			return false;
+	}
+
+	// table_[block].size comes straight from the (only reversibly-scrambled, not
+	// otherwise validated) table in the PBP file, so a malicious/corrupt file could
+	// claim a size larger than blockSize_ here - refuse rather than overflowing
+	// blockBuf_/tempBuf_ (both exactly blockSize_ bytes) via ReadAt/CipherUpdate below.
+	if (table_[block].size < 0 || table_[block].size > blockSize_) {
+		return false;
 	}
 
 	u8 *readBuf;
@@ -581,7 +1005,9 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	}
 
 	if (table_[block].size < blockSize_) {
-		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
+		// The decompressed block is always blockSize_ bytes; blockBuf_ is exactly
+		// that big. Pass the real size so the decompressor can't write past it.
+		int lzsize = lzrc_decompress(blockBuf_, blockSize_, readBuf, table_[block].size);
 		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();

@@ -26,3 +26,5 @@ inline bool rel_equal(float a, float b, float precision) {
 #define EXPECT_EQ_MEM(a, b, sz) if (memcmp(a, b, sz) != 0) { printf("%s: Test Fail\n%.*s\nvs\n%.*s\n", __FUNCTION__, (int)sz, a, (int)sz, b); return false; }
 
 #define RET(a) if (!(a)) { return false; }
+
+extern bool g_testLog;

@@ -23,17 +23,19 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceIo.h"
 #include "Core/HW/Display.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 
 // Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
 static std::mutex listenersLock;
-static std::vector<VblankCallback> vblankListeners;
 typedef std::pair<FlipCallback, void *> FlipListener;
 static std::vector<FlipListener> flipListeners;
 
@@ -78,10 +80,10 @@ static void CalculateFPS() {
 		actualFps = (float)(actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
-		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.numFlips - lastNumFlips) / frames);
+		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.totals.numFlips - lastNumFlips) / frames);
 
 		lastFpsFrame = numVBlanks;
-		lastNumFlips = gpuStats.numFlips;
+		lastNumFlips = gpuStats.totals.numFlips;
 		lastActualFlips = actualFlips;
 		lastFpsTime = now;
 
@@ -186,24 +188,12 @@ void DisplayNotifySleep(double t, int pos) {
 	frameSleepHistory[pos] += t;
 }
 
-void __DisplayGetDebugStats(char *stats, size_t bufsize) {
-	char statbuf[4096];
+void __DisplayGetDebugStats(StringWriter &w) {
 	if (!gpu) {
-		snprintf(stats, bufsize, "N/A");
+		w.C("No GPU stats available").endl();
 		return;
 	}
-	gpu->GetStats(statbuf, sizeof(statbuf));
-
-	snprintf(stats, bufsize,
-		"Kernel processing time: %0.2f ms\n"
-		"Slowest syscall: %s : %0.2f ms\n"
-		"Most active syscall: %s : %0.2f ms\n%s",
-		kernelStats.msInSyscalls * 1000.0f,
-		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
-		kernelStats.slowestSyscallTime * 1000.0f,
-		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
-		kernelStats.summedSlowestSyscallTime * 1000.0f,
-		statbuf);
+	gpu->GetStats(w);
 }
 
 // On like 90hz, 144hz, etc, we return 60.0f as the framerate target. We only target other
@@ -250,15 +240,9 @@ void DisplayFireVblankStart() {
 
 void DisplayFireVblankEnd() {
 	isVblank = 0;
-	std::vector<VblankCallback> toCall;
-	{
-		std::lock_guard<std::mutex> guard(listenersLock);
-		toCall = vblankListeners;
-	}
 
-	for (VblankCallback cb : toCall) {
-		cb();
-	}
+	__IoVblank();
+	__CtrlVblank();
 }
 
 void DisplayFireFlip() {
@@ -279,11 +263,6 @@ void DisplayFireActualFlip() {
 	actualFlips++;
 }
 
-void __DisplayListenVblank(VblankCallback callback) {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	vblankListeners.push_back(callback);
-}
-
 void __DisplayListenFlip(FlipCallback callback, void *userdata) {
 	std::lock_guard<std::mutex> guard(listenersLock);
 	flipListeners.emplace_back(callback, userdata);
@@ -294,13 +273,6 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 	flipListeners.erase(std::remove_if(flipListeners.begin(), flipListeners.end(), [&](FlipListener item) {
 		return item.first == callback && item.second == userdata;
 	}), flipListeners.end());
-}
-
-// This is called when launching a new executable. We do clear vblankListeners here, they will get
-// set up again if needed. However we can't clear fliplisteners, that is used for RetroAchievements updates.
-void DisplayHWReset() {
-	std::lock_guard<std::mutex> guard(listenersLock);
-	vblankListeners.clear();
 }
 
 // This is called on game bootup.
@@ -330,7 +302,6 @@ void DisplayHWInit() {
 
 void DisplayHWShutdown() {
 	std::lock_guard<std::mutex> guard(listenersLock);
-	vblankListeners.clear();
 	flipListeners.clear();
 }
 

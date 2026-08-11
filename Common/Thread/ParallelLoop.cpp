@@ -23,6 +23,16 @@ public:
 		counter_->Count();
 	}
 
+	// Cancellable so a Teardown() racing with an in-flight parallel loop still
+	// counts down the waiter's counter instead of leaving it blocked forever.
+	bool Cancellable() const override {
+		return true;
+	}
+
+	void Cancel() override {
+		counter_->Count();
+	}
+
 	std::function<void(int, int)> loop_;
 	WaitableCounter *counter_;
 
@@ -117,35 +127,22 @@ void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, i
 	}
 }
 
-// NOTE: Supports a max of 2GB.
 void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t bytes, TaskPriority priority) {
+	constexpr size_t threshold = 1024 * 1024;
+	constexpr size_t blocksize = 512 * 1024;
+
 	// This threshold should be the same as the minimum split below, 128kb.
-	if (bytes < 128 * 1024) {
+	if (bytes < threshold) {
 		memcpy(dst, src, bytes);
 		return;
 	}
 
 	// unknown's testing showed that 128kB is an appropriate minimum size.
+	// That was a long time ago though. raised the limits.
 
 	char *d = (char *)dst;
 	const char *s = (const char *)src;
 	ParallelRangeLoop(threadMan, [d, s](int l, int h) {
 		memmove(d + l, s + l, h - l);
-	}, 0, (int)bytes, 128 * 1024, priority);
-}
-
-// NOTE: Supports a max of 2GB.
-void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t bytes, TaskPriority priority) {
-	// This threshold can probably be a lot bigger.
-	if (bytes < 128 * 1024) {
-		memset(dst, 0, bytes);
-		return;
-	}
-
-	// unknown's testing showed that 128kB is an appropriate minimum size.
-
-	char *d = (char *)dst;
-	ParallelRangeLoop(threadMan, [d, value](int l, int h) {
-		memset(d + l, value, h - l);
-	}, 0, (int)bytes, 128 * 1024, priority);
+	}, 0, (int)bytes, blocksize, priority);
 }

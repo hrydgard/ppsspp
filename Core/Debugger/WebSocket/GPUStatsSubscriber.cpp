@@ -17,6 +17,8 @@
 
 #include <mutex>
 #include <vector>
+
+#include "Common/Data/Text/StringWriter.h"
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
 #include "Core/HW/Display.h"
 #include "Core/System.h"
@@ -120,7 +122,9 @@ void WebSocketGPUStatsState::FlipListener() {
 	CollectedStats &stats = pendingStats_[pendingStats_.size() - 1];
 
 	__DisplayGetFPS(&stats.vps, &stats.fps, &stats.actual_fps);
-	__DisplayGetDebugStats(stats.statbuf, sizeof(stats.statbuf));
+
+	StringWriter w(stats.statbuf);
+	__DisplayGetDebugStats(w);
 
 	int valid;
 	float *sleepHistory;
@@ -129,8 +133,8 @@ void WebSocketGPUStatsState::FlipListener() {
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
 	if (valid > 0) {
-		memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
-		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(double) * valid);
+		memcpy(&stats.frameTimes[0], history, sizeof(float) * valid);
+		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(float) * valid);
 	}
 
 	sendNext_ = false;

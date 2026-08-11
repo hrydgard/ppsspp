@@ -40,13 +40,9 @@ public:
 			return;
 		}
 
-		if (!tempImage_->LoadTextureLevelsFromFileData(buffer, fileSize, type_)) {
-			*state_ = ManagedTexture::LoadState::FAILED;
-			waitable_->Notify();
-			return;
-		}
+		bool success = tempImage_->LoadTextureLevelsFromFileData(buffer, fileSize, type_);
 		delete[] buffer;
-		*state_ = ManagedTexture::LoadState::SUCCESS;
+		*state_ = success ? ManagedTexture::LoadState::SUCCESS : ManagedTexture::LoadState::FAILED;
 		waitable_->Notify();
 	}
 
@@ -87,7 +83,7 @@ ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, ImageFileType typeSuggestion) {
+bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, ImageFileType typeSuggestion, int maxWidth, int maxHeight) {
 	if (typeSuggestion == ImageFileType::DETECT) {
 		typeSuggestion = DetectImageFileType(data, size);
 	}
@@ -108,7 +104,7 @@ bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, 
 		break;
 
 	case ImageFileType::PNG:
-		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &levels[0])) {
+		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &levels[0], maxWidth, maxHeight)) {
 			numLevels = 1;
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			if (!levels[0]) {
@@ -169,9 +165,9 @@ Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempIma
 	return draw->CreateTexture(desc);
 }
 
-Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
+Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name, int maxWidth, int maxHeight) {
 	TempImage image;
-	if (!image.LoadTextureLevelsFromFileData(data, dataSize, type)) {
+	if (!image.LoadTextureLevelsFromFileData(data, dataSize, type, maxWidth, maxHeight)) {
 		return nullptr;
 	}
 	Draw::Texture *texture = CreateTextureFromTempImage(draw, image, generateMips, name);
@@ -179,14 +175,14 @@ Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t 
 	return texture;
 }
 
-Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips, int maxWidth, int maxHeight) {
 	size_t fileSize;
 	uint8_t *buffer = g_VFS.ReadFile(filename, &fileSize);
 	if (!buffer) {
 		ERROR_LOG(Log::IO, "Failed to read file '%s'", filename);
 		return nullptr;
 	}
-	Draw::Texture *texture = CreateTextureFromFileData(draw, buffer, fileSize, type, generateMips, filename);
+	Draw::Texture *texture = CreateTextureFromFileData(draw, buffer, fileSize, type, generateMips, filename, maxWidth, maxHeight);
 	delete[] buffer;
 	return texture;
 }

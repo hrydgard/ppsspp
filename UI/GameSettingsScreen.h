@@ -71,11 +71,6 @@ private:
 	std::string memstickDisplay_;
 
 	// Global settings handlers
-	void OnChangeQuickChat0(UI::EventParams &e);
-	void OnChangeQuickChat1(UI::EventParams &e);
-	void OnChangeQuickChat2(UI::EventParams &e);
-	void OnChangeQuickChat3(UI::EventParams &e);
-	void OnChangeQuickChat4(UI::EventParams &e);
 	void OnChangeBackground(UI::EventParams &e);
 	void OnRestoreDefaultSettings(UI::EventParams &e);
 	void OnRenderingBackend(UI::EventParams &e);

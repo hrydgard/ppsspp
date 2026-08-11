@@ -18,7 +18,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/TimeUtil.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 
@@ -37,7 +37,6 @@
 
 GPUStatistics gpuStats;
 GPUCommon *gpu;
-GPUDebugInterface *gpuDebug;
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -81,7 +80,6 @@ bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
 	GPUCommon *createdGPU = CreateGPUCore(gpuCore, ctx, draw);
 
 	gpu = createdGPU;
-	gpuDebug = createdGPU;
 
 	return gpu != nullptr;
 }
@@ -93,7 +91,6 @@ bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
 void GPU_Shutdown() {
 	delete gpu;
 	gpu = nullptr;
-	gpuDebug = nullptr;
 }
 
 const char *RasterChannelToString(RasterChannel channel) {

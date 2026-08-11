@@ -125,7 +125,7 @@ allocate:
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
-				if (mr[mipsReg].loc == ML_MEM && mipsReg < TEMP0) {
+				if (mipsReg < TEMP0 && mr[mipsReg].loc == ML_MEM) {
 					emit_->VLDR((ARMReg)(reg + S0), CTXREG, GetMipsRegOffset(mipsReg));
 				}
 			}

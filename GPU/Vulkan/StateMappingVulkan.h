@@ -34,7 +34,6 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int destColor : 5;  // VkBlendFactor
 	unsigned int srcAlpha : 5;  // VkBlendFactor
 	unsigned int destAlpha : 5;  // VkBlendFactor
-	// bool useBlendConstant : 1;  // sacrifice a bit to cheaply check if we need to update the blend color
 	unsigned int blendOpColor : 3;  // VkBlendOp
 	unsigned int blendOpAlpha : 3;  // VkBlendOp
 	unsigned int logicOpEnable : 1;
@@ -53,14 +52,18 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int stencilDepthFailOp : 4;  // VkStencilOp 
 
 	// We'll use dynamic state for writemask, reference and comparemask to start with,
-	// and viewport/scissor.
+	// and viewport/scissor. More dynamic state requires extensions.
 
 	// Rasterizer
 	unsigned int cullMode : 2;  // VkCullModeFlagBits 
 	unsigned int topology : 4;  // VkPrimitiveTopology 
 
 	bool operator < (const VulkanPipelineRasterStateKey &other) const {
-		size_t size = sizeof(VulkanPipelineRasterStateKey);
+		constexpr size_t size = sizeof(VulkanPipelineRasterStateKey);
 		return memcmp(this, &other, size) < 0;
+	}
+	bool operator == (const VulkanPipelineRasterStateKey &other) const {
+		constexpr size_t size = sizeof(VulkanPipelineRasterStateKey);
+		return memcmp(this, &other, size) == 0;
 	}
 };

@@ -25,15 +25,6 @@ inline void fast_matrix_mul_4x4(float *dest, const float *a, const float *b) {
 
 #elif PPSSPP_ARCH(LOONGARCH64_LSX)
 
-inline __m128 __lsx_vreplfr2vr_s(float val) {
-	typedef union {
-		int32_t i;
-		float f;
-	} FloatInt;
-	FloatInt tmpval = {.f = val};
-	return (__m128)__lsx_vreplgr2vr_w(tmpval.i);
-}
-
 inline void fast_matrix_mul_4x4(float *dest, const float *a, const float *b) {
 	__m128 a_col_1 = (__m128)__lsx_vld(a, 0);
 	__m128 a_col_2 = (__m128)__lsx_vld(a + 4, 0);

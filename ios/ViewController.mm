@@ -5,7 +5,6 @@
 // Modified by xSacha
 // Reworked by hrydgard
 
-#import "AppDelegate.h"
 #import "ViewController.h"
 #import "iOSCoreAudio.h"
 
@@ -18,7 +17,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/GPU/OpenGL/OpenGLGraphicsContext.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
@@ -30,10 +29,11 @@
 #include "Common/TimeUtil.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/EmuThread.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
@@ -41,71 +41,17 @@
 #error Must be built with ARC, please revise the flags for ViewController.mm to include -fobjc-arc.
 #endif
 
-class IOSGLESContext : public GraphicsContext {
-public:
-	IOSGLESContext() {
-		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext(false);
-		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
-		SetGPUBackend(GPUBackend::OPENGL);
-		bool success = draw_->CreatePresets();
-		_assert_msg_(success, "Failed to compile preset shaders");
-	}
-	~IOSGLESContext() {
-		delete draw_;
-	}
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
-
-	void Resize() override {}
-	void Shutdown() override {}
-
-	void BeginShutdown() {
-		renderManager_->SetSkipGLCalls();
-	}
-
-	void ThreadStart() override {
-		renderManager_->ThreadStart(draw_);
-	}
-
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
-	}
-
-	void ThreadEnd() override {
-		renderManager_->ThreadEnd();
-	}
-
-	void StartThread() {
-		renderManager_->StartThread();
-	}
-
-private:
-	Draw::DrawContext *draw_;
-	GLRenderManager *renderManager_;
-};
-
-static std::atomic<bool> exitRenderLoop;
-static std::atomic<bool> renderLoopRunning;
-static std::thread g_renderLoopThread;
+static std::thread g_emuThread;
 
 PPSSPPBaseViewController *sharedViewController;
 
 @interface PPSSPPViewControllerGL () {
-	IOSGLESContext *graphicsContext;
-
-	int imageRequestId;
-	NSString *imageFilename;
+	GraphicsContext *graphicsContext;
 }
 
 @property (nonatomic, strong) EAGLContext *glContext;
 @property (nonatomic, strong) GLKView *glView;
 @property (nonatomic, strong) CADisplayLink *displayLink;
-@property (nonatomic, assign) NSTimeInterval lastTimestamp;
-
-@property (nonatomic, strong) EAGLContext* context;
 
 @end
 
@@ -119,61 +65,28 @@ PPSSPPBaseViewController *sharedViewController;
 	return self;
 }
 
-// The actual rendering is NOT on this thread, this is the emu thread
-// that runs game logic.
-void GLRenderLoop(IOSGLESContext *graphicsContext) {
-	SetCurrentThreadName("EmuThreadGL");
-	renderLoopRunning = true;
-
-	NativeInitGraphics(graphicsContext);
-
-	INFO_LOG(Log::System, "Emulation thread starting\n");
-	while (!exitRenderLoop) {
-		NativeFrame(graphicsContext);
-	}
-
-	INFO_LOG(Log::System, "Emulation thread shutting down\n");
-	NativeShutdownGraphics();
-
-	// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
-	INFO_LOG(Log::System, "Emulation thread stopping\n");
-
-	exitRenderLoop = false;
-	renderLoopRunning = false;
-}
-
 - (bool)runGLRenderLoop {
 	if (!graphicsContext) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(Log::G3D, "runGLRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
-	if (g_renderLoopThread.joinable()) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
+	if (g_emuThread.joinable()) {
+		ERROR_LOG(Log::G3D, "runGLRenderLoop: Already running");
 		return false;
 	}
 
-	_dbg_assert_(!renderLoopRunning);
-	_dbg_assert_(!exitRenderLoop);
-
-	graphicsContext->StartThread();
-
-	g_renderLoopThread = std::thread(GLRenderLoop, graphicsContext);
+	g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext){
+		NativeFrame(graphicsContext);
+		return true;
+	});
 	return true;
 }
 
 - (void)requestExitGLRenderLoop {
-	if (!renderLoopRunning) {
-		ERROR_LOG(Log::System, "Render loop already exited");
-		return;
-	}
-	_assert_(g_renderLoopThread.joinable());
-	exitRenderLoop = true;
-	graphicsContext->ThreadFrameUntilCondition([]() -> bool {
-		return !renderLoopRunning.load();
-	});
-	g_renderLoopThread.join();
-	_assert_(!g_renderLoopThread.joinable());
+	_assert_(g_emuThread.joinable());
+	EmuThread_Join(graphicsContext, g_emuThread);
+	_assert_(!g_emuThread.joinable());
 }
 
 - (void)viewDidLoad {
@@ -214,19 +127,18 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 	}
 	[self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
 
-	self.lastTimestamp = 0;
-
-	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
-	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 
-	graphicsContext = new IOSGLESContext();
+	graphicsContext = new OpenGLGraphicsContext();
 
-	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
-	}, nullptr);
+	std::string errorMessage;
+	if (!graphicsContext->InitAPI(nullptr, nullptr, &errorMessage)) {
+		ERROR_LOG(Log::G3D, "InitAPI failed: %s", errorMessage.c_str());
+	}
 
-	graphicsContext->ThreadStart();
+	if (!graphicsContext->InitSurface(WINDOWSYSTEM_NONE, nullptr, nullptr, &errorMessage)) {
+		ERROR_LOG(Log::G3D, "InitSurface failed: %s", errorMessage.c_str());
+	}
 
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
@@ -239,7 +151,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	[self hideKeyboard];
 
-	// Initialize the motion manager for accelerometer control.
 	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
@@ -250,14 +161,12 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 - (void)viewWillAppear:(BOOL)animated {
 	[super viewWillAppear:animated];
-	// Resume display link unless explicitly paused
-	INFO_LOG(Log::G3D, "viewWillAppear - resuming display link");
+	INFO_LOG(Log::G3D, "viewWillAppear");
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
 	[super viewWillDisappear:animated];
-	// stop rendering while not visible
-	INFO_LOG(Log::G3D, "viewWillDisappear - pausing display link");
+	INFO_LOG(Log::G3D, "viewWillDisappear");
 }
 
 - (void)dealloc {
@@ -282,16 +191,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 }
 
 - (void)displayLinkFired:(CADisplayLink *)dl {
-	// compute delta time
-	NSTimeInterval timestamp = dl.timestamp;
-	NSTimeInterval delta = 0;
-	if (self.lastTimestamp > 0) {
-		delta = timestamp - self.lastTimestamp;
-	} else {
-		delta = dl.duration; // fallback
-	}
-	self.lastTimestamp = timestamp;
-
 	// Ensure context is current before drawing
 	[EAGLContext setCurrentContext:self.glContext];
 
@@ -300,12 +199,14 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect {
-	if (!renderLoopRunning) {
+	if (!g_emuThread.joinable()) {
 		INFO_LOG(Log::G3D, "Ignoring drawInRect");
 		return;
 	}
 	if (sharedViewController) {
-		graphicsContext->ThreadFrame(true);
+		if (!graphicsContext->ThreadFrame()) {
+			INFO_LOG(Log::G3D, "ThreadFrame returned false");
+		}
 	}
 }
 
@@ -340,23 +241,8 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 
 	_dbg_assert_(graphicsContext);
 
-	if (self.context) {
-		if ([EAGLContext currentContext] == self.context) {
-			[EAGLContext setCurrentContext:nil];
-		}
-		self.context = nil;
-	}
-
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
-
-	graphicsContext->BeginShutdown();
-	// Skipping GL calls here because the old context is lost.
-	graphicsContext->ThreadFrameUntilCondition([]() -> bool {
-		return !renderLoopRunning;
-	});
-	graphicsContext->ThreadEnd();
-
-	graphicsContext->Shutdown();
+	graphicsContext->ShutdownSurface();
+	graphicsContext->ShutdownAPI();
 	delete graphicsContext;
 	graphicsContext = nullptr;
 	INFO_LOG(Log::System, "Done shutting down GL");
@@ -365,10 +251,6 @@ void GLRenderLoop(IOSGLESContext *graphicsContext) {
 - (void)bindDefaultFBO
 {
 	[(GLKView*)self.glView bindDrawable];
-}
-
-- (UIView *)getView {
-	return [self view];
 }
 
 // Can't consolidate this yet.

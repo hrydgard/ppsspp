@@ -107,7 +107,7 @@ inline void Uint8x3ToFloat4(float f[4], uint32_t u) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
 	f[2] = ((u >> 16) & 0xFF) * (1.0f / 255.0f);
-	f[3] = ((u >> 24) & 0xFF) * (1.0f / 255.0f);
+	f[3] = 0.0f;
 #endif
 }
 

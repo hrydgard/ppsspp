@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -193,10 +194,9 @@ public:
 		if (module_) {
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
-			vulkan_->Delete().QueueCallback([](VulkanContext *context, void *m) {
-				auto module = (Promise<VkShaderModule> *)m;
+			vulkan_->Delete().QueueCallback([module = module_](VulkanContext *context) {
 				delete module;
-			}, module_);
+			});
 		}
 	}
 	Promise<VkShaderModule> *Get() const { return module_; }
@@ -473,6 +473,7 @@ public:
 
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
+		_dbg_assert_(curPipeline_->pipeline);
 	}
 
 	void BindVertexBuffer(Buffer *vertexBuffer, int offset) override {
@@ -598,6 +599,8 @@ private:
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
+
+	mutable std::unordered_map<DataFormat, uint32_t> dataFormatSupportCache_;
 
 	VulkanPushPool *push_ = nullptr;
 
@@ -833,7 +836,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 	}
 	VulkanBarrierBatch barrier;
 	if (!vkTex_->CreateDirect(width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, &barrier, swizzle)) {
-		ERROR_LOG(Log::G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
+		ERROR_LOG(Log::G3D,  "Failed to create VKTexture: %dx%dx%d fmt %s, %d levels, tag '%s'", width_, height_, depth_, VulkanFormatToString(vulkanFormat), mipLevels_, desc.tag);
 		return false;
 	}
 	barrier.Flush(cmd);
@@ -912,23 +915,26 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread, frameTimeHistory_) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
-	// Make sure that the surface has been initialized.
-	_dbg_assert_(vulkan->GetAvailablePresentModes().size() > 0);
+	// Make sure that the surface has been initialized. Doesn't apply when a pluggable presentation
+	// backend (see VulkanPresentation.h) is in use instead of a real swapchain/surface - there's no
+	// present mode concept there at all.
+	_dbg_assert_(vulkan->GetPresentation() || vulkan->GetAvailablePresentModes().size() > 0);
 
+	caps_.fragmentShaderFullPrecisionFloat = true;
 	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
-	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.standard.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
 
 	caps_.maxTextureSize = vulkan->GetPhysicalDeviceProperties().properties.limits.maxImageDimension2D;
-	caps_.maxClipPlanes = vulkan->GetPhysicalDeviceProperties().properties.limits.maxClipDistances;
-
-	// Comment out these two to test geometry shader culling on any geometry shader-supporting hardware.
-	caps_.clipDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance != 0;
-	caps_.cullDistanceSupported = vulkan->GetDeviceFeatures().enabled.standard.shaderCullDistance != 0;
+	if (vulkan->GetDeviceFeatures().enabled.standard.shaderClipDistance) {
+		caps_.maxClipDistances = vulkan->GetPhysicalDeviceProperties().properties.limits.maxClipDistances;
+	}
+	if (vulkan->GetDeviceFeatures().enabled.standard.shaderCullDistance) {
+		caps_.maxCullDistances = vulkan->GetPhysicalDeviceProperties().properties.limits.maxCullDistances;
+	}
 
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
@@ -941,7 +947,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.texture3DSupported = true;
 	caps_.textureDepthSupported = true;
 	caps_.fragmentShaderInt32Supported = true;
-	caps_.textureNPOTFullySupported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
 	caps_.fragmentShaderStencilWriteSupported = vulkan->Extensions().EXT_shader_stencil_export;
 	caps_.blendMinMaxSupported = true;
@@ -949,21 +954,30 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
 	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
 	caps_.textureSwizzleSupported = true;
+	caps_.samplerLodControl = true;
 
 	// Note that it must also be enabled on the pipelines (which we do).
 	caps_.provokingVertexLast = vulkan->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast;
 
+	caps_.fullScreenExclusiveSupported = vulkan->Extensions().EXT_full_screen_exclusive;
 	// Present mode stuff
 	caps_.presentMaxInterval = 1;
 	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
 	caps_.presentModesSupported = (PresentMode)0;
 
-	for (auto mode : vulkan->GetAvailablePresentModes()) {
-		switch (mode) {
-		case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
-		case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
-		case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
-		default: break;  // Ignore any other modes.
+	if (vulkan->GetPresentation()) {
+		// No real present modes exist in this model (the host, e.g. libretro, owns real presentation
+		// and controls its own timing) - we always hand back one finished frame at a time serially,
+		// which is closest in spirit to FIFO.
+		caps_.presentModesSupported = PresentMode::FIFO;
+	} else {
+		for (auto mode : vulkan->GetAvailablePresentModes()) {
+			switch (mode) {
+			case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
+			case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
+			case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
+			default: break;  // Ignore any other modes.
+			}
 		}
 	}
 
@@ -1006,10 +1020,13 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	// Only support MSAA levels that have support for all three of color, depth, stencil.
 
 	bool multisampleAllowed = true;
+	bool turnip = false;
 
     caps_.deviceID = deviceProps.deviceID;
 
     if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+		turnip = containsNoCase(deviceProps.deviceName, "turnip");
+
 		if (caps_.deviceID < 0x6000000) { // On sub 6xx series GPUs, disallow multisample.
 			INFO_LOG(Log::G3D, "Multisampling was disabled due to old driver version (Adreno)");
 			multisampleAllowed = false;
@@ -1025,7 +1042,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
 		// Known working on driver 0x801EA000 and Adreno 620.
-		if (deviceProps.driverVersion < 0x801EA000 || deviceProps.deviceID < 0x06000000)
+		if (!turnip && (deviceProps.driverVersion < 0x801EA000 || deviceProps.deviceID < 0x06000000))
 			bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
 
 		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
@@ -1065,12 +1082,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			bugs_.Infest(Bugs::EMPTY_RENDERPASS_BROKEN_MALI);
 		}
 
-		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
-		// Also seen to cause weird issues on 18, so let's lump it in.
-		if (majorVersion <= 18 || isOldVersion) {
-			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
-		}
-
 		// Attempt to workaround #17386
 		if (isOldVersion) {
 			if (!strcmp(deviceProps.deviceName, "Mali-T880") ||
@@ -1098,7 +1109,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		WARN_LOG(Log::G3D, "KHR_create_renderpass2 not supported, disabling multisampling");
 		multisampleAllowed = false;
 	} else {
-		_dbg_assert_(vkCreateRenderPass2 != nullptr);
+		// This is hit using a replacement adreno driver, "EggNS mesa skyport".
+		// _dbg_assert_(vkCreateRenderPass2 != nullptr);
 	}
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
@@ -1126,7 +1138,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	device_ = vulkan->GetDevice();
 
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, usage);
+	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, 32, usage);
 
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image 0
@@ -1137,7 +1149,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
 		bindings[1 + i] = BindingType::COMBINED_IMAGE_SAMPLER;
 	}
-	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), caps_.geometryShaderSupported, "thin3d_layout");
+	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), "thin3d_layout");
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -1241,8 +1253,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		vkshader->AddRef();
 		pipeline->deps.push_back(vkshader);
 		if (vkshader->GetStage() == ShaderStage::Vertex) {
+			_dbg_assert_(!gDesc.vertexShader);  // can't have two
 			gDesc.vertexShader = vkshader->Get();
 		} else if (vkshader->GetStage() == ShaderStage::Fragment) {
+			_dbg_assert_(!gDesc.fragmentShader);  // can't have two
 			gDesc.fragmentShader = vkshader->Get();
 		} else {
 			ERROR_LOG(Log::G3D, "Bad stage");
@@ -1296,6 +1310,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	}
 
 	pipeline->pipeline = renderManager_.CreateGraphicsPipeline(&gDesc, pipelineFlags, 1 << (size_t)RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT, false, tag ? tag : "thin3d");
+	_dbg_assert_(pipeline->pipeline);
 
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
@@ -1728,6 +1743,11 @@ std::vector<std::string> VKContext::GetExtensionList(bool device, bool enabledOn
 }
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
+	auto iter = dataFormatSupportCache_.find(fmt);
+	if (iter != dataFormatSupportCache_.end()) {
+		return iter->second;
+	}
+
 	VkFormat vulkan_format = DataFormatToVulkan(fmt);
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
@@ -1750,6 +1770,7 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
 		flags |= FMT_STORAGE_IMAGE;
 	}
+	dataFormatSupportCache_[fmt] = flags;
 	return flags;
 }
 
@@ -1768,10 +1789,9 @@ public:
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
-		buf_->Vulkan()->Delete().QueueCallback([](VulkanContext *vulkan, void *fb) {
-			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
-			delete vfb;
-		}, buf_);
+		buf_->Vulkan()->Delete().QueueCallback([buf = buf_](VulkanContext *vulkan) {
+			delete buf;
+		});
 		buf_ = nullptr;
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }

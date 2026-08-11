@@ -27,6 +27,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/StringUtils.h"
+#include "Common/UI/ScreenManager.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "Core/MIPS/MIPSTracer.h"
@@ -37,6 +38,7 @@
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DevScreens.h"
@@ -80,6 +82,9 @@ static std::string PostShaderTranslateName(std::string_view value) {
 		return std::string(value);
 	}
 }
+
+DeveloperToolsScreen::DeveloperToolsScreen(const Path &gamePath)
+	: UITabbedBaseDialogScreen(gamePath, &g_Config.iDeveloperSettingsCurrentTab, TabDialogFlags::AddAutoTitles) {}
 
 void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	using namespace UI;
@@ -180,6 +185,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			}
 		});
 	}
+
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
@@ -198,6 +204,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
 
+	list->Add(new CheckBox(&g_Config.bShowSaveLoadIndicator, dev->T("Show indicator when saving/loading")));
+
 #if PPSSPP_PLATFORM(ANDROID)
 	static const char *framerateModes[] = { "Default", "Request 60 Hz", "Force 60Hz" };
 	PopupMultiChoice *framerateMode = list->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));
@@ -208,7 +216,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 #endif
 
 #if PPSSPP_PLATFORM(IOS)
-	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""));
+	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""))->SetWrapText(true);
 	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
 		[=](UI::EventParams &) {
 		SetMemStickDirDarwin(GetRequesterToken());
@@ -231,13 +239,20 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 0.0f, "copyToClip");
 		}
 	});
+
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
+	list->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
+#endif
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
+	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new TouchTestScreen(gamePath_));
+		// Handle touchscreen test event
+	});
 	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
 	Choice *frameDumpTests = list->Add(new Choice(dev->T("Framedump tests")));
 	frameDumpTests->OnClick.Add([this](UI::EventParams &e) {
@@ -268,6 +283,7 @@ void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::EBOOT, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PRX, dev->T("PRX")));
 	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::Atrac3, dev->T("Atrac3/3+")));
+	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PBP_ISO, dev->T("ISO from PBP")));
 }
 
 void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
@@ -477,12 +493,13 @@ void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
+	auto nw = GetI18NCategory(I18NCat::NETWORKING);
 	list->Add(new ItemHeader(ms->T("Networking")));
 	list->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
-
 	// This is shared between RemoteISO and the remote debugger.
-	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
-	list->Add(portChoice);
+	list->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager()));
+	list->Add(new ItemHeader(nw->T("AdHoc server")));
+	list->Add(new CheckBox(&g_Config.bAdhocServerShowPlayerPorts, nw->T("Show player port numbers")));
 }
 
 // TODO: Make this generic
@@ -533,13 +550,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	if (draw->GetShaderLanguageDesc().bitwiseOps && !draw->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
 		// If the above if fails, the checkbox is redundant since it'll be force disabled anyway.
 		list->Add(new CheckBox(&g_Config.bUberShaderVertex, dev->T("Vertex")));
-	}
-#if !PPSSPP_PLATFORM(UWP)
-	if (g_Config.iGPUBackend != (int)GPUBackend::OPENGL || gl_extensions.GLES3) {
-#else
-	{
-#endif
-		list->Add(new CheckBox(&g_Config.bUberShaderFragment, dev->T("Fragment")));
 	}
 
 	// Experimental, allow some VR features without OpenXR
@@ -699,10 +709,6 @@ void DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 	screenManager()->push(new GPUDriverTestScreen());
 }
 
-void DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
-	screenManager()->push(new TouchTestScreen(gamePath_));
-}
-
 void DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 }
@@ -751,8 +757,8 @@ void DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
 		dev->T("Select the log file"),
 		"trace.txt",
 		BrowseFileType::ANY,
-		[this](const std::string &value, int) {
-			mipsTracer.set_logging_path(value);
+		[this](std::string_view value, int) {
+			mipsTracer.set_logging_path(std::string(value));
 			MIPSTracerPath_ = value;
 			MIPSTracerPath->SetRightText(MIPSTracerPath_);
 		}

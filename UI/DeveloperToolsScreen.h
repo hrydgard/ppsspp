@@ -6,7 +6,7 @@
 
 class DeveloperToolsScreen : public UITabbedBaseDialogScreen {
 public:
-	DeveloperToolsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath, TabDialogFlags::AddAutoTitles) {}
+	DeveloperToolsScreen(const Path &gamePath);
 
 	void CreateTabs() override;
 	void update() override;
@@ -39,7 +39,6 @@ private:
 	void OnMIPSTracerClearTracer(UI::EventParams &e);
 	void OnGPUDriverTest(UI::EventParams &e);
 	void OnMemstickTest(UI::EventParams &e);
-	void OnTouchscreenTest(UI::EventParams &e);
 	void OnCopyStatesToRoot(UI::EventParams &e);
 
 	void MemoryMapTest();

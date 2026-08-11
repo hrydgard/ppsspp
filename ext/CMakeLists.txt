@@ -36,13 +36,27 @@ add_subdirectory(at3_standalone)
 add_subdirectory(udis86)
 add_subdirectory(SPIRV-Cross-build)
 add_subdirectory(rcheevos-build)
+add_subdirectory(gason)
+add_subdirectory(vma)
+add_subdirectory(cityhash)
+add_subdirectory(lzma-sdk)
+add_subdirectory(basis_universal)
+add_subdirectory(pugixml)
+add_subdirectory(libkirk)
+add_subdirectory(sfmt19937)
+add_subdirectory(xbrz)
+
+add_library(xxhash STATIC
+	xxhash.c
+	xxhash.h
+)
 
 set(FT_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BZIP2 OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_PNG OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_HARFBUZZ OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BROTLI OFF CACHE BOOL "" FORCE)
-if(NOT LIBRETRO)
+if(NOT LIBRETRO AND NOT USE_SYSTEM_FREETYPE)
     add_subdirectory(freetype freetype-build)
 endif()
 
@@ -56,7 +70,13 @@ if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
 	add_subdirectory(discord-rpc-build)
 endif()
 
-add_subdirectory(libchdr-build)
+if(NOT USE_SYSTEM_LIBCHDR)
+	add_subdirectory(libchdr-build)
+endif()
+
+if(BUILD_BUNDLED_FFMPEG)
+	add_subdirectory(ffmpeg-build)
+endif()
 
 if(ANDROID)
     if (ARM64)

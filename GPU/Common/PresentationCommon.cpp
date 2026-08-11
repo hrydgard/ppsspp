@@ -54,7 +54,7 @@ void SetOverrideScreenFrame(const Bounds *bounds) {
 	}
 }
 
-FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
+FRect GetScreenFrame(bool ignoreScreenInsets, float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
 		0.0f,
 		0.0f,
@@ -62,21 +62,7 @@ FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
 		pixelHeight,
 	};
 
-	const bool applyInset = !ignoreInsets;
-
-	if (applyInset) {
-		// Remove the DPI scale to get back to pixels.
-		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
-		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
-		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
-		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
-
-		// Adjust left edge to compensate for cutouts (notches) if any.
-		rc.x += left;
-		rc.w -= (left + right);
-		rc.y += top;
-		rc.h -= (top + bottom);
-	}
+	const bool applyInset = !ignoreScreenInsets;
 
 	if (g_overrideScreenBounds) {
 		// Set rectangle to match central node. Here we ignore bIgnoreScreenInsets.
@@ -84,6 +70,23 @@ FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight) {
 		rc.y = g_screenBounds.y;
 		rc.w = g_screenBounds.w;
 		rc.h = g_screenBounds.h;
+	} else if (applyInset) {
+		// Remove the DPI scale to get back to pixels.
+		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
+		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
+		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
+		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
+
+		// NOTE: Similarly to what we do in UI, we disregard any bottom inset when in landscape mode.
+		if (g_display.GetDeviceOrientation() == DeviceOrientation::Landscape) {
+			bottom = 0.0f;
+		}
+
+		// Adjust left edge to compensate for cutouts (notches) if any.
+		rc.x += left;
+		rc.w -= (left + right);
+		rc.y += top;
+		rc.h -= (top + bottom);
 	}
 
 	return rc;
@@ -742,7 +745,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		}
 
 		// If we flipped, we rotate the other way.
-		if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
+		if ((flags & OutputFlags::BACKBUFFER_FLIPPED)) {
 			if ((rotation & 1) != 0)
 				rotation ^= 2;
 		}
@@ -781,7 +784,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	}
 
 	// Finally, we compensate the y vertex positions for the backbuffer for any flipping.
-	if ((flags & OutputFlags::POSITION_FLIPPED) || (flags & OutputFlags::BACKBUFFER_FLIPPED)) {
+	if (flags & OutputFlags::BACKBUFFER_FLIPPED) {
 		for (int i = 0; i < 4; i++) {
 			verts[i].y = -verts[i].y;
 		}
@@ -828,11 +831,8 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 
 	if (usePostShader) {
 		// When we render to temp framebuffers during post, we switch position, not UV.
-		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
-		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
-		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
-		float y0 = flipped ? 1.0f : -1.0f;
-		float y1 = flipped ? -1.0f : 1.0f;
+		float y0 = -1.0f;
+		float y1 = 1.0f;
 		verts[4] = {-1.0f, y0, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF}; // TL
 		verts[5] = {1.0f, y0, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF}; // TR
 		verts[6] = {-1.0f, y1, 0.0f, 0.0f, 1.0f, 0xFFFFFFFF}; // BL

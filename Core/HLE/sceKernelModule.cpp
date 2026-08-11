@@ -21,7 +21,6 @@
 #include "zlib.h"
 
 #include "Common/Data/Convert/SmallDataConvert.h"
-#include "Common/Data/Text/Parsers.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeSet.h"
@@ -31,6 +30,7 @@
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/StringWriter.h"
 
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -358,12 +358,14 @@ void PSPModule::GetLongInfo(char *ptr, int bufSize) const {
 	StringWriter w(ptr, bufSize);
 	w.F("%s: Version %d.%d. %d segments", nm.name, nm.version[1], nm.version[0], nm.nsegment).endl();
 	w.F("Memory block: %08x (%08x/%d bytes)", memoryBlockAddr, memoryBlockSize, memoryBlockSize).endl();
-	for (int i = 0; i < (int)nm.nsegment; i++) {
+	// nm.nsegment is attacker-controlled (up to u32 max) but segmentaddr/
+	// segmentsize are fixed 4-entry arrays; clamp like the other consumers.
+	for (int i = 0; i < (int)nm.nsegment && i < 4; i++) {
 		w.F("  %08x (%08x bytes)\n", nm.segmentaddr[i], nm.segmentsize[i]);
 	}
 	w.F("Text: %08x (%08x bytes)\n", nm.text_addr, nm.text_size);
 	w.F("Data: %08x (%08x bytes)\n", GetDataAddr(), nm.data_size);
-	w.F("BSS: % 08x(% 08x bytes)\n", GetBSSAddr(), nm.bss_size);
+	w.F("BSS: %08x (%08x bytes)\n", GetBSSAddr(), nm.bss_size);
 	w.F("Entry: %08x GP: %08x\n", nm.entry_addr, nm.gp_value);
 	w.F("Status: %08x\n", nm.status);
 }
@@ -434,18 +436,18 @@ static std::set<SceUID> loadedModules;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
-static void __KernelModuleInit()
-{
+static void __KernelModuleInit() {
 	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
 }
 
-void __KernelModuleDoState(PointerWrap &p)
-{
+void __KernelModuleDoState(PointerWrap &p) {
 	auto s = p.Section("sceKernelModule", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, actionAfterModule);
+
+	// TODO: Only needed during read, right?
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
 
 	if (s >= 2) {
@@ -463,15 +465,13 @@ void __KernelModuleDoState(PointerWrap &p)
 				}
 			}
 		}
-	}
-
-	if (g_Config.bFuncReplacements) {
-		MIPSAnalyst::ReplaceFunctions();
+		if (g_Config.bFuncReplacements) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
 	}
 }
 
-void __KernelModuleShutdown()
-{
+void __KernelModuleShutdown() {
 	loadedModules.clear();
 	MIPSAnalyst::Reset();
 	HLEPlugins::Unload();
@@ -768,6 +768,30 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 	}
 }
 
+// Used to add detail to the "Unknown syscall" log in HLE.cpp's GetSyscallFuncPointer - a call
+// through a still-unresolved import ends up as a generic "invalid syscall" opcode that no
+// longer carries the original module name/NID, but the (fixed, unique) address of the syscall
+// instruction itself does - it's exactly the stubAddr every pending FuncSymbolImport recorded
+// when it was written by WriteFuncMissingStub.
+bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
+		for (const auto &func : module->importedFuncs) {
+			if (func.stubAddr == stubAddr) {
+				*importModuleName = func.moduleName;
+				*nid = func.nid;
+				*importingModuleName = module->GetName();
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 void PSPModule::Cleanup() {
 	MIPSAnalyst::ForgetFunctions(textStart, textEnd);
 
@@ -813,8 +837,8 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		entryPos += entry->size;
 
 		const char *modulename;
-		if (Memory::IsValidAddress(entry->name)) {
-			modulename = Memory::GetCharPointer(entry->name);
+		if (Memory::IsValidNullTerminatedString(entry->name)) {
+			modulename = Memory::GetCharPointerUnchecked(entry->name);
 		} else {
 			modulename = "(invalidname)";
 			needReport = true;
@@ -910,7 +934,9 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 
 			char temp[512];
 			const char *modulename;
-			if (Memory::IsValidAddress(entry->name)) {
+			// Check for NUL termination within the mapped region so %s below
+			// can't read past guest RAM on a crafted, unterminated name.
+			if (Memory::IsValidNullTerminatedString(entry->name)) {
 				modulename = Memory::GetCharPointerUnchecked(entry->name);
 			} else {
 				modulename = "(invalidname)";
@@ -1113,10 +1139,17 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			_assert_msg_(temp != nullptr, "Failed to allocate gzip decompression buffer (decryptedSize: %d)", decryptedSize);
 			memcpy(temp, ptr, decryptedSize);
 			int outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
-			if (outBytes < 0) {
-				ERROR_LOG(Log::sceModule, "Module gzip decompression failed!");
-			}
 			free(temp);
+			if (outBytes < 0) {
+				// Not necessarily actually gzip - some kd/ system modules (and possibly VSH
+				// modules) use KL4E compression instead, which we don't support decompressing.
+				// Bail out cleanly here rather than falling through to parse whatever's left
+				// in the buffer (still compressed, not a valid ELF) as if it were real code.
+				*error_string = StringFromFormat("Module '%s' decompression failed", head->modname);
+				// TODO: Might be the wrong error code.
+				error = SCE_KERNEL_ERROR_FILEERR;
+				return nullptr;
+			}
 			INFO_LOG(Log::sceModule, "gzip is enabled in '%s', decompressing (%d -> %d bytes, bufmax=%d).", head->modname, decryptedSize, outBytes, maxElfSize);
 		}
 
@@ -1275,6 +1308,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
+	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0) {
+		// Used by the PSP's Visual Shell (VSH/XMB) and modules it loads, such as vshmain.prx.
+		// We don't do anything special with this yet, just recognizing it for now.
+		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
+	}
 	module->nm.version[0] = modinfo->moduleVersion & 0xFF;
 	module->nm.version[1] = modinfo->moduleVersion >> 8;
 	module->nm.data_size = 0;
@@ -1874,11 +1912,11 @@ int __KernelGPUReplay() {
 		Core_Stop();
 	}
 
-	if (PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
+	if (result == GPURecord::ReplayResult::Done && PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
-		System_SendDebugScreenshot(std::string((const char *)&topaddr[0], linesize * 272), 272);
+		System_SendDebugScreenshot(&topaddr[0], linesize, 272);
 		Core_Stop();
 	}
 
@@ -2501,7 +2539,7 @@ static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 }
 
 // Pretty sure this is a badly brute-forced function name...
-static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
+SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
 {
 	if (flags != 0) {
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);
@@ -2613,6 +2651,38 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	return hleNoLog(0);
 }
 
+bool DescribeKernelModuleAddress(u32 address, char *buffer, size_t bufferSize) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module)
+			continue;
+
+		const NativeModule &nm = module->nm;
+		u32 dataAddr = module->GetDataAddr();
+		u32 bssAddr = module->GetBSSAddr();
+		if (nm.text_size != 0 && address >= nm.text_addr && address < nm.text_addr + nm.text_size) {
+			snprintf(buffer, bufferSize, "%s.text+%x", nm.name, address - nm.text_addr);
+			return true;
+		}
+		if (nm.data_size != 0 && address >= dataAddr && address < dataAddr + nm.data_size) {
+			snprintf(buffer, bufferSize, "%s.data+%x", nm.name, address - dataAddr);
+			return true;
+		}
+		if (nm.bss_size != 0 && address >= bssAddr && address < bssAddr + nm.bss_size) {
+			snprintf(buffer, bufferSize, "%s.bss+%x", nm.name, address - bssAddr);
+			return true;
+		}
+		for (int i = 0; i < (int)nm.nsegment && i < 4; i++) {
+			if (nm.segmentsize[i] != 0 && address >= nm.segmentaddr[i] && address < nm.segmentaddr[i] + nm.segmentsize[i]) {
+				snprintf(buffer, bufferSize, "%s.seg%d+%x", nm.name, i, address - nm.segmentaddr[i]);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 //fix for tiger x dragon
 static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u32 optionAddr) {
 	return sceKernelLoadModule(name, flags, optionAddr);
@@ -2639,7 +2709,6 @@ const HLEFunction ModuleMgrForUser[] = {
 	{0XFBE27467, nullptr,                                               "ModuleMgrForUser_FBE27467",               '?', ""       },
 };
 
-
 const HLEFunction ModuleMgrForKernel[] = {
 	{0x50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
@@ -2649,6 +2718,7 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
+	{0xD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser() {

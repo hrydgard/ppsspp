@@ -315,14 +315,13 @@ static void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<MsgPipe, WAITTYPE_MSGPIPE>(threadID);
 }
 
-static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr)
-{
+// Assumes timeout is valid or 0.
+static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr) {
 	if (timeoutPtr == 0 || waitTimer == -1)
 		return true;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
-	if (micro <= 2)
-	{
+	int micro = (int)Memory::ReadUnchecked_U32(timeoutPtr);
+	if (micro <= 2) {
 		// Don't wait or reschedule, just timeout immediately.
 		return false;
 	}
@@ -779,8 +778,8 @@ static int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize
 	return 0;
 }
 
-static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
-{
+// Assumes timeoutPtr is valid or 0.
+static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll) {
 	hleEatCycles(2400);
 
 	bool needsResched = false;
@@ -791,8 +790,7 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 	if (needsResched)
 		hleReSchedule(cbEnabled, "msgpipe data sent");
 
-	if (needsWait)
-	{
+	if (needsWait) {
 		if (__KernelSetMsgPipeTimeout(timeoutPtr))
 			__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), MSGPIPE_WAIT_VALUE_SEND, timeoutPtr, cbEnabled, "msgpipe send waited");
 		else
@@ -801,8 +799,7 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 	return result;
 }
 
-int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
-{
+int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr) {
 	u32 error = __KernelValidateSendMsgPipe(uid, sendBufAddr, sendSize, waitMode, resultAddr);
 	if (error != 0) {
 		return hleLogError(Log::sceKernel, error);
@@ -810,14 +807,16 @@ int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		return hleLogError(Log::sceKernel, error, "bad msgpipe id");
+	}
+	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad timeout address");
 	}
 
 	int result = __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, false, false);
 	return hleLogDebug(Log::sceKernel, result);
 }
 
-int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
-{
+int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr) {
 	u32 error = __KernelValidateSendMsgPipe(uid, sendBufAddr, sendSize, waitMode, resultAddr);
 	if (error != 0) {
 		return hleLogError(Log::sceKernel, error);
@@ -825,6 +824,9 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		return hleLogError(Log::sceKernel, error, "bad msgpipe id");
+	}
+	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad timeout address");
 	}
 
 	// TODO: Verify callback behavior.
@@ -833,8 +835,7 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 	return hleLogDebug(Log::sceKernel, result);
 }
 
-int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr)
-{
+int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr) {
 	u32 error = __KernelValidateSendMsgPipe(uid, sendBufAddr, sendSize, waitMode, resultAddr, true);
 	if (error != 0) {
 		return hleLogError(Log::sceKernel, error);
@@ -848,7 +849,7 @@ int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitM
 	return hleLogDebug(Log::sceKernel, result);
 }
 
-static int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, bool tryMode = false)
+static int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, int waitMode, bool tryMode = false)
 {
 	if (receiveSize & 0x80000000)
 	{
@@ -907,7 +908,7 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 
 int sceKernelReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
 {
-	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode, resultAddr);
+	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode);
 	if (error != 0) {
 		return hleLogError(Log::sceKernel, error);
 	}
@@ -922,7 +923,7 @@ int sceKernelReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32
 
 int sceKernelReceiveMsgPipeCB(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
 {
-	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode, resultAddr);
+	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode);
 	if (error != 0) {
 		return hleLogError(Log::sceKernel, error);
 	}
@@ -939,7 +940,7 @@ int sceKernelReceiveMsgPipeCB(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u
 
 int sceKernelTryReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr)
 {
-	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode, resultAddr, true);
+	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode, true);
 	if (error != 0) {
 		return hleLogError(Log::sceKernel, error);
 	}
@@ -966,10 +967,10 @@ int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThr
 	if (!m->sendWaitingThreads.empty() || !m->receiveWaitingThreads.empty())
 		hleEatCycles(4000);
 
-	if (Memory::IsValidAddress(numSendThreadsAddr))
-		Memory::Write_U32((u32) m->sendWaitingThreads.size(), numSendThreadsAddr);
-	if (Memory::IsValidAddress(numReceiveThreadsAddr))
-		Memory::Write_U32((u32) m->receiveWaitingThreads.size(), numReceiveThreadsAddr);
+	if (Memory::IsValid4AlignedAddress(numSendThreadsAddr))
+		Memory::WriteUnchecked_U32((u32) m->sendWaitingThreads.size(), numSendThreadsAddr);
+	if (Memory::IsValid4AlignedAddress(numReceiveThreadsAddr))
+		Memory::WriteUnchecked_U32((u32) m->receiveWaitingThreads.size(), numReceiveThreadsAddr);
 
 	for (size_t i = 0; i < m->sendWaitingThreads.size(); i++)
 		m->sendWaitingThreads[i].Cancel(uid, SCE_KERNEL_ERROR_WAIT_CANCEL);

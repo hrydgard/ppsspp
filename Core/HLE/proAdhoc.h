@@ -883,7 +883,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 * Send chat or get that
 * @param std::string ChatString 
 */
-void sendChat(const std::string &chatString);
+void sendChat(std::string_view chatString);
 std::vector<std::string> getChatLog();
 int GetChatChangeID();
 int GetChatMessageCount();
@@ -1321,6 +1321,12 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  * @return true on success
  */
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
+
+/**
+ * Fix mac address if the game messed with the first byte
+ * @param mac Peer MAC Address
+ */
+void fixGameMac(SceNetEtherAddr *mac);
 
 /**
  * Check whether Network Name contains only valid symbols

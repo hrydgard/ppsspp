@@ -124,20 +124,18 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	case GE_FORMAT_DEPTH16:
 		// Decode depth buffer.
-		writer.C("  float depth = (color.x - z_offset) * z_scale * 65535.0f;\n");
-
+		writer.C("  float depth = clamp(color.x * 65535.0, 0.0, 65535.0);\n");  // Probably don't need to clamp here.
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
 			// TODO: Make "depal without a CLUT" a separate concept, to avoid redundantly creating a CLUT texture.
-			writer.C("  int idepth = int(clamp(depth, 0.0, 65535.0));\n");
+			writer.C("  int idepth = int(depth);\n");
 			writer.C("  float r = float(idepth & 31) / 31.0;\n");
 			writer.C("  float g = float((idepth >> 5) & 63) / 63.0;\n");
 			writer.C("  float b = float((idepth >> 11) & 31) / 31.0;\n");
 			writer.C("  vec4 outColor = vec4(r, g, b, 1.0);\n");
 			return;
 		}
-
-		writer.C("  int index = int(clamp(depth, 0.0, 65535.0));\n");
+		writer.C("  int index = int(depth);\n");
 		break;
 	default:
 		break;
@@ -166,12 +164,6 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 
 	const int shift = config.shift;
 	const int mask = config.mask;
-
-	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
-		DepthScaleFactors factors = GetDepthScaleFactors(gstate_c.UseFlags());
-		writer.ConstFloat("z_scale", factors.ScaleU16());
-		writer.ConstFloat("z_offset", factors.Offset());
-	}
 
 	writer.C("  vec4 index = ").SampleTexture2D("tex", "v_texcoord").C(";\n");
 
@@ -273,8 +265,8 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		// TODO: I think we can handle most scenarios here, but texturing from depth buffers requires an extension on ES 2.0 anyway.
 		if (config.bufferFormat == GE_FORMAT_DEPTH16 && config.textureFormat == GE_TFMT_5650) {
 			// Convert depth to 565, without going through a CLUT.
-			writer.C("  float depth = (index.x - z_offset) * z_scale;\n");
-			writer.C("  float idepth = floor(clamp(depth, 0.0, 65535.0));\n");
+			writer.C("  float depth = index.x * 65535.0;\n");
+			writer.C("  float idepth = floor(clamp(depth, 0.0, 65535.0));\n");  // clamping should no longer be necessary.
 			writer.C("  float r = mod(idepth, 32.0) / 31.0;\n");
 			writer.C("  float g = mod(floor(idepth / 32.0), 64.0) / 63.0;\n");
 			writer.C("  float b = mod(floor(idepth / 2048.0), 32.0) / 31.0;\n");
@@ -284,7 +276,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 
 		if (shift < 16) {
 			index_multiplier = 1.0f / (float)(1 << shift);
-			truncate_cpy(lookupMethod, "((index.x - z_offset) * z_scale)");
+			truncate_cpy(lookupMethod, "(index.x * 65535.0)");
 
 			if ((mask & (mask + 1)) != 0) {
 				// But we'll try with the above anyway.

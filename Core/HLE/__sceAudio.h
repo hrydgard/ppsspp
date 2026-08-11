@@ -46,6 +46,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
 void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
+void __AudioCPUMHzChange();
+
 // AUDIO Dumping stuff
 void __StartLogAudio(const Path &filename);
 void __StopLogAudio();

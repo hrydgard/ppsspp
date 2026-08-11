@@ -34,7 +34,7 @@ namespace SaveState {
 		WARNING,
 		SUCCESS,
 	};
-	typedef std::function<void(Status status, std::string_view message)> Callback;
+	typedef std::function<void(Status status, std::string_view message, std::string_view metadata)> Callback;
 
 	static const char * const SCREENSHOT_EXTENSION = "jpg";
 

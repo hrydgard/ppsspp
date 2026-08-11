@@ -361,6 +361,16 @@ void __UtilityDoState(PointerWrap &p) {
 	if (s >= 4) {
 		Do(p, hasAccessThread);
 		if (hasAccessThread) {
+			if (p.mode == p.MODE_READ && accessThread) {
+				// Do() below would delete the stale host object without Forget(),
+				// letting ~HLEHelperThread run __KernelDeleteThread and free kernel
+				// memory using pre-load ids/blocks against the restored kernel
+				// state. If an id or block was recycled, that kills a live thread
+				// or frees a live allocation. Same pattern as __IoDoState.
+				accessThread->Forget();
+				delete accessThread;
+				accessThread = nullptr;
+			}
 			Do(p, accessThread);
 			if (p.mode == p.MODE_READ)
 				accessThreadState = "from save state";
@@ -1419,7 +1429,7 @@ static int sceUtilityGameSharingUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogError(Log::sceUtility, 0, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 static int sceUtilityGameSharingGetStatus() {
@@ -1431,30 +1441,21 @@ static int sceUtilityGameSharingGetStatus() {
 	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceUtilityLoadUsbModule(u32 module)
-{
-	if (module < 1 || module > 5)
-	{
-		ERROR_LOG(Log::sceUtility, "sceUtilityLoadUsbModule(%i): invalid module id", module);
+static u32 sceUtilityLoadUsbModule(u32 module) {
+	if (module < 1 || module > 5) {
+		return hleLogError(Log::sceUtility, 0, "invalid module id");
 	}
-
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceUtilityUnloadUsbModule(u32 module)
-{
-	if (module < 1 || module > 5)
-	{
-		ERROR_LOG(Log::sceUtility, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
+static u32 sceUtilityUnloadUsbModule(u32 module) {
+	if (module < 1 || module > 5) {
+		return hleLogError(Log::sceUtility, 0, "invalid module id");
 	}
-
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
-const HLEFunction sceUtility[] =
-{
+const HLEFunction sceUtility[] = {
 	{0X1579A159, &WrapU_U<sceUtilityLoadNetModule>,                "sceUtilityLoadNetModule",                'x', "x"  },
 	{0X64D50C56, &WrapU_U<sceUtilityUnloadNetModule>,              "sceUtilityUnloadNetModule",              'x', "x"  },
 
@@ -1590,6 +1591,10 @@ const HLEFunction sceUtility[] =
 	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   },
 	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   },
 	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   },
+
+	{0x05e242a1, nullptr,                                          "sceUtility_05e242a1",                    '?', ""   },
+	{0x644b513b, nullptr,                                          "sceUtility_644b513b",                    '?', ""   },
+	{0x043ebe3e, nullptr,                                          "sceUtility_043ebe3e",                    '?', ""   },
 
 	// Fake functions for PPSSPP's use.
 	{0xC0DE0001, &WrapI_I<UtilityFinishDialog>,                    "__UtilityFinishDialog",                  'i', "i"  },

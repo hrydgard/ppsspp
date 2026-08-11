@@ -251,7 +251,11 @@ extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
 
 // For fast extension-enabled checks.
 struct VulkanExtensions {
+	// Instance extensions
+	bool KHR_get_surface_capabilities2;
 	bool EXT_debug_utils;
+
+	// Device extensions
 	bool KHR_maintenance1; // required for KHR_create_renderpass2
 	bool KHR_maintenance2;
 	bool KHR_maintenance3;
@@ -271,14 +275,24 @@ struct VulkanExtensions {
 	bool GOOGLE_display_timing;
 	bool EXT_provoking_vertex;
 	bool KHR_present_mode_fifo_latest_ready;
+	bool EXT_scalar_block_layout;
+	bool EXT_full_screen_exclusive;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 
 // Way to do a quick check before even attempting to load.
+void VulkanSetNativeLibDir(std::string_view nativeLibDir);
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 
 bool VulkanLoad(std::string *errorStr);
+// Alternative to VulkanLoad() for adopting a Vulkan loader that a host application (e.g. a libretro
+// frontend) already resolved for us, instead of dlopen/dlsym-ing the Vulkan loader library ourselves.
+// instance must already be a valid, live VkInstance - vkGetDeviceProcAddr can only be resolved through
+// vkGetInstanceProcAddr with a real instance, not NULL (see the Vulkan spec's vkGetInstanceProcAddr
+// "encodes the info from" table - only a handful of global commands are NULL-instance queryable, and
+// vkGetDeviceProcAddr isn't one of them).
+bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr);
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
 void VulkanFree();

@@ -128,11 +128,13 @@ static void SetupDebuggerLock() {
 }
 
 void HandleDebuggerRequest(const http::ServerRequest &request) {
-	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
-	if (!ws)
-		return;
-
 	SetCurrentThreadName("WebSocketDebugger");
+
+	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
+	if (!ws) {
+		return;
+	}
+
 	UpdateConnected(1);
 	SetupDebuggerLock();
 
@@ -188,7 +190,10 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		ws->Send(DebuggerErrorEvent("Bad message: binary WebSocket frames are not supported", LogLevel::LERROR));
 	});
 
-	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {
+	// Don't out-line the highActivity check, it needs to recompute on every lap.
+	constexpr float lowActivityPollTimeStep = 1.0f / 60.0f;
+	constexpr float highActivityPollTimeStep = 1.0f / 1000.0f;
+	while (ws->Process(highActivity ? highActivityPollTimeStep : lowActivityPollTimeStep)) {
 		std::lock_guard<std::mutex> guard(lifecycleLock);
 		// These send events that aren't just responses to requests
 
@@ -212,6 +217,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		if (stopRequested) {
 			ws->Close(net::WebSocketClose::GOING_AWAY);
 		}
+
 		if (highActivity > 0) {
 			highActivity--;
 		}

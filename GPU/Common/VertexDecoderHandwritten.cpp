@@ -177,14 +177,18 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		__m128 pos0_ext = _mm_mul_ps(_mm_cvtepi32_ps(pos0_32), posScale);
 		__m128 pos1_ext = _mm_mul_ps(_mm_cvtepi32_ps(pos1_32), posScale);
 
-		__m128i uv8 = _mm_set1_epi32(uv0);
+		__m128i uv8 = _mm_cvtsi32_si128(uv0);
 		__m128i uv16 = _mm_unpacklo_epi8(uv8, uv8);
 		__m128i uv32 = _mm_srli_epi32(_mm_unpacklo_epi16(uv16, uv16), 24);
 		__m128d uvf = _mm_castps_pd(_mm_add_ps(_mm_mul_ps(_mm_cvtepi32_ps(uv32), uvScale), uvOff));
 		alpha &= col0;
 
 		// Combined 5551 -> 8888 RGBA. Nasty.
+#if PPSSPP_ARCH(AMD64)
+		__m128i col = _mm_cvtsi64_si128(col0);
+#else
 		__m128i col = _mm_set1_epi64x(col0);
+#endif
 		__m128i r = _mm_slli_epi32(_mm_and_si128(col, rmask), 8 - 5);
 		__m128i g = _mm_slli_epi32(_mm_and_si128(col, gmask), 16 - 10);
 		__m128i b = _mm_slli_epi32(_mm_and_si128(col, bmask), 24 - 15);

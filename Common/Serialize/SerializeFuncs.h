@@ -94,6 +94,15 @@ template<class T>
 void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 	u32 vec_size = (u32)x.size();
 	Do(p, vec_size);
+	// Guard against an attacker-controlled size that would both resize the
+	// vector hugely and read past the end of the buffer. sizeof(T) is a lower
+	// bound on the bytes consumed per element for most uses.
+	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
+		if (vec_size > p.Remaining() / sizeof(T)) {
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
+		}
+	}
 	if (vec_size != x.size())
 		x.resize(vec_size, default_val);
 	if (vec_size > 0)

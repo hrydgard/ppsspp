@@ -71,6 +71,7 @@ bool RAIntegrationDirty();
 rc_client_t *GetClient();
 
 void Initialize();
+void InitializeRAIntegration(void *windowHandle);  // This must be call after the main window exists.
 void UpdateSettings();
 
 bool LoginProblems(std::string *errorString);
@@ -102,7 +103,7 @@ void UnloadGame();  // Call when leaving a game.
 
 Statistics GetStatistics();
 
-std::string GetGameAchievementSummary();
+std::string GetGameAchievementSummary(uint32_t subsetId);
 
 std::set<uint32_t> GetActiveChallengeIDs();
 

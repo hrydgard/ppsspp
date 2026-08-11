@@ -171,11 +171,19 @@ enum class KeyInputFlags {
 	HAS_WHEEL_DELTA = 1 << 2,
 	IS_REPEAT = 1 << 3,
 	CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KeyInputFlags::DOWN and KeyInputFlags::UP are zero when this is set.
+
+	// NOTE: These are only available in sync input.
+	ModCtrl = 1 << 5,
+	ModShift = 1 << 6,
+	ModAlt = 1 << 7,
+	ModMeta = 1 << 8,  // Windows key, command key, etc.
 };
+
 ENUM_CLASS_BITOPS(KeyInputFlags);
 
 struct KeyInput {
 	KeyInput() {}
+	// These utility constructors are used a lot in SDL.
 	KeyInput(InputDeviceID devId, InputKeyCode code, KeyInputFlags fl) : deviceId(devId), keyCode(code), flags(fl) {}
 	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KeyInputFlags::CHAR) {}
 	InputDeviceID deviceId;

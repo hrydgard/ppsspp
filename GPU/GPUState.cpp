@@ -20,13 +20,14 @@
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
 // This must be aligned so that the matrices within are aligned.
-alignas(16) GPUgstate gstate;
+alignas(16) GEState gstate;
 // Let's align this one too for good measure.
 alignas(16) GPUStateCache gstate_c;
 
@@ -101,7 +102,7 @@ static const u32_le *LoadMatrix(const u32_le *cmds, float *mtx, int sz) {
 	return cmds;
 }
 
-void GPUgstate::Reset() {
+void GEState::Reset() {
 	memset(gstate.cmdmem, 0, sizeof(gstate.cmdmem));
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
@@ -116,10 +117,10 @@ void GPUgstate::Reset() {
 
 	savedContextVersion = 1;
 
-	gstate_c.Dirty(DIRTY_CULL_PLANES);
+	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 }
 
-void GPUgstate::Save(u32_le *ptr) {
+void GEState::Save(u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	ptr[5] = gstate_c.vertexAddr;
 	ptr[6] = gstate_c.indexAddr;
@@ -167,8 +168,8 @@ void GPUgstate::Save(u32_le *ptr) {
 	}
 }
 
-void GPUgstate::FastLoadBoneMatrix(u32 addr) {
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(addr);
+void GEState::FastLoadBoneMatrix(u32 addr) {
+	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(addr);
 	u32 num = boneMatrixNumber;
 	u32 *dst = (u32 *)(boneMatrix + (num & 0x7F));
 
@@ -176,15 +177,9 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	__m128i row1 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)src), 8);
 	__m128i row2 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 4)), 8);
 	__m128i row3 = _mm_slli_epi32(_mm_loadu_si128((const __m128i *)(src + 8)), 8);
-	if ((num & 0x3) == 0) {
-		_mm_store_si128((__m128i *)dst, row1);
-		_mm_store_si128((__m128i *)(dst + 4), row2);
-		_mm_store_si128((__m128i *)(dst + 8), row3);
-	} else {
-		_mm_storeu_si128((__m128i *)dst, row1);
-		_mm_storeu_si128((__m128i *)(dst + 4), row2);
-		_mm_storeu_si128((__m128i *)(dst + 8), row3);
-	}
+	_mm_storeu_si128((__m128i *)dst, row1);
+	_mm_storeu_si128((__m128i *)(dst + 4), row2);
+	_mm_storeu_si128((__m128i *)(dst + 8), row3);
 #elif PPSSPP_ARCH(ARM_NEON)
 	const uint32x4_t row1 = vshlq_n_u32(vld1q_u32(src), 8);
 	const uint32x4_t row2 = vshlq_n_u32(vld1q_u32(src + 4), 8);
@@ -192,6 +187,13 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	vst1q_u32(dst, row1);
 	vst1q_u32(dst + 4, row2);
 	vst1q_u32(dst + 8, row3);
+#elif !CROSSSIMD_SLOW
+	Vec4F32 row1 = Vec4F32::LoadF24x4(src);
+	Vec4F32 row2 = Vec4F32::LoadF24x4(src + 4);
+	Vec4F32 row3 = Vec4F32::LoadF24x4(src + 8);
+	row1.Store((float *)dst);
+	row2.Store((float *)(dst + 4));
+	row3.Store((float *)(dst + 8));
 #else
 	for (int i = 0; i < 12; i++) {
 		dst[i] = src[i] << 8;
@@ -202,7 +204,7 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
 }
 
-void GPUgstate::Restore(const u32_le *ptr) {
+void GEState::Restore(const u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
 	gstate_c.indexAddr = ptr[6];
@@ -248,7 +250,7 @@ void GPUgstate::Restore(const u32_le *ptr) {
 	if (gpu)
 		gpu->ResetMatrices();
 
-	gstate_c.Dirty(DIRTY_CULL_PLANES);
+	gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
 }
 
 bool vertTypeIsSkinningEnabled(u32 vertType) {
@@ -262,7 +264,7 @@ struct GPUStateCache_v0 {
 	u32 offsetAddr;
 
 	bool textureChanged;
-	bool textureFullAlpha;
+	bool textureSolidAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
 
@@ -287,10 +289,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		indexAddr = old.indexAddr;
 		offsetAddr = old.offsetAddr;
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		textureFullAlpha = old.textureFullAlpha;
+		textureSolidAlpha = old.textureSolidAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
-		uv = old.uv;
 
 		savedContextVersion = 0;
 	} else {
@@ -301,13 +302,15 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		uint8_t textureChanged = 0;
 		Do(p, textureChanged);  // legacy
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		Do(p, textureFullAlpha);
+		Do(p, textureSolidAlpha);
 		Do(p, vertexFullAlpha);
 		bool framebufChanged = false;  // legacy
 		Do(p, framebufChanged);
 
 		Do(p, skipDrawReason);
 
+		// Legacy, remove in the next bump.
+		UVScale uv{};
 		Do(p, uv);
 
 		bool oldFlipTexture = false;
@@ -341,8 +344,11 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	Do(p, actualTextureHeight);
 	// curTextureXOffset and curTextureYOffset don't need to be saved.  Well, the above don't either...
 
-	Do(p, vpWidth);
-	Do(p, vpHeight);
+	// previously vpWidth, vpHeight. Remove in future versions.
+	float dummy = 0.0f;
+	Do(p, dummy);
+	Do(p, dummy);
+
 	if (s == 4) {
 		float oldDepth = 1.0f;
 		Do(p, oldDepth);
@@ -358,40 +364,41 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		Do(p, savedContextVersion);
 	}
 
-	if (p.GetMode() == PointerWrap::MODE_READ)
-		gstate_c.Dirty(DIRTY_CULL_PLANES);
+	if (p.GetMode() == PointerWrap::MODE_READ) {
+		gstate_c.Dirty(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
+	}
 }
 
-static const char *const g_gpuUseFlagNames[32] = {
+static constexpr const char * g_gpuUseFlagNames[32] = {
 	"GPU_USE_DUALSOURCE_BLEND",
 	"GPU_USE_LIGHT_UBERSHADER",
 	"GPU_USE_FRAGMENT_TEST_CACHE",
 	"GPU_USE_VS_RANGE_CULLING",
 	"GPU_USE_BLEND_MINMAX",
 	"GPU_USE_LOGIC_OP",
-	"GPU_USE_FRAGMENT_UBERSHADER",
-	"GPU_USE_TEXTURE_NPOT",
+	"N/A",
+	"N/A",
 	"GPU_USE_ANISOTROPY",
 	"GPU_USE_CLEAR_RAM_HACK",
-	"GPU_USE_INSTANCE_RENDERING",
-	"GPU_USE_VERTEX_TEXTURE_FETCH",
-	"GPU_USE_TEXTURE_FLOAT",
+	"N/A",
+	"N/A",
+	"N/A",
 	"GPU_USE_16BIT_FORMATS",
 	"GPU_USE_DEPTH_CLAMP",
 	"GPU_USE_TEXTURE_LOD_CONTROL",
 	"GPU_USE_DEPTH_TEXTURE",
-	"GPU_USE_ACCURATE_DEPTH",
-	"GPU_USE_GS_CULLING",
 	"N/A",
+	"N/A",
+	"GPU_USE_FRAMEBUFFER_ARRAYS",
 	"GPU_USE_FRAMEBUFFER_FETCH",
-	"GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT",
+	"N/A",
 	"GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT",
 	"GPU_ROUND_DEPTH_TO_16BIT",
 	"GPU_USE_CLIP_DISTANCE",
 	"GPU_USE_CULL_DISTANCE",
-	"N/A", // bit 26
-	"N/A", // bit 27
-	"N/A", // bit 28
+	"GPU_USE_SHADER_BLENDING", // bit 26
+	"GPU_USE_NONBUFFERED_FLIP", // bit 27
+	"GPU_USE_PRE_ROTATION", // bit 28
 	"GPU_USE_VIRTUAL_REALITY",
 	"GPU_USE_SINGLE_PASS_STEREO",
 	"GPU_USE_SIMPLE_STEREO_PERSPECTIVE",

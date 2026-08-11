@@ -31,7 +31,7 @@ bool RequestHeader::GetParamValue(const char *param_name, std::string *value) co
 	for (size_t i = 0; i < v.size(); i++) {
 		std::vector<std::string_view> parts;
 		SplitString(v[i], '=', parts);
-		DEBUG_LOG(Log::IO, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
+		DEBUG_LOG(Log::HTTP, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
 		if (parts[0] == param_name) {
 			*value = parts[1];
 			return true;
@@ -74,12 +74,24 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 		// Step 2: Resource, params (what's after the ?, if any)
 		const char *endptr = strchr(buffer, ' ');
 		const char *q_ptr = strchr(buffer, '?');
+		if (!endptr) {
+			// No trailing space. Fall back to
+			// the end of the line instead of leaving endptr null.
+			// Nemo's repro (python):
+			// import socket
+			// SERVER_IP = "127.0.0.1"
+			// PORT = 65199  # my port
+			// message = "GET /\n"
+			// client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			// client_socket.connect((SERVER_IP, PORT)); client_socket.sendall(message.encode('utf-8'))
+			endptr = buffer + strlen(buffer);
+		}
 
 		int resource_name_len;
 		if (q_ptr)
-			resource_name_len = q_ptr - buffer;
+			resource_name_len = (int)(q_ptr - buffer);
 		else
-			resource_name_len = endptr - buffer;
+			resource_name_len = (int)(endptr - buffer);
 		if (!resource_name_len) {
 			status = 400;
 			return -1;
@@ -88,7 +100,9 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 		memcpy(resource, buffer, resource_name_len);
 		resource[resource_name_len] = '\0';
 		if (q_ptr) {
-			int param_length = endptr - q_ptr - 1;
+			int param_length = (int)(endptr - q_ptr - 1);
+			if (param_length < 0)
+				param_length = 0;
 			params = new char[param_length + 1];
 			memcpy(params, q_ptr + 1, param_length);
 			params[param_length] = '\0';
@@ -119,13 +133,13 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 	if (!strncasecmp(key, "User-Agent", key_len)) {
 		user_agent = new char[value_len + 1];
 		memcpy(user_agent, buffer, value_len + 1);
-		VERBOSE_LOG(Log::IO, "user-agent: %s", user_agent);
+		VERBOSE_LOG(Log::HTTP, "user-agent: %s", user_agent);
 	} else if (!strncasecmp(key, "Referer", key_len)) {
 		referer = new char[value_len + 1];
 		memcpy(referer, buffer, value_len + 1);
 	} else if (!strncasecmp(key, "Content-Length", key_len)) {
 		content_length = atoi(buffer);
-		VERBOSE_LOG(Log::IO, "Content-Length: %i", (int)content_length);
+		VERBOSE_LOG(Log::HTTP, "Content-Length: %i", (int)content_length);
 	} else {
 		std::string key_str(key, key_len);
 		std::transform(key_str.begin(), key_str.end(), key_str.begin(), tolower);
@@ -148,12 +162,12 @@ void RequestHeader::ParseHeaders(net::InputSink *sink) {
 		line_count++;
 		if (type == SIMPLE) {
 			// Done!
-			VERBOSE_LOG(Log::IO, "Simple: Done parsing http request.");
+			VERBOSE_LOG(Log::HTTP, "Simple: Done parsing http request.");
 			break;
 		}
 	}
 
-	VERBOSE_LOG(Log::IO, "finished parsing request.");
+	VERBOSE_LOG(Log::HTTP, "finished parsing request.");
 	ok = line_count > 1 && resource != nullptr;
 }
 

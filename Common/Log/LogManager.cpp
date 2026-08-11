@@ -27,7 +27,6 @@
 #include <cstring>
 
 #include "Common/Data/Encoding/Utf8.h"
-
 #include "Common/Log/LogManager.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -70,47 +69,51 @@ void GenericLog(Log type, LogLevel level, const char *file, int line, const char
 
 // NOTE: Needs to be kept in sync with the Log enum.
 static const char * const g_logTypeNames[] = {
-	"SYSTEM",
-	"BOOT",
-	"COMMON",
+	"System",
+	"Config",
+	"Boot",
+	"Common",
 	"CPU",
-	"FILESYS",
+	"FileSystem",
 	"G3D",
+	"TexCache",
 	"HLE",
 	"JIT",
-	"LOADER",
-	"MPEG",
-	"ATRAC",
-	"ME",  // Rest of the media Engine
-	"MEMMAP",
-	"SASMIX",
-	"SAVESTATE",
-	"FRAMEBUF",
-	"AUDIO",
+	"Loader",
+	"Mpeg",
+	"Atrac",
+	"ME",
+	"MemMap",
+	"SasMix",
+	"SaveState",
+	"FrameBuf",
+	"Audio",
 	"IO",
-	"ACHIEVEMENTS",
+	"Achievements",
 	"HTTP",
-	"PRINTF",
-	"TEXREPLACE",
-	"DEBUGGER",
-	"GEDEBUGGER",
+	"Printf",
+	"TexReplacement",
+	"Debugger",
+	"GeDebugger",
 	"UI",
 	"IAP",
-	"SCEAUDIO",
-	"SCECTRL",
-	"SCEDISP",
-	"SCEFONT",
-	"SCEGE",
-	"SCEINTC",
-	"SCEIO",
-	"SCEKERNEL",
-	"SCEMODULE",
-	"SCENET",
-	"SCERTC",
-	"SCESAS",
-	"SCEUTIL",
-	"SCEMISC",
-	"SCEREG",
+	"CwCheats",
+	"Net",
+	"sceAudio",
+	"sceCtrl",
+	"sceDisplay",
+	"sceFont",
+	"sceGe",
+	"sceIntc",
+	"sceIo",
+	"sceKernel",
+	"sceModule",
+	"sceNet",
+	"sceRtc",
+	"sceSas",
+	"sceUtility",
+	"sceMisc",
+	"sceReg",
 };
 
 const char *LogManager::GetLogTypeName(Log type) {
@@ -143,9 +146,12 @@ void LogManager::Shutdown() {
 		return;
 	}
 
-	if (fp_) {
-		fclose(fp_);
-		fp_ = nullptr;
+	{
+		std::lock_guard<std::mutex> lk(logFileLock_);
+		if (fp_) {
+			fclose(fp_);
+			fp_ = nullptr;
+		}
 	}
 
 	outputs_ = (LogOutput)0;
@@ -190,6 +196,7 @@ LogManager::~LogManager() {
 }
 
 void LogManager::SetFileLogPath(const Path &filename) {
+	std::lock_guard<std::mutex> lk(logFileLock_);
 	if (fp_ && filename == logFilename_) {
 		// All good
 		return;
@@ -197,6 +204,7 @@ void LogManager::SetFileLogPath(const Path &filename) {
 
 	if (fp_) {
 		fclose(fp_);
+		fp_ = nullptr;
 	}
 
 	logFilename_ = Path(filename);
@@ -312,8 +320,9 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 
 	// OK, now go through the possible listeners in order.
 	if (outputs_ & LogOutput::File) {
+		// Lock covers the fp_ check too - SetFileLogPath()/Shutdown() can close it concurrently.
+		std::lock_guard<std::mutex> lk(logFileLock_);
 		if (fp_) {
-			std::lock_guard<std::mutex> lk(logFileLock_);
 			fprintf(fp_, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 			// Is this really necessary to do every time? I guess to catch the last message before a crash..
 			fflush(fp_);
@@ -354,6 +363,7 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 }
 
 void RingbufferLog::Log(const LogMessage &message) {
+	std::lock_guard<std::mutex> lock(ringLock_);
 	messages_[curMessage_] = message;
 	curMessage_++;
 	if (curMessage_ >= MAX_LOGS)
@@ -465,25 +475,27 @@ void LogManager::StdioLog(const LogMessage &message) {
 }
 
 void PrintfLog(const LogMessage &message) {
+	const char *category = message.log;
+
 	switch (message.level) {
 	case LogLevel::LVERBOSE:
-		fprintf(stderr, "V %s", message.msg.c_str());
+		fprintf(stderr, "V %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LDEBUG:
-		fprintf(stderr, "D %s", message.msg.c_str());
+		fprintf(stderr, "D %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LINFO:
-		fprintf(stderr, "I %s", message.msg.c_str());
+		fprintf(stderr, "I %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LERROR:
-		fprintf(stderr, "E %s", message.msg.c_str());
+		fprintf(stderr, "E %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LWARNING:
-		fprintf(stderr, "W %s", message.msg.c_str());
+		fprintf(stderr, "W %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LNOTICE:
 	default:
-		fprintf(stderr, "N %s", message.msg.c_str());
+		fprintf(stderr, "N %s: %s", category, message.msg.c_str());
 		break;
 	}
 }

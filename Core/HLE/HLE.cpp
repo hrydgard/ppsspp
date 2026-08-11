@@ -39,6 +39,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/HLE.h"
 
 enum {
@@ -720,7 +721,8 @@ void HLEReturnFromMipsCall() {
 	currentMIPS->pc = stackData->func;
 	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)stackData->argc; i++) {
-		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
+		// The check at the start of the function should be enough to use an unchecked read (well, kinda..)
+		currentMIPS->r[MIPS_REG_A0 + i] = Memory::ReadUnchecked_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
 	}
 	DEBUG_LOG(Log::HLE, "Executing next HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
 	hleNoLogVoid();
@@ -906,7 +908,16 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
 		std::string_view modName = modulenum >= (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name;
-		ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
+		// This is what a still-unresolved import looks like once written as a syscall opcode -
+		// the original module name/NID aren't recoverable from the opcode itself (see
+		// WriteFuncMissingStub), but the calling address is a stub we may still be tracking.
+		std::string importModuleName, importingModuleName;
+		u32 nid = 0;
+		if (currentMIPS->pc >= 8 && KernelFindImportByStubAddr(currentMIPS->pc - 8, &importModuleName, &nid, &importingModuleName)) {
+			ERROR_LOG(Log::HLE, "Unknown syscall: unresolved import %s/%08x (%s), called from '%s'", importModuleName.c_str(), nid, GetHLEFuncName(importModuleName, nid), importingModuleName.c_str());
+		} else {
+			ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
+		}
 		return NULL;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
@@ -999,7 +1010,7 @@ void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
 }
 
 // TODO: Also add support for argument names.
-size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
+size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const char *argmask) {
 	char *p = message;
 	size_t used = 0;
 
@@ -1016,26 +1027,31 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	for (size_t i = 0, n = strlen(argmask); i < n; ++i, ++reg) {
 		u32 regval;
 		if (reg < 8) {
-			regval = PARAM(reg);
+			regval = PARAM_MIPS(mips, reg);
 		} else {
-			u32 sp = currentMIPS->r[MIPS_REG_SP];
+			u32 sp = mips->r[MIPS_REG_SP];
 			// Goes upward on stack.
 			// NOTE: Currently we only support > 8 for 32-bit integer args.
-			regval = Memory::Read_U32(sp + (reg - 8) * 4);
+			if (Memory::IsValid4AlignedAddress(sp)) {
+				regval = Memory::ReadUnchecked_U32(sp + (reg - 8) * 4);
+			} else {
+				// This should basically never happen.
+				ERROR_LOG(Log::HLE, "Couldn't read sp=%08x for arg %zu", sp, i);
+			}
 		}
 
 		switch (argmask[i]) {
 		case 'p':
-			if (Memory::IsValidAddress(regval)) {
-				APPEND_FMT("%08x[%08x]", regval, Memory::Read_U32(regval));
+			if (Memory::IsValidRange(regval, 4)) {
+				APPEND_FMT("%08x[%08x]", regval, Memory::ReadUnchecked_U32(regval));
 			} else {
 				APPEND_FMT("%08x[invalid]", regval);
 			}
 			break;
 
 		case 'P':
-			if (Memory::IsValidAddress(regval)) {
-				APPEND_FMT("%08x[%016llx]", regval, Memory::Read_U64(regval));
+			if (Memory::IsValidRange(regval, 8)) {
+				APPEND_FMT("%08x[%016llx]", regval, Memory::ReadUnchecked_U64(regval));
 			} else {
 				APPEND_FMT("%08x[invalid]", regval);
 			}
@@ -1078,6 +1094,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 			--reg;
 			break;
 
+
 		// TODO: Double?  Does it ever happen?
 
 		default:
@@ -1108,6 +1125,14 @@ void hleLeave() {
 	}  // else warn?
 }
 
+const HLEFunction *HLEGetFunctionBeingCalled() {
+	int stackSize = g_stackSize;
+	if (stackSize > 0) {
+		return g_stack[stackSize - 1];
+	}
+	return nullptr;
+}
+
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason) {
 	char formatted_args[2048];
 	const char *funcName = "?";
@@ -1129,7 +1154,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		// Need to do something smart in hleCall. But it's better than printing function name and args from the wrong function.
 		
 		if (stackSize == 1) {
-			hleFormatLogArgs(formatted_args, sizeof(formatted_args), hleFunc->argmask);
+			HLEFormatLogArgs(currentMIPS, formatted_args, sizeof(formatted_args), hleFunc->argmask);
 		} else {
 			truncate_cpy(formatted_args, "...N/A...");
 		}
@@ -1145,9 +1170,12 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	const char *errStr = nullptr;
 	switch (retmask) {
 	case 'x':
-		// Truncate the high bits of the result (from any sign extension.)
-		res = (u32)res;
-		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+	case 'X':
+		if (retmask == 'x') {
+			// Truncate the high bits of the result (from any sign extension.)
+			res = (u32)res;
+		}
+		if (retmask == 'x' && (int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
 			fmt = "%sSCE_KERNEL_ERROR_%s=%s(%s)%s";
 		} else {
@@ -1157,7 +1185,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		break;
 	case 'i':
 	case 'I':
-		if ((int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
+		if (retmask == 'i' && (int)res < 0 && (errStr = KernelErrorToString((u32)res))) {
 			// It's a known syscall error code, let's display it as string.
 			fmt = "%s%s=%s(%s)%s";
 		} else {
@@ -1171,6 +1199,10 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		break;
 	case 'v':
 		// Void. Return value should not be shown. (the first %s is the "K " string, see below).
+		fmt = "%s%s(%s)%s";
+		break;
+	case '?':
+		// Unknown return format. Should we log extra?
 		fmt = "%s%s(%s)%s";
 		break;
 	default:

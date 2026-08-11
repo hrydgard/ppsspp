@@ -3,6 +3,7 @@
 #include "Audio/AudioBackend.h"
 #include <atomic>
 #include <mutex>
+#include <string>
 
 #include <windows.h>
 #include <mmdeviceapi.h>
@@ -62,10 +63,25 @@ public:
 
 	std::string GetCurrentDeviceName() const override {
 		std::lock_guard<std::mutex> guard(deviceLock_);
-		return curDeviceId_;
+		return curDeviceName_ + ":" + curDeviceId_;
+	}
+
+	std::string GetErrorString() const override {
+		std::string temp;
+		{
+			std::lock_guard<std::mutex> guard(errorLock_);
+			temp = errorString_;
+		}
+		return temp;
 	}
 
 private:
+	void SetErrorString(std::string_view str, HRESULT hr);
+	void ClearErrorString();
+
+	bool TryInitAudioClient3(IMMDevice *device, LatencyMode latencyMode);
+	bool TryInitAudioClient(IMMDevice *device, LatencyMode latencyMode);
+
 	void Start();
 	void Stop();
 
@@ -87,13 +103,16 @@ private:
 	HANDLE audioEvent_ = nullptr;
 	std::thread audioThread_;
 	int curSamplesPerSec_ = 0;
+	std::atomic<int> curChannels_{0};  // Cached from format_->nChannels to avoid unsafe pointer access from audio thread
 	UINT32 defaultPeriodFrames_ = 0;
 	UINT32 fundamentalPeriodFrames_ = 0;
 	UINT32 minPeriodFrames_ = 0;
 	UINT32 maxPeriodFrames_ = 0;
 	std::atomic<bool> running_ = true;
-	UINT32 actualPeriodFrames_ = 0;  // may not be the requested.
-	UINT32 reportedBufferSize_ = 0;
+
+	std::atomic<UINT32> actualPeriodFrames_{0};  // may not be the requested.
+	std::atomic<UINT32> reportedBufferSize_{0};
+
 	Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator_;
 	DeviceNotificationClient notificationClient_;
 	RenderCallback callback_{};
@@ -101,9 +120,13 @@ private:
 	LatencyMode latencyMode_ = LatencyMode::Aggressive;
 
 	mutable std::mutex deviceLock_;
+	std::string curDeviceName_;
 	std::string curDeviceId_;
 	std::string newDeviceId_;
 	bool defaultDeviceChanged_ = false;
+
+	mutable std::mutex errorLock_;
+	std::string errorString_;
 
 	std::unique_ptr<float[]> tempBuf_;
 };

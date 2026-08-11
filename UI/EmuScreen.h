@@ -28,13 +28,15 @@
 #include "Common/UI/Tween.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
-
-#include "UI/ImDebugger/ImDebugger.h"
+#include "UI/ImDebugger/ImCommand.h"
 
 struct AxisInput;
 
 class AsyncImageFileView;
 class ChatMenu;
+class ImDebugger;
+struct ImCommand;
+struct ImGuiContext;
 
 class EmuScreen : public UIScreen, protected ControlListener {
 public:
@@ -50,22 +52,14 @@ public:
 	void resized() override;
 	ScreenRenderRole renderRole(bool isTop) const override;
 
-	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
-	// to get minimal latency and full control. We forward to UIScreen when needed.
-	bool UnsyncTouch(const TouchInput &touch) override;
-	bool UnsyncKey(const KeyInput &key) override;
-	void UnsyncAxis(const AxisInput *axes, size_t count) override;
+	InputMode PassInputToMapper() const override;
 
 	// We also need to do some special handling of queued UI events to handle closing the chat window.
 	bool key(const KeyInput &key) override;
-	void touch(const TouchInput &key) override;
+	bool touch(const TouchInput &key) override;
 
 	void deviceLost() override;
 	void deviceRestored(Draw::DrawContext *draw) override;
-
-	void SendImDebuggerCommand(const ImCommand &command) {
-		imCmd_ = command;
-	}
 
 protected:
 	void darken();
@@ -77,12 +71,15 @@ protected:
 	void OnVKeyAnalog(VirtKey virtualKeyCode, float value) override;
 	void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) override;
 	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
+	ViewLayoutMode LayoutMode() const override;
+
+	bool AllowFocusMovement() const override;
 
 private:
 	void CreateViews() override;
 	ScreenRenderFlags RunEmulation(bool skipBufferEffects);
 	void OnDevTools(UI::EventParams &params);
-	void OnChat(UI::EventParams &params);
+	void OpenChat(bool focus);
 
 	void HandleFlip();
 	void ProcessGameBoot(const Path &filename);
@@ -90,20 +87,16 @@ private:
 	void bootComplete();
 	bool hasVisibleUI();
 	void renderUI();
-	void runImDebugger();
-	void renderImDebugger();
-
 
 	void AutoLoadSaveState();
 	bool checkPowerDown();
 
 	void ProcessQueuedVKeys();
-	void ProcessVKey(VirtKey vkey);
+	void ProcessVKey(VirtKey vkey, bool down);
 
 	bool ShouldRunEmulation(ScreenRenderMode mode) const;
 
 	UI::Event OnDevMenu;
-	UI::Event OnChatMenu;
 	bool bootPending_ = true;
 	bool bootIsReset_ = false;
 	Path gamePath_;
@@ -112,6 +105,7 @@ private:
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
+	// We also poll the pause trigger from the ControlMapper. That needs refactoring.
 	bool pauseTrigger_ = false;
 
 	// The last read chat message count, and how many new ones there are.
@@ -133,30 +127,15 @@ private:
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;
-	UI::View *chatButton_ = nullptr;
+	UI::Clickable *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 
 	std::string extraAssertInfoStr_;
 
-	std::unique_ptr<ImDebugger> imDebugger_ = nullptr;
-	ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
-
-	bool imguiInited_ = false;
-	// For ImGui modifier tracking
-	bool keyCtrlLeft_ = false;
-	bool keyCtrlRight_ = false;
-	bool keyShiftLeft_ = false;
-	bool keyShiftRight_ = false;
-	bool keyAltLeft_ = false;
-	bool keyAltRight_ = false;
-
-	bool lastImguiEnabled_ = false;
-
-	std::vector<VirtKey> queuedVirtKeys_;
-
-	ImGuiContext *ctx_ = nullptr;
+	std::mutex queuedVirtKeysLock_;
+	std::vector<std::pair<VirtKey, bool>> queuedVirtKeys_;
 
 	bool frameStep_ = false;
 #ifndef MOBILE_DEVICE

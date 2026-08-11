@@ -20,17 +20,20 @@
 #include "ppsspp_config.h"
 
 #include "Common/CommonWindows.h"
-#include "Windows/GPU/WindowsGraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/MiscTypes.h"
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <wrl/client.h>
 
 class DrawContext;
 
-class D3D11Context : public WindowsGraphicsContext {
+class D3D11Context : public GraphicsContext {
 public:
-	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
-	void Shutdown() override;
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override;
+	void ShutdownSurface() override;
+	void ShutdownAPI() override;
 
 	void Resize() override;
 
@@ -65,4 +68,6 @@ private:
 	int width = 0;
 	int height = 0;
 	int swapInterval_ = 0;
+	std::vector<std::string> adapterNames_;
+	std::string chosenAdapterName_;
 };

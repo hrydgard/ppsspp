@@ -128,46 +128,6 @@ public:
 	void Comp_ColorConv(MIPSOpcode op) override;
 	void Comp_Vbfy(MIPSOpcode op) override;
 
-	// Non-NEON: VPFX
-
-	// NEON implementations of the VFPU ops.
-	void CompNEON_SV(MIPSOpcode op);
-	void CompNEON_SVQ(MIPSOpcode op);
-	void CompNEON_VVectorInit(MIPSOpcode op);
-	void CompNEON_VMatrixInit(MIPSOpcode op);
-	void CompNEON_VDot(MIPSOpcode op);
-	void CompNEON_VecDo3(MIPSOpcode op);
-	void CompNEON_VV2Op(MIPSOpcode op);
-	void CompNEON_Mftv(MIPSOpcode op);
-	void CompNEON_Vmfvc(MIPSOpcode op);
-	void CompNEON_Vmtvc(MIPSOpcode op);
-	void CompNEON_Vmmov(MIPSOpcode op);
-	void CompNEON_VScl(MIPSOpcode op);
-	void CompNEON_Vmmul(MIPSOpcode op);
-	void CompNEON_Vmscl(MIPSOpcode op);
-	void CompNEON_Vtfm(MIPSOpcode op);
-	void CompNEON_VHdp(MIPSOpcode op);
-	void CompNEON_VCrs(MIPSOpcode op);
-	void CompNEON_VDet(MIPSOpcode op);
-	void CompNEON_Vi2x(MIPSOpcode op);
-	void CompNEON_Vx2i(MIPSOpcode op);
-	void CompNEON_Vf2i(MIPSOpcode op);
-	void CompNEON_Vi2f(MIPSOpcode op);
-	void CompNEON_Vh2f(MIPSOpcode op);
-	void CompNEON_Vcst(MIPSOpcode op);
-	void CompNEON_Vhoriz(MIPSOpcode op);
-	void CompNEON_VRot(MIPSOpcode op);
-	void CompNEON_VIdt(MIPSOpcode op);
-	void CompNEON_Vcmp(MIPSOpcode op);
-	void CompNEON_Vcmov(MIPSOpcode op);
-	void CompNEON_Viim(MIPSOpcode op);
-	void CompNEON_Vfim(MIPSOpcode op);
-	void CompNEON_VCrossQuat(MIPSOpcode op);
-	void CompNEON_Vsgn(MIPSOpcode op);
-	void CompNEON_Vocp(MIPSOpcode op);
-	void CompNEON_ColorConv(MIPSOpcode op);
-	void CompNEON_Vbfy(MIPSOpcode op);
-
 	int Replace_fabsf() override;
 
 	JitBlockCache *GetBlockCache() override { return &blocks; }

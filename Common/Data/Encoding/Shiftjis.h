@@ -43,6 +43,11 @@ struct ShiftJIS {
 		}
 
 		// Okay, if we didn't return, it's time for the second byte (the cell.)
+		if (c_[index_] == 0) {
+			// Truncated sequence right at the end of the string - don't consume the
+			// terminator, or index_ would end up one past it (OOB on the next call).
+			return INVALID;
+		}
 		j = (uint8_t)c_[index_++];
 		// Not a valid second byte.
 		if (j < 0x40 || j == 0x7F || j >= 0xFD) {
@@ -110,8 +115,9 @@ struct ShiftJIS {
 		} else if (row < 0x5F) {
 			// Reduce by 0x40 to account for the above range.
 			*dest++ = 0xE0 + ((row - 0x40 + 1) >> 1);
-		} else if (row >= 0x80) {
-			// TODO
+		} else {
+			// Rows 0x5F-0x7F and 0x80+ are not encodable.
+			return 0;
 		}
 
 		if (row & 1) {

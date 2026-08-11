@@ -109,8 +109,8 @@ void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
 		Add(r, GEN_INVALID);
 #else
 	// Okay, first, allocate args.  SystemV gives to the first of each usable pool.
-	static const Reg genArgs[] = { RDI, RSI, RDX, RCX, R8, R9 };
-	static const Reg vecArgs[] = { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7 };
+	static constexpr Reg genArgs[] = { RDI, RSI, RDX, RCX, R8, R9 };
+	static constexpr Reg vecArgs[] = { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7 };
 	size_t genIndex = 0;
 	size_t vecIndex = 0;
 
@@ -138,10 +138,10 @@ void RegCache::SetupABI(const std::vector<Purpose> &args, bool forceRetain) {
 
 	// Add all other caller saved regs without purposes yet.
 	// Must save: RBX, RSP, RBP, R12-R15
-	static const Reg genTemps[] = { RAX, R10, R11 };
+	static constexpr Reg genTemps[] = { RAX, R10, R11 };
 	for (Reg r : genTemps)
 		Add(r, GEN_INVALID);
-	static const Reg vecTemps[] = { XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15 };
+	static constexpr Reg vecTemps[] = { XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15 };
 	for (Reg r : vecTemps)
 		Add(r, VEC_INVALID);
 #endif

@@ -1,7 +1,3 @@
-import com.google.protobuf.gradle.*
-import org.gradle.process.ExecOperations
-import java.io.ByteArrayOutputStream
-
 plugins {
 	id("com.android.application")
 	id("com.google.protobuf")
@@ -67,7 +63,7 @@ dependencies {
 	// Will replace with a different plugin soon.
 	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
-	implementation("com.google.protobuf:protobuf-javalite:4.33.5")
+	implementation("com.google.protobuf:protobuf-javalite:4.35.1")
 }
 
 protobuf {
@@ -106,12 +102,12 @@ android {
 		}
 	}
 
-	compileSdk = 36
+	compileSdk = 37
 	ndkVersion = "29.0.14206865"
 
 	compileOptions {
-		sourceCompatibility = JavaVersion.VERSION_11
-		targetCompatibility = JavaVersion.VERSION_11
+		sourceCompatibility = JavaVersion.VERSION_17
+		targetCompatibility = JavaVersion.VERSION_17
 	}
 
 	lint {
@@ -132,7 +128,7 @@ android {
 		file("versioncode.txt").writeText(gitVersionCode.toString())
 
 		minSdk = 21
-		targetSdk = 36
+		targetSdk = 37
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode = (project.property("ANDROID_VERSION_CODE") as String).toInt()
 			versionName = project.property("ANDROID_VERSION_NAME") as String
@@ -140,6 +136,7 @@ android {
 	}
 	buildTypes {
 		getByName("debug") {
+			isDefault = true
 			isMinifyEnabled = false
 			isJniDebuggable = true
 			signingConfig = signingConfigs.getByName("debug")
@@ -191,6 +188,7 @@ android {
 	}
 	productFlavors {
 		create("normal") {
+			isDefault = true
 			applicationId = "org.ppsspp.ppsspp"
 			dimension = "variant"
 			externalNativeBuild {

@@ -55,7 +55,7 @@ public:
 	// If it fails, the newView is deleted.
 	bool ReplaceSubview(View *view, View *newView);
 
-	bool SetFocus() override;
+	bool SetFocus(FocusFlags cause) override;
 	bool SubviewFocused(View *view) override;
 	virtual void RemoveSubview(View *view);
 
@@ -63,8 +63,8 @@ public:
 	View *GetDefaultFocusView() { return defaultFocusView_; }
 
 	// Assumes that layout has taken place.
-	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
-	virtual NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusDirection direction, NeighborResult best);
+	NeighborResult FindNeighbor(View *view, FocusMove direction, NeighborResult best);
+	virtual NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best);
 
 	bool CanBeFocused() const override { return false; }
 	bool IsViewGroup() const override { return true; }
@@ -111,7 +111,7 @@ public:
 	void Layout() override;
 };
 
-const float NONE = -FLT_MAX;
+constexpr float NONE = -FLT_MAX;
 
 enum class Centering {
 	None = 0,
@@ -284,6 +284,7 @@ public:
 
 	void Update() override;
 
+	// If you call this at creation, call it AFTER adding the subviews!
 	void SetOpen(bool open) {
 		_dbg_assert_(open_);
 		*open_ = open;
@@ -295,6 +296,9 @@ public:
 		header_->SetOpenPtr(open);
 		open_ = open;
 		UpdateVisibility();
+	}
+	CollapsibleHeader *Header() {
+		return header_;
 	}
 
 private:

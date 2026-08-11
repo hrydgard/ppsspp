@@ -919,7 +919,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 					float f;
 					uint32_t u;
 				} value;
-				value.u = Memory::Read_U32(op.addr);
+				value.u = Memory::ReadUnchecked_U32(op.addr);  // we check the range above
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
 				switch (op.PostShaderUniform.format) {
 				case 0:
@@ -1035,8 +1035,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 
 	case CheatOp::CwCheatPointerCommands:
 		{
+			if (!Memory::IsValidAddress(op.addr + op.pointerCommands.baseOffset)) {
+				break;
+			}
 			InvalidateICache(op.addr + op.pointerCommands.baseOffset, 4);  // See note at top of file
-			u32 base = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset);
+			u32 base = Memory::ReadUnchecked_U32(op.addr + op.pointerCommands.baseOffset);
 			u32 val = op.val;
 			int type = op.pointerCommands.type;
 			for (int a = 0; a < op.pointerCommands.count; ++a) {
@@ -1166,4 +1169,28 @@ bool CheatsInEffect() {
 	if (!cheatEngine || !cheatsEnabled || Achievements::HardcoreModeActive())
 		return false;
 	return cheatEngine->HasCheats();
+}
+
+bool DetectCheatTitle(std::string_view name, std::string_view *title) {
+	// Use Saramagrean title convention (the most common cheats.db file).
+	const size_t firstOffset = name.find("_[>>>");
+	const size_t secondOffset = name.rfind("<<<]_");
+	const bool isTitle = firstOffset != std::string::npos && secondOffset != std::string::npos && firstOffset < secondOffset;
+	if (!isTitle) {
+		return false;
+	}
+	// Extract the title substring.
+	*title = std::string_view(name.data() + firstOffset + 5, secondOffset - (firstOffset + 5));
+	return true;
+}
+
+bool DetectCheatPostComment(std::string_view name, std::string_view *comment) {
+	const size_t firstOffset = name.find("\xE2\x86\x91[#");  // Up arrow and [#
+	const size_t secondOffset = name.rfind(']');
+	const bool isPostComment = firstOffset != std::string::npos && secondOffset != std::string::npos && secondOffset > firstOffset;
+	if (!isPostComment) {
+		return false;
+	}
+	*comment = std::string_view(name.data() + firstOffset + 5, secondOffset - (firstOffset + 5));
+	return true;
 }

@@ -451,6 +451,15 @@ void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus);
 int LoadExecForUser_362A956B();
 int sceKernelRegisterExitCallback(SceUID cbId);
 
+// Dispatch the exit callback registered via sceKernelRegisterExitCallback on its registering thread,
+// so the game has a chance to clean up before we shut down. Returns false if no callback can be
+// dispatched (none registered, the thread is gone, etc.) - in that case, the host should proceed
+// to power down immediately.
+bool __KernelInvokeRegisteredExitCallback();
+// True while a previously-invoked exit callback hasn't yet returned. The host should keep running
+// emulation while this is true, and only tear down after it goes false (or after a timeout).
+bool __KernelIsExitCallbackPending();
+
 KernelObject *__KernelThreadEventHandlerObject();
 SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u32 mask, u32 handlerPtr, u32 commonArg);
 int sceKernelReleaseThreadEventHandler(SceUID uid);

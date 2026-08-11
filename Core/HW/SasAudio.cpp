@@ -188,6 +188,7 @@ void VagDecoder::DoState(PointerWrap &p) {
 	Do(p, end_);
 }
 
+// The context pointer is assumed to be valid.
 int SasAtrac3::SetContext(u32 contextAddr) {
 	contextAddr_ = contextAddr;
 	// Note: On hardware, atracID_ is also stored in the loopNum member of the context.

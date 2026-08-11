@@ -55,7 +55,9 @@ namespace MIPSDis
 	void Dis_Vflush(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 	void Dis_Vbfy(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 	void Dis_Vf2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
-	void Dis_Vi2x(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
+	void Dis_Vi2c(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
+	void Dis_Vi2s(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
+	void Dis_Vc2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 	void Dis_Vs2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 	void Dis_Vwbn(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 	void Dis_Vf2h(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);

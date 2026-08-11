@@ -95,6 +95,7 @@
     <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h" />
     <ClInclude Include="..\..\Common\File\AndroidContentURI.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
+    <ClInclude Include="..\..\Common\File\VFS\SevenZipFileReader.h" />
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\CrossSIMD.h" />
@@ -167,7 +168,6 @@
     <ClInclude Include="..\..\Common\Render\TextureAtlas.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_android.h" />
-    <ClInclude Include="..\..\Common\Render\Text\draw_text_qt.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_uwp.h" />
     <ClInclude Include="..\..\Common\Render\Text\draw_text_win.h" />
     <ClInclude Include="..\..\Common\Serialize\Serializer.h" />
@@ -190,7 +190,7 @@
     <ClInclude Include="..\..\Common\DbgNew.h" />
     <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
     <ClInclude Include="..\..\Common\GhidraClient.h" />
-    <ClInclude Include="..\..\Common\GraphicsContext.h" />
+    <ClInclude Include="..\..\Common\GPU\GraphicsContext.h" />
     <ClInclude Include="..\..\Common\Log.h" />
     <ClInclude Include="..\..\Common\Log\LogManager.h" />
     <ClInclude Include="..\..\Common\LogReporting.h" />
@@ -220,6 +220,7 @@
     <ClInclude Include="..\..\Common\UI\PopupScreens.h" />
     <ClInclude Include="..\..\Common\UI\Root.h" />
     <ClInclude Include="..\..\Common\UI\Screen.h" />
+    <ClInclude Include="..\..\Common\UI\ScreenManager.h" />
     <ClInclude Include="..\..\Common\UI\ScrollView.h" />
     <ClInclude Include="..\..\Common\UI\TabHolder.h" />
     <ClInclude Include="..\..\Common\UI\Tween.h" />
@@ -275,9 +276,26 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7z.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zBuf.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zCrc.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zFile.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zTypes.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\7zWindows.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Bcj2.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Bra.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Compiler.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\CpuArch.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Delta.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Lzma2Dec.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\LzmaDec.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\Precomp.h" />
+    <ClInclude Include="..\..\ext\lzma-sdk\RotateDefs.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
+    <ClInclude Include="..\..\ext\pugixml\pugiconfig.hpp" />
+    <ClInclude Include="..\..\ext\pugixml\pugixml.hpp" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
@@ -289,6 +307,7 @@
     <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\SevenZipFileReader.cpp" />
     <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />
@@ -347,7 +366,6 @@
     <ClCompile Include="..\..\Common\Render\TextureAtlas.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_android.cpp" />
-    <ClCompile Include="..\..\Common\Render\Text\draw_text_qt.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="..\..\Common\Render\Text\draw_text_win.cpp" />
     <ClCompile Include="..\..\Common\Serialize\Serializer.cpp" />
@@ -387,6 +405,7 @@
     <ClCompile Include="..\..\Common\UI\PopupScreens.cpp" />
     <ClCompile Include="..\..\Common\UI\Root.cpp" />
     <ClCompile Include="..\..\Common\UI\Screen.cpp" />
+    <ClCompile Include="..\..\Common\UI\ScreenManager.cpp" />
     <ClCompile Include="..\..\Common\UI\ScrollView.cpp" />
     <ClCompile Include="..\..\Common\UI\TabHolder.cpp" />
     <ClCompile Include="..\..\Common\UI\Tween.cpp" />
@@ -443,8 +462,21 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zArcIn.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zBuf.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrc.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zCrcOpt.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zDec.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zFile.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\7zStream.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Delta.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Lzma2Dec.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
+    <ClCompile Include="..\..\ext\pugixml\pugixml.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc" />

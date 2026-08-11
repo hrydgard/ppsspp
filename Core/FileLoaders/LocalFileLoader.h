@@ -53,5 +53,4 @@ private:
 	u64 filesize_ = 0;
 	Path filename_;
 	std::mutex readLock_;
-	bool isOpenedByFd_ = false;
 };

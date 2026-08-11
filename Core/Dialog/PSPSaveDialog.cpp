@@ -29,6 +29,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Common/TimeUtil.h"
 #include "Core/HLE/sceCtrl.h"
@@ -48,8 +49,10 @@ void ResetSecondsSinceLastGameSave() {
 }
 
 void ShowSaveLoadIndicator(bool save) {
-	g_OSD.Show(OSDType::STATUS_ICON, "", "", save ? "I_ROTATE_RIGHT" : "I_ROTATE_LEFT", 1.0f, "save_indicator");
-	g_OSD.SetFlags("save_indicator", (save ? OSDMessageFlags::SpinRight : OSDMessageFlags::SpinLeft) | OSDMessageFlags::Transparent);
+	if (g_Config.bShowSaveLoadIndicator) {
+		g_OSD.Show(OSDType::STATUS_ICON, "", "", save ? "I_ROTATE_RIGHT" : "I_ROTATE_LEFT", 1.0f, "save_indicator");
+		g_OSD.SetFlags("save_indicator", (save ? OSDMessageFlags::SpinRight : OSDMessageFlags::SpinLeft) | OSDMessageFlags::Transparent);
+	}
 }
 
 double SecondsSinceLastGameSave() {
@@ -123,8 +126,13 @@ int PSPSaveDialog::Init(int paramAddr) {
 
 	ioThreadStatus = SAVEIO_NONE;
 
+	requestAddr = 0;
+	if (!Memory::IsValid4AlignedAddress(paramAddr)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
+	}
 	requestAddr = paramAddr;
-	int size = Memory::Read_U32(requestAddr);
+
+	int size = Memory::ReadUnchecked_U32(requestAddr);
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different save request format
 	if (size != SAVEDATA_DIALOG_SIZE_V1 && size != SAVEDATA_DIALOG_SIZE_V2 && size != SAVEDATA_DIALOG_SIZE_V3) {
@@ -133,6 +141,16 @@ int PSPSaveDialog::Init(int paramAddr) {
 	}
 	Memory::Memcpy(&request, requestAddr, size);
 	Memory::Memcpy(&originalRequest, requestAddr, size);
+
+	// gameName/saveName/fileName become parts of host filesystem paths.
+	// Reject path separators and bare dot components so a crafted request
+	// can't escape the save directory (path traversal).
+	if (HasPathTraversal(StringViewFromFixedSizeField(request.gameName)) ||
+		HasPathTraversal(StringViewFromFixedSizeField(request.saveName)) ||
+		HasPathTraversal(StringViewFromFixedSizeField(request.fileName))) {
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilitySavedataInitStart: path separator in name fields");
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
 
 	param.SetIgnoreTextures(IsNotVisibleAction((SceUtilitySavedataType)(u32)request.mode));
 	param.ClearSFOCache();
@@ -642,8 +660,7 @@ void PSPSaveDialog::DisplayMessage(std::string_view text, bool hasYesNo)
 	PPGeDrawRect(202.0f, ey, 466.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPSaveDialog::Update(int animSpeed)
-{
+int PSPSaveDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
@@ -660,7 +677,7 @@ int PSPSaveDialog::Update(int animSpeed)
 	// The struct may have been updated by the game.  This happens in "Where Is My Heart?"
 	// Check if it has changed, reload it.
 	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
-	int size = std::min((u32)sizeof(originalRequest), Memory::Read_U32(requestAddr));
+	int size = std::min((u32)sizeof(originalRequest), Memory::ReadUnchecked_U32(requestAddr));
 	const u8 *updatedRequest = Memory::GetPointerRange(requestAddr, size);
 	if (updatedRequest && memcmp(updatedRequest, &originalRequest, size) != 0) {
 		memset(&request, 0, sizeof(request));
@@ -1291,7 +1308,13 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	}
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPSaveDialog", 1, 2);
+	// Version 3 activates the s > 2 branch below, so ioThreadStatus survives
+	// a savestate. Safe to restore: the IO thread was joined above, so the
+	// value is only ever SAVEIO_NONE or SAVEIO_DONE, and the operation's
+	// effects are already part of the serialized state. Without this, loading
+	// a state taken while a savedata operation was in flight would restart
+	// the operation instead of resuming from its recorded status.
+	auto s = p.Section("PSPSaveDialog", 1, 3);
 	if (!s) {
 		return;
 	}
