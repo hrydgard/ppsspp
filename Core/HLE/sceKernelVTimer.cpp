@@ -148,9 +148,10 @@ public:
 		// Reserve some stack space for arguments.
 		u32 argArea = currentMIPS->r[MIPS_REG_SP];
 		currentMIPS->r[MIPS_REG_SP] -= HANDLER_STACK_SPACE;
-
-		Memory::Write_U64(vtimer->nvt.schedule, argArea - 16);
-		Memory::Write_U64(__getVTimerCurrentTime(vtimer), argArea - 8);
+		if (Memory::IsValidRange(argArea - HANDLER_STACK_SPACE, HANDLER_STACK_SPACE)) {
+			Memory::WriteUnchecked_U64(vtimer->nvt.schedule, argArea - 16);
+			Memory::WriteUnchecked_U64(__getVTimerCurrentTime(vtimer), argArea - 8);
+		}
 
 		currentMIPS->pc = vtimer->nvt.handlerAddr;
 		currentMIPS->r[MIPS_REG_A0] = vtimer->GetUID();
@@ -261,8 +262,9 @@ u32 sceKernelGetVTimerBase(SceUID uid, u32 baseClockAddr) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	if (Memory::IsValidAddress(baseClockAddr))
-		Memory::Write_U64(vt->nvt.base, baseClockAddr);
+	if (Memory::IsValid4AlignedRange(baseClockAddr, 8)) {
+		Memory::WriteUnchecked_U64(vt->nvt.base, baseClockAddr);
+	}
 
 	return hleLogDebug(Log::sceKernel, 0);
 }
@@ -285,9 +287,9 @@ u32 sceKernelGetVTimerTime(SceUID uid, u32 timeClockAddr) {
 	}
 
 	u64 time = __getVTimerCurrentTime(vt);
-	if (Memory::IsValidAddress(timeClockAddr))
-		Memory::Write_U64(time, timeClockAddr);
-
+	if (Memory::IsValid4AlignedRange(timeClockAddr, 8)) {
+		Memory::WriteUnchecked_U64(time, timeClockAddr);
+	}
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
