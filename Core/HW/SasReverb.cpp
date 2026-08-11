@@ -169,7 +169,11 @@ const char *SasReverb::GetPresetName(int preset) {
 }
 
 void SasReverb::SetPreset(int preset) {
-	if (preset < (int)ARRAY_SIZE(presets))
+	// -1 means "off"; anything else must be a valid index into presets[]. Only the
+	// upper bound was checked before, so a value below -1 (e.g. from a corrupted
+	// savestate - the sceSasRevType HLE call itself already clamps to [-1, 8]) would
+	// index presets[] negatively below.
+	if (preset >= -1 && preset < (int)ARRAY_SIZE(presets))
 		preset_ = preset;
 	if (preset_ != -1) {
 		pos_ = BUFSIZE - presets[preset_].size;
