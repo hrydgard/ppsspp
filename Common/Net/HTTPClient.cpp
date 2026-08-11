@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <utility>
 
 #include "Common/Net/HTTPClient.h"
 
@@ -75,7 +76,7 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	}
 	
 	std::string err;
-	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
+	if (!net::DNSResolve(processedHostname, port_str, &resolved_, err, type)) {
 		WARN_LOG(Log::Net, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;
@@ -238,7 +239,7 @@ namespace http {
 constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
 constexpr const char *HTTP_VERSION = "1.1";
 
-Client::Client(net::ResolveFunc func) : Connection(func) {
+Client::Client(net::ResolveFunc func) : Connection(std::move(func)) {
 	userAgent_ = DEFAULT_USERAGENT;
 	httpVersion_ = HTTP_VERSION;
 }
@@ -279,7 +280,7 @@ static bool DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
 	while (true) {
 		std::string line;
 		inbuffer->TakeLineCRLF(&line);
-		if (!line.size())
+		if (line.empty())
 			return false;
 		unsigned int chunkSize = 0;
 		if (sscanf(line.c_str(), "%x", &chunkSize) != 1) {
@@ -444,10 +445,10 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		if (!sz || sz < 0)
 			break;
 		VERBOSE_LOG(Log::HTTP, "Header line: %s", line.c_str());
-		responseHeaders.emplace_back(line);
+		responseHeaders.push_back(std::move(line));
 	}
 
-	if (responseHeaders.size() == 0) {
+	if (responseHeaders.empty()) {
 		ERROR_LOG(Log::HTTP, "No HTTP response headers");
 		return -1;
 	}
@@ -530,7 +531,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 }
 
 HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name)
-	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
+	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(std::move(customResolve)) {
 }
 
 HTTPRequest::~HTTPRequest() {
