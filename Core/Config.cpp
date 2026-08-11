@@ -326,7 +326,7 @@ static const ConfigSetting generalSettings[] = {
 	// ConfigSetting("DeveloperSettingsCurrentTab", SETTING(g_Config, iDeveloperSettingsCurrentTab), 0, CfgFlag::DEFAULT),
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	ConfigSetting("Wow64Warning", SETTING(g_Config, bWow64Warning), false, CfgFlag::DEFAULT),
+	ConfigSetting("Wow64Warning", SETTING(g_Config, bWow64Warning), true, CfgFlag::DEFAULT),
 #endif
 
 #if defined(USING_WIN_UI)
