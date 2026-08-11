@@ -238,14 +238,6 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
-inline float Read_Float(u32 address) 
-{
-	u32 ifloat = Read_U32(address);
-	float f;
-	memcpy(&f, &ifloat, sizeof(float));
-	return f;
-}
-
 // used by JIT. Return zero-extended 32bit values
 u32 Read_U8_ZX(const u32 address);
 u32 Read_U16_ZX(const u32 address);
@@ -320,6 +312,20 @@ inline bool IsValidAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return true;
+	} else {
+		return false;
+	}
+}
+
+inline bool IsValid2AlignedAddress(const u32 address) {
+	if ((address & 0x3E000001) == 0x08000000) {
+		return true;
+	} else if ((address & 0x3F800001) == 0x04000000) {
+		return address < 0x80000000;  // Let's disallow kernel-flagged VRAM. We don't have it mapped and I am not sure if it's accessible.
+	} else if ((address & 0xBFFFC001) == 0x00010000) {
+		return true;
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return (address & 1) == 0;
 	} else {
 		return false;
 	}

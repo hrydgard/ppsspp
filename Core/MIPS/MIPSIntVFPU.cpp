@@ -200,8 +200,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_SVQ(MIPSOpcode op)
-	{
+	void Int_SVQ(MIPSOpcode op) {
 		int imm = SignExtend16ToS32(op & 0xFFFC);
 		int rs = _RS;
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
@@ -210,31 +209,29 @@ namespace MIPSInt
 		float *f;
 		const float *cf;
 
-		switch (op >> 26)
-		{
+		switch (op >> 26) {
 		case 53: //lvl.q/lvr.q
 			{
-				if (addr & 0x3)
-				{
-					_dbg_assert_msg_( 0, "Misaligned lvX.q at %08x (pc = %08x)", addr, PC);
-				}
 				float d[4];
 				ReadVector(d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
-				if ((op & 2) == 0)
-				{
-					// It's an LVL
-					for (int i = 0; i < offset + 1; i++)
-					{
-						d[3 - i] = Memory::Read_Float(addr - 4 * i);
+				if ((op & 2) == 0) {
+					if (!Memory::IsValid4AlignedAddress(addr)) {
+						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvl.q");
+						return;
 					}
-				}
-				else
-				{
+					// It's an LVL
+					for (int i = 0; i < offset + 1; i++) {
+						d[3 - i] = Memory::ReadUnchecked_Float(addr - 4 * i);
+					}
+				} else {
+					if (!Memory::IsValid4AlignedAddress(addr)) {
+						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvr.q");
+						return;
+					}
 					// It's an LVR
-					for (int i = 0; i < (3 - offset) + 1; i++)
-					{
-						d[i] = Memory::Read_Float(addr + 4 * i);
+					for (int i = 0; i < (3 - offset) + 1; i++) {
+						d[i] = Memory::ReadUnchecked_Float(addr + 4 * i);
 					}
 				}
 				WriteVector(d, V_Quad, vt);
@@ -242,21 +239,21 @@ namespace MIPSInt
 			break;
 
 		case 54: //lv.q
-			if (addr & 0xF)
-			{
-				_dbg_assert_msg_( 0, "Misaligned lv.q at %08x (pc = %08x)", addr, PC);
+			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
+				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
 			}
+
 #ifndef COMMON_BIG_ENDIAN
-			cf = reinterpret_cast<const float *>(Memory::GetPointerRange(addr, 16));
+			cf = reinterpret_cast<const float *>(Memory::GetPointerUnchecked(addr));
 			if (cf)
 				WriteVector(cf, V_Quad, vt);
 #else
 			float lvqd[4];
 
-			lvqd[0] = Memory::Read_Float(addr);
-			lvqd[1] = Memory::Read_Float(addr + 4);
-			lvqd[2] = Memory::Read_Float(addr + 8);
-			lvqd[3] = Memory::Read_Float(addr + 12);
+			lvqd[0] = Memory::ReadUnchecked_Float(addr);
+			lvqd[1] = Memory::ReadUnchecked_Float(addr + 4);
+			lvqd[2] = Memory::ReadUnchecked_Float(addr + 8);
+			lvqd[3] = Memory::ReadUnchecked_Float(addr + 12);
 
 			WriteVector(lvqd, V_Quad, vt);
 #endif
@@ -264,49 +261,49 @@ namespace MIPSInt
 
 		case 61: // svl.q/svr.q
 			{
-				if (addr & 0x3)
-				{
-					_dbg_assert_msg_( 0, "Misaligned svX.q at %08x (pc = %08x)", addr, PC);
-				}
 				float d[4];
 				ReadVector(d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
-				if ((op&2) == 0)
-				{
+				if ((op & 2) == 0) {
+					if (!Memory::IsValid4AlignedAddress(addr)) {
+						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svl.q");
+						return;
+					}
 					// It's an SVL
 					for (int i = 0; i < offset + 1; i++)
 					{
-						Memory::Write_Float(d[3 - i], addr - i * 4);
+						Memory::WriteUnchecked_Float(d[3 - i], addr - i * 4);
 					}
-				}
-				else
-				{
+				} else {
+					if (!Memory::IsValid4AlignedAddress(addr)) {
+						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svr.q");
+						return;
+					}
 					// It's an SVR
-					for (int i = 0; i < (3 - offset) + 1; i++)
-					{
-						Memory::Write_Float(d[i], addr + 4 * i);
+					for (int i = 0; i < (3 - offset) + 1; i++) {
+						Memory::WriteUnchecked_Float(d[i], addr + 4 * i);
 					}
 				}
 				break;
 			}
 
 		case 62: //sv.q
-			if (addr & 0xF)
-			{
-				_dbg_assert_msg_( 0, "Misaligned sv.q at %08x (pc = %08x)", addr, PC);
+			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
+				Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "sv.q");
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWriteRange(addr, 16));
-			if (f)
+			f = reinterpret_cast<float *>(Memory::GetPointerWriteUnchecked(addr));
+			if (f) {
 				ReadVector(f, V_Quad, vt);
+			}
 #else
 			float svqd[4];
 			ReadVector(svqd, V_Quad, vt);
 
-			Memory::Write_Float(svqd[0], addr);
-			Memory::Write_Float(svqd[1], addr + 4);
-			Memory::Write_Float(svqd[2], addr + 8);
-			Memory::Write_Float(svqd[3], addr + 12);
+			Memory::WriteUnchecked_Float(svqd[0], addr);
+			Memory::WriteUnchecked_Float(svqd[1], addr + 4);
+			Memory::WriteUnchecked_Float(svqd[2], addr + 8);
+			Memory::WriteUnchecked_Float(svqd[3], addr + 12);
 #endif
 			break;
 
