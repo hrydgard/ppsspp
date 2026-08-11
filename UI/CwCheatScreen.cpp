@@ -398,6 +398,10 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 	char *line = fgets(temp, sz, fp);
 	if (!line)
 		return nullptr;
+	// fgets() doesn't stop at embedded NUL bytes, so a "line" starting with one would
+	// otherwise make strlen() return 0 here, and `end` would point before the buffer.
+	if (line[0] == '\0')
+		return line;
 
 	// If the last character is \n, just make it the terminator.
 	char *end = line + strlen(line) - 1;
@@ -487,8 +491,11 @@ bool CwCheatScreen::ImportCheats(const Path &cheatFile, int *cheatsFound) {
 			parseGameEntry = gameID == line;
 			parseCheatEntry = false;
 		} else if (parseGameEntry && line[0] == '_' && line[1] == 'C') {
-			// Test if cheat already exists.
-			parseCheatEntry = !HasCheatWithName(std::string(line).substr(4));
+			// Test if cheat already exists. A malformed/truncated line (e.g. just
+			// "_C" or "_C0" with no name) is shorter than 4 chars - substr(4) would
+			// throw std::out_of_range, uncaught here, crashing the whole app.
+			std::string lineStr(line);
+			parseCheatEntry = lineStr.size() < 4 || !HasCheatWithName(lineStr.substr(4));
 		}
 
 		if (!parseGameEntry) {
