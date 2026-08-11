@@ -280,8 +280,9 @@ static u32 sceRtcGetCurrentTick(u32 tickPtr)
 	VERBOSE_LOG(Log::sceRtc, "sceRtcGetCurrentTick(%08x)", tickPtr);
 
 	u64 curTick = __RtcGetCurrentTick();
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(curTick, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8)) {
+		Memory::WriteUnchecked_U64(curTick, tickPtr);
+	}
 	hleEatCycles(300);
 	hleReSchedule("rtc current tick");
 	return hleNoLog(0);
@@ -448,7 +449,7 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
 #endif
-		Memory::Write_U64(srcTick, tickUTCPtr);
+		Memory::WriteUnchecked_U64(srcTick, tickUTCPtr);
 	}
 	else
 	{
@@ -589,8 +590,7 @@ static int sceRtcGetDosTime(u32 datePtr, u32 dosTime) {
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
-{
+static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time) {
 	if (!Memory::IsValidAddress(datePtr))
 	{
 		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcSetWin32FileTime(%08x, %lld): invalid address", datePtr, win32Time);
@@ -605,35 +605,32 @@ static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
 	return 0;
 }
 
-static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
-{
-	if (!Memory::IsValidAddress(datePtr))
-	{
+static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr) {
+	if (!Memory::IsValidAddress(datePtr)) {
 		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x): invalid address", datePtr, win32TimePtr);
 		return -1;
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x)", datePtr, win32TimePtr);
-	if (!Memory::IsValidAddress(win32TimePtr))
+	if (!Memory::IsValid4AlignedRange(win32TimePtr, 8)) {
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
 
 	auto pspTime = PSPPointer<const ScePspDateTime>::Create(datePtr);
 	u64 result = __RtcPspTimeToTicks(*pspTime);
 
-	if (!__RtcValidatePspTime(*pspTime) || result < rtcFiletimeOffset)
-	{
-		Memory::Write_U64(0, win32TimePtr);
+	if (!__RtcValidatePspTime(*pspTime) || result < rtcFiletimeOffset) {
+		Memory::WriteUnchecked_U64(0, win32TimePtr);
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
 
-	Memory::Write_U64((result - rtcFiletimeOffset) * 10, win32TimePtr);
+	Memory::WriteUnchecked_U64((result - rtcFiletimeOffset) * 10, win32TimePtr);
 	return 0;
 }
 
-static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
-{
+static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr) {
 	DEBUG_LOG(Log::sceRtc, "sceRtcCompareTick(%d,%d)", tick1Ptr, tick2Ptr);
-	if (Memory::IsValid4AlignedAddress(tick1Ptr) && Memory::IsValid4AlignedAddress(tick2Ptr)) {
+	if (Memory::IsValid4AlignedRange(tick1Ptr, 8) && Memory::IsValid4AlignedRange(tick2Ptr, 8)) {
 		u64 tick1 = Memory::ReadUnchecked_U64(tick1Ptr);
 		u64 tick2 = Memory::ReadUnchecked_U64(tick2Ptr);
 		if (tick1 > tick2)
@@ -644,10 +641,8 @@ static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
 	return hleNoLog(0);
 }
 
-static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numTicks;
@@ -656,10 +651,8 @@ static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numMS;
@@ -668,10 +661,8 @@ static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numSecs * 1000000UL;
@@ -680,10 +671,8 @@ static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numMins*60000000UL;
@@ -692,10 +681,8 @@ static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 		srcTick += numHours * 3600ULL * 1000000ULL;
 		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
@@ -703,38 +690,30 @@ static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
-
 		srcTick += numDays * 86400ULL * 1000000ULL;
 		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
-
 		srcTick += numWeeks * 7ULL * 86400ULL * 1000000ULL;
 		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
-{
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths) {
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 	ScePspDateTime pt{};
 
@@ -742,13 +721,11 @@ static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 	pt.year += numMonths / 12;
 	pt.month += numMonths % 12;
 
-	if (pt.month < 1)
-	{
+	if (pt.month < 1) {
 		pt.month += 12;
 		pt.year--;
 	}
-	if (pt.month > 12)
-	{
+	if (pt.month > 12) {
 		pt.month -= 12;
 		pt.year++;
 	}
@@ -764,9 +741,8 @@ static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 	return hleNoLog(0);
 }
 
-static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
-{
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr)) {
+static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears) {
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
@@ -926,10 +902,10 @@ static bool rtcParseRFC2822(const char *s, RtcParseResult &r) {
 
 static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 {
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(dateStringPtr))
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValidAddress(dateStringPtr))
 		return hleLogError(Log::sceRtc, -1, "bad address");
 
-	const char *s = (const char *)Memory::GetPointer(dateStringPtr);
+	const char *s = Memory::GetCharPointer(dateStringPtr);
 	if (!s) {
 		return hleLogError(Log::sceRtc, -1, "null string");
 	}
@@ -941,7 +917,7 @@ static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 		u64 ticks = __RtcPspTimeToTicks(r.date);
 		s64 offsetUs = (s64)r.tzOffsetMinutes * 60 * 1000000;
 		ticks -= offsetUs;
-		Memory::Write_U64(ticks, destTickPtr);
+		Memory::WriteUnchecked_U64(ticks, destTickPtr);
 		return hleLogDebug(Log::sceRtc, 0);
 	}
 
@@ -951,16 +927,16 @@ static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 
 static int sceRtcGetLastAdjustedTime(u32 tickPtr)
 {
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(rtcLastAdjustedTicks, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8))
+		Memory::WriteUnchecked_U64(rtcLastAdjustedTicks, tickPtr);
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
 	return 0;
 }
 
 static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 {
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(rtcLastReincarnatedTicks, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8))
+		Memory::WriteUnchecked_U64(rtcLastReincarnatedTicks, tickPtr);
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetLastReincarnatedTime(%d)", tickPtr);
 	return 0;
 }
@@ -973,9 +949,8 @@ static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
 }
 
 // Caller must check outPtr and srcTickPtr.
-static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
-{
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz) {
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 	ScePspDateTime pt;
 	memset(&pt, 0, sizeof(pt));
@@ -1004,9 +979,9 @@ static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 	return 0;
 }
 
-static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
-{
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+// Caller must check outPtr and srcTickPtr.
+static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz) {
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 	ScePspDateTime pt;
 	memset(&pt, 0, sizeof(pt));
@@ -1038,7 +1013,7 @@ static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC2822(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
@@ -1051,7 +1026,7 @@ static int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC2822LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);
@@ -1075,7 +1050,7 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 
 static int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC3339(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
@@ -1088,7 +1063,7 @@ static int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC3339LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);

@@ -124,19 +124,19 @@ bool IsScratchpadAddress(const u32 address) {
 	return (address & 0xBFFFC000) == 0x00010000;
 }
 
-u8 Read_U8(const u32 address) {
+u8 ReadOrException_U8(const u32 address) {
 	u8 value = 0;
 	ReadMemoryOrRaiseException<u8>(value, address);
 	return (u8)value;
 }
 
-u16 Read_U16(const u32 address) {
+u16 ReadOrException_U16(const u32 address) {
 	u16_le value = 0;
 	ReadMemoryOrRaiseException<u16_le>(value, address);
 	return (u16)value;
 }
 
-u32 Read_U32(const u32 address) {
+u32 ReadOrException_U32(const u32 address) {
 	u32_le value = 0;
 	ReadMemoryOrRaiseException<u32_le>(value, address);
 	return value;
@@ -148,27 +148,19 @@ u64 Read_U64(const u32 address) {
 	return value;
 }
 
-u32 Read_U8_ZX(const u32 address) {
-	return (u32)Read_U8(address);
-}
-
-u32 Read_U16_ZX(const u32 address) {
-	return (u32)Read_U16(address);
-}
-
-void Write_U8(const u8 _Data, const u32 address) {
+void WriteOrException_U8(const u8 _Data, const u32 address) {
 	WriteMemoryOrRaiseException<u8>(address, _Data);
 }
 
-void Write_U16(const u16 _Data, const u32 address) {
+void WriteOrException_U16(const u16 _Data, const u32 address) {
 	WriteMemoryOrRaiseException<u16_le>(address, _Data);
 }
 
-void Write_U32(const u32 _Data, const u32 address) {
+void WriteOrException_U32(const u32 _Data, const u32 address) {
 	WriteMemoryOrRaiseException<u32_le>(address, _Data);
 }
 
-void Write_U64(const u64 _Data, const u32 address) {
+void WriteOrException_U64(const u64 _Data, const u32 address) {
 	WriteMemoryOrRaiseException<u64_le>(address, _Data);
 }
 

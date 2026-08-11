@@ -137,10 +137,9 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value);
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
 Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
 
-u8  Read_U8(const u32 _Address);
-u16 Read_U16(const u32 _Address);
-u32 Read_U32(const u32 _Address);
-u64 Read_U64(const u32 _Address);
+u8  ReadOrException_U8(const u32 _Address);
+u16 ReadOrException_U16(const u32 _Address);
+u32 ReadOrException_U32(const u32 _Address);
 
 inline u8* GetPointerWriteUnchecked(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
@@ -238,14 +237,10 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
-// used by JIT. Return zero-extended 32bit values
-u32 Read_U8_ZX(const u32 address);
-u32 Read_U16_ZX(const u32 address);
-
-void Write_U8(const u8 data, const u32 address);
-void Write_U16(const u16 data, const u32 address);
-void Write_U32(const u32 data, const u32 address);
-void Write_U64(const u64 data, const u32 address);
+void WriteOrException_U8(const u8 data, const u32 address);
+void WriteOrException_U16(const u16 data, const u32 address);
+void WriteOrException_U32(const u32 data, const u32 address);
+void WriteOrException_U64(const u64 data, const u32 address);
 
 u8* GetPointerWrite(const u32 address);
 const u8* GetPointer(const u32 address);
@@ -296,6 +291,9 @@ inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const 
 	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
+// Without a length, IsValidAddress is generally semi-meaningless, unless it's about a single byte access. For larger accesses, use IsValid4AlignedAddress
+// etc when appropriate, or for longer sizes, use IsValidRange or IsValid4AlignedRange for example. Checking aligned-ness helps avoid the problem
+// of reading past the last byte, say reading 4 bytes at offset 5 of a memory sized 8.
 inline bool IsValidAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
@@ -338,7 +336,7 @@ inline bool IsValid4AlignedAddress(const u32 address) {
 	}
 }
 
-inline u32 MaxSizeAtAddress(const u32 address){
+inline u32 MaxSizeAtAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
 	} else if ((address & 0x3F800000) == 0x04000000) {

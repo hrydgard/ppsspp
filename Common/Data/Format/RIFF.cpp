@@ -47,6 +47,7 @@ bool RIFFReader::Descend(uint32_t intoId) {
 		int startLocation = pos_;
 
 		if (pos_ + length > fileSize_) {
+			// This should already catch the case where the file is truncated, but we also check for it in ReadData just in case.
 			ERROR_LOG(Log::IO, "Block extends outside of RIFF file - failing descend");
 			pos_ = stack[depth_].parentStartLocation;
 			return false;
@@ -89,7 +90,8 @@ void RIFFReader::Ascend() {
 	eof_ = stack[depth_].parentEOF;
 }
 
-void RIFFReader::ReadData(void *what, int count) {
+bool RIFFReader::ReadData(void *what, int count) {
+	bool success = true;
 	if (count > 0) {
 		int available = pos_ < fileSize_ ? fileSize_ - pos_ : 0;
 		int toRead = count < available ? count : available;
@@ -98,9 +100,11 @@ void RIFFReader::ReadData(void *what, int count) {
 		}
 		if (toRead < count) {
 			// Truncated/corrupt file - don't read past the buffer. Zero the rest so
-			// callers don't read uninitialized data.
+			// callers don't read uninitialized data, but also return false.
+			// However, reaching this is probably impossible due to the check in Descend.
 			ERROR_LOG(Log::IO, "RIFFReader::ReadData: wanted %d bytes but only %d available", count, toRead);
 			memset((uint8_t *)what + toRead, 0, count - toRead);
+			success = false;
 		}
 	}
 	pos_ += count;
@@ -109,6 +113,7 @@ void RIFFReader::ReadData(void *what, int count) {
 		count = 4 - count;
 		pos_ += count;
 	}
+	return success;
 }
 
 int RIFFReader::GetCurrentChunkSize() {

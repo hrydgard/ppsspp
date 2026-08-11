@@ -144,8 +144,8 @@ static bool __KernelCheckEventFlagMatches(u32 pattern, u32 bits, u8 wait) {
 
 static bool __KernelApplyEventFlagMatch(u32_le *pattern, u32 bits, u8 wait, u32 outAddr) {
 	if (__KernelCheckEventFlagMatches(*pattern, bits, wait)) {
-		if (Memory::IsValidAddress(outAddr))
-			Memory::Write_U32(*pattern, outAddr);
+		if (Memory::IsValid4AlignedAddress(outAddr))
+			Memory::WriteUnchecked_U32(*pattern, outAddr);
 
 		if (wait & PSP_EVENT_WAITCLEAR)
 			*pattern &= ~bits;
@@ -167,14 +167,14 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 	} else {
 		// Otherwise, we set the current result since we're bailing.
 		if (Memory::IsValidAddress(th.outAddr))
-			Memory::Write_U32(e->nef.currentPattern, th.outAddr);
+			Memory::WriteOrException_U32(e->nef.currentPattern, th.outAddr);
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
 	if (timeoutPtr != 0 && eventFlagWaitTimer != -1) {
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventFlagWaitTimer, th.threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(th.threadID, result);
@@ -231,9 +231,11 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	e->nef.numWaitThreads = 0;
 
 	if (optPtr != 0) {
-		u32 size = Memory::Read_U32(optPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+		if (Memory::IsValid4AlignedAddress(optPtr)) {
+			u32 size = Memory::ReadUnchecked_U32(optPtr);
+			if (size > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+		}
 	}
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
@@ -246,8 +248,8 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr) {
 	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
 	if (e) {
 		e->nef.numWaitThreads = (int) e->waitingThreads.size();
-		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32(e->nef.numWaitThreads, numWaitThreadsPtr);
+		if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr))
+			Memory::WriteUnchecked_U32(e->nef.numWaitThreads, numWaitThreadsPtr);
 
 		e->nef.currentPattern = pattern;
 
@@ -325,7 +327,7 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate) {
 	EventFlag *e = kernelObjects.Get<EventFlag>(flagID, error);
 	if (e) {
 		if (timeoutPtr != 0)
-			Memory::Write_U32(0, timeoutPtr);
+			Memory::WriteOrException_U32(0, timeoutPtr);
 
 		for (size_t i = 0; i < e->waitingThreads.size(); i++) {
 			EventFlagTh *t = &e->waitingThreads[i];
@@ -347,7 +349,7 @@ static void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || eventFlagWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::Read_U32(timeoutPtr);
+	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
 
 	// This seems like the actual timing of timeouts on hardware.
 	if (micro <= 1)
@@ -383,7 +385,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 
 			u32 timeout = 0xFFFFFFFF;
 			if (Memory::IsValidAddress(timeoutPtr))
-				timeout = Memory::Read_U32(timeoutPtr);
+				timeout = Memory::ReadOrException_U32(timeoutPtr);
 
 			// Do we allow more than one thread to wait?
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0) {
@@ -446,7 +448,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 
 			u32 timeout = 0xFFFFFFFF;
 			if (Memory::IsValidAddress(timeoutPtr))
-				timeout = Memory::Read_U32(timeoutPtr);
+				timeout = Memory::ReadOrException_U32(timeoutPtr);
 
 			// Do we allow more than one thread to wait?
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0) {
@@ -500,8 +502,9 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr) {
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e) {
 		if (!__KernelApplyEventFlagMatch(&e->nef.currentPattern, bits, wait, outBitsPtr)) {
-			if (Memory::IsValidAddress(outBitsPtr))
-				Memory::Write_U32(e->nef.currentPattern, outBitsPtr);
+			if (Memory::IsValid4AlignedAddress(outBitsPtr)) {
+				Memory::WriteUnchecked_U32(e->nef.currentPattern, outBitsPtr);
+			}
 
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0) {
 				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_EVF_MULTI);

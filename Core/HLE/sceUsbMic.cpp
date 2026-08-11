@@ -82,7 +82,7 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 		} else {
 			for (int i = 0; i < iter->needSize; i++) {
 				if (Memory::IsValidAddress(iter->addr + i)) {
-					Memory::Write_U8(i & 0xFF, iter->addr + i);
+					Memory::WriteUnchecked_U8(i & 0xFF, iter->addr + i);
 				}
 			}
 			u32 ret = __KernelGetWaitValue(threadID, error);

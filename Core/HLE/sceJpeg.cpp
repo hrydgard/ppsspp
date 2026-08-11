@@ -389,9 +389,9 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr)
 	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
 	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
-	if (Memory::IsValidAddress(colourInfoAddr)) {
+	if (Memory::IsValid4AlignedAddress(colourInfoAddr)) {
 		// Note: can't actually seem to get any other subsampling values or color modes to work on a PSP.
-		Memory::Write_U32(0x00020202, colourInfoAddr);
+		Memory::WriteUnchecked_U32(0x00020202, colourInfoAddr);
 		NotifyMemInfo(MemBlockFlags::WRITE, colourInfoAddr, 4, "JpegGetOutputInfo");
 	}
 

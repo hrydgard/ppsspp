@@ -496,7 +496,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	int outpcmbufsize = 0;
 
 	if (pcmAddr)
-		Memory::Write_U32(outptr, pcmAddr);
+		Memory::WriteOrException_U32(outptr, pcmAddr);
 
 	// Decode a single frame in sourcebuff and output into PCMBuf.
 	if (!sourcebuff.empty()) {

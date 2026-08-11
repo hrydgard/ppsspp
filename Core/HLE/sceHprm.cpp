@@ -22,7 +22,7 @@
 #include "Core/MIPS/MIPS.h"
 
 static u32 sceHprmPeekCurrentKey(u32 keyAddress) {
-	Memory::Write_U32(0, keyAddress);
+	Memory::WriteOrException_U32(0, keyAddress);
 	return hleLogDebug(Log::HLE, 0);
 }
 

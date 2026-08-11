@@ -323,11 +323,11 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		currentMIPS->InvalidateICache(addr, 1);
-		Memory::Write_U8(val, addr);
+		Memory::WriteUnchecked_U8(val, addr);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U8(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
 	});
 }
 
@@ -364,7 +364,7 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U16(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
 	});
 }
 

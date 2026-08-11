@@ -1521,7 +1521,7 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
 		// Return Thread Status
-		Memory::Write_U32(NetApctl_GetState(), pStateAddr);
+		Memory::WriteOrException_U32(NetApctl_GetState(), pStateAddr);
 		// Return Success
 		return hleLogDebug(Log::sceNet, 0);
 	}
@@ -1557,7 +1557,7 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 
 	int size = Memory::ReadUnchecked_U32(sizeAddr);
 	// Return size required
-	Memory::Write_U32(entries * userInfoSize, sizeAddr);
+	Memory::WriteUnchecked_U32(entries * userInfoSize, sizeAddr);
 
 	if (bufAddr != 0 && Memory::IsValidAddress(sizeAddr)) {
 		int offset = 0;
@@ -1570,16 +1570,16 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 			DEBUG_LOG(Log::sceNet, "%s writing ID#%d to %08x", __FUNCTION__, i, bufAddr + offset);
 
 			// Pointer to next Network structure in list
-			Memory::Write_U32((i + 1) * userInfoSize + bufAddr, bufAddr + offset);
+			Memory::WriteUnchecked_U32((i + 1) * userInfoSize + bufAddr, bufAddr + offset);
 			offset += 4;
 
 			// Entry ID
-			Memory::Write_U32(i, bufAddr + offset);
+			Memory::WriteUnchecked_U32(i, bufAddr + offset);
 			offset += 4;
 		}
 		// Fix the last Pointer
 		if (offset > 0)
-			Memory::Write_U32(0, bufAddr + offset - userInfoSize);
+			Memory::WriteUnchecked_U32(0, bufAddr + offset - userInfoSize);
 	}
 
 	return hleLogInfo(Log::sceNet, 0);
@@ -1621,33 +1621,33 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	case PSP_NET_APCTL_DESC_SSID_NAME_LENGTH:
 		// Return one 32-bit value
 		if (entryId == 0)
-			Memory::Write_U32(netApctlInfo.ssidLength, resultAddr);
+			Memory::WriteUnchecked_U32(netApctlInfo.ssidLength, resultAddr);
 		else {
 			// Calculate the SSID length
-			Memory::Write_U32((u32)strlen(dummySSID), resultAddr);
+			Memory::WriteUnchecked_U32((u32)strlen(dummySSID), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_CHANNEL:
 		// FIXME: Return one 1 byte value or may be 32-bit if this is not a channel?
 		if (entryId == 0)
-			Memory::Write_U8(netApctlInfo.channel, resultAddr);
+			Memory::WriteUnchecked_U8(netApctlInfo.channel, resultAddr);
 		else {
 			// Generate channel for testing purposes, not even sure whether this is channel or not, MGS:PW seems to treat the data as u8
-			Memory::Write_U8(entryId, resultAddr);
+			Memory::WriteUnchecked_U8(entryId, resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
 		// Return 1 byte
 		if (entryId == 0)
-			Memory::Write_U8(netApctlInfo.strength, resultAddr);
+			Memory::WriteUnchecked_U8(netApctlInfo.strength, resultAddr);
 		else {
 			// Randomize signal strength between 1%~99% since games like MGS:PW are using signal strength to determine the strength of the recruit
-			Memory::Write_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
+			Memory::WriteUnchecked_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SECURITY:
 		// Return one 32-bit value
-		Memory::Write_U32(netApctlInfo.securityType, resultAddr);
+		Memory::WriteUnchecked_U32(netApctlInfo.securityType, resultAddr);
 		break;
 	default:
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "unknown info id");
@@ -1762,8 +1762,8 @@ static int sceNetUpnpGetNatInfo() {
 }
 
 static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr) {
-	Memory::Write_U32(netDropRate, dropRateAddr);
-	Memory::Write_U32(netDropDuration, dropDurationAddr);
+	Memory::WriteOrException_U32(netDropRate, dropRateAddr);
+	Memory::WriteOrException_U32(netDropDuration, dropDurationAddr);
 	return hleLogInfo(Log::sceNet, 0);
 }
 

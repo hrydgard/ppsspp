@@ -69,8 +69,9 @@ void __KernelTimeDoState(PointerWrap &p)
 int sceKernelGetSystemTime(u32 sysclockPtr)
 {
 	u64 t = CoreTiming::GetGlobalTimeUs();
-	if (Memory::IsValidAddress(sysclockPtr)) 
-		Memory::Write_U64(t, sysclockPtr);
+	if (Memory::IsValid4AlignedRange(sysclockPtr, 8)) {
+		Memory::WriteUnchecked_U64(t, sysclockPtr);
+	}
 	VERBOSE_LOG(Log::sceKernel, "sceKernelGetSystemTime(out:%16llx)", t);
 	hleEatCycles(265);
 	hleReSchedule("system time");
@@ -83,8 +84,9 @@ u32 sceKernelGetSystemTimeLow()
 	u64 t = CoreTiming::GetGlobalTimeUs();
 	VERBOSE_LOG(Log::sceKernel,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
 	hleEatCycles(165);
-	if (PSP_CoreParameter().compat.flags().KernelGetSystemTimeLowEatMoreCycles)
+	if (PSP_CoreParameter().compat.flags().KernelGetSystemTimeLowEatMoreCycles) {
 		hleEatCycles(70000);
+	}
 	hleReSchedule("system time");
 	return hleNoLog((u32)t);
 }
@@ -101,8 +103,9 @@ u64 sceKernelGetSystemTimeWide()
 int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
 {
 	VERBOSE_LOG(Log::sceKernel, "sceKernelUSec2SysClock(%i, %08x)", usec, clockPtr);
-	if (Memory::IsValidAddress(clockPtr))
-		Memory::Write_U64((usec & 0xFFFFFFFFL), clockPtr);
+	if (Memory::IsValid4AlignedRange(clockPtr, 8)) {
+		Memory::WriteUnchecked_U64((usec & 0xFFFFFFFFL), clockPtr);
+	}
 	hleEatCycles(165);
 	return hleNoLog(0);
 }

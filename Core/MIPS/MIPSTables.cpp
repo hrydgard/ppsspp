@@ -973,8 +973,11 @@ static inline void RunUntilFast() {
 	// NEVER stop in a delay slot!
 	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
-			// Replacements and similar are processed here, intentionally.
-			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
+			if (!Memory::IsValid4AlignedAddress(curMips->pc)) {
+				Core_ExecException(curMips->pc, curMips->pc, ExecExceptionType::JUMP);
+				return;
+			}
+			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(curMips->pc));
 
 			bool wasInDelaySlot = curMips->inDelaySlot;
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
@@ -997,8 +1000,12 @@ static void RunUntilWithChecks(u64 globalTicks) {
 	bool hasMCs = g_breakpoints.HasMemChecks();
 	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
+			if (!Memory::IsValid4AlignedAddress(curMips->pc)) {
+				Core_ExecException(curMips->pc, curMips->pc, ExecExceptionType::JUMP);
+				return;
+			}
+			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(curMips->pc));
 			// Replacements and similar are processed here, intentionally.
-			MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint

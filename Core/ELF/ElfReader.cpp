@@ -395,7 +395,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				break;
 			}
 
-			Memory::Write_U32(op, rel_offset);
+			Memory::WriteUnchecked_U32(op, rel_offset);
 			NotifyMemInfo(MemBlockFlags::WRITE, rel_offset, 4, "Relocation2");
 			rcount += 1;
 		}

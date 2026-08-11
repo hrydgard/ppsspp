@@ -718,7 +718,7 @@ void ImStructViewer::DrawType(
 		}
 		case POINTER: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Pointer", extraTreeNodeFlags, "%s", name);
-			const u32 pointer = Memory::Read_U32(address);
+			const u32 pointer = Memory::ReadUnchecked_U32(address);
 			const u64 pointer64 = pointer;
 			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, &pointer64);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);

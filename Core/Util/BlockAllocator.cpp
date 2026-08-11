@@ -459,11 +459,11 @@ void BlockAllocator::DoState(PointerWrap &p)
 
 		// A corrupt/malicious savestate could claim an enormous block count. Each
 		// block needs at least sizeof(start)+sizeof(size)+sizeof(taken)+sizeof(tag)
-		// bytes in the stream, so clamp to what could plausibly still be there
-		// instead of always trying to allocate `count` Blocks up front.
+		// bytes in the stream. Reject totally outlandish values, and also if count is now sub-zero.
 		size_t maxRemainingBlocks = p.Remaining() / (sizeof(u32) + sizeof(u32) + 1 + 32);
 		if (count < 0) {
 			count = 0;
+			p.SetError(PointerWrap::ERROR_FAILURE);
 		} else if ((size_t)count > maxRemainingBlocks) {
 			count = (int)maxRemainingBlocks;
 			p.SetError(PointerWrap::ERROR_FAILURE);

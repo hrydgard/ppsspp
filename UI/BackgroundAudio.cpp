@@ -161,7 +161,12 @@ bool WavData::Read(RIFFReader &file_) {
 			raw_data_size = numBytes;
 
 			if (num_channels == 1 || num_channels == 2) {
-				file_.ReadData(raw_data, numBytes);
+				if (!file_.ReadData(raw_data, numBytes)) {
+					ERROR_LOG(Log::Audio, "Error - data chunk truncated");
+					free(raw_data);
+					raw_data = nullptr;
+					return false;
+				}
 			} else {
 				ERROR_LOG(Log::Audio, "Error - bad blockalign or channels");
 				free(raw_data);
@@ -187,14 +192,15 @@ bool WavData::Read(RIFFReader &file_) {
 // Turns out that AT3 files used for this are modified WAVE files so fairly easy to parse.
 class AT3PlusReader {
 public:
-	explicit AT3PlusReader(const std::string &data)
-	: file_((const uint8_t *)&data[0], (int32_t)data.size()) {
+	explicit AT3PlusReader(const std::string &data) : file_((const uint8_t *)&data[0], (int32_t)data.size()) {
+		if (!wave_.Read(file_)) {
+			ERROR_LOG(Log::Audio, "Error - could not read wave data");
+			return;
+		}
+
 		// Normally 8k but let's be safe.
 		buffer_ = new short[32 * 1024];
-
 		skip_next_samples_ = 0;
-
-		wave_.Read(file_);
 
 		uint8_t *extraData = nullptr;
 		size_t extraDataSize = 0;

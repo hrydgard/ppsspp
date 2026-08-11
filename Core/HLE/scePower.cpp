@@ -409,24 +409,16 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	case SCE_KERNEL_ERROR_CAN_NOT_WAIT:
 		{
 			WARN_LOG(Log::HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): dispatch disabled", type, paddr, psize);
-			if (Memory::IsValid4AlignedAddress(paddr)) {
-				Memory::WriteUnchecked_U32(0x08400000, paddr);
-			}
-			if (Memory::IsValid4AlignedAddress(psize)) {
-				Memory::WriteUnchecked_U32(0x00400000, psize);
-			}
+			Memory::WriteOrException_U32(0x08400000, paddr);
+			Memory::WriteOrException_U32(0x00400000, psize);
 		}
 		break;
 
 	case SCE_KERNEL_ERROR_ILLEGAL_CONTEXT:
 		{
 			WARN_LOG(Log::HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): in interrupt", type, paddr, psize);
-			if (Memory::IsValid4AlignedAddress(paddr)) {
-				Memory::WriteUnchecked_U32(0x08400000, paddr);
-			}
-			if (Memory::IsValid4AlignedAddress(psize)) {
-				Memory::WriteUnchecked_U32(0x00400000, psize);
-			}
+			Memory::WriteOrException_U32(0x08400000, paddr);
+			Memory::WriteOrException_U32(0x00400000, psize);
 		}
 		break;
 

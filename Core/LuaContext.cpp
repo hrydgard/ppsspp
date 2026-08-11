@@ -55,7 +55,7 @@ static int r32(int address) {
 
 static void w32(int address, int value) {
 	if (Memory::IsValid4AlignedAddress(address)) {
-		Memory::Write_U32(value, address);  // NOTE: These are backwards for historical reasons.
+		Memory::WriteUnchecked_U32(value, address);  // NOTE: These are backwards for historical reasons.
 	} else {
 		g_lua.Print(LogLineType::Error, StringFromFormat("w32: bad address %08x trying to write %08x", address, value));
 	}

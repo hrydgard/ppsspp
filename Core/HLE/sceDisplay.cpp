@@ -357,7 +357,7 @@ void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
-// TOOD: Should return 59.997?
+// TODO: Should return 59.997?
 static int FrameTimingLimit() {
 	if (!NetworkAllowSpeedControl()) {
 		return 60;
@@ -955,12 +955,12 @@ bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, GEBufferFormat
 static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 
-	if (Memory::IsValidAddress(topaddrPtr))
-		Memory::Write_U32(fbState.topaddr, topaddrPtr);
-	if (Memory::IsValidAddress(linesizePtr))
-		Memory::Write_U32(fbState.stride, linesizePtr);
-	if (Memory::IsValidAddress(pixelFormatPtr))
-		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
+	if (Memory::IsValid4AlignedAddress(topaddrPtr))
+		Memory::WriteUnchecked_U32(fbState.topaddr, topaddrPtr);
+	if (Memory::IsValid4AlignedAddress(linesizePtr))
+		Memory::WriteUnchecked_U32(fbState.stride, linesizePtr);
+	if (Memory::IsValid4AlignedAddress(pixelFormatPtr))
+		Memory::WriteUnchecked_U32(fbState.fmt, pixelFormatPtr);
 
 	return hleLogDebug(Log::sceDisplay, 0);
 }
@@ -1068,12 +1068,12 @@ static u32 sceDisplayIsForeground() {
 }
 
 static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
-	if (Memory::IsValidAddress(modeAddr))
-		Memory::Write_U32(mode, modeAddr);
-	if (Memory::IsValidAddress(widthAddr))
-		Memory::Write_U32(width, widthAddr);
-	if (Memory::IsValidAddress(heightAddr))
-		Memory::Write_U32(height, heightAddr);
+	if (Memory::IsValid4AlignedAddress(modeAddr))
+		Memory::WriteUnchecked_U32(mode, modeAddr);
+	if (Memory::IsValid4AlignedAddress(widthAddr))
+		Memory::WriteUnchecked_U32(width, widthAddr);
+	if (Memory::IsValid4AlignedAddress(heightAddr))
+		Memory::WriteUnchecked_U32(height, heightAddr);
 	return hleLogDebug(Log::sceDisplay, 0);
 }
 
@@ -1086,8 +1086,8 @@ static u32 sceDisplayIsVsync() {
 }
 
 static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
-	if (Memory::IsValidAddress(resumeModeAddr))
-		Memory::Write_U32(resumeMode, resumeModeAddr);
+	if (Memory::IsValid4AlignedAddress(resumeModeAddr))
+		Memory::WriteUnchecked_U32(resumeMode, resumeModeAddr);
 	return hleLogDebug(Log::sceDisplay, 0);
 }
 
@@ -1100,12 +1100,12 @@ static u32 sceDisplaySetResumeMode(u32 rMode) {
 static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
 	// Standard levels on a PSP: 44, 60, 72, 84 (AC only)
 
-	if (Memory::IsValidAddress(levelAddr)) {
-		Memory::Write_U32(brightnessLevel, levelAddr);
+	if (Memory::IsValid4AlignedAddress(levelAddr)) {
+		Memory::WriteUnchecked_U32(brightnessLevel, levelAddr);
 	}
 	// Always seems to write zero?
-	if (Memory::IsValidAddress(otherAddr)) {
-		Memory::Write_U32(0, otherAddr);
+	if (Memory::IsValid4AlignedAddress(otherAddr)) {
+		Memory::WriteUnchecked_U32(0, otherAddr);
 	}
 	return hleLogWarning(Log::sceDisplay, 0);
 }

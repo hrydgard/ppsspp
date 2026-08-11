@@ -212,7 +212,7 @@ namespace MIPSComp {
 
 		std::vector<FixupBranch> skips;
 		switch (op >> 26) {
-		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
+		case 50: // lv.s
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset >= 0 && offset < 16384) {
 				gpr.MapRegAsPointer(rs);
@@ -245,7 +245,7 @@ namespace MIPSComp {
 		}
 			break;
 
-		case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
+		case 58: // sv.s
 		{
 			if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset >= 0 && offset < 16384) {
 				gpr.MapRegAsPointer(rs);

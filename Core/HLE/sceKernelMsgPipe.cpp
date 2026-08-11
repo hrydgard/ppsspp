@@ -85,7 +85,7 @@ struct MsgPipeWaitingThread
 			{
 				// Remove any event for this thread.
 				s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
-				Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+				Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 		}
 	}
@@ -315,12 +315,11 @@ static void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<MsgPipe, WAITTYPE_MSGPIPE>(threadID);
 }
 
-// Assumes timeout is valid or 0.
 static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr) {
 	if (timeoutPtr == 0 || waitTimer == -1)
 		return true;
 
-	int micro = (int)Memory::ReadUnchecked_U32(timeoutPtr);
+	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
 	if (micro <= 2) {
 		// Don't wait or reschedule, just timeout immediately.
 		return false;
@@ -369,8 +368,8 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 			if (poll)
 			{
 				// Generally, result is not updated in this case.  But for a 0 size buffer in ASAP mode, it is.
-				if (Memory::IsValidAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
-					Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
+				if (Memory::IsValid4AlignedAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
+					Memory::WriteUnchecked_U32(curSendAddr - sendBufAddr, resultAddr);
 				return SCE_KERNEL_ERROR_MPP_FULL;
 			}
 			else
@@ -424,8 +423,8 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 	}
 
 	// We didn't wait, so update the number of bytes transferred now.
-	if (Memory::IsValidAddress(resultAddr))
-		Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
+	if (Memory::IsValid4AlignedAddress(resultAddr))
+		Memory::WriteUnchecked_U32(curSendAddr - sendBufAddr, resultAddr);
 
 	return 0;
 }
@@ -469,8 +468,8 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 			if (poll)
 			{
 				// Generally, result is not updated in this case.  But for a 0 size buffer in ASAP mode, it is.
-				if (Memory::IsValidAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
-					Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
+				if (Memory::IsValid4AlignedAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
+					Memory::WriteUnchecked_U32(curReceiveAddr - receiveBufAddr, resultAddr);
 				return SCE_KERNEL_ERROR_MPP_EMPTY;
 			}
 			else
@@ -520,8 +519,8 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 		}
 	}
 
-	if (Memory::IsValidAddress(resultAddr))
-		Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
+	if (Memory::IsValid4AlignedAddress(resultAddr))
+		Memory::WriteUnchecked_U32(curReceiveAddr - receiveBufAddr, resultAddr);
 
 	return 0;
 }
@@ -708,11 +707,12 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 	
 	DEBUG_LOG(Log::sceKernel, "%d=sceKernelCreateMsgPipe(%s, part=%d, attr=%08x, size=%d, opt=%08x)", id, name, partition, attr, size, optionsPtr);
 
-	if (optionsPtr != 0)
-	{
-		u32 optionsSize = Memory::Read_U32(optionsPtr);
-		if (optionsSize > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
+	if (optionsPtr != 0) {
+		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
+			u32 optionsSize = Memory::ReadUnchecked_U32(optionsPtr);
+			if (optionsSize > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
+		}
 	}
 
 	return hleNoLog(id);
@@ -778,7 +778,6 @@ static int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize
 	return 0;
 }
 
-// Assumes timeoutPtr is valid or 0.
 static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll) {
 	hleEatCycles(2400);
 
@@ -808,9 +807,6 @@ int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode
 	if (!m) {
 		return hleLogError(Log::sceKernel, error, "bad msgpipe id");
 	}
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad timeout address");
-	}
 
 	int result = __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, false, false);
 	return hleLogDebug(Log::sceKernel, result);
@@ -824,9 +820,6 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		return hleLogError(Log::sceKernel, error, "bad msgpipe id");
-	}
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad timeout address");
 	}
 
 	// TODO: Verify callback behavior.

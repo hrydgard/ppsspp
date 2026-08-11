@@ -782,8 +782,10 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 			assembleOpcode(curAddress_, "");
 		}
 		if (ImGui::MenuItem("NOP instructions (destructive)")) {
-			for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
-				Memory::Write_U32(0, addr);
+			if (Memory::IsValid4AlignedRange(selectRangeStart_, selectRangeEnd_ - selectRangeStart_)) {
+				for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
+					Memory::WriteUnchecked_U32(0, addr);
+				}
 			}
 			if (currentMIPS) {
 				currentMIPS->InvalidateICache(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);

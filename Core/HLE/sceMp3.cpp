@@ -739,8 +739,8 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	int outBytes = outSamples * sizeof(int16_t) * 2;
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outBytes, "Mp3LowLevelDecode");
 	
-	Memory::Write_U32(inbytesConsumed, sourceBytesConsumedAddr);
-	Memory::Write_U32(outBytes, sampleBytesAddr);
+	Memory::WriteOrException_U32(inbytesConsumed, sourceBytesConsumedAddr);
+	Memory::WriteOrException_U32(outBytes, sampleBytesAddr);
 	return hleLogDebug(Log::ME, 0);
 }
 

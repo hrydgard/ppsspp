@@ -82,11 +82,11 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 	CheckMemoryBreakpoint(rs, offset);
 
 	switch (op >> 26) {
-	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+	case 49: // lwc1
 		ir.Write(IROp::LoadFloat, ft, rs, ir.AddConstant(offset));
 		break;
 
-	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+	case 57: // swc1
 		ir.Write(IROp::StoreFloat, ft, rs, ir.AddConstant(offset));
 		break;
 

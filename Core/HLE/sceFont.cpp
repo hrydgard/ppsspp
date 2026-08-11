@@ -785,7 +785,7 @@ void PostAllocCallback::run(MipsCall &call) {
 	if (v0 == 0) {
 		// TODO: Who deletes fontLib?
 		if (errorCodePtr_)
-			Memory::Write_U32(SCE_FONT_ERROR_OUT_OF_MEMORY, errorCodePtr_);
+			Memory::WriteOrException_U32(SCE_FONT_ERROR_OUT_OF_MEMORY, errorCodePtr_);
 		call.setReturnValue(0);
 	} else {
 		_dbg_assert_(fontLibID_ >= 0);
