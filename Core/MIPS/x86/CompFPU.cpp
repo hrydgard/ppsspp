@@ -130,7 +130,7 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	CheckMemoryBreakpoint(0, rs, offset);
 
 	switch (op >> 26) {
-	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+	case 49: // lwc1
 		{
 			gpr.Lock(rs);
 			fpr.SpillLock(ft);
@@ -148,7 +148,7 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 			fpr.ReleaseSpillLocks();
 		}
 		break;
-	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+	case 57: // swc1
 		{
 			gpr.Lock(rs);
 			fpr.SpillLock(ft);

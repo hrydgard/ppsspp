@@ -361,7 +361,7 @@ namespace MIPSInt
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
 					return;
 				}
-				R(rt) = Memory::Read_U32(addr);
+				R(rt) = Memory::ReadUnchecked_U32(addr);
 			}
 			currentMIPS->llBit = 1;
 			break;
@@ -371,7 +371,7 @@ namespace MIPSInt
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
 					return;
 				}
-				Memory::Write_U32(R(rt), addr);
+				Memory::WriteUnchecked_U32(R(rt), addr);
 				if (rt != 0) {
 					R(rt) = 1;
 				}
@@ -460,35 +460,35 @@ namespace MIPSInt
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
 				return;
 			}
-			R(rt) = Memory::Read_U8 (addr);
+			R(rt) = Memory::ReadUnchecked_U8(addr);
 			break; //lbu
 		case 37:
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
 				return;
 			}
-			R(rt) = Memory::Read_U16(addr);
+			R(rt) = Memory::ReadUnchecked_U16(addr);
 			break; //lhu
 		case 40:
 			if (!Memory::IsValidAddress(addr)) {
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
 				return;
 			}
-			Memory::Write_U8(R(rt), addr);
+			Memory::WriteUnchecked_U8(R(rt), addr);
 			break; //sb
 		case 41:
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
 				return;
 			}
-			Memory::Write_U16(R(rt), addr);
+			Memory::WriteUnchecked_U16(R(rt), addr);
 			break; //sh
 		case 43:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
 				return;
 			}
-			Memory::Write_U32(R(rt), addr);
+			Memory::WriteUnchecked_U32(R(rt), addr);
 			break; //sw
 
 		// When there's an LWL and an LWR together, we should be able to peephole optimize that
@@ -569,14 +569,14 @@ namespace MIPSInt
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwc1");
 				return;
 			}
-			FI(ft) = Memory::Read_U32(addr);
+			FI(ft) = Memory::ReadUnchecked_U32(addr);
 			break; //lwc1
 		case 57:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swc1");
 				return;
 			}
-			Memory::Write_U32(FI(ft), addr);
+			Memory::WriteUnchecked_U32(FI(ft), addr);
 			break; //swc1
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret FPULS instruction that can't be interpreted");

@@ -901,8 +901,8 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 			for (int i = 0; i < entry->numVars; ++i) {
-				u32 varRefsPtr = Memory::Read_U32(entry->varData + i * 8);
-				u32 nid = Memory::Read_U32(entry->varData + i * 8 + 4);
+				u32 varRefsPtr = Memory::ReadUnchecked_U32(entry->varData + i * 8);
+				u32 nid = Memory::ReadUnchecked_U32(entry->varData + i * 8 + 4);
 				if (!Memory::IsValidAddress(varRefsPtr)) {
 					WARN_LOG_REPORT(Log::Loader, "Bad relocation list address for nid %08x in %s", nid, modulename);
 					continue;
@@ -1538,44 +1538,49 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			const u32 nid = residentPtr[ent->fcount + j];
 			const u32 exportAddr = exportPtr[ent->fcount + j];  // These can be unaligned (small varables or char arrays).
 
+			if (!Memory::IsValidAddress(exportAddr)) {
+				WARN_LOG(Log::Loader, "Invalid var %d, nid %08x, export address %08x", j, nid, exportAddr);
+				continue;
+			}
+
 			int size;
 			switch (nid) {
 			case NID_MODULE_INFO:
 				// Points to a PspModuleInfo, often the exact one .rodata.sceModuleInfo points to.
 				break;
 			case NID_MODULE_START_THREAD_PARAMETER:
-				size = Memory::Read_U32(exportAddr);
+				size = Memory::ReadUnchecked_U32(exportAddr);
 				if (size == 0)
 					break;
 				else if (size != 3)
-					WARN_LOG_REPORT(Log::Loader, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-				module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
-				module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-				module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
+					WARN_LOG_REPORT(Log::Loader, "Strange value at module_start_thread_parameter export: %08x", Memory::ReadUnchecked_U32(exportAddr));
+				module->nm.module_start_thread_priority = Memory::ReadUnchecked_U32(exportAddr + 4);
+				module->nm.module_start_thread_stacksize = Memory::ReadUnchecked_U32(exportAddr + 8);
+				module->nm.module_start_thread_attr = Memory::ReadUnchecked_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_STOP_THREAD_PARAMETER:
-				size = Memory::Read_U32(exportAddr);
+				size = Memory::ReadUnchecked_U32(exportAddr);
 				if (size == 0)
 					break;
 				else if (size != 3)
-					WARN_LOG_REPORT(Log::Loader, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-				module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
-				module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-				module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
+					WARN_LOG_REPORT(Log::Loader, "Strange value at module_stop_thread_parameter export: %08x", Memory::ReadUnchecked_U32(exportAddr));
+				module->nm.module_stop_thread_priority = Memory::ReadUnchecked_U32(exportAddr + 4);
+				module->nm.module_stop_thread_stacksize = Memory::ReadUnchecked_U32(exportAddr + 8);
+				module->nm.module_stop_thread_attr = Memory::ReadUnchecked_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
-				size = Memory::Read_U32(exportAddr);
+				size = Memory::ReadUnchecked_U32(exportAddr);
 				if (size == 0)
 					break;
 				else if (size != 3)
-					WARN_LOG_REPORT(Log::Loader, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-				module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
-				module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-				module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
+					WARN_LOG_REPORT(Log::Loader, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::ReadUnchecked_U32(exportAddr));
+				module->nm.module_reboot_before_thread_priority = Memory::ReadUnchecked_U32(exportAddr + 4);
+				module->nm.module_reboot_before_thread_stacksize = Memory::ReadUnchecked_U32(exportAddr + 8);
+				module->nm.module_reboot_before_thread_attr = Memory::ReadUnchecked_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_SDK_VERSION:
-				DEBUG_LOG(Log::Loader, "Module SDK: %08x", Memory::Read_U32(exportAddr));
-				devkitVersion = Memory::Read_U32(exportAddr);
+				devkitVersion = Memory::ReadUnchecked_U32(exportAddr);
+				DEBUG_LOG(Log::Loader, "Module SDK: %08x", devkitVersion);
 				break;
 			default:
 				var.nid = nid;

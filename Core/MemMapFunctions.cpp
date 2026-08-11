@@ -148,14 +148,6 @@ u64 Read_U64(const u32 address) {
 	return value;
 }
 
-u32 Read_U8_ZX(const u32 address) {
-	return (u32)Read_U8(address);
-}
-
-u32 Read_U16_ZX(const u32 address) {
-	return (u32)Read_U16(address);
-}
-
 void Write_U8(const u8 _Data, const u32 address) {
 	WriteMemoryOrRaiseException<u8>(address, _Data);
 }

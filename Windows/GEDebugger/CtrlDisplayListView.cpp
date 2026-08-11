@@ -338,11 +338,12 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				char *temp = new char[space];
 
 				char *p = temp, *end = temp + space;
-				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
-				{
-					u32 opcode = Memory::Read_U32(pos);
-					GPUDebugOp op = gpu->DisassembleOp(pos, opcode);
-					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
+				if (Memory::IsValid4AlignedRange(selectRangeStart, selectRangeEnd - selectRangeStart)) {
+					for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize) {
+						u32 opcode = Memory::ReadUnchecked_U32(pos);
+						GPUDebugOp op = gpu->DisassembleOp(pos, opcode);
+						p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
+					}
 				}
 
 				W32Util::CopyTextToClipboard(wnd, temp);

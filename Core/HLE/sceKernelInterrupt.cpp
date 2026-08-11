@@ -778,11 +778,11 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 					int stack_idx = arg_idx - 6;
 					u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
 
-					if (!Memory::IsValidAddress(stack_cur)) {
+					if (!Memory::IsValid4AlignedAddress(stack_cur)) {
 						ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
 						return 0;
 					}
-					val = Memory::Read_U32(stack_cur);
+					val = Memory::ReadUnchecked_U32(stack_cur);
 					VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
 				}
 				arg_idx++;
@@ -825,11 +825,11 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 						int stack_idx = arg_idx - 6;
 						u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
 
-						if (!Memory::IsValidAddress(stack_cur)) {
+						if (!Memory::IsValid4AlignedAddress(stack_cur)) {
 							ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
 							return 0;
 						}
-						val_from_arg = Memory::Read_U32(stack_cur);
+						val_from_arg = Memory::ReadUnchecked_U32(stack_cur);
 						DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
 					}
 					arg_idx++;

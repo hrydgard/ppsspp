@@ -468,8 +468,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		// Someone woke up, so it's no longer got one.
 		f->hasAsyncResult = false;
 
-		if (Memory::IsValidAddress(address)) {
-			Memory::Write_U64((u64) f->asyncResult, address);
+		if (Memory::IsValid4AlignedAddress(address)) {
+			Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
 		}
 
 		// If this was a sceIoCloseAsync, we should close it at this point.
@@ -1785,8 +1785,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02015804:
 			// Register MemoryStick's insert/eject callback (mscmhc0)
-			if (Memory::IsValidAddress(argAddr) && outPtr == 0 && argLen >= 4) {
-				u32 cbId = Memory::Read_U32(argAddr);
+			if (Memory::IsValid4AlignedAddress(argAddr) && outPtr == 0 && argLen >= 4) {
+				u32 cbId = Memory::ReadUnchecked_U32(argAddr);
 				int type = -1;
 				kernelObjects.GetIDType(cbId, &type);
 
@@ -1813,8 +1813,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02015805:	
 			// Unregister MemoryStick's insert/eject callback (mscmhc0)
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
-				SceUID cbId = Memory::Read_U32(argAddr);
+			if (Memory::IsValid4AlignedAddress(argAddr) && argLen >= 4) {
+				SceUID cbId = Memory::ReadUnchecked_U32(argAddr);
 				size_t slot = (size_t)-1;
 				// We want to only remove one at a time.
 				for (size_t i = 0; i < memStickCallbacks.size(); ++i) {
@@ -1836,10 +1836,10 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02025806:	
 			// Check if the device is inserted (mscmhc0)
-			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+			if (Memory::IsValid4AlignedAddress(outPtr) && outLen >= 4) {
 				// 1 = Inserted.
 				// 2 = Not inserted.
-				Memory::Write_U32(MemoryStick_State(), outPtr);
+				Memory::WriteUnchecked_U32(MemoryStick_State(), outPtr);
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
 				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
@@ -1897,8 +1897,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02415821:
 			// MScmRegisterMSInsertEjectCallback
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
-				u32 cbId = Memory::Read_U32(argAddr);
+			if (Memory::IsValidRange(argAddr, argLen) && argLen >= 4) {
+				u32 cbId = Memory::ReadUnchecked_U32(argAddr);
 				int type = -1;
 				kernelObjects.GetIDType(cbId, &type);
 
@@ -1924,8 +1924,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02415822:
 			// MScmUnregisterMSInsertEjectCallback
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
-				SceUID cbId = Memory::Read_U32(argAddr);
+			if (Memory::IsValidRange(argAddr,4 ) && argLen >= 4) {
+				SceUID cbId = Memory::ReadUnchecked_U32(argAddr);
 				size_t slot = (size_t)-1;
 				// We want to only remove one at a time.
 				for (size_t i = 0; i < memStickFatCallbacks.size(); ++i) {
@@ -1946,8 +1946,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02415823:  
 			// Set FAT as enabled
-			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
-				MemoryStick_SetFatState((MemStickFatState)Memory::Read_U32(argAddr));
+			if (Memory::IsValidRange(argAddr, 4) && argLen == 4) {
+				MemoryStick_SetFatState((MemStickFatState)Memory::ReadUnchecked_U32(argAddr));
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
 				return hleLogError(Log::sceIo, -1, "Failed 0x02415823 fat");
@@ -1974,8 +1974,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
 				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND);
 			}
-			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
-				Memory::Write_U32(0, outPtr);
+			if (Memory::IsValidRange(outPtr, 4) && outLen == 4) {
+				Memory::WriteUnchecked_U32(0, outPtr);
 				return hleLogDebug(Log::sceIo, 0);
 			} else {
 				return hleLogError(Log::sceIo, -1, "Failed 0x02425824 fat");
@@ -1987,8 +1987,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND);
 			}
 			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
-				u32 pointer = Memory::Read_U32(argAddr);
+			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {  // NOTE: not outPtr
+				u32 pointer = Memory::ReadUnchecked_U32(argAddr);
 				u32 sectorSize = 0x200;
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
@@ -2503,6 +2503,10 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 	u32 error;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir) {
+		if (!Memory::IsValidRange(dirent_addr, sizeof(SceIoDirEnt))) {
+			Core_MemoryException(dirent_addr, sizeof(SceIoDirEnt), currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK, "sceIoDread");
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address");
+		}
 		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointer(dirent_addr);
 
 		if (dir->index == (int) dir->listing.size()) {
@@ -2515,7 +2519,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
-		
+
 		bool isFAT = pspFileSystem.FlagsFromFilename(dir->name) & FileSystemFlags::SIMULATE_FAT32;
 		// Only write d_private for memory stick
 		if (isFAT) {
@@ -2530,17 +2534,17 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 					// - [13..???] long file name (null-terminated)
 
 					// Hm, so currently we don't write the short name at all to d_private? TODO
-					strcpy_limit((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+					strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 				}
 				else {
 					// d_private is pointing to an area of total size 1044
 					// - [0..3] size of area
 					// - [4..19] "8.3" file name (null-terminated), could be empty.
 					// - [20..???] long file name (null-terminated)
-					auto size = Memory::Read_U32(entry->d_private);
+					auto size = Memory::ReadUnchecked_U32(entry->d_private);
 					// Hm, so currently we don't write the short name at all to d_private? TODO
 					if (size >= 1044) {
-						strcpy_limit((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 					}
 				}
 			}
@@ -2715,9 +2719,9 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		// TODO: Should not work for umd0:/, ms0:/, etc.
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(Log::sceIo, "sceIoIoctl: Read from file %i", id);
-		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
-			u32 size = Memory::Read_U32(indataPtr);
-			if (Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+		if (Memory::IsValidRange(indataPtr, 4) && inlen >= 4) {
+			u32 size = Memory::ReadUnchecked_U32(indataPtr);
+			if (Memory::IsValidRange(outdataPtr, size) && size <= outlen) {
 				// sceIoRead does its own delaying (and deferring.)
 				usec = 0;
 				return hleCall(IoFileMgrForUser, u32, sceIoRead, id, outdataPtr, size);
@@ -2746,10 +2750,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		// TODO: Should work only for umd0:/, etc. not for ms0:/ or disc0:/.
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(Log::sceIo, "sceIoIoctl: Sector read from file %i", id);
-		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
-			u32 size = Memory::Read_U32(indataPtr);
+		if (Memory::IsValidRange(indataPtr, 4) && inlen >= 4) {
+			u32 size = Memory::ReadUnchecked_U32(indataPtr);
 			// Note that size is specified in sectors, not bytes.
-			if (size > 0 && Memory::IsValidAddress(outdataPtr) && size <= outlen) {
+			if (size > 0 && Memory::IsValidRange(outdataPtr, size) && size <= outlen) {
 				// sceIoRead does its own delaying (and deferring.)
 				usec = 0;
 				return hleCall(IoFileMgrForUser, u32, sceIoRead, id, outdataPtr, size);

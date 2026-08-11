@@ -519,10 +519,10 @@ void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {
 		memset(ptr, value, size);
 	} else {
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
-		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
-		for (size_t i = 0; i < size; i++) {
-			if (Memory::IsValidAddress(addr + (u32)i)) {
-				WriteUnchecked_U8(value, (u32)(addr + i));
+		// Replace_memset_jak().
+		if (Memory::IsValidRange(addr, size)) {
+			for (size_t i = 0; i < size; i++) {
+				Memory::WriteUnchecked_U8(value, (u32)(addr + i));
 			}
 		}
 	}

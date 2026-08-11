@@ -236,7 +236,7 @@ namespace MIPSComp
 		bool doCheck = false;
 		switch (op >> 26)
 		{
-		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
+		case 50: //lv.s
 			{
 				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 					gpr.MapRegAsPointer(rs);

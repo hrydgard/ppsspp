@@ -629,58 +629,62 @@ static void __KernelSetFplTimeout(u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), fplWaitTimer, __KernelGetCurThread());
 }
 
-int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
-{
+int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
+	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid timeout ptr");
+	}
+
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (!fpl) {
 		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
-	} else {
-		int blockNum = fpl->AllocateBlock();
-		if (blockNum >= 0) {
-			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-			Memory::Write_U32(blockPtr, blockPtrAddr);
-			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
-		} else {
-			SceUID threadID = __KernelGetCurThread();
-			HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
-			FplWaitingThread waiting = {threadID, blockPtrAddr};
-			fpl->waitingThreads.push_back(waiting);
-
-			__KernelSetFplTimeout(timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_FPL, uid, 0, timeoutPtr, false, "fpl waited");
-		}
-
-		return hleLogDebug(Log::sceKernel, 0);
 	}
+
+	int blockNum = fpl->AllocateBlock();
+	if (blockNum >= 0) {
+		u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
+		Memory::WriteUnchecked_U32(blockPtr, blockPtrAddr);
+		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
+	} else {
+		SceUID threadID = __KernelGetCurThread();
+		HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
+		FplWaitingThread waiting = {threadID, blockPtrAddr};
+		fpl->waitingThreads.push_back(waiting);
+
+		__KernelSetFplTimeout(timeoutPtr);
+		__KernelWaitCurThread(WAITTYPE_FPL, uid, 0, timeoutPtr, false, "fpl waited");
+	}
+
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
-int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr)
-{
+int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
+	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid timeout ptr");
+	}
+
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (!fpl) {
 		return hleLogError(Log::sceKernel, error, "invalid fpl");
-	} else {
-		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB(%i, %08x, %08x)", uid, blockPtrAddr, timeoutPtr);
-
-		int blockNum = fpl->AllocateBlock();
-		if (blockNum >= 0) {
-			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-			Memory::Write_U32(blockPtr, blockPtrAddr);
-			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
-		} else {
-			SceUID threadID = __KernelGetCurThread();
-			HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
-			FplWaitingThread waiting = {threadID, blockPtrAddr};
-			fpl->waitingThreads.push_back(waiting);
-
-			__KernelSetFplTimeout(timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_FPL, uid, 0, timeoutPtr, true, "fpl waited");
-		}
-
-		return 0;
 	}
+
+	int blockNum = fpl->AllocateBlock();
+	if (blockNum >= 0) {
+		u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
+		Memory::WriteUnchecked_U32(blockPtr, blockPtrAddr);
+		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
+	} else {
+		SceUID threadID = __KernelGetCurThread();
+		HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
+		FplWaitingThread waiting = {threadID, blockPtrAddr};
+		fpl->waitingThreads.push_back(waiting);
+
+		__KernelSetFplTimeout(timeoutPtr);
+		__KernelWaitCurThread(WAITTYPE_FPL, uid, 0, timeoutPtr, true, "fpl waited");
+	}
+
+	return hleLogDebug(Log::sceKernel, 0);
 }
 
 int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr) {
@@ -688,16 +692,16 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr) {
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (!fpl) {
 		return hleLogError(Log::sceKernel, error, "invalid fpl");
+	}
+
+	int blockNum = fpl->AllocateBlock();
+	if (blockNum >= 0) {
+		u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
+		Memory::Write_U32(blockPtr, blockPtrAddr);
+		NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
+		return hleLogDebug(Log::sceKernel, 0);
 	} else {
-		int blockNum = fpl->AllocateBlock();
-		if (blockNum >= 0) {
-			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
-			Memory::Write_U32(blockPtr, blockPtrAddr);
-			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, blockPtr, fpl->alignedSize, "FplAllocate");
-			return hleLogDebug(Log::sceKernel, 0);
-		} else {
-			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY);
-		}
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY);
 	}
 }
 
@@ -1355,11 +1359,12 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 	DEBUG_LOG(Log::sceKernel, "%x=sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
 		id, name, partition, vpl->nv.attr, vpl->nv.poolSize);
 
-	if (optPtr != 0)
-	{
-		u32 size = Memory::Read_U32(optPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
+	if (optPtr != 0) {
+		if (Memory::IsValid4AlignedAddress(optPtr)) {
+			u32 size = Memory::ReadUnchecked_U32(optPtr);
+			if (size > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
+		}
 	}
 
 	return hleNoLog(id);
@@ -1593,8 +1598,8 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 		return hleLogError(Log::sceKernel, error, "invalid vpl");
 	} else {
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
-		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
+		if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr))
+			Memory::WriteUnchecked_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
 
 		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
 		if (wokeThreads)
@@ -1628,8 +1633,8 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 
 
 static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
-	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
+	if (Memory::IsValid4AlignedAddress(paramsAddr) && Memory::ReadUnchecked_U32(paramsAddr) != 4) {
+		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, Memory::ReadUnchecked_U32(paramsAddr));
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
 	}
 	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
@@ -1709,8 +1714,7 @@ struct NativeTlspl
 	u32_le numWaitThreads;
 };
 
-struct TLSPL : public KernelObject
-{
+struct TLSPL : public KernelObject {
 	const char *GetName() override { return ntls.name; }
 	const char *GetTypeName() override { return GetStaticTypeName(); }
 	static const char *GetStaticTypeName() { return "TLS"; }
@@ -1895,10 +1899,10 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 
 	// Unless otherwise specified, we align to 4 bytes (a mips word.)
 	u32 alignment = 4;
-	if (Memory::IsValidRange(optionsPtr, 4)) {
+	if (Memory::IsValidRange(optionsPtr, 8)) {
 		u32 size = Memory::ReadUnchecked_U32(optionsPtr);
 		if (size >= 8)
-			alignment = Memory::Read_U32(optionsPtr + 4);
+			alignment = Memory::ReadUnchecked_U32(optionsPtr + 4);
 
 		// Note that 0 intentionally is allowed.
 		if ((alignment & (alignment - 1)) != 0)

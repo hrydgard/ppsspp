@@ -2014,7 +2014,6 @@ int __KernelStartThreadValidate(SceUID threadToStartID, int argSize, u32 argBloc
 	return __KernelStartThread(threadToStartID, argSize, argBlockPtr, forceArgs);
 }
 
-// int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr) {
 	int retval = __KernelStartThreadValidate(threadToStartID, argSize, argBlockPtr);
 	return hleLogDebugOrError(Log::sceKernel, retval);
@@ -2032,13 +2031,17 @@ int sceKernelGetThreadStackFreeSize(SceUID threadID) {
 
 	// Scan the stack for 0xFF, starting after 0x10 (the thread id is written there.)
 	// Obviously this doesn't work great if PSP_THREAD_ATTR_NO_FILLSTACK is used.
-	int sz = 0;
-	for (u32 offset = 0x10; offset < thread->nt.stackSize; ++offset) {
-		if (Memory::Read_U8(thread->currentStack.start + offset) != 0xFF)
-			break;
-		sz++;
-	}
 
+	int sz = 0;
+	if (Memory::IsValidRange(thread->currentStack.start + 0x10, thread->nt.stackSize - 0x10)) {
+		for (u32 offset = 0x10; offset < thread->nt.stackSize; ++offset) {
+			if (Memory::ReadUnchecked_U8(thread->currentStack.start + offset) != 0xFF)
+				break;
+			sz++;
+		}
+	} else {
+		// Probably should do something here.
+	}
 	return hleLogDebug(Log::sceKernel, sz & ~3);
 }
 

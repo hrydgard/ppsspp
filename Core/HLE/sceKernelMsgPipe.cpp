@@ -708,11 +708,12 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 	
 	DEBUG_LOG(Log::sceKernel, "%d=sceKernelCreateMsgPipe(%s, part=%d, attr=%08x, size=%d, opt=%08x)", id, name, partition, attr, size, optionsPtr);
 
-	if (optionsPtr != 0)
-	{
-		u32 optionsSize = Memory::Read_U32(optionsPtr);
-		if (optionsSize > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
+	if (optionsPtr != 0) {
+		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
+			u32 optionsSize = Memory::ReadUnchecked_U32(optionsPtr);
+			if (optionsSize > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
+		}
 	}
 
 	return hleNoLog(id);

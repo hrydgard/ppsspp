@@ -273,10 +273,12 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 			}
 		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
 			// Rare, so unoptimized. Expands to stereo.
-			for (u32 i = 0; i < chan.sampleCount; i++) {
-				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-				chanSampleQueues[chanNum].push(ApplySampleVolume(sample, leftVol));
-				chanSampleQueues[chanNum].push(ApplySampleVolume(sample, rightVol));
+			if (Memory::IsValidRange(chan.sampleAddress, chan.sampleCount * sizeof(s16))) {
+				for (u32 i = 0; i < chan.sampleCount; i++) {
+					s16 sample = (s16)Memory::ReadUnchecked_U16(chan.sampleAddress + 2 * i);
+					chanSampleQueues[chanNum].push(ApplySampleVolume(sample, leftVol));
+					chanSampleQueues[chanNum].push(ApplySampleVolume(sample, rightVol));
+				}
 			}
 		}
 	}

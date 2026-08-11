@@ -231,9 +231,11 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	e->nef.numWaitThreads = 0;
 
 	if (optPtr != 0) {
-		u32 size = Memory::Read_U32(optPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+		if (Memory::IsValid4AlignedAddress(optPtr)) {
+			u32 size = Memory::ReadUnchecked_U32(optPtr);
+			if (size > 4)
+				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+		}
 	}
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
 		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
@@ -246,8 +248,8 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr) {
 	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
 	if (e) {
 		e->nef.numWaitThreads = (int) e->waitingThreads.size();
-		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32(e->nef.numWaitThreads, numWaitThreadsPtr);
+		if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr))
+			Memory::WriteUnchecked_U32(e->nef.numWaitThreads, numWaitThreadsPtr);
 
 		e->nef.currentPattern = pattern;
 

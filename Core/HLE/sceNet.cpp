@@ -1621,33 +1621,33 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	case PSP_NET_APCTL_DESC_SSID_NAME_LENGTH:
 		// Return one 32-bit value
 		if (entryId == 0)
-			Memory::Write_U32(netApctlInfo.ssidLength, resultAddr);
+			Memory::WriteUnchecked_U32(netApctlInfo.ssidLength, resultAddr);
 		else {
 			// Calculate the SSID length
-			Memory::Write_U32((u32)strlen(dummySSID), resultAddr);
+			Memory::WriteUnchecked_U32((u32)strlen(dummySSID), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_CHANNEL:
 		// FIXME: Return one 1 byte value or may be 32-bit if this is not a channel?
 		if (entryId == 0)
-			Memory::Write_U8(netApctlInfo.channel, resultAddr);
+			Memory::WriteUnchecked_U8(netApctlInfo.channel, resultAddr);
 		else {
 			// Generate channel for testing purposes, not even sure whether this is channel or not, MGS:PW seems to treat the data as u8
-			Memory::Write_U8(entryId, resultAddr);
+			Memory::WriteUnchecked_U8(entryId, resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
 		// Return 1 byte
 		if (entryId == 0)
-			Memory::Write_U8(netApctlInfo.strength, resultAddr);
+			Memory::WriteUnchecked_U8(netApctlInfo.strength, resultAddr);
 		else {
 			// Randomize signal strength between 1%~99% since games like MGS:PW are using signal strength to determine the strength of the recruit
-			Memory::Write_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
+			Memory::WriteUnchecked_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SECURITY:
 		// Return one 32-bit value
-		Memory::Write_U32(netApctlInfo.securityType, resultAddr);
+		Memory::WriteUnchecked_U32(netApctlInfo.securityType, resultAddr);
 		break;
 	default:
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "unknown info id");

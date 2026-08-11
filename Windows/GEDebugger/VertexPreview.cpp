@@ -77,10 +77,12 @@ static void BindPreviewProgram(GLSLProgram *&prog) {
 u32 CGEDebugger::PrimPreviewOp() {
 	DisplayList list;
 	if (gpu != nullptr && gpu->GetCurrentDisplayList(list)) {
-		const u32 op = Memory::Read_U32(list.pc);
-		const u32 cmd = op >> 24;
-		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
-			return op;
+		if (Memory::IsValid4AlignedAddress(list.pc)) {
+			const u32 op = Memory::ReadUnchecked_U32(list.pc);
+			const u32 cmd = op >> 24;
+			if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
+				return op;
+			}
 		}
 	}
 	return 0;

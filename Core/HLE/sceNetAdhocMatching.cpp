@@ -2262,7 +2262,6 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 }
 
 static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
-	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetMembers(%i, [%08x]=%i, %08x) at %08x", matchingId, sizeAddr, Memory::Read_U32(sizeAddr), buf, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2293,10 +2292,10 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	if (!Memory::IsValidAddress(sizeAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 
-	int* buflen = (int*)Memory::GetPointer(sizeAddr);
+	int *buflen = (int*)Memory::GetPointerUnchecked(sizeAddr);
 	SceNetAdhocMatchingMemberInfoEmu* buf2 = NULL;
 	if (Memory::IsValidAddress(buf)) {
-		buf2 = (SceNetAdhocMatchingMemberInfoEmu*)Memory::GetPointer(buf);
+		buf2 = (SceNetAdhocMatchingMemberInfoEmu*)Memory::GetPointerUnchecked(buf);
 	}
 
 	// Number of Connected Peers, should we exclude timeout members?

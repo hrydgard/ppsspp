@@ -144,12 +144,14 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	u32 grain = 4;
 	// 0 is ignored.
 	if (paramsPtr != 0) {
-		u32 size = Memory::Read_U32(paramsPtr);
+		if (!Memory::IsValid4AlignedRange(paramsPtr, 8))
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid paramsPtr");
+		u32 size = Memory::ReadUnchecked_U32(paramsPtr);  // size of the params struct
 		if (size < 8)
 			return hleLogError(Log::sceKernel, 0, "invalid param size");
 		if (size > 8)
 			WARN_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
-		grain = Memory::Read_U32(paramsPtr + 4);
+		grain = Memory::ReadUnchecked_U32(paramsPtr + 4);
 	}
 	INFO_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapId, memSize, paramsPtr);
 	// There's 8 bytes at the end of every block, reserved.
