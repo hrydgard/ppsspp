@@ -153,7 +153,11 @@ bool ReplayExecuteBlob(int version, const std::vector<uint8_t> &data) {
 		i += sizeof(ReplayItemHeader);
 
 		if ((int)item.info.action & (int)ReplayAction::MASK_SIDEDATA) {
-			if (i + item.info.size > sz) {
+			// Subtraction-based check (rather than i + item.info.size > sz) avoids
+			// wraparound on platforms where size_t is 32-bit, where a large enough
+			// item.info.size could otherwise make the addition overflow and wrap
+			// below sz, defeating this bounds check before the memcpy below.
+			if (item.info.size > sz - i) {
 				ERROR_LOG(Log::System, "Truncated replay data at %lld during side data", (long long)i);
 				break;
 			}
