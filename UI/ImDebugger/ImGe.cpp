@@ -268,7 +268,7 @@ void DrawDisplayWindow(ImConfig &cfg, FramebufferManagerCommon *framebufferManag
 
 		PSPPointer<u8> topaddr;
 		u32 linesize;
-		u32 pixelFormat;
+		GEBufferFormat pixelFormat;
 
 		__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, cfg.displayLatched);
 

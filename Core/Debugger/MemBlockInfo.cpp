@@ -569,7 +569,7 @@ void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const c
 		info.pc = currentMIPS->pc;
 
 		// Store the prefix for now.  The correct tag will be calculated on flush.
-		info.tagLen = std::min(sizeof(info.tag), prefixLen);
+		info.tagLen = (uint8_t)std::min(sizeof(info.tag), prefixLen);
 		memcpy(info.tag, prefix, info.tagLen);
 
 		std::lock_guard<std::mutex> guard(pendingWriteMutex);

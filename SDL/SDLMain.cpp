@@ -1240,9 +1240,6 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_SendDebugOutput(std::string_view data) { return false; }
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
-
 void UpdateWindowState(SDL_Window *window) {
 	SDL_SetWindowTitle(window, g_windowState.title.c_str());
 	if (g_windowState.applyFullScreenNextFrame) {

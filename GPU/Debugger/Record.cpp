@@ -798,7 +798,8 @@ void Recorder::NotifyBeginFrame() {
 		CheckEdramTrans();
 		struct DisplayBufData {
 			PSPPointer<u8> topaddr;
-			u32 linesize, pixelFormat;
+			u32 linesize;
+			GEBufferFormat pixelFormat;
 		};
 
 		DisplayBufData disp;

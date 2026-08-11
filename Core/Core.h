@@ -215,6 +215,21 @@ void Core_BreakException(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
 
+// Used by headless/pspautotest to collect data for the diffs. Crash reports are also sent here.
+// Log level is only used if the listener is not registered.
+enum class LogLevel : int;
+
+enum GEBufferFormat : uint8_t;
+struct DebugScreenshotDesc {
+	const uint8_t *data;
+	u32 stride;
+	u32 height;
+	GEBufferFormat format;
+};
+void Core_SendDebugOutput(LogLevel level, std::string_view string);
+void Core_SendDebugScreenshot(const DebugScreenshotDesc &desc);
+void Core_RegisterDebugOutputListeners(std::function<void(std::string_view)> listener, std::function<void(const DebugScreenshotDesc &)> screenshotListener);
+
 class MIPSState;
 // Shortcut, just calls Core_MemoryException with automatically determined parameters (function name, etc).
 void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, MemoryExceptionType type);

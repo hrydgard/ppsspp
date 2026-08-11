@@ -940,7 +940,7 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	}
 }
 
-bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
+bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, GEBufferFormat *pixelFormat, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 	if (topaddr != nullptr)
 		(*topaddr).ptr = fbState.topaddr;

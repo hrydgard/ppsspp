@@ -19,9 +19,16 @@
 
 #include "Common/CommonTypes.h"
 
-struct LSInstructionInfo
-{
-	int operandSize; //8, 16, 32, 64
+// What kind of register regOperandReg (and otherReg, if used as a source/dest rather than
+// just an address component) refers to, and thus how the instruction should be interpreted.
+enum class InstructionClass {
+	GPR,      // General-purpose register (mov, movzx, movsx, ...)
+	FP,       // Scalar floating point (movss, movsd, ...)
+	FP_SIMD,  // Full vector register (movups, movaps, movdqa, ...)
+};
+
+struct LSInstructionInfo {
+	int operandSizeInBytes;  // 1, 2, 4, 8 (in bytes, despite the field name suggesting bits)
 	int instructionSize;
 	int regOperandReg;
 	int otherReg;
@@ -32,6 +39,9 @@ struct LSInstructionInfo
 	bool isMemoryWrite;
 	u64 immediate;
 	s32 displacement;
+	InstructionClass instructionClass;
+
+	int OperandSizeInBytes() const { return operandSizeInBytes; }
 };
 
 struct ModRM
@@ -54,6 +64,11 @@ enum {
 	MOVE_16_32BIT   = 0xC7, //move 16 or 32-bit immediate
 	MOVE_REG_TO_MEM = 0x89, //move reg to memory
 	MOVE_MEM_TO_REG = 0x8B, //move memory to reg
+	// These two opcodes are shared between MOVUPS (no mandatory prefix) and MOVSS (mandatory 0xF3 prefix).
+	MOVUPS_MOVSS_FROM_RM = 0x10, //movups/movss xmm, xmm/m
+	MOVUPS_MOVSS_TO_RM   = 0x11, //movups/movss xmm/m, xmm
+	MOVAPS_FROM_RM  = 0x28, //movaps xmm, xmm/m
+	MOVAPS_TO_RM    = 0x29, //movaps xmm/m, xmm
 };
 
 enum AccessType {

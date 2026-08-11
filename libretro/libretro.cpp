@@ -1939,9 +1939,6 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
    return -1;
 }
 
-bool System_SendDebugOutput(std::string_view data) { return false; }
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
-
 float System_GetPropertyFloat(SystemProperty prop) {
    switch (prop) {
       case SYSPROP_DISPLAY_REFRESH_RATE:

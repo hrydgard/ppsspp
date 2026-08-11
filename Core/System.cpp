@@ -36,6 +36,7 @@
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/Path.h"
+#include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/AndroidContentURI.h"
@@ -359,7 +360,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	default:
 	{
 		// Trying to boot other things lands us here. We need to return a sensible error string.
-		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
+		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file: %s. %s", fileLoader->GetPath().c_str(), errorString->c_str());
+		Core_SendDebugOutput(LogLevel::LINFO, StringFromFormat("File not recognized: %s. %s", fileLoader->GetPath().c_str(), errorString->c_str()));
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		if (errorString->empty()) {
 			*errorString = sy->T("Not a PSP game");

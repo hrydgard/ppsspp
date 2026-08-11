@@ -2037,8 +2037,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case EMULATOR_DEVCTL__SEND_OUTPUT:
 			if (Memory::IsValidRange(argAddr, argLen)) {
 				std::string data(Memory::GetCharPointerUnchecked(argAddr), argLen);
-				if (!System_SendDebugOutput(data))
-					DEBUG_LOG(Log::sceIo, "%s", data.c_str());
+				Core_SendDebugOutput(LogLevel::LINFO, data);
 				if (PSP_CoreParameter().collectDebugOutput)
 					*PSP_CoreParameter().collectDebugOutput += data;
 			}
@@ -2055,12 +2054,14 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 		case EMULATOR_DEVCTL__EMIT_SCREENSHOT:
 		{
-			PSPPointer<u8> topaddr;
-			u32 linesize;
-
-			__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
+			// TODO: Add a high-res path for screenshots, and maybe a way to specify the filename.
 			// TODO: Convert based on pixel format / mode / something?
-			System_SendDebugScreenshot(&topaddr[0], linesize, 272);
+			DebugScreenshotDesc desc;
+			PSPPointer<u8> topaddr;
+			__DisplayGetFramebuf(&topaddr, &desc.stride, &desc.format, 0);
+			desc.data = &topaddr[0];
+			desc.height = 272;
+			Core_SendDebugScreenshot(desc);
 			return hleLogDebug(Log::sceIo, 0);
 		}
 		case EMULATOR_DEVCTL__TOGGLE_FASTFORWARD:
