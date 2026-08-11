@@ -84,29 +84,41 @@ static void DrawBuiltInEditPopup(const BuiltIn &builtIn, const u32 address) {
 				case BuiltInType::Bool:
 				case BuiltInType::Char:
 				case BuiltInType::Int8:
-					Memory::Write_U8(0, address);
+					if (Memory::IsValidAddress(address)) {
+						Memory::WriteUnchecked_U8(0, address);
+					}
 					break;
 				case BuiltInType::Int16:
-					Memory::Write_U16(0, address);
+					if (Memory::IsValidRange(address, 2)) {
+						Memory::WriteUnchecked_U16(0, address);
+					}
 					break;
 				case BuiltInType::Int32:
-					Memory::Write_U32(0, address);
+					if (Memory::IsValidRange(address, 4)) {
+						Memory::WriteUnchecked_U32(0, address);
+					}
 					break;
 				case BuiltInType::Int64:
-					Memory::Write_U64(0, address);
+					if (Memory::IsValidRange(address, 8)) {
+						Memory::WriteUnchecked_U64(0, address);
+					}
 					break;
 				case BuiltInType::Float:
-					Memory::Write_Float(0, address);
+					if (Memory::IsValidRange(address, 4)) {
+						Memory::WriteUnchecked_Float(0, address);
+					}
 					break;
 				default:
 					break;
 			}
 		}
-		void *data = Memory::GetPointerWriteUnchecked(address);
-		if (builtIn.hexFormat) {
-			ImGui::DragScalar("Value (hex)", builtIn.imGuiType, data, 0.2f, nullptr, nullptr, builtIn.hexFormat);
+		if (Memory::IsValidRange(address, 8)) {
+			void *data = Memory::GetPointerWriteUnchecked(address);
+			if (builtIn.hexFormat) {
+				ImGui::DragScalar("Value (hex)", builtIn.imGuiType, data, 0.2f, nullptr, nullptr, builtIn.hexFormat);
+			}
+			ImGui::DragScalar("Value", builtIn.imGuiType, data, 0.2f);
 		}
-		ImGui::DragScalar("Value", builtIn.imGuiType, data, 0.2f);
 		ImGui::EndPopup();
 	}
 }

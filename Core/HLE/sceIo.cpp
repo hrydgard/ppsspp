@@ -2031,8 +2031,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 		switch (cmd) {
 		case EMULATOR_DEVCTL__GET_HAS_DISPLAY:
-			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(PSP_CoreParameter().headLess ? 0 : 1, outPtr);
+			if (Memory::IsValidRange(outPtr, 4))
+				Memory::WriteUnchecked_U32(PSP_CoreParameter().headLess ? 0 : 1, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__SEND_OUTPUT:
 			if (Memory::IsValidRange(argAddr, argLen)) {
@@ -2044,8 +2044,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			return hleNoLog(0);
 		case EMULATOR_DEVCTL__IS_EMULATOR:
-			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(1, outPtr);
+			if (Memory::IsValidRange(outPtr, 4))
+				Memory::WriteUnchecked_U32(1, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__VERIFY_STATE:
 			// Note that this is async, and makes sure the save state matches up.
@@ -2071,7 +2071,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
 			// NOTE: This currently only works correctly in landscape mode!
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidRange(outPtr, 4)) {
 				// TODO: Share code with CalculateDisplayOutputRect to take a few more things into account.
 				// I have a planned further refactoring.
 				float ar;
@@ -2080,26 +2080,26 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				} else {
 					ar = g_Config.displayLayoutLandscape.fDisplayAspectRatio * (480.0f / 272.0f);
 				}
-				Memory::Write_Float(ar, outPtr);
+				Memory::WriteUnchecked_Float(ar, outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_SCALE:
 			// NOTE: This currently only works correctly in landscape mode!
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidRange(outPtr, 4)) {
 				// TODO: Maybe do something more sophisticated taking the longest side and screen rotation
 				// into account, etc.
 				float scale = (float)g_display.dp_xres * g_Config.displayLayoutLandscape.fDisplayScale / 480.0f;
-				Memory::Write_Float(scale, outPtr);
+				Memory::WriteUnchecked_Float(scale, outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_AXIS:
-			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < JOYSTICK_AXIS_MAX)) {
-				Memory::Write_Float(HLEPlugins::PluginDataAxis[argAddr], outPtr);
+			if (Memory::IsValidRange(outPtr, 4) && (argAddr >= 0 && argAddr < JOYSTICK_AXIS_MAX)) {
+				Memory::WriteUnchecked_Float(HLEPlugins::PluginDataAxis[argAddr], outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_VKEY:
 			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < NKCODE_MAX)) {
-				Memory::Write_U8(HLEPlugins::GetKey(argAddr), outPtr);
+				Memory::WriteUnchecked_U8(HLEPlugins::GetKey(argAddr), outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);
 		}

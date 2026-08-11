@@ -247,13 +247,6 @@ void Write_U16(const u16 data, const u32 address);
 void Write_U32(const u32 data, const u32 address);
 void Write_U64(const u64 data, const u32 address);
 
-inline void Write_Float(float f, u32 address)
-{
-	u32 u;
-	memcpy(&u, &f, sizeof(float));
-	Write_U32(u, address);
-}
-
 u8* GetPointerWrite(const u32 address);
 const u8* GetPointer(const u32 address);
 
