@@ -388,12 +388,11 @@ void WebSocketGPUBufferTexture(DebuggerRequest &req) {
 	u32 level = 0;
 	if (!req.ParamU32("level", &level, false, DebuggerParamType::OPTIONAL))
 		return;
-	// GPU_GetCurrentTexture() takes a plain int; a client-supplied value whose
-	// u32->int conversion is negative would skip backends' "level >= mip count"
-	// bounds check (which only fires for level > 0), reaching backend texture-copy
-	// code with a bogus mip index.
-	if (level > 0x7FFFFFFF)
+	// Sanity check the level, to avoid overflow hacks. Also it just can't be very high,
+	// we currently support 12 levels for replacement (the PSP only supports 8).
+	if (level > 12) {
 		return req.Fail("Invalid level");
+	}
 
 	GenericStreamBuffer(req, [level](const GPUDebugBuffer *&buf, bool *isFramebuffer) {
 		return GPUStepping::GPU_GetCurrentTexture(buf, level, isFramebuffer);
