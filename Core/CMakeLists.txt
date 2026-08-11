@@ -385,6 +385,7 @@ add_library(Core STATIC
 	HLE/FunctionWrappers.h
 	HLE/HLE.cpp
 	HLE/HLE.h
+	HLE/HLEUtil.h
 	HLE/ReplaceTables.cpp
 	HLE/ReplaceTables.h
 	HLE/HLEHelperThread.cpp

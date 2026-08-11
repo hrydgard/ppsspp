@@ -1032,7 +1032,12 @@ size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const c
 			u32 sp = mips->r[MIPS_REG_SP];
 			// Goes upward on stack.
 			// NOTE: Currently we only support > 8 for 32-bit integer args.
-			regval = Memory::Read_U32(sp + (reg - 8) * 4);
+			if (Memory::IsValid4AlignedAddress(sp)) {
+				regval = Memory::ReadUnchecked_U32(sp + (reg - 8) * 4);
+			} else {
+				// This should basically never happen.
+				ERROR_LOG(Log::HLE, "Couldn't read sp=%08x for arg %zu", sp, i);
+			}
 		}
 
 		switch (argmask[i]) {

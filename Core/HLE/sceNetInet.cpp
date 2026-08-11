@@ -485,7 +485,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	u32 optval = optvalPtr ? Memory::Read_U32(optvalPtr) : 0;
+	const u32 optval = Memory::IsValid4AlignedAddress(optvalPtr) ? Memory::ReadUnchecked_U32(optvalPtr) : 0;
 	INFO_LOG(Log::sceNet, "sceNetInetSetsockopt(%i, %i, %i, %08x, %i) at %08x: Level = %s, OptName = %s, OptValue = %d",
 		socket, level, optname, optvalPtr, optlen, currentMIPS->pc,
 		inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str(), optval);

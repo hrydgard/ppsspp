@@ -228,8 +228,8 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
-	if (optParamAddr != 0) {
-		u32 size = Memory::Read_U32(optParamAddr);
+	if (optParamAddr != 0 && Memory::IsValid4AlignedAddress(optParamAddr)) {
+		u32 size = Memory::ReadUnchecked_U32(optParamAddr);
 		if (size > 4)
 			WARN_LOG_REPORT_ONCE(vtimeropt, Log::sceKernel, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
 	}
@@ -470,9 +470,9 @@ u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	if (Memory::IsValidAddress(statusAddr)) {
+	if (Memory::IsValid4AlignedAddress(statusAddr)) {
 		NativeVTimer status = vt->nvt;
-		u32 size = Memory::Read_U32(statusAddr);
+		u32 size = Memory::ReadUnchecked_U32(statusAddr);
 		status.current = __getVTimerCurrentTime(vt);
 		Memory::Memcpy(statusAddr, &status, std::min(size, (u32)sizeof(status)), "VTimerStatus");
 	}

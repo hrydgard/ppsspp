@@ -24,6 +24,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEUtil.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceCtrl.h"
@@ -59,21 +60,15 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	if (!Memory::IsValid4AlignedRange(paramAddr, sizeof(request))) {
-		// What to do?
-		return SCE_KERNEL_ERROR_BAD_ARGUMENT;
-	}
-
 	NOTICE_LOG(Log::sceUtility, "PSPNetConfDialog Init");
 	jsonReady_ = false;
 	// Kick off a request to the infra-dns.json since we'll need it later.
 	StartInfraJsonDownload();
 
 	requestAddr = paramAddr;
-	const u32 size = Memory::ReadUnchecked_U32(paramAddr);
-	memset(&request, 0, sizeof(request));
-	// Only copy the right size (bounded by the struct) to support different request format
-	Memory::Memcpy(&request, paramAddr, std::min(size, (u32)sizeof(request)));
+	if (!ReadVariableSizedStruct(paramAddr, &request.common)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
+	}
 
 	ChangeStatusInit(NET_INIT_DELAY_US);
 
@@ -250,22 +245,27 @@ int PSPNetconfDialog::Update(int animSpeed) {
 								if (Memory::IsValidAddress(scanInfosAddr))
 									userMemory.Free(scanInfosAddr);
 								scanInfosAddr = userMemory.Alloc(structsz, false, "NetconfScanInfo");
-								Memory::Write_U32(sizeof(SceNetAdhocctlScanInfoEmu), scanInfosAddr);
+								// TOOD: What if scanInfosAddr is not valid?
+								if (Memory::IsValid4AlignedAddress(scanInfosAddr)) {
+									Memory::WriteUnchecked_U32(sizeof(SceNetAdhocctlScanInfoEmu), scanInfosAddr);
+								}
 								scanStep = 1;
 							}
 						}
 						else if (scanStep == 1) {
-							s32 sz = Memory::Read_U32(scanInfosAddr);
+							s32 sz = Memory::ReadUnchecked_U32(scanInfosAddr);
 							// Get required buffer size
 							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, 0) >= 0) {
-								s32 reqsz = Memory::Read_U32(scanInfosAddr);
+								s32 reqsz = Memory::ReadUnchecked_U32(scanInfosAddr);
 								if (reqsz > sz) {
 									sz = reqsz;
-									if (Memory::IsValidAddress(scanInfosAddr))
-										userMemory.Free(scanInfosAddr);
+									userMemory.Free(scanInfosAddr);
 									u32 structsz = sz + sizeof(s32);
 									scanInfosAddr = userMemory.Alloc(structsz, false, "NetconfScanInfo");
-									Memory::Write_U32(sz, scanInfosAddr);
+									// TOOD: What if scanInfosAddr is not valid?
+									if (Memory::IsValid4AlignedAddress(scanInfosAddr)) {
+										Memory::WriteUnchecked_U32(sz, scanInfosAddr);
+									}
 								}
 								if (reqsz > 0) {
 									if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, scanInfosAddr + (u32)sizeof(s32)) >= 0) {
@@ -299,7 +299,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 								connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlJoin, scanInfosAddr + (u32)sizeof(s32));
 								if (connResult >= 0) {
 									// We are done!
-									if (Memory::IsValidAddress(scanInfosAddr))
+									if (Memory::IsValid4AlignedAddress(scanInfosAddr))
 										userMemory.Free(scanInfosAddr);
 									scanInfosAddr = 0;
 								}
@@ -325,7 +325,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			}
 
 			// Let's not leaks any memory
-			if (Memory::IsValidAddress(scanInfosAddr))
+			if (Memory::IsValid4AlignedAddress(scanInfosAddr))
 				userMemory.Free(scanInfosAddr);
 			scanInfosAddr = 0;
 		}
@@ -335,7 +335,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
 			request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 			// Let's not leaks any memory
-			if (Memory::IsValidAddress(scanInfosAddr))
+			if (Memory::IsValid4AlignedAddress(scanInfosAddr))
 				userMemory.Free(scanInfosAddr);
 			scanInfosAddr = 0;
 		}

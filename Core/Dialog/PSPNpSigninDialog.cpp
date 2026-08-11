@@ -26,6 +26,8 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNp.h"
+#include "Core/HLE/HLEUtil.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/Dialog/PSPNpSigninDialog.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -42,11 +44,10 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	requestAddr = paramAddr;
-	int size = Memory::Read_U32(paramAddr);
-	memset(&request, 0, sizeof(request));
-	// Only copy the right size to support different request format
-	Memory::Memcpy(&request, paramAddr, size);
-	
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
+	}
+
 	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
 
 	ChangeStatusInit(NP_INIT_DELAY_US);
