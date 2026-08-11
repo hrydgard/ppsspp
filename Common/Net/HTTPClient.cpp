@@ -87,10 +87,17 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 
 static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 	switch (info->ai_family) {
-	case AF_INET:
-	case AF_INET6:
-		inet_ntop(info->ai_family, &((sockaddr_in *)info->ai_addr)->sin_addr, addrbuf, bufsize);
+	case AF_INET: {
+		auto sock_addr = (sockaddr_in*)info->ai_addr;
+		inet_ntop(info->ai_family, &(sock_addr)->sin_addr, addrbuf, bufsize);
 		break;
+	}
+	case AF_INET6: {
+		auto sock_addr = (sockaddr_in6*)info->ai_addr;
+		// There's also 'sin6_flowinfo' before 'sin6_addr', so we can't combine these cases into one.
+		inet_ntop(info->ai_family, &(sock_addr)->sin6_addr, addrbuf, bufsize);
+		break;
+	}
 	default:
 		snprintf(addrbuf, bufsize, "(Unknown AF %d)", info->ai_family);
 		break;
