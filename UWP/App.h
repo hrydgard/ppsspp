@@ -5,46 +5,6 @@
 #include "PPSSPP_UWPMain.h"
 
 namespace UWP {
-	struct Touch {
-		bool inUse = false;
-		unsigned uid;
-	};
-
-	class TouchMapper {
-	public:
-		int TouchId(unsigned touch) {
-			for (int touchIx = 0; touchIx < maxTouches; touchIx++)
-				if (touches[touchIx].inUse && touches[touchIx].uid == touch)
-					return touchIx;
-			return -1;
-		}
-
-		int AddNewTouch(unsigned touch) {
-			for (int touchIx = 0; touchIx < maxTouches; touchIx++) {
-				if (!touches[touchIx].inUse) {
-					touches[touchIx].inUse = true;
-					touches[touchIx].uid = touch;
-					return touchIx;
-				}
-			}
-			return -1;
-		}
-
-		int RemoveTouch(unsigned touch) {
-			for (int touchIx = 0; touchIx < maxTouches; touchIx++) {
-				if (touches[touchIx].inUse && touches[touchIx].uid == touch) {
-					touches[touchIx].inUse = false;
-					return touchIx;
-				}
-			}
-			return -1;
-		}
-
-	private:
-		enum { maxTouches = 11 };
-		Touch touches[maxTouches]{};
-	};
-
 	// Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
 	struct App : winrt::implements<App, winrt::Windows::ApplicationModel::Core::IFrameworkView> {
 	public:

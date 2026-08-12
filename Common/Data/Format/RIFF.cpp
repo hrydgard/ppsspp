@@ -46,7 +46,14 @@ bool RIFFReader::Descend(uint32_t intoId) {
 		int length = ReadInt();
 		int startLocation = pos_;
 
-		if (pos_ + length > fileSize_) {
+		// length is a raw 4-byte value from the file. Validate in 64-bit to avoid
+		// pos_ + length overflowing a 32-bit int (which could wrap negative and
+		// bypass this check for a length near INT_MAX), and reject negative lengths
+		// outright here - the mismatch branch below already checks length > 0 before
+		// advancing pos_, but a *matched* chunk with a negative length used to reach
+		// stack[depth_].length unchecked, and from there GetCurrentChunkSize() and
+		// its callers (e.g. a std::vector::resize() sized from it).
+		if (length < 0 || (int64_t)pos_ + length > fileSize_) {
 			// This should already catch the case where the file is truncated, but we also check for it in ReadData just in case.
 			ERROR_LOG(Log::IO, "Block extends outside of RIFF file - failing descend");
 			pos_ = stack[depth_].parentStartLocation;

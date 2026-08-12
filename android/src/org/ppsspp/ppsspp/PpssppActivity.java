@@ -375,7 +375,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
 		this.audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-		this.audioFocusChangeListener = new AudioFocusChangeListener();
+		if (this.audioManager != null) {
+			this.audioFocusChangeListener = new AudioFocusChangeListener();
+		} else {
+			Log.e(TAG, "Failed to get audio manager, likely not supported on this device.");
+		}
 
 		// Get the optimal buffer sz
 		detectOptimalAudioSettings();
@@ -1120,7 +1124,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// instantiate NativeAudioPlayer
 	public static void updateAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
 		if (audioManager == null) {
-			Log.w(TAG, "Couldn't update audio focus, audio manager null");
+			// Not supported on this device, we logged in init.
 			return;
 		}
 		if (NativeApp.queryConfig("audioMixWithOthers").equals("0")) {

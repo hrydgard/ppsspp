@@ -48,8 +48,12 @@ struct WavData {
 
 	[[nodiscard]]
 	bool IsSimpleWAV() const {
-		bool isBad = raw_bytes_per_frame > sizeof(int16_t) * num_channels;
-		return !isBad && num_channels > 0 && sample_rate >= 8000 && codec == 0;
+		// Sample::Load() only actually handles these two exact cases (16-bit or 8-bit
+		// raw PCM); anything else used to pass this check while leaving Load()'s
+		// output buffer uninitialized (played back as heap garbage) since neither of
+		// its two conversion branches would match.
+		bool validFrameSize = raw_bytes_per_frame == (int)sizeof(int16_t) * num_channels || raw_bytes_per_frame == num_channels;
+		return validFrameSize && num_channels > 0 && sample_rate >= 8000 && codec == 0;
 	}
 };
 
@@ -152,12 +156,25 @@ bool WavData::Read(RIFFReader &file_) {
 
 		// enter the data chunk
 		if (file_.Descend('data')) {
+			// raw_bytes_per_frame (the 'fmt ' chunk's blockAlign field, read above) is
+			// unvalidated file data - a value of 0 would otherwise divide by zero here.
+			if (raw_bytes_per_frame <= 0) {
+				ERROR_LOG(Log::Audio, "Error - bad blockalign");
+				file_.Ascend();
+				return false;
+			}
+
 			int numBytes = file_.GetCurrentChunkSize();
 			numFrames = numBytes / raw_bytes_per_frame;  // numFrames
 
 			// It seems the atrac3 codec likes to read a little bit outside.
 			const int padding = 32;  // 32 is the value FFMPEG uses.
 			raw_data = (uint8_t *)malloc(numBytes + padding);
+			if (!raw_data) {
+				ERROR_LOG(Log::Audio, "Error - failed to allocate %d bytes for wave data", numBytes + padding);
+				file_.Ascend();
+				return false;
+			}
 			raw_data_size = numBytes;
 
 			if (num_channels == 1 || num_channels == 2) {
@@ -232,7 +249,14 @@ public:
 		while (bgQueue.size() < (size_t)(len * 2)) {
 			int outSamples = 0;
 			int inbytesConsumed = 0;
-			bool result = decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, 2, (int16_t *)buffer_, &outSamples);
+			// raw_bytes_per_frame is unvalidated file data (the 'fmt ' chunk's blockAlign
+			// field) - clamp the length passed to the decoder to what's actually left in
+			// raw_data at raw_offset_, so a bogus blockAlign can't make it read past the
+			// (padded) allocation.
+			const int kPadding = 32;  // Matches WavData::Read's allocation padding.
+			int available = std::max(0, wave_.raw_data_size + kPadding - raw_offset_);
+			int inBytes = std::min(wave_.raw_bytes_per_frame, available);
+			bool result = decoder_->Decode(wave_.raw_data + raw_offset_, inBytes, &inbytesConsumed, 2, (int16_t *)buffer_, &outSamples);
 			if (!result || !outSamples)
 				return false;
 			int outBytes = outSamples * 2 * sizeof(int16_t);
