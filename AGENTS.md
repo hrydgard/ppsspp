@@ -180,12 +180,26 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   the `// add new modules here.` comment near the end of that function) - not inserted alphabetically/logically among
   the existing `Register_*()` calls. Module registration order affects numeric IDs used in savestates, so inserting a
   new module earlier in that list would break save-state compatibility for saves made with older builds.
-- Remember to add any new `.cpp`/`.c` file to **five** places: `Core/CMakeLists.txt`, `Core/Core.vcxproj`,
-  `Core/Core.vcxproj.filters`, `android/jni/Android.mk`, and `libretro/Makefile.common`. New `.h` files only need the
-  first three (`Android.mk`/`Makefile.common` are plain compiled-source lists so headers
-  don't go in them). Only the CMakeLists.txt change can be verified from a Linux/Mac build - the rest can't be
-  build-tested here, so double check them by hand against how an existing neighboring file (e.g. `sceVaudio.cpp`) is
-  listed in each. Note: New files in the unittest project have to be updated in the unittest part in android/jni/Android.mk.
+- Remember to add any new `.cpp`/`.c` file to **seven** places: `Core/CMakeLists.txt`, `Core/Core.vcxproj`,
+  `Core/Core.vcxproj.filters`, `UWP/CoreUWP/CoreUWP.vcxproj`, `UWP/CoreUWP/CoreUWP.vcxproj.filters`,
+  `android/jni/Android.mk`, and `libretro/Makefile.common`. New `.h` files need the first five (everything except
+  `Android.mk`/`Makefile.common`, which are plain compiled-source lists so headers don't go in them). Double check
+  each by hand against how an existing neighboring file (e.g. `sceVaudio.cpp`) is listed. Forgetting the UWP entries
+  is easy to miss - the CMake and MSBuild (`Core.vcxproj`) builds both succeed silently, and it only surfaces as a
+  UWP-only build failure (this has happened for real: `Core/MIPS/InterpreterDispatch.cpp` landed without its UWP
+  entries, and the omission wasn't caught until someone actually built the UWP project). Note: New files in the
+  unittest project have to be updated in the unittest part in android/jni/Android.mk.
+
+  Both the CMakeLists.txt change (via a Linux/Mac build) and the `Core.vcxproj`/UWP changes (via MSBuild on Windows)
+  can actually be build-tested, not just eyeballed - see "Build and Validation" above for the main Windows solution,
+  and for UWP specifically:
+  ```powershell
+  $installPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+  $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
+  & $msbuild "UWP\PPSSPP_UWP.sln" /t:CoreUWP /p:Configuration=Debug /p:Platform=x64 /m
+  ```
+  (only `android/jni/Android.mk` and `libretro/Makefile.common` genuinely can't be build-tested here - see their
+  respective sections above for what verification is possible for those.)
 
 ## WebSocket debugger
 
