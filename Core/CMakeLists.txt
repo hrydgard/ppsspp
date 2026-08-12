@@ -620,6 +620,8 @@ add_library(Core STATIC
 	MIPS/MIPSDisVFPU.h
 	MIPS/Interpreter.cpp
 	MIPS/Interpreter.h
+	MIPS/InterpreterDispatch.cpp
+	MIPS/InterpreterDispatch.h
 	MIPS/InterpreterVFPU.cpp
 	MIPS/InterpreterVFPU.h
 	MIPS/MIPSStackWalk.cpp

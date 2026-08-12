@@ -114,6 +114,9 @@
     <ClCompile Include="MIPS\Interpreter.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\InterpreterDispatch.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\InterpreterVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -1417,6 +1420,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\Interpreter.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\InterpreterDispatch.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\InterpreterVFPU.h">

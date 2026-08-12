@@ -25,6 +25,7 @@
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
 #include "Core/MIPS/Interpreter.h"
+#include "Core/MIPS/InterpreterDispatch.h"
 #include "Core/MIPS/InterpreterVFPU.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -1119,9 +1120,7 @@ static inline void RunUntilFast() {
 			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(curMips->pc));
 
 			bool wasInDelaySlot = curMips->inDelaySlot;
-			const MIPSInstruction *instr = MIPSGetInstruction(op);
-			Interpret(instr, op);
-			curMips->downcount -= GetInstructionCycleEstimate(instr);
+			curMips->downcount -= ExecInstruction(op);
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
 			if (curMips->inDelaySlot && wasInDelaySlot) {

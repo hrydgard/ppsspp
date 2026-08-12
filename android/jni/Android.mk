@@ -515,6 +515,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
   $(SRC)/Core/MIPS/MIPSAsm.cpp \
   $(SRC)/Core/MIPS/Interpreter.cpp.arm \
+  $(SRC)/Core/MIPS/InterpreterDispatch.cpp \
   $(SRC)/Core/MIPS/InterpreterVFPU.cpp.arm \
   $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
   $(SRC)/Core/MIPS/MIPSTables.cpp \

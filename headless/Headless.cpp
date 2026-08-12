@@ -716,7 +716,7 @@ int main(int argc, const char* argv[]) {
 		return 1;
 #else
 		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value(), &windowDesc);
+		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
 		if (!windowDesc.Valid()) {
 			fprintf(stderr, "Failed to create a window for graphics context");
 			return 1;

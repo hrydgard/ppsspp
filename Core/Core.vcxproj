@@ -845,6 +845,7 @@
     <ClCompile Include="MIPS\MIPSDis.cpp" />
     <ClCompile Include="MIPS\MIPSDisVFPU.cpp" />
     <ClCompile Include="MIPS\Interpreter.cpp" />
+    <ClCompile Include="MIPS\InterpreterDispatch.cpp" />
     <ClCompile Include="MIPS\InterpreterVFPU.cpp" />
     <ClCompile Include="MIPS\MIPSTables.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp" />
@@ -1230,6 +1231,7 @@
     <ClInclude Include="MIPS\MIPSDis.h" />
     <ClInclude Include="MIPS\MIPSDisVFPU.h" />
     <ClInclude Include="MIPS\Interpreter.h" />
+    <ClInclude Include="MIPS\InterpreterDispatch.h" />
     <ClInclude Include="MIPS\InterpreterVFPU.h" />
     <ClInclude Include="MIPS\MIPSTables.h" />
     <ClInclude Include="MIPS\MIPSVFPUUtils.h" />
