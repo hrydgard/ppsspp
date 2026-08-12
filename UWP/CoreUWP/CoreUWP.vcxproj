@@ -290,8 +290,8 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSDebugInterface.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSDis.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSDisVFPU.h" />
-    <ClInclude Include="..\..\Core\MIPS\MIPSInt.h" />
-    <ClInclude Include="..\..\Core\MIPS\MIPSIntVFPU.h" />
+    <ClInclude Include="..\..\Core\MIPS\Interpreter.h" />
+    <ClInclude Include="..\..\Core\MIPS\InterpreterVFPU.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSStackWalk.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h" />
@@ -586,8 +586,8 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSDebugInterface.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSDis.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSDisVFPU.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\MIPSInt.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\MIPSIntVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\Interpreter.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\InterpreterVFPU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp" />

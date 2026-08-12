@@ -33,7 +33,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInterpreter.h"

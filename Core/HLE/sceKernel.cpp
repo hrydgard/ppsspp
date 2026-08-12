@@ -28,7 +28,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "Core/FileSystems/FileSystem.h"

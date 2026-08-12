@@ -26,7 +26,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
