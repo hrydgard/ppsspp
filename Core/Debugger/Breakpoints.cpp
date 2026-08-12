@@ -475,7 +475,7 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 		int mask = MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE;
 		bool apply = false;
 		if (write && (check->cond & mask) == mask) {
-			if (MIPSAnalyst::OpWouldChangeMemory(pc, address, size)) {
+			if (MIPSAnalyst::OpWouldChangeMemory(currentMIPS, pc, address, size)) {
 				apply = true;
 			}
 		} else {

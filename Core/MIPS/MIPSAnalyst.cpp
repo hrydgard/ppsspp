@@ -634,7 +634,7 @@ namespace MIPSAnalyst {
 		return (info & DELAYSLOT) != 0;
 	}
 
-	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {
+	bool OpWouldChangeMemory(MIPSState *mips, u32 pc, u32 addr, u32 size) {
 		if (!Memory::IsValidRange(addr, 4)) {
 			return false;
 		}
@@ -664,19 +664,19 @@ namespace MIPSAnalyst {
 
 		if (gprMask != 0) {
 			MIPSGPReg rt = MIPS_GET_RT(op);
-			writeVal = currentMIPS->r[rt] & gprMask;
+			writeVal = mips->r[rt] & gprMask;
 			prevVal = Memory::ReadUnchecked_U32(addr) & gprMask;
 		}
 
 		if (IsSWC1Instr(op)) {
 			int ft = MIPS_GET_FT(op);
-			writeVal = currentMIPS->fi[ft];
+			writeVal = mips->fi[ft];
 			prevVal = Memory::ReadUnchecked_U32(addr);
 		}
 
 		if (IsSVSInstr(op)) {
 			int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-			writeVal = currentMIPS->vi[voffset[vt]];
+			writeVal = mips->vi[voffset[vt]];
 			prevVal = Memory::ReadUnchecked_U32(addr);
 		}
 
@@ -686,7 +686,7 @@ namespace MIPSAnalyst {
 			}
 			int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 			float rd[4];
-			ReadVector(rd, V_Quad, vt);
+			ReadVector(mips, rd, V_Quad, vt);
 			return memcmp(rd, Memory::GetPointerUnchecked(addr), 16) != 0;  // sizeof(float) * 4
 		}
 
