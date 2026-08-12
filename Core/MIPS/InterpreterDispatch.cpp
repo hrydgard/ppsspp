@@ -733,6 +733,6 @@ int ExecInstruction(MIPSOpcode op) {
         goto slow_path;
     }
 slow_path:
-	MIPSInterpret(op);
+	MIPSInterpret(currentMIPS, op);
 	return MIPSGetInstructionCycleEstimate(op);
 }

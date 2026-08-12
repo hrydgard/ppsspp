@@ -1079,16 +1079,16 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
-static inline void Interpret(const MIPSInstruction *instr, MIPSOpcode op) {
+static inline void Interpret(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
 	if (instr && instr->interpret) {
 		instr->interpret(op);
 	} else {
-		ERROR_LOG_REPORT(Log::CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
+		ERROR_LOG_REPORT(Log::CPU, "Unknown instruction %08x at %08x", op.encoding, mips->pc);
 		// Try to disassemble it
 		char disasm[256];
-		MIPSDisAsm(op, currentMIPS->pc, disasm, sizeof(disasm));
+		MIPSDisAsm(op, mips->pc, disasm, sizeof(disasm));
 		_dbg_assert_msg_(0, "%s", disasm);
-		currentMIPS->pc += 4;
+		mips->pc += 4;
 	}
 }
 
@@ -1098,18 +1098,12 @@ inline int GetInstructionCycleEstimate(const MIPSInstruction *instr) {
 	return 1;
 }
 
-void MIPSInterpret(MIPSOpcode op) {
+void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	Interpret(instr, op);
+	Interpret(mips, instr, op);
 }
 
-#define _RS   ((op>>21) & 0x1F)
-#define _RT   ((op>>16) & 0x1F)
-#define _RD   ((op>>11) & 0x1F)
-#define R(i)   (curMips->r[i])
-
-static inline void RunUntilFast() {
-	MIPSState *curMips = currentMIPS;
+static inline void RunUntilFast(MIPSState *curMips) {
 	// NEVER stop in a delay slot!
 	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
@@ -1131,8 +1125,8 @@ static inline void RunUntilFast() {
 	}
 }
 
-static void RunUntilWithChecks(u64 globalTicks) {
-	MIPSState *curMips = currentMIPS;
+#define _RS(op)   ((op>>21) & 0x1F)
+static void RunUntilWithChecks(MIPSState *curMips, u64 globalTicks) {
 	// NEVER stop in a delay slot!
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
@@ -1148,7 +1142,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 
 			// Check for breakpoint
 			if (hasBPs && g_breakpoints.IsAddressBreakPoint(curMips->pc) && g_breakpoints.CheckSkipFirst() != curMips->pc) {
-				auto cond = g_breakpoints.GetBreakPointCondition(currentMIPS->pc);
+				auto cond = g_breakpoints.GetBreakPointCondition(curMips->pc);
 				if (!cond || cond->Evaluate()) {
 					Core_Break(BreakReason::CpuBreakpoint, curMips->pc);
 					if (g_breakpoints.IsTempBreakPoint(curMips->pc))
@@ -1159,7 +1153,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != curMips->pc && instr->interpret != &Int_Syscall) {
 				// This is common for all IN_MEM/OUT_MEM funcs.
 				int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
-				u32 addr = (R(_RS) + offset) & 0xFFFFFFFC;
+				u32 addr = (curMips->r[_RS(op)] + offset) & 0xFFFFFFFC;
 				int sz = MIPSGetMemoryAccessSize(op);
 
 				if ((instr->flags & IN_MEM) != 0)
@@ -1173,7 +1167,7 @@ static void RunUntilWithChecks(u64 globalTicks) {
 			}
 
 			bool wasInDelaySlot = curMips->inDelaySlot;
-			Interpret(instr, op);
+			Interpret(curMips, instr, op);
 			curMips->downcount -= GetInstructionCycleEstimate(instr);
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
@@ -1187,17 +1181,17 @@ static void RunUntilWithChecks(u64 globalTicks) {
 			return;
 	}
 }
+#undef _RS
 
-int MIPSInterpret_RunUntil(u64 globalTicks) {
-	MIPSState *curMips = currentMIPS;
+int MIPSInterpret_RunUntil(MIPSState *curMips, u64 globalTicks) {
 	while (coreState == CORE_RUNNING_CPU) {
 		CoreTiming::Advance();
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks();
 		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= curMips->downcount)
-			RunUntilWithChecks(globalTicks);
+			RunUntilWithChecks(curMips, globalTicks);
 		else
-			RunUntilFast();
+			RunUntilFast(curMips);
 
 		if (CoreTiming::GetTicks() > globalTicks) {
 			// DEBUG_LOG(Log::CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
@@ -1208,28 +1202,26 @@ int MIPSInterpret_RunUntil(u64 globalTicks) {
 	return 1;
 }
 
-const char *MIPSGetName(MIPSOpcode op)
-{
+const char *MIPSGetName(MIPSOpcode op) {
 	static const char * const noname = "unk";
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	if (!instr)
+	if (!instr) {
 		return noname;
-	else
+	} else {
 		return instr->name;
+	}
 }
 
-MIPSInfo MIPSGetInfo(MIPSOpcode op)
-{
-	//	int crunch = CRUNCH_MIPS_OP(op);
+MIPSInfo MIPSGetInfo(MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	if (instr)
+	if (instr) {
 		return instr->flags;
-	else
+	} else {
 		return MIPSInfo(BAD_INSTRUCTION);
+	}
 }
 
-MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
-{
+MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	if (instr->interpret)
 		return instr->interpret;
@@ -1238,8 +1230,7 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
 }
 
 // TODO: Do something that makes sense here.
-int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
-{
+int MIPSGetInstructionCycleEstimate(MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	return GetInstructionCycleEstimate(instr);
 }

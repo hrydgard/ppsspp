@@ -129,7 +129,7 @@ void FakeJit::Compile(u32 em_address) {
 }
 
 void FakeJit::RunLoopUntil(u64 globalticks) {
-	MIPSInterpret_RunUntil(globalticks);
+	MIPSInterpret_RunUntil(currentMIPS, globalticks);
 }
 
 void FakeJit::DoJit(u32 em_address, JitBlock *b) {

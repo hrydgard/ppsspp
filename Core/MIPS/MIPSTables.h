@@ -131,8 +131,8 @@ namespace MIPSComp {
 void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit);
 void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpaces = false);
 MIPSInfo MIPSGetInfo(MIPSOpcode op);
-void MIPSInterpret(MIPSOpcode op); //only for those rare ones
-int MIPSInterpret_RunUntil(u64 globalTicks);
+void MIPSInterpret(MIPSState *mips, MIPSOpcode op); //only for those rare ones
+int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks);
 MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
