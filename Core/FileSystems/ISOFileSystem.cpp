@@ -455,7 +455,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		} else {
 			int block = (u16)desc.firstLETableSector;
 			u32 size = Memory::ClampValidSizeAt(outdataPtr, (u32)desc.pathTableLength);
-			u8 *out = Memory::GetPointerWriteRange(outdataPtr, size);
+			u8 *out = Memory::GetPointerWriteRangeOrException(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();
 			blockDevice->ReadBlocks(block, blocks, out);

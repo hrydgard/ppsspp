@@ -71,6 +71,11 @@ u8 *m_pUncachedKernelRAM[3];
 static u8 *m_pPhysicalVRAM[4];
 static u8 *m_pUncachedVRAM[4];
 
+// Hardware registers are mapped at 0xbc000000 and forwards (physical address 0x1C000000, but we need
+// the 0x80000000 kernel flag and 0x40000000 uncached flag for these). Exception vectors are at 0xbfc00000.
+// Since we do HLE emulation, we currently don't bother with any of that.
+// Some limited documentation here: https://www.psdevwiki.com/psp/Hardware_Registers#Introduction
+
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
 // This replaces RAM_NORMAL_SIZE at runtime.
@@ -337,7 +342,7 @@ void Reinit() {
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
-	uint8_t *d = GetPointerWrite(start);
+	uint8_t *d = GetPointerWriteOrException(start);
 	uint8_t *&storage = *p.ptr;
 
 	// We only handle aligned data and sizes.

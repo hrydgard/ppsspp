@@ -569,7 +569,7 @@ void ArmJit::Comp_Generic(MIPSOpcode op)
 		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
-		QuickCallFunction(R1, (void *)func);
+		QuickCallFunction(R1, (void *)&MIPSInterpretTrampoline);
 		ApplyRoundingMode();
 		RestoreDowncount();
 	}

@@ -25,6 +25,7 @@
 
 
 class MIPSDebugInterface : public DebugInterface {
+private:
 	MIPSState *cpu;
 public:
 	MIPSDebugInterface(MIPSState *_cpu) { cpu = _cpu; }

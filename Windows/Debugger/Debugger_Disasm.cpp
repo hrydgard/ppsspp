@@ -93,7 +93,7 @@ static constexpr UINT UPDATE_DELAY = 1000 / 60;
 
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, MIPSDebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
 	cpu = _cpu;
-	lastTicks_ = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
+	lastTicks_ = PSP_IsInited() ? CoreTiming::GetTicks(currentMIPS) : 0;
 	breakpoints_ = &g_breakpoints;
 
 	SetWindowText(m_hDlg, L"R4");
@@ -204,7 +204,7 @@ void CDisasm::step(CPUStepType stepType) {
 
 	CtrlDisAsmView *ptr = DisAsmView();
 	ptr->setDontRedraw(true);
-	lastTicks_ = CoreTiming::GetTicks();
+	lastTicks_ = CoreTiming::GetTicks(currentMIPS);
 
 	// Route the actual step request to the CPU thread instead of poking at it directly from this
 	// GUI thread - see Core_RunOnCPUThread() in Core.h.
@@ -219,7 +219,7 @@ void CDisasm::runToLine() {
 	CtrlDisAsmView *ptr = DisAsmView();
 	u32 pos = ptr->getSelection();
 
-	lastTicks_ = CoreTiming::GetTicks();
+	lastTicks_ = CoreTiming::GetTicks(currentMIPS);
 	ptr->setDontRedraw(true);
 	// Route the breakpoint mutation to the CPU thread instead of poking at it directly from this
 	// GUI thread - see Core_RunOnCPUThread() in Core.h. Core_Resume() itself is free-threaded.
@@ -401,7 +401,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 						ptr->setDontRedraw(false);
 						Core_Break(BreakReason::DebugBreak, 0);
 					} else {					// go
-						lastTicks_ = CoreTiming::GetTicks();
+						lastTicks_ = CoreTiming::GetTicks(currentMIPS);
 						Core_Resume();
 					}
 				}
@@ -423,7 +423,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				{
 					if (Core_IsActive())
 						break;
-					lastTicks_ = CoreTiming::GetTicks();
+					lastTicks_ = CoreTiming::GetTicks(currentMIPS);
 
 					// Route the actual HLE-break mutation to the CPU thread instead of poking at
 					// it directly from this GUI thread - see Core_RunOnCPUThread() in Core.h.
@@ -799,7 +799,7 @@ void CDisasm::ProcessUpdateDialog() {
 	// Update Debug Counter
 	if (PSP_IsInited()) {
 		wchar_t tempTicks[24]{};
-		_snwprintf(tempTicks, 23, L"%lld", CoreTiming::GetTicks() - lastTicks_);
+		_snwprintf(tempTicks, 23, L"%lld", CoreTiming::GetTicks(currentMIPS) - lastTicks_);
 		SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 	}
 

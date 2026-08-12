@@ -407,7 +407,7 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	} else {
 		sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
 	}
-	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+	const u32 *checkp = (const u32 *)Memory::GetPointerOrException(addr);
 
 	if (Memory::IsValidAddress(addr + sizeInRAM)) {
 		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
@@ -1956,7 +1956,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	const u8 *texptr = Memory::GetPointer(texaddr);
+	const u8 *texptr = Memory::GetPointerOrException(texaddr);
 	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
 
 	// Validate the texture data fits in mapped RAM, like the DXT path does.

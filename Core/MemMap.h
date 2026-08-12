@@ -242,19 +242,19 @@ void WriteOrException_U16(const u16 data, const u32 address);
 void WriteOrException_U32(const u32 data, const u32 address);
 void WriteOrException_U64(const u64 data, const u32 address);
 
-u8* GetPointerWrite(const u32 address);
-const u8* GetPointer(const u32 address);
+u8* GetPointerWriteOrException(const u32 address);
+const u8* GetPointerOrException(const u32 address);
 
-u8 *GetPointerWriteRange(const u32 address, const u32 size);
+u8 *GetPointerWriteRangeOrException(const u32 address, const u32 size);
 template<typename T>
 T* GetTypedPointerWriteRange(const u32 address, const u32 size) {
-	return reinterpret_cast<T*>(GetPointerWriteRange(address, size));
+	return reinterpret_cast<T*>(GetPointerWriteRangeOrException(address, size));
 }
 
-const u8 *GetPointerRange(const u32 address, const u32 size);
+const u8 *GetPointerRangeOrException(const u32 address, const u32 size);
 template<typename T>
 const T* GetTypedPointerRange(const u32 address, const u32 size) {
-	return reinterpret_cast<const T*>(GetPointerRange(address, size));
+	return reinterpret_cast<const T*>(GetPointerRangeOrException(address, size));
 }
 
 bool IsRAMAddress(const u32 address);
@@ -265,6 +265,11 @@ inline bool IsVRAMAddress(const u32 address) {
 }
 inline bool IsDepthTexVRAMAddress(const u32 address) {
 	return ((address & 0xBFE00000) == 0x04200000) || ((address & 0xBFE00000) == 0x04600000);
+}
+
+// TODO: To re-evaluate.
+inline bool IsMMIOAccess(const u32 address) {
+	return ((address & 0xFC000000) == 0xBC000000);
 }
 
 // 0x08000000 -> 0x08800000
@@ -291,6 +296,7 @@ inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const 
 	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
+// Applies to user mode.
 // Without a length, IsValidAddress is generally semi-meaningless, unless it's about a single byte access. For larger accesses, use IsValid4AlignedAddress
 // etc when appropriate, or for longer sizes, use IsValidRange or IsValid4AlignedRange for example. Checking aligned-ness helps avoid the problem
 // of reading past the last byte, say reading 4 bytes at offset 5 of a memory sized 8.
@@ -568,7 +574,7 @@ struct PSPPointer
 	}
 
 	void FillWithZero() {
-		memset(Memory::GetPointerWrite(ptr), 0, sizeof(T));
+		memset(Memory::GetPointerWriteOrException(ptr), 0, sizeof(T));
 	}
 
 	bool Equals(u32 addr) const {

@@ -1202,7 +1202,7 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(Log::sceNet, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", contextID, EventID);
 	//SetMatchingInCallback(context, false);
-	DEBUG_LOG(Log::sceNet, "AfterMatchingMipsCall::run [ID=%i][Event=%d][%s] [cbId: %u][retV0: %08x]", contextID, EventID, mac2str((SceNetEtherAddr*)Memory::GetPointer(bufAddr)).c_str(), call.cbId, v0);
+	DEBUG_LOG(Log::sceNet, "AfterMatchingMipsCall::run [ID=%i][Event=%d][%s] [cbId: %u][retV0: %08x]", contextID, EventID, mac2str((SceNetEtherAddr*)Memory::GetPointerOrException(bufAddr)).c_str(), call.cbId, v0);
 	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 	//call.setReturnValue(v0);
 }

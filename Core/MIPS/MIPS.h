@@ -273,7 +273,8 @@ public:
 
 class MIPSDebugInterface;
 
-//The one we are compiling or running currently
+// The one we are compiling or running currently
+// TODO: These globals should be refactored away.
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;

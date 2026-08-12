@@ -50,6 +50,7 @@ extern "C" {
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -457,7 +458,7 @@ namespace Reporting
 	{
 		// Just to get an idea of how long they played.
 		if (PSP_GetBootState() == BootState::Complete)
-			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
+			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks(currentMIPS));
 
 		float vps, fps;
 		__DisplayGetAveragedFPS(&vps, &fps);

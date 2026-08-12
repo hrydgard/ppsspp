@@ -42,6 +42,7 @@
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/MIPS/MIPS.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -307,7 +308,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
 	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
 	// TODO: We can't use the initial error_string pointer.
-	return __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
+	return __KernelLoadExec(currentMIPS, bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 }
 
 // TODO: Move this to common. Merge with ResolvePath?
@@ -451,7 +452,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		g_Config.LoadGameConfig(discID);
 	}
 
-	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+	return __KernelLoadExec(currentMIPS, finalName.c_str(), 0, error_string);
 }
 
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {

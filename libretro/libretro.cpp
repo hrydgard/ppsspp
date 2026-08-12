@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
@@ -247,7 +248,7 @@ namespace Libretro
       }
 
       // Get elapsed time (us) for this run
-      s64 runTicks = CoreTiming::GetTicks();
+      s64 runTicks = CoreTiming::GetTicks(currentMIPS);
       s64 runTimeUs = cyclesToUs(runTicks - runTicksLast);
 
       // Check if current internal frame rate is a

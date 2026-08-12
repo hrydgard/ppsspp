@@ -285,7 +285,7 @@ void __PPGeInit() {
 	NotifyMemInfo(MemBlockFlags::WRITE, palette.ptr, 16 * sizeof(u16_le), "PPGe Palette");
 
 	const u32_le *imagePtr = (u32_le *)imageData[0];
-	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointerRange(atlasPtr, atlasSize);
+	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointerRangeOrException(atlasPtr, atlasSize);
 
 	// Palettize to 4-bit, the easy way.
 	for (int i = 0; i < width[0] * height[0] / 2; i++) {
@@ -334,7 +334,7 @@ void __PPGeDoState(PointerWrap &p)
 	} else {
 		// Memory was already updated by this point, so check directly.
 		if (atlasPtr != 0) {
-			savedHash = XXH3_64bits(Memory::GetPointerRange(atlasPtr, atlasWidth * atlasHeight / 2), atlasWidth * atlasHeight / 2);
+			savedHash = XXH3_64bits(Memory::GetPointerRangeOrException(atlasPtr, atlasWidth * atlasHeight / 2), atlasWidth * atlasHeight / 2);
 		} else {
 			savedHash ^= 1;
 		}
@@ -929,7 +929,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(std::string_view text, const PPGeSty
 
 		if (im.ptr) {
 			int wBytes = (im.entry.bmWidth + 1) / 2;
-			u8 *ramPtr = Memory::GetPointerWriteRange(im.ptr, sz);
+			u8 *ramPtr = Memory::GetPointerWriteRangeOrException(im.ptr, sz);
 			for (int y = 0; y < im.entry.bmHeight; ++y) {
 				for (int x = 0; x < wBytes; ++x) {
 					uint8_t c1 = bitmapData[y * im.entry.bmWidth + x * 2];
@@ -1373,7 +1373,7 @@ bool PPGeImage::Load() {
 	int success;
 	if (filename_.empty()) {
 		_dbg_assert_(size_ < MAX_VALID_IMAGE_SIZE);
-		const u8 *srcPtr = Memory::GetPointerRange(png_, (u32)size_);
+		const u8 *srcPtr = Memory::GetPointerRangeOrException(png_, (u32)size_);
 		if (!srcPtr) {
 			ERROR_LOG(Log::sceGe, "Trying to load PPGeImage from invalid range: %08x, %08x bytes", png_, (int)size_);
 			return false;

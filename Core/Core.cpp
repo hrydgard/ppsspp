@@ -640,6 +640,7 @@ const char *ExecExceptionTypeAsString(ExecExceptionType type) {
 	switch (type) {
 	case ExecExceptionType::JUMP: return "CPU Jump";
 	case ExecExceptionType::THREAD: return "Thread switch";
+	case ExecExceptionType::ILLEGAL: return "Illegal instruction";   // or unknown, but I think we have all now.
 	default:
 		return "N/A";
 	}

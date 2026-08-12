@@ -475,7 +475,7 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 		int mask = MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE;
 		bool apply = false;
 		if (write && (check->cond & mask) == mask) {
-			if (MIPSAnalyst::OpWouldChangeMemory(pc, address, size)) {
+			if (MIPSAnalyst::OpWouldChangeMemory(currentMIPS, pc, address, size)) {
 				apply = true;
 			}
 		} else {
@@ -495,12 +495,12 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 
 void BreakpointManager::SetSkipFirst(u32 pc) {
 	breakSkipFirstAt_ = pc;
-	breakSkipFirstTicks_ = CoreTiming::GetTicks();
+	breakSkipFirstTicks_ = CoreTiming::GetTicks(currentMIPS);
 }
 
 u32 BreakpointManager::CheckSkipFirst() {
 	u32 pc = breakSkipFirstAt_;
-	if (breakSkipFirstTicks_ == CoreTiming::GetTicks())
+	if (breakSkipFirstTicks_ == CoreTiming::GetTicks(currentMIPS))
 		return pc;
 	return 0;
 }

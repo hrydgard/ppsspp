@@ -1850,7 +1850,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 			return false;
 	}
 
-	u8 *texptr = Memory::GetPointerWrite(texaddr);
+	u8 *texptr = Memory::GetPointerWriteOrException(texaddr);
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {

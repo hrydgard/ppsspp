@@ -122,7 +122,7 @@ struct MIPSInfo {
 };
 
 typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, uint32_t pc, char *out, size_t outSize);
-typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
+typedef void (CDECL *MIPSInterpretFunc)(MIPSState *mips, MIPSOpcode opcode);
 
 namespace MIPSComp {
 	class MIPSFrontendInterface;
@@ -135,12 +135,20 @@ void MIPSInterpret(MIPSState *mips, MIPSOpcode op); //only for those rare ones
 int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks);
 MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
+// 1-arg (MIPSOpcode only) trampoline around MIPSInterpret(currentMIPS, op), for JIT backends
+// (x86/ARM/ARM64/RiscV/LoongArch64 Comp_Generic / CompIR_Interpret) that bake a raw function
+// pointer directly into generated machine code as their interpreter fallback - that codegen
+// only arranges a single MIPSOpcode argument before the call, so it can't target a real
+// MIPSInterpretFunc (now 2-arg) without also being taught to pass an explicit MIPSState*.
+// TODO: teach each JIT's codegen to pass mips explicitly, then delete this.
+void CDECL MIPSInterpretTrampoline(MIPSOpcode op);
+
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 int MIPSGetMemoryAccessSize(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
 std::string MIPSDisasmAt(u32 compilerPC);
 
 // Generates the full contents of Core/MIPS/InterpreterDispatch.cpp: a fast switch-tree
-// int ExecInstruction(MIPSOpcode op) dispatcher, derived from the tables in MIPSTables.cpp.
-// See GenerateInterpreterDispatch()'s comment (in the .cpp) for details.
+// int ExecInstruction(MIPSState *mips, MIPSOpcode op) dispatcher, derived from the tables in
+// MIPSTables.cpp. See GenerateInterpreterDispatch()'s comment (in the .cpp) for details.
 std::string GenerateInterpreterDispatch();

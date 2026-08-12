@@ -409,7 +409,7 @@ void DumpExecute::SyncStall() {
 
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
-		s64 nowTicks = CoreTiming::GetTicks();
+		s64 nowTicks = CoreTiming::GetTicks(currentMIPS);
 		if (listTicks > nowTicks) {
 			currentMIPS->downcount -= listTicks - nowTicks;
 		}

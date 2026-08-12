@@ -195,7 +195,7 @@ void DrawSchedulerView(ImConfig &cfg) {
 		ImGui::End();
 		return;
 	}
-	s64 ticks = CoreTiming::GetTicks();
+	s64 ticks = CoreTiming::GetTicks(currentMIPS);
 	if (ImGui::BeginChild("event_list", ImVec2(300.0f, 0.0))) {
 		const CoreTiming::Event *event = CoreTiming::GetFirstEvent();
 		while (event) {
@@ -1381,7 +1381,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 								if (!Memory::IsValidRange(info.buffer, info.bufferByte)) {
 									return;
 								}
-								const u8 *data = Memory::GetPointerRange(info.buffer, info.bufferByte);
+								const u8 *data = Memory::GetPointerRangeOrException(info.buffer, info.bufferByte);
 								if (!data) {
 									return;
 								}

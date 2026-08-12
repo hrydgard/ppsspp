@@ -466,10 +466,10 @@ void Recorder::FlushPrimState(int vcount) {
 		}
 	}
 
-	const void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+	const void *verts = Memory::GetPointerOrException(gstate_c.vertexAddr);
 	const void *indices = nullptr;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		indices = Memory::GetPointer(gstate_c.indexAddr);
+		indices = Memory::GetPointerOrException(gstate_c.indexAddr);
 	}
 
 	u32 ibytes = 0;

@@ -85,7 +85,7 @@ static void JitBranchLog(MIPSOpcode op, u32 pc) {
 
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	MIPSInfo info = MIPSGetInfo(op);
-	func(op);
+	func(currentMIPS, op);
 
 	// Branch taken, use nextPC.
 	if (currentMIPS->inDelaySlot)

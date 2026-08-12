@@ -395,8 +395,8 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
-	fb.data = Memory::GetPointerWrite(0x44000000); // TODO: correct default address?
-	depthbuf.data = Memory::GetPointerWrite(0x44000000); // TODO: correct default address?
+	fb.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
+	depthbuf.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
 
 	memset(softgpuCmdInfo, 0, sizeof(softgpuCmdInfo));
 
@@ -500,7 +500,7 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 	fbTexBuffer_.resize(srcwidth * srcheight);
 	const uint16_t *displayBuffer = overrideData;
 	if (!displayBuffer)
-		displayBuffer = (const uint16_t *)Memory::GetPointer(displayFramebuf_);
+		displayBuffer = (const uint16_t *)Memory::GetPointerOrException(displayFramebuf_);
 
 	for (int y = 0; y < srcheight; ++y) {
 		u32 *buf_line = &fbTexBuffer_[y * srcwidth];
@@ -564,7 +564,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
-		const u8 *data = Memory::GetPointerWrite(0x04088000);
+		const u8 *data = Memory::GetPointerWriteOrException(0x04088000);
 		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
@@ -593,13 +593,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
-		const u8 *data = Memory::GetPointer(displayFramebuf_);
+		const u8 *data = Memory::GetPointerOrException(displayFramebuf_);
 		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (displayFormat_ == GE_FORMAT_5551) {
-		const u8 *data = Memory::GetPointer(displayFramebuf_);
+		const u8 *data = Memory::GetPointerOrException(displayFramebuf_);
 		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
@@ -1037,7 +1037,7 @@ void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "depthbuf");
 		// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
 		// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
-		depthbuf.data = Memory::GetPointerWrite(gstate.getDepthBufAddress() & 0x041FFFF0);
+		depthbuf.data = Memory::GetPointerWriteOrException(gstate.getDepthBufAddress() & 0x041FFFF0);
 	}
 }
 
@@ -1365,7 +1365,7 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 		size.y = 272;
 		stride = displayStride_;
 		fmt = displayFormat_;
-		src = Memory::GetPointer(displayFramebuf_);
+		src = Memory::GetPointerOrException(displayFramebuf_);
 	}
 
 	buffer.Allocate(size.x, size.y, fmt);

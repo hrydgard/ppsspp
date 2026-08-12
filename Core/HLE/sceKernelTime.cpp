@@ -178,7 +178,7 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	// TODO: tzAddr?
 	if (Memory::IsValidAddress(timeAddr))
 	{
-		PSPTimeval *tv = (PSPTimeval *)Memory::GetPointer(timeAddr);
+		PSPTimeval *tv = (PSPTimeval *)Memory::GetPointerOrException(timeAddr);
 		__RtcTimeOfDay(tv);
 	}
 

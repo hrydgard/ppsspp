@@ -2986,7 +2986,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 	if (netAdhocInited)
 	{
 		SceNetAdhocPollSd * sds = NULL;
-		if (Memory::IsValidAddress(socketStructAddr)) sds = (SceNetAdhocPollSd *)Memory::GetPointer(socketStructAddr);
+		if (Memory::IsValidAddress(socketStructAddr)) sds = (SceNetAdhocPollSd *)Memory::GetPointerOrException(socketStructAddr);
 
 		// Valid Arguments
 		if (sds != NULL && count > 0)
@@ -3201,11 +3201,11 @@ int sceNetAdhocctlScan() {
 int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr) {
 	s32_le *buflen = NULL;
 	if (Memory::IsValidAddress(sizeAddr)) {
-		buflen = (s32_le *)Memory::GetPointer(sizeAddr);
+		buflen = (s32_le *)Memory::GetPointerOrException(sizeAddr);
 	}
 	SceNetAdhocctlScanInfoEmu *buf = NULL;
 	if (Memory::IsValidAddress(bufAddr)) {
-		buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointer(bufAddr);
+		buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointerOrException(bufAddr);
 	}
 
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, Memory::ReadUnchecked_U32(sizeAddr), bufAddr, currentMIPS->pc);
@@ -3518,7 +3518,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 		// Valid Arguments
 		if (mac != NULL && Memory::IsValidAddress(nameAddr))
 		{
-			SceNetAdhocctlNickname * nickname = (SceNetAdhocctlNickname *)Memory::GetPointer(nameAddr);
+			SceNetAdhocctlNickname * nickname = (SceNetAdhocctlNickname *)Memory::GetPointerOrException(nameAddr);
 			// Get Local MAC Address
 			SceNetEtherAddr localmac;
 			getLocalMac(&localmac);
@@ -3584,7 +3584,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	SceNetEtherAddr * maddr = (SceNetEtherAddr *)mac;
 	SceNetAdhocctlPeerInfoEmu * buf = NULL;
 	if (Memory::IsValidAddress(peerInfoAddr)) {
-		buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(peerInfoAddr);
+		buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointerOrException(peerInfoAddr);
 	}
 	// Library initialized
 	if (netAdhocctlInited) {
@@ -3755,7 +3755,7 @@ int sceNetAdhocctlJoin(u32 scanInfoAddr) {
 		// Valid Argument
 		if (Memory::IsValidAddress(scanInfoAddr))
 		{
-			SceNetAdhocctlScanInfoEmu* sinfo = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointer(scanInfoAddr);
+			SceNetAdhocctlScanInfoEmu* sinfo = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointerOrException(scanInfoAddr);
 			char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
 			memcpy(grpName, sinfo->group_name.data, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocctlJoin - Group: %s", grpName);
@@ -3943,9 +3943,9 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 	if (netAdhocInited)
 	{
 		s32_le *buflen = NULL;
-		if (Memory::IsValidAddress(structSize)) buflen = (s32_le *)Memory::GetPointer(structSize);
+		if (Memory::IsValidAddress(structSize)) buflen = (s32_le *)Memory::GetPointerOrException(structSize);
 		SceNetAdhocPdpStat *buf = NULL;
-		if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPdpStat *)Memory::GetPointer(structAddr);
+		if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPdpStat *)Memory::GetPointerOrException(structAddr);
 
 		// Socket Count
 		int socketcount = getPDPSocketCount();
@@ -4049,9 +4049,9 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 	VERBOSE_LOG(Log::sceNet,"sceNetAdhocGetPtpStat(%08x, %08x) at %08x",structSize,structAddr,currentMIPS->pc);
 
 	s32_le *buflen = NULL;
-	if (Memory::IsValidAddress(structSize)) buflen = (s32_le *)Memory::GetPointer(structSize);
+	if (Memory::IsValidAddress(structSize)) buflen = (s32_le *)Memory::GetPointerOrException(structSize);
 	SceNetAdhocPtpStat *buf = NULL;
-	if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPtpStat *)Memory::GetPointer(structAddr);
+	if (Memory::IsValidAddress(structAddr)) buf = (SceNetAdhocPtpStat *)Memory::GetPointerOrException(structAddr);
 
 	// Library is initialized
 	if (netAdhocInited) {
@@ -4637,7 +4637,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	}
 	uint16_t * port = NULL; //
 	if (Memory::IsValidAddress(peerPortPtr)) {
-		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
+		port = (uint16_t *)Memory::GetPointerOrException(peerPortPtr);
 	}
 	if (flag == 0) { // Prevent spamming Debug Log with retries of non-bocking socket
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
@@ -5211,7 +5211,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, currentMIPS->pc);
 
-	int * len = (int *)Memory::GetPointer(dataSizeAddr);
+	int * len = (int *)Memory::GetPointerOrException(dataSizeAddr);
 	const char * data = Memory::GetCharPointer(dataAddr);
 	// Library is initialized
 	if (netAdhocInited) {
@@ -5331,8 +5331,8 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, currentMIPS->pc);
 
-	void * buf = (void *)Memory::GetPointer(dataAddr);
-	int * len = (int *)Memory::GetPointer(dataSizeAddr);
+	void * buf = (void *)Memory::GetPointerOrException(dataAddr);
+	int * len = (int *)Memory::GetPointerOrException(dataSizeAddr);
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments
@@ -5726,7 +5726,7 @@ static int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
 	// Bomberman Panic Bomber is using 0/null on infoAddr, so i guess it's optional.
 	GameModeUpdateInfo* gmuinfo = NULL;
 	if (Memory::IsValidAddress(infoAddr)) {
-		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointer(infoAddr);
+		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointerOrException(infoAddr);
 	}
 
 	for (auto& gma : replicaGameModeAreas) {
@@ -5943,7 +5943,7 @@ static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 	if (!Memory::IsValidAddress(infoAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
-	SceNetAdhocctlGameModeInfo* gmInfo = (SceNetAdhocctlGameModeInfo*)Memory::GetPointer(infoAddr);
+	SceNetAdhocctlGameModeInfo* gmInfo = (SceNetAdhocctlGameModeInfo*)Memory::GetPointerOrException(infoAddr);
 	// Writes number of participants and each participating MAC address into infoAddr/gmInfo
 	gmInfo->num = static_cast<s32_le>(gameModeMacs.size());
 	int i = 0;
@@ -5961,11 +5961,11 @@ static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 	s32_le *buflen = NULL;
 	if (Memory::IsValidAddress(sizeAddr)) {
-		buflen = (s32_le *)Memory::GetPointer(sizeAddr);
+		buflen = (s32_le *)Memory::GetPointerOrException(sizeAddr);
 	}
 	SceNetAdhocctlPeerInfoEmu *buf = NULL;
 	if (Memory::IsValidAddress(bufAddr)) {
-		buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(bufAddr);
+		buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointerOrException(bufAddr);
 	}
 
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetPeerList([%08x]=%i, %08x) at %08x", sizeAddr, /*buflen ? *buflen : -1*/Memory::ReadUnchecked_U32(sizeAddr), bufAddr, currentMIPS->pc);
@@ -6058,7 +6058,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 
 static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr) {
 	s32_le *buflen = NULL; //int32_t
-	if (Memory::IsValidAddress(sizeAddr)) buflen = (s32_le *)Memory::GetPointer(sizeAddr);
+	if (Memory::IsValidAddress(sizeAddr)) buflen = (s32_le *)Memory::GetPointerOrException(sizeAddr);
 
 	if (!nickName || !buflen) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG);
@@ -6075,7 +6075,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	{
 		{
 			SceNetAdhocctlPeerInfoEmu *buf = NULL;
-			if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(bufAddr);
+			if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointerOrException(bufAddr);
 
 			// Multithreading Lock
 			peerlock.lock();
@@ -6219,7 +6219,7 @@ int sceNetAdhocDiscoverInitStart(u32 paramAddr) {
 	//if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
 	//	return 0x80411301; // Already Initialized/Started?
 	// TODO: Need to findout whether using invalid params or param address will return an error code or not
-	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointer(paramAddr);
+	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointerOrException(paramAddr);
 	if (!netAdhocDiscoverParam)
 		return hleLogError(Log::sceNet, -1, "invalid param?");
 	// FIXME: paramAddr seems to be stored at 0x000010D8 without validating the value first

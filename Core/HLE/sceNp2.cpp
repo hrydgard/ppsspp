@@ -72,9 +72,9 @@ bool NpMatching2ProcessEvents() {
 	}
 
 	// Per npMatching2 function callback
-	u32* inStruct = (u32*)Memory::GetPointer(inStructPtr);
+	u32* inStruct = (u32*)Memory::GetPointerOrException(inStructPtr);
 	if (Memory::IsValidAddress(inStruct[0])) {
-		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointer(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
+		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointerOrException(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
 		hleEnqueueCall(inStruct[0], 7, args.data);
 	}
 	return true;

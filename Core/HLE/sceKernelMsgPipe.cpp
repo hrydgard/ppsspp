@@ -222,7 +222,7 @@ struct MsgPipe : public KernelObject
 			// Receive as much as possible, even if it's not enough to wake up.
 			u32 bytesToSend = std::min(thread->freeSize, GetUsedSize());
 
-			u8* ptr = Memory::GetPointerWrite(buffer);
+			u8* ptr = Memory::GetPointerWriteOrException(buffer);
 			thread->WriteBuffer(buffer, bytesToSend);
 			// Put the unused data at the start of the buffer.
 			nmp.freeSize += bytesToSend;
@@ -496,7 +496,7 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 			{
 				Memory::Memcpy(curReceiveAddr, m->buffer, bytesToReceive, "MsgPipeReceive");
 				m->nmp.freeSize += bytesToReceive;
-				memmove(Memory::GetPointerWrite(m->buffer), Memory::GetPointer(m->buffer) + bytesToReceive, m->GetUsedSize());
+				memmove(Memory::GetPointerWriteOrException(m->buffer), Memory::GetPointerOrException(m->buffer) + bytesToReceive, m->GetUsedSize());
 				curReceiveAddr += bytesToReceive;
 				receiveSize -= bytesToReceive;
 

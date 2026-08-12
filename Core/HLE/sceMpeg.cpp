@@ -923,7 +923,7 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		for (int i = 0; i < pmp_nBlocks; i++){
 			auto lli = PSPPointer<SceMpegLLI>::Create(pmp_videoSource);
 			// add source block into pmpframes
-			const uint8_t *ptr = Memory::GetPointerRange(lli->pSrc, lli->iSize);
+			const uint8_t *ptr = Memory::GetPointerRangeOrException(lli->pSrc, lli->iSize);
 			if (ptr)
 				pmpframes->add(ptr, lli->iSize);
 			// get next block
@@ -1449,7 +1449,7 @@ void PostPutAction::run(MipsCall &call) {
 		auto demuxer = std::make_unique<MpegDemux>(packetsAddedThisRound * 2048, 0);
 		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
 		uint32_t bufSize = Memory::ClampValidSizeAt(ringbuffer->data + readOffset * 2048, packetsAddedThisRound * 2048);
-		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
+		const u8 *buf = Memory::GetPointerOrException(ringbuffer->data + readOffset * 2048);
 		bool invalid = false;
 		for (uint32_t i = 0; i < bufSize / 2048; ++i) {
 			demuxer->addStreamData(buf, 2048);
@@ -1484,7 +1484,7 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(Log::Mpeg, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAddedThisRound, ringbuffer->packets - ringbuffer->packetsAvail);
 			packetsAddedThisRound = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
-		const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
+		const u8 *data = Memory::GetPointerOrException(ringbuffer->data + writeOffset * 2048);
 		uint32_t dataSize = Memory::ClampValidSizeAt(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
 		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, dataSize) / 2048;
 		if (actuallyAdded != packetsAddedThisRound) {
@@ -2102,7 +2102,7 @@ static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int 
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
-	u8 *Y = Memory::GetPointerWriteRange(bufferOutputAddr, sizeY + sizeCb + sizeCb);
+	u8 *Y = Memory::GetPointerWriteRangeOrException(bufferOutputAddr, sizeY + sizeCb + sizeCb);
 	u8 *Cb = Y + sizeY;
 	u8 *Cr = Cb + sizeCb;
 

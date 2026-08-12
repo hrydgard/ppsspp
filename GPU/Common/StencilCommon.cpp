@@ -186,7 +186,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	u8 usedBits = 0;
 	bool useExportShader = draw_->GetDeviceCaps().fragmentShaderStencilWriteSupported;
 
-	const u8 *src = Memory::GetPointer(addr);
+	const u8 *src = Memory::GetPointerOrException(addr);
 	if (!src)
 		return false;
 

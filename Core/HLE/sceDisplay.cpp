@@ -284,7 +284,7 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 
 	if (s < 7) {
-		u64 now = CoreTiming::GetTicks();
+		u64 now = CoreTiming::GetTicks(currentMIPS);
 		lastFlipCycles = now;
 		nextFlipCycles = now;
 	} else {
@@ -796,7 +796,7 @@ static u32 sceDisplayIsVblank() {
 }
 
 void __DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks) {
-	const s64 ticksIntoFrame = CoreTiming::GetTicks() - DisplayFrameStartTicks();
+	const s64 ticksIntoFrame = CoreTiming::GetTicks(currentMIPS) - DisplayFrameStartTicks();
 	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
 
 	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
@@ -905,7 +905,7 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		// Otherwise it'll always be ahead if the game messes up even once.
 		const s64 LEEWAY_CYCLES_PER_FLIP = usToCycles(10);
 
-		u64 now = CoreTiming::GetTicks();
+		u64 now = CoreTiming::GetTicks(currentMIPS);
 		s64 cyclesAhead = nextFlipCycles - now;
 		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN) {
 			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {
@@ -1078,7 +1078,7 @@ static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
 }
 
 static u32 sceDisplayIsVsync() {
-	u64 now = CoreTiming::GetTicks();
+	u64 now = CoreTiming::GetTicks(currentMIPS);
 	u64 start = DisplayFrameStartTicks() + msToCycles(vsyncStartMs);
 	u64 end = DisplayFrameStartTicks() + msToCycles(vsyncEndMs);
 

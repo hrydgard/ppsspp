@@ -1096,7 +1096,7 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontPtr, u32 memoryFon
 		return hleReportError(Log::sceFont, 0, "invalid size");
 	}
 
-	const u8 *fontData = Memory::GetPointer(memoryFontPtr);
+	const u8 *fontData = Memory::GetPointerOrException(memoryFontPtr);
 	// Games are able to overstate the size of a font.  Let's avoid crashing when we memcpy() it.
 	// Unsigned 0xFFFFFFFF is treated as max, but that's impossible, so let's clamp to 64MB.
 	if (memoryFontLength > 0x03FFFFFF)

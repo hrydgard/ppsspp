@@ -111,7 +111,7 @@ static void JitLogMiss(MIPSOpcode op)
 		notJitOps[MIPSGetName(op)]++;
 
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
-	func(op);
+	func(currentMIPS, op);
 }
 
 #ifdef _MSC_VER
@@ -626,7 +626,7 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
-			ABI_CallFunctionC(func, op.encoding);
+			ABI_CallFunctionC(&MIPSInterpretTrampoline, op.encoding);
 		ApplyRoundingMode();
 	} else {
 		// These are basically always due to some kind of crash or corruption now.

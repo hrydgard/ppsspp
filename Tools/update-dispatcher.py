@@ -75,7 +75,7 @@ def main():
 
   # Sanity check before clobbering the tracked file - a stale/broken binary should
   # fail loudly here rather than silently truncating InterpreterDispatch.cpp.
-  if b"int ExecInstruction(MIPSOpcode op)" not in generated:
+  if b"int ExecInstruction(MIPSState *mips, MIPSOpcode op)" not in generated:
     sys.stderr.write("error: generated output doesn't look right (missing ExecInstruction) - not overwriting %s\n" % OUT_PATH)
     return 1
 

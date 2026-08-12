@@ -1145,7 +1145,7 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 	count = std::min(count, num);
 
 	for (int i = 0; i < num; i++) {
-		char *dest = (char *)Memory::GetPointerWrite(bufAddr + i * keyLen);
+		char *dest = (char *)Memory::GetPointerWriteOrException(bufAddr + i * keyLen);
 		strncpy(dest, keyvals[i].name.c_str(), keyLen);
 	}
 
@@ -1366,7 +1366,7 @@ int sceRegGetCategoryListAtRoot(int regHandle, u32 bufPtr, int numCategories) {
 	for (int i = 0; i < numCategories; i++) {
 		const KeyValue &kv = ROOT[i];
 		_dbg_assert_msg_(kv.type == ValueType::DIR, "Unexpected non-dir in ROOT");
-		char *dest = (char *)Memory::GetPointerWrite(bufPtr + i * 27);
+		char *dest = (char *)Memory::GetPointerWriteOrException(bufPtr + i * 27);
 		if (dest) {
 			strncpy(dest, kv.name.c_str(), 27);
 		}

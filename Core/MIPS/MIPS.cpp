@@ -382,7 +382,7 @@ void MIPSState::ClearJitCache() {
 		if (coreState == CORE_RUNNING_CPU || insideJit) {
 			pendingClears.emplace_back(0, 0);
 			hasPendingClears = true;
-			CoreTiming::ForceCheck();
+			CoreTiming::ForceCheck(this);
 		} else {
 			MIPSComp::jit->ClearCache();
 		}

@@ -158,7 +158,7 @@ int HTTPRequest::getAllResponseHeaders(u32 headerAddrPtr, u32 headerSizePtr) {
 		headerSize_ = sz;
 	}
 
-	u8* header = Memory::GetPointerWrite(headerAddr_);
+	u8* header = Memory::GetPointerWriteOrException(headerAddr_);
 	DEBUG_LOG(Log::sceNet, "headerAddr: %08x => %08x", headerAddr.IsValid() ? *headerAddr : 0, headerAddr_);
 	DEBUG_LOG(Log::sceNet, "headerSize: %d => %d", headerSize.IsValid() ? *headerSize : 0, sz);
 	if (!header && sz > 0) {
