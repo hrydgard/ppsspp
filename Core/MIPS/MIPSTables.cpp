@@ -1197,9 +1197,9 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 
 int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 	while (coreState == CORE_RUNNING_CPU) {
-		CoreTiming::Advance();
+		CoreTiming::Advance(mips);
 
-		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(currentMIPS);
+		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(mips);
 		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= mips->downcount) {
 			RunUntilDowncountZeroWithChecks(mips, globalTicks);
 		} else {

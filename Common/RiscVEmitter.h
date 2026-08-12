@@ -226,6 +226,17 @@ public:
 		QuickCallFunction((const u8 *)func, scratchreg);
 	}
 
+	void QuickCallFunctionR(const u8 *func, RiscVReg arg, RiscVReg scratchreg = R_RA) {
+		if (arg != RiscVReg::X10) {  // A0
+			MV(RiscVReg::X10, arg);
+		}
+		QuickJAL(scratchreg, R_RA, func);
+	}
+	template <typename T>
+	void QuickCallFunctionR(T *func, RiscVReg arg, RiscVReg scratchreg = R_RA) {
+		static_assert(std::is_function<T>::value, "QuickCallFunction without function");
+		QuickCallFunctionR((const u8 *)func, arg, scratchreg);
+	}
 	void LUI(RiscVReg rd, s32 simm32);
 	void AUIPC(RiscVReg rd, s32 simm32);
 

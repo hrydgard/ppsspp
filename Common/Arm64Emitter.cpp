@@ -1044,8 +1044,21 @@ void ARM64XEmitter::BL(const void* ptr)
 }
 
 void ARM64XEmitter::QuickCallFunction(ARM64Reg scratchreg, const void *func) {
-	s64 distance = (s64)func - (s64)m_code;
-	distance >>= 2;  // Can only branch to opcode-aligned (4) addresses
+	s64 distance = ((s64)func - (s64)m_code) >> 2;
+	if (!IsInRangeImm26(distance)) {
+		// WARN_LOG(Log::JIT, "Distance too far in function call (%p to %p)! Using scratch.", m_code, func);
+		MOVI2R(scratchreg, (uintptr_t)func);
+		BLR(scratchreg);
+	} else {
+		BL(func);
+	}
+}
+
+void ARM64XEmitter::QuickCallFunctionR(ARM64Reg scratchreg, const void *func, ARM64Reg arg) {
+	s64 distance = ((s64)func - (s64)m_code) >> 2;
+	if (arg != X0) {
+		MOV(X0, arg);
+	}
 	if (!IsInRangeImm26(distance)) {
 		// WARN_LOG(Log::JIT, "Distance too far in function call (%p to %p)! Using scratch.", m_code, func);
 		MOVI2R(scratchreg, (uintptr_t)func);

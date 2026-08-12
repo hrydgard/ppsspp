@@ -605,8 +605,8 @@ void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction)
 	hleAfterSyscall |= HLE_AFTER_QUEUED_CALLS;
 }
 
-void hleFlushCalls() {
-	u32 &sp = currentMIPS->r[MIPS_REG_SP];
+static void hleFlushCalls(MIPSState *mips) {
+	u32 &sp = mips->r[MIPS_REG_SP];
 	PSPPointer<HLEMipsCallStack> stackData;
 	_dbg_assert_(g_stackSize == 0);
 	VERBOSE_LOG(Log::HLE, "Flushing %d HLE mips calls from %s, sp=%08x", (int)enqueuedMipsCalls.size(), g_stackSize ? g_stack[0]->name : "?", sp);
@@ -615,15 +615,15 @@ void hleFlushCalls() {
 	sp -= sizeof(HLEMipsCallStack);
 	stackData.ptr = sp;
 	stackData->nextOff = 0xFFFFFFFF;
-	stackData->ra = currentMIPS->pc;
-	stackData->v0 = currentMIPS->r[MIPS_REG_V0];
-	stackData->v1 = currentMIPS->r[MIPS_REG_V1];
+	stackData->ra = mips->pc;
+	stackData->v0 = mips->r[MIPS_REG_V0];
+	stackData->v1 = mips->r[MIPS_REG_V1];
 
 	// Now we'll set up the first in the chain.
-	currentMIPS->pc = enqueuedMipsCalls[0].func;
-	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
+	mips->pc = enqueuedMipsCalls[0].func;
+	mips->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)enqueuedMipsCalls[0].args.size(); i++) {
-		currentMIPS->r[MIPS_REG_A0 + i] = enqueuedMipsCalls[0].args[i];
+		mips->r[MIPS_REG_A0 + i] = enqueuedMipsCalls[0].args[i];
 	}
 
 	// For stack info, process the first enqueued call last, so we run it first.
@@ -653,6 +653,7 @@ void hleFlushCalls() {
 	DEBUG_LOG(Log::HLE, "Executing HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
 }
 
+// This is a HLE function.
 void HLEReturnFromMipsCall() {
 	u32 &sp = currentMIPS->r[MIPS_REG_SP];
 	PSPPointer<HLEMipsCallStack> stackData;
@@ -777,7 +778,7 @@ static void hleFinishSyscall(const HLEFunction *info) {
 		SetDeadbeefRegs();
 
 	if ((hleAfterSyscall & HLE_AFTER_QUEUED_CALLS) != 0)
-		hleFlushCalls();
+		hleFlushCalls(currentMIPS);
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0 && (hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) == 0)
 		__KernelForceCallbacks();
 
@@ -806,15 +807,13 @@ void hleFinishSyscallAfterGe() {
 	hleFinishSyscall(nullptr);
 }
 
-static void updateSyscallStats(int modulenum, int funcnum, double total)
-{
+static void updateSyscallStats(int modulenum, int funcnum, double total) {
 	const char *name = moduleDB[modulenum].funcTable[funcnum].name;
 	// Ignore this one, especially for msInSyscalls (although that ignores CoreTiming events.)
 	if (0 == strcmp(name, "_sceKernelIdle"))
 		return;
 
-	if (total > kernelStats.slowestSyscallTime)
-	{
+	if (total > kernelStats.slowestSyscallTime) {
 		kernelStats.slowestSyscallTime = total;
 		kernelStats.slowestSyscallName = name;
 	}
@@ -822,20 +821,15 @@ static void updateSyscallStats(int modulenum, int funcnum, double total)
 
 	KernelStatsSyscall statCall(modulenum, funcnum);
 	auto summedStat = kernelStats.summedMsInSyscalls.find(statCall);
-	if (summedStat == kernelStats.summedMsInSyscalls.end())
-	{
+	if (summedStat == kernelStats.summedMsInSyscalls.end()) {
 		kernelStats.summedMsInSyscalls[statCall] = total;
-		if (total > kernelStats.summedSlowestSyscallTime)
-		{
+		if (total > kernelStats.summedSlowestSyscallTime) {
 			kernelStats.summedSlowestSyscallTime = total;
 			kernelStats.summedSlowestSyscallName = name;
 		}
-	}
-	else
-	{
+	} else {
 		double newTotal = kernelStats.summedMsInSyscalls[statCall] += total;
-		if (newTotal > kernelStats.summedSlowestSyscallTime)
-		{
+		if (newTotal > kernelStats.summedSlowestSyscallTime) {
 			kernelStats.summedSlowestSyscallTime = newTotal;
 			kernelStats.summedSlowestSyscallName = name;
 		}
