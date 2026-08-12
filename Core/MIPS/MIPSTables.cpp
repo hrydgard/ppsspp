@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <vector>
+
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"
@@ -72,6 +74,7 @@ struct MIPSInstruction {
 	MIPSComp::MIPSCompileFunc compile;
 	MIPSDisFunc disasm;
 	MIPSInterpretFunc interpret;
+	const char *interpretName;
 	//MIPSInstructionInfo information;
 	MIPSInfo flags;
 };
@@ -80,7 +83,7 @@ struct MIPSInstruction {
 #define INVALID_X_8 INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID
 
 #define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {Instruc, name, comp, dis, inter, MIPSInfo(flags)}
+#define INSTR(name, comp, dis, inter, flags) {Instruc, name, comp, dis, inter, #inter, MIPSInfo(flags)}
 
 #define JITFUNC(f) (&MIPSFrontendInterface::f)
 
@@ -897,6 +900,142 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	}
 	//alright, we have a valid MIPS instruction!
 	return instr;
+}
+
+// Emits one level of the dispatch tree as a switch statement, recursing into nested
+// switches for ENCODING() redirects. Mirrors the traversal MIPSGetInstruction() does at
+// runtime, but resolves it into source text once instead of walking it on every call.
+static void EmitDispatchLevel(std::string &out, MipsEncoding encoding, int indent) {
+	const MIPSInstruction *table = mipsTables[encoding];
+	const EncodingBitsInfo &bits = encodingBits[encoding];
+	_dbg_assert_(table != nullptr);
+
+	std::string ind(indent * 4, ' ');
+	std::string ind2((indent + 1) * 4, ' ');
+
+	// Group indices that share identical behavior (same leaf interpret function, or same
+	// redirect target) so they can share one case block instead of duplicating it.
+	u32 size = bits.mask + 1;
+	std::vector<bool> handled(size, false);
+	bool anyCases = false;
+	for (u32 i = 0; i < size; i++) {
+		const MIPSInstruction &probe = table[i];
+		bool isInvalid = probe.altEncoding == Inval || (probe.altEncoding == Instruc && probe.interpret == nullptr);
+		if (!isInvalid) {
+			anyCases = true;
+			break;
+		}
+	}
+	if (!anyCases) {
+		// Every slot in this level is invalid (or unimplemented) - no point emitting an
+		// empty switch (MSVC warns C4065 on a switch with only a default label).
+		out += ind + "goto slow_path;\n";
+		return;
+	}
+
+	out += ind + StringFromFormat("switch ((op.encoding >> %d) & 0x%x) {\n", bits.shift, bits.mask);
+
+	for (u32 i = 0; i < size; i++) {
+		if (handled[i])
+			continue;
+		const MIPSInstruction &instr = table[i];
+		if (instr.altEncoding == Inval)
+			continue; // Falls through to default (slow path).
+		if (instr.altEncoding == Instruc && instr.interpret == nullptr)
+			continue; // No interpreter implemented for this one (e.g. tge/tlt/teq/...) - slow path.
+		handled[i] = true;
+
+		std::vector<u32> group{ i };
+		for (u32 j = i + 1; j < size; j++) {
+			if (handled[j])
+				continue;
+			const MIPSInstruction &other = table[j];
+			bool same;
+			if (instr.altEncoding == Instruc && other.altEncoding == Instruc)
+				// Cycle count must match too - it's baked into the generated "return N;",
+				// so two leaves sharing a handler but not a cycle count can't be merged.
+				same = instr.interpret == other.interpret && instr.flags.cycles == other.flags.cycles;
+			else if (instr.altEncoding != Instruc && other.altEncoding != Instruc)
+				same = instr.altEncoding == other.altEncoding;
+			else
+				same = false;
+			if (same) {
+				group.push_back(j);
+				handled[j] = true;
+			}
+		}
+
+		if (instr.altEncoding == Instruc) {
+			std::string names;
+			for (u32 idx : group) {
+				if (!names.empty())
+					names += ", ";
+				names += table[idx].name;
+			}
+			out += ind + StringFromFormat("// %s\n", names.c_str());
+			for (u32 idx : group)
+				out += ind + StringFromFormat("case %d:\n", idx);
+			out += ind2 + StringFromFormat("MIPSInt::%s(op);\n", instr.interpretName);
+			out += ind2 + StringFromFormat("return %d;\n", (int)instr.flags.cycles);
+		} else {
+			for (u32 idx : group)
+				out += ind + StringFromFormat("case %d:\n", idx);
+			out += ind + "{\n";
+			EmitDispatchLevel(out, instr.altEncoding, indent + 1);
+			out += ind + "}\n";
+			// No trailing return here - the nested switch above always either returns
+			// a value directly from a case, or falls to its own default's "goto slow_path;".
+		}
+	}
+
+	out += ind + "default:\n";
+	out += ind2 + "goto slow_path;\n";
+	out += ind + "}\n";
+}
+
+// Generates a full, compilable Core/MIPS/InterpreterDispatch.cpp: a fast
+// int ExecInstruction(MIPSOpcode op) dispatcher, built by resolving the tables above into
+// a nested switch tree at generation time, so each real instruction is reached by a direct
+// call instead of MIPSGetInstruction()'s per-instruction table walk plus indirect call
+// through instr->interpret. Leaves call straight into the existing MIPSInt::Int_* handlers
+// - the tables only record which handler an opcode maps to, not the handler's behavior, so
+// that's the only thing there is to call - and return that instruction's fixed cycle count
+// (baked in at generation time, same value MIPSGetInstructionCycleEstimate() would have
+// returned) so the caller can still track downcount. Operates on the global currentMIPS,
+// same as the Int_* handlers do; anything not recognized (including opcodes with no
+// interpreter implemented at all, e.g. tge/tlt/teq/...) falls back to the existing
+// MIPSInterpret()/MIPSGetInstructionCycleEstimate() slow path, so the result is total over
+// all 32-bit inputs, same as the table-walking path.
+//
+// Regenerate by running `PPSSPPHeadless --generate-interpreter-dispatch > Core/MIPS/InterpreterDispatch.cpp`
+// after the tables above change. Do not hand-edit the generated file.
+std::string GenerateInterpreterDispatch() {
+	std::string out;
+	out += "// Copyright (c) 2012- PPSSPP Project.\n\n";
+	out += "// This program is free software: you can redistribute it and/or modify\n";
+	out += "// it under the terms of the GNU General Public License as published by\n";
+	out += "// the Free Software Foundation, version 2.0 or later versions.\n\n";
+	out += "// This program is distributed in the hope that it will be useful,\n";
+	out += "// but WITHOUT ANY WARRANTY; without even the implied warranty of\n";
+	out += "// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n";
+	out += "// GNU General Public License 2.0 for more details.\n\n";
+	out += "// A copy of the GPL 2.0 should have been included with the program.\n";
+	out += "// If not, see http://www.gnu.org/licenses/\n\n";
+	out += "// Official git repository and contact information can be found at\n";
+	out += "// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.\n\n";
+	out += "// AUTO-GENERATED by `PPSSPPHeadless --generate-interpreter-dispatch` from the\n";
+	out += "// tables in MIPSTables.cpp - do not hand-edit, regenerate instead.\n\n";
+	out += "#include \"Core/MIPS/MIPS.h\"\n";
+	out += "#include \"Core/MIPS/MIPSTables.h\"\n";
+	out += "#include \"Core/MIPS/Interpreter.h\"\n";
+	out += "#include \"Core/MIPS/InterpreterVFPU.h\"\n\n";
+	out += "int ExecInstruction(MIPSOpcode op) {\n";
+	EmitDispatchLevel(out, Imme, 1);
+	out += "slow_path:\n";
+	out += "\tMIPSInterpret(op);\n";
+	out += "\treturn MIPSGetInstructionCycleEstimate(op);\n";
+	out += "}\n";
+	return out;
 }
 
 void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {

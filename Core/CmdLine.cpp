@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdlib>
 
 #include "Core/Config.h"
@@ -188,6 +189,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
 	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1:", CmdLineMode::Headless},
 	{POFF(odsLog), CmdParamType::Bool, "odslog", 'o', "Also log through OutputDebugString (Windows)", CmdLineMode::Headless},
+	{POFF(generateInterpreterDispatch), CmdParamType::Bool, "generate-interpreter-dispatch", '\0', "Generate C++ interpreter dispatch code (ExecInstruction) to stdout and exit", CmdLineMode::Headless},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
 	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
@@ -257,12 +259,15 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 			// Skip mode-irrelevant parameters in help.
 			continue;
 		}
-		char key[25]{};
+		char key[64]{};
 		snprintf(key, ARRAY_SIZE(key), "  --%s%s%s", param.longName,
 			param.shortName ? ", -" : "",
 			param.shortName ? std::string(1, param.shortName).c_str() : "");
-		// Fill key with spacing.
-		for (size_t j = strlen(key); j < ARRAY_SIZE(key) - 1; ++j) {
+		// Fill key with spacing, keeping at least one space before the doc string
+		// even if the name itself ran past the normal column width.
+		size_t padTo = std::max(strlen(key) + 1, (size_t)24);
+		padTo = std::min(padTo, ARRAY_SIZE(key) - 1);
+		for (size_t j = strlen(key); j < padTo; ++j) {
 			key[j] = ' ';
 		}
 		if (param.type == CmdParamType::Enum) {

@@ -54,6 +54,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
@@ -548,6 +549,12 @@ int main(int argc, const char* argv[]) {
 		return 1;
 	case CommandLineParseResult::Continue:
 		break;
+	}
+
+	if (cmdLineOptions.generateInterpreterDispatch.value_or(false)) {
+		std::string code = GenerateInterpreterDispatch();
+		fwrite(code.data(), 1, code.size(), stdout);
+		return 0;
 	}
 
 	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the

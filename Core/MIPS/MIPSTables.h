@@ -139,3 +139,8 @@ int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 int MIPSGetMemoryAccessSize(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
 std::string MIPSDisasmAt(u32 compilerPC);
+
+// Generates the full contents of Core/MIPS/InterpreterDispatch.cpp: a fast switch-tree
+// int ExecInstruction(MIPSOpcode op) dispatcher, derived from the tables in MIPSTables.cpp.
+// See GenerateInterpreterDispatch()'s comment (in the .cpp) for details.
+std::string GenerateInterpreterDispatch();
