@@ -144,7 +144,7 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 	u64 pausedTimeout = 0;
 	if (doTimeout && waitTimer != -1) {
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
-		pausedTimeout = CoreTiming::GetTicks() + cyclesLeft;
+		pausedTimeout = CoreTiming::GetTicks(currentMIPS) + cyclesLeft;
 	}
 
 	if (!WaitPauseHelperUpdate(pauseKey, threadID, waitingThreads, pausedWaits, pausedTimeout)) {
@@ -214,7 +214,7 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	}
 
 	// We only check if it timed out if it couldn't unlock.
-	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks(currentMIPS);
 	if (cyclesLeft < 0 && waitDeadline != 0) {
 		if (timeoutPtr != 0 && waitTimer != -1) {
 			Memory::WriteOrException_U32(0, timeoutPtr);

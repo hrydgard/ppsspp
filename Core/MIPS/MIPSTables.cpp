@@ -1187,25 +1187,25 @@ static void RunUntilWithChecks(MIPSState *mips, u64 globalTicks) {
 			}
 		} while (mips->inDelaySlot);
 
-		if (CoreTiming::GetTicks() > globalTicks)
+		if (CoreTiming::GetTicks(currentMIPS) > globalTicks)
 			return;
 	}
 }
 #undef _RS
 
-int MIPSInterpret_RunUntil(MIPSState *curMips, u64 globalTicks) {
+int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 	while (coreState == CORE_RUNNING_CPU) {
 		CoreTiming::Advance();
 
-		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks();
-		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= curMips->downcount) {
-			RunUntilWithChecks(curMips, globalTicks);
+		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(currentMIPS);
+		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= mips->downcount) {
+			RunUntilWithChecks(mips, globalTicks);
 		} else {
-			RunUntilFast(curMips);
+			RunUntilFast(mips);
 		}
 
-		if (CoreTiming::GetTicks() > globalTicks) {
-			// DEBUG_LOG(Log::CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
+		if (CoreTiming::GetTicks(mips) > globalTicks) {
+			// DEBUG_LOG(Log::CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks(mips));
 			return 1;
 		}
 	}

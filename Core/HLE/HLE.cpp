@@ -770,7 +770,7 @@ static void hleFinishSyscall(const HLEFunction *info) {
 	}
 
 	if (hleAfterSyscall & HLE_AFTER_CORETIMING_FORCE_CHECK) {
-		CoreTiming::ForceCheck();
+		CoreTiming::ForceCheck(currentMIPS);
 	}
 
 	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)

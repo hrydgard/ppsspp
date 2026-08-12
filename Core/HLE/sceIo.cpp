@@ -446,9 +446,9 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		__IoCompleteAsyncIO(f);
 	} else if (ioTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = __IoCompleteAsyncIO(f);
-		if (finishTicks > CoreTiming::GetTicks()) {
+		if (finishTicks > CoreTiming::GetTicks(currentMIPS)) {
 			// Reschedule for later, since we now know how long it ought to take.
-			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), asyncNotifyEvent, userdata);
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(currentMIPS), asyncNotifyEvent, userdata);
 			return;
 		}
 	} else {
@@ -502,9 +502,9 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 		}
 	} else if (ioTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
-		if (finishTicks > CoreTiming::GetTicks()) {
+		if (finishTicks > CoreTiming::GetTicks(currentMIPS)) {
 			// Reschedule for later when the result should finish.
-			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), syncNotifyEvent, userdata);
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(currentMIPS), syncNotifyEvent, userdata);
 			return;
 		}
 	}
@@ -587,7 +587,7 @@ static void __IoManagerThread() {
 	INFO_LOG(Log::sceIo, "Entering __IoManagerThread");
 	AndroidJNIThreadContext jniContext;
 	while (ioManagerThreadEnabled) {
-		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
+		ioManager.RunEventsUntil(CoreTiming::GetTicks(currentMIPS) + msToCycles(1000));
 	}
 	INFO_LOG(Log::sceIo, "Leaving __IoManagerThread");
 }
@@ -887,7 +887,7 @@ u64 __IoCompleteAsyncIO(FileNode *f) {
 	int ioTimingMethod = GetIOTimingMethod();
 	if (ioTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
-		if (finishTicks > CoreTiming::GetTicks()) {
+		if (finishTicks > CoreTiming::GetTicks(currentMIPS)) {
 			return finishTicks;
 		}
 	}

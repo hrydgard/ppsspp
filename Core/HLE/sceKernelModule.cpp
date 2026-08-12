@@ -1781,7 +1781,7 @@ void __KernelLoadReset() {
 	__KernelInit();
 }
 
-bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
+bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param{};
 
 	auto paramData = PSPPointer<SceKernelLoadExecParam>::Create(paramPtr);
@@ -1836,9 +1836,9 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	truncate_cpy(moduleName, module->nm.name);
 	Reporting::NotifyExecModule(moduleName, moduleVersion, module->crc);
 
-	mipsr4k.pc = module->nm.entry_addr;
+	currentMIPS->pc = module->nm.entry_addr;
 
-	INFO_LOG(Log::Loader, "Module entry: %08x (%s %04x)", mipsr4k.pc, moduleName, moduleVersion);
+	INFO_LOG(Log::Loader, "Module entry: %08x (%s %04x)", currentMIPS->pc, moduleName, moduleVersion);
 
 	SceKernelSMOption option;
 	option.size = sizeof(SceKernelSMOption);
@@ -1957,7 +1957,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
-	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
+	if (!__KernelLoadExec(currentMIPS, exec_filename.c_str(), paramPtr, &error_string)) {
 		Core_UpdateState(CORE_RUNTIME_ERROR);
 		return hleLogError(Log::sceModule, -1, "failed: %s", error_string.c_str());;
 	}
@@ -2054,7 +2054,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			if (gpu) {
 				gpu->Reinitialize();
 			}
-			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
+			return __KernelLoadExec(currentMIPS, safeName.c_str(), 0, &error_string);
 		} else {
 			return hleDelayResult(hleLogError(Log::Loader, error, "failed to load"), "module loaded", 500);
 		}

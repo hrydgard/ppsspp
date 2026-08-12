@@ -501,7 +501,7 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 	// When the setting is off, we skip smaller info to keep things fast.
 	if (MemBlockInfoDetailed(size) && flags != MemBlockFlags::READ) {
 		PendingNotifyMem info{ flags, start, size };
-		info.ticks = CoreTiming::GetTicks();
+		info.ticks = CoreTiming::GetTicks(currentMIPS);
 		info.pc = pc;
 
 		size_t copyLength = strLength;
@@ -565,7 +565,7 @@ void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const c
 
 		PendingNotifyMem info{ MemBlockFlags::WRITE, destPtr, size };
 		info.copySrc = srcPtr;
-		info.ticks = CoreTiming::GetTicks();
+		info.ticks = CoreTiming::GetTicks(currentMIPS);
 		info.pc = currentMIPS->pc;
 
 		// Store the prefix for now.  The correct tag will be calculated on flush.

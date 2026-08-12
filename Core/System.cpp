@@ -437,7 +437,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	mipsr4k.Reset();
 
-	CoreTiming::Init();
+	CoreTiming::Init(&mipsr4k);
 
 	DisplayHWInit();
 
@@ -798,7 +798,7 @@ void PSP_RunLoopWhileState() {
 }
 
 void PSP_RunLoopFor(int cycles) {
-	Core_RunLoopUntil(CoreTiming::GetTicks() + cycles);
+	Core_RunLoopUntil(CoreTiming::GetTicks(currentMIPS) + cycles);
 }
 
 const char *DumpFileTypeToString(DumpFileType type) {

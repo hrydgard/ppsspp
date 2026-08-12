@@ -1206,7 +1206,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			MIPSOpcode op(inst->constant);
 			CallSyscall(op);
 			if (coreState != CORE_RUNNING_CPU)
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 			break;
 		}
 
@@ -1258,39 +1258,39 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Breakpoint:
 			if (IRRunBreakpoint(inst->constant)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 
 		case IROp::MemoryCheck:
 			if (IRRunMemCheck(mips->pc + inst->dest, mips->r[inst->src1] + inst->constant)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 
 		case IROp::ValidateAddress8:
 			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress16:
 			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress32:
 			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress128:
 			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;

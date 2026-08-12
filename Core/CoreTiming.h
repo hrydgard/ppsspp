@@ -72,6 +72,8 @@ inline s64 cyclesToUs(s64 cycles) {
 	return (cycles * 1000000) / CPU_HZ;
 }
 
+class MIPSState;
+
 namespace CoreTiming {
 	typedef void (*TimedCallback)(u64 userdata, int cyclesLate);
 
@@ -87,10 +89,10 @@ namespace CoreTiming {
 	};
 	typedef LinkedListItem<BaseEvent> Event;
 
-	void Init();
+	void Init(MIPSState *mips);
 	void Shutdown();
 
-	u64 GetTicks();
+	u64 GetTicks(MIPSState *mips);
 	u64 GetIdleTicks();
 	u64 GetGlobalTimeUs();
 	u64 GetGlobalTimeUsScaled();
@@ -112,10 +114,10 @@ namespace CoreTiming {
 	void RemoveEvent(int event_type);
 	bool IsScheduled(int event_type);
 	void Advance();
-	void ForceCheck();
+	void ForceCheck(MIPSState *mips);
 
 	// Pretend that the main CPU has executed enough cycles to reach the next event.
-	void Idle(int maxIdle = 0);
+	void Idle(MIPSState *mips, int maxIdle = 0);
 
 	// Clear all pending events. This should ONLY be done on exit or state load.
 	void ClearPendingEvents();

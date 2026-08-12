@@ -100,7 +100,7 @@ static void SetupJitHarness() {
 
 	Memory::Init(Memory::MemMapSetupFlags::Default);
 	mipsr4k.Reset();
-	CoreTiming::Init();
+	CoreTiming::Init(currentMIPS);
 	InitVFPU();
 }
 

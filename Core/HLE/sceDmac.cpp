@@ -66,7 +66,7 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (size >= 272) {
 		// Approx. 225 MiB/s or 235929600 B/s, so let's go with 236 B/us.
 		int delayUs = size / 236;
-		dmacMemcpyDeadline = CoreTiming::GetTicks() + usToCycles(delayUs);
+		dmacMemcpyDeadline = CoreTiming::GetTicks(currentMIPS) + usToCycles(delayUs);
 		return delayUs;
 	} else {
 		return 0;
@@ -85,7 +85,7 @@ static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
-	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
+	if (dmacMemcpyDeadline > CoreTiming::GetTicks(currentMIPS)) {
 		WARN_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.
 		// Might matter for overlapping copies.
@@ -107,7 +107,7 @@ static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
-	if (dmacMemcpyDeadline > CoreTiming::GetTicks()) {
+	if (dmacMemcpyDeadline > CoreTiming::GetTicks(currentMIPS)) {
 		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy");
 	}
 

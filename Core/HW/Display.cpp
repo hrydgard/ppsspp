@@ -26,6 +26,7 @@
 #include "Common/Data/Text/StringWriter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceCtrl.h"
@@ -155,7 +156,7 @@ uint64_t DisplayFrameStartTicks() {
 }
 
 uint32_t __DisplayGetCurrentHcount() {
-	const int ticksIntoFrame = (int)(CoreTiming::GetTicks() - frameStartTicks);
+	const int ticksIntoFrame = (int)(CoreTiming::GetTicks(currentMIPS) - frameStartTicks);
 	const int ticksPerVblank = CoreTiming::GetClockFrequencyHz() / 60 / hCountPerVblank;
 	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
 	return 1 + (ticksIntoFrame / ticksPerVblank);
@@ -227,7 +228,7 @@ bool DisplayIsRunningSlow() {
 }
 
 void DisplayFireVblankStart() {
-	frameStartTicks = CoreTiming::GetTicks();
+	frameStartTicks = CoreTiming::GetTicks(currentMIPS);
 	numVBlanks++;
 
 	isVblank = 1;
