@@ -24,7 +24,7 @@
 
 // Returns the cycle count consumed, or -1 if op isn't a recognized instruction -
 // callers must fall back to MIPSInterpret() themselves in that case.
-int ExecInstruction(MIPSOpcode op) {
+int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     switch ((op.encoding >> 26) & 0x3f) {
     case 0:
     {
@@ -36,12 +36,12 @@ int ExecInstruction(MIPSOpcode op) {
         case 4:
         case 6:
         case 7:
-            MIPSInt::Int_ShiftType(op);
+            MIPSInt::Int_ShiftType(mips, op);
             return 1;
         // jr, jalr
         case 8:
         case 9:
-            MIPSInt::Int_JumpRegType(op);
+            MIPSInt::Int_JumpRegType(mips, op);
             return 1;
         // movz, movn, add, addu, sub, subu, and, or, xor, nor, slt, sltu, max, min
         case 10:
@@ -58,19 +58,19 @@ int ExecInstruction(MIPSOpcode op) {
         case 43:
         case 44:
         case 45:
-            MIPSInt::Int_RType3(op);
+            MIPSInt::Int_RType3(mips, op);
             return 1;
         // syscall
         case 12:
-            MIPSInt::Int_Syscall(op);
+            MIPSInt::Int_Syscall(mips, op);
             return 1;
         // break
         case 13:
-            MIPSInt::Int_Break(op);
+            MIPSInt::Int_Break(mips, op);
             return 1;
         // sync
         case 15:
-            MIPSInt::Int_Sync(op);
+            MIPSInt::Int_Sync(mips, op);
             return 1;
         // mfhi, mthi, mflo, mtlo, mult, multu, div, divu, madd, maddu, msub, msubu
         case 16:
@@ -85,12 +85,12 @@ int ExecInstruction(MIPSOpcode op) {
         case 29:
         case 46:
         case 47:
-            MIPSInt::Int_MulDivType(op);
+            MIPSInt::Int_MulDivType(mips, op);
             return 1;
         // clz, clo
         case 22:
         case 23:
-            MIPSInt::Int_RType2(op);
+            MIPSInt::Int_RType2(mips, op);
             return 1;
         default:
             return -1;
@@ -108,7 +108,7 @@ int ExecInstruction(MIPSOpcode op) {
         case 17:
         case 18:
         case 19:
-            MIPSInt::Int_RelBranchRI(op);
+            MIPSInt::Int_RelBranchRI(mips, op);
             return 1;
         default:
             return -1;
@@ -117,7 +117,7 @@ int ExecInstruction(MIPSOpcode op) {
     // j, jal
     case 2:
     case 3:
-        MIPSInt::Int_JumpType(op);
+        MIPSInt::Int_JumpType(mips, op);
         return 1;
     // beq, bne, blez, bgtz, beql, bnel, blezl, bgtzl
     case 4:
@@ -128,7 +128,7 @@ int ExecInstruction(MIPSOpcode op) {
     case 21:
     case 22:
     case 23:
-        MIPSInt::Int_RelBranch(op);
+        MIPSInt::Int_RelBranch(mips, op);
         return 1;
     // addi, addiu, slti, sltiu, andi, ori, xori, lui
     case 8:
@@ -139,7 +139,7 @@ int ExecInstruction(MIPSOpcode op) {
     case 13:
     case 14:
     case 15:
-        MIPSInt::Int_IType(op);
+        MIPSInt::Int_IType(mips, op);
         return 1;
     case 16:
     {
@@ -175,7 +175,7 @@ int ExecInstruction(MIPSOpcode op) {
         case 2:
         case 4:
         case 6:
-            MIPSInt::Int_mxc1(op);
+            MIPSInt::Int_mxc1(mips, op);
             return 1;
         case 8:
         {
@@ -185,7 +185,7 @@ int ExecInstruction(MIPSOpcode op) {
             case 1:
             case 2:
             case 3:
-                MIPSInt::Int_FPUBranch(op);
+                MIPSInt::Int_FPUBranch(mips, op);
                 return 1;
             default:
                 return -1;
@@ -198,11 +198,11 @@ int ExecInstruction(MIPSOpcode op) {
             case 0:
             case 1:
             case 2:
-                MIPSInt::Int_FPU3op(op);
+                MIPSInt::Int_FPU3op(mips, op);
                 return 1;
             // div.s
             case 3:
-                MIPSInt::Int_FPU3op(op);
+                MIPSInt::Int_FPU3op(mips, op);
                 return 29;
             // sqrt.s, abs.s, mov.s, neg.s, round.w.s, trunc.w.s, ceil.w.s, floor.w.s, cvt.w.s
             case 4:
@@ -214,11 +214,11 @@ int ExecInstruction(MIPSOpcode op) {
             case 14:
             case 15:
             case 36:
-                MIPSInt::Int_FPU2op(op);
+                MIPSInt::Int_FPU2op(mips, op);
                 return 1;
             // dis.int
             case 38:
-                MIPSInt::Int_Interrupt(op);
+                MIPSInt::Int_Interrupt(mips, op);
                 return 1;
             // c.f.s, c.un.s, c.eq.s, c.ueq.s, c.olt.s, c.ult.s, c.ole.s, c.ule.s, c.sf.s, c.ngle.s, c.seq.s, c.ngl.s, c.lt.s, c.nge.s, c.le.s, c.ngt.s
             case 48:
@@ -237,7 +237,7 @@ int ExecInstruction(MIPSOpcode op) {
             case 61:
             case 62:
             case 63:
-                MIPSInt::Int_FPUComp(op);
+                MIPSInt::Int_FPUComp(mips, op);
                 return 1;
             default:
                 return -1;
@@ -248,7 +248,7 @@ int ExecInstruction(MIPSOpcode op) {
             switch ((op.encoding >> 0) & 0x3f) {
             // cvt.s.w
             case 32:
-                MIPSInt::Int_FPU2op(op);
+                MIPSInt::Int_FPU2op(mips, op);
                 return 1;
             default:
                 return -1;
@@ -264,7 +264,7 @@ int ExecInstruction(MIPSOpcode op) {
         // mfv, mtv
         case 3:
         case 7:
-            MIPSInt::Int_Mftv(op);
+            MIPSInt::Int_Mftv(mips, op);
             return 2;
         case 8:
         {
@@ -274,7 +274,7 @@ int ExecInstruction(MIPSOpcode op) {
             case 1:
             case 2:
             case 3:
-                MIPSInt::Int_VBranch(op);
+                MIPSInt::Int_VBranch(mips, op);
                 return 2;
             default:
                 return -1;
@@ -291,11 +291,11 @@ int ExecInstruction(MIPSOpcode op) {
         case 0:
         case 1:
         case 7:
-            MIPSInt::Int_VecDo3(op);
+            MIPSInt::Int_VecDo3(mips, op);
             return 2;
         // vsbn
         case 2:
-            MIPSInt::Int_Vsbn(op);
+            MIPSInt::Int_Vsbn(mips, op);
             return 2;
         default:
             return -1;
@@ -306,27 +306,27 @@ int ExecInstruction(MIPSOpcode op) {
         switch ((op.encoding >> 23) & 0x7) {
         // vmul
         case 0:
-            MIPSInt::Int_VecDo3(op);
+            MIPSInt::Int_VecDo3(mips, op);
             return 2;
         // vdot
         case 1:
-            MIPSInt::Int_VDot(op);
+            MIPSInt::Int_VDot(mips, op);
             return 2;
         // vscl
         case 2:
-            MIPSInt::Int_VScl(op);
+            MIPSInt::Int_VScl(mips, op);
             return 2;
         // vhdp
         case 4:
-            MIPSInt::Int_VHdp(op);
+            MIPSInt::Int_VHdp(mips, op);
             return 2;
         // vcrs
         case 5:
-            MIPSInt::Int_Vcrs(op);
+            MIPSInt::Int_Vcrs(mips, op);
             return 2;
         // vdet
         case 6:
-            MIPSInt::Int_Vdet(op);
+            MIPSInt::Int_Vdet(mips, op);
             return 2;
         default:
             return -1;
@@ -337,12 +337,12 @@ int ExecInstruction(MIPSOpcode op) {
         switch ((op.encoding >> 24) & 0x3) {
         // RUNBLOCK
         case 0:
-            MIPSInt::Int_Emuhack(op);
+            MIPSInt::Int_Emuhack(mips, op);
             return 2;
         // RetKrnl, CallRepl
         case 1:
         case 2:
-            MIPSInt::Int_Emuhack(op);
+            MIPSInt::Int_Emuhack(mips, op);
             return 1;
         default:
             return -1;
@@ -353,24 +353,24 @@ int ExecInstruction(MIPSOpcode op) {
         switch ((op.encoding >> 23) & 0x7) {
         // vcmp
         case 0:
-            MIPSInt::Int_Vcmp(op);
+            MIPSInt::Int_Vcmp(mips, op);
             return 2;
         // vmin, vmax
         case 2:
         case 3:
-            MIPSInt::Int_Vminmax(op);
+            MIPSInt::Int_Vminmax(mips, op);
             return 2;
         // vscmp
         case 5:
-            MIPSInt::Int_Vscmp(op);
+            MIPSInt::Int_Vscmp(mips, op);
             return 2;
         // vsge
         case 6:
-            MIPSInt::Int_Vsge(op);
+            MIPSInt::Int_Vsge(mips, op);
             return 2;
         // vslt
         case 7:
-            MIPSInt::Int_Vslt(op);
+            MIPSInt::Int_Vslt(mips, op);
             return 2;
         default:
             return -1;
@@ -382,7 +382,7 @@ int ExecInstruction(MIPSOpcode op) {
         // mfic, mtic
         case 36:
         case 38:
-            MIPSInt::Int_Special2(op);
+            MIPSInt::Int_Special2(mips, op);
             return 1;
         default:
             return -1;
@@ -394,7 +394,7 @@ int ExecInstruction(MIPSOpcode op) {
         // ext, ins
         case 0:
         case 4:
-            MIPSInt::Int_Special3(op);
+            MIPSInt::Int_Special3(mips, op);
             return 1;
         case 24:
         case 32:
@@ -403,13 +403,13 @@ int ExecInstruction(MIPSOpcode op) {
             // wsbh, wsbw
             case 2:
             case 3:
-                MIPSInt::Int_Allegrex2(op);
+                MIPSInt::Int_Allegrex2(mips, op);
                 return 1;
             // seb, bitrev, seh
             case 16:
             case 20:
             case 24:
-                MIPSInt::Int_Allegrex(op);
+                MIPSInt::Int_Allegrex(mips, op);
                 return 1;
             default:
                 return -1;
@@ -432,26 +432,26 @@ int ExecInstruction(MIPSOpcode op) {
     case 42:
     case 43:
     case 46:
-        MIPSInt::Int_ITypeMem(op);
+        MIPSInt::Int_ITypeMem(mips, op);
         return 1;
     // cache
     case 47:
-        MIPSInt::Int_Cache(op);
+        MIPSInt::Int_Cache(mips, op);
         return 1;
     // ll, sc
     case 48:
     case 56:
-        MIPSInt::Int_StoreSync(op);
+        MIPSInt::Int_StoreSync(mips, op);
         return 1;
     // lwc1, swc1
     case 49:
     case 57:
-        MIPSInt::Int_FPULS(op);
+        MIPSInt::Int_FPULS(mips, op);
         return 1;
     // lv.s, sv.s
     case 50:
     case 58:
-        MIPSInt::Int_SV(op);
+        MIPSInt::Int_SV(mips, op);
         return 2;
     case 52:
     {
@@ -476,16 +476,16 @@ int ExecInstruction(MIPSOpcode op) {
             case 24:
             case 26:
             case 28:
-                MIPSInt::Int_VV2Op(op);
+                MIPSInt::Int_VV2Op(mips, op);
                 return 2;
             // vidt
             case 3:
-                MIPSInt::Int_Vidt(op);
+                MIPSInt::Int_Vidt(mips, op);
                 return 2;
             // vzero, vone
             case 6:
             case 7:
-                MIPSInt::Int_VVectorInit(op);
+                MIPSInt::Int_VVectorInit(mips, op);
                 return 2;
             default:
                 return -1;
@@ -496,43 +496,43 @@ int ExecInstruction(MIPSOpcode op) {
             switch ((op.encoding >> 16) & 0x1f) {
             // vrnds
             case 0:
-                MIPSInt::Int_Vrnds(op);
+                MIPSInt::Int_Vrnds(mips, op);
                 return 2;
             // vrndi, vrndf1, vrndf2
             case 1:
             case 2:
             case 3:
-                MIPSInt::Int_VrndX(op);
+                MIPSInt::Int_VrndX(mips, op);
                 return 2;
             // vf2h
             case 18:
-                MIPSInt::Int_Vf2h(op);
+                MIPSInt::Int_Vf2h(mips, op);
                 return 2;
             // vh2f
             case 19:
-                MIPSInt::Int_Vh2f(op);
+                MIPSInt::Int_Vh2f(mips, op);
                 return 2;
             // vsbz
             case 22:
-                MIPSInt::Int_Vsbz(op);
+                MIPSInt::Int_Vsbz(mips, op);
                 return 2;
             // vlgb
             case 23:
-                MIPSInt::Int_Vlgb(op);
+                MIPSInt::Int_Vlgb(mips, op);
                 return 2;
             // vuc2ifs, vc2i, vus2i, vs2i
             case 24:
             case 25:
             case 26:
             case 27:
-                MIPSInt::Int_Vx2i(op);
+                MIPSInt::Int_Vx2i(mips, op);
                 return 2;
             // vi2uc, vi2c, vi2us, vi2s
             case 28:
             case 29:
             case 30:
             case 31:
-                MIPSInt::Int_Vi2x(op);
+                MIPSInt::Int_Vi2x(mips, op);
                 return 2;
             default:
                 return -1;
@@ -543,58 +543,58 @@ int ExecInstruction(MIPSOpcode op) {
             switch ((op.encoding >> 16) & 0x1f) {
             // vsrt1
             case 0:
-                MIPSInt::Int_Vsrt1(op);
+                MIPSInt::Int_Vsrt1(mips, op);
                 return 2;
             // vsrt2
             case 1:
-                MIPSInt::Int_Vsrt2(op);
+                MIPSInt::Int_Vsrt2(mips, op);
                 return 2;
             // vbfy1, vbfy2
             case 2:
             case 3:
-                MIPSInt::Int_Vbfy(op);
+                MIPSInt::Int_Vbfy(mips, op);
                 return 2;
             // vocp
             case 4:
-                MIPSInt::Int_Vocp(op);
+                MIPSInt::Int_Vocp(mips, op);
                 return 2;
             // vsocp
             case 5:
-                MIPSInt::Int_Vsocp(op);
+                MIPSInt::Int_Vsocp(mips, op);
                 return 2;
             // vfad
             case 6:
-                MIPSInt::Int_Vfad(op);
+                MIPSInt::Int_Vfad(mips, op);
                 return 2;
             // vavg
             case 7:
-                MIPSInt::Int_Vavg(op);
+                MIPSInt::Int_Vavg(mips, op);
                 return 2;
             // vsrt3
             case 8:
-                MIPSInt::Int_Vsrt3(op);
+                MIPSInt::Int_Vsrt3(mips, op);
                 return 2;
             // vsrt4
             case 9:
-                MIPSInt::Int_Vsrt4(op);
+                MIPSInt::Int_Vsrt4(mips, op);
                 return 2;
             // vsgn
             case 10:
-                MIPSInt::Int_Vsgn(op);
+                MIPSInt::Int_Vsgn(mips, op);
                 return 2;
             // vmfvc
             case 16:
-                MIPSInt::Int_Vmfvc(op);
+                MIPSInt::Int_Vmfvc(mips, op);
                 return 2;
             // vmtvc
             case 17:
-                MIPSInt::Int_Vmtvc(op);
+                MIPSInt::Int_Vmtvc(mips, op);
                 return 2;
             // vt4444, vt5551, vt5650
             case 25:
             case 26:
             case 27:
-                MIPSInt::Int_ColorConv(op);
+                MIPSInt::Int_ColorConv(mips, op);
                 return 2;
             default:
                 return -1;
@@ -602,22 +602,22 @@ int ExecInstruction(MIPSOpcode op) {
         }
         // vcst
         case 3:
-            MIPSInt::Int_Vcst(op);
+            MIPSInt::Int_Vcst(mips, op);
             return 2;
         // vf2in, vf2iz, vf2iu, vf2id
         case 16:
         case 17:
         case 18:
         case 19:
-            MIPSInt::Int_Vf2i(op);
+            MIPSInt::Int_Vf2i(mips, op);
             return 2;
         // vi2f
         case 20:
-            MIPSInt::Int_Vi2f(op);
+            MIPSInt::Int_Vi2f(mips, op);
             return 2;
         // vcmov
         case 21:
-            MIPSInt::Int_Vcmov(op);
+            MIPSInt::Int_Vcmov(mips, op);
             return 2;
         // vwbn, vwbn, vwbn, vwbn, vwbn, vwbn, vwbn, vwbn
         case 24:
@@ -628,7 +628,7 @@ int ExecInstruction(MIPSOpcode op) {
         case 29:
         case 30:
         case 31:
-            MIPSInt::Int_Vwbn(op);
+            MIPSInt::Int_Vwbn(mips, op);
             return 2;
         default:
             return -1;
@@ -639,7 +639,7 @@ int ExecInstruction(MIPSOpcode op) {
     case 54:
     case 61:
     case 62:
-        MIPSInt::Int_SVQ(op);
+        MIPSInt::Int_SVQ(mips, op);
         return 2;
     case 55:
     {
@@ -651,12 +651,12 @@ int ExecInstruction(MIPSOpcode op) {
         case 3:
         case 4:
         case 5:
-            MIPSInt::Int_VPFX(op);
+            MIPSInt::Int_VPFX(mips, op);
             return 2;
         // viim.s, vfim.s
         case 6:
         case 7:
-            MIPSInt::Int_Viim(op);
+            MIPSInt::Int_Viim(mips, op);
             return 2;
         default:
             return -1;
@@ -670,7 +670,7 @@ int ExecInstruction(MIPSOpcode op) {
         case 1:
         case 2:
         case 3:
-            MIPSInt::Int_Vmmul(op);
+            MIPSInt::Int_Vmmul(mips, op);
             return 2;
         // v(h)tfm2, v(h)tfm2, v(h)tfm2, v(h)tfm2, v(h)tfm3, v(h)tfm3, v(h)tfm3, v(h)tfm3, v(h)tfm4, v(h)tfm4, v(h)tfm4, v(h)tfm4
         case 4:
@@ -685,34 +685,34 @@ int ExecInstruction(MIPSOpcode op) {
         case 13:
         case 14:
         case 15:
-            MIPSInt::Int_Vtfm(op);
+            MIPSInt::Int_Vtfm(mips, op);
             return 2;
         // vmscl, vmscl, vmscl, vmscl
         case 16:
         case 17:
         case 18:
         case 19:
-            MIPSInt::Int_Vmscl(op);
+            MIPSInt::Int_Vmscl(mips, op);
             return 2;
         // vcrsp.t/vqmul.q, vcrsp.t/vqmul.q, vcrsp.t/vqmul.q, vcrsp.t/vqmul.q
         case 20:
         case 21:
         case 22:
         case 23:
-            MIPSInt::Int_CrossQuat(op);
+            MIPSInt::Int_CrossQuat(mips, op);
             return 2;
         case 28:
         {
             switch ((op.encoding >> 16) & 0xf) {
             // vmmov
             case 0:
-                MIPSInt::Int_Vmmov(op);
+                MIPSInt::Int_Vmmov(mips, op);
                 return 2;
             // vmidt, vmzero, vmone
             case 3:
             case 6:
             case 7:
-                MIPSInt::Int_VMatrixInit(op);
+                MIPSInt::Int_VMatrixInit(mips, op);
                 return 2;
             default:
                 return -1;
@@ -720,7 +720,7 @@ int ExecInstruction(MIPSOpcode op) {
         }
         // vrot
         case 29:
-            MIPSInt::Int_Vrot(op);
+            MIPSInt::Int_Vrot(mips, op);
             return 2;
         default:
             return -1;
@@ -728,7 +728,7 @@ int ExecInstruction(MIPSOpcode op) {
     }
     // vflush
     case 63:
-        MIPSInt::Int_Vflush(op);
+        MIPSInt::Int_Vflush(mips, op);
         return 2;
     default:
         return -1;

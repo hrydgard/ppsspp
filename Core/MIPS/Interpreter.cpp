@@ -35,11 +35,11 @@
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
 
-#define R(i) (currentMIPS->r[i])
-#define F(i) (currentMIPS->f[i])
-#define FI(i) (currentMIPS->fi[i])
-#define FsI(i) (currentMIPS->fs[i])
-#define PC (currentMIPS->pc)
+#define R(i) (mips->r[i])
+#define F(i) (mips->f[i])
+#define FI(i) (mips->fi[i])
+#define FsI(i) (mips->fs[i])
+#define PC (mips->pc)
 
 #define _SIMM16_SHL2 ((u32)(s32)(s16)(op & 0xFFFF) << 2)
 #define _RS   ((op>>21) & 0x1F)
@@ -51,27 +51,27 @@
 #define _POS  ((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
 
-#define HI currentMIPS->hi
-#define LO currentMIPS->lo
+#define HI mips->hi
+#define LO mips->lo
 
-static inline void DelayBranchTo(u32 where)
+static inline void DelayBranchTo(MIPSState *mips, u32 where)
 {
 	if (!Memory::IsValidAddress(where) || (where & 3) != 0) {
 		Core_ExecException(where, PC, ExecExceptionType::JUMP);
 	}
 	PC += 4;
-	mipsr4k.nextPC = where;
-	mipsr4k.inDelaySlot = true;
+	mips->nextPC = where;
+	mips->inDelaySlot = true;
 }
 
-static inline void SkipLikely() {
+static inline void SkipLikely(MIPSState *mips) {
 	MIPSInfo delaySlot = MIPSGetInfo(Memory::Read_Instruction(PC + 4, true));
 	// Don't actually skip if it is a jump (seen in Brooktown High.)
 	if (delaySlot & IS_JUMP) {
 		PC += 4;
 	} else {
 		PC += 8;
-		--mipsr4k.downcount;
+		--mips->downcount;
 	}
 }
 
@@ -95,7 +95,7 @@ int MIPS_SingleStep(MIPSState *mips) {
 
 namespace MIPSInt
 {
-	void Int_Cache(MIPSOpcode op)
+	void Int_Cache(MIPSState *mips, MIPSOpcode op)
 	{
 		int imm = SignExtend16ToS32(op);
 		int rs = _RS;
@@ -154,37 +154,37 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Syscall(MIPSOpcode op)
+	void Int_Syscall(MIPSState *mips, MIPSOpcode op)
 	{
 		// Need to pre-move PC, as CallSyscall may result in a rescheduling!
 		// To do this neater, we'll need a little generated kernel loop that syscall can jump to and then RFI from
 		// but I don't see a need to bother.
-		if (mipsr4k.inDelaySlot)
+		if (mips->inDelaySlot)
 		{
-			mipsr4k.pc = mipsr4k.nextPC;
+			mips->pc = mips->nextPC;
 		}
 		else
 		{
-			mipsr4k.pc += 4;
+			mips->pc += 4;
 		}
-		mipsr4k.inDelaySlot = false;
+		mips->inDelaySlot = false;
 		CallSyscall(op);
 	}
 
-	void Int_Sync(MIPSOpcode op)
+	void Int_Sync(MIPSState *mips, MIPSOpcode op)
 	{
 		//DEBUG_LOG(Log::CPU, "sync");
 		PC += 4;
 	}
 
-	void Int_Break(MIPSOpcode op)
+	void Int_Break(MIPSState *mips, MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
 		Core_BreakException(PC);
 		PC += 4;
 	}
 
-	void Int_RelBranch(MIPSOpcode op)
+	void Int_RelBranch(MIPSState *mips, MIPSOpcode op)
 	{
 		int imm = _SIMM16_SHL2;
 		int rs = _RS;
@@ -193,15 +193,15 @@ namespace MIPSInt
 
 		switch (op >> 26)
 		{
-		case 4:  if (R(rt) == R(rs))  DelayBranchTo(addr); else PC += 4; break; //beq
-		case 5:  if (R(rt) != R(rs))  DelayBranchTo(addr); else PC += 4; break; //bne
-		case 6:  if ((s32)R(rs) <= 0) DelayBranchTo(addr); else PC += 4; break; //blez
-		case 7:  if ((s32)R(rs) > 0) DelayBranchTo(addr); else PC += 4; break; //bgtz
+		case 4:  if (R(rt) == R(rs))  DelayBranchTo(mips, addr); else PC += 4; break; //beq
+		case 5:  if (R(rt) != R(rs))  DelayBranchTo(mips, addr); else PC += 4; break; //bne
+		case 6:  if ((s32)R(rs) <= 0) DelayBranchTo(mips, addr); else PC += 4; break; //blez
+		case 7:  if ((s32)R(rs) > 0) DelayBranchTo(mips, addr); else PC += 4; break; //bgtz
 
-		case 20: if (R(rt) == R(rs))  DelayBranchTo(addr); else SkipLikely(); break; //beql
-		case 21: if (R(rt) != R(rs))  DelayBranchTo(addr); else SkipLikely(); break; //bnel
-		case 22: if ((s32)R(rs) <= 0) DelayBranchTo(addr); else SkipLikely(); break; //blezl
-		case 23: if ((s32)R(rs) >  0) DelayBranchTo(addr); else SkipLikely(); break; //bgtzl
+		case 20: if (R(rt) == R(rs))  DelayBranchTo(mips, addr); else SkipLikely(mips); break; //beql
+		case 21: if (R(rt) != R(rs))  DelayBranchTo(mips, addr); else SkipLikely(mips); break; //bnel
+		case 22: if ((s32)R(rs) <= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break; //blezl
+		case 23: if ((s32)R(rs) >  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break; //bgtzl
 
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
@@ -209,7 +209,7 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_RelBranchRI(MIPSOpcode op)
+	void Int_RelBranchRI(MIPSState *mips, MIPSOpcode op)
 	{
 		int imm = _SIMM16_SHL2;
 		int rs = _RS;
@@ -217,14 +217,14 @@ namespace MIPSInt
 
 		switch ((op>>16) & 0x1F)
 		{
-		case 0: if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
-		case 1: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
-		case 2: if ((s32)R(rs) <  0) DelayBranchTo(addr); else SkipLikely(); break;//bltzl
-		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezl
-		case 16: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltzal
-		case 17: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgezal
-		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
-		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
+		case 0: if ((s32)R(rs) <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltz
+		case 1: if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgez
+		case 2: if ((s32)R(rs) <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzl
+		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezl
+		case 16: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltzal
+		case 17: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgezal
+		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzall
+		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezall
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
@@ -232,58 +232,58 @@ namespace MIPSInt
 	}
 
 
-	void Int_VBranch(MIPSOpcode op)
+	void Int_VBranch(MIPSState *mips, MIPSOpcode op)
 	{
 		int imm = _SIMM16_SHL2;
 		u32 addr = PC + imm + 4;
 
 		// x, y, z, w, any, all, (invalid), (invalid)
 		int imm3 = (op>>18)&7;
-		int val = (currentMIPS->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
+		int val = (mips->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
 
 		switch ((op >> 16) & 3)
 		{
-		case 0: if (!val) DelayBranchTo(addr); else PC += 4; break; //bvf
-		case 1: if ( val) DelayBranchTo(addr); else PC += 4; break; //bvt
-		case 2: if (!val) DelayBranchTo(addr); else SkipLikely(); break; //bvfl
-		case 3: if ( val) DelayBranchTo(addr); else SkipLikely(); break; //bvtl
+		case 0: if (!val) DelayBranchTo(mips, addr); else PC += 4; break; //bvf
+		case 1: if ( val) DelayBranchTo(mips, addr); else PC += 4; break; //bvt
+		case 2: if (!val) DelayBranchTo(mips, addr); else SkipLikely(mips); break; //bvfl
+		case 3: if ( val) DelayBranchTo(mips, addr); else SkipLikely(mips); break; //bvtl
 		}
 	}
 
-	void Int_FPUBranch(MIPSOpcode op)
+	void Int_FPUBranch(MIPSState *mips, MIPSOpcode op)
 	{
 		int imm = _SIMM16_SHL2;
 		u32 addr = PC + imm + 4;
 		switch((op>>16)&0x1f)
 		{
-		case 0: if (!currentMIPS->fpcond) DelayBranchTo(addr); else PC += 4; break;//bc1f
-		case 1: if ( currentMIPS->fpcond) DelayBranchTo(addr); else PC += 4; break;//bc1t
-		case 2: if (!currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1fl
-		case 3: if ( currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1tl
+		case 0: if (!mips->fpcond) DelayBranchTo(mips, addr); else PC += 4; break;//bc1f
+		case 1: if ( mips->fpcond) DelayBranchTo(mips, addr); else PC += 4; break;//bc1t
+		case 2: if (!mips->fpcond) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bc1fl
+		case 3: if ( mips->fpcond) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bc1tl
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
 
-	void Int_JumpType(MIPSOpcode op)
+	void Int_JumpType(MIPSState *mips, MIPSOpcode op)
 	{
-		if (mipsr4k.inDelaySlot)
+		if (mips->inDelaySlot)
 			ERROR_LOG(Log::CPU, "Jump in delay slot :(");
 
 		u32 off = ((op & 0x03FFFFFF) << 2);
-		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
+		u32 addr = (mips->pc & 0xF0000000) | off;
 
 		switch (op>>26)
 		{
 		case 2: //j
-			if (!mipsr4k.inDelaySlot)
-				DelayBranchTo(addr);
+			if (!mips->inDelaySlot)
+				DelayBranchTo(mips, addr);
 			break;
 		case 3: //jal
 			R(MIPS_REG_RA) = PC + 8;
-			if (!mipsr4k.inDelaySlot)
-				DelayBranchTo(addr);
+			if (!mips->inDelaySlot)
+				DelayBranchTo(mips, addr);
 			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
@@ -291,9 +291,9 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_JumpRegType(MIPSOpcode op)
+	void Int_JumpRegType(MIPSState *mips, MIPSOpcode op)
 	{
-		if (mipsr4k.inDelaySlot) {
+		if (mips->inDelaySlot) {
 			// There's one of these in Star Soldier at 0881808c, which seems benign.
 			ERROR_LOG(Log::CPU, "Jump in delay slot :(");
 		}
@@ -304,20 +304,20 @@ namespace MIPSInt
 		switch (op & 0x3f)
 		{
 		case 8: //jr
-			if (!mipsr4k.inDelaySlot)
-				DelayBranchTo(addr);
+			if (!mips->inDelaySlot)
+				DelayBranchTo(mips, addr);
 			break;
 		case 9: //jalr
 			if (rd != 0)
 				R(rd) = PC + 8;
 			// Update rd, but otherwise do not take the branch if we're branching.
-			if (!mipsr4k.inDelaySlot)
-				DelayBranchTo(addr);
+			if (!mips->inDelaySlot)
+				DelayBranchTo(mips, addr);
 			break;
 		}
 	}
 
-	void Int_IType(MIPSOpcode op) {
+	void Int_IType(MIPSState *mips, MIPSOpcode op) {
 		u32 uimm = op & 0xFFFF;
 		u32 suimm = SignExtend16ToU32(op);
 		s32 simm = SignExtend16ToS32(op);
@@ -347,7 +347,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_StoreSync(MIPSOpcode op) {
+	void Int_StoreSync(MIPSState *mips, MIPSOpcode op) {
 		int imm = (signed short)(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -363,10 +363,10 @@ namespace MIPSInt
 				}
 				R(rt) = Memory::ReadUnchecked_U32(addr);
 			}
-			currentMIPS->llBit = 1;
+			mips->llBit = 1;
 			break;
 		case 56: // sc
-			if (currentMIPS->llBit) {
+			if (mips->llBit) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
 					return;
@@ -387,7 +387,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_RType3(MIPSOpcode op) {
+	void Int_RType3(MIPSState *mips, MIPSOpcode op) {
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
@@ -421,7 +421,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_ITypeMem(MIPSOpcode op) {
+	void Int_ITypeMem(MIPSState *mips, MIPSOpcode op) {
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -557,7 +557,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPULS(MIPSOpcode op) 	{
+	void Int_FPULS(MIPSState *mips, MIPSOpcode op) 	{
 		s32 offset = (s16)(op & 0xFFFF);
 		int ft = _FT;
 		int rs = _RS;
@@ -585,7 +585,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_mxc1(MIPSOpcode op)
+	void Int_mxc1(MIPSState *mips, MIPSOpcode op)
 	{
 		int fs = _FS;
 		int rt = _RT;
@@ -599,8 +599,8 @@ namespace MIPSInt
 		case 2: //cfc1
 			if (rt != 0) {
 				if (fs == 31) {
-					currentMIPS->fcr31 = (currentMIPS->fcr31 & ~(1<<23)) | ((currentMIPS->fpcond & 1)<<23);
-					R(rt) = currentMIPS->fcr31;
+					mips->fcr31 = (mips->fcr31 & ~(1<<23)) | ((mips->fpcond & 1)<<23);
+					R(rt) = mips->fcr31;
 				} else if (fs == 0) {
 					R(rt) = MIPSState::FCR0_VALUE;
 				} else {
@@ -619,8 +619,8 @@ namespace MIPSInt
 			{
 				u32 value = R(rt);
 				if (fs == 31) {
-					currentMIPS->fcr31 = value & 0x0181FFFF;
-					currentMIPS->fpcond = (value >> 23) & 1;
+					mips->fcr31 = value & 0x0181FFFF;
+					mips->fpcond = (value >> 23) & 1;
 					// Don't bother locking, assuming the CPU can't be reset now anyway.
 					if (MIPSComp::jit) {
 						// In case of DISABLE, we need to tell jit we updated FCR31.
@@ -640,7 +640,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_RType2(MIPSOpcode op)
+	void Int_RType2(MIPSState *mips, MIPSOpcode op)
 	{
 		int rs = _RS;
 		int rd = _RD;
@@ -667,7 +667,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_MulDivType(MIPSOpcode op)
+	void Int_MulDivType(MIPSState *mips, MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rs = _RS;
@@ -772,7 +772,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_ShiftType(MIPSOpcode op)
+	void Int_ShiftType(MIPSState *mips, MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rs = _RS;
@@ -826,7 +826,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Allegrex(MIPSOpcode op)
+	void Int_Allegrex(MIPSState *mips, MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rd = _RD;
@@ -859,7 +859,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Allegrex2(MIPSOpcode op)
+	void Int_Allegrex2(MIPSState *mips, MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rd = _RD;
@@ -886,7 +886,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Special2(MIPSOpcode op)
+	void Int_Special2(MIPSState *mips, MIPSOpcode op)
 	{
 		static int reported = 0;
 		switch (op & 0x3F)
@@ -912,7 +912,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Special3(MIPSOpcode op)
+	void Int_Special3(MIPSState *mips, MIPSOpcode op)
 	{
 		int rs = _RS;
 		int rt = _RT;
@@ -945,7 +945,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPU2op(MIPSOpcode op)
+	void Int_FPU2op(MIPSState *mips, MIPSOpcode op)
 	{
 		int fs = _FS;
 		int fd = _FD;
@@ -992,7 +992,7 @@ namespace MIPSInt
 				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			}
-			switch (currentMIPS->fcr31 & 3)
+			switch (mips->fcr31 & 3)
 			{
 			case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
 			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
@@ -1007,7 +1007,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPUComp(MIPSOpcode op)
+	void Int_FPUComp(MIPSState *mips, MIPSOpcode op)
 	{
 		int fs = _FS;
 		int ft = _FT;
@@ -1059,11 +1059,11 @@ namespace MIPSInt
 			cond = false;
 			break;
 		}
-		currentMIPS->fpcond = cond;
+		mips->fpcond = cond;
 		PC += 4;
 	}
 
-	void Int_FPU3op(MIPSOpcode op)
+	void Int_FPU3op(MIPSState *mips, MIPSOpcode op)
 	{
 		int ft = _FT;
 		int fs = _FS;
@@ -1089,7 +1089,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Interrupt(MIPSOpcode op)
+	void Int_Interrupt(MIPSState *mips, MIPSOpcode op)
 	{
 		static int reported = 0;
 		switch (op & 1)
@@ -1097,7 +1097,7 @@ namespace MIPSInt
 		case 0:
 			// unlikely to be legitimately used
 			if (!reported) {
-				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op.encoding, currentMIPS->pc);
+				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op.encoding, mips->pc);
 				WARN_LOG(Log::CPU, "Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
@@ -1106,7 +1106,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Emuhack(MIPSOpcode op)
+	void Int_Emuhack(MIPSState *mips, MIPSOpcode op)
 	{
 		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
 			_dbg_assert_msg_(false, "Trying to interpret emuhack instruction that can't be interpreted");
@@ -1122,20 +1122,20 @@ namespace MIPSInt
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.
-				MIPSInterpret(currentMIPS, Memory::Read_Instruction(PC, true));
+				MIPSInterpret(mips, Memory::Read_Instruction(PC, true));
 			} else if (cycles < 0) {
 				// Leave PC unchanged, call the replacement again (assumes args are modified.)
-				currentMIPS->downcount += cycles;
+				mips->downcount += cycles;
 			} else {
-				PC = currentMIPS->r[MIPS_REG_RA];
-				currentMIPS->downcount -= cycles;
+				PC = mips->r[MIPS_REG_RA];
+				mips->downcount -= cycles;
 			}
 		} else {
 			if (!entry || !entry->replaceFunc) {
 				ERROR_LOG(Log::CPU, "Bad replacement function index %i", index);
 			}
 			// Interpret the original instruction under it.
-			MIPSInterpret(currentMIPS, Memory::Read_Instruction(PC, true));
+			MIPSInterpret(mips, Memory::Read_Instruction(PC, true));
 		}
 	}
 }

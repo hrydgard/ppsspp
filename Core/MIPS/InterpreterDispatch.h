@@ -20,11 +20,11 @@
 #include "Core/MIPS/MIPS.h"
 
 // Fast switch-tree interpreter dispatcher, generated into InterpreterDispatch.cpp by
-// GenerateInterpreterDispatch() in MIPSTables.cpp. Executes op on the global currentMIPS
-// (same convention as the MIPSInt::Int_* handlers it calls into) and returns the number of
-// cycles it consumed - or -1 if op isn't a recognized instruction (an invalid encoding, or
-// one of the handful of real instructions with no interpreter implementation, e.g.
-// tge/tlt/teq/...). Not total by design: the caller must fall back to MIPSInterpret() on a
-// negative return, since deciding what "unhandled" means is a caller policy, not something
-// a mechanically generated dispatch tree should embed.
-int ExecInstruction(MIPSOpcode op);
+// GenerateInterpreterDispatch() in MIPSTables.cpp. Executes op on mips (same convention as
+// the MIPSInt::Int_* handlers it calls into) and returns the number of cycles it consumed -
+// or -1 if op isn't a recognized instruction (an invalid encoding, or one of the handful of
+// real instructions with no interpreter implementation, e.g. tge/tlt/teq/...). Not total by
+// design: the caller must fall back to MIPSInterpret() on a negative return, since deciding
+// what "unhandled" means is a caller policy, not something a mechanically generated dispatch
+// tree should embed.
+int ExecInstruction(MIPSState *mips, MIPSOpcode op);

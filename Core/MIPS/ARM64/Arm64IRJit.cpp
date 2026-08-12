@@ -276,7 +276,7 @@ void Arm64JitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(SCRATCH2_64, &NotifyMIPSInterpret);
 	}
 	MOVI2R(X0, inst.constant);
-	QuickCallFunction(SCRATCH2_64, MIPSGetInterpretFunc(op));
+	QuickCallFunction(SCRATCH2_64, &MIPSInterpretTrampoline);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }

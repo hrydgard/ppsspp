@@ -976,7 +976,7 @@ static void EmitDispatchLevel(std::string &out, MipsEncoding encoding, int inden
 			out += ind + StringFromFormat("// %s\n", names.c_str());
 			for (u32 idx : group)
 				out += ind + StringFromFormat("case %d:\n", idx);
-			out += ind2 + StringFromFormat("MIPSInt::%s(op);\n", instr.interpretName);
+			out += ind2 + StringFromFormat("MIPSInt::%s(mips, op);\n", instr.interpretName);
 			out += ind2 + StringFromFormat("return %d;\n", (int)instr.flags.cycles);
 		} else {
 			for (u32 idx : group)
@@ -985,7 +985,7 @@ static void EmitDispatchLevel(std::string &out, MipsEncoding encoding, int inden
 			EmitDispatchLevel(out, instr.altEncoding, indent + 1);
 			out += ind + "}\n";
 			// No trailing return here - the nested switch above always either returns
-			// a value directly from a case, or falls to its own default's "goto slow_path;".
+			// a value directly from a case, or falls to its own default's "return -1;".
 		}
 	}
 
@@ -995,15 +995,15 @@ static void EmitDispatchLevel(std::string &out, MipsEncoding encoding, int inden
 }
 
 // Generates a full, compilable Core/MIPS/InterpreterDispatch.cpp: a fast
-// int ExecInstruction(MIPSOpcode op) dispatcher, built by resolving the tables above into
-// a nested switch tree at generation time, so each real instruction is reached by a direct
-// call instead of MIPSGetInstruction()'s per-instruction table walk plus indirect call
-// through instr->interpret. Leaves call straight into the existing MIPSInt::Int_* handlers
-// - the tables only record which handler an opcode maps to, not the handler's behavior, so
-// that's the only thing there is to call - and return that instruction's fixed cycle count
-// (baked in at generation time, same value MIPSGetInstructionCycleEstimate() would have
-// returned) so the caller can still track downcount. Operates on the global currentMIPS,
-// same as the Int_* handlers do.
+// int ExecInstruction(MIPSState *mips, MIPSOpcode op) dispatcher, built by resolving the
+// tables above into a nested switch tree at generation time, so each real instruction is
+// reached by a direct call instead of MIPSGetInstruction()'s per-instruction table walk plus
+// indirect call through instr->interpret. Leaves call straight into the existing
+// MIPSInt::Int_* handlers - the tables only record which handler an opcode maps to, not the
+// handler's behavior, so that's the only thing there is to call - and return that
+// instruction's fixed cycle count (baked in at generation time, same value
+// MIPSGetInstructionCycleEstimate() would have returned) so the caller can still track
+// downcount.
 //
 // The generated function is deliberately not total: most of the 32-bit opcode space doesn't
 // decode to anything (either a genuinely invalid encoding, or a real-but-uninterpreted
@@ -1036,7 +1036,7 @@ std::string GenerateInterpreterDispatch() {
 	out += "#include \"Core/MIPS/InterpreterVFPU.h\"\n\n";
 	out += "// Returns the cycle count consumed, or -1 if op isn't a recognized instruction -\n";
 	out += "// callers must fall back to MIPSInterpret() themselves in that case.\n";
-	out += "int ExecInstruction(MIPSOpcode op) {\n";
+	out += "int ExecInstruction(MIPSState *mips, MIPSOpcode op) {\n";
 	EmitDispatchLevel(out, Imme, 1);
 	out += "}\n";
 	return out;
@@ -1097,7 +1097,7 @@ static void HandleUnknownInstruction(MIPSState *mips, MIPSOpcode op) {
 
 static inline void Interpret(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
 	if (instr && instr->interpret) {
-		instr->interpret(op);
+		instr->interpret(mips, op);
 	} else {
 		HandleUnknownInstruction(mips, op);
 	}
@@ -1114,6 +1114,11 @@ void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
 	Interpret(mips, instr, op);
 }
 
+// See the declaration comment in MIPSTables.h.
+void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
+	MIPSInterpret(currentMIPS, op);
+}
+
 static inline void RunUntilFast(MIPSState *curMips) {
 	// NEVER stop in a delay slot!
 	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
@@ -1125,7 +1130,7 @@ static inline void RunUntilFast(MIPSState *curMips) {
 			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(curMips->pc));
 
 			bool wasInDelaySlot = curMips->inDelaySlot;
-			int cycles = ExecInstruction(op);
+			int cycles = ExecInstruction(curMips, op);
 			if (cycles < 0) {
 				// Not a recognized instruction (invalid encoding, or a known instruction
 				// with no interpreter implementation, e.g. tge/tlt/teq/...). No point
