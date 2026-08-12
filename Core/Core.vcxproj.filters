@@ -111,10 +111,13 @@
     <ClCompile Include="MIPS\MIPSDisVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\MIPSInt.cpp">
+    <ClCompile Include="MIPS\Interpreter.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\MIPSIntVFPU.cpp">
+    <ClCompile Include="MIPS\InterpreterDispatch.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\InterpreterVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSTables.cpp">
@@ -1416,10 +1419,13 @@
     <ClInclude Include="MIPS\MIPSDisVFPU.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\MIPSInt.h">
+    <ClInclude Include="MIPS\Interpreter.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\MIPSIntVFPU.h">
+    <ClInclude Include="MIPS\InterpreterDispatch.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\InterpreterVFPU.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSTables.h">

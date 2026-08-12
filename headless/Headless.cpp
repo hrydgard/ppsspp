@@ -54,6 +54,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
@@ -521,6 +522,35 @@ public:
 	}
 };
 
+// Has a parameter because we might start using this from the main build.
+void SetupCRT(bool headless) {
+#if defined(_MSC_VER)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
+	if (headless) {
+		// Suppress abort dialogs and similar.
+		// 1. Redirect CRT Assertions/Errors/Warnings to stdout/stderr
+
+		const _HFILE reportTarget = _CRTDBG_FILE_STDERR;
+
+		_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_ASSERT, reportTarget);
+
+		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_ERROR, reportTarget);
+
+		_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_WARN, reportTarget);
+
+		// 2. Suppress the abort() message box & crash reporting dialogs
+		_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+
+		// 3. Suppress Windows OS-level "Program has stopped working" modal dialogs
+		SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+	}
+#endif
+}
+
 int main(int argc, const char* argv[]) {
 	PROFILE_INIT();
 	TimeInit();
@@ -535,9 +565,7 @@ int main(int argc, const char* argv[]) {
 	}
 #endif
 
-#if defined(_DEBUG) && defined(_MSC_VER)
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
+	SetupCRT(true);
 
 	CommandLineOptions cmdLineOptions;
 	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv, CmdLineMode::Headless);
@@ -548,6 +576,12 @@ int main(int argc, const char* argv[]) {
 		return 1;
 	case CommandLineParseResult::Continue:
 		break;
+	}
+
+	if (cmdLineOptions.generateInterpreterDispatch.value_or(false)) {
+		std::string code = GenerateInterpreterDispatch();
+		fwrite(code.data(), 1, code.size(), stdout);
+		return 0;
 	}
 
 	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the
@@ -709,7 +743,7 @@ int main(int argc, const char* argv[]) {
 		return 1;
 #else
 		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value(), &windowDesc);
+		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
 		if (!windowDesc.Valid()) {
 			fprintf(stderr, "Failed to create a window for graphics context");
 			return 1;

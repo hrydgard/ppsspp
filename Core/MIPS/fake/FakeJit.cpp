@@ -26,7 +26,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 
@@ -129,7 +129,7 @@ void FakeJit::Compile(u32 em_address) {
 }
 
 void FakeJit::RunLoopUntil(u64 globalticks) {
-	MIPSInterpret_RunUntil(globalticks);
+	MIPSInterpret_RunUntil(currentMIPS, globalticks);
 }
 
 void FakeJit::DoJit(u32 em_address, JitBlock *b) {

@@ -149,7 +149,7 @@ void IRNativeBackend::DoMIPSInst(uint32_t value) {
 	if constexpr (enableDebugStats)
 		debugSeenNotCompiled[MIPSGetName(op)]++;
 
-	MIPSInterpret(op);
+	MIPSInterpret(currentMIPS, op);
 }
 
 // This is called from IR->JIT implementation to fall back to the IR interpreter for missing ops.

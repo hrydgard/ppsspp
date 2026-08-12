@@ -107,6 +107,8 @@ struct CommandLineOptions {
 	std::optional<double> maxScreenshotError;
 	// Headless: test names to skip. May be specified more than once.
 	std::vector<std::string> ignoredTests;
+	// Headless: generate C++ interpreter dispatch code to stdout and exit.
+	std::optional<bool> generateInterpreterDispatch;
 
 	// SDL only.
 	std::optional<int> xres;

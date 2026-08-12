@@ -871,8 +871,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/MIPSDebugInterface.cpp \
 	       $(COREDIR)/MIPS/MIPSDis.cpp \
 	       $(COREDIR)/MIPS/MIPSDisVFPU.cpp \
-	       $(COREDIR)/MIPS/MIPSInt.cpp \
-	       $(COREDIR)/MIPS/MIPSIntVFPU.cpp \
+	       $(COREDIR)/MIPS/Interpreter.cpp \
+	       $(COREDIR)/MIPS/InterpreterDispatch.cpp \
+	       $(COREDIR)/MIPS/InterpreterVFPU.cpp \
 	       $(COREDIR)/MIPS/MIPSTables.cpp \
 	       $(COREDIR)/MIPS/MIPSStackWalk.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \

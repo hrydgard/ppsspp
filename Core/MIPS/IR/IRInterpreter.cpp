@@ -1216,7 +1216,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Interpret:  // SLOW fallback. Can be made faster. Ideally should be removed but may be useful for debugging.
 		{
 			MIPSOpcode op(inst->constant);
-			MIPSInterpret(op);
+			MIPSInterpret(mips, op);
 			break;
 		}
 

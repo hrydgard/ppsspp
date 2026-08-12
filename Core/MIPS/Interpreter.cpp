@@ -28,7 +28,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
@@ -75,20 +75,20 @@ static inline void SkipLikely() {
 	}
 }
 
-int MIPS_SingleStep() {
-	if (!Memory::IsValid4AlignedAddress(mipsr4k.pc)) {
-		Core_ExecException(mipsr4k.pc, mipsr4k.pc, ExecExceptionType::JUMP);
+int MIPS_SingleStep(MIPSState *mips) {
+	if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+		Core_ExecException(mips->pc, mips->	pc, ExecExceptionType::JUMP);
 		return 0;
 	}
-	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);  // now unchecked
-	if (mipsr4k.inDelaySlot) {
-		MIPSInterpret(op);
-		if (mipsr4k.inDelaySlot) {
-			mipsr4k.pc = mipsr4k.nextPC;
-			mipsr4k.inDelaySlot = false;
+	MIPSOpcode op = Memory::Read_Opcode_JIT(mips->pc);  // now unchecked
+	if (mips->inDelaySlot) {
+		MIPSInterpret(mips, op);
+		if (mips->inDelaySlot) {
+			mips->pc = mips->nextPC;
+			mips->inDelaySlot = false;
 		}
 	} else {
-		MIPSInterpret(op);
+		MIPSInterpret(mips, op);
 	}
 	return 1;
 }
@@ -1122,7 +1122,7 @@ namespace MIPSInt
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.
-				MIPSInterpret(Memory::Read_Instruction(PC, true));
+				MIPSInterpret(currentMIPS, Memory::Read_Instruction(PC, true));
 			} else if (cycles < 0) {
 				// Leave PC unchanged, call the replacement again (assumes args are modified.)
 				currentMIPS->downcount += cycles;
@@ -1135,7 +1135,7 @@ namespace MIPSInt
 				ERROR_LOG(Log::CPU, "Bad replacement function index %i", index);
 			}
 			// Interpret the original instruction under it.
-			MIPSInterpret(Memory::Read_Instruction(PC, true));
+			MIPSInterpret(currentMIPS, Memory::Read_Instruction(PC, true));
 		}
 	}
 }
