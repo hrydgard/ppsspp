@@ -207,6 +207,7 @@ enum class MemoryExceptionType {
 enum class ExecExceptionType {
 	JUMP,
 	THREAD,
+	ILLEGAL,
 };
 
 void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "");

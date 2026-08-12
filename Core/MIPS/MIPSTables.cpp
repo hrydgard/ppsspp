@@ -1082,24 +1082,11 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
-// Shared by both Interpret() below (the MIPSGetInstruction()-based slow path, still used by
-// RunUntilWithChecks) and RunUntilFast()'s -1 handling (ExecInstruction() is generated from
-// the exact same tables MIPSGetInstruction() walks, so it has no better information to offer
-// here - no point re-walking those tables just to rediscover "no interpreter for this op").
-static void HandleUnknownInstruction(MIPSState *mips, MIPSOpcode op) {
-	ERROR_LOG_REPORT(Log::CPU, "Unknown instruction %08x at %08x", op.encoding, mips->pc);
-	// Try to disassemble it
-	char disasm[256];
-	MIPSDisAsm(op, mips->pc, disasm, sizeof(disasm));
-	_dbg_assert_msg_(0, "%s", disasm);
-	mips->pc += 4;
-}
-
 static inline void Interpret(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
 	if (instr && instr->interpret) {
 		instr->interpret(mips, op);
 	} else {
-		HandleUnknownInstruction(mips, op);
+		Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
 	}
 }
 
@@ -1119,89 +1106,86 @@ void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
 	MIPSInterpret(currentMIPS, op);
 }
 
-static inline void RunUntilFast(MIPSState *curMips) {
+static inline void RunUntilFast(MIPSState *mips) {
 	// NEVER stop in a delay slot!
-	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
+	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
-			if (!Memory::IsValid4AlignedAddress(curMips->pc)) {
-				Core_ExecException(curMips->pc, curMips->pc, ExecExceptionType::JUMP);
+			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(curMips->pc));
+			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
 
-			bool wasInDelaySlot = curMips->inDelaySlot;
-			int cycles = ExecInstruction(curMips, op);
+			bool wasInDelaySlot = mips->inDelaySlot;
+			int cycles = ExecInstruction(mips, op);
 			if (cycles < 0) {
-				// Not a recognized instruction (invalid encoding, or a known instruction
-				// with no interpreter implementation, e.g. tge/tlt/teq/...). No point
-				// calling MIPSGetInstruction() here - see HandleUnknownInstruction()'s
-				// comment. Every such case has cycles == 1 today (same as
-				// GetInstructionCycleEstimate()'s default for a null/flagless instr).
-				HandleUnknownInstruction(curMips, op);
-				cycles = 1;
+				// Not a recognized instruction (invalid encoding, or an unimplemented kernel-mode only instruction
+				// with no interpreter implementation, e.g. tge/tlt/teq/).
+				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
+				break;
 			}
-			curMips->downcount -= cycles;
+			mips->downcount -= cycles;
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
-			if (curMips->inDelaySlot && wasInDelaySlot) {
-				curMips->pc = curMips->nextPC;
-				curMips->inDelaySlot = false;
+			if (mips->inDelaySlot && wasInDelaySlot) {
+				mips->pc = mips->nextPC;
+				mips->inDelaySlot = false;
 			}
-		} while (curMips->inDelaySlot);
+		} while (mips->inDelaySlot);
 	}
 }
 
 #define _RS(op)   ((op>>21) & 0x1F)
-static void RunUntilWithChecks(MIPSState *curMips, u64 globalTicks) {
+static void RunUntilWithChecks(MIPSState *mips, u64 globalTicks) {
 	// NEVER stop in a delay slot!
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
-	while (curMips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
+	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		do {
-			if (!Memory::IsValid4AlignedAddress(curMips->pc)) {
-				Core_ExecException(curMips->pc, curMips->pc, ExecExceptionType::JUMP);
+			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(curMips->pc));
+			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
 			// Replacements and similar are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint
-			if (hasBPs && g_breakpoints.IsAddressBreakPoint(curMips->pc) && g_breakpoints.CheckSkipFirst() != curMips->pc) {
-				auto cond = g_breakpoints.GetBreakPointCondition(curMips->pc);
+			if (hasBPs && g_breakpoints.IsAddressBreakPoint(mips->pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
+				auto cond = g_breakpoints.GetBreakPointCondition(mips->pc);
 				if (!cond || cond->Evaluate()) {
-					Core_Break(BreakReason::CpuBreakpoint, curMips->pc);
-					if (g_breakpoints.IsTempBreakPoint(curMips->pc))
-						g_breakpoints.RemoveBreakPoint(curMips->pc);
+					Core_Break(BreakReason::CpuBreakpoint, mips->pc);
+					if (g_breakpoints.IsTempBreakPoint(mips->pc))
+						g_breakpoints.RemoveBreakPoint(mips->pc);
 					break;
 				}
 			}
-			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != curMips->pc && instr->interpret != &Int_Syscall) {
+			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc && instr->interpret != &Int_Syscall) {
 				// This is common for all IN_MEM/OUT_MEM funcs.
 				int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
-				u32 addr = (curMips->r[_RS(op)] + offset) & 0xFFFFFFFC;
+				u32 addr = (mips->r[_RS(op)] + offset) & 0xFFFFFFFC;
 				int sz = MIPSGetMemoryAccessSize(op);
 
 				if ((instr->flags & IN_MEM) != 0)
-					g_breakpoints.ExecMemCheck(addr, false, sz, curMips->pc, "interpret");
+					g_breakpoints.ExecMemCheck(addr, false, sz, mips->pc, "interpret");
 				if ((instr->flags & OUT_MEM) != 0)
-					g_breakpoints.ExecMemCheck(addr, true, sz, curMips->pc, "interpret");
+					g_breakpoints.ExecMemCheck(addr, true, sz, mips->pc, "interpret");
 
 				// If it tripped, bail without running.
 				if (coreState == CORE_STEPPING_CPU)
 					break;
 			}
 
-			bool wasInDelaySlot = curMips->inDelaySlot;
-			Interpret(curMips, instr, op);
-			curMips->downcount -= GetInstructionCycleEstimate(instr);
+			bool wasInDelaySlot = mips->inDelaySlot;
+			Interpret(mips, instr, op);
+			mips->downcount -= GetInstructionCycleEstimate(instr);
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
-			if (curMips->inDelaySlot && wasInDelaySlot) {
-				curMips->pc = curMips->nextPC;
-				curMips->inDelaySlot = false;
+			if (mips->inDelaySlot && wasInDelaySlot) {
+				mips->pc = mips->nextPC;
+				mips->inDelaySlot = false;
 			}
-		} while (curMips->inDelaySlot);
+		} while (mips->inDelaySlot);
 
 		if (CoreTiming::GetTicks() > globalTicks)
 			return;
@@ -1214,10 +1198,11 @@ int MIPSInterpret_RunUntil(MIPSState *curMips, u64 globalTicks) {
 		CoreTiming::Advance();
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks();
-		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= curMips->downcount)
+		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= curMips->downcount) {
 			RunUntilWithChecks(curMips, globalTicks);
-		else
+		} else {
 			RunUntilFast(curMips);
+		}
 
 		if (CoreTiming::GetTicks() > globalTicks) {
 			// DEBUG_LOG(Log::CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
