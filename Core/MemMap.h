@@ -267,6 +267,11 @@ inline bool IsDepthTexVRAMAddress(const u32 address) {
 	return ((address & 0xBFE00000) == 0x04200000) || ((address & 0xBFE00000) == 0x04600000);
 }
 
+// TODO: To re-evaluate.
+inline bool IsMMIOAccess(const u32 address) {
+	return ((address & 0xFC000000) == 0xBC000000);
+}
+
 // 0x08000000 -> 0x08800000
 inline bool IsKernelAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x08000000);
@@ -291,6 +296,7 @@ inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const 
 	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
+// Applies to user mode.
 // Without a length, IsValidAddress is generally semi-meaningless, unless it's about a single byte access. For larger accesses, use IsValid4AlignedAddress
 // etc when appropriate, or for longer sizes, use IsValidRange or IsValid4AlignedRange for example. Checking aligned-ness helps avoid the problem
 // of reading past the last byte, say reading 4 bytes at offset 5 of a memory sized 8.

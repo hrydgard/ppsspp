@@ -92,6 +92,32 @@ int MIPS_SingleStep(MIPSState *mips) {
 	return 1;
 }
 
+// Dummy functions, for any future MMIO support.
+static u8 ReadMMIO_U8(MIPSState *mips, u32 addr) {
+	WARN_LOG(Log::CPU, "MMIO Read8 at %08x", addr);
+	return 0;
+}
+
+static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
+	WARN_LOG(Log::CPU, "MMIO Read16 at %08x", addr);
+	return 0;
+}
+
+static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
+	WARN_LOG(Log::CPU, "MMIO Read32 at %08x", addr);
+	return 0;
+}
+
+void WriteMMIO_U8(MIPSState *mips, u32 addr, u8 value) {
+	WARN_LOG(Log::CPU, "MMIO Write8 at %08x = %02x", addr, value);
+}
+void WriteMMIO_U16(MIPSState *mips, u32 addr, u16 value) {
+	WARN_LOG(Log::CPU, "MMIO Write16 at %08x = %04x", addr, value);
+}
+void WriteMMIO_U32(MIPSState *mips, u32 addr, u32 value) {
+	WARN_LOG(Log::CPU, "MMIO Write32 at %08x = %08x", addr, value);
+}
+
 namespace MIPSInt {
 	void Int_Cache(MIPSState *mips, MIPSOpcode op) {
 		int imm = SignExtend16ToS32(op);
@@ -400,7 +426,6 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
-
 	void Int_ITypeMem(MIPSState *mips, MIPSOpcode op) {
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
@@ -416,6 +441,11 @@ namespace MIPSInt {
 		switch (op >> 26) {
 		case 32:
 			if (!Memory::IsValidAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a read from MMIO, so we can handle it.
+					R(rt) = SignExtend8ToU32(ReadMMIO_U8(mips, addr));
+					break;
+				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lb");
 				return;
 			}
@@ -423,6 +453,11 @@ namespace MIPSInt {
 			break; //lb
 		case 33:
 			if (!Memory::IsValid2AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a read from MMIO, so we can handle it.
+					R(rt) = SignExtend16ToU32(ReadMMIO_U16(mips, addr));
+					break;
+				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lh");
 				return;
 			}
@@ -430,6 +465,11 @@ namespace MIPSInt {
 			break; //lh
 		case 35:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a read from MMIO, so we can handle it.
+					R(rt) = ReadMMIO_U32(mips, addr);
+					break;
+				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lw");
 				return;
 			}
@@ -437,6 +477,11 @@ namespace MIPSInt {
 			break; //lw
 		case 36:
 			if (!Memory::IsValidAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a read from MMIO, so we can handle it.
+					R(rt) = ReadMMIO_U8(mips, addr);
+					break;
+				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
 				return;
 			}
@@ -444,6 +489,11 @@ namespace MIPSInt {
 			break; //lbu
 		case 37:
 			if (!Memory::IsValid2AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a read from MMIO, so we can handle it.
+					R(rt) = ReadMMIO_U16(mips, addr);
+					break;
+				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
 				return;
 			}
@@ -451,6 +501,11 @@ namespace MIPSInt {
 			break; //lhu
 		case 40:
 			if (!Memory::IsValidAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a write to MMIO, so we can handle it.
+					WriteMMIO_U8(mips, addr, (u8)(R(rt)));
+					break;
+				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
 				return;
 			}
@@ -458,6 +513,11 @@ namespace MIPSInt {
 			break; //sb
 		case 41:
 			if (!Memory::IsValid2AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a write to MMIO, so we can handle it.
+					WriteMMIO_U16(mips, addr, (u16)(R(rt)));
+					break;
+				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
 				return;
 			}
@@ -465,6 +525,11 @@ namespace MIPSInt {
 			break; //sh
 		case 43:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					// This is a write to MMIO, so we can handle it.
+					WriteMMIO_U32(mips, addr, R(rt));
+					break;
+				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
 				return;
 			}

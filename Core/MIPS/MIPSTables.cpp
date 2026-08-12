@@ -1106,9 +1106,10 @@ void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
 	MIPSInterpret(currentMIPS, op);
 }
 
-static inline void RunUntilFast(MIPSState *mips) {
-	// NEVER stop in a delay slot!
+static void RunUntilDowncountZeroFast(MIPSState *mips) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
+		// Don't stop in a delay slot!
+		int cycleCount = 0;
 		do {
 			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
@@ -1124,7 +1125,7 @@ static inline void RunUntilFast(MIPSState *mips) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
 				break;
 			}
-			mips->downcount -= cycles;
+			cycleCount += cycles;
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
 			if (mips->inDelaySlot && wasInDelaySlot) {
@@ -1132,15 +1133,16 @@ static inline void RunUntilFast(MIPSState *mips) {
 				mips->inDelaySlot = false;
 			}
 		} while (mips->inDelaySlot);
+		mips->downcount -= cycleCount;
 	}
 }
 
 #define _RS(op)   ((op>>21) & 0x1F)
-static void RunUntilWithChecks(MIPSState *mips, u64 globalTicks) {
-	// NEVER stop in a delay slot!
+static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
+		// Don't stop in a delay slot! Well, unless we hit a memcheck in one, of course.
 		do {
 			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
@@ -1199,9 +1201,9 @@ int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(currentMIPS);
 		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= mips->downcount) {
-			RunUntilWithChecks(mips, globalTicks);
+			RunUntilDowncountZeroWithChecks(mips, globalTicks);
 		} else {
-			RunUntilFast(mips);
+			RunUntilDowncountZeroFast(mips);
 		}
 
 		if (CoreTiming::GetTicks(mips) > globalTicks) {
