@@ -1098,7 +1098,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		const char *buffer = (const char *)Memory::GetPointerUnchecked(bufferPtr);
-		u8 *mac = Memory::GetPointerWrite(macPtr);
+		u8 *mac = Memory::GetPointerWriteOrException(macPtr);
 
 		// MAC address is always 6 pairs of hex digits.
 		// TODO: Funny stuff happens if it's too short.
@@ -1124,7 +1124,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
-		VERBOSE_LOG(Log::sceNet, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)).c_str());
+		VERBOSE_LOG(Log::sceNet, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointerOrException(macPtr)).c_str());
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}

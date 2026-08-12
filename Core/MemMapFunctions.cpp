@@ -27,7 +27,7 @@
 
 namespace Memory {
 
-u8 *GetPointerWrite(const u32 address) {
+u8 *GetPointerWriteOrException(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
@@ -40,7 +40,7 @@ u8 *GetPointerWrite(const u32 address) {
 	}
 }
 
-const u8 *GetPointer(const u32 address) {
+const u8 *GetPointerOrException(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
@@ -53,8 +53,8 @@ const u8 *GetPointer(const u32 address) {
 	}
 }
 
-u8 *GetPointerWriteRange(const u32 address, const u32 size) {
-	u8 *ptr = GetPointerWrite(address);
+u8 *GetPointerWriteRangeOrException(const u32 address, const u32 size) {
+	u8 *ptr = GetPointerWriteOrException(address);
 	if (ptr) {
 		if (ClampValidSizeAt(address, size) != size) {
 			// That's a memory exception! TODO: Adjust reported address to the end of the range?
@@ -69,8 +69,8 @@ u8 *GetPointerWriteRange(const u32 address, const u32 size) {
 	}
 }
 
-const u8 *GetPointerRange(const u32 address, const u32 size) {
-	const u8 *ptr = GetPointer(address);
+const u8 *GetPointerRangeOrException(const u32 address, const u32 size) {
+	const u8 *ptr = GetPointerOrException(address);
 	if (ptr) {
 		if (ClampValidSizeAt(address, size) != size) {
 			// That's a memory exception! TODO: Adjust reported address to the end of the range?
@@ -86,7 +86,7 @@ const u8 *GetPointerRange(const u32 address, const u32 size) {
 }
 
 template <typename T>
-inline void ReadMemoryOrRaiseException(T &var, const u32 address) {
+inline void ReadMemoryOrException(T &var, const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
@@ -99,7 +99,7 @@ inline void ReadMemoryOrRaiseException(T &var, const u32 address) {
 }
 
 template <typename T>
-inline void WriteMemoryOrRaiseException(u32 address, const T data) {
+inline void WriteMemoryOrException(u32 address, const T data) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
@@ -126,42 +126,42 @@ bool IsScratchpadAddress(const u32 address) {
 
 u8 ReadOrException_U8(const u32 address) {
 	u8 value = 0;
-	ReadMemoryOrRaiseException<u8>(value, address);
+	ReadMemoryOrException<u8>(value, address);
 	return (u8)value;
 }
 
 u16 ReadOrException_U16(const u32 address) {
 	u16_le value = 0;
-	ReadMemoryOrRaiseException<u16_le>(value, address);
+	ReadMemoryOrException<u16_le>(value, address);
 	return (u16)value;
 }
 
 u32 ReadOrException_U32(const u32 address) {
 	u32_le value = 0;
-	ReadMemoryOrRaiseException<u32_le>(value, address);
+	ReadMemoryOrException<u32_le>(value, address);
 	return value;
 }
 
-u64 Read_U64(const u32 address) {
+u64 ReadOrException_U64(const u32 address) {
 	u64_le value = 0;
-	ReadMemoryOrRaiseException<u64_le>(value, address);
+	ReadMemoryOrException<u64_le>(value, address);
 	return value;
 }
 
 void WriteOrException_U8(const u8 _Data, const u32 address) {
-	WriteMemoryOrRaiseException<u8>(address, _Data);
+	WriteMemoryOrException<u8>(address, _Data);
 }
 
 void WriteOrException_U16(const u16 _Data, const u32 address) {
-	WriteMemoryOrRaiseException<u16_le>(address, _Data);
+	WriteMemoryOrException<u16_le>(address, _Data);
 }
 
 void WriteOrException_U32(const u32 _Data, const u32 address) {
-	WriteMemoryOrRaiseException<u32_le>(address, _Data);
+	WriteMemoryOrException<u32_le>(address, _Data);
 }
 
 void WriteOrException_U64(const u64 _Data, const u32 address) {
-	WriteMemoryOrRaiseException<u64_le>(address, _Data);
+	WriteMemoryOrException<u64_le>(address, _Data);
 }
 
 }	// namespace Memory

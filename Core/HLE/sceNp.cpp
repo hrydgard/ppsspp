@@ -432,7 +432,7 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length) {
 	// Dummy Login ticket returned as Login response. Dummy ticket contents were taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket
 	ticket.header.version = TICKET_VER_2_1;
 	ticket.header.size = 0xF0; // size excluding the header
-	u8* buf = Memory::GetPointerWrite(bufferAddr + sizeof(ticket));
+	u8* buf = Memory::GetPointerWriteOrException(bufferAddr + sizeof(ticket));
 	int ofs = 0;
 	ofs += writeTicketParam(buf, PARAM_TYPE_STRING_ASCII, "\x4c\x47\x56\x3b\x81\x39\x4a\x22\xd8\x6b\xc1\x57\x71\x6e\xfd\xb8\xab\x63\xcc\x51", 20); // 20 random letters, token key or SceNpSignature?
 	ofs += writeTicketU32Param(buf + ofs, PARAM_TYPE_INT, 0x0100); // a flags?
@@ -516,13 +516,13 @@ int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 b
 		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT);
 	}
 
-	SceNpTicket* ticket = (SceNpTicket*)Memory::GetPointer(ticketBufPtr);
+	SceNpTicket* ticket = (SceNpTicket*)Memory::GetPointerOrException(ticketBufPtr);
 	u32 inbuf = ticketBufPtr;
 	inbuf += sizeof(ticket->header);
 	inbuf += ticket->section.size + sizeof(ticket->section);
 	u32 outbuf = bufferPtr;
 	for (int i = 0; i < paramNum; i++) {
-		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointer(inbuf);
+		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointerOrException(inbuf);
 		u32 sz = (u32)sizeof(SceNpTicketParamData) + ticketParam->length;
 		Memory::Memcpy(outbuf, inbuf, sz);
 		DEBUG_LOG(Log::sceNet, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, i, static_cast<unsigned int>(ticketParam->type), static_cast<unsigned int>(ticketParam->length));

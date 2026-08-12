@@ -120,7 +120,7 @@ bool TestJit() {
 
 	g_Config.bFastMemory = true;
 	currentMIPS->pc = PSP_GetUserMemoryBase();
-	u32 *p = (u32 *)Memory::GetPointer(currentMIPS->pc);
+	u32 *p = (u32 *)Memory::GetPointerOrException(currentMIPS->pc);
 
 	// TODO: Smarter way of seeding in the code sequence.
 	static const char *lines[] = {

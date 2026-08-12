@@ -133,8 +133,8 @@ static int Replace_memcpy() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
-		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
+		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 
 		if (!dst || !src) {
 			// Already logged.
@@ -200,8 +200,8 @@ static int Replace_memcpy_jak() {
 		sliced = true;
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
-		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
+		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 
 		if (dst && src) {
 			// Jak style overlap.
@@ -265,8 +265,8 @@ static int Replace_memcpy16() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
-		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
+		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 		if (dst && src) {
 			memmove(dst, src, bytes);
 		}
@@ -290,8 +290,8 @@ static int Replace_memcpy_swizzled() {
 			gpu->PerformReadbackToMemory(srcPtr, pitch * h);
 		}
 	}
-	u8 *dstp = Memory::GetPointerWriteRange(destPtr, pitch * h);
-	const u8 *srcp = Memory::GetPointerRange(srcPtr, pitch * h);
+	u8 *dstp = Memory::GetPointerWriteRangeOrException(destPtr, pitch * h);
+	const u8 *srcp = Memory::GetPointerRangeOrException(srcPtr, pitch * h);
 
 	if (dstp && srcp) {
 		const u8 *ysrcp = srcp;
@@ -333,8 +333,8 @@ static int Replace_memmove() {
 		}
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
-		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
+		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
+		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 		if (dst && src) {
 			memmove(dst, src, bytes);
 		}
@@ -357,7 +357,7 @@ static int Replace_memset() {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
+		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -391,7 +391,7 @@ static int Replace_memset_jak() {
 		sliced = true;
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
+		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		if (dst) {
 			memset(dst, value, bytes);
 		}
@@ -419,7 +419,7 @@ static int Replace_memset_jak() {
 
 static uint32_t SafeStringLen(const uint32_t ptr, uint32_t maxLen = 0x07FFFFFF) {
 	maxLen = Memory::ClampValidSizeAt(ptr, 0x07FFFFFF);
-	const uint8_t *p = Memory::GetPointerRange(ptr, maxLen);
+	const uint8_t *p = Memory::GetPointerRangeOrException(ptr, maxLen);
 	if (!p)
 		return 0;
 	const uint8_t *end = (const uint8_t *)memchr(p, '\0', maxLen);
@@ -439,8 +439,8 @@ static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 len = SafeStringLen(srcPtr);
-	char *dst = (char *)Memory::GetPointerWriteRange(destPtr, len);
-	const char *src = (const char *)Memory::GetPointerRange(srcPtr, len);
+	char *dst = (char *)Memory::GetPointerWriteRangeOrException(destPtr, len);
+	const char *src = (const char *)Memory::GetPointerRangeOrException(srcPtr, len);
 	if (dst && src && len != 0) {
 		strcpy(dst, src);
 	}
@@ -452,9 +452,9 @@ static int Replace_strncpy() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	char *dst = (char *)Memory::GetPointerRange(destPtr, bytes);
+	char *dst = (char *)Memory::GetPointerRangeOrException(destPtr, bytes);
 	u32 srcLen = SafeStringLen(srcPtr, bytes);
-	const char *src = (const char *)Memory::GetPointerRange(srcPtr, srcLen == 0 ? bytes : srcLen);
+	const char *src = (const char *)Memory::GetPointerRangeOrException(srcPtr, srcLen == 0 ? bytes : srcLen);
 	if (dst && src && bytes != 0) {
 		strncpy(dst, src, bytes);
 	}
@@ -464,9 +464,9 @@ static int Replace_strncpy() {
 
 static int Replace_strcmp() {
 	u32 aLen = SafeStringLen(PARAM(0));
-	const char *a = (const char *)Memory::GetPointerRange(PARAM(0), aLen);
+	const char *a = (const char *)Memory::GetPointerRangeOrException(PARAM(0), aLen);
 	u32 bLen = SafeStringLen(PARAM(1));
-	const char *b = (const char *)Memory::GetPointerRange(PARAM(1), bLen);
+	const char *b = (const char *)Memory::GetPointerRangeOrException(PARAM(1), bLen);
 	if (a && b && aLen != 0 && bLen != 0) {
 		RETURN(strcmp(a, b));
 	} else {
@@ -478,9 +478,9 @@ static int Replace_strcmp() {
 static int Replace_strncmp() {
 	u32 bytes = PARAM(2);
 	u32 aLen = SafeStringLen(PARAM(0), bytes);
-	const char *a = (const char *)Memory::GetPointerRange(PARAM(0), aLen == 0 ? bytes : aLen);
+	const char *a = (const char *)Memory::GetPointerRangeOrException(PARAM(0), aLen == 0 ? bytes : aLen);
 	u32 bLen = SafeStringLen(PARAM(1), bytes);
-	const char *b = (const char *)Memory::GetPointerRange(PARAM(1), bLen == 0 ? bytes : bLen);
+	const char *b = (const char *)Memory::GetPointerRangeOrException(PARAM(1), bLen == 0 ? bytes : bLen);
 	if (a && b && bytes != 0) {
 		RETURN(strncmp(a, b, bytes));
 	} else {
@@ -495,9 +495,9 @@ static int Replace_fabsf() {
 }
 
 static int Replace_vmmul_q_transp() {
-	float_le *out = (float_le *)Memory::GetPointerRange(PARAM(0), 16 * 4);
-	const float_le *a = (const float_le *)Memory::GetPointerRange(PARAM(1), 16 * 4);
-	const float_le *b = (const float_le *)Memory::GetPointerRange(PARAM(2), 16 * 4);
+	float_le *out = (float_le *)Memory::GetPointerRangeOrException(PARAM(0), 16 * 4);
+	const float_le *a = (const float_le *)Memory::GetPointerRangeOrException(PARAM(1), 16 * 4);
+	const float_le *b = (const float_le *)Memory::GetPointerRangeOrException(PARAM(2), 16 * 4);
 
 	// TODO: Actually use an optimized matrix multiply here...
 	if (out && b && a) {
@@ -522,8 +522,8 @@ static int Replace_vmmul_q_transp() {
 // a1 = matrix
 // a2 = source address
 static int Replace_gta_dl_write_matrix() {
-	u32_le *ptr = (u32_le *)Memory::GetPointerWriteRange(PARAM(0), 4);
-	const u32_le *src = (const u32_le *)Memory::GetPointerRange(PARAM(2), 16);
+	u32_le *ptr = (u32_le *)Memory::GetPointerWriteRangeOrException(PARAM(0), 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerRangeOrException(PARAM(2), 16);
 	u32 matrix = PARAM(1) << 24;
 
 	if (!ptr || !src) {
@@ -531,7 +531,7 @@ static int Replace_gta_dl_write_matrix() {
 		return 38;
 	}
 
-	u32_le *dest = (u32_le *)Memory::GetPointerWriteRange(ptr[0], 12 * 4);
+	u32_le *dest = (u32_le *)Memory::GetPointerWriteRangeOrException(ptr[0], 12 * 4);
 	if (!dest) {
 		RETURN(0);
 		return 38;
@@ -581,8 +581,8 @@ static int Replace_gta_dl_write_matrix() {
 // TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
-	u32_le *dlStruct = (u32_le *)Memory::GetPointerWriteRange(PARAM(0), 3 * 4);
-	const u32_le *src = (const u32_le *)Memory::GetPointerRange(PARAM(2), 16 * 4);
+	u32_le *dlStruct = (u32_le *)Memory::GetPointerWriteRangeOrException(PARAM(0), 3 * 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerRangeOrException(PARAM(2), 16 * 4);
 
 	if (!dlStruct || !src) {
 		RETURN(0);
@@ -607,7 +607,7 @@ static int Replace_dl_write_matrix() {
 		break;
 	}
 
-	u32_le *dest = (u32_le *)Memory::GetPointerWriteRange(dlStruct[2], 4 + count * 4);
+	u32_le *dest = (u32_le *)Memory::GetPointerWriteRangeOrException(dlStruct[2], 4 + count * 4);
 	if (!dest) {
 		RETURN(0);
 		return 60;

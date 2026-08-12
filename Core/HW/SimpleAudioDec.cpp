@@ -497,7 +497,7 @@ size_t AuCtx::FindNextMp3Sync() {
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr) {
 	u32 outptr = PCMBuf + nextOutputHalf * PCMBufSize / 2;
-	auto outbuf = Memory::GetPointerWriteRange(outptr, PCMBufSize / 2);
+	auto outbuf = Memory::GetPointerWriteRangeOrException(outptr, PCMBufSize / 2);
 	int outpcmbufsize = 0;
 
 	if (pcmAddr)

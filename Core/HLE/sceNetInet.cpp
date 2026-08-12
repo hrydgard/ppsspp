@@ -106,7 +106,7 @@ static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
 
-	int retval = inet_pton(convertSocketDomainPSP2Host(af), hostname, (void*)Memory::GetPointer(inAddrPtr));
+	int retval = inet_pton(convertSocketDomainPSP2Host(af), hostname, (void*)Memory::GetPointerOrException(inAddrPtr));
 	// Note that inet_pton can set errno!
 	if (retval < 0) {
 		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
@@ -121,7 +121,7 @@ static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
 	}
 
 	// TODO: Wait what, we're calling pton in aton?
-	int retval = inet_pton(AF_INET, hostname, (void*)Memory::GetPointer(inAddrPtr));
+	int retval = inet_pton(AF_INET, hostname, (void*)Memory::GetPointerOrException(inAddrPtr));
 	// inet_aton() returns nonzero if the address is valid, zero if not.
 	return hleLogDebug(Log::sceNet, retval);
 }
@@ -165,8 +165,8 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointer(namePtr);
-	int* namelen = (int*)Memory::GetPointer(namelenPtr);
+	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointerOrException(namePtr);
+	int* namelen = (int*)Memory::GetPointerOrException(namelenPtr);
 	SockAddrIN4 saddr{};
 	// TODO: Should've created convertSockaddrPSP2Host (and Host2PSP too) function as it's being used pretty often, thus fixing a bug on it will be tedious when scattered all over the places
 	saddr.addr.sa_family = name->sa_family;
@@ -199,8 +199,8 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointer(namePtr);
-	int* namelen = (int*)Memory::GetPointer(namelenPtr);
+	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointerOrException(namePtr);
+	int* namelen = (int*)Memory::GetPointerOrException(namelenPtr);
 	SockAddrIN4 saddr{};
 	saddr.addr.sa_family = name->sa_family;
 	int len = std::min(*namelen > 0 ? *namelen : 0, static_cast<int>(sizeof(saddr)));
@@ -223,10 +223,10 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 
 // FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
 int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
-	SceNetInetFdSet	*readfds = readfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWrite(readfdsPtr) : nullptr;
-	SceNetInetFdSet	*writefds = writefdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWrite(writefdsPtr) : nullptr;
-	SceNetInetFdSet	*exceptfds = exceptfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWrite(exceptfdsPtr) : nullptr;
-	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWrite(timeoutPtr) : nullptr;
+	SceNetInetFdSet	*readfds = readfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(readfdsPtr) : nullptr;
+	SceNetInetFdSet	*writefds = writefdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(writefdsPtr) : nullptr;
+	SceNetInetFdSet	*exceptfds = exceptfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(exceptfdsPtr) : nullptr;
+	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWriteOrException(timeoutPtr) : nullptr;
 
 	// First, translate the specified fd_sets to host sockets.
 
@@ -357,7 +357,7 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, currentMIPS->pc);
 	int retval = -1;
 	int maxHostFd = 0;
-	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointer(fdsPtr); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
+	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
 
 	if (nfds > FD_SETSIZE)
 		nfds = FD_SETSIZE;
@@ -419,7 +419,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recv(inetSock->sock, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
+	int retval = recv(inetSock->sock, (char*)Memory::GetPointerOrException(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
 	if (retval < 0) {
 		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
 			retval = hleLogDebug(Log::sceNet, retval, "EAGAIN");
@@ -430,7 +430,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	}
 
 	std::string datahex;
-	DataToHexString(10, 0, Memory::GetPointer(bufPtr), retval, &datahex);
+	DataToHexString(10, 0, Memory::GetPointerOrException(bufPtr), retval, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
 
 	return hleDelayResult(hleLogInfo(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
@@ -443,12 +443,12 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	}
 
 	std::string datahex;
-	DataToHexString(10, 0, Memory::GetPointer(bufPtr), bufLen, &datahex);
+	DataToHexString(10, 0, Memory::GetPointerOrException(bufPtr), bufLen, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", bufLen, datahex.c_str());
 
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = send(inetSock->sock, (char*)Memory::GetPointer(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
+	int retval = send(inetSock->sock, (char*)Memory::GetPointerOrException(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
 	if (retval < 0) {
 		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
@@ -561,8 +561,8 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	u32_le* optval = (u32_le*)Memory::GetPointer(optvalPtr);
-	socklen_t* optlen = (socklen_t*)Memory::GetPointer(optlenPtr);
+	u32_le* optval = (u32_le*)Memory::GetPointerOrException(optvalPtr);
+	socklen_t* optlen = (socklen_t*)Memory::GetPointerOrException(optlenPtr);
 	DEBUG_LOG(Log::sceNet, "SockOpt: Level = %s, OptName = %s", inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str());
 	timeval tval{};
 	// TODO: Ignoring SO_NBIO/SO_NONBLOCK flag if we always use non-bloking mode (ie. simulated blocking mode)
@@ -626,7 +626,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointer(namePtr);
+	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointerOrException(namePtr);
 	SockAddrIN4 saddr{};
 	// TODO: Should've created convertSockaddrPSP2Host (and Host2PSP too) function as it's being used pretty often, thus fixing a bug on it will be tedious when scattered all over the places
 	saddr.addr.sa_family = name->sa_family;
@@ -687,7 +687,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 
 	// Still using warn log here so it stands out in the log
 
-	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetPointer(sockAddrPtr);
+	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetPointerOrException(sockAddrPtr);
 	SockAddrIN4 saddr{};
 	int dstlen = std::min(sockAddrLen > 0 ? sockAddrLen : 0, static_cast<int>(sizeof(saddr)));
 	saddr.addr.sa_family = dst->sa_family;
@@ -852,7 +852,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
+	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
 	if (retval < 0) {
 		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
 			retval = hleLogDebug(Log::sceNet, retval, "EAGAIN");
@@ -879,7 +879,7 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 	}*/
 
 	std::string datahex;
-	DataToHexString(0, 0, Memory::GetPointer(bufferPtr), retval, &datahex);
+	DataToHexString(0, 0, Memory::GetPointerOrException(bufferPtr), retval, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
 
 	// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
@@ -904,7 +904,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 	}
 
 	std::string datahex;
-	DataToHexString(0, 0, Memory::GetPointer(bufferPtr), len, &datahex);
+	DataToHexString(0, 0, Memory::GetPointerOrException(bufferPtr), len, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", len, datahex.c_str());
 
 	int retval;
@@ -920,7 +920,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 				continue;
 
 			saddr.in.sin_addr.s_addr = peer->ip_addr;
-			retval = sendto(inetSock->sock, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
+			retval = sendto(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 			if (retval < 0) {
 				DEBUG_LOG(Log::sceNet, "SendTo(BC): Socket error %d", socket_errno);
 			} else {
@@ -946,7 +946,7 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 			saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
 			DEBUG_LOG(Log::sceNet, "SendTo(BC): Address Replacement = %s", ip2str(saddr.in.sin_addr).c_str());
 		}*/
-		retval = sendto(inetSock->sock, (char*)Memory::GetPointer(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
+		retval = sendto(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 	}
 	if (retval < 0) {
 		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
@@ -974,7 +974,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointer(msghdrPtr);
+	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointerOrException(msghdrPtr);
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
 	SockAddrIN4 saddr{};
@@ -996,7 +996,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 	memset(iov, 0, pspMsghdr->msg_iovlen * iovecsize);
 	memset(&hdr, 0, sizeof(hdr));
 	if (pspMsghdr->msg_name != 0) {
-		SceNetInetSockaddr* pspSaddr = (SceNetInetSockaddr*)Memory::GetPointer(pspMsghdr->msg_name);
+		SceNetInetSockaddr* pspSaddr = (SceNetInetSockaddr*)Memory::GetPointerOrException(pspMsghdr->msg_name);
 		saddr.addr.sa_family = pspSaddr->sa_family;
 		size_t datalen = std::min(pspMsghdr->msg_namelen - (sizeof(pspSaddr->sa_len) + sizeof(pspSaddr->sa_family)), sizeof(saddr.addr.sa_data));
 		memcpy(saddr.addr.sa_data, pspSaddr->sa_data, datalen);
@@ -1017,14 +1017,14 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 	hdr.msg_iovlen = pspMsghdr->msg_iovlen;
 #endif
 	if (pspMsghdr->msg_iov != 0) {
-		SceNetIovec* pspIov = (SceNetIovec*)Memory::GetPointer(pspMsghdr->msg_iov);
+		SceNetIovec* pspIov = (SceNetIovec*)Memory::GetPointerOrException(pspMsghdr->msg_iov);
 		for (int i = 0; i < pspMsghdr->msg_iovlen; i++) {
 			if (pspIov[i].iov_base != 0) {
 #if defined(_WIN32)
-				iov[i].buf = (char*)Memory::GetPointer(pspIov[i].iov_base);
+				iov[i].buf = (char*)Memory::GetPointerOrException(pspIov[i].iov_base);
 				iov[i].len = pspIov[i].iov_len;
 #else
-				iov[i].iov_base = (char*)Memory::GetPointer(pspIov[i].iov_base);
+				iov[i].iov_base = (char*)Memory::GetPointerOrException(pspIov[i].iov_base);
 				iov[i].iov_len = pspIov[i].iov_len;
 #endif
 			}
@@ -1042,7 +1042,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 			free(iov);
 			return hleLogError(Log::sceNet, retval);
 		}
-		InetCmsghdr* pspCmsghdr = (InetCmsghdr*)Memory::GetPointer(pspMsghdr->msg_control);
+		InetCmsghdr* pspCmsghdr = (InetCmsghdr*)Memory::GetPointerOrException(pspMsghdr->msg_control);
 		// TODO: Convert InetCmsghdr into platform-specific struct as they're affected by 32/64bit
 		memcpy(chdr, pspCmsghdr, pspMsghdr->msg_controllen);
 #if defined(_WIN32)
@@ -1173,7 +1173,7 @@ static int sceNetInetRecvmsg(int socket, u32 msghdrPtr, int flags) {
 		UpdateErrnoFromHost(__KernelGetCurThread(), EFAULT, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
 	}
-	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointer(msghdrPtr);
+	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointerOrException(msghdrPtr);
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
 	SockAddrIN4 saddr{};

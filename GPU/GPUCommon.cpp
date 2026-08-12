@@ -1768,8 +1768,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			u32 bytesToCopy = width * height * bpp;
 
-			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+			const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+			u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 			memcpy(dstp, srcp, bytesToCopy);
 
 			if (MemBlockInfoDetailed(bytesToCopy)) {
@@ -1786,8 +1786,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			}
 
 			auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
-				const u8 *srcp = Memory::GetPointer(s);
-				u8 *dstp = Memory::GetPointerWrite(d);
+				const u8 *srcp = Memory::GetPointerOrException(s);
+				u8 *dstp = Memory::GetPointerWriteOrException(d);
 				memmove(dstp, srcp, sz);
 
 				if (notifyDetail) {
@@ -1809,8 +1809,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
 
 				if (!srcLineWrap && !dstLineWrap) {
-					const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-					u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+					const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+					u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 					for (u32 i = 0; i < bytesToCopy; i += 64) {
 						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
 						memmove(dstp + i, srcp + i, chunk);
@@ -1890,8 +1890,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+				const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+				u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 				memcpy(dstp, srcp, bytesToCopy);
 
 				// If we're tracking detail, it's useful to have the gaps illustrated properly.

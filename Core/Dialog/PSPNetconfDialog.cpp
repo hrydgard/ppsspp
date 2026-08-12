@@ -265,11 +265,11 @@ int PSPNetconfDialog::Update(int animSpeed) {
 								}
 								if (reqsz > 0) {
 									if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, scanInfosAddr + (u32)sizeof(s32)) >= 0) {
-										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointer(scanInfosAddr);
+										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointerOrException(scanInfosAddr);
 										int n = scanInfos->sz / sizeof(SceNetAdhocctlScanInfoEmu);
 										// Assuming returned SceNetAdhocctlScanInfoEmu(s) are contiguous where next is pointing to current addr + sizeof(SceNetAdhocctlScanInfoEmu)
 										while (n > 0) {
-											SceNetAdhocctlScanInfoEmu* si = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointer(scanInfosAddr + sizeof(s32) + sizeof(SceNetAdhocctlScanInfoEmu) * (n - 1LL));
+											SceNetAdhocctlScanInfoEmu* si = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointerOrException(scanInfosAddr + sizeof(s32) + sizeof(SceNetAdhocctlScanInfoEmu) * (n - 1LL));
 											if (memcmp(si->group_name.data, request.NetconfData->groupName, ADHOCCTL_GROUPNAME_LEN) == 0) {
 												// Moving found group info to the front so we can use it on sceNetAdhocctlJoin easily
 												memcpy((char*)scanInfos + sizeof(s32), si, sizeof(SceNetAdhocctlScanInfoEmu));

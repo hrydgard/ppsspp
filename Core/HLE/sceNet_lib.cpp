@@ -117,7 +117,7 @@ u32 sceNetStrlen(const char* str) {
 
 s32 sceNetMemcmp(u32 lhsPtr, u32 rhsPtr, u32 count) {
 	// Redirect that to libc
-	s32 res = std::memcmp(Memory::GetPointer(lhsPtr), Memory::GetPointer(rhsPtr), count);
+	s32 res = std::memcmp(Memory::GetPointerOrException(lhsPtr), Memory::GetPointerOrException(rhsPtr), count);
 
 	return hleLogDebug(Log::sceNet, res);
 }

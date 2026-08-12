@@ -1381,7 +1381,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 								if (!Memory::IsValidRange(info.buffer, info.bufferByte)) {
 									return;
 								}
-								const u8 *data = Memory::GetPointerRange(info.buffer, info.bufferByte);
+								const u8 *data = Memory::GetPointerRangeOrException(info.buffer, info.bufferByte);
 								if (!data) {
 									return;
 								}

@@ -337,7 +337,7 @@ void Reinit() {
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
-	uint8_t *d = GetPointerWrite(start);
+	uint8_t *d = GetPointerWriteOrException(start);
 	uint8_t *&storage = *p.ptr;
 
 	// We only handle aligned data and sizes.

@@ -863,7 +863,7 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 		}
 		outPtr = decodeTemp_;
 	} else {
-		outPtr = outbufAddr ? (int16_t *)Memory::GetPointer(outbufAddr) : 0;  // outbufAddr can be 0 during skip!
+		outPtr = outbufAddr ? (int16_t *)Memory::GetPointerOrException(outbufAddr) : 0;  // outbufAddr can be 0 during skip!
 	}
 
 	context_->codec.inBuf = inAddr;
@@ -899,7 +899,7 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 		} else {
 			*finish = 0;
 		}
-		u8 *outBuf = outbufAddr ? Memory::GetPointerWrite(outbufAddr) : nullptr;
+		u8 *outBuf = outbufAddr ? Memory::GetPointerWriteOrException(outbufAddr) : nullptr;
 		if (samplesToDecode != info.SamplesPerFrame() && samplesToDecode != 0 && outBuf) {
 			memcpy(outBuf, decodeTemp_, samplesToDecode * outputChannels_ * sizeof(int16_t));
 		}
@@ -958,8 +958,8 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 					size_t copyLen = info.secondBufferByte % info.sampleSize;
 					if (copyLen > info.bufferByte)
 						copyLen = info.bufferByte;
-					memcpy(Memory::GetPointerWrite(info.buffer),
-						Memory::GetPointer(info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize)),
+					memcpy(Memory::GetPointerWriteOrException(info.buffer),
+						Memory::GetPointerOrException(info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize)),
 						copyLen);
 				}
 			}
@@ -1214,7 +1214,7 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 	// Keep decoding from the current buffer until it runs out.
 	if (sas_.streamOffset + (int)info.sampleSize <= (int)sas_.bufSize[sas_.curBuffer]) {
 		// Just decode.
-		const u8 *srcData = Memory::GetPointer(sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset);
+		const u8 *srcData = Memory::GetPointerOrException(sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset);
 		int bytesConsumed = 0;
 		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
 		if (!decodeResult) {

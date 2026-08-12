@@ -396,7 +396,7 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 	}
 
 #ifdef JPEG_DEBUG
-		const u8 *jpegDumpBuf = Memory::GetPointer(jpegAddr);
+		const u8 *jpegDumpBuf = Memory::GetPointerOrException(jpegAddr);
 		u32 jpeg_xxhash = XXH32((const char *)jpegDumpBuf, jpegSize, 0xC0108888);
 		Path jpegDir("Jpeg");
 		Path jpegFile = jpegDir / StringFromFormat("%X.jpg", jpeg_xxhash);

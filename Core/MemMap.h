@@ -242,19 +242,19 @@ void WriteOrException_U16(const u16 data, const u32 address);
 void WriteOrException_U32(const u32 data, const u32 address);
 void WriteOrException_U64(const u64 data, const u32 address);
 
-u8* GetPointerWrite(const u32 address);
-const u8* GetPointer(const u32 address);
+u8* GetPointerWriteOrException(const u32 address);
+const u8* GetPointerOrException(const u32 address);
 
-u8 *GetPointerWriteRange(const u32 address, const u32 size);
+u8 *GetPointerWriteRangeOrException(const u32 address, const u32 size);
 template<typename T>
 T* GetTypedPointerWriteRange(const u32 address, const u32 size) {
-	return reinterpret_cast<T*>(GetPointerWriteRange(address, size));
+	return reinterpret_cast<T*>(GetPointerWriteRangeOrException(address, size));
 }
 
-const u8 *GetPointerRange(const u32 address, const u32 size);
+const u8 *GetPointerRangeOrException(const u32 address, const u32 size);
 template<typename T>
 const T* GetTypedPointerRange(const u32 address, const u32 size) {
-	return reinterpret_cast<const T*>(GetPointerRange(address, size));
+	return reinterpret_cast<const T*>(GetPointerRangeOrException(address, size));
 }
 
 bool IsRAMAddress(const u32 address);
@@ -568,7 +568,7 @@ struct PSPPointer
 	}
 
 	void FillWithZero() {
-		memset(Memory::GetPointerWrite(ptr), 0, sizeof(T));
+		memset(Memory::GetPointerWriteOrException(ptr), 0, sizeof(T));
 	}
 
 	bool Equals(u32 addr) const {

@@ -1196,7 +1196,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		us = 100;
 	}
 
-	const void *data_ptr = Memory::GetPointer(data_addr);
+	const void *data_ptr = Memory::GetPointerOrException(data_addr);
 	const u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
@@ -2522,7 +2522,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 			Core_MemoryException(dirent_addr, sizeof(SceIoDirEnt), currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK, "sceIoDread");
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address");
 		}
-		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointer(dirent_addr);
+		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointerOrException(dirent_addr);
 
 		if (dir->index == (int) dir->listing.size()) {
 			entry->d_name[0] = '\0';

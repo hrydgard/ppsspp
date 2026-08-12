@@ -544,7 +544,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			}
 			const u32 srcSize = p->p_filesz;
 			const u32 dstSize = p->p_memsz;  // can be bigger than size-in-file (p_filesz), we'll zero the rest below. But cannot be smaller!
-			u8 *dst = Memory::GetPointerWriteRange(writeAddr, dstSize);
+			u8 *dst = Memory::GetPointerWriteRangeOrException(writeAddr, dstSize);
 			if (dst) {
 				if (srcSize < dstSize) {
 					memset(dst + srcSize, 0, dstSize - srcSize); // zero out the rest of the segment, this also applies to bss (which is all-zero)

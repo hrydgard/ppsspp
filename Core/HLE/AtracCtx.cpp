@@ -165,7 +165,7 @@ void Atrac::ResetData() {
 }
 
 u8 *Atrac::BufferStart() {
-	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
+	return ignoreDataBuf_ ? Memory::GetPointerWriteOrException(first_.addr) : dataBuf_;
 }
 
 AtracBase::~AtracBase() {

@@ -927,7 +927,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 
 	if (needReport) {
 		std::string debugInfo;
-		entryPos = (const u32_le *)Memory::GetPointer(module->libstub);
+		entryPos = (const u32_le *)Memory::GetPointerOrException(module->libstub);
 		while (entryPos < entryEnd) {
 			const PspLibStubEntry *entry = (const PspLibStubEntry *)entryPos;
 			entryPos += entry->size;
@@ -1453,8 +1453,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.stub_top = modinfo->libstub;
 	module->nm.stub_size = modinfo->libstubend - modinfo->libstub;
 
-	const u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
-	const u32_le *entEnd = (u32_le *)Memory::GetPointer(modinfo->libentend);
+	const u32_le *entPos = (u32_le *)Memory::GetPointerOrException(modinfo->libent);
+	const u32_le *entEnd = (u32_le *)Memory::GetPointerOrException(modinfo->libentend);
 
 	for (int m = 0; entPos < entEnd; ++m) {
 		const PspLibEntEntry *ent = (const PspLibEntEntry *)entPos;
@@ -2017,7 +2017,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	}
 	const SceKernelLMOption *lmoption = 0;
 	if (optionAddr) {
-		lmoption = (const SceKernelLMOption *)Memory::GetPointer(optionAddr);
+		lmoption = (const SceKernelLMOption *)Memory::GetPointerOrException(optionAddr);
 		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
 			ERROR_LOG_REPORT(Log::Loader, "sceKernelLoadModule(%s): invalid position (%i)", name, (int)lmoption->position);
 			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, "module loaded", 500);
@@ -2486,7 +2486,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	}
 	const SceKernelLMOption *lmoption = 0;
 	if (lmoptionPtr) {
-		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+		lmoption = (const SceKernelLMOption *)Memory::GetPointerOrException(lmoptionPtr);
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleByID: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 	u32 pos = (u32)pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
@@ -2547,7 +2547,7 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	}
 	const SceKernelLMOption *lmoption = 0;
 	if (lmoptionPtr) {
-		lmoption = (const SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+		lmoption = (const SceKernelLMOption *)Memory::GetPointerOrException(lmoptionPtr);
 		WARN_LOG_REPORT(Log::Loader, "sceKernelLoadModuleBufferUsbWlan: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 	std::string error_string;
@@ -2559,7 +2559,7 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	char fakeDebugFilename[512];
 	snprintf(fakeDebugFilename, sizeof(fakeDebugFilename), "moduleByPtr_%08x_%d", bufPtr, (int)size);
 
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, fakeDebugFilename, error);
+	module = __KernelLoadELFFromPtr(Memory::GetPointerOrException(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, fakeDebugFilename, error);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
