@@ -522,6 +522,35 @@ public:
 	}
 };
 
+// Has a parameter because we might start using this from the main build.
+void SetupCRT(bool headless) {
+#if defined(_MSC_VER)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
+	if (headless) {
+		// Suppress abort dialogs and similar.
+		// 1. Redirect CRT Assertions/Errors/Warnings to stdout/stderr
+
+		const _HFILE reportTarget = _CRTDBG_FILE_STDERR;
+
+		_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_ASSERT, reportTarget);
+
+		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_ERROR, reportTarget);
+
+		_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_WARN, reportTarget);
+
+		// 2. Suppress the abort() message box & crash reporting dialogs
+		_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+
+		// 3. Suppress Windows OS-level "Program has stopped working" modal dialogs
+		SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+	}
+#endif
+}
+
 int main(int argc, const char* argv[]) {
 	PROFILE_INIT();
 	TimeInit();
@@ -536,9 +565,7 @@ int main(int argc, const char* argv[]) {
 	}
 #endif
 
-#if defined(_DEBUG) && defined(_MSC_VER)
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
+	SetupCRT(true);
 
 	CommandLineOptions cmdLineOptions;
 	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv, CmdLineMode::Headless);
