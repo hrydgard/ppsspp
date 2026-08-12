@@ -19,10 +19,11 @@
 // tables in MIPSTables.cpp - do not hand-edit, regenerate instead.
 
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/InterpreterVFPU.h"
 
+// Returns the cycle count consumed, or -1 if op isn't a recognized instruction -
+// callers must fall back to MIPSInterpret() themselves in that case.
 int ExecInstruction(MIPSOpcode op) {
     switch ((op.encoding >> 26) & 0x3f) {
     case 0:
@@ -92,7 +93,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_RType2(op);
             return 1;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 1:
@@ -110,7 +111,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_RelBranchRI(op);
             return 1;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     // j, jal
@@ -160,10 +161,10 @@ int ExecInstruction(MIPSOpcode op) {
         case 30:
         case 31:
         {
-            goto slow_path;
+            return -1;
         }
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 17:
@@ -187,7 +188,7 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_FPUBranch(op);
                 return 1;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         case 16:
@@ -239,7 +240,7 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_FPUComp(op);
                 return 1;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         case 20:
@@ -250,11 +251,11 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_FPU2op(op);
                 return 1;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 18:
@@ -276,11 +277,11 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_VBranch(op);
                 return 2;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 24:
@@ -297,7 +298,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Vsbn(op);
             return 2;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 25:
@@ -328,7 +329,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Vdet(op);
             return 2;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 26:
@@ -344,7 +345,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Emuhack(op);
             return 1;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 27:
@@ -372,7 +373,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Vslt(op);
             return 2;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 28:
@@ -384,7 +385,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Special2(op);
             return 1;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 31:
@@ -411,11 +412,11 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_Allegrex(op);
                 return 1;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         default:
-            goto slow_path;
+            return -1;
         }
     }
     // lb, lh, lwl, lw, lbu, lhu, lwr, sb, sh, swl, sw, swr
@@ -487,7 +488,7 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_VVectorInit(op);
                 return 2;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         case 1:
@@ -534,7 +535,7 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_Vi2x(op);
                 return 2;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         case 2:
@@ -596,7 +597,7 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_ColorConv(op);
                 return 2;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         // vcst
@@ -630,7 +631,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Vwbn(op);
             return 2;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     // lv, lv.q, sv, sv.q
@@ -658,7 +659,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Viim(op);
             return 2;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     case 60:
@@ -714,7 +715,7 @@ int ExecInstruction(MIPSOpcode op) {
                 MIPSInt::Int_VMatrixInit(op);
                 return 2;
             default:
-                goto slow_path;
+                return -1;
             }
         }
         // vrot
@@ -722,7 +723,7 @@ int ExecInstruction(MIPSOpcode op) {
             MIPSInt::Int_Vrot(op);
             return 2;
         default:
-            goto slow_path;
+            return -1;
         }
     }
     // vflush
@@ -730,9 +731,6 @@ int ExecInstruction(MIPSOpcode op) {
         MIPSInt::Int_Vflush(op);
         return 2;
     default:
-        goto slow_path;
+        return -1;
     }
-slow_path:
-	MIPSInterpret(currentMIPS, op);
-	return MIPSGetInstructionCycleEstimate(op);
 }
