@@ -23,3 +23,10 @@ void iOSCoreAudioShutdown();
 
 // Applies the audio settings (mix with others, respect silent mode) to the session.
 void iOSCoreAudioUpdateSession();
+
+// Microphone recording, driven from Core/HLE/sceUsbMic.cpp through System_MicrophoneCommand.
+// Mirrors the OpenSLContext::AudioRecord_Start/_Stop split used on Android.
+void iOSCoreAudioRecording_Start(int sampleRate);
+void iOSCoreAudioRecording_Stop();
+bool iOSCoreAudioRecording_IsAvailable();
+bool iOSCoreAudioRecording_State();

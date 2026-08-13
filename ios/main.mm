@@ -541,6 +541,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			[sharedViewController stopLocation];
 		}
 		return true;
+	case SystemRequestType::MICROPHONE_COMMAND:
+		if (!strncmp(param1.c_str(), "startRecording:", strlen("startRecording:"))) {
+			int sampleRate = atoi(param1.c_str() + strlen("startRecording:"));
+			iOSCoreAudioRecording_Start(sampleRate);
+		} else if (param1 == "stopRecording") {
+			iOSCoreAudioRecording_Stop();
+		}
+		return true;
 	case SystemRequestType::SHARE_TEXT:
 	{
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
@@ -616,6 +624,14 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	 return PERMISSION_STATUS_GRANTED;
+}
+
+bool System_AudioRecordingIsAvailable() {
+	return iOSCoreAudioRecording_IsAvailable();
+}
+
+bool System_AudioRecordingState() {
+	return iOSCoreAudioRecording_State();
 }
 
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)

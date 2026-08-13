@@ -308,7 +308,7 @@ int Microphone::startMic(void *param) {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::START, param });
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	std::vector<u32> *micParam = static_cast<std::vector<u32>*>(param);
 	int sampleRate = micParam->at(0);
 	int channels = micParam->at(1);
@@ -323,7 +323,7 @@ int Microphone::stopMic() {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	System_MicrophoneCommand("stopRecording");
 #endif
 	micState = 0;
@@ -333,7 +333,7 @@ int Microphone::stopMic() {
 bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	return System_AudioRecordingIsAvailable();
 #endif
 	return false;
