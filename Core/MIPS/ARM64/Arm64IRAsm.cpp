@@ -169,7 +169,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		SaveStaticRegisters();  // Advance can change the downcount, so must save/restore
 		RestoreRoundingMode(true);
 		WriteDebugProfilerStatus(IRProfilerStatus::TIMER_ADVANCE);
-		QuickCallFunction(SCRATCH1_64, &CoreTiming::Advance);
+		QuickCallFunctionR(SCRATCH1_64, &CoreTiming::Advance, CTXREG);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		ApplyRoundingMode(true);
 		LoadStaticRegisters();

@@ -776,6 +776,11 @@ public:
 	template <typename T> void QuickCallFunction(ARM64Reg scratchreg, T func) {
 		QuickCallFunction(scratchreg, (const void *)func);
 	}
+	void QuickCallFunctionR(ARM64Reg scratchreg, const void *func, ARM64Reg arg);
+	template <typename T> void QuickCallFunctionR(ARM64Reg scratchreg, T func, ARM64Reg arg) {
+		QuickCallFunctionR(scratchreg, (const void *)func, arg);
+	}
+
 };
 
 class ARM64FloatEmitter

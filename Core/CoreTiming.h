@@ -113,7 +113,7 @@ namespace CoreTiming {
 	const Event *GetFirstEvent();
 	void RemoveEvent(int event_type);
 	bool IsScheduled(int event_type);
-	void Advance();
+	void Advance(MIPSState *mips);
 	void ForceCheck(MIPSState *mips);
 
 	// Pretend that the main CPU has executed enough cycles to reach the next event.

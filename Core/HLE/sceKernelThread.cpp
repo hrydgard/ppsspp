@@ -1638,7 +1638,7 @@ void __KernelReSchedule(const char *reason)
 	__KernelCheckCallbacks();
 
 	// Execute any pending events while we're doing scheduling.
-	CoreTiming::Advance();
+	CoreTiming::Advance(currentMIPS);
 	if (__IsInInterrupt() || !__KernelIsDispatchEnabled()) {
 		// Threads don't get changed within interrupts or while dispatch is disabled.
 		reason = "In Interrupt Or Callback";

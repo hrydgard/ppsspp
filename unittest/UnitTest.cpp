@@ -1617,56 +1617,66 @@ int main(int argc, const char *argv[]) {
 	g_Config.bEnableLogging = true;
 	g_logManager.DisableOutput(LogOutput::DebugString);  // not really needed
 
-	bool allTests = false;
-	TestFunc testFunc = nullptr;
-	if (argc >= 2) {
-		if (!strcasecmp(argv[1], "all")) {
-			allTests = true;
+	// Collect the set of tests to run: "all", or one or more test names by
+	// (case-insensitive) name. Every non-"all" argument must match a known test name, or we
+	// bail out with the usage text - a silent partial run (e.g. from a typo) would be worse
+	// than an error.
+	std::vector<TestItem> testsToRun;
+	bool badArg = false;
+	if (argc == 2 && !strcasecmp(argv[1], "all")) {
+		for (const auto &f : availableTests) {
+			testsToRun.push_back(f);
 		}
-		for (auto f : availableTests) {
-			if (!strcasecmp(argv[1], f.name)) {
-				testFunc = f.func;
-				break;
+	} else {
+		for (int i = 1; i < argc; ++i) {
+			const TestItem *found = nullptr;
+			for (const auto &f : availableTests) {
+				if (!strcasecmp(argv[i], f.name)) {
+					found = &f;
+					break;
+				}
+			}
+			if (found) {
+				testsToRun.push_back(*found);
+			} else {
+				fprintf(stderr, "Unknown test: %s\n", argv[i]);
+				badArg = true;
 			}
 		}
 	}
 
-	if (allTests) {
-		int passes = 0;
-		int fails = 0;
-		std::vector<const char *> failedTests;
-		for (const auto &f : availableTests) {
-			printf("\n**** Running test %s ****\n", f.name);
-			if (f.func()) {
-				++passes;
-			} else {
-				printf("%s: FAILED\n", f.name);
-				failedTests.push_back(f.name);
-				++fails;
-			}
-		}
-		if (passes > 0) {
-			printf("%d tests passed.\n", passes);
-		}
-		if (fails > 0) {
-			printf("%d tests failed!\n", fails);
-			for (auto testName : failedTests) {
-				printf("  * %s\n", testName);
-			}
-			return 2;
-		}
-	} else if (!testFunc) {
-		fprintf(stderr, "You may select a test to run by passing an argument, either \"all\" or one or more of the below.\n");
+	if (testsToRun.empty() || badArg) {
+		fprintf(stderr, "You may select tests to run by passing one or more arguments, either \"all\" or one or more of the below.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Available tests:\n");
 		for (auto f : availableTests) {
 			fprintf(stderr, "  * %s\n", f.name);
 		}
 		return 1;
-	} else {
-		if (!testFunc()) {
-			return 2;
+	}
+
+	int passes = 0;
+	int fails = 0;
+	std::vector<const char *> failedTests;
+	for (const auto &f : testsToRun) {
+		printf("\n**** Running test %s ****\n", f.name);
+		if (f.func()) {
+			++passes;
+		} else {
+			printf("%s: FAILED\n", f.name);
+			failedTests.push_back(f.name);
+			++fails;
 		}
+	}
+	if (passes > 0) {
+		printf("%d tests passed.\n", passes);
+	}
+	if (fails > 0) {
+		printf("%d tests failed!\n", fails);
+		for (auto testName : failedTests) {
+			printf("  * %s\n", testName);
+		}
+		return 2;
 	}
 
 	return 0;

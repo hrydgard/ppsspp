@@ -125,7 +125,8 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 
 	outerLoop = GetCodePtr();
 		RestoreRoundingMode(true);
-		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
+		LEA(PTRBITS, ECX, MDisp(CTXREG, -(s32)offsetof(MIPSState, f[0])));  // Adjust to get the real pointer.
+		ABI_CallFunctionR(reinterpret_cast<void *>(&CoreTiming::Advance), ECX);
 		ApplyRoundingMode(true);
 		FixupBranch skipToCoreStateCheck = J();  //skip the downcount check
 

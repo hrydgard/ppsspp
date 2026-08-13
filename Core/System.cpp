@@ -63,15 +63,15 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
-#include "Core/LuaContext.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/LuaContext.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
-#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Core/Util/RecentFiles.h"
-#include "Common/StringUtils.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Playback.h"
@@ -276,6 +276,44 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 
 extern const std::string INDEX_FILENAME;
 
+static void MountFileSystems() {
+	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
+#if defined(USING_WIN_UI) || defined(APPLE)
+	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
+#else
+	auto flash0System = std::make_shared<VFSFileSystem>(&pspFileSystem, "flash0");
+#endif
+	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
+
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	if (pspDir == g_Config.memStickDirectory) {
+		// Initially tried to do this with dual mounts, but failed due to save state compatibility issues.
+		INFO_LOG(Log::sceIo, "Enabling /PSP compatibility mode");
+		memstickFlags |= FileSystemFlags::STRIP_PSP;
+	}
+
+	auto memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
+
+	pspFileSystem.Mount("ms0:", memstickSystem);
+	pspFileSystem.Mount("fatms0:", memstickSystem);
+	pspFileSystem.Mount("fatms:", memstickSystem);
+	pspFileSystem.Mount("pfat0:", memstickSystem);
+
+	pspFileSystem.Mount("flash0:", flash0System);
+
+	if (g_RemasterMode) {
+		const std::string gameId = g_paramSFO.GetDiscID();
+		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
+		if (File::Exists(exdataPath)) {
+			auto exdataSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+			pspFileSystem.Mount("exdata0:", exdataSystem);
+			INFO_LOG(Log::sceIo, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		} else {
+			INFO_LOG(Log::sceIo, "Did not find exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		}
+	}
+}
+
 // NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
 static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::string *errorString) {
 	// Default memory settings
@@ -449,6 +487,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
 
+	MountFileSystems();
+
 	// Game-specific settings are load from for example Load_PSP_ISO (which calls g_Config.LoadGameConfig).
 	// We can't do things that depend on these before the below switch. So for example, the adjustment of the GPU core
 	// to software has now been moved below it.
@@ -541,7 +581,8 @@ void CPU_Shutdown(bool success) {
 
 	DisplayHWShutdown();
 
-	pspFileSystem.Shutdown();
+	pspFileSystem.Shutdown();  // This unmounts all filesystems.
+
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
 	HLEPlugins::Shutdown();

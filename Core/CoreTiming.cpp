@@ -379,8 +379,7 @@ void ForceCheck(MIPSState *mips) {
 #endif
 }
 
-void Advance() {
-	MIPSState *mips = currentMIPS; // TODO: Move to parameter
+void Advance(MIPSState *mips) {
 	PROFILE_THIS_SCOPE("advance");
 	int cyclesExecuted = slicelength - mips->downcount;
 	globalTimer += cyclesExecuted;

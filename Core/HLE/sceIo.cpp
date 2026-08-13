@@ -651,42 +651,6 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
-#if defined(USING_WIN_UI) || defined(APPLE)
-	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
-#else
-	auto flash0System = std::make_shared<VFSFileSystem>(&pspFileSystem, "flash0");
-#endif
-	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
-
-	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
-	if (pspDir == g_Config.memStickDirectory) {
-		// Initially tried to do this with dual mounts, but failed due to save state compatibility issues.
-		INFO_LOG(Log::sceIo, "Enabling /PSP compatibility mode");
-		memstickFlags |= FileSystemFlags::STRIP_PSP;
-	}
-
-	auto memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
-
-	pspFileSystem.Mount("ms0:", memstickSystem);
-	pspFileSystem.Mount("fatms0:", memstickSystem);
-	pspFileSystem.Mount("fatms:", memstickSystem);
-	pspFileSystem.Mount("pfat0:", memstickSystem);
-
-	pspFileSystem.Mount("flash0:", flash0System);
-
-	if (g_RemasterMode) {
-		const std::string gameId = g_paramSFO.GetDiscID();
-		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
-		if (File::Exists(exdataPath)) {
-			auto exdataSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
-			pspFileSystem.Mount("exdata0:", exdataSystem);
-			INFO_LOG(Log::sceIo, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
-		} else {
-			INFO_LOG(Log::sceIo, "Did not find exdata/%s/ under memstick for exdata0:/", gameId.c_str());
-		}
-	}
-	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
 	memset(fds, 0, sizeof(fds));
@@ -701,6 +665,30 @@ void __IoInit() {
 	MemoryStick_Init();
 	lastMemStickState = MemoryStick_State();
 	lastMemStickFatState = MemoryStick_FatState();
+}
+
+void __IoShutdown() {
+	ioManagerThreadEnabled = false;
+	ioManager.SyncThread();
+	ioManager.FinishEventLoop();
+	if (ioManagerThread.joinable()) {
+		ioManagerThread.join();
+		ioManager.Shutdown();
+	}
+
+	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
+		asyncParams[i].op = IoAsyncOp::NONE;
+		asyncParams[i].priority = -1;
+		if (asyncThreads[i])
+			asyncThreads[i]->Forget();
+		delete asyncThreads[i];
+		asyncThreads[i] = nullptr;
+	}
+	asyncDefaultPriority = -1;
+
+	MemoryStick_Shutdown();
+	memStickCallbacks.clear();
+	memStickFatCallbacks.clear();
 }
 
 void __IoDoState(PointerWrap &p) {
@@ -769,37 +757,6 @@ void __IoDoState(PointerWrap &p) {
 	} else {
 		asyncDefaultPriority = -1;
 	}
-}
-
-void __IoShutdown() {
-	ioManagerThreadEnabled = false;
-	ioManager.SyncThread();
-	ioManager.FinishEventLoop();
-	if (ioManagerThread.joinable()) {
-		ioManagerThread.join();
-		ioManager.Shutdown();
-	}
-
-	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
-		asyncParams[i].op = IoAsyncOp::NONE;
-		asyncParams[i].priority = -1;
-		if (asyncThreads[i])
-			asyncThreads[i]->Forget();
-		delete asyncThreads[i];
-		asyncThreads[i] = nullptr;
-	}
-	asyncDefaultPriority = -1;
-
-	pspFileSystem.Unmount("ms0:");
-	pspFileSystem.Unmount("fatms0:");
-	pspFileSystem.Unmount("fatms:");
-	pspFileSystem.Unmount("pfat0:");
-	pspFileSystem.Unmount("flash0:");
-	pspFileSystem.Unmount("exdata0:");
-
-	MemoryStick_Shutdown();
-	memStickCallbacks.clear();
-	memStickFatCallbacks.clear();
 }
 
 static std::string IODetermineFilename(const FileNode *f) {
