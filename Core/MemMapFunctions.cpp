@@ -30,7 +30,7 @@ namespace Memory {
 u8 *GetPointerWriteOrException(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
-		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerWriteUnchecked(address);
 	} else {
@@ -43,7 +43,7 @@ u8 *GetPointerWriteOrException(const u32 address) {
 const u8 *GetPointerOrException(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
-		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
 	} else {
@@ -89,7 +89,7 @@ template <typename T>
 inline void ReadMemoryOrException(T &var, const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
-		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
@@ -102,7 +102,7 @@ template <typename T>
 inline void WriteMemoryOrException(u32 address, const T data) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
-		(address & 0xBFFFC000) == 0x00010000 || // Scratchpad
+		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
 		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
@@ -121,7 +121,9 @@ bool IsRAMAddress(const u32 address) {
 }
 
 bool IsScratchpadAddress(const u32 address) {
-	return (address & 0xBFFFC000) == 0x00010000;
+	// Ignore both the kernel bit (0x80000000) and the uncached bit (0x40000000) - the
+	// scratchpad is mirrored across all four combinations, same as RAM (see MemMap.cpp).
+	return (address & ~(0xC0000000 | (SCRATCHPAD_SIZE - 1))) == 0x00010000;
 }
 
 u8 ReadOrException_U8(const u32 address) {
