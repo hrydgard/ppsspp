@@ -40,8 +40,19 @@ necessarily after every edit), run these too:
 - Windows: build the `UnitTest` project (unittest/UnitTests.vcxproj), then run `Windows/x64/Debug/UnitTest.exe all`
 - Linux/Mac: configure with `-DUNITTEST=ON`, then run `build/PPSSPPUnitTest all`
 
-This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run a single test by
-passing its name instead of `all`; no arguments lists the available tests.
+This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run one or more
+specific tests by passing their names instead of `all` (space-separated, e.g. `UnitTest.exe
+CmdLine Path Utf8`); no arguments lists the available tests.
+
+Known environment-specific issue: in at least one sandboxed dev environment, the `Jit` test
+(`unittest/JitHarness.cpp`) hangs indefinitely specifically during the `CPUCore::JIT_IR`
+phase - confirmed unrelated to source changes (reproduces identically on unmodified checkouts)
+and not a memory-access fault (`Memory::HandleFault` is never entered). Root cause wasn't
+pinned down further (would need a native debugger attached to the hung process, not available
+in that environment) but is very likely specific to that sandbox rather than a real PPSSPP
+bug, since CI runs the equivalent of `UnitTest.exe all` on every commit across multiple
+platforms without apparent issue. If `all`/`Jit` hangs in your environment, run every other
+test by name instead (skip `Jit`) to still get real coverage.
 
 ## Multiplatform considerations
 
