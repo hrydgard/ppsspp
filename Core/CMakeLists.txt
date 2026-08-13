@@ -611,6 +611,8 @@ add_library(Core STATIC
 	HW/Camera.h
 	HW/Display.cpp
 	HW/Display.h
+	HW/GpioMMIO.cpp
+	HW/GpioMMIO.h
 	HW/MediaEngine.cpp
 	HW/MediaEngine.h
 	HW/MpegDemux.cpp

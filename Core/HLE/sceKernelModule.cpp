@@ -1127,8 +1127,29 @@ static bool ShouldHLEModuleForLoad(std::string_view modname, bool *wasDisabledMa
 // started as part of the kernel's own boot sequence, before any user module runs (matches
 // JPCSP's moduleFileNamesToBeLoaded/moduleFileNamesVshOnly). We don't emulate that sequence,
 // so approximate it here: load and start them ourselves right before starting the VSH itself.
+//
+// The first 11 paths mirror JPCSP's own HLEModuleManager module list for a --vsh boot (see
+// docs/VSHBootInvestigation.md, Attempt 17) - confirmed via JPCSP's own log that it *actually
+// loads and interprets these as real PRX code* (not a Java-side HLE shortcut): it uses the
+// exact same generic hleKernelLoadAndStartModule() path used for any real module, and loading
+// lowio.prx/wlan.prx/memlmd_01g.prx specifically flips JPCSP into full LLE CPU emulation
+// (RuntimeContextLLE) for the rest of the boot. PPSSPP has no equivalent LLE-mode switch -
+// these just load and run through the normal interpreter/JIT like any other PRX, same as the
+// existing 4 VSH-specific modules below. Order matches JPCSP's load order exactly, in case
+// later modules depend on earlier ones having already initialized.
 static void LoadAndStartVshKernelModules() {
 	static const char *const vshKernelModulePaths[] = {
+		"flash0:/kd/dmacman.prx",
+		"flash0:/kd/systimer.prx",
+		"flash0:/kd/memlmd_01g.prx",
+		"flash0:/kd/loadexec_01g.prx",
+		"flash0:/kd/lowio.prx",
+		"flash0:/kd/idstorage.prx",
+		"flash0:/kd/syscon.prx",
+		"flash0:/kd/rtc.prx",
+		"flash0:/kd/wlan.prx",
+		"flash0:/kd/wlanfirm_01g.prx",
+		"flash0:/kd/utility.prx",
 		"flash0:/kd/vshbridge.prx",
 		"flash0:/vsh/module/paf.prx",
 		"flash0:/vsh/module/common_gui.prx",

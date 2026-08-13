@@ -1207,6 +1207,9 @@
     <ClCompile Include="HW\Display.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HW\GpioMMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNp2.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -2167,6 +2170,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="HW\Display.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\GpioMMIO.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNp2.h">

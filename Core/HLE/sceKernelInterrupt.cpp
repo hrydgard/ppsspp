@@ -1048,6 +1048,10 @@ void Register_InterruptManager()
 }
 
 
+static int sceKernelIsIntrContext() {
+	return hleLogDebug(Log::sceKernel, __IsInInterrupt() ? 1 : 0);
+}
+
 const HLEFunction InterruptManagerForKernel[] =
 {
 	{0x092968F4, &WrapI_V<sceKernelCpuSuspendIntr>,            "sceKernelCpuSuspendIntr",             'i', ""    ,HLE_KERNEL_SYSCALL },
@@ -1068,6 +1072,7 @@ const HLEFunction InterruptManagerForKernel[] =
 	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"   ,HLE_KERNEL_SYSCALL },
 	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""    ,HLE_KERNEL_SYSCALL },
 	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0XFE28C6D9, &WrapI_V<sceKernelIsIntrContext>,             "sceKernelIsIntrContext",              'i', ""    ,HLE_KERNEL_SYSCALL },
 };
 
 void Register_InterruptManagerForKernel()
