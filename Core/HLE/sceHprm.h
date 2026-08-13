@@ -18,3 +18,4 @@
 #pragma once
 
 void Register_sceHprm();
+void Register_sceHprm_driver();

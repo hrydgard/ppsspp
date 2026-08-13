@@ -635,6 +635,21 @@ void Register_scePower() {
 	RegisterHLEModule("scePower",ARRAY_SIZE(scePower),scePower);
 }
 
+// Real name unknown (jpcsp's scePower.java doesn't have one either - it's named after its
+// own NID, scePower_driver_5F5006D2, and just returns 0 unconditionally). Kernel-only alias
+// module some firmware-660+ code (e.g. the VSH's sceVshBridge_Driver) imports from.
+static int scePower_driver_5F5006D2() {
+	return hleLogDebug(Log::HLE, 0, "UNTESTED");
+}
+
+const HLEFunction scePower_driver[] = {
+	{0X5F5006D2, &WrapI_V<scePower_driver_5F5006D2>,          "scePower_driver_5F5006D2",          'i', ""   },
+};
+
+void Register_scePower_driver() {
+	RegisterHLEModule("scePower_driver", ARRAY_SIZE(scePower_driver), scePower_driver);
+}
+
 void Register_sceSuspendForUser() {
 	RegisterHLEModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }

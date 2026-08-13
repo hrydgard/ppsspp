@@ -327,6 +327,10 @@ void RegisterAllModules() {
 	Register_sceReg();
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
+	Register_sceRtc_driver();
+	Register_scePower_driver();
+	Register_sceImpose_driver();
+	Register_sceHprm_driver();
 
 	// add new modules here.
 }

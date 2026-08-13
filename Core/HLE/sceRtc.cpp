@@ -945,7 +945,23 @@ static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
 {
 	ERROR_LOG_REPORT(Log::sceRtc, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
-	return 0; 
+	return 0;
+}
+
+// Real signature per uofw (sceRtc_C2DDBEB5, src/kd/rtc/rtc.c): s32 sceRtcGetAlarmTick(u64 *tick).
+// PPSSPP doesn't track a real hardware RTC alarm, so there's nothing meaningful to report -
+// but leaving this fully unimplemented (nullptr in the function table) meant callers got back
+// PPSSPP's uninitialized-memory poison in *tick instead of a real value. On the VSH boot path
+// (see docs/VSHBootInvestigation.md) that poisoned tick was later dereferenced as a pointer by
+// vsh_module's own code, causing a wild-address SIGSEGV. Write a real (zero) tick instead, same
+// as if no alarm were currently set - matches sceRtcSetAlarmTick() above also being a no-op.
+static int sceRtcGetAlarmTick(u32 tickPtr) {
+	auto tick = PSPPointer<u64_le>::Create(tickPtr);
+	if (!tick.IsValid())
+		return hleLogError(Log::sceRtc, 0, "bad address");
+
+	*tick = 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 // Caller must check outPtr and srcTickPtr.
@@ -1132,10 +1148,25 @@ const HLEFunction sceRtc[] =
 	{0X81FCDA34, nullptr,                                  "sceRtcIsAlarmed",                '?', ""   },
 	{0XFB3B18CD, nullptr,                                  "sceRtcRegisterCallback",         '?', ""   },
 	{0X6A676D2D, nullptr,                                  "sceRtcUnregisterCallback",       '?', ""   },
-	{0XC2DDBEB5, nullptr,                                  "sceRtcGetAlarmTick",             '?', ""   },
+	{0XC2DDBEB5, &WrapI_U<sceRtcGetAlarmTick>,             "sceRtcGetAlarmTick",             'i', "x"  },
 };
 
 void Register_sceRtc()
 {
 	RegisterHLEModule("sceRtc", ARRAY_SIZE(sceRtc), sceRtc);
+}
+
+// sceRtc_driver is the kernel-only alias some firmware-660+ modules (e.g. the VSH's
+// sceVshBridge_Driver) import from instead of plain sceRtc - same underlying functions,
+// just also exported under a second, kernel-suffixed module name. Confirmed by cross-
+// checking jpcsp's sceRtc.java, which registers 0xE09880CF as an alternate NID on the exact
+// same sceRtcSetAlarmTick() method (JPCSP doesn't distinguish import module names the way
+// PPSSPP's HLE dispatch does, but the NID->function mapping is the same either way).
+const HLEFunction sceRtc_driver[] = {
+	{0XE09880CF, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
+};
+
+void Register_sceRtc_driver()
+{
+	RegisterHLEModule("sceRtc_driver", ARRAY_SIZE(sceRtc_driver), sceRtc_driver);
 }

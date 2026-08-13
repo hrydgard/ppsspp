@@ -127,3 +127,24 @@ const HLEFunction sceImpose[] = {
 void Register_sceImpose() {
 	RegisterHLEModule("sceImpose", ARRAY_SIZE(sceImpose), sceImpose);
 }
+
+// Real name/purpose unknown (jpcsp's sceImpose.java doesn't have one either - it's named
+// after its own NID, sceImpose_driver_B497314D). jpcsp's implementation just zeroes the
+// output pointer and returns 0; matched here rather than leaving it fully unresolved, since
+// an unresolved import leaves the caller's output buffer as PPSSPP's uninitialized-memory
+// poison instead of a real value. Kernel-only alias module some firmware-660+ code (e.g. the
+// VSH's sceVshBridge_Driver) imports from.
+static int sceImpose_driver_B497314D(int param, u32 resultAddr) {
+	auto result = PSPPointer<u64_le>::Create(resultAddr);
+	if (result.IsValid())
+		*result = 0;
+	return hleLogDebug(Log::sceUtility, 0, "UNTESTED");
+}
+
+const HLEFunction sceImpose_driver[] = {
+	{0XB497314D, &WrapI_IU<sceImpose_driver_B497314D>,     "sceImpose_driver_B497314D",     'i', "ix"},
+};
+
+void Register_sceImpose_driver() {
+	RegisterHLEModule("sceImpose_driver", ARRAY_SIZE(sceImpose_driver), sceImpose_driver);
+}

@@ -2121,6 +2121,23 @@ bool __KernelIsDispatchEnabled() {
 	return dispatchEnabled && __InterruptsEnabled();
 }
 
+// PPSSPP doesn't track a real per-module "user level" (set via the owning module's
+// PSP_MODULE_INFO attribute on real firmware, e.g. 0 for kernel-mode modules like the VSH's
+// bridge driver, 4 for a regular user-mode game). Approximate it from the calling thread's
+// kernel/user attr instead - the two levels VSH code actually seems to check for are "kernel"
+// vs "not kernel", so this is enough to avoid it treating itself as an ordinary user thread.
+int sceKernelGetUserLevel() {
+	PSPThread *t = __GetCurrentThread();
+	int level = (t && (t->nt.attr & PSP_THREAD_ATTR_KERNEL)) ? 0 : 4;
+	return hleLogDebug(Log::sceKernel, level);
+}
+
+int sceKernelIsUserModeThread() {
+	PSPThread *t = __GetCurrentThread();
+	int isUser = (t && (t->nt.attr & PSP_THREAD_ATTR_KERNEL)) ? 0 : 1;
+	return hleLogDebug(Log::sceKernel, isUser);
+}
+
 int KernelRotateThreadReadyQueue(int priority) {
 	PSPThread *cur = __GetCurrentThread();
 

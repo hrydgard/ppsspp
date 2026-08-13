@@ -53,6 +53,9 @@ static u32 sceHprmPeekLatch(u32 latchAddr) {
 }
 
 static u32 sceHprmReadLatch(u32 latchAddr) {
+	// Real hardware/JPCSP: 4 x u32 output struct, dummied out to all-zero (nothing held/pressed).
+	for (int i = 0; i < 4; i++)
+		Memory::WriteOrException_U32(0, latchAddr + i * 4);
 	return hleLogDebug(Log::HLE, 0, "latchAddr %08x", latchAddr);
 }
 
@@ -73,4 +76,17 @@ const HLEFunction sceHprm[] =
 void Register_sceHprm()
 {
 	RegisterHLEModule("sceHprm", ARRAY_SIZE(sceHprm), sceHprm);
+}
+
+// Kernel-mode variant library used by VSH modules (e.g. vshbridge). NID 0xE9B776BE is the
+// firmware 6.60+ alias of sceHprmReadLatch, listed as nid=0xE9B776BE version=660 alongside the
+// 0x40D2F9F0 version=150 NID in JPCSP's sceHprm.java - both resolve to the same function there.
+const HLEFunction sceHprm_driver[] =
+{
+	{0XE9B776BE, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},
+};
+
+void Register_sceHprm_driver()
+{
+	RegisterHLEModule("sceHprm_driver", ARRAY_SIZE(sceHprm_driver), sceHprm_driver);
 }
