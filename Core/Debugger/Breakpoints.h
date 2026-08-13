@@ -114,6 +114,30 @@ struct MemCheck {
 	}
 };
 
+// A breakpoint that trips whenever a general-purpose register is written to by an
+// instruction, regardless of address - identified by register index (0-31), not addr/range.
+// Interpreter-only for now (see RunUntilDowncountZeroWithChecks in MIPSTables.cpp) - the JITs
+// don't check this at all, so it has no effect unless running with the plain interpreter core.
+struct GPRBreakpoint {
+	int reg = 0;  // 0-31, general-purpose register index (matches OUT_RT/OUT_RD/OUT_RA fields).
+
+	BreakAction result = BREAK_ACTION_IGNORE;
+	std::string logFormat;
+
+	bool hasCond = false;
+	BreakPointCond cond;
+
+	u32 numHits = 0;
+
+	bool IsEnabled() const {
+		return (result & BREAK_ACTION_PAUSE) != 0;
+	}
+
+	bool operator == (const GPRBreakpoint &other) const {
+		return reg == other.reg;
+	}
+};
+
 // BreakPoints cannot overlap, only one is allowed per address.
 // MemChecks can overlap, as long as their ends are different.
 // WARNING: MemChecks are not always tracked in HLE currently.
@@ -121,6 +145,7 @@ class BreakpointManager {
 public:
 	static const size_t INVALID_BREAKPOINT = -1;
 	static const size_t INVALID_MEMCHECK = -1;
+	static const size_t INVALID_GPR_BREAKPOINT = -1;
 
 	bool IsAddressBreakPoint(u32 addr);
 	bool IsAddressBreakPoint(u32 addr, bool* enabled);
@@ -158,6 +183,27 @@ public:
 	BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason);
 	BreakAction ExecOpMemCheck(u32 address, u32 pc);
 
+	// GPR write breakpoints - see GPRBreakpoint above. reg is a 0-31 GPR index.
+	int AddGPRBreakpoint(int reg);  // Returns the breakpoint index.
+	void RemoveGPRBreakpoint(int reg);
+	void ChangeGPRBreakpoint(int reg, bool enable);
+	void ChangeGPRBreakpoint(int reg, BreakAction result);
+	void ClearAllGPRBreakpoints();
+
+	void ChangeGPRBreakpointAddCond(int reg, const BreakPointCond &cond);
+	void ChangeGPRBreakpointRemoveCond(int reg);
+	BreakPointCond *GetGPRBreakpointCondition(int reg);
+
+	void ChangeGPRBreakpointLogFormat(int reg, const std::string &fmt);
+
+	bool IsGPRBreakpoint(int reg);
+	bool GetGPRBreakpoint(int reg, GPRBreakpoint *bp);
+	std::vector<GPRBreakpoint> GetGPRBreakpoints();
+
+	// Called from the interpreter (RunUntilDowncountZeroWithChecks) right before executing an
+	// instruction that would write to reg - does not itself execute the instruction.
+	BreakAction ExecGPRBreakpoint(int reg, u32 pc);
+
 	void SetSkipFirst(u32 pc);
 	u32 CheckSkipFirst();
 
@@ -182,6 +228,15 @@ public:
 	bool HasMemChecks() const {
 		return anyMemChecks_;
 	}
+	bool HasGPRBreakpoints() const {
+		return gprBreakpointMask_ != 0;
+	}
+	// Bit i set means register i has an active (non-ignored) GPR breakpoint - a cheap way for
+	// the interpreter's hot per-instruction loop to test "would this write trip anything" with
+	// a single shift+and, without touching gprBreakpoints_ at all in the common no-match case.
+	u32 GetGPRBreakpointMask() const {
+		return gprBreakpointMask_;
+	}
 
 	void Frame();
 
@@ -200,9 +255,12 @@ private:
 	// Finds a memcheck covering (part of) a range, unlike FindMemCheck() above.
 	MemCheck *FindMemCheckInRange(u32 address, int size);
 	void UpdateCachedMemCheckRanges();
+	size_t FindGPRBreakpoint(int reg);
+	void RecomputeGPRBreakpointMask();
 
 	std::atomic<bool> anyBreakPoints_;
 	std::atomic<bool> anyMemChecks_;
+	std::atomic<u32> gprBreakpointMask_;
 
 	std::vector<BreakPoint> breakPoints_;
 	u32 breakSkipFirstAt_ = 0;
@@ -211,6 +269,8 @@ private:
 	std::vector<MemCheck> memChecks_;
 	std::vector<MemCheck> memCheckRangesRead_;
 	std::vector<MemCheck> memCheckRangesWrite_;
+
+	std::vector<GPRBreakpoint> gprBreakpoints_;
 
 	bool needsUpdate_ = true;
 	u32 updateAddr_ = 0;

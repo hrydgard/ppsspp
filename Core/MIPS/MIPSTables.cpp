@@ -1142,9 +1142,24 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 }
 
 #define _RS(op)   ((op>>21) & 0x1F)
+// Returns the 0-31 GPR index an instruction is about to write, or -1 if it doesn't write a GPR.
+// OUT_RA is always $ra (31) - jal/bltzal/bgezal/etc. have no encoded destination register field,
+// unlike jalr (which uses OUT_RD, since its destination is chosen via the rd field).
+static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op) {
+	if (instr->flags & OUT_RT)
+		return (op >> 16) & 0x1F;
+	if (instr->flags & OUT_RD)
+		return (op >> 11) & 0x1F;
+	if (instr->flags & OUT_RA)
+		return 31;
+	return -1;
+}
+
 static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
+	// Bit i set means register i has an active GPR breakpoint - see GetGPRBreakpointMask().
+	u32 gprBPMask = g_breakpoints.GetGPRBreakpointMask();
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		// Don't stop in a delay slot! Well, unless we hit a memcheck in one, of course.
 		do {
@@ -1181,6 +1196,15 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				if (coreState == CORE_STEPPING_CPU)
 					break;
 			}
+			if (gprBPMask != 0 && (instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc) {
+				int gprTarget = GetGPRWriteTarget(instr, op);
+				if (gprTarget >= 0 && (gprBPMask & (1u << gprTarget)) != 0) {
+					g_breakpoints.ExecGPRBreakpoint(gprTarget, mips->pc);
+					// If it tripped, bail without running - same convention as memchecks above.
+					if (coreState == CORE_STEPPING_CPU)
+						break;
+				}
+			}
 
 			bool wasInDelaySlot = mips->inDelaySlot;
 			Interpret(mips, instr, op);
@@ -1204,7 +1228,7 @@ int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 		CoreTiming::Advance(mips);
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(mips);
-		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= mips->downcount) {
+		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || g_breakpoints.HasGPRBreakpoints() || ticksLeft <= mips->downcount) {
 			RunUntilDowncountZeroWithChecks(mips, globalTicks);
 		} else {
 			RunUntilDowncountZeroFast(mips);
