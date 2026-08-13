@@ -164,6 +164,21 @@ static const HLEFunction LoadCoreForKernel[] = {
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 };
 
+
+// sceKernelSm1ReferOperations() returns a pointer to a driver-registered "SM1 operations"
+// table (set up via the sibling sceKernelSm1RegisterOperations(), also unimplemented here),
+// or NULL if nothing has registered one. Real callers (e.g. kd/lowio.prx) only check the
+// return value against exactly zero before dereferencing it as a struct/vtable pointer -
+// leaving this as a generic `nullptr` HLE table entry meant it fell through to the "function
+// unimplemented" fallback, which returns SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED
+// (0x8002013A) in v0 instead of 0. That error code isn't zero, so the caller's null check
+// didn't catch it, and it went on to call through a function pointer read from an offset
+// within that "structure" - really an unrelated error code - causing a wild read/jump. Since
+// nothing currently registers real SM1 operations, returning NULL here is correct.
+static u32 sceKernelSm1ReferOperations() {
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
 static const HLEFunction KDebugForKernel[] = {
 	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
@@ -182,7 +197,7 @@ static const HLEFunction KDebugForKernel[] = {
 	{0X5282DD5E, nullptr,                                            "sceKernelDipswSet",                       '?', ""   },
 	{0X9F8703E4, nullptr,                                            "sceKernelDipswCpTime",                    '?', ""   },
 	{0X333DCEC7, nullptr,                                            "sceKernelSm1RegisterOperations",          '?', ""   },
-	{0XE892D9A1, nullptr,                                            "sceKernelSm1ReferOperations",             '?', ""   },
+	{0XE892D9A1, &WrapU_V<sceKernelSm1ReferOperations>,              "sceKernelSm1ReferOperations",             'x', ""   },
 	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
@@ -322,4 +337,3 @@ void RegisterAllModules() {
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 }
-
