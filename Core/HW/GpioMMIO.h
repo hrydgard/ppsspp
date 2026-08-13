@@ -17,24 +17,32 @@
 
 // MMIO model of two small PSP hardware register blocks used by kernel-mode code that pokes
 // them directly - grouped in one file since uofw documents both together (src/debug/syscon.c
-// touches both while implementing the syscon comms protocol), and both are currently just
-// plain read/write-back storage defaulting to zero, not real modeled hardware behavior.
+// implements the syscon comms protocol using both blocks together: GPIO pins 3/4 as a
+// hardware "go"/"ready" handshake around the actual data transfer on the serial block).
 //
-// GpioMMIO: the GPIO controller (flash0:/kd/lowio.prx's sceGpio_driver pokes this). Base
-// address and a couple of register offsets (0x000 port output, 0x040 port direction)
-// confirmed against uofw's src/kd/lowio/gpio.c. Everything else - notably offset 0x048, which
-// lowio.prx's own initialization polls waiting for bits 0-1 to clear (an interrupt-pending/
-// busy-style status register, exact semantics not reverse-engineered) - defaults to zero,
-// which is enough to satisfy that poll rather than spinning forever against the generic
-// unknown-MMIO poison value (whose bit pattern happens to fail this kind of "wait for a
-// status bit to clear" check). See docs/VSHBootInvestigation.md, Attempt 17.
+// GpioMMIO: the GPIO controller (flash0:/kd/lowio.prx's sceGpio_driver pokes this, and
+// syscon.prx's own comms handshake uses pins 3/4 directly). Base address and register
+// offsets (0x000 port output, 0x004 port read, 0x008 port set, 0x00C port clear, 0x040 port
+// direction, 0x010/0x014/0x018 interrupt mode, 0x020 interrupt-triggered status, 0x024
+// interrupt acknowledge) confirmed against uofw's src/kd/lowio/gpio.c and src/debug/syscon.c.
+// Plain read/write-back storage for anything not listed above (notably offset 0x048, which
+// lowio.prx's own initialization polls waiting for bits 0-1 to clear - exact semantics not
+// reverse-engineered, zero-by-default is enough to satisfy it) - not real modeled hardware
+// behavior, just enough to avoid spinning against the generic unknown-MMIO poison value
+// (whose bit pattern never satisfies this kind of "wait for a status bit to clear/set" poll).
+// See docs/VSHBootInvestigation.md, Attempts 17-18.
 //
-// SysconSerialMMIO: the syscon co-processor's serial/UART-style comms interface (offset 0x008
-// TX/RX data, 0x00C TX/RX status - bit 2 of status is "RX data available" per uofw). Real
-// flash0:/kd/syscon.prx polls status waiting for bits to clear the same way lowio.prx does for
-// GPIO; zero-by-default satisfies it. No actual serial protocol is modeled - real Syscon
-// communication (battery/power/RTC-alarm state, etc.) would need much more than this to work
-// correctly, this only prevents boot from hanging on the initial handshake.
+// SysconSerialMMIO: the syscon co-processor's serial/UART-style comms interface used by
+// flash0:/kd/syscon.prx's Syscon_cmd() (uofw src/debug/syscon.c) to exchange command/response
+// packets with the real Syscon chip. Real hardware runs actual NEC 78K0 firmware on the other
+// end (see e.g. JPCSP's jpcsp/memory/mmio/syscon/*.java, jpcsp/nec78k0/* - a full second CPU
+// emulator, gated on a real, separately-dumped firmware binary most users don't have and
+// JPCSP itself falls back from when absent). This implements the command/response protocol
+// itself (packet framing, checksum) faithfully, but answers the small set of commands
+// vsh_module's boot path is known to need (NOP, read/write clock, read/write alarm) with
+// synthesized PPSSPP-side state rather than anything from real Syscon hardware - mirrors
+// JPCSP's own "SysconEmulator.isEnabled() == false" fallback path
+// (MMIOHandlerSyscon.startSysconCmd()'s `else` branch) more than real hardware.
 
 #pragma once
 
@@ -45,12 +53,22 @@ namespace GpioMMIO {
 constexpr u32 BASE_ADDRESS = 0xBE240000;
 constexpr u32 SIZE = 0x100;
 
+// Register offset of the "interrupt triggered" status word (what syscon.prx's Syscon_cmd()
+// polls, along with all interrupt-capable GPIO pins - only pin 4, the syscon "response ready"
+// line, is ever actually driven here since that's the only one this MMIO model needs).
+constexpr u32 REG_INTR_STATUS = 0x020;
+
 inline bool IsGpioAddress(u32 address) {
 	return address >= BASE_ADDRESS && address < BASE_ADDRESS + SIZE;
 }
 
 u32 Read32(u32 address);
 void Write32(u32 address, u32 value);
+
+// Sets bits in the interrupt-triggered status register (offset 0x020) - used by
+// SysconSerialMMIO to signal "response ready" on GPIO pin 4 the same way real Syscon
+// hardware would (via the actual GPIO4 line raising, per uofw's Syscon_cmd()).
+void SetInterruptStatusBits(u32 bits);
 
 }  // namespace GpioMMIO
 
