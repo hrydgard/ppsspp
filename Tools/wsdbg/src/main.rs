@@ -56,7 +56,36 @@ struct Args {
     /// Send this raw JSON text instead of building one from event/params (one-shot mode).
     #[arg(long)]
     raw: Option<String>,
+
+    /// REPL mode only: after sending a command, block until its ticketed response arrives
+    /// (and, for cpu.resume/cpu.step*/cpu.runUntil, until the following cpu.stepping broadcast
+    /// too) before reading the next input line. Turns a scripted sequence like
+    /// "(echo cmd1; sleep 1; echo cmd2; ...)" into "(echo cmd1; echo cmd2; ...)" - no more
+    /// guessing how long each step takes. All messages still print as they arrive; this only
+    /// changes when the *next* line gets read. Has no effect on one-shot mode (event/--raw),
+    /// which already waits up to --wait seconds for everything regardless.
+    #[arg(long)]
+    sync: bool,
+
+    /// With --sync, how long to wait for a command's response (and, for resume/step commands,
+    /// the following cpu.stepping) before giving up and reading the next line anyway, in
+    /// seconds. A breakpoint that never trips (bad condition, wrong address, etc.) would
+    /// otherwise hang the script forever.
+    #[arg(long, default_value_t = 30.0)]
+    sync_timeout: f64,
 }
+
+// Events that mean "let the CPU run" - after their own ticketed response comes back, --sync
+// also waits for the *next* cpu.stepping broadcast (which has no ticket of its own), since
+// that's the actual "it stopped again" signal any script issuing one of these actually wants.
+const RESUME_FAMILY: &[&str] = &[
+    "cpu.resume",
+    "cpu.stepInto",
+    "cpu.stepOver",
+    "cpu.stepOut",
+    "cpu.runUntil",
+    "cpu.nextHLE",
+];
 
 static TICKET: AtomicU64 = AtomicU64::new(1);
 
@@ -152,28 +181,90 @@ fn print_help() {
     println!(":help            show this message");
     println!(":quit / :q       disconnect and exit");
     println!("See docs/WebSocketDebugger.md in the ppsspp repo for the full event catalog.");
+    println!("Piping a script in? Pass --sync so each line waits for its response (and, for");
+    println!("cpu.resume/step*/runUntil, the following cpu.stepping) before the next line runs -");
+    println!("no more guessing sleep durations.");
 }
 
-fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<()> {
-    let json_text = if line.starts_with('{') {
-        line.to_string()
-    } else {
-        let mut parts = line.split_whitespace();
-        let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
-        let rest: Vec<String> = parts.map(|s| s.to_string()).collect();
-        let ticket = next_ticket();
-        let json_text = build_event_json(event, &rest, Some(ticket))?;
-        println!("-> (ticket {ticket}) {json_text}");
-        socket.send(Message::Text(json_text.into()))?;
-        return Ok(());
-    };
+// Returns the (ticket, event name) sent, when known - used by --sync to know what response to
+// wait for. Both are recoverable for a plain "{...}" JSON paste too, as long as it includes
+// "ticket"/"event" fields itself; if it doesn't (or ticket isn't a plain integer), --sync has
+// nothing to wait on and just proceeds to the next line immediately, same as without --sync.
+fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Option<(u64, String)>> {
+    if line.starts_with('{') {
+        println!("-> {line}");
+        socket.send(Message::Text(line.to_string().into()))?;
+        let parsed: serde_json::Value = serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
+        let ticket = parsed.get("ticket").and_then(|t| t.as_u64());
+        let event = parsed.get("event").and_then(|e| e.as_str()).map(|s| s.to_string());
+        return Ok(ticket.zip(event));
+    }
 
-    println!("-> {json_text}");
+    let mut parts = line.split_whitespace();
+    let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
+    let rest: Vec<String> = parts.map(|s| s.to_string()).collect();
+    let ticket = next_ticket();
+    let json_text = build_event_json(event, &rest, Some(ticket))?;
+    println!("-> (ticket {ticket}) {json_text}");
     socket.send(Message::Text(json_text.into()))?;
-    Ok(())
+    Ok(Some((ticket, event.to_string())))
 }
 
-fn run_repl(mut socket: WebSocket<TcpStream>) -> Result<()> {
+// --sync support: after sending a command, read (and print, same as the normal loop) incoming
+// messages until we've seen what that command actually completes with, or sync_timeout runs
+// out. Returns to the normal loop either way; a timeout just means the next line gets read
+// without having waited further.
+//
+// RESUME_FAMILY events (cpu.resume/step*/runUntil/nextHLE) are documented as having "no
+// immediate response" at all - their handlers never call req.Respond(), only req.Fail() on
+// error, so on success the *only* message that ever comes back is the unticketed cpu.stepping
+// broadcast once the CPU actually stops again. Waiting for a ticketed ack for these would hang
+// until the timeout every time, so don't - wait for cpu.stepping instead. Everything else uses
+// the normal ticketed request/response pair.
+fn wait_for_sync_response(socket: &mut WebSocket<TcpStream>, ticket: u64, event: &str, timeout_secs: f64) {
+    let wants_stepping = RESUME_FAMILY.contains(&event);
+    // wants_stepping: there's no ticketed response to wait for at all (see doc comment above),
+    // so treat "got_ticket" as trivially satisfied and only really wait on got_stepping. The
+    // reverse for every other event: no cpu.stepping is expected, only the ticketed response.
+    let mut got_ticket = wants_stepping;
+    let mut got_stepping = !wants_stepping;
+    let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
+
+    while Instant::now() < deadline && !(got_ticket && got_stepping) {
+        match socket.read() {
+            Ok(Message::Text(text)) => {
+                print_incoming(&text);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if !wants_stepping && v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+                        got_ticket = true;
+                    }
+                    if wants_stepping && v.get("event").and_then(|e| e.as_str()) == Some("cpu.stepping") {
+                        got_stepping = true;
+                    }
+                }
+            }
+            Ok(Message::Close(frame)) => {
+                println!("\n[connection closed by PPSSPP: {frame:?}]");
+                return;
+            }
+            Ok(_) => {}
+            Err(ref e) if is_would_block(e) => {}
+            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                println!("\n[connection closed]");
+                return;
+            }
+            Err(e) => {
+                eprintln!("\n[connection error: {e}]");
+                return;
+            }
+        }
+    }
+    if !(got_ticket && got_stepping) {
+        eprintln!("! --sync: timed out after {timeout_secs}s waiting for a response, continuing anyway");
+    }
+}
+
+fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> Result<()> {
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(100)))?;
 
     // Politely say hello, per protocol convention (see WebSocket/GameSubscriber.cpp).
@@ -215,11 +306,13 @@ fn run_repl(mut socket: WebSocket<TcpStream>) -> Result<()> {
                     ":quit" | ":q" | ":exit" => return Ok(()),
                     ":help" | ":h" => print_help(),
                     "" => {}
-                    _ => {
-                        if let Err(e) = handle_repl_line(&mut socket, line) {
-                            eprintln!("! {e}");
+                    _ => match handle_repl_line(&mut socket, line) {
+                        Err(e) => eprintln!("! {e}"),
+                        Ok(Some((ticket, event))) if sync => {
+                            wait_for_sync_response(&mut socket, ticket, &event, sync_timeout);
                         }
-                    }
+                        Ok(_) => {}
+                    },
                 }
                 print!("> ");
                 io::stdout().flush().ok();
@@ -270,5 +363,5 @@ fn main() -> Result<()> {
         return run_one_shot(socket, json_text, args.wait);
     }
 
-    run_repl(socket)
+    run_repl(socket, args.sync, args.sync_timeout)
 }
