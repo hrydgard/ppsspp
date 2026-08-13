@@ -368,23 +368,27 @@ static const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ...........
 
 static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 {
-	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),  // unused
+	// Dummy interpreter-only implementations (Int_Cop0, Interpreter.cpp) - real hardware
+	// semantics aren't modeled, just enough to not fault. Ordinary user-mode PSP code never
+	// executes these; kernel-mode boot code (flash0:/reboot.bin) does. See
+	// docs/VSHBootInvestigation.md.
+	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, 0, IN_RT),  // unused
+	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	INVALID,
 	INVALID,
 	//8
 	INVALID,
 	INVALID,
-	INSTR("rdpgpr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
-	INSTR("mfmc0", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("rdpgpr", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
+	INSTR("mfmc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 
 	INVALID,
 	INVALID,
-	INSTR("wrpgpr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("wrpgpr", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	//16
 	ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO),

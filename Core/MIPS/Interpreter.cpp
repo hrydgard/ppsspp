@@ -685,6 +685,50 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
+	// Dummy COP0 register file, for kernel-mode code (e.g. flash0:/reboot.bin) that reads/
+	// writes COP0 state directly - ordinary PSP user-mode code never executes these
+	// instructions (kernel state is reached via HLE syscalls instead), so this doesn't need
+	// to model real COP0 semantics (interrupts, exceptions, TLB, ...), just be non-fatal and
+	// give writes-then-reads-back-same-value behavior. Not part of MIPSState (which is
+	// layout-sensitive for JIT register allocation) and not save-stated, in keeping with
+	// "dummy" - revisit if this ever needs to be more than a bail-out.
+	static u32 g_cop0Regs[32];
+
+	void Int_Cop0(MIPSState *mips, MIPSOpcode op) {
+		int rt = _RT;
+		int rd = _RD;
+
+		switch ((op >> 21) & 0x1f) {
+		case 0: //mfc0
+			if (rt != 0)
+				R(rt) = g_cop0Regs[rd];
+			break;
+
+		case 4: //mtc0
+			g_cop0Regs[rd] = R(rt);
+			break;
+
+		case 10: //rdpgpr
+			if (rt != 0)
+				R(rt) = R(rd);
+			break;
+
+		case 11: //mfmc0 (di/ei)
+			if (rt != 0)
+				R(rt) = g_cop0Regs[12];  // Status
+			break;
+
+		case 14: //wrpgpr
+			R(rd) = R(rt);
+			break;
+
+		default:
+			_dbg_assert_msg_(false, "Trying to interpret COP0 instruction that can't be interpreted");
+			break;
+		}
+		PC += 4;
+	}
+
 	void Int_RType2(MIPSState *mips, MIPSOpcode op) {
 		int rs = _RS;
 		int rd = _RD;
