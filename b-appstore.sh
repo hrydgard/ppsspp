@@ -2,6 +2,16 @@
 
 echo "PPSSPP App Store XCode generator script"
 
+# Terminate Xcode if it's already running, since we're about to regenerate the project it has open.
+if pgrep -x "Xcode" > /dev/null; then
+  echo "Xcode is currently running, quitting it..."
+  osascript -e 'tell application "Xcode" to quit' 2>/dev/null
+  while pgrep -x "Xcode" > /dev/null; do
+    sleep 0.5
+  done
+  echo "Xcode has quit."
+fi
+
 # Set the development team ID as a DEVTEAM env variable.
 
 if [[ -z "${DEVTEAM}" ]]; then
@@ -56,8 +66,14 @@ popd
 cmake -DSOURCE_DIR=. -DOUTPUT_DIR=$FOLDER_NAME -P git-version.cmake
 
 echo
-echo "*** Done. Now run the following command to open in XCode, then run or archive:"
-echo "  open $FOLDER_NAME/PPSSPP.xcodeproj"
-
-# To open the xcode project:
-# open build-ios/PPSSPP.xcodeproj
+echo "*** Done."
+read -p "Launch Xcode with $FOLDER_NAME/PPSSPP.xcodeproj now? [y/N] " LAUNCH_XCODE
+case "$LAUNCH_XCODE" in
+  [Yy]*)
+    open "$FOLDER_NAME/PPSSPP.xcodeproj"
+    ;;
+  *)
+    echo "Not launching. You can open it later with:"
+    echo "  open $FOLDER_NAME/PPSSPP.xcodeproj"
+    ;;
+esac
