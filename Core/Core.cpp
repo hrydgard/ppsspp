@@ -793,12 +793,45 @@ void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, Memor
 	}
 }
 
-// Can't be ignored, must break. Not sure we can get a meaningful stack trace here (since the PC is invalid).
+// Can't be ignored, must break. If JUMP, not sure we can get a meaningful stack trace here (since the PC is invalid).
+// address != pc when this is called for a jump instruction. pc then is the source address of the jump.
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	const char *desc = ExecExceptionTypeAsString(type);
 
+	char pcStr[32] = "(invalid)";
+	if (Memory::IsValid4AlignedAddress(pc)) {
+		snprintf(pcStr, sizeof(pcStr), "[%08x]", Memory::ReadUnchecked_U32(pc));
+	}
+
 	char msg[512];
-	snprintf(msg, sizeof(msg), "%s: Invalid exec address %08x%s pc=%08x%s ra=%08x%s", desc, address, ModuleAddressSuffix(address).c_str(), pc, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+	switch (type) {
+	case ExecExceptionType::JUMP:
+	{
+		snprintf(msg, sizeof(msg), "%s: Invalid jump to %08x%s from PC %08x%s %s RA %08x%s", desc, address, ModuleAddressSuffix(address).c_str(),
+			pc, pcStr, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+		Core_SendDebugOutput(LogLevel::LERROR, msg);
+		break;
+	}
+	case ExecExceptionType::THREAD:
+	{
+		snprintf(msg, sizeof(msg), "%s: Invalid thread switch to %08x%s from PC %08x%s RA %08x%s", desc, address, ModuleAddressSuffix(address).c_str(),
+			pc, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+		Core_SendDebugOutput(LogLevel::LERROR, msg);
+		break;
+	}
+	case ExecExceptionType::ILLEGAL:
+	{
+		snprintf(msg, sizeof(msg), "%s: Illegal instruction at %08x%s %s RA %08x%s", desc,
+			pc, pcStr, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+		// For illegal instructions, there might be a useful stack trace.
+		const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
+		Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\n%s", msg, stackTrace.c_str()));
+		break;
+	}
+	default:
+		truncate_cpy(msg, sizeof(msg), "Unknown exec exception");
+		break;
+	}
 	Core_SendDebugOutput(LogLevel::LERROR, msg);
 
 	MIPSExceptionInfo &e = g_exceptionInfo;
