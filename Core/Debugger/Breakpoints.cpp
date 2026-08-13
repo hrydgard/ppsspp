@@ -418,10 +418,14 @@ bool BreakpointManager::GetMemCheck(u32 start, u32 end, MemCheck *check) {
 }
 
 static inline u32 NotCached(u32 val) {
-	// Remove the cached part of the address as well as any mirror.
+	// Remove the cached part of the address as well as any mirror. Also ignores the kernel
+	// bit (0x80000000) - not just the uncached bit (0x40000000) - so a memcheck registered
+	// via one alias (e.g. user-space cached) still matches an access made through another
+	// (e.g. kernel-space uncached). VRAM has no kernel-flagged mirror (see IsValidAddress),
+	// so that case only needs the uncached bit masked.
 	if ((val & 0x3F800000) == 0x04000000)
 		return val & ~0x40600000;
-	return val & ~0x40000000;
+	return val & ~0xC0000000;
 }
 
 bool BreakpointManager::GetMemCheckInRange(u32 address, int size, MemCheck *check) {
@@ -670,10 +674,20 @@ u32 BreakpointManager::CheckSkipFirst() {
 }
 
 static MemCheck NotCached(MemCheck mc) {
-	// Toggle the cached part of the address.
+	// Toggle the uncached bit (0x40000000) of the address.
 	mc.start ^= 0x40000000;
 	if (mc.end != 0)
 		mc.end ^= 0x40000000;
+	return mc;
+}
+
+static MemCheck NotKernel(MemCheck mc) {
+	// Toggle the kernel bit (0x80000000) of the address - independent of, and combinable
+	// with, the uncached bit above. Not applied to VRAM ranges: VRAM has no kernel-flagged
+	// mirror (see IsValidAddress's "disallow kernel-flagged VRAM" comment).
+	mc.start ^= 0x80000000;
+	if (mc.end != 0)
+		mc.end ^= 0x80000000;
 	return mc;
 }
 
@@ -711,8 +725,12 @@ void BreakpointManager::UpdateCachedMemCheckRanges() {
 				add(read, write, NotCached(copy));
 			}
 		} else {
+			// All four combinations of the independent uncached (0x40000000) and kernel
+			// (0x80000000) address bits - see NotCached(u32)/NotKernel() above.
 			add(read, write, check);
 			add(read, write, NotCached(check));
+			add(read, write, NotKernel(check));
+			add(read, write, NotKernel(NotCached(check)));
 		}
 	}
 }
