@@ -1171,11 +1171,19 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 			// Replacements and similar are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
-			// Check for breakpoint
+			// Check for breakpoint. Route through ExecBreakPoint() (also used by the JIT
+			// backends and the IR interpreter, via JitBreakpoint()/IRRunBreakpoint()) rather
+			// than breaking unconditionally - it's what actually respects BREAK_ACTION_LOG vs
+			// BREAK_ACTION_PAUSE (a log-only breakpoint, added with log=true and no/false
+			// enabled, must not stop execution here). The old code called Core_Break()
+			// directly whenever IsAddressBreakPoint() was true - true for *any* non-ignored
+			// breakpoint, log-only included - so log-only address breakpoints always paused
+			// too, contradicting their own documented behavior.
 			if (hasBPs && g_breakpoints.IsAddressBreakPoint(mips->pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
-				auto cond = g_breakpoints.GetBreakPointCondition(mips->pc);
-				if (!cond || cond->Evaluate()) {
-					Core_Break(BreakReason::CpuBreakpoint, mips->pc);
+				g_breakpoints.ExecBreakPoint(mips->pc);
+				// If it tripped, bail without running - same convention as memchecks/reg
+				// breakpoints below.
+				if (coreState == CORE_STEPPING_CPU) {
 					if (g_breakpoints.IsTempBreakPoint(mips->pc))
 						g_breakpoints.RemoveBreakPoint(mips->pc);
 					break;
