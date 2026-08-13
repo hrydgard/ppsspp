@@ -64,7 +64,7 @@ enum class BreakReason {
 	SavestateCrash,
 	MemoryBreakpoint,
 	CpuBreakpoint,
-	GPRBreakpoint,
+	RegBreakpoint,
 	MemoryAccess,  // ???
 	JitBranchDebug,
 	BreakOnBoot,

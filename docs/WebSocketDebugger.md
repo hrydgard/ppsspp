@@ -105,7 +105,7 @@ file - this is just an index.
 | Game/version | `game.reset`, `game.status`, `version` | `GameSubscriber.cpp` |
 | CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status`, `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
 | Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.nextHLE` | `SteppingSubscriber.cpp` |
-| Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.gprBreakpoint.add/update/remove/list` (break when a GPR is written to, by any instruction anywhere - interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
+| Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
 | Memory read/write | `memory.read_u8/u16/u32`, `memory.read`, `memory.readString`, `memory.write_u8/u16/u32`, `memory.write` | `MemorySubscriber.cpp` |
 | Memory search | `memory.search` - scan a range for a `u8`/`u16`/`u32`/`float` value or a `bytes` pattern (with an optional wildcard mask), for narrowing down where an unknown value lives (Cheat Engine style) | `MemorySubscriber.cpp` |
 | Memory info/annotations | `memory.mapping`, `memory.info.config/set/list/search` | `MemoryInfoSubscriber.cpp` |

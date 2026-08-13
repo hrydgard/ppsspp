@@ -94,13 +94,13 @@ size_t BreakpointManager::FindMemCheck(u32 start, u32 end) {
 	return INVALID_MEMCHECK;
 }
 
-size_t BreakpointManager::FindGPRBreakpoint(int reg) {
-	for (size_t i = 0; i < gprBreakpoints_.size(); ++i) {
-		if (gprBreakpoints_[i].reg == reg)
+size_t BreakpointManager::FindRegBreakpoint(int reg) {
+	for (size_t i = 0; i < regBreakpoints_.size(); ++i) {
+		if (regBreakpoints_[i].reg == reg)
 			return i;
 	}
 
-	return INVALID_GPR_BREAKPOINT;
+	return INVALID_REG_BREAKPOINT;
 }
 
 bool BreakpointManager::IsAddressBreakPoint(u32 addr)
@@ -506,30 +506,30 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 	return BREAK_ACTION_IGNORE;
 }
 
-void BreakpointManager::RecomputeGPRBreakpointMask() {
+void BreakpointManager::RecomputeRegBreakpointMask() {
 	u32 mask = 0;
-	for (const auto &bp : gprBreakpoints_) {
+	for (const auto &bp : regBreakpoints_) {
 		if (bp.result != BREAK_ACTION_IGNORE)
 			mask |= 1u << bp.reg;
 	}
-	gprBreakpointMask_ = mask;
+	regBreakpointMask_ = mask;
 }
 
-int BreakpointManager::AddGPRBreakpoint(int reg) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp == INVALID_GPR_BREAKPOINT) {
-		GPRBreakpoint pt;
+int BreakpointManager::AddRegBreakpoint(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp == INVALID_REG_BREAKPOINT) {
+		RegBreakpoint pt;
 		pt.reg = reg;
 		pt.result |= BREAK_ACTION_PAUSE;
 
-		gprBreakpoints_.push_back(pt);
-		RecomputeGPRBreakpointMask();
+		regBreakpoints_.push_back(pt);
+		RecomputeRegBreakpointMask();
 		Update(INVALID_ADDRESS);  // Not baked into JIT code, no cache invalidation needed.
-		return (int)gprBreakpoints_.size() - 1;
-	} else if (!gprBreakpoints_[bp].IsEnabled()) {
-		gprBreakpoints_[bp].result |= BREAK_ACTION_PAUSE;
-		gprBreakpoints_[bp].hasCond = false;
-		RecomputeGPRBreakpointMask();
+		return (int)regBreakpoints_.size() - 1;
+	} else if (!regBreakpoints_[bp].IsEnabled()) {
+		regBreakpoints_[bp].result |= BREAK_ACTION_PAUSE;
+		regBreakpoints_[bp].hasCond = false;
+		RecomputeRegBreakpointMask();
 		Update(INVALID_ADDRESS);
 		return (int)bp;
 	} else {
@@ -537,106 +537,106 @@ int BreakpointManager::AddGPRBreakpoint(int reg) {
 	}
 }
 
-void BreakpointManager::RemoveGPRBreakpoint(int reg) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
-		gprBreakpoints_.erase(gprBreakpoints_.begin() + bp);
-		RecomputeGPRBreakpointMask();
+void BreakpointManager::RemoveRegBreakpoint(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_.erase(regBreakpoints_.begin() + bp);
+		RecomputeRegBreakpointMask();
 		Update(INVALID_ADDRESS);
 	}
 }
 
-void BreakpointManager::ChangeGPRBreakpoint(int reg, bool status) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
+void BreakpointManager::ChangeRegBreakpoint(int reg, bool status) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
 		if (status)
-			gprBreakpoints_[bp].result |= BREAK_ACTION_PAUSE;
+			regBreakpoints_[bp].result |= BREAK_ACTION_PAUSE;
 		else
-			gprBreakpoints_[bp].result = BreakAction(gprBreakpoints_[bp].result & ~BREAK_ACTION_PAUSE);
-		RecomputeGPRBreakpointMask();
+			regBreakpoints_[bp].result = BreakAction(regBreakpoints_[bp].result & ~BREAK_ACTION_PAUSE);
+		RecomputeRegBreakpointMask();
 		Update(INVALID_ADDRESS);
 	}
 }
 
-void BreakpointManager::ChangeGPRBreakpoint(int reg, BreakAction result) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
-		gprBreakpoints_[bp].result = result;
-		RecomputeGPRBreakpointMask();
+void BreakpointManager::ChangeRegBreakpoint(int reg, BreakAction result) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].result = result;
+		RecomputeRegBreakpointMask();
 		Update(INVALID_ADDRESS);
 	}
 }
 
-void BreakpointManager::ClearAllGPRBreakpoints() {
-	if (!gprBreakpoints_.empty()) {
-		gprBreakpoints_.clear();
-		gprBreakpointMask_ = 0;
+void BreakpointManager::ClearAllRegBreakpoints() {
+	if (!regBreakpoints_.empty()) {
+		regBreakpoints_.clear();
+		regBreakpointMask_ = 0;
 		Update(INVALID_ADDRESS);
 	}
 }
 
-void BreakpointManager::ChangeGPRBreakpointAddCond(int reg, const BreakPointCond &cond) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
-		gprBreakpoints_[bp].hasCond = true;
-		gprBreakpoints_[bp].cond = cond;
+void BreakpointManager::ChangeRegBreakpointAddCond(int reg, const BreakPointCond &cond) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].hasCond = true;
+		regBreakpoints_[bp].cond = cond;
 		// No need to update jit for a condition add/remove, they're not baked in.
 		Update(INVALID_ADDRESS);
 	}
 }
 
-void BreakpointManager::ChangeGPRBreakpointRemoveCond(int reg) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
-		gprBreakpoints_[bp].hasCond = false;
+void BreakpointManager::ChangeRegBreakpointRemoveCond(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].hasCond = false;
 		Update(INVALID_ADDRESS);
 	}
 }
 
-BreakPointCond *BreakpointManager::GetGPRBreakpointCondition(int reg) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT && gprBreakpoints_[bp].hasCond)
-		return &gprBreakpoints_[bp].cond;
+BreakPointCond *BreakpointManager::GetRegBreakpointCondition(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT && regBreakpoints_[bp].hasCond)
+		return &regBreakpoints_[bp].cond;
 	return nullptr;
 }
 
-void BreakpointManager::ChangeGPRBreakpointLogFormat(int reg, const std::string &fmt) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
-		gprBreakpoints_[bp].logFormat = fmt;
+void BreakpointManager::ChangeRegBreakpointLogFormat(int reg, const std::string &fmt) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].logFormat = fmt;
 		Update(INVALID_ADDRESS);
 	}
 }
 
-bool BreakpointManager::IsGPRBreakpoint(int reg) {
-	return (gprBreakpointMask_ & (1u << reg)) != 0;
+bool BreakpointManager::IsRegBreakpoint(int reg) {
+	return (regBreakpointMask_ & (1u << reg)) != 0;
 }
 
-bool BreakpointManager::GetGPRBreakpoint(int reg, GPRBreakpoint *check) {
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp != INVALID_GPR_BREAKPOINT) {
-		*check = gprBreakpoints_[bp];
+bool BreakpointManager::GetRegBreakpoint(int reg, RegBreakpoint *check) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		*check = regBreakpoints_[bp];
 		return true;
 	}
 	return false;
 }
 
-std::vector<GPRBreakpoint> BreakpointManager::GetGPRBreakpoints() {
-	return gprBreakpoints_;
+std::vector<RegBreakpoint> BreakpointManager::GetRegBreakpoints() {
+	return regBreakpoints_;
 }
 
-BreakAction BreakpointManager::ExecGPRBreakpoint(int reg, u32 pc) {
-	// Callers are expected to have already checked GetGPRBreakpointMask() themselves (that's
+BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
+	// Callers are expected to have already checked GetRegBreakpointMask() themselves (that's
 	// the whole point of exposing it - a single shift+and in the hot interpreter loop, skipping
 	// a function call entirely in the overwhelmingly common no-breakpoint case), but check again
 	// here too since this is also reachable directly.
-	if ((gprBreakpointMask_ & (1u << reg)) == 0)
+	if ((regBreakpointMask_ & (1u << reg)) == 0)
 		return BREAK_ACTION_IGNORE;
-	size_t bp = FindGPRBreakpoint(reg);
-	if (bp == INVALID_GPR_BREAKPOINT)
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp == INVALID_REG_BREAKPOINT)
 		return BREAK_ACTION_IGNORE;
 
-	GPRBreakpoint &info = gprBreakpoints_[bp];
+	RegBreakpoint &info = regBreakpoints_[bp];
 	if (info.result == BREAK_ACTION_IGNORE)
 		return BREAK_ACTION_IGNORE;
 
@@ -647,15 +647,15 @@ BreakAction BreakpointManager::ExecGPRBreakpoint(int reg, u32 pc) {
 
 	if (info.result & BREAK_ACTION_LOG) {
 		if (info.logFormat.empty()) {
-			NOTICE_LOG(Log::JIT, "BKP GPR write r%d, PC=%08x (%s)", reg, pc, g_symbolMap->GetDescription(pc).c_str());
+			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x (%s)", reg, pc, g_symbolMap->GetDescription(pc).c_str());
 		} else {
 			std::string formatted;
 			BreakpointManager::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
-			NOTICE_LOG(Log::JIT, "BKP GPR write r%d, PC=%08x: %s", reg, pc, formatted.c_str());
+			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x: %s", reg, pc, formatted.c_str());
 		}
 	}
 	if (info.result & BREAK_ACTION_PAUSE) {
-		Core_Break(BreakReason::GPRBreakpoint, pc);
+		Core_Break(BreakReason::RegBreakpoint, pc);
 	}
 
 	return info.result;
