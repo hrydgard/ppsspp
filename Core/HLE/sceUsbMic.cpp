@@ -299,7 +299,7 @@ static int sceUsbMicInputInit(int unknown1, int inputVolume, int unknown2) {
 }
 
 static int sceUsbMicWaitInputEnd() {
-	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
+	WARN_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
 	// Hack: Just task switch so other threads get to do work. Helps Beaterator (although recording does not appear to work correctly).
 	return hleDelayResult(0, "MicWait", 100);
 }
