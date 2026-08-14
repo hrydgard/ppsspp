@@ -65,8 +65,13 @@ struct CPUStepCommand {
 	void clear() {
 		type = CPUStepType::None;
 		stepSize = 0;
-		reason = BreakReason::None;
-		relatedAddr = 0;
+		// Deliberately NOT resetting reason/relatedAddr here: they describe why we're
+		// currently paused (not whether a step is pending), and for CPUStepType::Into this
+		// clear() runs immediately after finishing the step, before SteppingBroadcaster gets
+		// a chance to read them via Core_GetSteppingReason(). Over/Out/Frame instead call
+		// Core_Resume() before reaching here, so a stale reason left behind is harmless -
+		// it'll be overwritten by the next Core_Break()/Core_RequestCPUStep() before anything
+		// re-enters stepping.
 	}
 };
 
@@ -364,7 +369,8 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 		_dbg_assert_(stepSize != 0);
 		break;
 	}
-	g_cpuStepCommand = { type, stepSize };
+	BreakReason reason = type == CPUStepType::Into ? BreakReason::DebugStepInto : BreakReason::DebugStep;
+	g_cpuStepCommand = { type, stepSize, reason, 0 };
 	return true;
 }
 
@@ -606,10 +612,15 @@ int Core_GetSteppingCounter() {
 SteppingReason Core_GetSteppingReason() {
 	SteppingReason r{};
 	std::lock_guard<std::mutex> lock(g_stepMutex);
-	if (!g_cpuStepCommand.empty()) {
-		r.reason = g_cpuStepCommand.reason;
-		r.relatedAddress = g_cpuStepCommand.relatedAddr;
-	}
+	// Deliberately not gated on g_cpuStepCommand.empty(): that's true whenever there's no
+	// pending step *type* to execute, which is also the normal state right after Core_Break()
+	// records a reason (it sets type = CPUStepType::None on purpose - there's no step operation
+	// to perform, just a pause). Gating on empty() here used to throw the reason away in
+	// exactly that case, i.e. for every breakpoint/exception/savestate-load/etc break, which
+	// covers the vast majority of stepping events. .reason is already None whenever there's
+	// genuinely nothing to report.
+	r.reason = g_cpuStepCommand.reason;
+	r.relatedAddress = g_cpuStepCommand.relatedAddr;
 	return r;
 }
 
