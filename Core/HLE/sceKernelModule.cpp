@@ -2652,7 +2652,7 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	return hleNoLog(0);
 }
 
-bool DescribeKernelModuleAddress(u32 address, char *buffer, size_t bufferSize) {
+bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize) {
 	u32 error;
 	for (SceUID moduleId : loadedModules) {
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);

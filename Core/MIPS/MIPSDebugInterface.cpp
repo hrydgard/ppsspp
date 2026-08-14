@@ -202,7 +202,7 @@ private:
 	const DebugInterface *cpu;
 };
 
-unsigned int MIPSDebugInterface::readMemory(unsigned int address) {
+unsigned int MIPSDebugInterface::readMemory(unsigned int address) const {
 	if (Memory::IsValidRange(address, 4))
 		return Memory::ReadUnchecked_Instruction(address).encoding;
 	return 0;
@@ -250,7 +250,7 @@ int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
 	}
 }
 
-std::string MIPSDebugInterface::getDescription(unsigned int address) {
+std::string MIPSDebugInterface::getDescription(unsigned int address) const {
 	return g_symbolMap->GetDescription(address);
 }
 

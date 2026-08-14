@@ -312,7 +312,7 @@ bool PortManager::Restore() {
 	VERBOSE_LOG(Log::Net, "PortManager::Restore()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::Net, "PortManager::Remove - the init was not done !");
+		if (g_Config.bEnableUPnP) WARN_LOG(Log::Net, "PortManager::Restore - the init was not done !");
 		return false;
 	}
 	for (auto it = m_otherPortList.begin(); it != m_otherPortList.end(); ++it) {
