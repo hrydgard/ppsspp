@@ -68,7 +68,6 @@ void SymbolMap::Clear() {
 bool SymbolMap::LoadSymbolMap(const Path &filename) {
 	Clear();
 
-
 	// TODO(scoped): Use gzdopen instead.
 
 #if defined(_WIN32) && defined(UNICODE)
@@ -142,7 +141,7 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			continue;
 		}
 
-		int matched = sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		const int matched = sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
 		if (matched < 1)
 			continue;
 		type = (SymbolType) typeInt;
@@ -206,18 +205,15 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 
 	Buffer buf;
 	buf.Printf(".text\n");
-	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
-		const ModuleEntry &mod = *it;
-		buf.Printf(".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
+	for (const auto &module : modules) {
+		buf.Printf(".module %x %08x %08x %s\n", module.index, module.start, module.size, module.name);
 	}
 
-	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
-		const FunctionEntry& e = it->second;
+	for (const auto &[key, e] : functions) {
 		buf.Printf("%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
 	}
 
-	for (auto it = data.begin(), end = data.end(); it != end; ++it) {
-		const DataEntry& e = it->second;
+	for (const auto &[key, e] : data) {
 		buf.Printf("%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
 
@@ -498,12 +494,12 @@ std::vector<SymbolEntry> SymbolMap::GetAllActiveSymbols(SymbolType symmask) {
 }
 
 void SymbolMap::AddModule(const char *name, u32 address, u32 size) {
-	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
-		if (!strcmp(it->name, name)) {
+	for (auto &module : modules) {
+		if (equals(module.name, name)) {
 			// Just reactivate that one.
-			it->start = address;
-			it->size = size;
-			activeModuleEnds.emplace(it->start + it->size, *it);
+			module.start = address;
+			module.size = size;
+			activeModuleEnds.emplace(module.start + module.size, module	);
 			activeNeedUpdate_ = true;
 			return;
 		}
@@ -530,18 +526,18 @@ u32 SymbolMap::GetModuleRelativeAddr(u32 address, int moduleIndex) const {
 		moduleIndex = GetModuleIndex(address);
 	}
 
-	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
-		if (it->index == moduleIndex) {
-			return address - it->start;
+	for (const auto &module : modules) {
+		if (module.index == moduleIndex) {
+			return address - module.start;
 		}
 	}
 	return address;
 }
 
 u32 SymbolMap::GetModuleAbsoluteAddr(u32 relative, int moduleIndex) const {
-	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
-		if (it->index == moduleIndex) {
-			return it->start + relative;
+	for (const auto &module : modules) {
+		if (module.index == moduleIndex) {
+			return module.start + relative;
 		}
 	}
 	return relative;
@@ -559,8 +555,8 @@ bool SymbolMap::IsModuleActive(int moduleIndex) {
 		return true;
 	}
 
-	for (auto it = activeModuleEnds.begin(), end = activeModuleEnds.end(); it != end; ++it) {
-		if (it->second.index == moduleIndex) {
+	for (const auto &module : activeModuleEnds) {
+		if (module.second.index == moduleIndex) {
 			return true;
 		}
 	}
@@ -569,13 +565,13 @@ bool SymbolMap::IsModuleActive(int moduleIndex) {
 
 std::vector<LoadedModuleInfo> SymbolMap::getAllModules() const {
 	std::vector<LoadedModuleInfo> result;
-	for (size_t i = 0; i < modules.size(); i++) {
+	for (const auto &module : modules) {
 		LoadedModuleInfo m;
-		m.name = modules[i].name;
-		m.address = modules[i].start;
-		m.size = modules[i].size;
+		m.name = module.name;
+		m.address = module.start;
+		m.size = module.size;
 
-		u32 key = modules[i].start + modules[i].size;
+		u32 key = module.start + module.size;
 		m.active = activeModuleEnds.find(key) != activeModuleEnds.end();
 
 		result.push_back(m);
@@ -941,9 +937,9 @@ bool SymbolMap::GetLabelValue(const char* name, u32& dest) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();
 
-	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
-		if (strcasecmp(name, it->second.name) == 0) {
-			dest = it->first;
+	for (const auto &[key, label] : activeLabels) {
+		if (equalsNoCase(name, label.name)) {
+			dest = key;
 			return true;
 		}
 	}
@@ -1003,17 +999,15 @@ u32 SymbolMap::GetDataStart(u32 address) {
 		UpdateActiveSymbols();
 
 	auto it = activeData.upper_bound(address);
-	if (it == activeData.end())
-	{
+	if (it == activeData.end()) {
 		// check last element
 		auto rit = activeData.rbegin();
-
-		if (rit != activeData.rend())
-		{
+		if (rit != activeData.rend()) {
 			u32 start = rit->first;
 			u32 size = rit->second.size;
-			if (start <= address && start+size > address)
+			if (start <= address && start + size > address) {
 				return start;
+			}
 		}
 		// otherwise there's no data that contains this address
 		return INVALID_ADDRESS;
@@ -1023,8 +1017,9 @@ u32 SymbolMap::GetDataStart(u32 address) {
 		it--;
 		u32 start = it->first;
 		u32 size = it->second.size;
-		if (start <= address && start+size > address)
+		if (start <= address && start + size > address) {
 			return start;
+		}
 	}
 
 	return INVALID_ADDRESS;
@@ -1064,7 +1059,6 @@ bool SymbolMap::RemoveData(u32 startAddress, bool removeName) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();
 
-
 	auto it = activeData.find(startAddress);
 	if (it == activeData.end())
 		return false;
@@ -1091,14 +1085,15 @@ bool SymbolMap::RemoveData(u32 startAddress, bool removeName) {
 	return true;
 }
 
+// Transforms the labels to lowercase when returning. Why?
 void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();
 
-	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
+	for (const auto &[key, label] : activeLabels) {
 		LabelDefinition entry;
-		entry.value = it->first;
-		std::string name = it->second.name;
+		entry.value = key;
+		std::string name = label.name;
 		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 		entry.name = Identifier(name);
 		dest.push_back(entry);
@@ -1134,14 +1129,14 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 		{
 			SendMessage(listbox, LB_INITSTORAGE, (WPARAM)activeFunctions.size(), (LPARAM)activeFunctions.size() * 30);
 
-			for (auto it = activeFunctions.begin(), end = activeFunctions.end(); it != end; ++it) {
-				const char* name = GetLabelName(it->first);
+			for (const auto &[key, function] : activeFunctions) {
+				const char* name = GetLabelName(key);
 				if (name != NULL)
 					wsprintf(temp, L"%S", name);
 				else
-					wsprintf(temp, L"0x%08X", it->first);
-				int index = ListBox_AddString(listbox,temp);
-				ListBox_SetItemData(listbox,index,it->first);
+					wsprintf(temp, L"0x%08X", key);
+				int index = ListBox_AddString(listbox, temp);
+				ListBox_SetItemData(listbox, index, key);
 			}
 		}
 		break;
