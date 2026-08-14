@@ -277,8 +277,8 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 extern const std::string INDEX_FILENAME;
 
 static void MountFileSystems() {
-	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
-#if defined(USING_WIN_UI) || defined(APPLE)
+	// TODO: Revisit this flash0 configurability. It was added for 
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MACOS)
 	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
 #else
 	auto flash0System = std::make_shared<VFSFileSystem>(&pspFileSystem, "flash0");

@@ -109,12 +109,10 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
-		case SYSPROP_CAN_JIT:
-			return true;
-		case SYSPROP_SKIP_UI:
-			return true;
-		default:
-			return false;
+	case SYSPROP_IS_HEADLESS: return true;
+	case SYSPROP_CAN_JIT: return true;
+	default:
+		return false;
 	}
 }
 void System_Notify(SystemNotification notification) {}
