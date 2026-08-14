@@ -7,6 +7,7 @@
 //   wsdbg 12345 game.status            # one-shot: send an event, print responses, exit
 //   wsdbg 12345 cpu.setReg thread=0 name=0 value=42
 
+use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -15,10 +16,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
+use base64::Engine as _;
 use clap::Parser;
 use tungstenite::client::IntoClientRequest;
 use tungstenite::http::HeaderValue;
 use tungstenite::{Message, WebSocket};
+
+// name -> (address, as the user typed it - not reparsed, just echoed back for display; bytes).
+type Snapshots = HashMap<String, (String, Vec<u8>)>;
 
 const SUBPROTOCOL: &str = "debugger.ppsspp.org";
 
@@ -233,8 +238,11 @@ fn print_help() {
     println!("    cpu.setReg thread=0 name=4 value=1000");
     println!("Or paste a full JSON message starting with '{{' to send it verbatim.");
     println!("A numeric 'ticket' is auto-assigned to shorthand commands so you can match up responses.");
-    println!(":help            show this message");
-    println!(":quit / :q       disconnect and exit");
+    println!(":help                              show this message");
+    println!(":quit / :q                         disconnect and exit");
+    println!(":snapshot <name> <addr> <size>     memory.read into a locally-named byte buffer");
+    println!(":snapshots                         list saved snapshots");
+    println!(":diff <name1> <name2>              byte-compare two snapshots");
     println!("See docs/WebSocketDebugger.md in the ppsspp repo for the full event catalog.");
     println!("Piping a script in? Pass --sync so each line waits for its response (and, for");
     println!("cpu.resume/step*/runUntil, the following cpu.stepping) before the next line runs -");
@@ -319,6 +327,160 @@ fn wait_for_sync_response(socket: &mut WebSocket<TcpStream>, ticket: u64, event:
     }
 }
 
+// Send a ticketed request and block until its response arrives (or timeout), returning the
+// parsed JSON. Unlike the normal REPL dispatch (fire-and-forget, or --sync's "wait but don't
+// look at the payload"), :snapshot needs the actual returned data before it can do anything -
+// there's no useful way to "move on to the next input line" first.
+fn send_and_wait(
+    socket: &mut WebSocket<TcpStream>,
+    event: &str,
+    params: &[String],
+    timeout_secs: f64,
+) -> Result<serde_json::Value> {
+    let ticket = next_ticket();
+    let json_text = build_event_json(event, params, Some(ticket))?;
+    println!("-> (ticket {ticket}) {json_text}");
+    socket.send(Message::Text(json_text.into()))?;
+
+    let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
+    while Instant::now() < deadline {
+        match socket.read() {
+            Ok(Message::Text(text)) => {
+                print_incoming(&text);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+                        return Ok(v);
+                    }
+                }
+            }
+            Ok(Message::Close(frame)) => return Err(anyhow!("connection closed by PPSSPP: {frame:?}")),
+            Ok(_) => {}
+            Err(ref e) if is_would_block(e) => {}
+            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                return Err(anyhow!("connection closed"));
+            }
+            Err(e) => return Err(anyhow!("connection error: {e}")),
+        }
+    }
+    Err(anyhow!("timed out after {timeout_secs}s waiting for a response"))
+}
+
+// :snapshot <name> <address> <size> - reads memory.read once (blocking, unlike the rest of the
+// REPL) and stores the decoded bytes locally under <name>. address/size are passed through to
+// the server exactly as typed (same as any other event param - the server already accepts
+// "0x..." hex strings for address-like fields), not reparsed here.
+//
+// Kept entirely client-side rather than as a new PPSSPP-side memory.snapshot.* event: a
+// snapshot is a debugging-*session*-scoped concept (how long should the emulator hold onto one?
+// does it survive a savestate load or game restart? does it leak if a script forgets to clean
+// up?) with no real emulator-side meaning, and memory.read's existing base64 response is already
+// the only primitive actually needed - no new protocol surface required.
+fn cmd_snapshot(socket: &mut WebSocket<TcpStream>, snapshots: &mut Snapshots, args: &[&str], timeout_secs: f64) {
+    if args.len() != 3 {
+        eprintln!("! Usage: :snapshot <name> <address> <size>");
+        return;
+    }
+    let name = args[0];
+    let params = vec![format!("address={}", args[1]), format!("size={}", args[2])];
+    match send_and_wait(socket, "memory.read", &params, timeout_secs) {
+        Ok(resp) => {
+            if resp.get("event").and_then(|e| e.as_str()) == Some("error") {
+                let msg = resp.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error");
+                eprintln!("! memory.read failed: {msg}");
+                return;
+            }
+            let b64 = match resp.get("base64").and_then(|b| b.as_str()) {
+                Some(b) => b,
+                None => {
+                    eprintln!("! Response had no 'base64' field: {resp}");
+                    return;
+                }
+            };
+            match base64::engine::general_purpose::STANDARD.decode(b64) {
+                Ok(bytes) => {
+                    let len = bytes.len();
+                    snapshots.insert(name.to_string(), (args[1].to_string(), bytes));
+                    println!("snapshot '{name}' saved: {len} bytes at {}", args[1]);
+                }
+                Err(e) => eprintln!("! Could not decode base64 response: {e}"),
+            }
+        }
+        Err(e) => eprintln!("! {e}"),
+    }
+}
+
+// :snapshots - list what's been captured so far in this session.
+fn cmd_list_snapshots(snapshots: &Snapshots) {
+    if snapshots.is_empty() {
+        println!("No snapshots saved. Use :snapshot <name> <address> <size> to take one.");
+        return;
+    }
+    let mut names: Vec<&String> = snapshots.keys().collect();
+    names.sort();
+    for name in names {
+        let (addr, bytes) = &snapshots[name];
+        println!("  {name}: {} bytes at {addr}", bytes.len());
+    }
+}
+
+// :diff <name1> <name2> - byte-compare two snapshots and print each differing run as
+// "+offset (N bytes): old_hex -> new_hex". Replaces the throwaway PowerShell/Bash diffing this
+// was needed for by hand at least twice during the VSH boot investigation (see
+// docs/VSHBootInvestigation.md) with one correct implementation.
+fn cmd_diff(snapshots: &Snapshots, args: &[&str]) {
+    if args.len() != 2 {
+        eprintln!("! Usage: :diff <name1> <name2>");
+        return;
+    }
+    let Some((addr1, bytes1)) = snapshots.get(args[0]) else {
+        eprintln!("! No snapshot named '{}' (see :snapshots)", args[0]);
+        return;
+    };
+    let Some((addr2, bytes2)) = snapshots.get(args[1]) else {
+        eprintln!("! No snapshot named '{}' (see :snapshots)", args[1]);
+        return;
+    };
+
+    let len = bytes1.len().min(bytes2.len());
+    if bytes1.len() != bytes2.len() {
+        println!(
+            "'{}' ({} bytes at {addr1}) and '{}' ({} bytes at {addr2}) differ in size - comparing the first {len} bytes",
+            args[0], bytes1.len(), args[1], bytes2.len()
+        );
+    }
+
+    const MAX_RUNS: usize = 50;
+    let mut runs = 0usize;
+    let mut i = 0usize;
+    while i < len {
+        if bytes1[i] == bytes2[i] {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < len && bytes1[i] != bytes2[i] {
+            i += 1;
+        }
+        runs += 1;
+        if runs <= MAX_RUNS {
+            let old_hex: Vec<String> = bytes1[start..i].iter().map(|b| format!("{b:02x}")).collect();
+            let new_hex: Vec<String> = bytes2[start..i].iter().map(|b| format!("{b:02x}")).collect();
+            let count = i - start;
+            println!(
+                "  +{start:#06x} ({count} byte{}): {} -> {}",
+                if count == 1 { "" } else { "s" },
+                old_hex.join(" "),
+                new_hex.join(" ")
+            );
+        }
+    }
+    if runs == 0 {
+        println!("'{}' and '{}' are identical (first {len} bytes)", args[0], args[1]);
+    } else if runs > MAX_RUNS {
+        println!("  ... and {} more differing run(s)", runs - MAX_RUNS);
+    }
+}
+
 fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> Result<()> {
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(100)))?;
 
@@ -353,14 +515,26 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
     print!("> ");
     io::stdout().flush().ok();
 
+    let mut snapshots: Snapshots = Snapshots::new();
+
     loop {
         match rx.try_recv() {
             Ok(line) => {
                 let line = line.trim();
-                match line {
-                    ":quit" | ":q" | ":exit" => return Ok(()),
-                    ":help" | ":h" => print_help(),
-                    "" => {}
+                let mut words = line.split_whitespace();
+                match words.next() {
+                    Some(":quit") | Some(":q") | Some(":exit") => return Ok(()),
+                    Some(":help") | Some(":h") => print_help(),
+                    Some(":snapshot") => {
+                        let args: Vec<&str> = words.collect();
+                        cmd_snapshot(&mut socket, &mut snapshots, &args, sync_timeout);
+                    }
+                    Some(":snapshots") => cmd_list_snapshots(&snapshots),
+                    Some(":diff") => {
+                        let args: Vec<&str> = words.collect();
+                        cmd_diff(&snapshots, &args);
+                    }
+                    None => {}
                     _ => match handle_repl_line(&mut socket, line) {
                         Err(e) => eprintln!("! {e}"),
                         Ok(Some((ticket, event))) if sync => {
