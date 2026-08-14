@@ -28,6 +28,7 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\InputBroadcaster.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\InputSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\LogConfigSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\MemorySubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\MemoryInfoSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\ReplaySubscriber.cpp" />
@@ -446,6 +447,7 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\InputSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\LogConfigSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\MemorySubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\MemoryInfoSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\ReplaySubscriber.h" />

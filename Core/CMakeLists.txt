@@ -321,6 +321,8 @@ add_library(Core STATIC
 	Debugger/WebSocket/InputSubscriber.h
 	Debugger/WebSocket/LogBroadcaster.cpp
 	Debugger/WebSocket/LogBroadcaster.h
+	Debugger/WebSocket/LogConfigSubscriber.cpp
+	Debugger/WebSocket/LogConfigSubscriber.h
 	Debugger/WebSocket/MemoryInfoSubscriber.cpp
 	Debugger/WebSocket/MemoryInfoSubscriber.h
 	Debugger/WebSocket/MemorySubscriber.cpp
