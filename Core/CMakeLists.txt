@@ -307,6 +307,8 @@ add_library(Core STATIC
 	Debugger/WebSocket/ClientConfigSubscriber.h
 	Debugger/WebSocket/GPUBufferSubscriber.cpp
 	Debugger/WebSocket/GPUBufferSubscriber.h
+	Debugger/WebSocket/GPUDisasmSubscriber.cpp
+	Debugger/WebSocket/GPUDisasmSubscriber.h
 	Debugger/WebSocket/GPURecordSubscriber.cpp
 	Debugger/WebSocket/GPURecordSubscriber.h
 	Debugger/WebSocket/GPUStatsSubscriber.cpp

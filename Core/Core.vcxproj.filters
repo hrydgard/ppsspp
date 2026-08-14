@@ -754,6 +754,9 @@
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\GPUDisasmSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceUsbAcc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -2023,6 +2026,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\GPUDisasmSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="ConfigValues.h">
