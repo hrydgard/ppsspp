@@ -93,6 +93,61 @@ fn next_ticket() -> u64 {
     TICKET.fetch_add(1, Ordering::Relaxed)
 }
 
+// A minimal shell-like tokenizer: splits on unquoted whitespace, and lets 'single' or "double"
+// quotes protect spaces (and each other) from being treated as a separator - e.g.
+// `logFormat="job func v0={v0} a0={a0}"` becomes one token, not four bogus ones that
+// build_event_json would silently misparse as extra, malformed key=value pairs (or fail on
+// outright). Quote characters are stripped from the resulting token, same as a normal shell; a
+// backslash escapes the very next character (including inside quotes), which is enough for this
+// tool's purposes without pulling in a full shell-parsing crate.
+fn split_shell_words(line: &str) -> Result<Vec<String>> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut in_word = false;
+    let mut quote: Option<char> = None;
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        match quote {
+            Some(q) => {
+                if c == '\\' && chars.peek().is_some() {
+                    current.push(chars.next().unwrap());
+                } else if c == q {
+                    quote = None;
+                } else {
+                    current.push(c);
+                }
+            }
+            None => {
+                if c == '\'' || c == '"' {
+                    quote = Some(c);
+                    in_word = true;
+                } else if c == '\\' && chars.peek().is_some() {
+                    current.push(chars.next().unwrap());
+                    in_word = true;
+                } else if c.is_whitespace() {
+                    if in_word {
+                        words.push(std::mem::take(&mut current));
+                        in_word = false;
+                    }
+                } else {
+                    current.push(c);
+                    in_word = true;
+                }
+            }
+        }
+    }
+
+    if quote.is_some() {
+        return Err(anyhow!("Unterminated quote in command line"));
+    }
+    if in_word {
+        words.push(current);
+    }
+
+    Ok(words)
+}
+
 fn parse_value(raw: &str) -> serde_json::Value {
     // Accept numbers, true/false, null, and "quoted strings" as JSON; anything
     // else (including bare words and unescaped strings) is sent as a plain string.
@@ -200,14 +255,14 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
         return Ok(ticket.zip(event));
     }
 
-    let mut parts = line.split_whitespace();
+    let mut parts = split_shell_words(line)?.into_iter();
     let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
-    let rest: Vec<String> = parts.map(|s| s.to_string()).collect();
+    let rest: Vec<String> = parts.collect();
     let ticket = next_ticket();
-    let json_text = build_event_json(event, &rest, Some(ticket))?;
+    let json_text = build_event_json(&event, &rest, Some(ticket))?;
     println!("-> (ticket {ticket}) {json_text}");
     socket.send(Message::Text(json_text.into()))?;
-    Ok(Some((ticket, event.to_string())))
+    Ok(Some((ticket, event)))
 }
 
 // --sync support: after sending a command, read (and print, same as the normal loop) incoming
