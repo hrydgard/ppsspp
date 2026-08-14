@@ -94,6 +94,15 @@ size_t BreakpointManager::FindMemCheck(u32 start, u32 end) {
 	return INVALID_MEMCHECK;
 }
 
+size_t BreakpointManager::FindRegBreakpoint(int reg) {
+	for (size_t i = 0; i < regBreakpoints_.size(); ++i) {
+		if (regBreakpoints_[i].reg == reg)
+			return i;
+	}
+
+	return INVALID_REG_BREAKPOINT;
+}
+
 bool BreakpointManager::IsAddressBreakPoint(u32 addr)
 {
 	if (!anyBreakPoints_)
@@ -272,7 +281,7 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 		return BREAK_ACTION_IGNORE;
 	size_t bp = FindBreakpoint(addr, false);
 	if (bp != INVALID_BREAKPOINT) {
-		const BreakPoint &info = breakPoints_[bp];
+		BreakPoint &info = breakPoints_[bp];
 
 		if (info.hasCond) {
 			// Evaluate the breakpoint and abort if necessary.
@@ -280,6 +289,8 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 			if (cond && !cond->Evaluate())
 				return BREAK_ACTION_IGNORE;
 		}
+
+		++info.numHits;
 
 		if (info.result & BREAK_ACTION_LOG) {
 			if (info.logFormat.empty()) {
@@ -409,10 +420,14 @@ bool BreakpointManager::GetMemCheck(u32 start, u32 end, MemCheck *check) {
 }
 
 static inline u32 NotCached(u32 val) {
-	// Remove the cached part of the address as well as any mirror.
+	// Remove the cached part of the address as well as any mirror. Also ignores the kernel
+	// bit (0x80000000) - not just the uncached bit (0x40000000) - so a memcheck registered
+	// via one alias (e.g. user-space cached) still matches an access made through another
+	// (e.g. kernel-space uncached). VRAM has no kernel-flagged mirror (see IsValidAddress),
+	// so that case only needs the uncached bit masked.
 	if ((val & 0x3F800000) == 0x04000000)
 		return val & ~0x40600000;
-	return val & ~0x40000000;
+	return val & ~0xC0000000;
 }
 
 bool BreakpointManager::GetMemCheckInRange(u32 address, int size, MemCheck *check) {
@@ -493,6 +508,161 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 	return BREAK_ACTION_IGNORE;
 }
 
+void BreakpointManager::RecomputeRegBreakpointMask() {
+	u32 mask = 0;
+	for (const auto &bp : regBreakpoints_) {
+		if (bp.result != BREAK_ACTION_IGNORE)
+			mask |= 1u << bp.reg;
+	}
+	regBreakpointMask_ = mask;
+}
+
+int BreakpointManager::AddRegBreakpoint(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp == INVALID_REG_BREAKPOINT) {
+		RegBreakpoint pt;
+		pt.reg = reg;
+		pt.result |= BREAK_ACTION_PAUSE;
+
+		regBreakpoints_.push_back(pt);
+		RecomputeRegBreakpointMask();
+		Update(INVALID_ADDRESS);  // Not baked into JIT code, no cache invalidation needed.
+		return (int)regBreakpoints_.size() - 1;
+	} else if (!regBreakpoints_[bp].IsEnabled()) {
+		regBreakpoints_[bp].result |= BREAK_ACTION_PAUSE;
+		regBreakpoints_[bp].hasCond = false;
+		RecomputeRegBreakpointMask();
+		Update(INVALID_ADDRESS);
+		return (int)bp;
+	} else {
+		return (int)bp;
+	}
+}
+
+void BreakpointManager::RemoveRegBreakpoint(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_.erase(regBreakpoints_.begin() + bp);
+		RecomputeRegBreakpointMask();
+		Update(INVALID_ADDRESS);
+	}
+}
+
+void BreakpointManager::ChangeRegBreakpoint(int reg, bool status) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		if (status)
+			regBreakpoints_[bp].result |= BREAK_ACTION_PAUSE;
+		else
+			regBreakpoints_[bp].result = BreakAction(regBreakpoints_[bp].result & ~BREAK_ACTION_PAUSE);
+		RecomputeRegBreakpointMask();
+		Update(INVALID_ADDRESS);
+	}
+}
+
+void BreakpointManager::ChangeRegBreakpoint(int reg, BreakAction result) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].result = result;
+		RecomputeRegBreakpointMask();
+		Update(INVALID_ADDRESS);
+	}
+}
+
+void BreakpointManager::ClearAllRegBreakpoints() {
+	if (!regBreakpoints_.empty()) {
+		regBreakpoints_.clear();
+		regBreakpointMask_ = 0;
+		Update(INVALID_ADDRESS);
+	}
+}
+
+void BreakpointManager::ChangeRegBreakpointAddCond(int reg, const BreakPointCond &cond) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].hasCond = true;
+		regBreakpoints_[bp].cond = cond;
+		// No need to update jit for a condition add/remove, they're not baked in.
+		Update(INVALID_ADDRESS);
+	}
+}
+
+void BreakpointManager::ChangeRegBreakpointRemoveCond(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].hasCond = false;
+		Update(INVALID_ADDRESS);
+	}
+}
+
+BreakPointCond *BreakpointManager::GetRegBreakpointCondition(int reg) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT && regBreakpoints_[bp].hasCond)
+		return &regBreakpoints_[bp].cond;
+	return nullptr;
+}
+
+void BreakpointManager::ChangeRegBreakpointLogFormat(int reg, const std::string &fmt) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		regBreakpoints_[bp].logFormat = fmt;
+		Update(INVALID_ADDRESS);
+	}
+}
+
+bool BreakpointManager::IsRegBreakpoint(int reg) {
+	return (regBreakpointMask_ & (1u << reg)) != 0;
+}
+
+bool BreakpointManager::GetRegBreakpoint(int reg, RegBreakpoint *check) {
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp != INVALID_REG_BREAKPOINT) {
+		*check = regBreakpoints_[bp];
+		return true;
+	}
+	return false;
+}
+
+std::vector<RegBreakpoint> BreakpointManager::GetRegBreakpoints() {
+	return regBreakpoints_;
+}
+
+BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
+	// Callers are expected to have already checked GetRegBreakpointMask() themselves (that's
+	// the whole point of exposing it - a single shift+and in the hot interpreter loop, skipping
+	// a function call entirely in the overwhelmingly common no-breakpoint case), but check again
+	// here too since this is also reachable directly.
+	if ((regBreakpointMask_ & (1u << reg)) == 0)
+		return BREAK_ACTION_IGNORE;
+	size_t bp = FindRegBreakpoint(reg);
+	if (bp == INVALID_REG_BREAKPOINT)
+		return BREAK_ACTION_IGNORE;
+
+	RegBreakpoint &info = regBreakpoints_[bp];
+	if (info.result == BREAK_ACTION_IGNORE)
+		return BREAK_ACTION_IGNORE;
+
+	if (info.hasCond && !info.cond.Evaluate())
+		return BREAK_ACTION_IGNORE;
+
+	++info.numHits;
+
+	if (info.result & BREAK_ACTION_LOG) {
+		if (info.logFormat.empty()) {
+			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x (%s)", reg, pc, g_symbolMap->GetDescription(pc).c_str());
+		} else {
+			std::string formatted;
+			BreakpointManager::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
+			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x: %s", reg, pc, formatted.c_str());
+		}
+	}
+	if (info.result & BREAK_ACTION_PAUSE) {
+		Core_Break(BreakReason::RegBreakpoint, pc);
+	}
+
+	return info.result;
+}
+
 void BreakpointManager::SetSkipFirst(u32 pc) {
 	breakSkipFirstAt_ = pc;
 	breakSkipFirstTicks_ = CoreTiming::GetTicks(currentMIPS);
@@ -506,10 +676,20 @@ u32 BreakpointManager::CheckSkipFirst() {
 }
 
 static MemCheck NotCached(MemCheck mc) {
-	// Toggle the cached part of the address.
+	// Toggle the uncached bit (0x40000000) of the address.
 	mc.start ^= 0x40000000;
 	if (mc.end != 0)
 		mc.end ^= 0x40000000;
+	return mc;
+}
+
+static MemCheck NotKernel(MemCheck mc) {
+	// Toggle the kernel bit (0x80000000) of the address - independent of, and combinable
+	// with, the uncached bit above. Not applied to VRAM ranges: VRAM has no kernel-flagged
+	// mirror (see IsValidAddress's "disallow kernel-flagged VRAM" comment).
+	mc.start ^= 0x80000000;
+	if (mc.end != 0)
+		mc.end ^= 0x80000000;
 	return mc;
 }
 
@@ -547,8 +727,12 @@ void BreakpointManager::UpdateCachedMemCheckRanges() {
 				add(read, write, NotCached(copy));
 			}
 		} else {
+			// All four combinations of the independent uncached (0x40000000) and kernel
+			// (0x80000000) address bits - see NotCached(u32)/NotKernel() above.
 			add(read, write, check);
 			add(read, write, NotCached(check));
+			add(read, write, NotKernel(check));
+			add(read, write, NotKernel(NotCached(check)));
 		}
 	}
 }

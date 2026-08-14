@@ -25,6 +25,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -93,19 +94,24 @@ int MIPS_SingleStep(MIPSState *mips) {
 }
 
 // Dummy functions, for any future MMIO support.
+// Unregistered reads return a distinctive poison value (not 0) so it's obvious in a live trace
+// when some later computation's input traces back to an unimplemented MMIO register, rather
+// than looking like an ordinary, legitimate zero (see docs/VSHBootInvestigation.md "Attempt 9").
+constexpr u32 UNKNOWN_MMIO_POISON = 0x1337BEEF;
+
 static u8 ReadMMIO_U8(MIPSState *mips, u32 addr) {
 	WARN_LOG(Log::CPU, "MMIO Read8 at %08x", addr);
-	return 0;
+	return (u8)UNKNOWN_MMIO_POISON;
 }
 
 static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
 	WARN_LOG(Log::CPU, "MMIO Read16 at %08x", addr);
-	return 0;
+	return (u16)UNKNOWN_MMIO_POISON;
 }
 
 static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
 	WARN_LOG(Log::CPU, "MMIO Read32 at %08x", addr);
-	return 0;
+	return UNKNOWN_MMIO_POISON;
 }
 
 void WriteMMIO_U8(MIPSState *mips, u32 addr, u8 value) {
@@ -680,6 +686,61 @@ namespace MIPSInt {
 
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
+			break;
+		}
+		PC += 4;
+	}
+
+	// Dummy COP0 register file, for kernel-mode code (e.g. flash0:/reboot.bin) that reads/
+	// writes COP0 state directly - ordinary PSP user-mode code never executes these
+	// instructions (kernel state is reached via HLE syscalls instead), so this doesn't need
+	// to model real COP0 semantics (interrupts, exceptions, TLB, ...), just be non-fatal and
+	// give writes-then-reads-back-same-value behavior. Not part of MIPSState (which is
+	// layout-sensitive for JIT register allocation) and not save-stated, in keeping with
+	// "dummy" - revisit if this ever needs to be more than a bail-out.
+	static u32 g_cop0Regs[32];
+
+	void Int_Cop0(MIPSState *mips, MIPSOpcode op) {
+		int rt = _RT;
+		int rd = _RD;
+
+		switch ((op >> 21) & 0x1f) {
+		case 0: //mfc0
+			if (rt != 0) {
+				// Real MIPS COP0 register 9 (Count) free-runs on its own (incrementing every
+				// other cycle) regardless of software writes - unlike the rest of this dummy
+				// shadow file, a plain "read back whatever was last written" (defaulting to a
+				// constant 0) would be wrong here and could plausibly starve boot-time
+				// calibration code of a nonzero seed/divisor. Tie it to CoreTiming instead;
+				// still not real COP0 semantics (no Compare-triggered interrupt), just a
+				// closer approximation. See docs/VSHBootInvestigation.md "Attempt 9".
+				if (rd == 9)
+					R(rt) = (u32)CoreTiming::GetTicks(mips);
+				else
+					R(rt) = g_cop0Regs[rd];
+			}
+			break;
+
+		case 4: //mtc0
+			g_cop0Regs[rd] = R(rt);
+			break;
+
+		case 10: //rdpgpr
+			if (rt != 0)
+				R(rt) = R(rd);
+			break;
+
+		case 11: //mfmc0 (di/ei)
+			if (rt != 0)
+				R(rt) = g_cop0Regs[12];  // Status
+			break;
+
+		case 14: //wrpgpr
+			R(rd) = R(rt);
+			break;
+
+		default:
+			_dbg_assert_msg_(false, "Trying to interpret COP0 instruction that can't be interpreted");
 			break;
 		}
 		PC += 4;

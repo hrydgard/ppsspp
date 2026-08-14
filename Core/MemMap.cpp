@@ -53,6 +53,8 @@ MemArena g_arena;
 u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
+u8 *m_pKernelScratchPad;
+u8 *m_pUncachedKernelScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
 u8 *m_pPhysicalRAM[3];
@@ -92,6 +94,12 @@ static MemoryView views[] = {
 	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	// Kernel-mode code (e.g. flash0:/reboot.bin) sees the scratchpad through these mirrors -
+	// same two address bits as RAM below (0x80000000 = kernel, 0x40000000 = uncached,
+	// independently combinable), just missing here until this was noticed via a real SIGSEGV
+	// writing 0x80010000 (see docs/VSHBootInvestigation.md).
+	{&m_pKernelScratchPad,        0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
+	{&m_pUncachedKernelScratchPad,0xC0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
 	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},

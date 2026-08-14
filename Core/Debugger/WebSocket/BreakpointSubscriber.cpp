@@ -36,7 +36,40 @@ DebuggerSubscriber *WebSocketBreakpointInit(DebuggerEventHandlerMap &map) {
 	map["memory.breakpoint.remove"] = &WebSocketMemoryBreakpointRemove;
 	map["memory.breakpoint.list"] = &WebSocketMemoryBreakpointList;
 
+	map["cpu.regBreakpoint.add"] = &WebSocketRegBreakpointAdd;
+	map["cpu.regBreakpoint.update"] = &WebSocketRegBreakpointUpdate;
+	map["cpu.regBreakpoint.remove"] = &WebSocketRegBreakpointRemove;
+	map["cpu.regBreakpoint.list"] = &WebSocketRegBreakpointList;
+
 	return nullptr;
+}
+
+// Resolves a GPR by name (e.g. "s3", case-insensitive) or 0-31 index. Interpreter-only feature -
+// see RegBreakpoint in Breakpoints.h - has no effect while running under a JIT backend.
+static bool ParseRegBreakpointReg(DebuggerRequest &req, int *reg) {
+	if (req.HasParam("name")) {
+		std::string name;
+		if (!req.ParamString("name", &name))
+			return false;
+		for (int i = 0; i < 32; ++i) {
+			if (!strcasecmp(name.c_str(), MIPSDebugInterface::GetRegName(0, i).c_str())) {
+				*reg = i;
+				return true;
+			}
+		}
+		req.Fail(StringFromFormat("Unknown register name: %s", name.c_str()));
+		return false;
+	}
+
+	uint32_t regU32;
+	if (!req.ParamU32("register", &regU32))
+		return false;
+	if (regU32 >= 32) {
+		req.Fail("Invalid 'register' parameter, must be 0-31");
+		return false;
+	}
+	*reg = (int)regU32;
+	return true;
 }
 
 struct WebSocketCPUBreakpointParams {
@@ -214,6 +247,9 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 //     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
 //     - symbol: null, or string label or symbol at breakpoint address.
 //     - code: string disassembly of breakpoint address.
+//     - hits: unsigned integer, how many times this breakpoint's address has been reached
+//       (and any condition passed) since it was added - useful for confirming a breakpoint is
+//       actually being reached at all, independently of whether log/enabled is set.
 void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -233,6 +269,7 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 			json.writeUint("address", bp.addr);
 			json.writeBool("enabled", bp.IsEnabled());
 			json.writeBool("log", (bp.result & BREAK_ACTION_LOG) != 0);
+			json.writeUint("hits", bp.numHits);
 			if (bp.hasCond)
 				json.writeString("condition", bp.cond.expressionString);
 			else
@@ -510,6 +547,216 @@ void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 				json.writeNull("symbol");
 			else
 				json.writeString("symbol", symbol);
+
+			json.pop();
+		}
+		json.pop();
+	});
+}
+
+struct WebSocketRegBreakpointParams {
+	int reg = 0;
+	bool hasEnabled = false;
+	bool hasLog = false;
+	bool hasCondition = false;
+	bool hasLogFormat = false;
+
+	bool enabled;
+	bool log;
+	std::string condition;
+	PostfixExpression compiledCondition;
+	std::string logFormat;
+
+	bool Parse(DebuggerRequest &req) {
+		if (!currentDebugMIPS->isAlive()) {
+			req.Fail("CPU not started");
+			return false;
+		}
+
+		if (!ParseRegBreakpointReg(req, &reg))
+			return false;
+
+		hasEnabled = req.HasParam("enabled");
+		if (hasEnabled) {
+			if (!req.ParamBool("enabled", &enabled))
+				return false;
+		}
+		hasLog = req.HasParam("log");
+		if (hasLog) {
+			if (!req.ParamBool("log", &log))
+				return false;
+		}
+		hasCondition = req.HasParam("condition");
+		if (hasCondition) {
+			if (!req.ParamString("condition", &condition))
+				return false;
+			if (!initExpression(currentDebugMIPS, condition.c_str(), compiledCondition)) {
+				req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
+				return false;
+			}
+		}
+		hasLogFormat = req.HasParam("logFormat");
+		if (hasLogFormat) {
+			if (!req.ParamString("logFormat", &logFormat))
+				return false;
+		}
+
+		return true;
+	}
+
+	void Apply() {
+		if (hasCondition && !condition.empty()) {
+			BreakPointCond cond;
+			cond.debug = currentDebugMIPS;
+			cond.expressionString = condition;
+			cond.expression = compiledCondition;
+			g_breakpoints.ChangeRegBreakpointAddCond(reg, cond);
+		} else if (hasCondition && condition.empty()) {
+			g_breakpoints.ChangeRegBreakpointRemoveCond(reg);
+		}
+
+		if (hasLogFormat) {
+			g_breakpoints.ChangeRegBreakpointLogFormat(reg, logFormat);
+		}
+
+		if (hasLog && !hasEnabled) {
+			RegBreakpoint bp;
+			if (g_breakpoints.GetRegBreakpoint(reg, &bp))
+				enabled = bp.IsEnabled();
+			hasEnabled = true;
+		}
+		if (hasLog && hasEnabled) {
+			BreakAction result = BREAK_ACTION_IGNORE;
+			if (log)
+				result |= BREAK_ACTION_LOG;
+			if (enabled)
+				result |= BREAK_ACTION_PAUSE;
+			g_breakpoints.ChangeRegBreakpoint(reg, result);
+		} else if (hasEnabled) {
+			g_breakpoints.ChangeRegBreakpoint(reg, enabled);
+		}
+	}
+};
+
+// Add a new register write breakpoint (cpu.regBreakpoint.add)
+//
+// Interpreter-only for now - see RegBreakpoint in Core/Debugger/Breakpoints.h. Has no effect
+// while running under a JIT backend (force the interpreter core, e.g. -i on the command line).
+//
+// Parameters:
+//  - register: unsigned integer 0-31 GPR index to break on write to. Ignored if name given.
+//  - name: string register name (e.g. "s3"), case-insensitive. Takes priority over 'register'.
+//  - enabled: optional boolean, whether to actually enter stepping when this breakpoint trips.
+//  - log: optional boolean, whether to log when this breakpoint trips.
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
+//  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
+//
+// Response (same event name) with no extra data.
+//
+// Note: will replace any register breakpoint already set on the same register.
+void WebSocketRegBreakpointAdd(DebuggerRequest &req) {
+	WebSocketRegBreakpointParams params;
+	if (!params.Parse(req))
+		return;
+
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.AddRegBreakpoint(params.reg);
+		params.Apply();
+	});
+	req.Respond();
+}
+
+// Update a register write breakpoint (cpu.regBreakpoint.update)
+//
+// Parameters: same as cpu.regBreakpoint.add.
+//
+// Response (same event name) with no extra data.
+void WebSocketRegBreakpointUpdate(DebuggerRequest &req) {
+	WebSocketRegBreakpointParams params;
+	if (!params.Parse(req))
+		return;
+
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	bool found = false;
+	Core_RunOnCPUThread([&] {
+		RegBreakpoint bp;
+		found = g_breakpoints.GetRegBreakpoint(params.reg, &bp);
+		if (found)
+			params.Apply();
+	});
+
+	if (!found)
+		return req.Fail("Breakpoint not found");
+	req.Respond();
+}
+
+// Remove a register write breakpoint (cpu.regBreakpoint.remove)
+//
+// Parameters:
+//  - register: unsigned integer 0-31 GPR index. Ignored if name given.
+//  - name: string register name (e.g. "s3"), case-insensitive. Takes priority over 'register'.
+//
+// Response (same event name) with no extra data.
+void WebSocketRegBreakpointRemove(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+
+	int reg;
+	if (!ParseRegBreakpointReg(req, &reg))
+		return;
+
+	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.RemoveRegBreakpoint(reg);
+	});
+	req.Respond();
+}
+
+// List all register write breakpoints (cpu.regBreakpoint.list)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - breakpoints: array of objects, each with properties:
+//     - register: unsigned integer 0-31 GPR index.
+//     - name: string register name (e.g. "s3").
+//     - enabled: boolean, whether to actually enter stepping when this breakpoint trips.
+//     - log: boolean, whether to log when this breakpoint trips.
+//     - hits: unsigned integer, number of times this breakpoint has tripped (regardless of
+//       whether it paused - i.e. even with enabled false, if log is true.)
+//     - condition: null, or string expression to evaluate - breakpoint does not trip if false.
+//     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
+void WebSocketRegBreakpointList(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+
+	// Route the breakpoint reads to the CPU thread instead of poking at them directly from this
+	// WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		JsonWriter &json = req.Respond();
+		json.pushArray("breakpoints");
+		std::vector<RegBreakpoint> bps = g_breakpoints.GetRegBreakpoints();
+		for (const RegBreakpoint &bp : bps) {
+			json.pushDict();
+			json.writeInt("register", bp.reg);
+			json.writeString("name", MIPSDebugInterface::GetRegName(0, bp.reg));
+			json.writeBool("enabled", bp.IsEnabled());
+			json.writeBool("log", (bp.result & BREAK_ACTION_LOG) != 0);
+			json.writeUint("hits", bp.numHits);
+			if (bp.hasCond)
+				json.writeString("condition", bp.cond.expressionString);
+			else
+				json.writeNull("condition");
+			if (!bp.logFormat.empty())
+				json.writeString("logFormat", bp.logFormat);
+			else
+				json.writeNull("logFormat");
 
 			json.pop();
 		}

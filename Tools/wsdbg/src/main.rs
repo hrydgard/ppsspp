@@ -7,6 +7,7 @@
 //   wsdbg 12345 game.status            # one-shot: send an event, print responses, exit
 //   wsdbg 12345 cpu.setReg thread=0 name=0 value=42
 
+use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -15,10 +16,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
+use base64::Engine as _;
 use clap::Parser;
 use tungstenite::client::IntoClientRequest;
 use tungstenite::http::HeaderValue;
 use tungstenite::{Message, WebSocket};
+
+// name -> (address, as the user typed it - not reparsed, just echoed back for display; bytes).
+type Snapshots = HashMap<String, (String, Vec<u8>)>;
 
 const SUBPROTOCOL: &str = "debugger.ppsspp.org";
 
@@ -56,12 +61,96 @@ struct Args {
     /// Send this raw JSON text instead of building one from event/params (one-shot mode).
     #[arg(long)]
     raw: Option<String>,
+
+    /// REPL mode only: after sending a command, block until its ticketed response arrives
+    /// (and, for cpu.resume/cpu.step*/cpu.runUntil, until the following cpu.stepping broadcast
+    /// too) before reading the next input line. Turns a scripted sequence like
+    /// "(echo cmd1; sleep 1; echo cmd2; ...)" into "(echo cmd1; echo cmd2; ...)" - no more
+    /// guessing how long each step takes. All messages still print as they arrive; this only
+    /// changes when the *next* line gets read. Has no effect on one-shot mode (event/--raw),
+    /// which already waits up to --wait seconds for everything regardless.
+    #[arg(long)]
+    sync: bool,
+
+    /// With --sync, how long to wait for a command's response (and, for resume/step commands,
+    /// the following cpu.stepping) before giving up and reading the next line anyway, in
+    /// seconds. A breakpoint that never trips (bad condition, wrong address, etc.) would
+    /// otherwise hang the script forever.
+    #[arg(long, default_value_t = 30.0)]
+    sync_timeout: f64,
 }
+
+// Events that mean "let the CPU run" - after their own ticketed response comes back, --sync
+// also waits for the *next* cpu.stepping broadcast (which has no ticket of its own), since
+// that's the actual "it stopped again" signal any script issuing one of these actually wants.
+const RESUME_FAMILY: &[&str] = &[
+    "cpu.resume",
+    "cpu.stepInto",
+    "cpu.stepOver",
+    "cpu.stepOut",
+    "cpu.runUntil",
+    "cpu.nextHLE",
+];
 
 static TICKET: AtomicU64 = AtomicU64::new(1);
 
 fn next_ticket() -> u64 {
     TICKET.fetch_add(1, Ordering::Relaxed)
+}
+
+// A minimal shell-like tokenizer: splits on unquoted whitespace, and lets 'single' or "double"
+// quotes protect spaces (and each other) from being treated as a separator - e.g.
+// `logFormat="job func v0={v0} a0={a0}"` becomes one token, not four bogus ones that
+// build_event_json would silently misparse as extra, malformed key=value pairs (or fail on
+// outright). Quote characters are stripped from the resulting token, same as a normal shell; a
+// backslash escapes the very next character (including inside quotes), which is enough for this
+// tool's purposes without pulling in a full shell-parsing crate.
+fn split_shell_words(line: &str) -> Result<Vec<String>> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut in_word = false;
+    let mut quote: Option<char> = None;
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        match quote {
+            Some(q) => {
+                if c == '\\' && chars.peek().is_some() {
+                    current.push(chars.next().unwrap());
+                } else if c == q {
+                    quote = None;
+                } else {
+                    current.push(c);
+                }
+            }
+            None => {
+                if c == '\'' || c == '"' {
+                    quote = Some(c);
+                    in_word = true;
+                } else if c == '\\' && chars.peek().is_some() {
+                    current.push(chars.next().unwrap());
+                    in_word = true;
+                } else if c.is_whitespace() {
+                    if in_word {
+                        words.push(std::mem::take(&mut current));
+                        in_word = false;
+                    }
+                } else {
+                    current.push(c);
+                    in_word = true;
+                }
+            }
+        }
+    }
+
+    if quote.is_some() {
+        return Err(anyhow!("Unterminated quote in command line"));
+    }
+    if in_word {
+        words.push(current);
+    }
+
+    Ok(words)
 }
 
 fn parse_value(raw: &str) -> serde_json::Value {
@@ -149,31 +238,250 @@ fn print_help() {
     println!("    cpu.setReg thread=0 name=4 value=1000");
     println!("Or paste a full JSON message starting with '{{' to send it verbatim.");
     println!("A numeric 'ticket' is auto-assigned to shorthand commands so you can match up responses.");
-    println!(":help            show this message");
-    println!(":quit / :q       disconnect and exit");
+    println!(":help                              show this message");
+    println!(":quit / :q                         disconnect and exit");
+    println!(":snapshot <name> <addr> <size>     memory.read into a locally-named byte buffer");
+    println!(":snapshots                         list saved snapshots");
+    println!(":diff <name1> <name2>              byte-compare two snapshots");
     println!("See docs/WebSocketDebugger.md in the ppsspp repo for the full event catalog.");
+    println!("Piping a script in? Pass --sync so each line waits for its response (and, for");
+    println!("cpu.resume/step*/runUntil, the following cpu.stepping) before the next line runs -");
+    println!("no more guessing sleep durations.");
 }
 
-fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<()> {
-    let json_text = if line.starts_with('{') {
-        line.to_string()
-    } else {
-        let mut parts = line.split_whitespace();
-        let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
-        let rest: Vec<String> = parts.map(|s| s.to_string()).collect();
-        let ticket = next_ticket();
-        let json_text = build_event_json(event, &rest, Some(ticket))?;
-        println!("-> (ticket {ticket}) {json_text}");
-        socket.send(Message::Text(json_text.into()))?;
-        return Ok(());
+// Returns the (ticket, event name) sent, when known - used by --sync to know what response to
+// wait for. Both are recoverable for a plain "{...}" JSON paste too, as long as it includes
+// "ticket"/"event" fields itself; if it doesn't (or ticket isn't a plain integer), --sync has
+// nothing to wait on and just proceeds to the next line immediately, same as without --sync.
+fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Option<(u64, String)>> {
+    if line.starts_with('{') {
+        println!("-> {line}");
+        socket.send(Message::Text(line.to_string().into()))?;
+        let parsed: serde_json::Value = serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
+        let ticket = parsed.get("ticket").and_then(|t| t.as_u64());
+        let event = parsed.get("event").and_then(|e| e.as_str()).map(|s| s.to_string());
+        return Ok(ticket.zip(event));
+    }
+
+    let mut parts = split_shell_words(line)?.into_iter();
+    let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
+    let rest: Vec<String> = parts.collect();
+    let ticket = next_ticket();
+    let json_text = build_event_json(&event, &rest, Some(ticket))?;
+    println!("-> (ticket {ticket}) {json_text}");
+    socket.send(Message::Text(json_text.into()))?;
+    Ok(Some((ticket, event)))
+}
+
+// --sync support: after sending a command, read (and print, same as the normal loop) incoming
+// messages until we've seen what that command actually completes with, or sync_timeout runs
+// out. Returns to the normal loop either way; a timeout just means the next line gets read
+// without having waited further.
+//
+// RESUME_FAMILY events (cpu.resume/step*/runUntil/nextHLE) are documented as having "no
+// immediate response" at all - their handlers never call req.Respond(), only req.Fail() on
+// error, so on success the *only* message that ever comes back is the unticketed cpu.stepping
+// broadcast once the CPU actually stops again. Waiting for a ticketed ack for these would hang
+// until the timeout every time, so don't - wait for cpu.stepping instead. Everything else uses
+// the normal ticketed request/response pair.
+fn wait_for_sync_response(socket: &mut WebSocket<TcpStream>, ticket: u64, event: &str, timeout_secs: f64) {
+    let wants_stepping = RESUME_FAMILY.contains(&event);
+    // wants_stepping: there's no ticketed response to wait for at all (see doc comment above),
+    // so treat "got_ticket" as trivially satisfied and only really wait on got_stepping. The
+    // reverse for every other event: no cpu.stepping is expected, only the ticketed response.
+    let mut got_ticket = wants_stepping;
+    let mut got_stepping = !wants_stepping;
+    let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
+
+    while Instant::now() < deadline && !(got_ticket && got_stepping) {
+        match socket.read() {
+            Ok(Message::Text(text)) => {
+                print_incoming(&text);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if !wants_stepping && v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+                        got_ticket = true;
+                    }
+                    if wants_stepping && v.get("event").and_then(|e| e.as_str()) == Some("cpu.stepping") {
+                        got_stepping = true;
+                    }
+                }
+            }
+            Ok(Message::Close(frame)) => {
+                println!("\n[connection closed by PPSSPP: {frame:?}]");
+                return;
+            }
+            Ok(_) => {}
+            Err(ref e) if is_would_block(e) => {}
+            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                println!("\n[connection closed]");
+                return;
+            }
+            Err(e) => {
+                eprintln!("\n[connection error: {e}]");
+                return;
+            }
+        }
+    }
+    if !(got_ticket && got_stepping) {
+        eprintln!("! --sync: timed out after {timeout_secs}s waiting for a response, continuing anyway");
+    }
+}
+
+// Send a ticketed request and block until its response arrives (or timeout), returning the
+// parsed JSON. Unlike the normal REPL dispatch (fire-and-forget, or --sync's "wait but don't
+// look at the payload"), :snapshot needs the actual returned data before it can do anything -
+// there's no useful way to "move on to the next input line" first.
+fn send_and_wait(
+    socket: &mut WebSocket<TcpStream>,
+    event: &str,
+    params: &[String],
+    timeout_secs: f64,
+) -> Result<serde_json::Value> {
+    let ticket = next_ticket();
+    let json_text = build_event_json(event, params, Some(ticket))?;
+    println!("-> (ticket {ticket}) {json_text}");
+    socket.send(Message::Text(json_text.into()))?;
+
+    let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
+    while Instant::now() < deadline {
+        match socket.read() {
+            Ok(Message::Text(text)) => {
+                print_incoming(&text);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+                        return Ok(v);
+                    }
+                }
+            }
+            Ok(Message::Close(frame)) => return Err(anyhow!("connection closed by PPSSPP: {frame:?}")),
+            Ok(_) => {}
+            Err(ref e) if is_would_block(e) => {}
+            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                return Err(anyhow!("connection closed"));
+            }
+            Err(e) => return Err(anyhow!("connection error: {e}")),
+        }
+    }
+    Err(anyhow!("timed out after {timeout_secs}s waiting for a response"))
+}
+
+// :snapshot <name> <address> <size> - reads memory.read once (blocking, unlike the rest of the
+// REPL) and stores the decoded bytes locally under <name>. address/size are passed through to
+// the server exactly as typed (same as any other event param - the server already accepts
+// "0x..." hex strings for address-like fields), not reparsed here.
+//
+// Kept entirely client-side rather than as a new PPSSPP-side memory.snapshot.* event: a
+// snapshot is a debugging-*session*-scoped concept (how long should the emulator hold onto one?
+// does it survive a savestate load or game restart? does it leak if a script forgets to clean
+// up?) with no real emulator-side meaning, and memory.read's existing base64 response is already
+// the only primitive actually needed - no new protocol surface required.
+fn cmd_snapshot(socket: &mut WebSocket<TcpStream>, snapshots: &mut Snapshots, args: &[&str], timeout_secs: f64) {
+    if args.len() != 3 {
+        eprintln!("! Usage: :snapshot <name> <address> <size>");
+        return;
+    }
+    let name = args[0];
+    let params = vec![format!("address={}", args[1]), format!("size={}", args[2])];
+    match send_and_wait(socket, "memory.read", &params, timeout_secs) {
+        Ok(resp) => {
+            if resp.get("event").and_then(|e| e.as_str()) == Some("error") {
+                let msg = resp.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error");
+                eprintln!("! memory.read failed: {msg}");
+                return;
+            }
+            let b64 = match resp.get("base64").and_then(|b| b.as_str()) {
+                Some(b) => b,
+                None => {
+                    eprintln!("! Response had no 'base64' field: {resp}");
+                    return;
+                }
+            };
+            match base64::engine::general_purpose::STANDARD.decode(b64) {
+                Ok(bytes) => {
+                    let len = bytes.len();
+                    snapshots.insert(name.to_string(), (args[1].to_string(), bytes));
+                    println!("snapshot '{name}' saved: {len} bytes at {}", args[1]);
+                }
+                Err(e) => eprintln!("! Could not decode base64 response: {e}"),
+            }
+        }
+        Err(e) => eprintln!("! {e}"),
+    }
+}
+
+// :snapshots - list what's been captured so far in this session.
+fn cmd_list_snapshots(snapshots: &Snapshots) {
+    if snapshots.is_empty() {
+        println!("No snapshots saved. Use :snapshot <name> <address> <size> to take one.");
+        return;
+    }
+    let mut names: Vec<&String> = snapshots.keys().collect();
+    names.sort();
+    for name in names {
+        let (addr, bytes) = &snapshots[name];
+        println!("  {name}: {} bytes at {addr}", bytes.len());
+    }
+}
+
+// :diff <name1> <name2> - byte-compare two snapshots and print each differing run as
+// "+offset (N bytes): old_hex -> new_hex". Replaces the throwaway PowerShell/Bash diffing this
+// was needed for by hand at least twice during the VSH boot investigation (see
+// docs/VSHBootInvestigation.md) with one correct implementation.
+fn cmd_diff(snapshots: &Snapshots, args: &[&str]) {
+    if args.len() != 2 {
+        eprintln!("! Usage: :diff <name1> <name2>");
+        return;
+    }
+    let Some((addr1, bytes1)) = snapshots.get(args[0]) else {
+        eprintln!("! No snapshot named '{}' (see :snapshots)", args[0]);
+        return;
+    };
+    let Some((addr2, bytes2)) = snapshots.get(args[1]) else {
+        eprintln!("! No snapshot named '{}' (see :snapshots)", args[1]);
+        return;
     };
 
-    println!("-> {json_text}");
-    socket.send(Message::Text(json_text.into()))?;
-    Ok(())
+    let len = bytes1.len().min(bytes2.len());
+    if bytes1.len() != bytes2.len() {
+        println!(
+            "'{}' ({} bytes at {addr1}) and '{}' ({} bytes at {addr2}) differ in size - comparing the first {len} bytes",
+            args[0], bytes1.len(), args[1], bytes2.len()
+        );
+    }
+
+    const MAX_RUNS: usize = 50;
+    let mut runs = 0usize;
+    let mut i = 0usize;
+    while i < len {
+        if bytes1[i] == bytes2[i] {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < len && bytes1[i] != bytes2[i] {
+            i += 1;
+        }
+        runs += 1;
+        if runs <= MAX_RUNS {
+            let old_hex: Vec<String> = bytes1[start..i].iter().map(|b| format!("{b:02x}")).collect();
+            let new_hex: Vec<String> = bytes2[start..i].iter().map(|b| format!("{b:02x}")).collect();
+            let count = i - start;
+            println!(
+                "  +{start:#06x} ({count} byte{}): {} -> {}",
+                if count == 1 { "" } else { "s" },
+                old_hex.join(" "),
+                new_hex.join(" ")
+            );
+        }
+    }
+    if runs == 0 {
+        println!("'{}' and '{}' are identical (first {len} bytes)", args[0], args[1]);
+    } else if runs > MAX_RUNS {
+        println!("  ... and {} more differing run(s)", runs - MAX_RUNS);
+    }
 }
 
-fn run_repl(mut socket: WebSocket<TcpStream>) -> Result<()> {
+fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> Result<()> {
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(100)))?;
 
     // Politely say hello, per protocol convention (see WebSocket/GameSubscriber.cpp).
@@ -207,19 +515,33 @@ fn run_repl(mut socket: WebSocket<TcpStream>) -> Result<()> {
     print!("> ");
     io::stdout().flush().ok();
 
+    let mut snapshots: Snapshots = Snapshots::new();
+
     loop {
         match rx.try_recv() {
             Ok(line) => {
                 let line = line.trim();
-                match line {
-                    ":quit" | ":q" | ":exit" => return Ok(()),
-                    ":help" | ":h" => print_help(),
-                    "" => {}
-                    _ => {
-                        if let Err(e) = handle_repl_line(&mut socket, line) {
-                            eprintln!("! {e}");
-                        }
+                let mut words = line.split_whitespace();
+                match words.next() {
+                    Some(":quit") | Some(":q") | Some(":exit") => return Ok(()),
+                    Some(":help") | Some(":h") => print_help(),
+                    Some(":snapshot") => {
+                        let args: Vec<&str> = words.collect();
+                        cmd_snapshot(&mut socket, &mut snapshots, &args, sync_timeout);
                     }
+                    Some(":snapshots") => cmd_list_snapshots(&snapshots),
+                    Some(":diff") => {
+                        let args: Vec<&str> = words.collect();
+                        cmd_diff(&snapshots, &args);
+                    }
+                    None => {}
+                    _ => match handle_repl_line(&mut socket, line) {
+                        Err(e) => eprintln!("! {e}"),
+                        Ok(Some((ticket, event))) if sync => {
+                            wait_for_sync_response(&mut socket, ticket, &event, sync_timeout);
+                        }
+                        Ok(_) => {}
+                    },
                 }
                 print!("> ");
                 io::stdout().flush().ok();
@@ -270,5 +592,5 @@ fn main() -> Result<()> {
         return run_one_shot(socket, json_text, args.wait);
     }
 
-    run_repl(socket)
+    run_repl(socket, args.sync, args.sync_timeout)
 }

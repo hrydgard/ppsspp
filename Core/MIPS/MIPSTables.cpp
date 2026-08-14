@@ -368,23 +368,27 @@ static const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ...........
 
 static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 {
-	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),  // unused
+	// Dummy interpreter-only implementations (Int_Cop0, Interpreter.cpp) - real hardware
+	// semantics aren't modeled, just enough to not fault. Ordinary user-mode PSP code never
+	// executes these; kernel-mode boot code (flash0:/reboot.bin) does. See
+	// docs/VSHBootInvestigation.md.
+	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, 0, IN_RT),  // unused
+	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	INVALID,
 	INVALID,
 	//8
 	INVALID,
 	INVALID,
-	INSTR("rdpgpr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
-	INSTR("mfmc0", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("rdpgpr", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
+	INSTR("mfmc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 
 	INVALID,
 	INVALID,
-	INSTR("wrpgpr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("wrpgpr", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	//16
 	ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO),
@@ -1138,9 +1142,24 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 }
 
 #define _RS(op)   ((op>>21) & 0x1F)
+// Returns the 0-31 GPR index an instruction is about to write, or -1 if it doesn't write a GPR.
+// OUT_RA is always $ra (31) - jal/bltzal/bgezal/etc. have no encoded destination register field,
+// unlike jalr (which uses OUT_RD, since its destination is chosen via the rd field).
+static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op) {
+	if (instr->flags & OUT_RT)
+		return (op >> 16) & 0x1F;
+	if (instr->flags & OUT_RD)
+		return (op >> 11) & 0x1F;
+	if (instr->flags & OUT_RA)
+		return 31;
+	return -1;
+}
+
 static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
+	// Bit i set means register i has an active register breakpoint - see GetRegBreakpointMask().
+	u32 regBPMask = g_breakpoints.GetRegBreakpointMask();
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		// Don't stop in a delay slot! Well, unless we hit a memcheck in one, of course.
 		do {
@@ -1152,11 +1171,19 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 			// Replacements and similar are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
-			// Check for breakpoint
+			// Check for breakpoint. Route through ExecBreakPoint() (also used by the JIT
+			// backends and the IR interpreter, via JitBreakpoint()/IRRunBreakpoint()) rather
+			// than breaking unconditionally - it's what actually respects BREAK_ACTION_LOG vs
+			// BREAK_ACTION_PAUSE (a log-only breakpoint, added with log=true and no/false
+			// enabled, must not stop execution here). The old code called Core_Break()
+			// directly whenever IsAddressBreakPoint() was true - true for *any* non-ignored
+			// breakpoint, log-only included - so log-only address breakpoints always paused
+			// too, contradicting their own documented behavior.
 			if (hasBPs && g_breakpoints.IsAddressBreakPoint(mips->pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
-				auto cond = g_breakpoints.GetBreakPointCondition(mips->pc);
-				if (!cond || cond->Evaluate()) {
-					Core_Break(BreakReason::CpuBreakpoint, mips->pc);
+				g_breakpoints.ExecBreakPoint(mips->pc);
+				// If it tripped, bail without running - same convention as memchecks/reg
+				// breakpoints below.
+				if (coreState == CORE_STEPPING_CPU) {
 					if (g_breakpoints.IsTempBreakPoint(mips->pc))
 						g_breakpoints.RemoveBreakPoint(mips->pc);
 					break;
@@ -1176,6 +1203,15 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				// If it tripped, bail without running.
 				if (coreState == CORE_STEPPING_CPU)
 					break;
+			}
+			if (regBPMask != 0 && (instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc) {
+				int regTarget = GetGPRWriteTarget(instr, op);
+				if (regTarget >= 0 && (regBPMask & (1u << regTarget)) != 0) {
+					g_breakpoints.ExecRegBreakpoint(regTarget, mips->pc);
+					// If it tripped, bail without running - same convention as memchecks above.
+					if (coreState == CORE_STEPPING_CPU)
+						break;
+				}
 			}
 
 			bool wasInDelaySlot = mips->inDelaySlot;
@@ -1200,7 +1236,7 @@ int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 		CoreTiming::Advance(mips);
 
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(mips);
-		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || ticksLeft <= mips->downcount) {
+		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || g_breakpoints.HasRegBreakpoints() || ticksLeft <= mips->downcount) {
 			RunUntilDowncountZeroWithChecks(mips, globalTicks);
 		} else {
 			RunUntilDowncountZeroFast(mips);

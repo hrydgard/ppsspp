@@ -664,6 +664,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket/GameBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/GameSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GPUBufferSubscriber.cpp \
+  $(SRC)/Core/Debugger/WebSocket/GPUDisasmSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GPURecordSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GPUStatsSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/HLESubscriber.cpp \
