@@ -24,6 +24,7 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUDisasmSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUStatsSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\HLEKernelObjectSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\HLESubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\InputBroadcaster.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\InputSubscriber.cpp" />
@@ -443,6 +444,7 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUDisasmSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUStatsSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\HLEKernelObjectSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\HLESubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\InputSubscriber.h" />

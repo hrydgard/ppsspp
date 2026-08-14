@@ -667,6 +667,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket/GPUDisasmSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GPURecordSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GPUStatsSubscriber.cpp \
+  $(SRC)/Core/Debugger/WebSocket/HLEKernelObjectSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/HLESubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/InputBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/InputSubscriber.cpp \

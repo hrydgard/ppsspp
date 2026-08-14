@@ -117,6 +117,7 @@ file - this is just an index.
 | GE display list disassembly | `gpu.displaylist.disasm` - like `memory.disasm` but for GE command words (`CLEARMODE`, `PRIM`, etc.) instead of CPU instructions; also supports `compact=true` | `GPUDisasmSubscriber.cpp` |
 | HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.module.saveSymbols/loadSymbols` (save/load one module's symbols to/from its standard `PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym` file, shared across any game that loads the same module - see `SymbolMap::GetModuleSymbolsPath`), `hle.backtrace` | `HLESubscriber.cpp` |
 | Data symbols | `hle.data.list/add/remove/rename` - label discovered data (structs, tables, buffers) with a name/type, same idea as `hle.func.*` but for `ST_DATA` symbols | `HLESubscriber.cpp` |
+| Kernel objects | `hle.object.list` (every live kernel object of every type at once, with an optional `type` filter - uid/type/name/one-line summary only); `hle.eventflag.list/info`, `hle.mutex.list/info`, `hle.semaphore.list/info`, `hle.msgpipe.list/info`, `hle.callback.list/info` (per-type full detail, including waiting-thread lists) - all read-only, never mutate kernel state | `HLEKernelObjectSubscriber.cpp` |
 | GPU stats | `gpu.stats.get`, `gpu.stats.feed` | `GPUStatsSubscriber.cpp` |
 | GPU recording | `gpu.record.dump` | `GPURecordSubscriber.cpp` |
 | GPU buffers | `gpu.buffer.screenshot`, `gpu.buffer.renderColor/renderDepth/renderStencil`, `gpu.buffer.texture`, `gpu.buffer.clut` | `GPUBufferSubscriber.cpp` |

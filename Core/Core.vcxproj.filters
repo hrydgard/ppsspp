@@ -754,6 +754,9 @@
     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\HLEKernelObjectSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -2029,6 +2032,9 @@
       <Filter>HLE\Kernel</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\HLEKernelObjectSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h">
