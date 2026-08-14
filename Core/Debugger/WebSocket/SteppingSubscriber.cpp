@@ -291,7 +291,23 @@ uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
 void WebSocketSteppingState::PrepareResume() {
 	if (currentMIPS->inDelaySlot) {
 		// Delay slot instructions are never joined, so we pass 1.
-		Core_RequestCPUStep(CPUStepType::Into, 1);
+		//
+		// This must happen synchronously, not via Core_RequestCPUStep(): that only queues the
+		// step for Core_ProcessStepping() to perform later (on the next iteration of the normal
+		// stepping-mode loop), while every caller of PrepareResume() immediately inspects
+		// currentMIPS->pc/inDelaySlot right after this returns to decide whether to add a
+		// breakpoint and call Core_Resume(). Core_Resume() itself sets coreState back to
+		// CORE_RUNNING_CPU, which makes Core_ProcessStepping() skip its pending-step check
+		// entirely - so the queued step was not just late, it was silently dropped, leaving
+		// g_cpuStepCommand permanently set until the next Core_Break() reset it. Any stepping
+		// request issued by the debugger client in that window (e.g. a script or fast-clicking
+		// UI immediately re-stepping instead of waiting for a fresh cpu.stepping event) hit
+		// Core_RequestCPUStep()'s "Can't submit two steps in one host frame" guard and got
+		// silently ignored - the "step-out sometimes just doesn't do anything" flakiness this
+		// was found while tracking down. PrepareResume() is only ever called from within a
+		// Core_RunOnCPUThread() callback (Into/Over/Out/RunUntil/HLE below), so it's always
+		// already running on the CPU thread - safe to single-step directly instead of queuing.
+		currentMIPS->SingleStep();
 	} else {
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);
