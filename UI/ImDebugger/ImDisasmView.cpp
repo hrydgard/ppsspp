@@ -440,7 +440,7 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 	ImGui_PopFont();
 
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
-	PopupMenu(control);
+	PopupMenu(currentMIPS, control);
 
 	drawList->PopClipRect();
 }
@@ -735,7 +735,7 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	}
 }
 
-void ImDisasmView::PopupMenu(ImControl &control) {
+void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
 		ImGui::Text("Address: %08x", curAddress_);
@@ -1218,6 +1218,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	BreakReason breakReason = Core_BreakReason();
 	ImGui::SameLine();
 	ImGui::TextUnformatted(BreakReasonToString(breakReason));
+
+	// Now, the address info line.
+	char addrDesc[256];
+	DescribeAddress(mipsDebug, disasmView_.getSelection(), addrDesc, sizeof(addrDesc));
+	ImGui::Text("%08x: %s", disasmView_.getSelection(), addrDesc);
 
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	avail.y -= ImGui::GetTextLineHeightWithSpacing();

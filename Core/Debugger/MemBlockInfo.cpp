@@ -26,10 +26,12 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Text/StringWriter.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/HLE/sceKernelModule.h"  // for DescribeAddress
 #include "Core/MIPS/MIPS.h"
 #include "Common/StringUtils.h"
 
@@ -781,4 +783,35 @@ void MemBlockReleaseDetailed() {
 
 bool MemBlockInfoDetailed() {
 	return g_Config.bDebugMemInfoDetailed || detailedOverride != 0;
+}
+
+void DescribeAddress(const MIPSDebugInterface *mips, u32 address, char *buffer, size_t bufferSize) {
+	StringWriter w(buffer, bufferSize);
+	const char *kernel = (address & 0x80000000) ? " (kernel)" : "";
+	const char *uncached = (address & 0x40000000) ? " (uncached)" : "";
+	char desc[512];
+	if (!Memory::IsValidAddress(address)) {
+		if (address == 0xdeadbeef) {
+			w.C("(deadbeef)");
+		} else {
+			w.C("(invalid)");
+		}
+	} else if (DescribeModuleAddress(address, desc, sizeof(desc))) {
+		std::string temp = mips->getDescription(address);
+		w.F("[%s]%s%s: %s", desc, kernel, uncached, temp.c_str());
+	} else if (Memory::IsVRAMAddress(address)) {
+		w.F("[VRAM]%s", uncached);  // can't be kernel
+	} else if (Memory::IsScratchpadAddress(address)) {
+		w.F("[SCRATCH]%s%s", kernel, uncached);
+	} else {
+		// Look up in the memory tracker.
+		w.F("[RAM]%s%s ", kernel, uncached);
+		const std::vector<MemBlockInfo> memInfo = FindMemInfo(address, 4);
+		for (const auto &info : memInfo) {
+			w.F("%s, ", info.tag.c_str());
+		}
+		if (!memInfo.empty()) {
+			w.Rewind(2);  // Remove the last comma
+		}
+	}
 }

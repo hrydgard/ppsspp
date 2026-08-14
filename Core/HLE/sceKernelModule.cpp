@@ -307,11 +307,17 @@ void PSPModule::ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 		return;
 	}
 
-	DEBUG_LOG(Log::Loader, "Importing %s : %08x", GetHLEFuncName(func.moduleName, func.nid), func.stubAddr);
+	const char *funcName = GetHLEFuncName(func.moduleName, func.nid);
+	char temp[256];
+	if (funcName) {
+		snprintf(temp, sizeof(temp), "zz_%s", funcName);
+	} else {
+		snprintf(temp, sizeof(temp), "zz_%s_%08x", func.moduleName, func.nid);
+	}
+
+	DEBUG_LOG(Log::Loader, "Importing %s : %08x", temp, func.stubAddr);
 
 	// Add the symbol to the symbol map for debugging.
-	char temp[256];
-	snprintf(temp, sizeof(temp), "zz_%s", GetHLEFuncName(func.moduleName, func.nid));
 	g_symbolMap->AddFunction(temp, func.stubAddr, 8);
 
 	// Keep track and actually hook it up if possible.
@@ -676,7 +682,13 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	// Prioritize HLE implementations, if we should HLE this.
 	if (shouldHLE && GetHLEFunc(func.moduleName, func.nid)) {
 		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
-			WARN_LOG(Log::Loader, "Reimporting updated syscall %s", GetHLEFuncName(func.moduleName, func.nid));
+			const char *name = GetHLEFuncName(func.moduleName, func.nid);
+			char temp[256];
+			if (temp) {
+				WARN_LOG(Log::Loader, "Reimporting updated syscall from %s: %s", func.moduleName, name);
+			} else {
+				WARN_LOG(Log::Loader, "Reimporting updated syscall from %s: zz_%08x", func.moduleName, func.nid);
+			}
 		}
 		// TODO: There's some double lookup going on here (we already did the lookup in GetHLEFunc above).
 		WriteHLESyscall(func.moduleName, func.nid, func.stubAddr);
@@ -2652,7 +2664,7 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	return hleNoLog(0);
 }
 
-bool DescribeKernelModuleAddress(u32 address, char *buffer, size_t bufferSize) {
+bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize) {
 	u32 error;
 	for (SceUID moduleId : loadedModules) {
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);

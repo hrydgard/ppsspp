@@ -323,7 +323,7 @@ std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frame
 		const u32 frameEntry = frame.entry == 0xFFFFFFFF ? 0 : frame.entry;
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
 		char moduleDesc[96];
-		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
+		if (DescribeModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
 			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		} else {
 			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);

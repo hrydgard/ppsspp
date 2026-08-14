@@ -16,6 +16,8 @@
 struct ImConfig;
 struct ImControl;
 
+class MIPSState;
+
 // Corresponds to CtrlDisAsmView
 // TODO: Fold out common code.
 class ImDisasmView {
@@ -28,7 +30,7 @@ public:
 
 	void Draw(ImDrawList *drawList, ImControl &control);
 
-	void PopupMenu(ImControl &control);
+	void PopupMenu(MIPSState *mips, ImControl &control);
 	void NotifyStep();
 
 	void ScrollRelative(int amount);

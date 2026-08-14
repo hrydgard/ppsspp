@@ -1086,7 +1086,7 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
-static inline void Interpret(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
+static inline void InterpretInstruction(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
 	if (instr && instr->interpret) {
 		instr->interpret(mips, op);
 	} else {
@@ -1095,14 +1095,12 @@ static inline void Interpret(MIPSState *mips, const MIPSInstruction *instr, MIPS
 }
 
 inline int GetInstructionCycleEstimate(const MIPSInstruction *instr) {
-	if (instr)
-		return instr->flags.cycles;
-	return 1;
+	return instr ? instr->flags.cycles : 1;
 }
 
 void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	Interpret(mips, instr, op);
+	InterpretInstruction(mips, instr, op);
 }
 
 // See the declaration comment in MIPSTables.h.
@@ -1110,24 +1108,27 @@ void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
 	MIPSInterpret(currentMIPS, op);
 }
 
+// This is the fast runloop for the interpreter.
+// When making changes, always make sure it's in sync with the fallback loop, RunUntilDowncountZeroWithChecks, which is
+// far less efficient but supports breakpoints of all kinds etc.
 static void RunUntilDowncountZeroFast(MIPSState *mips) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		// Don't stop in a delay slot!
 		int cycleCount = 0;
+		// Don't stop in a delay slot!
 		do {
 			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
+			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
 
-			bool wasInDelaySlot = mips->inDelaySlot;
-			int cycles = ExecInstruction(mips, op);
+			const bool wasInDelaySlot = mips->inDelaySlot;
+			const int cycles = ExecInstruction(mips, op);
 			if (cycles < 0) {
 				// Not a recognized instruction (invalid encoding, or an unimplemented kernel-mode only instruction
 				// with no interpreter implementation, e.g. tge/tlt/teq/).
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
-				break;
+				return;
 			}
 			cycleCount += cycles;
 
@@ -1155,6 +1156,9 @@ static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op)
 	return -1;
 }
 
+// This is the slow, feature-rich runloop for the interpreter.
+// When making changes, always make sure it's in sync with the fast loop, RunUntilDowncountZeroFast, which is
+// much more efficient.
 static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	bool hasBPs = g_breakpoints.HasBreakPoints();
 	bool hasMCs = g_breakpoints.HasMemChecks();
@@ -1167,7 +1171,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
+			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
 			// Replacements and similar are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
@@ -1214,8 +1218,8 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				}
 			}
 
-			bool wasInDelaySlot = mips->inDelaySlot;
-			Interpret(mips, instr, op);
+			const bool wasInDelaySlot = mips->inDelaySlot;
+			InterpretInstruction(mips, instr, op);
 			mips->downcount -= GetInstructionCycleEstimate(instr);
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.

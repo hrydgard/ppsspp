@@ -65,7 +65,7 @@ public:
 			dropped.log = "Debugger";
 			GetCurrentTimeFormatted(dropped.timestamp);
 			truncate_cpy(dropped.header, "LogBroadcaster: ring buffer overflow");
-			dropped.msg = StringFromFormat("%d log message(s) dropped - client polling too slow for this volume\n", droppedCount);
+			dropped.msg = StringFromFormat("%d log message(s) dropped - loop polling too slow for this volume\n", droppedCount);
 			results.push_back(dropped);
 		}
 		int splitEnd = std::min(splitPoint + readCount, (int)BUFFER_SIZE);
