@@ -107,56 +107,23 @@ enum ThreadEventType {
 
 bool __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type);
 
-struct NativeCallback
+// NativeCallback/PSPCallback itself now live in sceKernelThread.h - see the comment on the class
+// there for why.
+void PSPCallback::DoState(PointerWrap &p)
 {
-	SceUInt_le size;
-	char name[32];
-	SceUID_le threadId;
-	u32_le entrypoint;
-	u32_le commonArgument;
+	auto s = p.Section("Callback", 1);
+	if (!s)
+		return;
 
-	s32_le notifyCount;
-	s32_le notifyArg;
-};
-
-class PSPCallback : public KernelObject {
-public:
-	const char *GetName() override { return nc.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "CallBack"; }
-
-	void GetQuickInfo(char *ptr, int size) override {
-		snprintf(ptr, size, "thread=%i, argument= %08x",
-			//hackAddress,
-			nc.threadId,
-			nc.commonArgument);
-	}
-
-	~PSPCallback() {
-	}
-
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_CBID; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Callback; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Callback; }
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Callback", 1);
-		if (!s)
-			return;
-
-		Do(p, nc);
-		// Saved values were moved to mips call, ignoring here.
-		u32 legacySaved = 0;
-		Do(p, legacySaved);
-		Do(p, legacySaved);
-		Do(p, legacySaved);
-		Do(p, legacySaved);
-		Do(p, legacySaved);
-	}
-
-	NativeCallback nc;
-};
+	Do(p, nc);
+	// Saved values were moved to mips call, ignoring here.
+	u32 legacySaved = 0;
+	Do(p, legacySaved);
+	Do(p, legacySaved);
+	Do(p, legacySaved);
+	Do(p, legacySaved);
+	Do(p, legacySaved);
+}
 
 // Owns outstanding MIPS calls and provides a way to get them by ID.
 class MipsCallManager {

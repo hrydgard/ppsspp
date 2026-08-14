@@ -39,45 +39,18 @@
 #define PSP_MUTEX_ATTR_ALLOW_RECURSIVE 0x200
 #define PSP_MUTEX_ATTR_KNOWN (PSP_MUTEX_ATTR_PRIORITY | PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
 
-struct NativeMutex
-{
-	SceSize_le size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt_le attr;
-	s32_le initialCount;
-	s32_le lockLevel;
-	SceUID_le lockThread;
-	// Not kept up to date.
-	s32_le numWaitThreads;
-};
+// NativeMutex/PSPMutex itself now live in sceKernelMutex.h - see the comment on the class there
+// for why.
+void PSPMutex::DoState(PointerWrap &p) {
+	auto s = p.Section("Mutex", 1);
+	if (!s)
+		return;
 
-struct PSPMutex : public KernelObject
-{
-	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "Mutex"; }
-	static u32 GetMissingErrorCode() { return SCE_MUTEX_ERROR_NO_SUCH_MUTEX; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Mutex", 1);
-		if (!s)
-			return;
-
-		Do(p, nm);
-		SceUID dv = 0;
-		Do(p, waitingThreads, dv);
-		Do(p, pausedWaits);
-	}
-
-	NativeMutex nm;
-	std::vector<SceUID> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, u64> pausedWaits;
-};
-
+	Do(p, nm);
+	SceUID dv = 0;
+	Do(p, waitingThreads, dv);
+	Do(p, pausedWaits);
+}
 
 struct NativeLwMutexWorkarea
 {

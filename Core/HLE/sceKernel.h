@@ -225,6 +225,20 @@ public:
 		}
 	}
 
+	// Like Iterate<T>(), but every live object regardless of type - only the base KernelObject
+	// interface (GetUID/GetTypeName/GetName/GetQuickInfo/...) is available on each. Used for a
+	// coarse "what's alive right now" overview across every kernel object kind at once, e.g. the
+	// WebSocket debugger's hle.object.list.
+	template <typename F>
+	void IterateAll(F func) {
+		for (int i = 0; i < maxCount; i++) {
+			if (!occupied[i])
+				continue;
+			if (!func(i + handleOffset, pool[i]))
+				break;
+		}
+	}
+
 	int ListIDType(int type, SceUID_le *uids, int count) const {
 		int total = 0;
 		for (int i = 0; i < maxCount; i++) {

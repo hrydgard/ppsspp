@@ -17,6 +17,54 @@
 
 #pragma once
 
+#include <map>
+#include <vector>
+
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/ErrorCodes.h"
+
+class PointerWrap;
+
+struct NativeSemaphore {
+	/** Size of the ::SceKernelSemaInfo structure. */
+	SceSize_le size;
+	/** NUL-terminated name of the semaphore. */
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	/** Attributes. */
+	SceUInt_le attr;
+	/** The initial count the semaphore was created with. */
+	s32_le initCount;
+	/** The current count. */
+	s32_le currentCount;
+	/** The maximum count. */
+	s32_le maxCount;
+	/** The number of threads waiting on the semaphore. */
+	s32_le numWaitThreads;
+};
+
+// Exposed here (rather than kept private to sceKernelSemaphore.cpp) so the WebSocket debugger
+// can read a live object's state directly via
+// kernelObjects.Get<PSPSemaphore>()/Iterate<PSPSemaphore>() - see HLEKernelObjectSubscriber.cpp.
+// That's a read-only use: nothing outside this file should call DoState() or otherwise mutate a
+// PSPSemaphore - it's public here for this file's own use as before, not an invitation to write
+// to it from elsewhere.
+struct PSPSemaphore : public KernelObject {
+	const char *GetName() override { return ns.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Semaphore"; }
+
+	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Semaphore; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Semaphore; }
+
+	void DoState(PointerWrap &p) override;
+
+	NativeSemaphore ns;
+	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, u64> pausedWaits;
+};
+
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr);
 int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr);
 int sceKernelDeleteSema(SceUID id);
