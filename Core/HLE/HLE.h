@@ -112,8 +112,11 @@ const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname);
 bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually = nullptr);
 bool ShouldHLEModuleByImportName(std::string_view importModuleName);
 
+// May return nullptr
 const char *GetHLEFuncName(std::string_view module, u32 nib);
+// May return nullptr if indices out of range.
 const char *GetHLEFuncName(int module, int func);
+
 const HLEModule *GetHLEModuleByName(std::string_view name);
 const HLEFunction *GetHLEFunc(std::string_view module, u32 nib);
 int GetHLEFuncIndexByNib(int moduleIndex, u32 nib);

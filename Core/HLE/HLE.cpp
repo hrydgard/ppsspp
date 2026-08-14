@@ -385,17 +385,11 @@ const HLEFunction *GetHLEFunc(std::string_view moduleName, u32 nib) {
 	return 0;
 }
 
-// WARNING: Not thread-safe!
 const char *GetHLEFuncName(std::string_view moduleName, u32 nib) {
 	_dbg_assert_msg_(!moduleName.empty(), "Invalid module name.");
 
 	const HLEFunction *func = GetHLEFunc(moduleName, nib);
-	if (func)
-		return func->name;
-
-	static char temp[64];
-	snprintf(temp, sizeof(temp), "[UNK: 0x%08x]", nib);
-	return temp;
+	return func ? func->name : nullptr;
 }
 
 const char *GetHLEFuncName(int moduleIndex, int func) {
@@ -913,7 +907,8 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 		std::string importModuleName, importingModuleName;
 		u32 nid = 0;
 		if (currentMIPS->pc >= 8 && KernelFindImportByStubAddr(currentMIPS->pc - 8, &importModuleName, &nid, &importingModuleName)) {
-			ERROR_LOG(Log::HLE, "Unknown syscall: unresolved import %s/%08x (%s), called from '%s'", importModuleName.c_str(), nid, GetHLEFuncName(importModuleName, nid), importingModuleName.c_str());
+			const char *funcName = GetHLEFuncName(importModuleName, nid);
+			ERROR_LOG(Log::HLE, "Unknown syscall: unresolved import %s/%08x (%s), called from '%s'", importModuleName.c_str(), nid, funcName ? funcName : "(unknown)", importingModuleName.c_str());
 		} else {
 			ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
 		}
