@@ -61,6 +61,11 @@ struct BreakPoint {
 	bool hasCond = false;
 	BreakPointCond cond;
 
+	// Matches MemCheck's numHits below - added after repeatedly needing to tell "is this
+	// breakpoint even being reached at all" from "it's reached but the log isn't showing up
+	// where I'm looking" during the VSH boot investigation (see docs/VSHBootInvestigation.md).
+	u32 numHits = 0;
+
 	bool IsEnabled() const {
 		return (result & BREAK_ACTION_PAUSE) != 0;
 	}

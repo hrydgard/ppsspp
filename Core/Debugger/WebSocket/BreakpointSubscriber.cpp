@@ -247,6 +247,9 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 //     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
 //     - symbol: null, or string label or symbol at breakpoint address.
 //     - code: string disassembly of breakpoint address.
+//     - hits: unsigned integer, how many times this breakpoint's address has been reached
+//       (and any condition passed) since it was added - useful for confirming a breakpoint is
+//       actually being reached at all, independently of whether log/enabled is set.
 void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -266,6 +269,7 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 			json.writeUint("address", bp.addr);
 			json.writeBool("enabled", bp.IsEnabled());
 			json.writeBool("log", (bp.result & BREAK_ACTION_LOG) != 0);
+			json.writeUint("hits", bp.numHits);
 			if (bp.hasCond)
 				json.writeString("condition", bp.cond.expressionString);
 			else

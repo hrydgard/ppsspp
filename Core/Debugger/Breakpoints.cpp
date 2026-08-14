@@ -281,7 +281,7 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 		return BREAK_ACTION_IGNORE;
 	size_t bp = FindBreakpoint(addr, false);
 	if (bp != INVALID_BREAKPOINT) {
-		const BreakPoint &info = breakPoints_[bp];
+		BreakPoint &info = breakPoints_[bp];
 
 		if (info.hasCond) {
 			// Evaluate the breakpoint and abort if necessary.
@@ -289,6 +289,8 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 			if (cond && !cond->Evaluate())
 				return BREAK_ACTION_IGNORE;
 		}
+
+		++info.numHits;
 
 		if (info.result & BREAK_ACTION_LOG) {
 			if (info.logFormat.empty()) {
