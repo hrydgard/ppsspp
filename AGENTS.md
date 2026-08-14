@@ -62,6 +62,17 @@ before it prints anything, for every test including ones unrelated to the change
 a catastrophic code bug and is not one. If a build starts crashing inexplicably right after a stash
 cycle, rebuild before investigating anything else.
 
+More generally, **when you are bisecting a behavioural change, confirm the binary actually changed
+before you believe the result** - check the executable's mtime, or have the code you just added log
+something you can grep for. A stale binary is indistinguishable from a real regression, and it lies
+consistently, so a bisect on top of one produces a confident, entirely fictional answer. This cost
+several hours once: a link that silently failed left a stale `PPSSPPHeadless.exe` in place, every
+subsequent "revert this and retest" step reported the same failure, and a change was blamed that a
+later clean rebuild proved innocent. The `LNK1168: cannot open ... for writing` case (a still-running
+instance holding the exe, see the headless section below) is the most common way to get there, which
+is why killing leftover processes before building is worth doing unconditionally rather than only
+when a build complains.
+
 Known environment-specific issue: in at least one sandboxed dev environment, the `Jit` test
 (`unittest/JitHarness.cpp`) hangs indefinitely specifically during the `CPUCore::JIT_IR`
 phase - confirmed unrelated to source changes (reproduces identically on unmodified checkouts)
@@ -232,6 +243,14 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   the `// add new modules here.` comment near the end of that function) - not inserted alphabetically/logically among
   the existing `Register_*()` calls. Module registration order affects numeric IDs used in savestates, so inserting a
   new module earlier in that list would break save-state compatibility for saves made with older builds.
+- **The same rule applies one level down: new entries in an *existing* module's `const HLEFunction <name>[]` table must
+  go at the very end of that array too, never inserted alphabetically or next to a "related" existing entry.** A
+  resolved import gets written directly into guest RAM as a syscall opcode that encodes the entry's array position
+  (`modulenum<<18 | funcindex<<6`, see `GetSyscallOp()` in `Core/HLE/HLE.cpp`), and a savestate captures that opcode
+  verbatim - inserting a new entry before an existing one shifts every later entry's index, so loading an older
+  savestate after such a change resolves those later entries to the *wrong* function. Adding an all-new table (a new
+  module, including a new alias-module `..._driver[]` variant of an existing one) is unaffected, since no old
+  savestate could reference indices into a table that didn't exist yet - only *existing* tables need this care.
 - Remember to add any new `.cpp`/`.c` file to **seven** places: `Core/CMakeLists.txt`, `Core/Core.vcxproj`,
   `Core/Core.vcxproj.filters`, `UWP/CoreUWP/CoreUWP.vcxproj`, `UWP/CoreUWP/CoreUWP.vcxproj.filters`,
   `android/jni/Android.mk`, and `libretro/Makefile.common`. New `.h` files need the first five (everything except
