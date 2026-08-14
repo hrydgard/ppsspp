@@ -115,7 +115,7 @@ file - this is just an index.
 | Memory info/annotations | `memory.mapping`, `memory.info.config/set/list/search` | `MemoryInfoSubscriber.cpp` |
 | Disassembly | `memory.base`, `memory.disasm` (add `compact=true` for plain-text lines instead of full per-field objects), `memory.searchDisasm` (add `findAll=true` for every match instead of just the first - e.g. "every caller of this address"), `memory.assemble` | `DisasmSubscriber.cpp` |
 | GE display list disassembly | `gpu.displaylist.disasm` - like `memory.disasm` but for GE command words (`CLEARMODE`, `PRIM`, etc.) instead of CPU instructions; also supports `compact=true` | `GPUDisasmSubscriber.cpp` |
-| HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.backtrace` | `HLESubscriber.cpp` |
+| HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.module.saveSymbols/loadSymbols` (save/load one module's symbols to/from its standard `PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym` file, shared across any game that loads the same module - see `SymbolMap::GetModuleSymbolsPath`), `hle.backtrace` | `HLESubscriber.cpp` |
 | Data symbols | `hle.data.list/add/remove/rename` - label discovered data (structs, tables, buffers) with a name/type, same idea as `hle.func.*` but for `ST_DATA` symbols | `HLESubscriber.cpp` |
 | GPU stats | `gpu.stats.get`, `gpu.stats.feed` | `GPUStatsSubscriber.cpp` |
 | GPU recording | `gpu.record.dump` | `GPURecordSubscriber.cpp` |

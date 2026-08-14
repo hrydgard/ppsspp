@@ -23,7 +23,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Debugger/DebugInterface.h"
 
-
 class MIPSDebugInterface : public DebugInterface {
 private:
 	MIPSState *cpu;
@@ -38,7 +37,6 @@ public:
 	void toggleBreakpoint(unsigned int address);
 	unsigned int readMemory(unsigned int address) const;
 	int getColor(unsigned int address, bool darkMode) const;
-	std::string getDescription(unsigned int address) const;
 
 	u32 GetGPR32Value(int reg) const override { return cpu->r[reg]; }
 	float GetFPR32Value(int reg) const { return cpu->f[reg]; }

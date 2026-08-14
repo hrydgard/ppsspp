@@ -658,6 +658,10 @@ public:
 	bool bFuncHashMap;
 	std::string sSkipFuncHashMap;
 	bool bDebugMemInfoDetailed;
+	// Auto-save a loaded module's symbols (name/CRC keyed, shared across games that load the
+	// same module) to PSP/SYSTEM/SYMBOLS on unload, and auto-load them back on module load.
+	// See SymbolMap::SaveModuleSymbols/LoadModuleSymbols and Core/HLE/sceKernelModule.cpp.
+	bool bAutoSaveLoadSymbols;
 
 	// Volatile development settings
 	// Overlays

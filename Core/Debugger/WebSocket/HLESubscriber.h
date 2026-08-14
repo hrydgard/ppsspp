@@ -31,6 +31,8 @@ void WebSocketHLEFuncRemoveRange(DebuggerRequest &req);
 void WebSocketHLEFuncRename(DebuggerRequest &req);
 void WebSocketHLEFuncScan(DebuggerRequest &req);
 void WebSocketHLEModuleList(DebuggerRequest &req);
+void WebSocketHLEModuleSaveSymbols(DebuggerRequest &req);
+void WebSocketHLEModuleLoadSymbols(DebuggerRequest &req);
 void WebSocketHLEBacktrace(DebuggerRequest &req);
 void WebSocketHLEDataList(DebuggerRequest &req);
 void WebSocketHLEDataAdd(DebuggerRequest &req);

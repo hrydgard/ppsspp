@@ -47,6 +47,11 @@ struct CommandLineOptions {
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
 
+	// Overrides g_Config.bAutoSaveLoadSymbols for this run only (see SymbolMap::SaveModuleSymbols/
+	// LoadModuleSymbols and Core/HLE/sceKernelModule.cpp) - handy for headless runs that want
+	// symbol names without persisting the setting via Settings > Developer Tools.
+	std::optional<bool> autoSaveLoadSymbols;
+
 	// Attempts to boot the vsh, which will only work if the correct files are present in the flash
 	// and once we've fixed all the bugs. This is just here to allow testing.
 	std::optional<bool> bootVSH;

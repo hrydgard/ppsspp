@@ -201,6 +201,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	CheckBox *localDebugger = list->Add(new CheckBox(&g_Config.bRemoteDebuggerLocal, dev->T("Use locally hosted remote debugger")));
 	localDebugger->SetEnabledPtr(&allowDebugger_);
 
+	list->Add(new CheckBox(&g_Config.bAutoSaveLoadSymbols, dev->T("Auto save/load module symbols")));
+
 	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});

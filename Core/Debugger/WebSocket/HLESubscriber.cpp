@@ -20,6 +20,7 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
@@ -46,6 +47,8 @@ DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.func.rename"] = &WebSocketHLEFuncRename;
 	map["hle.func.scan"] = &WebSocketHLEFuncScan;
 	map["hle.module.list"] = &WebSocketHLEModuleList;
+	map["hle.module.saveSymbols"] = &WebSocketHLEModuleSaveSymbols;
+	map["hle.module.loadSymbols"] = &WebSocketHLEModuleLoadSymbols;
 	map["hle.backtrace"] = &WebSocketHLEBacktrace;
 	map["hle.data.list"] = &WebSocketHLEDataList;
 	map["hle.data.add"] = &WebSocketHLEDataAdd;
@@ -646,6 +649,90 @@ void WebSocketHLEModuleList(DebuggerRequest &req) {
 			json.pop();
 		}
 		json.pop();
+	});
+}
+
+// Save one module's symbols to its standard per-module file (hle.module.saveSymbols)
+//
+// Saves to <memstick>/PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym - see
+// SymbolMap::GetModuleSymbolsPath. Keyed by module name+crc rather than the current game, so
+// the file is shared by every game/homebrew that happens to load the exact same module. This is
+// the same file LoadModuleSymbols/hle.module.loadSymbols reads, and (if
+// g_Config.bAutoSaveLoadSymbols is on - see Core/HLE/sceKernelModule.cpp) the same file
+// auto-save-on-unload writes and auto-load-on-module-load reads.
+//
+// Parameters:
+//  - name: string, name of the module to save (as returned by hle.module.list.)
+//
+// Response (same event name):
+//  - path: string, the file path that was written.
+void WebSocketHLEModuleSaveSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	std::string name;
+	if (!req.ParamString("name", &name))
+		return;
+
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		int moduleIndex = g_symbolMap->GetModuleIndexByName(name);
+		if (moduleIndex <= 0) {
+			req.Fail("No module found with that name");
+			return;
+		}
+
+		Path path = SymbolMap::GetModuleSymbolsPath(name, g_symbolMap->GetModuleCrc(moduleIndex));
+		if (!g_symbolMap->SaveModuleSymbols(moduleIndex, path, g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"))) {
+			req.Fail("Failed to save symbols file");
+			return;
+		}
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+	});
+}
+
+// Load a module's previously saved symbols (hle.module.loadSymbols)
+//
+// Reads from the same standard path hle.module.saveSymbols writes - see its docs above.
+// Existing symbol names for this module are overwritten by what's in the file.
+//
+// Parameters:
+//  - name: string, name of the module to load into (must currently be loaded - see
+//    hle.module.list.)
+//
+// Response (same event name):
+//  - path: string, the file path that was read.
+void WebSocketHLEModuleLoadSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	std::string name;
+	if (!req.ParamString("name", &name))
+		return;
+
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		int moduleIndex = g_symbolMap->GetModuleIndexByName(name);
+		if (moduleIndex <= 0 || !g_symbolMap->IsModuleActive(moduleIndex)) {
+			req.Fail("No active module found with that name");
+			return;
+		}
+
+		Path path = SymbolMap::GetModuleSymbolsPath(name, g_symbolMap->GetModuleCrc(moduleIndex));
+		if (!g_symbolMap->LoadModuleSymbols(moduleIndex, path)) {
+			req.Fail("Failed to load symbols file (does it exist?)");
+			return;
+		}
+
+		// Clear cache so the disassembly view picks up the newly loaded names.
+		g_disassemblyManager.clear();
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
 	});
 }
 
