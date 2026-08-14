@@ -82,7 +82,9 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID =
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response on success.  A cpu.stepping event will be sent once complete.
+// May fail (same-thread case only) if another step/run request is already pending this host
+// frame - safe to retry shortly after.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Into(DebuggerRequest &req) {
@@ -108,7 +110,16 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			// Core_RequestCPUStep() can fail (a step or run request is already queued this host
+			// frame - see its own "Can't submit two steps in one host frame" log). Previously
+			// unchecked here: on failure, no step ever happens and no cpu.stepping event ever
+			// fires, but the client got no response either (this event's contract is "no
+			// immediate response, a cpu.stepping event follows") - so a rejected step looked
+			// identical to one that's just still in flight, indefinitely. Surface it instead.
+			if (!Core_RequestCPUStep(CPUStepType::Into, 1)) {
+				req.Fail("Could not step: a step or run request is already pending");
+				return;
+			}
 		} else {
 			uint32_t breakpointAddress = cpuDebug->GetPC();
 			PrepareResume();
