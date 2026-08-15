@@ -780,7 +780,7 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 	}
 }
 
-// Used to add detail to the "Unknown syscall" log in HLE.cpp's GetSyscallFuncPointer - a call
+// Used to add detail to the "Unknown syscall" log in HLE.cpp's GetSyscallFunctionData - a call
 // through a still-unresolved import ends up as a generic "invalid syscall" opcode that no
 // longer carries the original module name/NID, but the (fixed, unique) address of the syscall
 // instruction itself does - it's exactly the stubAddr every pending FuncSymbolImport recorded
@@ -793,7 +793,7 @@ bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32
 			continue;
 		}
 		for (const auto &func : module->importedFuncs) {
-			if (func.stubAddr == stubAddr) {
+			if (Memory::AddressesEqualAfterMask(func.stubAddr, stubAddr)) {
 				*importModuleName = func.moduleName;
 				*nid = func.nid;
 				*importingModuleName = module->GetName();

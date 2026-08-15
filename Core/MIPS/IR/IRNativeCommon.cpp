@@ -440,6 +440,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		break;
 
 	case IROp::Syscall:
+	case IROp::SyscallUnresolved:
 	case IROp::CallReplacement:
 	case IROp::Break:
 		CompIR_System(inst);

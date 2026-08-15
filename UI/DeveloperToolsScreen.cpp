@@ -154,7 +154,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		core->HideChoice(1);
 		core->HideChoice(3);
 	}
-	// TODO: Enable "JIT using IR" on more architectures.
+	// TODO: Enable "JIT using IR" on more architectures. ARM32 needs more testing.
+	// Note also that Loongarch and RISC-V only have a jit-ir backend, and it's used for the JIT option, so the fourth option isn't shown.
 #if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64) && !PPSSPP_ARCH(ARM64)
 	core->HideChoice(3);
 #endif

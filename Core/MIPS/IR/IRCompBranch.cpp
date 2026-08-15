@@ -437,6 +437,8 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	js.downcountAmount = 0;
 
 	// If not in a delay slot, we need to update PC.
+	// However we also need the PC for some diagnostics so let's just always do it.
+	// Not exactly a bottleneck.
 	if (!js.inDelaySlot) {
 		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC() + 4);
 	}
@@ -444,7 +446,12 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	FlushAll();
 
 	RestoreRoundingMode();
-	ir.Write(IROp::Syscall, 0, 0, 0, op.encoding);
+	const HLEFunction *func = GetSyscallFunctionData(op, js.compilerPC);
+	if (func) {
+		ir.Write(IROp::Syscall, 0, 0, 0, op.encoding);
+	} else {
+		ir.Write(IROp::SyscallUnresolved, 0, 0, 0, js.compilerPC);
+	}
 	ApplyRoundingMode();
 	ir.Write(IROp::ExitToPC);
 

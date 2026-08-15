@@ -1203,10 +1203,24 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Syscall:
 			// IROp::SetPC was (hopefully) executed before.
 		{
+			// If we get here, the syscall is valid.
 			MIPSOpcode op(inst->constant);
 			CallSyscall(op);
-			if (coreState != CORE_RUNNING_CPU)
+			if (coreState != CORE_RUNNING_CPU) {
 				CoreTiming::ForceCheck(mips);
+			}
+			break;
+		}
+
+		case IROp::SyscallUnresolved:
+		{
+			// If we get here, the syscall is invalid.
+			u32 pc = inst->constant;
+			CallSyscallUnresolvedAtPC(pc);
+			if (coreState != CORE_RUNNING_CPU) {
+				// hm, what's this for?
+				CoreTiming::ForceCheck(mips);
+			}
 			break;
 		}
 
@@ -1300,7 +1314,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...
+		case IROp::Nop:  // Unused, add a break if we start using it to avoid UNREACHABLE.
 		case IROp::Bad:
 		default:
 			// Unimplemented IR op. Bad. We define it as unreachable so the compiler can optimize better (remove the range check).

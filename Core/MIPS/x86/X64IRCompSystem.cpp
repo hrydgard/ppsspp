@@ -211,11 +211,18 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		// Skip the CallSyscall where possible.
 		{
 			MIPSOpcode op(inst.constant);
-			void *quickFunc = GetQuickSyscallFunc(op);
-			if (quickFunc) {
-				ABI_CallFunctionP((const u8 *)quickFunc, (void *)GetSyscallFuncPointer(op));
+			const HLEFunction *func = GetSyscallFunctionData(op, 0);
+			if (func) {
+				void *quickFunc = GetQuickSyscallFunc(func, op);
+				if (quickFunc) {
+					ABI_CallFunctionP((const u8 *)quickFunc, (void *)func);
+				} else {
+					ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+				}
 			} else {
-				ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+				_dbg_assert_(false);
+				// Shouldn't get here, this should be resolved during ->IR compilation.
+				ABI_CallFunctionC((const u8 *)&CallSyscallUnresolvedAtPC, 0);
 			}
 		}
 #endif
@@ -223,6 +230,15 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
+	case IROp::SyscallUnresolved:
+		FlushAll();
+		SaveStaticRegisters();
+		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
+		ABI_CallFunctionC((const u8 *)&CallSyscallUnresolvedAtPC, inst.constant);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
+		LoadStaticRegisters();
 		break;
 
 	case IROp::CallReplacement:

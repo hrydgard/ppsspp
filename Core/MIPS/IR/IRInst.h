@@ -222,7 +222,8 @@ enum class IROp : uint8_t {
 	ExitToConstIfFpFalse,
 	ExitToPC,  // Used after a syscall to give us a way to do things before returning.
 
-	Syscall,  // puts the address of the syscall instruction in the constant - we need both, but we can use the address to look up the value.
+	Syscall,  // Needs the syscall instruction work in the constant.
+	SyscallUnresolved,  // Used when the syscall is not resolved at compile time. PC in the constant.
 	SetPC,  // hack to make syscall returns work
 	SetPCConst,  // hack to make replacement know PC
 	CallReplacement,

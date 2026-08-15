@@ -184,6 +184,7 @@ namespace MIPSInt {
 	}
 
 	void Int_Syscall(MIPSState *mips, MIPSOpcode op) {
+		const u32 syscallPC = mips->pc - 4;
 		// Need to pre-move PC, as CallSyscall may result in a rescheduling!
 		// To do this neater, we'll need a little generated kernel loop that syscall can jump to and then RFI from
 		// but I don't see a need to bother.
@@ -193,7 +194,7 @@ namespace MIPSInt {
 			mips->pc += 4;
 		}
 		mips->inDelaySlot = false;
-		CallSyscall(op);
+		CallSyscallWithPC(op, syscallPC);
 	}
 
 	void Int_Sync(MIPSState *mips, MIPSOpcode op) {

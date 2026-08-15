@@ -681,11 +681,17 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	ABI_CallFunctionC(&CallSyscall, op.encoding);
 #else
 	// Skip the CallSyscall where possible.
-	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc)
-		ABI_CallFunctionP(quickFunc, (void *)GetSyscallFuncPointer(op));
-	else
-		ABI_CallFunctionC(&CallSyscall, op.encoding);
+	const HLEFunction *func = GetSyscallFunctionData(op, js.compilerPC);
+	if (func) {
+		void *quickFunc = GetQuickSyscallFunc(func, op);
+		if (quickFunc) {
+			ABI_CallFunctionP(quickFunc, (void *)func);
+		} else {
+			ABI_CallFunctionC(&CallSyscall, op.encoding);
+		}
+	} else {
+		ABI_CallFunctionC(&CallSyscallUnresolvedAtPC, js.compilerPC);
+	}
 #endif
 
 	ApplyRoundingMode();
