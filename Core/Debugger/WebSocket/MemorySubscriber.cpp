@@ -73,9 +73,9 @@ static AutoDisabledReplacements LockMemory(bool keepReplacements) {
 		result.saved = true;
 		// Okay, save so we can restore later.
 		result.replacements = SaveAndClearReplacements();
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-		if (MIPSComp::jit)
+		if (MIPSComp::jit) {
 			result.emuhacks = MIPSComp::jit->SaveAndClearEmuHackOps();
+		}
 	}
 	return result;
 }
@@ -91,7 +91,6 @@ AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&ot
 
 AutoDisabledReplacements::~AutoDisabledReplacements() {
 	if (saved) {
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 		if (MIPSComp::jit)
 			MIPSComp::jit->RestoreSavedEmuHackOps(emuhacks);
 		RestoreSavedReplacements(replacements);

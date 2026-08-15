@@ -301,11 +301,6 @@ bool Core_GetPowerSaving() {
 
 void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
-		// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
-		// top of this loop means it's reached at least once per call (i.e. about once per host frame)
-		// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
-		Core_ProcessCPUQueue();
-
 		switch (coreState) {
 		case CORE_POWERDOWN:
 		case CORE_RUNTIME_ERROR:
@@ -466,6 +461,11 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 
 static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_StateProcessed();
+
+	// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
+	// top of this loop means it's reached at least once per call (i.e. about once per host frame)
+	// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
+	Core_ProcessCPUQueue();
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();

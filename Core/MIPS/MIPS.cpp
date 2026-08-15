@@ -161,7 +161,6 @@ MIPSState::~MIPSState() {
 }
 
 void MIPSState::Shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	if (oldjit) {
 		MIPSComp::jit = nullptr;
@@ -209,7 +208,6 @@ void MIPSState::Init() {
 
 	memset(vcmpResult, 0, sizeof(vcmpResult));
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
@@ -231,12 +229,9 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	IncrementDebugCounter(DebugCounter::CPUCORE_SWITCHES);
 
 	// Get rid of the old JIT first, before switching.
-	{
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-		if (MIPSComp::jit) {
-			delete MIPSComp::jit;
-			MIPSComp::jit = nullptr;
-		}
+	if (MIPSComp::jit) {
+		delete MIPSComp::jit;
+		MIPSComp::jit = nullptr;
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
@@ -264,7 +259,6 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 	}
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	MIPSComp::jit = newjit;
 }
 
@@ -356,7 +350,6 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 static std::vector<std::pair<u32, int>> pendingClears;
 
 void MIPSState::ProcessPendingClears() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	for (auto &p : pendingClears) {
 		if (p.first == 0 && p.second == 0)
 			MIPSComp::jit->ClearCache();
@@ -370,14 +363,12 @@ void MIPSState::ProcessPendingClears() {
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	// Note that the backend is responsible for ensuring native code can still be returned to.
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit && length != 0) {
 		MIPSComp::jit->InvalidateCacheAt(address, length);
 	}
 }
 
 void MIPSState::ClearJitCache() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
 		if (coreState == CORE_RUNNING_CPU || insideJit) {
 			pendingClears.emplace_back(0, 0);

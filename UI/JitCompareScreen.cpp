@@ -337,7 +337,6 @@ void JitCompareScreen::OnBlockClick(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnAddressChange(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return;
 	}
@@ -364,7 +363,6 @@ void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return;
 	}
