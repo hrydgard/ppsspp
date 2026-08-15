@@ -296,6 +296,10 @@ inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const 
 	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
+inline bool AddressesEqualAfterMask(const u32 address1, const u32 address2) {
+	return (address1 & 0x3FFFFFFF) == (address2 & 0x3FFFFFFF);
+}
+
 // Applies to user mode.
 // Without a length, IsValidAddress is generally semi-meaningless, unless it's about a single byte access. For larger accesses, use IsValid4AlignedAddress
 // etc when appropriate, or for longer sizes, use IsValidRange or IsValid4AlignedRange for example. Checking aligned-ness helps avoid the problem

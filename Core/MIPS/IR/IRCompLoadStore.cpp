@@ -61,42 +61,42 @@ namespace MIPSComp {
 		switch (o) {
 			// Load
 		case 35:
-			ir.Write(IROp::Load32, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load32, rt, rs, 0, offset);
 			break;
 		case 37:
-			ir.Write(IROp::Load16, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load16, rt, rs, 0, offset);
 			break;
 		case 33:
-			ir.Write(IROp::Load16Ext, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load16Ext, rt, rs, 0, offset);
 			break;
 		case 36:
-			ir.Write(IROp::Load8, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load8, rt, rs, 0, offset);
 			break;
 		case 32:
-			ir.Write(IROp::Load8Ext, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load8Ext, rt, rs, 0, offset);
 			break;
 			// Store
 		case 43:
-			ir.Write(IROp::Store32, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Store32, rt, rs, 0, offset);
 			break;
 		case 41:
-			ir.Write(IROp::Store16, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Store16, rt, rs, 0, offset);
 			break;
 		case 40:
-			ir.Write(IROp::Store8, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Store8, rt, rs, 0, offset);
 			break;
 
 		case 34: //lwl
-			ir.Write(IROp::Load32Left, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load32Left, rt, rs, 0, offset);
 			break;
 		case 38: //lwr
-			ir.Write(IROp::Load32Right, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load32Right, rt, rs, 0, offset);
 			break;
 		case 42: //swl
-			ir.Write(IROp::Store32Left, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Store32Left, rt, rs, 0, offset);
 			break;
 		case 46: //swr
-			ir.Write(IROp::Store32Right, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Store32Right, rt, rs, 0, offset);
 			break;
 
 		default:
@@ -117,11 +117,11 @@ namespace MIPSComp {
 
 		switch (op >> 26) {
 		case 48: // ll
-			ir.Write(IROp::Load32Linked, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Load32Linked, rt, rs, 0, offset);
 			break;
 
 		case 56: // sc
-			ir.Write(IROp::Store32Conditional, rt, rs, ir.AddConstant(offset));
+			ir.Write(IROp::Store32Conditional, rt, rs, 0, offset);
 			break;
 
 		default:

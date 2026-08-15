@@ -78,7 +78,7 @@ static const HLEFunction *g_stack[MAX_SYSCALL_RECURSION];
 u32 g_syscallPC;
 int g_stackSize;
 
-static int idleOp;
+static int g_idleOp;
 
 // Split syscall support. NOTE: This needs to be saved in DoState somehow!
 static int splitSyscallEatCycles = 0;
@@ -266,7 +266,7 @@ void HLEInit() {
 	RegisterAllModules();
 	g_stackSize = 0;
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
-	idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
+	g_idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
 }
 
 void HLEDoState(PointerWrap &p) {
@@ -801,10 +801,10 @@ void hleFinishSyscallAfterGe() {
 	hleFinishSyscall(nullptr);
 }
 
-static void updateSyscallStats(int modulenum, int funcnum, double total) {
+static void UpdateSyscallStats(int modulenum, int funcnum, double total) {
 	const char *name = moduleDB[modulenum].funcTable[funcnum].name;
 	// Ignore this one, especially for msInSyscalls (although that ignores CoreTiming events.)
-	if (0 == strcmp(name, "_sceKernelIdle"))
+	if (equals(name, "_sceKernelIdle"))
 		return;
 
 	if (total > kernelStats.slowestSyscallTime) {
@@ -822,7 +822,7 @@ static void updateSyscallStats(int modulenum, int funcnum, double total) {
 			kernelStats.summedSlowestSyscallName = name;
 		}
 	} else {
-		double newTotal = kernelStats.summedMsInSyscalls[statCall] += total;
+		const double newTotal = kernelStats.summedMsInSyscalls[statCall] += total;
 		if (newTotal > kernelStats.summedSlowestSyscallTime) {
 			kernelStats.summedSlowestSyscallTime = newTotal;
 			kernelStats.summedSlowestSyscallName = name;
@@ -895,66 +895,76 @@ static void CallSyscallWithoutFlags(const HLEFunction *info) {
 	g_stackSize = 0;
 }
 
-const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
+void LogBadSyscallAtPC(u32 pc, bool compilePhase) {
+	const LogLevel level = compilePhase ? LogLevel::LWARNING : LogLevel::LERROR;
+	const char *phase = compilePhase ? "compile" : "run";
+	std::string importModuleName, importingModuleName;
+	u32 nid = 0;
+	if (pc && KernelFindImportByStubAddr(pc, &importModuleName, &nid, &importingModuleName)) {
+		const char *funcName = GetHLEFuncName(importModuleName, nid);
+		GENERIC_LOG(Log::HLE, level, "Unknown syscall (%s) at %08x: unresolved import %s/%08x (%s), called from '%s'", phase, pc, importModuleName.c_str(), nid, funcName ? funcName : "(unknown)", importingModuleName.c_str());
+	} else {
+		char buffer[256];
+		DescribeAddress(currentDebugMIPS, pc, buffer, sizeof(buffer));
+		GENERIC_LOG(Log::HLE, level, "Unknown syscall (%s) at %08x (%s): was unable to determine more information", phase, pc, buffer);
+	}
+}
+
+const HLEFunction *GetSyscallFunctionData(MIPSOpcode op, u32 pcForDiagnostics) {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
-		std::string_view modName = modulenum >= (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name;
 		// This is what a still-unresolved import looks like once written as a syscall opcode -
 		// the original module name/NID aren't recoverable from the opcode itself (see
 		// WriteFuncMissingStub), but the calling address is a stub we may still be tracking.
 		std::string importModuleName, importingModuleName;
 		u32 nid = 0;
-		if (currentMIPS->pc >= 8 && KernelFindImportByStubAddr(currentMIPS->pc - 8, &importModuleName, &nid, &importingModuleName)) {
-			const char *funcName = GetHLEFuncName(importModuleName, nid);
-			ERROR_LOG(Log::HLE, "Unknown syscall: unresolved import %s/%08x (%s), called from '%s'", importModuleName.c_str(), nid, funcName ? funcName : "(unknown)", importingModuleName.c_str());
-		} else {
-			ERROR_LOG(Log::HLE, "Unknown syscall: Module: '%.*s' (module: %d func: %d)", (int)modName.size(), modName.data(), modulenum, funcnum);
-		}
-		return NULL;
+		LogBadSyscallAtPC(pcForDiagnostics, PSP_CoreParameter().cpuCore != CPUCore::INTERPRETER);
+		return nullptr;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
 		ERROR_LOG(Log::HLE, "Syscall had bad module number %d - probably executing garbage", modulenum);
-		return NULL;
+		return nullptr;
 	}
 	if (funcnum >= moduleDB[modulenum].numFunctions) {
 		ERROR_LOG(Log::HLE, "Syscall had bad function number %d in module %d - probably executing garbage", funcnum, modulenum);
-		return NULL;
+		return nullptr;
 	}
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 
-void *GetQuickSyscallFunc(MIPSOpcode op) {
-	if (coreCollectDebugStats)
+void *GetQuickSyscallFunc(const HLEFunction *info, MIPSOpcode op) {
+	if (g_coreCollectDebugStats)
 		return nullptr;
-
-	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info || !info->func)
 		return nullptr;
 
 	VERBOSE_LOG(Log::HLE, "Compiling syscall to '%s'", info->name);
 
 	// TODO: Do this with a flag?
-	if (op == idleOp)
+	if (op == g_idleOp) {
 		return (void *)info->func;
-	if (info->flags != 0)
+	} else if (info->flags != 0) {
 		return (void *)&CallSyscallWithFlags;
-	return (void *)&CallSyscallWithoutFlags;
+	} else {
+		return (void *)&CallSyscallWithoutFlags;
+	}
 }
 
 void hleSetFlipTime(double t) {
 	hleFlipTime = t;
 }
 
-void CallSyscall(MIPSOpcode op) {
+void CallSyscallWithPC(MIPSOpcode op, u32 pc) {
 	PROFILE_THIS_SCOPE("syscall");
-	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
-	if (coreCollectDebugStats) {
+	const bool collectStats = g_coreCollectDebugStats;
+	double start = 0.0;
+	if (collectStats) {
 		start = time_now_d();
 	}
 
-	const HLEFunction *info = GetSyscallFuncPointer(op);
+	const HLEFunction *info = GetSyscallFunctionData(op, pc);
 	if (!info) {
 		// We haven't incremented the stack yet.
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
@@ -962,7 +972,7 @@ void CallSyscall(MIPSOpcode op) {
 	}
 
 	if (info->func) {
-		if (op == idleOp)
+		if (op == g_idleOp)
 			info->func();
 		else if (info->flags != 0)
 			CallSyscallWithFlags(info);
@@ -974,17 +984,25 @@ void CallSyscall(MIPSOpcode op) {
 		ERROR_LOG_REPORT(Log::HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
-	if (coreCollectDebugStats) {
-		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
-		int funcnum = callno & 0xFFF;
-		int modulenum = (callno & 0xFF000) >> 12;
+	if (collectStats) {
+		const u32 callno = (op >> 6) & 0xFFFFF;  // 20 bits
+		const int funcnum = callno & 0xFFF;      // 12 bits
+		const int modulenum = (callno & 0xFF000) >> 12;
 		double total = time_now_d() - start;
 		if (total >= hleFlipTime)
 			total -= hleFlipTime;
 		_dbg_assert_msg_(total >= 0.0, "Time spent in syscall became negative");
 		hleFlipTime = 0.0;
-		updateSyscallStats(modulenum, funcnum, total);
+		UpdateSyscallStats(modulenum, funcnum, total);
 	}
+}
+
+void CallSyscall(MIPSOpcode op) {
+	CallSyscallWithPC(op, 0);
+}
+
+void CallSyscallUnresolvedAtPC(u32 pc) {
+	LogBadSyscallAtPC(pc, false);
 }
 
 void hlePushFuncDesc(std::string_view module, std::string_view funcName) {

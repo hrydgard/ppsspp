@@ -507,7 +507,7 @@ static void DoFrameIdleTiming() {
 #endif
 		}
 
-		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || g_coreCollectDebugStats) {
 			DisplayNotifySleep(time_now_d() - before);
 		}
 	}
@@ -720,7 +720,7 @@ void __DisplayFlip(int cyclesLate) {
 	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 	numVBlanksSinceFlip = 0;
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || g_coreCollectDebugStats) {
 		// Track how long we sleep (whether vsync or sleep_ms.)
 		DisplayNotifySleep(time_now_d() - frameSleepStart, frameSleepPos);
 	}
@@ -786,7 +786,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || g_coreCollectDebugStats) {
 		DisplayNotifySleep(now - before);
 	}
 }
@@ -846,9 +846,9 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 		// Doing it in non-buffered though creates problems (black screen) on occasion though
 		// so let's not.
 		if (!flippedThisFrame && !g_Config.bSkipBufferEffects) {
-			double before_flip = time_now_d();
+			const double before_flip = time_now_d();
 			__DisplayFlip(0);
-			double after_flip = time_now_d();
+			const double after_flip = time_now_d();
 			// Ignore for debug stats.
 			hleSetFlipTime(after_flip - before_flip);
 		}

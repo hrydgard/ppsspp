@@ -1116,18 +1116,19 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 		int cycleCount = 0;
 		// Don't stop in a delay slot!
 		do {
-			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
-				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
+			const u32 pc = mips->pc;
+			if (!Memory::IsValid4AlignedAddress(pc)) {
+				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
+			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(pc));
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
 			const int cycles = ExecInstruction(mips, op);
 			if (cycles < 0) {
 				// Not a recognized instruction (invalid encoding, or an unimplemented kernel-mode only instruction
 				// with no interpreter implementation, e.g. tge/tlt/teq/).
-				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
+				Core_ExecException(pc, pc, ExecExceptionType::ILLEGAL);
 				return;
 			}
 			cycleCount += cycles;

@@ -1603,8 +1603,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return true;
 		} else if (command.equals("showKeyboard") && surfView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-			// No idea what the point of the ApplicationWindowToken is or if it
-			// matters where we get it from...
 			inputMethodManager.showSoftInput(surfView, InputMethodManager.SHOW_IMPLICIT);
 			return true;
 		} else if (command.equals("hideKeyboard") && surfView != null) {

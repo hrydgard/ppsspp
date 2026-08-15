@@ -222,7 +222,8 @@ enum class IROp : uint8_t {
 	ExitToConstIfFpFalse,
 	ExitToPC,  // Used after a syscall to give us a way to do things before returning.
 
-	Syscall,
+	Syscall,  // Needs the syscall instruction work in the constant.
+	SyscallUnresolved,  // Used when the syscall is not resolved at compile time. PC in the constant.
 	SetPC,  // hack to make syscall returns work
 	SetPCConst,  // hack to make replacement know PC
 	CallReplacement,
@@ -384,18 +385,14 @@ public:
 		return *this;
 	}
 
-	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0);
-	void Write(IROp op, IRReg dst, IRReg src1, IRReg src2, uint32_t c) {
-		AddConstant(c);
-		Write(op, dst, src1, src2);
-	}
+	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0, u32 constant = 0);
+	void WriteFC(IROp op, u8 dst, u8 src1, u8 src2, float fconstant);
+
+	void WriteSetConstant(u8 dst, u32 value);
+	void WriteSetConstantFloat(u8 dst, float value);
 	void Write(IRInst inst) {
 		insts_.push_back(inst);
 	}
-	void WriteSetConstant(u8 dst, u32 value);
-
-	int AddConstant(u32 value);
-	int AddConstantFloat(float value);
 
 	void Reserve(size_t s) {
 		insts_.reserve(s);
@@ -409,7 +406,6 @@ public:
 
 private:
 	std::vector<IRInst> insts_;
-	u32 nextConst_ = 0;
 };
 
 struct IROptions {
