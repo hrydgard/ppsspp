@@ -147,7 +147,8 @@ struct RegBreakpoint {
 
 // BreakPoints cannot overlap, only one is allowed per address.
 // MemChecks can overlap, as long as their ends are different.
-// WARNING: MemChecks are not always tracked in HLE currently.
+// WARNING: MemChecks are not always tracked in HLE currently (some functions write to memory without
+// notifying the breakpoint manager).
 class BreakpointManager {
 public:
 	static const size_t INVALID_BREAKPOINT = -1;
@@ -222,28 +223,16 @@ public:
 
 	// For editing through the imdebugger.
 	// Since it's on the main thread, we don't need to fear threading clashes.
-	std::vector<BreakPoint> &GetBreakpointRefs() {
-		return breakPoints_;
-	}
-	std::vector<MemCheck> &GetMemCheckRefs() {
-		return memChecks_;
-	}
+	std::vector<BreakPoint> &GetBreakpointRefs() { return breakPoints_; }
+	std::vector<MemCheck> &GetMemCheckRefs() { return memChecks_; }
 
-	bool HasBreakPoints() const {
-		return anyBreakPoints_;
-	}
-	bool HasMemChecks() const {
-		return anyMemChecks_;
-	}
-	bool HasRegBreakpoints() const {
-		return regBreakpointMask_ != 0;
-	}
+	bool HasBreakPoints() const { return anyBreakPoints_; }
+	bool HasMemChecks() const { return anyMemChecks_; }
+
 	// Bit i set means register i has an active (non-ignored) register breakpoint - a cheap way
-	// for the interpreter's hot per-instruction loop to test "would this write trip anything"
-	// with a single shift+and, without touching regBreakpoints_ at all in the common no-match case.
-	u32 GetRegBreakpointMask() const {
-		return regBreakpointMask_;
-	}
+	// for the interpreter's hot per-instruction loop to test "would this write trip anything".
+	u32 GetRegBreakpointMask() const { return regBreakpointMask_; }
+	bool HasRegBreakpoints() const { return regBreakpointMask_ != 0; }
 
 	void Frame();
 
