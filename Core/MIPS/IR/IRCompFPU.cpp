@@ -83,11 +83,11 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 
 	switch (op >> 26) {
 	case 49: // lwc1
-		ir.Write(IROp::LoadFloat, ft, rs, ir.AddConstant(offset));
+		ir.Write(IROp::LoadFloat, ft, rs, 0, offset);
 		break;
 
 	case 57: // swc1
-		ir.Write(IROp::StoreFloat, ft, rs, ir.AddConstant(offset));
+		ir.Write(IROp::StoreFloat, ft, rs, 0, offset);
 		break;
 
 	default:
@@ -207,10 +207,10 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			// This needs to insert fpcond.
 			ir.Write(IROp::FpCtrlToReg, rt);
 		} else if (fs == 0) {
-			ir.Write(IROp::SetConst, rt, ir.AddConstant(MIPSState::FCR0_VALUE));
+			ir.WriteSetConstant(rt, MIPSState::FCR0_VALUE);
 		} else {
 			// Unsupported regs are always 0.
-			ir.Write(IROp::SetConst, rt, ir.AddConstant(0));
+			ir.WriteSetConstant(rt, 0);
 		}
 		return;
 

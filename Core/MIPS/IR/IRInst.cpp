@@ -206,31 +206,35 @@ void InitIR() {
 	}
 }
 
-void IRWriter::Write(IROp op, u8 dst, u8 src1, u8 src2) {
+void IRWriter::Write(IROp op, u8 dst, u8 src1, u8 src2, u32 constant) {
 	IRInst inst;
 	inst.op = op;
 	inst.dest = dst;
 	inst.src1 = src1;
 	inst.src2 = src2;
-	inst.constant = nextConst_;
+	inst.constant = constant;
 	insts_.push_back(inst);
+}
 
-	nextConst_ = 0;
+void IRWriter::WriteFC(IROp op, u8 dst, u8 src1, u8 src2, float fconstant) {
+	u32 constant;
+	memcpy(&constant, &fconstant, sizeof(u32));
+
+	IRInst inst;
+	inst.op = op;
+	inst.dest = dst;
+	inst.src1 = src1;
+	inst.src2 = src2;
+	inst.constant = constant;
+	insts_.push_back(inst);
 }
 
 void IRWriter::WriteSetConstant(u8 dst, u32 value) {
-	Write(IROp::SetConst, dst, AddConstant(value));
+	Write(IROp::SetConst, dst, 0, 0, value);
 }
 
-int IRWriter::AddConstant(u32 value) {
-	nextConst_ = value;
-	return 255;
-}
-
-int IRWriter::AddConstantFloat(float value) {
-	u32 val;
-	memcpy(&val, &value, 4);
-	return AddConstant(val);
+void IRWriter::WriteSetConstantFloat(u8 dst, float value) {
+	WriteFC(IROp::SetConstF, dst, 0, 0, value);
 }
 
 void IRWriter::ReplaceConstant(size_t instNumber, u32 newConstant) {
