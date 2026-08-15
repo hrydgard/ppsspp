@@ -1155,7 +1155,7 @@ void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDe
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, g_coreCollectDebugStats);
 
 	// Decode.
 	int numDecoded = 0;
@@ -1197,7 +1197,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, g_coreCollectDebugStats);
 
 	// Make sure these have already been indexed away.
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
@@ -1234,7 +1234,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 		rasterTimeStart_ = 0.0;
 	}
 
-	const bool collectStats = coreCollectDebugStats;
+	const bool collectStats = g_coreCollectDebugStats;
 	const bool lowQ = g_Config.iDepthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
 	for (const auto &draw : depthDraws_) {
 		int *tx = depthScreenVerts_;

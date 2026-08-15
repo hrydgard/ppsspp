@@ -801,10 +801,10 @@ void hleFinishSyscallAfterGe() {
 	hleFinishSyscall(nullptr);
 }
 
-static void updateSyscallStats(int modulenum, int funcnum, double total) {
+static void UpdateSyscallStats(int modulenum, int funcnum, double total) {
 	const char *name = moduleDB[modulenum].funcTable[funcnum].name;
 	// Ignore this one, especially for msInSyscalls (although that ignores CoreTiming events.)
-	if (0 == strcmp(name, "_sceKernelIdle"))
+	if (equals(name, "_sceKernelIdle"))
 		return;
 
 	if (total > kernelStats.slowestSyscallTime) {
@@ -822,7 +822,7 @@ static void updateSyscallStats(int modulenum, int funcnum, double total) {
 			kernelStats.summedSlowestSyscallName = name;
 		}
 	} else {
-		double newTotal = kernelStats.summedMsInSyscalls[statCall] += total;
+		const double newTotal = kernelStats.summedMsInSyscalls[statCall] += total;
 		if (newTotal > kernelStats.summedSlowestSyscallTime) {
 			kernelStats.summedSlowestSyscallTime = newTotal;
 			kernelStats.summedSlowestSyscallName = name;
@@ -926,7 +926,7 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op) {
 }
 
 void *GetQuickSyscallFunc(MIPSOpcode op) {
-	if (coreCollectDebugStats)
+	if (g_coreCollectDebugStats)
 		return nullptr;
 
 	const HLEFunction *info = GetSyscallFuncPointer(op);
@@ -949,8 +949,9 @@ void hleSetFlipTime(double t) {
 
 void CallSyscall(MIPSOpcode op) {
 	PROFILE_THIS_SCOPE("syscall");
-	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
-	if (coreCollectDebugStats) {
+	const bool collectStats = g_coreCollectDebugStats;
+	double start = 0.0;
+	if (collectStats) {
 		start = time_now_d();
 	}
 
@@ -974,16 +975,16 @@ void CallSyscall(MIPSOpcode op) {
 		ERROR_LOG_REPORT(Log::HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
-	if (coreCollectDebugStats) {
-		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
-		int funcnum = callno & 0xFFF;
-		int modulenum = (callno & 0xFF000) >> 12;
+	if (collectStats) {
+		const u32 callno = (op >> 6) & 0xFFFFF;  // 20 bits
+		const int funcnum = callno & 0xFFF;      // 12 bits
+		const int modulenum = (callno & 0xFF000) >> 12;
 		double total = time_now_d() - start;
 		if (total >= hleFlipTime)
 			total -= hleFlipTime;
 		_dbg_assert_msg_(total >= 0.0, "Time spent in syscall became negative");
 		hleFlipTime = 0.0;
-		updateSyscallStats(modulenum, funcnum, total);
+		UpdateSyscallStats(modulenum, funcnum, total);
 	}
 }
 

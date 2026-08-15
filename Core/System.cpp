@@ -93,7 +93,7 @@ static FileLoader *g_loadedFile;
 static std::mutex loadingLock;
 static std::thread g_loadingThread;
 
-bool coreCollectDebugStats = false;
+bool g_coreCollectDebugStats = false;
 static int coreCollectDebugStatsCounter = 0;
 
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
@@ -608,8 +608,8 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 
 void PSP_UpdateDebugStats(bool collectStats) {
 	bool newState = collectStats || coreCollectDebugStatsCounter > 0;
-	if (coreCollectDebugStats != newState) {
-		coreCollectDebugStats = newState;
+	if (g_coreCollectDebugStats != newState) {
+		g_coreCollectDebugStats = newState;
 		mipsr4k.ClearJitCache();
 	}
 

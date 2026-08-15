@@ -745,7 +745,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 		}
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, g_coreCollectDebugStats);
 
 	auto GetNextListIndex = [&]() -> int {
 		if (dlQueue.empty())
@@ -873,7 +873,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 	currentList = nullptr;
 
-	if (coreCollectDebugStats) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.otherGPUCycles += cyclesExecuted;
 	}
 
@@ -1394,7 +1394,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 
 	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
 
-	if (coreCollectDebugStats) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.otherGPUCycles += 2 * 14;
 	}
 }
