@@ -734,8 +734,10 @@ std::vector<BreakPoint> BreakpointManager::GetBreakpoints() {
 }
 
 void BreakpointManager::Frame() {
-	if (anyMemChecks_ && updateMemChecks_)
+	if (anyMemChecks_ && updateMemChecks_) {
 		UpdateCachedMemCheckRanges();
+		updateMemChecks_ = false;
+	}
 }
 
 bool BreakpointManager::ValidateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt) {

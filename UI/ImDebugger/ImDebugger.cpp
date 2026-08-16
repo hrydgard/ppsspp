@@ -1149,10 +1149,21 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			// Add edit form for breakpoints
 			if (ImGui::BeginChild("bp_edit")) {
 				auto &bp = bps[cfg.selectedBreakpoint];
+				bool changed = false;
 				ImGui::TextUnformatted("Edit breakpoint");
-				ImGui::CheckboxFlags("Enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
-				ImGui::CheckboxFlags("Log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
-				ImGui::InputScalar("Address", ImGuiDataType_U32, &bp.addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				if (ImGui::CheckboxFlags("Enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE)) {
+					changed = true;
+				}
+				if (ImGui::CheckboxFlags("Log", (int *)&bp.action, (int)BREAK_ACTION_LOG)) {
+					changed = true;
+				}
+				if (ImGui::InputScalar("Address", ImGuiDataType_U32, &bp.addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
+					changed = true;
+				}
+				if (changed) {
+					// This is a bit hacky, we should probably add a utility function in the breakpoint manager.
+					currentMIPS->InvalidateICacheRangeDeferred(bp.addr - 4, 8);
+				}
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveBreakPoint(bp.addr);
 				}
@@ -1165,6 +1176,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			if (ImGui::BeginChild("mc_edit")) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
+				bool changed = false;
 				if (ImGui::BeginCombo("Condition", MemCheckConditionToString(mc.cond))) {
 					if (ImGui::Selectable("Read", mc.cond == MemCheckCondition::MEMCHECK_READ)) {
 						mc.cond = MemCheckCondition::MEMCHECK_READ;
@@ -1178,13 +1190,21 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 					if (ImGui::Selectable("Write On Change", mc.cond == MemCheckCondition::MEMCHECK_WRITE_ONCHANGE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_WRITE_ONCHANGE;
 					}
+					changed = true;
 					ImGui::EndCombo();
 				}
 				ImGui::CheckboxFlags("Enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE);
-				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
-				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				if (ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
+					changed = true;
+				}
+				if (ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
+					changed = true;
+				}
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
+				}
+				if (changed) {
+					g_breakpoints.NotifyChangedMemchecks();
 				}
 				ImGui::EndChild();
 			}

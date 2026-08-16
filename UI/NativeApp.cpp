@@ -1267,8 +1267,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	{
 		std::lock_guard<std::mutex> emuStateGuard(g_frameMutex);
 
-		g_breakpoints.Frame();
-
 		// Apply the UIContext bounds as a 2D transformation matrix.
 		// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
 		Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);

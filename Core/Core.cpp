@@ -308,8 +308,9 @@ void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
 		// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
 		// top of this loop means it's reached at least once per call (i.e. about once per host frame)
-		// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
+		// whether the CPU is running or not.
 		Core_ProcessCPUQueue();
+		g_breakpoints.Frame();
 		switch (coreState) {
 		case CORE_POWERDOWN:
 		case CORE_RUNTIME_ERROR:
@@ -522,6 +523,7 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 
 	if (!g_cpuStepCommand.empty()) {
 		Core_PerformCPUStep(cpu, g_cpuStepCommand.type);
+		g_breakReason = g_cpuStepCommand.reason;
 		if (g_cpuStepCommand.type == CPUStepType::Into) {
 			// We're already done. The other step types will resume the CPU.
 			System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);

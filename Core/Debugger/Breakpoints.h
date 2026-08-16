@@ -224,10 +224,14 @@ public:
 	// For editing through the imdebugger.
 	// Since it's on the main thread, we don't need to fear threading clashes.
 	std::vector<BreakPoint> &GetBreakpointRefs() { return breakPoints_; }
+
+	// NOTE: If you edit this array directly, you need to call NotifyChangedMemchecks().
 	std::vector<MemCheck> &GetMemCheckRefs() { return memChecks_; }
 
 	bool HasBreakPoints() const { return anyBreakPoints_; }
 	bool HasMemChecks() const { return anyMemChecks_; }
+
+	void NotifyChangedMemchecks() { updateMemChecks_ = true; }
 
 	// Bit i set means register i has an active (non-ignored) register breakpoint - a cheap way
 	// for the interpreter's hot per-instruction loop to test "would this write trip anything".
