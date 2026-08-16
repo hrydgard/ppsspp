@@ -506,7 +506,6 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
 	if (lastSteppingCounter != steppingCounter) {
-		g_breakpoints.ClearTemporaryBreakPoints();
 		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		System_Notify(SystemNotification::MEM_VIEW);
 		lastSteppingCounter = steppingCounter;

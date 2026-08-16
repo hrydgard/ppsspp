@@ -902,7 +902,7 @@ void LogBadSyscallAtPC(u32 pc, bool compilePhase) {
 	u32 nid = 0;
 	if (pc && KernelFindImportByStubAddr(pc, &importModuleName, &nid, &importingModuleName)) {
 		const char *funcName = GetHLEFuncName(importModuleName, nid);
-		GENERIC_LOG(Log::HLE, level, "Unknown syscall (%s) at %08x: unresolved import %s/%08x (%s), called from '%s'", phase, pc, importModuleName.c_str(), nid, funcName ? funcName : "(unknown)", importingModuleName.c_str());
+		GENERIC_LOG(Log::HLE, level, "Unknown syscall (%s) at %08x: unresolved import %s/%08x (%s), called from '%s'", phase, pc, importModuleName.c_str(), nid, funcName ? funcName : "unknown", importingModuleName.c_str());
 	} else {
 		char buffer[256];
 		DescribeAddress(currentDebugMIPS, pc, buffer, sizeof(buffer));

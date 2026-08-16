@@ -164,7 +164,6 @@ public:
 	void ChangeBreakPoint(u32 addr, bool enable);
 	void ChangeBreakPoint(u32 addr, BreakAction action);
 	void ClearAllBreakPoints();
-	void ClearTemporaryBreakPoints();
 
 	// Makes a copy of the condition.
 	void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
@@ -241,11 +240,6 @@ public:
 	bool EvaluateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt, std::string &result);
 
 private:
-	// 0 means to clear the whole jit cache, to apply some change that has been made.
-	void Update(u32 addr) {
-		needsUpdate_ = true;
-		updateAddr_ = addr;
-	}
 	size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
 	// Finds exactly, not using a range check.
 	size_t FindMemCheck(u32 start, u32 end);
@@ -269,8 +263,7 @@ private:
 
 	std::vector<RegBreakpoint> regBreakpoints_;
 
-	bool needsUpdate_ = true;
-	u32 updateAddr_ = 0;
+	bool updateMemChecks_ = false;
 
 	enum {
 		INVALID_ADDRESS = -1

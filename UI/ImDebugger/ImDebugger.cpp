@@ -1055,7 +1055,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextColumn();
 				ImGui::CheckboxFlags("##log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted("Exec");
+				ImGui::TextUnformatted(bp.temporary ? "Temp" : "Exec");
 				ImGui::TableNextColumn();
 				ImGui::Text("%08x", bp.addr);
 				ImGui::TableNextColumn();
