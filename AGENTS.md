@@ -162,6 +162,21 @@ separate files in the unittest subdirectory. Remember to update both CMakeLists.
 
 pspautotests are a large set of tests of the PSP OS's API surface, and thus tests our HLE implementation.
 
+**To check for regressions, run them exactly the way CI does** (see `.github/workflows/build.yml`):
+
+```bash
+python test.py -g --graphics=software
+```
+
+**The `-g` matters.** `test.py` keeps two lists: `tests_good` (the regression set - these pass and must keep
+passing, ~314 of them) and `tests_next` (work-in-progress tests that are *expected* to fail, i.e. the to-do list).
+`-g` runs only `tests_good`; with no flag you get `tests_next + tests_good` and around a hundred failures that mean
+nothing is wrong. Don't go hunting those, and don't report them as regressions - the only meaningful result from
+`-g` is `0 tests failed`. (`-b` runs only `tests_next`; `-m` prefix-filters whichever list is selected.)
+
+Note the runner prints a debug-CRT "Detected memory leaks!" dump after the summary line on Windows debug builds.
+That's normal and not a test failure - read the `N tests passed, N tests failed` line, which comes before it.
+
 See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
 
 ## Framedump rendering tests (frametests)
@@ -224,6 +239,12 @@ works on both the application and headless builds. On headless it also forces a 
 CPU halts before anything runs. The bundled web GUI at `/debugger/` comes from the `assets/debugger` submodule
 (`unknownbrackets/ppsspp-debugger`, `bundled` branch).
 
+The `bundled` branch only holds built output, so `assets/debugger/static/js/main.*.js` in this tree is minified -
+don't try to answer "does the web GUI use this event/parameter?" by reading it, the identifiers are mangled and you
+will guess wrong. **The unminified source is at https://github.com/unknownbrackets/ppsspp-debugger** (default branch,
+not `bundled`) - fetch or grep that when you need to know what the official client actually sends, e.g. before
+changing or removing part of the protocol.
+
 **Before touching this interface, read `docs/WebSocketDebugger.md`** - it has the full protocol reference and event
 catalog (including which events are read-only vs. require `cpu.stepping` first). Don't guess event names or
 parameters from memory; the doc (and each `*Subscriber.cpp` file's per-handler comments) is the source of truth, and
@@ -243,6 +264,52 @@ first - send `cpu.stepping` and `cpu.resume` to pause/unpause.
 
 Alternatively use the headless build, Windows/{arch}/Debug/PPSSPPHeadless.exe or build/PPSSPPHeadless on CMake-based
 platforms. Where arch is x64 or ARM64.
+
+### Driving a headless debugger session (gotchas)
+
+A working invocation, and the traps around it:
+
+```bash
+./Windows/x64/Debug/PPSSPPHeadless.exe -i --debugger=34567 --timeout=100000 --graphics=software --log \
+    --root pspautotests/tests/../ pspautotests/tests/cpu/cpu_alu/cpu_alu.prx > hl.log 2>&1 &
+# wait for "Listening on port" in hl.log, then:
+./Tools/wsdbg/target/release/wsdbg.exe 34567 --sync --sync-timeout 15 < script.txt
+```
+
+- **`--timeout` is wall-clock seconds for the whole session**, not per test - the default is infinity, but as soon as
+  you pass one it applies to your whole interactive debugging session too. Pass something huge (`--timeout=100000`);
+  otherwise the process prints `TIMEOUT` and exits out from under you mid-session. (There's an escape hatch: the
+  deadline check is skipped while `IsDebuggerPresent()`, i.e. under a native debugger.)
+- **Prefer `--debugger=0` and scrape `Listening on port N` from that run's own log** over hardcoding a port. Also
+  `taskkill //F //IM PPSSPPHeadless.exe` between runs for hygiene (Git Bash here has no `pkill`) - leftover
+  instances are easy to accumulate when a script leaves the CPU stopped at a breakpoint.
+
+  Some history, because it silently produced a round of bogus results before it was fixed: `Common/Net/HTTPServer.cpp`
+  used to set `SO_REUSEADDR`, which on Winsock means "allow binding a port someone else is already listening on"
+  (unlike POSIX, where it only covers TIME_WAIT). Two instances would *both* bind the same explicit port and *both*
+  log `Entering web server loop. Listening on port 34567`, with the winner of any given connection undefined - so a
+  client aimed at a fixed port could end up driving a leftover process running a different binary, CPU backend, or
+  game. It's `SO_EXCLUSIVEADDRUSE` on Windows now, so the second bind fails honestly, and a non-zero `--debugger=PORT`
+  that can't be honored is fatal in headless (exit 1) instead of falling back to a random port. If you still suspect
+  you're talking to the wrong process, the `version` response carries `pid` and `path` - check them.
+- **The headless build defaults to JIT** (`Headless.cpp`, `CPUCore cpuCore = CPUCore::JIT`), despite
+  `g_Config.iCpuCore` being force-set to INTERPRETER just above - `ApplyToConfig()` has the final say. Pass `-i` for
+  the interpreter.
+- **`-r` is ambiguous in headless**: it's both "use IR interpreter" (legacy short cpu-core flag) and `--root`'s short
+  form. Passing `-r` makes it eat the *next* argument as the root path, silently dropping e.g. `--debugger=PORT` so
+  the server never starts. Use `--cpu=ir` instead. (`-i`, `-j`, `-J` are unambiguous.)
+- When a test finishes, headless exits and the WebSocket connection closes (`CloseFrame { code: Away }`). So "the
+  connection just closed" after a `cpu.resume` normally means **the breakpoint you were counting on never tripped**
+  and the game ran to completion - not a transport problem.
+- Some events deliberately never respond while the CPU is stepping, so `--sync` will burn its full timeout on them:
+  `gpu.stats.get` and `gpu.stats.feed` (documented - they answer after the next flip), `gpu.record.dump`, and
+  `input.buttons.press` (waits for N frames). Resume the CPU first, or skip them in scripted runs.
+- Log broadcasts drown scripted output. Send this first:
+  `{"event":"broadcast.config.set","disallowed":{"logger":true,"input":true}}`. Note `wsdbg`'s `key=value` shorthand
+  can't build nested objects - paste raw JSON lines (any line starting with `{` is sent verbatim) for those.
+- Keep wsdbg scripts in files and pipe them in, rather than building JSON inline in a shell command - inline
+  `{"event":...}` in a bash heredoc trips Claude Code's command analyzer ("brace with quote character") and forces a
+  manual approval prompt for every single invocation.
 
 ## Debugger threading model (Core_RunOnCPUThread / g_frameMutex)
 
@@ -328,8 +395,17 @@ constantly-moving value isn't meaningful to read closely anyway.
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.
-The JITs are much, much faster and in theory also support breakpoints, but especially from websockets there seem
-to be trouble.
+The JITs are much, much faster and in theory also support breakpoints, and we're trying to make the JITs
+as reliable, but are maybe not quite there.
+
+Concretely, as measured against the headless build (2026-08-16), per CPU backend:
+
+| | interpreter (`-i`) | JIT (`-j`) / IR JIT (`-J`) |
+|---|---|---|
+| `cpu.breakpoint.*` (exec) | works | works |
+| `cpu.stepInto/Over/Out`, `runUntil`, `nextHLE` | works | works |
+| `memory.breakpoint.*` (memchecks) | works | **only for constant addresses** - see below |
+| `cpu.regBreakpoint.*` | works | never trips (as documented) |
 
 ## Quick rebuild on Linux
 
