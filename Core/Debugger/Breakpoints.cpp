@@ -147,7 +147,7 @@ int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
 	size_t bp = FindBreakpoint(addr, true, temp);
 	if (bp == INVALID_BREAKPOINT) {
 		BreakPoint pt;
-		pt.action |= BREAK_ACTION_PAUSE;
+		pt.action |= BREAK_ACTION_PAUSE | BREAK_ACTION_LOG;
 		pt.temporary = temp;
 		pt.addr = addr;
 
@@ -156,6 +156,7 @@ int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
 		Update(addr);
 		return (int)breakPoints_.size() - 1;
 	} else if (!breakPoints_[bp].IsEnabled()) {
+		// Hm, iffy if the existing breakpoint is temp...
 		breakPoints_[bp].action |= BREAK_ACTION_PAUSE;
 		breakPoints_[bp].hasCond = false;
 		Update(addr);
