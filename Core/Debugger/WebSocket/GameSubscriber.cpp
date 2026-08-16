@@ -31,6 +31,7 @@
 
 #include "Common/System/System.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -64,15 +65,21 @@ DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 //
 // Response (same event name) with no extra data or error.
 void WebSocketGameReset(DebuggerRequest &req) {
-	if (PSP_GetBootState() != BootState::Complete)
-		return req.Fail("Game not running");
-
 	bool needBreak = false;
 	if (!req.ParamBool("break", &needBreak, DebuggerParamType::OPTIONAL))
 		return;
 
-	if (needBreak)
-		PSP_CoreParameter().startBreak = true;
+	// Route the boot-state check and the startBreak write to the CPU thread instead of poking at
+	// them directly from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	bool running = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running && needBreak)
+			PSP_CoreParameter().startBreak = true;
+	});
+
+	if (!running)
+		return req.Fail("Game not running");
 
 	// We can only support async resets here. A lot of the stuff in init must happen on the EmuThread,
 	// and we are not on it here.
@@ -92,17 +99,21 @@ void WebSocketGameReset(DebuggerRequest &req) {
 //     - title: string game title.
 //  - paused: boolean, true when gameplay is paused (not the same as stepping.)
 void WebSocketGameStatus(DebuggerRequest &req) {
-	JsonWriter &json = req.Respond();
-	if (PSP_GetBootState() == BootState::Complete) {
-		json.pushDict("game");
-		json.writeString("id", g_paramSFO.GetDiscID());
-		json.writeString("version", g_paramSFO.GetValueString("DISC_VERSION"));
-		json.writeString("title", g_paramSFO.GetValueString("TITLE"));
-		json.pop();
-	} else {
-		json.writeNull("game");
-	}
-	json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
+	// Route the boot state and param SFO reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		JsonWriter &json = req.Respond();
+		if (PSP_GetBootState() == BootState::Complete) {
+			json.pushDict("game");
+			json.writeString("id", g_paramSFO.GetDiscID());
+			json.writeString("version", g_paramSFO.GetValueString("DISC_VERSION"));
+			json.writeString("title", g_paramSFO.GetValueString("TITLE"));
+			json.pop();
+		} else {
+			json.writeNull("game");
+		}
+		json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
+	});
 }
 
 // Notify debugger version info (version)
@@ -121,8 +132,6 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 // meant to attach to. Ports aren't enough on their own: a leftover process may still be holding
 // the one you asked for, and you'd never know you were driving the wrong emulator.
 void WebSocketVersion(DebuggerRequest &req) {
-	JsonWriter &json = req.Respond();
-
 	std::string version = req.client->version;
 	if (!req.ParamString("version", &version, DebuggerParamType::OPTIONAL_LOOSE))
 		return;
@@ -133,14 +142,19 @@ void WebSocketVersion(DebuggerRequest &req) {
 	req.client->version = version;
 	req.client->name = name;
 
+	// fileToStart is CPU-thread-owned (PSP_Shutdown clears it), so read it over there - see
+	// Core_RunOnCPUThread() in Core.h. The rest is constant and safe to read here.
+	std::string path;
+	Core_RunOnCPUThread([&] {
+		path = PSP_CoreParameter().fileToStart.ToString();
+	});
+
+	JsonWriter &json = req.Respond();
 	json.writeString("name", "PPSSPP");
 	json.writeString("version", PPSSPP_GIT_VERSION);
-
 	json.writeUint("pid", GetOwnProcessID());
-
-	const Path &fileToStart = PSP_CoreParameter().fileToStart;
-	if (fileToStart.empty())
+	if (path.empty())
 		json.writeNull("path");
 	else
-		json.writeString("path", fileToStart.ToString());
+		json.writeString("path", path);
 }
