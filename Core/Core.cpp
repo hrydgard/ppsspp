@@ -361,8 +361,8 @@ void Core_RunLoopUntil(u64 globalticks) {
 			}
 			break;
 		case CORE_REENTER_DISPATCH:
-			_dbg_assert_(false);
-			coreState = CORE_STEPPING_CPU;
+			// Resume
+			coreState = CORE_RUNNING_CPU;
 			break;
 		}
 	}
