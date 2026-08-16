@@ -62,9 +62,9 @@ void CtrlDisAsmView::scanVisibleFunctions()
 {
 	// Reads live memory/symbol state to detect function boundaries - hold g_frameMutex for the
 	// duration, which NativeFrame() also holds while it's actually touching that state, and
-	// Memory::Lock() so the core can't be torn down mid-read. See g_frameMutex in Core.h.
+	// Core_LockAgainstShutdown() so the core can't be torn down mid-read. See g_frameMutex in Core.h.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
-	Memory::MemoryInitedLock memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	g_disassemblyManager.analyze(windowStart, g_disassemblyManager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
@@ -244,7 +244,7 @@ std::string trimString(std::string input)
 
 void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!Core_IsStepping()) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
@@ -462,9 +462,9 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	// with the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame()
 	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
 	//
-	// g_frameMutex first, then Memory::Lock() - never the other way around. See CtrlMemView::onPaint.
+	// g_frameMutex first, then Core_LockAgainstShutdown() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
-	Memory::MemoryInitedLock memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
 
 	PAINTSTRUCT ps;
@@ -1196,7 +1196,7 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::updateStatusBarText()
 {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited())
 		return;
 
@@ -1230,7 +1230,7 @@ void CtrlDisAsmView::calculatePixelPositions()
 
 void CtrlDisAsmView::search(bool continueSearch)
 {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 searchAddress;
 
 	if (continueSearch == false || searchQuery[0] == 0)

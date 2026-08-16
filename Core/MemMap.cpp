@@ -87,7 +87,6 @@ u32 g_PSPModel;
 
 static MemMapSetupFlags g_setupFlags;
 
-std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] = {
@@ -343,6 +342,9 @@ bool Init(MemMapSetupFlags flags) {
 void Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	// Held across both halves: between Shutdown() and Init() there is no memory map at all, and a
+	// reader that only saw Shutdown()'s own acquire could slip into that gap.
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
 	Init(flags);
@@ -421,7 +423,7 @@ void DoState(PointerWrap &p) {
 }
 
 void Shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 flags = 0;
 	MemoryMap_Shutdown();
 	base = nullptr;
@@ -430,21 +432,6 @@ void Shutdown() {
 
 bool IsActive() {
 	return base != nullptr;
-}
-
-// Wanting to avoid include pollution, MemMap.h is included a lot.
-MemoryInitedLock::MemoryInitedLock()
-{
-	g_shutdownLock.lock();
-}
-MemoryInitedLock::~MemoryInitedLock()
-{
-	g_shutdownLock.unlock();
-}
-
-MemoryInitedLock Lock()
-{
-	return MemoryInitedLock();
 }
 
 static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {

@@ -88,7 +88,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				// queued callback.
 				enum class Outcome { NotInited, OpenFailed, Success } outcome = Outcome::NotInited;
 				Core_RunOnCPUThread([&] {
-					Memory::MemoryInitedLock memLock = Memory::Lock();
+					CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 					if (!PSP_IsInited())
 						return;
 

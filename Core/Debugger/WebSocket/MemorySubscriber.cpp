@@ -63,7 +63,7 @@ struct AutoDisabledReplacements {
 // by the time this is called, so nothing else can be concurrently executing MIPS code or touching the
 // JIT's emuhack ops on this thread while we hold onto them below.
 //
-// Deliberately does NOT take a Memory::MemoryInitedLock: memory teardown only ever happens on the
+// Deliberately does NOT take a CoreShutdownLock: memory teardown only ever happens on the
 // CPU thread too, so there's nothing to guard against, and taking it here deadlocked against the
 // Win32 debugger's paint handlers. See the lock ordering section in AGENTS.md.
 //

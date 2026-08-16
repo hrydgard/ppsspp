@@ -571,8 +571,8 @@ void CPU_Shutdown(bool success) {
 	// Held across the whole teardown, not just Memory::Shutdown() further down. Everything below
 	// frees state the debugger UIs read from other threads - kernel objects, the symbol map, the
 	// memory map - and this is the lock they take to be sure none of it goes away mid-read. See
-	// Memory::Lock(); it's recursive, so the nested acquire in Memory::Shutdown() is fine.
-	Memory::MemoryInitedLock coreLock = Memory::Lock();
+	// Core_LockAgainstShutdown(); it's recursive, so the nested acquire in Memory::Shutdown() is fine.
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 
 	UninstallExceptionHandler();
 

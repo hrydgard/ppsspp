@@ -118,16 +118,6 @@ void DoState(PointerWrap &p);
 // False when shutdown has already been called.
 bool IsActive();
 
-class MemoryInitedLock {
-public:
-	MemoryInitedLock();
-	~MemoryInitedLock();
-};
-
-// This doesn't lock memory access or anything, it just makes sure memory isn't freed.
-// Use it when accessing PSP memory from external threads.
-MemoryInitedLock Lock();
-
 // used by JIT to read instructions. Does not resolve replacements.
 Opcode Read_Opcode_JIT(const u32 _Address);
 // used by JIT. Reads in the "Locked cache" mode

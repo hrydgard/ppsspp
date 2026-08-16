@@ -186,7 +186,7 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, size_t destSize, int row, int 
 }
 
 int CtrlVertexList::GetRowCount() {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited()) {
 		return 0;
 	}

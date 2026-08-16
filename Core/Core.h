@@ -168,6 +168,20 @@ void Core_ReenterDispatcher();  // If you've done things that mess with caches, 
 // even while it's fully running.
 void Core_RunOnCPUThread(std::function<void()> func);
 
+// Held while the core is being torn down (CPU_Shutdown) or its memory map reinitialized. Take it on
+// any thread other than the CPU thread before reading core state - emulated memory, the symbol map,
+// kernel objects - so none of it can be freed mid-read. Recursive, so nesting is fine.
+//
+// It is not a lock on memory *access*: it doesn't stop the CPU thread mutating anything, only stop
+// it going away. If you also need a stable snapshot, take g_frameMutex first - see the ordering
+// rule in AGENTS.md.
+class CoreShutdownLock {
+public:
+	CoreShutdownLock();
+	~CoreShutdownLock();
+};
+CoreShutdownLock Core_LockAgainstShutdown();
+
 // Drains the queue Core_RunOnCPUThread() feeds. Normally called from the top of every
 // Core_RunLoopUntil() iteration, but that function is only reached while a game is actually
 // loaded/running (via EmuScreen) - so NativeFrame() (UI/NativeApp.cpp) also calls this directly,

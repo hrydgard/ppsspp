@@ -138,6 +138,21 @@ void Core_ProcessCPUQueue() {
 	g_cpuQueueCond.notify_all();
 }
 
+// See Core.h. Recursive because Memory::Shutdown() nests inside CPU_Shutdown()'s acquire.
+static std::recursive_mutex g_shutdownLock;
+
+CoreShutdownLock::CoreShutdownLock() {
+	g_shutdownLock.lock();
+}
+
+CoreShutdownLock::~CoreShutdownLock() {
+	g_shutdownLock.unlock();
+}
+
+CoreShutdownLock Core_LockAgainstShutdown() {
+	return CoreShutdownLock();
+}
+
 // See Core.h for the rationale. Held by NativeFrame() (in NativeApp.cpp) around the span where it
 // actually touches CPU-thread-owned debugger state.
 std::mutex g_frameMutex;
