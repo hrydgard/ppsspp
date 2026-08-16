@@ -15,12 +15,37 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
+// For the process id in the version response. On desktop Windows this is deliberately the CRT's
+// _getpid() rather than Win32 GetCurrentProcessId(), to avoid pulling windows.h into this file - it
+// defines an OPTIONAL macro that collides with DebuggerParamType::OPTIONAL. UWP has no _getpid, and
+// there windows.h is safe to include because WebSocketUtils.h below #undef's OPTIONAL for it.
+#if PPSSPP_PLATFORM(UWP)
+#include "Common/CommonWindows.h"
+#elif PPSSPP_PLATFORM(WINDOWS) && !defined(__MINGW32__)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 #include "Common/System/System.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+
+static uint32_t GetOwnProcessID() {
+#if PPSSPP_PLATFORM(UWP)
+	return (uint32_t)GetCurrentProcessId();
+#elif PPSSPP_PLATFORM(WINDOWS) && !defined(__MINGW32__)
+	return (uint32_t)_getpid();
+#else
+	return (uint32_t)getpid();
+#endif
+}
 
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.reset"] = &WebSocketGameReset;
@@ -89,6 +114,12 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 // Response (same event name):
 //  - name: string, "PPSSPP" unless some special build.
 //  - version: string, typically starts with "v" and may have git build info.
+//  - pid: unsigned integer, OS process id of this PPSSPP instance.
+//  - path: null, or string path of the executable/disc image currently loaded.
+//
+// pid and path are here so an automation client can confirm it's attached to the instance it
+// meant to attach to. Ports aren't enough on their own: a leftover process may still be holding
+// the one you asked for, and you'd never know you were driving the wrong emulator.
 void WebSocketVersion(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 
@@ -104,4 +135,12 @@ void WebSocketVersion(DebuggerRequest &req) {
 
 	json.writeString("name", "PPSSPP");
 	json.writeString("version", PPSSPP_GIT_VERSION);
+
+	json.writeUint("pid", GetOwnProcessID());
+
+	const Path &fileToStart = PSP_CoreParameter().fileToStart;
+	if (fileToStart.empty())
+		json.writeNull("path");
+	else
+		json.writeString("path", fileToStart.ToString());
 }

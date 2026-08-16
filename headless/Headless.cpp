@@ -845,6 +845,16 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		coreParameter.startBreak = true;
 		StartWebServer(WebServerFlags::DEBUGGER);
+		// We break at start and wait for a debugger to drive us, so coming up without one just
+		// hangs until the timeout. Better to say why and bail - see WebServerSetRequireExactPort().
+		if (!WebServerWaitForStartup()) {
+			fprintf(stderr, "Failed to start the debugger web server on port %d\n", cmdLineOptions.debuggerPort.value());
+			// The server thread has exited but is still joinable - without this, its std::thread
+			// destructor would call std::terminate() on the way out and we'd abort instead of
+			// returning a useful exit code.
+			ShutdownWebServer();
+			return 1;
+		}
 	}
 
 	if (stateToLoad) {

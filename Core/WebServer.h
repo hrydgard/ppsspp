@@ -39,6 +39,17 @@ bool WebServerStopped(WebServerFlags flags);
 bool WebServerRunning(WebServerFlags flags);
 void ShutdownWebServer();
 
+// By default, if g_Config.iRemoteISOPort is taken we quietly fall back to any free port - fine for
+// the "Local Server Port" preference, where the user just wants the thing to come up. It's the
+// wrong behavior for --debugger=PORT: an automation client was told to connect to that exact port,
+// so landing on a different one leaves it connecting to nothing (or, worse, to some other PPSSPP
+// instance that got there first). Set this to make the bind failure fatal instead.
+void WebServerSetRequireExactPort(bool require);
+
+// Blocks until the server thread has either started listening or given up, and returns whether
+// it's actually listening. Only meaningful right after StartWebServer().
+bool WebServerWaitForStartup();
+
 bool RemoteISOFileSupported(const std::string &filename);
 void WebServerSetUploadPath(const Path &path);
 int WebServerPort();

@@ -134,6 +134,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
+// Pulled in via Core/WebServer.cpp's OpenWebDebugger(), which CmdLine.cpp now references.
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }

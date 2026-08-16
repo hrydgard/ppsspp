@@ -3,6 +3,7 @@
 
 #include "Core/Config.h"
 #include "Core/CmdLine.h"
+#include "Core/WebServer.h"
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 
@@ -511,6 +512,9 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.DoNotSaveSetting(&g_Config.iRemoteISOPort);
 		g_Config.bRemoteDebuggerOnStartup = true;
 		g_Config.DoNotSaveSetting(&g_Config.bRemoteDebuggerOnStartup);
+		// --debugger=0 still means "pick any free port", but a specific port was asked for by
+		// something that intends to connect to it, so don't quietly come up on a different one.
+		WebServerSetRequireExactPort(debuggerPort.value() != 0);
 	}
 
 	if (logLevel.has_value()) {
