@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
@@ -102,6 +104,71 @@ static void UpdateConnected(int delta) {
 	stopCond.notify_all();
 }
 
+// Per-connection mailbox for events the CPU thread produces (cpu.stepping, game.start, ...).
+//
+// These used to be polled per connection from the WebSocket thread, which meant every connected
+// debugger was reading pc, the tick count, the UI state and the param SFO out from under the CPU
+// thread on every lap of its loop. Now the CPU thread notices the transition once, formats the
+// event, and drops it in here; the connection's own thread just drains and sends.
+struct DebuggerEventSink {
+	std::mutex lock;
+	std::vector<std::pair<const char *, std::string>> pending;
+	// A debugger that connects while the CPU is already stopped still wants to hear about it.
+	bool needsSteppingPrime = true;
+
+	void Push(const char *category, std::string json) {
+		std::lock_guard<std::mutex> guard(lock);
+		pending.emplace_back(category, std::move(json));
+	}
+
+	void Take(std::vector<std::pair<const char *, std::string>> *out) {
+		std::lock_guard<std::mutex> guard(lock);
+		out->swap(pending);
+		pending.clear();
+	}
+};
+
+static std::mutex g_sinkLock;
+static std::vector<DebuggerEventSink *> g_sinks;
+
+static void RegisterSink(DebuggerEventSink *sink) {
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	g_sinks.push_back(sink);
+}
+
+static void UnregisterSink(DebuggerEventSink *sink) {
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	g_sinks.erase(std::remove(g_sinks.begin(), g_sinks.end(), sink), g_sinks.end());
+}
+
+void WebSocketDebuggerTick() {
+	// Poll unconditionally, even with nothing connected: these track transitions, and skipping them
+	// would let the "previous" state go stale and fire a bogus event at whoever connects next.
+	const std::string gameEvent = GameBroadcaster::PollChange();
+	const std::string steppingEvent = SteppingBroadcaster::PollChange();
+
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	if (g_sinks.empty())
+		return;
+
+	std::string steppingPrime;
+	for (DebuggerEventSink *sink : g_sinks) {
+		if (sink->needsSteppingPrime) {
+			sink->needsSteppingPrime = false;
+			// Only format it if somebody actually needs it.
+			if (steppingPrime.empty())
+				steppingPrime = SteppingBroadcaster::CurrentState();
+			if (!steppingPrime.empty())
+				sink->Push("stepping", steppingPrime);
+			continue;
+		}
+		if (!gameEvent.empty())
+			sink->Push("game", gameEvent);
+		if (!steppingEvent.empty())
+			sink->Push("stepping", steppingEvent);
+	}
+}
+
 static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 	switch (stage) {
 	case CoreLifecycle::STARTING:
@@ -153,10 +220,11 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	WebSocketClientInfo client_info;
 	auto& disallowed_config = client_info.disallowed;
 
-	GameBroadcaster game;
 	LogBroadcaster logger;
 	InputBroadcaster input;
-	SteppingBroadcaster stepping;
+
+	DebuggerEventSink sink;
+	RegisterSink(&sink);
 
 	DebuggerEventHandlerMap eventHandlers;
 	std::vector<DebuggerSubscriber *> subscriberData;
@@ -213,12 +281,16 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		// so we check the client settings first
 		if (!disallowed_config["logger"])
 			logger.Broadcast(ws);
-		if (!disallowed_config["game"])
-			game.Broadcast(ws);
-		if (!disallowed_config["stepping"])
-			stepping.Broadcast(ws);
 		if (!disallowed_config["input"])
 			input.Broadcast(ws);
+
+		// Whatever the CPU thread queued up for us since last lap.
+		std::vector<std::pair<const char *, std::string>> events;
+		sink.Take(&events);
+		for (const auto &ev : events) {
+			if (!disallowed_config[ev.first])
+				ws->Send(ev.second);
+		}
 
 		for (size_t i = 0; i < subscribers.size(); ++i) {
 			if (subscriberData[i]) {
@@ -234,6 +306,8 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 			highActivity--;
 		}
 	}
+
+	UnregisterSink(&sink);
 
 	std::lock_guard<std::mutex> guard(lifecycleLock);
 	for (size_t i = 0; i < subscribers.size(); ++i) {
