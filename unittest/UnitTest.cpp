@@ -466,6 +466,42 @@ bool TestUtf8() {
 		EXPECT_TRUE(output == "abc");
 	}
 
+	// ReplaceInvalidUTF8 must always return well-formed UTF-8, keeping the good parts.  This one
+	// guards a WebSocket text frame (memory.readString reads arbitrary emulated memory), where a
+	// single bad byte getting through disconnects conforming clients.
+	{
+		const std::string replacement = "\xEF\xBF\xBD";  // U+FFFD
+
+		// Valid input is returned untouched, including 1/2/3/4-byte sequences.
+		const std::string allValid = "abc \xC3\xA9 \xE2\x82\xAC \xF0\x9F\x8E\xAE";
+		EXPECT_TRUE(ReplaceInvalidUTF8(allValid) == allValid);
+		EXPECT_TRUE(ReplaceInvalidUTF8("") == "");
+
+		// Unlike SanitizeUTF8, it keeps going past the bad byte instead of truncating there.
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("ab\xFF" "cd")) == "ab" + replacement + "cd");
+
+		// One replacement per bad byte, and resynchronization on the next valid sequence.
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\x80\x80")) == replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xC3")) == replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xC3?")) == replacement + "?");
+
+		// Sequences that lenient decoders accept but that aren't legal UTF-8: overlong encodings,
+		// surrogates, and anything past U+10FFFF.
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xC0\xAF")) == replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xE0\x80\xAF")) == replacement + replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xED\xA0\x80")) == replacement + replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xF4\x90\x80\x80")) == replacement + replacement + replacement + replacement);
+
+		// Whatever the input, the output must itself survive a re-run unchanged - i.e. be valid.
+		for (int b = 0; b < 256; ++b) {
+			std::string input = "a";
+			input += (char)b;
+			input += "b";
+			const std::string once = ReplaceInvalidUTF8(input);
+			EXPECT_TRUE(ReplaceInvalidUTF8(once) == once);
+		}
+	}
+
 	return true;
 }
 

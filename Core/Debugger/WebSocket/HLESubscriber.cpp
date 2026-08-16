@@ -92,7 +92,7 @@ static bool DataTypeFromString(const std::string &s, DataType *out) {
 //     - statuses: array of string status names, e.g. 'running'.  Typically only one set.
 //     - pc: unsigned integer address of next instruction on thread.
 //     - entry: unsigned integer address thread execution started at.
-//     - initialStackSize: unsigned integer, size of initial stack.
+//     - initialStack: unsigned integer, address of the base of the thread's stack.
 //     - currentStackSize: unsigned integer, size of stack (e.g. if resized.)
 //     - priority: numeric priority level, lower values are better priority.
 //     - waitType: numeric wait type, if the thread is waiting, or 0 if not waiting.
@@ -127,7 +127,9 @@ void WebSocketHLEThreadList(DebuggerRequest &req) {
 			json.pop();
 			json.writeUint("pc", th.curPC);
 			json.writeUint("entry", th.entrypoint);
-			json.writeUint("initialStackSize", th.initialStack);
+			// Named after the SceKernelThreadInfo field it comes from - it's the stack base
+			// address, not a size, despite what this used to be called.
+			json.writeUint("initialStack", th.initialStack);
 			json.writeUint("currentStackSize", th.stackSize);
 			json.writeInt("priority", th.priority);
 			json.writeInt("waitType", (int)th.waitType);
@@ -800,8 +802,17 @@ void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		g_symbolMap->AddData(addr, size, type);
-		g_symbolMap->AddLabel(name.c_str(), addr);
+		// GetModuleIndex() returns -1 for an address that isn't inside any loaded module, and
+		// symbols added under that index never make it into the "active" maps - so they'd silently
+		// vanish (invisible to hle.data.list, and not findable by remove/rename). Module index 0
+		// means "no module, absolute address", which is exactly what we want for a label the user
+		// put on the heap, the stack, or scratchpad after e.g. a memory.search.
+		int moduleIndex = g_symbolMap->GetModuleIndex(addr);
+		if (moduleIndex < 0)
+			moduleIndex = 0;
+
+		g_symbolMap->AddData(addr, size, type, moduleIndex);
+		g_symbolMap->AddLabel(name.c_str(), addr, moduleIndex);
 		g_symbolMap->SortSymbols();
 
 		// Clear cache so the disassembly view picks up the new annotation.
@@ -843,7 +854,12 @@ void WebSocketHLEDataRemove(DebuggerRequest &req) {
 		}
 		u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
 
-		g_symbolMap->RemoveData(dataBegin, true);
+		// Labels are shared between data and function symbols, so dropping the label along with the
+		// data would also wipe the name of a function starting at the same address (leaving it
+		// showing up in hle.func.list with an empty name). Only take the label with us if no
+		// function is using it too.
+		const bool functionOwnsLabel = g_symbolMap->GetFunctionStart(dataBegin) == dataBegin;
+		g_symbolMap->RemoveData(dataBegin, !functionOwnsLabel);
 		g_symbolMap->SortSymbols();
 		g_disassemblyManager.clear();
 

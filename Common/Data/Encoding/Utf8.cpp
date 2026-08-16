@@ -242,6 +242,81 @@ std::string SanitizeUTF8(std::string_view utf8string) {
 	return s;
 }
 
+// Length of the well-formed UTF-8 sequence starting at s, or 0 if it isn't one. Strict per
+// RFC 3629: rejects overlong encodings, surrogates (U+D800..U+DFFF) and anything above U+10FFFF,
+// all of which some decoders accept but which aren't legal UTF-8 and get rejected downstream.
+static int ValidUTF8SequenceLength(const unsigned char *s, size_t remaining) {
+	const unsigned char c = s[0];
+	int length;
+	unsigned char min2, max2;  // Allowed range of the *second* byte, which is the constrained one.
+
+	if (c < 0x80)
+		return 1;
+	else if (c >= 0xC2 && c <= 0xDF)
+		length = 2, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xE0)
+		length = 3, min2 = 0xA0, max2 = 0xBF;  // Would be overlong below A0.
+	else if (c >= 0xE1 && c <= 0xEC)
+		length = 3, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xED)
+		length = 3, min2 = 0x80, max2 = 0x9F;  // Above 9F is a surrogate.
+	else if (c >= 0xEE && c <= 0xEF)
+		length = 3, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xF0)
+		length = 4, min2 = 0x90, max2 = 0xBF;  // Would be overlong below 90.
+	else if (c >= 0xF1 && c <= 0xF3)
+		length = 4, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xF4)
+		length = 4, min2 = 0x80, max2 = 0x8F;  // Above 8F is past U+10FFFF.
+	else
+		return 0;  // Continuation byte with nothing to continue, or C0/C1/F5..FF.
+
+	if (remaining < (size_t)length)
+		return 0;
+	if (s[1] < min2 || s[1] > max2)
+		return 0;
+	for (int i = 2; i < length; ++i) {
+		if ((s[i] & 0xC0) != 0x80)
+			return 0;
+	}
+	return length;
+}
+
+std::string ReplaceInvalidUTF8(std::string_view utf8string) {
+	static const char REPLACEMENT[] = "\xEF\xBF\xBD";  // U+FFFD
+
+	const unsigned char *bytes = (const unsigned char *)utf8string.data();
+	const size_t size = utf8string.size();
+
+	// Overwhelmingly the common case - avoid the copy entirely when there's nothing to fix.
+	size_t pos = 0;
+	while (pos < size) {
+		int length = ValidUTF8SequenceLength(bytes + pos, size - pos);
+		if (length == 0)
+			break;
+		pos += length;
+	}
+	if (pos == size)
+		return std::string(utf8string);
+
+	std::string s;
+	s.reserve(size);
+	s.append(utf8string.substr(0, pos));
+	while (pos < size) {
+		int length = ValidUTF8SequenceLength(bytes + pos, size - pos);
+		if (length == 0) {
+			// Not the start of anything legal - swallow exactly one byte so we resynchronize on
+			// the next one rather than skipping over a valid sequence that follows.
+			s.append(REPLACEMENT, sizeof(REPLACEMENT) - 1);
+			pos++;
+		} else {
+			s.append(utf8string.substr(pos, length));
+			pos += length;
+		}
+	}
+	return s;
+}
+
 static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, std::string_view source) {
 	const char16_t *const orig = dest;
 	const char16_t *const destEnd = dest + destSize;

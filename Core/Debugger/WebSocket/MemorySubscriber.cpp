@@ -19,6 +19,7 @@
 #include <cstring>
 #include <mutex>
 #include "Common/Data/Encoding/Base64.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
@@ -249,7 +250,9 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 //  - type: optional, 'utf-8' (default) or 'base64'.
 //
 // Response (same event name) for 'utf8':
-//  - value: string value read.
+//  - value: string value read.  Since this reads arbitrary emulated memory, which is under no
+//    obligation to hold text at all, any byte sequence that isn't valid UTF-8 is replaced with
+//    U+FFFD.  Use 'base64' if you need the bytes exactly as they are.
 //
 // Response (same event name) for 'base64':
 //  - base64: base64 encode of binary data, not including NUL.
@@ -287,7 +290,10 @@ void WebSocketMemoryReadString(DebuggerRequest &req) {
 
 	JsonWriter &json = req.Respond();
 	if (type == "utf-8") {
-		json.writeString("value", raw);
+		// Must not go out raw: WebSocket text frames are required to be valid UTF-8, so a stray
+		// byte from some non-text address would make a conforming client (browsers included) drop
+		// the connection - taking down the whole debugger session over one bad read.
+		json.writeString("value", ReplaceInvalidUTF8(raw));
 	} else if (type == "base64") {
 		json.writeString("base64", Base64Encode((const uint8_t *)raw.data(), raw.size()));
 	}
