@@ -234,7 +234,7 @@ void BreakpointWindow::addBreakpoint() {
 	}
 	else {
 		// add breakpoint
-		g_breakpoints.AddBreakPoint(address, false);
+		g_breakpoints.AddBreakPoint(address);
 
 		if (!condition.empty()) {
 			BreakPointCond cond;

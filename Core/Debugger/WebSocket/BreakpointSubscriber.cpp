@@ -260,11 +260,9 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		JsonWriter &json = req.Respond();
 		json.pushArray("breakpoints");
+		// No filtering needed - the internal breakpoint behind step-over/run-until isn't in here.
 		std::vector<BreakPoint> bps = g_breakpoints.GetBreakpoints();
 		for (const BreakPoint &bp : bps) {
-			if (bp.temporary)
-				continue;
-
 			json.pushDict();
 			json.writeUint("address", bp.addr);
 			json.writeBool("enabled", bp.IsEnabled());

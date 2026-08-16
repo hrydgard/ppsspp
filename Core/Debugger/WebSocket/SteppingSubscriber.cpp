@@ -45,7 +45,7 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 protected:
 	uint32_t GetNextAddress(DebugInterface *cpuDebug);
 	void PrepareResume();
-	void AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID);
+	void AddThreadCondition(uint32_t threadID);
 };
 
 DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
@@ -127,8 +127,8 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
 			cpuDebug = CPUFromRequest(req);
 			if (cpuDebug != currentDebugMIPS) {
-				g_breakpoints.AddBreakPoint(breakpointAddress, true);
-				AddThreadCondition(breakpointAddress, threadID);
+				g_breakpoints.SetTempBreakPoint(breakpointAddress);
+				AddThreadCondition(threadID);
 				Core_Resume();
 			}
 		}
@@ -184,9 +184,9 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 		// Could have advanced to the breakpoint already in PrepareResume().
 		cpuDebug = CPUFromRequest(req);
 		if (cpuDebug->GetPC() != breakpointAddress) {
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			g_breakpoints.SetTempBreakPoint(breakpointAddress);
 			if (cpuDebug != currentDebugMIPS)
-				AddThreadCondition(breakpointAddress, threadID);
+				AddThreadCondition(threadID);
 			Core_Resume();
 		}
 	});
@@ -237,9 +237,9 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 		// Could have advanced to the breakpoint already in PrepareResume().
 		cpuDebug = CPUFromRequest(req);
 		if (cpuDebug->GetPC() != breakpointAddress) {
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			g_breakpoints.SetTempBreakPoint(breakpointAddress);
 			if (cpuDebug != currentDebugMIPS)
-				AddThreadCondition(breakpointAddress, threadID);
+				AddThreadCondition(threadID);
 			Core_Resume();
 		}
 	});
@@ -269,7 +269,7 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 		PrepareResume();
 		// We may have arrived already if PauseResume() stepped out of a delay slot.
 		if (currentMIPS->pc != address || wasAtAddress) {
-			g_breakpoints.AddBreakPoint(address, true);
+			g_breakpoints.SetTempBreakPoint(address);
 			Core_Resume();
 		}
 	});
@@ -325,10 +325,13 @@ void WebSocketSteppingState::PrepareResume() {
 	}
 }
 
-void WebSocketSteppingState::AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID) {
+// Restricts the temporary breakpoint a step just planted to the thread the step was requested
+// for, so an unrelated thread running through the same address doesn't complete someone else's
+// step. Must be called right after SetTempBreakPoint().
+void WebSocketSteppingState::AddThreadCondition(uint32_t threadID) {
 	BreakPointCond cond;
 	cond.debug = currentDebugMIPS;
 	cond.expressionString = StringFromFormat("threadid == 0x%08x", threadID);
 	if (initExpression(currentDebugMIPS, cond.expressionString.c_str(), cond.expression))
-		g_breakpoints.ChangeBreakPointAddCond(breakpointAddress, cond);
+		g_breakpoints.SetTempBreakPointCond(cond);
 }

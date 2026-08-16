@@ -68,20 +68,17 @@ BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char 
 	return action;
 }
 
-size_t BreakpointManager::FindBreakpoint(u32 addr, bool matchTemp, bool temp) {
-	size_t found = INVALID_BREAKPOINT;
+size_t BreakpointManager::FindBreakpoint(u32 addr) {
 	for (size_t i = 0; i < breakPoints_.size(); ++i) {
-		const auto &bp = breakPoints_[i];
-		if (bp.addr == addr && (!matchTemp || bp.temporary == temp)) {
-			if (bp.IsEnabled())
-				return i;
-			// Hold out until the first enabled one.
-			if (found == INVALID_BREAKPOINT)
-				found = i;
-		}
+		if (breakPoints_[i].addr == addr)
+			return i;
 	}
 
-	return found;
+	return INVALID_BREAKPOINT;
+}
+
+void BreakpointManager::UpdateAnyBreakPoints() {
+	anyBreakPoints_ = !breakPoints_.empty() || tempBreakPoint_.valid;
 }
 
 size_t BreakpointManager::FindMemCheck(u32 start, u32 end) {
@@ -102,30 +99,36 @@ size_t BreakpointManager::FindRegBreakpoint(int reg) {
 	return INVALID_REG_BREAKPOINT;
 }
 
-bool BreakpointManager::IsAddressBreakPoint(u32 addr)
-{
+bool BreakpointManager::IsAddressBreakPoint(u32 addr) {
 	if (!anyBreakPoints_)
 		return false;
 	size_t bp = FindBreakpoint(addr);
-	return bp != INVALID_BREAKPOINT && breakPoints_[bp].action != BREAK_ACTION_NONE;
+	if (bp == INVALID_BREAKPOINT) {
+		return false;
+	}
+	return breakPoints_[bp].action != BREAK_ACTION_NONE;
 }
 
-bool BreakpointManager::IsAddressBreakPoint(u32 addr, bool* enabled)
-{
+bool BreakpointManager::IsAddressBreakPoint(u32 addr, bool* enabled) {
 	if (!anyBreakPoints_)
 		return false;
 	size_t bp = FindBreakpoint(addr);
-	if (bp == INVALID_BREAKPOINT) return false;
+	if (bp == INVALID_BREAKPOINT) {
+		return false;
+	}
 	if (enabled != nullptr) {
 		*enabled = breakPoints_[bp].IsEnabled();
 	}
 	return true;
 }
 
-bool BreakpointManager::IsTempBreakPoint(u32 addr)
-{
-	size_t bp = FindBreakpoint(addr, true, true);
-	return bp != INVALID_BREAKPOINT;
+bool BreakpointManager::NeedsBreakCheckAt(u32 addr) {
+	if (!anyBreakPoints_)
+		return false;
+	if (tempBreakPoint_.valid && tempBreakPoint_.addr == addr)
+		return true;
+	size_t bp = FindBreakpoint(addr);
+	return bp != INVALID_BREAKPOINT && breakPoints_[bp].action != BREAK_ACTION_NONE;
 }
 
 bool BreakpointManager::RangeContainsBreakPoint(u32 addr, u32 size)
@@ -133,6 +136,8 @@ bool BreakpointManager::RangeContainsBreakPoint(u32 addr, u32 size)
 	if (!anyBreakPoints_)
 		return false;
 	const u32 end = addr + size;
+	if (tempBreakPoint_.valid && tempBreakPoint_.addr >= addr && tempBreakPoint_.addr < end)
+		return true;
 	for (const auto &bp : breakPoints_)
 	{
 		if (bp.addr >= addr && bp.addr < end)
@@ -142,25 +147,23 @@ bool BreakpointManager::RangeContainsBreakPoint(u32 addr, u32 size)
 	return false;
 }
 
-int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
+int BreakpointManager::AddBreakPoint(u32 addr) {
 	if (addr & 3) {
 		WARN_LOG(Log::Debugger, "Breakpoint added at %08x will not be effective - unaligned address.", addr);
 	}
 
-	size_t bp = FindBreakpoint(addr, true, temp);
+	size_t bp = FindBreakpoint(addr);
 	if (bp == INVALID_BREAKPOINT) {
 		BreakPoint pt;
 		pt.action |= BREAK_ACTION_PAUSE;
-		pt.temporary = temp;
 		pt.addr = addr;
 
 		breakPoints_.push_back(pt);
-		anyBreakPoints_ = true;
+		UpdateAnyBreakPoints();
 		currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
 		System_Notify(SystemNotification::DISASSEMBLY);
 		return (int)breakPoints_.size() - 1;
 	} else if (!breakPoints_[bp].IsEnabled()) {
-		// Hm, iffy if the existing breakpoint is temp...
 		breakPoints_[bp].action |= BREAK_ACTION_PAUSE;
 		breakPoints_[bp].hasCond = false;
 		currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
@@ -177,15 +180,42 @@ void BreakpointManager::RemoveBreakPoint(u32 addr) {
 	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_.erase(breakPoints_.begin() + bp);
 
-		// Check again, there might've been an overlapping temp breakpoint.
-		bp = FindBreakpoint(addr);
-		if (bp != INVALID_BREAKPOINT)
-			breakPoints_.erase(breakPoints_.begin() + bp);
-
-		anyBreakPoints_ = !breakPoints_.empty();
+		UpdateAnyBreakPoints();
 		currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
 		System_Notify(SystemNotification::DISASSEMBLY);
 	}
+}
+
+void BreakpointManager::SetTempBreakPoint(u32 addr) {
+	// Only one can be in flight - see TempBreakPoint. If there's an old one, it belonged to a step
+	// that never completed, so drop it (and its stale compiled-in check) rather than accumulating.
+	if (tempBreakPoint_.valid && tempBreakPoint_.addr != addr)
+		currentMIPS->InvalidateICacheRangeDeferred(tempBreakPoint_.addr - 4, 8);
+
+	tempBreakPoint_ = TempBreakPoint{};
+	tempBreakPoint_.valid = true;
+	tempBreakPoint_.addr = addr;
+
+	UpdateAnyBreakPoints();
+	currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
+}
+
+void BreakpointManager::SetTempBreakPointCond(const BreakPointCond &cond) {
+	if (!tempBreakPoint_.valid)
+		return;
+	tempBreakPoint_.hasCond = true;
+	tempBreakPoint_.cond = cond;
+}
+
+void BreakpointManager::ClearTempBreakPoint() {
+	if (!tempBreakPoint_.valid)
+		return;
+
+	const u32 addr = tempBreakPoint_.addr;
+	tempBreakPoint_ = TempBreakPoint{};
+
+	UpdateAnyBreakPoints();
+	currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
 }
 
 void BreakpointManager::ChangeBreakPoint(u32 addr, bool status) {
@@ -211,21 +241,18 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction action) {
 }
 
 // Relocates a breakpoint the user already set, rather than making them delete and re-add it.
-// Returns false and changes nothing if there's no (non-temporary) breakpoint at oldAddr, or if
-// newAddr already has one of its own.
+// Returns false and changes nothing if there's no breakpoint at oldAddr, or if newAddr already has
+// one of its own.
 //
 // Refusing the duplicate matters: ExecBreakPoint() goes through FindBreakpoint(), which returns
-// only one entry per address, so a second breakpoint at the same address is invisible - and if the
-// one that gets found has a condition that evaluates false, the other silently never fires either.
+// only one entry per address, so a second breakpoint at the same address would be invisible.
 bool BreakpointManager::ChangeBreakPointAddress(u32 oldAddr, u32 newAddr) {
 	if (oldAddr == newAddr)
 		return true;
 
-	// Match non-temporary only - a temp breakpoint belongs to an in-flight step, not to the user.
-	size_t bp = FindBreakpoint(oldAddr, true, false);
+	size_t bp = FindBreakpoint(oldAddr);
 	if (bp == INVALID_BREAKPOINT)
 		return false;
-	// ...but collide against any breakpoint at all, temporary ones included.
 	if (FindBreakpoint(newAddr) != INVALID_BREAKPOINT)
 		return false;
 
@@ -250,12 +277,13 @@ void BreakpointManager::ClearAllBreakPoints() {
 	if (!anyBreakPoints_)
 		return;
 	if (!breakPoints_.empty()) {
-		// Same strategy as ClearTemporaryBreakPoints - if there's only one, we can update just that one.
 		for (const auto &bp : breakPoints_) {
 			currentMIPS->InvalidateICacheRangeDeferred(bp.addr - 4, 8);
 		}
 		breakPoints_.clear();
 	}
+	// Note: leaves the temporary breakpoint alone - it belongs to an in-flight step, not the user.
+	UpdateAnyBreakPoints();
 }
 
 void BreakpointManager::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
@@ -285,54 +313,63 @@ BreakPointCond *BreakpointManager::GetBreakPointCondition(u32 addr) {
 }
 
 void BreakpointManager::ChangeBreakPointLogFormat(u32 addr, const std::string &fmt) {
-	size_t bp = FindBreakpoint(addr, true, false);
+	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_[bp].logFormat = fmt;
 		currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
 	}
 }
 
+// Note that the user's breakpoint and the internal temporary one are handled independently, and the
+// actions combine - a log-only breakpoint at the address a step-over is heading for must still log,
+// and must still let the step complete. Whichever of them pauses, Core_Break() drops the temporary
+// breakpoint, so a step that gets interrupted by something else doesn't leave one armed behind it.
 BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	if (!anyBreakPoints_)
 		return BREAK_ACTION_NONE;
-	size_t bp = FindBreakpoint(addr, false);
+
+	BreakAction result = BREAK_ACTION_NONE;
+
+	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
 		BreakPoint &info = breakPoints_[bp];
 		const BreakAction action = info.action;
 
-		if (info.hasCond) {
-			// Evaluate the breakpoint and abort if necessary.
-			auto cond = BreakpointManager::GetBreakPointCondition(currentMIPS->pc);
-			if (cond && !cond->Evaluate())
-				return BREAK_ACTION_NONE;
-		}
+		bool condPassed = true;
+		if (info.hasCond)
+			condPassed = info.cond.Evaluate() != 0;
 
-		++info.numHits;
+		if (condPassed) {
+			++info.numHits;
 
-		if (action & BREAK_ACTION_LOG) {
-			if (info.logFormat.empty()) {
-				NOTICE_LOG(Log::JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
-			} else {
-				std::string formatted;
-				BreakpointManager::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
-				NOTICE_LOG(Log::JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
+			if (action & BREAK_ACTION_LOG) {
+				if (info.logFormat.empty()) {
+					NOTICE_LOG(Log::JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+				} else {
+					std::string formatted;
+					BreakpointManager::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
+					NOTICE_LOG(Log::JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
+				}
 			}
-		}
 
-		if (action & BREAK_ACTION_PAUSE) {
-			Core_Break(BreakReason::CpuBreakpoint, info.addr);
-			System_Notify(SystemNotification::DISASSEMBLY);
+			result |= action;
 		}
-
-		if (info.temporary) {
-			DEBUG_LOG(Log::Debugger, "Erasing temporary breakpoint after hitting it at %08x", info.addr);
-			currentMIPS->InvalidateICacheRangeDeferred(info.addr, 4);
-			breakPoints_.erase(breakPoints_.begin() + bp);
-		}
-		return action;
 	}
 
-	return BREAK_ACTION_NONE;
+	if (tempBreakPoint_.valid && tempBreakPoint_.addr == addr) {
+		// The condition, when set, restricts the step to one thread - see SetTempBreakPointCond().
+		if (!tempBreakPoint_.hasCond || tempBreakPoint_.cond.Evaluate() != 0) {
+			DEBUG_LOG(Log::Debugger, "Reached temporary breakpoint at %08x", addr);
+			result |= BREAK_ACTION_PAUSE;
+		}
+	}
+
+	if (result & BREAK_ACTION_PAUSE) {
+		Core_Break(BreakReason::CpuBreakpoint, addr);
+		System_Notify(SystemNotification::DISASSEMBLY);
+	}
+
+	return result;
 }
 
 int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction action) {

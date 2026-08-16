@@ -444,13 +444,8 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 }
 
 int CtrlBreakpointList::getTotalBreakpointCount() {
-	int count = (int)displayedMemChecks_.size();
-	for (auto bp : displayedBreakPoints_) {
-		if (!bp.temporary)
-			++count;
-	}
-
-	return count;
+	// displayedBreakPoints_ never contains the internal step-over/run-until breakpoint.
+	return (int)displayedMemChecks_.size() + (int)displayedBreakPoints_.size();
 }
 
 int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
@@ -467,12 +462,6 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 	size_t i = 0;
 	while (i < displayedBreakPoints_.size())
 	{
-		if (displayedBreakPoints_[i].temporary)
-		{
-			i++;
-			continue;
-		}
-
 		// the index is 0 when there are no more breakpoints to skip
 		if (itemIndex == 0)
 		{

@@ -773,7 +773,7 @@ void Jit::WriteSyscallExit() {
 }
 
 bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		SaveFlags();
 		FlushAll();
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));

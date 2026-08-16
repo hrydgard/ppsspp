@@ -428,8 +428,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType) {
 					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
 				}
 			}
-			// Add a temporary breakpoint.
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			g_breakpoints.SetTempBreakPoint(breakpointAddress);
 			Core_Resume();
 		} else {
 			// If not a branch, just do a simple single-step, no point in involving the breakpoint machinery.
@@ -459,7 +458,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType) {
 
 		u32 breakpointAddress = frames[1].pc;
 
-		g_breakpoints.AddBreakPoint(breakpointAddress, true);
+		g_breakpoints.SetTempBreakPoint(breakpointAddress);
 		Core_Resume();
 		break;
 	}
@@ -567,6 +566,13 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 
 		// Stop the tracer
 		mipsTracer.stop_tracing();
+
+		// Execution stopped, so whatever step-over/step-out/run-until was in flight is over - either
+		// it just completed, or something else (a breakpoint, a memcheck, the user hitting pause)
+		// got there first. Either way its one-shot breakpoint must not stay armed, or it'd fire
+		// later at an address nobody is waiting for anymore. Same as gdb dropping its step-resume
+		// breakpoint, or lldb discarding the thread plan, on any stop.
+		g_breakpoints.ClearTempBreakPoint();
 
 		g_breakReason = reason;
 		g_cpuStepCommand.type = CPUStepType::None;

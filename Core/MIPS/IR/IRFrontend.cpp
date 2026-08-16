@@ -355,7 +355,7 @@ void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 }
 
 void IRFrontend::CheckBreakpoint(u32 addr) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		FlushAll();
 
 		// Can't skip this even at the start of a block, might impact block linking.

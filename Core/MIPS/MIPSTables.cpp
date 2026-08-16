@@ -1136,13 +1136,12 @@ static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op)
 }
 
 static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
-	if (g_breakpoints.HasBreakPoints() && g_breakpoints.IsAddressBreakPoint(pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
+	if (g_breakpoints.HasBreakPoints() && g_breakpoints.NeedsBreakCheckAt(pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
 		g_breakpoints.ExecBreakPoint(pc);
-		if (coreState == CORE_STEPPING_CPU) {  // after ExecBreakPoint.
-			if (g_breakpoints.IsTempBreakPoint(mips->pc))
-				g_breakpoints.RemoveBreakPoint(mips->pc);
+		// No temp-breakpoint cleanup needed here (the JIT path never had any either) - Core_Break()
+		// drops it for us on the way into stepping, whichever breakpoint it was that stopped us.
+		if (coreState == CORE_STEPPING_CPU)  // after ExecBreakPoint.
 			return true;
-		}
 	}
 	return false;
 }

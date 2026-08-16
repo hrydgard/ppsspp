@@ -53,7 +53,6 @@ struct BreakPointCond {
 
 struct BreakPoint {
 	u32	addr;
-	bool temporary;
 
 	BreakAction action = BREAK_ACTION_NONE;
 	std::string logFormat;
@@ -76,6 +75,26 @@ struct BreakPoint {
 	bool operator < (const BreakPoint &other) const {
 		return addr < other.addr;
 	}
+};
+
+// The internal one-shot breakpoint that step-over, step-out and run-until plant at the address they
+// want execution to come back to. Deliberately kept out of the user's breakpoint list: it belongs to
+// an in-flight step, and when it lived in the same array the two kinds kept colliding - a user
+// breakpoint edit could land on the temporary one (address lookups return one entry per address, and
+// a log-only user breakpoint isn't "enabled", so the temporary one won the search), and removing
+// either deleted both.
+//
+// One is enough. Step over/out and cross-thread step into all require the CPU to already be stepping
+// and resume it immediately, so only one can ever be in flight; run-until is the only caller that
+// could stack them, and stacking has no coherent meaning - other debuggers ("run to cursor",
+// gdb's until/advance) replace instead, which is what SetTempBreakPoint does.
+struct TempBreakPoint {
+	bool valid = false;
+	u32 addr = 0;
+
+	// Set when planning a step on a thread other than the current one - "threadid == 0x...".
+	bool hasCond = false;
+	BreakPointCond cond;
 };
 
 enum MemCheckCondition {
@@ -155,11 +174,18 @@ public:
 	static const size_t INVALID_MEMCHECK = -1;
 	static const size_t INVALID_REG_BREAKPOINT = -1;
 
+	// User-facing: "does the user have a breakpoint here" - for the breakpoint lists and for drawing
+	// markers in the disassembly views. Deliberately does not see the temporary breakpoint.
 	bool IsAddressBreakPoint(u32 addr);
 	bool IsAddressBreakPoint(u32 addr, bool* enabled);
-	bool IsTempBreakPoint(u32 addr);
+
+	// Codegen/hot-path facing: "does anything at all need checking here", temporary breakpoint
+	// included. Use these from the JIT frontends and the interpreter, never to decide what to show
+	// the user.
+	bool NeedsBreakCheckAt(u32 addr);
 	bool RangeContainsBreakPoint(u32 addr, u32 size);
-	int AddBreakPoint(u32 addr, bool temp = false);  // Returns the breakpoint index.
+
+	int AddBreakPoint(u32 addr);  // Returns the breakpoint index.
 	void RemoveBreakPoint(u32 addr);
 	void ChangeBreakPoint(u32 addr, bool enable);
 	void ChangeBreakPoint(u32 addr, BreakAction action);
@@ -177,6 +203,16 @@ public:
 	void ChangeBreakPointLogFormat(u32 addr, const std::string &fmt);
 
 	BreakAction ExecBreakPoint(u32 addr);
+
+	// The one-shot breakpoint behind step-over/step-out/run-until - see TempBreakPoint above.
+	// Setting one replaces any previous one. It's cleared automatically whenever execution stops for
+	// any reason (see Core_Break), matching how other debuggers abandon a pending step when
+	// something else stops you first.
+	void SetTempBreakPoint(u32 addr);
+	// Applies to the temp breakpoint set above; used to restrict a planned step to one thread.
+	void SetTempBreakPointCond(const BreakPointCond &cond);
+	void ClearTempBreakPoint();
+	bool HasTempBreakPoint() const { return tempBreakPoint_.valid; }
 
 	int AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction action);
 	void RemoveMemCheck(u32 start, u32 end);
@@ -248,7 +284,11 @@ public:
 	bool EvaluateLogFormat(MIPSDebugInterface *cpu, const std::string &fmt, std::string &result);
 
 private:
-	size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
+	size_t FindBreakpoint(u32 addr);
+	// anyBreakPoints_ gates the interpreter's checked run loop and whether the JIT emits checks at
+	// all, so it has to account for the temporary breakpoint too - otherwise a step-over with no
+	// user breakpoints set (the common case) would never come back.
+	void UpdateAnyBreakPoints();
 	// Finds exactly, not using a range check.
 	size_t FindMemCheck(u32 start, u32 end);
 	// Finds a memcheck covering (part of) a range, unlike FindMemCheck() above.
@@ -262,6 +302,7 @@ private:
 	std::atomic<u32> regBreakpointMask_;
 
 	std::vector<BreakPoint> breakPoints_;
+	TempBreakPoint tempBreakPoint_;
 	u32 breakSkipFirstAt_ = 0;
 	u64 breakSkipFirstTicks_ = 0;
 

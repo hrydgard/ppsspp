@@ -1035,17 +1035,13 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 
 			for (int i = 0; i < (int)bps.size(); i++) {
 				BreakPoint &bp = bps[i];
-				bool temp = bp.temporary;
-				if (temp) {
-					continue;
-				}
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
 				// DONE: This clashes with the checkbox!
 				// TODO: Test to make sure this works properly
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap) && !bp.temporary) {
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
 					cfg.selectedRegBreakpoint = -1;
@@ -1055,7 +1051,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TableNextColumn();
 				ImGui::CheckboxFlags("##log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(bp.temporary ? "Temp" : "Exec");
+				ImGui::TextUnformatted("Exec");
 				ImGui::TableNextColumn();
 				ImGui::Text("%08x", bp.addr);
 				ImGui::TableNextColumn();

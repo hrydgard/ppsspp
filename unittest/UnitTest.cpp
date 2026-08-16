@@ -87,6 +87,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Core/CmdLine.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
@@ -592,6 +593,74 @@ bool TestBreakpoints() {
 	g_breakpoints.RemoveBreakPoint(kAddrB);
 	g_breakpoints.RemoveBreakPoint(kAddrC);
 	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
+	return true;
+}
+
+// The one-shot breakpoint behind step-over/step-out/run-until. It deliberately lives outside the
+// user's breakpoint list, so the two must not be able to see or clobber each other.
+bool TestTempBreakpoints() {
+	const u32 kAddrA = 0x08804000;
+	const u32 kAddrB = 0x08804100;
+
+	// ExecBreakPoint's log path asks the symbol map to describe the address, and the unit test
+	// build leaves g_symbolMap null (the emulator always creates one at boot).
+	SymbolMap symbolMap;
+	g_symbolMap = &symbolMap;
+
+	g_breakpoints.SetTempBreakPoint(kAddrA);
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	// Invisible to the user's list, but the interpreter and JIT still have to check the address.
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
+	EXPECT_FALSE(g_breakpoints.IsAddressBreakPoint(kAddrA));
+	EXPECT_TRUE(g_breakpoints.NeedsBreakCheckAt(kAddrA));
+	EXPECT_TRUE(g_breakpoints.RangeContainsBreakPoint(kAddrA - 4, 16));
+	// This one is the trap: with no user breakpoints at all, the run loops and the JIT skip
+	// breakpoint checking entirely unless HasBreakPoints() accounts for the temporary one.
+	EXPECT_TRUE(g_breakpoints.HasBreakPoints());
+
+	// Only one at a time - a second request replaces rather than accumulating.
+	g_breakpoints.SetTempBreakPoint(kAddrB);
+	EXPECT_FALSE(g_breakpoints.NeedsBreakCheckAt(kAddrA));
+	EXPECT_TRUE(g_breakpoints.NeedsBreakCheckAt(kAddrB));
+
+	// A log-only user breakpoint at the same address is the case that used to break stepping: the
+	// user breakpoint must log without stopping, and the pending step must still complete.
+	g_breakpoints.AddBreakPoint(kAddrB);
+	g_breakpoints.ChangeBreakPoint(kAddrB, BREAK_ACTION_LOG);
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	{
+		std::vector<BreakPoint> bps = g_breakpoints.GetBreakpoints();
+		EXPECT_EQ_INT((int)bps.size(), 1);
+		EXPECT_EQ_INT((int)bps[0].action, (int)BREAK_ACTION_LOG);
+	}
+	{
+		// Both fire: the log from the user breakpoint, the pause from the temporary one.
+		BreakAction action = g_breakpoints.ExecBreakPoint(kAddrB);
+		EXPECT_TRUE((action & BREAK_ACTION_LOG) != 0);
+		EXPECT_TRUE((action & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints()[0].numHits, 1);
+	}
+
+	// Removing the user breakpoint must not take the temporary one with it, and vice versa.
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	g_breakpoints.RemoveBreakPoint(kAddrB);
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	EXPECT_TRUE(g_breakpoints.NeedsBreakCheckAt(kAddrB));
+
+	g_breakpoints.ClearTempBreakPoint();
+	EXPECT_FALSE(g_breakpoints.HasTempBreakPoint());
+	EXPECT_FALSE(g_breakpoints.NeedsBreakCheckAt(kAddrB));
+	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
+
+	// A user breakpoint alone still behaves normally after all that.
+	g_breakpoints.AddBreakPoint(kAddrA);
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrA));
+	EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+	g_breakpoints.RemoveBreakPoint(kAddrA);
+	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
+
+	g_symbolMap = nullptr;
 	return true;
 }
 
@@ -1653,6 +1722,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(Breakpoints),
+	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
