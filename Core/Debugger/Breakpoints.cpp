@@ -32,7 +32,7 @@
 BreakpointManager g_breakpoints;
 
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) const {
-	if (result & BREAK_ACTION_LOG) {
+	if (action & BREAK_ACTION_LOG) {
 		const char *type = write ? "Write" : "Read";
 		if (logFormat.empty()) {
 			NOTICE_LOG(Log::MemMap, "CHK %s%i(%s) at %08x (%s), PC=%08x (%s)", type, size * 8, reason, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
@@ -45,27 +45,27 @@ void MemCheck::Log(u32 addr, bool write, int size, u32 pc, const char *reason) c
 }
 
 BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
-	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
-	if (cond & mask) {
+	int condMask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
+	if (cond & condMask) {
 		if (hasCondition) {
 			if (!condition.Evaluate())
-				return BREAK_ACTION_IGNORE;
+				return BREAK_ACTION_NONE;
 		}
 
 		++numHits;
-		return result;
+		return action;
 	}
 
-	return BREAK_ACTION_IGNORE;
+	return BREAK_ACTION_NONE;
 }
 
 BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	// Conditions have always already been checked if we get here.
 	Log(addr, write, size, pc, reason);
-	if (result & BREAK_ACTION_PAUSE) {
+	if (action & BREAK_ACTION_PAUSE) {
 		Core_Break(BreakReason::MemoryBreakpoint, start);
 	}
-	return result;
+	return action;
 }
 
 size_t BreakpointManager::FindBreakpoint(u32 addr, bool matchTemp, bool temp) {
@@ -108,7 +108,7 @@ bool BreakpointManager::IsAddressBreakPoint(u32 addr)
 	if (!anyBreakPoints_)
 		return false;
 	size_t bp = FindBreakpoint(addr);
-	return bp != INVALID_BREAKPOINT && breakPoints_[bp].result != BREAK_ACTION_IGNORE;
+	return bp != INVALID_BREAKPOINT && breakPoints_[bp].action != BREAK_ACTION_NONE;
 }
 
 bool BreakpointManager::IsAddressBreakPoint(u32 addr, bool* enabled)
@@ -117,8 +117,9 @@ bool BreakpointManager::IsAddressBreakPoint(u32 addr, bool* enabled)
 		return false;
 	size_t bp = FindBreakpoint(addr);
 	if (bp == INVALID_BREAKPOINT) return false;
-	if (enabled != nullptr)
+	if (enabled != nullptr) {
 		*enabled = breakPoints_[bp].IsEnabled();
+	}
 	return true;
 }
 
@@ -146,7 +147,7 @@ int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
 	size_t bp = FindBreakpoint(addr, true, temp);
 	if (bp == INVALID_BREAKPOINT) {
 		BreakPoint pt;
-		pt.result |= BREAK_ACTION_PAUSE;
+		pt.action |= BREAK_ACTION_PAUSE;
 		pt.temporary = temp;
 		pt.addr = addr;
 
@@ -155,7 +156,7 @@ int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
 		Update(addr);
 		return (int)breakPoints_.size() - 1;
 	} else if (!breakPoints_[bp].IsEnabled()) {
-		breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
+		breakPoints_[bp].action |= BREAK_ACTION_PAUSE;
 		breakPoints_[bp].hasCond = false;
 		Update(addr);
 		return (int)bp;
@@ -184,17 +185,17 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, bool status) {
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
 		if (status)
-			breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
+			breakPoints_[bp].action |= BREAK_ACTION_PAUSE;
 		else
-			breakPoints_[bp].result = BreakAction(breakPoints_[bp].result & ~BREAK_ACTION_PAUSE);
+			breakPoints_[bp].action = BreakAction(breakPoints_[bp].action & ~BREAK_ACTION_PAUSE);
 		Update(addr);
 	}
 }
 
-void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction result) {
+void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction action) {
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
-		breakPoints_[bp].result = result;
+		breakPoints_[bp].action = action;
 		Update(addr);
 	}
 }
@@ -278,7 +279,7 @@ void BreakpointManager::ChangeBreakPointLogFormat(u32 addr, const std::string &f
 
 BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	if (!anyBreakPoints_)
-		return BREAK_ACTION_IGNORE;
+		return BREAK_ACTION_NONE;
 	size_t bp = FindBreakpoint(addr, false);
 	if (bp != INVALID_BREAKPOINT) {
 		BreakPoint &info = breakPoints_[bp];
@@ -287,12 +288,12 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 			// Evaluate the breakpoint and abort if necessary.
 			auto cond = BreakpointManager::GetBreakPointCondition(currentMIPS->pc);
 			if (cond && !cond->Evaluate())
-				return BREAK_ACTION_IGNORE;
+				return BREAK_ACTION_NONE;
 		}
 
 		++info.numHits;
 
-		if (info.result & BREAK_ACTION_LOG) {
+		if (info.action & BREAK_ACTION_LOG) {
 			if (info.logFormat.empty()) {
 				NOTICE_LOG(Log::JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
 			} else {
@@ -301,24 +302,24 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 				NOTICE_LOG(Log::JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
 			}
 		}
-		if (info.result & BREAK_ACTION_PAUSE) {
+		if (info.action & BREAK_ACTION_PAUSE) {
 			Core_Break(BreakReason::CpuBreakpoint, info.addr);
 		}
 
-		return info.result;
+		return info.action;
 	}
 
-	return BREAK_ACTION_IGNORE;
+	return BREAK_ACTION_NONE;
 }
 
-int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result) {
+int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction action) {
 	size_t mc = FindMemCheck(start, end);
 	if (mc == INVALID_MEMCHECK) {
 		MemCheck check;
 		check.start = start;
 		check.end = end;
 		check.cond = cond;
-		check.result = result;
+		check.action = action;
 
 		memChecks_.push_back(check);
 		bool hadAny = anyMemChecks_.exchange(true);
@@ -328,8 +329,9 @@ int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, B
 		Update(0);  // Memchecks are not per-address, so just update everything.
 		return (int)memChecks_.size() - 1;
 	} else {
+		// Update with additional cond and action bits. Not sure if we should OR or override?
 		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
-		memChecks_[mc].result = (BreakAction)(memChecks_[mc].result | result);
+		memChecks_[mc].action = memChecks_[mc].action | action;
 		bool hadAny = anyMemChecks_.exchange(true);
 		if (!hadAny) {
 			MemBlockOverrideDetailed();
@@ -352,13 +354,13 @@ void BreakpointManager::RemoveMemCheck(u32 start, u32 end)
 	}
 }
 
-void BreakpointManager::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result)
+void BreakpointManager::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction action)
 {
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK)
 	{
 		memChecks_[mc].cond = cond;
-		memChecks_[mc].result = result;
+		memChecks_[mc].action = action;
 		Update(0);
 	}
 }
@@ -461,17 +463,17 @@ MemCheck *BreakpointManager::FindMemCheckInRange(u32 address, int size) {
 BreakAction BreakpointManager::ExecMemCheck(u32 address, bool write, int size, u32 pc, const char *reason)
 {
 	if (!anyMemChecks_)
-		return BREAK_ACTION_IGNORE;
+		return BREAK_ACTION_NONE;
 	MemCheck *check = FindMemCheckInRange(address, size);
 	if (check) {
 		BreakAction applyAction = check->Apply(address, write, size, pc);
-		if (applyAction == BREAK_ACTION_IGNORE)
+		if (applyAction == BREAK_ACTION_NONE)
 			return applyAction;
 
 		MemCheck copy = *check;
 		return copy.Action(address, write, size, pc, reason);
 	}
-	return BREAK_ACTION_IGNORE;
+	return BREAK_ACTION_NONE;
 }
 
 BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
@@ -498,20 +500,20 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 		}
 		if (apply) {
 			BreakAction applyAction = check->Apply(address, write, size, pc);
-			if (applyAction == BREAK_ACTION_IGNORE)
+			if (applyAction == BREAK_ACTION_NONE)
 				return applyAction;
 
 			MemCheck copy = *check;
 			return copy.Action(address, write, size, pc, "CPU");
 		}
 	}
-	return BREAK_ACTION_IGNORE;
+	return BREAK_ACTION_NONE;
 }
 
 void BreakpointManager::RecomputeRegBreakpointMask() {
 	u32 mask = 0;
 	for (const auto &bp : regBreakpoints_) {
-		if (bp.result != BREAK_ACTION_IGNORE)
+		if (bp.result != BREAK_ACTION_NONE)
 			mask |= 1u << bp.reg;
 	}
 	regBreakpointMask_ = mask;
@@ -633,17 +635,17 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 	// a function call entirely in the overwhelmingly common no-breakpoint case), but check again
 	// here too since this is also reachable directly.
 	if ((regBreakpointMask_ & (1u << reg)) == 0)
-		return BREAK_ACTION_IGNORE;
+		return BREAK_ACTION_NONE;
 	size_t bp = FindRegBreakpoint(reg);
 	if (bp == INVALID_REG_BREAKPOINT)
-		return BREAK_ACTION_IGNORE;
+		return BREAK_ACTION_NONE;
 
 	RegBreakpoint &info = regBreakpoints_[bp];
-	if (info.result == BREAK_ACTION_IGNORE)
-		return BREAK_ACTION_IGNORE;
+	if (info.result == BREAK_ACTION_NONE)
+		return BREAK_ACTION_NONE;
 
 	if (info.hasCond && !info.cond.Evaluate())
-		return BREAK_ACTION_IGNORE;
+		return BREAK_ACTION_NONE;
 
 	++info.numHits;
 

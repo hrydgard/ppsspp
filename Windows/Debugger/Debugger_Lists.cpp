@@ -399,10 +399,10 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 	// GUI thread - see Core_RunOnCPUThread() in Core.h.
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.action ^ BREAK_ACTION_PAUSE)); });
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.action ^ BREAK_ACTION_PAUSE)); });
 	}
 }
 
@@ -644,9 +644,9 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			// Route the breakpoint mutation to the CPU thread instead of poking at it directly
 			// from this GUI thread - see Core_RunOnCPUThread() in Core.h.
 			if (isMemory) {
-				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.action ^ BREAK_ACTION_PAUSE)); });
 			} else {
-				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.action ^ BREAK_ACTION_PAUSE)); });
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:

@@ -1023,7 +1023,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 		}
 
 		if (ImGui::BeginTable("breakpoints", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-			ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);  // Really means action is to pause
+			ImGui::TableSetupColumn("Log", ImGuiTableColumnFlags_WidthFixed);  // Really means action is to pause
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Size/Label", ImGuiTableColumnFlags_WidthFixed);
@@ -1049,7 +1050,9 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 					cfg.selectedMemCheck = -1;
 				}
 				ImGui::SameLine();
-				ImGui::CheckboxFlags("##enabled", (int *)&bp.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("##enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::CheckboxFlags("##log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted("Exec");
 				ImGui::TableNextColumn();
@@ -1086,7 +1089,9 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 					cfg.selectedMemCheck = i;
 				}
 				ImGui::SameLine();
-				ImGui::CheckboxFlags("", (int *)&mc.result, BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("##enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::CheckboxFlags("##log", (int *)&mc.action, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(MemCheckConditionToString(mc.cond));
 				ImGui::TableNextColumn();
@@ -1112,7 +1117,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			if (ImGui::BeginChild("bp_edit")) {
 				auto &bp = bps[cfg.selectedBreakpoint];
 				ImGui::TextUnformatted("Edit breakpoint");
-				ImGui::CheckboxFlags("Enabled", (int *)&bp.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("Enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("Log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
 				ImGui::InputScalar("Address", ImGuiDataType_U32, &bp.addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveBreakPoint(bp.addr);
@@ -1141,7 +1147,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 					}
 					ImGui::EndCombo();
 				}
-				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("Enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE);
 				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
 				if (ImGui::Button("Delete")) {

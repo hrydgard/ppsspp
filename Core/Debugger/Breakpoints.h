@@ -24,9 +24,9 @@
 #include "Common/Math/expression_parser.h"
 
 enum BreakAction : u32 {
-	BREAK_ACTION_IGNORE = 0x00,
-	BREAK_ACTION_LOG = 0x01,
-	BREAK_ACTION_PAUSE = 0x02,
+	BREAK_ACTION_NONE = 0,
+	BREAK_ACTION_LOG = (1 << 0),
+	BREAK_ACTION_PAUSE = (1 << 1),
 };
 
 static inline BreakAction &operator |= (BreakAction &lhs, const BreakAction &rhs) {
@@ -55,7 +55,7 @@ struct BreakPoint {
 	u32	addr;
 	bool temporary;
 
-	BreakAction result = BREAK_ACTION_IGNORE;
+	BreakAction action = BREAK_ACTION_NONE;
 	std::string logFormat;
 
 	bool hasCond = false;
@@ -67,7 +67,7 @@ struct BreakPoint {
 	u32 numHits = 0;
 
 	bool IsEnabled() const {
-		return (result & BREAK_ACTION_PAUSE) != 0;
+		return (action & BREAK_ACTION_PAUSE) != 0;
 	}
 
 	bool operator == (const BreakPoint &other) const {
@@ -91,7 +91,7 @@ struct MemCheck {
 	u32 end;
 
 	MemCheckCondition cond = MEMCHECK_READ;
-	BreakAction result = BREAK_ACTION_IGNORE;
+	BreakAction action = BREAK_ACTION_NONE;
 	std::string logFormat;
 
 	bool hasCondition = false;
@@ -111,7 +111,7 @@ struct MemCheck {
 	void Log(u32 addr, bool write, int size, u32 pc, const char *reason) const;
 
 	bool IsEnabled() const {
-		return (result & BREAK_ACTION_PAUSE) != 0;
+		return (action & BREAK_ACTION_PAUSE) != 0;
 	}
 
 	bool operator == (const MemCheck &other) const {
@@ -128,7 +128,7 @@ struct MemCheck {
 struct RegBreakpoint {
 	int reg = 0;  // 0-31, general-purpose register index (matches OUT_RT/OUT_RD/OUT_RA fields).
 
-	BreakAction result = BREAK_ACTION_IGNORE;
+	BreakAction result = BREAK_ACTION_NONE;
 	std::string logFormat;
 
 	bool hasCond = false;
@@ -162,7 +162,7 @@ public:
 	int AddBreakPoint(u32 addr, bool temp = false);  // Returns the breakpoint index.
 	void RemoveBreakPoint(u32 addr);
 	void ChangeBreakPoint(u32 addr, bool enable);
-	void ChangeBreakPoint(u32 addr, BreakAction result);
+	void ChangeBreakPoint(u32 addr, BreakAction action);
 	void ClearAllBreakPoints();
 	void ClearTemporaryBreakPoints();
 
@@ -175,9 +175,9 @@ public:
 
 	BreakAction ExecBreakPoint(u32 addr);
 
-	int AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
+	int AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction action);
 	void RemoveMemCheck(u32 start, u32 end);
-	void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
+	void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction action);
 	void ClearAllMemChecks();
 
 	void ChangeMemCheckAddCond(u32 start, u32 end, const BreakPointCond &cond);
@@ -195,7 +195,7 @@ public:
 	int AddRegBreakpoint(int reg);  // Returns the breakpoint index.
 	void RemoveRegBreakpoint(int reg);
 	void ChangeRegBreakpoint(int reg, bool enable);
-	void ChangeRegBreakpoint(int reg, BreakAction result);
+	void ChangeRegBreakpoint(int reg, BreakAction action);
 	void ClearAllRegBreakpoints();
 
 	void ChangeRegBreakpointAddCond(int reg, const BreakPointCond &cond);

@@ -143,7 +143,7 @@ struct WebSocketCPUBreakpointParams {
 			hasEnabled = true;
 		}
 		if (hasLog && hasEnabled) {
-			BreakAction result = BREAK_ACTION_IGNORE;
+			BreakAction result = BREAK_ACTION_NONE;
 			if (log)
 				result |= BREAK_ACTION_LOG;
 			if (enabled)
@@ -268,7 +268,7 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 			json.pushDict();
 			json.writeUint("address", bp.addr);
 			json.writeBool("enabled", bp.IsEnabled());
-			json.writeBool("log", (bp.result & BREAK_ACTION_LOG) != 0);
+			json.writeBool("log", (bp.action & BREAK_ACTION_LOG) != 0);
 			json.writeUint("hits", bp.numHits);
 			if (bp.hasCond)
 				json.writeString("condition", bp.cond.expressionString);
@@ -297,6 +297,8 @@ void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 struct WebSocketMemoryBreakpointParams {
 	uint32_t address = 0;
 	uint32_t end = 0;
+
+	// These flags indicate whether the corresponding parameter was present in the request.
 	bool hasEnabled = false;
 	bool hasLog = false;
 	bool hasCond = false;
@@ -363,14 +365,14 @@ struct WebSocketMemoryBreakpointParams {
 		return true;
 	}
 
-	BreakAction Result(bool adding) {
-		int bits = MEMCHECK_READWRITE;
+	BreakAction Action(bool adding) {
+		int bits = BREAK_ACTION_PAUSE | BREAK_ACTION_LOG;
 		if (adding || (hasLog && hasEnabled)) {
 			bits = (enabled ? BREAK_ACTION_PAUSE : 0) | (log ? BREAK_ACTION_LOG : 0);
 		} else {
 			MemCheck prev;
 			if (g_breakpoints.GetMemCheck(address, end, &prev))
-				bits = prev.result;
+				bits = prev.action;
 
 			if (hasEnabled)
 				bits = (bits & ~BREAK_ACTION_PAUSE) | (enabled ? BREAK_ACTION_PAUSE : 0);
@@ -422,7 +424,7 @@ void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 	// Route the actual breakpoint manipulation to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		g_breakpoints.AddMemCheck(params.address, params.end, params.cond, params.Result(true));
+		g_breakpoints.AddMemCheck(params.address, params.end, params.cond, params.Action(true));
 		params.Apply();
 	});
 	req.Respond();
@@ -455,7 +457,7 @@ void WebSocketMemoryBreakpointUpdate(DebuggerRequest &req) {
 		MemCheck mc;
 		found = g_breakpoints.GetMemCheck(params.address, params.end, &mc);
 		if (found) {
-			g_breakpoints.ChangeMemCheck(params.address, params.end, params.cond, params.Result(true));
+			g_breakpoints.ChangeMemCheck(params.address, params.end, params.cond, params.Action(true));
 			params.Apply();
 		}
 	});
@@ -528,8 +530,8 @@ void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 			json.pushDict();
 			json.writeUint("address", mc.start);
 			json.writeUint("size", mc.end == 0 ? 0 : mc.end - mc.start);
-			json.writeBool("enabled", mc.IsEnabled());
-			json.writeBool("log", (mc.result & BREAK_ACTION_LOG) != 0);
+			json.writeBool("enabled", (mc.action & BREAK_ACTION_PAUSE));
+			json.writeBool("log", (mc.action & BREAK_ACTION_LOG) != 0);
 			json.writeBool("read", (mc.cond & MEMCHECK_READ) != 0);
 			json.writeBool("write", (mc.cond & MEMCHECK_WRITE) != 0);
 			json.writeBool("change", (mc.cond & MEMCHECK_WRITE_ONCHANGE) != 0);
@@ -626,7 +628,7 @@ struct WebSocketRegBreakpointParams {
 			hasEnabled = true;
 		}
 		if (hasLog && hasEnabled) {
-			BreakAction result = BREAK_ACTION_IGNORE;
+			BreakAction result = BREAK_ACTION_NONE;
 			if (log)
 				result |= BREAK_ACTION_LOG;
 			if (enabled)
