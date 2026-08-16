@@ -61,9 +61,10 @@ void CtrlDisAsmView::deinit()
 void CtrlDisAsmView::scanVisibleFunctions()
 {
 	// Reads live memory/symbol state to detect function boundaries - hold g_frameMutex for the
-	// duration, which NativeFrame() also holds while it's actually touching that state. See
-	// g_frameMutex in Core.h.
+	// duration, which NativeFrame() also holds while it's actually touching that state, and
+	// Memory::Lock() so the core can't be torn down mid-read. See g_frameMutex in Core.h.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 	g_disassemblyManager.analyze(windowStart, g_disassemblyManager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
