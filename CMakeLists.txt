@@ -844,8 +844,8 @@ else()
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
-# Arm platforms require at least libpng17.
-if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
+# Android and iOS require at least libpng17.
+if(ANDROID OR IOS)
 	set(PNG_REQUIRED_VERSION 1.7)
 else()
 	set(PNG_REQUIRED_VERSION 1.6)
