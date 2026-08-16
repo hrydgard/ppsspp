@@ -163,6 +163,10 @@ public:
 	void RemoveBreakPoint(u32 addr);
 	void ChangeBreakPoint(u32 addr, bool enable);
 	void ChangeBreakPoint(u32 addr, BreakAction action);
+	// Moves an existing breakpoint, keeping its action, condition and log format. Prefer this over
+	// assigning to BreakPoint::addr through GetBreakpointRefs() - there's cache invalidation and a
+	// duplicate check to get right, see the implementation.
+	bool ChangeBreakPointAddress(u32 oldAddr, u32 newAddr);
 	void ClearAllBreakPoints();
 
 	// Makes a copy of the condition.

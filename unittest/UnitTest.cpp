@@ -86,6 +86,7 @@
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Core/CmdLine.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
@@ -542,6 +543,55 @@ bool TestMemBlockInfoSaveState() {
 
 	MemBlockReleaseDetailed();
 	MemBlockInfoShutdown();
+	return true;
+}
+
+// Covers BreakpointManager::ChangeBreakPointAddress(), which the ImDebugger uses to relocate a
+// breakpoint the user is editing. Only the pure bookkeeping is exercised here - there's no JIT in
+// this build, so the cache invalidation it also does is a no-op.
+bool TestBreakpoints() {
+	const u32 kAddrA = 0x08804000;
+	const u32 kAddrB = 0x08804100;
+	const u32 kAddrC = 0x08804200;
+
+	g_breakpoints.AddBreakPoint(kAddrA);
+	g_breakpoints.ChangeBreakPoint(kAddrA, BreakAction(BREAK_ACTION_PAUSE | BREAK_ACTION_LOG));
+	// Pretend it tripped a few times, so the reset below is actually testing something.
+	g_breakpoints.GetBreakpointRefs()[0].numHits = 7;
+
+	// A plain move: gone from the old address, present at the new one, action carried over, and the
+	// hit count (which belonged to the old address) reset.
+	EXPECT_TRUE(g_breakpoints.ChangeBreakPointAddress(kAddrA, kAddrB));
+	EXPECT_FALSE(g_breakpoints.IsAddressBreakPoint(kAddrA));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrB));
+	{
+		std::vector<BreakPoint> bps = g_breakpoints.GetBreakpoints();
+		EXPECT_EQ_INT((int)bps.size(), 1);
+		EXPECT_EQ_INT((int)bps[0].action, (int)(BREAK_ACTION_PAUSE | BREAK_ACTION_LOG));
+		EXPECT_EQ_INT((int)bps[0].numHits, 0);
+	}
+
+	// Moving onto an address that already has a breakpoint must be refused rather than creating a
+	// duplicate - FindBreakpoint() only ever returns one entry per address, so the other would be
+	// silently dead. Neither breakpoint should move.
+	g_breakpoints.AddBreakPoint(kAddrC);
+	EXPECT_FALSE(g_breakpoints.ChangeBreakPointAddress(kAddrB, kAddrC));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrB));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrC));
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 2);
+
+	// Nothing to move.
+	EXPECT_FALSE(g_breakpoints.ChangeBreakPointAddress(kAddrA, 0x08804300));
+	EXPECT_FALSE(g_breakpoints.IsAddressBreakPoint(0x08804300));
+
+	// Moving somewhere it already is succeeds and does nothing.
+	EXPECT_TRUE(g_breakpoints.ChangeBreakPointAddress(kAddrB, kAddrB));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrB));
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 2);
+
+	g_breakpoints.RemoveBreakPoint(kAddrB);
+	g_breakpoints.RemoveBreakPoint(kAddrC);
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
 	return true;
 }
 
@@ -1602,6 +1652,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(Breakpoints),
 	TEST_ITEM(Utf8),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),

@@ -210,6 +210,41 @@ void BreakpointManager::ChangeBreakPoint(u32 addr, BreakAction action) {
 	}
 }
 
+// Relocates a breakpoint the user already set, rather than making them delete and re-add it.
+// Returns false and changes nothing if there's no (non-temporary) breakpoint at oldAddr, or if
+// newAddr already has one of its own.
+//
+// Refusing the duplicate matters: ExecBreakPoint() goes through FindBreakpoint(), which returns
+// only one entry per address, so a second breakpoint at the same address is invisible - and if the
+// one that gets found has a condition that evaluates false, the other silently never fires either.
+bool BreakpointManager::ChangeBreakPointAddress(u32 oldAddr, u32 newAddr) {
+	if (oldAddr == newAddr)
+		return true;
+
+	// Match non-temporary only - a temp breakpoint belongs to an in-flight step, not to the user.
+	size_t bp = FindBreakpoint(oldAddr, true, false);
+	if (bp == INVALID_BREAKPOINT)
+		return false;
+	// ...but collide against any breakpoint at all, temporary ones included.
+	if (FindBreakpoint(newAddr) != INVALID_BREAKPOINT)
+		return false;
+
+	if (newAddr & 3) {
+		WARN_LOG(Log::Debugger, "Breakpoint moved to %08x will not be effective - unaligned address.", newAddr);
+	}
+
+	breakPoints_[bp].addr = newAddr;
+	// The count belonged to the old address, so carrying it over would just be misleading.
+	breakPoints_[bp].numHits = 0;
+
+	// Both ends need invalidating, not just the new one: under a JIT the old address still has a
+	// compiled-in check that now matches no breakpoint, and the new address has none at all.
+	currentMIPS->InvalidateICacheRangeDeferred(oldAddr - 4, 8);
+	currentMIPS->InvalidateICacheRangeDeferred(newAddr - 4, 8);
+	System_Notify(SystemNotification::DISASSEMBLY);
+	return true;
+}
+
 // This is not actually called, currently.
 void BreakpointManager::ClearAllBreakPoints() {
 	if (!anyBreakPoints_)

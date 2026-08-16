@@ -1149,23 +1149,27 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			// Add edit form for breakpoints
 			if (ImGui::BeginChild("bp_edit")) {
 				auto &bp = bps[cfg.selectedBreakpoint];
-				bool changed = false;
 				ImGui::TextUnformatted("Edit breakpoint");
-				if (ImGui::CheckboxFlags("Enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE)) {
-					changed = true;
-				}
-				if (ImGui::CheckboxFlags("Log", (int *)&bp.action, (int)BREAK_ACTION_LOG)) {
-					changed = true;
-				}
-				if (ImGui::InputScalar("Address", ImGuiDataType_U32, &bp.addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
-					changed = true;
-				}
-				if (changed) {
-					// This is a bit hacky, we should probably add a utility function in the breakpoint manager.
-					currentMIPS->InvalidateICacheRangeDeferred(bp.addr - 4, 8);
+				// No cache invalidation needed for these two: the JIT emits its call for any address
+				// that has a breakpoint at all, and the action bits are read live in
+				// ExecBreakPoint(). Only the set of addresses affects generated code.
+				ImGui::CheckboxFlags("Enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("Log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
+
+				// Moving a breakpoint isn't just an assignment to bp.addr - the compiled code at
+				// both the old and the new address has to be invalidated, and landing on top of an
+				// existing breakpoint has to be refused. Edit a copy and let the manager do it.
+				// Committing on deactivation rather than per keystroke also avoids doing all that
+				// for each of the intermediate addresses you pass through while typing one.
+				u32 addr = bp.addr;
+				ImGui::InputScalar("Address", ImGuiDataType_U32, &addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				if (ImGui::IsItemDeactivatedAfterEdit()) {
+					g_breakpoints.ChangeBreakPointAddress(bp.addr, addr);
 				}
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveBreakPoint(bp.addr);
+					// bp (and bps) are dangling from here on - don't touch them again this frame.
+					cfg.selectedBreakpoint = -1;
 				}
 				ImGui::EndChild();
 			}
@@ -1212,11 +1216,13 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				if (ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
 					changed = true;
 				}
-				if (ImGui::Button("Delete")) {
-					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
-				}
 				if (changed) {
 					g_breakpoints.NotifyChangedMemchecks();
+				}
+				if (ImGui::Button("Delete")) {
+					g_breakpoints.RemoveMemCheck(mc.start, mc.end);
+					// mc (and mcs) are dangling from here on - don't touch them again this frame.
+					cfg.selectedMemCheck = -1;
 				}
 				ImGui::EndChild();
 			}
