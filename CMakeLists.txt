@@ -539,7 +539,6 @@ endif()
 
 if(WIN32)
 	add_compile_definitions(_UNICODE UNICODE)
-	add_compile_definitions(USING_WIN_UI)
 endif()
 
 if(NOT ANDROID)

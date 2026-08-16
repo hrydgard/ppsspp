@@ -22,10 +22,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
-#include "StringUtils.h"
+#include "Common/StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
+#include "Common/System/System.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <android/log.h>
@@ -119,9 +120,9 @@ bool HandleAssert(bool isDebugAssert, const char *function, const char *file, in
 
 	hitAnyAsserts = true;
 
-#if defined(USING_WIN_UI)
-	// Avoid hanging on CI.
-	if (!getenv("CI")) {
+	// Avoid hanging on CI or on headless builds in general.
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	if (!getenv("CI") && !System_GetPropertyBool(SYSPROP_IS_HEADLESS)) {
 		const int msgBoxStyle = MB_ICONINFORMATION | MB_YESNOCANCEL;
 		std::string text = formatted;
 		text += "\n\nTry to continue?";
@@ -157,7 +158,7 @@ bool HandleAssert(bool isDebugAssert, const char *function, const char *file, in
 	// Doesn't matter what we return here.
 	return false;
 #else
-	OutputDebugStringUTF8(text);
+	INFO_LOG(Log::System, "%s", formatted);
 	return false;
 #endif
 }

@@ -244,7 +244,8 @@ void __PPGeSetupListArgs()
 
 void __PPGeInit() {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	bool skipZIM = System_GetPropertyBool(SYSPROP_SKIP_UI);
+	// TODO: Load it lazily, and not into kernel memory.
+	bool skipZIM = System_GetPropertyBool(SYSPROP_IS_HEADLESS);
 
 	u8 *imageData[12]{};
 	int width[12]{};
