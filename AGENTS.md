@@ -383,6 +383,43 @@ Two more things found while doing this:
   `CDisasm::NotifyMapLoaded()`, which locks it internally) will deadlock. Keep such calls outside
   the queued lambda, same as the modal-dialog and `SendMessage()` rules above.
 
+### Lock ordering: `g_frameMutex` before `Memory::Lock()`, always
+
+`Memory::Lock()` / `Memory::MemoryInitedLock` (a `recursive_mutex`, `g_shutdownLock` in
+`Core/MemMap.cpp`) guards the memory system against being torn down or reinitialized under you. When
+a function needs both it and `g_frameMutex`, **take `g_frameMutex` first**.
+
+The CPU thread's order is structural and can't be changed: `NativeFrame()` wraps everything below it
+in `g_frameMutex`, and several things under there lock memory - `Core_ProcessCPUQueue()` running a
+queued WebSocket handler, and `runImDebugger()` -> `ImMemView` -> `DisassembleRange()`. So the
+GUI-thread side is the one that has to match. (Getting it backwards deadlocked for real: a paint
+handler held the memory lock and waited for `g_frameMutex` while the CPU thread did the reverse.)
+
+Also: **a `Core_RunOnCPUThread()` callback does not need `Memory::Lock()`** - teardown only happens
+on the CPU thread itself (`Memory::Shutdown()` via `CPU_Shutdown()` <- `PSP_Shutdown()`, all callers
+on that thread; `Memory::Reinit()` from `Memory::DoState()` on savestate load). Don't add one.
+
+**The general rule behind both of these: never make the CPU thread wait for a thread that is (or may
+be) waiting on the CPU thread.** `Core_RunOnCPUThread()` blocks until the CPU thread drains the
+queue, so anything the CPU thread might block on must not be held across such a call. The WebSocket
+debugger's `lifecycleLock` hit exactly this - it's held across a whole event handler, and the CPU
+thread took it in `Core_NotifyLifecycle(STOPPING)`, so stopping a game with a debugger request in
+flight hung both threads. Resolved by draining the queue while waiting for the lock rather than
+blocking on it outright (`WebSocketNotifyLifecycle` in `Core/Debugger/WebSocket.cpp`).
+
+`lifecycleLock` itself can't just be deleted, tempting as it looks: about half the subscribers
+(`GameSubscriber`, `GPU*Subscriber`, `InputSubscriber`, `MemoryInfoSubscriber`, `ReplaySubscriber`,
+`ClientConfigSubscriber`) and all four broadcasters still read core state directly on the WebSocket
+thread rather than going through `Core_RunOnCPUThread()`. It's what stops that racing with teardown.
+Routing those through the queue is the prerequisite for removing it.
+
+The Win32 debugger's paint handlers *do* still need it, though, so don't "simplify" those away:
+teardown is not yet fully inside the `g_frameMutex` span. `EmuScreen::render()`'s `PSP_Shutdown()` is
+inside it, but the ones in `EmuScreen::sendMessage()` (`REQUEST_GAME_RESET`, loading a new game) run
+from `g_screenManager->sendMessage()` in `NativeFrame()`, which sits *above* where the guard is
+taken. Closing that hole - moving those shutdowns inside the span, or deferring them to render time -
+is the prerequisite for dropping `Memory::Lock()` from the debugger entirely.
+
 Painting-problem design history, in case a similar tradeoff comes up elsewhere: routing every paint
 through `Core_RunOnCPUThread` was rejected as too slow for something invoked continuously. A
 per-window snapshot/cache with a per-row-rechecked `Core_IsStepping()` guard was tried first and

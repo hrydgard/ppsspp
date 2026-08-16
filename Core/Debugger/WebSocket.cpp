@@ -19,6 +19,8 @@
 #include <condition_variable>
 
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/TimeUtil.h"
+#include "Core/Core.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -108,7 +110,15 @@ static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 		if (debuggersConnected > 0) {
 			DEBUG_LOG(Log::System, "Waiting for debugger to complete on shutdown");
 		}
-		lifecycleLock.lock();
+		// Keep draining the CPU queue while we wait, instead of a plain blocking lock(). We're on
+		// the CPU thread here, and a debugger thread holding this lock may be parked inside
+		// Core_RunOnCPUThread() waiting for us to run its callback - so blocking outright means
+		// neither side can ever move. Core state is still fully alive at this point (STOPPING is
+		// notified before CPU_Shutdown), so running those callbacks now is safe.
+		while (!lifecycleLock.try_lock()) {
+			Core_ProcessCPUQueue();
+			sleep_ms(1, "debugger-lifecycle");
+		}
 		break;
 
 	case CoreLifecycle::START_COMPLETE:
