@@ -26,8 +26,6 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 
-HLEHelperThread::HLEHelperThread() : id_(0), entry_(0) {}
-
 HLEHelperThread::HLEHelperThread(const char *threadName, const u32 instructions[], u32 instrCount, u32 prio, int stacksize) {
 	u32 instrBytes = instrCount * sizeof(u32);
 	u32 totalBytes = instrBytes + sizeof(u32) * 2;
@@ -63,7 +61,7 @@ void HLEHelperThread::AllocEntry(u32 size) {
 	entry_ = kernelMemory.Alloc(size, false, "HLEHelper");
 	_dbg_assert_(Memory::IsValid4AlignedAddress(entry_));  // after AllocEntry.
 	Memory::Memset(entry_, 0, size, "HLEHelperClear");
-	currentMIPS->InvalidateICache(entry_, size);
+	currentMIPS->InvalidateICacheRangeDeferred(entry_, size);
 }
 
 void HLEHelperThread::Create(const char *threadName, u32 prio, int stacksize) {

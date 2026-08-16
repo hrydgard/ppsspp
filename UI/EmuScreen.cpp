@@ -624,7 +624,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			gpu->DumpNextFrame();
 	} else if (message == UIMessage::REQUEST_CLEAR_JIT) {
 		if (!bootPending_) {
-			currentMIPS->ClearJitCache();
+			currentMIPS->ClearJitCacheDeferred();
 			if (PSP_IsInited()) {
 				currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 			}

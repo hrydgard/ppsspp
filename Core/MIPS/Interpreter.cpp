@@ -75,7 +75,7 @@ static inline void SkipLikely(MIPSState *mips) {
 	}
 }
 
-int MIPS_SingleStep(MIPSState *mips) {
+int MIPS_InterpretSingleStep(MIPSState *mips) {
 	if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 		Core_ExecException(mips->pc, mips->	pc, ExecExceptionType::JUMP);
 		return 0;

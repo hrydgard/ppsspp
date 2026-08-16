@@ -954,14 +954,17 @@ void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 	// Route the memory writes to the CPU thread instead of poking at it directly from this GUI
 	// thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		if (Memory::IsValidRange(selectRangeStart, selectRangeEnd - selectRangeStart)) {
-			for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
-				Memory::WriteUnchecked_U32(0, addr);
-			}
+		if (!Memory::IsValid4AlignedRange(selectRangeStart, selectRangeEnd - selectRangeStart)) {
+			ERROR_LOG(Log::Debugger, "NopIntructions: Bad address range %08x->%08x", selectRangeStart, selectRangeEnd);
+			return;
+		}
+
+		for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+			Memory::WriteUnchecked_U32(0, addr);
 		}
 
 		if (currentMIPS) {
-			currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
+			currentMIPS->InvalidateICacheRangeDeferred(selectRangeStart, selectRangeEnd - selectRangeStart);
 		}
 	});
 }

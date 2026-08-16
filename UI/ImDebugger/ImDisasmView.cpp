@@ -787,8 +787,8 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 					Memory::WriteUnchecked_U32(0, addr);
 				}
 			}
-			if (currentMIPS) {
-				currentMIPS->InvalidateICache(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
+			if (mips) {
+				mips->InvalidateICacheRangeDeferred(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
 			}
 		}
 		ImGui::Separator();

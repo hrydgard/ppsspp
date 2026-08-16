@@ -91,6 +91,8 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 // For crash reporting.
 std::string __KernelStateSummary();
 
+// These HLE functions are declared here to be included in tables that are in other files.
+
 int sceKernelLoadExec(const char *filename, u32 paramPtr);
 
 void sceKernelExitGame();

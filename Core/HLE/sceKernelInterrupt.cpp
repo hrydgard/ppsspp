@@ -607,8 +607,9 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n) {
 
 static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size) {
 	// Some games copy from executable code.  We need to flush emuhack ops.
-	if (size != 0)
-		currentMIPS->InvalidateICache(src, size);
+	if (size != 0) {
+		currentMIPS->InvalidateICacheRangeDeferred(src, size);
+	}
 
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {

@@ -94,7 +94,7 @@ static std::mutex loadingLock;
 static std::thread g_loadingThread;
 
 bool g_coreCollectDebugStats = false;
-static int coreCollectDebugStatsCounter = 0;
+static int g_coreCollectDebugStatsCounter = 0;
 
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
@@ -607,10 +607,10 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 }
 
 void PSP_UpdateDebugStats(bool collectStats) {
-	bool newState = collectStats || coreCollectDebugStatsCounter > 0;
+	bool newState = collectStats || g_coreCollectDebugStatsCounter > 0;
 	if (g_coreCollectDebugStats != newState) {
 		g_coreCollectDebugStats = newState;
-		mipsr4k.ClearJitCache();
+		mipsr4k.ClearJitCacheDeferred();
 	}
 
 	if (!PSP_CoreParameter().frozen && !Core_IsStepping()) {
@@ -621,11 +621,11 @@ void PSP_UpdateDebugStats(bool collectStats) {
 
 void PSP_ForceDebugStats(bool enable) {
 	if (enable) {
-		coreCollectDebugStatsCounter++;
+		g_coreCollectDebugStatsCounter++;
 	} else {
-		coreCollectDebugStatsCounter--;
+		g_coreCollectDebugStatsCounter--;
 	}
-	_assert_(coreCollectDebugStatsCounter >= 0);
+	_assert_(g_coreCollectDebugStatsCounter >= 0);
 }
 
 static void InitGPU(std::string *error_string) {

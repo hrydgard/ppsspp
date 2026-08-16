@@ -1041,7 +1041,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, validSize);
-				currentMIPS->InvalidateICache(data_addr, validSize);
+				currentMIPS->InvalidateICacheRangeDeferred(data_addr, validSize);
 				return true;
 			}
 
@@ -1067,7 +1067,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				} else {
 					result = (int)pspFileSystem.ReadFile(f->handle, data, validSize, us);
 				}
-				currentMIPS->InvalidateICache(data_addr, validSize);
+				currentMIPS->InvalidateICacheRangeDeferred(data_addr, validSize);
 				return true;
 			}
 		} else {

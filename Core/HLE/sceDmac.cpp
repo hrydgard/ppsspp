@@ -29,7 +29,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
-u64 dmacMemcpyDeadline;
+static u64 dmacMemcpyDeadline;
 
 void __DmacInit() {
 	dmacMemcpyDeadline = 0;
@@ -45,21 +45,21 @@ void __DmacDoState(PointerWrap &p) {
 	Do(p, dmacMemcpyDeadline);
 }
 
-static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
+static int __DmacMemcpy(MIPSState *mips, u32 dst, u32 src, u32 size) {
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		// We let the GPU deal with invalid range.
 		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
 	if (!skip && size != 0) {
-		currentMIPS->InvalidateICache(src, size);
+		mips->InvalidateICacheRangeDeferred(src, size);
 		if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 			memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 		}
 		if (MemBlockInfoDetailed(size)) {
 			NotifyMemInfoCopy(dst, src, size, "DmacMemcpy/");
 		}
-		currentMIPS->InvalidateICache(dst, size);
+		mips->InvalidateICacheRangeDeferred(dst, size);
 	}
 
 	// This number seems strangely reproducible.
@@ -91,7 +91,7 @@ static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		// Might matter for overlapping copies.
 	}
 
-	int delay = __DmacMemcpy(dst, src, size);
+	int delay = __DmacMemcpy(currentMIPS, dst, src, size);
 	int result = hleLogDebug(Log::HLE, 0);
 	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }
@@ -111,7 +111,7 @@ static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy");
 	}
 
-	int delay = __DmacMemcpy(dst, src, size);
+	int delay = __DmacMemcpy(currentMIPS, dst, src, size);
 	int result = hleLogDebug(Log::HLE, 0);
 	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }

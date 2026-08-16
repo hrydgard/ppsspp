@@ -759,9 +759,9 @@ void BreakpointManager::Frame() {
 	if (MIPSComp::jit && updateAddr_ != INVALID_ADDRESS) {
 		// In case this is a delay slot, clear the previous instruction too.
 		if (updateAddr_ != 0)
-			mipsr4k.InvalidateICache(updateAddr_ - 4, 8);
+			mipsr4k.InvalidateICacheRangeDeferred(updateAddr_ - 4, 8);
 		else
-			mipsr4k.ClearJitCache();
+			mipsr4k.ClearJitCacheDeferred();
 	}
 
 	if (anyMemChecks_ && updateAddr_ != INVALID_ADDRESS)

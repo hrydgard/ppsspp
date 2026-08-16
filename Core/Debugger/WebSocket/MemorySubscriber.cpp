@@ -321,8 +321,8 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, 1);
 		Memory::WriteUnchecked_U8(val, addr);
+		currentMIPS->InvalidateICacheRangeDeferred(addr, 1);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
@@ -358,8 +358,8 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, 2);
 		Memory::WriteUnchecked_U16(val, addr);
+		currentMIPS->InvalidateICacheRangeDeferred(addr, 2);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
@@ -395,8 +395,8 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, 4);
 		Memory::WriteUnchecked_U32(val, addr);
+		currentMIPS->InvalidateICacheRangeDeferred(addr, 4);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
@@ -436,9 +436,10 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, size);
-		if (size != 0)
+		currentMIPS->InvalidateICacheRangeDeferred(addr, size);
+		if (size != 0) {
 			Memory::MemcpyUnchecked(addr, &value[0], size);
+		}
 		Reporting::NotifyDebugger();
 		req.Respond();
 	});

@@ -30,7 +30,6 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GPU/GraphicsContext.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
@@ -43,9 +42,10 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSTracer.h"
+#include "Core/CoreTiming.h"
 
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPU.h"
@@ -299,8 +299,19 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
+void Core_ReenterDispatcher() {
+	if (coreState == CORE_RUNNING_CPU) {
+		// This will flip back into CORE_RUNNING_CPU.
+		coreState = CORE_REENTER_DISPATCH;
+	}
+}
+
 void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
+		// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
+		// top of this loop means it's reached at least once per call (i.e. about once per host frame)
+		// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
+		Core_ProcessCPUQueue();
 		switch (coreState) {
 		case CORE_POWERDOWN:
 		case CORE_RUNTIME_ERROR:
@@ -308,12 +319,25 @@ void Core_RunLoopUntil(u64 globalticks) {
 			return;
 		case CORE_STEPPING_CPU:
 		case CORE_STEPPING_GE:
+		{
+			CoreState preState = coreState;
 			if (Core_ProcessStepping(currentDebugMIPS)) {
+				if (coreState == CORE_REENTER_DISPATCH) {
+					coreState = preState;
+				}
 				return;
 			}
 			break;
+		}
 		case CORE_RUNNING_CPU:
 			mipsr4k.RunLoopUntil(globalticks);
+			if (coreState == CORE_RUNNING_CPU) {
+				// If we are still running, we must have reached the end of a frame.
+				coreState = CORE_NEXTFRAME;
+			} else if (coreState == CORE_REENTER_DISPATCH) {
+				// Back to running right away.
+				coreState = CORE_RUNNING_CPU;
+			}
 			if (g_breakAfterFrame && coreState == CORE_NEXTFRAME) {
 				g_breakAfterFrame = false;
 				g_breakReason = BreakReason::AfterFrame;
@@ -383,6 +407,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 		for (int i = 0; i < stepSize; i++) {
 			currentMIPS->SingleStep();
 		}
+		CoreTiming::Advance(currentMIPS);
 		break;
 	}
 	case CPUStepType::Over:
@@ -461,11 +486,6 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 
 static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_StateProcessed();
-
-	// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
-	// top of this loop means it's reached at least once per call (i.e. about once per host frame)
-	// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
-	Core_ProcessCPUQueue();
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();

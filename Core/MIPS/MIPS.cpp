@@ -166,6 +166,8 @@ void MIPSState::Shutdown() {
 		MIPSComp::jit = nullptr;
 		delete oldjit;
 	}
+	pendingInvalidates_.clear();
+	invalidateAll_ = false;
 }
 
 void MIPSState::Reset() {
@@ -302,8 +304,8 @@ void MIPSState::DoState(PointerWrap &p) {
 	Do(p, fcr31);
 	if (s <= 3) {
 		uint32_t dummy;
-		Do(p, dummy); // rng.m_w
-		Do(p, dummy); // rng.m_z
+		Do(p, dummy);  // rng.m_w
+		Do(p, dummy);  // rng.m_z
 	}
 
 	Do(p, inDelaySlot);
@@ -317,9 +319,9 @@ void MIPSState::DoState(PointerWrap &p) {
 }
 
 void MIPSState::SingleStep() {
-	int cycles = MIPS_SingleStep(this);
+	ProcessPendingInvalidates();
+	int cycles = MIPS_InterpretSingleStep(this);
 	downcount -= cycles;
-	CoreTiming::Advance(currentMIPS);
 }
 
 // returns 1 if reached ticks limit
@@ -331,13 +333,11 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 		while (inDelaySlot) {
 			// We must get out of the delay slot before going into jit.
 			// This normally should never take more than one step...
-			SingleStep();
+			int cycles = MIPS_InterpretSingleStep(this);
+			downcount -= cycles;
 		}
-		insideJit = true;
-		if (hasPendingClears)
-			ProcessPendingClears();
+		ProcessPendingInvalidates();
 		MIPSComp::jit->RunLoopUntil(globalTicks);
-		insideJit = false;
 		break;
 
 	case CPUCore::INTERPRETER:
@@ -346,36 +346,55 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	return 1;
 }
 
-// Kept outside MIPSState to avoid header pollution (MIPS.h doesn't even have vector, and is used widely.)
-static std::vector<std::pair<u32, int>> pendingClears;
-
-void MIPSState::ProcessPendingClears() {
-	for (auto &p : pendingClears) {
-		if (p.first == 0 && p.second == 0)
-			MIPSComp::jit->ClearCache();
-		else
-			MIPSComp::jit->InvalidateCacheAt(p.first, p.second);
+void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
+	if (!MIPSComp::jit) {
+		// Nothing to do.
+		return;
 	}
-	pendingClears.clear();
-	hasPendingClears = false;
-}
-
-void MIPSState::InvalidateICache(u32 address, int length) {
-	// Only really applies to jit.
-	// Note that the backend is responsible for ensuring native code can still be returned to.
-	if (MIPSComp::jit && length != 0) {
+	if (length != 0) {
 		MIPSComp::jit->InvalidateCacheAt(address, length);
 	}
 }
 
-void MIPSState::ClearJitCache() {
-	if (MIPSComp::jit) {
-		if (coreState == CORE_RUNNING_CPU || insideJit) {
-			pendingClears.emplace_back(0, 0);
-			hasPendingClears = true;
-			CoreTiming::ForceCheck(this);
-		} else {
-			MIPSComp::jit->ClearCache();
-		}
+void MIPSState::ProcessPendingInvalidates() {
+	if (!MIPSComp::jit) {
+		// Nothing to do. Clear any old state from CPU core switching.
+		pendingInvalidates_.clear();
+		return;
 	}
+
+	if (invalidateAll_) {
+		MIPSComp::jit->ClearCache();
+		pendingInvalidates_.clear();
+		invalidateAll_ = false;
+		return;
+	}
+
+	if (!pendingInvalidates_.empty()) {
+		for (const auto &p : pendingInvalidates_) {
+			MIPSComp::jit->InvalidateCacheAt(p.addr, p.size);
+		}
+		pendingInvalidates_.clear();
+	}
+}
+
+void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
+	if (!MIPSComp::jit) {
+		// Nothing to do.
+		return;
+	}
+
+	// TODO: We can try to merge the invalidate with the previous one.
+	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
+	Core_ReenterDispatcher();
+}
+
+void MIPSState::ClearJitCacheDeferred() {
+	if (!MIPSComp::jit) {
+		return;
+	}
+
+	pendingInvalidates_.clear();
+	invalidateAll_ = true;
+	Core_ReenterDispatcher();
 }
