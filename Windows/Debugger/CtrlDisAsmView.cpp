@@ -457,13 +457,14 @@ void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int
 
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
-	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
-
 	// Reading live disassembly/symbol/breakpoint state here on the GUI thread would otherwise race
 	// with the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame()
 	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Memory::Lock() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	Memory::MemoryInitedLock memLock = Memory::Lock();
+	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);

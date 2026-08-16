@@ -743,14 +743,15 @@ void CtrlStackTraceView::OnDoubleClick(int itemIndex, int column)
 }
 
 void CtrlStackTraceView::loadStackTrace() {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
-	if (!PSP_IsInited())
-		return;
-
 	// Reading live thread/register/stack state here on the GUI thread would otherwise race with
 	// the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
 	// holds while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Memory::Lock() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	Memory::MemoryInitedLock memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
 
 	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
 

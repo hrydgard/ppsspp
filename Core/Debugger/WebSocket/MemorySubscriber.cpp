@@ -53,7 +53,6 @@ struct AutoDisabledReplacements {
 	AutoDisabledReplacements &operator =(const AutoDisabledReplacements &) = delete;
 	~AutoDisabledReplacements();
 
-	Memory::MemoryInitedLock *lock = nullptr;
 	std::map<u32, u32> replacements;
 	std::vector<u32> emuhacks;
 	bool saved = false;
@@ -64,12 +63,13 @@ struct AutoDisabledReplacements {
 // by the time this is called, so nothing else can be concurrently executing MIPS code or touching the
 // JIT's emuhack ops on this thread while we hold onto them below.
 //
+// Deliberately does NOT take a Memory::MemoryInitedLock: memory teardown only ever happens on the
+// CPU thread too, so there's nothing to guard against, and taking it here deadlocked against the
+// Win32 debugger's paint handlers. See the lock ordering section in AGENTS.md.
+//
 // Important: Only use keepReplacements=false when reading, not writing.
 static AutoDisabledReplacements LockMemory(bool keepReplacements) {
 	AutoDisabledReplacements result;
-	// This still guards against a *different* thread (not the CPU thread) tearing down or
-	// reinitializing the memory system underneath us, e.g. during shutdown.
-	result.lock = new Memory::MemoryInitedLock();
 	if (!keepReplacements) {
 		result.saved = true;
 		// Okay, save so we can restore later.
@@ -82,8 +82,6 @@ static AutoDisabledReplacements LockMemory(bool keepReplacements) {
 }
 
 AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&other) {
-	lock = other.lock;
-	other.lock = nullptr;
 	replacements = std::move(other.replacements);
 	emuhacks = std::move(other.emuhacks);
 	saved = other.saved;
@@ -96,7 +94,6 @@ AutoDisabledReplacements::~AutoDisabledReplacements() {
 			MIPSComp::jit->RestoreSavedEmuHackOps(emuhacks);
 		RestoreSavedReplacements(replacements);
 	}
-	delete lock;
 }
 
 // Read a byte from memory (memory.read_u8)
