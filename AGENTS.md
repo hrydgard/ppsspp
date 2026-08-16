@@ -402,16 +402,22 @@ on that thread; `Memory::Reinit()` from `Memory::DoState()` on savestate load). 
 **The general rule behind both of these: never make the CPU thread wait for a thread that is (or may
 be) waiting on the CPU thread.** `Core_RunOnCPUThread()` blocks until the CPU thread drains the
 queue, so anything the CPU thread might block on must not be held across such a call. The WebSocket
-debugger's `lifecycleLock` hit exactly this - it's held across a whole event handler, and the CPU
+debugger's `lifecycleLock` hit exactly this - it was held across a whole event handler, and the CPU
 thread took it in `Core_NotifyLifecycle(STOPPING)`, so stopping a game with a debugger request in
-flight hung both threads. Resolved by draining the queue while waiting for the lock rather than
-blocking on it outright (`WebSocketNotifyLifecycle` in `Core/Debugger/WebSocket.cpp`).
+flight hung both threads. That lock is gone now; the rule is what's left of it.
 
-`lifecycleLock` itself can't just be deleted, tempting as it looks: about half the subscribers
-(`GameSubscriber`, `GPU*Subscriber`, `InputSubscriber`, `MemoryInfoSubscriber`, `ReplaySubscriber`,
-`ClientConfigSubscriber`) and all four broadcasters still read core state directly on the WebSocket
-thread rather than going through `Core_RunOnCPUThread()`. It's what stops that racing with teardown.
-Routing those through the queue is the prerequisite for removing it.
+**The WebSocket debugger no longer has any lock guarding it against startup/shutdown, and must not
+grow one back.** The invariant instead is: a handler either does its emulator-state access inside
+`Core_RunOnCPUThread()` - which serializes it against startup and teardown, since those run on the
+CPU thread too - or touches only state that carries its own lock (the log ring buffer, `ctrlMutex`,
+`GPUStepping`'s pause-action rendezvous). When adding a subscriber, put the core access in the
+queued callback, including the `isAlive()`/`IsValidAddress()` checks: answering those outside it
+just means acting on an answer that may already be stale.
+
+`game.*` and `cpu.stepping`/`cpu.resume` are pushed rather than polled - `WebSocketDebuggerTick()`
+(called from `Core_ProcessCPUQueue()`) notices the transition on the CPU thread, formats the event
+there, and drops it in a per-connection mailbox. Don't add a broadcaster that reads emulator state
+from the connection's own thread; produce the event on the CPU thread and push it instead.
 
 The Win32 debugger's paint handlers *do* still need it, though, so don't "simplify" those away:
 teardown is not yet fully inside the `g_frameMutex` span. `EmuScreen::render()`'s `PSP_Shutdown()` is
