@@ -765,7 +765,9 @@ void WebSocketHLEDataList(DebuggerRequest &req) {
 //  - address: the start address, repeated back.
 //  - size: the size, repeated back.
 //  - type: the type, repeated back.
-//  - name: name of the new data symbol.
+//  - name: name the data symbol actually ended up with.  Normally the requested one, but a
+//    function starting at this address keeps its own name (labels are shared between the two),
+//    so check this rather than assuming the request was applied verbatim.
 void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
@@ -811,18 +813,30 @@ void WebSocketHLEDataAdd(DebuggerRequest &req) {
 		if (moduleIndex < 0)
 			moduleIndex = 0;
 
+		// Labels are intentionally a single namespace shared by function and data symbols, and AddLabel() won't
+		// overwrite an existing one - a real ELF symbol name shouldn't lose to the analyzer's later z_un_*.
+		// However it's wrong here, where someone is explicitly naming this address.
+		// So force the requested name in afterwards, unless a function starts here and owns the label:
+		// silently renaming that function isn't what "label this data" should do, and it would undo the same care taken in hle.data.remove.
+		const bool functionOwnsLabel = g_symbolMap->GetFunctionStart(addr) == addr;
+
 		g_symbolMap->AddData(addr, size, type, moduleIndex);
 		g_symbolMap->AddLabel(name.c_str(), addr, moduleIndex);
+		if (!functionOwnsLabel)
+			g_symbolMap->SetLabelName(name.c_str(), addr);
 		g_symbolMap->SortSymbols();
 
 		// Clear cache so the disassembly view picks up the new annotation.
 		g_disassemblyManager.clear();
 
+		// Report the name that actually ended up in the map, not the one that was asked for.
+		const std::string actualName = g_symbolMap->GetLabelString(addr);
+
 		JsonWriter &json = req.Respond();
 		json.writeUint("address", addr);
 		json.writeUint("size", size);
 		json.writeString("type", typeStr);
-		json.writeString("name", name);
+		json.writeString("name", actualName.empty() ? name : actualName);
 	});
 }
 

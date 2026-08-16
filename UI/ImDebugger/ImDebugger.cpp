@@ -1176,24 +1176,36 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			if (ImGui::BeginChild("mc_edit")) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
+				// Anything that edits mc in place has to end up calling NotifyChangedMemchecks(),
+				// see GetMemCheckRefs(). Note that Selectable() only returns true on the frame it's
+				// actually clicked, unlike BeginCombo(), which is true for every frame the popup
+				// stays open - so set this from the Selectables, not from the combo itself.
 				bool changed = false;
 				if (ImGui::BeginCombo("Condition", MemCheckConditionToString(mc.cond))) {
 					if (ImGui::Selectable("Read", mc.cond == MemCheckCondition::MEMCHECK_READ)) {
 						mc.cond = MemCheckCondition::MEMCHECK_READ;
+						changed = true;
 					}
 					if (ImGui::Selectable("Write", mc.cond == MemCheckCondition::MEMCHECK_WRITE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_WRITE;
+						changed = true;
 					}
 					if (ImGui::Selectable("Read / Write", mc.cond == MemCheckCondition::MEMCHECK_READWRITE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_READWRITE;
+						changed = true;
 					}
 					if (ImGui::Selectable("Write On Change", mc.cond == MemCheckCondition::MEMCHECK_WRITE_ONCHANGE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_WRITE_ONCHANGE;
+						changed = true;
 					}
-					changed = true;
 					ImGui::EndCombo();
 				}
-				ImGui::CheckboxFlags("Enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE);
+				// The cached ranges don't carry the action bits (they're read live in ExecMemCheck),
+				// so toggling this doesn't strictly need a rebuild - but notify anyway rather than
+				// leaving a silent exception to the rule above for the next person to rediscover.
+				if (ImGui::CheckboxFlags("Enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE)) {
+					changed = true;
+				}
 				if (ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
 					changed = true;
 				}
