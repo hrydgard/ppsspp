@@ -94,9 +94,12 @@ static volatile bool stopRequested = false;
 static std::mutex stopLock;
 static std::condition_variable stopCond;
 
-// Prevent threading surprises and obscure crashes by locking startup/shutdown.
-static bool lifecycleLockSetup = false;
-static std::mutex lifecycleLock;
+// There is deliberately no lock guarding debugger handlers against the core being started or torn
+// down under them: every handler either does its emulator-state access inside Core_RunOnCPUThread()
+// (so it's serialized with startup/shutdown, which also run on the CPU thread), or only touches
+// state that carries its own lock - the log ring buffer, ctrlMutex, GPUStepping's rendezvous.
+// The lock that used to be here had to be held across a whole handler, including the blocking wait
+// inside Core_RunOnCPUThread(), which deadlocked against the CPU thread taking it on STOPPING.
 
 static void UpdateConnected(int delta) {
 	std::lock_guard<std::mutex> guard(stopLock);
@@ -169,43 +172,6 @@ void WebSocketDebuggerTick() {
 	}
 }
 
-static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
-	switch (stage) {
-	case CoreLifecycle::STARTING:
-	case CoreLifecycle::STOPPING:
-	case CoreLifecycle::MEMORY_REINITING:
-		if (debuggersConnected > 0) {
-			DEBUG_LOG(Log::System, "Waiting for debugger to complete on shutdown");
-		}
-		// Keep draining the CPU queue while we wait, instead of a plain blocking lock(). We're on
-		// the CPU thread here, and a debugger thread holding this lock may be parked inside
-		// Core_RunOnCPUThread() waiting for us to run its callback - so blocking outright means
-		// neither side can ever move. Core state is still fully alive at this point (STOPPING is
-		// notified before CPU_Shutdown), so running those callbacks now is safe.
-		while (!lifecycleLock.try_lock()) {
-			Core_ProcessCPUQueue();
-			sleep_ms(1, "debugger-lifecycle");
-		}
-		break;
-
-	case CoreLifecycle::START_COMPLETE:
-	case CoreLifecycle::STOPPED:
-	case CoreLifecycle::MEMORY_REINITED:
-		lifecycleLock.unlock();
-		if (debuggersConnected > 0) {
-			DEBUG_LOG(Log::System, "Debugger ready for shutdown");
-		}
-		break;
-	}
-}
-
-static void SetupDebuggerLock() {
-	if (!lifecycleLockSetup) {
-		Core_ListenLifecycle(&WebSocketNotifyLifecycle);
-		lifecycleLockSetup = true;
-	}
-}
-
 void HandleDebuggerRequest(const http::ServerRequest &request) {
 	SetCurrentThreadName("WebSocketDebugger");
 
@@ -215,7 +181,6 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	}
 
 	UpdateConnected(1);
-	SetupDebuggerLock();
 
 	WebSocketClientInfo client_info;
 	auto& disallowed_config = client_info.disallowed;
@@ -229,7 +194,6 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	DebuggerEventHandlerMap eventHandlers;
 	std::vector<DebuggerSubscriber *> subscriberData;
 	for (auto init : subscribers) {
-		std::lock_guard<std::mutex> guard(lifecycleLock);
 		subscriberData.push_back(init(eventHandlers));
 	}
 
@@ -254,7 +218,6 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		DebuggerRequest req(event, ws, root, &client_info);
 		auto eventFunc = eventHandlers.find(event);
 		if (eventFunc != eventHandlers.end()) {
-			std::lock_guard<std::mutex> guard(lifecycleLock);
 			eventFunc->second(req);
 			if (!req.Finish()) {
 				// Poll more frequently for a second in case this triggers something.
@@ -274,7 +237,6 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	constexpr float lowActivityPollTimeStep = 1.0f / 60.0f;
 	constexpr float highActivityPollTimeStep = 1.0f / 1000.0f;
 	while (ws->Process(highActivity ? highActivityPollTimeStep : lowActivityPollTimeStep)) {
-		std::lock_guard<std::mutex> guard(lifecycleLock);
 		// These send events that aren't just responses to requests
 
 		// The client can explicitly ask not to be notified about some events
@@ -309,7 +271,6 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 
 	UnregisterSink(&sink);
 
-	std::lock_guard<std::mutex> guard(lifecycleLock);
 	for (size_t i = 0; i < subscribers.size(); ++i) {
 		delete subscriberData[i];
 	}
