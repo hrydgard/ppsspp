@@ -1034,7 +1034,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			ImGui::TableHeadersRow();
 
 			for (int i = 0; i < (int)bps.size(); i++) {
-				auto &bp = bps[i];
+				BreakPoint &bp = bps[i];
 				bool temp = bp.temporary;
 				if (temp) {
 					continue;
@@ -1048,6 +1048,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap) && !bp.temporary) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
+					cfg.selectedRegBreakpoint = -1;
 				}
 				ImGui::SameLine();
 				ImGui::CheckboxFlags("##enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
@@ -1087,6 +1088,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				if (ImGui::Selectable("##memcheck", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = -1;
 					cfg.selectedMemCheck = i;
+					cfg.selectedRegBreakpoint = -1;
 				}
 				ImGui::SameLine();
 				ImGui::CheckboxFlags("##enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE);
@@ -1104,6 +1106,37 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TextUnformatted("-");  // cond
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", mc.numHits);
+				ImGui::PopID();
+			}
+
+			// Finally, list register breakpoints.
+			for (auto &rbp : g_breakpoints.GetRegBreakpoints()) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(&rbp - &g_breakpoints.GetRegBreakpoints()[0] + 20000);
+				if (ImGui::Selectable("##regbp", cfg.selectedRegBreakpoint == &rbp - &g_breakpoints.GetRegBreakpoints()[0], ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
+					cfg.selectedBreakpoint = -1;
+					cfg.selectedMemCheck = -1;
+					cfg.selectedRegBreakpoint = &rbp - &g_breakpoints.GetRegBreakpoints()[0];
+				}
+				ImGui::SameLine();
+				ImGui::CheckboxFlags("", (int *)&rbp.result, BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Reg");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(mipsDebug->GetRegName(0, rbp.reg).c_str());
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // size/label
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // opcode
+				ImGui::TableNextColumn();
+				if (rbp.hasCond) {
+					ImGui::TextUnformatted(rbp.cond.expressionString.c_str());
+				} else {
+					ImGui::TextUnformatted("-");  // condition
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", rbp.numHits);
 				ImGui::PopID();
 			}
 

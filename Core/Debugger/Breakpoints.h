@@ -213,7 +213,8 @@ public:
 	BreakAction ExecRegBreakpoint(int reg, u32 pc);
 
 	void SetSkipFirst(u32 pc);
-	u32 CheckSkipFirst();
+	u32 CheckSkipFirst() const;
+	void ClearSkipFirst();
 
 	// Includes uncached addresses.
 	std::vector<MemCheck> GetMemCheckRanges(bool write);

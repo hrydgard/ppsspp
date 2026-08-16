@@ -144,6 +144,10 @@ bool BreakpointManager::RangeContainsBreakPoint(u32 addr, u32 size)
 }
 
 int BreakpointManager::AddBreakPoint(u32 addr, bool temp) {
+	if (addr & 3) {
+		WARN_LOG(Log::Debugger, "Breakpoint added at %08x will not be effective - unaligned address.", addr);
+	}
+
 	size_t bp = FindBreakpoint(addr, true, temp);
 	if (bp == INVALID_BREAKPOINT) {
 		BreakPoint pt;
@@ -659,11 +663,16 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x: %s", reg, pc, formatted.c_str());
 		}
 	}
-	if (info.result & BREAK_ACTION_PAUSE) {
+	if ((info.result & BREAK_ACTION_PAUSE) && g_breakpoints.CheckSkipFirst() != pc) {
 		Core_Break(BreakReason::RegBreakpoint, pc);
 	}
 
 	return info.result;
+}
+
+void BreakpointManager::ClearSkipFirst() {
+	breakSkipFirstAt_ = 0;
+	breakSkipFirstTicks_ = 0;
 }
 
 void BreakpointManager::SetSkipFirst(u32 pc) {
@@ -671,7 +680,7 @@ void BreakpointManager::SetSkipFirst(u32 pc) {
 	breakSkipFirstTicks_ = CoreTiming::GetTicks(currentMIPS);
 }
 
-u32 BreakpointManager::CheckSkipFirst() {
+u32 BreakpointManager::CheckSkipFirst() const {
 	u32 pc = breakSkipFirstAt_;
 	if (breakSkipFirstTicks_ == CoreTiming::GetTicks(currentMIPS))
 		return pc;

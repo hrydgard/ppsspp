@@ -360,6 +360,10 @@ void Core_RunLoopUntil(u64 globalticks) {
 				break;
 			}
 			break;
+		case CORE_REENTER_DISPATCH:
+			_dbg_assert_(false);
+			coreState = CORE_STEPPING_CPU;
+			break;
 		}
 	}
 }
@@ -423,6 +427,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType) {
 					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
 				}
 			}
+			// Add a temporary breakpoint.
 			g_breakpoints.AddBreakPoint(breakpointAddress, true);
 			Core_Resume();
 		} else {
@@ -481,6 +486,9 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	case CORE_RUNNING_GE:
 		// All good
 		break;
+	case CORE_REENTER_DISPATCH:
+		_dbg_assert_(false);
+		return true;
 	default:
 		// Nothing to do.
 		return true;
