@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
 #include "ppsspp_config.h"
 
 #ifdef _WIN32
@@ -102,7 +103,9 @@ static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
 static bool g_fileLoggingWasEnabled;
 
-static BootState g_bootState = BootState::Off;
+// Atomic because it's read as a fast-fail from the WebSocket debugger's own thread while the
+// CPU and loader threads move it along.
+static std::atomic<BootState> g_bootState = BootState::Off;
 
 BootState PSP_GetBootState() {
 	return g_bootState;

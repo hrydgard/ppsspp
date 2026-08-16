@@ -20,6 +20,7 @@
 
 #include "Common/Data/Text/StringWriter.h"
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
+#include "Core/Core.h"
 #include "Core/HW/Display.h"
 #include "Core/System.h"
 
@@ -102,8 +103,10 @@ WebSocketGPUStatsState::WebSocketGPUStatsState() {
 }
 
 WebSocketGPUStatsState::~WebSocketGPUStatsState() {
+	// PSP_ForceDebugStats bumps a plain counter, so do it on the CPU thread that owns it - see
+	// Core_RunOnCPUThread() in Core.h.
 	if (forced_)
-		PSP_ForceDebugStats(false);
+		Core_RunOnCPUThread([] { PSP_ForceDebugStats(false); });
 	__DisplayForgetFlip(&WebSocketGPUStatsState::FlipForwarder, this);
 }
 
@@ -185,7 +188,7 @@ void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
 	std::lock_guard<std::mutex> guard(pendingLock_);
 	sendFeed_ = enable;
 	if (forced_ != enable) {
-		PSP_ForceDebugStats(enable);
+		Core_RunOnCPUThread([enable] { PSP_ForceDebugStats(enable); });
 		forced_ = enable;
 	}
 }
