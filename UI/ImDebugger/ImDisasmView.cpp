@@ -1093,10 +1093,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			Core_RequestCPUStep(CPUStepType::Over, 1);
+			Core_RequestCPUStep(CPUStepType::Over);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			Core_RequestCPUStep(CPUStepType::Into);
 		}
 	}
 
@@ -1129,7 +1129,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::SameLine();
 
 	if (ImGui::RepeatButtonShift("Into")) {
-		Core_RequestCPUStep(CPUStepType::Into, 1);
+		Core_RequestCPUStep(CPUStepType::Into);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F11");
@@ -1137,7 +1137,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Over")) {
-		Core_RequestCPUStep(CPUStepType::Over, 1);
+		Core_RequestCPUStep(CPUStepType::Over);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F10");
@@ -1145,13 +1145,13 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Out")) {
-		Core_RequestCPUStep(CPUStepType::Out, 0);
+		Core_RequestCPUStep(CPUStepType::Out);
 	}
 
 	/*
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Frame")) {
-		Core_RequestCPUStep(CPUStepType::Frame, 0);
+		Core_RequestCPUStep(CPUStepType::Frame);
 	}*/
 
 	ImGui::SameLine();

@@ -116,7 +116,7 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// fires, but the client got no response either (this event's contract is "no
 			// immediate response, a cpu.stepping event follows") - so a rejected step looked
 			// identical to one that's just still in flight, indefinitely. Surface it instead.
-			if (!Core_RequestCPUStep(CPUStepType::Into, 1)) {
+			if (!Core_RequestCPUStep(CPUStepType::Into)) {
 				req.Fail("Could not step: a step or run request is already pending");
 				return;
 			}

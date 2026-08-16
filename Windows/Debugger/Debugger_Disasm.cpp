@@ -208,7 +208,7 @@ void CDisasm::step(CPUStepType stepType) {
 
 	// Route the actual step request to the CPU thread instead of poking at it directly from this
 	// GUI thread - see Core_RunOnCPUThread() in Core.h.
-	Core_RunOnCPUThread([&] { Core_RequestCPUStep(stepType, 1); });
+	Core_RunOnCPUThread([&] { Core_RequestCPUStep(stepType); });
 }
 
 void CDisasm::runToLine() {

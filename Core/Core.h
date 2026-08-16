@@ -87,7 +87,7 @@ BreakReason Core_BreakReason();
 // This should be called externally.
 // Can fail if another step type was requested this frame.
 // stepSize is always in instructions (4 bytes each), never bytes - see Core_PerformCPUStep in Core.cpp.
-bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
+bool Core_RequestCPUStep(CPUStepType stepType);
 
 bool Core_NextFrame();
 void Core_SwitchToGe();  // Switches from CPU emulation to GE display list execution.
