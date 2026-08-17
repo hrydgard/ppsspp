@@ -217,7 +217,9 @@ void Do(PointerWrap &p, std::wstring &x) {
 	int stringLen = sizeof(wchar_t) * ((int)x.length() + 1);
 	Do(p, stringLen);
 
-	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
+	// The length is in bytes, so it has to be a whole number of characters, and at least the NUL
+	// terminator. Otherwise read() below computes a negative character count.
+	if (stringLen < (int)sizeof(wchar_t) || (stringLen % sizeof(wchar_t)) != 0 || stringLen > MAX_SANE_STRING_LENGTH) {
 		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;
@@ -250,7 +252,9 @@ void Do(PointerWrap &p, std::u16string &x) {
 	int stringLen = sizeof(char16_t) * ((int)x.length() + 1);
 	Do(p, stringLen);
 
-	if (stringLen < 0 || stringLen > MAX_SANE_STRING_LENGTH) {
+	// The length is in bytes, so it has to be a whole number of characters, and at least the NUL
+	// terminator. Otherwise read() below computes a negative character count.
+	if (stringLen < (int)sizeof(char16_t) || (stringLen % sizeof(char16_t)) != 0 || stringLen > MAX_SANE_STRING_LENGTH) {
 		WARN_LOG(Log::SaveState, "Savestate failure: bad stringLen %d", stringLen);
 		p.SetError(PointerWrap::ERROR_FAILURE);
 		return;

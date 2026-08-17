@@ -87,6 +87,13 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
+#include "Common/Serialize/SerializeSet.h"
+#include "Common/Serialize/SerializeList.h"
+#include <map>
+#include <set>
+#include <list>
 #include "Core/CmdLine.h"
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Core/Util/BlockAllocator.h"
@@ -506,6 +513,403 @@ bool TestUtf8() {
 			const std::string once = ReplaceInvalidUTF8(input);
 			EXPECT_TRUE(ReplaceInvalidUTF8(once) == once);
 		}
+	}
+
+	return true;
+}
+
+// PointerWrap is the savestate serializer. The same DoState() code runs in MEASURE, WRITE and READ
+// mode, so mistakes here don't show up as compile errors - they show up as savestates that don't
+// load, or worse. Everything read back came off disk and is therefore attacker-controllable, so the
+// corrupt-input cases below matter as much as the round trips.
+
+struct SerializerPOD {
+	u32 a;
+	s16 b;
+	u8 c;
+	float d;
+};
+
+// Held by pointer in a map below, the way a lot of HLE state is (sceMpeg's contexts, sceFont's
+// fonts, sceKernelThread's pending calls, ...).
+struct SerializerTestObj {
+	u32 value = 0;
+	void DoState(PointerWrap &p) {
+		Do(p, value);
+	}
+};
+
+// Shaped like real DoState() code: a versioned section, a few fields, and one field that only
+// exists from version 2 on. Set version to 1 before serializing to produce an old-format buffer.
+struct SerializerTestState {
+	int version = 2;
+	u32 a = 0;
+	std::string name;
+	std::vector<u32> values;
+	int addedInV2 = 0;
+
+	void DoState(PointerWrap &p) {
+		PointerWrapSection s = p.Section("TestState", 1, version);
+		if (!s)
+			return;
+		Do(p, a);
+		Do(p, name);
+		Do(p, values);
+		if (s >= 2)
+			Do(p, addedInV2);
+	}
+};
+
+// Measures, then rewinds into a buffer of exactly the measured size - the same sequence
+// CChunkFileReader::MeasureAndSavePtr() uses, so the measure-vs-write checkpoint machinery gets
+// exercised as well. Returns false if either pass reported an error or the two disagreed.
+template <class Func>
+static bool SerializerWrite(std::vector<u8> *out, Func f) {
+	u8 *ptr = nullptr;
+	PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+	f(p);
+	if (p.Failed())
+		return false;
+	// Fill with junk so a field the write pass forgets shows up as garbage rather than zero.
+	out->assign(p.Offset(), 0xCD);
+	p.RewindForWrite(out->empty() ? nullptr : &(*out)[0]);
+	f(p);
+	return p.CheckAfterWrite() && !p.Failed();
+}
+
+// Reads out of a copy of the buffer with the read end set, which is what LoadPtr() does and what
+// all the bounds checks depend on.
+template <class Func>
+static PointerWrap::Error SerializerRead(const std::vector<u8> &buf, Func f) {
+	std::vector<u8> copy = buf;
+	u8 *ptr = copy.empty() ? nullptr : &copy[0];
+	PointerWrap p(&ptr, PointerWrap::MODE_READ);
+	if (!copy.empty())
+		p.SetReadEnd(&copy[0] + copy.size());
+	f(p);
+	return p.error;
+}
+
+// A buffer whose first four bytes are a length/count field, for feeding hand-corrupted values in.
+static std::vector<u8> SerializerBufferWithCount(int count, size_t totalSize) {
+	std::vector<u8> buf(totalSize < sizeof(int) ? sizeof(int) : totalSize, 0);
+	memcpy(&buf[0], &count, sizeof(int));
+	return buf;
+}
+
+bool TestSerializer() {
+	// Plain values and PODs survive a measure/write/read round trip, and the measure pass agrees
+	// with the write pass about the size.
+	{
+		SerializerPOD pod{ 0x12345678, -1234, 0xAB, 1.5f };
+		u32 plain = 0xDEADBEEF;
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, plain);
+			Do(p, pod);
+		}));
+		EXPECT_EQ_INT((int)buf.size(), (int)(sizeof(u32) + sizeof(SerializerPOD)));
+
+		u32 outPlain = 0;
+		SerializerPOD outPod{};
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outPlain);
+			Do(p, outPod);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_HEX(outPlain, plain);
+		EXPECT_EQ_HEX(outPod.a, pod.a);
+		EXPECT_EQ_INT(outPod.b, pod.b);
+		EXPECT_EQ_INT(outPod.c, pod.c);
+		EXPECT_EQ_FLOAT(outPod.d, pod.d);
+	}
+
+	// Strings, including the empty one and one with an embedded NUL - the length is serialized
+	// separately, so the NUL shouldn't truncate anything.
+	{
+		std::string empty;
+		std::string normal = "hello savestate";
+		std::string embedded("a\0b", 3);
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, empty);
+			Do(p, normal);
+			Do(p, embedded);
+		}));
+
+		std::string outEmpty = "junk", outNormal, outEmbedded;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outEmpty);
+			Do(p, outNormal);
+			Do(p, outEmbedded);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_TRUE(outEmpty.empty());
+		EXPECT_EQ_STR(outNormal, normal);
+		EXPECT_EQ_INT((int)outEmbedded.size(), 3);
+		EXPECT_TRUE(outEmbedded == embedded);
+	}
+
+	// The containers that DoState() code actually uses.
+	{
+		std::vector<u32> vec{ 1, 2, 3, 0xFFFFFFFF };
+		std::vector<std::string> strs{ "one", "", "three" };
+		std::map<u32, u32> map{ { 5, 50 }, { 1, 10 }, { 9, 90 } };
+		std::set<u32> set{ 7, 3, 11 };
+		std::list<u32> list{ 4, 5, 6 };
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, vec);
+			Do(p, strs);
+			Do(p, map);
+			Do(p, set);
+			Do(p, list);
+		}));
+
+		// Deliberately non-empty to start with, so a load that forgets to clear shows up.
+		std::vector<u32> outVec{ 99, 99 };
+		std::vector<std::string> outStrs{ "junk" };
+		std::map<u32, u32> outMap{ { 123, 456 } };
+		std::set<u32> outSet{ 123 };
+		std::list<u32> outList{ 99 };
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outVec);
+			Do(p, outStrs);
+			Do(p, outMap);
+			Do(p, outSet);
+			Do(p, outList);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_TRUE(outVec == vec);
+		EXPECT_TRUE(outStrs == strs);
+		EXPECT_TRUE(outMap == map);
+		EXPECT_TRUE(outSet == set);
+		EXPECT_TRUE(outList == list);
+	}
+
+	// Sections: a matching title and an acceptable version give a usable section, and the marker
+	// the section destructor writes lines up on read.
+	{
+		SerializerTestState state;
+		state.a = 0x1234;
+		state.name = "statename";
+		state.values = { 10, 20 };
+		state.addedInV2 = 77;
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { state.DoState(p); }));
+
+		SerializerTestState out;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { out.DoState(p); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_HEX(out.a, state.a);
+		EXPECT_EQ_STR(out.name, state.name);
+		EXPECT_TRUE(out.values == state.values);
+		EXPECT_EQ_INT(out.addedInV2, state.addedInV2);
+
+		// A section written by a newer build than we understand must be refused, not
+		// misinterpreted - this is what stops a future savestate from being read as garbage.
+		bool sectionUsable = true;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			PointerWrapSection s = p.Section("TestState", 1, 1);
+			sectionUsable = (bool)s;
+		}), (int)PointerWrap::ERROR_FAILURE);
+		EXPECT_FALSE(sectionUsable);
+
+		// So must a different section title where we expected this one.
+		sectionUsable = true;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			PointerWrapSection s = p.Section("SomethingElse", 1, 2);
+			sectionUsable = (bool)s;
+		}), (int)PointerWrap::ERROR_FAILURE);
+		EXPECT_FALSE(sectionUsable);
+	}
+
+	// The backwards compatibility mechanism itself: a version 1 buffer read by version 2 code
+	// yields a version 1 section, and the field that didn't exist yet keeps its default.
+	{
+		SerializerTestState old;
+		old.version = 1;
+		old.a = 0xAAAA;
+		old.name = "old";
+		old.values = { 1 };
+		old.addedInV2 = 12345;  // Not written at version 1.
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { old.DoState(p); }));
+
+		SerializerTestState out;  // version 2, addedInV2 defaults to 0
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { out.DoState(p); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_HEX(out.a, old.a);
+		EXPECT_EQ_STR(out.name, old.name);
+		EXPECT_EQ_INT(out.addedInV2, 0);
+	}
+
+	// A truncated savestate has to fail cleanly at every possible cut point rather than read past
+	// the end of the buffer. This is the case a corrupt file on disk actually produces.
+	{
+		SerializerTestState state;
+		state.a = 0x5555;
+		state.name = "truncate me";
+		state.values = { 1, 2, 3, 4, 5 };
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { state.DoState(p); }));
+
+		for (size_t cut = 1; cut < buf.size(); ++cut) {
+			std::vector<u8> truncated(buf.begin(), buf.begin() + cut);
+			SerializerTestState out;
+			const PointerWrap::Error err = SerializerRead(truncated, [&](PointerWrap &p) { out.DoState(p); });
+			if (err != PointerWrap::ERROR_FAILURE) {
+				printf("Truncating to %d of %d bytes was accepted\n", (int)cut, (int)buf.size());
+				return false;
+			}
+		}
+	}
+
+	// Hand-corrupted counts and lengths. In each case there is nowhere near enough buffer left for
+	// what the header claims, so the load must be refused before anything is allocated or copied.
+	{
+		// A vector claiming four billion elements.
+		{
+			std::vector<u8> buf = SerializerBufferWithCount((int)0xFFFFFFFF, 64);
+			std::vector<u32> out;
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, out); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_TRUE(out.empty());
+		}
+		// A map, a set and a list claiming the same.
+		{
+			std::vector<u8> buf = SerializerBufferWithCount((int)0xFFFFFFFF, 64);
+			std::map<u32, u32> outMap;
+			std::set<u32> outSet;
+			std::list<u32> outList;
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outMap); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outSet); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outList); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_TRUE(outMap.empty());
+			EXPECT_TRUE(outSet.empty());
+			EXPECT_TRUE(outList.empty());
+		}
+		// Strings: negative, absurd, zero (there is always at least a NUL byte), and merely longer
+		// than what's left in the buffer.
+		{
+			const int lengths[] = { -1, 0x7FFFFFFF, 0, 1000 };
+			for (size_t i = 0; i < ARRAY_SIZE(lengths); ++i) {
+				std::vector<u8> buf = SerializerBufferWithCount(lengths[i], 64);
+				std::string out = "untouched";
+				const PointerWrap::Error err = SerializerRead(buf, [&](PointerWrap &p) { Do(p, out); });
+				if (err != PointerWrap::ERROR_FAILURE) {
+					printf("String length %d was accepted\n", lengths[i]);
+					return false;
+				}
+			}
+		}
+		// u16strings are measured in bytes, so on top of the above they can also claim a length
+		// that isn't a whole number of characters.
+		{
+			const int lengths[] = { -1, 0x7FFFFFFF, 0, 1, 3, 1000 };
+			for (size_t i = 0; i < ARRAY_SIZE(lengths); ++i) {
+				std::vector<u8> buf = SerializerBufferWithCount(lengths[i], 64);
+				std::u16string out = u"untouched";
+				const PointerWrap::Error err = SerializerRead(buf, [&](PointerWrap &p) { Do(p, out); });
+				if (err != PointerWrap::ERROR_FAILURE) {
+					printf("u16string byte length %d was accepted\n", lengths[i]);
+					return false;
+				}
+			}
+		}
+	}
+
+	// Maps of pointers, which is how most HLE contexts are savestated. Loading deletes whatever
+	// was in the map before reading the new contents, so bailing out on a corrupt count must not
+	// leave the freed pointers behind - the next access to them, or the destructor, would be a
+	// use-after-free.
+	{
+		std::map<u32, SerializerTestObj *> ptrMap;
+		ptrMap[1] = new SerializerTestObj();
+		ptrMap[1]->value = 0x1111;
+		ptrMap[7] = new SerializerTestObj();
+		ptrMap[7]->value = 0x7777;
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { Do(p, ptrMap); }));
+
+		std::map<u32, SerializerTestObj *> outMap;
+		outMap[99] = new SerializerTestObj();
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outMap); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_INT((int)outMap.size(), 2);
+		EXPECT_EQ_HEX(outMap[1]->value, (u32)0x1111);
+		EXPECT_EQ_HEX(outMap[7]->value, (u32)0x7777);
+
+		std::vector<u8> badBuf = SerializerBufferWithCount((int)0xFFFFFFFF, 64);
+		EXPECT_EQ_INT((int)SerializerRead(badBuf, [&](PointerWrap &p) { Do(p, outMap); }), (int)PointerWrap::ERROR_FAILURE);
+		const bool leftDangling = !outMap.empty();
+		outMap.clear();  // Must not delete these - the loader already did.
+		EXPECT_FALSE(leftDangling);
+
+		for (const std::pair<const u32, SerializerTestObj *> &entry : ptrMap)
+			delete entry.second;
+	}
+
+	// Valid u16strings still round trip, including the empty one.
+	{
+		std::u16string empty;
+		std::u16string text = u"unicode";
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, empty);
+			Do(p, text);
+		}));
+		std::u16string outEmpty = u"junk", outText;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outEmpty);
+			Do(p, outText);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_TRUE(outEmpty.empty());
+		EXPECT_TRUE(outText == text);
+	}
+
+	// Once a failure is latched the serializer drops to MODE_NOOP and stops touching the caller's
+	// data, so the rest of a broken savestate can be walked without doing damage. A warning, on the
+	// other hand, must not stop anything.
+	{
+		std::vector<u8> buf = SerializerBufferWithCount(-1, 64);
+		u32 shouldBeUntouched = 0x11111111;
+		std::string alsoUntouched = "keepme";
+		bool wentNoop = false;
+		const PointerWrap::Error err = SerializerRead(buf, [&](PointerWrap &p) {
+			std::string bad;
+			Do(p, bad);  // fails: negative length
+			wentNoop = p.mode == PointerWrap::MODE_NOOP;
+			Do(p, shouldBeUntouched);
+			Do(p, alsoUntouched);
+		});
+		EXPECT_EQ_INT((int)err, (int)PointerWrap::ERROR_FAILURE);
+		EXPECT_TRUE(wentNoop);
+		EXPECT_EQ_HEX(shouldBeUntouched, (u32)0x11111111);
+		EXPECT_EQ_STR(alsoUntouched, std::string("keepme"));
+
+		u8 *ptr = &buf[0];
+		PointerWrap p(&ptr, PointerWrap::MODE_READ);
+		p.SetError(PointerWrap::ERROR_WARNING);
+		EXPECT_FALSE(p.Failed());
+		EXPECT_EQ_INT((int)p.mode, (int)PointerWrap::MODE_READ);
+	}
+
+	// A marker that doesn't match means the writer and reader disagree about the layout, which has
+	// to be a hard failure - carrying on would read every following field from the wrong offset.
+	{
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { p.DoMarker("Thing", 0x1234); }));
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { p.DoMarker("Thing", 0x1234); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { p.DoMarker("Thing", 0x4321); }), (int)PointerWrap::ERROR_FAILURE);
+	}
+
+	// The measure pass and the write pass have to visit the same sections at the same offsets;
+	// CheckAfterWrite() exists to catch DoState() code whose behaviour depends on something that
+	// changed in between. Fake exactly that and make sure it's noticed rather than silently
+	// producing a savestate that can't be loaded.
+	{
+		int pass = 0;
+		std::vector<u8> buf;
+		EXPECT_FALSE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			u32 v = 0;
+			PointerWrapSection s = p.Section(pass++ == 0 ? "SectionA" : "SectionB", 1);
+			if (s)
+				Do(p, v);
+		}));
 	}
 
 	return true;
@@ -2464,6 +2868,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(Serializer),
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
 	TEST_ITEM(Hashmaps),

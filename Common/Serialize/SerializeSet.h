@@ -29,13 +29,15 @@ void DoSet(PointerWrap &p, std::set<T> &x) {
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
 	{
+		// Clear before the guard below can bail out: for a set of pointers, our caller has
+		// already deleted every element, so leaving them in place would be a use-after-free.
+		x.clear();
 		// Guard against an attacker-controlled count driving an enormous number of
 		// loop iterations/allocations, same spirit as DoVector's guard.
-		if (number > p.Remaining() / sizeof(T)) {
+		if (number > p.Remaining() / SerializeMinElemSize<T>()) {
 			p.SetError(PointerWrap::ERROR_FAILURE);
 			return;
 		}
-		x.clear();
 		while (number-- > 0) {
 			T it = T();
 			Do(p, it);
