@@ -1019,6 +1019,195 @@ bool TestBlockAllocator() {
 	return true;
 }
 
+// SymbolMap holds the function/data/label tables the debugger and disassembler read. Symbols are
+// stored relative to a module so they survive that module being unloaded and reloaded elsewhere,
+// and only symbols belonging to a currently-loaded module count as "active". That indirection is
+// where the surprises live, so most of this is about module lifetime and the shared label table.
+bool TestSymbolMap() {
+	const u32 kModStart = 0x08804000;
+	const u32 kModSize = 0x00010000;
+
+	// Functions are found by containing address, not just by their start.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func_a", kModStart + 0x100, 0x40);
+		map.AddFunction("func_b", kModStart + 0x200, 0x80);
+		map.SortSymbols();
+
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)(kModStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x120), (int)(kModStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x13C), (int)(kModStart + 0x100));
+		// One past the end belongs to nobody.
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x140), (int)SymbolMap::INVALID_ADDRESS);
+		EXPECT_EQ_INT((int)map.GetFunctionSize(kModStart + 0x100), 0x40);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x27F), (int)(kModStart + 0x200));
+
+		// AddFunction doubles as a label, so the name is reachable both ways.
+		EXPECT_EQ_STR(map.GetLabelString(kModStart + 0x100), std::string("func_a"));
+		u32 value = 0;
+		EXPECT_TRUE(map.GetLabelValue("func_b", value));
+		EXPECT_EQ_INT((int)value, (int)(kModStart + 0x200));
+	}
+
+	// SetFunctionSize and RemoveFunction.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		map.SortSymbols();
+
+		EXPECT_TRUE(map.SetFunctionSize(kModStart + 0x100, 0x80));
+		EXPECT_EQ_INT((int)map.GetFunctionSize(kModStart + 0x100), 0x80);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x170), (int)(kModStart + 0x100));
+
+		EXPECT_TRUE(map.RemoveFunction(kModStart + 0x100, true));
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+		// Removing something that isn't there fails rather than doing damage.
+		EXPECT_FALSE(map.RemoveFunction(kModStart + 0x100, true));
+	}
+
+	// Data symbols work the same way, and carry a type.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddData(kModStart + 0x400, 0x20, DATATYPE_WORD);
+		map.SortSymbols();
+
+		EXPECT_EQ_INT((int)map.GetDataStart(kModStart + 0x400), (int)(kModStart + 0x400));
+		EXPECT_EQ_INT((int)map.GetDataStart(kModStart + 0x41F), (int)(kModStart + 0x400));
+		EXPECT_EQ_INT((int)map.GetDataStart(kModStart + 0x420), (int)SymbolMap::INVALID_ADDRESS);
+		EXPECT_EQ_INT((int)map.GetDataSize(kModStart + 0x400), 0x20);
+		EXPECT_EQ_INT((int)map.GetDataType(kModStart + 0x400), (int)DATATYPE_WORD);
+	}
+
+	// Symbols only count as active while their module is loaded, and they come back - at the new
+	// address - when it is loaded somewhere else. This is the whole point of storing them
+	// module-relative.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 1);
+
+		map.UnloadModule(kModStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 0);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+
+		// Same module, different load address - the symbol should follow it.
+		const u32 newStart = kModStart + 0x100000;
+		map.AddModule("TEST", newStart, kModSize);
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 1);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(newStart + 0x100), (int)(newStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+	}
+
+	// Symbols outside any module are stored against module index 0 ("absolute"), which is always
+	// considered loaded - that's what makes labelling a heap or stack address work.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		const u32 outside = 0x0BFBF800;  // stack, well outside the module
+		EXPECT_EQ_INT(map.GetModuleIndex(outside), -1);
+		map.AddData(outside, 0x10, DATATYPE_BYTE, 0);
+		map.AddLabel("stackthing", outside, 0);
+		map.SortSymbols();
+
+		EXPECT_EQ_INT((int)map.GetDataStart(outside), (int)outside);
+		EXPECT_EQ_STR(map.GetLabelString(outside), std::string("stackthing"));
+		// Unloading the module must not take an unrelated absolute symbol with it.
+		map.UnloadModule(kModStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetDataStart(outside), (int)outside);
+	}
+
+	// Labels are one table shared by functions and data, and AddLabel deliberately leaves an
+	// existing one alone. Pinning this down because it surprises people: hle.data.add reports the
+	// name you asked for while the map keeps the old one, unless the caller forces it.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		const u32 addr = kModStart + 0x100;
+		map.AddFunction("original", addr, 0x40);
+		map.SortSymbols();
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("original"));
+
+		map.AddLabel("replacement", addr);
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("original"));
+
+		// SetLabelName is the way to actually change it...
+		map.SetLabelName("replacement", addr);
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("replacement"));
+		// ...and because the table is shared, that renamed the function too.
+		std::vector<SymbolEntry> funcs = map.GetAllActiveSymbols(ST_FUNCTION);
+		EXPECT_EQ_INT((int)funcs.size(), 1);
+		EXPECT_EQ_STR(funcs[0].name, std::string("replacement"));
+	}
+
+	// Likewise, removing a data symbol with removeName drops the shared label, which is why
+	// hle.data.remove has to check whether a function is using it first.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		const u32 addr = kModStart + 0x100;
+		map.AddFunction("shared", addr, 0x40);
+		map.AddData(addr, 0x10, DATATYPE_BYTE);
+		map.SortSymbols();
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("shared"));
+
+		EXPECT_TRUE(map.RemoveData(addr, true));
+		map.SortSymbols();
+		// The function is still there, but its name is gone with the label.
+		EXPECT_EQ_INT((int)map.GetFunctionStart(addr), (int)addr);
+		EXPECT_TRUE(map.GetLabelString(addr).empty());
+
+		// Whereas removeName=false leaves the label for the function that still needs it.
+		SymbolMap map2;
+		map2.AddModule("TEST", kModStart, kModSize);
+		map2.AddFunction("kept", addr, 0x40);
+		map2.AddData(addr, 0x10, DATATYPE_BYTE);
+		map2.SortSymbols();
+		EXPECT_TRUE(map2.RemoveData(addr, false));
+		map2.SortSymbols();
+		EXPECT_EQ_STR(map2.GetLabelString(addr), std::string("kept"));
+	}
+
+	// GetSymbolInfo / GetDescription round out what the disassembler asks for.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("described", kModStart + 0x100, 0x40);
+		map.SortSymbols();
+
+		SymbolInfo info{};
+		EXPECT_TRUE(map.GetSymbolInfo(&info, kModStart + 0x110, ST_FUNCTION));
+		EXPECT_EQ_INT((int)info.address, (int)(kModStart + 0x100));
+		EXPECT_EQ_INT((int)info.size, 0x40);
+		EXPECT_FALSE(map.GetSymbolInfo(&info, kModStart + 0x900, ST_FUNCTION));
+		EXPECT_EQ_STR(map.GetDescription(kModStart + 0x100), std::string("described"));
+	}
+
+	// Clear really clears, including the module table.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		map.AddData(kModStart + 0x400, 0x20, DATATYPE_WORD);
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 1);
+
+		map.Clear();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 0);
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_DATA).size(), 0);
+		EXPECT_EQ_INT((int)map.getAllModules().size(), 0);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+	}
+
+	return true;
+}
+
 bool TestTinySet() {
 	TinySet<int, 4> a;
 	EXPECT_EQ_INT((int)a.size(), 0);
@@ -2077,6 +2266,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(BlockAllocator),
+	TEST_ITEM(SymbolMap),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
