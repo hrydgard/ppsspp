@@ -251,9 +251,20 @@ public:
 	// instruction that would write to reg - does not itself execute the instruction.
 	BreakAction ExecRegBreakpoint(int reg, u32 pc);
 
-	void SetSkipFirst(u32 pc);
-	u32 CheckSkipFirst() const;
+	// While the CPU sits on a breakpoint, resuming or stepping must not immediately re-trigger it,
+	// or you could never get off it. So a resume/step records the address it starts from, and
+	// breakpoint checks at that address are suppressed until the CPU retires an instruction.
+	//
+	// "Retires an instruction" is the tick count changing. CoreTiming::GetTicks() is continuous
+	// across CoreTiming::Advance() (it's globalTimer + slicelength - downcount, and Advance moves
+	// both by the same amount), so it only moves when the CPU actually consumes cycles. That makes
+	// the suppression cover exactly the one instruction it's meant to: come back around a loop to
+	// the same address and the breakpoint fires normally.
+	void SetSkipFirst(u32 addr);
 	void ClearSkipFirst();
+	// addr is the instruction being checked, which under a JIT isn't necessarily currentMIPS->pc
+	// yet, so both are compared.
+	bool ShouldSkipBreakpoint(u32 addr) const;
 
 	// Includes uncached addresses.
 	std::vector<MemCheck> GetMemCheckRanges(bool write);
@@ -303,8 +314,13 @@ private:
 
 	std::vector<BreakPoint> breakPoints_;
 	TempBreakPoint tempBreakPoint_;
-	u32 breakSkipFirstAt_ = 0;
-	u64 breakSkipFirstTicks_ = 0;
+	// See SetSkipFirst(). Not keyed on address 0 meaning "none" - a breakpoint at 0 would then be
+	// permanently suppressed, which is how this used to be cleared.
+	struct {
+		bool valid = false;
+		u32 addr = 0;
+		u64 ticks = 0;
+	} skipFirst_;
 
 	std::vector<MemCheck> memChecks_;
 	std::vector<MemCheck> memCheckRangesRead_;

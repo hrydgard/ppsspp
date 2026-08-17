@@ -1068,6 +1068,34 @@ bool TestTempBreakpoints() {
 	g_breakpoints.RemoveBreakPoint(kAddrA);
 	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
 
+	// The "don't immediately re-trigger the breakpoint we're parked on" marker. Getting this wrong
+	// in the lenient direction silently swallows breakpoints, so pin the behaviour down.
+	{
+		g_breakpoints.ClearSkipFirst();
+		// Nothing armed - nothing to suppress, so it must not arm and sit there waiting to swallow
+		// a breakpoint added later.
+		g_breakpoints.SetSkipFirst(kAddrA);
+		EXPECT_FALSE(g_breakpoints.ShouldSkipBreakpoint(kAddrA));
+
+		g_breakpoints.AddBreakPoint(kAddrA);
+		g_breakpoints.SetSkipFirst(kAddrA);
+		EXPECT_TRUE(g_breakpoints.ShouldSkipBreakpoint(kAddrA));
+		// Only the address it was set for.
+		EXPECT_FALSE(g_breakpoints.ShouldSkipBreakpoint(kAddrB));
+
+		// While suppressed, the breakpoint must not fire, log, or count a hit.
+		EXPECT_EQ_INT((int)g_breakpoints.ExecBreakPoint(kAddrA), (int)BREAK_ACTION_NONE);
+		EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints()[0].numHits, 0);
+
+		g_breakpoints.ClearSkipFirst();
+		EXPECT_FALSE(g_breakpoints.ShouldSkipBreakpoint(kAddrA));
+		// ...and once it's cleared, it fires normally again.
+		EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints()[0].numHits, 1);
+
+		g_breakpoints.RemoveBreakPoint(kAddrA);
+	}
+
 	g_symbolMap = nullptr;
 	return true;
 }

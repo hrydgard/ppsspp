@@ -1136,7 +1136,8 @@ static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op)
 }
 
 static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
-	if (g_breakpoints.HasBreakPoints() && g_breakpoints.NeedsBreakCheckAt(pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
+	// No skip-first check here - ExecBreakPoint() does it, so it can't be forgotten on one path.
+	if (g_breakpoints.HasBreakPoints() && g_breakpoints.NeedsBreakCheckAt(pc)) {
 		g_breakpoints.ExecBreakPoint(pc);
 		// No temp-breakpoint cleanup needed here (the JIT path never had any either) - Core_Break()
 		// drops it for us on the way into stepping, whichever breakpoint it was that stopped us.
@@ -1147,7 +1148,7 @@ static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
 }
 
 static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op) {
-	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc && instr->interpret != &Int_Syscall) {
+	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && instr->interpret != &Int_Syscall) {
 		// This is common for all IN_MEM/OUT_MEM funcs.
 		int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
 		u32 addr = (mips->r[_RS(op)] + offset) & 0xFFFFFFFC;
@@ -1165,7 +1166,7 @@ static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *in
 }
 
 static bool CheckRegBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op, u32 regBPMask) {
-	if ((instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc) {
+	if ((instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0) {
 		int regTarget = GetGPRWriteTarget(instr, op);
 		if (regTarget >= 0 && (regBPMask & (1u << regTarget)) != 0) {
 			g_breakpoints.ExecRegBreakpoint(regTarget, mips->pc);

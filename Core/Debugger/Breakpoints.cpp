@@ -327,6 +327,10 @@ void BreakpointManager::ChangeBreakPointLogFormat(u32 addr, const std::string &f
 BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	if (!anyBreakPoints_)
 		return BREAK_ACTION_NONE;
+	// Checked here rather than at each call site, so no path can forget it and log/count a hit for
+	// a breakpoint we're only just stepping off. See SetSkipFirst().
+	if (ShouldSkipBreakpoint(addr))
+		return BREAK_ACTION_NONE;
 
 	BreakAction result = BREAK_ACTION_NONE;
 
@@ -521,6 +525,9 @@ BreakAction BreakpointManager::ExecMemCheck(u32 address, bool write, int size, u
 {
 	if (!anyMemChecks_)
 		return BREAK_ACTION_NONE;
+	// See SetSkipFirst() - same reason as in ExecBreakPoint().
+	if (ShouldSkipBreakpoint(pc))
+		return BREAK_ACTION_NONE;
 	MemCheck *check = FindMemCheckInRange(address, size);
 	if (check) {
 		BreakAction applyAction = check->Apply(address, write, size, pc);
@@ -534,6 +541,8 @@ BreakAction BreakpointManager::ExecMemCheck(u32 address, bool write, int size, u
 }
 
 BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
+	if (ShouldSkipBreakpoint(pc))
+		return BREAK_ACTION_NONE;
 	// Note: currently, we don't check "on changed" for HLE (ExecMemCheck.)
 	// We'd need to more carefully specify memory changes in HLE for that.
 	int size = MIPSAnalyst::OpMemoryAccessSize(pc);
@@ -694,6 +703,11 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 	if (info.hasCond && !info.cond.Evaluate())
 		return BREAK_ACTION_NONE;
 
+	// Before the log and the hit count, not just the pause - stepping off a log+pause register
+	// breakpoint used to print it a second time and count it twice. See SetSkipFirst().
+	if (ShouldSkipBreakpoint(pc))
+		return BREAK_ACTION_NONE;
+
 	++info.numHits;
 
 	if (info.result & BREAK_ACTION_LOG) {
@@ -705,7 +719,7 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x: %s", reg, pc, formatted.c_str());
 		}
 	}
-	if ((info.result & BREAK_ACTION_PAUSE) && g_breakpoints.CheckSkipFirst() != pc) {
+	if (info.result & BREAK_ACTION_PAUSE) {
 		Core_Break(BreakReason::RegBreakpoint, pc);
 	}
 
@@ -713,20 +727,27 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 }
 
 void BreakpointManager::ClearSkipFirst() {
-	breakSkipFirstAt_ = 0;
-	breakSkipFirstTicks_ = 0;
+	skipFirst_.valid = false;
 }
 
-void BreakpointManager::SetSkipFirst(u32 pc) {
-	breakSkipFirstAt_ = pc;
-	breakSkipFirstTicks_ = CoreTiming::GetTicks(currentMIPS);
+void BreakpointManager::SetSkipFirst(u32 addr) {
+	// Nothing to suppress if no breakpoint machinery is armed, and not arming it needlessly keeps
+	// a stale marker from ever being able to swallow a breakpoint set later.
+	if (!anyBreakPoints_ && !anyMemChecks_ && regBreakpointMask_ == 0) {
+		skipFirst_.valid = false;
+		return;
+	}
+	skipFirst_.valid = true;
+	skipFirst_.addr = addr;
+	skipFirst_.ticks = CoreTiming::GetTicks(currentMIPS);
 }
 
-u32 BreakpointManager::CheckSkipFirst() const {
-	u32 pc = breakSkipFirstAt_;
-	if (breakSkipFirstTicks_ == CoreTiming::GetTicks(currentMIPS))
-		return pc;
-	return 0;
+bool BreakpointManager::ShouldSkipBreakpoint(u32 addr) const {
+	if (!skipFirst_.valid)
+		return false;
+	if (skipFirst_.addr != addr && skipFirst_.addr != currentMIPS->pc)
+		return false;
+	return skipFirst_.ticks == CoreTiming::GetTicks(currentMIPS);
 }
 
 static MemCheck NotCached(MemCheck mc) {
