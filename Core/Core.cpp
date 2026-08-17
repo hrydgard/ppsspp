@@ -40,6 +40,7 @@
 #include "Core/System.h"
 #include "Core/MemFault.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/WebSocket.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/sceKernelModule.h"
@@ -113,6 +114,10 @@ void Core_ProcessCPUQueue() {
 		g_cpuThreadIdValid.store(true, std::memory_order_release);
 	});
 
+	// Piggybacking on the one function that's reliably called on the CPU thread both in game
+	// (Core_RunLoopUntil) and at the menu (NativeFrame) - see WebSocketDebuggerTick().
+	WebSocketDebuggerTick();
+
 	std::vector<std::shared_ptr<CPUThreadTask>> tasks;
 	{
 		std::lock_guard<std::mutex> guard(g_cpuQueueMutex);
@@ -131,6 +136,21 @@ void Core_ProcessCPUQueue() {
 			task->done = true;
 	}
 	g_cpuQueueCond.notify_all();
+}
+
+// See Core.h. Recursive because Memory::Shutdown() nests inside CPU_Shutdown()'s acquire.
+static std::recursive_mutex g_shutdownLock;
+
+CoreShutdownLock::CoreShutdownLock() {
+	g_shutdownLock.lock();
+}
+
+CoreShutdownLock::~CoreShutdownLock() {
+	g_shutdownLock.unlock();
+}
+
+CoreShutdownLock Core_LockAgainstShutdown() {
+	return CoreShutdownLock();
 }
 
 // See Core.h for the rationale. Held by NativeFrame() (in NativeApp.cpp) around the span where it

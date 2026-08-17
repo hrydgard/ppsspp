@@ -56,19 +56,33 @@ private:
 // CPU has resumed from stepping (cpu.resume)
 //
 // Sent unexpectedly with no other properties.
-void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
-	if (PSP_GetBootState() == BootState::Complete) {
-		int steppingCounter = Core_GetSteppingCounter();
-		// We ignore CORE_POWERDOWN as a stepping state.
-		if (coreState == CORE_STEPPING_CPU && steppingCounter != lastCounter_) {
-			ws->Send(CPUSteppingEvent(Core_GetSteppingReason()));
-		} else if (prevState_ == CORE_STEPPING_CPU && coreState != CORE_STEPPING_CPU && Core_IsActive()) {
-			ws->Send(R"({"event":"cpu.resume"})");
-		}
-		lastCounter_ = steppingCounter;
-		prevState_ = coreState;
-	} else {
-		lastCounter_ = -1;
-		prevState_ = CORE_POWERDOWN;
+// Tracked globally rather than per connection: this runs on the CPU thread, which owns the state
+// being read, and the resulting event is then handed to every connected debugger.
+static CoreState g_prevState = CORE_POWERDOWN;
+static int g_lastCounter = 0;
+
+std::string SteppingBroadcaster::PollChange() {
+	if (PSP_GetBootState() != BootState::Complete) {
+		g_lastCounter = -1;
+		g_prevState = CORE_POWERDOWN;
+		return std::string();
 	}
+
+	std::string result;
+	const int steppingCounter = Core_GetSteppingCounter();
+	// We ignore CORE_POWERDOWN as a stepping state.
+	if (coreState == CORE_STEPPING_CPU && steppingCounter != g_lastCounter) {
+		result = CPUSteppingEvent(Core_GetSteppingReason());
+	} else if (g_prevState == CORE_STEPPING_CPU && coreState != CORE_STEPPING_CPU && Core_IsActive()) {
+		result = R"({"event":"cpu.resume"})";
+	}
+	g_lastCounter = steppingCounter;
+	g_prevState = coreState;
+	return result;
+}
+
+std::string SteppingBroadcaster::CurrentState() {
+	if (PSP_GetBootState() != BootState::Complete || coreState != CORE_STEPPING_CPU)
+		return std::string();
+	return CPUSteppingEvent(Core_GetSteppingReason());
 }

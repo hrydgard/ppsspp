@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
 #include "ppsspp_config.h"
 
 #ifdef _WIN32
@@ -102,7 +103,9 @@ static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
 static bool g_fileLoggingWasEnabled;
 
-static BootState g_bootState = BootState::Off;
+// Atomic because it's read as a fast-fail from the WebSocket debugger's own thread while the
+// CPU and loader threads move it along.
+static std::atomic<BootState> g_bootState = BootState::Off;
 
 BootState PSP_GetBootState() {
 	return g_bootState;
@@ -565,6 +568,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 }
 
 void CPU_Shutdown(bool success) {
+	// Held across the whole teardown, not just Memory::Shutdown() further down. Everything below
+	// frees state the debugger UIs read from other threads - kernel objects, the symbol map, the
+	// memory map - and this is the lock they take to be sure none of it goes away mid-read. See
+	// Core_LockAgainstShutdown(); it's recursive, so the nested acquire in Memory::Shutdown() is fine.
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
+
 	UninstallExceptionHandler();
 
 	GPURecord::Replay_Unload();

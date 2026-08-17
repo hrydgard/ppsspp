@@ -12,6 +12,7 @@
 #include "Windows/main.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Core.h"
+#include "Core/MemMap.h"
 #include "Core/HLE/sceKernelThread.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
@@ -260,6 +261,7 @@ void CtrlThreadList::reloadThreads()
 	// while it's actually touching that state. See g_frameMutex in Core.h.
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 		threads = GetThreadsInfo();
 	}
 	Update();
@@ -335,6 +337,7 @@ void CtrlBreakpointList::reloadBreakpoints()
 	// with the CPU thread - see g_frameMutex in Core.h.
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 		displayedBreakPoints_ = g_breakpoints.GetBreakpoints();
 		displayedMemChecks_= g_breakpoints.GetMemChecks();
 	}
@@ -747,9 +750,9 @@ void CtrlStackTraceView::loadStackTrace() {
 	// the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
 	// holds while it's actually touching that state. See g_frameMutex in Core.h.
 	//
-	// g_frameMutex first, then Memory::Lock() - never the other way around. See CtrlMemView::onPaint.
+	// g_frameMutex first, then Core_LockAgainstShutdown() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
-	Memory::MemoryInitedLock memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited())
 		return;
 
@@ -845,6 +848,7 @@ void CtrlModuleList::loadModules()
 	// actually touching that state. See g_frameMutex in Core.h.
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 		if (g_symbolMap) {
 			modules = g_symbolMap->getAllModules();
 		} else {
@@ -870,6 +874,7 @@ void CtrlWatchList::RefreshValues() {
 	// otherwise race with the CPU thread - hold g_frameMutex for the duration, which NativeFrame()
 	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 
 	int steppingCounter = Core_GetSteppingCounter();
 	int changes = false;

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/Core.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -141,11 +142,17 @@ void WebSocketMemoryInfoState::Config(DebuggerRequest &req) {
 	if (!req.ParamBool("detailed", &detailed, DebuggerParamType::OPTIONAL))
 		return;
 
-	JsonWriter &json = req.Respond();
-	json.writeBool("detailed", MemBlockInfoDetailed());
+	// MemBlockInfo's detail tracking is CPU-thread-owned, so flip it over there rather than from
+	// this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	bool nowDetailed = false;
+	Core_RunOnCPUThread([&] {
+		if (setDetailed)
+			UpdateOverride(detailed);
+		nowDetailed = MemBlockInfoDetailed();
+	});
 
-	if (setDetailed)
-		UpdateOverride(detailed);
+	JsonWriter &json = req.Respond();
+	json.writeBool("detailed", nowDetailed);
 }
 
 static MemBlockFlags FlagFromType(const std::string &type) {
@@ -196,9 +203,6 @@ static std::string TypeFromFlag(const MemBlockFlags &flag) {
 // Note: Only one tag per type is maintained for any given memory address.
 // Small extent info may be ignored unless detailed tracking enabled (see memory.info.config.)
 void WebSocketMemoryInfoState::Set(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
-
 	std::string type;
 	if (!req.ParamString("type", &type))
 		return;
@@ -213,20 +217,37 @@ void WebSocketMemoryInfoState::Set(DebuggerRequest &req) {
 	uint32_t size;
 	if (!req.ParamU32("size", &size))
 		return;
-	uint32_t pc = currentMIPS->pc;
-	if (!req.ParamU32("pc", &pc, false, DebuggerParamType::OPTIONAL))
+	// Defaults to the current PC, but that has to be read on the CPU thread - see below.
+	const bool hasPC = req.HasParam("pc");
+	uint32_t pc = 0;
+	if (hasPC && !req.ParamU32("pc", &pc, false, DebuggerParamType::OPTIONAL))
 		return;
 
 	MemBlockFlags flags = MemBlockFlags::SKIP_MEMCHECK | FlagFromType(type);
 	if (flags == MemBlockFlags::SKIP_MEMCHECK)
 		return req.Fail("Invaid type - expecting write, texture, alloc, suballoc, free, or subfree");
 
-	if (!Memory::IsValidAddress(addr))
-		return req.Fail("Invalid address");
-	else if (!Memory::IsValidRange(addr, size))
-		return req.Fail("Invalid size");
+	// Everything below this point reads or writes CPU-thread-owned state, so do it over there -
+	// see Core_RunOnCPUThread() in Core.h. The validity checks come along for the ride, since
+	// answering them out here would just mean acting on a stale answer.
+	const char *failure = nullptr;
+	Core_RunOnCPUThread([&] {
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+			failure = "CPU not started";
+		else if (!Memory::IsValidAddress(addr))
+			failure = "Invalid address";
+		else if (!Memory::IsValidRange(addr, size))
+			failure = "Invalid size";
+		if (failure)
+			return;
 
-	NotifyMemInfoPC(flags, addr, size, pc, tag.c_str(), tag.size());
+		if (!hasPC)
+			pc = currentMIPS->pc;
+		NotifyMemInfoPC(flags, addr, size, pc, tag.c_str(), tag.size());
+	});
+	if (failure)
+		return req.Fail(failure);
+
 	req.Respond();
 }
 
@@ -251,9 +272,6 @@ void WebSocketMemoryInfoState::Set(DebuggerRequest &req) {
 //     - tag: string tag for this memory extent.
 //     - allocated: boolean, if this extent is marked as allocated (for alloc/suballoc types.)
 void WebSocketMemoryInfoState::List(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
-
 	std::string type;
 	if (!req.ParamString("type", &type, DebuggerParamType::OPTIONAL))
 		return;
@@ -269,16 +287,27 @@ void WebSocketMemoryInfoState::List(DebuggerRequest &req) {
 	if (flags == MemBlockFlags::SKIP_MEMCHECK && req.HasParam("type"))
 		return req.Fail("Invaid type - expecting write, texture, alloc, suballoc, free, or subfree");
 
-	if (!Memory::IsValidAddress(addr))
-		return req.Fail("Invalid address");
-	else if (!Memory::IsValidRange(addr, size))
-		return req.Fail("Invalid size");
-
+	// The slab maps FindMemInfo walks are CPU-thread-owned, so gather over there rather than from
+	// this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	const char *failure = nullptr;
 	std::vector<MemBlockInfo> results;
-	if (flags == MemBlockFlags::SKIP_MEMCHECK)
-		results = FindMemInfo(addr, size);
-	else
-		results = FindMemInfoByFlag(flags, addr, size);
+	Core_RunOnCPUThread([&] {
+		if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
+			failure = "CPU not started";
+		else if (!Memory::IsValidAddress(addr))
+			failure = "Invalid address";
+		else if (!Memory::IsValidRange(addr, size))
+			failure = "Invalid size";
+		if (failure)
+			return;
+
+		if (flags == MemBlockFlags::SKIP_MEMCHECK)
+			results = FindMemInfo(addr, size);
+		else
+			results = FindMemInfoByFlag(flags, addr, size);
+	});
+	if (failure)
+		return req.Fail(failure);
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("extents");
@@ -320,9 +349,6 @@ void WebSocketMemoryInfoState::List(DebuggerRequest &req) {
 //
 // Note: may not be fast.
 void WebSocketMemoryInfoState::Search(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
-		return req.Fail("CPU not started");
-
 	uint32_t start = 0;
 	if (!req.ParamU32("address", &start, false, DebuggerParamType::OPTIONAL))
 		return;
@@ -346,34 +372,47 @@ void WebSocketMemoryInfoState::Search(DebuggerRequest &req) {
 	std::transform(match.begin(), match.end(), match.begin(), ::tolower);
 
 	bool found = false;
+	bool alive = false;
 	MemBlockInfo foundResult;
 
-	uint32_t addr = start;
-	constexpr uint32_t CHUNK_SIZE = 0x1000;
-	do {
-		uint32_t chunk_end = addr + CHUNK_SIZE;
-		if (addr < end && chunk_end >= end) {
-			chunk_end = end;
-		}
+	// The whole scan happens in one trip to the CPU thread - see Core_RunOnCPUThread() in Core.h.
+	// It can cover a fair bit of memory and so will stall emulation briefly, which is fine for
+	// something a human triggers by hand. (The chunking below is just to avoid gathering every
+	// extent in the range before looking at any of them.)
+	Core_RunOnCPUThread([&] {
+		alive = currentDebugMIPS->isAlive() && Memory::IsActive();
+		if (!alive)
+			return;
 
-		std::vector<MemBlockInfo> results;
-		if (flags == MemBlockFlags::SKIP_MEMCHECK)
-			results = FindMemInfo(addr, chunk_end - addr);
-		else
-			results = FindMemInfoByFlag(flags, addr, chunk_end - addr);
-
-		for (const auto &result : results) {
-			std::string lowercase = result.tag;
-			std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(), ::tolower);
-
-			if (lowercase.find(match) != lowercase.npos) {
-				found = true;
-				foundResult = result;
-				break;
+		uint32_t addr = start;
+		constexpr uint32_t CHUNK_SIZE = 0x1000;
+		do {
+			uint32_t chunk_end = addr + CHUNK_SIZE;
+			if (addr < end && chunk_end >= end) {
+				chunk_end = end;
 			}
-		}
-		addr = RoundMemAddressUp(chunk_end);
-	} while (!found && addr != end);
+
+			std::vector<MemBlockInfo> results;
+			if (flags == MemBlockFlags::SKIP_MEMCHECK)
+				results = FindMemInfo(addr, chunk_end - addr);
+			else
+				results = FindMemInfoByFlag(flags, addr, chunk_end - addr);
+
+			for (const auto &result : results) {
+				std::string lowercase = result.tag;
+				std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(), ::tolower);
+
+				if (lowercase.find(match) != lowercase.npos) {
+					found = true;
+					foundResult = result;
+					break;
+				}
+			}
+			addr = RoundMemAddressUp(chunk_end);
+		} while (!found && addr != end);
+	});
+	if (!alive)
+		return req.Fail("CPU not started");
 
 	JsonWriter &json = req.Respond();
 	if (found) {

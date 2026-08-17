@@ -28,6 +28,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/Math/math_util.h"
+#include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -992,7 +993,7 @@ bool GetDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbrevia
 
 // Utilify function from the old debugger.
 std::string DisassembleRange(u32 start, u32 size, bool displaySymbols, MIPSDebugInterface *debugger) {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	std::string result;
 
 	// gather all branch targets without labels

@@ -20,6 +20,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/GPUDisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
@@ -58,13 +59,6 @@ DebuggerSubscriber *WebSocketGPUDisasmInit(DebuggerEventHandlerMap &map) {
 //    "AAAAAAAA  desc" - meant for skimming a display list by eye instead of parsing full JSON,
 //    same idea as memory.disasm's own compact mode.
 void WebSocketGPUDisplayListDisasm(DebuggerRequest &req) {
-	if (!gpu) {
-		return req.Fail("No GPU active (game not booted?)");
-	}
-	if (!Memory::IsActive()) {
-		return req.Fail("Memory not active");
-	}
-
 	// Mirrors memory.disasm's own limit - keeps a client typo (e.g. count=0xFFFFFFFF) from
 	// blocking the debugger connection for an unreasonable amount of time.
 	static const uint32_t MAX_RANGE = 10000;
@@ -89,7 +83,17 @@ void WebSocketGPUDisplayListDisasm(DebuggerRequest &req) {
 	if (!req.ParamBool("compact", &compact, DebuggerParamType::OPTIONAL))
 		return;
 
-	std::vector<GPUDebugOp> ops = gpu->DisassembleOpRange(start, end);
+	// gpu and the memory it disassembles from are CPU-thread-owned, so do the read over there
+	// rather than from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	bool active = false;
+	std::vector<GPUDebugOp> ops;
+	Core_RunOnCPUThread([&] {
+		active = gpu && Memory::IsActive();
+		if (active)
+			ops = gpu->DisassembleOpRange(start, end);
+	});
+	if (!active)
+		return req.Fail("No GPU active (game not booted?)");
 
 	JsonWriter &json = req.Respond();
 	json.pushArray("lines");

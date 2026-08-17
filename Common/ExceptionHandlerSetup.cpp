@@ -20,8 +20,41 @@
 #include "Common/MachineContext.h"
 #include "Common/ExceptionHandlerSetup.h"
 
+#if defined(_MSC_VER)
+#include <crtdbg.h>
+#include "Common/CommonWindows.h"
+#endif
+
 static BadAccessHandler g_badAccessHandler;
 static void *altStack = nullptr;
+
+void SetupCRT(bool suppressDialogs) {
+#if defined(_MSC_VER)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
+	if (suppressDialogs) {
+		// 1. Redirect CRT assertions/errors/warnings to stderr.
+		const _HFILE reportTarget = _CRTDBG_FILE_STDERR;
+
+		_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_ASSERT, reportTarget);
+
+		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_ERROR, reportTarget);
+
+		_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+		_CrtSetReportFile(_CRT_WARN, reportTarget);
+
+		// 2. Suppress the abort() message box & crash reporting dialogs.
+		_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+
+#if !PPSSPP_PLATFORM(UWP)
+		// 3. Suppress Windows OS-level "Program has stopped working" modal dialogs.
+		SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif
+	}
+#endif
+}
 
 #ifdef MACHINE_CONTEXT_SUPPORTED
 

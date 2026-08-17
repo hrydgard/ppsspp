@@ -21,3 +21,8 @@ void InstallExceptionHandler(BadAccessHandler accessHandler, bool logStackTraceO
 
 // Implementation note: This must be a no-op if InstallExceptionHandler hasn't been called.
 void UninstallExceptionHandler();
+
+// MSVC-only, no-op elsewhere. Turns on the debug CRT's leak checking, and with suppressDialogs
+// set, routes CRT assertions and abort() to stderr instead of a modal dialog - required for
+// anything run non-interactively (headless, the unit tests, CI), where a dialog just hangs.
+void SetupCRT(bool suppressDialogs);

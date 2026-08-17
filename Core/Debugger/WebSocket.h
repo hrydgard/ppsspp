@@ -24,3 +24,8 @@ class ServerRequest;
 void HandleDebuggerRequest(const http::ServerRequest &request);
 // Note: blocks.
 void StopAllDebuggers();
+
+// Notices emulator state changes (cpu.stepping, game.start, ...) and pushes the resulting events to
+// connected debuggers, so their own threads never have to read that state themselves. CPU thread
+// only; cheap, and safe to call with no debugger connected (it still has to track transitions).
+void WebSocketDebuggerTick();
