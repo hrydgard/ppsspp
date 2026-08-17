@@ -746,7 +746,12 @@ void SymbolMap::UpdateActiveSymbols() {
 	activeData.clear();
 
 	// On startup and shutdown, we can skip the rest.  Tiny optimization.
-	if (activeModuleEnds.empty() || (functions.empty() && labels.empty() && data.empty())) {
+	// Note: deliberately not skipping when only activeModuleEnds is empty. Symbols with module
+	// index 0 are absolute - they belong to no module by design (a label put on a heap or stack
+	// address, say) - and the loops below handle that case fine with no modules loaded. Bailing
+	// out here left activeData/activeLabels/activeFunctions cleared, so those symbols vanished
+	// whenever the last module was unloaded, and didn't exist before the first one was loaded.
+	if (functions.empty() && labels.empty() && data.empty()) {
 		return;
 	}
 

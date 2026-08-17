@@ -44,6 +44,14 @@ This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run on
 specific tests by passing their names instead of `all` (space-separated, e.g. `UnitTest.exe
 CmdLine Path Utf8`); no arguments lists the available tests.
 
+After a `git stash`/`git stash pop` that touches a **header**, do a `/t:Rebuild` rather than trusting
+the incremental build. Stashing rewrites files with timestamps that can leave objects looking newer
+than the header they were compiled against, so adding or removing a class member produces a binary
+where translation units disagree on the object layout. That shows up as `UnitTest.exe` segfaulting
+before it prints anything, for every test including ones unrelated to the change - which looks like
+a catastrophic code bug and is not one. If a build starts crashing inexplicably right after a stash
+cycle, rebuild before investigating anything else.
+
 Known environment-specific issue: in at least one sandboxed dev environment, the `Jit` test
 (`unittest/JitHarness.cpp`) hangs indefinitely specifically during the `CPUCore::JIT_IR`
 phase - confirmed unrelated to source changes (reproduces identically on unmodified checkouts)
@@ -159,6 +167,12 @@ when making cross platform changes.
 
 New unit tests are added by listing them in availableTests in unittest.cpp. If they are large, put them in
 separate files in the unittest subdirectory. Remember to update both CMakeLists.txt and the visual studio project.
+
+A unit test is often the first thing to call a given function from outside its own .cpp, which makes the
+`ppsspp_unittest` target in the legacy Android build (`android/jni/Android.mk`, see above) the strictest check
+we have: MSVC links an `inline` function defined in a .cpp anyway, clang correctly does not. So a test can
+build and pass on Windows and fail to link only on Android CI, with an undefined symbol pointing at a header
+line. Fix it by dropping the bogus `inline` from the definition, not by avoiding the call.
 
 pspautotests are a large set of tests of the PSP OS's API surface, and thus tests our HLE implementation.
 

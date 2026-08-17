@@ -347,7 +347,10 @@ const char *BlockAllocator::GetBlockTag(u32 addr) const {
 	return b ? b->tag : "";
 }
 
-inline BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
+// Not inline: IsBlockFree() in the header calls this, so it has to have external linkage.
+// (An inline definition in a .cpp is only usable within that .cpp - MSVC happens to emit a
+// linkable COMDAT anyway, but clang follows the standard and the Android unittest link fails.)
+BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
 {
 	for (Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{

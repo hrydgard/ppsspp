@@ -43,6 +43,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
@@ -86,7 +87,16 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
+#include "Common/Serialize/SerializeSet.h"
+#include "Common/Serialize/SerializeList.h"
+#include <map>
+#include <set>
+#include <list>
 #include "Core/CmdLine.h"
+#include "Common/Data/Collections/Hashmaps.h"
+#include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -508,6 +518,403 @@ bool TestUtf8() {
 	return true;
 }
 
+// PointerWrap is the savestate serializer. The same DoState() code runs in MEASURE, WRITE and READ
+// mode, so mistakes here don't show up as compile errors - they show up as savestates that don't
+// load, or worse. Everything read back came off disk and is therefore attacker-controllable, so the
+// corrupt-input cases below matter as much as the round trips.
+
+struct SerializerPOD {
+	u32 a;
+	s16 b;
+	u8 c;
+	float d;
+};
+
+// Held by pointer in a map below, the way a lot of HLE state is (sceMpeg's contexts, sceFont's
+// fonts, sceKernelThread's pending calls, ...).
+struct SerializerTestObj {
+	u32 value = 0;
+	void DoState(PointerWrap &p) {
+		Do(p, value);
+	}
+};
+
+// Shaped like real DoState() code: a versioned section, a few fields, and one field that only
+// exists from version 2 on. Set version to 1 before serializing to produce an old-format buffer.
+struct SerializerTestState {
+	int version = 2;
+	u32 a = 0;
+	std::string name;
+	std::vector<u32> values;
+	int addedInV2 = 0;
+
+	void DoState(PointerWrap &p) {
+		PointerWrapSection s = p.Section("TestState", 1, version);
+		if (!s)
+			return;
+		Do(p, a);
+		Do(p, name);
+		Do(p, values);
+		if (s >= 2)
+			Do(p, addedInV2);
+	}
+};
+
+// Measures, then rewinds into a buffer of exactly the measured size - the same sequence
+// CChunkFileReader::MeasureAndSavePtr() uses, so the measure-vs-write checkpoint machinery gets
+// exercised as well. Returns false if either pass reported an error or the two disagreed.
+template <class Func>
+static bool SerializerWrite(std::vector<u8> *out, Func f) {
+	u8 *ptr = nullptr;
+	PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+	f(p);
+	if (p.Failed())
+		return false;
+	// Fill with junk so a field the write pass forgets shows up as garbage rather than zero.
+	out->assign(p.Offset(), 0xCD);
+	p.RewindForWrite(out->empty() ? nullptr : &(*out)[0]);
+	f(p);
+	return p.CheckAfterWrite() && !p.Failed();
+}
+
+// Reads out of a copy of the buffer with the read end set, which is what LoadPtr() does and what
+// all the bounds checks depend on.
+template <class Func>
+static PointerWrap::Error SerializerRead(const std::vector<u8> &buf, Func f) {
+	std::vector<u8> copy = buf;
+	u8 *ptr = copy.empty() ? nullptr : &copy[0];
+	PointerWrap p(&ptr, PointerWrap::MODE_READ);
+	if (!copy.empty())
+		p.SetReadEnd(&copy[0] + copy.size());
+	f(p);
+	return p.error;
+}
+
+// A buffer whose first four bytes are a length/count field, for feeding hand-corrupted values in.
+static std::vector<u8> SerializerBufferWithCount(int count, size_t totalSize) {
+	std::vector<u8> buf(totalSize < sizeof(int) ? sizeof(int) : totalSize, 0);
+	memcpy(&buf[0], &count, sizeof(int));
+	return buf;
+}
+
+bool TestSerializer() {
+	// Plain values and PODs survive a measure/write/read round trip, and the measure pass agrees
+	// with the write pass about the size.
+	{
+		SerializerPOD pod{ 0x12345678, -1234, 0xAB, 1.5f };
+		u32 plain = 0xDEADBEEF;
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, plain);
+			Do(p, pod);
+		}));
+		EXPECT_EQ_INT((int)buf.size(), (int)(sizeof(u32) + sizeof(SerializerPOD)));
+
+		u32 outPlain = 0;
+		SerializerPOD outPod{};
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outPlain);
+			Do(p, outPod);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_HEX(outPlain, plain);
+		EXPECT_EQ_HEX(outPod.a, pod.a);
+		EXPECT_EQ_INT(outPod.b, pod.b);
+		EXPECT_EQ_INT(outPod.c, pod.c);
+		EXPECT_EQ_FLOAT(outPod.d, pod.d);
+	}
+
+	// Strings, including the empty one and one with an embedded NUL - the length is serialized
+	// separately, so the NUL shouldn't truncate anything.
+	{
+		std::string empty;
+		std::string normal = "hello savestate";
+		std::string embedded("a\0b", 3);
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, empty);
+			Do(p, normal);
+			Do(p, embedded);
+		}));
+
+		std::string outEmpty = "junk", outNormal, outEmbedded;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outEmpty);
+			Do(p, outNormal);
+			Do(p, outEmbedded);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_TRUE(outEmpty.empty());
+		EXPECT_EQ_STR(outNormal, normal);
+		EXPECT_EQ_INT((int)outEmbedded.size(), 3);
+		EXPECT_TRUE(outEmbedded == embedded);
+	}
+
+	// The containers that DoState() code actually uses.
+	{
+		std::vector<u32> vec{ 1, 2, 3, 0xFFFFFFFF };
+		std::vector<std::string> strs{ "one", "", "three" };
+		std::map<u32, u32> map{ { 5, 50 }, { 1, 10 }, { 9, 90 } };
+		std::set<u32> set{ 7, 3, 11 };
+		std::list<u32> list{ 4, 5, 6 };
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, vec);
+			Do(p, strs);
+			Do(p, map);
+			Do(p, set);
+			Do(p, list);
+		}));
+
+		// Deliberately non-empty to start with, so a load that forgets to clear shows up.
+		std::vector<u32> outVec{ 99, 99 };
+		std::vector<std::string> outStrs{ "junk" };
+		std::map<u32, u32> outMap{ { 123, 456 } };
+		std::set<u32> outSet{ 123 };
+		std::list<u32> outList{ 99 };
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outVec);
+			Do(p, outStrs);
+			Do(p, outMap);
+			Do(p, outSet);
+			Do(p, outList);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_TRUE(outVec == vec);
+		EXPECT_TRUE(outStrs == strs);
+		EXPECT_TRUE(outMap == map);
+		EXPECT_TRUE(outSet == set);
+		EXPECT_TRUE(outList == list);
+	}
+
+	// Sections: a matching title and an acceptable version give a usable section, and the marker
+	// the section destructor writes lines up on read.
+	{
+		SerializerTestState state;
+		state.a = 0x1234;
+		state.name = "statename";
+		state.values = { 10, 20 };
+		state.addedInV2 = 77;
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { state.DoState(p); }));
+
+		SerializerTestState out;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { out.DoState(p); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_HEX(out.a, state.a);
+		EXPECT_EQ_STR(out.name, state.name);
+		EXPECT_TRUE(out.values == state.values);
+		EXPECT_EQ_INT(out.addedInV2, state.addedInV2);
+
+		// A section written by a newer build than we understand must be refused, not
+		// misinterpreted - this is what stops a future savestate from being read as garbage.
+		bool sectionUsable = true;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			PointerWrapSection s = p.Section("TestState", 1, 1);
+			sectionUsable = (bool)s;
+		}), (int)PointerWrap::ERROR_FAILURE);
+		EXPECT_FALSE(sectionUsable);
+
+		// So must a different section title where we expected this one.
+		sectionUsable = true;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			PointerWrapSection s = p.Section("SomethingElse", 1, 2);
+			sectionUsable = (bool)s;
+		}), (int)PointerWrap::ERROR_FAILURE);
+		EXPECT_FALSE(sectionUsable);
+	}
+
+	// The backwards compatibility mechanism itself: a version 1 buffer read by version 2 code
+	// yields a version 1 section, and the field that didn't exist yet keeps its default.
+	{
+		SerializerTestState old;
+		old.version = 1;
+		old.a = 0xAAAA;
+		old.name = "old";
+		old.values = { 1 };
+		old.addedInV2 = 12345;  // Not written at version 1.
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { old.DoState(p); }));
+
+		SerializerTestState out;  // version 2, addedInV2 defaults to 0
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { out.DoState(p); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_HEX(out.a, old.a);
+		EXPECT_EQ_STR(out.name, old.name);
+		EXPECT_EQ_INT(out.addedInV2, 0);
+	}
+
+	// A truncated savestate has to fail cleanly at every possible cut point rather than read past
+	// the end of the buffer. This is the case a corrupt file on disk actually produces.
+	{
+		SerializerTestState state;
+		state.a = 0x5555;
+		state.name = "truncate me";
+		state.values = { 1, 2, 3, 4, 5 };
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { state.DoState(p); }));
+
+		for (size_t cut = 1; cut < buf.size(); ++cut) {
+			std::vector<u8> truncated(buf.begin(), buf.begin() + cut);
+			SerializerTestState out;
+			const PointerWrap::Error err = SerializerRead(truncated, [&](PointerWrap &p) { out.DoState(p); });
+			if (err != PointerWrap::ERROR_FAILURE) {
+				printf("Truncating to %d of %d bytes was accepted\n", (int)cut, (int)buf.size());
+				return false;
+			}
+		}
+	}
+
+	// Hand-corrupted counts and lengths. In each case there is nowhere near enough buffer left for
+	// what the header claims, so the load must be refused before anything is allocated or copied.
+	{
+		// A vector claiming four billion elements.
+		{
+			std::vector<u8> buf = SerializerBufferWithCount((int)0xFFFFFFFF, 64);
+			std::vector<u32> out;
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, out); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_TRUE(out.empty());
+		}
+		// A map, a set and a list claiming the same.
+		{
+			std::vector<u8> buf = SerializerBufferWithCount((int)0xFFFFFFFF, 64);
+			std::map<u32, u32> outMap;
+			std::set<u32> outSet;
+			std::list<u32> outList;
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outMap); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outSet); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outList); }), (int)PointerWrap::ERROR_FAILURE);
+			EXPECT_TRUE(outMap.empty());
+			EXPECT_TRUE(outSet.empty());
+			EXPECT_TRUE(outList.empty());
+		}
+		// Strings: negative, absurd, zero (there is always at least a NUL byte), and merely longer
+		// than what's left in the buffer.
+		{
+			const int lengths[] = { -1, 0x7FFFFFFF, 0, 1000 };
+			for (size_t i = 0; i < ARRAY_SIZE(lengths); ++i) {
+				std::vector<u8> buf = SerializerBufferWithCount(lengths[i], 64);
+				std::string out = "untouched";
+				const PointerWrap::Error err = SerializerRead(buf, [&](PointerWrap &p) { Do(p, out); });
+				if (err != PointerWrap::ERROR_FAILURE) {
+					printf("String length %d was accepted\n", lengths[i]);
+					return false;
+				}
+			}
+		}
+		// u16strings are measured in bytes, so on top of the above they can also claim a length
+		// that isn't a whole number of characters.
+		{
+			const int lengths[] = { -1, 0x7FFFFFFF, 0, 1, 3, 1000 };
+			for (size_t i = 0; i < ARRAY_SIZE(lengths); ++i) {
+				std::vector<u8> buf = SerializerBufferWithCount(lengths[i], 64);
+				std::u16string out = u"untouched";
+				const PointerWrap::Error err = SerializerRead(buf, [&](PointerWrap &p) { Do(p, out); });
+				if (err != PointerWrap::ERROR_FAILURE) {
+					printf("u16string byte length %d was accepted\n", lengths[i]);
+					return false;
+				}
+			}
+		}
+	}
+
+	// Maps of pointers, which is how most HLE contexts are savestated. Loading deletes whatever
+	// was in the map before reading the new contents, so bailing out on a corrupt count must not
+	// leave the freed pointers behind - the next access to them, or the destructor, would be a
+	// use-after-free.
+	{
+		std::map<u32, SerializerTestObj *> ptrMap;
+		ptrMap[1] = new SerializerTestObj();
+		ptrMap[1]->value = 0x1111;
+		ptrMap[7] = new SerializerTestObj();
+		ptrMap[7]->value = 0x7777;
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { Do(p, ptrMap); }));
+
+		std::map<u32, SerializerTestObj *> outMap;
+		outMap[99] = new SerializerTestObj();
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { Do(p, outMap); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_INT((int)outMap.size(), 2);
+		EXPECT_EQ_HEX(outMap[1]->value, (u32)0x1111);
+		EXPECT_EQ_HEX(outMap[7]->value, (u32)0x7777);
+
+		std::vector<u8> badBuf = SerializerBufferWithCount((int)0xFFFFFFFF, 64);
+		EXPECT_EQ_INT((int)SerializerRead(badBuf, [&](PointerWrap &p) { Do(p, outMap); }), (int)PointerWrap::ERROR_FAILURE);
+		const bool leftDangling = !outMap.empty();
+		outMap.clear();  // Must not delete these - the loader already did.
+		EXPECT_FALSE(leftDangling);
+
+		for (const std::pair<const u32, SerializerTestObj *> &entry : ptrMap)
+			delete entry.second;
+	}
+
+	// Valid u16strings still round trip, including the empty one.
+	{
+		std::u16string empty;
+		std::u16string text = u"unicode";
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			Do(p, empty);
+			Do(p, text);
+		}));
+		std::u16string outEmpty = u"junk", outText;
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) {
+			Do(p, outEmpty);
+			Do(p, outText);
+		}), (int)PointerWrap::ERROR_NONE);
+		EXPECT_TRUE(outEmpty.empty());
+		EXPECT_TRUE(outText == text);
+	}
+
+	// Once a failure is latched the serializer drops to MODE_NOOP and stops touching the caller's
+	// data, so the rest of a broken savestate can be walked without doing damage. A warning, on the
+	// other hand, must not stop anything.
+	{
+		std::vector<u8> buf = SerializerBufferWithCount(-1, 64);
+		u32 shouldBeUntouched = 0x11111111;
+		std::string alsoUntouched = "keepme";
+		bool wentNoop = false;
+		const PointerWrap::Error err = SerializerRead(buf, [&](PointerWrap &p) {
+			std::string bad;
+			Do(p, bad);  // fails: negative length
+			wentNoop = p.mode == PointerWrap::MODE_NOOP;
+			Do(p, shouldBeUntouched);
+			Do(p, alsoUntouched);
+		});
+		EXPECT_EQ_INT((int)err, (int)PointerWrap::ERROR_FAILURE);
+		EXPECT_TRUE(wentNoop);
+		EXPECT_EQ_HEX(shouldBeUntouched, (u32)0x11111111);
+		EXPECT_EQ_STR(alsoUntouched, std::string("keepme"));
+
+		u8 *ptr = &buf[0];
+		PointerWrap p(&ptr, PointerWrap::MODE_READ);
+		p.SetError(PointerWrap::ERROR_WARNING);
+		EXPECT_FALSE(p.Failed());
+		EXPECT_EQ_INT((int)p.mode, (int)PointerWrap::MODE_READ);
+	}
+
+	// A marker that doesn't match means the writer and reader disagree about the layout, which has
+	// to be a hard failure - carrying on would read every following field from the wrong offset.
+	{
+		std::vector<u8> buf;
+		EXPECT_TRUE(SerializerWrite(&buf, [&](PointerWrap &p) { p.DoMarker("Thing", 0x1234); }));
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { p.DoMarker("Thing", 0x1234); }), (int)PointerWrap::ERROR_NONE);
+		EXPECT_EQ_INT((int)SerializerRead(buf, [&](PointerWrap &p) { p.DoMarker("Thing", 0x4321); }), (int)PointerWrap::ERROR_FAILURE);
+	}
+
+	// The measure pass and the write pass have to visit the same sections at the same offsets;
+	// CheckAfterWrite() exists to catch DoState() code whose behaviour depends on something that
+	// changed in between. Fake exactly that and make sure it's noticed rather than silently
+	// producing a savestate that can't be loaded.
+	{
+		int pass = 0;
+		std::vector<u8> buf;
+		EXPECT_FALSE(SerializerWrite(&buf, [&](PointerWrap &p) {
+			u32 v = 0;
+			PointerWrapSection s = p.Section(pass++ == 0 ? "SectionA" : "SectionB", 1);
+			if (s)
+				Do(p, v);
+		}));
+	}
+
+	return true;
+}
+
 bool TestMemBlockInfoSaveState() {
 	MemBlockInfoInit();
 	MemBlockOverrideDetailed();
@@ -662,6 +1069,745 @@ bool TestTempBreakpoints() {
 	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
 
 	g_symbolMap = nullptr;
+	return true;
+}
+
+// BlockAllocator backs sceKernelAllocPartitionMemory and friends. It's pure address bookkeeping -
+// no real memory involved - which makes it cheap to check hard: after any sequence of operations
+// the blocks must still tile the range exactly, and the free-space accessors must match reality.
+
+// Rebuilds the block list through the public accessors and checks it tiles [start, start+size)
+// with no gaps, overlaps or strays, then cross-checks GetTotalFreeBytes/GetLargestFreeBlockSize
+// against what is actually in the list.
+static bool ValidateAllocator(BlockAllocator &a, u32 rangeStart, u32 rangeSize) {
+	u32 addr = rangeStart;
+	u32 totalFree = 0;
+	u32 largestFree = 0;
+	int guard = 0;
+	while (addr < rangeStart + rangeSize) {
+		const u32 blockStart = a.GetBlockStartFromAddress(addr);
+		const u32 blockSize = a.GetBlockSizeFromAddress(addr);
+		if (blockStart != addr)
+			return false;  // a gap, or the block misreports where it starts
+		if (blockSize == 0 || blockSize == (u32)-1)
+			return false;
+		if ((u64)blockStart + blockSize > (u64)rangeStart + rangeSize)
+			return false;  // runs off the end of the range
+		if (a.IsBlockFree(addr)) {
+			totalFree += blockSize;
+			if (blockSize > largestFree)
+				largestFree = blockSize;
+		}
+		addr += blockSize;
+		if (++guard > 200000)
+			return false;  // cycle in the list
+	}
+	if (addr != rangeStart + rangeSize)
+		return false;  // last block overshot the end
+	if (a.GetTotalFreeBytes() != totalFree)
+		return false;
+	if (a.GetLargestFreeBlockSize() != largestFree)
+		return false;
+	return true;
+}
+
+bool TestBlockAllocator() {
+	const u32 kStart = 0x08800000;
+	const u32 kSize = 0x00100000;  // 1MB
+	const u32 kGrain = 256;
+
+	// A fresh allocator is one free block covering everything.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(a.IsBlockFree(kStart));
+	}
+
+	// Bottom-up allocation starts at the bottom; top-down ends at the top.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+
+		u32 sizeA = 0x1000;
+		const u32 addrA = a.Alloc(sizeA, false, "bottom");
+		EXPECT_EQ_INT((int)addrA, (int)kStart);
+		EXPECT_FALSE(a.IsBlockFree(addrA));
+
+		u32 sizeB = 0x1000;
+		const u32 addrB = a.Alloc(sizeB, true, "top");
+		EXPECT_EQ_INT((int)(addrB + sizeB), (int)(kStart + kSize));
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)(kSize - sizeA - sizeB));
+
+		EXPECT_TRUE(a.Free(addrA));
+		EXPECT_TRUE(a.Free(addrB));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Sizes are rounded up to the grain, and the caller is told about it.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 size = 1;
+		const u32 addr = a.Alloc(size, false, "tiny");
+		EXPECT_FALSE(addr == (u32)-1);
+		EXPECT_EQ_INT((int)size, (int)kGrain);
+		EXPECT_EQ_INT((int)a.GetBlockSizeFromAddress(addr), (int)kGrain);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Nonsense sizes are refused rather than wrapping into something huge.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 zero = 0;
+		EXPECT_EQ_INT((int)a.Alloc(zero, false, "zero"), -1);
+		u32 huge = kSize + 1;
+		EXPECT_EQ_INT((int)a.Alloc(huge, false, "huge"), -1);
+		// A failed allocation must not have disturbed anything.
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Freeing the middle of three leaves a hole; freeing its neighbours merges it all back.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 s1 = 0x10000, s2 = 0x10000, s3 = 0x10000;
+		const u32 a1 = a.Alloc(s1, false, "1");
+		const u32 a2 = a.Alloc(s2, false, "2");
+		const u32 a3 = a.Alloc(s3, false, "3");
+		EXPECT_TRUE(a1 < a2 && a2 < a3);
+
+		EXPECT_TRUE(a.Free(a2));
+		EXPECT_TRUE(a.IsBlockFree(a2));
+		EXPECT_EQ_INT((int)a.GetBlockSizeFromAddress(a2), (int)s2);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_TRUE(a.Free(a1));
+		// a1 and a2 are adjacent and both free now, so they must have become one block.
+		EXPECT_EQ_INT((int)a.GetBlockStartFromAddress(a2), (int)a1);
+		EXPECT_EQ_INT((int)a.GetBlockSizeFromAddress(a1), (int)(s1 + s2));
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_TRUE(a.Free(a3));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Double free, and freeing an address that was never allocated, must fail rather than corrupt.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 size = 0x1000;
+		const u32 addr = a.Alloc(size, false, "once");
+		EXPECT_TRUE(a.Free(addr));
+		EXPECT_FALSE(a.Free(addr));
+		EXPECT_FALSE(a.Free(kStart + kSize + 0x1000));  // outside the range entirely
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// AllocAt places a block exactly, and refuses if it is already taken.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		const u32 target = kStart + 0x20000;
+		const u32 got = a.AllocAt(target, 0x1000, "at");
+		EXPECT_EQ_INT((int)got, (int)target);
+		EXPECT_FALSE(a.IsBlockFree(target));
+		EXPECT_TRUE(a.IsBlockFree(kStart));  // the space below it stays free
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_EQ_INT((int)a.AllocAt(target, 0x1000, "again"), -1);
+		EXPECT_EQ_INT((int)a.AllocAt(target + 0x800, 0x100, "overlap"), -1);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_TRUE(a.Free(target));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+	}
+
+	// AllocAligned honours a coarser alignment than the allocator's own grain.
+	{
+		BlockAllocator a(16);
+		a.Init(kStart + 16, kSize, false);  // deliberately not 4K-aligned to start with
+		u32 skew = 0x30;
+		EXPECT_FALSE(a.Alloc(skew, false, "skew") == (u32)-1);
+
+		u32 size = 0x1000;
+		const u32 addr = a.AllocAligned(size, 0x1000, 0x1000, false, "aligned");
+		EXPECT_FALSE(addr == (u32)-1);
+		EXPECT_EQ_INT((int)(addr & 0xFFF), 0);
+		EXPECT_TRUE(ValidateAllocator(a, kStart + 16, kSize));
+
+		u32 topSize = 0x1000;
+		const u32 topAddr = a.AllocAligned(topSize, 0x1000, 0x1000, true, "aligned-top");
+		EXPECT_FALSE(topAddr == (u32)-1);
+		EXPECT_EQ_INT((int)(topAddr & 0xFFF), 0);
+		EXPECT_TRUE(ValidateAllocator(a, kStart + 16, kSize));
+	}
+
+	// Fill the range completely, then drain it - nothing should leak or go missing.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		std::vector<u32> addrs;
+		for (;;) {
+			u32 size = 0x4000;
+			const u32 addr = a.Alloc(size, false, "fill");
+			if (addr == (u32)-1)
+				break;
+			addrs.push_back(addr);
+		}
+		EXPECT_EQ_INT((int)addrs.size(), (int)(kSize / 0x4000));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), 0);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		for (u32 addr : addrs)
+			EXPECT_TRUE(a.Free(addr));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// AllocAt with a position that is not on the grain: it must still round down to a whole block
+	// and keep the range tiled, and it reports back how much the caller actually got from their
+	// requested position (which is less than a whole block, since the block starts lower).
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		const u32 unaligned = kStart + 0x2010;
+		u32 size = 0x100;
+		const u32 got = a.AllocAt(unaligned, size, "unaligned");
+		EXPECT_EQ_INT((int)got, (int)unaligned);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+		// The block it landed in starts at the grain boundary below.
+		EXPECT_EQ_INT((int)a.GetBlockStartFromAddress(unaligned), (int)(kStart + 0x2000));
+		EXPECT_FALSE(a.IsBlockFree(unaligned));
+		// Free() takes any address inside the block, so the address AllocAt handed back works.
+		EXPECT_TRUE(a.Free(got));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// FreeExact only accepts the true start of a block, so an unaligned AllocAt address is
+	// rejected - worth pinning down, since Free() and FreeExact() differ here.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		const u32 unaligned = kStart + 0x2010;
+		u32 size = 0x100;
+		EXPECT_EQ_INT((int)a.AllocAt(unaligned, size, "unaligned"), (int)unaligned);
+		EXPECT_FALSE(a.FreeExact(unaligned));
+		EXPECT_TRUE(a.FreeExact(kStart + 0x2000));
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// A range whose size is not a multiple of the grain. The leftover tail can never be handed
+	// out, but it must not break the tiling or the accounting.
+	{
+		BlockAllocator a(kGrain);
+		const u32 oddSize = 0x10000 + 0x10;
+		a.Init(kStart, oddSize, false);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
+		std::vector<u32> addrs;
+		for (;;) {
+			u32 size = 0x1000;
+			const u32 addr = a.Alloc(size, false, "odd");
+			if (addr == (u32)-1)
+				break;
+			addrs.push_back(addr);
+			EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
+		}
+		for (size_t j = 0; j < addrs.size(); ++j)
+			EXPECT_TRUE(a.Free(addrs[j]));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)oddSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
+	}
+
+	// Churn again, this time mixing in aligned allocations and AllocAt so the block list gets into
+	// shapes the plain alloc/free loop never produces.
+	{
+		BlockAllocator a(16);
+		a.Init(kStart, kSize, false);
+		std::vector<u32> live;
+		u32 rng = 987654321;
+		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
+
+		for (int i = 0; i < 4000; ++i) {
+			const int op = next() % 100;
+			if (op < 30 && !live.empty()) {
+				const size_t idx = next() % live.size();
+				EXPECT_TRUE(a.Free(live[idx]));
+				live.erase(live.begin() + idx);
+			} else if (op < 60) {
+				u32 size = ((next() % 32) + 1) * 16;
+				const u32 addr = a.Alloc(size, (next() % 2) != 0, "churn2");
+				if (addr != (u32)-1)
+					live.push_back(addr);
+			} else if (op < 90) {
+				// Alignments of 16, 64, 256, 1024, 4096.
+				const u32 align = 16u << ((next() % 5) * 2);
+				u32 size = ((next() % 32) + 1) * 16;
+				const u32 addr = a.AllocAligned(size, align, align, (next() % 2) != 0, "aligned2");
+				if (addr != (u32)-1) {
+					if ((addr & (align - 1)) != 0) {
+						printf("AllocAligned returned %08x for alignment %08x at iteration %d\n", addr, align, i);
+						return false;
+					}
+					live.push_back(addr);
+				}
+			} else {
+				const u32 pos = kStart + ((next() % (kSize / 0x1000)) * 0x1000);
+				const u32 addr = a.AllocAt(pos, 0x800, "at2");
+				if (addr != (u32)-1)
+					live.push_back(addr);
+			}
+			if (!ValidateAllocator(a, kStart, kSize)) {
+				printf("BlockAllocator invariant broken at iteration %d (op %d)\n", i, op);
+				return false;
+			}
+		}
+
+		for (size_t j = 0; j < live.size(); ++j)
+			EXPECT_TRUE(a.Free(live[j]));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Randomised churn. Fixed seed so a failure is reproducible; the point is to reach block
+	// layouts hand-written cases would not, while checking the invariants after every step.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		std::vector<std::pair<u32, u32> > live;  // address, size
+		u32 rng = 12345;
+		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
+
+		for (int i = 0; i < 3000; ++i) {
+			const bool doAlloc = live.empty() || (next() % 100) < 55;
+			if (doAlloc) {
+				u32 size = ((next() % 64) + 1) * kGrain;
+				const bool fromTop = (next() % 2) != 0;
+				const u32 addr = a.Alloc(size, fromTop, "churn");
+				if (addr != (u32)-1) {
+					// It must not overlap anything already handed out.
+					for (size_t j = 0; j < live.size(); ++j) {
+						const bool overlaps = addr < live[j].first + live[j].second && live[j].first < addr + size;
+						EXPECT_FALSE(overlaps);
+					}
+					live.push_back(std::make_pair(addr, size));
+				}
+			} else {
+				const size_t idx = next() % live.size();
+				EXPECT_TRUE(a.Free(live[idx].first));
+				live.erase(live.begin() + idx);
+			}
+			if (!ValidateAllocator(a, kStart, kSize)) {
+				printf("BlockAllocator invariant broken at iteration %d\n", i);
+				return false;
+			}
+		}
+
+		for (size_t j = 0; j < live.size(); ++j)
+			EXPECT_TRUE(a.Free(live[j].first));
+		// Everything given back means one free block again - if merging ever misses a case, this
+		// is where it shows up.
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	return true;
+}
+
+// SymbolMap holds the function/data/label tables the debugger and disassembler read. Symbols are
+// stored relative to a module so they survive that module being unloaded and reloaded elsewhere,
+// and only symbols belonging to a currently-loaded module count as "active". That indirection is
+// where the surprises live, so most of this is about module lifetime and the shared label table.
+bool TestSymbolMap() {
+	const u32 kModStart = 0x08804000;
+	const u32 kModSize = 0x00010000;
+
+	// Functions are found by containing address, not just by their start.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func_a", kModStart + 0x100, 0x40);
+		map.AddFunction("func_b", kModStart + 0x200, 0x80);
+		map.SortSymbols();
+
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)(kModStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x120), (int)(kModStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x13C), (int)(kModStart + 0x100));
+		// One past the end belongs to nobody.
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x140), (int)SymbolMap::INVALID_ADDRESS);
+		EXPECT_EQ_INT((int)map.GetFunctionSize(kModStart + 0x100), 0x40);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x27F), (int)(kModStart + 0x200));
+
+		// AddFunction doubles as a label, so the name is reachable both ways.
+		EXPECT_EQ_STR(map.GetLabelString(kModStart + 0x100), std::string("func_a"));
+		u32 value = 0;
+		EXPECT_TRUE(map.GetLabelValue("func_b", value));
+		EXPECT_EQ_INT((int)value, (int)(kModStart + 0x200));
+	}
+
+	// SetFunctionSize and RemoveFunction.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		map.SortSymbols();
+
+		EXPECT_TRUE(map.SetFunctionSize(kModStart + 0x100, 0x80));
+		EXPECT_EQ_INT((int)map.GetFunctionSize(kModStart + 0x100), 0x80);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x170), (int)(kModStart + 0x100));
+
+		EXPECT_TRUE(map.RemoveFunction(kModStart + 0x100, true));
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+		// Removing something that isn't there fails rather than doing damage.
+		EXPECT_FALSE(map.RemoveFunction(kModStart + 0x100, true));
+	}
+
+	// Data symbols work the same way, and carry a type.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddData(kModStart + 0x400, 0x20, DATATYPE_WORD);
+		map.SortSymbols();
+
+		EXPECT_EQ_INT((int)map.GetDataStart(kModStart + 0x400), (int)(kModStart + 0x400));
+		EXPECT_EQ_INT((int)map.GetDataStart(kModStart + 0x41F), (int)(kModStart + 0x400));
+		EXPECT_EQ_INT((int)map.GetDataStart(kModStart + 0x420), (int)SymbolMap::INVALID_ADDRESS);
+		EXPECT_EQ_INT((int)map.GetDataSize(kModStart + 0x400), 0x20);
+		EXPECT_EQ_INT((int)map.GetDataType(kModStart + 0x400), (int)DATATYPE_WORD);
+	}
+
+	// Symbols only count as active while their module is loaded, and they come back - at the new
+	// address - when it is loaded somewhere else. This is the whole point of storing them
+	// module-relative.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 1);
+
+		map.UnloadModule(kModStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 0);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+
+		// Same module, different load address - the symbol should follow it.
+		const u32 newStart = kModStart + 0x100000;
+		map.AddModule("TEST", newStart, kModSize);
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 1);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(newStart + 0x100), (int)(newStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+	}
+
+	// Symbols outside any module are stored against module index 0 ("absolute"), which is always
+	// considered loaded - that's what makes labelling a heap or stack address work.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		const u32 outside = 0x0BFBF800;  // stack, well outside the module
+		EXPECT_EQ_INT(map.GetModuleIndex(outside), -1);
+		map.AddData(outside, 0x10, DATATYPE_BYTE, 0);
+		map.AddLabel("stackthing", outside, 0);
+		map.SortSymbols();
+
+		EXPECT_EQ_INT((int)map.GetDataStart(outside), (int)outside);
+		EXPECT_EQ_STR(map.GetLabelString(outside), std::string("stackthing"));
+		// Unloading the module must not take an unrelated absolute symbol with it.
+		map.UnloadModule(kModStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetDataStart(outside), (int)outside);
+	}
+
+	// Labels are one table shared by functions and data, and AddLabel deliberately leaves an
+	// existing one alone. Pinning this down because it surprises people: hle.data.add reports the
+	// name you asked for while the map keeps the old one, unless the caller forces it.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		const u32 addr = kModStart + 0x100;
+		map.AddFunction("original", addr, 0x40);
+		map.SortSymbols();
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("original"));
+
+		map.AddLabel("replacement", addr);
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("original"));
+
+		// SetLabelName is the way to actually change it...
+		map.SetLabelName("replacement", addr);
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("replacement"));
+		// ...and because the table is shared, that renamed the function too.
+		std::vector<SymbolEntry> funcs = map.GetAllActiveSymbols(ST_FUNCTION);
+		EXPECT_EQ_INT((int)funcs.size(), 1);
+		EXPECT_EQ_STR(funcs[0].name, std::string("replacement"));
+	}
+
+	// Likewise, removing a data symbol with removeName drops the shared label, which is why
+	// hle.data.remove has to check whether a function is using it first.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		const u32 addr = kModStart + 0x100;
+		map.AddFunction("shared", addr, 0x40);
+		map.AddData(addr, 0x10, DATATYPE_BYTE);
+		map.SortSymbols();
+		EXPECT_EQ_STR(map.GetLabelString(addr), std::string("shared"));
+
+		EXPECT_TRUE(map.RemoveData(addr, true));
+		map.SortSymbols();
+		// The function is still there, but its name is gone with the label.
+		EXPECT_EQ_INT((int)map.GetFunctionStart(addr), (int)addr);
+		EXPECT_TRUE(map.GetLabelString(addr).empty());
+
+		// Whereas removeName=false leaves the label for the function that still needs it.
+		SymbolMap map2;
+		map2.AddModule("TEST", kModStart, kModSize);
+		map2.AddFunction("kept", addr, 0x40);
+		map2.AddData(addr, 0x10, DATATYPE_BYTE);
+		map2.SortSymbols();
+		EXPECT_TRUE(map2.RemoveData(addr, false));
+		map2.SortSymbols();
+		EXPECT_EQ_STR(map2.GetLabelString(addr), std::string("kept"));
+	}
+
+	// GetSymbolInfo / GetDescription round out what the disassembler asks for.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("described", kModStart + 0x100, 0x40);
+		map.SortSymbols();
+
+		SymbolInfo info{};
+		EXPECT_TRUE(map.GetSymbolInfo(&info, kModStart + 0x110, ST_FUNCTION));
+		EXPECT_EQ_INT((int)info.address, (int)(kModStart + 0x100));
+		EXPECT_EQ_INT((int)info.size, 0x40);
+		EXPECT_FALSE(map.GetSymbolInfo(&info, kModStart + 0x900, ST_FUNCTION));
+		EXPECT_EQ_STR(map.GetDescription(kModStart + 0x100), std::string("described"));
+	}
+
+	// Clear really clears, including the module table.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		map.AddData(kModStart + 0x400, 0x20, DATATYPE_WORD);
+		map.SortSymbols();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 1);
+
+		map.Clear();
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_FUNCTION).size(), 0);
+		EXPECT_EQ_INT((int)map.GetAllActiveSymbols(ST_DATA).size(), 0);
+		EXPECT_EQ_INT((int)map.getAllModules().size(), 0);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+	}
+
+	return true;
+}
+
+// DenseHashMap/PrehashMap are open-addressed, linear-probing maps used in hot GPU paths - the
+// texture cache, the shader managers, the software renderer's sampler/drawpixel caches. They use
+// tombstones for removal, which is where the interesting failure modes live.
+static void *HashValue(int i) {
+	return (void *)(uintptr_t)(i + 1);  // never null, so GetOrNull can tell "missing" apart
+}
+
+bool TestHashmaps() {
+	// The basics: insert, find, miss, remove, size.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		EXPECT_EQ_INT((int)m.size(), 0);
+		EXPECT_TRUE(m.Insert(100, HashValue(1)));
+		EXPECT_TRUE(m.Insert(200, HashValue(2)));
+		EXPECT_EQ_INT((int)m.size(), 2);
+
+		void *v = nullptr;
+		EXPECT_TRUE(m.Get(100, &v));
+		EXPECT_TRUE(v == HashValue(1));
+		EXPECT_TRUE(m.Get(200, &v));
+		EXPECT_TRUE(v == HashValue(2));
+		EXPECT_FALSE(m.Get(300, &v));
+		EXPECT_TRUE(m.ContainsKey(100));
+		EXPECT_FALSE(m.ContainsKey(300));
+		EXPECT_TRUE(m.GetOrNull(300) == nullptr);
+
+		EXPECT_TRUE(m.Remove(100));
+		EXPECT_EQ_INT((int)m.size(), 1);
+		EXPECT_FALSE(m.Get(100, &v));
+		// Removing what isn't there says so rather than corrupting the map.
+		EXPECT_FALSE(m.Remove(100));
+		EXPECT_FALSE(m.Remove(999));
+		// The other entry must still be reachable - a tombstone can't cut the probe chain.
+		EXPECT_TRUE(m.Get(200, &v));
+	}
+
+	// Iterate visits exactly the live entries, and Clear empties it.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		for (int i = 0; i < 6; i++)
+			EXPECT_TRUE(m.Insert(i, HashValue(i)));
+		EXPECT_TRUE(m.Remove(2));
+		EXPECT_TRUE(m.Remove(4));
+
+		int seen = 0;
+		uint32_t keyMask = 0;
+		bool valuesOk = true;
+		m.Iterate([&](const uint32_t &key, void *value) {
+			seen++;
+			keyMask |= 1u << key;
+			// The value must still be the one that went in with this key.
+			if (value != HashValue((int)key))
+				valuesOk = false;
+		});
+		EXPECT_TRUE(valuesOk);
+		EXPECT_EQ_INT(seen, 4);
+		EXPECT_EQ_INT((int)keyMask, (int)((1u << 0) | (1u << 1) | (1u << 3) | (1u << 5)));
+
+		m.Clear();
+		EXPECT_EQ_INT((int)m.size(), 0);
+		void *v = nullptr;
+		EXPECT_FALSE(m.Get(0, &v));
+		// Still usable after Clear.
+		EXPECT_TRUE(m.Insert(0, HashValue(42)));
+		EXPECT_TRUE(m.Get(0, &v));
+	}
+
+	// Growing past the initial capacity must not lose or corrupt anything.
+	{
+		DenseHashMap<uint32_t, void *> m(8);
+		const int kCount = 500;
+		for (int i = 0; i < kCount; i++)
+			EXPECT_TRUE(m.Insert(i * 7 + 1, HashValue(i)));
+		EXPECT_EQ_INT((int)m.size(), kCount);
+		for (int i = 0; i < kCount; i++) {
+			void *v = nullptr;
+			EXPECT_TRUE(m.Get(i * 7 + 1, &v));
+			EXPECT_TRUE(v == HashValue(i));
+		}
+		// And nothing that was never inserted has appeared.
+		for (int i = 0; i < kCount; i++) {
+			void *v = nullptr;
+			EXPECT_FALSE(m.Get(i * 7 + 2, &v));
+		}
+	}
+
+	// Rebuild() compacts away tombstones without changing what's in the map.
+	{
+		DenseHashMap<uint32_t, void *> m(64);
+		for (int i = 0; i < 20; i++)
+			EXPECT_TRUE(m.Insert(i, HashValue(i)));
+		for (int i = 0; i < 20; i += 2)
+			EXPECT_TRUE(m.Remove(i));
+		m.Rebuild();
+		EXPECT_EQ_INT((int)m.size(), 10);
+		for (int i = 1; i < 20; i += 2) {
+			void *v = nullptr;
+			EXPECT_TRUE(m.Get(i, &v));
+			EXPECT_TRUE(v == HashValue(i));
+		}
+		for (int i = 0; i < 20; i += 2) {
+			void *v = nullptr;
+			EXPECT_FALSE(m.Get(i, &v));
+		}
+	}
+
+	// Differential test against std::unordered_map. Fixed seed so a failure reproduces.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		std::unordered_map<uint32_t, void *> ref;
+		uint32_t rng = 24680;
+		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
+
+		for (int i = 0; i < 20000; i++) {
+			const uint32_t key = next() % 500;
+			if ((next() % 100) < 55) {
+				if (ref.find(key) == ref.end()) {
+					void *value = HashValue((int)key);
+					EXPECT_TRUE(m.Insert(key, value));
+					ref[key] = value;
+				}
+			} else {
+				const bool had = ref.find(key) != ref.end();
+				EXPECT_EQ_INT((int)m.Remove(key), (int)had);
+				ref.erase(key);
+			}
+			if ((int)m.size() != (int)ref.size()) {
+				printf("Hashmap size diverged at iteration %d: %d vs %d\n", i, (int)m.size(), (int)ref.size());
+				return false;
+			}
+		}
+
+		// Every key the reference has, the map must have - with the same value - and nothing else.
+		for (const auto &pair : ref) {
+			void *v = nullptr;
+			if (!m.Get(pair.first, &v) || v != pair.second) {
+				printf("Hashmap lost key %u\n", pair.first);
+				return false;
+			}
+		}
+		int seen = 0;
+		m.Iterate([&](const uint32_t &key, void *value) {
+			seen++;
+			if (ref.find(key) == ref.end())
+				printf("Hashmap has phantom key %u\n", key);
+		});
+		EXPECT_EQ_INT(seen, (int)ref.size());
+	}
+
+	// Insert/remove churn with fresh keys every round leaves tombstones behind. They take up
+	// probe slots exactly like real entries do, so if they aren't counted towards the load factor
+	// the table fills up with them - and then a lookup for a missing key never finds a FREE bucket
+	// to stop at. The map stays small the whole time, so nothing here should be slow or fail.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		for (int round = 0; round < 200; round++) {
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Insert(round * 4 + i, HashValue(i)));
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Remove(round * 4 + i));
+			EXPECT_EQ_INT((int)m.size(), 0);
+			// A miss has to terminate. If tombstones have eaten every bucket, this is where a
+			// linear-probing map spins forever.
+			void *v = nullptr;
+			EXPECT_FALSE(m.Get(0xD1A6, &v));
+		}
+	}
+
+	// PrehashMap is the same structure keyed directly on a precomputed hash.
+	{
+		PrehashMap<void *> m(16);
+		EXPECT_TRUE(m.Insert(0x1000, HashValue(1)));
+		EXPECT_TRUE(m.Insert(0x2000, HashValue(2)));
+		// It reports a duplicate rather than asserting, unlike DenseHashMap.
+		EXPECT_FALSE(m.Insert(0x1000, HashValue(3)));
+
+		void *v = nullptr;
+		EXPECT_TRUE(m.Get(0x1000, &v));
+		EXPECT_TRUE(v == HashValue(1));
+		EXPECT_FALSE(m.Get(0x3000, &v));
+		EXPECT_TRUE(m.Remove(0x1000));
+		EXPECT_FALSE(m.Get(0x1000, &v));
+		EXPECT_TRUE(m.Get(0x2000, &v));
+
+		// Same tombstone churn as above.
+		for (int round = 0; round < 200; round++) {
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Insert(0x10000 + round * 4 + i, HashValue(i)));
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Remove(0x10000 + round * 4 + i));
+			EXPECT_FALSE(m.Get(0xD1A6, &v));
+		}
+	}
+
 	return true;
 }
 
@@ -1722,6 +2868,10 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(Serializer),
+	TEST_ITEM(BlockAllocator),
+	TEST_ITEM(SymbolMap),
+	TEST_ITEM(Hashmaps),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
