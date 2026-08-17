@@ -87,8 +87,8 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID =
 //
 // Response (same event name) with no extra data on success. A cpu.stepping event follows once
 // the step completes.
-// May fail (same-thread case only) if another step/run request is already pending this host
-// frame - safe to retry shortly after.
+// May fail (same-thread case only) if too many steps are already queued, which means a client is
+// firing them faster than they can possibly be carried out.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Into(DebuggerRequest &req) {
@@ -114,11 +114,10 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-			// Core_RequestCPUStep() can fail (a step or run request is already queued this host
-			// frame - see its own "Can't submit two steps in one host frame" log). On failure no
-			// step ever happens and no cpu.stepping event ever fires, so a rejected step would
-			// otherwise be indistinguishable from one still in flight - the acknowledgement every
-			// request now gets doesn't tell those apart. Surface it as an error instead.
+			// Steps queue up now, so this only fails once the queue is full - a client stepping
+			// far faster than frames go by. No step happens and no cpu.stepping event fires in
+			// that case, which would otherwise be indistinguishable from one still in flight, so
+			// surface it as an error rather than leaving the caller waiting.
 			if (!Core_RequestCPUStep(CPUStepType::Into)) {
 				req.Fail("Could not step: a step or run request is already pending");
 				return;

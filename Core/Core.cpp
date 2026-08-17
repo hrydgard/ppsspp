@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <memory>
 #include <set>
@@ -74,7 +75,23 @@ struct CPUStepCommand {
 	}
 };
 
+// The step currently being carried out. Also doubles as the record of why we're stopped
+// (reason/relatedAddr), which is why clear() only resets the type - see the comment above.
 static CPUStepCommand g_cpuStepCommand;
+
+// Steps asked for while one is already in flight. Only one step can be performed per pass through
+// Core_ProcessStepping(), i.e. roughly one per host frame, and a client that fires several in
+// quick succession (a script, or someone leaning on the step key) used to have all but the first
+// rejected outright with "Can't submit two steps in one host frame" and no step performed - so it
+// had to notice and retry. They queue up instead now.
+//
+// Deliberately not cleared by Core_Break(): completing a step-over or step-out *goes through*
+// Core_Break() (their temporary breakpoint is what stops us), so dropping the queue there would
+// throw away the rest of any sequence after its first entry.
+static std::deque<CPUStepCommand> g_cpuStepQueue;
+// Enough for any plausible burst. Past this something is wrong - a client in a loop, say - and
+// silently growing the queue would just defer the problem, so it's reported instead.
+static constexpr size_t MAX_PENDING_STEPS = 8;
 
 // Task queue for Core_RunOnCPUThread(), see Core.h for the rationale. Drained from Core_RunLoopUntil()
 // below, so at least once per call to it (i.e. about once per host frame) even while the CPU is fully
@@ -260,6 +277,10 @@ void Core_ListenLifecycle(CoreLifecycleFunc func) {
 void Core_NotifyLifecycle(CoreLifecycle stage) {
 	if (stage == CoreLifecycle::STARTING) {
 		Core_ResetException();
+		// A step queued against the game that just went away must not run against the new one.
+		std::lock_guard<std::mutex> guard(g_stepMutex);
+		g_cpuStepQueue.clear();
+		g_cpuStepCommand.clear();
 	}
 
 	for (auto func : lifecycleFuncs) {
@@ -398,12 +419,12 @@ void Core_SwitchToGe() {
 
 bool Core_RequestCPUStep(CPUStepType type) {
 	std::lock_guard<std::mutex> guard(g_stepMutex);
-	if (g_cpuStepCommand.type != CPUStepType::None) {
-		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
+	if (g_cpuStepQueue.size() >= MAX_PENDING_STEPS) {
+		ERROR_LOG(Log::CPU, "Too many steps queued (%d), dropping this one", (int)g_cpuStepQueue.size());
 		return false;
 	}
 	BreakReason reason = type == CPUStepType::Into ? BreakReason::DebugStepInto : BreakReason::DebugStep;
-	g_cpuStepCommand = { type, reason, 0 };
+	g_cpuStepQueue.push_back({ type, reason, 0 });
 	return true;
 }
 
@@ -534,7 +555,15 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	// Need to check inside the lock to avoid races.
 	std::lock_guard<std::mutex> guard(g_stepMutex);
 
-	if (coreState != CORE_STEPPING_CPU || g_cpuStepCommand.empty()) {
+	if (coreState != CORE_STEPPING_CPU) {
+		return true;
+	}
+	// Take the next queued step, if nothing is in flight already.
+	if (g_cpuStepCommand.empty() && !g_cpuStepQueue.empty()) {
+		g_cpuStepCommand = g_cpuStepQueue.front();
+		g_cpuStepQueue.pop_front();
+	}
+	if (g_cpuStepCommand.empty()) {
 		return true;
 	}
 
