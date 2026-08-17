@@ -111,6 +111,7 @@ const RESUME_FAMILY: &[&str] = &[
     "cpu.stepOver",
     "cpu.stepOut",
     "cpu.runUntil",
+    "cpu.runUntilTime",
     "cpu.nextHLE",
 ];
 
@@ -373,12 +374,35 @@ fn print_help() {
 // nothing to wait on and just proceeds to the next line immediately, same as without --sync.
 fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Option<(u64, String)>> {
     if line.starts_with('{') {
-        println!("-> {line}");
-        socket.send(Message::Text(line.to_string().into()))?;
-        let parsed: serde_json::Value = serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
-        let ticket = parsed.get("ticket").and_then(|t| t.as_u64());
-        let event = parsed.get("event").and_then(|e| e.as_str()).map(|s| s.to_string());
-        return Ok(ticket.zip(event));
+        // A raw JSON line is the only way to send nested parameters, so it can't be a
+        // second-class citizen. Reject it outright if it isn't valid JSON or has no event, and
+        // add a ticket when it doesn't carry one - without a ticket --sync has nothing to match
+        // on, so it used to skip waiting entirely and let the next line's response be attributed
+        // to this one, silently desynchronising the rest of the script.
+        let mut parsed: serde_json::Value =
+            serde_json::from_str(line).map_err(|e| anyhow!("Not valid JSON: {e}"))?;
+        let obj = parsed
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("A raw message must be a JSON object"))?;
+        let event = obj
+            .get("event")
+            .and_then(|e| e.as_str())
+            .ok_or_else(|| anyhow!("A raw message needs a string 'event' field"))?
+            .to_string();
+        let ticket = match obj.get("ticket") {
+            Some(t) => t
+                .as_u64()
+                .ok_or_else(|| anyhow!("'ticket' must be a non-negative integer to be matchable"))?,
+            None => {
+                let t = next_ticket();
+                obj.insert("ticket".to_string(), serde_json::Value::from(t));
+                t
+            }
+        };
+        let json_text = serde_json::Value::Object(obj.clone()).to_string();
+        println!("-> (ticket {ticket}) {json_text}");
+        socket.send(Message::Text(json_text.into()))?;
+        return Ok(Some((ticket, event)));
     }
 
     let mut parts = split_shell_words(line)?.into_iter();
@@ -396,53 +420,51 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
 // out. Returns to the normal loop either way; a timeout just means the next line gets read
 // without having waited further.
 //
-// RESUME_FAMILY events (cpu.resume/step*/runUntil/nextHLE) are documented as having "no
-// immediate response" at all - their handlers never call req.Respond(), only req.Fail() on
-// error, so on success the *only* message that ever comes back is the unticketed cpu.stepping
-// broadcast once the CPU actually stops again. Waiting for a ticketed ack for these would hang
-// until the timeout every time, so don't - wait for cpu.stepping instead. Everything else uses
-// the normal ticketed request/response pair.
-fn wait_for_sync_response(socket: &mut WebSocket<TcpStream>, ticket: u64, event: &str, timeout_secs: f64) {
+// Every request is answered - either a response or an error, both carrying the request's ticket
+// (PPSSPP acknowledges even the ones whose real result arrives later). So the ticket is always
+// the thing to wait on, and matching on it is exact: no guessing from message order, and no list
+// of events that don't answer.
+//
+// RESUME_FAMILY events additionally mean "let the CPU run", so after the acknowledgement we also
+// wait for the following cpu.stepping broadcast - the actual "it stopped again" signal a script
+// issuing one of these is really waiting for. That broadcast has no ticket of its own, so it's
+// matched by event name.
+//
+// Returns false on timeout, which the caller turns into a non-zero exit.
+fn wait_for_sync_response(
+    socket: &mut WebSocket<TcpStream>,
+    ticket: u64,
+    event: &str,
+    timeout_secs: f64,
+) -> bool {
     let wants_stepping = RESUME_FAMILY.contains(&event);
-    // wants_stepping: there's no ticketed response to wait for at all (see doc comment above),
-    // so treat "got_ticket" as trivially satisfied and only really wait on got_stepping. The
-    // reverse for every other event: no cpu.stepping is expected, only the ticketed response.
-    let mut got_ticket = wants_stepping;
+    let mut got_ticket = false;
     let mut got_stepping = !wants_stepping;
     let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
 
-    while Instant::now() < deadline && !(got_ticket && got_stepping) {
-        match socket.read() {
-            Ok(Message::Text(text)) => {
-                print_incoming(&text);
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-                    if !wants_stepping && v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
-                        got_ticket = true;
-                    }
-                    if wants_stepping && v.get("event").and_then(|e| e.as_str()) == Some("cpu.stepping") {
-                        got_stepping = true;
-                    }
-                }
-            }
-            Ok(Message::Close(frame)) => {
-                println!("\n[connection closed by PPSSPP: {frame:?}]");
-                return;
-            }
-            Ok(_) => {}
-            Err(ref e) if is_would_block(e) => {}
-            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
-                println!("\n[connection closed]");
-                return;
-            }
-            Err(e) => {
-                eprintln!("\n[connection error: {e}]");
-                return;
+    let done = pump_until(socket, deadline, |v| {
+        if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+            got_ticket = true;
+            // An error reply is a final answer - there'll be no cpu.stepping to follow.
+            if v.get("event").and_then(|e| e.as_str()) == Some("error") {
+                got_stepping = true;
             }
         }
+        // Only counts once the request has been acknowledged, so a cpu.stepping still in flight
+        // from something earlier can't be mistaken for this command's.
+        if got_ticket && v.get("event").and_then(|e| e.as_str()) == Some("cpu.stepping") {
+            got_stepping = true;
+        }
+        got_ticket && got_stepping
+    });
+
+    if !done {
+        eprintln!(
+            "! --sync: timed out after {timeout_secs}s waiting for '{event}' (ticket {ticket}){}",
+            if got_ticket { ", acknowledged but never stopped" } else { "" }
+        );
     }
-    if !(got_ticket && got_stepping) {
-        eprintln!("! --sync: timed out after {timeout_secs}s waiting for a response, continuing anyway");
-    }
+    done
 }
 
 // Send a ticketed request and block until its response arrives (or timeout), returning the
@@ -671,9 +693,16 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                     Some(w) if w.starts_with('#') => {}
                     None => {}
                     _ => match handle_repl_line(&mut socket, line) {
-                        Err(e) => eprintln!("! {e}"),
+                        Err(e) => {
+                            // A line that couldn't even be sent means the script didn't do what it
+                            // says it does - don't let that pass as success.
+                            eprintln!("! {e}");
+                            failed = true;
+                        }
                         Ok(Some((ticket, event))) if sync => {
-                            wait_for_sync_response(&mut socket, ticket, &event, sync_timeout);
+                            if !wait_for_sync_response(&mut socket, ticket, &event, sync_timeout) {
+                                failed = true;
+                            }
                         }
                         Ok(_) => {}
                     },

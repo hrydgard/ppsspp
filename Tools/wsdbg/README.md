@@ -56,10 +56,18 @@ immediately by default - nothing waits for a response before moving to the next 
 traditionally needed `sleep N` between commands to guess how long each one takes. Pass `--sync`
 to remove the guessing: each line blocks until its own response arrives (matched by ticket) before
 the next line is read, and for `cpu.resume`/`cpu.stepInto`/`cpu.stepOver`/`cpu.stepOut`/
-`cpu.runUntil`/`cpu.nextHLE` it also waits for the following `cpu.stepping` broadcast - the actual
-"the CPU stopped again" signal those commands imply. Everything still prints as it arrives; this
-only changes when the *next* line gets sent. A breakpoint that never trips would otherwise hang
-the script forever, so it gives up after `--sync-timeout` seconds (default 30) and moves on.
+`cpu.runUntil`/`cpu.runUntilTime`/`cpu.nextHLE` it also waits for the following `cpu.stepping`
+broadcast - the actual "the CPU stopped again" signal those commands imply. Everything still
+prints as it arrives; this only changes when the *next* line gets sent. A breakpoint that never
+trips would otherwise hang the script forever, so it gives up after `--sync-timeout` seconds
+(default 30), reports it, and makes the run exit non-zero.
+
+Matching is by ticket, always. A raw JSON line (the only way to send nested parameters) gets a
+ticket assigned if it doesn't carry one, so it's waited for like any other line - previously it
+had none, `--sync` had nothing to match, and it skipped waiting entirely, which let the next
+line's response be read as this one's and quietly desynchronised the rest of the script. Raw lines
+are also rejected up front, rather than sent and left to fail somewhere downstream, if they aren't
+valid JSON, aren't an object, have no string `event`, or carry a `ticket` that isn't an integer.
 
 ```bash
 (
