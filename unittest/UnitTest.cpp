@@ -43,6 +43,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
@@ -87,6 +88,7 @@
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Core/CmdLine.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -1208,6 +1210,203 @@ bool TestSymbolMap() {
 	return true;
 }
 
+// DenseHashMap/PrehashMap are open-addressed, linear-probing maps used in hot GPU paths - the
+// texture cache, the shader managers, the software renderer's sampler/drawpixel caches. They use
+// tombstones for removal, which is where the interesting failure modes live.
+static void *HashValue(int i) {
+	return (void *)(uintptr_t)(i + 1);  // never null, so GetOrNull can tell "missing" apart
+}
+
+bool TestHashmaps() {
+	// The basics: insert, find, miss, remove, size.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		EXPECT_EQ_INT((int)m.size(), 0);
+		EXPECT_TRUE(m.Insert(100, HashValue(1)));
+		EXPECT_TRUE(m.Insert(200, HashValue(2)));
+		EXPECT_EQ_INT((int)m.size(), 2);
+
+		void *v = nullptr;
+		EXPECT_TRUE(m.Get(100, &v));
+		EXPECT_TRUE(v == HashValue(1));
+		EXPECT_TRUE(m.Get(200, &v));
+		EXPECT_TRUE(v == HashValue(2));
+		EXPECT_FALSE(m.Get(300, &v));
+		EXPECT_TRUE(m.ContainsKey(100));
+		EXPECT_FALSE(m.ContainsKey(300));
+		EXPECT_TRUE(m.GetOrNull(300) == nullptr);
+
+		EXPECT_TRUE(m.Remove(100));
+		EXPECT_EQ_INT((int)m.size(), 1);
+		EXPECT_FALSE(m.Get(100, &v));
+		// Removing what isn't there says so rather than corrupting the map.
+		EXPECT_FALSE(m.Remove(100));
+		EXPECT_FALSE(m.Remove(999));
+		// The other entry must still be reachable - a tombstone can't cut the probe chain.
+		EXPECT_TRUE(m.Get(200, &v));
+	}
+
+	// Iterate visits exactly the live entries, and Clear empties it.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		for (int i = 0; i < 6; i++)
+			EXPECT_TRUE(m.Insert(i, HashValue(i)));
+		EXPECT_TRUE(m.Remove(2));
+		EXPECT_TRUE(m.Remove(4));
+
+		int seen = 0;
+		uint32_t keyMask = 0;
+		bool valuesOk = true;
+		m.Iterate([&](const uint32_t &key, void *value) {
+			seen++;
+			keyMask |= 1u << key;
+			// The value must still be the one that went in with this key.
+			if (value != HashValue((int)key))
+				valuesOk = false;
+		});
+		EXPECT_TRUE(valuesOk);
+		EXPECT_EQ_INT(seen, 4);
+		EXPECT_EQ_INT((int)keyMask, (int)((1u << 0) | (1u << 1) | (1u << 3) | (1u << 5)));
+
+		m.Clear();
+		EXPECT_EQ_INT((int)m.size(), 0);
+		void *v = nullptr;
+		EXPECT_FALSE(m.Get(0, &v));
+		// Still usable after Clear.
+		EXPECT_TRUE(m.Insert(0, HashValue(42)));
+		EXPECT_TRUE(m.Get(0, &v));
+	}
+
+	// Growing past the initial capacity must not lose or corrupt anything.
+	{
+		DenseHashMap<uint32_t, void *> m(8);
+		const int kCount = 500;
+		for (int i = 0; i < kCount; i++)
+			EXPECT_TRUE(m.Insert(i * 7 + 1, HashValue(i)));
+		EXPECT_EQ_INT((int)m.size(), kCount);
+		for (int i = 0; i < kCount; i++) {
+			void *v = nullptr;
+			EXPECT_TRUE(m.Get(i * 7 + 1, &v));
+			EXPECT_TRUE(v == HashValue(i));
+		}
+		// And nothing that was never inserted has appeared.
+		for (int i = 0; i < kCount; i++) {
+			void *v = nullptr;
+			EXPECT_FALSE(m.Get(i * 7 + 2, &v));
+		}
+	}
+
+	// Rebuild() compacts away tombstones without changing what's in the map.
+	{
+		DenseHashMap<uint32_t, void *> m(64);
+		for (int i = 0; i < 20; i++)
+			EXPECT_TRUE(m.Insert(i, HashValue(i)));
+		for (int i = 0; i < 20; i += 2)
+			EXPECT_TRUE(m.Remove(i));
+		m.Rebuild();
+		EXPECT_EQ_INT((int)m.size(), 10);
+		for (int i = 1; i < 20; i += 2) {
+			void *v = nullptr;
+			EXPECT_TRUE(m.Get(i, &v));
+			EXPECT_TRUE(v == HashValue(i));
+		}
+		for (int i = 0; i < 20; i += 2) {
+			void *v = nullptr;
+			EXPECT_FALSE(m.Get(i, &v));
+		}
+	}
+
+	// Differential test against std::unordered_map. Fixed seed so a failure reproduces.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		std::unordered_map<uint32_t, void *> ref;
+		uint32_t rng = 24680;
+		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
+
+		for (int i = 0; i < 20000; i++) {
+			const uint32_t key = next() % 500;
+			if ((next() % 100) < 55) {
+				if (ref.find(key) == ref.end()) {
+					void *value = HashValue((int)key);
+					EXPECT_TRUE(m.Insert(key, value));
+					ref[key] = value;
+				}
+			} else {
+				const bool had = ref.find(key) != ref.end();
+				EXPECT_EQ_INT((int)m.Remove(key), (int)had);
+				ref.erase(key);
+			}
+			if ((int)m.size() != (int)ref.size()) {
+				printf("Hashmap size diverged at iteration %d: %d vs %d\n", i, (int)m.size(), (int)ref.size());
+				return false;
+			}
+		}
+
+		// Every key the reference has, the map must have - with the same value - and nothing else.
+		for (const auto &pair : ref) {
+			void *v = nullptr;
+			if (!m.Get(pair.first, &v) || v != pair.second) {
+				printf("Hashmap lost key %u\n", pair.first);
+				return false;
+			}
+		}
+		int seen = 0;
+		m.Iterate([&](const uint32_t &key, void *value) {
+			seen++;
+			if (ref.find(key) == ref.end())
+				printf("Hashmap has phantom key %u\n", key);
+		});
+		EXPECT_EQ_INT(seen, (int)ref.size());
+	}
+
+	// Insert/remove churn with fresh keys every round leaves tombstones behind. They take up
+	// probe slots exactly like real entries do, so if they aren't counted towards the load factor
+	// the table fills up with them - and then a lookup for a missing key never finds a FREE bucket
+	// to stop at. The map stays small the whole time, so nothing here should be slow or fail.
+	{
+		DenseHashMap<uint32_t, void *> m(16);
+		for (int round = 0; round < 200; round++) {
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Insert(round * 4 + i, HashValue(i)));
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Remove(round * 4 + i));
+			EXPECT_EQ_INT((int)m.size(), 0);
+			// A miss has to terminate. If tombstones have eaten every bucket, this is where a
+			// linear-probing map spins forever.
+			void *v = nullptr;
+			EXPECT_FALSE(m.Get(0xD1A6, &v));
+		}
+	}
+
+	// PrehashMap is the same structure keyed directly on a precomputed hash.
+	{
+		PrehashMap<void *> m(16);
+		EXPECT_TRUE(m.Insert(0x1000, HashValue(1)));
+		EXPECT_TRUE(m.Insert(0x2000, HashValue(2)));
+		// It reports a duplicate rather than asserting, unlike DenseHashMap.
+		EXPECT_FALSE(m.Insert(0x1000, HashValue(3)));
+
+		void *v = nullptr;
+		EXPECT_TRUE(m.Get(0x1000, &v));
+		EXPECT_TRUE(v == HashValue(1));
+		EXPECT_FALSE(m.Get(0x3000, &v));
+		EXPECT_TRUE(m.Remove(0x1000));
+		EXPECT_FALSE(m.Get(0x1000, &v));
+		EXPECT_TRUE(m.Get(0x2000, &v));
+
+		// Same tombstone churn as above.
+		for (int round = 0; round < 200; round++) {
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Insert(0x10000 + round * 4 + i, HashValue(i)));
+			for (int i = 0; i < 4; i++)
+				EXPECT_TRUE(m.Remove(0x10000 + round * 4 + i));
+			EXPECT_FALSE(m.Get(0xD1A6, &v));
+		}
+	}
+
+	return true;
+}
+
 bool TestTinySet() {
 	TinySet<int, 4> a;
 	EXPECT_EQ_INT((int)a.size(), 0);
@@ -2267,6 +2466,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
+	TEST_ITEM(Hashmaps),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
