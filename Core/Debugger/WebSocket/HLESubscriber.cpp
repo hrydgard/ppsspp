@@ -21,6 +21,7 @@
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
@@ -49,6 +50,8 @@ DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.module.list"] = &WebSocketHLEModuleList;
 	map["hle.module.saveSymbols"] = &WebSocketHLEModuleSaveSymbols;
 	map["hle.module.loadSymbols"] = &WebSocketHLEModuleLoadSymbols;
+	map["hle.game.saveSymbols"] = &WebSocketHLEGameSaveSymbols;
+	map["hle.game.loadSymbols"] = &WebSocketHLEGameLoadSymbols;
 	map["hle.backtrace"] = &WebSocketHLEBacktrace;
 	map["hle.data.list"] = &WebSocketHLEDataList;
 	map["hle.data.add"] = &WebSocketHLEDataAdd;
@@ -736,6 +739,68 @@ void WebSocketHLEModuleLoadSymbols(DebuggerRequest &req) {
 	});
 }
 
+// Save the symbols that aren't inside any module (hle.game.saveSymbols)
+//
+// The counterpart to hle.module.saveSymbols for everything the user labelled outside a module -
+// heap, stack, scratchpad, hardware registers. Those describe this game's own memory layout and
+// mean nothing to another game, so they go to a per-game file rather than a shared per-module one:
+// <memstick>/PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym. See SymbolMap::GetGameSymbolsPath.
+//
+// Parameters: none.
+//
+// Response (same event name):
+//  - path: string, the file path that was written.
+//  - saved: boolean, false if there were no such symbols to save (any previous file is removed.)
+void WebSocketHLEGameSaveSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const Path path = SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID());
+		if (!g_symbolMap->SaveModuleSymbols(0, path, g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"))) {
+			req.Fail("Failed to save symbols file");
+			return;
+		}
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+		// False when there was nothing to save - any previous file has been removed.
+		json.writeBool("saved", File::Exists(path));
+	});
+}
+
+// Load the symbols that aren't inside any module (hle.game.loadSymbols)
+//
+// Reads back what hle.game.saveSymbols wrote - see its docs above. Existing names at those
+// addresses are overwritten by what's in the file.
+//
+// Parameters: none.
+//
+// Response (same event name):
+//  - path: string, the file path that was read.
+void WebSocketHLEGameLoadSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const Path path = SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID());
+		if (!g_symbolMap->LoadModuleSymbols(0, path)) {
+			req.Fail("Failed to load symbols file (does it exist?)");
+			return;
+		}
+
+		// Clear cache so the disassembly view picks up the newly loaded names.
+		g_disassemblyManager.clear();
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+	});
+}
+
 // Walk the stack and list stack frames (hle.backtrace)
 //
 // Parameters:
@@ -891,14 +956,10 @@ void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		// GetModuleIndex() returns -1 for an address that isn't inside any loaded module, and
-		// symbols added under that index never make it into the "active" maps - so they'd silently
-		// vanish (invisible to hle.data.list, and not findable by remove/rename). Module index 0
-		// means "no module, absolute address", which is exactly what we want for a label the user
-		// put on the heap, the stack, or scratchpad after e.g. a memory.search.
-		int moduleIndex = g_symbolMap->GetModuleIndex(addr);
-		if (moduleIndex < 0)
-			moduleIndex = 0;
+		// -1 lets SymbolMap work the module out from the address, landing on module 0 ("no
+		// module, absolute address") for a label the user put on the heap, the stack or
+		// scratchpad after e.g. a memory.search.
+		const int moduleIndex = -1;
 
 		// Labels are intentionally a single namespace shared by function and data symbols, and AddLabel() won't
 		// overwrite an existing one - a real ELF symbol name shouldn't lose to the analyzer's later z_un_*.

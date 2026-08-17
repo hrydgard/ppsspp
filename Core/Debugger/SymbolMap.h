@@ -112,10 +112,19 @@ public:
 	// LoadModuleSymbols requires moduleIndex to currently be an active module (so relative
 	// addresses can be resolved), and overwrites any existing names for symbols it touches -
 	// the file is assumed to be the authoritative, possibly hand-edited version.
+	// Pass moduleIndex 0 for the symbols that aren't inside any module - see GetGameSymbolsPath.
+	// Only symbols a human chose are saved; if there are none, no file is written and any previous
+	// one is removed, so an unnamed module doesn't leave a file behind.
 	bool SaveModuleSymbols(int moduleIndex, const Path &filename, const std::string &gameID, const std::string &gameTitle) const;
 	bool LoadModuleSymbols(int moduleIndex, const Path &filename);
 	// Standard per-module symbol file path: <memstick>/PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym
 	static Path GetModuleSymbolsPath(const std::string &moduleName, u32 crc);
+	// Symbols that aren't inside any module (module index 0) are absolute addresses the user - or
+	// a loaded map file - attached to RAM directly: heap, stack, scratchpad, hardware registers.
+	// Those describe one game's own memory layout and are worthless to any other game, so unlike
+	// module symbols they're keyed by game rather than shared:
+	// <memstick>/PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym
+	static Path GetGameSymbolsPath(const std::string &gameID);
 	// 0 if moduleIndex isn't known (never seen, not just inactive).
 	u32 GetModuleCrc(int moduleIndex) const;
 
@@ -144,6 +153,10 @@ public:
 	// Prefers a currently active module if the name is ambiguous; otherwise the most recently
 	// added module entry with that name (which may be inactive). -1 if never seen.
 	int GetModuleIndexByName(const std::string &name) const;
+	// Turns the moduleIndex an AddFunction/AddData/AddLabel caller passed into one that's safe to
+	// store: -1 means "work it out from the address", and an address in no module is module 0
+	// ("absolute"), never -1. See the implementation for why that distinction matters.
+	int ResolveModuleIndex(u32 address, int moduleIndex);
 	bool IsModuleActive(int moduleIndex);
 	std::vector<LoadedModuleInfo> getAllModules() const;
 
