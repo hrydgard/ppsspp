@@ -107,9 +107,6 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			return;
 
 		if (cpuDebug == currentDebugMIPS) {
-			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-			g_breakpoints.SetSkipFirst(currentMIPS->pc);
-
 			// Core_RequestCPUStep() can fail (a step or run request is already queued this host
 			// frame - see its own "Can't submit two steps in one host frame" log). Previously
 			// unchecked here: on failure, no step ever happens and no cpu.stepping event ever
@@ -321,7 +318,7 @@ void WebSocketSteppingState::PrepareResume() {
 		currentMIPS->SingleStep();
 	} else {
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		g_breakpoints.NotifyResumingFrom(currentMIPS->pc);
 	}
 }
 

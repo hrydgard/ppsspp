@@ -75,8 +75,6 @@ void DisassembleArm(const u8 *data, int size) {
 
 static u32 JitBreakpoint(uint32_t addr) {
 	// Should we skip this breakpoint?
-	if (g_breakpoints.CheckSkipFirst() == currentMIPS->pc || g_breakpoints.CheckSkipFirst() == addr)
-		return 0;
 
 	BreakAction result = g_breakpoints.ExecBreakPoint(addr);
 	if ((result & BREAK_ACTION_PAUSE) == 0)
@@ -86,8 +84,6 @@ static u32 JitBreakpoint(uint32_t addr) {
 }
 
 static u32 JitMemCheck(u32 pc) {
-	if (g_breakpoints.CheckSkipFirst() == currentMIPS->pc)
-		return 0;
 
 	// Note: pc may be the delay slot.
 	const auto op = Memory::Read_Instruction(pc, true);
@@ -119,7 +115,7 @@ ArmJit::ArmJit(MIPSState *mipsState) : blocks(mipsState, this), gpr(mipsState, &
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.SetSkipFirst(0);
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 ArmJit::~ArmJit() {
@@ -146,7 +142,7 @@ void ArmJit::DoState(PointerWrap &p)
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.SetSkipFirst(0);
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 void ArmJit::UpdateFCR31() {

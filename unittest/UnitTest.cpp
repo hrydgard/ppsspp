@@ -1068,6 +1068,59 @@ bool TestTempBreakpoints() {
 	g_breakpoints.RemoveBreakPoint(kAddrA);
 	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
 
+	// Resuming or stepping off a breakpoint needs two different things suppressed, and conflating
+	// them is a bug in both directions - either the breakpoint you're parked on gets logged twice,
+	// or a breakpoint you stepped onto is swallowed and never logged at all. No CPU is running
+	// here, so the tick count stays put and every check below is the same pending execution.
+	{
+		auto hitsAt = [](u32 addr) -> int {
+			for (const BreakPoint &bp : g_breakpoints.GetBreakpoints()) {
+				if (bp.addr == addr)
+					return (int)bp.numHits;
+			}
+			return -1;
+		};
+
+		g_breakpoints.ResetExecutionMarkers();
+		g_breakpoints.AddBreakPoint(kAddrA);
+		g_breakpoints.AddBreakPoint(kAddrB);
+
+		// Running into a breakpoint reports it and pauses.
+		EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 1);
+
+		// Stepping off it must neither pause again (you'd never get anywhere) nor report again -
+		// the instruction hasn't run yet, so this is still the same execution of it.
+		g_breakpoints.NotifyResumingFrom(kAddrA);
+		EXPECT_EQ_INT((int)g_breakpoints.ExecBreakPoint(kAddrA), (int)BREAK_ACTION_NONE);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 1);
+
+		// Whereas a breakpoint we merely stepped *onto* was never reported, so it still has to log
+		// and count. Only its pause is dropped, so the step can complete. Suppressing this one
+		// entirely is what made the second of two adjacent breakpoints silently vanish.
+		g_breakpoints.NotifyResumingFrom(kAddrB);
+		EXPECT_EQ_INT((int)(g_breakpoints.ExecBreakPoint(kAddrB) & BREAK_ACTION_PAUSE), 0);
+		EXPECT_EQ_INT(hitsAt(kAddrB), 1);
+
+		// Neither marker applies to an unrelated address, which keeps pausing and reporting.
+		EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 2);
+
+		// Actually running into B (resuming from A, so nothing is suppressed at B) pauses there,
+		// and resuming off that reports nothing new - the suppression follows the breakpoint we
+		// stopped on, not just whatever address we happen to be sitting at.
+		g_breakpoints.NotifyResumingFrom(kAddrA);
+		EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrB) & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT(hitsAt(kAddrB), 2);
+		g_breakpoints.NotifyResumingFrom(kAddrB);
+		EXPECT_EQ_INT((int)g_breakpoints.ExecBreakPoint(kAddrB), (int)BREAK_ACTION_NONE);
+		EXPECT_EQ_INT(hitsAt(kAddrB), 2);
+
+		g_breakpoints.ResetExecutionMarkers();
+		g_breakpoints.RemoveBreakPoint(kAddrA);
+		g_breakpoints.RemoveBreakPoint(kAddrB);
+	}
+
 	g_symbolMap = nullptr;
 	return true;
 }

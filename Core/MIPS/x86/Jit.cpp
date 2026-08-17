@@ -61,8 +61,6 @@ std::pair<B,A> flip_pair(const std::pair<A,B> &p) {
 u32 JitBreakpoint(uint32_t addr)
 {
 	// Should we skip this breakpoint?
-	if (g_breakpoints.CheckSkipFirst() == currentMIPS->pc || g_breakpoints.CheckSkipFirst() == addr)
-		return 0;
 
 	BreakAction result = g_breakpoints.ExecBreakPoint(addr);
 	if ((result & BREAK_ACTION_PAUSE) == 0)
@@ -92,10 +90,6 @@ u32 JitBreakpoint(uint32_t addr)
 }
 
 static u32 JitMemCheck(u32 addr, u32 pc) {
-	// Should we skip this breakpoint?
-	if (g_breakpoints.CheckSkipFirst() == currentMIPS->pc)
-		return 0;
-
 	// Did we already hit one?
 	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
 		return 1;
@@ -132,7 +126,7 @@ Jit::Jit(MIPSState *mipsState)
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.SetSkipFirst(0);
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 Jit::~Jit() {
@@ -158,7 +152,7 @@ void Jit::DoState(PointerWrap &p) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they load a state, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.SetSkipFirst(0);
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 void Jit::UpdateFCR31() {

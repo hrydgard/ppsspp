@@ -417,7 +417,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType) {
 	{
 		u32 currentPc = cpu->GetPC();
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
-		g_breakpoints.SetSkipFirst(currentPc);
+		g_breakpoints.NotifyResumingFrom(currentPc);
 		currentMIPS->SingleStep();
 		CoreTiming::Advance(currentMIPS);
 		break;
@@ -426,7 +426,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType) {
 	{
 		u32 currentPc = cpu->GetPC();
 
-		g_breakpoints.SetSkipFirst(currentPc);
+		g_breakpoints.NotifyResumingFrom(currentPc);
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
 
 		// TODO: Doing a step over in a delay slot is a bit .. unclear. Maybe just do a single step.
@@ -587,6 +587,10 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 		// Stop the tracer
 		mipsTracer.stop_tracing();
 
+		// Whatever resume/step was in flight is over, so its "don't re-trigger the breakpoint we're
+		// sitting on" marker must not outlive it - see BreakpointManager::NotifyResumingFrom().
+		g_breakpoints.ClearResumeMarker();
+
 		// Execution stopped, so whatever step-over/step-out/run-until was in flight is over - either
 		// it just completed, or something else (a breakpoint, a memcheck, the user hitting pause)
 		// got there first. Either way its one-shot breakpoint must not stay armed, or it'd fire
@@ -609,7 +613,7 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 void Core_Resume() {
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 	if (currentMIPS) {
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		g_breakpoints.NotifyResumingFrom(currentMIPS->pc);
 	}
 
 	// Handle resuming from GE.

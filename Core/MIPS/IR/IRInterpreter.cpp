@@ -83,11 +83,6 @@ alignas(16) static const uint32_t lowBytesMask[4] = {
 };
 
 u32 IRRunBreakpoint(u32 pc) {
-	// Should we skip this breakpoint?
-	uint32_t skipFirst = g_breakpoints.CheckSkipFirst();
-	if (skipFirst == pc || skipFirst == currentMIPS->pc)
-		return 0;
-
 	// Did we already hit one?
 	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
 		return 1;
@@ -97,11 +92,6 @@ u32 IRRunBreakpoint(u32 pc) {
 }
 
 u32 IRRunMemCheck(u32 pc, u32 addr) {
-	// Should we skip this breakpoint?
-	uint32_t skipFirst = g_breakpoints.CheckSkipFirst();
-	if (skipFirst == pc || skipFirst == currentMIPS->pc)
-		return 0;
-
 	// Did we already hit one?
 	if (coreState != CORE_RUNNING_CPU && coreState != CORE_NEXTFRAME)
 		return 1;

@@ -95,7 +95,6 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 		if (currentMIPS->inDelaySlot) {
 			Core_RequestCPUStep(CPUStepType::Into);
 		}
