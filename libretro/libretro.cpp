@@ -1984,7 +1984,7 @@ void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
-
+void WebSocketDebuggerTick() {}  // stub to let things link
 void System_Toast(std::string_view str) {}
 
 inline int16_t Clamp16(int32_t sample) {
