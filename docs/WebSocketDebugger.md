@@ -57,6 +57,14 @@ Responses use the *same* event name as the request:
 ```
 Responses are not always immediate - some handlers respond asynchronously.
 
+**Every request gets exactly one reply**: either a response, or an `error`. A
+handler whose real result arrives later (`cpu.stepInto`, `cpu.resume`,
+`gpu.stats.feed`, ...) is acknowledged with an empty response carrying your
+ticket, and the event reporting the actual outcome (`cpu.stepping`, ...)
+follows separately. So a client can always correlate request to reply without
+keeping a list of events that don't answer, and "no reply" unambiguously means
+the request is still being processed.
+
 Errors look like this:
 ```json
 { "event": "error", "message": "...", "level": 2, "ticket": 1 }

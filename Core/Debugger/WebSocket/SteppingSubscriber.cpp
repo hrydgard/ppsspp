@@ -85,7 +85,8 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID =
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response on success.  A cpu.stepping event will be sent once complete.
+// Response (same event name) with no extra data on success. A cpu.stepping event follows once
+// the step completes.
 // May fail (same-thread case only) if another step/run request is already pending this host
 // frame - safe to retry shortly after.
 //
@@ -114,11 +115,10 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
 			// Core_RequestCPUStep() can fail (a step or run request is already queued this host
-			// frame - see its own "Can't submit two steps in one host frame" log). Previously
-			// unchecked here: on failure, no step ever happens and no cpu.stepping event ever
-			// fires, but the client got no response either (this event's contract is "no
-			// immediate response, a cpu.stepping event follows") - so a rejected step looked
-			// identical to one that's just still in flight, indefinitely. Surface it instead.
+			// frame - see its own "Can't submit two steps in one host frame" log). On failure no
+			// step ever happens and no cpu.stepping event ever fires, so a rejected step would
+			// otherwise be indistinguishable from one still in flight - the acknowledgement every
+			// request now gets doesn't tell those apart. Surface it as an error instead.
 			if (!Core_RequestCPUStep(CPUStepType::Into)) {
 				req.Fail("Could not step: a step or run request is already pending");
 				return;
@@ -145,7 +145,7 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Over(DebuggerRequest &req) {
@@ -200,7 +200,7 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Out(DebuggerRequest &req) {
@@ -253,7 +253,7 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 // Parameters:
 //  - address: number parameter for destination.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
 void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -338,7 +338,7 @@ void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
 void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
