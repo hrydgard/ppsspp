@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -78,6 +78,28 @@ struct Args {
     /// otherwise hang the script forever.
     #[arg(long, default_value_t = 30.0)]
     sync_timeout: f64,
+
+    /// Print one line per message instead of pretty-printed JSON, and drop the prompt and
+    /// banner. Intended for piped scripts, where the multi-line default output has to be
+    /// reassembled by whatever is reading it.
+    #[arg(long)]
+    compact: bool,
+}
+
+// Set from --compact. A global because print_incoming is called from a dozen places that have no
+// business threading a formatting flag through.
+static COMPACT: AtomicBool = AtomicBool::new(false);
+
+fn compact() -> bool {
+    COMPACT.load(Ordering::Relaxed)
+}
+
+// The "> " prompt is noise in a piped script, and interleaves with incoming messages.
+fn print_prompt() {
+    if !compact() {
+        print!("> ");
+        io::stdout().flush().ok();
+    }
 }
 
 // Events that mean "let the CPU run" - after their own ticketed response comes back, --sync
@@ -193,10 +215,102 @@ fn connect(host: &str, port: u16) -> Result<WebSocket<TcpStream>> {
 }
 
 fn print_incoming(text: &str) {
-    match serde_json::from_str::<serde_json::Value>(text) {
+    let parsed = serde_json::from_str::<serde_json::Value>(text);
+    if compact() {
+        // One line per message, event name first so a script can grep for it without having to
+        // reassemble pretty-printed JSON spread over twenty lines.
+        match parsed {
+            Ok(v) => {
+                let event = v.get("event").and_then(|e| e.as_str()).unwrap_or("?");
+                println!("<- {event} {}", serde_json::to_string(&v).unwrap_or_else(|_| text.to_string()));
+            }
+            Err(_) => println!("<- {text}"),
+        }
+        io::stdout().flush().ok();
+        return;
+    }
+    match parsed {
         Ok(v) => println!("\n<- {}", serde_json::to_string_pretty(&v).unwrap_or_else(|_| text.to_string())),
         Err(_) => println!("\n<- {text}"),
     }
+}
+
+// Reads and prints messages until `done` says we're finished or the deadline passes. The one
+// place that actually touches the socket while waiting, so a script never stops draining it -
+// broadcasts keep printing during a :sleep, and the connection doesn't back up.
+// Returns true if `done` was satisfied.
+fn pump_until(
+    socket: &mut WebSocket<TcpStream>,
+    deadline: Instant,
+    mut done: impl FnMut(&serde_json::Value) -> bool,
+) -> bool {
+    while Instant::now() < deadline {
+        match socket.read() {
+            Ok(Message::Text(text)) => {
+                print_incoming(&text);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if done(&v) {
+                        return true;
+                    }
+                }
+            }
+            Ok(Message::Close(frame)) => {
+                println!("[connection closed by PPSSPP: {frame:?}]");
+                return false;
+            }
+            Ok(_) => {}
+            Err(ref e) if is_would_block(e) => {}
+            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                println!("[connection closed]");
+                return false;
+            }
+            Err(e) => {
+                eprintln!("[connection error: {e}]");
+                return false;
+            }
+        }
+    }
+    false
+}
+
+// :sleep <seconds> - wall-clock pause that keeps draining the socket. Scripts needed this often
+// enough that doing it by splitting them across several wsdbg invocations (one process, one
+// connection and one handshake per pause) was the main reason driving headless was slow.
+fn cmd_sleep(socket: &mut WebSocket<TcpStream>, args: &[&str]) {
+    let secs = match args.first().map(|s| s.parse::<f64>()) {
+        Some(Ok(s)) if s >= 0.0 => s,
+        _ => {
+            eprintln!("! Usage: :sleep <seconds>");
+            return;
+        }
+    };
+    pump_until(socket, Instant::now() + Duration::from_secs_f64(secs), |_| false);
+}
+
+// :wait <event> [timeout] - block until a message with that event name arrives. The precise
+// version of :sleep: waiting for cpu.stepping after a resume beats guessing how long the game
+// needs. Exits non-zero on timeout so a script can tell it didn't happen.
+fn cmd_wait(socket: &mut WebSocket<TcpStream>, args: &[&str], default_timeout: f64) -> bool {
+    let Some(want) = args.first() else {
+        eprintln!("! Usage: :wait <event> [timeout]");
+        return false;
+    };
+    let timeout = match args.get(1).map(|s| s.parse::<f64>()) {
+        Some(Ok(t)) => t,
+        Some(Err(_)) => {
+            eprintln!("! :wait timeout must be a number");
+            return false;
+        }
+        None => default_timeout,
+    };
+    let deadline = Instant::now() + Duration::from_secs_f64(timeout.max(0.0));
+    let got = pump_until(socket, deadline, |v| {
+        v.get("event").and_then(|e| e.as_str()) == Some(*want)
+    });
+    if !got {
+        eprintln!("! :wait timed out after {timeout}s waiting for '{want}'");
+    }
+    got
 }
 
 fn is_would_block(e: &tungstenite::Error) -> bool {
@@ -243,6 +357,10 @@ fn print_help() {
     println!(":snapshot <name> <addr> <size>     memory.read into a locally-named byte buffer");
     println!(":snapshots                         list saved snapshots");
     println!(":diff <name1> <name2>              byte-compare two snapshots");
+    println!(":sleep <seconds>                   pause, still printing anything that arrives");
+    println!(":wait <event> [timeout]            block until that event arrives (e.g. cpu.stepping)");
+    println!(":echo <text>                       print text, for marking up a script's output");
+    println!("# ...                              comment line, ignored");
     println!("See docs/WebSocketDebugger.md in the ppsspp repo for the full event catalog.");
     println!("Piping a script in? Pass --sync so each line waits for its response (and, for");
     println!("cpu.resume/step*/runUntil, the following cpu.stepping) before the next line runs -");
@@ -481,7 +599,9 @@ fn cmd_diff(snapshots: &Snapshots, args: &[&str]) {
     }
 }
 
-fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> Result<()> {
+// Returns false if anything in the script failed (a :wait that timed out, say), so a piped run
+// can be checked with an exit code instead of by grepping its output.
+fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> Result<bool> {
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(100)))?;
 
     // Politely say hello, per protocol convention (see WebSocket/GameSubscriber.cpp).
@@ -495,7 +615,9 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
     )?;
     socket.send(Message::Text(hello.into()))?;
 
-    print_help();
+    if !compact() {
+        print_help();
+    }
 
     let (tx, rx) = mpsc::channel::<String>();
     thread::spawn(move || {
@@ -512,10 +634,10 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
         }
     });
 
-    print!("> ");
-    io::stdout().flush().ok();
+    print_prompt();
 
     let mut snapshots: Snapshots = Snapshots::new();
+    let mut failed = false;
 
     loop {
         match rx.try_recv() {
@@ -523,7 +645,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                 let line = line.trim();
                 let mut words = line.split_whitespace();
                 match words.next() {
-                    Some(":quit") | Some(":q") | Some(":exit") => return Ok(()),
+                    Some(":quit") | Some(":q") | Some(":exit") => return Ok(!failed),
                     Some(":help") | Some(":h") => print_help(),
                     Some(":snapshot") => {
                         let args: Vec<&str> = words.collect();
@@ -534,6 +656,19 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                         let args: Vec<&str> = words.collect();
                         cmd_diff(&snapshots, &args);
                     }
+                    Some(":sleep") => {
+                        let args: Vec<&str> = words.collect();
+                        cmd_sleep(&mut socket, &args);
+                    }
+                    Some(":wait") => {
+                        let args: Vec<&str> = words.collect();
+                        if !cmd_wait(&mut socket, &args, sync_timeout) {
+                            failed = true;
+                        }
+                    }
+                    Some(":echo") => println!("{}", words.collect::<Vec<&str>>().join(" ")),
+                    Some("#") => {}
+                    Some(w) if w.starts_with('#') => {}
                     None => {}
                     _ => match handle_repl_line(&mut socket, line) {
                         Err(e) => eprintln!("! {e}"),
@@ -543,32 +678,30 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                         Ok(_) => {}
                     },
                 }
-                print!("> ");
-                io::stdout().flush().ok();
+                print_prompt();
             }
-            Err(mpsc::TryRecvError::Disconnected) => return Ok(()),
+            Err(mpsc::TryRecvError::Disconnected) => return Ok(!failed),
             Err(mpsc::TryRecvError::Empty) => {}
         }
 
         match socket.read() {
             Ok(Message::Text(text)) => {
                 print_incoming(&text);
-                print!("> ");
-                io::stdout().flush().ok();
+                print_prompt();
             }
             Ok(Message::Close(frame)) => {
                 println!("\n[connection closed by PPSSPP: {frame:?}]");
-                return Ok(());
+                return Ok(!failed);
             }
             Ok(_) => {}
             Err(ref e) if is_would_block(e) => {}
             Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
                 println!("\n[connection closed]");
-                return Ok(());
+                return Ok(!failed);
             }
             Err(e) => {
                 eprintln!("\n[connection error: {e}]");
-                return Ok(());
+                return Ok(false);
             }
         }
     }
@@ -576,6 +709,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    COMPACT.store(args.compact, Ordering::Relaxed);
 
     let socket = connect(&args.host, args.port).with_context(|| {
         "Could not connect. Is PPSSPP running with the WebSocket debugger enabled? \
@@ -592,5 +726,11 @@ fn main() -> Result<()> {
         return run_one_shot(socket, json_text, args.wait);
     }
 
-    run_repl(socket, args.sync, args.sync_timeout)
+    // Non-zero exit when something in the script failed, so a caller doesn't have to grep output
+    // to find out whether its :wait ever fired.
+    if run_repl(socket, args.sync, args.sync_timeout)? {
+        Ok(())
+    } else {
+        std::process::exit(1);
+    }
 }

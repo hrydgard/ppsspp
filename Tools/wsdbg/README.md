@@ -68,3 +68,40 @@ the script forever, so it gives up after `--sync-timeout` seconds (default 30) a
   echo 'cpu.getAllRegs'
 ) | cargo run -- 12345 --sync
 ```
+
+### Script directives
+
+A script often needs to wait for something that isn't a direct response to the line before it.
+Doing that by splitting the script across several `wsdbg` invocations costs a process, a TCP
+connection and a handshake per pause, which is slow enough to matter - a polling loop built that
+way took minutes per run. These run inside the one session instead:
+
+| Directive | What it does |
+|---|---|
+| `:sleep <seconds>` | Wall-clock pause. Keeps draining and printing messages while it waits. |
+| `:wait <event> [timeout]` | Blocks until a message with that event name arrives. Exits non-zero if it never does. |
+| `:echo <text>` | Prints text, for marking up a script's output. |
+| `# comment` | Ignored. |
+
+`--compact` prints one line per message (`<- event {json}`) instead of pretty-printed JSON, and
+drops the banner and prompt - much easier for a shell to grep. wsdbg exits non-zero if a `:wait`
+timed out, so a script can be checked without parsing its output at all.
+
+A complete repro - boot, get several seconds in, step, inspect - in one file and one connection:
+
+```
+# hand this to: wsdbg PORT --sync --compact < script.txt
+{"event":"broadcast.config.set","disallowed":{"logger":true,"input":true}}
+:echo === run to 1.5s of emulated time ===
+cpu.runUntilTime us=1500000
+:wait cpu.stepping 60
+cpu.status
+:echo === step twice ===
+cpu.stepInto
+cpu.stepInto
+:quit
+```
+
+`cpu.runUntilTime` (see `docs/WebSocketDebugger.md`) is what makes that reproducible: it stops on
+the requested emulated microsecond, so the same script reaches the same instruction every run.
+Polling `cpu.status` in a loop instead lands somewhere different each time.
