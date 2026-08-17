@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <atomic>
 
 #include "Common/StringUtils.h"
@@ -103,6 +104,43 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			relocOps[r] = Memory::ReadUnchecked_U32(addr);
 		}
 
+		// Indexes used to pair HI16 with the LO16 that completes it - see the R_MIPS_HI16 case
+		// below for why the order of the relocation table can't be trusted for that. Both are
+		// sorted by r_offset, i.e. by position in the code.
+		// loByReg: LO16-style relocations, keyed by the base register of the instruction they patch.
+		// hiByReg: HI16 relocations, keyed by the register their lui loads.
+		std::vector<int> loByReg[32];
+		std::vector<int> hiByReg[32];
+		for (int r = 0; r < numRelocs; r++) {
+			switch (rels[r].r_info & 0xf) {
+			case R_MIPS_LO16:
+			case R_MIPS_16:
+				loByReg[(relocOps[r] >> 21) & 0x1F].push_back(r);
+				break;
+			case R_MIPS_HI16:
+				hiByReg[(relocOps[r] >> 16) & 0x1F].push_back(r);
+				break;
+			default:
+				break;
+			}
+		}
+		auto byOffset = [rels](int a, int b) { return rels[a].r_offset < rels[b].r_offset; };
+		for (int reg = 0; reg < 32; reg++) {
+			std::sort(loByReg[reg].begin(), loByReg[reg].end(), byOffset);
+			std::sort(hiByReg[reg].begin(), hiByReg[reg].end(), byOffset);
+		}
+		// First entry in list strictly after offset, belonging to segment readwrite. -1 if none.
+		auto firstAfter = [rels](const std::vector<int> &list, u32 offset, int readwrite) {
+			auto it = std::upper_bound(list.begin(), list.end(), offset, [rels](u32 off, int idx) {
+				return off < rels[idx].r_offset;
+			});
+			for (; it != list.end(); ++it) {
+				if (((rels[*it].r_info >> 8) & 0xff) == readwrite)
+					return *it;
+			}
+			return -1;
+		};
+
 		for (int r = 0; r < numRelocs; r++) {
 			VERBOSE_LOG(Log::Loader, "Loading reloc %i  (%p)...", r, rels + r);
 			u32 info = rels[r].r_info;
@@ -153,7 +191,35 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 				u32 cur = (op & 0xFFFF) << 16;
 				u16 hi = 0;
 				bool found = false;
-				for (int t = r + 1; t < numRelocs; t++) {
+
+				// Which LO16 completes this HI16 decides exactly one thing - whether the high half
+				// carries - but getting it wrong silently moves the address by 64KB.
+				//
+				// The obvious rule, "the next non-HI16 in the relocation table", isn't reliable.
+				// A PRX relocation carries no symbol index (r_info holds segment numbers here), so
+				// the table can't express the pairing. prxgen does order the table so that each
+				// HI16 is followed by a LO16 for the same symbol, but not necessarily by *its*
+				// LO16: LLVM schedules several luis together and their addius can come back
+				// permuted, sometimes earlier in the table than the lui they belong to. Two LO16s
+				// for the same symbol usually produce the same high half, which is why this went
+				// unnoticed - it only bites when their low halves land on opposite sides of
+				// 0x8000. CrossCraft Classic (Zig) hits that and ends up jumping to 0xae870000.
+				//
+				// So pair the way the compiler generated it: the lui loads a register, and the
+				// instruction that completes it is the next one using that register as its base.
+				// If another lui reloads that register first, the candidate belongs to that one.
+				const int hiReg = (op >> 16) & 0x1F;
+				int pairedByReg = firstAfter(loByReg[hiReg], rels[r].r_offset, readwrite);
+				if (pairedByReg >= 0) {
+					const int reloaded = firstAfter(hiByReg[hiReg], rels[r].r_offset, readwrite);
+					if (reloaded >= 0 && rels[reloaded].r_offset < rels[pairedByReg].r_offset)
+						pairedByReg = -1;
+				}
+
+				// Fall back to the old scan when the register trail goes cold - the lui's value
+				// gets copied to another register before use, say - so nothing that worked before
+				// this stops working.
+				for (int t = pairedByReg >= 0 ? pairedByReg : r + 1; t < numRelocs; t++) {
 					int t_type = rels[t].r_info & 0xF;
 					if (t_type == R_MIPS_HI16)
 						continue;
@@ -173,7 +239,8 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 						}
 					}
 
-					// Should have matching index and segment info, according to llvm, which makes sense.
+					// Only the segment numbers here - a PRX relocation has no symbol index - so this
+					// catches a pair straddling two segments, not a pair for two different symbols.
 					if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
 						WARN_LOG_REPORT(Log::Loader, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
 					}
