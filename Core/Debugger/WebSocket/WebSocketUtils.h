@@ -39,6 +39,38 @@ struct WebSocketClientInfo {
 	std::string name;
 	std::string version;
 	std::map<std::string, bool> disallowed;
+	// Whether to send a "deferred" event for requests that only finish later. Off by default,
+	// and it has to stay that way: an extra message would break a client that correlates purely
+	// by ticket, or one that waits for the bare event name a resume or a button press answers
+	// with. See client.config.set.
+	bool acknowledgeDeferred = false;
+};
+
+// Sent, if the client asked for it, when a handler accepted a request but arranged to finish it
+// later - a resume, a step, a button held for some frames. Deliberately not named after the
+// request: the event that reports the actual outcome uses that name, and for input.buttons.press
+// it carries the same ticket too, so anything less distinct would be impossible to tell apart.
+struct DebuggerDeferredEvent {
+	DebuggerDeferredEvent(const char *n, const JsonGet data) : name(n) {
+		const JsonNode *value = data ? data.get("ticket") : nullptr;
+		if (value)
+			ticketRaw = json_stringify(value);
+	}
+
+	const char *name;
+	std::string ticketRaw;
+
+	operator std::string() const {
+		JsonWriter j;
+		j.begin();
+		j.writeString("event", "deferred");
+		j.writeString("for", name);
+		if (!ticketRaw.empty()) {
+			j.writeRaw("ticket", ticketRaw);
+		}
+		j.end();
+		return j.str();
+	}
 };
 
 struct DebuggerErrorEvent {

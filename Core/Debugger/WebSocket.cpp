@@ -232,13 +232,13 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 			eventFunc->second(req);
 			if (!req.Finish()) {
 				// The handler arranged something that finishes later - a step, a resume, a stats
-				// feed - rather than answering now. Acknowledge it anyway, so that *every* request
-				// gets exactly one reply. Without this a client can't tell "accepted, wait for the
-				// event" from "dropped on the floor", and any request/response correlation has to
-				// special-case a list of events that don't answer. The event that actually reports
-				// the result (cpu.stepping, and so on) still follows.
-				req.Respond();
-				req.Finish();
+				// feed - rather than answering now. A client that asked for it gets told so, so it
+				// can tell "accepted, wait for the event" from "dropped on the floor" without
+				// carrying a hardcoded list of the events that don't answer. Everyone else sees
+				// exactly what they saw before; see client.config.set for why it can't be the
+				// default.
+				if (client_info.acknowledgeDeferred)
+					ws->Send(DebuggerDeferredEvent(event, root));
 				// Poll more frequently for a second in case this triggers something.
 				highActivity = 1000;
 			}

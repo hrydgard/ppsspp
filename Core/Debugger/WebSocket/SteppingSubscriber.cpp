@@ -85,8 +85,8 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID =
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// Response (same event name) with no extra data on success. A cpu.stepping event follows once
-// the step completes.
+// No immediate response on success (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 // May fail (same-thread case only) if too many steps are already queued, which means a client is
 // firing them faster than they can possibly be carried out.
 //
@@ -144,7 +144,8 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Over(DebuggerRequest &req) {
@@ -199,7 +200,8 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Out(DebuggerRequest &req) {
@@ -252,7 +254,8 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 // Parameters:
 //  - address: number parameter for destination.
 //
-// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -337,7 +340,8 @@ void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// Response (same event name) with no extra data. A cpu.stepping event follows once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");

@@ -66,8 +66,8 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// Response (same event name) with no extra data, acknowledging the request. The CPU may not be
-// stepping yet at that point - a "cpu.stepping" event follows once it is.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Once CPU is stepping, a "cpu.stepping" event will be sent.
 void WebSocketCPUStepping(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -84,8 +84,8 @@ void WebSocketCPUStepping(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// Response (same event name) with no extra data, acknowledging the request. A "cpu.resume"
-// event follows once the CPU is actually running again.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Once CPU is running again, a "cpu.resume" event will be sent.
 void WebSocketCPUResume(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");

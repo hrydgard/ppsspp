@@ -224,6 +224,40 @@ fn connect(host: &str, port: u16) -> Result<WebSocket<TcpStream>> {
     Ok(socket)
 }
 
+// Sent once per connection, before anything else, and its reply swallowed rather than printed -
+// it's plumbing the user didn't ask for and shouldn't have to read past.
+fn request_deferred_acks(socket: &mut WebSocket<TcpStream>) -> Result<()> {
+    let ticket = next_ticket();
+    socket.send(Message::Text(
+        serde_json::json!({
+            "event": "client.config.set",
+            "acknowledgeDeferred": true,
+            "ticket": ticket,
+        })
+        .to_string()
+        .into(),
+    ))?;
+
+    socket.get_ref().set_read_timeout(Some(Duration::from_millis(50)))?;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while Instant::now() < deadline {
+        match socket.read() {
+            Ok(Message::Text(t)) => {
+                let v = serde_json::from_str::<serde_json::Value>(&t).unwrap_or_default();
+                if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+                    return Ok(());
+                }
+                // Anything else this early is a broadcast we'd have printed anyway.
+                print_incoming(&t);
+            }
+            Ok(_) => {}
+            Err(e) if is_would_block(&e) => {}
+            Err(e) => return Err(e.into()),
+        }
+    }
+    Ok(())
+}
+
 fn print_incoming(text: &str) {
     let parsed = serde_json::from_str::<serde_json::Value>(text);
     if compact() {
@@ -334,9 +368,10 @@ fn is_would_block(e: &tungstenite::Error) -> bool {
 // Returns false if the request went unanswered within the timeout, so one-shot mode can exit
 // non-zero rather than looking successful after having printed nothing useful.
 //
-// Every request is answered (PPSSPP acknowledges even the ones whose result arrives later), so
-// waiting for this request's ticket beats sleeping for a fixed --wait: a quick question returns
-// immediately instead of padding every invocation, and a slow one isn't cut off early.
+// With deferred acks turned on (see request_deferred_acks) every request is answered, including
+// the ones whose result arrives later, so waiting for this request's ticket beats sleeping for a
+// fixed --wait: a quick question returns immediately instead of padding every invocation, and a
+// slow one isn't cut off early.
 fn run_one_shot(
     mut socket: WebSocket<TcpStream>,
     json_text: String,
@@ -394,14 +429,16 @@ fn print_help() {
 fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Option<(u64, String)>> {
     if line.starts_with('{') {
         // A raw JSON line is the only way to send nested parameters, so it can't be a
-        // second-class citizen. Reject it outright if it isn't valid JSON or has no event, and
-        // add a ticket when it doesn't carry one - without a ticket --sync has nothing to match
-        // on, so it used to skip waiting entirely and let the next line's response be attributed
-        // to this one, silently desynchronising the rest of the script.
-        let mut parsed: serde_json::Value =
+        // second-class citizen. Reject it outright if it isn't valid JSON or has no event - but
+        // send it exactly as written otherwise. Omitting the ticket is the documented way to say
+        // "I'm not waiting for an answer", so quietly inserting one would send something the
+        // author didn't write. --sync simply doesn't wait on such a line and moves on to the next
+        // (it must not wait for "the next message that happens to arrive" and attribute that -
+        // that's what desynchronised the rest of a script before tickets were matched properly).
+        let parsed: serde_json::Value =
             serde_json::from_str(line).map_err(|e| anyhow!("Not valid JSON: {e}"))?;
         let obj = parsed
-            .as_object_mut()
+            .as_object()
             .ok_or_else(|| anyhow!("A raw message must be a JSON object"))?;
         let event = obj
             .get("event")
@@ -409,19 +446,18 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
             .ok_or_else(|| anyhow!("A raw message needs a string 'event' field"))?
             .to_string();
         let ticket = match obj.get("ticket") {
-            Some(t) => t
-                .as_u64()
-                .ok_or_else(|| anyhow!("'ticket' must be a non-negative integer to be matchable"))?,
-            None => {
-                let t = next_ticket();
-                obj.insert("ticket".to_string(), serde_json::Value::from(t));
-                t
-            }
+            Some(t) => Some(
+                t.as_u64()
+                    .ok_or_else(|| anyhow!("'ticket' must be a non-negative integer to be matchable"))?,
+            ),
+            None => None,
         };
-        let json_text = serde_json::Value::Object(obj.clone()).to_string();
-        println!("-> (ticket {ticket}) {json_text}");
-        socket.send(Message::Text(json_text.into()))?;
-        return Ok(Some((ticket, event)));
+        match ticket {
+            Some(t) => println!("-> (ticket {t}) {line}"),
+            None => println!("-> (no ticket, not waiting for a reply) {line}"),
+        }
+        socket.send(Message::Text(line.to_string().into()))?;
+        return Ok(ticket.map(|t| (t, event)));
     }
 
     let mut parts = split_shell_words(line)?.into_iter();
@@ -759,10 +795,17 @@ fn main() -> Result<()> {
     let args = Args::parse();
     COMPACT.store(args.compact, Ordering::Relaxed);
 
-    let socket = connect(&args.host, args.port).with_context(|| {
+    let mut socket = connect(&args.host, args.port).with_context(|| {
         "Could not connect. Is PPSSPP running with the WebSocket debugger enabled? \
          (Settings > Tools > Developer Tools > Allow remote debugger, or launch with --debugger)"
     })?;
+
+    // Ask to be told when a request was accepted but finishes later (cpu.resume and friends).
+    // Off by default server-side, since the extra message would confuse a client that correlates
+    // purely by ticket - but it's exactly what lets --sync match every request to a reply without
+    // knowing which events answer immediately. Ignore the error from an older PPSSPP that doesn't
+    // know the event; --sync just falls back to timing out on those, as it did before.
+    request_deferred_acks(&mut socket).ok();
 
     if let Some(raw) = &args.raw {
         // Recover the ticket if the caller supplied one; there's nothing to wait on otherwise.

@@ -55,15 +55,38 @@ Responses use the *same* event name as the request:
 ```json
 { "event": "cpu.status", "ticket": 1, ... }
 ```
-Responses are not always immediate - some handlers respond asynchronously.
 
-**Every request gets exactly one reply**: either a response, or an `error`. A
-handler whose real result arrives later (`cpu.stepInto`, `cpu.resume`,
-`gpu.stats.feed`, ...) is acknowledged with an empty response carrying your
-ticket, and the event reporting the actual outcome (`cpu.stepping`, ...)
-follows separately. So a client can always correlate request to reply without
-keeping a list of events that don't answer, and "no reply" unambiguously means
-the request is still being processed.
+**The ticket convention**: send one whenever you care about the answer. Since
+a response reuses the request's event name, a ticket is the only thing that
+distinguishes *your* answer from an unsolicited broadcast of the same name, or
+from the answer to an identical request you sent a moment earlier. Conversely,
+for a request that doesn't answer immediately (below), leaving the ticket off
+says you aren't waiting for anything.
+
+Responses are not always immediate. `cpu.resume`, `cpu.stepInto`,
+`cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime`,
+`cpu.nextHLE`, `cpu.stepping` and `gpu.stats.feed` send nothing back at the
+time of the request; what follows later is the broadcast that reports the
+actual outcome (`cpu.stepping` / `cpu.resume`), which carries no ticket.
+`input.buttons.press` is the odd one out - it answers with the request's own
+event name *and* ticket, but only once the button has been held for the
+requested number of frames.
+
+If you would rather not track which those are, ask to be told explicitly:
+
+```json
+-> { "event": "client.config.set", "acknowledgeDeferred": true }
+-> { "event": "cpu.resume", "ticket": 7 }
+<- { "event": "deferred", "for": "cpu.resume", "ticket": 7 }
+<- { "event": "cpu.resume" }
+```
+
+With that on, every request draws exactly one immediate reply - a response, an
+`error`, or a `deferred` - so a client can correlate without a hardcoded list,
+including for events added in future versions. It is off by default and must
+stay that way: an extra message would break a client that correlates purely by
+ticket, and it can't reuse the request's event name because for
+`input.buttons.press` that is exactly what the real, later answer looks like.
 
 Errors look like this:
 ```json
@@ -104,7 +127,9 @@ Sent without you asking, whenever the underlying state changes:
 A client can opt out of specific broadcast categories with
 `broadcast.config.set` (`{"disallowed": {"logger": true, "game": true, "stepping": true, "input": true}}`),
 see `ClientConfigSubscriber.cpp`. `gpu.stats.feed` (see below) works the same
-way for periodic GPU stats.
+way for periodic GPU stats. `client.config.set` in the same file carries
+per-connection settings that aren't about broadcasts - currently just
+`acknowledgeDeferred`, described under "Message protocol" above.
 
 ## Request/response event catalog
 
@@ -131,7 +156,7 @@ file - this is just an index.
 | GPU buffers | `gpu.buffer.screenshot`, `gpu.buffer.renderColor/renderDepth/renderStencil`, `gpu.buffer.texture`, `gpu.buffer.clut` | `GPUBufferSubscriber.cpp` |
 | Input injection | `input.buttons.send`, `input.buttons.press`, `input.analog.send` | `InputSubscriber.cpp` |
 | Replay | `replay.begin/abort/flush/execute/status`, `replay.time.get/set` | `ReplaySubscriber.cpp` |
-| Client config | `broadcast.config.get/set` | `ClientConfigSubscriber.cpp` |
+| Client config | `broadcast.config.get/set`, `client.config.get/set` | `ClientConfigSubscriber.cpp` |
 | Log channels | `log.channels.list`, `log.channel.set` - query/change a log channel's level (string: `notice`/`error`/`warning`/`info`/`debug`/`verbose`) and/or enabled state; the `log` event itself (the passive message stream, unaffected by this) keeps its existing numeric `level`, see `LogBroadcaster.cpp` | `LogConfigSubscriber.cpp` |
 
 ## Enabling it
