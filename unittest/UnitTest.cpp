@@ -87,6 +87,7 @@
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Core/CmdLine.h"
+#include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -662,6 +663,359 @@ bool TestTempBreakpoints() {
 	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
 
 	g_symbolMap = nullptr;
+	return true;
+}
+
+// BlockAllocator backs sceKernelAllocPartitionMemory and friends. It's pure address bookkeeping -
+// no real memory involved - which makes it cheap to check hard: after any sequence of operations
+// the blocks must still tile the range exactly, and the free-space accessors must match reality.
+
+// Rebuilds the block list through the public accessors and checks it tiles [start, start+size)
+// with no gaps, overlaps or strays, then cross-checks GetTotalFreeBytes/GetLargestFreeBlockSize
+// against what is actually in the list.
+static bool ValidateAllocator(BlockAllocator &a, u32 rangeStart, u32 rangeSize) {
+	u32 addr = rangeStart;
+	u32 totalFree = 0;
+	u32 largestFree = 0;
+	int guard = 0;
+	while (addr < rangeStart + rangeSize) {
+		const u32 blockStart = a.GetBlockStartFromAddress(addr);
+		const u32 blockSize = a.GetBlockSizeFromAddress(addr);
+		if (blockStart != addr)
+			return false;  // a gap, or the block misreports where it starts
+		if (blockSize == 0 || blockSize == (u32)-1)
+			return false;
+		if ((u64)blockStart + blockSize > (u64)rangeStart + rangeSize)
+			return false;  // runs off the end of the range
+		if (a.IsBlockFree(addr)) {
+			totalFree += blockSize;
+			if (blockSize > largestFree)
+				largestFree = blockSize;
+		}
+		addr += blockSize;
+		if (++guard > 200000)
+			return false;  // cycle in the list
+	}
+	if (addr != rangeStart + rangeSize)
+		return false;  // last block overshot the end
+	if (a.GetTotalFreeBytes() != totalFree)
+		return false;
+	if (a.GetLargestFreeBlockSize() != largestFree)
+		return false;
+	return true;
+}
+
+bool TestBlockAllocator() {
+	const u32 kStart = 0x08800000;
+	const u32 kSize = 0x00100000;  // 1MB
+	const u32 kGrain = 256;
+
+	// A fresh allocator is one free block covering everything.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(a.IsBlockFree(kStart));
+	}
+
+	// Bottom-up allocation starts at the bottom; top-down ends at the top.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+
+		u32 sizeA = 0x1000;
+		const u32 addrA = a.Alloc(sizeA, false, "bottom");
+		EXPECT_EQ_INT((int)addrA, (int)kStart);
+		EXPECT_FALSE(a.IsBlockFree(addrA));
+
+		u32 sizeB = 0x1000;
+		const u32 addrB = a.Alloc(sizeB, true, "top");
+		EXPECT_EQ_INT((int)(addrB + sizeB), (int)(kStart + kSize));
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)(kSize - sizeA - sizeB));
+
+		EXPECT_TRUE(a.Free(addrA));
+		EXPECT_TRUE(a.Free(addrB));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Sizes are rounded up to the grain, and the caller is told about it.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 size = 1;
+		const u32 addr = a.Alloc(size, false, "tiny");
+		EXPECT_FALSE(addr == (u32)-1);
+		EXPECT_EQ_INT((int)size, (int)kGrain);
+		EXPECT_EQ_INT((int)a.GetBlockSizeFromAddress(addr), (int)kGrain);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Nonsense sizes are refused rather than wrapping into something huge.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 zero = 0;
+		EXPECT_EQ_INT((int)a.Alloc(zero, false, "zero"), -1);
+		u32 huge = kSize + 1;
+		EXPECT_EQ_INT((int)a.Alloc(huge, false, "huge"), -1);
+		// A failed allocation must not have disturbed anything.
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Freeing the middle of three leaves a hole; freeing its neighbours merges it all back.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 s1 = 0x10000, s2 = 0x10000, s3 = 0x10000;
+		const u32 a1 = a.Alloc(s1, false, "1");
+		const u32 a2 = a.Alloc(s2, false, "2");
+		const u32 a3 = a.Alloc(s3, false, "3");
+		EXPECT_TRUE(a1 < a2 && a2 < a3);
+
+		EXPECT_TRUE(a.Free(a2));
+		EXPECT_TRUE(a.IsBlockFree(a2));
+		EXPECT_EQ_INT((int)a.GetBlockSizeFromAddress(a2), (int)s2);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_TRUE(a.Free(a1));
+		// a1 and a2 are adjacent and both free now, so they must have become one block.
+		EXPECT_EQ_INT((int)a.GetBlockStartFromAddress(a2), (int)a1);
+		EXPECT_EQ_INT((int)a.GetBlockSizeFromAddress(a1), (int)(s1 + s2));
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_TRUE(a.Free(a3));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Double free, and freeing an address that was never allocated, must fail rather than corrupt.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 size = 0x1000;
+		const u32 addr = a.Alloc(size, false, "once");
+		EXPECT_TRUE(a.Free(addr));
+		EXPECT_FALSE(a.Free(addr));
+		EXPECT_FALSE(a.Free(kStart + kSize + 0x1000));  // outside the range entirely
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// AllocAt places a block exactly, and refuses if it is already taken.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		const u32 target = kStart + 0x20000;
+		const u32 got = a.AllocAt(target, 0x1000, "at");
+		EXPECT_EQ_INT((int)got, (int)target);
+		EXPECT_FALSE(a.IsBlockFree(target));
+		EXPECT_TRUE(a.IsBlockFree(kStart));  // the space below it stays free
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_EQ_INT((int)a.AllocAt(target, 0x1000, "again"), -1);
+		EXPECT_EQ_INT((int)a.AllocAt(target + 0x800, 0x100, "overlap"), -1);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		EXPECT_TRUE(a.Free(target));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+	}
+
+	// AllocAligned honours a coarser alignment than the allocator's own grain.
+	{
+		BlockAllocator a(16);
+		a.Init(kStart + 16, kSize, false);  // deliberately not 4K-aligned to start with
+		u32 skew = 0x30;
+		EXPECT_FALSE(a.Alloc(skew, false, "skew") == (u32)-1);
+
+		u32 size = 0x1000;
+		const u32 addr = a.AllocAligned(size, 0x1000, 0x1000, false, "aligned");
+		EXPECT_FALSE(addr == (u32)-1);
+		EXPECT_EQ_INT((int)(addr & 0xFFF), 0);
+		EXPECT_TRUE(ValidateAllocator(a, kStart + 16, kSize));
+
+		u32 topSize = 0x1000;
+		const u32 topAddr = a.AllocAligned(topSize, 0x1000, 0x1000, true, "aligned-top");
+		EXPECT_FALSE(topAddr == (u32)-1);
+		EXPECT_EQ_INT((int)(topAddr & 0xFFF), 0);
+		EXPECT_TRUE(ValidateAllocator(a, kStart + 16, kSize));
+	}
+
+	// Fill the range completely, then drain it - nothing should leak or go missing.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		std::vector<u32> addrs;
+		for (;;) {
+			u32 size = 0x4000;
+			const u32 addr = a.Alloc(size, false, "fill");
+			if (addr == (u32)-1)
+				break;
+			addrs.push_back(addr);
+		}
+		EXPECT_EQ_INT((int)addrs.size(), (int)(kSize / 0x4000));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), 0);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+
+		for (u32 addr : addrs)
+			EXPECT_TRUE(a.Free(addr));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// AllocAt with a position that is not on the grain: it must still round down to a whole block
+	// and keep the range tiled, and it reports back how much the caller actually got from their
+	// requested position (which is less than a whole block, since the block starts lower).
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		const u32 unaligned = kStart + 0x2010;
+		u32 size = 0x100;
+		const u32 got = a.AllocAt(unaligned, size, "unaligned");
+		EXPECT_EQ_INT((int)got, (int)unaligned);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+		// The block it landed in starts at the grain boundary below.
+		EXPECT_EQ_INT((int)a.GetBlockStartFromAddress(unaligned), (int)(kStart + 0x2000));
+		EXPECT_FALSE(a.IsBlockFree(unaligned));
+		// Free() takes any address inside the block, so the address AllocAt handed back works.
+		EXPECT_TRUE(a.Free(got));
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// FreeExact only accepts the true start of a block, so an unaligned AllocAt address is
+	// rejected - worth pinning down, since Free() and FreeExact() differ here.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		const u32 unaligned = kStart + 0x2010;
+		u32 size = 0x100;
+		EXPECT_EQ_INT((int)a.AllocAt(unaligned, size, "unaligned"), (int)unaligned);
+		EXPECT_FALSE(a.FreeExact(unaligned));
+		EXPECT_TRUE(a.FreeExact(kStart + 0x2000));
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// A range whose size is not a multiple of the grain. The leftover tail can never be handed
+	// out, but it must not break the tiling or the accounting.
+	{
+		BlockAllocator a(kGrain);
+		const u32 oddSize = 0x10000 + 0x10;
+		a.Init(kStart, oddSize, false);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
+		std::vector<u32> addrs;
+		for (;;) {
+			u32 size = 0x1000;
+			const u32 addr = a.Alloc(size, false, "odd");
+			if (addr == (u32)-1)
+				break;
+			addrs.push_back(addr);
+			EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
+		}
+		for (size_t j = 0; j < addrs.size(); ++j)
+			EXPECT_TRUE(a.Free(addrs[j]));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)oddSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
+	}
+
+	// Churn again, this time mixing in aligned allocations and AllocAt so the block list gets into
+	// shapes the plain alloc/free loop never produces.
+	{
+		BlockAllocator a(16);
+		a.Init(kStart, kSize, false);
+		std::vector<u32> live;
+		u32 rng = 987654321;
+		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
+
+		for (int i = 0; i < 4000; ++i) {
+			const int op = next() % 100;
+			if (op < 30 && !live.empty()) {
+				const size_t idx = next() % live.size();
+				EXPECT_TRUE(a.Free(live[idx]));
+				live.erase(live.begin() + idx);
+			} else if (op < 60) {
+				u32 size = ((next() % 32) + 1) * 16;
+				const u32 addr = a.Alloc(size, (next() % 2) != 0, "churn2");
+				if (addr != (u32)-1)
+					live.push_back(addr);
+			} else if (op < 90) {
+				// Alignments of 16, 64, 256, 1024, 4096.
+				const u32 align = 16u << ((next() % 5) * 2);
+				u32 size = ((next() % 32) + 1) * 16;
+				const u32 addr = a.AllocAligned(size, align, align, (next() % 2) != 0, "aligned2");
+				if (addr != (u32)-1) {
+					if ((addr & (align - 1)) != 0) {
+						printf("AllocAligned returned %08x for alignment %08x at iteration %d\n", addr, align, i);
+						return false;
+					}
+					live.push_back(addr);
+				}
+			} else {
+				const u32 pos = kStart + ((next() % (kSize / 0x1000)) * 0x1000);
+				const u32 addr = a.AllocAt(pos, 0x800, "at2");
+				if (addr != (u32)-1)
+					live.push_back(addr);
+			}
+			if (!ValidateAllocator(a, kStart, kSize)) {
+				printf("BlockAllocator invariant broken at iteration %d (op %d)\n", i, op);
+				return false;
+			}
+		}
+
+		for (size_t j = 0; j < live.size(); ++j)
+			EXPECT_TRUE(a.Free(live[j]));
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Randomised churn. Fixed seed so a failure is reproducible; the point is to reach block
+	// layouts hand-written cases would not, while checking the invariants after every step.
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		std::vector<std::pair<u32, u32> > live;  // address, size
+		u32 rng = 12345;
+		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
+
+		for (int i = 0; i < 3000; ++i) {
+			const bool doAlloc = live.empty() || (next() % 100) < 55;
+			if (doAlloc) {
+				u32 size = ((next() % 64) + 1) * kGrain;
+				const bool fromTop = (next() % 2) != 0;
+				const u32 addr = a.Alloc(size, fromTop, "churn");
+				if (addr != (u32)-1) {
+					// It must not overlap anything already handed out.
+					for (size_t j = 0; j < live.size(); ++j) {
+						const bool overlaps = addr < live[j].first + live[j].second && live[j].first < addr + size;
+						EXPECT_FALSE(overlaps);
+					}
+					live.push_back(std::make_pair(addr, size));
+				}
+			} else {
+				const size_t idx = next() % live.size();
+				EXPECT_TRUE(a.Free(live[idx].first));
+				live.erase(live.begin() + idx);
+			}
+			if (!ValidateAllocator(a, kStart, kSize)) {
+				printf("BlockAllocator invariant broken at iteration %d\n", i);
+				return false;
+			}
+		}
+
+		for (size_t j = 0; j < live.size(); ++j)
+			EXPECT_TRUE(a.Free(live[j].first));
+		// Everything given back means one free block again - if merging ever misses a case, this
+		// is where it shows up.
+		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
+		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
+		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
 	return true;
 }
 
@@ -1722,6 +2076,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
