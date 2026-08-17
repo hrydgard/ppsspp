@@ -77,6 +77,7 @@
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
 #include "Common/CPUDetect.h"
+#include "Common/ExceptionHandlerSetup.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -1762,6 +1763,8 @@ TestItem availableTests[] = {
 };
 
 int main(int argc, const char *argv[]) {
+	// Never block on a modal dialog - these get run from CI and from tooling.
+	SetupCRT(true);
 	SetCurrentThreadName("UnitTest");
 	TimeInit();
 
