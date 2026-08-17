@@ -126,7 +126,7 @@ Jit::Jit(MIPSState *mipsState)
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.ClearSkipFirst();
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 Jit::~Jit() {
@@ -152,7 +152,7 @@ void Jit::DoState(PointerWrap &p) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they load a state, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.ClearSkipFirst();
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 void Jit::UpdateFCR31() {

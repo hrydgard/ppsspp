@@ -38,6 +38,16 @@ static inline BreakAction operator | (const BreakAction &lhs, const BreakAction 
 	return BreakAction((u32)lhs | (u32)rhs);
 }
 
+static inline BreakAction operator ~ (const BreakAction &v) {
+	return BreakAction(~(u32)v);
+}
+
+// For dropping an action that isn't wanted after all, e.g. result &= ~BREAK_ACTION_PAUSE.
+static inline BreakAction &operator &= (BreakAction &lhs, const BreakAction &rhs) {
+	lhs = BreakAction((u32)lhs & (u32)rhs);
+	return lhs;
+}
+
 struct BreakPointCond {
 	DebugInterface *debug = nullptr;
 	PostfixExpression expression;
@@ -125,6 +135,8 @@ struct MemCheck {
 	// Called on the stored memcheck (affects numHits, etc.)
 	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
 	// Called on a copy.
+	// Logs the hit and returns the action. Does not pause - that's the caller's call, since it's
+	// the one that knows whether we're just resuming off this instruction.
 	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason);
 
 	void Log(u32 addr, bool write, int size, u32 pc, const char *reason) const;
@@ -251,20 +263,15 @@ public:
 	// instruction that would write to reg - does not itself execute the instruction.
 	BreakAction ExecRegBreakpoint(int reg, u32 pc);
 
-	// While the CPU sits on a breakpoint, resuming or stepping must not immediately re-trigger it,
-	// or you could never get off it. So a resume/step records the address it starts from, and
-	// breakpoint checks at that address are suppressed until the CPU retires an instruction.
-	//
-	// "Retires an instruction" is the tick count changing. CoreTiming::GetTicks() is continuous
-	// across CoreTiming::Advance() (it's globalTimer + slicelength - downcount, and Advance moves
-	// both by the same amount), so it only moves when the CPU actually consumes cycles. That makes
-	// the suppression cover exactly the one instruction it's meant to: come back around a loop to
-	// the same address and the breakpoint fires normally.
-	void SetSkipFirst(u32 addr);
-	void ClearSkipFirst();
-	// addr is the instruction being checked, which under a JIT isn't necessarily currentMIPS->pc
-	// yet, so both are compared.
-	bool ShouldSkipBreakpoint(u32 addr) const;
+	// Sitting on a breakpoint and resuming or stepping needs two different things suppressed, and
+	// conflating them is a bug in both directions - see PendingExec and the two markers below.
+	// Call this when starting to run or step, with the address execution starts from.
+	void NotifyResumingFrom(u32 addr);
+	// The run or step that armed the above is over (we stopped for some reason).
+	void ClearResumeMarker();
+	// Both markers are (address, tick count) pairs, so a reset or a savestate load can leave one
+	// that happens to match again. Call this when execution discontinuously jumps like that.
+	void ResetExecutionMarkers();
 
 	// Includes uncached addresses.
 	std::vector<MemCheck> GetMemCheckRanges(bool write);
@@ -312,15 +319,52 @@ private:
 	std::atomic<bool> anyMemChecks_;
 	std::atomic<u32> regBreakpointMask_;
 
-	std::vector<BreakPoint> breakPoints_;
-	TempBreakPoint tempBreakPoint_;
-	// See SetSkipFirst(). Not keyed on address 0 meaning "none" - a breakpoint at 0 would then be
-	// permanently suppressed, which is how this used to be cleared.
-	struct {
+	// Identifies one pending execution of one instruction: the address, plus the tick count at the
+	// moment it is about to run. CoreTiming::GetTicks() is continuous across CoreTiming::Advance()
+	// (it's globalTimer + slicelength - downcount, and Advance moves both by the same amount), so
+	// it only changes when the CPU actually retires an instruction. That makes (addr, ticks) stop
+	// matching as soon as the instruction runs - come around a loop to the same address and it's a
+	// different pending execution, which is what makes a breakpoint in a loop keep firing.
+	// Has an explicit valid flag rather than treating address 0 as "none", or a breakpoint at 0
+	// would be permanently suppressed.
+	struct PendingExec {
 		bool valid = false;
 		u32 addr = 0;
 		u64 ticks = 0;
-	} skipFirst_;
+
+		void Arm(u32 a, u64 t) { valid = true; addr = a; ticks = t; }
+		void Clear() { valid = false; }
+		bool Matches(u32 a, u64 t) const { return valid && addr == a && ticks == t; }
+	};
+
+	// Helpers over the markers below. addr is the instruction being checked - for a memcheck
+	// that's the instruction performing the access, not the address being accessed.
+	bool ShouldSuppressPauseAt(u32 addr) const;
+	bool AlreadyReportedAt(u32 addr) const;
+	void NoteStoppedOnReported(u32 addr);
+
+	std::vector<BreakPoint> breakPoints_;
+	TempBreakPoint tempBreakPoint_;
+	// Where the current run or step started. A breakpoint there must not *pause*, or you could
+	// never get off a breakpoint you're stopped on. It must still log and count though: arriving
+	// at an address by stepping is not the same as having reported the breakpoint there, and
+	// treating it as such is what used to silently swallow a breakpoint you stepped onto.
+	PendingExec resumedFrom_;
+	// The breakpoint we already reported (logged and counted). Reporting stops the CPU before the
+	// instruction runs, so the resume or step that follows arrives at the same pending execution
+	// and must not report it a second time.
+	PendingExec reported_;
+	// How reported_ gets armed. It can't be armed where the report happens: under a JIT that's
+	// inside a compiled block, whose cycles are already accounted for, so the tick count there
+	// isn't the settled one we'll see on the way back in. So the report just records the address,
+	// and NotifyResumingFrom() turns it into a real (addr, ticks) marker once the CPU has stopped
+	// and the tick count means something again. The address is what distinguishes "stopped here
+	// because this breakpoint reported" from "a step happened to land here", which must still
+	// report when execution moves on.
+	struct {
+		bool valid = false;
+		u32 addr = 0;
+	} stoppedOnReported_;
 
 	std::vector<MemCheck> memChecks_;
 	std::vector<MemCheck> memCheckRangesRead_;

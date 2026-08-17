@@ -772,7 +772,7 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 		}
 		if (ImGui::MenuItem("Run to here")) {
 			g_breakpoints.SetTempBreakPoint(curAddress_);
-			g_breakpoints.SetSkipFirst(curAddress_);
+			g_breakpoints.NotifyResumingFrom(curAddress_);
 			if (Core_IsStepping()) {
 				Core_Resume();
 			}

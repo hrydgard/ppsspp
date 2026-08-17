@@ -62,9 +62,6 @@ BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
 BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	// Conditions have always already been checked if we get here.
 	Log(addr, write, size, pc, reason);
-	if (action & BREAK_ACTION_PAUSE) {
-		Core_Break(BreakReason::MemoryBreakpoint, start);
-	}
 	return action;
 }
 
@@ -327,12 +324,11 @@ void BreakpointManager::ChangeBreakPointLogFormat(u32 addr, const std::string &f
 BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	if (!anyBreakPoints_)
 		return BREAK_ACTION_NONE;
-	// Checked here rather than at each call site, so no path can forget it and log/count a hit for
-	// a breakpoint we're only just stepping off. See SetSkipFirst().
-	if (ShouldSkipBreakpoint(addr))
-		return BREAK_ACTION_NONE;
 
 	BreakAction result = BREAK_ACTION_NONE;
+	// Checked here rather than at each call site, so no path can forget it and log/count a hit
+	// twice for the one execution of this instruction.
+	bool reported = AlreadyReportedAt(addr);
 
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
@@ -343,8 +339,9 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 		if (info.hasCond)
 			condPassed = info.cond.Evaluate() != 0;
 
-		if (condPassed) {
+		if (condPassed && !reported) {
 			++info.numHits;
+			reported = true;
 
 			if (action & BREAK_ACTION_LOG) {
 				if (info.logFormat.empty()) {
@@ -368,8 +365,22 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 		}
 	}
 
+	// Nothing may pause us on the instruction we're resuming or stepping off, or we could never
+	// get off it. Deliberately separate from the reporting suppression above: this applies even to
+	// a breakpoint that was never reported (one you stepped onto), and it only drops the pause -
+	// the log and the hit count still happen. It covers the temporary breakpoint too, which is
+	// what makes "run to here" work when you're already parked on that address; a step can't get
+	// stuck on it, since the marker stops matching as soon as the instruction retires.
+	if (ShouldSuppressPauseAt(addr))
+		result &= ~BREAK_ACTION_PAUSE;
+
 	if (result & BREAK_ACTION_PAUSE) {
+		// Only if something was actually reported for this instruction - stopping here for the
+		// temporary breakpoint alone must not suppress a breakpoint added while parked here.
 		Core_Break(BreakReason::CpuBreakpoint, addr);
+		// After Core_Break(), which clears the previous stop's marker.
+		if (reported)
+			NoteStoppedOnReported(addr);
 		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 
@@ -525,8 +536,8 @@ BreakAction BreakpointManager::ExecMemCheck(u32 address, bool write, int size, u
 {
 	if (!anyMemChecks_)
 		return BREAK_ACTION_NONE;
-	// See SetSkipFirst() - same reason as in ExecBreakPoint().
-	if (ShouldSkipBreakpoint(pc))
+	// Same two-part suppression as ExecBreakPoint(), keyed on the instruction doing the access.
+	if (AlreadyReportedAt(pc))
 		return BREAK_ACTION_NONE;
 	MemCheck *check = FindMemCheckInRange(address, size);
 	if (check) {
@@ -535,14 +546,25 @@ BreakAction BreakpointManager::ExecMemCheck(u32 address, bool write, int size, u
 			return applyAction;
 
 		MemCheck copy = *check;
-		return copy.Action(address, write, size, pc, reason);
+		BreakAction result = copy.Action(address, write, size, pc, reason);
+		if (ShouldSuppressPauseAt(pc))
+			result &= ~BREAK_ACTION_PAUSE;
+		if (result & BREAK_ACTION_PAUSE) {
+			Core_Break(BreakReason::MemoryBreakpoint, copy.start);
+			NoteStoppedOnReported(pc);
+		}
+		return result;
 	}
 	return BREAK_ACTION_NONE;
 }
 
 BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
-	if (ShouldSkipBreakpoint(pc))
+	// Same two-part suppression as ExecBreakPoint(), keyed on the instruction doing the access.
+	if (AlreadyReportedAt(pc))
 		return BREAK_ACTION_NONE;
+	// pc moves to the delay slot below, but the markers have to stay keyed on the instruction the
+	// resume/step started from, which is the branch.
+	const u32 execPc = pc;
 	// Note: currently, we don't check "on changed" for HLE (ExecMemCheck.)
 	// We'd need to more carefully specify memory changes in HLE for that.
 	int size = MIPSAnalyst::OpMemoryAccessSize(pc);
@@ -570,7 +592,14 @@ BreakAction BreakpointManager::ExecOpMemCheck(u32 address, u32 pc) {
 				return applyAction;
 
 			MemCheck copy = *check;
-			return copy.Action(address, write, size, pc, "CPU");
+			BreakAction result = copy.Action(address, write, size, pc, "CPU");
+			if (ShouldSuppressPauseAt(execPc))
+				result &= ~BREAK_ACTION_PAUSE;
+			if (result & BREAK_ACTION_PAUSE) {
+				Core_Break(BreakReason::MemoryBreakpoint, copy.start);
+				NoteStoppedOnReported(execPc);
+			}
+			return result;
 		}
 	}
 	return BREAK_ACTION_NONE;
@@ -703,9 +732,9 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 	if (info.hasCond && !info.cond.Evaluate())
 		return BREAK_ACTION_NONE;
 
-	// Before the log and the hit count, not just the pause - stepping off a log+pause register
-	// breakpoint used to print it a second time and count it twice. See SetSkipFirst().
-	if (ShouldSkipBreakpoint(pc))
+	// Same two-part suppression as ExecBreakPoint(). Covering the log and the hit count, not just
+	// the pause - stepping off a log+pause register breakpoint used to print it a second time.
+	if (AlreadyReportedAt(pc))
 		return BREAK_ACTION_NONE;
 
 	++info.numHits;
@@ -719,35 +748,58 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x: %s", reg, pc, formatted.c_str());
 		}
 	}
-	if (info.result & BREAK_ACTION_PAUSE) {
+
+	BreakAction result = info.result;
+	if (ShouldSuppressPauseAt(pc))
+		result &= ~BREAK_ACTION_PAUSE;
+	if (result & BREAK_ACTION_PAUSE) {
 		Core_Break(BreakReason::RegBreakpoint, pc);
+		NoteStoppedOnReported(pc);
 	}
 
-	return info.result;
+	return result;
 }
 
-void BreakpointManager::ClearSkipFirst() {
-	skipFirst_.valid = false;
+void BreakpointManager::ClearResumeMarker() {
+	resumedFrom_.Clear();
+	// Cleared on the way into stopping, and set again right after by whichever breakpoint reported,
+	// so it always describes why we are stopped *now*.
+	stoppedOnReported_.valid = false;
 }
 
-void BreakpointManager::SetSkipFirst(u32 addr) {
-	// Nothing to suppress if no breakpoint machinery is armed, and not arming it needlessly keeps
-	// a stale marker from ever being able to swallow a breakpoint set later.
-	if (!anyBreakPoints_ && !anyMemChecks_ && regBreakpointMask_ == 0) {
-		skipFirst_.valid = false;
-		return;
-	}
-	skipFirst_.valid = true;
-	skipFirst_.addr = addr;
-	skipFirst_.ticks = CoreTiming::GetTicks(currentMIPS);
+void BreakpointManager::ResetExecutionMarkers() {
+	resumedFrom_.Clear();
+	reported_.Clear();
+	stoppedOnReported_.valid = false;
 }
 
-bool BreakpointManager::ShouldSkipBreakpoint(u32 addr) const {
-	if (!skipFirst_.valid)
-		return false;
-	if (skipFirst_.addr != addr && skipFirst_.addr != currentMIPS->pc)
-		return false;
-	return skipFirst_.ticks == CoreTiming::GetTicks(currentMIPS);
+void BreakpointManager::NotifyResumingFrom(u32 addr) {
+	const u64 ticks = CoreTiming::GetTicks(currentMIPS);
+	resumedFrom_.Arm(addr, ticks);
+	// Only suppress reporting if we're resuming off the very breakpoint that reported. Stopping
+	// somewhere else and stepping onto an address with a breakpoint is a different thing: nothing
+	// has been reported there, so it still has to log and count when execution moves on.
+	// Deliberately does not consume stoppedOnReported_ - a single resume can come through here more
+	// than once (a step-over arms its temporary breakpoint and then calls Core_Resume(), which
+	// notifies again), and the second call must arrive at the same answer as the first. Core_Break()
+	// is what clears it, on the way into the next stop.
+	if (stoppedOnReported_.valid && stoppedOnReported_.addr == addr)
+		reported_.Arm(addr, ticks);
+	else
+		reported_.Clear();
+}
+
+bool BreakpointManager::ShouldSuppressPauseAt(u32 addr) const {
+	return resumedFrom_.Matches(addr, CoreTiming::GetTicks(currentMIPS));
+}
+
+bool BreakpointManager::AlreadyReportedAt(u32 addr) const {
+	return reported_.Matches(addr, CoreTiming::GetTicks(currentMIPS));
+}
+
+void BreakpointManager::NoteStoppedOnReported(u32 addr) {
+	stoppedOnReported_.valid = true;
+	stoppedOnReported_.addr = addr;
 }
 
 static MemCheck NotCached(MemCheck mc) {

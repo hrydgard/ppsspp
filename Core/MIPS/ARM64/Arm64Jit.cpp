@@ -114,7 +114,7 @@ Arm64Jit::Arm64Jit(MIPSState *mipsState) : blocks(mipsState, this), gpr(mipsStat
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.ClearSkipFirst();
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 Arm64Jit::~Arm64Jit() {
@@ -142,7 +142,7 @@ void Arm64Jit::DoState(PointerWrap &p) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.ClearSkipFirst();
+	g_breakpoints.ResetExecutionMarkers();
 }
 
 void Arm64Jit::UpdateFCR31() {

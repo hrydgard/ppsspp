@@ -318,7 +318,7 @@ void WebSocketSteppingState::PrepareResume() {
 		currentMIPS->SingleStep();
 	} else {
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		g_breakpoints.NotifyResumingFrom(currentMIPS->pc);
 	}
 }
 
