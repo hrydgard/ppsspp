@@ -190,6 +190,19 @@ struct PspLibStubEntry {
 
 PSPModule::~PSPModule() {
 	if (memoryBlockAddr) {
+		if (g_Config.bAutoSaveLoadSymbols) {
+			// Must happen before UnloadModule() below, while this module's symbols are still
+			// active (SaveModuleSymbols itself doesn't care, but GetModuleIndexByName's
+			// active-module lookup does).
+			char moduleName[29] = { 0 };
+			truncate_cpy(moduleName, nm.name);
+			int idx = g_symbolMap->GetModuleIndexByName(moduleName);
+			if (idx > 0) {
+				Path path = SymbolMap::GetModuleSymbolsPath(moduleName, g_symbolMap->GetModuleCrc(idx));
+				g_symbolMap->SaveModuleSymbols(idx, path, g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"));
+			}
+		}
+
 		// If it's either below user memory, or using a high kernel bit, it's in kernel.
 		if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
 			kernelMemory.Free(memoryBlockAddr);
@@ -292,7 +305,13 @@ void PSPModule::DoState(PointerWrap &p) {
 		char moduleName[29] = { 0 };
 		truncate_cpy(moduleName, nm.name);
 		if (memoryBlockAddr != 0) {
-			g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+			g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize, crc);
+			if (g_Config.bAutoSaveLoadSymbols) {
+				int idx = g_symbolMap->GetModuleIndexByName(moduleName);
+				if (idx > 0) {
+					g_symbolMap->LoadModuleSymbols(idx, SymbolMap::GetModuleSymbolsPath(moduleName, crc));
+				}
+			}
 		}
 	}
 
@@ -1348,7 +1367,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
 
 	if (module->memoryBlockAddr != 0) {
-		g_symbolMap->AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
+		g_symbolMap->AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize, module->crc);
+		if (g_Config.bAutoSaveLoadSymbols) {
+			int idx = g_symbolMap->GetModuleIndexByName(moduleName);
+			if (idx > 0) {
+				g_symbolMap->LoadModuleSymbols(idx, SymbolMap::GetModuleSymbolsPath(moduleName, module->crc));
+			}
+		}
 	}
 
 	SectionID textSection = reader.GetSectionByName(".text");

@@ -193,6 +193,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(generateInterpreterDispatch), CmdParamType::Bool, "generate-interpreter-dispatch", '\0', "Generate C++ interpreter dispatch code (ExecInstruction) to stdout and exit", CmdLineMode::Headless},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
+	{POFF(autoSaveLoadSymbols), CmdParamType::Bool, "auto-save-load-symbols", '\0', "Auto save/load per-module and per-game symbol files (see bAutoSaveLoadSymbols)", CmdLineMode::Both},
 	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
 	{POFF(memReadAction), CmdParamType::Enum, "memread", '\0', "Set the action for memory read exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
 	{POFF(memWriteAction), CmdParamType::Enum, "memwrite", '\0', "Set the action for memory write exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
@@ -515,6 +516,11 @@ void CommandLineOptions::ApplyToConfig() const {
 		// --debugger=0 still means "pick any free port", but a specific port was asked for by
 		// something that intends to connect to it, so don't quietly come up on a different one.
 		WebServerSetRequireExactPort(debuggerPort.value() != 0);
+	}
+
+	if (autoSaveLoadSymbols.has_value()) {
+		g_Config.bAutoSaveLoadSymbols = autoSaveLoadSymbols.value();
+		g_Config.DoNotSaveSetting(&g_Config.bAutoSaveLoadSymbols);
 	}
 
 	if (logLevel.has_value()) {

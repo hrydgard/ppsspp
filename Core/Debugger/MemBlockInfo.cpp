@@ -34,6 +34,7 @@
 #include "Core/HLE/sceKernelModule.h"  // for DescribeAddress
 #include "Core/MIPS/MIPS.h"
 #include "Common/StringUtils.h"
+#include "Core/Debugger/SymbolMap.h"
 
 class MemSlabMap {
 public:
@@ -797,7 +798,7 @@ void DescribeAddress(const MIPSDebugInterface *mips, u32 address, char *buffer, 
 			w.C("(invalid)");
 		}
 	} else if (DescribeModuleAddress(address, desc, sizeof(desc))) {
-		std::string temp = mips->getDescription(address);
+		std::string temp = g_symbolMap->GetDescription(address);
 		w.F("[%s]%s%s: %s", desc, kernel, uncached, temp.c_str());
 	} else if (Memory::IsVRAMAddress(address)) {
 		w.F("[VRAM]%s", uncached);  // can't be kernel

@@ -61,8 +61,10 @@
 #include "Core/Debugger/WebSocket/GPUDisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
+#include "Core/Debugger/WebSocket/HLEKernelObjectSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
+#include "Core/Debugger/WebSocket/LogConfigSubscriber.h"
 #include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
@@ -79,8 +81,10 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketGPUDisasmInit,
 	&WebSocketGPURecordInit,
 	&WebSocketGPUStatsInit,
+	&WebSocketHLEKernelObjectInit,
 	&WebSocketHLEInit,
 	&WebSocketInputInit,
+	&WebSocketLogConfigInit,
 	&WebSocketMemoryInfoInit,
 	&WebSocketMemoryInit,
 	&WebSocketReplayInit,

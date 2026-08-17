@@ -250,10 +250,6 @@ int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
 	}
 }
 
-std::string MIPSDebugInterface::getDescription(unsigned int address) const {
-	return g_symbolMap->GetDescription(address);
-}
-
 std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 	static const char * const regName[32] = {
 		"zero",  "at",    "v0",    "v1",

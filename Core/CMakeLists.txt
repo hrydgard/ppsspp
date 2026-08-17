@@ -313,6 +313,8 @@ add_library(Core STATIC
 	Debugger/WebSocket/GPURecordSubscriber.h
 	Debugger/WebSocket/GPUStatsSubscriber.cpp
 	Debugger/WebSocket/GPUStatsSubscriber.h
+	Debugger/WebSocket/HLEKernelObjectSubscriber.cpp
+	Debugger/WebSocket/HLEKernelObjectSubscriber.h
 	Debugger/WebSocket/HLESubscriber.cpp
 	Debugger/WebSocket/HLESubscriber.h
 	Debugger/WebSocket/InputBroadcaster.cpp
@@ -321,6 +323,8 @@ add_library(Core STATIC
 	Debugger/WebSocket/InputSubscriber.h
 	Debugger/WebSocket/LogBroadcaster.cpp
 	Debugger/WebSocket/LogBroadcaster.h
+	Debugger/WebSocket/LogConfigSubscriber.cpp
+	Debugger/WebSocket/LogConfigSubscriber.h
 	Debugger/WebSocket/MemoryInfoSubscriber.cpp
 	Debugger/WebSocket/MemoryInfoSubscriber.h
 	Debugger/WebSocket/MemorySubscriber.cpp

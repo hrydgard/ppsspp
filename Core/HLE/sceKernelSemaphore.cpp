@@ -38,51 +38,18 @@
 * @see sceKernelReferSemaStatus.
 */
 
-struct NativeSemaphore
-{
-	/** Size of the ::SceKernelSemaInfo structure. */
-	SceSize_le size;
-	/** NUL-terminated name of the semaphore. */
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	/** Attributes. */
-	SceUInt_le attr;
-	/** The initial count the semaphore was created with. */
-	s32_le initCount;
-	/** The current count. */
-	s32_le currentCount;
-	/** The maximum count. */
-	s32_le maxCount;
-	/** The number of threads waiting on the semaphore. */
-	s32_le numWaitThreads;
-};
+// NativeSemaphore/PSPSemaphore itself now live in sceKernelSemaphore.h - see the comment on the
+// class there for why.
+void PSPSemaphore::DoState(PointerWrap &p) {
+	auto s = p.Section("Semaphore", 1);
+	if (!s)
+		return;
 
-
-struct PSPSemaphore : public KernelObject {
-	const char *GetName() override { return ns.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "Semaphore"; }
-
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Semaphore; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Semaphore; }
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Semaphore", 1);
-		if (!s)
-			return;
-
-		Do(p, ns);
-		SceUID dv = 0;
-		Do(p, waitingThreads, dv);
-		Do(p, pausedWaits);
-	}
-
-	NativeSemaphore ns;
-	std::vector<SceUID> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, u64> pausedWaits;
-};
+	Do(p, ns);
+	SceUID dv = 0;
+	Do(p, waitingThreads, dv);
+	Do(p, pausedWaits);
+}
 
 static int semaWaitTimer = -1;
 

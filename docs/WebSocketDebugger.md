@@ -107,7 +107,7 @@ file - this is just an index.
 | Category | Events | File |
 |---|---|---|
 | Game/version | `game.reset`, `game.status`, `version` | `GameSubscriber.cpp` |
-| CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status`, `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
+| CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status` (reports `ticks` plus `us`, emulated microseconds, and `clockHz` - use `us` to line up with wall-clock timings, since games change the clock frequency and the ticks-per-second ratio isn't fixed), `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
 | Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.nextHLE` | `SteppingSubscriber.cpp` |
 | Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
 | Memory read/write | `memory.read_u8/u16/u32`, `memory.read`, `memory.readString`, `memory.write_u8/u16/u32`, `memory.write` | `MemorySubscriber.cpp` |
@@ -115,14 +115,16 @@ file - this is just an index.
 | Memory info/annotations | `memory.mapping`, `memory.info.config/set/list/search` | `MemoryInfoSubscriber.cpp` |
 | Disassembly | `memory.base`, `memory.disasm` (add `compact=true` for plain-text lines instead of full per-field objects), `memory.searchDisasm` (add `findAll=true` for every match instead of just the first - e.g. "every caller of this address"), `memory.assemble` | `DisasmSubscriber.cpp` |
 | GE display list disassembly | `gpu.displaylist.disasm` - like `memory.disasm` but for GE command words (`CLEARMODE`, `PRIM`, etc.) instead of CPU instructions; also supports `compact=true` | `GPUDisasmSubscriber.cpp` |
-| HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.backtrace` | `HLESubscriber.cpp` |
+| HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.module.saveSymbols/loadSymbols` (save/load one module's symbols to/from its standard `PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym` file, shared across any game that loads the same module - see `SymbolMap::GetModuleSymbolsPath`), `hle.game.saveSymbols/loadSymbols` (the same for symbols that aren't inside any module - heap, stack, scratchpad, hardware registers - which describe one game's memory layout and so go to a per-game `PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym` instead; see `SymbolMap::GetGameSymbolsPath`), `hle.backtrace` | `HLESubscriber.cpp` |
 | Data symbols | `hle.data.list/add/remove/rename` - label discovered data (structs, tables, buffers) with a name/type, same idea as `hle.func.*` but for `ST_DATA` symbols | `HLESubscriber.cpp` |
+| Kernel objects | `hle.object.list` (every live kernel object of every type at once, with an optional `type` filter - uid/type/name/one-line summary only); `hle.eventflag.list/info`, `hle.mutex.list/info`, `hle.semaphore.list/info`, `hle.msgpipe.list/info`, `hle.callback.list/info` (per-type full detail, including waiting-thread lists) - all read-only, never mutate kernel state | `HLEKernelObjectSubscriber.cpp` |
 | GPU stats | `gpu.stats.get`, `gpu.stats.feed` | `GPUStatsSubscriber.cpp` |
 | GPU recording | `gpu.record.dump` | `GPURecordSubscriber.cpp` |
 | GPU buffers | `gpu.buffer.screenshot`, `gpu.buffer.renderColor/renderDepth/renderStencil`, `gpu.buffer.texture`, `gpu.buffer.clut` | `GPUBufferSubscriber.cpp` |
 | Input injection | `input.buttons.send`, `input.buttons.press`, `input.analog.send` | `InputSubscriber.cpp` |
 | Replay | `replay.begin/abort/flush/execute/status`, `replay.time.get/set` | `ReplaySubscriber.cpp` |
 | Client config | `broadcast.config.get/set` | `ClientConfigSubscriber.cpp` |
+| Log channels | `log.channels.list`, `log.channel.set` - query/change a log channel's level (string: `notice`/`error`/`warning`/`info`/`debug`/`verbose`) and/or enabled state; the `log` event itself (the passive message stream, unaffected by this) keeps its existing numeric `level`, see `LogBroadcaster.cpp` | `LogConfigSubscriber.cpp` |
 
 ## Enabling it
 

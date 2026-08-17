@@ -718,6 +718,9 @@
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\LogConfigSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -749,6 +752,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\HLEKernelObjectSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp">
@@ -1989,6 +1995,9 @@
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\LogConfigSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
@@ -2023,6 +2032,9 @@
       <Filter>HLE\Kernel</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\HLEKernelObjectSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h">

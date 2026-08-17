@@ -324,6 +324,41 @@ A working invocation, and the traps around it:
 - Keep wsdbg scripts in files and pipe them in, rather than building JSON inline in a shell command - inline
   `{"event":...}` in a bash heredoc trips Claude Code's command analyzer ("brace with quote character") and forces a
   manual approval prompt for every single invocation.
+- **`--sync` can only match a response to a request that carries a ticket**, and wsdbg only assigns tickets to its
+  `key=value` shorthand. A raw JSON line (needed for nested params) gets no ticket, so `--sync` just waits for the
+  next message and treats whatever broadcast arrives first as the answer, silently desynchronising the rest of the
+  script. Use the shorthand wherever the parameters are flat. Hex works there: `memory.disasm address=0x08804000`.
+- **Headless reports `SYSPROP_HAS_DEBUGGER` as false** (only `Windows/main.cpp` implements it), so anything gated on
+  it does nothing there - `LoadSymbolsIfSupported()` in `Core/System.cpp`, for instance, doesn't load `.ppmap`/`.sym`
+  at all under headless. Gate new debugger-adjacent features on their own config flag, not on that property.
+- The headless memstick is hardcoded to `memstick` next to the executable (`Headless.cpp`), with no `--memstick`
+  flag, so a game has to be copied under `Windows/x64/Debug/memstick/PSP/GAME/` to be bootable there.
+- Kill leftover instances (`taskkill //F //IM PPSSPPHeadless.exe`) before building - a running one makes the link
+  step fail with `LNK1168: cannot open ... for writing`, which looks like a build problem and isn't.
+- Don't wrap a script that starts headless in `timeout` - when it fires it takes the emulator down with it, and if
+  the emulator was stopped at the crash you were investigating, that state is gone. Let the launcher exit and leave
+  the process running; wsdbg can reconnect to the same port as many times as you like.
+- Response field names are not uniform: `memory.read_u32` answers with `value`, while `cpu.getReg` answers with
+  `uintValue`. A parser defaulting a missing key to 0 will quietly report zeroes - read the handler's comment in
+  `Core/Debugger/WebSocket/*Subscriber.cpp` rather than guessing.
+- `broadcast.config.set` currently rejects the `game` and `stepping` keys that `docs/WebSocketDebugger.md` lists,
+  erroring with "Unsupported 'disallowed' object key". Only `logger` and `input` work.
+- **To line input injection up with a wall-clock repro, use `cpu.status`'s `us` field** (emulated microseconds), not
+  `ticks`. The PSP's clock frequency is changeable and games do change it - CrossCraft Classic runs at 333MHz, so
+  `ticks / 222000000` is off by a factor of 1.5. `clockHz` is reported alongside.
+
+## Debugging a game that works on hardware but not in PPSSPP
+
+One technique paid for itself twice over here. When a homebrew ELF is shipped next to the EBOOT (`app.elf`
+alongside `app.prx`, common for Zig/Rust/SDK homebrew), **the pre-link ELF is a ground-truth oracle for anything the
+loader computes**. It still has the symbol table (so an address can be turned into a
+function name) and the full `.rel.*` sections *with symbol indices*, which the PRX format throws away. That makes it
+possible to check the emulator's work exhaustively offline - for the HI16/LO16 relocation bug, "does the address
+this pairing produces land inside the section its symbol belongs to" turned a guess into a measurement over 8589
+relocations, and immediately showed that the first fix attempt scored worse than the code it replaced.
+
+Reach for that before trying to reason a fix out of a disassembly. A few dozen lines of Python over the ELF beats
+re-running the game.
 
 ## Debugger threading model (Core_RunOnCPUThread / g_frameMutex)
 

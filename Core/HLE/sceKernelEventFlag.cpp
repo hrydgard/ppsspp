@@ -32,61 +32,18 @@
 
 void __KernelEventFlagTimeout(u64 userdata, int cycleslate);
 
-struct NativeEventFlag {
-	u32_le size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	u32_le attr;
-	u32_le initPattern;
-	u32_le currentPattern;
-	s32_le numWaitThreads;
-};
+// NativeEventFlag/EventFlagTh/EventFlag itself now live in sceKernelEventFlag.h - see the
+// comment on the class there for why.
+void EventFlag::DoState(PointerWrap &p) {
+	auto s = p.Section("EventFlag", 1);
+	if (!s)
+		return;
 
-struct EventFlagTh {
-	SceUID threadID;
-	u32 bits;
-	u32 wait;
-	u32 outAddr;
-	u64 pausedTimeout;
-
-	bool operator ==(const SceUID &otherThreadID) const {
-		return threadID == otherThreadID;
-	}
-};
-
-class EventFlag : public KernelObject {
-public:
-	const char *GetName() override { return nef.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "EventFlag"; }
-	void GetQuickInfo(char *ptr, int size) override {
-		snprintf(ptr, size, "init=%08x cur=%08x numwait=%i",
-			nef.initPattern,
-			nef.currentPattern,
-			nef.numWaitThreads);
-	}
-
-	static u32 GetMissingErrorCode() {
-		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
-	}
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_EventFlag; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_EventFlag; }
-
-	void DoState(PointerWrap &p) override {
-		auto s = p.Section("EventFlag", 1);
-		if (!s)
-			return;
-
-		Do(p, nef);
-		EventFlagTh eft = { 0 };
-		Do(p, waitingThreads, eft);
-		Do(p, pausedWaits);
-	}
-
-	NativeEventFlag nef;
-	std::vector<EventFlagTh> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, EventFlagTh> pausedWaits;
-};
+	Do(p, nef);
+	EventFlagTh eft = { 0 };
+	Do(p, waitingThreads, eft);
+	Do(p, pausedWaits);
+}
 
 
 /** Event flag creation attributes */

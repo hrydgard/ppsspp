@@ -96,6 +96,9 @@ namespace CoreTiming {
 	u64 GetIdleTicks();
 	u64 GetGlobalTimeUs();
 	u64 GetGlobalTimeUsScaled();
+	// GetGlobalTimeUs() without the internal rebasing, so it's safe to call off the CPU thread -
+	// for the debugger's status poll. Same value, just doesn't help the next call along.
+	u64 PeekGlobalTimeUs();
 
 	// Returns the event_type identifier.
 	int RegisterEvent(const char *name, TimedCallback callback);

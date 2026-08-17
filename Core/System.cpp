@@ -188,6 +188,25 @@ static bool SaveSymbolMapIfSupported() {
 	return false;
 }
 
+// The counterparts to the per-module symbol auto-load/save in Core/HLE/sceKernelModule.cpp, for
+// the symbols that don't belong to any module - see SymbolMap::GetGameSymbolsPath. Gated on the
+// same config setting as the module ones and, like them, deliberately not on SYSPROP_HAS_DEBUGGER
+// (which only the Windows port reports true for, so LoadSymbolsIfSupported above does nothing at
+// all on headless).
+static void LoadGameSymbolsIfEnabled() {
+	if (!g_symbolMap || !g_Config.bAutoSaveLoadSymbols)
+		return;
+	g_symbolMap->LoadModuleSymbols(0, SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID()));
+}
+
+static void SaveGameSymbolsIfEnabled() {
+	if (!g_symbolMap || !g_Config.bAutoSaveLoadSymbols)
+		return;
+	// Writes nothing (and cleans up any previous file) if there are no such symbols.
+	g_symbolMap->SaveModuleSymbols(0, SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID()),
+		g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"));
+}
+
 bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string *id) {
 	using namespace GPURecord;
 
@@ -475,6 +494,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	InitVFPU();
 
 	LoadSymbolsIfSupported();
+	LoadGameSymbolsIfEnabled();
 
 	mipsr4k.Reset();
 
@@ -580,6 +600,9 @@ void CPU_Shutdown(bool success) {
 
 	if (g_Config.bAutoSaveSymbolMap && success) {
 		SaveSymbolMapIfSupported();
+	}
+	if (success) {
+		SaveGameSymbolsIfEnabled();
 	}
 
 	Replacement_Shutdown();
