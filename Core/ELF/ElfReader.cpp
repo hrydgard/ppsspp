@@ -19,6 +19,8 @@
 
 #include "Common/StringUtils.h"
 #include "Common/Thread/ParallelLoop.h"
+#include "Common/File/DirListing.h"
+#include "Common/File/FileUtil.h"
 
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -823,4 +825,118 @@ bool ElfReader::LoadSymbols()
 		}
 	}
 	return hasSymbols;
+}
+
+// Adds the STT_FUNC/STT_OBJECT symbols from one candidate ELF, if it looks like it belongs to a
+// module of this size. Returns the number added, 0 if it doesn't match or has nothing to offer.
+static int LoadSymbolsFromCompanion(const std::string &data, u32 moduleBase, u32 moduleSize, const char **why) {
+	*why = "too small";
+	if (data.size() < sizeof(Elf32_Ehdr))
+		return 0;
+	const Elf32_Ehdr *header = (const Elf32_Ehdr *)data.data();
+	*why = "not an ELF";
+	if (header->e_ident[EI_MAG0] != ELFMAG0 || header->e_ident[EI_MAG1] != ELFMAG1
+		|| header->e_ident[EI_MAG2] != ELFMAG2 || header->e_ident[EI_MAG3] != ELFMAG3)
+		return 0;
+	if (header->e_ident[EI_CLASS] != ELFCLASS32)
+		return 0;
+
+	*why = "no section headers";
+	if (!header->e_shoff || header->e_shentsize < sizeof(Elf32_Shdr))
+		return 0;
+	if ((size_t)header->e_shoff + (size_t)header->e_shnum * header->e_shentsize > data.size())
+		return 0;
+
+	auto section = [&](int i) {
+		return (const Elf32_Shdr *)(data.data() + header->e_shoff + (size_t)i * header->e_shentsize);
+	};
+
+	// Identity check. The companion links at base 0 and covers the same image the module was
+	// built into, so the top of its highest section should land within a page of the module's
+	// size. Without this an unrelated ELF sitting in the same folder would happily contribute
+	// nonsense names at real addresses, which is worse than having none.
+	u32 top = 0;
+	int symtabIndex = -1;
+	for (int i = 0; i < header->e_shnum; i++) {
+		const Elf32_Shdr *s = section(i);
+		if (s->sh_addr)
+			top = std::max(top, s->sh_addr + s->sh_size);
+		if (s->sh_type == SHT_SYMTAB)
+			symtabIndex = i;
+	}
+	*why = "no symbol table";
+	if (symtabIndex < 0)
+		return 0;
+	*why = "image size doesn't match the loaded module";
+	if (top > moduleSize || top + 0x1000 < moduleSize)
+		return 0;
+
+	const Elf32_Shdr *symtab = section(symtabIndex);
+	if (symtab->sh_link >= header->e_shnum || symtab->sh_entsize < sizeof(Elf32_Sym))
+		return 0;
+	const Elf32_Shdr *strtab = section(symtab->sh_link);
+	if ((size_t)symtab->sh_offset + symtab->sh_size > data.size())
+		return 0;
+	if ((size_t)strtab->sh_offset + strtab->sh_size > data.size())
+		return 0;
+
+	const char *strings = data.data() + strtab->sh_offset;
+	const int numSymbols = symtab->sh_size / symtab->sh_entsize;
+	int added = 0;
+	for (int i = 0; i < numSymbols; i++) {
+		const Elf32_Sym *sym = (const Elf32_Sym *)(data.data() + symtab->sh_offset + (size_t)i * symtab->sh_entsize);
+		if (!sym->st_size || sym->st_name >= strtab->sh_size)
+			continue;
+		if (sym->st_value > moduleSize)
+			continue;
+		const char *name = strings + sym->st_name;
+		if (!name[0])
+			continue;
+
+		const u32 addr = moduleBase + sym->st_value;
+		switch (sym->st_info & 0xF) {
+		case STT_FUNC:
+			// updateName: these are the names a human wrote, so they beat the analyzer's
+			// z_un_<address> placeholders rather than losing to whichever got there first.
+			g_symbolMap->AddFunction(name, addr, sym->st_size, -1, true);
+			added++;
+			break;
+		case STT_OBJECT:
+			g_symbolMap->AddData(addr, sym->st_size, DATATYPE_BYTE);
+			g_symbolMap->AddLabel(name, addr, -1, true);
+			added++;
+			break;
+		default:
+			break;
+		}
+	}
+	*why = added ? "ok" : "symbol table had nothing usable";
+	return added;
+}
+
+int LoadCompanionElfSymbols(const Path &gameFile, u32 moduleBase, u32 moduleSize) {
+	if (gameFile.empty() || gameFile.Type() != PathType::NATIVE)
+		return 0;
+
+	const Path dir = gameFile.NavigateUp();
+	std::vector<File::FileInfo> files;
+	if (!File::GetFilesInDir(dir, &files, "elf:"))
+		return 0;
+
+	for (const File::FileInfo &file : files) {
+		if (file.isDirectory || file.size < sizeof(Elf32_Ehdr) || file.size > 256 * 1024 * 1024)
+			continue;
+		std::string data;
+		if (!File::ReadBinaryFileToString(file.fullName, &data))
+			continue;
+		const char *why = "";
+		const int added = LoadSymbolsFromCompanion(data, moduleBase, moduleSize, &why);
+		if (added > 0) {
+			INFO_LOG(Log::Loader, "Loaded %d symbols from companion ELF '%s'", added, file.name.c_str());
+			g_symbolMap->SortSymbols();
+			return added;
+		}
+		DEBUG_LOG(Log::Loader, "Companion ELF '%s' skipped: %s", file.name.c_str(), why);
+	}
+	return 0;
 }

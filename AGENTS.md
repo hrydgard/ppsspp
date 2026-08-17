@@ -349,9 +349,13 @@ A working invocation, and the traps around it:
 
 ## Debugging a game that works on hardware but not in PPSSPP
 
-One technique paid for itself twice over here. When a homebrew ELF is shipped next to the EBOOT (`app.elf`
-alongside `app.prx`, common for Zig/Rust/SDK homebrew), **the pre-link ELF is a ground-truth oracle for anything the
-loader computes**. It still has the symbol table (so an address can be turned into a
+First, turn on `bAutoSaveLoadSymbols` (`--auto-save-load-symbols` in headless): when homebrew ships its
+unstripped ELF next to the EBOOT (`app.elf` alongside `app.prx`, common for Zig/Rust/SDK homebrew), PPSSPP loads
+the function and data names out of it, so the disassembly reads `world.init_empty` instead of `z_un_088c00f0`.
+prxgen strips the symbol table on the way to the PRX, which is why the loaded module has none of its own.
+
+That same file is also a ground-truth oracle for anything the loader computes. It still has the symbol table (so
+an address can be turned into a
 function name) and the full `.rel.*` sections *with symbol indices*, which the PRX format throws away. That makes it
 possible to check the emulator's work exhaustively offline - for the HI16/LO16 relocation bug, "does the address
 this pairing produces land inside the section its symbol belongs to" turned a guess into a measurement over 8589

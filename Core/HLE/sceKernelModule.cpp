@@ -1373,6 +1373,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			if (idx > 0) {
 				g_symbolMap->LoadModuleSymbols(idx, SymbolMap::GetModuleSymbolsPath(moduleName, module->crc));
 			}
+			// Homebrew commonly ships the unstripped ELF next to the EBOOT; prxgen strips the
+			// symbols out of the PRX we actually load, so without this every function in it is
+			// just z_un_<address>. See LoadCompanionElfSymbols.
+			LoadCompanionElfSymbols(PSP_CoreParameter().fileToStart, module->memoryBlockAddr, module->memoryBlockSize);
 		}
 	}
 

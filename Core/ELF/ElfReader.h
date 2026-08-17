@@ -19,6 +19,7 @@
 
 #include <vector>
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/ELF/PSPElfTypes.h"
 
 enum {
@@ -166,3 +167,12 @@ private:
 	size_t size_ = 0;
 	u32 firstSegAlign = 0;
 };
+
+// Homebrew usually ships the unstripped ELF it was built from next to the EBOOT (app.elf beside
+// app.prx, and similar) - prxgen strips the symbol table on the way to the PRX, so the module
+// PPSSPP actually loads has no names in it and every function ends up called z_un_<address>.
+// This looks for such a companion in the game's own directory and, if one plausibly belongs to
+// this module, adds its function and data symbols at the module's load address.
+//
+// Returns the number of symbols added, 0 if no matching ELF was found.
+int LoadCompanionElfSymbols(const Path &gameFile, u32 moduleBase, u32 moduleSize);
