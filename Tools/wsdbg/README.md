@@ -38,14 +38,21 @@ cargo run -- 12345
 }
 ```
 
-One-shot mode - send a single event and exit after a short wait, handy for
-scripting:
+One-shot mode - send a single event and exit as soon as its reply arrives, handy
+for scripting:
 
 ```bash
 cargo run -- 12345 gpu.stats.get
 cargo run -- 12345 cpu.setReg thread=0 name=4 value=1000
 cargo run -- 12345 --raw '{"event":"cpu.evaluate","expression":"pc"}'
 ```
+
+The reply is matched by ticket, so this returns in milliseconds rather than
+padding every invocation with a fixed sleep. `--wait` (default 10s) is only the
+upper bound before it gives up and exits non-zero. Pass `--wait-all` to go back
+to "print everything that arrives for `--wait` seconds", which is what you want
+when watching broadcasts (log lines, `gpu.stats.feed`) rather than asking a
+question.
 
 Type `:help` in the REPL for a quick reminder, `:quit` to disconnect.
 

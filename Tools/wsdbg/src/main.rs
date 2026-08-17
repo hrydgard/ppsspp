@@ -54,9 +54,18 @@ struct Args {
     #[arg(long, default_value = "127.0.0.1")]
     host: String,
 
-    /// How long to wait for responses/broadcasts in one-shot mode, in seconds.
-    #[arg(long, default_value_t = 2.0)]
+    /// One-shot mode: how long to wait for the response before giving up, in seconds. Normally
+    /// it returns as soon as the reply for this request arrives (matched by ticket), so this is
+    /// only an upper bound, not a fixed delay. Pass --wait-all to go back to "print everything
+    /// that arrives for N seconds".
+    #[arg(long, default_value_t = 10.0)]
     wait: f64,
+
+    /// One-shot mode: keep reading for the whole --wait period instead of stopping at the
+    /// response. Useful for watching broadcasts (log lines, gpu.stats.feed) rather than asking
+    /// a question.
+    #[arg(long)]
+    wait_all: bool,
 
     /// Send this raw JSON text instead of building one from event/params (one-shot mode).
     #[arg(long)]
@@ -322,29 +331,39 @@ fn is_would_block(e: &tungstenite::Error) -> bool {
     )
 }
 
-fn run_one_shot(mut socket: WebSocket<TcpStream>, json_text: String, wait_secs: f64) -> Result<()> {
+// Returns false if the request went unanswered within the timeout, so one-shot mode can exit
+// non-zero rather than looking successful after having printed nothing useful.
+//
+// Every request is answered (PPSSPP acknowledges even the ones whose result arrives later), so
+// waiting for this request's ticket beats sleeping for a fixed --wait: a quick question returns
+// immediately instead of padding every invocation, and a slow one isn't cut off early.
+fn run_one_shot(
+    mut socket: WebSocket<TcpStream>,
+    json_text: String,
+    ticket: Option<u64>,
+    wait_secs: f64,
+    wait_all: bool,
+) -> Result<bool> {
     println!("-> {json_text}");
     socket.send(Message::Text(json_text.into()))?;
 
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(50)))?;
     let deadline = Instant::now() + Duration::from_secs_f64(wait_secs.max(0.0));
-    while Instant::now() < deadline {
-        match socket.read() {
-            Ok(Message::Text(text)) => print_incoming(&text),
-            Ok(Message::Close(frame)) => {
-                println!("[connection closed: {frame:?}]");
-                break;
-            }
-            Ok(_) => {}
-            Err(ref e) if is_would_block(e) => {}
-            Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => break,
-            Err(e) => {
-                eprintln!("[connection error: {e}]");
-                break;
-            }
-        }
+
+    // Without a ticket (--raw with none supplied) there's nothing to match, so fall back to
+    // draining until the deadline, same as --wait-all.
+    let Some(ticket) = ticket.filter(|_| !wait_all) else {
+        pump_until(&mut socket, deadline, |_| false);
+        return Ok(true);
+    };
+
+    let answered = pump_until(&mut socket, deadline, |v| {
+        v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket)
+    });
+    if !answered {
+        eprintln!("! timed out after {wait_secs}s waiting for a reply (ticket {ticket})");
     }
-    Ok(())
+    Ok(answered)
 }
 
 fn print_help() {
@@ -746,13 +765,19 @@ fn main() -> Result<()> {
     })?;
 
     if let Some(raw) = &args.raw {
-        return run_one_shot(socket, raw.clone(), args.wait);
+        // Recover the ticket if the caller supplied one; there's nothing to wait on otherwise.
+        let ticket = serde_json::from_str::<serde_json::Value>(raw)
+            .ok()
+            .and_then(|v| v.get("ticket").and_then(|t| t.as_u64()));
+        let ok = run_one_shot(socket, raw.clone(), ticket, args.wait, args.wait_all)?;
+        return if ok { Ok(()) } else { std::process::exit(1) };
     }
 
     if let Some(event) = &args.event {
         let ticket = next_ticket();
         let json_text = build_event_json(event, &args.params, Some(ticket))?;
-        return run_one_shot(socket, json_text, args.wait);
+        let ok = run_one_shot(socket, json_text, Some(ticket), args.wait, args.wait_all)?;
+        return if ok { Ok(()) } else { std::process::exit(1) };
     }
 
     // Non-zero exit when something in the script failed, so a caller doesn't have to grep output
