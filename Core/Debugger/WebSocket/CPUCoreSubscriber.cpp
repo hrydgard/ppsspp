@@ -112,6 +112,11 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 //  - paused: boolean, CPU paused or not started yet.
 //  - pc: number value of PC register (inaccurate unless stepping.)
 //  - ticks: number of CPU cycles into emulation.
+//  - us: microseconds of emulated time. Not derivable from ticks on the client side: the PSP's
+//    clock frequency is changeable (scePowerSetCpuClockFrequency), and games do change it, so the
+//    ticks-per-second ratio isn't fixed over a run. This is what to use to answer "how far into
+//    the game am I", e.g. to line up input injection with a wall-clock repro.
+//  - clockHz: the CPU clock frequency right now, for reference.
 // Deliberately not routed through Core_RunOnCPUThread(): this is meant to be a cheap, frequently-pollable
 // status check, and the "pc" field is already documented as inaccurate unless stepping - queuing it would
 // add up to a frame of latency to every poll for no real accuracy benefit. Matches how SteppingBroadcaster
@@ -127,6 +132,8 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 	json.writeUint("pc", pspInited ? currentMIPS->pc : 0);
 	// A double ought to be good enough for a 156 day debug session.
 	json.writeFloat("ticks", pspInited ? CoreTiming::GetTicks(currentMIPS) : 0);
+	json.writeFloat("us", pspInited ? (double)CoreTiming::PeekGlobalTimeUs() : 0);
+	json.writeUint("clockHz", pspInited ? CoreTiming::GetClockFrequencyHz() : 0);
 }
 
 // Retrieve all regs and their values (cpu.getAllRegs)

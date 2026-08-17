@@ -105,6 +105,14 @@ u64 GetGlobalTimeUs() {
 	return lastGlobalTimeUs + usSinceLast;
 }
 
+u64 PeekGlobalTimeUs() {
+	// Same sum as above without the rebasing, so this stays callable from a thread that isn't the
+	// CPU thread. The rebasing exists purely to keep the multiply below from overflowing, and it
+	// happens often enough on the CPU thread that ticksSinceLast stays small here.
+	const s64 ticksSinceLast = GetTicks(currentMIPS) - lastGlobalTimeTicks;
+	return lastGlobalTimeUs + ticksSinceLast * 1000000 / GetClockFrequencyHz();
+}
+
 const Event *GetFirstEvent() {
 	return first;
 }
