@@ -94,6 +94,9 @@ struct DebuggerRequest {
 
 	bool HasParam(const char *name, bool ignoreNull = false);
 	bool ParamU32(const char *name, uint32_t *out, bool allowFloatBits = false, DebuggerParamType type = DebuggerParamType::REQUIRED);
+	// For quantities that don't fit in 32 bits, like emulated microseconds - JSON numbers are
+	// doubles anyway, which is exact well past any plausible session length.
+	bool ParamF64(const char *name, double *out, DebuggerParamType type = DebuggerParamType::REQUIRED);
 	bool ParamBool(const char *name, bool *out, DebuggerParamType type = DebuggerParamType::REQUIRED);
 	bool ParamString(const char *name, std::string *out, DebuggerParamType type = DebuggerParamType::REQUIRED);
 

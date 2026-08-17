@@ -594,6 +594,9 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 		// breakpoint, or lldb discarding the thread plan, on any stop.
 		g_breakpoints.ClearTempBreakPoint();
 
+		// Same reasoning for a cpu.runUntilTime deadline - it belonged to the run that just ended.
+		CoreTiming::SetBreakDeadlineUs(0);
+
 		g_breakReason = reason;
 		g_cpuStepCommand.type = CPUStepType::None;
 		g_cpuStepCommand.reason = reason;

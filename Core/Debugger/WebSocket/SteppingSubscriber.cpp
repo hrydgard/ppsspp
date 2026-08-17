@@ -21,6 +21,7 @@
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -40,6 +41,7 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 	void Over(DebuggerRequest &req);
 	void Out(DebuggerRequest &req);
 	void RunUntil(DebuggerRequest &req);
+	void RunUntilTime(DebuggerRequest &req);
 	void HLE(DebuggerRequest &req);
 
 protected:
@@ -54,6 +56,7 @@ DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
 	map["cpu.stepOver"] = [p](DebuggerRequest &req) { p->Over(req); };
 	map["cpu.stepOut"]  = [p](DebuggerRequest &req) { p->Out(req); };
 	map["cpu.runUntil"] = [p](DebuggerRequest &req) { p->RunUntil(req); };
+	map["cpu.runUntilTime"] = [p](DebuggerRequest &req) { p->RunUntilTime(req); };
 	map["cpu.nextHLE"]  = [p](DebuggerRequest &req) { p->HLE(req); };
 	return p;
 }
@@ -272,6 +275,62 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 			g_breakpoints.SetTempBreakPoint(address);
 			Core_Resume();
 		}
+	});
+}
+
+// Run until a point in emulated time (cpu.runUntilTime)
+//
+// The counterpart to cpu.runUntil for "let the game get N seconds in", which is what lining a
+// scripted repro up with a wall-clock description of a bug needs. Polling cpu.status in a loop
+// does the same job far more slowly and lands somewhere different every run; this stops on the
+// requested tick, so the same script reaches the same place every time.
+//
+// Parameters (exactly one of):
+//  - us: absolute emulated microseconds to run until, as reported by cpu.status.
+//  - relativeUs: microseconds to run for, measured from now.
+//
+// Response (same event name):
+//  - targetUs: the absolute emulated time it will stop at.
+//  - us: emulated time right now.
+// A cpu.stepping event follows once it gets there. Note that anything else that stops the CPU
+// first - a breakpoint, an exception - cancels the deadline, same as it cancels a step.
+void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+
+	const bool absolute = req.HasParam("us");
+	if (absolute == req.HasParam("relativeUs")) {
+		return req.Fail("Pass exactly one of 'us' or 'relativeUs'");
+	}
+
+	double requested = 0.0;
+	if (!req.ParamF64(absolute ? "us" : "relativeUs", &requested)) {
+		// Error already sent.
+		return;
+	}
+	if (requested < 0.0) {
+		return req.Fail("Time must not be negative");
+	}
+
+	// Route the actual stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const u64 nowUs = CoreTiming::GetGlobalTimeUs();
+		const u64 targetUs = absolute ? (u64)requested : nowUs + (u64)requested;
+		if (targetUs <= nowUs) {
+			req.Fail("Target time has already passed");
+			return;
+		}
+
+		CoreTiming::SetBreakDeadlineUs(targetUs);
+
+		PrepareResume();
+		Core_Resume();
+
+		JsonWriter &json = req.Respond();
+		json.writeFloat("targetUs", (double)targetUs);
+		json.writeFloat("us", (double)nowUs);
 	});
 }
 
