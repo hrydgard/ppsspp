@@ -331,8 +331,8 @@ A working invocation, and the traps around it:
 - **Headless reports `SYSPROP_HAS_DEBUGGER` as false** (only `Windows/main.cpp` implements it), so anything gated on
   it does nothing there - `LoadSymbolsIfSupported()` in `Core/System.cpp`, for instance, doesn't load `.ppmap`/`.sym`
   at all under headless. Gate new debugger-adjacent features on their own config flag, not on that property.
-- The headless memstick is hardcoded to `memstick` next to the executable (`Headless.cpp`), with no `--memstick`
-  flag, so a game has to be copied under `Windows/x64/Debug/memstick/PSP/GAME/` to be bootable there.
+- Headless defaults its memstick to `memstick` next to the executable (`Headless.cpp`). Pass `--memstick=DIR` to
+  point it at a real one instead - e.g. the same directory the app build uses - rather than copying a game in.
 - Kill leftover instances (`taskkill //F //IM PPSSPPHeadless.exe`) before building - a running one makes the link
   step fail with `LNK1168: cannot open ... for writing`, which looks like a build problem and isn't.
 - Don't wrap a script that starts headless in `timeout` - when it fires it takes the emulator down with it, and if
