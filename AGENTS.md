@@ -44,6 +44,14 @@ This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run on
 specific tests by passing their names instead of `all` (space-separated, e.g. `UnitTest.exe
 CmdLine Path Utf8`); no arguments lists the available tests.
 
+After a `git stash`/`git stash pop` that touches a **header**, do a `/t:Rebuild` rather than trusting
+the incremental build. Stashing rewrites files with timestamps that can leave objects looking newer
+than the header they were compiled against, so adding or removing a class member produces a binary
+where translation units disagree on the object layout. That shows up as `UnitTest.exe` segfaulting
+before it prints anything, for every test including ones unrelated to the change - which looks like
+a catastrophic code bug and is not one. If a build starts crashing inexplicably right after a stash
+cycle, rebuild before investigating anything else.
+
 Known environment-specific issue: in at least one sandboxed dev environment, the `Jit` test
 (`unittest/JitHarness.cpp`) hangs indefinitely specifically during the `CPUCore::JIT_IR`
 phase - confirmed unrelated to source changes (reproduces identically on unmodified checkouts)
