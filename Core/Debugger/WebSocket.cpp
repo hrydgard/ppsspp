@@ -188,6 +188,13 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 
 	WebSocketClientInfo client_info;
 	auto& disallowed_config = client_info.disallowed;
+	// Seed every broadcaster category. broadcast.config.set only accepts keys that already exist
+	// here (so a typo is rejected rather than silently ignored), and these otherwise only appear
+	// as a side effect of operator[] the first time each category actually broadcasts - which
+	// meant "game" and "stepping" were rejected as unsupported until one happened to fire, even
+	// though they're documented and valid. Keep in sync with the Broadcast calls further down.
+	for (const char *category : { "logger", "input", "game", "stepping" })
+		disallowed_config[category] = false;
 
 	LogBroadcaster logger;
 	InputBroadcaster input;
