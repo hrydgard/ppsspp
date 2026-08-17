@@ -181,11 +181,14 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 	if (Achievements::HardcoreModeActive())
 		return;
 
-	Memory::MemoryInitedLock memLock = Memory::Lock();
 	// Reading live memory/tracking state here on the GUI thread would otherwise race with the CPU
 	// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also holds
 	// while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Memory::Lock() - never the other way around. The CPU thread has no
+	// choice but that order (NativeFrame wraps everything below it), so this side has to match.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	Memory::MemoryInitedLock memLock = Memory::Lock();
 
 	// draw to a bitmap for double buffering
 	PAINTSTRUCT ps;	

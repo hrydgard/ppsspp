@@ -126,7 +126,7 @@ static int Replace_memcpy() {
 	}
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
-	currentMIPS->InvalidateICache(srcPtr, bytes);
+	currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -187,7 +187,7 @@ static int Replace_memcpy_jak() {
 	bool sliced = false;
 	static constexpr uint32_t SLICE_SIZE = 32768;
 
-	currentMIPS->InvalidateICache(srcPtr, bytes);
+	currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -258,7 +258,7 @@ static int Replace_memcpy16() {
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
 	if (bytes != 0)
-		currentMIPS->InvalidateICache(srcPtr, bytes);
+		currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0 && bytes != 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -327,7 +327,7 @@ static int Replace_memmove() {
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMMOVE) == 0 && bytes != 0) {
-		currentMIPS->InvalidateICache(srcPtr, bytes);
+		currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}

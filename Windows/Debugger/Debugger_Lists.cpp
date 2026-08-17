@@ -399,10 +399,10 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 	// GUI thread - see Core_RunOnCPUThread() in Core.h.
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.action ^ BREAK_ACTION_PAUSE)); });
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.action ^ BREAK_ACTION_PAUSE)); });
 	}
 }
 
@@ -444,13 +444,8 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 }
 
 int CtrlBreakpointList::getTotalBreakpointCount() {
-	int count = (int)displayedMemChecks_.size();
-	for (auto bp : displayedBreakPoints_) {
-		if (!bp.temporary)
-			++count;
-	}
-
-	return count;
+	// displayedBreakPoints_ never contains the internal step-over/run-until breakpoint.
+	return (int)displayedMemChecks_.size() + (int)displayedBreakPoints_.size();
 }
 
 int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
@@ -467,12 +462,6 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 	size_t i = 0;
 	while (i < displayedBreakPoints_.size())
 	{
-		if (displayedBreakPoints_[i].temporary)
-		{
-			i++;
-			continue;
-		}
-
 		// the index is 0 when there are no more breakpoints to skip
 		if (itemIndex == 0)
 		{
@@ -644,9 +633,9 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			// Route the breakpoint mutation to the CPU thread instead of poking at it directly
 			// from this GUI thread - see Core_RunOnCPUThread() in Core.h.
 			if (isMemory) {
-				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.action ^ BREAK_ACTION_PAUSE)); });
 			} else {
-				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.action ^ BREAK_ACTION_PAUSE)); });
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:
@@ -754,14 +743,15 @@ void CtrlStackTraceView::OnDoubleClick(int itemIndex, int column)
 }
 
 void CtrlStackTraceView::loadStackTrace() {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
-	if (!PSP_IsInited())
-		return;
-
 	// Reading live thread/register/stack state here on the GUI thread would otherwise race with
 	// the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
 	// holds while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Memory::Lock() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	Memory::MemoryInitedLock memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
 
 	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
 

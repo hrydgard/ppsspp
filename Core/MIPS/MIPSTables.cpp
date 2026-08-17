@@ -1086,28 +1086,6 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
-static inline void InterpretInstruction(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
-	if (instr && instr->interpret) {
-		instr->interpret(mips, op);
-	} else {
-		Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
-	}
-}
-
-inline int GetInstructionCycleEstimate(const MIPSInstruction *instr) {
-	return instr ? instr->flags.cycles : 1;
-}
-
-void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
-	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	InterpretInstruction(mips, instr, op);
-}
-
-// See the declaration comment in MIPSTables.h.
-void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
-	MIPSInterpret(currentMIPS, op);
-}
-
 // This is the fast runloop for the interpreter.
 // When making changes, always make sure it's in sync with the fallback loop, RunUntilDowncountZeroWithChecks, which is
 // far less efficient but supports breakpoints of all kinds etc.
@@ -1157,6 +1135,83 @@ static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op)
 	return -1;
 }
 
+static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
+	if (g_breakpoints.HasBreakPoints() && g_breakpoints.NeedsBreakCheckAt(pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
+		g_breakpoints.ExecBreakPoint(pc);
+		// No temp-breakpoint cleanup needed here (the JIT path never had any either) - Core_Break()
+		// drops it for us on the way into stepping, whichever breakpoint it was that stopped us.
+		if (coreState == CORE_STEPPING_CPU)  // after ExecBreakPoint.
+			return true;
+	}
+	return false;
+}
+
+static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op) {
+	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc && instr->interpret != &Int_Syscall) {
+		// This is common for all IN_MEM/OUT_MEM funcs.
+		int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
+		u32 addr = (mips->r[_RS(op)] + offset) & 0xFFFFFFFC;
+		int sz = MIPSGetMemoryAccessSize(op);
+
+		if ((instr->flags & IN_MEM) != 0)
+			g_breakpoints.ExecMemCheck(addr, false, sz, mips->pc, "interpret");
+		if ((instr->flags & OUT_MEM) != 0)
+			g_breakpoints.ExecMemCheck(addr, true, sz, mips->pc, "interpret");
+
+		// If it tripped, bail without running.
+		return coreState == CORE_STEPPING_CPU;
+	}
+	return false;
+}
+
+static bool CheckRegBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op, u32 regBPMask) {
+	if ((instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc) {
+		int regTarget = GetGPRWriteTarget(instr, op);
+		if (regTarget >= 0 && (regBPMask & (1u << regTarget)) != 0) {
+			g_breakpoints.ExecRegBreakpoint(regTarget, mips->pc);
+			// If it tripped, bail without running.
+			if (coreState == CORE_STEPPING_CPU)
+				return true;
+		}
+	}
+	return false;
+}
+
+static inline void InterpretInstruction(MIPSState *mips, const MIPSInstruction *instr, MIPSOpcode op) {
+	if (instr && instr->interpret) {
+		instr->interpret(mips, op);
+	} else {
+		Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
+	}
+}
+
+inline int GetInstructionCycleEstimate(const MIPSInstruction *instr) {
+	return instr ? instr->flags.cycles : 1;
+}
+
+void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
+	const MIPSInstruction *instr = MIPSGetInstruction(op);
+
+	// Check/trigger breakpoints. NOTE: We set coreState to CORE_STEPPING_CPU if a breakpoint was hit (this function
+	// is used to skip delay slots), but unlike when running free, we don't avoid executing the instruction (so you
+	// can actually step through).
+	if (g_breakpoints.HasBreakPoints()) {
+		CheckExecBreakpoints(mips, mips->pc);
+	}
+	if (g_breakpoints.HasMemChecks()) {
+		CheckMemBreakpoints(mips, instr, op);
+	}
+	if (g_breakpoints.GetRegBreakpointMask()) {
+		CheckRegBreakpoints(mips, instr, op, g_breakpoints.GetRegBreakpointMask());
+	}
+	InterpretInstruction(mips, instr, op);
+}
+
+// See the declaration comment in MIPSTables.h.
+void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
+	MIPSInterpret(currentMIPS, op);
+}
+
 // This is the slow, feature-rich runloop for the interpreter.
 // When making changes, always make sure it's in sync with the fast loop, RunUntilDowncountZeroFast, which is
 // much more efficient.
@@ -1180,43 +1235,20 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 			// backends and the IR interpreter, via JitBreakpoint()/IRRunBreakpoint()) rather
 			// than breaking unconditionally - it's what actually respects BREAK_ACTION_LOG vs
 			// BREAK_ACTION_PAUSE (a log-only breakpoint, added with log=true and no/false
-			// enabled, must not stop execution here). The old code called Core_Break()
-			// directly whenever IsAddressBreakPoint() was true - true for *any* non-ignored
-			// breakpoint, log-only included - so log-only address breakpoints always paused
-			// too, contradicting their own documented behavior.
-			if (hasBPs && g_breakpoints.IsAddressBreakPoint(mips->pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
-				g_breakpoints.ExecBreakPoint(mips->pc);
-				// If it tripped, bail without running - same convention as memchecks/reg
-				// breakpoints below.
-				if (coreState == CORE_STEPPING_CPU) {
-					if (g_breakpoints.IsTempBreakPoint(mips->pc))
-						g_breakpoints.RemoveBreakPoint(mips->pc);
-					break;
-				}
-			}
-			if (hasMCs && (instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc && instr->interpret != &Int_Syscall) {
-				// This is common for all IN_MEM/OUT_MEM funcs.
-				int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
-				u32 addr = (mips->r[_RS(op)] + offset) & 0xFFFFFFFC;
-				int sz = MIPSGetMemoryAccessSize(op);
-
-				if ((instr->flags & IN_MEM) != 0)
-					g_breakpoints.ExecMemCheck(addr, false, sz, mips->pc, "interpret");
-				if ((instr->flags & OUT_MEM) != 0)
-					g_breakpoints.ExecMemCheck(addr, true, sz, mips->pc, "interpret");
-
+			// enabled, must not stop execution here).
+			bool breakExec = false;  // We use this mechanism so we always check all breakpoint types - they can overlap.
+			if (hasBPs && CheckExecBreakpoints(mips, mips->pc)) {
 				// If it tripped, bail without running.
-				if (coreState == CORE_STEPPING_CPU)
-					break;
+				breakExec = true;
 			}
-			if (regBPMask != 0 && (instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc) {
-				int regTarget = GetGPRWriteTarget(instr, op);
-				if (regTarget >= 0 && (regBPMask & (1u << regTarget)) != 0) {
-					g_breakpoints.ExecRegBreakpoint(regTarget, mips->pc);
-					// If it tripped, bail without running - same convention as memchecks above.
-					if (coreState == CORE_STEPPING_CPU)
-						break;
-				}
+			if (hasMCs && CheckMemBreakpoints(mips, instr, op)) {
+				breakExec = true;
+			}
+			if (regBPMask != 0 && CheckRegBreakpoints(mips, instr, op, regBPMask)) {
+				breakExec = true;
+			}
+			if (breakExec) {
+				break;
 			}
 
 			const bool wasInDelaySlot = mips->inDelaySlot;

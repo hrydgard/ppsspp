@@ -204,7 +204,7 @@ bool BreakpointWindow::exec() {
 }
 
 void BreakpointWindow::addBreakpoint() {
-	BreakAction result = BREAK_ACTION_IGNORE;
+	BreakAction result = BREAK_ACTION_NONE;
 	if (log)
 		result |= BREAK_ACTION_LOG;
 	if (enabled)
@@ -234,7 +234,7 @@ void BreakpointWindow::addBreakpoint() {
 	}
 	else {
 		// add breakpoint
-		g_breakpoints.AddBreakPoint(address, false);
+		g_breakpoints.AddBreakPoint(address);
 
 		if (!condition.empty()) {
 			BreakPointCond cond;
@@ -256,8 +256,8 @@ void BreakpointWindow::loadFromMemcheck(const MemCheck &memcheck) {
 	write = (memcheck.cond & MEMCHECK_WRITE) != 0;
 	onChange = (memcheck.cond & MEMCHECK_WRITE_ONCHANGE) != 0;
 
-	log = (memcheck.result & BREAK_ACTION_LOG) != 0;
-	enabled = (memcheck.result & BREAK_ACTION_PAUSE) != 0;
+	log = (memcheck.action & BREAK_ACTION_LOG) != 0;
+	enabled = (memcheck.action & BREAK_ACTION_PAUSE) != 0;
 
 	address = memcheck.start;
 	size = memcheck.end - address;
@@ -275,8 +275,8 @@ void BreakpointWindow::loadFromMemcheck(const MemCheck &memcheck) {
 void BreakpointWindow::loadFromBreakpoint(const BreakPoint& breakpoint) {
 	memory = false;
 
-	log = (breakpoint.result & BREAK_ACTION_LOG) != 0;
-	enabled = (breakpoint.result & BREAK_ACTION_PAUSE) != 0;
+	log = (breakpoint.action & BREAK_ACTION_LOG) != 0;
+	enabled = (breakpoint.action & BREAK_ACTION_PAUSE) != 0;
 	address = breakpoint.addr;
 	size = 1;
 

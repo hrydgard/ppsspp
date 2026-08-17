@@ -303,24 +303,25 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		// Horrible hack for Tony Hawk - Underground 2. See #3854. Avoids crashing somehow
 		// but still causes regular JIT invalidations which causes stutters.
 		if (gameTitle == "ULUS10014") {
-			currentMIPS->InvalidateICache(0x08865600, 72);
-			currentMIPS->InvalidateICache(0x08865690, 4);
+			currentMIPS->InvalidateICacheRangeDeferred(0x08865600, 72);
+			currentMIPS->InvalidateICacheRangeDeferred(0x08865690, 4);
 		} else if (gameTitle == "ULES00033" || gameTitle == "ULES00034" || gameTitle == "ULES00035") {  // euro, also 34 and 35
-			currentMIPS->InvalidateICache(0x088655D8, 72);
-			currentMIPS->InvalidateICache(0x08865668, 4);
+			currentMIPS->InvalidateICacheRangeDeferred(0x088655D8, 72);
+			currentMIPS->InvalidateICacheRangeDeferred(0x08865668, 4);
 		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax US
-			currentMIPS->InvalidateICache(0x0886DCC0, 72);
-			currentMIPS->InvalidateICache(0x0886DC20, 4);
-			currentMIPS->InvalidateICache(0x0886DD40, 4);
+			currentMIPS->InvalidateICacheRangeDeferred(0x0886DCC0, 72);
+			currentMIPS->InvalidateICacheRangeDeferred(0x0886DC20, 4);
+			currentMIPS->InvalidateICacheRangeDeferred(0x0886DD40, 4);
 		} else if (gameTitle == "ULES00581") {  // MTX MotoTrax EU (ported from US cwcheat codes)
-			currentMIPS->InvalidateICache(0x0886E1D8, 72);
-			currentMIPS->InvalidateICache(0x0886E138, 4);
-			currentMIPS->InvalidateICache(0x0886E258, 4);
+			currentMIPS->InvalidateICacheRangeDeferred(0x0886E1D8, 72);
+			currentMIPS->InvalidateICacheRangeDeferred(0x0886E138, 4);
+			currentMIPS->InvalidateICacheRangeDeferred(0x0886E258, 4);
 		}
 	}
 
-	if (!cheatEngine || !cheatsEnabled)
+	if (!cheatEngine || !cheatsEnabled) {
 		return;
+	}
 
 	if (g_Config.bReloadCheats) {  // Checks if the "reload cheats" button has been pressed.
 		cheatEngine->ParseCheats();
@@ -371,7 +372,7 @@ void CWCheatEngine::InvalidateICache(u32 addr, int size) const {
 	// Round start down and size up to the nearest word.
 	u32 aligned = addr & ~3;
 	int alignedSize = (addr + size - aligned + 3) & ~3;
-	currentMIPS->InvalidateICache(aligned, alignedSize);
+	currentMIPS->InvalidateICacheRangeDeferred(aligned, alignedSize);
 }
 
 enum class CheatOp {

@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <string_view>
@@ -55,7 +57,11 @@ static const int REPORT_PORT = 80;
 static std::thread serverThread;
 static ServerStatus serverStatus;
 static std::mutex serverStatusLock;
+static std::condition_variable serverStatusCond;
 static WebServerFlags serverFlags;
+// See WebServerSetRequireExactPort(). Atomic because it's set from whichever thread parsed the
+// command line, and read from the server thread.
+static std::atomic<bool> serverRequireExactPort;
 
 std::mutex g_webServerLock;
 static Path g_uploadPath;  // TODO: Supply this through registration instead.
@@ -83,8 +89,11 @@ std::string ServerUriDecode(std::string_view encoded) {
 }
 
 static void UpdateStatus(ServerStatus s) {
-	std::lock_guard<std::mutex> guard(serverStatusLock);
-	serverStatus = s;
+	{
+		std::lock_guard<std::mutex> guard(serverStatusLock);
+		serverStatus = s;
+	}
+	serverStatusCond.notify_all();
 }
 
 static ServerStatus RetrieveStatus() {
@@ -784,6 +793,19 @@ static void WebServerThread() {
 	http->RegisterHandler("/upload_file", &HandleUploadPost);
 
 	if (!http->Listen(g_Config.iRemoteISOPort, "debugger-webserver")) {
+		if (serverRequireExactPort) {
+			// Someone asked for this specific port (--debugger=PORT) - see
+			// WebServerSetRequireExactPort(). Coming up on a different one would just look like
+			// success while nothing can connect, so give up loudly instead.
+			ERROR_LOG(Log::FileSystem, "Unable to listen on port %d, and it was explicitly requested (debugger - webserver). Is another PPSSPP instance already using it?", g_Config.iRemoteISOPort);
+			// Headless treats this as fatal; the GUI app stays usable, so at least say why there's
+			// no debugger rather than leaving it a mystery.
+			if (serverFlags & WebServerFlags::DEBUGGER) {
+				g_OSD.Show(OSDType::MESSAGE_ERROR, "Debugger web server could not use port " + std::to_string(g_Config.iRemoteISOPort), 8.0f, "debugger");
+			}
+			UpdateStatus(ServerStatus::FINISHED);
+			return;
+		}
 		if (!http->Listen(0, "debugger-webserver")) {
 			ERROR_LOG(Log::FileSystem, "Unable to listen on any port (debugger - webserver)");
 			UpdateStatus(ServerStatus::FINISHED);
@@ -892,4 +914,14 @@ bool WebServerRunning(WebServerFlags flags) {
 
 int WebServerPort() {
 	return g_Config.iRemoteISOPort;
+}
+
+void WebServerSetRequireExactPort(bool require) {
+	serverRequireExactPort = require;
+}
+
+bool WebServerWaitForStartup() {
+	std::unique_lock<std::mutex> guard(serverStatusLock);
+	serverStatusCond.wait(guard, [] { return serverStatus != ServerStatus::STARTING; });
+	return serverStatus == ServerStatus::RUNNING;
 }

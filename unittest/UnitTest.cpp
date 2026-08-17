@@ -86,6 +86,8 @@
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Core/CmdLine.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
@@ -134,6 +136,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
+// Pulled in via Core/WebServer.cpp's OpenWebDebugger(), which CmdLine.cpp now references.
+void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -464,6 +468,42 @@ bool TestUtf8() {
 		EXPECT_TRUE(output == "abc");
 	}
 
+	// ReplaceInvalidUTF8 must always return well-formed UTF-8, keeping the good parts.  This one
+	// guards a WebSocket text frame (memory.readString reads arbitrary emulated memory), where a
+	// single bad byte getting through disconnects conforming clients.
+	{
+		const std::string replacement = "\xEF\xBF\xBD";  // U+FFFD
+
+		// Valid input is returned untouched, including 1/2/3/4-byte sequences.
+		const std::string allValid = "abc \xC3\xA9 \xE2\x82\xAC \xF0\x9F\x8E\xAE";
+		EXPECT_TRUE(ReplaceInvalidUTF8(allValid) == allValid);
+		EXPECT_TRUE(ReplaceInvalidUTF8("") == "");
+
+		// Unlike SanitizeUTF8, it keeps going past the bad byte instead of truncating there.
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("ab\xFF" "cd")) == "ab" + replacement + "cd");
+
+		// One replacement per bad byte, and resynchronization on the next valid sequence.
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\x80\x80")) == replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xC3")) == replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xC3?")) == replacement + "?");
+
+		// Sequences that lenient decoders accept but that aren't legal UTF-8: overlong encodings,
+		// surrogates, and anything past U+10FFFF.
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xC0\xAF")) == replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xE0\x80\xAF")) == replacement + replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xED\xA0\x80")) == replacement + replacement + replacement);
+		EXPECT_TRUE(ReplaceInvalidUTF8(std::string("\xF4\x90\x80\x80")) == replacement + replacement + replacement + replacement);
+
+		// Whatever the input, the output must itself survive a re-run unchanged - i.e. be valid.
+		for (int b = 0; b < 256; ++b) {
+			std::string input = "a";
+			input += (char)b;
+			input += "b";
+			const std::string once = ReplaceInvalidUTF8(input);
+			EXPECT_TRUE(ReplaceInvalidUTF8(once) == once);
+		}
+	}
+
 	return true;
 }
 
@@ -504,6 +544,123 @@ bool TestMemBlockInfoSaveState() {
 
 	MemBlockReleaseDetailed();
 	MemBlockInfoShutdown();
+	return true;
+}
+
+// Covers BreakpointManager::ChangeBreakPointAddress(), which the ImDebugger uses to relocate a
+// breakpoint the user is editing. Only the pure bookkeeping is exercised here - there's no JIT in
+// this build, so the cache invalidation it also does is a no-op.
+bool TestBreakpoints() {
+	const u32 kAddrA = 0x08804000;
+	const u32 kAddrB = 0x08804100;
+	const u32 kAddrC = 0x08804200;
+
+	g_breakpoints.AddBreakPoint(kAddrA);
+	g_breakpoints.ChangeBreakPoint(kAddrA, BreakAction(BREAK_ACTION_PAUSE | BREAK_ACTION_LOG));
+	// Pretend it tripped a few times, so the reset below is actually testing something.
+	g_breakpoints.GetBreakpointRefs()[0].numHits = 7;
+
+	// A plain move: gone from the old address, present at the new one, action carried over, and the
+	// hit count (which belonged to the old address) reset.
+	EXPECT_TRUE(g_breakpoints.ChangeBreakPointAddress(kAddrA, kAddrB));
+	EXPECT_FALSE(g_breakpoints.IsAddressBreakPoint(kAddrA));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrB));
+	{
+		std::vector<BreakPoint> bps = g_breakpoints.GetBreakpoints();
+		EXPECT_EQ_INT((int)bps.size(), 1);
+		EXPECT_EQ_INT((int)bps[0].action, (int)(BREAK_ACTION_PAUSE | BREAK_ACTION_LOG));
+		EXPECT_EQ_INT((int)bps[0].numHits, 0);
+	}
+
+	// Moving onto an address that already has a breakpoint must be refused rather than creating a
+	// duplicate - FindBreakpoint() only ever returns one entry per address, so the other would be
+	// silently dead. Neither breakpoint should move.
+	g_breakpoints.AddBreakPoint(kAddrC);
+	EXPECT_FALSE(g_breakpoints.ChangeBreakPointAddress(kAddrB, kAddrC));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrB));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrC));
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 2);
+
+	// Nothing to move.
+	EXPECT_FALSE(g_breakpoints.ChangeBreakPointAddress(kAddrA, 0x08804300));
+	EXPECT_FALSE(g_breakpoints.IsAddressBreakPoint(0x08804300));
+
+	// Moving somewhere it already is succeeds and does nothing.
+	EXPECT_TRUE(g_breakpoints.ChangeBreakPointAddress(kAddrB, kAddrB));
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrB));
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 2);
+
+	g_breakpoints.RemoveBreakPoint(kAddrB);
+	g_breakpoints.RemoveBreakPoint(kAddrC);
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
+	return true;
+}
+
+// The one-shot breakpoint behind step-over/step-out/run-until. It deliberately lives outside the
+// user's breakpoint list, so the two must not be able to see or clobber each other.
+bool TestTempBreakpoints() {
+	const u32 kAddrA = 0x08804000;
+	const u32 kAddrB = 0x08804100;
+
+	// ExecBreakPoint's log path asks the symbol map to describe the address, and the unit test
+	// build leaves g_symbolMap null (the emulator always creates one at boot).
+	SymbolMap symbolMap;
+	g_symbolMap = &symbolMap;
+
+	g_breakpoints.SetTempBreakPoint(kAddrA);
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	// Invisible to the user's list, but the interpreter and JIT still have to check the address.
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
+	EXPECT_FALSE(g_breakpoints.IsAddressBreakPoint(kAddrA));
+	EXPECT_TRUE(g_breakpoints.NeedsBreakCheckAt(kAddrA));
+	EXPECT_TRUE(g_breakpoints.RangeContainsBreakPoint(kAddrA - 4, 16));
+	// This one is the trap: with no user breakpoints at all, the run loops and the JIT skip
+	// breakpoint checking entirely unless HasBreakPoints() accounts for the temporary one.
+	EXPECT_TRUE(g_breakpoints.HasBreakPoints());
+
+	// Only one at a time - a second request replaces rather than accumulating.
+	g_breakpoints.SetTempBreakPoint(kAddrB);
+	EXPECT_FALSE(g_breakpoints.NeedsBreakCheckAt(kAddrA));
+	EXPECT_TRUE(g_breakpoints.NeedsBreakCheckAt(kAddrB));
+
+	// A log-only user breakpoint at the same address is the case that used to break stepping: the
+	// user breakpoint must log without stopping, and the pending step must still complete.
+	g_breakpoints.AddBreakPoint(kAddrB);
+	g_breakpoints.ChangeBreakPoint(kAddrB, BREAK_ACTION_LOG);
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	{
+		std::vector<BreakPoint> bps = g_breakpoints.GetBreakpoints();
+		EXPECT_EQ_INT((int)bps.size(), 1);
+		EXPECT_EQ_INT((int)bps[0].action, (int)BREAK_ACTION_LOG);
+	}
+	{
+		// Both fire: the log from the user breakpoint, the pause from the temporary one.
+		BreakAction action = g_breakpoints.ExecBreakPoint(kAddrB);
+		EXPECT_TRUE((action & BREAK_ACTION_LOG) != 0);
+		EXPECT_TRUE((action & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints()[0].numHits, 1);
+	}
+
+	// Removing the user breakpoint must not take the temporary one with it, and vice versa.
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	g_breakpoints.RemoveBreakPoint(kAddrB);
+	EXPECT_EQ_INT((int)g_breakpoints.GetBreakpoints().size(), 0);
+	EXPECT_TRUE(g_breakpoints.HasTempBreakPoint());
+	EXPECT_TRUE(g_breakpoints.NeedsBreakCheckAt(kAddrB));
+
+	g_breakpoints.ClearTempBreakPoint();
+	EXPECT_FALSE(g_breakpoints.HasTempBreakPoint());
+	EXPECT_FALSE(g_breakpoints.NeedsBreakCheckAt(kAddrB));
+	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
+
+	// A user breakpoint alone still behaves normally after all that.
+	g_breakpoints.AddBreakPoint(kAddrA);
+	EXPECT_TRUE(g_breakpoints.IsAddressBreakPoint(kAddrA));
+	EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+	g_breakpoints.RemoveBreakPoint(kAddrA);
+	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
+
+	g_symbolMap = nullptr;
 	return true;
 }
 
@@ -1564,6 +1721,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(Breakpoints),
+	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),

@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstddef>
+#include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
@@ -163,12 +164,13 @@ enum class CPUCore;
 
 #endif
 
-enum {
-	NUM_X86_FPU_TEMPS = 16,
+// Only icache invalidations currently, so no type field.
+struct PendingCacheOperation {
+	u32 addr;
+	u32 size;
 };
 
-class MIPSState
-{
+class MIPSState {
 public:
 	MIPSState();
 	~MIPSState();
@@ -245,6 +247,9 @@ public:
 	static const u32 FCR0_VALUE = 0x00003351;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	enum {
+		NUM_X86_FPU_TEMPS = 16,
+	};
 	// FPU TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
 	float tempValues[NUM_X86_FPU_TEMPS];
 #endif
@@ -260,15 +265,23 @@ public:
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
+
 	// To clear jit caches, etc.
-	void InvalidateICache(u32 address, int length = 4);
-	void ClearJitCache();
 
-	void ProcessPendingClears();
+	// The immediate functions have the risk of invalidating the currently running block -
+	// might not behave correctly in all cases. Use Deferred when possible.
+	void InvalidateICacheRangeImmediate(u32 address, u32 length);
 
+	// Actual clearing is deferred until execution begins again.
+	void InvalidateICacheRangeDeferred(u32 address, u32	length);
+	void ClearJitCacheDeferred();
+
+	void ProcessPendingInvalidates();
+
+private:
 	// Doesn't need save stating.
-	volatile bool insideJit = false;
-	volatile bool hasPendingClears = false;
+	std::vector<PendingCacheOperation> pendingInvalidates_;
+	bool invalidateAll_ = false;
 };
 
 class MIPSDebugInterface;

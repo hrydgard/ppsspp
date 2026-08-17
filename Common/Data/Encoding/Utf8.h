@@ -96,6 +96,12 @@ bool UTF8StringHasNonASCII(std::string_view utf8string);
 
 // Removes overlong encodings and similar.
 std::string SanitizeUTF8(std::string_view utf8string);
+
+// Returns a copy with every byte sequence that isn't well-formed UTF-8 replaced by U+FFFD.
+// Where SanitizeUTF8() stops at the first bad byte, this one keeps going, so it's the right choice
+// for text of unknown provenance (raw emulated memory, foreign files) that has to end up somewhere
+// that *requires* valid UTF-8 - a JSON string, or a WebSocket text frame.
+std::string ReplaceInvalidUTF8(std::string_view utf8string);
 std::string CodepointToUTF8(uint32_t codePoint);
 
 

@@ -708,7 +708,7 @@ void Arm64Jit::WriteSyscallExit() {
 }
 
 bool Arm64Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		MRS(FLAGTEMPREG, FIELD_NZCV);
 		FlushAll();
 		MOVI2R(SCRATCH1, GetCompilerPC());

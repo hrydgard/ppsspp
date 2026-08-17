@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <unordered_set>
-#include <mutex>
 #include <sstream>
 
 #include "Common/StringUtils.h"
@@ -120,8 +119,6 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
-
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 
 	// We set this later if we think it can be resumed from.
 	g_lastCrashAddress = nullptr;

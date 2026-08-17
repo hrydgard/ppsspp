@@ -30,7 +30,6 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GPU/GraphicsContext.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
@@ -43,9 +42,10 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSTracer.h"
+#include "Core/CoreTiming.h"
 
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPU.h"
@@ -56,7 +56,6 @@ static std::mutex g_stepMutex;
 
 struct CPUStepCommand {
 	CPUStepType type;
-	int stepSize;
 	BreakReason reason;
 	u32 relatedAddr;
 	bool empty() const {
@@ -64,7 +63,6 @@ struct CPUStepCommand {
 	}
 	void clear() {
 		type = CPUStepType::None;
-		stepSize = 0;
 		// Deliberately NOT resetting reason/relatedAddr here: they describe why we're
 		// currently paused (not whether a step is pending), and for CPUStepType::Into this
 		// clear() runs immediately after finishing the step, before SteppingBroadcaster gets
@@ -299,13 +297,20 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
+void Core_ReenterDispatcher() {
+	if (coreState == CORE_RUNNING_CPU) {
+		// This will flip back into CORE_RUNNING_CPU.
+		coreState = CORE_REENTER_DISPATCH;
+	}
+}
+
 void Core_RunLoopUntil(u64 globalticks) {
 	while (true) {
 		// Drain any functions queued up by Core_RunOnCPUThread() from other threads. Doing this at the
 		// top of this loop means it's reached at least once per call (i.e. about once per host frame)
-		// even while the CPU is fully running, and continuously (in a tight spin) while it's stepping/paused.
+		// whether the CPU is running or not.
 		Core_ProcessCPUQueue();
-
+		g_breakpoints.Frame();
 		switch (coreState) {
 		case CORE_POWERDOWN:
 		case CORE_RUNTIME_ERROR:
@@ -313,12 +318,25 @@ void Core_RunLoopUntil(u64 globalticks) {
 			return;
 		case CORE_STEPPING_CPU:
 		case CORE_STEPPING_GE:
+		{
+			CoreState preState = coreState;
 			if (Core_ProcessStepping(currentDebugMIPS)) {
+				if (coreState == CORE_REENTER_DISPATCH) {
+					coreState = preState;
+				}
 				return;
 			}
 			break;
+		}
 		case CORE_RUNNING_CPU:
 			mipsr4k.RunLoopUntil(globalticks);
+			if (coreState == CORE_RUNNING_CPU) {
+				// If we are still running, we must have reached the end of a frame.
+				coreState = CORE_NEXTFRAME;
+			} else if (coreState == CORE_REENTER_DISPATCH) {
+				// Back to running right away.
+				coreState = CORE_RUNNING_CPU;
+			}
 			if (g_breakAfterFrame && coreState == CORE_NEXTFRAME) {
 				g_breakAfterFrame = false;
 				g_breakReason = BreakReason::AfterFrame;
@@ -343,6 +361,10 @@ void Core_RunLoopUntil(u64 globalticks) {
 				break;
 			}
 			break;
+		case CORE_REENTER_DISPATCH:
+			// Resume
+			coreState = CORE_RUNNING_CPU;
+			break;
 		}
 	}
 }
@@ -354,23 +376,14 @@ void Core_SwitchToGe() {
 	coreState = CORE_RUNNING_GE;
 }
 
-bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
+bool Core_RequestCPUStep(CPUStepType type) {
 	std::lock_guard<std::mutex> guard(g_stepMutex);
 	if (g_cpuStepCommand.type != CPUStepType::None) {
 		ERROR_LOG(Log::CPU, "Can't submit two steps in one host frame");
 		return false;
 	}
-	// Some step types don't need a size.
-	switch (type) {
-	case CPUStepType::Out:
-	case CPUStepType::Frame:
-		break;
-	default:
-		_dbg_assert_(stepSize != 0);
-		break;
-	}
 	BreakReason reason = type == CPUStepType::Into ? BreakReason::DebugStepInto : BreakReason::DebugStep;
-	g_cpuStepCommand = { type, stepSize, reason, 0 };
+	g_cpuStepCommand = { type, reason, 0 };
 	return true;
 }
 
@@ -378,22 +391,20 @@ bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
 // stepSize is always in instructions (4 bytes each), never bytes.
 // Doesn't return the new address, as that's just mips->getPC().
 // Internal use.
-static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, int stepSize) {
+static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType) {
 	switch (stepType) {
 	case CPUStepType::Into:
 	{
 		u32 currentPc = cpu->GetPC();
 		// If the current PC is on a breakpoint, the user still wants the step to happen.
 		g_breakpoints.SetSkipFirst(currentPc);
-		for (int i = 0; i < stepSize; i++) {
-			currentMIPS->SingleStep();
-		}
+		currentMIPS->SingleStep();
+		CoreTiming::Advance(currentMIPS);
 		break;
 	}
 	case CPUStepType::Over:
 	{
 		u32 currentPc = cpu->GetPC();
-		u32 breakpointAddress = currentPc + stepSize * 4;
 
 		g_breakpoints.SetSkipFirst(currentPc);
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, cpu->GetPC());
@@ -401,6 +412,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 		// TODO: Doing a step over in a delay slot is a bit .. unclear. Maybe just do a single step.
 
 		if (info.isBranch) {
+			u32 breakpointAddress = currentPc + 4;
 			if (info.isConditional == false) {
 				if (info.isLinkedBranch) { // jal, jalr
 					// it's a function call with a delay slot - skip that too
@@ -416,13 +428,11 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 					breakpointAddress = currentPc + 2 * cpu->getInstructionSize(0);
 				}
 			}
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			g_breakpoints.SetTempBreakPoint(breakpointAddress);
 			Core_Resume();
 		} else {
 			// If not a branch, just do a simple single-step, no point in involving the breakpoint machinery.
-			for (int i = 0; i < (int)(breakpointAddress - currentPc) / 4; i++) {
-				currentMIPS->SingleStep();
-			}
+			currentMIPS->SingleStep();
 		}
 		break;
 	}
@@ -448,7 +458,7 @@ static void Core_PerformCPUStep(MIPSDebugInterface *cpu, CPUStepType stepType, i
 
 		u32 breakpointAddress = frames[1].pc;
 
-		g_breakpoints.AddBreakPoint(breakpointAddress, true);
+		g_breakpoints.SetTempBreakPoint(breakpointAddress);
 		Core_Resume();
 		break;
 	}
@@ -476,6 +486,9 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	case CORE_RUNNING_GE:
 		// All good
 		break;
+	case CORE_REENTER_DISPATCH:
+		_dbg_assert_(false);
+		return true;
 	default:
 		// Nothing to do.
 		return true;
@@ -493,7 +506,6 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	static int lastSteppingCounter = -1;
 	if (lastSteppingCounter != steppingCounter) {
-		g_breakpoints.ClearTemporaryBreakPoints();
 		System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
 		System_Notify(SystemNotification::MEM_VIEW);
 		lastSteppingCounter = steppingCounter;
@@ -509,7 +521,8 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 	Core_ResetException();
 
 	if (!g_cpuStepCommand.empty()) {
-		Core_PerformCPUStep(cpu, g_cpuStepCommand.type, g_cpuStepCommand.stepSize);
+		Core_PerformCPUStep(cpu, g_cpuStepCommand.type);
+		g_breakReason = g_cpuStepCommand.reason;
 		if (g_cpuStepCommand.type == CPUStepType::Into) {
 			// We're already done. The other step types will resume the CPU.
 			System_Notify(SystemNotification::DISASSEMBLY_AFTERSTEP);
@@ -553,6 +566,13 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 
 		// Stop the tracer
 		mipsTracer.stop_tracing();
+
+		// Execution stopped, so whatever step-over/step-out/run-until was in flight is over - either
+		// it just completed, or something else (a breakpoint, a memcheck, the user hitting pause)
+		// got there first. Either way its one-shot breakpoint must not stay armed, or it'd fire
+		// later at an address nobody is waiting for anymore. Same as gdb dropping its step-resume
+		// breakpoint, or lldb discarding the thread plan, on any stop.
+		g_breakpoints.ClearTempBreakPoint();
 
 		g_breakReason = reason;
 		g_cpuStepCommand.type = CPUStepType::None;

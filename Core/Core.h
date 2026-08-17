@@ -87,7 +87,7 @@ BreakReason Core_BreakReason();
 // This should be called externally.
 // Can fail if another step type was requested this frame.
 // stepSize is always in instructions (4 bytes each), never bytes - see Core_PerformCPUStep in Core.cpp.
-bool Core_RequestCPUStep(CPUStepType stepType, int stepSize);
+bool Core_RequestCPUStep(CPUStepType stepType);
 
 bool Core_NextFrame();
 void Core_SwitchToGe();  // Switches from CPU emulation to GE display list execution.
@@ -118,7 +118,9 @@ enum CoreState {
 	// Emulation is running normally.
 	CORE_RUNNING_CPU = 0,
 	// Emulation was running normally, just reached the end of a frame.
-	CORE_NEXTFRAME = 1,
+	CORE_NEXTFRAME,
+	// Set this when running to bounce out from the dispatcher and just go back in again. Useful for things like cache clears.
+	CORE_REENTER_DISPATCH,
 	// Emulation is paused, CPU thread is sleeping.
 	CORE_STEPPING_CPU,  // Can be used for recoverable runtime errors (ignored memory exceptions)
 	// Core is not running.
@@ -150,6 +152,7 @@ void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
 
 void Core_RunLoopUntil(u64 globalticks);
+void Core_ReenterDispatcher();  // If you've done things that mess with caches, call this so we can run deferred operations.
 
 // Runs a function on the CPU thread - the thread that calls Core_RunLoopUntil (and thus, indirectly,
 // NativeFrame). Useful for code running on unrelated threads (like the WebSocket debugger) that needs to

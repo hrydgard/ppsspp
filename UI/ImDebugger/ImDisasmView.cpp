@@ -771,7 +771,7 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
-			g_breakpoints.AddBreakPoint(curAddress_, true);
+			g_breakpoints.SetTempBreakPoint(curAddress_);
 			g_breakpoints.SetSkipFirst(curAddress_);
 			if (Core_IsStepping()) {
 				Core_Resume();
@@ -787,8 +787,8 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 					Memory::WriteUnchecked_U32(0, addr);
 				}
 			}
-			if (currentMIPS) {
-				currentMIPS->InvalidateICache(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
+			if (mips) {
+				mips->InvalidateICacheRangeDeferred(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
 			}
 		}
 		ImGui::Separator();
@@ -1093,10 +1093,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			Core_RequestCPUStep(CPUStepType::Over, 1);
+			Core_RequestCPUStep(CPUStepType::Over);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			Core_RequestCPUStep(CPUStepType::Into);
 		}
 	}
 
@@ -1129,7 +1129,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::SameLine();
 
 	if (ImGui::RepeatButtonShift("Into")) {
-		Core_RequestCPUStep(CPUStepType::Into, 1);
+		Core_RequestCPUStep(CPUStepType::Into);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F11");
@@ -1137,7 +1137,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Over")) {
-		Core_RequestCPUStep(CPUStepType::Over, 1);
+		Core_RequestCPUStep(CPUStepType::Over);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F10");
@@ -1145,13 +1145,13 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Out")) {
-		Core_RequestCPUStep(CPUStepType::Out, 0);
+		Core_RequestCPUStep(CPUStepType::Out);
 	}
 
 	/*
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Frame")) {
-		Core_RequestCPUStep(CPUStepType::Frame, 0);
+		Core_RequestCPUStep(CPUStepType::Frame);
 	}*/
 
 	ImGui::SameLine();

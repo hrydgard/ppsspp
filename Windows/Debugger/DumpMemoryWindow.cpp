@@ -102,7 +102,6 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 						fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
 					} else {
 						auto savedReplacements = SaveAndClearReplacements();
-						std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 						if (MIPSComp::jit) {
 							auto savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
 							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);

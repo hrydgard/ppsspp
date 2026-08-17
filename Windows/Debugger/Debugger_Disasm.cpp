@@ -208,7 +208,7 @@ void CDisasm::step(CPUStepType stepType) {
 
 	// Route the actual step request to the CPU thread instead of poking at it directly from this
 	// GUI thread - see Core_RunOnCPUThread() in Core.h.
-	Core_RunOnCPUThread([&] { Core_RequestCPUStep(stepType, 1); });
+	Core_RunOnCPUThread([&] { Core_RequestCPUStep(stepType); });
 }
 
 void CDisasm::runToLine() {
@@ -223,7 +223,7 @@ void CDisasm::runToLine() {
 	ptr->setDontRedraw(true);
 	// Route the breakpoint mutation to the CPU thread instead of poking at it directly from this
 	// GUI thread - see Core_RunOnCPUThread() in Core.h. Core_Resume() itself is free-threaded.
-	Core_RunOnCPUThread([&] { breakpoints_->AddBreakPoint(pos,true); });
+	Core_RunOnCPUThread([&] { breakpoints_->SetTempBreakPoint(pos); });
 	Core_Resume();
 }
 

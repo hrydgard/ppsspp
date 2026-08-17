@@ -1017,22 +1017,25 @@ namespace MainWindow {
 				return TRUE;
 
 			case VERYSLEEPY_WPARAM_GETADDRINFO:
-				{
+			{
+				Core_RunOnCPUThread([lParam]() {
+					// This is called from VerySleepy, which is on a different thread than the CPU thread.
+					// We need to run this on the CPU thread to avoid race conditions.
 					VerySleepy_AddrInfo *info = (VerySleepy_AddrInfo *)lParam;
 					const u8 *ptr = (const u8 *)info->addr;
 					std::string name;
 
-					std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 					if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"Jit::%S", name.c_str());
-						return TRUE;
+						return;
 					}
 					if (gpu && gpu->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"GPU::%S", name.c_str());
-						return TRUE;
+						return;
 					}
-				}
-				return FALSE;
+				});
+				return TRUE;
+			}
 
 			default:
 				return FALSE;

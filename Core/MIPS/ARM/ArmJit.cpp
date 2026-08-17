@@ -712,7 +712,7 @@ void ArmJit::WriteSyscallExit()
 }
 
 bool ArmJit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		MRS(R8);
 		FlushAll();
 		MOVI2R(SCRATCHREG1, GetCompilerPC());

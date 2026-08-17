@@ -578,7 +578,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 					// We add 1 in that case so that it ends up the right value.
 					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
 					Memory::WriteUnchecked_U32((reloc.data & ~0xFFFF) | high, reloc.addr);
-					currentMIPS->InvalidateICache(reloc.addr, 4);
+					currentMIPS->InvalidateICacheRangeDeferred(reloc.addr, 4);
 				}
 				state.lastHI16Processed = true;
 			}
@@ -593,7 +593,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 	}
 
 	Memory::WriteUnchecked_U32(relocData, relocAddress);
-	currentMIPS->InvalidateICache(relocAddress, 4);
+	currentMIPS->InvalidateICacheRangeDeferred(relocAddress, 4);
 }
 
 void ImportVarSymbol(WriteVarSymbolState &state, const VarSymbolImport &var) {
@@ -692,7 +692,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		}
 		// TODO: There's some double lookup going on here (we already did the lookup in GetHLEFunc above).
 		WriteHLESyscall(func.moduleName, func.nid, func.stubAddr);
-		currentMIPS->InvalidateICache(func.stubAddr, 8);
+		currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
 		return;
 	}
 
@@ -710,7 +710,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 					WARN_LOG_REPORT(Log::Loader, "Reimporting: func import %s/%08x changed", func.moduleName, func.nid);
 				}
 				WriteFuncStub(func.stubAddr, it->symAddr);
-				currentMIPS->InvalidateICache(func.stubAddr, 8);
+				currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
 				return;
 			}
 		}
@@ -726,7 +726,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 
 	if (shouldHLE || !reimporting) {
 		WriteFuncMissingStub(func.stubAddr, func.nid);
-		currentMIPS->InvalidateICache(func.stubAddr, 8);
+		currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
 	}
 }
 
@@ -750,7 +750,7 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 			if (func.Matches(*it)) {
 				INFO_LOG(Log::Loader, "Resolving function %s/%08x", func.moduleName, func.nid);
 				WriteFuncStub(it->stubAddr, func.symAddr);
-				currentMIPS->InvalidateICache(it->stubAddr, 8);
+				currentMIPS->InvalidateICacheRangeDeferred(it->stubAddr, 8);
 			}
 		}
 	}
@@ -774,7 +774,7 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 			if (func.Matches(*it)) {
 				INFO_LOG(Log::Loader, "Unresolving function %s/%08x", func.moduleName, func.nid);
 				WriteFuncMissingStub(it->stubAddr, it->nid);
-				currentMIPS->InvalidateICache(it->stubAddr, 8);
+				currentMIPS->InvalidateICacheRangeDeferred(it->stubAddr, 8);
 			}
 		}
 	}
@@ -826,7 +826,7 @@ void PSPModule::Cleanup() {
 		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size, "ModuleClear");
 
 		// Let's also invalidate, just to make sure it's cleared out for any future data.
-		currentMIPS->InvalidateICache(memoryBlockAddr, memoryBlockSize);
+		currentMIPS->InvalidateICacheRangeDeferred(memoryBlockAddr, memoryBlockSize);
 	}
 }
 
@@ -1287,7 +1287,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
 
-	currentMIPS->InvalidateICache(module->memoryBlockAddr, module->memoryBlockSize);
+	currentMIPS->InvalidateICacheRangeDeferred(module->memoryBlockAddr, module->memoryBlockSize);
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 	const PspModuleInfo *modinfo;

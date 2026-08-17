@@ -1023,7 +1023,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 		}
 
 		if (ImGui::BeginTable("breakpoints", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
-			ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);  // Really means action is to pause
+			ImGui::TableSetupColumn("Log", ImGuiTableColumnFlags_WidthFixed);  // Really means action is to pause
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Size/Label", ImGuiTableColumnFlags_WidthFixed);
@@ -1033,23 +1034,22 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			ImGui::TableHeadersRow();
 
 			for (int i = 0; i < (int)bps.size(); i++) {
-				auto &bp = bps[i];
-				bool temp = bp.temporary;
-				if (temp) {
-					continue;
-				}
+				BreakPoint &bp = bps[i];
 
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(i);
 				// DONE: This clashes with the checkbox!
 				// TODO: Test to make sure this works properly
-				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap) && !bp.temporary) {
+				if (ImGui::Selectable("", cfg.selectedBreakpoint == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = i;
 					cfg.selectedMemCheck = -1;
+					cfg.selectedRegBreakpoint = -1;
 				}
 				ImGui::SameLine();
-				ImGui::CheckboxFlags("##enabled", (int *)&bp.result, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("##enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::CheckboxFlags("##log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted("Exec");
 				ImGui::TableNextColumn();
@@ -1084,9 +1084,12 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				if (ImGui::Selectable("##memcheck", cfg.selectedMemCheck == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedBreakpoint = -1;
 					cfg.selectedMemCheck = i;
+					cfg.selectedRegBreakpoint = -1;
 				}
 				ImGui::SameLine();
-				ImGui::CheckboxFlags("", (int *)&mc.result, BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("##enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::CheckboxFlags("##log", (int *)&mc.action, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(MemCheckConditionToString(mc.cond));
 				ImGui::TableNextColumn();
@@ -1102,6 +1105,37 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::PopID();
 			}
 
+			// Finally, list register breakpoints.
+			for (auto &rbp : g_breakpoints.GetRegBreakpoints()) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(&rbp - &g_breakpoints.GetRegBreakpoints()[0] + 20000);
+				if (ImGui::Selectable("##regbp", cfg.selectedRegBreakpoint == &rbp - &g_breakpoints.GetRegBreakpoints()[0], ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
+					cfg.selectedBreakpoint = -1;
+					cfg.selectedMemCheck = -1;
+					cfg.selectedRegBreakpoint = &rbp - &g_breakpoints.GetRegBreakpoints()[0];
+				}
+				ImGui::SameLine();
+				ImGui::CheckboxFlags("", (int *)&rbp.result, BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("Reg");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(mipsDebug->GetRegName(0, rbp.reg).c_str());
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // size/label
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // opcode
+				ImGui::TableNextColumn();
+				if (rbp.hasCond) {
+					ImGui::TextUnformatted(rbp.cond.expressionString.c_str());
+				} else {
+					ImGui::TextUnformatted("-");  // condition
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", rbp.numHits);
+				ImGui::PopID();
+			}
+
 			ImGui::EndTable();
 		}
 
@@ -1112,10 +1146,26 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			if (ImGui::BeginChild("bp_edit")) {
 				auto &bp = bps[cfg.selectedBreakpoint];
 				ImGui::TextUnformatted("Edit breakpoint");
-				ImGui::CheckboxFlags("Enabled", (int *)&bp.result, (int)BREAK_ACTION_PAUSE);
-				ImGui::InputScalar("Address", ImGuiDataType_U32, &bp.addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				// No cache invalidation needed for these two: the JIT emits its call for any address
+				// that has a breakpoint at all, and the action bits are read live in
+				// ExecBreakPoint(). Only the set of addresses affects generated code.
+				ImGui::CheckboxFlags("Enabled", (int *)&bp.action, (int)BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("Log", (int *)&bp.action, (int)BREAK_ACTION_LOG);
+
+				// Moving a breakpoint isn't just an assignment to bp.addr - the compiled code at
+				// both the old and the new address has to be invalidated, and landing on top of an
+				// existing breakpoint has to be refused. Edit a copy and let the manager do it.
+				// Committing on deactivation rather than per keystroke also avoids doing all that
+				// for each of the intermediate addresses you pass through while typing one.
+				u32 addr = bp.addr;
+				ImGui::InputScalar("Address", ImGuiDataType_U32, &addr, nullptr, nullptr, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				if (ImGui::IsItemDeactivatedAfterEdit()) {
+					g_breakpoints.ChangeBreakPointAddress(bp.addr, addr);
+				}
 				if (ImGui::Button("Delete")) {
 					g_breakpoints.RemoveBreakPoint(bp.addr);
+					// bp (and bps) are dangling from here on - don't touch them again this frame.
+					cfg.selectedBreakpoint = -1;
 				}
 				ImGui::EndChild();
 			}
@@ -1126,26 +1176,49 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			if (ImGui::BeginChild("mc_edit")) {
 				auto &mc = mcs[cfg.selectedMemCheck];
 				ImGui::TextUnformatted("Edit memcheck");
+				// Anything that edits mc in place has to end up calling NotifyChangedMemchecks(),
+				// see GetMemCheckRefs(). Note that Selectable() only returns true on the frame it's
+				// actually clicked, unlike BeginCombo(), which is true for every frame the popup
+				// stays open - so set this from the Selectables, not from the combo itself.
+				bool changed = false;
 				if (ImGui::BeginCombo("Condition", MemCheckConditionToString(mc.cond))) {
 					if (ImGui::Selectable("Read", mc.cond == MemCheckCondition::MEMCHECK_READ)) {
 						mc.cond = MemCheckCondition::MEMCHECK_READ;
+						changed = true;
 					}
 					if (ImGui::Selectable("Write", mc.cond == MemCheckCondition::MEMCHECK_WRITE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_WRITE;
+						changed = true;
 					}
 					if (ImGui::Selectable("Read / Write", mc.cond == MemCheckCondition::MEMCHECK_READWRITE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_READWRITE;
+						changed = true;
 					}
 					if (ImGui::Selectable("Write On Change", mc.cond == MemCheckCondition::MEMCHECK_WRITE_ONCHANGE)) {
 						mc.cond = MemCheckCondition::MEMCHECK_WRITE_ONCHANGE;
+						changed = true;
 					}
 					ImGui::EndCombo();
 				}
-				ImGui::CheckboxFlags("Enabled", (int *)&mc.result, (int)BREAK_ACTION_PAUSE);
-				ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
-				ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal);
+				// The cached ranges don't carry the action bits (they're read live in ExecMemCheck),
+				// so toggling this doesn't strictly need a rebuild - but notify anyway rather than
+				// leaving a silent exception to the rule above for the next person to rediscover.
+				if (ImGui::CheckboxFlags("Enabled", (int *)&mc.action, (int)BREAK_ACTION_PAUSE)) {
+					changed = true;
+				}
+				if (ImGui::InputScalar("Start", ImGuiDataType_U32, &mc.start, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
+					changed = true;
+				}
+				if (ImGui::InputScalar("End", ImGuiDataType_U32, &mc.end, NULL, NULL, "%08x", ImGuiInputTextFlags_CharsHexadecimal)) {
+					changed = true;
+				}
+				if (changed) {
+					g_breakpoints.NotifyChangedMemchecks();
+				}
 				if (ImGui::Button("Delete")) {
-					g_breakpoints.RemoveMemCheck(mcs[cfg.selectedMemCheck].start, mcs[cfg.selectedMemCheck].end);
+					g_breakpoints.RemoveMemCheck(mc.start, mc.end);
+					// mc (and mcs) are dangling from here on - don't touch them again this frame.
+					cfg.selectedMemCheck = -1;
 				}
 				ImGui::EndChild();
 			}

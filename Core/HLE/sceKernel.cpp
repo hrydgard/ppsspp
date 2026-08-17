@@ -394,21 +394,24 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 	if (size < 0 || (int) addr + size < 0)
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ADDR);
 
-	if (size > 0)
-	{
-		if ((addr % 64) != 0 || (size % 64) != 0)
+	if (size > 0) {
+		if ((addr % 64) != 0 || (size % 64) != 0) {
 			return hleNoLog(SCE_KERNEL_ERROR_CACHE_ALIGNMENT);
+		}
 
-		if (addr != 0)
+		if (addr != 0) {
 			gpu->InvalidateCache(addr, size, GPU_INVALIDATE_HINT);
+		}
 	}
 	hleEatCycles(190);
 	return hleNoLog(0);
 }
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
-	if (size != 0)
-		currentMIPS->InvalidateICache(addr, size);
+	if (size != 0) {
+		currentMIPS->InvalidateICacheRangeDeferred(addr, size);
+		Core_ReenterDispatcher();
+	}
 	return hleLogDebug(Log::CPU, 0);
 }
 
@@ -455,8 +458,7 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 	return hleNoLog(0);
 }
 
-int sceKernelDcacheWritebackInvalidateAll()
-{
+int sceKernelDcacheWritebackInvalidateAll() {
 #ifdef LOG_CACHE
 	NOTICE_LOG(Log::CPU,"sceKernelDcacheInvalidateAll()");
 #endif
@@ -466,23 +468,23 @@ int sceKernelDcacheWritebackInvalidateAll()
 	return hleLogDebug(Log::CPU, 0, "Dcache invalidated");
 }
 
-u32 sceKernelIcacheInvalidateAll()
-{
+u32 sceKernelIcacheInvalidateAll() {
 #ifdef LOG_CACHE
 	NOTICE_LOG(Log::CPU, "Icache invalidated - should clear JIT someday");
 #endif
 	// Note that this doesn't actually fully invalidate all with such a large range.
-	currentMIPS->InvalidateICache(0, 0x3FFFFFFF);
+	currentMIPS->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
+	Core_ReenterDispatcher();
 	return hleLogDebug(Log::CPU, 0, "Icache invalidated");
 }
 
-u32 sceKernelIcacheClearAll()
-{
+u32 sceKernelIcacheClearAll() {
 #ifdef LOG_CACHE
 	NOTICE_LOG(Log::CPU, "Icache cleared - should clear JIT someday");
 #endif
 	// Note that this doesn't actually fully invalidate all with such a large range.
-	currentMIPS->InvalidateICache(0, 0x3FFFFFFF);
+	currentMIPS->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
+	Core_ReenterDispatcher();
 	return hleLogDebug(Log::CPU, 0, "Icache cleared");
 }
 

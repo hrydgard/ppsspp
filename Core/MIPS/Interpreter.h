@@ -20,7 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
-int MIPS_SingleStep(MIPSState *mips);
+int MIPS_InterpretSingleStep(MIPSState *mips);
 
 namespace MIPSInt
 {

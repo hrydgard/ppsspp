@@ -72,7 +72,11 @@ By convention, send a `version` event right after connecting (see
 { "event": "version", "name": "my-tool", "version": "1.0" }
 ```
 PPSSPP responds with its own name/version, and remembers yours (currently
-just for internal bookkeeping/future logging).
+just for internal bookkeeping/future logging). The response also carries
+`pid` (OS process id) and `path` (the executable/disc currently loaded, or
+`null`), so an automation client can confirm it attached to the instance it
+meant to - a port alone doesn't prove that, since a leftover process may still
+be holding the port you asked for.
 
 ## Broadcast (unsolicited) events
 
@@ -134,6 +138,13 @@ file - this is just an index.
   `Core/CmdLine.cpp`/`.h` (`CmdLineMode::Both`). `ApplyToConfig()` sets
   `iRemoteISOPort`/`bRemoteDebuggerOnStartup` for that run without persisting
   them to the config file.
+  - A **non-zero** `PORT` is treated as mandatory (`WebServerSetRequireExactPort()`):
+    if it can't be bound, the server does *not* silently fall back to some other
+    free port the way the "Local Server Port" preference does, because a client
+    was told to connect there. Headless exits non-zero; the application build
+    logs an error and shows an OSD message but keeps running. Use `--debugger=0`
+    and read the actual port from the `Listening on port N` log line if you'd
+    rather not care which port you get.
   - On the **application** build this is exactly like ticking "Allow remote
     debugger" - the game boots and runs normally, debugger listening
     alongside it.

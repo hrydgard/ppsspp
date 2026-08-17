@@ -1267,8 +1267,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	{
 		std::lock_guard<std::mutex> emuStateGuard(g_frameMutex);
 
-		g_breakpoints.Frame();
-
 		// Apply the UIContext bounds as a 2D transformation matrix.
 		// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
 		Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
@@ -1280,12 +1278,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 		g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-		// Drain any work queued by Core_RunOnCPUThread() from other threads. Core_RunLoopUntil()
-		// (called from within render() below, but only while a game is actually loaded/running)
-		// also does this, but that path isn't reached at all outside a game - e.g. from the main
-		// menu - so queued work would otherwise hang forever waiting for it. See Core_ProcessCPUQueue()
-		// in Core.h.
-		Core_ProcessCPUQueue();
+		if (GetUIState() != UISTATE_INGAME) {
+			// In case there are any cross thread requests outside the game.
+			Core_ProcessCPUQueue();
+		}
 
 		// All actual rendering (and also emulation) happens in this render() call.
 		renderFlags = g_screenManager->Render([]() {

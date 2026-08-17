@@ -97,7 +97,7 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 		if (currentMIPS->inDelaySlot) {
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			Core_RequestCPUStep(CPUStepType::Into);
 		}
 		Core_Resume();
 	});
