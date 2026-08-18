@@ -428,7 +428,7 @@ void Advance(MIPSState *mips) {
 	if (breakDeadlineTicks && globalTimer >= breakDeadlineTicks) {
 		breakDeadlineTicks = 0;
 		breakDeadlineUs = 0;
-		Core_Break(BreakReason::DebugBreak, mips->pc);
+		Core_Break(BreakReason::RunUntilTime, mips->pc);
 	}
 
 	ProcessEvents();

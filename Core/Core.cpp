@@ -262,6 +262,7 @@ const char *BreakReasonToString(BreakReason reason) {
 	case BreakReason::FrameAdvance: return "ui.frameAdvance";
 	case BreakReason::UIPause: return "ui.pause";
 	case BreakReason::HLEDebugBreak: return "hle.step";
+	case BreakReason::RunUntilTime: return "cpu.runUntilTime";
 	default: return "Unknown";
 	}
 }

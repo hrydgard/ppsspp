@@ -73,6 +73,7 @@ enum class BreakReason {
 	FrameAdvance,
 	UIPause,
 	HLEDebugBreak,
+	RunUntilTime,
 };
 const char *BreakReasonToString(BreakReason reason);
 
