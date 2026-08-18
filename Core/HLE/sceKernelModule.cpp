@@ -56,6 +56,7 @@
 #include "Core/PSPLoaders.h"
 #include "Core/System.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelModule.h"
@@ -210,6 +211,8 @@ PSPModule::~PSPModule() {
 			userMemory.Free(memoryBlockAddr);
 		}
 		g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
+		// Keyed identically, so a module going away takes its own line info and nothing else's.
+		g_lineInfo.RemoveModule(memoryBlockAddr, memoryBlockSize);
 	}
 
 	if (modulePtr.ptr) {

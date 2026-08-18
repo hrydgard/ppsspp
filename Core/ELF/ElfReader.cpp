@@ -27,6 +27,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/ELF/ElfReader.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -934,6 +935,9 @@ int LoadCompanionElfSymbols(const Path &gameFile, u32 moduleBase, u32 moduleSize
 		if (added > 0) {
 			INFO_LOG(Log::Loader, "Loaded %d symbols from companion ELF '%s'", added, file.name.c_str());
 			g_symbolMap->SortSymbols();
+			// Same file, already validated as belonging to this module, so its DWARF line table
+			// relocates the same way. Absent from anything built without -g, which is fine.
+			g_lineInfo.AddModule(data, moduleBase, moduleSize);
 			return added;
 		}
 		DEBUG_LOG(Log::Loader, "Companion ELF '%s' skipped: %s", file.name.c_str(), why);

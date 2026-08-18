@@ -16,6 +16,7 @@
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/HW/Display.h"
 #include "Core/Reporting.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
@@ -976,6 +977,13 @@ void ImDisasmView::updateStatusBarText() {
 	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
 	if (!label.empty()) {
 		statusBarText_ = label;
+	}
+
+	// Appended rather than replacing, since knowing which instruction you're on is still the point.
+	// Empty for anything without an unstripped ELF to read DWARF from - see LineInfo.h.
+	const std::string source = g_lineInfo.LookupString(curAddress_);
+	if (!source.empty()) {
+		statusBarText_ += "   " + source;
 	}
 }
 

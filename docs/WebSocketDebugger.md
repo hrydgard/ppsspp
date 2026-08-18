@@ -132,6 +132,31 @@ way for periodic GPU stats. `client.config.set` in the same file carries
 per-connection settings that aren't about broadcasts - currently just
 `acknowledgeDeferred`, described under "Message protocol" above.
 
+### Source line info
+
+Where a game shipped an unstripped ELF, PPSSPP decodes its DWARF `.debug_line`
+and can map an address to a source file and line. `cpu.breakpoint.hit` and
+`cpu.stepping` carry `file`/`line` in the `hit` object, and `hle.backtrace`
+carries them per frame - which is where it pays off most:
+
+```
+08841f98  move sp,fp          mesh.zig:163
+0883afa4  li v0,0x0           MenuState.zig:821
+088260d8  andi at,v0,0xFFFF   State.zig:40
+0882a27c  andi at,v0,0xFFFF   engine.zig:468
+```
+
+Both fields are `null` when there's no line info for that address, which is the
+common case: **PRX conversion strips every `.debug` section**, so this never
+applies to a commercial game. In practice it means homebrew that ships its
+`app.elf` next to the EBOOT - the same file the companion symbol loader uses -
+or a plain `.elf` you built yourself. It follows `bAutoSaveLoadSymbols` along
+with the symbols.
+
+DWARF 2, 3 and 4 are decoded; version 5 units are skipped with a log line rather
+than mis-parsed, since it re-encoded the file table. Nothing targeting the PSP
+emits it today (psp-gcc produces 2, Zig 4).
+
 ### Emulation speed
 
 `game.speed.set` drives two independent things:
@@ -211,6 +236,7 @@ Fields common to every kind:
 | `logged` / `paused` | Which actions it had - `paused` false means the CPU kept running |
 | `condition` | The condition expression, or `null` |
 | `symbol` | Symbol at `address`, or `null` - resolved here to save a round trip |
+| `file` / `line` | Source location of `pc`, or `null`. See "Source line info" below |
 | `breakpoint` | `{start, end}` identifying which breakpoint fired. Absent for `"register"`, whose identity is the register, not an address |
 
 Extra fields for `"memory"`:

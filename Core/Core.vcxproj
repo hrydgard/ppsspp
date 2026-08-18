@@ -441,6 +441,7 @@
     <ClCompile Include="ConfigSettings.cpp" />
     <ClCompile Include="ControlMapper.cpp" />
     <ClCompile Include="AVIDump.cpp" />
+    <ClCompile Include="Debugger\LineInfo.cpp" />
     <ClCompile Include="Debugger\MemBlockInfo.cpp" />
     <ClCompile Include="Debugger\WebSocket.cpp" />
     <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp" />
@@ -982,6 +983,7 @@
     <ClInclude Include="ControlMapper.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="ConfigValues.h" />
+    <ClInclude Include="Debugger\LineInfo.h" />
     <ClInclude Include="Debugger\MemBlockInfo.h" />
     <ClInclude Include="Debugger\Watch.h" />
     <ClInclude Include="Debugger\WebSocket.h" />

@@ -23,6 +23,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Common/File/FileUtil.h"
 #include "Core/Debugger/DisassemblyManager.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -815,6 +816,9 @@ void WebSocketHLEGameLoadSymbols(DebuggerRequest &req) {
 //     - sp: unsigned integer stack address in this func (beware of alloca().)
 //     - stackSize: integer size of stack frame.
 //     - code: string disassembly of pc, empty if pc isn't readable.
+//     - file: string source file name, or null when there's no line info for this address.
+//     - line: integer source line number, or null. Only ever available when the game shipped an
+//       unstripped ELF - PRX conversion drops DWARF, so this is a homebrew-only luxury.
 //
 // A real stack walk needs to recognize the function it starts in, so it comes back empty exactly
 // when execution has gone somewhere unexpected - a jump through a bad pointer, say - which is
@@ -894,6 +898,19 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 				json.writeString("code", line.name + " " + line.params);
 			} else {
 				json.writeString("code", "");
+			}
+
+			// Only present when the game shipped an unstripped ELF to read DWARF out of, which in
+			// practice means homebrew - see Core/Debugger/LineInfo.h. A backtrace is where this
+			// pays off most: four addresses versus four source locations.
+			std::string file;
+			int line = 0;
+			if (g_lineInfo.Lookup(f.pc, &file, &line)) {
+				json.writeString("file", file);
+				json.writeInt("line", line);
+			} else {
+				json.writeNull("file");
+				json.writeNull("line");
 			}
 
 			json.pop();

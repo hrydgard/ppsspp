@@ -284,6 +284,8 @@ add_library(Core STATIC
 	Debugger/Breakpoints.cpp
 	Debugger/Breakpoints.h
 	Debugger/DebugInterface.h
+	Debugger/LineInfo.cpp
+	Debugger/LineInfo.h
 	Debugger/MemBlockInfo.cpp
 	Debugger/MemBlockInfo.h
 	Debugger/SymbolMap.cpp
