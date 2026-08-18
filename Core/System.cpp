@@ -50,6 +50,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
@@ -626,6 +627,9 @@ void CPU_Shutdown(bool success) {
 	g_CoreParameter.mountIsoLoader = nullptr;
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
+	// Line info outlives individual modules on purpose (see ~PSPModule), so the game going away is
+	// what ends it.
+	g_lineInfo.Clear();
 
 	g_lua.Shutdown();
 

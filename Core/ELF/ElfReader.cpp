@@ -934,7 +934,12 @@ int LoadCompanionElfDebugInfo(const Path &gameFile, u32 moduleBase, u32 moduleSi
 	if (gameFile.empty() || gameFile.Type() != PathType::NATIVE)
 		return 0;
 
-	const Path dir = gameFile.NavigateUp();
+	// fileToStart is the game's own directory for folder-launched homebrew
+	// (IdentifiedFileType::PSP_PBP_DIRECTORY - the normal case when you pick one in the UI), and
+	// the EBOOT/ISO itself otherwise. Navigating up from a directory lands in PSP/GAME and lists
+	// sibling *games*, so the companion right there next to the EBOOT was never found - which is
+	// exactly the interactive case this exists for.
+	const Path dir = File::IsDirectory(gameFile) ? gameFile : gameFile.NavigateUp();
 	std::vector<File::FileInfo> files;
 	if (!File::GetFilesInDir(dir, &files, "elf:"))
 		return 0;

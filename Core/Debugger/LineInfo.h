@@ -54,9 +54,11 @@ public:
 	// to be already has final addresses, so the delta is zero.
 	int AddModule(std::string_view elfData, u32 moduleStart, u32 moduleSize, u32 addressDelta);
 
-	// Keyed the same way SymbolMap::UnloadModule is, so that unloading one module drops only its
-	// own lines. Each module owns its rows and its file names outright - there's no shared table
-	// for an unload to have to pick apart.
+	// Each module owns its rows and its file names outright, so dropping one can never disturb
+	// another's. Note this isn't called when a module unloads: a savestate load destroys and
+	// rebuilds every kernel object, and doing it there discarded the table every time - AddModule
+	// replacing by key is what retires a range instead, when something else claims it. See
+	// ~PSPModule.
 	void RemoveModule(u32 moduleStart, u32 moduleSize);
 	void Clear();
 

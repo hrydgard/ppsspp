@@ -211,8 +211,14 @@ PSPModule::~PSPModule() {
 			userMemory.Free(memoryBlockAddr);
 		}
 		g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
-		// Keyed identically, so a module going away takes its own line info and nothing else's.
-		g_lineInfo.RemoveModule(memoryBlockAddr, memoryBlockSize);
+		// Deliberately *not* dropping this module's line info here. Loading a savestate deletes
+		// every kernel object and rebuilds it (KernelObjectPool::Clear), so removing on destruction
+		// threw the line table away every time a state was loaded - and for an ELF launched
+		// directly there's no file left to read it back from. SymbolMap has the same problem and
+		// solves it the same way: keep what you have, and let the module that next claims the
+		// address range replace it (LineInfoMap::AddModule replaces by key, and it's called for
+		// every module load whether or not that module has any line info to add). The whole thing
+		// is dropped when the game does, in PSP_Shutdown.
 	}
 
 	if (modulePtr.ptr) {
@@ -308,11 +314,11 @@ void PSPModule::DoState(PointerWrap &p) {
 		char moduleName[29] = { 0 };
 		truncate_cpy(moduleName, nm.name);
 		if (memoryBlockAddr != 0) {
+			// Re-registering is enough to bring both back: SymbolMap keeps every symbol it has ever
+			// seen and just rebuilds its active view from the loaded modules, and line info is no
+			// longer dropped when a module is destroyed (see ~PSPModule). So there's nothing to
+			// re-read here, and a state load doesn't pay for re-parsing the companion ELF.
 			g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize, crc);
-			// Loading a state tears the old module down and re-registers it here, which takes its
-			// symbols and line info with it. The companion ELF is still sitting next to the game,
-			// so read it again rather than coming back from a savestate with none.
-			LoadCompanionElfDebugInfo(PSP_CoreParameter().fileToStart, memoryBlockAddr, memoryBlockSize);
 			if (g_Config.bAutoSaveLoadSymbols) {
 				int idx = g_symbolMap->GetModuleIndexByName(moduleName);
 				if (idx > 0) {
