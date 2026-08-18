@@ -190,6 +190,9 @@ volatile bool coreStatePending = false;
 static bool powerSaving = false;
 static bool g_breakAfterFrame = false;
 static BreakReason g_breakReason = BreakReason::None;
+// Detail about the breakpoint that caused the current break, if it was one. Guarded by g_stepMutex
+// alongside g_cpuStepCommand, which is what it belongs to.
+static BreakpointHit g_breakHit;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
@@ -587,7 +590,7 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 }
 
 // Free-threaded (hm, possibly except tracing).
-void Core_Break(BreakReason reason, u32 relatedAddress) {
+void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit) {
 	const CoreState state = coreState;
 	if (state != CORE_RUNNING_CPU) {
 		if (state == CORE_STEPPING_CPU) {
@@ -628,6 +631,12 @@ void Core_Break(BreakReason reason, u32 relatedAddress) {
 		CoreTiming::SetBreakDeadlineUs(0);
 
 		g_breakReason = reason;
+		// Cleared rather than left alone when there's no hit, so the detail from an earlier
+		// breakpoint can't be reported against, say, the user pressing pause afterwards.
+		if (hit)
+			g_breakHit = *hit;
+		else
+			g_breakHit = BreakpointHit{};
 		g_cpuStepCommand.type = CPUStepType::None;
 		g_cpuStepCommand.reason = reason;
 		g_cpuStepCommand.relatedAddr = relatedAddress;
@@ -694,6 +703,7 @@ SteppingReason Core_GetSteppingReason() {
 	// genuinely nothing to report.
 	r.reason = g_cpuStepCommand.reason;
 	r.relatedAddress = g_cpuStepCommand.relatedAddr;
+	r.hit = g_breakHit;
 	return r;
 }
 

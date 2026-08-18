@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <vector>
@@ -117,6 +118,13 @@ static void UpdateConnected(int delta) {
 // debugger was reading pc, the tick count, the UI state and the param SFO out from under the CPU
 // thread on every lap of its loop. Now the CPU thread notices the transition once, formats the
 // event, and drops it in here; the connection's own thread just drains and sends.
+// A log-only breakpoint in a hot loop can produce events far faster than a connection drains them
+// (the drain runs once per lap of ws->Process, so at best a few hundred times a second). Without a
+// cap the queue grows without bound and the connection falls further and further behind. Dropping
+// is the only sane answer; cpu.breakpoint.hit carries a sequence number so a client can tell
+// exactly how many it missed rather than silently believing it saw everything.
+static constexpr size_t MAX_PENDING_EVENTS = 4096;
+
 struct DebuggerEventSink {
 	std::mutex lock;
 	std::vector<std::pair<const char *, std::string>> pending;
@@ -125,6 +133,8 @@ struct DebuggerEventSink {
 
 	void Push(const char *category, std::string json) {
 		std::lock_guard<std::mutex> guard(lock);
+		if (pending.size() >= MAX_PENDING_EVENTS)
+			return;
 		pending.emplace_back(category, std::move(json));
 	}
 
@@ -137,15 +147,47 @@ struct DebuggerEventSink {
 
 static std::mutex g_sinkLock;
 static std::vector<DebuggerEventSink *> g_sinks;
+// Mirrors g_sinks.size() so the breakpoint path can check "is anyone listening" with one relaxed
+// load, instead of taking g_sinkLock on every single breakpoint hit.
+static std::atomic<int> g_sinkCount{ 0 };
 
 static void RegisterSink(DebuggerEventSink *sink) {
 	std::lock_guard<std::mutex> guard(g_sinkLock);
 	g_sinks.push_back(sink);
+	g_sinkCount.store((int)g_sinks.size(), std::memory_order_relaxed);
 }
 
 static void UnregisterSink(DebuggerEventSink *sink) {
 	std::lock_guard<std::mutex> guard(g_sinkLock);
 	g_sinks.erase(std::remove(g_sinks.begin(), g_sinks.end(), sink), g_sinks.end());
+	g_sinkCount.store((int)g_sinks.size(), std::memory_order_relaxed);
+}
+
+bool WebSocketDebuggerHasClients() {
+	return g_sinkCount.load(std::memory_order_relaxed) != 0;
+}
+
+void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {
+	// Counts hits produced, not hits delivered, so a gap in what a client receives tells it how
+	// many were dropped by the cap in Push().
+	static uint64_t g_hitSequence = 0;
+
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	if (g_sinks.empty())
+		return;
+
+	// Formatted once here on the CPU thread, then shared - same rule as the other pushed events:
+	// a connection's own thread must never be the one reading emulator state.
+	JsonWriter j;
+	j.begin();
+	j.writeString("event", "cpu.breakpoint.hit");
+	j.writeFloat("sequence", (double)++g_hitSequence);
+	WriteBreakpointHit(j, hit);
+	j.end();
+	const std::string json = j.str();
+
+	for (DebuggerEventSink *sink : g_sinks)
+		sink->Push("breakpoint", json);
 }
 
 void WebSocketDebuggerTick() {
@@ -193,7 +235,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	// as a side effect of operator[] the first time each category actually broadcasts - which
 	// meant "game" and "stepping" were rejected as unsupported until one happened to fire, even
 	// though they're documented and valid. Keep in sync with the Broadcast calls further down.
-	for (const char *category : { "logger", "input", "game", "stepping" })
+	for (const char *category : { "logger", "input", "game", "stepping", "breakpoint" })
 		disallowed_config[category] = false;
 
 	LogBroadcaster logger;

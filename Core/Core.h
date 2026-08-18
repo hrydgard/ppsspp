@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <string>
 #include <string_view>
 
 #include "Common/CommonTypes.h"
@@ -77,8 +78,45 @@ enum class BreakReason {
 };
 const char *BreakReasonToString(BreakReason reason);
 
+enum class BreakpointKind {
+	None,
+	Exec,
+	Memory,
+	Register,
+};
+
+// What tripped a breakpoint, captured where it happened.
+//
+// All three kinds know a lot more than the single address Core_Break() carries - which register,
+// which byte of a watched range, read or write, how big - and until this existed it was formatted
+// straight into a log line and discarded, so a debugger over the wire couldn't see any of it. For
+// a memcheck in particular the address that reached the client was the start of the watched range,
+// not the address actually touched.
+struct BreakpointHit {
+	BreakpointKind kind = BreakpointKind::None;
+	u32 pc = 0;            // The instruction responsible.
+	u32 address = 0;       // Exec: the instruction itself. Memory: the address actually accessed.
+	int size = 0;          // Memory only, in bytes.
+	bool write = false;    // Memory only.
+	int reg = -1;          // Register only: a GPR index.
+	// Which breakpoint this was, so a client can match it against cpu.breakpoint.list and friends.
+	// For a memcheck that's the watched range, which is exactly what 'address' is not.
+	u32 rangeStart = 0;
+	u32 rangeEnd = 0;
+	u32 numHits = 0;
+	bool logged = false;   // Had the LOG action.
+	bool paused = false;   // Had the PAUSE action, so the CPU stopped for it.
+	std::string condition; // Empty when unconditional.
+	// Memory only: who performed the access - "interpret", "CPU", "HLE", or an allocation tag.
+	// Copied rather than kept as a pointer; callers pass buffers that are gone by the time the
+	// event gets formatted.
+	std::string source;
+};
+
 // Async, called from gui
-void Core_Break(BreakReason reason, u32 relatedAddress = 0);
+// hit is optional detail for the breakpoint kinds, forwarded to the debugger. Only stored when
+// the break actually takes effect, so a rejected Core_Break() can't leave a stale one behind.
+void Core_Break(BreakReason reason, u32 relatedAddress = 0, const BreakpointHit *hit = nullptr);
 
 // Resumes execution. Works both when stepping the CPU and the GE.
 void Core_Resume();
@@ -98,6 +136,8 @@ int Core_GetSteppingCounter();
 struct SteppingReason {
 	BreakReason reason;
 	u32 relatedAddress = 0;
+	// Only filled in when the break came from a breakpoint - kind is None otherwise.
+	BreakpointHit hit;
 };
 SteppingReason Core_GetSteppingReason();
 

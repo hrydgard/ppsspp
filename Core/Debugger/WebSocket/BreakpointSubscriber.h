@@ -35,3 +35,10 @@ void WebSocketRegBreakpointAdd(DebuggerRequest &req);
 void WebSocketRegBreakpointUpdate(DebuggerRequest &req);
 void WebSocketRegBreakpointRemove(DebuggerRequest &req);
 void WebSocketRegBreakpointList(DebuggerRequest &req);
+
+struct BreakpointHit;
+
+// Writes the "hit" object describing what tripped a breakpoint. Shared by the cpu.breakpoint.hit
+// broadcast and by cpu.stepping, so a client can parse the two the same way and the field set
+// can't drift between them.
+void WriteBreakpointHit(JsonWriter &json, const BreakpointHit &hit);
