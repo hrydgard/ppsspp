@@ -221,6 +221,12 @@ private:
 	int selectedSymbol_ = -1;
 	char selectedSymbolName_[128];
 
+	// Filter over symCache_. Held as indices into it rather than a filtered copy, so
+	// selectedSymbol_ keeps meaning the same thing whether or not a filter is active.
+	char symFilter_[64]{};
+	std::vector<int> symMatches_;
+	bool symMatchesDirty_ = true;
+
 	ImDisasmView disasmView_;
 	char searchTerm_[64]{};
 };

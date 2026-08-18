@@ -1296,6 +1296,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 		if (symCache_.empty() || symsDirty_) {
 			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
 			symsDirty_ = false;
+			symMatchesDirty_ = true;
 		}
 
 		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
@@ -1310,11 +1311,29 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			}
 		}
 
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::InputTextWithHint("##symfilter", "Filter symbols", symFilter_, sizeof(symFilter_))) {
+			symMatchesDirty_ = true;
+		}
+
+		if (symMatchesDirty_) {
+			symMatchesDirty_ = false;
+			symMatches_.clear();
+			// An empty filter still builds the index list, so the draw loop below has only one
+			// path to get wrong. These lists run to a few thousand entries, and this only reruns
+			// when the filter or the symbol map changes, not per frame.
+			for (int i = 0; i < (int)symCache_.size(); i++) {
+				if (symFilter_[0] == '\0' || containsNoCase(symCache_[i].name, symFilter_))
+					symMatches_.push_back(i);
+			}
+		}
+
 		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
 			ImGuiListClipper clipper;
-			clipper.Begin((int)symCache_.size(), -1);
+			clipper.Begin((int)symMatches_.size(), -1);
 			while (clipper.Step()) {
-				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+					const int i = symMatches_[row];
 					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
