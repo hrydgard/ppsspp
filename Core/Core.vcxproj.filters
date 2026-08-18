@@ -1414,6 +1414,9 @@
     <ClCompile Include="EmuThread.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceChkreg.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2300,6 +2303,9 @@
     </ClInclude>
     <ClInclude Include="HLE\HLEUtil.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceChkreg.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

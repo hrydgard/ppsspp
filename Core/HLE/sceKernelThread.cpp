@@ -1854,7 +1854,12 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	}
 
 	if (optionAddr != 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
+		if (Memory::IsValid4AlignedAddress(optionAddr)) {
+			u32 structSize = Memory::ReadUnchecked_U32(optionAddr);
+			WARN_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
+		} else {
+			ERROR_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): bad options parameter %08x", threadName, optionAddr);
+		}
 	}
 
 	// Creating a thread resumes dispatch automatically.  Probably can't create without it.

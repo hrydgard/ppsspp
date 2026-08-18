@@ -1224,7 +1224,7 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 	}
 
 	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) ? "K " : "";
-	if (retmask != 'v') {
+	if (retmask != 'v' && retmask != '?') {
 		if (errStr) {
 			GenericLog(t, level, file, line, fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
 		} else {

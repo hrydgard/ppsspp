@@ -42,6 +42,9 @@ PPSSPPDebug.exe.manifest
 PPSSPPDebugARM64.exe.manifest
 PPSSPPDebugARM.exe.manifest
 assets/flash0
+assets/flash1
+assets/flash2
+assets/flash3
 UWP/icph
 UWP/*.ipch
 UWP/Content/*
@@ -95,6 +98,9 @@ GameLogNotes.txt
 screenshots
 android/assets/lang
 android/assets/flash0
+android/assets/flash1
+android/assets/flash2
+android/assets/flash3
 font_atlas.zim.png
 asciifont_atlas.zim.png
 ppge_atlas.zim.png

@@ -66,6 +66,7 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "sceMd5.h"
 #include "sceMp3.h"
 #include "sceMpeg.h"
 #include "sceNet.h"
@@ -1016,7 +1017,7 @@ const HLEFunction UtilsForKernel[] = {
 	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            'i', "xi",     HLE_KERNEL_SYSCALL },
 	{0X78934841, nullptr,                                            "sceKernelGzipDecompress",                   '?', ""        },
 	{0XE8DB3CE6, nullptr,                                            "sceKernelDeflateDecompress",                '?', ""        },
-	{0X840259F1, nullptr,                                            "sceKernelUtilsSha1Digest",                  '?', ""        },
+	{0X840259F1, &WrapI_UIU<sceKernelUtilsSha1Digest>,               "sceKernelUtilsSha1Digest",                  '?', ""        },
 	{0X9E5C5086, nullptr,                                            "sceKernelUtilsMd5BlockInit",                '?', ""        },
 	{0X61E1E525, nullptr,                                            "sceKernelUtilsMd5BlockUpdate",              '?', ""        },
 	{0XB8D24E78, nullptr,                                            "sceKernelUtilsMd5BlockResult",              '?', ""        },

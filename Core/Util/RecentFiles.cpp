@@ -7,6 +7,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
@@ -128,6 +129,8 @@ void RecentFilesManager::Add(std::string_view filename) {
 	if (g_Config.iMaxRecent <= 0) {
 		return;
 	}
+
+	// Some things should not be added to recent, such as the VSH (which will have a separate UI for launching it)
 
 	std::lock_guard<std::mutex> guard(cmdLock_);
 	cmds_.push(RecentCommand{ RecentCmd::Add, {}, std::make_unique<std::string>(filename) });
