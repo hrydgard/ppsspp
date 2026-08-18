@@ -967,6 +967,9 @@
     <ClCompile Include="MIPS\fake\FakeJit.cpp">
       <Filter>MIPS\fake</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\LineInfo.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
     <ClCompile Include="Debugger\MemBlockInfo.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -2111,6 +2114,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\fake\FakeJit.h">
       <Filter>MIPS\fake</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\LineInfo.h">
+      <Filter>Debugger</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\MemBlockInfo.h">
       <Filter>Debugger</Filter>

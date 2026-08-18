@@ -22,6 +22,7 @@
 #include "Core/Core.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
@@ -383,12 +384,17 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 			}
 
 			if (action & BREAK_ACTION_LOG) {
+				// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+				// Worth the lookup even on this path: a log-only breakpoint's whole output is these
+				// lines, and "mesh.zig:163" beats an address for reading a few thousand of them.
+				const std::string source = g_lineInfo.LookupString(addr);
+				const std::string at = source.empty() ? std::string() : " " + source;
 				if (info.logFormat.empty()) {
-					NOTICE_LOG(Log::JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+					NOTICE_LOG(Log::JIT, "BKP PC=%08x%s (%s)", addr, at.c_str(), g_symbolMap->GetDescription(addr).c_str());
 				} else {
 					std::string formatted;
 					BreakpointManager::EvaluateLogFormat(currentDebugMIPS, info.logFormat, formatted);
-					NOTICE_LOG(Log::JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
+					NOTICE_LOG(Log::JIT, "BKP PC=%08x%s: %s", addr, at.c_str(), formatted.c_str());
 				}
 			}
 

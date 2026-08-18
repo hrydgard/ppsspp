@@ -19,6 +19,7 @@
 #include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/DisassemblyManager.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/BreakpointSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -53,6 +54,19 @@ void WriteBreakpointHit(JsonWriter &json, const BreakpointHit &hit) {
 		json.writeNull("symbol");
 	else
 		json.writeString("symbol", symbol);
+
+	// Only when the game shipped an unstripped ELF with DWARF in it - see LineInfo.h. Keyed on pc
+	// rather than address, since for a memory breakpoint the interesting source location is the
+	// instruction that did the access, not the data it touched.
+	std::string file;
+	int line = 0;
+	if (g_lineInfo.Lookup(hit.pc, &file, &line)) {
+		json.writeString("file", file);
+		json.writeInt("line", line);
+	} else {
+		json.writeNull("file");
+		json.writeNull("line");
+	}
 
 	if (hit.kind == BreakpointKind::Memory) {
 		json.writeInt("size", hit.size);

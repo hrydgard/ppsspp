@@ -725,6 +725,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Instance.cpp \
 	       $(COREDIR)/Debugger/Breakpoints.cpp \
 	       $(COREDIR)/Debugger/SymbolMap.cpp \
+	       $(COREDIR)/Debugger/LineInfo.cpp \
 	       $(COREDIR)/Debugger/MemBlockInfo.cpp \
 	       $(COREDIR)/Dialog/PSPDialog.cpp \
 	       $(COREDIR)/Dialog/PSPGamedataInstallDialog.cpp \

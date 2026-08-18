@@ -17,6 +17,7 @@
 #include "Core/SaveState.h"
 #include "Core/WebServer.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -1022,7 +1023,7 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			cfg.selectedBreakpoint = -1;
 		}
 
-		if (ImGui::BeginTable("breakpoints", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+		if (ImGui::BeginTable("breakpoints", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 			ImGui::TableSetupColumn("Enabled", ImGuiTableColumnFlags_WidthFixed);  // Really means action is to pause
 			ImGui::TableSetupColumn("Log", ImGuiTableColumnFlags_WidthFixed);  // Really means action is to pause
 			ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
@@ -1030,7 +1031,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 			ImGui::TableSetupColumn("Size/Label", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("OpCode", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Cond", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableSetupColumn("Hits", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Hits", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableSetupColumn("Source", ImGuiTableColumnFlags_WidthStretch);
 			ImGui::TableHeadersRow();
 
 			for (int i = 0; i < (int)bps.size(); i++) {
@@ -1072,6 +1074,9 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				}
 				ImGui::TableNextColumn();
 				ImGui::Text("-");  // hits not available on exec bps yet
+				ImGui::TableNextColumn();
+				// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+				ImGui::TextUnformatted(g_lineInfo.LookupString(bp.addr).c_str());
 				ImGui::PopID();
 			}
 
@@ -1102,6 +1107,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				ImGui::TextUnformatted("-");  // cond
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", mc.numHits);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // A watched range is data - there's no source line for it.
 				ImGui::PopID();
 			}
 
@@ -1116,13 +1123,17 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 					cfg.selectedRegBreakpoint = &rbp - &g_breakpoints.GetRegBreakpoints()[0];
 				}
 				ImGui::SameLine();
-				ImGui::CheckboxFlags("", (int *)&rbp.result, BREAK_ACTION_PAUSE);
+				ImGui::CheckboxFlags("##enabled", (int *)&rbp.result, BREAK_ACTION_PAUSE);
+				ImGui::TableNextColumn();
+				// This row used to skip the Log column entirely, which shifted every following cell
+				// one to the left - the register name landed under "Type" and Hits under "Cond".
+				ImGui::CheckboxFlags("##log", (int *)&rbp.result, (int)BREAK_ACTION_LOG);
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted("Reg");
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(mipsDebug->GetRegName(0, rbp.reg).c_str());
+				ImGui::TextUnformatted("-");  // A register breakpoint isn't tied to an address.
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted("-");  // size/label
+				ImGui::TextUnformatted(mipsDebug->GetRegName(0, rbp.reg).c_str());  // size/label
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted("-");  // opcode
 				ImGui::TableNextColumn();
@@ -1133,6 +1144,8 @@ static void DrawBreakpointsView(MIPSDebugInterface *mipsDebug, ImConfig &cfg) {
 				}
 				ImGui::TableNextColumn();
 				ImGui::Text("%d", rbp.numHits);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted("-");  // No address, so no source line either.
 				ImGui::PopID();
 			}
 
@@ -1891,13 +1904,14 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 		}
 	}
 
-	if (entry != 0 && ImGui::BeginTable("frames", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (entry != 0 && ImGui::BeginTable("frames", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("EntryAddr", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurPC", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurOpCode", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurSP", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Source", ImGuiTableColumnFlags_WidthStretch);
 
 		ImGui::TableHeadersRow();
 
@@ -1921,6 +1935,9 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 			ImClickableValue("framepc", frame.sp, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableSetColumnIndex(5);
 			ImGui::Text("%d", frame.stackSize);
+			ImGui::TableSetColumnIndex(6);
+			// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+			ImGui::TextUnformatted(g_lineInfo.LookupString(frame.pc).c_str());
 			// TODO: More fields?
 			ImGui::PopID();
 			i++;
@@ -2932,6 +2949,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		mem_[index].GotoAddr(control.command.param);
 		cfg_.memViewOpen[index] = true;
 		ImGui::SetWindowFocus(ImMemWindow::Title(index));
+		break;
+	}
+	case ImCmd::SHOW_IN_BREAKPOINTS:
+	{
+		cfg_.breakpointsOpen = true;
+		ImGui::SetWindowFocus("Breakpoints");
 		break;
 	}
 	case ImCmd::SHOW_IN_MEMORY_DUMPER:

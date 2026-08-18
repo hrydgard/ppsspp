@@ -384,7 +384,13 @@ static int FrameTimingLimit() {
 		return fixRate(g_Config.iFpsLimit2);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
 		return fixRate(PSP_CoreParameter().analogFpsLimit);
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::DEBUGGER)
+		return fixRate(PSP_CoreParameter().debuggerFpsLimit);
 	return framerate;
+}
+
+int __DisplayGetFrameTimingLimit() {
+	return FrameTimingLimit();
 }
 
 static bool FrameTimingThrottled() {

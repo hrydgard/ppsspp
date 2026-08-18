@@ -34,6 +34,10 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 // Call this when resuming to avoid a small speedup burst
 void __DisplaySetWasPaused();
 
+// The frame rate throttling is actually aiming for right now, after fast-forward, the alternative
+// speeds, and the netplay/achievement restrictions have all had their say. 0 means unlimited.
+int __DisplayGetFrameTimingLimit();
+
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);
 

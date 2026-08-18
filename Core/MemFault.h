@@ -25,6 +25,9 @@ bool HandleFault(uintptr_t hostAddress, void *context);
 // Stack walk utility function, walks from the current state. Useful in the debugger and crash report screens etc.
 // Doesn't exactly belong here maybe, but can think of worse locations.
 // threadID can be -1 for current.
-std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID);
+// startPC of 0 means "wherever the CPU is now". Pass one explicitly when the current pc is the
+// problem - a jump to a bad address leaves it pointing at nothing walkable, and starting from ra
+// instead still recovers the callers.
+std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID, uint32_t startPC = 0);
 
 std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames);

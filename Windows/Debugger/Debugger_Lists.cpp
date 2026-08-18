@@ -12,12 +12,13 @@
 #include "Windows/main.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Core.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelThread.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
-enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
+enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_SOURCE, SF_COLUMNCOUNT };
 enum { ML_NAME, ML_ADDRESS, ML_SIZE, ML_ACTIVE, ML_COLUMNCOUNT };
 enum { WL_NAME, WL_EXPRESSION, WL_VALUE, WL_COLUMNCOUNT };
 
@@ -53,8 +54,9 @@ GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 	{ L"Name",			0.24f },
 	{ L"PC",			0.12f },
 	{ L"Opcode",		0.28f },
-	{ L"SP",			0.12f },
-	{ L"Frame Size",	0.12f }
+	{ L"SP",			0.10f },
+	{ L"Frame Size",	0.10f },
+	{ L"Source",		0.16f }
 };
 
 GenericListViewDef stackTraceListDef = {
@@ -736,6 +738,13 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, size_t destSize, int row, 
 		break;
 	case SF_FRAMESIZE:
 		wsprintf(dest,L"%08X",frames[row].stackSize);
+		break;
+	case SF_SOURCE:
+		{
+			// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+			const std::string source = g_lineInfo.LookupString(frames[row].pc);
+			wcscpy(dest, source.empty() ? L"-" : ConvertUTF8ToWString(source).c_str());
+		}
 		break;
 	}
 }

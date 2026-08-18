@@ -9,6 +9,16 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
 1. Keep style changes minimal unless requested. Follow existing code patterns and conventions.
 2. Keep cross-platform parity in mind when changing shared code. See below for more multiplatform tips
 3. Never `git push` (to any remote) without asking the user first. Committing locally is fine when asked; pushing requires explicit approval.
+4. **Most files in this repo are CRLF** - `.vcxproj`, `.vcxproj.filters`, `android/jni/Android.mk`,
+   `libretro/Makefile.common`, `AGENTS.md`, and much of the source. If you patch one with a script, read *and*
+   write with `newline=''`; reading with Python's default universal-newline translation and writing with
+   `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff. Check
+   `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in the editor.
+   Prefer the Edit tool, which does exact string replacement and can't do this.
+5. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The quoting mangles them,
+   and an anchor string like `'...MemBlockInfo.cpp \\\r\n'` silently fails to match, so the patch reports
+   "anchor missing" for reasons that aren't visible. Write the script to a file and run that instead, building
+   separators with `chr(92)` if need be.
 
 ## Core Safety Checks
 
@@ -341,8 +351,20 @@ A working invocation, and the traps around it:
 - Response field names are not uniform: `memory.read_u32` answers with `value`, while `cpu.getReg` answers with
   `uintValue`. A parser defaulting a missing key to 0 will quietly report zeroes - read the handler's comment in
   `Core/Debugger/WebSocket/*Subscriber.cpp` rather than guessing.
-- `broadcast.config.set` currently rejects the `game` and `stepping` keys that `docs/WebSocketDebugger.md` lists,
-  erroring with "Unsupported 'disallowed' object key". Only `logger` and `input` work.
+- `broadcast.config.set` accepts all five categories now (`logger`, `input`, `game`, `stepping`, `breakpoint`);
+  it used to reject `game` and `stepping` until each had happened to fire once.
+- **A script has to keep the connection open long enough for what it asked for to happen.** `cpu.runUntilTime`
+  followed immediately by `:quit` disconnects before the run even starts, and it looks exactly like the feature
+  not working. End with a `:wait cpu.stepping <seconds>`.
+- **Exception and crash messages do not reach the log in headless.** It registers its own debug-output listener
+  (`SendDebugOutput` in `headless/Headless.cpp`) that `fwrite`s to stdout, which is block-buffered when you
+  redirect it to a file - so the output sits in the CRT buffer while the process runs, and `taskkill //F` throws
+  it away rather than flushing. To actually read a crash trace, give that run a short `--timeout` and `wait` for
+  the process to exit on its own.
+- **`0xFFFFFFFF` is not an invalid instruction** - it decodes to `vflush`, a real Allegrex VFPU op, so writing it
+  over code to test illegal-instruction handling just runs it. Check what an encoding actually is with
+  `memory.disasm` before assuming it's garbage; the interpreter raises `ExecExceptionType::ILLEGAL` only when
+  `MIPSGetInstruction` has no interpreter for it (`tge`/`tlt`/`teq` and friends).
 - **To line input injection up with a wall-clock repro, use `cpu.status`'s `us` field** (emulated microseconds), not
   `ticks`. The PSP's clock frequency is changeable and games do change it - CrossCraft Classic runs at 333MHz, so
   `ticks / 222000000` is off by a factor of 1.5. `clockHz` is reported alongside.
@@ -353,6 +375,15 @@ First, turn on `bAutoSaveLoadSymbols` (`--auto-save-load-symbols` in headless): 
 unstripped ELF next to the EBOOT (`app.elf` alongside `app.prx`, common for Zig/Rust/SDK homebrew), PPSSPP loads
 the function and data names out of it, so the disassembly reads `world.init_empty` instead of `z_un_088c00f0`.
 prxgen strips the symbol table on the way to the PRX, which is why the loaded module has none of its own.
+
+The same flag also loads DWARF line info from that ELF (`Core/Debugger/LineInfo.h`), so addresses turn into
+`mesh.zig:163` in backtraces, crash traces, breakpoint hits and log lines, both call stack views, and the
+disassembly status bar. Availability is narrow and worth knowing before relying on it: **PRX conversion strips
+every `.debug` section**, verified across all 437 pspautotests `.prx` and CrossCraft's own `app.prx`, and of 24
+installed homebrew EBOOTs *none* carry debug info - CrossCraft only does because it ships `app.elf` separately.
+So it's there for homebrew you're developing (or a plain `.elf` you built), never for a commercial game. DWARF 2
+through 4 are decoded (psp-gcc emits 2, Zig 4); v5 re-encoded the file table and its units are skipped with a
+warning rather than mis-parsed.
 
 That same file is also a ground-truth oracle for anything the loader computes. It still has the symbol table (so
 an address can be turned into a

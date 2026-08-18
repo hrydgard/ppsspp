@@ -16,6 +16,7 @@
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/HW/Display.h"
 #include "Core/Reporting.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
@@ -64,7 +65,7 @@ bool ImDisasmView::getDisasmAddressText(u32 address, char *dest, size_t bufSize,
 	return GetDisasmAddressText(address, dest, bufSize, abbreviateLabels, showData, displaySymbols_);
 }
 
-void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText) {
+void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText, bool selectAll) {
 	if (!Core_IsStepping()) {
 		statusBarText_ = "Can't assemble while the core is running - pause it first.";
 		return;
@@ -74,8 +75,17 @@ void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText) {
 	// frame that draws it, which is PopupMenu() - see the "assemble" popup there.
 	assembleAddress_ = address;
 	truncate_cpy(assembleTemp_, defaultText);
+	assembleSelectAll_ = selectAll;
 	assembleError_.clear();
 	assemblePopup_ = true;
+}
+
+// The existing instruction, in a form meant to be fed straight back to the assembler - so without
+// symbol substitution, since a branch to a named function doesn't assemble back.
+void ImDisasmView::assembleCurrentOpcode(u32 address) {
+	char text[256];
+	getOpcodeText(address, text, sizeof(text), false);
+	assembleOpcode(address, text, true);
 }
 
 void ImDisasmView::RunToAddress(u32 address, bool nextFrame) {
@@ -579,7 +589,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 			// disassembleToFile();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_A)) {
-			assembleOpcode(curAddress_, "");
+			assembleCurrentOpcode(curAddress_);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
 			// Goto. should just focus on the goto input?
@@ -775,7 +785,14 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
-		ImGui::Text("Address: %08x", curAddress_);
+		// The source location is the more useful heading when there is one, but keep the address:
+		// it's what you paste into a bug report or another debugger.
+		const std::string source = g_lineInfo.LookupString(curAddress_);
+		if (source.empty()) {
+			ImGui::Text("Address: %08x", curAddress_);
+		} else {
+			ImGui::Text("%s (%08x)", source.c_str(), curAddress_);
+		}
 		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
 			toggleBreakpoint();
 		}
@@ -818,7 +835,7 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Assemble")) {
-			assembleOpcode(curAddress_, "");
+			assembleCurrentOpcode(curAddress_);
 		}
 		if (ImGui::MenuItem("NOP instructions (destructive)")) {
 			if (Memory::IsValid4AlignedRange(selectRangeStart_, selectRangeEnd_ - selectRangeStart_)) {
@@ -932,7 +949,13 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 		if (ImGui::IsWindowAppearing()) {
 			ImGui::SetKeyboardFocusHere();
 		}
-		if (ImGui::InputText("Opcode", assembleTemp_, sizeof(assembleTemp_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+		// AutoSelectAll only when we prefilled with the existing instruction, so it's overwritten
+		// by just typing. Not when onChar() seeded it with the character the user typed - that one
+		// is the start of what they're writing, not something to replace.
+		ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+		if (assembleSelectAll_)
+			inputFlags |= ImGuiInputTextFlags_AutoSelectAll;
+		if (ImGui::InputText("Opcode", assembleTemp_, sizeof(assembleTemp_), inputFlags)) {
 			if (applyAssembly(assembleAddress_, assembleTemp_)) {
 				ImGui::CloseCurrentPopup();
 			}
@@ -961,6 +984,13 @@ void ImDisasmView::updateStatusBarText() {
 	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
 	if (!label.empty()) {
 		statusBarText_ = label;
+	}
+
+	// Appended rather than replacing, since knowing which instruction you're on is still the point.
+	// Empty for anything without an unstripped ELF to read DWARF from - see LineInfo.h.
+	const std::string source = g_lineInfo.LookupString(curAddress_);
+	if (!source.empty()) {
+		statusBarText_ += "   " + source;
 	}
 }
 
@@ -1129,10 +1159,10 @@ void ImDisasmView::disassembleToFile() { 	// get size
 	*/
 }
 
-void ImDisasmView::getOpcodeText(u32 address, char* dest, int bufsize) {
+void ImDisasmView::getOpcodeText(u32 address, char *dest, int bufsize, bool insertSymbols) {
 	DisassemblyLineInfo line;
 	address = g_disassemblyManager.getStartAddress(address);
-	g_disassemblyManager.getLine(address, displaySymbols_, line, debugger_);
+	g_disassemblyManager.getLine(address, insertSymbols, line, debugger_);
 	snprintf(dest, bufsize, "%s  %s", line.name.c_str(), line.params.c_str());
 }
 
@@ -1296,6 +1326,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 		if (symCache_.empty() || symsDirty_) {
 			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
 			symsDirty_ = false;
+			symMatchesDirty_ = true;
 		}
 
 		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
@@ -1310,11 +1341,39 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			}
 		}
 
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::InputTextWithHint("##symfilter", "Filter symbols", symFilter_, sizeof(symFilter_))) {
+			symMatchesDirty_ = true;
+		}
+
+		if (symMatchesDirty_) {
+			symMatchesDirty_ = false;
+			symMatches_.clear();
+			// An empty filter still builds the index list, so the draw loop below has only one
+			// path to get wrong. These lists run to a few thousand entries, and this only reruns
+			// when the filter or the symbol map changes, not per frame.
+			for (int i = 0; i < (int)symCache_.size(); i++) {
+				if (symFilter_[0] == '\0' || containsNoCase(symCache_[i].name, symFilter_))
+					symMatches_.push_back(i);
+			}
+			// By name, because that's what you're reading when you scroll this. The symbol map
+			// hands them over in address order, which is meaningless to browse - a game with a few
+			// thousand functions is just a wall. Sorting the match list rather than symCache_
+			// leaves selectedSymbol_ indexing the cache, so a selection survives filtering, and
+			// this only runs on a rebuild rather than per frame.
+			std::sort(symMatches_.begin(), symMatches_.end(), [this](int a, int b) {
+				const int cmp = strcasecmp(symCache_[a].name.c_str(), symCache_[b].name.c_str());
+				// Ties broken by address so the order can't wobble between rebuilds.
+				return cmp != 0 ? cmp < 0 : symCache_[a].address < symCache_[b].address;
+			});
+		}
+
 		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
 			ImGuiListClipper clipper;
-			clipper.Begin((int)symCache_.size(), -1);
+			clipper.Begin((int)symMatches_.size(), -1);
 			while (clipper.Step()) {
-				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+					const int i = symMatches_[row];
 					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();

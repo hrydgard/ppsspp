@@ -16,6 +16,8 @@
 #include "Core/Reporting.h"
 #include "Core/RetroAchievements.h"
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
+#include "Core/Debugger/Breakpoints.h"
 
 #include "Core/System.h"
 #include "UI/ImDebugger/ImDebugger.h"
@@ -587,6 +589,33 @@ void ImMemView::onMouseMove(float x, float y, int button) {
 	}
 }
 
+// Everything the block list knows about a block, in a form worth pasting into a bug report.
+// Deliberately more than the status bar shows - the whole reason to copy it is to keep it.
+static std::string DescribeMemBlockInfo(const MemBlockInfo &info) {
+	std::string flags;
+	auto addFlag = [&flags, &info](MemBlockFlags flag, const char *name) {
+		if ((uint32_t)(info.flags & flag) == 0)
+			return;
+		if (!flags.empty())
+			flags += "|";
+		flags += name;
+	};
+	addFlag(MemBlockFlags::ALLOC, "ALLOC");
+	addFlag(MemBlockFlags::FREE, "FREE");
+	addFlag(MemBlockFlags::SUB_ALLOC, "SUB_ALLOC");
+	addFlag(MemBlockFlags::SUB_FREE, "SUB_FREE");
+	addFlag(MemBlockFlags::WRITE, "WRITE");
+	addFlag(MemBlockFlags::READ, "READ");
+	addFlag(MemBlockFlags::TEXTURE, "TEXTURE");
+	if (flags.empty())
+		flags = "none";
+
+	return StringFromFormat(
+		"%s\n%08x-%08x (%d bytes)\nPC: %08x\nTicks: %lld\nFlags: %s\nAllocated: %s\n",
+		info.tag.c_str(), info.start, info.start + info.size, (int)info.size, info.pc,
+		(long long)info.ticks, flags.c_str(), info.allocated ? "yes" : "no");
+}
+
 void ImMemView::updateStatusBarText() {
 	std::vector<MemBlockInfo> memRangeInfo = FindMemInfoByFlag(highlightFlags_, curAddress_, 1);
 	char text[512];
@@ -1140,6 +1169,20 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 				if (ImGui::Selectable(iter.tag.c_str(), cfg.selectedMemoryBlock == iter.start)) {
 					cfg.selectedMemoryBlock = iter.start;
 					GotoAddr(iter.start);
+				}
+				if (ImGui::BeginPopupContextItem("blockinfo")) {
+					ImGui::TextUnformatted(iter.tag.c_str());
+					ImGui::Separator();
+					if (ImGui::MenuItem("Copy info to clipboard")) {
+						System_CopyStringToClipboard(DescribeMemBlockInfo(iter));
+					}
+					if (ImGui::MenuItem("Add memory breakpoint")) {
+						// Covers the whole block rather than a single address - the point of doing
+						// this from the block list is to catch anything touching the allocation.
+						g_breakpoints.AddMemCheck(iter.start, iter.start + iter.size, MEMCHECK_READWRITE, BREAK_ACTION_PAUSE | BREAK_ACTION_LOG);
+						control.command = { ImCmd::SHOW_IN_BREAKPOINTS };
+					}
+					ImGui::EndPopup();
 				}
 				ImGui::PopID();
 			}
