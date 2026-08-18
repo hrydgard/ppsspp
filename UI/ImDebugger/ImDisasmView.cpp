@@ -1356,6 +1356,16 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 				if (symFilter_[0] == '\0' || containsNoCase(symCache_[i].name, symFilter_))
 					symMatches_.push_back(i);
 			}
+			// By name, because that's what you're reading when you scroll this. The symbol map
+			// hands them over in address order, which is meaningless to browse - a game with a few
+			// thousand functions is just a wall. Sorting the match list rather than symCache_
+			// leaves selectedSymbol_ indexing the cache, so a selection survives filtering, and
+			// this only runs on a rebuild rather than per frame.
+			std::sort(symMatches_.begin(), symMatches_.end(), [this](int a, int b) {
+				const int cmp = strcasecmp(symCache_[a].name.c_str(), symCache_[b].name.c_str());
+				// Ties broken by address so the order can't wobble between rebuilds.
+				return cmp != 0 ? cmp < 0 : symCache_[a].address < symCache_[b].address;
+			});
 		}
 
 		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
