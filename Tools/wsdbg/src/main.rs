@@ -38,8 +38,9 @@ const SUBPROTOCOL: &str = "debugger.ppsspp.org";
 )]
 struct Args {
     /// Port the debugger is listening on (Settings > Tools > Developer Tools > Remote Debugger,
-    /// or whatever port PPSSPP printed / --debugger chose).
-    port: u16,
+    /// or whatever port PPSSPP printed / --debugger chose). Omit it when using --launch, which
+    /// discovers the port itself.
+    port: Option<u16>,
 
     /// Event to send once and then exit, e.g. "game.status" or "cpu.stepping".
     /// Omit this to start an interactive REPL instead.
@@ -93,6 +94,26 @@ struct Args {
     /// reassembled by whatever is reading it.
     #[arg(long)]
     compact: bool,
+
+    /// Start PPSSPP ourselves instead of connecting to one that's already running, then use it
+    /// for this session and kill it on the way out. Takes the executable and all of its
+    /// arguments, so it has to come last: everything after it belongs to PPSSPP, not to wsdbg.
+    ///
+    ///   wsdbg --sync --compact --launch ./PPSSPPHeadless.exe --vsh -i --graphics=vulkan
+    ///
+    /// --debugger=0 is appended unless the given arguments already ask for a debugger port, and
+    /// the port is read straight off the child's stdout rather than scraped from a log file.
+    /// PPSSPP's own output is forwarded to our stderr, so it can be redirected separately from
+    /// the protocol messages on stdout.
+    #[arg(long, num_args = 1.., allow_hyphen_values = true)]
+    launch: Vec<String>,
+
+    /// Turn off the log and input broadcasts for this session. Both are pure noise for a script,
+    /// and the log one is expensive - every line the emulator logs gets encoded as JSON and
+    /// pushed down the socket, which throttles emulation badly on a heavy boot. Equivalent to
+    /// sending broadcast.config.set yourself, minus the chance of also disabling 'stepping'.
+    #[arg(long)]
+    quiet: bool,
 }
 
 // Set from --compact. A global because print_incoming is called from a dozen places that have no
@@ -204,6 +225,108 @@ fn build_event_json(event: &str, params: &[String], ticket: Option<u64>) -> Resu
         map.insert(k.to_string(), parse_value(v));
     }
     Ok(serde_json::Value::Object(map).to_string())
+}
+
+// Start PPSSPP and find out what debugger port it ended up on.
+//
+// The port is read from the child's own stdout as it appears, which is the whole point of doing
+// this here rather than in a wrapper script: there's no log file to poll, no fixed sleep to guess
+// at, and no window in which we could attach to a *previous* run that happens to still hold a
+// port. PPSSPP logs the line at NOTICE precisely so it survives any --loglevel.
+//
+// Everything the child prints is forwarded to our stderr, so a caller can redirect the emulator's
+// log without entangling it with the protocol messages we put on stdout.
+fn launch_ppsspp(cmd: &[String]) -> Result<(std::process::Child, u16)> {
+    use std::process::{Command, Stdio};
+
+    let (exe, rest) = cmd.split_first().ok_or_else(|| anyhow!("--launch needs a command"))?;
+    let mut args: Vec<String> = rest.to_vec();
+    // Let the OS pick, unless the caller asked for a specific port themselves.
+    if !args.iter().any(|a| a.starts_with("--debugger")) {
+        args.push("--debugger=0".to_string());
+    }
+
+    let mut child = Command::new(exe)
+        .args(&args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .with_context(|| format!("Failed to start {exe}"))?;
+
+    let stdout = child.stdout.take().expect("stdout was piped");
+    let stderr = child.stderr.take().expect("stderr was piped");
+    let (tx, rx) = mpsc::channel::<u16>();
+
+    // Watch both streams for it. Which one it lands on depends on how that build routes its
+    // logging, and guessing wrong just looks like "PPSSPP never reported a port" - so don't guess.
+    fn forward(stream: impl io::Read + Send + 'static, tx: mpsc::Sender<u16>) {
+        thread::spawn(move || {
+            let mut sent = false;
+            for line in io::BufReader::new(stream).lines().map_while(Result::ok) {
+                if !sent {
+                    if let Some(port) = parse_listening_port(&line) {
+                        sent = tx.send(port).is_ok();
+                    }
+                }
+                eprintln!("{line}");
+            }
+        });
+    }
+    forward(stdout, tx.clone());
+    forward(stderr, tx);
+
+    match rx.recv_timeout(Duration::from_secs(60)) {
+        Ok(port) => Ok((child, port)),
+        Err(_) => {
+            child.kill().ok();
+            child.wait().ok();
+            Err(anyhow!(
+                "PPSSPP never reported a debugger port. It logs that line at NOTICE, so it should \
+                 survive any --loglevel - but a build predating that change logs it at INFO, where \
+                 --loglevel=3 hides it. Check the forwarded output above for 'Listening on port'; \
+                 if it isn't there, either raise --loglevel or pass an explicit --debugger=PORT."
+            ))
+        }
+    }
+}
+
+// Matches either form Core/WebServer.cpp emits: the bare "Debugger listening on port N" written
+// straight to stderr, and the "Entering web server loop. Listening on port N" log line (which an
+// older build is the only source of). Both end in "listening on port N", so one match covers both.
+fn parse_listening_port(line: &str) -> Option<u16> {
+    let lower = line.to_ascii_lowercase();
+    let idx = lower.find("listening on port ")? + "listening on port ".len();
+    let digits: String = line[idx..].chars().take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse().ok()
+}
+
+// The socket usually isn't accepting the instant the port is printed, so retry rather than sleep
+// for a guessed interval - too short is flaky, too long is dead time on every single run.
+fn connect_with_retry(host: &str, port: u16, timeout: Duration) -> Result<WebSocket<TcpStream>> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match connect(host, port) {
+            Ok(socket) => return Ok(socket),
+            Err(e) if Instant::now() >= deadline => return Err(e),
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+}
+
+// Silence the two broadcast categories a script never wants, without touching the ones it needs.
+// Sent as a fixed message rather than left to the caller because hand-writing it is where the
+// 'stepping' mistake gets made - see the warning in handle_repl_line.
+fn quiet_broadcasts(socket: &mut WebSocket<TcpStream>) -> Result<()> {
+    socket.send(Message::Text(
+        serde_json::json!({
+            "event": "broadcast.config.set",
+            "ticket": next_ticket(),
+            "disallowed": { "logger": true, "input": true },
+        })
+        .to_string()
+        .into(),
+    ))?;
+    Ok(())
 }
 
 fn connect(host: &str, port: u16) -> Result<WebSocket<TcpStream>> {
@@ -422,6 +545,29 @@ fn print_help() {
     println!("no more guessing sleep durations.");
 }
 
+// Turning off the 'stepping' broadcast breaks every "wait until the CPU stops again" mechanism we
+// have - --sync's wait after a resume/step, and :wait cpu.stepping - because cpu.stepping is a
+// broadcast with no ticket of its own and is the only signal that a run finished. The symptom is
+// vicious: the emulator stops exactly when it should, then sits at 0% CPU while the script waits
+// out its entire --sync-timeout, which reads as "the boot is slow" rather than "I muted the reply".
+// Cheap to say so at the moment it's sent. Use --quiet for the safe version of this.
+fn warn_if_stepping_muted(event: &str, obj: &serde_json::Map<String, serde_json::Value>) {
+    if event != "broadcast.config.set" {
+        return;
+    }
+    let muted = obj
+        .get("disallowed")
+        .and_then(|d| d.get("stepping"))
+        .and_then(|s| s.as_bool())
+        .unwrap_or(false);
+    if muted {
+        eprintln!(
+            "! warning: disabling the 'stepping' broadcast means cpu.stepping never arrives, so \
+             --sync and ':wait cpu.stepping' will block until they time out. Use --quiet instead."
+        );
+    }
+}
+
 // Returns the (ticket, event name) sent, when known - used by --sync to know what response to
 // wait for. Both are recoverable for a plain "{...}" JSON paste too, as long as it includes
 // "ticket"/"event" fields itself; if it doesn't (or ticket isn't a plain integer), --sync has
@@ -452,6 +598,7 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
             ),
             None => None,
         };
+        warn_if_stepping_muted(&event, obj);
         match ticket {
             Some(t) => println!("-> (ticket {t}) {line}"),
             None => println!("-> (no ticket, not waiting for a reply) {line}"),
@@ -845,10 +992,52 @@ fn main() -> Result<()> {
     let args = Args::parse();
     COMPACT.store(args.compact, Ordering::Relaxed);
 
-    let mut socket = connect(&args.host, args.port).with_context(|| {
-        "Could not connect. Is PPSSPP running with the WebSocket debugger enabled? \
-         (Settings > Tools > Developer Tools > Allow remote debugger, or launch with --debugger)"
-    })?;
+    // With --launch we own the emulator and have to take it down again on the way out - including
+    // on the std::process::exit paths below, which skip destructors, so this can't be a Drop guard.
+    let (mut child, port) = if !args.launch.is_empty() {
+        if args.port.is_some() {
+            return Err(anyhow!("Pass either a port or --launch, not both"));
+        }
+        let (child, port) = launch_ppsspp(&args.launch)?;
+        if !compact() {
+            println!("Launched PPSSPP (pid {}), debugger on port {port}", child.id());
+        }
+        (Some(child), port)
+    } else {
+        let port = args
+            .port
+            .ok_or_else(|| anyhow!("Need a port to connect to, or --launch to start PPSSPP"))?;
+        (None, port)
+    };
+
+    // Failing to reach a process we just started is a different problem from failing to reach one
+    // that was supposed to be there already, so only retry in the case where we know it's coming up.
+    let connect_result = if child.is_some() {
+        connect_with_retry(&args.host, port, Duration::from_secs(30))
+    } else {
+        connect(&args.host, port)
+    };
+    let mut socket = match connect_result {
+        Ok(socket) => socket,
+        Err(e) => {
+            if let Some(c) = child.as_mut() {
+                c.kill().ok();
+                c.wait().ok();
+            }
+            return Err(e).context(
+                "Could not connect. Is PPSSPP running with the WebSocket debugger enabled? \
+                 (Settings > Tools > Developer Tools > Allow remote debugger, or launch with --debugger)",
+            );
+        }
+    };
+
+    let finish = |child: Option<std::process::Child>, ok: bool| -> ! {
+        if let Some(mut c) = child {
+            c.kill().ok();
+            c.wait().ok();
+        }
+        std::process::exit(if ok { 0 } else { 1 })
+    };
 
     // Ask to be told when a request was accepted but finishes later (cpu.resume and friends).
     // Off by default server-side, since the extra message would confuse a client that correlates
@@ -857,27 +1046,28 @@ fn main() -> Result<()> {
     // know the event; --sync just falls back to timing out on those, as it did before.
     request_deferred_acks(&mut socket).ok();
 
+    if args.quiet {
+        quiet_broadcasts(&mut socket).ok();
+    }
+
     if let Some(raw) = &args.raw {
         // Recover the ticket if the caller supplied one; there's nothing to wait on otherwise.
         let ticket = serde_json::from_str::<serde_json::Value>(raw)
             .ok()
             .and_then(|v| v.get("ticket").and_then(|t| t.as_u64()));
         let ok = run_one_shot(socket, raw.clone(), ticket, args.wait, args.wait_all)?;
-        return if ok { Ok(()) } else { std::process::exit(1) };
+        finish(child, ok);
     }
 
     if let Some(event) = &args.event {
         let ticket = next_ticket();
         let json_text = build_event_json(event, &args.params, Some(ticket))?;
         let ok = run_one_shot(socket, json_text, Some(ticket), args.wait, args.wait_all)?;
-        return if ok { Ok(()) } else { std::process::exit(1) };
+        finish(child, ok);
     }
 
     // Non-zero exit when something in the script failed, so a caller doesn't have to grep output
     // to find out whether its :wait ever fired.
-    if run_repl(socket, args.sync, args.sync_timeout)? {
-        Ok(())
-    } else {
-        std::process::exit(1);
-    }
+    let ok = run_repl(socket, args.sync, args.sync_timeout)?;
+    finish(child, ok);
 }
