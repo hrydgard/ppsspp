@@ -14,6 +14,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSAsm.h"
+#include "Core/HW/Display.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
@@ -75,6 +76,37 @@ void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText) {
 	truncate_cpy(assembleTemp_, defaultText);
 	assembleError_.clear();
 	assemblePopup_ = true;
+}
+
+void ImDisasmView::RunToAddress(u32 address, bool nextFrame) {
+	g_breakpoints.SetTempBreakPoint(address);
+
+	if (nextFrame) {
+		// The flip counter, so "greater than what it is now" means "not until something new has
+		// reached the screen". Handy when the address you're interested in is hit many times per
+		// frame and you want the next frame's first hit, not this frame's next one.
+		//
+		// Counting presented frames rather than vblanks matters for a game that doesn't render at
+		// the full refresh rate - at 30fps there are two vblanks per frame, so a vblank-based
+		// condition would let you through halfway into the frame you're trying to skip.
+		//
+		// The flip side is that it only advances when the framebuffer actually changed, so if the
+		// game has stopped drawing - or is wedged in the loop you're trying to debug - this never
+		// trips at all and the core just keeps running.
+		BreakPointCond cond;
+		cond.debug = currentDebugMIPS;
+		cond.expressionString = StringFromFormat("flipcount > %d", __DisplayGetFlipCount());
+		if (initExpression(currentDebugMIPS, cond.expressionString.c_str(), cond.expression)) {
+			g_breakpoints.SetTempBreakPointCond(cond);
+		} else {
+			statusBarText_ = "Couldn't compile the frame condition - running without it.";
+		}
+	}
+
+	g_breakpoints.SetSkipFirst(address);
+	if (Core_IsStepping()) {
+		Core_Resume();
+	}
 }
 
 bool ImDisasmView::applyAssembly(u32 address, std::string_view op) {
@@ -776,11 +808,13 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
-			g_breakpoints.SetTempBreakPoint(curAddress_);
-			g_breakpoints.SetSkipFirst(curAddress_);
-			if (Core_IsStepping()) {
-				Core_Resume();
-			}
+			RunToAddress(curAddress_, false);
+		}
+		if (ImGui::MenuItem("Run to here, next frame")) {
+			RunToAddress(curAddress_, true);
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
+			ImGui::SetTooltip("Ignores hits until a new frame has been presented, to skip the rest of this one.");
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Assemble")) {

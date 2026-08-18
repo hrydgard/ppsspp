@@ -126,6 +126,9 @@ private:
 	};
 
 	void ProcessKeyboardShortcuts(bool focused);
+	// Plants the one-shot "run to cursor" breakpoint and resumes. With nextFrame, hits are ignored
+	// until the next vblank, so the rest of the current frame is skipped over.
+	void RunToAddress(u32 address, bool nextFrame);
 	// Requests the assemble popup - the actual input happens in PopupMenu(), since ImGui popups
 	// can only be opened and drawn from inside the frame that owns them.
 	void assembleOpcode(u32 address, std::string_view defaultText);

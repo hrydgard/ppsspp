@@ -357,7 +357,9 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	}
 
 	if (tempBreakPoint_.valid && tempBreakPoint_.addr == addr) {
-		// The condition, when set, restricts the step to one thread - see SetTempBreakPointCond().
+		// The condition, when set, narrows down which hit counts - to one thread for a step
+		// ("threadid == ..."), or to a later frame for run-to-cursor ("flipcount > ...").  A hit that
+		// fails it leaves the breakpoint armed, so the next one gets a chance.
 		if (!tempBreakPoint_.hasCond || tempBreakPoint_.cond.Evaluate() != 0) {
 			DEBUG_LOG(Log::Debugger, "Reached temporary breakpoint at %08x", addr);
 			result |= BREAK_ACTION_PAUSE;
