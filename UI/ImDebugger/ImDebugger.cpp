@@ -17,6 +17,7 @@
 #include "Core/SaveState.h"
 #include "Core/WebServer.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Core.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -1891,13 +1892,14 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 		}
 	}
 
-	if (entry != 0 && ImGui::BeginTable("frames", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (entry != 0 && ImGui::BeginTable("frames", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("EntryAddr", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurPC", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurOpCode", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurSP", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Source", ImGuiTableColumnFlags_WidthStretch);
 
 		ImGui::TableHeadersRow();
 
@@ -1921,6 +1923,9 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 			ImClickableValue("framepc", frame.sp, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableSetColumnIndex(5);
 			ImGui::Text("%d", frame.stackSize);
+			ImGui::TableSetColumnIndex(6);
+			// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+			ImGui::TextUnformatted(g_lineInfo.LookupString(frame.pc).c_str());
 			// TODO: More fields?
 			ImGui::PopID();
 			i++;

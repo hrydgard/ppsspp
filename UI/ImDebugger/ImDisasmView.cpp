@@ -785,7 +785,14 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
-		ImGui::Text("Address: %08x", curAddress_);
+		// The source location is the more useful heading when there is one, but keep the address:
+		// it's what you paste into a bug report or another debugger.
+		const std::string source = g_lineInfo.LookupString(curAddress_);
+		if (source.empty()) {
+			ImGui::Text("Address: %08x", curAddress_);
+		} else {
+			ImGui::Text("%s (%08x)", source.c_str(), curAddress_);
+		}
 		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
 			toggleBreakpoint();
 		}

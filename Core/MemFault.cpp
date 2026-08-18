@@ -43,6 +43,7 @@
 #include "Core/MemFault.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 
 // Stack walking stuff
@@ -295,11 +296,13 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 }  // namespace Memory
 
-std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
+std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID, uint32_t startPC) {
 	DebugInterface *cpuDebug = currentDebugMIPS;
+	if (startPC == 0)
+		startPC = cpuDebug->GetPC();
 
 	auto threads = GetThreadsInfo();
-	uint32_t entry = cpuDebug->GetPC();
+	uint32_t entry = startPC;
 	uint32_t stackTop = 0;
 	for (const DebugThreadInfo &th : threads) {
 		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
@@ -311,7 +314,7 @@ std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
 
 	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
 	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
-	return MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
+	return MIPSStackWalk::Walk(startPC, ra, sp, entry, stackTop);
 }
 
 std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames) {
@@ -319,11 +322,15 @@ std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frame
 	for (const auto &frame : frames) {
 		const u32 frameEntry = frame.entry == 0xFFFFFFFF ? 0 : frame.entry;
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
+		// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h. A crash
+		// report is the single place this is worth the most, so it goes first on the line.
+		const std::string source = g_lineInfo.LookupString(frame.pc);
+		const std::string at = source.empty() ? std::string() : " at " + source;
 		char moduleDesc[96];
 		if (DescribeModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
-			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
+			str << StringFromFormat("%s%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), at.c_str(), moduleDesc, frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		} else {
-			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
+			str << StringFromFormat("%s%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), at.c_str(), frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		}
 	}
 	return str.str();

@@ -12,6 +12,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
 #include "Common/StringUtils.h"
@@ -1208,7 +1209,12 @@ void CtrlDisAsmView::updateStatusBarText()
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
 
-	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
+	// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+	const std::string source = g_lineInfo.LookupString(curAddress);
+	std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
+	if (!source.empty()) {
+		label = label.empty() ? source : label + "   " + source;
+	}
 	if (!label.empty()) {
 		SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,1,(LPARAM)label.c_str());
 	}
