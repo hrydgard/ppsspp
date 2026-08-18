@@ -24,6 +24,60 @@
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
+static const char *BreakpointKindToString(BreakpointKind kind) {
+	switch (kind) {
+	case BreakpointKind::Exec: return "exec";
+	case BreakpointKind::Memory: return "memory";
+	case BreakpointKind::Register: return "register";
+	default: return "none";
+	}
+}
+
+void WriteBreakpointHit(JsonWriter &json, const BreakpointHit &hit) {
+	json.pushDict("hit");
+	json.writeString("kind", BreakpointKindToString(hit.kind));
+	json.writeUint("pc", hit.pc);
+	json.writeUint("address", hit.address);
+	json.writeUint("hits", hit.numHits);
+	json.writeBool("logged", hit.logged);
+	json.writeBool("paused", hit.paused);
+	if (hit.condition.empty())
+		json.writeNull("condition");
+	else
+		json.writeString("condition", hit.condition);
+
+	// Resolved here rather than left to the client: it's one symbol map lookup at break time, and
+	// it saves a round trip at exactly the moment the client is trying to show something.
+	const std::string symbol = g_symbolMap->GetDescription(hit.address);
+	if (symbol.empty())
+		json.writeNull("symbol");
+	else
+		json.writeString("symbol", symbol);
+
+	if (hit.kind == BreakpointKind::Memory) {
+		json.writeInt("size", hit.size);
+		json.writeString("access", hit.write ? "write" : "read");
+		json.writeString("source", hit.source);
+	}
+	if (hit.kind == BreakpointKind::Register) {
+		json.writeInt("register", hit.reg);
+		json.writeString("registerName", MIPSDebugInterface::GetRegName(0, hit.reg));
+	}
+
+	// Which breakpoint it was, as opposed to what was touched. Those differ for every memcheck
+	// with a range, and this is what matches the entries in cpu.breakpoint.list / etc. A register
+	// breakpoint isn't identified by an address at all, so it gets no range rather than a
+	// meaningless zero one - "register" above is its identity.
+	if (hit.kind == BreakpointKind::Exec || hit.kind == BreakpointKind::Memory) {
+		json.pushDict("breakpoint");
+		json.writeUint("start", hit.rangeStart);
+		json.writeUint("end", hit.rangeEnd);
+		json.end();
+	}
+
+	json.end();
+}
+
 DebuggerSubscriber *WebSocketBreakpointInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
 	map["cpu.breakpoint.add"] = &WebSocketCPUBreakpointAdd;

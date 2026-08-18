@@ -20,6 +20,7 @@
 #include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Core/Core.h"
+#include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -62,8 +63,32 @@ BreakAction MemCheck::Apply(u32 addr, bool write, int size, u32 pc) {
 BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc, const char *reason) {
 	// Conditions have always already been checked if we get here.
 	Log(addr, write, size, pc, reason);
+
+	BreakpointHit hit;
+	if (WebSocketDebuggerHasClients() || (action & BREAK_ACTION_PAUSE)) {
+		hit.kind = BreakpointKind::Memory;
+		hit.pc = pc;
+		hit.address = addr;
+		hit.size = size;
+		hit.write = write;
+		hit.rangeStart = start;
+		hit.rangeEnd = end;
+		// This is a copy of the stored memcheck, taken after Apply() bumped the count, so it's
+		// already the post-hit value.
+		hit.numHits = numHits;
+		hit.logged = (action & BREAK_ACTION_LOG) != 0;
+		hit.paused = (action & BREAK_ACTION_PAUSE) != 0;
+		if (hasCondition)
+			hit.condition = condition.expressionString;
+		if (reason)
+			hit.source = reason;
+		WebSocketNotifyBreakpointHit(hit);
+	}
+
 	if (action & BREAK_ACTION_PAUSE) {
-		Core_Break(BreakReason::MemoryBreakpoint, start);
+		// relatedAddress stays the range start for compatibility - the address actually touched
+		// is in the hit, which is the whole point of it.
+		Core_Break(BreakReason::MemoryBreakpoint, start, &hit);
 	}
 	return action;
 }
@@ -329,6 +354,7 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 		return BREAK_ACTION_NONE;
 
 	BreakAction result = BREAK_ACTION_NONE;
+	BreakpointHit hit;
 
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT) {
@@ -341,6 +367,20 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 
 		if (condPassed) {
 			++info.numHits;
+
+			if (action != BREAK_ACTION_NONE && (WebSocketDebuggerHasClients() || (action & BREAK_ACTION_PAUSE))) {
+				hit.kind = BreakpointKind::Exec;
+				hit.pc = addr;
+				hit.address = addr;
+				hit.rangeStart = addr;
+				hit.rangeEnd = addr;
+				hit.numHits = info.numHits;
+				hit.logged = (action & BREAK_ACTION_LOG) != 0;
+				hit.paused = (action & BREAK_ACTION_PAUSE) != 0;
+				if (info.hasCond)
+					hit.condition = info.cond.expressionString;
+				WebSocketNotifyBreakpointHit(hit);
+			}
 
 			if (action & BREAK_ACTION_LOG) {
 				if (info.logFormat.empty()) {
@@ -357,7 +397,9 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	}
 
 	if (tempBreakPoint_.valid && tempBreakPoint_.addr == addr) {
-		// The condition, when set, restricts the step to one thread - see SetTempBreakPointCond().
+		// The condition, when set, narrows down which hit counts - to one thread for a step
+		// ("threadid == ..."), or to a later frame for run-to-cursor ("flipcount > ...").  A hit that
+		// fails it leaves the breakpoint armed, so the next one gets a chance.
 		if (!tempBreakPoint_.hasCond || tempBreakPoint_.cond.Evaluate() != 0) {
 			DEBUG_LOG(Log::Debugger, "Reached temporary breakpoint at %08x", addr);
 			result |= BREAK_ACTION_PAUSE;
@@ -365,7 +407,9 @@ BreakAction BreakpointManager::ExecBreakPoint(u32 addr) {
 	}
 
 	if (result & BREAK_ACTION_PAUSE) {
-		Core_Break(BreakReason::CpuBreakpoint, addr);
+		// hit stays kind None when only the temporary breakpoint fired - there's no user
+		// breakpoint to describe in that case, just a step completing.
+		Core_Break(BreakReason::CpuBreakpoint, addr, hit.kind != BreakpointKind::None ? &hit : nullptr);
 		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 
@@ -696,6 +740,20 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 
 	++info.numHits;
 
+	BreakpointHit hit;
+	if (WebSocketDebuggerHasClients() || (info.result & BREAK_ACTION_PAUSE)) {
+		hit.kind = BreakpointKind::Register;
+		hit.pc = pc;
+		hit.address = pc;
+		hit.reg = reg;
+		hit.numHits = info.numHits;
+		hit.logged = (info.result & BREAK_ACTION_LOG) != 0;
+		hit.paused = (info.result & BREAK_ACTION_PAUSE) != 0;
+		if (info.hasCond)
+			hit.condition = info.cond.expressionString;
+		WebSocketNotifyBreakpointHit(hit);
+	}
+
 	if (info.result & BREAK_ACTION_LOG) {
 		if (info.logFormat.empty()) {
 			NOTICE_LOG(Log::JIT, "BKP reg write r%d, PC=%08x (%s)", reg, pc, g_symbolMap->GetDescription(pc).c_str());
@@ -706,7 +764,7 @@ BreakAction BreakpointManager::ExecRegBreakpoint(int reg, u32 pc) {
 		}
 	}
 	if ((info.result & BREAK_ACTION_PAUSE) && g_breakpoints.CheckSkipFirst() != pc) {
-		Core_Break(BreakReason::RegBreakpoint, pc);
+		Core_Break(BreakReason::RegBreakpoint, pc, &hit);
 	}
 
 	return info.result;

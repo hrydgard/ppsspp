@@ -126,7 +126,15 @@ private:
 	};
 
 	void ProcessKeyboardShortcuts(bool focused);
-	void assembleOpcode(u32 address, const std::string &defaultText);
+	// Plants the one-shot "run to cursor" breakpoint and resumes. With nextFrame, hits are ignored
+	// until the next vblank, so the rest of the current frame is skipped over.
+	void RunToAddress(u32 address, bool nextFrame);
+	// Requests the assemble popup - the actual input happens in PopupMenu(), since ImGui popups
+	// can only be opened and drawn from inside the frame that owns them.
+	void assembleOpcode(u32 address, std::string_view defaultText);
+	// Applies what was typed into that popup. Returns false and fills in assembleError_ if it
+	// couldn't be assembled, so the popup can stay open and show why.
+	bool applyAssembly(u32 address, std::string_view op);
 	std::string disassembleRange(u32 start, u32 size);
 	void disassembleToFile();
 	void FollowBranch();
@@ -174,6 +182,11 @@ private:
 	std::string statusBarText_;
 	u32 funcBegin_ = 0;
 	char funcNameTemp_[128]{};
+
+	bool assemblePopup_ = false;
+	u32 assembleAddress_ = 0;
+	char assembleTemp_[256]{};
+	std::string assembleError_;
 };
 
 // Corresponds to the CDisasm dialog

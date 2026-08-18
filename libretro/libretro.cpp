@@ -1984,7 +1984,11 @@ void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
-void WebSocketDebuggerTick() {}  // stub to let things link
+// Stubs to let things link - libretro builds Core.cpp and Breakpoints.cpp, which call into the
+// WebSocket debugger, but doesn't build Core/Debugger/WebSocket.cpp itself.
+void WebSocketDebuggerTick() {}
+bool WebSocketDebuggerHasClients() { return false; }
+void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {}
 void System_Toast(std::string_view str) {}
 
 inline int16_t Clamp16(int32_t sample) {

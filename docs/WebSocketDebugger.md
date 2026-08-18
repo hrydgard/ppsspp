@@ -121,15 +121,82 @@ Sent without you asking, whenever the underlying state changes:
 | `game.pause` / `game.resume` | User opens/leaves the pause menu | `GameBroadcaster.cpp` |
 | `cpu.stepping` | CPU enters a stepping/break state | `SteppingBroadcaster.cpp` |
 | `cpu.resume` | CPU resumes from stepping | `SteppingBroadcaster.cpp` |
+| `cpu.breakpoint.hit` | Any breakpoint trips, whether or not it stops the CPU | `WebSocket.cpp` |
 | `input.buttons` | Any emulated button changes state | `InputBroadcaster.cpp` |
 | `input.analog` | An analog stick position changes | `InputBroadcaster.cpp` |
 
 A client can opt out of specific broadcast categories with
-`broadcast.config.set` (`{"disallowed": {"logger": true, "game": true, "stepping": true, "input": true}}`),
+`broadcast.config.set` (`{"disallowed": {"logger": true, "game": true, "stepping": true, "input": true, "breakpoint": true}}`),
 see `ClientConfigSubscriber.cpp`. `gpu.stats.feed` (see below) works the same
 way for periodic GPU stats. `client.config.set` in the same file carries
 per-connection settings that aren't about broadcasts - currently just
 `acknowledgeDeferred`, described under "Message protocol" above.
+
+### Breakpoint hits
+
+`cpu.breakpoint.hit` fires every time a breakpoint's condition passes and it has
+some action set - including **log-only breakpoints, which never stop the CPU**.
+That's what makes them usable for automation: before this event existed, a
+log-only breakpoint's only trace was a line in the log stream.
+
+```json
+{
+  "event": "cpu.breakpoint.hit",
+  "sequence": 1,
+  "hit": {
+    "kind": "exec",
+    "pc": 142876568,
+    "address": 142876568,
+    "hits": 1,
+    "logged": true,
+    "paused": false,
+    "condition": null,
+    "symbol": "rendering.mesh.Mesh(rendering.Vertex.PspVertex).draw",
+    "breakpoint": { "start": 142876568, "end": 142876568 }
+  }
+}
+```
+
+The same `hit` object is attached to `cpu.stepping` when a breakpoint is what
+stopped the CPU, so both can be parsed the same way. It is **absent** when the
+break came from something else (the user pausing, a savestate load, an
+exception), so test for its presence rather than for a `kind`.
+
+Fields common to every kind:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `"exec"`, `"memory"` or `"register"` |
+| `pc` | The instruction responsible |
+| `address` | Exec: the instruction. Memory: the address **actually accessed** |
+| `hits` | Total times this breakpoint has tripped, matching `*.list` |
+| `logged` / `paused` | Which actions it had - `paused` false means the CPU kept running |
+| `condition` | The condition expression, or `null` |
+| `symbol` | Symbol at `address`, or `null` - resolved here to save a round trip |
+| `breakpoint` | `{start, end}` identifying which breakpoint fired. Absent for `"register"`, whose identity is the register, not an address |
+
+Extra fields for `"memory"`:
+
+| Field | Meaning |
+|---|---|
+| `size` | Bytes accessed |
+| `access` | `"read"` or `"write"` |
+| `source` | Who performed it - `"interpret"`, `"CPU"`, `"HLE"`, or an allocation tag such as `"ThreadFillStack"` |
+
+Extra fields for `"register"`: `register` (GPR index) and `registerName`
+(e.g. `"a0"`).
+
+Note `address` and `breakpoint.start` are **not** the same thing for a memory
+breakpoint watching a range - the first is the byte touched, the second is the
+range being watched. On `cpu.stepping` the legacy `relatedAddress` field keeps
+reporting the range start; `hit.address` is the accurate one.
+
+`sequence` counts hits *produced*, not delivered. A connection whose queue backs
+up (easy to do with a log-only breakpoint in a hot loop - one can produce tens
+of thousands of hits per second) drops events rather than growing without bound,
+so a gap in `sequence` tells a client exactly how many it missed. Turning the
+`breakpoint` category off via `broadcast.config.set` avoids the traffic
+entirely.
 
 ## Request/response event catalog
 

@@ -464,7 +464,7 @@ namespace MIPSComp {
 			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::LoadVec4, vregs[0], rs, 0, imm);
 			} else {
-				// Let's not even bother with "vertical" loads for now.
+				// Fall back to individual reads for vertical vector stores.
 				if (!g_Config.bFastMemory)
 					ir.Write(IROp::ValidateAddress128, 0, (u8)rs, 0, (u32)imm);
 				ir.Write(IROp::LoadFloat, vregs[0], rs, 0, imm);
@@ -478,7 +478,7 @@ namespace MIPSComp {
 			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::StoreVec4, vregs[0], rs, 0, imm);
 			} else {
-				// Let's not even bother with "vertical" stores for now.
+				// Fall back to individual writes for vertical vector stores.
 				if (!g_Config.bFastMemory)
 					ir.Write(IROp::ValidateAddress128, 0, (u8)rs, 1, (u32)imm);
 				ir.Write(IROp::StoreFloat, vregs[0], rs, 0, imm);
@@ -492,7 +492,8 @@ namespace MIPSComp {
 		case LSVType::LVRQ:
 		case LSVType::SVLQ:
 		case LSVType::SVRQ:
-			// These are pretty uncommon unless paired.
+			// These are pretty uncommon unless paired (which would be caught above).
+			// Fall back to interpreter.
 			DISABLE;
 			break;
 

@@ -17,12 +17,15 @@
 
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/WebSocket/BreakpointSubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
 
 struct CPUSteppingEvent {
+	// By value: the SteppingReason this is built from is a temporary at every call site, and it
+	// carries strings now, so binding a reference to it is asking for trouble later.
 	CPUSteppingEvent(const SteppingReason &reason) : reason_(reason) {
 	}
 
@@ -37,12 +40,17 @@ struct CPUSteppingEvent {
 			j.writeString("reason", BreakReasonToString(reason_.reason));
 			j.writeUint("relatedAddress", reason_.relatedAddress);
 		}
+		// Present only when a breakpoint was what stopped us, so its absence is the test rather
+		// than some "kind": "none" the client would have to check for.
+		if (reason_.hit.kind != BreakpointKind::None) {
+			WriteBreakpointHit(j, reason_.hit);
+		}
 		j.end();
 		return j.str();
 	}
 
 private:
-	const SteppingReason &reason_;
+	const SteppingReason reason_;
 };
 
 // CPU has begun stepping (cpu.stepping)
