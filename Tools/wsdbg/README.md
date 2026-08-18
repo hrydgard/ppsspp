@@ -89,12 +89,12 @@ prints as it arrives; this only changes when the *next* line gets sent. A breakp
 trips would otherwise hang the script forever, so it gives up after `--sync-timeout` seconds
 (default 30), reports it, and makes the run exit non-zero.
 
-Matching is by ticket, always. A raw JSON line (the only way to send nested parameters) gets a
-ticket assigned if it doesn't carry one, so it's waited for like any other line - previously it
-had none, `--sync` had nothing to match, and it skipped waiting entirely, which let the next
-line's response be read as this one's and quietly desynchronised the rest of the script. Raw lines
-are also rejected up front, rather than sent and left to fail somewhere downstream, if they aren't
-valid JSON, aren't an object, have no string `event`, or carry a `ticket` that isn't an integer.
+Matching is by ticket, always - `--sync` never waits for "whatever message arrives next", which is
+what used to quietly desynchronise a script. A raw JSON line (the only way to send nested
+parameters) is sent exactly as written, so it's waited for only if *you* gave it a `ticket`;
+without one there is nothing to match and `--sync` moves straight on to the next line. Raw lines
+are rejected up front, rather than sent and left to fail somewhere downstream, if they aren't valid
+JSON, aren't an object, have no string `event`, or carry a `ticket` that isn't an integer.
 
 ```bash
 (
