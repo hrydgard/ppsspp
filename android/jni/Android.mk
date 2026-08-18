@@ -761,6 +761,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceNetInet.cpp \
   $(SRC)/Core/HLE/sceNetResolver.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
+  $(SRC)/Core/HLE/sceResmgr.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
   $(SRC)/Core/HLE/sceMt19937.cpp \
   $(SRC)/Core/HLE/sceParseHttp.cpp \

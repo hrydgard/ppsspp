@@ -58,6 +58,7 @@
 #include "sceNp.h"
 #include "sceMpeg.h"
 #include "sceOpenPSID.h"
+#include "sceResmgr.h"
 #include "sceP3da.h"
 #include "sceParseHttp.h"
 #include "sceParseUri.h"
@@ -332,6 +333,8 @@ void RegisterAllModules() {
 	Register_sceHprm_driver();
 	Register_sceChkreg();
 	Register_sceVshBridge();
+	Register_sceResmgr();
+
 	// add new modules here.
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.

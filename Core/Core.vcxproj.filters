@@ -375,6 +375,9 @@
     <ClCompile Include="HLE\sceOpenPSID.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceResmgr.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceParseUri.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -1696,6 +1699,9 @@
       <Filter>ELF</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceOpenPSID.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceResmgr.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceParseUri.h">
