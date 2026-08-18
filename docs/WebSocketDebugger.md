@@ -132,6 +132,44 @@ way for periodic GPU stats. `client.config.set` in the same file carries
 per-connection settings that aren't about broadcasts - currently just
 `acknowledgeDeferred`, described under "Message protocol" above.
 
+### Emulation speed
+
+`game.speed.set` drives two independent things:
+
+```json
+-> { "event": "game.speed.set", "fastForward": true }        // unlimited
+-> { "event": "game.speed.set", "percent": 200 }             // double speed
+-> { "event": "game.speed.set", "percent": 25 }              // quarter speed
+-> { "event": "game.speed.set", "percent": null }            // drop the override
+<- { "event": "game.speed.set", "fastForward": false, "percent": 200, "limitFps": 120 }
+```
+
+Percentages are relative to 60 FPS, matching how the in-app settings present the
+alternative speeds - so `200` means the same thing in both places. `percent`
+must be at least 1; use `fastForward` for unlimited rather than `0`, so there's
+only one way to say it. `fastForward` wins while it is on, and `percent` is
+remembered underneath it.
+
+`limitFps` in the response is the frame rate throttling is actually aiming for
+once everything - fast-forward, this override, the user's own alternative-speed
+hotkeys - has been taken into account, with `0` meaning unlimited. It comes
+straight from the function the frame timing itself consumes, so prefer reading
+it over inferring the result from the other two fields.
+
+This is a **separate channel** from the user's own alternative speeds. It
+deliberately never touches `g_Config`, whose speed settings are persisted per
+game, so a debugger session can't permanently change what the user configured.
+Clearing the override also only stands down from a limit set through this event,
+never from one the user set themselves. It resets on every game boot.
+
+The request **fails** rather than being silently ignored when something else
+owns the speed: RetroAchievements hardcore mode, or being connected to a network
+game without "allow speed control while connected".
+
+Headless sets fast-forward at startup and never turns it off on its own, so
+`game.speed.set` works there too - turning fast-forward off makes headless
+throttle to real time, which is occasionally useful for a wall-clock repro.
+
 ### Breakpoint hits
 
 `cpu.breakpoint.hit` fires every time a breakpoint's condition passes and it has
@@ -206,7 +244,7 @@ file - this is just an index.
 
 | Category | Events | File |
 |---|---|---|
-| Game/version | `game.reset`, `game.status`, `version` | `GameSubscriber.cpp` |
+| Game/version | `game.reset`, `game.status`, `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `version` | `GameSubscriber.cpp` |
 | CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status` (reports `ticks` plus `us`, emulated microseconds, and `clockHz` - use `us` to line up with wall-clock timings, since games change the clock frequency and the ticks-per-second ratio isn't fixed), `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
 | Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime` (run until a point in emulated time - `us` absolute or `relativeUs` from now - and break there; this is how to get a scripted repro reproducibly "N seconds into the game" instead of polling `cpu.status` in a loop), `cpu.nextHLE` | `SteppingSubscriber.cpp` |
 | Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |

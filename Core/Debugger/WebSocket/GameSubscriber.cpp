@@ -36,7 +36,14 @@
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/RetroAchievements.h"
 #include "Core/System.h"
+
+// Declared rather than included from Core/HLE/sceNet.h, which reaches winsock and so windows.h
+// through proAdhoc.h - and that redefines the OPTIONAL macro that collides with
+// DebuggerParamType::OPTIONAL, exactly the problem the note above is avoiding.
+bool NetworkAllowSpeedControl();
 
 static uint32_t GetOwnProcessID() {
 #if PPSSPP_PLATFORM(UWP)
@@ -51,6 +58,8 @@ static uint32_t GetOwnProcessID() {
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.reset"] = &WebSocketGameReset;
 	map["game.status"] = &WebSocketGameStatus;
+	map["game.speed.get"] = &WebSocketGameSpeedGet;
+	map["game.speed.set"] = &WebSocketGameSpeedSet;
 	map["version"] = &WebSocketVersion;
 
 	return nullptr;
@@ -113,6 +122,122 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 			json.writeNull("game");
 		}
 		json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
+	});
+}
+
+// Percentages are relative to 60 FPS, matching how the in-app settings present the alternative
+// speeds (see GameSettingsScreen.cpp) - so a client and the UI agree on what "200%" means.
+static int PercentToFps(int percent) {
+	return (percent * 60) / 100;
+}
+
+static int FpsToPercent(int fps) {
+	return (fps * 100) / 60;
+}
+
+// Fails the request if something else owns the speed right now, rather than accepting it and
+// having FrameTimingLimit() quietly ignore it - silently doing nothing is the worst outcome for
+// an automation client.
+static bool CheckSpeedControlAllowed(DebuggerRequest &req) {
+	if (Achievements::HardcoreModeActive()) {
+		req.Fail("Speed control is not allowed in RetroAchievements hardcore mode");
+		return false;
+	}
+	if (!NetworkAllowSpeedControl()) {
+		req.Fail("Speed control is not allowed while connected to a network game");
+		return false;
+	}
+	return true;
+}
+
+static void WriteSpeedState(JsonWriter &json) {
+	json.writeBool("fastForward", PSP_CoreParameter().fastForward);
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::DEBUGGER)
+		json.writeInt("percent", FpsToPercent(PSP_CoreParameter().debuggerFpsLimit));
+	else
+		json.writeNull("percent");
+	json.writeInt("limitFps", __DisplayGetFrameTimingLimit());
+}
+
+// Request the current emulation speed (game.speed.get)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - fastForward: boolean, whether unlimited fast-forward is on.
+//  - percent: null, or the debugger's speed override as a percentage of 60 FPS.
+//  - limitFps: the frame rate throttling is actually aiming for, after fastForward, percent, the
+//    user's own alternative-speed hotkeys and any restrictions have all been applied. 0 means
+//    unlimited. This is the ground truth - prefer it over inferring from the other two.
+void WebSocketGameSpeedGet(DebuggerRequest &req) {
+	// Route the reads to the CPU thread - these are what the frame timing consumes there.
+	Core_RunOnCPUThread([&] {
+		JsonWriter &json = req.Respond();
+		WriteSpeedState(json);
+	});
+}
+
+// Change the emulation speed (game.speed.set)
+//
+// Parameters (at least one required):
+//  - fastForward: optional boolean, run unlimited. Wins over 'percent' while on, same as the
+//    in-app fast-forward key.
+//  - percent: optional integer percentage of 60 FPS (100 = normal, 200 = double speed, 50 = half),
+//    or null to drop the override and go back to the game's normal rate. Must be at least 1 -
+//    use fastForward for unlimited rather than 0, so there's one way to say it.
+//
+// Response (same event name): the same fields as game.speed.get, after applying the change.
+//
+// Fails if RetroAchievements hardcore mode is active, or if connected to a network game without
+// "allow speed control while connected" - in either case the setting would be ignored.
+//
+// Note this is a separate channel from the user's own alternative speeds (the CUSTOM1/CUSTOM2
+// hotkeys and their settings): it deliberately doesn't touch g_Config, which is persisted per
+// game, so a debugger session can't permanently change what the user configured.
+void WebSocketGameSpeedSet(DebuggerRequest &req) {
+	const bool hasFastForward = req.HasParam("fastForward");
+	const bool hasPercent = req.HasParam("percent");
+	if (!hasFastForward && !hasPercent)
+		return req.Fail("Need at least one of 'fastForward' or 'percent'");
+
+	bool fastForward = false;
+	if (hasFastForward && !req.ParamBool("fastForward", &fastForward))
+		return;
+
+	// An explicit null clears the override; the parameter being absent leaves it alone.
+	const bool clearPercent = hasPercent && !req.HasParam("percent", true);
+	uint32_t percent = 0;
+	if (hasPercent && !clearPercent) {
+		if (!req.ParamU32("percent", &percent))
+			return;
+		if (percent < 1 || percent > 10000)
+			return req.Fail("Parameter 'percent' must be between 1 and 10000");
+		if (PercentToFps((int)percent) < 1)
+			return req.Fail("Parameter 'percent' is too small to produce a frame rate");
+	}
+
+	if (!CheckSpeedControlAllowed(req))
+		return;
+
+	// Route the writes to the CPU thread instead of poking at them directly from this WebSocket
+	// handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		if (hasFastForward)
+			PSP_CoreParameter().fastForward = fastForward;
+
+		if (clearPercent) {
+			// Only stand down from a limit we set ourselves - the user may have an alternative
+			// speed of their own active, and that isn't ours to cancel.
+			if (PSP_CoreParameter().fpsLimit == FPSLimit::DEBUGGER)
+				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+			PSP_CoreParameter().debuggerFpsLimit = 0;
+		} else if (hasPercent) {
+			PSP_CoreParameter().debuggerFpsLimit = PercentToFps((int)percent);
+			PSP_CoreParameter().fpsLimit = FPSLimit::DEBUGGER;
+		}
+
+		JsonWriter &json = req.Respond();
+		WriteSpeedState(json);
 	});
 }
 
