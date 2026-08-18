@@ -7,7 +7,7 @@
 //   wsdbg 12345 game.status            # one-shot: send an event, print responses, exit
 //   wsdbg 12345 cpu.setReg thread=0 name=0 value=42
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -678,6 +678,39 @@ fn cmd_diff(snapshots: &Snapshots, args: &[&str]) {
 
 // Returns false if anything in the script failed (a :wait that timed out, say), so a piped run
 // can be checked with an exit code instead of by grepping its output.
+// Waits for replies to requests that were sent but never awaited, before the connection goes
+// away. Without this, a script whose last line is a request followed by :quit exits before the
+// answer arrives and looks exactly like the request silently doing nothing - which is a trap
+// worth removing rather than documenting.
+fn drain_pending(socket: &mut WebSocket<TcpStream>, pending: &mut HashSet<u64>, secs: f64) {
+    if pending.is_empty() {
+        return;
+    }
+    let deadline = Instant::now() + Duration::from_secs_f64(secs);
+    while !pending.is_empty() && Instant::now() < deadline {
+        match socket.read() {
+            Ok(Message::Text(text)) => {
+                print_incoming(&text);
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if let Some(t) = v.get("ticket").and_then(|t| t.as_u64()) {
+                        pending.remove(&t);
+                    }
+                }
+            }
+            Ok(_) => {}
+            Err(ref e) if is_would_block(e) => {}
+            Err(_) => return,
+        }
+    }
+    if !pending.is_empty() {
+        eprintln!(
+            "! exiting with {} request(s) still unanswered after {}s - their replies were lost",
+            pending.len(),
+            secs
+        );
+    }
+}
+
 fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> Result<bool> {
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(100)))?;
 
@@ -715,6 +748,8 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
 
     let mut snapshots: Snapshots = Snapshots::new();
     let mut failed = false;
+    // Requests sent whose reply hasn't been seen yet, so :quit can wait for them.
+    let mut pending: HashSet<u64> = HashSet::new();
 
     loop {
         match rx.try_recv() {
@@ -722,7 +757,10 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                 let line = line.trim();
                 let mut words = line.split_whitespace();
                 match words.next() {
-                    Some(":quit") | Some(":q") | Some(":exit") => return Ok(!failed),
+                    Some(":quit") | Some(":q") | Some(":exit") => {
+                        drain_pending(&mut socket, &mut pending, 10.0);
+                        return Ok(!failed);
+                    }
                     Some(":help") | Some(":h") => print_help(),
                     Some(":snapshot") => {
                         let args: Vec<&str> = words.collect();
@@ -759,17 +797,29 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                                 failed = true;
                             }
                         }
+                        Ok(Some((ticket, _))) => {
+                            pending.insert(ticket);
+                        }
                         Ok(_) => {}
                     },
                 }
                 print_prompt();
             }
-            Err(mpsc::TryRecvError::Disconnected) => return Ok(!failed),
+            Err(mpsc::TryRecvError::Disconnected) => {
+                // Piped script hit EOF - same race as :quit.
+                drain_pending(&mut socket, &mut pending, 10.0);
+                return Ok(!failed);
+            }
             Err(mpsc::TryRecvError::Empty) => {}
         }
 
         match socket.read() {
             Ok(Message::Text(text)) => {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if let Some(t) = v.get("ticket").and_then(|t| t.as_u64()) {
+                        pending.remove(&t);
+                    }
+                }
                 print_incoming(&text);
                 print_prompt();
             }
