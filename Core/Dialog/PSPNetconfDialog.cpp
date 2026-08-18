@@ -66,7 +66,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	StartInfraJsonDownload();
 
 	requestAddr = paramAddr;
-	if (!ReadVariableSizedStruct(paramAddr, &request.common)) {
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
 		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
 	}
 
