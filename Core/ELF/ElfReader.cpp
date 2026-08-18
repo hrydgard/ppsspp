@@ -488,13 +488,37 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 	}
 	else if (loadAddress)
 	{
-		// Binary needs to be relocated: add loadAddress to the binary start address
+		// Binary needs to be relocated: add loadAddress to the binary start address.
+		// The caller picked the address, so we can't move it - but say so if it doesn't meet
+		// what the module asked for, since that's how relocations end up off by 64KB.
+		if (firstSegAlign > 1 && ((loadAddress + totalStart) & (firstSegAlign - 1)) != 0) {
+			WARN_LOG_REPORT(Log::Loader, "Module %s loaded at %08x, which doesn't meet its segment alignment %08x",
+				modName.c_str(), loadAddress + totalStart, firstSegAlign);
+		}
 		vaddr = memblock.AllocAt(loadAddress + totalStart, totalSize, modName.c_str());
 	}
 	else
 	{
-		// Just put it where there is room
-		vaddr = memblock.Alloc(totalSize, fromTop, modName.c_str());
+		// Just put it where there is room, but honor the alignment the first loadable segment
+		// asks for. Most PRXs want no more than the allocator's default grain, so this usually
+		// changes nothing - but a module's relocations are only guaranteed to resolve correctly
+		// at a base meeting its declared alignment, and ignoring that produces addresses that
+		// are wrong by a multiple of 64KB rather than an outright failure.
+		//
+		// CrossCraft Classic (Zig) is the case in point: it declares p_align 0x10000 precisely
+		// because a stage of Zig's PSP pipeline emits mispaired HI16/LO16 relocations, and a
+		// 64KB-aligned base makes that harmless (no carry is ever needed, so which of a symbol's
+		// LO16 entries a HI16 got paired with stops mattering). Loaded at 0x08804000 instead, 46
+		// of its addresses came out 64KB low and it jumped through a bogus vtable almost at once.
+		u32 align = firstSegAlign;
+		if (align > 1 && (align & (align - 1)) == 0) {
+			if (align > 0x1000) {
+				INFO_LOG(Log::Loader, "Module %s requests an unusually large segment alignment (%08x)", modName.c_str(), align);
+			}
+			vaddr = memblock.AllocAligned(totalSize, 1, align, fromTop, modName.c_str());
+		} else {
+			vaddr = memblock.Alloc(totalSize, fromTop, modName.c_str());
+		}
 	}
 
 	if (vaddr == (u32)-1) {
