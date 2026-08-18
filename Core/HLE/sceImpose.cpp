@@ -19,6 +19,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceImpose.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/MIPS/MIPS.h"
@@ -39,6 +40,9 @@ static u32 language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 static u32 buttonValue = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 static u32 umdPopup = PSP_UMD_POPUP_DISABLE;
 static u32 backlightOffTime;
+// See sceImposeChanges, further down.
+static u32 imposeChanges;
+static u32 imposeAvls;
 
 void __ImposeInit() {
 	language = GetPSPLanguage();
@@ -50,10 +54,12 @@ void __ImposeInit() {
 	buttonValue = PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm ? PSP_SYSTEMPARAM_BUTTON_CIRCLE : g_Config.iButtonPreference;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
+	imposeChanges = 0;
+	imposeAvls = 0;
 }
 
 void __ImposeDoState(PointerWrap &p) {
-	auto s = p.Section("sceImpose", 1);
+	auto s = p.Section("sceImpose", 1, 2);
 	if (!s)
 		return;
 
@@ -61,12 +67,20 @@ void __ImposeDoState(PointerWrap &p) {
 	Do(p, buttonValue);
 	Do(p, umdPopup);
 	Do(p, backlightOffTime);
+	if (s >= 2) {
+		Do(p, imposeChanges);
+		Do(p, imposeAvls);
+	}
 }
 
 static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
+	// The first output is a plain "is it charging" boolean, not a BATTICON_ value - we used to
+	// write PSP_IMPOSE_BATTICON_NONE (0x80000000) here, which games ignore but which the VSH
+	// reads as "no battery" and draws the empty-battery indicator for. Matches JPCSP now:
+	// charging is 0/1, and the icon status is the charge level in four steps.
 	if (Memory::IsValidAddress(chargingPtr))
-		Memory::WriteUnchecked_U32(PSP_IMPOSE_BATTICON_NONE, chargingPtr);
+		Memory::WriteUnchecked_U32(0, chargingPtr);
 	if (Memory::IsValidAddress(iconStatusPtr))
 		Memory::WriteUnchecked_U32(3, iconStatusPtr);
 	return hleLogDebug(Log::sceUtility, 0);
@@ -137,8 +151,82 @@ static int sceImpose_driver_B497314D(int param, u32 resultAddr) {
 	return hleLogDebug(Log::sceUtility, 0, "UNTESTED");
 }
 
+// The settings sceImposeGetParam/SetParam address, as a bitfield - sceImposeChanges reports which
+// of them have been changed since it was last asked, so the VSH can refresh only what moved.
+enum : u32 {
+	PSP_IMPOSE_MAIN_VOLUME            = 0x1,
+	PSP_IMPOSE_BACKLIGHT_BRIGHTNESS   = 0x2,
+	PSP_IMPOSE_EQUALIZER_MODE         = 0x4,
+	PSP_IMPOSE_MUTE                   = 0x8,
+	PSP_IMPOSE_AVLS                   = 0x10,
+	PSP_IMPOSE_TIME_FORMAT            = 0x20,
+	PSP_IMPOSE_DATE_FORMAT            = 0x40,
+	PSP_IMPOSE_LANGUAGE               = 0x80,
+	PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL = 0x200,
+	PSP_IMPOSE_SOUND_REDUCTION        = 0x400,
+};
+
+// Returns the current value of one setting. Values follow JPCSP's, which are the plausible
+// defaults for a console with nothing unusual configured. Anything we don't model reads as 0
+// rather than failing - the VSH polls this every frame for its indicators, so returning an error
+// would be far more disruptive than returning a quiet default.
+static int sceImposeGetParam(int param) {
+	switch ((u32)param) {
+	case PSP_IMPOSE_MAIN_VOLUME:
+		return hleLogDebug(Log::sceUtility, 30);  // Full, on a 0-30 scale.
+	case PSP_IMPOSE_BACKLIGHT_BRIGHTNESS:
+		return hleLogDebug(Log::sceUtility, 3);
+	case PSP_IMPOSE_AVLS:
+		return hleLogDebug(Log::sceUtility, imposeAvls);
+	case PSP_IMPOSE_MUTE:
+	case PSP_IMPOSE_SOUND_REDUCTION:
+	case PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL:
+		return hleLogDebug(Log::sceUtility, 0);
+	default:
+		return hleLogDebug(Log::sceUtility, 0, "unmodelled param %08x", param);
+	}
+}
+
+static int sceImposeSetParam(int param, int value) {
+	switch (param) {
+	case PSP_IMPOSE_AVLS:
+		if (value < 0 || value > 1)
+			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
+		imposeAvls = value;
+		imposeChanges |= PSP_IMPOSE_AVLS | PSP_IMPOSE_MAIN_VOLUME;
+		break;
+	case PSP_IMPOSE_MAIN_VOLUME:
+		if (value < 0 || value >= 31)
+			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
+		imposeChanges |= PSP_IMPOSE_MAIN_VOLUME;
+		break;
+	default:
+		// Recording the change is the part callers actually observe, through sceImposeChanges.
+		imposeChanges |= param;
+		break;
+	}
+	return hleLogDebug(Log::sceUtility, 0);
+}
+
+// Which settings changed since the last call - reading clears them.
+static int sceImposeChanges() {
+	const u32 changes = imposeChanges;
+	imposeChanges = 0;
+	return hleLogDebug(Log::sceUtility, changes);
+}
+
+static int sceImposeSetStatus(int status) {
+	return hleLogDebug(Log::sceUtility, 0, "UNIMPL");
+}
+
 const HLEFunction sceImpose_driver[] = {
 	{0XB497314D, &WrapI_IU<sceImpose_driver_B497314D>,     "sceImpose_driver_B497314D",     'i', "ix"},
+	{0XDC3BECFF, &WrapI_I<sceImposeGetParam>,              "sceImposeGetParam",             'i', "i" },
+	{0X3C318569, &WrapI_II<sceImposeSetParam>,             "sceImposeSetParam",             'i', "ii"},
+	{0X0F067E16, &WrapI_V<sceImposeChanges>,               "sceImposeChanges",              'i', ""  },
+	{0XBB12F974, &WrapI_I<sceImposeSetStatus>,             "sceImposeSetStatus",            'i', "i" },
+	// The 6.60 name for the same call the user-mode module exports as 0x8C943191.
+	{0X5557F4E2, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus", 'x', "xx"},
 };
 
 void Register_sceImpose_driver() {
