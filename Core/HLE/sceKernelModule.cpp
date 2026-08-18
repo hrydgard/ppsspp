@@ -1371,15 +1371,28 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	if (module->memoryBlockAddr != 0) {
 		g_symbolMap->AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize, module->crc);
+
+		// Line info out of the module we just loaded. That covers an ELF launched directly -
+		// pspautotests' .elf builds, or homebrew you built yourself - where the debug sections are
+		// right here in the file. A PRX has none (prxgen strips every .debug section), so it's a
+		// cheap no-op for the usual EBOOT case, which the companion below handles instead.
+		// A relocated module's ELF addresses are relative to where it ended up; one loaded at the
+		// addresses it asked for already has final ones.
+		const u32 lineDelta = reader.DidRelocate() ? reader.GetVaddr() : 0;
+		g_lineInfo.AddModule(std::string_view((const char *)ptr, elfSize), module->memoryBlockAddr, module->memoryBlockSize, lineDelta);
+
+		// Homebrew commonly ships the unstripped ELF next to the EBOOT; prxgen strips the symbols
+		// out of the PRX we actually load, so without this every function in it is just
+		// z_un_<address>. See LoadCompanionElfDebugInfo.
+		LoadCompanionElfDebugInfo(PSP_CoreParameter().fileToStart, module->memoryBlockAddr, module->memoryBlockSize);
+
+		// Only the .ppsym files follow the setting - it's about writing symbols back out, not about
+		// reading debug info that's already sitting next to the game.
 		if (g_Config.bAutoSaveLoadSymbols) {
 			int idx = g_symbolMap->GetModuleIndexByName(moduleName);
 			if (idx > 0) {
 				g_symbolMap->LoadModuleSymbols(idx, SymbolMap::GetModuleSymbolsPath(moduleName, module->crc));
 			}
-			// Homebrew commonly ships the unstripped ELF next to the EBOOT; prxgen strips the
-			// symbols out of the PRX we actually load, so without this every function in it is
-			// just z_un_<address>. See LoadCompanionElfSymbols.
-			LoadCompanionElfSymbols(PSP_CoreParameter().fileToStart, module->memoryBlockAddr, module->memoryBlockSize);
 		}
 	}
 

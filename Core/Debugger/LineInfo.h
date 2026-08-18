@@ -45,10 +45,14 @@ struct LineEntry {
 
 class LineInfoMap {
 public:
-	// Parses .debug_line out of an unstripped ELF image and relocates it to moduleStart.
-	// Returns the number of rows kept, or 0 if the ELF has nothing usable. Replaces whatever was
-	// held for the same module.
-	int AddModule(std::string_view elfData, u32 moduleStart, u32 moduleSize);
+	// Parses .debug_line out of an unstripped ELF image. Returns the number of rows kept, or 0 if
+	// the ELF has nothing usable. Replaces whatever was held for the same module.
+	//
+	// addressDelta is added to every address in the table, and rows that don't then land inside
+	// the module are dropped. That covers both shapes this arrives in: a companion ELF links at
+	// zero, so the delta is the module's base; an ELF launched directly and loaded where it asked
+	// to be already has final addresses, so the delta is zero.
+	int AddModule(std::string_view elfData, u32 moduleStart, u32 moduleSize, u32 addressDelta);
 
 	// Keyed the same way SymbolMap::UnloadModule is, so that unloading one module drops only its
 	// own lines. Each module owns its rows and its file names outright - there's no shared table

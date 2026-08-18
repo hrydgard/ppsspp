@@ -174,5 +174,9 @@ private:
 // This looks for such a companion in the game's own directory and, if one plausibly belongs to
 // this module, adds its function and data symbols at the module's load address.
 //
-// Returns the number of symbols added, 0 if no matching ELF was found.
-int LoadCompanionElfSymbols(const Path &gameFile, u32 moduleBase, u32 moduleSize);
+// Symbols and DWARF line info both come out of that file, and both load unconditionally -
+// bAutoSaveLoadSymbols governs writing .ppsym files back out, not reading debug info that's
+// already sitting next to the game. Same reason the main ELF's own symbols aren't gated either.
+//
+// Returns the number of symbols added, 0 if none were or no matching ELF was found.
+int LoadCompanionElfDebugInfo(const Path &gameFile, u32 moduleBase, u32 moduleSize);

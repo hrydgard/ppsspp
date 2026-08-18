@@ -148,7 +148,7 @@ enum {
 // One .debug_line unit: header, then a bytecode program that walks a virtual machine whose output
 // rows are (address, file, line). See the DWARF spec, "Line Number Information".
 static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries,
-	std::vector<std::string> *files, std::map<std::string, u32> *fileIndex, u32 moduleStart, u32 moduleSize) {
+	std::vector<std::string> *files, std::map<std::string, u32> *fileIndex, u32 moduleStart, u32 moduleSize, u32 addressDelta) {
 	const uint16_t version = r.U16();
 	if (version < 2 || version > 4) {
 		// v5 rewrote the file table to use form-coded entries, which is a different parser. Nothing
@@ -208,12 +208,13 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 	bool sawAddress = false;
 
 	auto emit = [&](u32 lineNo) {
-		// Rows before a DW_LNE_set_address belong to no real code; and anything outside the module
-		// we're relocating into would only produce bogus lookups.
-		if (!sawAddress || address > moduleSize)
+		// Rows before a DW_LNE_set_address belong to no real code, and anything that doesn't land
+		// inside the module after relocation would only produce bogus lookups.
+		const u32 finalAddress = addressDelta + address;
+		if (!sawAddress || finalAddress < moduleStart || finalAddress - moduleStart >= moduleSize)
 			return;
 		LineEntry e;
-		e.address = moduleStart + address;
+		e.address = finalAddress;
 		e.line = lineNo;
 		e.fileIndex = file < unitFiles.size() ? unitFiles[file] : 0;
 		entries->push_back(e);
@@ -282,7 +283,7 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 	return r.ok();
 }
 
-int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 moduleSize) {
+int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 moduleSize, u32 addressDelta) {
 	RemoveModule(moduleStart, moduleSize);
 
 	const uint8_t *data = (const uint8_t *)elfData.data();
@@ -345,7 +346,7 @@ int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 module
 		if (unitEnd > debugLine->sh_size)
 			break;
 
-		if (!ParseUnit(r, unitEnd, &mod.entries, &mod.files, &fileIndex, moduleStart, moduleSize))
+		if (!ParseUnit(r, unitEnd, &mod.entries, &mod.files, &fileIndex, moduleStart, moduleSize, addressDelta))
 			skippedUnits++;
 		r.Seek(unitEnd);
 	}

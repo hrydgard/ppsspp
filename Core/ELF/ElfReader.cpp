@@ -830,46 +830,61 @@ bool ElfReader::LoadSymbols()
 
 // Adds the STT_FUNC/STT_OBJECT symbols from one candidate ELF, if it looks like it belongs to a
 // module of this size. Returns the number added, 0 if it doesn't match or has nothing to offer.
-static int LoadSymbolsFromCompanion(const std::string &data, u32 moduleBase, u32 moduleSize, const char **why) {
+// Does this ELF describe the module we just loaded? Split out from the symbol loader so line info
+// can reuse it: the two want the same identity check but different sections, and an ELF built with
+// -g but stripped of its symbol table still has usable line numbers.
+static bool CompanionElfMatchesModule(const std::string &data, u32 moduleSize, const char **why) {
 	*why = "too small";
 	if (data.size() < sizeof(Elf32_Ehdr))
-		return 0;
+		return false;
 	const Elf32_Ehdr *header = (const Elf32_Ehdr *)data.data();
 	*why = "not an ELF";
 	if (header->e_ident[EI_MAG0] != ELFMAG0 || header->e_ident[EI_MAG1] != ELFMAG1
 		|| header->e_ident[EI_MAG2] != ELFMAG2 || header->e_ident[EI_MAG3] != ELFMAG3)
-		return 0;
+		return false;
 	if (header->e_ident[EI_CLASS] != ELFCLASS32)
-		return 0;
+		return false;
 
 	*why = "no section headers";
 	if (!header->e_shoff || header->e_shentsize < sizeof(Elf32_Shdr))
-		return 0;
+		return false;
 	if ((size_t)header->e_shoff + (size_t)header->e_shnum * header->e_shentsize > data.size())
-		return 0;
-
-	auto section = [&](int i) {
-		return (const Elf32_Shdr *)(data.data() + header->e_shoff + (size_t)i * header->e_shentsize);
-	};
+		return false;
 
 	// Identity check. The companion links at base 0 and covers the same image the module was
 	// built into, so the top of its highest section should land within a page of the module's
 	// size. Without this an unrelated ELF sitting in the same folder would happily contribute
 	// nonsense names at real addresses, which is worse than having none.
 	u32 top = 0;
-	int symtabIndex = -1;
 	for (int i = 0; i < header->e_shnum; i++) {
-		const Elf32_Shdr *s = section(i);
+		const Elf32_Shdr *s = (const Elf32_Shdr *)(data.data() + header->e_shoff + (size_t)i * header->e_shentsize);
 		if (s->sh_addr)
 			top = std::max(top, s->sh_addr + s->sh_size);
-		if (s->sh_type == SHT_SYMTAB)
+	}
+	*why = "image size doesn't match the loaded module";
+	if (top > moduleSize || top + 0x1000 < moduleSize)
+		return false;
+
+	*why = "ok";
+	return true;
+}
+
+static int LoadSymbolsFromCompanion(const std::string &data, u32 moduleBase, u32 moduleSize, const char **why) {
+	if (!CompanionElfMatchesModule(data, moduleSize, why))
+		return 0;
+
+	const Elf32_Ehdr *header = (const Elf32_Ehdr *)data.data();
+	auto section = [&](int i) {
+		return (const Elf32_Shdr *)(data.data() + header->e_shoff + (size_t)i * header->e_shentsize);
+	};
+
+	int symtabIndex = -1;
+	for (int i = 0; i < header->e_shnum; i++) {
+		if (section(i)->sh_type == SHT_SYMTAB)
 			symtabIndex = i;
 	}
 	*why = "no symbol table";
 	if (symtabIndex < 0)
-		return 0;
-	*why = "image size doesn't match the loaded module";
-	if (top > moduleSize || top + 0x1000 < moduleSize)
 		return 0;
 
 	const Elf32_Shdr *symtab = section(symtabIndex);
@@ -915,7 +930,7 @@ static int LoadSymbolsFromCompanion(const std::string &data, u32 moduleBase, u32
 	return added;
 }
 
-int LoadCompanionElfSymbols(const Path &gameFile, u32 moduleBase, u32 moduleSize) {
+int LoadCompanionElfDebugInfo(const Path &gameFile, u32 moduleBase, u32 moduleSize) {
 	if (gameFile.empty() || gameFile.Type() != PathType::NATIVE)
 		return 0;
 
@@ -931,16 +946,23 @@ int LoadCompanionElfSymbols(const Path &gameFile, u32 moduleBase, u32 moduleSize
 		if (!File::ReadBinaryFileToString(file.fullName, &data))
 			continue;
 		const char *why = "";
+		if (!CompanionElfMatchesModule(data, moduleSize, &why)) {
+			DEBUG_LOG(Log::Loader, "Companion ELF '%s' skipped: %s", file.name.c_str(), why);
+			continue;
+		}
+
+		// A companion links at base 0, so its line table needs the module's base added.
+		const int lines = g_lineInfo.AddModule(data, moduleBase, moduleSize, moduleBase);
+
 		const int added = LoadSymbolsFromCompanion(data, moduleBase, moduleSize, &why);
-		if (added > 0) {
-			INFO_LOG(Log::Loader, "Loaded %d symbols from companion ELF '%s'", added, file.name.c_str());
+		if (added > 0)
 			g_symbolMap->SortSymbols();
-			// Same file, already validated as belonging to this module, so its DWARF line table
-			// relocates the same way. Absent from anything built without -g, which is fine.
-			g_lineInfo.AddModule(data, moduleBase, moduleSize);
+
+		if (lines > 0 || added > 0) {
+			INFO_LOG(Log::Loader, "Companion ELF '%s': %d symbols, %d line rows", file.name.c_str(), added, lines);
 			return added;
 		}
-		DEBUG_LOG(Log::Loader, "Companion ELF '%s' skipped: %s", file.name.c_str(), why);
+		DEBUG_LOG(Log::Loader, "Companion ELF '%s' matched but had nothing usable: %s", file.name.c_str(), why);
 	}
 	return 0;
 }
