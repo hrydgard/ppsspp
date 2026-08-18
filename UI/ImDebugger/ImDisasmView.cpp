@@ -64,7 +64,7 @@ bool ImDisasmView::getDisasmAddressText(u32 address, char *dest, size_t bufSize,
 	return GetDisasmAddressText(address, dest, bufSize, abbreviateLabels, showData, displaySymbols_);
 }
 
-void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText) {
+void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText, bool selectAll) {
 	if (!Core_IsStepping()) {
 		statusBarText_ = "Can't assemble while the core is running - pause it first.";
 		return;
@@ -74,8 +74,17 @@ void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText) {
 	// frame that draws it, which is PopupMenu() - see the "assemble" popup there.
 	assembleAddress_ = address;
 	truncate_cpy(assembleTemp_, defaultText);
+	assembleSelectAll_ = selectAll;
 	assembleError_.clear();
 	assemblePopup_ = true;
+}
+
+// The existing instruction, in a form meant to be fed straight back to the assembler - so without
+// symbol substitution, since a branch to a named function doesn't assemble back.
+void ImDisasmView::assembleCurrentOpcode(u32 address) {
+	char text[256];
+	getOpcodeText(address, text, sizeof(text), false);
+	assembleOpcode(address, text, true);
 }
 
 void ImDisasmView::RunToAddress(u32 address, bool nextFrame) {
@@ -579,7 +588,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 			// disassembleToFile();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_A)) {
-			assembleOpcode(curAddress_, "");
+			assembleCurrentOpcode(curAddress_);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
 			// Goto. should just focus on the goto input?
@@ -818,7 +827,7 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Assemble")) {
-			assembleOpcode(curAddress_, "");
+			assembleCurrentOpcode(curAddress_);
 		}
 		if (ImGui::MenuItem("NOP instructions (destructive)")) {
 			if (Memory::IsValid4AlignedRange(selectRangeStart_, selectRangeEnd_ - selectRangeStart_)) {
@@ -932,7 +941,13 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 		if (ImGui::IsWindowAppearing()) {
 			ImGui::SetKeyboardFocusHere();
 		}
-		if (ImGui::InputText("Opcode", assembleTemp_, sizeof(assembleTemp_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+		// AutoSelectAll only when we prefilled with the existing instruction, so it's overwritten
+		// by just typing. Not when onChar() seeded it with the character the user typed - that one
+		// is the start of what they're writing, not something to replace.
+		ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+		if (assembleSelectAll_)
+			inputFlags |= ImGuiInputTextFlags_AutoSelectAll;
+		if (ImGui::InputText("Opcode", assembleTemp_, sizeof(assembleTemp_), inputFlags)) {
 			if (applyAssembly(assembleAddress_, assembleTemp_)) {
 				ImGui::CloseCurrentPopup();
 			}
@@ -1129,10 +1144,10 @@ void ImDisasmView::disassembleToFile() { 	// get size
 	*/
 }
 
-void ImDisasmView::getOpcodeText(u32 address, char* dest, int bufsize) {
+void ImDisasmView::getOpcodeText(u32 address, char *dest, int bufsize, bool insertSymbols) {
 	DisassemblyLineInfo line;
 	address = g_disassemblyManager.getStartAddress(address);
-	g_disassemblyManager.getLine(address, displaySymbols_, line, debugger_);
+	g_disassemblyManager.getLine(address, insertSymbols, line, debugger_);
 	snprintf(dest, bufsize, "%s  %s", line.name.c_str(), line.params.c_str());
 }
 
