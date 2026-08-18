@@ -10,6 +10,7 @@ enum class ImCmd {
 	SHOW_IN_MEMORY_VIEWER,  // param is address, param2 is viewer index
 	SHOW_IN_PIXEL_VIEWER,  // param is address, param2 is stride, |0x80000000 if depth, param3 is w/h
 	SHOW_IN_MEMORY_DUMPER, // param is address, param2 is size, param3 is mode
+	SHOW_IN_BREAKPOINTS,   // no params, just opens and focuses the breakpoint list
 };
 
 struct ImCommand {

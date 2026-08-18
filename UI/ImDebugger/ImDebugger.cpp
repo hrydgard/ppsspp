@@ -2934,6 +2934,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		ImGui::SetWindowFocus(ImMemWindow::Title(index));
 		break;
 	}
+	case ImCmd::SHOW_IN_BREAKPOINTS:
+	{
+		cfg_.breakpointsOpen = true;
+		ImGui::SetWindowFocus("Breakpoints");
+		break;
+	}
 	case ImCmd::SHOW_IN_MEMORY_DUMPER:
 	{
 		cfg_.memDumpOpen = true;
