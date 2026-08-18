@@ -309,6 +309,10 @@ void PSPModule::DoState(PointerWrap &p) {
 		truncate_cpy(moduleName, nm.name);
 		if (memoryBlockAddr != 0) {
 			g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize, crc);
+			// Loading a state tears the old module down and re-registers it here, which takes its
+			// symbols and line info with it. The companion ELF is still sitting next to the game,
+			// so read it again rather than coming back from a savestate with none.
+			LoadCompanionElfDebugInfo(PSP_CoreParameter().fileToStart, memoryBlockAddr, memoryBlockSize);
 			if (g_Config.bAutoSaveLoadSymbols) {
 				int idx = g_symbolMap->GetModuleIndexByName(moduleName);
 				if (idx > 0) {
