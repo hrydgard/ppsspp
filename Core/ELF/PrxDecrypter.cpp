@@ -732,6 +732,43 @@ struct PRXType6
 };
 static_assert(sizeof(PRXType6) == 0x150, "inconsistent size of PRX Type 6");
 
+// Same 0x150-byte layout as type 6 - the difference is that a type 9 PRX carries an ECDSA
+// signature at 0x104..0x12C where type 6 has nothing, and the signature is *excluded* from the
+// hash rather than fed into it. JPCSP zeroes buf2[0x34..0x5C), which is that same range once the
+// header has been rearranged, so here the corresponding field is simply left zero.
+struct PRXType9
+{
+	explicit PRXType9(const u8 *prx)
+	{
+		memcpy(tag, prx+0xD0, sizeof(tag));
+		memset(empty, 0, sizeof(empty));
+		// Not copied from prx+0x10C, unlike type 6: it holds the tail of the signature.
+		memset(ecdsaSignatureTail, 0, sizeof(ecdsaSignatureTail));
+		memcpy(id, prx+0x140, sizeof(id));
+		memcpy(sha1, prx+0x12C, sizeof(sha1));
+		// kirk header is split between 0x80->0xB0 and 0xC0->0xD0
+		memcpy(kirkHeader, prx+0x80, sizeof(kirkHeader)-0x10);
+		memcpy(kirkHeader+0x30, prx+0xC0, 0x10);
+		memcpy(kirkMetadata, prx+0xB0, sizeof(kirkMetadata));
+		memcpy(prxHeader, prx, sizeof(prxHeader));
+	}
+
+	void decrypt(int key)
+	{
+		kirk7(id, id, 0x60, key);
+	}
+
+	u8 tag[4];
+	u8 empty[0x38];
+	u8 ecdsaSignatureTail[0x20];
+	u8 id[0x10];
+	u8 sha1[0x14];
+	u8 kirkHeader[0x40];
+	u8 kirkMetadata[0x10];
+	u8 prxHeader[0x80];
+};
+static_assert(sizeof(PRXType9) == 0x150, "inconsistent size of PRX Type 9");
+
 static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
@@ -1041,6 +1078,78 @@ static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
+// Used by sceResmgr for flash0:/vsh/etc/index_XXg.dat. Identical to type 6 except for the ECDSA
+// signature at 0x104..0x12C - so the "must be empty" check stops short of it, the signature is
+// left out of the hash (see PRXType9), and it is not written back over the output header the way
+// type 6 writes its tail there.
+static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
+{
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
+	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+
+	if (!pti)
+	{
+		return -1;
+	}
+
+	// Only up to 0x104 - past that is the signature, which is present rather than empty here.
+	if (std::any_of(inbuf+0xD4, inbuf+0x104, [](u8 x) { return x != 0; }))
+	{
+		return -2;
+	}
+
+	// expand the seed into a xor buffer
+	auto xorbuf = expandSeed(pti->key, pti->code);
+
+	PRXType9 type9(inbuf);
+	type9.decrypt(pti->code);
+
+	SHA_CTX ctx;
+	SHAInit(&ctx);
+	SHAUpdate(&ctx, type9.tag, sizeof(type9.tag));
+	SHAUpdate(&ctx, xorbuf.data(), 0x10);
+	SHAUpdate(&ctx, type9.empty, sizeof(type9.empty));
+	SHAUpdate(&ctx, type9.ecdsaSignatureTail, sizeof(type9.ecdsaSignatureTail));
+	SHAUpdate(&ctx, type9.id, sizeof(type9.id));
+	SHAUpdate(&ctx, type9.kirkHeader, sizeof(type9.kirkHeader));
+	SHAUpdate(&ctx, type9.kirkMetadata, sizeof(type9.kirkMetadata));
+	SHAUpdate(&ctx, type9.prxHeader, sizeof(type9.prxHeader));
+
+	u8 sha1[0x14];
+	SHAFinal(sha1, &ctx);
+
+	if (memcmp(sha1, type9.sha1, sizeof(sha1)) != 0)
+	{
+		return -3;
+	}
+
+	constexpr auto offset = sizeof(PSP_Header)-sizeof(KIRK_CMD1_ECDSA_HEADER)-sizeof(type9.prxHeader);
+	KIRK_CMD1_ECDSA_HEADER *header = reinterpret_cast<KIRK_CMD1_ECDSA_HEADER *>(outbuf+offset);
+
+	if (outbuf != inbuf)
+	{
+		memcpy(outbuf, inbuf, size);
+	}
+
+	memset(header, 0, sizeof(KIRK_CMD1_ECDSA_HEADER));
+	memcpy(reinterpret_cast<u8*>(&header->data_size), type9.kirkMetadata, sizeof(type9.kirkMetadata));
+	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_ECDSA_HEADER), type9.prxHeader, sizeof(type9.prxHeader));
+	decryptKirkHeader(reinterpret_cast<u8*>(header), type9.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
+	header->mode = 1;
+	// Left at 0, unlike type 6/7 which set it: type 9 carries a real ECDSA signature that was
+	// verified separately, so KIRK is not asked to hash-check this block. JPCSP's equivalent
+	// branch only writes the mode word and zeroes the rest of that region.
+	header->ecdsa_hash = 0;
+
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	{
+		return -4;
+	}
+
+	return decryptSize;
+}
+
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 {
 	// Every type below reads the tag at 0xD0, the size at 0xB0 and key data as far as 0x150, and
@@ -1078,6 +1187,13 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 
 	if (res >= 0)
 		return res;
-	
-	return pspDecryptType6(&kirk, inbuf, outbuf, size);
+
+	res = pspDecryptType6(&kirk, inbuf, outbuf, size);
+
+	if (res >= 0)
+		return res;
+
+	// Last, because its header check is a subset of type 6's - a genuine type 6 PRX would pass it
+	// and then fail on the hash, so trying it earlier would shadow the real answer.
+	return pspDecryptType9(&kirk, inbuf, outbuf, size);
 }

@@ -57,14 +57,18 @@ static int sceResmgr_9DC14891(u32 bufferAddr, int bufferSize, u32 resultLengthAd
 	std::vector<u8> decrypted(bufferSize);
 	const int decryptedSize = pspDecryptPRX(buffer, decrypted.data(), bufferSize);
 	if (decryptedSize <= 0) {
-		return hleLogError(Log::sceMisc, -1, "failed to decrypt %d bytes", bufferSize);
+		return hleLogError(Log::sceMisc, -1, "failed to decrypt %d bytes (decrypter said %d)", bufferSize, decryptedSize);
 	}
 
 	memcpy(buffer, decrypted.data(), decryptedSize);
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferAddr, decryptedSize, "sceResmgrDecrypt");
 	if (Memory::IsValidAddress(resultLengthAddr))
 		Memory::WriteUnchecked_U32(decryptedSize, resultLengthAddr);
-	return hleLogInfo(Log::sceMisc, 0, "decrypted %d bytes to %d", bufferSize, decryptedSize);
+	// A correctly decrypted index starts "release:", so say whether it does - a wrong-but-plausible
+	// decrypt otherwise just looks like success here and fails much later as an unreadable index.
+	const bool plausible = decryptedSize >= 8 && !memcmp(buffer, "release:", 8);
+	return hleLogInfo(Log::sceMisc, 0, "decrypted %d bytes to %d (%s)", bufferSize, decryptedSize,
+		plausible ? "looks right" : "SUSPECT - does not start with 'release:'");
 }
 
 const HLEFunction sceResmgr[] = {
