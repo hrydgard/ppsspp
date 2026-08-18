@@ -958,6 +958,15 @@ const HLEFunction ThreadManForKernel[] =
 	{0xC11BA8C4, &WrapI_II<sceKernelNotifyCallback>,                 "sceKernelNotifyCallback",                   'i', "ii",     HLE_KERNEL_SYSCALL },
 	{0xF6427665, &WrapI_V<sceKernelGetUserLevel>,                    "sceKernelGetUserLevel",                     'i', "",       HLE_KERNEL_SYSCALL },
 	{0x85A2A5BF, &WrapI_V<sceKernelIsUserModeThread>,                "sceKernelIsUserModeThread",                 'i', "",       HLE_KERNEL_SYSCALL },
+	// NOT added on purpose, even though we implement all four for user mode already:
+	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F), sceKernelUnlockMutex
+	// (0x6B30100F) and sceKernelAllocateFpl (0xD979E9BF). They are what the real flash0 NAND and
+	// ID storage drivers use to set themselves up while booting the VSH, and leaving them
+	// unresolved is load-bearing: the drivers fail their init early and the boot moves on. Resolve
+	// them and the drivers instead get all the way through to talking to the NAND controller, which
+	// we don't emulate - sceIdStorage_Service then polls 0xbd101300 forever, no plugin module ever
+	// starts, and the boot is dead where it used to reach the shell. Adding these needs NAND MMIO
+	// (or HLE'ing sceIdStorage/sceNand above the driver) to land first.
 };
 
 void Register_ThreadManForUser()
