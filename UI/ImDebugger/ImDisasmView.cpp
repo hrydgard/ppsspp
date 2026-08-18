@@ -13,6 +13,8 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSAsm.h"
+#include "Core/Reporting.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
@@ -61,61 +63,64 @@ bool ImDisasmView::getDisasmAddressText(u32 address, char *dest, size_t bufSize,
 	return GetDisasmAddressText(address, dest, bufSize, abbreviateLabels, showData, displaySymbols_);
 }
 
-void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
-	/*
+void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText) {
 	if (!Core_IsStepping()) {
-		MessageBox(wnd, L"Cannot change code while the core is running!", L"Error", MB_OK);
-		return;
-	}
-	std::string op;
-	bool result = InputBox_GetString(MainWindow::GetHInstance(), wnd, L"Assemble opcode", defaultText, op, InputBoxFlags::Default);
-	if (!result) {
+		statusBarText_ = "Can't assemble while the core is running - pause it first.";
 		return;
 	}
 
-	// check if it changes registers first
-	auto separator = op.find('=');
-	if (separator != std::string::npos)
-	{
-		std::string registerName = trimString(op.substr(0, separator));
-		std::string expression = trimString(op.substr(separator + 1));
+	// Just record what to assemble and where. The popup itself has to be opened from inside the
+	// frame that draws it, which is PopupMenu() - see the "assemble" popup there.
+	assembleAddress_ = address;
+	truncate_cpy(assembleTemp_, defaultText);
+	assembleError_.clear();
+	assemblePopup_ = true;
+}
 
+bool ImDisasmView::applyAssembly(u32 address, std::string_view op) {
+	// Re-checked here, not just when the popup was requested: the popup is modeless, so the core
+	// can have been resumed in between.
+	if (!Core_IsStepping()) {
+		assembleError_ = "Can't assemble while the core is running - pause it first.";
+		return false;
+	}
+
+	// "register=expression" assigns a register instead of assembling anything, same as the old
+	// Win32 debugger. If it doesn't resolve to a register we fall through and try to assemble it,
+	// so an instruction that happens to contain '=' still works.
+	const size_t separator = op.find('=');
+	if (separator != std::string_view::npos) {
+		const std::string_view registerName = StripSpaces(op.substr(0, separator));
+		const std::string expression(StripSpaces(op.substr(separator + 1)));
+
+		PostfixExpression postfix;
 		u32 value;
-		if (parseExpression(expression.c_str(), debugger, value) == true)
-		{
-			for (int cat = 0; cat < debugger->GetNumCategories(); cat++)
-			{
-				for (int reg = 0; reg < debugger->GetNumRegsInCategory(cat); reg++)
-				{
-					if (strcasecmp(debugger->GetRegName(cat, reg).c_str(), registerName.c_str()) == 0)
-					{
-						debugger->SetRegValue(cat, reg, value);
+		if (initExpression(debugger_, expression.c_str(), postfix) && parseExpression(debugger_, postfix, value)) {
+			for (int cat = 0; cat < MIPSDebugInterface::GetNumCategories(); cat++) {
+				for (int reg = 0; reg < MIPSDebugInterface::GetNumRegsInCategory(cat); reg++) {
+					if (equalsNoCase(MIPSDebugInterface::GetRegName(cat, reg), registerName)) {
+						debugger_->SetRegValue(cat, reg, value);
 						Reporting::NotifyDebugger();
-						SendMessage(GetParent(wnd), WM_DEB_UPDATE, 0, 0);
-						return;
+						return true;
 					}
 				}
 			}
 		}
-
-		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op, debugger, address);
+	// Note: MipsAssembleOpcode() takes care of invalidating the instruction cache for what it wrote.
+	std::string error;
+	if (!MipsAssembleOpcode(op, debugger_, address, &error)) {
+		assembleError_ = error;
+		return false;
+	}
+
 	Reporting::NotifyDebugger();
-	if (result == true)
-	{
-		ScanVisibleFunctions();
-
-		if (address == curAddress)
-			gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress, 1));
-
-		redraw();
-	} else {
-		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
-		MessageBox(wnd, error.c_str(), L"Error", MB_OK);
+	ScanVisibleFunctions();
+	if (address == curAddress_) {
+		gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress_, 1));
 	}
-	*/
+	return true;
 }
 
 void ImDisasmView::drawBranchLine(ImDrawList *drawList, Bounds rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
@@ -542,7 +547,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 			// disassembleToFile();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_A)) {
-			// assembleOpcode(curAddress, "");
+			assembleOpcode(curAddress_, "");
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
 			// Goto. should just focus on the goto input?
@@ -879,6 +884,32 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 			mapReloaded_ = true;
 			ImGui::CloseCurrentPopup();
 		}
+		ImGui::EndPopup();
+	}
+
+	if (assemblePopup_) {
+		ImGui::OpenPopup("assemble");
+		assemblePopup_ = false;
+	}
+	if (ImGui::BeginPopup("assemble")) {
+		char addressText[64];
+		getDisasmAddressText(assembleAddress_, addressText, sizeof(addressText), false, true);
+		ImGui::Text("Assemble at %s", addressText);
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		if (ImGui::InputText("Opcode", assembleTemp_, sizeof(assembleTemp_), ImGuiInputTextFlags_EnterReturnsTrue)) {
+			if (applyAssembly(assembleAddress_, assembleTemp_)) {
+				ImGui::CloseCurrentPopup();
+			}
+			// Otherwise stay open with assembleError_ shown below, so it can be corrected in place.
+		}
+		// Not a modal message box like the Win32 debugger used - keeping the failed text around to
+		// edit is more useful than making the user retype it.
+		if (!assembleError_.empty()) {
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", assembleError_.c_str());
+		}
+		ImGui::TextUnformatted("Tip: \"reg=expression\" sets a register instead.");
 		ImGui::EndPopup();
 	}
 }
