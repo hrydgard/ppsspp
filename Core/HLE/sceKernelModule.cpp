@@ -2939,6 +2939,31 @@ static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u3
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
+// How the VSH loads its own plugins - the XMB's UI lives in flash0:/vsh/module/*_plugin.prx and
+// vshmain pulls them in through this, not through the user-mode sceKernelLoadModule. Without it
+// the import went unresolved, so vshmain got no module id back and the sceKernelStartModule(0)
+// that followed failed with UNKNOWN_MODULE - which is why the XMB rendered its containers but
+// never had anything to draw inside them.
+//
+// The apitype the name refers to only affects what the loaded module may itself do; loading is
+// otherwise the ordinary path, same as sceKernelLoadModuleForLoadExecVSHDisc above.
+static u32 sceKernelLoadModuleVSH(const char *name, u32 flags, u32 optionAddr) {
+	return sceKernelLoadModule(name, flags, optionAddr);
+}
+
+// Looks up an already-loaded module by the name in its module info, returning its uid.
+static u32 sceKernelSearchModuleByName(const char *name) {
+	if (!name)
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null name");
+	for (SceUID moduleId : loadedModules) {
+		u32 error;
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (module && !strncmp(module->nm.name, name, ARRAY_SIZE(module->nm.name)))
+			return hleLogInfo(Log::Loader, module->GetUID());
+	}
+	return hleLogWarning(Log::Loader, SCE_KERNEL_ERROR_UNKNOWN_MODULE, "module '%s' not found", name);
+}
+
 const HLEFunction ModuleMgrForUser[] = {
 	{0X977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx"    },
 	{0XB7F46618, &WrapU_UUU<sceKernelLoadModuleByID>,                   "sceKernelLoadModuleByID",                 'x', "xxx"    },
@@ -2970,6 +2995,8 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
 	{0xD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL },
+	{0xD5DDAB1F, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
+	{0xD86DD11B, &WrapU_C<sceKernelSearchModuleByName>,                 "sceKernelSearchModuleByName",             'x', "s",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser() {
