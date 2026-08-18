@@ -538,6 +538,8 @@ add_library(Core STATIC
 	HLE/proAdhocServer.cpp
 	HLE/sceOpenPSID.cpp
 	HLE/sceOpenPSID.h
+	HLE/sceResmgr.cpp
+	HLE/sceResmgr.h
 	HLE/sceP3da.cpp
 	HLE/sceP3da.h
 	HLE/sceMt19937.cpp

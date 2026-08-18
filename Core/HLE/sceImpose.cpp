@@ -162,14 +162,31 @@ enum : u32 {
 	PSP_IMPOSE_TIME_FORMAT            = 0x20,
 	PSP_IMPOSE_DATE_FORMAT            = 0x40,
 	PSP_IMPOSE_LANGUAGE               = 0x80,
+	PSP_IMPOSE_00000100               = 0x100,
 	PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL = 0x200,
 	PSP_IMPOSE_SOUND_REDUCTION        = 0x400,
+	// Named after their own values, as in JPCSP - real meanings unknown.
+	PSP_IMPOSE_20000000               = 0x20000000,
+	PSP_IMPOSE_80000001               = 0x80000001,
+	PSP_IMPOSE_80000002               = 0x80000002,
+	PSP_IMPOSE_80000003               = 0x80000003,
+	PSP_IMPOSE_80000004               = 0x80000004,
+	PSP_IMPOSE_80000005               = 0x80000005,
+	PSP_IMPOSE_80000006               = 0x80000006,
+	PSP_IMPOSE_80000007               = 0x80000007,
+	PSP_IMPOSE_80000008               = 0x80000008,
+	PSP_IMPOSE_80000009               = 0x80000009,
+	PSP_IMPOSE_8000000A               = 0x8000000A,
+	PSP_IMPOSE_8000000B               = 0x8000000B,
 };
 
 // Returns the current value of one setting. Values follow JPCSP's, which are the plausible
-// defaults for a console with nothing unusual configured. Anything we don't model reads as 0
-// rather than failing - the VSH polls this every frame for its indicators, so returning an error
-// would be far more disruptive than returning a quiet default.
+// defaults for a console with nothing unusual configured.
+//
+// The split between the last two cases matters and matches JPCSP: a parameter that exists but that
+// we don't model reads as 0, while one that isn't a parameter at all is rejected. Answering 0 to
+// everything tells a caller probing for a feature that the feature is there and switched off,
+// which is a different thing from "no such setting".
 static int sceImposeGetParam(int param) {
 	switch ((u32)param) {
 	case PSP_IMPOSE_MAIN_VOLUME:
@@ -182,8 +199,26 @@ static int sceImposeGetParam(int param) {
 	case PSP_IMPOSE_SOUND_REDUCTION:
 	case PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL:
 		return hleLogDebug(Log::sceUtility, 0);
+	case PSP_IMPOSE_EQUALIZER_MODE:
+	case PSP_IMPOSE_TIME_FORMAT:
+	case PSP_IMPOSE_DATE_FORMAT:
+	case PSP_IMPOSE_LANGUAGE:
+	case PSP_IMPOSE_00000100:
+	case PSP_IMPOSE_20000000:
+	case PSP_IMPOSE_80000001:
+	case PSP_IMPOSE_80000002:
+	case PSP_IMPOSE_80000003:
+	case PSP_IMPOSE_80000004:
+	case PSP_IMPOSE_80000005:
+	case PSP_IMPOSE_80000006:
+	case PSP_IMPOSE_80000007:
+	case PSP_IMPOSE_80000008:
+	case PSP_IMPOSE_80000009:
+	case PSP_IMPOSE_8000000A:
+	case PSP_IMPOSE_8000000B:
+		return hleLogDebug(Log::sceUtility, 0, "param %08x not modelled", param);
 	default:
-		return hleLogDebug(Log::sceUtility, 0, "unmodelled param %08x", param);
+		return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_MODE, "invalid param %08x", param);
 	}
 }
 
