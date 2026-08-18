@@ -22,6 +22,8 @@
 DebuggerSubscriber *WebSocketClientConfigInit(DebuggerEventHandlerMap & map) {
 	map["broadcast.config.get"] = &WebSocketBroadcastConfigGet;
 	map["broadcast.config.set"] = &WebSocketBroadcastConfigSet;
+	map["client.config.get"] = &WebSocketClientConfigGet;
+	map["client.config.set"] = &WebSocketClientConfigSet;
 
 	return nullptr;
 }
@@ -49,6 +51,44 @@ void WebSocketBroadcastConfigGet(DebuggerRequest & req) {
 	}
 
 	json.end();
+}
+
+// Request the current per-connection client settings (client.config.get)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - acknowledgeDeferred: boolean, whether "deferred" events are being sent.
+void WebSocketClientConfigGet(DebuggerRequest &req) {
+	JsonWriter &json = req.Respond();
+	json.writeBool("acknowledgeDeferred", req.client->acknowledgeDeferred);
+}
+
+// Update the per-connection client settings (client.config.set)
+//
+// Parameters (all optional):
+//  - acknowledgeDeferred: boolean, whether to send a "deferred" event when a request is accepted
+//    but only finishes later (cpu.resume, cpu.stepInto and friends, gpu.stats.feed,
+//    input.buttons.press.)  Defaults to false.
+//
+// Response (same event name):
+//  - acknowledgeDeferred: boolean, the setting as it now stands.
+//
+// Turning this on lets a client tell "accepted, the result comes in a later event" from "dropped
+// on the floor", without hardcoding which events those are.  It can't be the default, and can't
+// simply reuse the request's own event name, because that's what the later event already uses:
+// a client waiting for a bare {"event":"cpu.resume"} would believe the game was running while it
+// was still stopped, and input.buttons.press answers with the request's own ticket when the press
+// completes, so an early reply under that name would be indistinguishable even with a ticket.
+void WebSocketClientConfigSet(DebuggerRequest &req) {
+	JsonWriter &json = req.Respond();
+
+	bool acknowledgeDeferred = req.client->acknowledgeDeferred;
+	if (!req.ParamBool("acknowledgeDeferred", &acknowledgeDeferred, DebuggerParamType::OPTIONAL))
+		return;
+	req.client->acknowledgeDeferred = acknowledgeDeferred;
+
+	json.writeBool("acknowledgeDeferred", req.client->acknowledgeDeferred);
 }
 
 // Update the current client broadcast configuration (broadcast.config.set)

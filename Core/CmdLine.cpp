@@ -4,6 +4,8 @@
 #include "Core/Config.h"
 #include "Core/CmdLine.h"
 #include "Core/WebServer.h"
+#include "Core/Util/PathUtil.h"
+#include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 
@@ -176,6 +178,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
+	{POFF(memStick), CmdParamType::String, "memstick", '\0', "Memory stick root directory (contains PSP/GAME etc)"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
@@ -535,6 +538,14 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (root.has_value()) {
 		g_Config.DoNotSaveSetting(&g_Config.mountRoot);
 		g_Config.mountRoot = Path(root.value());
+	}
+
+	if (memStick.has_value()) {
+		// No DoNotSaveSetting() here - memStickDirectory isn't an ordinary setting and never gets
+		// written to ppsspp.ini, since the ini itself lives inside the memory stick directory.
+		g_Config.memStickDirectory = Path(memStick.value());
+		File::CreateFullPath(g_Config.memStickDirectory);
+		CreateSysDirectories();
 	}
 
 	if (resolutionScale.has_value()) {

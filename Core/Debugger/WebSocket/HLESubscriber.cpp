@@ -807,12 +807,21 @@ void WebSocketHLEGameLoadSymbols(DebuggerRequest &req) {
 //  - thread: optional number indicating the thread id to backtrace, default current.
 //
 // Response (same event name):
+//  - walked: boolean, false if the stack walk failed and the frames below are the fallback
+//    described under 'frames'.
 //  - frames: array of objects, each with properties:
 //     - entry: unsigned integer address of function start (may be estimated.)
 //     - pc: unsigned integer next execution address.
 //     - sp: unsigned integer stack address in this func (beware of alloca().)
 //     - stackSize: integer size of stack frame.
-//     - code: string disassembly of pc.
+//     - code: string disassembly of pc, empty if pc isn't readable.
+//
+// A real stack walk needs to recognize the function it starts in, so it comes back empty exactly
+// when execution has gone somewhere unexpected - a jump through a bad pointer, say - which is
+// when a backtrace is most wanted. In that case this falls back to the two things that are still
+// known: the current pc, and ra, which for a botched call still holds the return address and so
+// points at the instruction after the call site. Those frames have "walked": false, and there is
+// no guarantee ra hasn't already been overwritten - it's a lead, not a stack walk.
 void WebSocketHLEBacktrace(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
@@ -850,7 +859,25 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 		uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
 		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
 
+		// See the note above the function: a failed walk is the case that matters most, so rather
+		// than an empty array, hand back what can still be salvaged.
+		const bool walked = !frames.empty();
+		if (!walked) {
+			auto addFrame = [&](uint32_t pc) {
+				MIPSStackWalk::StackFrame f{};
+				f.pc = pc;
+				f.sp = sp;
+				const uint32_t start = g_symbolMap->GetFunctionStart(pc);
+				f.entry = start == SymbolMap::INVALID_ADDRESS ? pc : start;
+				frames.push_back(f);
+			};
+			addFrame(cpuDebug->GetPC());
+			if (ra != cpuDebug->GetPC() && Memory::IsValidAddress(ra))
+				addFrame(ra);
+		}
+
 		JsonWriter &json = req.Respond();
+		json.writeBool("walked", walked);
 		json.pushArray("frames");
 		for (const MIPSStackWalk::StackFrame &f : frames) {
 			json.pushDict();
@@ -859,9 +886,15 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 			json.writeUint("sp", f.sp);
 			json.writeUint("stackSize", f.stackSize);
 
-			DisassemblyLineInfo line;
-			g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
-			json.writeString("code", line.name + " " + line.params);
+			// The fallback frames can point at unmapped memory - that's the whole reason we're
+			// here - so don't ask the disassembler to read it.
+			if (Memory::IsValidAddress(f.pc)) {
+				DisassemblyLineInfo line;
+				g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
+				json.writeString("code", line.name + " " + line.params);
+			} else {
+				json.writeString("code", "");
+			}
 
 			json.pop();
 		}

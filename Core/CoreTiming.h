@@ -100,6 +100,15 @@ namespace CoreTiming {
 	// for the debugger's status poll. Same value, just doesn't help the next call along.
 	u64 PeekGlobalTimeUs();
 
+	// Debugger support (cpu.runUntilTime): break as soon as emulated time reaches this many
+	// microseconds. Advance() shortens its slice to land exactly on it rather than overshooting,
+	// so this stops at a reproducible point rather than "somewhere in the next frame". 0 clears it.
+	// Core_Break() clears it too, so a deadline can't outlive the run it belonged to.
+	// Deliberately in microseconds and not ticks: games change the CPU clock mid-run (CrossCraft
+	// Classic goes 222 -> 333MHz during startup), so a tick count fixed up front drifts.
+	void SetBreakDeadlineUs(u64 us);
+	u64 GetBreakDeadlineUs();
+
 	// Returns the event_type identifier.
 	int RegisterEvent(const char *name, TimedCallback callback);
 

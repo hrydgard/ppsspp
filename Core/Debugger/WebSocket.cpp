@@ -188,6 +188,13 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 
 	WebSocketClientInfo client_info;
 	auto& disallowed_config = client_info.disallowed;
+	// Seed every broadcaster category. broadcast.config.set only accepts keys that already exist
+	// here (so a typo is rejected rather than silently ignored), and these otherwise only appear
+	// as a side effect of operator[] the first time each category actually broadcasts - which
+	// meant "game" and "stepping" were rejected as unsupported until one happened to fire, even
+	// though they're documented and valid. Keep in sync with the Broadcast calls further down.
+	for (const char *category : { "logger", "input", "game", "stepping" })
+		disallowed_config[category] = false;
 
 	LogBroadcaster logger;
 	InputBroadcaster input;
@@ -224,6 +231,14 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		if (eventFunc != eventHandlers.end()) {
 			eventFunc->second(req);
 			if (!req.Finish()) {
+				// The handler arranged something that finishes later - a step, a resume, a stats
+				// feed - rather than answering now. A client that asked for it gets told so, so it
+				// can tell "accepted, wait for the event" from "dropped on the floor" without
+				// carrying a hardcoded list of the events that don't answer. Everyone else sees
+				// exactly what they saw before; see client.config.set for why it can't be the
+				// default.
+				if (client_info.acknowledgeDeferred)
+					ws->Send(DebuggerDeferredEvent(event, root));
 				// Poll more frequently for a second in case this triggers something.
 				highActivity = 1000;
 			}

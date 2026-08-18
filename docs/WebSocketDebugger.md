@@ -55,7 +55,38 @@ Responses use the *same* event name as the request:
 ```json
 { "event": "cpu.status", "ticket": 1, ... }
 ```
-Responses are not always immediate - some handlers respond asynchronously.
+
+**The ticket convention**: send one whenever you care about the answer. Since
+a response reuses the request's event name, a ticket is the only thing that
+distinguishes *your* answer from an unsolicited broadcast of the same name, or
+from the answer to an identical request you sent a moment earlier. Conversely,
+for a request that doesn't answer immediately (below), leaving the ticket off
+says you aren't waiting for anything.
+
+Responses are not always immediate. `cpu.resume`, `cpu.stepInto`,
+`cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime`,
+`cpu.nextHLE`, `cpu.stepping` and `gpu.stats.feed` send nothing back at the
+time of the request; what follows later is the broadcast that reports the
+actual outcome (`cpu.stepping` / `cpu.resume`), which carries no ticket.
+`input.buttons.press` is the odd one out - it answers with the request's own
+event name *and* ticket, but only once the button has been held for the
+requested number of frames.
+
+If you would rather not track which those are, ask to be told explicitly:
+
+```json
+-> { "event": "client.config.set", "acknowledgeDeferred": true }
+-> { "event": "cpu.resume", "ticket": 7 }
+<- { "event": "deferred", "for": "cpu.resume", "ticket": 7 }
+<- { "event": "cpu.resume" }
+```
+
+With that on, every request draws exactly one immediate reply - a response, an
+`error`, or a `deferred` - so a client can correlate without a hardcoded list,
+including for events added in future versions. It is off by default and must
+stay that way: an extra message would break a client that correlates purely by
+ticket, and it can't reuse the request's event name because for
+`input.buttons.press` that is exactly what the real, later answer looks like.
 
 Errors look like this:
 ```json
@@ -96,7 +127,9 @@ Sent without you asking, whenever the underlying state changes:
 A client can opt out of specific broadcast categories with
 `broadcast.config.set` (`{"disallowed": {"logger": true, "game": true, "stepping": true, "input": true}}`),
 see `ClientConfigSubscriber.cpp`. `gpu.stats.feed` (see below) works the same
-way for periodic GPU stats.
+way for periodic GPU stats. `client.config.set` in the same file carries
+per-connection settings that aren't about broadcasts - currently just
+`acknowledgeDeferred`, described under "Message protocol" above.
 
 ## Request/response event catalog
 
@@ -108,9 +141,9 @@ file - this is just an index.
 |---|---|---|
 | Game/version | `game.reset`, `game.status`, `version` | `GameSubscriber.cpp` |
 | CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status` (reports `ticks` plus `us`, emulated microseconds, and `clockHz` - use `us` to line up with wall-clock timings, since games change the clock frequency and the ticks-per-second ratio isn't fixed), `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
-| Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.nextHLE` | `SteppingSubscriber.cpp` |
+| Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime` (run until a point in emulated time - `us` absolute or `relativeUs` from now - and break there; this is how to get a scripted repro reproducibly "N seconds into the game" instead of polling `cpu.status` in a loop), `cpu.nextHLE` | `SteppingSubscriber.cpp` |
 | Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
-| Memory read/write | `memory.read_u8/u16/u32`, `memory.read`, `memory.readString`, `memory.write_u8/u16/u32`, `memory.write` | `MemorySubscriber.cpp` |
+| Memory read/write | `memory.read_u8/u16/u32`, `memory.read`, `memory.readString`, `memory.write_u8/u16/u32`, `memory.write`. The numeric ones report the result as both `value` and `uintValue` - the latter is what `cpu.getReg`/`cpu.getAllRegs` call it, so a client can read either without caring which event answered | `MemorySubscriber.cpp` |
 | Memory search | `memory.search` - scan a range for a `u8`/`u16`/`u32`/`float` value or a `bytes` pattern (with an optional wildcard mask), for narrowing down where an unknown value lives (Cheat Engine style) | `MemorySubscriber.cpp` |
 | Memory info/annotations | `memory.mapping`, `memory.info.config/set/list/search` | `MemoryInfoSubscriber.cpp` |
 | Disassembly | `memory.base`, `memory.disasm` (add `compact=true` for plain-text lines instead of full per-field objects), `memory.searchDisasm` (add `findAll=true` for every match instead of just the first - e.g. "every caller of this address"), `memory.assemble` | `DisasmSubscriber.cpp` |
@@ -123,7 +156,7 @@ file - this is just an index.
 | GPU buffers | `gpu.buffer.screenshot`, `gpu.buffer.renderColor/renderDepth/renderStencil`, `gpu.buffer.texture`, `gpu.buffer.clut` | `GPUBufferSubscriber.cpp` |
 | Input injection | `input.buttons.send`, `input.buttons.press`, `input.analog.send` | `InputSubscriber.cpp` |
 | Replay | `replay.begin/abort/flush/execute/status`, `replay.time.get/set` | `ReplaySubscriber.cpp` |
-| Client config | `broadcast.config.get/set` | `ClientConfigSubscriber.cpp` |
+| Client config | `broadcast.config.get/set`, `client.config.get/set` | `ClientConfigSubscriber.cpp` |
 | Log channels | `log.channels.list`, `log.channel.set` - query/change a log channel's level (string: `notice`/`error`/`warning`/`info`/`debug`/`verbose`) and/or enabled state; the `log` event itself (the passive message stream, unaffected by this) keeps its existing numeric `level`, see `LogBroadcaster.cpp` | `LogConfigSubscriber.cpp` |
 
 ## Enabling it

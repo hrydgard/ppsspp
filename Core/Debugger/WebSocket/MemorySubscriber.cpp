@@ -103,6 +103,8 @@ AutoDisabledReplacements::~AutoDisabledReplacements() {
 //
 // Response (same event name):
 //  - value: unsigned integer
+//  - uintValue: the same number under the name cpu.getReg/cpu.getAllRegs use, so a client can
+//    read either without special-casing which event it came from
 void WebSocketMemoryReadU8(DebuggerRequest &req) {
 	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
@@ -122,6 +124,8 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
+		// Alias: cpu.getReg and cpu.getAllRegs call this uintValue. Same number, both names.
+		json.writeUint("uintValue", Memory::ReadUnchecked_U8(addr));
 	});
 }
 
@@ -132,6 +136,8 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 //
 // Response (same event name):
 //  - value: unsigned integer
+//  - uintValue: the same number under the name cpu.getReg/cpu.getAllRegs use, so a client can
+//    read either without special-casing which event it came from
 void WebSocketMemoryReadU16(DebuggerRequest &req) {
 	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
@@ -151,6 +157,7 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U16(addr));
 	});
 }
 
@@ -161,6 +168,8 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 //
 // Response (same event name):
 //  - value: unsigned integer
+//  - uintValue: the same number under the name cpu.getReg/cpu.getAllRegs use, so a client can
+//    read either without special-casing which event it came from
 void WebSocketMemoryReadU32(DebuggerRequest &req) {
 	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
@@ -180,6 +189,7 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U32(addr));
 	});
 }
 
@@ -330,6 +340,8 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
+		// Alias: cpu.getReg and cpu.getAllRegs call this uintValue. Same number, both names.
+		json.writeUint("uintValue", Memory::ReadUnchecked_U8(addr));
 	});
 }
 
@@ -367,6 +379,7 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U16(addr));
 	});
 }
 
@@ -404,6 +417,7 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U32(addr));
 	});
 }
 

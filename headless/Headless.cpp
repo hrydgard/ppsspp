@@ -749,14 +749,18 @@ int main(int argc, const char* argv[]) {
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
 
+	// --memstick, applied by ApplyToConfig() further up, wins. This runs after it, so without the
+	// check the default below would silently overwrite whatever was asked for.
+	if (!cmdLineOptions.memStick.has_value()) {
 #if PPSSPP_PLATFORM(WINDOWS)
-	// Mount a filesystem
-	g_Config.memStickDirectory = exePath / "memstick";
-	File::CreateDir(g_Config.memStickDirectory, true);
-	CreateSysDirectories();
+		// Mount a filesystem
+		g_Config.memStickDirectory = exePath / "memstick";
+		File::CreateDir(g_Config.memStickDirectory, true);
+		CreateSysDirectories();
 #elif !PPSSPP_PLATFORM(ANDROID)
-	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
+		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
+	}
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
 	Path nextPath = exePath;

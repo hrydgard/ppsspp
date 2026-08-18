@@ -21,6 +21,7 @@
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -40,6 +41,7 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 	void Over(DebuggerRequest &req);
 	void Out(DebuggerRequest &req);
 	void RunUntil(DebuggerRequest &req);
+	void RunUntilTime(DebuggerRequest &req);
 	void HLE(DebuggerRequest &req);
 
 protected:
@@ -54,6 +56,7 @@ DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
 	map["cpu.stepOver"] = [p](DebuggerRequest &req) { p->Over(req); };
 	map["cpu.stepOut"]  = [p](DebuggerRequest &req) { p->Out(req); };
 	map["cpu.runUntil"] = [p](DebuggerRequest &req) { p->RunUntil(req); };
+	map["cpu.runUntilTime"] = [p](DebuggerRequest &req) { p->RunUntilTime(req); };
 	map["cpu.nextHLE"]  = [p](DebuggerRequest &req) { p->HLE(req); };
 	return p;
 }
@@ -82,9 +85,10 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID =
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response on success.  A cpu.stepping event will be sent once complete.
-// May fail (same-thread case only) if another step/run request is already pending this host
-// frame - safe to retry shortly after.
+// No immediate response on success (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
+// May fail (same-thread case only) if too many steps are already queued, which means a client is
+// firing them faster than they can possibly be carried out.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Into(DebuggerRequest &req) {
@@ -110,12 +114,10 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-			// Core_RequestCPUStep() can fail (a step or run request is already queued this host
-			// frame - see its own "Can't submit two steps in one host frame" log). Previously
-			// unchecked here: on failure, no step ever happens and no cpu.stepping event ever
-			// fires, but the client got no response either (this event's contract is "no
-			// immediate response, a cpu.stepping event follows") - so a rejected step looked
-			// identical to one that's just still in flight, indefinitely. Surface it instead.
+			// Steps queue up now, so this only fails once the queue is full - a client stepping
+			// far faster than frames go by. No step happens and no cpu.stepping event fires in
+			// that case, which would otherwise be indistinguishable from one still in flight, so
+			// surface it as an error rather than leaving the caller waiting.
 			if (!Core_RequestCPUStep(CPUStepType::Into)) {
 				req.Fail("Could not step: a step or run request is already pending");
 				return;
@@ -142,7 +144,8 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Over(DebuggerRequest &req) {
@@ -197,7 +200,8 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Out(DebuggerRequest &req) {
@@ -250,7 +254,8 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 // Parameters:
 //  - address: number parameter for destination.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -275,11 +280,68 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 	});
 }
 
+// Run until a point in emulated time (cpu.runUntilTime)
+//
+// The counterpart to cpu.runUntil for "let the game get N seconds in", which is what lining a
+// scripted repro up with a wall-clock description of a bug needs. Polling cpu.status in a loop
+// does the same job far more slowly and lands somewhere different every run; this stops on the
+// requested tick, so the same script reaches the same place every time.
+//
+// Parameters (exactly one of):
+//  - us: absolute emulated microseconds to run until, as reported by cpu.status.
+//  - relativeUs: microseconds to run for, measured from now.
+//
+// Response (same event name):
+//  - targetUs: the absolute emulated time it will stop at.
+//  - us: emulated time right now.
+// A cpu.stepping event follows once it gets there. Note that anything else that stops the CPU
+// first - a breakpoint, an exception - cancels the deadline, same as it cancels a step.
+void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+
+	const bool absolute = req.HasParam("us");
+	if (absolute == req.HasParam("relativeUs")) {
+		return req.Fail("Pass exactly one of 'us' or 'relativeUs'");
+	}
+
+	double requested = 0.0;
+	if (!req.ParamF64(absolute ? "us" : "relativeUs", &requested)) {
+		// Error already sent.
+		return;
+	}
+	if (requested < 0.0) {
+		return req.Fail("Time must not be negative");
+	}
+
+	// Route the actual stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const u64 nowUs = CoreTiming::GetGlobalTimeUs();
+		const u64 targetUs = absolute ? (u64)requested : nowUs + (u64)requested;
+		if (targetUs <= nowUs) {
+			req.Fail("Target time has already passed");
+			return;
+		}
+
+		CoreTiming::SetBreakDeadlineUs(targetUs);
+
+		PrepareResume();
+		Core_Resume();
+
+		JsonWriter &json = req.Respond();
+		json.writeFloat("targetUs", (double)targetUs);
+		json.writeFloat("us", (double)nowUs);
+	});
+}
+
 // Jump after the next HLE call (cpu.nextHLE)
 //
 // No parameters.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");

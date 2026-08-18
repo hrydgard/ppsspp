@@ -38,14 +38,21 @@ cargo run -- 12345
 }
 ```
 
-One-shot mode - send a single event and exit after a short wait, handy for
-scripting:
+One-shot mode - send a single event and exit as soon as its reply arrives, handy
+for scripting:
 
 ```bash
 cargo run -- 12345 gpu.stats.get
 cargo run -- 12345 cpu.setReg thread=0 name=4 value=1000
 cargo run -- 12345 --raw '{"event":"cpu.evaluate","expression":"pc"}'
 ```
+
+The reply is matched by ticket, so this returns in milliseconds rather than
+padding every invocation with a fixed sleep. `--wait` (default 10s) is only the
+upper bound before it gives up and exits non-zero. Pass `--wait-all` to go back
+to "print everything that arrives for `--wait` seconds", which is what you want
+when watching broadcasts (log lines, `gpu.stats.feed`) rather than asking a
+question.
 
 Type `:help` in the REPL for a quick reminder, `:quit` to disconnect.
 
@@ -56,10 +63,18 @@ immediately by default - nothing waits for a response before moving to the next 
 traditionally needed `sleep N` between commands to guess how long each one takes. Pass `--sync`
 to remove the guessing: each line blocks until its own response arrives (matched by ticket) before
 the next line is read, and for `cpu.resume`/`cpu.stepInto`/`cpu.stepOver`/`cpu.stepOut`/
-`cpu.runUntil`/`cpu.nextHLE` it also waits for the following `cpu.stepping` broadcast - the actual
-"the CPU stopped again" signal those commands imply. Everything still prints as it arrives; this
-only changes when the *next* line gets sent. A breakpoint that never trips would otherwise hang
-the script forever, so it gives up after `--sync-timeout` seconds (default 30) and moves on.
+`cpu.runUntil`/`cpu.runUntilTime`/`cpu.nextHLE` it also waits for the following `cpu.stepping`
+broadcast - the actual "the CPU stopped again" signal those commands imply. Everything still
+prints as it arrives; this only changes when the *next* line gets sent. A breakpoint that never
+trips would otherwise hang the script forever, so it gives up after `--sync-timeout` seconds
+(default 30), reports it, and makes the run exit non-zero.
+
+Matching is by ticket, always. A raw JSON line (the only way to send nested parameters) gets a
+ticket assigned if it doesn't carry one, so it's waited for like any other line - previously it
+had none, `--sync` had nothing to match, and it skipped waiting entirely, which let the next
+line's response be read as this one's and quietly desynchronised the rest of the script. Raw lines
+are also rejected up front, rather than sent and left to fail somewhere downstream, if they aren't
+valid JSON, aren't an object, have no string `event`, or carry a `ticket` that isn't an integer.
 
 ```bash
 (
@@ -68,3 +83,40 @@ the script forever, so it gives up after `--sync-timeout` seconds (default 30) a
   echo 'cpu.getAllRegs'
 ) | cargo run -- 12345 --sync
 ```
+
+### Script directives
+
+A script often needs to wait for something that isn't a direct response to the line before it.
+Doing that by splitting the script across several `wsdbg` invocations costs a process, a TCP
+connection and a handshake per pause, which is slow enough to matter - a polling loop built that
+way took minutes per run. These run inside the one session instead:
+
+| Directive | What it does |
+|---|---|
+| `:sleep <seconds>` | Wall-clock pause. Keeps draining and printing messages while it waits. |
+| `:wait <event> [timeout]` | Blocks until a message with that event name arrives. Exits non-zero if it never does. |
+| `:echo <text>` | Prints text, for marking up a script's output. |
+| `# comment` | Ignored. |
+
+`--compact` prints one line per message (`<- event {json}`) instead of pretty-printed JSON, and
+drops the banner and prompt - much easier for a shell to grep. wsdbg exits non-zero if a `:wait`
+timed out, so a script can be checked without parsing its output at all.
+
+A complete repro - boot, get several seconds in, step, inspect - in one file and one connection:
+
+```
+# hand this to: wsdbg PORT --sync --compact < script.txt
+{"event":"broadcast.config.set","disallowed":{"logger":true,"input":true}}
+:echo === run to 1.5s of emulated time ===
+cpu.runUntilTime us=1500000
+:wait cpu.stepping 60
+cpu.status
+:echo === step twice ===
+cpu.stepInto
+cpu.stepInto
+:quit
+```
+
+`cpu.runUntilTime` (see `docs/WebSocketDebugger.md`) is what makes that reproducible: it stops on
+the requested emulated microsecond, so the same script reaches the same instruction every run.
+Polling `cpu.status` in a loop instead lands somewhere different each time.

@@ -58,6 +58,10 @@ struct CommandLineOptions {
 
 	std::optional<std::string> appendConfig;
 	std::optional<std::string> root;  // mount root, needs more explanation
+	// Memory stick root (the directory containing PSP/GAME, PSP/SYSTEM, ...). Mainly for headless,
+	// which otherwise always uses "memstick" next to the executable - so testing a real game there
+	// meant copying it in. Points at the same layout the app uses, so the two can share one.
+	std::optional<std::string> memStick;
 	std::optional<std::string> stateToLoad;
 
 	std::optional<int> memReadAction;

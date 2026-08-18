@@ -175,7 +175,8 @@ void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 // Parameters:
 //  - enable: optional boolean, pass false to stop the feed.
 //
-// No immediate response.  Events sent each frame (as gpu.stats.get.)
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Events sent each frame (as gpu.stats.get.)
 //
 // Note: info and timing will be accurate after the first frame.
 void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
