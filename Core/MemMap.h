@@ -336,6 +336,21 @@ inline bool IsValid4AlignedAddress(const u32 address) {
 	}
 }
 
+template<int A>
+inline bool IsValidNAlignedAddress(const u32 address) {
+	if ((address & (0x3E000000 | (A - 1))) == 0x08000000) {
+		return true;
+	} else if ((address & (0x3F800000 | (A - 1))) == 0x04000000) {
+		return address < 0x80000000;  // Let's disallow kernel-flagged VRAM. We don't have it mapped and I am not sure if it's accessible.
+	} else if ((address & (0x3FFFC000 | (A - 1))) == 0x00010000) {
+		return true;
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return (address & (A - 1)) == 0;
+	} else {
+		return false;
+	}
+}
+
 inline u32 MaxSizeAtAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
