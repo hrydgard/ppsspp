@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -250,6 +251,12 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, size_t size, const char *dat
 	return -1;
 }
 
+// How many bytes an entry gets in the data table. Everything written for it has to fit in here -
+// the size loop below and the fill loop after it both go through this, so they can't disagree.
+static u32 ReservedSize(const ParamSFOData::ValueData &value) {
+	return (u32)std::max(0, value.max_size);
+}
+
 void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	size_t total_size = 0;
 	size_t key_size = 0;
@@ -266,7 +273,7 @@ void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	for (const auto &[k, v] : values)
 	{
 		key_size += k.size() + 1;
-		data_size += v.max_size;
+		data_size += ReservedSize(v);
 
 		header.index_table_entries++;
 	}
@@ -299,35 +306,49 @@ void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 		index_ptr->key_table_offset = offset;
 		offset = (u16)(data_ptr - (data+header.data_table_start));
 		index_ptr->data_table_offset = offset;
-		index_ptr->param_max_len = v.max_size;
+		const u32 reserved = ReservedSize(v);
+		index_ptr->param_max_len = reserved;
 		if (v.type == VT_INT)
 		{
 			index_ptr->param_fmt = 0x0404;
-			index_ptr->param_len = 4;
+			index_ptr->param_len = std::min(4u, reserved);
 
-			*(s32_le *)data_ptr = v.i_value;
+			if (reserved >= 4)
+				*(s32_le *)data_ptr = v.i_value;
+			else
+				WARN_LOG(Log::Loader, "SFO key '%s' is an int but only reserves %d bytes, dropping", k.c_str(), (int)reserved);
 		}
 		else if (v.type == VT_UTF8_SPE)
 		{
 			index_ptr->param_fmt = 0x0004;
-			index_ptr->param_len = (u32)v.u_value.size();
+			// Raw data, no terminator, but it still has to fit in what the entry reserved.
+			const u32 len = std::min((u32)v.u_value.size(), reserved);
+			if (len != v.u_value.size())
+				WARN_LOG(Log::Loader, "SFO key '%s': %d bytes of data truncated to %d", k.c_str(), (int)v.u_value.size(), (int)len);
+			index_ptr->param_len = len;
 
-			memset(data_ptr, 0, index_ptr->param_max_len);
-			memcpy(data_ptr, v.u_value.data(), index_ptr->param_len);
+			memset(data_ptr, 0, reserved);
+			memcpy(data_ptr, v.u_value.data(), len);
 		}
 		else if (v.type == VT_UTF8)
 		{
 			index_ptr->param_fmt = 0x0204;
-			index_ptr->param_len = (u32)v.s_value.size()+1;
+			// param_len counts the NUL terminator, so the string itself gets reserved - 1 bytes.
+			// Several callers pass the string's own length as max_size (see PSPLoaders.cpp), which
+			// used to overrun the entry by the terminator plus one more from the stray write below.
+			const u32 len = std::min((u32)v.s_value.size(), reserved ? reserved - 1 : 0);
+			if (len != v.s_value.size())
+				WARN_LOG(Log::Loader, "SFO key '%s': string of %d chars truncated to %d", k.c_str(), (int)v.s_value.size(), (int)len);
+			index_ptr->param_len = reserved ? len + 1 : 0;
 
-			memcpy(data_ptr,v.s_value.c_str(),index_ptr->param_len);
-			data_ptr[index_ptr->param_len] = 0;
+			memset(data_ptr, 0, reserved);  // Also supplies the terminator.
+			memcpy(data_ptr, v.s_value.data(), len);
 		}
 
 		memcpy(key_ptr,k.c_str(),k.size());
 		key_ptr[k.size()] = 0;
 
-		data_ptr += index_ptr->param_max_len;
+		data_ptr += reserved;
 		key_ptr += k.size() + 1;
 		index_ptr++;
 
