@@ -15,10 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <atomic>
-
 #include "Common/StringUtils.h"
-#include "Common/Thread/ParallelLoop.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 
@@ -70,8 +67,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 	relocOps.resize(numRelocs);
 
 	DEBUG_LOG(Log::Loader, "Loading %i relocations...", numRelocs);
-	std::atomic<int> numErrors;
-	numErrors.store(0);
+	int numErrors = 0;
 
 	{
 		for (int r = 0; r < numRelocs; r++) {
@@ -250,7 +246,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 	}
 
 	if (numErrors) {
-		WARN_LOG(Log::Loader, "%i bad relocations found!!!", numErrors.load());
+		WARN_LOG(Log::Loader, "%i bad relocations found!!!", numErrors);
 	}
 	return numErrors == 0;
 }
@@ -274,7 +270,25 @@ void ElfReader::LoadRelocations2(int rel_seg)
 		ERROR_LOG_REPORT(Log::Loader, "Rel2 segment invalid");
 		return;
 	}
+	// GetSegmentPtr only vouches for where the segment starts - p_filesz comes from the file too.
+	if ((size_t)ph->p_offset + ph->p_filesz > size_) {
+		ERROR_LOG_REPORT(Log::Loader, "Rel2 segment extends past the end of the file");
+		return;
+	}
 	end = buf+ph->p_filesz;
+
+	// Everything below reads forward from buf, so check there's something there each time. All of
+	// these sizes and indexes come out of the file.
+	auto haveBytes = [&buf, &end](int n) -> bool {
+		if (end - buf < n) {
+			ERROR_LOG_REPORT(Log::Loader, "Rel2: truncated relocation data");
+			return false;
+		}
+		return true;
+	};
+
+	if (!haveBytes(4))
+		return;
 
 	flag_bits = buf[2];
 	type_bits = buf[3];
@@ -285,22 +299,40 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 	buf += 4;
 
+	// Both tables are prefixed by their own size, and are indexed by bitfields out of the command
+	// words below - so the tables and the indexes into them both need checking.
+	if (!haveBytes(1))
+		return;
 	flag_table = buf;
 	flag_table_size = flag_table[0];
+	if (!haveBytes(flag_table_size))
+		return;
 	buf += flag_table_size;
 
+	if (!haveBytes(1))
+		return;
 	type_table = buf;
 	type_table_size = type_table[0];
+	if (!haveBytes(type_table_size))
+		return;
 	buf += type_table_size;
 
 	rel_base = 0;
 	last_type = -1;
 	while(buf<end){
-		cmd = *(u16*)(buf);
+		if (!haveBytes(2))
+			return;
+		// Byte-wise rather than *(u16 *)buf: how far buf has advanced depends on the table sizes
+		// above, so it isn't necessarily even.
+		cmd = buf[0] | (buf[1] << 8);
 		buf += 2;
 
 		flag = ( cmd<<(16-flag_bits))&0xffff;
 		flag = (flag>>(16-flag_bits))&0xffff;
+		if (flag >= flag_table_size) {
+			ERROR_LOG_REPORT(Log::Loader, "Rel2: flag %d out of range (table has %d)", flag, flag_table_size);
+			return;
+		}
 		flag = flag_table[flag];
 
 		seg = (cmd<<(16-seg_bits-flag_bits))&0xffff;
@@ -308,6 +340,10 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 		type = ( cmd<<(16-type_bits-seg_bits-flag_bits))&0xffff;
 		type = (type>>(16-type_bits))&0xffff;
+		if (type >= type_table_size) {
+			ERROR_LOG_REPORT(Log::Loader, "Rel2: type %d out of range (table has %d)", type, type_table_size);
+			return;
+		}
 		type = type_table[type];
 
 		if((flag&0x01)==0){
@@ -315,6 +351,8 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			if((flag&0x06)==0){
 				rel_base = cmd>>(seg_bits+flag_bits);
 			}else if((flag&0x06)==4){
+				if (!haveBytes(4))
+					return;
 				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
@@ -344,17 +382,25 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				if(cmd&0x8000)
 					rel_offset |= 0xffff0000;
 				rel_offset >>= type_bits+seg_bits+flag_bits;
+				if (!haveBytes(2))
+					return;
 				rel_offset = (rel_offset<<16) | (buf[0]) | (buf[1]<<8);
 				buf += 2;
 				rel_base += rel_offset;
 			}else if((flag&0x06)==0x04){
+				if (!haveBytes(4))
+					return;
 				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
 				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid relocat size flag! %x", flag);
 			}
 
-
+			// seg is seg_bits wide, which can address more segments than we can record.
+			if (off_seg >= (int)ARRAY_SIZE(segmentVAddr)) {
+				ERROR_LOG_REPORT(Log::Loader, "Rel2: bad offset segment %d", off_seg);
+				continue;
+			}
 			rel_offset = rel_base+segmentVAddr[off_seg];
 			if (!Memory::IsValidAddress(rel_offset)) {
 				ERROR_LOG_REPORT(Log::Loader, "ELF: Bad rel_offset: %08x", rel_offset);
@@ -367,6 +413,8 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				if(last_type!=0x04)
 					lo16 = 0;
 			}else if((flag&0x38)==0x10){
+				if (!haveBytes(2))
+					return;
 				lo16 = (buf[0]) | (buf[1]<<8);
 				if(lo16&0x8000)
 					lo16 |= 0xffff0000;
@@ -815,7 +863,7 @@ bool ElfReader::LoadSymbols()
 		u32 symtabOffset = GetSectionDataOffset(sec);
 
 		int numSymbols = sections[sec].sh_size / sizeof(Elf32_Sym);
-		if (!stringBase || !symtab || symtabOffset + sections[sec].sh_size > size_) {
+		if (!stringBase || !symtab || (size_t)symtabOffset + sections[sec].sh_size > size_) {
 			ERROR_LOG(Log::Loader, "Symbols truncated - ignoring");
 			return false;
 		}
@@ -835,8 +883,12 @@ bool ElfReader::LoadSymbols()
 			int type = symtab[sym].st_info & 0xF;
 			int sectionIndex = symtab[sym].st_shndx;
 			int value = symtab[sym].st_value;
+			const size_t nameOffset = (size_t)stringOffset + symtab[sym].st_name;
+			if (nameOffset >= size_)
+				continue;
 			const char *name = stringBase + symtab[sym].st_name;
-			if (stringOffset + symtab[sym].st_name >= size_)
+			// And make sure it's terminated inside the file, before anything strlen()s it.
+			if (strnlen(name, size_ - nameOffset) == size_ - nameOffset)
 				continue;
 
 			if (bRelocate) {
