@@ -644,7 +644,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 		{
 			//We have a relocation table!
 			int sectionToModify = s->sh_info;
-			if (sectionToModify >= 0)
+			if (sectionToModify >= 0 && sectionToModify < GetNumSections())
 			{
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 				{
@@ -679,7 +679,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			{
 				//We have a relocation table!
 				int sectionToModify = s->sh_info;
-				if (sectionToModify >= 0)
+				if (sectionToModify >= 0 && sectionToModify < GetNumSections())
 				{
 					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 					{
