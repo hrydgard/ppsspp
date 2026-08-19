@@ -228,14 +228,18 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, size_t size, const char *dat
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
 	const u8 *key_start = paramsfo + header->key_table_start;
-	int data_start = header->data_table_start;
+	const size_t data_start = header->data_table_start;
 
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
+		// In size_t throughout - these are u32s from the file, and mixing them with int meant the
+		// bounds check below was done in whatever type the promotion landed on. ReadSFO does the
+		// same arithmetic this way.
 		size_t key_offset = header->key_table_start + indexTables[i].key_table_offset;
 		if (key_offset >= size)
 			continue;
-		if (data_start + indexTables[i].data_table_offset >= (int)size)
+		size_t data_offset = data_start + indexTables[i].data_table_offset;
+		if (data_offset >= size)
 			continue;
 
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
@@ -244,7 +248,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, size_t size, const char *dat
 			continue;
 		if (!strcmp(key, dataName))
 		{
-			return data_start + indexTables[i].data_table_offset;
+			return (int)data_offset;
 		}
 	}
 
