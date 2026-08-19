@@ -42,6 +42,24 @@
 // Global declarations
 class PointerWrap;
 
+// The PPGe font atlas doesn't live in emulated RAM, but the GE still needs an address to texture
+// from, so we hand it this fake one and translate it back to a host pointer where it's used.
+// NOTE: The top 4 bits must be zero due to how the address is stored in the gstate.
+constexpr u32 PPGE_ATLAS_FAKE_ADDRESS = 0x03000000;
+// The size of the atlas, or 0 when PPGe isn't initialized. Set up by PPGeDraw.cpp.
+extern u32 g_ppgeAtlasFakeSize;
+
+inline bool IsPPGEAtlasFakeAddress(u32 addr, u32 *offset) {
+	if (addr >= PPGE_ATLAS_FAKE_ADDRESS && addr < PPGE_ATLAS_FAKE_ADDRESS + g_ppgeAtlasFakeSize) {
+		if (offset) {
+			*offset = addr - PPGE_ATLAS_FAKE_ADDRESS;
+		}
+		return true;
+	} else {
+		return false;
+	}
+}
+
 typedef void (*writeFn8 )(const u8, const u32);
 typedef void (*writeFn16)(const u16,const u32);
 typedef void (*writeFn32)(const u32,const u32);
@@ -377,6 +395,8 @@ inline bool IsValidTextureAddress(const u32 address) {
 		return true;
 	} else if ((address & 0x3E00000F) == 0x08000000 && (address & 0x3F000000) >= 0x08000000 && ((address & 0x3F000000) < 0x08000000 + g_MemorySize)) {
 		return true;  // Extended RAM.
+	} else if (IsPPGEAtlasFakeAddress(address, nullptr)) {
+		return true;  // PPGe atlas texture
 	} else {
 		// Can't texture from scratchpad or other kinds of memory.
 		return false;
