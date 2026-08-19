@@ -369,14 +369,18 @@ std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 
 	std::string file = path.GetFilename();
 
+	// Deliberately byte-wise and ASCII-only. Filenames are UTF-8, and a plain char is signed on x86
+	// and unsigned on ARM - so summing chars directly gave Windows and Android different IDs for the
+	// same non-ASCII folder name, and toupper() on a negative value trips MSVC's debug CRT. ASCII
+	// names, which is very nearly all of them, produce exactly the same ID as before either way.
 	int sumOfAllLetters = 0;
 	for (char &c : file) {
-		sumOfAllLetters += c;
+		sumOfAllLetters += (unsigned char)c;
 		// Get rid of some garbage characters than can arise when opening content URIs. Well, I've only seen '%', but...
-		if (strchr("%() []", c) != nullptr) {
+		if (c && strchr("%() []", c) != nullptr) {
 			c = 'X';
-		} else {
-			c = toupper(c);
+		} else if (c >= 'a' && c <= 'z') {
+			c = c - 'a' + 'A';
 		}
 	}
 
