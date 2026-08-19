@@ -51,10 +51,14 @@ public:
 	ElfReader(const void *ptr, size_t size) {
 		base = (const char*)ptr;
 		base32 = (const u32 *)ptr;
+		size_ = size;
+		// Don't read the header to find the segment and section tables before we know it's there.
+		// LoadInto() rejects anything this small; header stays null so nothing else can use it either.
+		if (size < sizeof(Elf32_Ehdr))
+			return;
 		header = (const Elf32_Ehdr*)ptr;
 		segments = (const Elf32_Phdr *)(base + header->e_phoff);
 		sections = (const Elf32_Shdr *)(base + header->e_shoff);
-		size_ = size;
 	}
 
 	~ElfReader() {
@@ -66,21 +70,22 @@ public:
 		return base32[off >> 2];
 	}
 
-	// Quick accessors
-	ElfType GetType() const { return (ElfType)(u16)(header->e_type); }
-	ElfMachine GetMachine() const { return (ElfMachine)(u16)(header->e_machine); }
+	// Quick accessors. header is null if we weren't even handed a full ELF header, see the
+	// constructor - so these all have to cope with that.
+	ElfType GetType() const { return header ? (ElfType)(u16)(header->e_type) : (ElfType)0; }
+	ElfMachine GetMachine() const { return header ? (ElfMachine)(u16)(header->e_machine) : (ElfMachine)0; }
 	u32 GetEntryPoint() const { return entryPoint; }
-	u32 GetFlags() const { return (u32)(header->e_flags); }
+	u32 GetFlags() const { return header ? (u32)(header->e_flags) : 0; }
 
-	int GetNumSegments() const { return (int)(header->e_phnum); }
-	int GetNumSections() const { return (int)(header->e_shnum); }
+	int GetNumSegments() const { return header ? (int)(header->e_phnum) : 0; }
+	int GetNumSections() const { return header ? (int)(header->e_shnum) : 0; }
 	const char *GetSectionName(int section) const;
 	const u8 *GetPtr(u32 offset) const {
 		return (const u8*)base + offset;
 	}
 	// Note: zero is not a valid output, means unavailable.
 	u32 GetSectionDataOffset(int section) const {
-		if (section < 0 || section >= header->e_shnum)
+		if (section < 0 || section >= GetNumSections())
 			return 0;
 		if (sections[section].sh_type == SHT_NOBITS)
 			return 0;
@@ -88,19 +93,26 @@ public:
 	}
 	const u8 *GetSectionDataPtr(int section) const {
 		u32 offset = GetSectionDataOffset(section);
-		if (offset == 0 || offset > size_)
+		// Note >=: an offset exactly at the end of the file addresses no bytes at all.
+		if (offset == 0 || offset >= size_)
 			return nullptr;
 		return GetPtr(offset);
 	}
 	const u8 *GetSegmentPtr(int segment) const {
-		if (segments[segment].p_offset > size_)
+		if (segment < 0 || segment >= GetNumSegments())
+			return nullptr;
+		if (segments[segment].p_offset >= size_)
 			return nullptr;
 		return GetPtr(segments[segment].p_offset);
 	}
 	u32 GetSectionAddr(SectionID section) const {
+		if (section < 0 || section >= GetNumSections() || !sectionAddrs)
+			return 0;
 		return sectionAddrs[section];
 	}
 	int GetSectionSize(SectionID section) const {
+		if (section < 0 || section >= GetNumSections())
+			return 0;
 		return sections[section].sh_size;
 	}
 

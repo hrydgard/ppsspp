@@ -1663,7 +1663,7 @@ static u32 sceKernelGetMemoryBlockAddr(u32 uid, u32 addr) {
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
 	if (block) {
 		Memory::WriteOrException_U32(block->address, addr);
-		return hleLogInfo(Log::sceKernel, 0, "block address: %08x", block->address);
+		return hleLogDebug(Log::sceKernel, 0, "block address: %08x", block->address);
 	} else {
 		return hleLogError(Log::sceKernel, 0, "failed");
 	}

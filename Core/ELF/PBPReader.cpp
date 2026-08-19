@@ -29,16 +29,20 @@ PBPReader::PBPReader(FileLoader *fileLoader) {
 	}
 
 	fileSize_ = (size_t)fileLoader->FileSize();
-	if (fileLoader->ReadAt(0, sizeof(header_), (u8 *)&header_) != sizeof(header_)) {
+	if (fileLoader->ReadAt(0, sizeof(header_), &header_) != sizeof(header_)) {
 		ERROR_LOG(Log::Loader, "PBP is too small to be valid: %s", fileLoader->GetPath().c_str());
 		return;
 	}
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
-		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
+		// Split string so the \x7f escape doesn't swallow the E. This used to compare against
+		// "\nFLE", which is neither ELF's magic nor anything else - so every file that wasn't a PBP
+		// was reported as an ELF, and the error branch below was unreachable.
+		if (memcmp(header_.magic, "\x7f" "ELF", 4) == 0) {
 			VERBOSE_LOG(Log::Loader, "%s: File actually an ELF, not a PBP", fileLoader->GetPath().c_str());
 			isELF_ = true;
 		} else {
-			ERROR_LOG(Log::Loader, "Magic number in %s indicated no PBP: %s", fileLoader->GetPath().c_str(), header_.magic);
+			ERROR_LOG(Log::Loader, "Magic number in %s indicates neither PBP nor ELF: %02x %02x %02x %02x",
+				fileLoader->GetPath().c_str(), (u8)header_.magic[0], (u8)header_.magic[1], (u8)header_.magic[2], (u8)header_.magic[3]);
 		}
 		return;
 	}
@@ -63,7 +67,9 @@ bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) const {
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
-	size_t bytes = file_->ReadAt(off, expected, &(*out)[0]);
+	if (expected == 0)
+		return true;
+	size_t bytes = file_->ReadAt(off, expected, out->data());
 	if (bytes != expected) {
 		ERROR_LOG(Log::Loader, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
 		if (bytes < expected) {

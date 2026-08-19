@@ -1017,6 +1017,16 @@ static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 {
+	// Every type below reads the tag at 0xD0, the size at 0xB0 and key data as far as 0x150, and
+	// writes a KIRK header into outbuf at a fixed offset derived from sizeof(PSP_Header). Without
+	// this, a PRX declaring a tiny psp_size got read past its end, had a header written past the end
+	// of the (equally tiny) output buffer, and passed "size - offset" to KIRK as an unsigned
+	// underflow. Callers must supply at least a whole header on both sides.
+	if (size < sizeof(PSP_Header)) {
+		ERROR_LOG(Log::Loader, "PRX too small to decrypt: %d bytes, need at least %d", (int)size, (int)sizeof(PSP_Header));
+		return -1;
+	}
+
 	KirkState kirk{};
 	kirk_init(&kirk);
 
