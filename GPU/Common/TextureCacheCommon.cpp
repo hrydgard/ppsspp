@@ -517,7 +517,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 	const u32 texaddr = gstate.getTextureAddress(level);
-	if (!Memory::IsValidAddress(texaddr)) {
+	if (!Memory::IsValidTextureAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
 		gstate_c.SetTextureIsVideo(false);
@@ -1496,7 +1496,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
-	if (!Memory::IsValidAddress(clutAddr)) {
+	if (!Memory::IsValidCLUTAddress(clutAddr)) {
 		memset(clutBufRaw_, 0x00, loadBytes);
 		// Reload the clut next time (should we really do it in this case?)
 		clutLastFormat_ = 0xFFFFFFFF;
@@ -1505,6 +1505,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 	}
 
 	if (Memory::IsVRAMAddress(clutAddr)) {
+		// If we're loading the CLUT from VRAM, it might be directly from a framebuffer. This is used for some fancy effects.
+
 		// Clear the uncached and mirror bits, etc. to match framebuffers.
 		const u32 clutLoadAddr = clutAddr & 0x041FFFFF;
 		const u32 clutLoadEnd = clutLoadAddr + loadBytes;
@@ -2758,7 +2760,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	for (int i = 0; i < plan.levelsToLoad; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
+		if (!Memory::IsValidTextureAddress(levelTexaddr)) {
 			plan.levelsToLoad = i;
 			break;
 		}
