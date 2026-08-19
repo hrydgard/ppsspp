@@ -131,6 +131,9 @@ void RecentFilesManager::Add(std::string_view filename) {
 	}
 
 	// Some things should not be added to recent, such as the VSH (which will have a separate UI for launching it)
+	if (endsWithNoCase(filename, "vshmain.prx")) {
+		return;
+	}
 
 	std::lock_guard<std::mutex> guard(cmdLock_);
 	cmds_.push(RecentCommand{ RecentCmd::Add, {}, std::make_unique<std::string>(filename) });
