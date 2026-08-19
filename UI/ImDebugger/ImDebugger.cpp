@@ -2565,6 +2565,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Ignore bad memory accesses", nullptr, &g_Config.bIgnoreBadMemAccess);
 			ImGui::MenuItem("Break on frame timeout", nullptr, &g_Config.bBreakOnFrameTimeout);
 			ImGui::MenuItem("Fast memory", nullptr, &g_Config.bFastMemory);
+			ImGui::MenuItem("Auto save/load symbols (PSP/SYSTEM/SYMBOLS)", nullptr, &g_Config.bAutoSaveLoadSymbols);
 			ImGui::Separator();
 			if (ImGui::MenuItem("Take screenshot")) {
 				g_TakeScreenshot = true;

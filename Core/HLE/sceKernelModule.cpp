@@ -214,11 +214,8 @@ PSPModule::~PSPModule() {
 		// Deliberately *not* dropping this module's line info here. Loading a savestate deletes
 		// every kernel object and rebuilds it (KernelObjectPool::Clear), so removing on destruction
 		// threw the line table away every time a state was loaded - and for an ELF launched
-		// directly there's no file left to read it back from. SymbolMap has the same problem and
-		// solves it the same way: keep what you have, and let the module that next claims the
-		// address range replace it (LineInfoMap::AddModule replaces by key, and it's called for
-		// every module load whether or not that module has any line info to add). The whole thing
-		// is dropped when the game does, in PSP_Shutdown.
+		// directly there's no file left to read it back from. Same as SymbolMap: keep what you have,
+		// and let the module that next claims the address range replace it.
 	}
 
 	if (modulePtr.ptr) {
@@ -1405,22 +1402,19 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if (module->memoryBlockAddr != 0) {
 		g_symbolMap->AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize, module->crc);
 
-		// Line info out of the module we just loaded. That covers an ELF launched directly -
-		// pspautotests' .elf builds, or homebrew you built yourself - where the debug sections are
-		// right here in the file. A PRX has none (prxgen strips every .debug section), so it's a
-		// cheap no-op for the usual EBOOT case, which the companion below handles instead.
+		// Line info out of the module we just loaded, where the debug sections are right here in the file.
+		// A PRX or EBOOT.PBP has none (prxgen strips .debug sections), so this doesn't do anything - instead,
+		// see LoadCompanionElfDebugInfo.
 		// A relocated module's ELF addresses are relative to where it ended up; one loaded at the
 		// addresses it asked for already has final ones.
 		const u32 lineDelta = reader.DidRelocate() ? reader.GetVaddr() : 0;
 		g_lineInfo.AddModule(std::string_view((const char *)ptr, elfSize), module->memoryBlockAddr, module->memoryBlockSize, lineDelta);
 
-		// Homebrew commonly ships the unstripped ELF next to the EBOOT; prxgen strips the symbols
-		// out of the PRX we actually load, so without this every function in it is just
-		// z_un_<address>. See LoadCompanionElfDebugInfo.
+		// When developing with the homebrew PSPSDK you usually end up with the unstripped ELF next to the EBOOT;
+		// so without this every function in it is just z_un_<address>.
 		LoadCompanionElfDebugInfo(PSP_CoreParameter().fileToStart, module->memoryBlockAddr, module->memoryBlockSize);
 
-		// Only the .ppsym files follow the setting - it's about writing symbols back out, not about
-		// reading debug info that's already sitting next to the game.
+		// Load any .ppsym files where the user has renamed functions.
 		if (g_Config.bAutoSaveLoadSymbols) {
 			int idx = g_symbolMap->GetModuleIndexByName(moduleName);
 			if (idx > 0) {

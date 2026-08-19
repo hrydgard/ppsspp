@@ -161,8 +161,10 @@ void InitMemorySizeForGame() {
 
 		if (umdData.empty()) {
 			std::vector<u8> umdDataBin;
+			// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
+			// indexing an empty vector is undefined.
 			if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
-				umdData = std::string((const char *)&umdDataBin[0], umdDataBin.size());
+				umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
 			}
 		}
 
@@ -272,10 +274,13 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	bool hasEncrypted = false;
 	int fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0) {
-		u8 head[4];
-		pspFileSystem.ReadFile(fd, head, 4);
-		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
-			hasEncrypted = true;
+		u8 head[4]{};
+		// A file shorter than the magic used to leave head partly uninitialized, and then decided
+		// which boot file to use by comparing against it.
+		if (pspFileSystem.ReadFile(fd, head, sizeof(head)) == sizeof(head)) {
+			if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
+				hasEncrypted = true;
+			}
 		}
 		pspFileSystem.CloseFile(fd);
 	}
@@ -319,18 +324,23 @@ static Path NormalizePath(const Path &path) {
 	}
 
 #ifdef _WIN32
-	std::wstring wpath = path.ToWString();
+	const std::wstring wpath = path.ToWString();
 	std::wstring buf;
 	buf.resize(512);
-	size_t sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
-	if (sz != 0 && sz < buf.size()) {
+	// On success GetFullPathName returns the length without the terminator; if the buffer is too
+	// small it returns the required length *including* it, and on failure it returns 0. A zero used
+	// to fall through both branches below and hand back 512 characters of uninitialized buffer.
+	DWORD sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), buf.data(), nullptr);
+	if (sz >= buf.size()) {
 		buf.resize(sz);
-	} else if (sz > buf.size()) {
-		buf.resize(sz);
-		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
-		// This should truncate off the null terminator.
-		buf.resize(sz);
+		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), buf.data(), nullptr);
 	}
+	if (sz == 0 || sz >= buf.size()) {
+		WARN_LOG(Log::Loader, "GetFullPathName failed for '%s'", path.c_str());
+		return Path();
+	}
+	// Truncates off the null terminator.
+	buf.resize(sz);
 	return Path(buf);
 #else
 	char buf[PATH_MAX + 1];
@@ -384,6 +394,13 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 			pathNorm = full_path.NavigateUp();
 		}
 
+		// Path::StartsWith() returns true for an empty argument, so an unresolvable mountRoot would
+		// make the containment check below pass for any path at all.
+		if (rootNorm.empty() || pathNorm.empty()) {
+			*error_string = "Cannot boot ELF - couldn't resolve its path or mountRoot.";
+			return false;
+		}
+
 		// If root is not a subpath of path, we can't boot the game.
 		if (!pathNorm.StartsWith(rootNorm)) {
 			*error_string = "Cannot boot ELF located outside mountRoot.";
@@ -392,8 +409,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 
 		std::string filepath;
 		if (full_path.Type() == PathType::CONTENT_URI) {
-			std::string rootFilePath = AndroidContentURI(rootNorm.c_str()).FilePath();
-			std::string pathFilePath = AndroidContentURI(pathNorm.c_str()).FilePath();
+			const std::string rootFilePath = AndroidContentURI(rootNorm.c_str()).FilePath();
+			const std::string pathFilePath = AndroidContentURI(pathNorm.c_str()).FilePath();
+			// StartsWith above compared the URIs. That doesn't mean the decoded file paths have the
+			// same prefix relationship, and substr() throws when they don't.
+			if (!startsWith(pathFilePath, rootFilePath)) {
+				*error_string = "Cannot boot ELF located outside mountRoot.";
+				return false;
+			}
 			filepath = pathFilePath.substr(rootFilePath.size());
 		} else {
 			filepath = ReplaceAll(pathNorm.ToString().substr(rootNorm.ToString().size()), "\\", "/");

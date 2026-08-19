@@ -88,16 +88,7 @@
 // #include "sceNp2.h"
 #include "sceNet_lib.h"
 
-#define N(s) s
-
-//\*\*\ found\:\ {[a-zA-Z]*}\ {0x[a-zA-Z0-9]*}\ \*\*
-//{FID(\2),0,N("\1")},
-
-//Metal Gear Acid modules:
-//kjfs
-//sound
-//zlibdec
-const HLEFunction FakeSysCalls[] = {
+static const HLEFunction FakeSysCalls[] = {
 	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread", 'x', ""},
 	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall", 'x', ""},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt", 'x', ""},
@@ -108,8 +99,7 @@ const HLEFunction FakeSysCalls[] = {
 	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall", 'x', ""},
 };
 
-const HLEFunction UtilsForUser[] = 
-{
+static const HLEFunction UtilsForUser[] = {
 	{0X91E4F6A7, &WrapU_V<sceKernelLibcClock>,                       "sceKernelLibcClock",                      'x', ""   },
 	{0X27CC57F0, &WrapU_U<sceKernelLibcTime>,                        "sceKernelLibcTime",                       'x', "x"  },
 	{0X71EC4271, &WrapU_UU<sceKernelLibcGettimeofday>,               "sceKernelLibcGettimeofday",               'x', "xx" },
@@ -138,8 +128,7 @@ const HLEFunction UtilsForUser[] =
 	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",            'x', ""   }
 };				   
 
-const HLEFunction LoadCoreForKernel[] = 
-{
+static const HLEFunction LoadCoreForKernel[] = {
 	{0XACE23476, nullptr,                                            "sceKernelCheckPspConfig",                 '?', ""   },
 	{0X7BE1421C, nullptr,                                            "sceKernelCheckExecFile",                  '?', ""   },
 	{0XBF983EF2, nullptr,                                            "sceKernelProbeExecutableObject",          '?', ""   },
@@ -173,9 +162,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 };
 
-
-const HLEFunction KDebugForKernel[] = 
-{
+static const HLEFunction KDebugForKernel[] = {
 	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
 	{0X9B868276, nullptr,                                            "sceKernelGetDebugPutchar",                '?', ""   },
@@ -198,14 +185,11 @@ const HLEFunction KDebugForKernel[] =
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
 
-const HLEFunction pspeDebug[] = 
-{
+static const HLEFunction pspeDebug[] = {
 	{0XDEADBEAF, nullptr,                                            "pspeDebugWrite",                          '?', ""   },
 };
 
-
-const HLEModule moduleList[] = 
-{
+static const HLEModule moduleList[] = {
 	{"FakeSysCalls", ARRAY_SIZE(FakeSysCalls), FakeSysCalls},
 	{"UtilsForUser", ARRAY_SIZE(UtilsForUser), UtilsForUser},
 	{"KDebugForKernel", ARRAY_SIZE(KDebugForKernel), KDebugForKernel},
@@ -325,13 +309,13 @@ void RegisterAllModules() {
 	Register_sceSircs();
 	Register_sceNet_lib();
 	Register_sceReg();
-	// Not ready to enable this due to apparent softlocks in Patapon 3.
-	// Register_sceNpMatching2();
 	Register_sceRtc_driver();
 	Register_scePower_driver();
 	Register_sceImpose_driver();
 	Register_sceHprm_driver();
-
 	// add new modules here.
+
+	// Not ready to enable this due to apparent softlocks in Patapon 3.
+	// Register_sceNpMatching2();
 }
 

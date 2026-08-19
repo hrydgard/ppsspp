@@ -28,13 +28,15 @@
 typedef void *HANDLE;
 #endif
 
+// This one accepts directories as well as files.
+// Later we handle the discrepancy in MountGameISO.
 class LocalFileLoader : public FileLoader {
 public:
 	LocalFileLoader(const Path &filename);
 	~LocalFileLoader();
 
 	bool Exists() override;
-	bool IsDirectory() override;
+	bool IsDirectory() override { return isDirectory_; }
 	s64 FileSize() override;
 	Path GetPath() const override {
 		return filename_;
@@ -52,5 +54,6 @@ private:
 #endif
 	u64 filesize_ = 0;
 	Path filename_;
+	bool isDirectory_ = false;
 	std::mutex readLock_;
 };

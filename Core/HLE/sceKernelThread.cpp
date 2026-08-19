@@ -190,12 +190,8 @@ private:
 	u32 idGen_;
 };
 
-class ActionAfterMipsCall : public PSPAction
-{
-	ActionAfterMipsCall()
-	{
-		chainedAction = NULL;
-	}
+class ActionAfterMipsCall : public PSPAction {
+	ActionAfterMipsCall() = default;
 
 public:
 	void run(MipsCall &call) override;
@@ -231,17 +227,17 @@ public:
 		}
 	}
 
-	SceUID threadID;
+	SceUID threadID = 0;
 
 	// Saved thread state
-	int status;
-	WaitType waitType;
-	int waitID;
-	ThreadWaitInfo waitInfo;
-	bool isProcessingCallbacks;
-	SceUID currentCallbackId;
+	int status = 0;
+	WaitType waitType{};
+	int waitID = 0;
+	ThreadWaitInfo waitInfo{};
+	bool isProcessingCallbacks = false;
+	SceUID currentCallbackId = 0;
 
-	PSPAction *chainedAction;
+	PSPAction *chainedAction = nullptr;
 };
 
 class ActionAfterCallback : public PSPAction {
