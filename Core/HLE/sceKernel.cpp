@@ -947,6 +947,16 @@ const HLEFunction ThreadManForKernel[] =
 	{0x1D371B8A, &WrapI_IU<sceKernelCancelVpl>,                      "sceKernelCancelVpl",                        'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x39810265, &WrapI_IU<sceKernelReferVplStatus>,                 "sceKernelReferVplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
 	{0xBC31C1B9, nullptr, "sceKernelExtendKernelStack"},
+	// New entries must go here at the end, not inserted earlier in this table - the funcindex
+	// (this array position) gets baked directly into resolved-import syscall opcodes written
+	// into guest RAM (see GetSyscallOp() in HLE.cpp), which savestates capture verbatim. Inserting
+	// a new entry before an existing one shifts every later entry's index, silently corrupting
+	// any savestate taken after that entry was already resolved (see AGENTS.md).
+	{0x3AD58B8C, &WrapU_V<sceKernelSuspendDispatchThread>,           "sceKernelSuspendDispatchThread",            'x', "",       HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
+	{0x27E22EC2, &WrapU_U<sceKernelResumeDispatchThread>,            "sceKernelResumeDispatchThread",             'x', "x",      HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
+	{0xC11BA8C4, &WrapI_II<sceKernelNotifyCallback>,                 "sceKernelNotifyCallback",                   'i', "ii",     HLE_KERNEL_SYSCALL },
+	{0xF6427665, &WrapI_V<sceKernelGetUserLevel>,                    "sceKernelGetUserLevel",                     'i', "",       HLE_KERNEL_SYSCALL },
+	{0x85A2A5BF, &WrapI_V<sceKernelIsUserModeThread>,                "sceKernelIsUserModeThread",                 'i', "",       HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()

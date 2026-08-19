@@ -409,6 +409,7 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	}
 	const u32 *checkp = (const u32 *)Memory::GetPointerOrException(addr);
 
+	// NOTE: I'm not sure we want to align-check the end, so can't use IsValidTextureAddress here.
 	if (Memory::IsValidAddress(addr + sizeInRAM)) {
 		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
 
@@ -517,7 +518,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 	const u32 texaddr = gstate.getTextureAddress(level);
-	if (!Memory::IsValidAddress(texaddr)) {
+	_dbg_assert_(texaddr != 0);
+	if (!Memory::IsValidTextureAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
 		gstate_c.SetTextureIsVideo(false);
@@ -570,7 +572,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		cluthash = 0;
 	}
 	const u64 cachekey = TexCacheEntry::CacheKey(texaddr, texFormat, dim, cluthash);
-
 	int bufw = GetTextureBufw(0, texaddr, texFormat);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 	const bool swizzled = gstate.isTextureSwizzled();
@@ -820,8 +821,10 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	def.format = texFormat;
 	def.bufw = bufw;
 
+	const bool isPPGE = IsPPGEAtlasFakeAddress(texaddr, nullptr);
+
 	AttachCandidate bestCandidate;
-	if (GetBestFramebufferCandidate(framebufferManager_, def, 0, &bestCandidate, "texture")) {
+	if (!isPPGE && GetBestFramebufferCandidate(framebufferManager_, def, 0, &bestCandidate, "texture")) {
 		RasterChannel channel;
 		VirtualFramebuffer *framebuffer = SetTextureFramebuffer(bestCandidate, &channel);  // sets curTexture3D
 		TextureApplyResult result;
@@ -852,9 +855,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	TexCacheEntry *entry = new TexCacheEntry{};
 	cache_[cachekey].reset(entry);
 	entry->status = {};
-	if (PPGeIsFontTextureAddress(texaddr)) {
+	if (isPPGE) {
 		// It's the builtin font texture.
-		entry->status |= TexStatus::RELIABLE;
+		entry->status |= TexStatus::RELIABLE | TexStatus::IS_PPGE_ATLAS;
 	}
 
 	if (hasClutGPU) {
@@ -897,7 +900,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 	UpdateMaxSeenV(entry, gstate.isModeThrough());  // Critical to update this before hashing! As it's used to decide the hash range.
-	entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+
+	// TODO: Avoid hashing known video textures.
+	if (!(entry->status & TexStatus::IS_PPGE_ATLAS)) {
+		entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+	}
 
 	VERBOSE_LOG(Log::TexCache, "%08x: Creating new texture, hash %08x (maxSeenV=%d), w: %d h: %d, creating", texaddr, entry->fullhash, entry->maxSeenV, w, h);
 
@@ -1496,7 +1503,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 	clutTotalBytes_ = loadBytes;
 	clutRenderAddress_ = 0xFFFFFFFF;
 
-	if (!Memory::IsValidAddress(clutAddr)) {
+	if (!Memory::IsValidCLUTAddress(clutAddr)) {
 		memset(clutBufRaw_, 0x00, loadBytes);
 		// Reload the clut next time (should we really do it in this case?)
 		clutLastFormat_ = 0xFFFFFFFF;
@@ -1505,6 +1512,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Record
 	}
 
 	if (Memory::IsVRAMAddress(clutAddr)) {
+		// If we're loading the CLUT from VRAM, it might be directly from a framebuffer. This is used for some fancy effects.
+
 		// Clear the uncached and mirror bits, etc. to match framebuffers.
 		const u32 clutLoadAddr = clutAddr & 0x041FFFFF;
 		const u32 clutLoadEnd = clutLoadAddr + loadBytes;
@@ -1956,7 +1965,11 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	const u8 *texptr = Memory::GetPointerOrException(texaddr);
+
+	u32 ppgeOffset;
+	const bool isPPGE = IsPPGEAtlasFakeAddress(texaddr, &ppgeOffset);
+
+	const u8 *texptr = isPPGE ? (PPGeAtlasGetData() + ppgeOffset) : Memory::GetPointerOrException(texaddr);
 	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
 
 	// Validate the texture data fits in mapped RAM, like the DXT path does.
@@ -1966,7 +1979,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	// Swizzled textures are read in 8-row blocks, rounding the height up.
 	const uint32_t rows = swizzled ? ((h + 7) & ~7) : h;
 	const uint32_t neededBytes = bytesPerRow * rows;
-	if (bytesPerRow > 0 && !Memory::IsValidRange(texaddr, neededBytes)) {
+	if (bytesPerRow > 0 && !isPPGE && !Memory::IsValidRange(texaddr, neededBytes)) {
 		ERROR_LOG_REPORT(Log::G3D, "Texture extends beyond valid RAM: %08x + %d x %d", texaddr, bufw, h);
 		uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
 		h = limited / bytesPerRow;
@@ -1974,9 +1987,11 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 			h &= ~7;
 	}
 
-	char buf[128];
-	size_t len = snprintf(buf, sizeof(buf), "Tex_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat));
-	NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, buf, len);
+	if (!isPPGE) {
+		char buf[128];
+		size_t len = snprintf(buf, sizeof(buf), "Tex_%08x_%dx%d_%s", texaddr, w, h, GeTextureFormatToString(format, clutformat));
+		NotifyMemInfo(MemBlockFlags::TEXTURE, texaddr, byteSize, buf, len);
+	}
 
 	switch (format) {
 	case GE_TFMT_CLUT4:
@@ -2758,7 +2773,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	for (int i = 0; i < plan.levelsToLoad; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
+		if (!Memory::IsValidTextureAddress(levelTexaddr)) {
 			plan.levelsToLoad = i;
 			break;
 		}
@@ -3090,5 +3105,12 @@ std::string TexStatusToString(TexStatus status) {
 	if (status & TexStatus::VIDEO) {
 		result += "VIDEO ";
 	}
+	if (status & TexStatus::RELIABLE) {
+		result += "RELIABLE ";
+	}
+	if (status & TexStatus::IS_PPGE_ATLAS) {
+		result += "IS_PPGE_ATLAS ";
+	}
+
 	return result.empty() ? "None" : result;
 }

@@ -526,7 +526,7 @@ int upnpService(const unsigned int timeout) {
 		g_PortManager.Shutdown();
 	}
 
-	// Should we ingore any leftover UPnP requests? instead of processing it on the next game start
+	// Should we ignore any leftover UPnP requests? instead of processing it on the next game start
 	{
 		std::unique_lock<std::mutex> lock(g_upnpLock);
 		g_upnpReqs.clear();
@@ -550,9 +550,11 @@ void __UPnPShutdown() {
 		g_upnpCond.notify_one();
 	}
 
+	INFO_LOG(Log::HTTP, "Waiting for upnp thread to shut down...");
 	if (g_upnpServiceThread.joinable()) {
 		g_upnpServiceThread.join();
 	}
+	INFO_LOG(Log::HTTP, "upnp thread shut down.");
 }
 
 void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport) {

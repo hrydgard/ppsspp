@@ -844,6 +844,7 @@ static void WebServerThread() {
 	delete http;
 
 	UpdateStatus(ServerStatus::FINISHED);
+	INFO_LOG(Log::HTTP, "Left web server loop.");
 }
 
 // Only adds flags.

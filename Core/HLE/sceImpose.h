@@ -20,5 +20,6 @@
 class PointerWrap;
 
 void Register_sceImpose();
+void Register_sceImpose_driver();
 void __ImposeInit();
 void __ImposeDoState(PointerWrap &p);
