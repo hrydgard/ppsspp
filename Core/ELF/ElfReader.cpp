@@ -808,6 +808,11 @@ bool ElfReader::LoadSymbols()
 			ERROR_LOG(Log::Loader, "Symbols truncated - ignoring");
 			return false;
 		}
+		// Relocating a symbol needs the section addresses LoadInto computed.
+		if (bRelocate && !sectionAddrs) {
+			ERROR_LOG(Log::Loader, "LoadSymbols called before LoadInto - ignoring");
+			return false;
+		}
 		
 		for (int sym = 0; sym<numSymbols; sym++)
 		{
@@ -823,8 +828,21 @@ bool ElfReader::LoadSymbols()
 			if (stringOffset + symtab[sym].st_name >= size_)
 				continue;
 
-			if (bRelocate)
+			if (bRelocate) {
+				// st_shndx is a u16 that can hold reserved values rather than a section number -
+				// SHN_ABS (0xFFF1) in particular is common and means the value is already final.
+				// Indexing sectionAddrs (which has GetNumSections() entries) with one of those read
+				// far out of bounds and added whatever it found to the symbol's address.
+				if (sectionIndex == SHN_UNDEF || sectionIndex >= SHN_LORESERVE) {
+					// Undefined, absolute or common - nothing of ours to relocate against.
+					continue;
+				}
+				if (sectionIndex >= GetNumSections()) {
+					WARN_LOG(Log::Loader, "Symbol '%s' refers to bad section %d, skipping", name, sectionIndex);
+					continue;
+				}
 				value += sectionAddrs[sectionIndex];
+			}
 
 			switch (type)
 			{
