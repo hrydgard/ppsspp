@@ -65,6 +65,9 @@ public:
 private:
 	FileLoader *file_ = nullptr;
 	size_t fileSize_ = 0;
-	const PBPHeader header_{};
+	// Not const: the constructor reads the file straight into this. It used to be, and was written
+	// through a cast that stripped the const away - which compiles, but lets the compiler assume the
+	// value never changes from the {} it was initialized with.
+	PBPHeader header_{};
 	bool isELF_ = false;
 };

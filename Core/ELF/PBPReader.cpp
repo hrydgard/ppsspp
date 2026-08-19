@@ -29,7 +29,7 @@ PBPReader::PBPReader(FileLoader *fileLoader) {
 	}
 
 	fileSize_ = (size_t)fileLoader->FileSize();
-	if (fileLoader->ReadAt(0, sizeof(header_), (u8 *)&header_) != sizeof(header_)) {
+	if (fileLoader->ReadAt(0, sizeof(header_), &header_) != sizeof(header_)) {
 		ERROR_LOG(Log::Loader, "PBP is too small to be valid: %s", fileLoader->GetPath().c_str());
 		return;
 	}
