@@ -56,7 +56,9 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	lo = (addr & 0xFFFF);
 	u32 naddr = addr - lo;
 	hi = naddr>>16;
-	u32 test = (hi<<16) + lo;
+	// Note the casts: hi is a u16, so it promotes to int, and kernel modules load at 0x88000000 -
+	// shifting a value of 0x8800 left by 16 would overflow a signed int.
+	u32 test = ((u32)hi << 16) + (u32)lo;
 	if (test != addr)
 	{
 		WARN_LOG_REPORT(Log::Loader, "HI16/LO16 relocation failure?");
@@ -161,7 +163,12 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					if (t_type == R_MIPS_HI16)
 						continue;
 
-					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
+					// The candidate LO16 declares its own segment - use that rather than the HI16's,
+					// which is what the mismatch warning further down is there to detect.
+					int t_readwrite = (rels[t].r_info >> 8) & 0xff;
+					if (t_readwrite >= (int)ARRAY_SIZE(segmentVAddr))
+						continue;
+					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[t_readwrite];
 
 					// In MotorStorm: Arctic Edge (US), these are sometimes R_MIPS_16 (instead of LO16.)
 					// It appears the PSP takes any relocation that is not a HI16.
@@ -194,10 +201,14 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 						ERROR_LOG(Log::Loader, "Bad corrLoAddr %08x", corrLoAddr);
 					}
 				}
-				if (!found) {
+				if (found) {
+					op = (op & 0xFFFF0000) | hi;
+				} else {
+					// Leave the instruction alone rather than writing hi's initial 0 into it. We
+					// have no idea what the right immediate is, and zeroing the lui of a lui/addiu
+					// pair is a guess that's wrong in a way that's hard to trace back to here.
 					ERROR_LOG_REPORT(Log::Loader, "R_MIPS_HI16: could not find R_MIPS_LO16 (r=%d of %d, addr=%08x)", r, numRelocs, addr);
 				}
-				op = (op & 0xFFFF0000) | hi;
 			}
 			break;
 
