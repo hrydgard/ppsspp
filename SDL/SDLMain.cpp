@@ -116,6 +116,10 @@ struct WindowState {
 };
 static WindowState g_windowState;
 
+#if !PPSSPP_PLATFORM(MAC)
+static int g_batteryPercent = 0;
+#endif
+
 #if PPSSPP_PLATFORM(MAC)
 
 // These are from MacCameraHelper.mm.
@@ -1132,12 +1136,7 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 	// Let's keep using the old code on Mac for safety. Evaluate later if to be deleted.
 		return Apple_GetCurrentBatteryCapacity();
 #else
-		{
-			int seconds = 0;
-			int percentage = 0;
-			SDL_GetPowerInfo(&seconds, &percentage);
-			return percentage;
-		}
+		return g_batteryPercent;
 #endif
 	default:
 		return -1;
@@ -2119,6 +2118,33 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+#if !PPSSPP_PLATFORM(MAC)
+	// linux SDL_GetPowerInfo asks upower on dbus for power information by default, can cause DrawFPS() in DebugOverlay.cpp to block and affect frame pacing
+	bool stop_battery_poll_thread = false;
+	double last_battery_poll = 0;
+	SDL_Semaphore *battery_poll_thread_sema = SDL_CreateSemaphore(0); // c++20 and onwards has semaphore
+
+	std::thread battery_poll_thread([&battery_poll_thread_sema, &stop_battery_poll_thread] {
+		while (!stop_battery_poll_thread) {
+			SDL_WaitSemaphore(battery_poll_thread_sema);
+			SDL_GetPowerInfo(nullptr, &g_batteryPercent);
+		}
+	});
+
+	auto kick_battery_poll_thread = [&last_battery_poll, &battery_poll_thread_sema] {
+		if (!(g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT)) {
+			return;
+		}
+		double now = time_now_d();
+		if (now - last_battery_poll >= 5.0) {
+			last_battery_poll = now;
+			SDL_SignalSemaphore(battery_poll_thread_sema);
+		}
+	};
+
+	kick_battery_poll_thread();
+#endif
+
 	const bool needsSeparateEmuThread = graphicsContext->NeedsSeparateEmuThread();
 	if (!needsSeparateEmuThread) {
 		// Vulkan mode uses this.
@@ -2152,6 +2178,9 @@ int main(int argc, char *argv[]) {
 
 			UpdateTextFocus(window);
 			UpdateSDLCursor();
+#if !PPSSPP_PLATFORM(MAC)
+			kick_battery_poll_thread();
+#endif
 
 			inputTracker.MouseCaptureControl(window);
 
@@ -2183,6 +2212,9 @@ int main(int argc, char *argv[]) {
 
 			UpdateTextFocus(window);
 			UpdateSDLCursor();
+#if !PPSSPP_PLATFORM(MAC)
+			kick_battery_poll_thread();
+#endif
 
 			inputTracker.MouseCaptureControl(window);
 
@@ -2208,6 +2240,12 @@ int main(int argc, char *argv[]) {
 		EmuThread_Join(graphicsContext, emuThread);
 	}
 
+#if !PPSSPP_PLATFORM(MAC)
+	stop_battery_poll_thread = true;
+	SDL_SignalSemaphore(battery_poll_thread_sema);
+	battery_poll_thread.join();
+	SDL_DestroySemaphore(battery_poll_thread_sema);
+#endif
 
 	delete joystick;
 
