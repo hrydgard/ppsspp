@@ -692,7 +692,7 @@ handleELF:
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
 				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 				info_->id_version = info_->id + "_1.00";
-				info_->region = GameRegion::HOMEBREW; // Homebrew
+				info_->region = equals(info_->title, "vshmain.prx") ? GameRegion::VSH : GameRegion::HOMEBREW;
 			}
 
 			if (flags_ & GameInfoFlags::ICON) {
