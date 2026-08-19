@@ -438,6 +438,14 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 
+	// e_phnum is a u16, but we can only record the load address of ARRAY_SIZE(segmentVAddr) segments,
+	// and the relocation code can't refer to segments beyond that either (see LoadRelocations). Real
+	// PSP modules have a handful - PSP_Header::nsegments is a u8 and no more than 4 are ever used.
+	if (GetNumSegments() > (int)ARRAY_SIZE(segmentVAddr)) {
+		ERROR_LOG(Log::Loader, "ELF has %d segments, we support at most %d", GetNumSegments(), (int)ARRAY_SIZE(segmentVAddr));
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+	}
+
 	// e_ident[EI_VERSION] is ignored
 
 	// Should we relocate?
@@ -467,9 +475,11 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 	entryPoint = header->e_entry;
 	u32 totalStart = 0xFFFFFFFF;
 	u32 totalEnd = 0;
+	int numLoadSegments = 0;
 	for (int i = 0; i < header->e_phnum; i++) {
 		const Elf32_Phdr *p = &segments[i];
 		if (p->p_type == PT_LOAD) {
+			numLoadSegments++;
 			if (p->p_vaddr < totalStart) {
 				totalStart = p->p_vaddr;
 				firstSegAlign = p->p_align;
@@ -477,6 +487,12 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			if (p->p_vaddr + p->p_memsz > totalEnd)
 				totalEnd = p->p_vaddr + p->p_memsz;
 		}
+	}
+	// Without this, totalStart stays 0xFFFFFFFF and totalEnd 0, so totalSize would come out as 1
+	// and we'd go on to allocate at 0xFFFFFFFF.
+	if (numLoadSegments == 0) {
+		ERROR_LOG(Log::Loader, "ELF has no loadable segments");
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	totalSize = totalEnd - totalStart;
 
