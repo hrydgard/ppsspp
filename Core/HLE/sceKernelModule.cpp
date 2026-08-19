@@ -1159,15 +1159,19 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		elfSize = maxElfSize;
 		ptr = newptr;
 		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
-		_dbg_assert_(decryptedSize <= (int)maxElfSize);
-		if (decryptedSize <= 0 && Read32(ptr + 0x150) == ELF_MAGIC) {
+		// If decryption got us nowhere, the PRX may simply not be encrypted - in which case the ELF
+		// starts right after the header. Check the source buffer, not the destination: on the paths
+		// where decryption bails early nothing has been written to newptr yet, so this used to read
+		// uninitialized heap to decide. psp_size is known to be <= the data we actually have.
+		if (decryptedSize <= 0 && head->psp_size >= 0x150 + sizeof(u32) && Read32(in + 0x150) == ELF_MAGIC) {
 			decryptedSize = head->psp_size - 0x150;
 			memcpy(newptr, in + 0x150, decryptedSize);
 			// In this case it's definitely not compressed. Added assert below.
 		}
 
-		// Don't accept ELFs over 24MB - nor ones with negative size, of course.
-		if (decryptedSize < 0 || decryptedSize > 24 * 1024 * 1024) {
+		// Don't accept ELFs over 24MB, ones bigger than the buffer we allocated for them - nor ones
+		// with negative size, of course.
+		if (decryptedSize < 0 || decryptedSize > 24 * 1024 * 1024 || decryptedSize > (int)maxElfSize) {
 			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
 			// TODO: Might be the wrong error code.
 			error = SCE_KERNEL_ERROR_FILEERR;
