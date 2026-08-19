@@ -1095,6 +1095,15 @@ enum : u32 {
 
 // filename is only used for dumping/metadata.
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
+	// The magic reads below need four bytes, and the ~SCE branch another four after that. Everything
+	// downstream checks its own sizes; this is just so we can look at the magic at all. The PBP path
+	// in __KernelLoadModule computes elfSize from two offsets in the file and doesn't floor it.
+	if (elfSize < 2 * sizeof(u32)) {
+		*error_string = "ELF file truncated - can't load";
+		error = SCE_KERNEL_ERROR_FILEERR;
+		return nullptr;
+	}
+
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1173,6 +1182,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		// with negative size, of course.
 		if (decryptedSize < 0 || decryptedSize > 24 * 1024 * 1024 || decryptedSize > (int)maxElfSize) {
 			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
+			delete [] newptr;
+			module->Cleanup();
+			kernelObjects.Destroy<PSPModule>(module->GetUID());
 			// TODO: Might be the wrong error code.
 			error = SCE_KERNEL_ERROR_FILEERR;
 			return nullptr;
@@ -1194,6 +1206,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				// Bail out cleanly here rather than falling through to parse whatever's left
 				// in the buffer (still compressed, not a valid ELF) as if it were real code.
 				*error_string = StringFromFormat("Module '%s' decompression failed", head->modname);
+				delete [] newptr;
+				module->Cleanup();
+				kernelObjects.Destroy<PSPModule>(module->GetUID());
 				// TODO: Might be the wrong error code.
 				error = SCE_KERNEL_ERROR_FILEERR;
 				return nullptr;
@@ -1214,6 +1229,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
 			delete [] newptr;
+			// ptr still points into this buffer, but nothing below reads it - and the exits further
+			// down all free newptr, so it has to be null by the time they're reached.
+			newptr = nullptr;
+			ptr = nullptr;
 			module->isFake = true;
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
