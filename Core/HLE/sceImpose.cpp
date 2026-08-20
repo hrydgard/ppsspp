@@ -26,6 +26,8 @@
 #include "Core/MemMap.h"
 #include "Core/System.h"
 
+// sceImpose handles overlays like low-battery icons, and some other popup/UI related things.
+
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
 
@@ -105,7 +107,7 @@ static u32 sceImposeGetBacklightOffTime() {
 	return hleLogDebug(Log::sceUtility, backlightOffTime);
 }
 
-//OSD stuff? home button?
+// OSD stuff? home button?
 const HLEFunction sceImpose[] = {
 	{0X36AA6E91, &WrapU_UU<sceImposeSetLanguageMode>,      "sceImposeSetLanguageMode",      'i', "ii"},
 	{0X381BD9E7, nullptr,                                  "sceImposeHomeButton",           '?', ""  },
@@ -128,12 +130,6 @@ void Register_sceImpose() {
 	RegisterHLEModule("sceImpose", ARRAY_SIZE(sceImpose), sceImpose);
 }
 
-// Real name/purpose unknown (jpcsp's sceImpose.java doesn't have one either - it's named
-// after its own NID, sceImpose_driver_B497314D). jpcsp's implementation just zeroes the
-// output pointer and returns 0; matched here rather than leaving it fully unresolved, since
-// an unresolved import leaves the caller's output buffer as PPSSPP's uninitialized-memory
-// poison instead of a real value. Kernel-only alias module some firmware-660+ code (e.g. the
-// VSH's sceVshBridge_Driver) imports from.
 static int sceImpose_driver_B497314D(int param, u32 resultAddr) {
 	auto result = PSPPointer<u64_le>::Create(resultAddr);
 	if (result.IsValid())

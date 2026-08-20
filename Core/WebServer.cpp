@@ -822,6 +822,15 @@ static void WebServerThread() {
 	INFO_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
 
 	if (serverFlags & WebServerFlags::DEBUGGER) {
+		// And say it once more straight to stderr, outside the log system entirely. A tool that
+		// launches us (Tools/wsdbg --launch) has to learn the port from our output before it can
+		// connect to anything, so that one line must not be losable to a log level, a disabled
+		// channel, or a build that never installs a log output at all.
+#if !defined(__LIBRETRO__)
+		fprintf(stderr, "Debugger listening on port %d\n", g_Config.iRemoteISOPort);
+		fflush(stderr);
+#endif
+
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Debugger web server running on port " + std::to_string(g_Config.iRemoteISOPort), 5.0f, "debugger");
 		g_OSD.SetClickCallback("debugger", []() {
 			OpenWebDebugger();
