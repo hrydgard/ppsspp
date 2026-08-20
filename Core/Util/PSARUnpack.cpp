@@ -30,7 +30,9 @@
 #include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
+#include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
 
 extern "C" {
@@ -132,6 +134,16 @@ static bool RelativePathFromEntryName(std::string_view name, std::string *out) {
 // own name tables can resolve. We can use the former directly.
 static bool EntryNameIsRealPath(std::string_view name) {
 	return startsWithNoCase(name, "flash0:/") || startsWithNoCase(name, "flash1:/");
+}
+
+// 6.x file lists write "flash0:/font/x.pgf", 3.x writes "flash0/font/x.pgf" for the same thing.
+// Settle on the first, so callers only have to know one form - a prefix filter of "flash0:/font/"
+// has to work whatever the firmware.
+static std::string CanonicalFlashPath(std::string_view name) {
+	if (name.size() > 6 && startsWithNoCase(name, "flash") && name[5] >= '0' && name[5] <= '9' && name[6] == '/') {
+		return std::string(name.substr(0, 6)) + ":" + std::string(name.substr(6));
+	}
+	return std::string(name);
 }
 
 // The name tables inside the archive are DES-CBC encrypted, with a PRX blob underneath. Nothing
@@ -786,6 +798,8 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 			continue;
 		}
 
+		realName = CanonicalFlashPath(realName);
+
 		if (realName.empty()) {
 			// No list claimed this one. Still worth writing out under its short name, but a
 			// filter has nothing to match it against.
@@ -836,11 +850,30 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 	return true;
 }
 
-// Where a disc keeps its updater. Both files are unwrapped: DATA.BIN is the bare archive, with no
-// PBP around it, and EBOOT.BIN next to it is the updater executable we have no use for.
-static const char *UPDATE_DIR = "/PSP_GAME/SYSDIR/UPDATE";
-static const char *DISC_PSAR_PATH = "/PSP_GAME/SYSDIR/UPDATE/DATA.BIN";
-static const char *DISC_SFO_PATH = "/PSP_GAME/SYSDIR/UPDATE/PARAM.SFO";
+// Where a disc keeps its updater, relative to the root. Both files are unwrapped: DATA.BIN is the
+// bare archive, with no PBP around it, and EBOOT.BIN next to it is the updater executable we have
+// no use for. Reachable either by opening the image ourselves or, while a game is running, as
+// disc0: - hence the prefixes rather than whole paths.
+static const char *UPDATE_DIR_SUFFIX = "PSP_GAME/SYSDIR/UPDATE";
+static const char *UPDATE_PSAR_SUFFIX = "PSP_GAME/SYSDIR/UPDATE/DATA.BIN";
+static const char *UPDATE_SFO_SUFFIX = "PSP_GAME/SYSDIR/UPDATE/PARAM.SFO";
+
+// A disc updater's PARAM.SFO titles itself "PSP(tm) Update ver 3.95"; we want the number.
+static std::string VersionFromUpdaterTitle(std::string_view title) {
+	const size_t space = title.rfind(' ');
+	if (space != std::string_view::npos) {
+		return std::string(title.substr(space + 1));
+	}
+	return std::string(title);
+}
+
+static std::string VersionFromSFO(const std::vector<u8> &sfo) {
+	ParamSFOData paramSFO;
+	if (sfo.empty() || !paramSFO.ReadSFO(sfo)) {
+		return std::string();
+	}
+	return VersionFromUpdaterTitle(paramSFO.GetValueString("TITLE"));
+}
 
 // Opens filename as a disc image, if it is one. Returns null otherwise, which is the normal
 // outcome for a PBP or a loose DATA.BIN.
@@ -851,7 +884,7 @@ static ISOFileSystem *OpenDisc(const Path &filename, FileLoader *loader, IHandle
 		return nullptr;
 	}
 	ISOFileSystem *iso = new ISOFileSystem(hAlloc, device);
-	if (!iso->GetFileInfo(UPDATE_DIR).exists) {
+	if (!iso->GetFileInfo("/" + std::string(UPDATE_DIR_SUFFIX)).exists) {
 		delete iso;
 		return nullptr;
 	}
@@ -890,13 +923,10 @@ static bool ReadUpdaterPSAR(const Path &filename, std::vector<u8> *psar, std::st
 	if (ISOFileSystem *disc = OpenDisc(filename, loader, &hAlloc)) {
 		// A game disc with an updater on it.
 		std::vector<u8> sfo;
-		if (sfoVersion && ReadWholeFile(disc, DISC_SFO_PATH, &sfo)) {
-			ParamSFOData paramSFO;
-			if (paramSFO.ReadSFO(sfo)) {
-				*sfoVersion = paramSFO.GetValueString("TITLE");
-			}
+		if (sfoVersion && ReadWholeFile(disc, ("/" + std::string(UPDATE_SFO_SUFFIX)).c_str(), &sfo)) {
+			*sfoVersion = VersionFromSFO(sfo);
 		}
-		const bool ok = ReadWholeFile(disc, DISC_PSAR_PATH, psar);
+		const bool ok = ReadWholeFile(disc, ("/" + std::string(UPDATE_PSAR_SUFFIX)).c_str(), psar);
 		delete disc;
 		delete loader;
 		if (!ok) {
@@ -915,10 +945,7 @@ static bool ReadUpdaterPSAR(const Path &filename, std::vector<u8> *psar, std::st
 		PBPReader pbp(loader);
 		std::vector<u8> sfo;
 		if (sfoVersion && pbp.IsValid() && pbp.GetSubFile(PBP_PARAM_SFO, &sfo)) {
-			ParamSFOData paramSFO;
-			if (paramSFO.ReadSFO(sfo)) {
-				*sfoVersion = paramSFO.GetValueString("TITLE");
-			}
+			*sfoVersion = VersionFromSFO(sfo);
 		}
 		const bool ok = pbp.IsValid() && pbp.GetSubFile(PBP_UNKNOWN_PSAR, psar);
 		delete loader;
@@ -961,12 +988,46 @@ std::string ReadUpdaterVersion(const Path &filename) {
 	if (!ReadUpdaterPSAR(filename, &psar, &version, &error)) {
 		return std::string();
 	}
-	// A disc's PARAM.SFO says "PSP(tm) Update ver 3.95" - the number at the end is what we want.
-	const size_t space = version.rfind(' ');
-	if (space != std::string::npos) {
-		return version.substr(space + 1);
-	}
 	return version;
+}
+
+// The mounted disc, i.e. the game that's running. Everything here goes through pspFileSystem
+// rather than opening the image again - it's already open, and for a folder-based or otherwise
+// unusual "disc" there may be no image to open.
+static bool ReadFromMountedDisc(const char *suffix, std::vector<u8> *out) {
+	if (pspFileSystem.ReadEntireFile(std::string("disc0:/") + suffix, *out, true) < 0) {
+		out->clear();
+		return false;
+	}
+	return !out->empty();
+}
+
+bool MountedDiscHasUpdater() {
+	return pspFileSystem.GetFileInfo(std::string("disc0:/") + UPDATE_PSAR_SUFFIX).exists;
+}
+
+std::string ReadMountedDiscUpdaterVersion() {
+	std::vector<u8> sfo;
+	if (!ReadFromMountedDisc(UPDATE_SFO_SUFFIX, &sfo)) {
+		return std::string();
+	}
+	return VersionFromSFO(sfo);
+}
+
+bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
+	std::string localError;
+	if (!error) {
+		error = &localError;
+	}
+
+	std::vector<u8> psar;
+	if (!ReadFromMountedDisc(UPDATE_PSAR_SUFFIX, &psar) || psar.size() < 0x40) {
+		*error = "The mounted disc has no updater on it";
+		return false;
+	}
+
+	INFO_LOG(Log::Loader, "Found a %d byte updater on the mounted disc", (int)psar.size());
+	return UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error);
 }
 
 bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {

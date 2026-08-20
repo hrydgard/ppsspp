@@ -108,3 +108,13 @@ bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpack
 // The version string an updater advertises ("6.61"), read from the PARAM.SFO next to it - no
 // decryption needed, so it's cheap enough to check every disc with. Empty if there's no updater.
 std::string ReadUpdaterVersion(const Path &filename);
+
+// The same three, for the disc mounted as disc0: - i.e. the game that's running. These read
+// through the mounted filesystem instead of opening the image a second time, which also means
+// they work for the shapes that aren't an image at all, like a folder-based "disc".
+//
+// This is the path the font extraction is meant to take: while a game is running, ask whether its
+// disc carries an updater, and if so unpack just flash0:/font out of it.
+bool MountedDiscHasUpdater();
+std::string ReadMountedDiscUpdaterVersion();
+bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
