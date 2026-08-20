@@ -623,14 +623,20 @@ int main(int argc, const char* argv[]) {
 
 		PSARUnpackOptions unpackOptions;
 		unpackOptions.verbose = testOptions.verbose;
+		if (cmdLineOptions.unpackUpdaterModel.has_value() &&
+			!PSPModelGenerationFromString(cmdLineOptions.unpackUpdaterModel.value(), &unpackOptions.model)) {
+			fprintf(stderr, "Unknown PSP model '%s' - expected 01g..12g or any\n", cmdLineOptions.unpackUpdaterModel.value().c_str());
+			return 1;
+		}
 		PSARUnpackStats stats;
 		std::string unpackError;
 		const bool ok = UnpackUpdaterPBP(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
 		if (!ok) {
 			fprintf(stderr, "Unpacking failed: %s\n", unpackError.c_str());
 		}
-		printf("Firmware %s: %d entries, %d files written, %d directories, %d unresolved names, %d failed\n",
-			stats.firmwareVersion.c_str(), stats.entries, stats.written, stats.directories, stats.unnamed, stats.failed);
+		printf("Firmware %s (model %s): %d entries, %d files written, %d directories, %d unresolved names, %d for other models, %d failed\n",
+			stats.firmwareVersion.c_str(), PSPModelGenerationToString(unpackOptions.model), stats.entries, stats.written,
+			stats.directories, stats.unnamed, stats.otherModel, stats.failed);
 		printf("Compression: none=%d zlib=%d KL4E=%d KL3E=%d LZR=%d unknown=%d\n",
 			stats.compressionCounts[(int)PSARCompression::None],
 			stats.compressionCounts[(int)PSARCompression::Zlib],

@@ -45,11 +45,35 @@ enum class PSARCompression {
 
 const char *PSARCompressionToString(PSARCompression c);
 
+// PSP hardware revisions, as the updater numbers them. An updater carries one file list per
+// model, so which one you resolve names against decides both what a file is called and whether
+// it's part of that model's firmware at all.
+enum class PSPModelGeneration {
+	Any = 0,   // Whichever list names a file first. Use this to extract everything.
+	PSP_1000 = 1,
+	PSP_2000 = 2,
+	PSP_3000 = 3,
+	PSP_4000 = 4,
+	PSP_N1000 = 5,   // PSP Go
+	PSP_6000 = 6,
+	PSP_7000 = 7,
+	PSP_9000 = 9,
+	PSP_11000 = 11,
+	MAX = 12,
+};
+
+const char *PSPModelGenerationToString(PSPModelGeneration generation);
+// Accepts "01g".."12g", a bare number, or "any". Returns false if it's none of those.
+bool PSPModelGenerationFromString(std::string_view name, PSPModelGeneration *generation);
+
 struct PSARUnpackOptions {
 	// Only unpack entries whose name starts with this, e.g. "flash0:/font/". Case insensitive.
 	// Empty means everything. Entries whose real name we can't recover are never matched by a
 	// non-empty filter.
 	std::string prefixFilter;
+	// Which model's file list to resolve names against. Anything that model's list doesn't name
+	// isn't part of its firmware, and is skipped.
+	PSPModelGeneration model = PSPModelGeneration::Any;
 	// Walk and report, but don't write any files.
 	bool listOnly = false;
 	// Log a line per entry. Off by default - an updater holds well over a thousand of them.
@@ -62,8 +86,9 @@ struct PSARUnpackStats {
 	int directories = 0;
 	int written = 0;
 	int skippedByFilter = 0;
-	int nameTables = 0;          // Entries that were name tables rather than files.
-	int unnamed = 0;             // Short names no name table claimed.
+	int nameTables = 0;          // Entries that were file lists rather than files.
+	int unnamed = 0;             // Short names no file list claimed.
+	int otherModel = 0;          // Files that belong to a model other than the requested one.
 	int failed = 0;
 	// How many entries used each compression, indexed by PSARCompression.
 	int compressionCounts[6]{};

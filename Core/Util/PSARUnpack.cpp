@@ -297,8 +297,51 @@ static int TableKeyIndexForVersion(std::string_view version) {
 	return 0;
 }
 
-// Entries "00001".."00012" are name tables rather than files.
-static bool IsNameTableEntry(std::string_view name) {
+const char *PSPModelGenerationToString(PSPModelGeneration generation) {
+	switch (generation) {
+	case PSPModelGeneration::Any: return "any";
+	case PSPModelGeneration::PSP_1000: return "01g";
+	case PSPModelGeneration::PSP_2000: return "02g";
+	case PSPModelGeneration::PSP_3000: return "03g";
+	case PSPModelGeneration::PSP_4000: return "04g";
+	case PSPModelGeneration::PSP_N1000: return "05g";
+	case PSPModelGeneration::PSP_6000: return "06g";
+	case PSPModelGeneration::PSP_7000: return "07g";
+	case PSPModelGeneration::PSP_9000: return "09g";
+	case PSPModelGeneration::PSP_11000: return "11g";
+	default: return "unknown";
+	}
+}
+
+bool PSPModelGenerationFromString(std::string_view name, PSPModelGeneration *generation) {
+	if (equalsNoCase(name, "any")) {
+		*generation = PSPModelGeneration::Any;
+		return true;
+	}
+	// "03g" and a bare "3" both work.
+	std::string_view digits = name;
+	if (digits.size() > 1 && (digits.back() == 'g' || digits.back() == 'G')) {
+		digits.remove_suffix(1);
+	}
+	if (digits.empty() || digits.size() > 2) {
+		return false;
+	}
+	int value = 0;
+	for (char c : digits) {
+		if (c < '0' || c > '9') {
+			return false;
+		}
+		value = value * 10 + (c - '0');
+	}
+	if (value < 0 || value > (int)PSPModelGeneration::MAX) {
+		return false;
+	}
+	*generation = (PSPModelGeneration)value;
+	return true;
+}
+
+// Entries "00001".."00012" are per-model file lists rather than files, numbered by generation.
+static bool IsNameTableEntry(std::string_view name, int *generation) {
 	if (name.size() != 5 || name.compare(0, 3, "000") != 0) {
 		return false;
 	}
@@ -306,7 +349,11 @@ static bool IsNameTableEntry(std::string_view name) {
 		return false;
 	}
 	const int index = (name[3] - '0') * 10 + (name[4] - '0');
-	return index >= 1 && index <= 12;
+	if (index < 1 || index > (int)PSPModelGeneration::MAX) {
+		return false;
+	}
+	*generation = index;
+	return true;
 }
 
 // Decrypts a name table in place and returns the length of the text in it, or <= 0 on failure.
@@ -340,8 +387,7 @@ static int DecryptNameTable(std::vector<u8> &table, int keyIndex) {
 	return pspDecryptPRX(table.data(), table.data(), (u32)table.size());
 }
 
-// Table text is lines of "shortname,realpath". The tables are per PSP model, and a short name
-// that appears in several of them means the same file, so the first one to claim it wins.
+// Table text is lines of "shortname,realpath".
 static void ParseNameTable(const char *text, size_t length, std::map<std::string, std::string> *names) {
 	size_t start = 0;
 	while (start < length) {
@@ -575,8 +621,9 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 	const int tableKeyIndex = TableKeyIndexForVersion(stats->firmwareVersion);
 	INFO_LOG(Log::Loader, "Unpacking firmware %s (name table key %d)", stats->firmwareVersion.c_str(), tableKeyIndex);
 
-	// Filled in as we go - the tables come before the files they name.
-	std::map<std::string, std::string> names;
+	// One file list per model, filled in as we go - they come before the files they name.
+	std::map<int, std::map<std::string, std::string>> namesByModel;
+	INFO_LOG(Log::Loader, "Resolving names against model %s", PSPModelGenerationToString(options.model));
 
 	while (true) {
 		const int result = reader.NextEntry(error);
@@ -606,33 +653,55 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 
 		// The name tables have to be read before anything they name shows up, which the archive's
 		// own ordering takes care of.
-		if (IsNameTableEntry(reader.entryName())) {
+		int tableGeneration = 0;
+		if (IsNameTableEntry(reader.entryName(), &tableGeneration)) {
 			stats->nameTables++;
 			std::vector<u8> table = reader.entryData();
 			const int textLength = DecryptNameTable(table, tableKeyIndex);
 			if (textLength <= 0 || (size_t)textLength > table.size()) {
-				ERROR_LOG(Log::Loader, "PSAR: couldn't decrypt name table '%s' (%d)", reader.entryName().c_str(), textLength);
+				ERROR_LOG(Log::Loader, "PSAR: couldn't decrypt the %02dg file list (%d)", tableGeneration, textLength);
 				stats->failed++;
 			} else {
-				const size_t before = names.size();
+				std::map<std::string, std::string> &names = namesByModel[tableGeneration];
 				ParseNameTable((const char *)table.data(), textLength, &names);
-				INFO_LOG(Log::Loader, "PSAR: name table '%s' added %d names", reader.entryName().c_str(), (int)(names.size() - before));
+				INFO_LOG(Log::Loader, "PSAR: %02dg file list names %d files", tableGeneration, (int)names.size());
 			}
 			continue;
 		}
 
 		std::string realName;
+		bool wrongModel = false;
 		if (EntryNameIsRealPath(reader.entryName())) {
 			realName = reader.entryName();
+		} else if (options.model != PSPModelGeneration::Any) {
+			// Only this model's list counts. A file it doesn't name belongs to some other model.
+			const auto model = namesByModel.find((int)options.model);
+			if (model != namesByModel.end()) {
+				const auto found = model->second.find(reader.entryName());
+				if (found != model->second.end()) {
+					realName = found->second;
+				} else {
+					wrongModel = true;
+				}
+			}
 		} else {
-			const auto found = names.find(reader.entryName());
-			if (found != names.end()) {
-				realName = found->second;
+			// A short name that several lists claim is the same file, so take the first name for it.
+			for (const auto &[generation, names] : namesByModel) {
+				const auto found = names.find(reader.entryName());
+				if (found != names.end()) {
+					realName = found->second;
+					break;
+				}
 			}
 		}
 
+		if (wrongModel) {
+			stats->otherModel++;
+			continue;
+		}
+
 		if (realName.empty()) {
-			// No table claimed this one. Still worth writing out under its short name, but a
+			// No list claimed this one. Still worth writing out under its short name, but a
 			// filter has nothing to match it against.
 			stats->unnamed++;
 			realName = reader.entryName();

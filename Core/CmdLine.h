@@ -69,6 +69,9 @@ struct CommandLineOptions {
 	// See Core/Util/PSARUnpack.h - the API can also filter to a subfolder, which the command line
 	// deliberately doesn't expose since the in-app use is specifically flash0:/font.
 	std::optional<std::string> unpackUpdater;
+	// Headless: which PSP model the unpacker resolves names against - "01g".."12g", or "any"
+	// (the default) to take whatever file list names each file first.
+	std::optional<std::string> unpackUpdaterModel;
 
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;
