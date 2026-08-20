@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstring>
 #include <map>
 #include <string_view>
@@ -130,10 +131,13 @@ static bool RelativePathFromEntryName(std::string_view name, std::string *out) {
 	return true;
 }
 
-// An entry name is either a real path ("flash0:/...") or a short token that only the archive's
-// own name tables can resolve. We can use the former directly.
+// An entry name is either a real path or a short token that only the archive's own file lists can
+// resolve. 1.x and 2.x archives skip the lists and name entries outright: "flash0:/...", but also
+// "flash1:/..." and "ipl:/psp_nandipl.bin", so rather than keep a list of devices, take the "<dev>:/"
+// shape as the tell. 3.x's grouped short names ("com:00123") have a colon but no slash after it,
+// which is what keeps them out.
 static bool EntryNameIsRealPath(std::string_view name) {
-	return startsWithNoCase(name, "flash0:/") || startsWithNoCase(name, "flash1:/");
+	return name.find(":/") != std::string_view::npos;
 }
 
 // 6.x file lists write "flash0:/font/x.pgf", 3.x writes "flash0/font/x.pgf" for the same thing.
@@ -526,11 +530,16 @@ int PSARReader::DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out) {
 		return (int)cbIn;
 	}
 
-	// The decrypter reads a little past the block, so copy the extra 16 bytes it expects.
-	if ((size_t)cbIn + 0x10 > avail) {
+	if (cbIn > avail) {
 		return -1;
 	}
-	out.assign(in, in + cbIn + 0x10);
+	// The decrypter reads a little past the block and does use what it finds there, so hand it the
+	// real bytes whenever the archive has them. It hasn't got them for the very last entry, which
+	// ends flush with the last record - zero-fill only then, rather than refusing the entry, which
+	// is what used to lose every 1.x and 2.x archive's final file.
+	const size_t slack = std::min<size_t>(0x10, avail - cbIn);
+	out.assign(in, in + cbIn + slack);
+	out.resize((size_t)cbIn + 0x10, 0);
 
 	if (!oldschool_) {
 		// "Demangle": the 0x130 bytes at +0x20 are AES-128-CBC encrypted on top of everything
