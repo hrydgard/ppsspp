@@ -62,7 +62,8 @@ struct PSARUnpackStats {
 	int directories = 0;
 	int written = 0;
 	int skippedByFilter = 0;
-	int unnamed = 0;             // Short names we couldn't map to a real path.
+	int nameTables = 0;          // Entries that were name tables rather than files.
+	int unnamed = 0;             // Short names no name table claimed.
 	int failed = 0;
 	// How many entries used each compression, indexed by PSARCompression.
 	int compressionCounts[6]{};
