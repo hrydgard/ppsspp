@@ -78,9 +78,17 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 
 			// Often: 0 = code, 1 = data.
 			int readwrite = (info >> 8) & 0xff;
-			if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
+			if (readwrite >= (int)segmentVAddr.size()) {
 				if (numErrors < 10) {
 					ERROR_LOG_REPORT(Log::Loader, "Bad segment number %i", readwrite);
+				}
+				numErrors++;
+				continue;
+			}
+			if (!SegmentIsLoaded(readwrite)) {
+				// The segment exists but isn't PT_LOAD, so there's nothing at that address to patch.
+				if (numErrors < 10) {
+					ERROR_LOG_REPORT(Log::Loader, "Relocation against segment %i, which we didn't load", readwrite);
 				}
 				numErrors++;
 				continue;
@@ -113,7 +121,8 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			int readwrite = (info >> 8) & 0xff;
 			int relative = (info >> 16) & 0xff;
 
-			if (readwrite >= (int)ARRAY_SIZE(segmentVAddr)) {
+			// Already logged by the pass above.
+			if (!SegmentIsLoaded(readwrite)) {
 				continue;
 			}
 
@@ -129,7 +138,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			if (log) {
 				DEBUG_LOG(Log::Loader, "rel at: %08x  info: %08x   type: %i", addr, info, type);
 			}
-			u32 relocateTo = relative >= (int)ARRAY_SIZE(segmentVAddr) ? 0 : segmentVAddr[relative];
+			u32 relocateTo = SegmentIsLoaded(relative) ? segmentVAddr[relative] : 0;
 
 			switch (type) {
 			case R_MIPS_32:
@@ -162,7 +171,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					// The candidate LO16 declares its own segment - use that rather than the HI16's,
 					// which is what the mismatch warning further down is there to detect.
 					int t_readwrite = (rels[t].r_info >> 8) & 0xff;
-					if (t_readwrite >= (int)ARRAY_SIZE(segmentVAddr))
+					if (!SegmentIsLoaded(t_readwrite))
 						continue;
 					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[t_readwrite];
 
@@ -262,6 +271,8 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	int relocate_to, last_type, lo16 = 0;
 	u32 op, addr;
 	int rcount = 0;
+	// This runs per relocation, so only report the first bad segment rather than one per entry.
+	bool loggedBadSegment = false;
 
 	const Elf32_Phdr *ph = segments + rel_seg;
 
@@ -361,7 +372,14 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 		}else{
 			addr_seg = seg;
-			relocate_to = addr_seg >= (int)ARRAY_SIZE(segmentVAddr) ? 0 : segmentVAddr[addr_seg];
+			if (!SegmentIsLoaded(addr_seg)) {
+				if (!loggedBadSegment) {
+					ERROR_LOG_REPORT(Log::Loader, "Rel2: relocating against segment %d, which we didn't load", addr_seg);
+					loggedBadSegment = true;
+				}
+				continue;
+			}
+			relocate_to = segmentVAddr[addr_seg];
 			if (!Memory::IsValidAddress(relocate_to)) {
 				ERROR_LOG_REPORT(Log::Loader, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
 				continue;
@@ -396,9 +414,13 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid relocat size flag! %x", flag);
 			}
 
-			// seg is seg_bits wide, which can address more segments than we can record.
-			if (off_seg >= (int)ARRAY_SIZE(segmentVAddr)) {
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: bad offset segment %d", off_seg);
+			// seg is seg_bits wide, so it can name more segments than the file actually has - and
+			// naming one we didn't load leaves nothing to write to.
+			if (!SegmentIsLoaded(off_seg)) {
+				if (!loggedBadSegment) {
+					ERROR_LOG_REPORT(Log::Loader, "Rel2: bad or unloaded offset segment %d", off_seg);
+					loggedBadSegment = true;
+				}
 				continue;
 			}
 			rel_offset = rel_base+segmentVAddr[off_seg];
@@ -497,13 +519,10 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 
-	// e_phnum is a u16, but we can only record the load address of ARRAY_SIZE(segmentVAddr) segments,
-	// and the relocation code can't refer to segments beyond that either (see LoadRelocations). Real
-	// PSP modules have a handful - PSP_Header::nsegments is a u8 and no more than 4 are ever used.
-	if (GetNumSegments() > (int)ARRAY_SIZE(segmentVAddr)) {
-		ERROR_LOG(Log::Loader, "ELF has %d segments, we support at most %d", GetNumSegments(), (int)ARRAY_SIZE(segmentVAddr));
-		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
-	}
+	// One load address per program header. e_phnum is a u16, and the check above has established
+	// that many headers really are in the file, so this is bounded by the file size. Entries stay
+	// at SEGMENT_NOT_LOADED unless the first pass below actually loads that segment.
+	segmentVAddr.assign(GetNumSegments(), SEGMENT_NOT_LOADED);
 
 	// e_ident[EI_VERSION] is ignored
 

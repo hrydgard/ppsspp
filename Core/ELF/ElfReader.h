@@ -46,6 +46,12 @@ enum KnownElfTypes {
 
 typedef int SectionID;
 
+// Placeholder in segmentVAddr for a program header that isn't PT_LOAD. Those have no address to
+// relocate against, and a relocation naming one is a defect in the file rather than something to
+// quietly treat as segment zero. Not a plausible load address, and distinct from 0, which a
+// prerelocated module's first segment could in principle have.
+constexpr u32 SEGMENT_NOT_LOADED = 0xFFFFFFFF;
+
 class ElfReader {
 public:
 	ElfReader(const void *ptr, size_t size) {
@@ -126,7 +132,16 @@ public:
 		return segments[segment].p_offset;
 	}
 	u32 GetSegmentVaddr(int segment) const {
+		// Answers 0 for a segment we didn't load, which is what this returned back when the table
+		// was a zero-initialized array - sceKernelModule stores this straight into the module info.
+		if (segment < 0 || (size_t)segment >= segmentVAddr.size() || segmentVAddr[segment] == SEGMENT_NOT_LOADED)
+			return 0;
 		return segmentVAddr[segment];
+	}
+
+	// True if this program header is one we loaded, so relocations can refer to it.
+	bool SegmentIsLoaded(int segment) const {
+		return segment >= 0 && (size_t)segment < segmentVAddr.size() && segmentVAddr[segment] != SEGMENT_NOT_LOADED;
 	}
 	u32 GetSegmentDataSize(int segment) const {
 		return segments[segment].p_filesz;
@@ -175,7 +190,10 @@ private:
 	u32 entryPoint = 0;
 	u32 totalSize = 0;
 	u32 vaddr = 0;
-	u32 segmentVAddr[32]{};
+	// One entry per program header, sized in LoadInto(). Real modules have a handful of segments,
+	// but not always - PES 2014's EBOOT has 71 - and e_phnum is a u16, so this can't be a fixed
+	// array that callers are trusted to stay inside.
+	std::vector<u32> segmentVAddr;
 	size_t size_ = 0;
 	u32 firstSegAlign = 0;
 };
