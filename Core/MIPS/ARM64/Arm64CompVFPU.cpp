@@ -206,6 +206,14 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(LSU_VFPU);
 		CheckMemoryBreakpoint();
 
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			// NOTE: This should be done before the $zr check in case there are reads with side effects.
+			DISABLE;
+			return;
+		}
+
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
@@ -287,6 +295,13 @@ namespace MIPSComp {
 	void Arm64Jit::Comp_SVQ(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(LSU_VFPU);
 		CheckMemoryBreakpoint();
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);

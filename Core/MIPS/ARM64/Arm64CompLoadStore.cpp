@@ -267,6 +267,13 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(LSU);
 		CheckMemoryBreakpoint();
 
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
+
 		int offset = SignExtend16ToS32(op & 0xFFFF);
 		bool load = false;
 		MIPSGPReg rt = _RT;

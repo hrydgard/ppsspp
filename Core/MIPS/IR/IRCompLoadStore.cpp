@@ -51,12 +51,20 @@ namespace MIPSComp {
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
+
+		CheckMemoryBreakpoint(rs, offset);
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
+
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
 		}
-
-		CheckMemoryBreakpoint(rs, offset);
 
 		switch (o) {
 			// Load
@@ -114,6 +122,13 @@ namespace MIPSComp {
 		// Note: still does something even if loading to zero.
 
 		CheckMemoryBreakpoint(rs, offset);
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
 
 		switch (op >> 26) {
 		case 48: // ll

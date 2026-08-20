@@ -123,6 +123,14 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 
 void Jit::Comp_FPULS(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(LSU_FPU);
+
+	if (js.kernelMode) {
+		// Send all memory accesses to the interpreter in kernel mode.
+		// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+		DISABLE;
+		return;
+	}
+
 	s32 offset = _IMM16;
 	int ft = _FT;
 	MIPSGPReg rs = _RS;

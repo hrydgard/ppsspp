@@ -95,6 +95,13 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 	CONDITIONAL_DISABLE(LSU_FPU);
 	CheckMemoryBreakpoint();
 
+	if (js.kernelMode) {
+		// Send all memory accesses to the interpreter in kernel mode.
+		// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+		DISABLE;
+		return;
+	}
+
 	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
