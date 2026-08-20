@@ -221,7 +221,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ARCHIVE_7Z;
 	}
 
-	if (id == 'FLE\x7F') {
+	// "~PSP" is an encrypted PRX. The module loader decrypts those on the way in, so as far as
+	// identification goes it's the same thing as a plain ELF - which is how the modules in a
+	// firmware unpacked straight from an updater arrive (see Core/Util/PSARUnpack.cpp).
+	if (id == 'FLE\x7F' || id == 'PSP~') {
 		Path filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that. Also accept extension-less paths.
 		if (extension == ".plf" || strstr(filename.GetFilename().c_str(), "BOOT.BIN") ||
