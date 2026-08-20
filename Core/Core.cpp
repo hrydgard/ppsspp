@@ -735,6 +735,7 @@ const char *ExecExceptionTypeAsString(ExecExceptionType type) {
 	switch (type) {
 	case ExecExceptionType::JUMP: return "CPU Jump";
 	case ExecExceptionType::THREAD: return "Thread switch";
+	case ExecExceptionType::PERM: return "Kernel permission";
 	case ExecExceptionType::ILLEGAL: return "Illegal instruction";   // or unknown, but I think we have all now.
 	default:
 		return "N/A";
@@ -924,6 +925,12 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 		break;
 	case ExecExceptionType::ILLEGAL:
 		snprintf(msg, sizeof(msg), "%s: Illegal instruction at %08x%s %s RA %08x%s", desc,
+			pc, pcStr, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
+		// For illegal instructions, there might be a useful stack trace.
+		stackTrace = FormatStackTrace(WalkCurrentStack(-1));
+		break;
+	case ExecExceptionType::PERM:
+		snprintf(msg, sizeof(msg), "%s: Kernel instruction in user mode at %08x%s %s RA %08x%s", desc,
 			pc, pcStr, ModuleAddressSuffix(pc).c_str(), currentMIPS->r[MIPS_REG_RA], ModuleAddressSuffix(currentMIPS->r[MIPS_REG_RA]).c_str());
 		// For illegal instructions, there might be a useful stack trace.
 		stackTrace = FormatStackTrace(WalkCurrentStack(-1));

@@ -2167,6 +2167,18 @@ static bool TestMemMap() {
 	EXPECT_EQ_HEX(Memory::ClampValidSizeAt(0x00015000, 4), 0);
 	EXPECT_EQ_HEX(Memory::ClampValidSizeAt(0x04900000, 4), 0);
 
+	// Test the regular kernel check
+	EXPECT_TRUE(Memory::IsKernelAddress(0x08002000));
+	EXPECT_TRUE(Memory::IsKernelAddress(0x08000000));  // to avoid our patches at the start of kernel ram
+	EXPECT_TRUE(Memory::IsKernelAddress(0x08300000));  // to avoid our patches at the start of kernel ram
+	EXPECT_FALSE(Memory::IsKernelAddress(0x08800000));  // to avoid our patches at the start of kernel ram
+
+	// Test the code kernel space hack.
+	EXPECT_TRUE(Memory::IsKernelCodeAddress(0x08002000));
+	EXPECT_FALSE(Memory::IsKernelCodeAddress(0x08000000));  // to avoid our patches at the start of kernel ram
+	EXPECT_TRUE(Memory::IsKernelCodeAddress(0x08300000));  // to avoid our patches at the start of kernel ram
+	EXPECT_FALSE(Memory::IsKernelCodeAddress(0x08800000));  // to avoid our patches at the start of kernel ram
+
 	return true;
 }
 
