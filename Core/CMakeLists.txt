@@ -167,6 +167,84 @@ if(NOT LIBRETRO)
 	)
 endif()
 
+# Files that libretro/Makefile.common doesn't build for the libretro core (no HTTP/WebSocket
+# debugger, no standalone-app EmuThread/tilt/asm-debugger/game-download machinery there) - keep
+# this in sync with Makefile.common so the CMake-based libretro build (used on Linux/Mac) matches
+# what the Windows libretro build (driven by the Makefile) actually links.
+set(CoreNonLibretro)
+if(NOT LIBRETRO)
+	list(APPEND CoreNonLibretro
+		WebServer.cpp
+		WebServer.h
+		EmuThread.cpp
+		EmuThread.h
+		TiltEventProcessor.cpp
+		TiltEventProcessor.h
+		Debugger/DisassemblyManager.cpp
+		Debugger/DisassemblyManager.h
+		Debugger/WebSocket.cpp
+		Debugger/WebSocket.h
+		Debugger/WebSocket/BreakpointSubscriber.cpp
+		Debugger/WebSocket/BreakpointSubscriber.h
+		Debugger/WebSocket/CPUCoreSubscriber.cpp
+		Debugger/WebSocket/CPUCoreSubscriber.h
+		Debugger/WebSocket/DisasmSubscriber.cpp
+		Debugger/WebSocket/DisasmSubscriber.h
+		Debugger/WebSocket/GameBroadcaster.cpp
+		Debugger/WebSocket/GameBroadcaster.h
+		Debugger/WebSocket/GameSubscriber.cpp
+		Debugger/WebSocket/GameSubscriber.h
+		Debugger/WebSocket/ClientConfigSubscriber.cpp
+		Debugger/WebSocket/ClientConfigSubscriber.h
+		Debugger/WebSocket/GPUBufferSubscriber.cpp
+		Debugger/WebSocket/GPUBufferSubscriber.h
+		Debugger/WebSocket/GPUDisasmSubscriber.cpp
+		Debugger/WebSocket/GPUDisasmSubscriber.h
+		Debugger/WebSocket/GPURecordSubscriber.cpp
+		Debugger/WebSocket/GPURecordSubscriber.h
+		Debugger/WebSocket/GPUStatsSubscriber.cpp
+		Debugger/WebSocket/GPUStatsSubscriber.h
+		Debugger/WebSocket/HLEKernelObjectSubscriber.cpp
+		Debugger/WebSocket/HLEKernelObjectSubscriber.h
+		Debugger/WebSocket/HLESubscriber.cpp
+		Debugger/WebSocket/HLESubscriber.h
+		Debugger/WebSocket/InputBroadcaster.cpp
+		Debugger/WebSocket/InputBroadcaster.h
+		Debugger/WebSocket/InputSubscriber.cpp
+		Debugger/WebSocket/InputSubscriber.h
+		Debugger/WebSocket/LogBroadcaster.cpp
+		Debugger/WebSocket/LogBroadcaster.h
+		Debugger/WebSocket/LogConfigSubscriber.cpp
+		Debugger/WebSocket/LogConfigSubscriber.h
+		Debugger/WebSocket/MemoryInfoSubscriber.cpp
+		Debugger/WebSocket/MemoryInfoSubscriber.h
+		Debugger/WebSocket/MemorySubscriber.cpp
+		Debugger/WebSocket/MemorySubscriber.h
+		Debugger/WebSocket/ReplaySubscriber.cpp
+		Debugger/WebSocket/ReplaySubscriber.h
+		Debugger/WebSocket/SteppingBroadcaster.cpp
+		Debugger/WebSocket/SteppingBroadcaster.h
+		Debugger/WebSocket/SteppingSubscriber.cpp
+		Debugger/WebSocket/SteppingSubscriber.h
+		Debugger/WebSocket/WebSocketUtils.cpp
+		Debugger/WebSocket/WebSocketUtils.h
+		Dialog/PSPPlaceholderDialog.cpp
+		Dialog/PSPPlaceholderDialog.h
+		HW/GranularMixer.cpp
+		HW/GranularMixer.h
+		HW/StereoResampler.cpp
+		HW/StereoResampler.h
+		MIPS/MIPSAsm.cpp
+		MIPS/MIPSAsm.h
+		MIPS/fake/FakeJit.cpp
+		MIPS/fake/FakeJit.h
+		Util/GameManager.cpp
+		Util/GameManager.h
+		Util/VideoPlayer.cpp
+		Util/VideoPlayer.h
+	)
+endif()
+
 # miniUPnPc integration (MiniUPnPc supposed to works on any POSIX system, not sure if some of these are redundant/not needed tho)
 #
 # The add_compile_definitions()/target_link_libraries(Core ...) split below looks awkward, but it's
@@ -247,6 +325,7 @@ endif()
 add_library(Core STATIC
 	${CoreExtra}
 	${CmdLine}
+	${CoreNonLibretro}
 	Config.cpp
 	Config.h
 	ConfigSettings.cpp
@@ -277,10 +356,6 @@ add_library(Core STATIC
 	LuaContext.h
 	RetroAchievements.h
 	RetroAchievements.cpp
-	TiltEventProcessor.h
-	TiltEventProcessor.cpp
-	WebServer.cpp
-	WebServer.h
 	Debugger/Breakpoints.cpp
 	Debugger/Breakpoints.h
 	Debugger/DebugInterface.h
@@ -291,54 +366,6 @@ add_library(Core STATIC
 	Debugger/SymbolMap.cpp
 	Debugger/SymbolMap.h
 	Debugger/Watch.h
-	Debugger/DisassemblyManager.cpp
-	Debugger/DisassemblyManager.h
-	Debugger/WebSocket.cpp
-	Debugger/WebSocket.h
-	Debugger/WebSocket/BreakpointSubscriber.cpp
-	Debugger/WebSocket/BreakpointSubscriber.h
-	Debugger/WebSocket/CPUCoreSubscriber.cpp
-	Debugger/WebSocket/CPUCoreSubscriber.h
-	Debugger/WebSocket/DisasmSubscriber.cpp
-	Debugger/WebSocket/DisasmSubscriber.h
-	Debugger/WebSocket/GameBroadcaster.cpp
-	Debugger/WebSocket/GameBroadcaster.h
-	Debugger/WebSocket/GameSubscriber.cpp
-	Debugger/WebSocket/GameSubscriber.h
-	Debugger/WebSocket/ClientConfigSubscriber.cpp
-	Debugger/WebSocket/ClientConfigSubscriber.h
-	Debugger/WebSocket/GPUBufferSubscriber.cpp
-	Debugger/WebSocket/GPUBufferSubscriber.h
-	Debugger/WebSocket/GPUDisasmSubscriber.cpp
-	Debugger/WebSocket/GPUDisasmSubscriber.h
-	Debugger/WebSocket/GPURecordSubscriber.cpp
-	Debugger/WebSocket/GPURecordSubscriber.h
-	Debugger/WebSocket/GPUStatsSubscriber.cpp
-	Debugger/WebSocket/GPUStatsSubscriber.h
-	Debugger/WebSocket/HLEKernelObjectSubscriber.cpp
-	Debugger/WebSocket/HLEKernelObjectSubscriber.h
-	Debugger/WebSocket/HLESubscriber.cpp
-	Debugger/WebSocket/HLESubscriber.h
-	Debugger/WebSocket/InputBroadcaster.cpp
-	Debugger/WebSocket/InputBroadcaster.h
-	Debugger/WebSocket/InputSubscriber.cpp
-	Debugger/WebSocket/InputSubscriber.h
-	Debugger/WebSocket/LogBroadcaster.cpp
-	Debugger/WebSocket/LogBroadcaster.h
-	Debugger/WebSocket/LogConfigSubscriber.cpp
-	Debugger/WebSocket/LogConfigSubscriber.h
-	Debugger/WebSocket/MemoryInfoSubscriber.cpp
-	Debugger/WebSocket/MemoryInfoSubscriber.h
-	Debugger/WebSocket/MemorySubscriber.cpp
-	Debugger/WebSocket/MemorySubscriber.h
-	Debugger/WebSocket/ReplaySubscriber.cpp
-	Debugger/WebSocket/ReplaySubscriber.h
-	Debugger/WebSocket/SteppingBroadcaster.cpp
-	Debugger/WebSocket/SteppingBroadcaster.h
-	Debugger/WebSocket/SteppingSubscriber.cpp
-	Debugger/WebSocket/SteppingSubscriber.h
-	Debugger/WebSocket/WebSocketUtils.cpp
-	Debugger/WebSocket/WebSocketUtils.h
 	Dialog/PSPDialog.cpp
 	Dialog/PSPDialog.h
 	Dialog/PSPGamedataInstallDialog.cpp
@@ -353,8 +380,6 @@ add_library(Core STATIC
 	Dialog/PSPOskDialog.h
 	Dialog/PSPOskConstants.cpp
 	Dialog/PSPOskConstants.h
-	Dialog/PSPPlaceholderDialog.cpp
-	Dialog/PSPPlaceholderDialog.h
 	Dialog/PSPSaveDialog.cpp
 	Dialog/PSPSaveDialog.h
 	Dialog/PSPScreenshotDialog.cpp
@@ -370,8 +395,6 @@ add_library(Core STATIC
 	ELF/PrxDecrypter.h
 	ELF/ParamSFO.cpp
 	ELF/ParamSFO.h
-	EmuThread.cpp
-	EmuThread.h
 	FFMPEGCompat.h
 	FileSystems/tlzrc.cpp
 	FileSystems/BlobFileSystem.cpp
@@ -584,8 +607,6 @@ add_library(Core STATIC
 	HW/Camera.h
 	HW/Display.cpp
 	HW/Display.h
-	HW/GranularMixer.cpp
-	HW/GranularMixer.h
 	HW/MediaEngine.cpp
 	HW/MediaEngine.h
 	HW/MpegDemux.cpp
@@ -596,8 +617,6 @@ add_library(Core STATIC
 	HW/SasAudio.h
 	HW/SasReverb.cpp
 	HW/SasReverb.h
-	HW/StereoResampler.cpp
-	HW/StereoResampler.h
 	Loaders.cpp
 	Loaders.h
 	FileLoaders/CachingFileLoader.cpp
@@ -640,8 +659,6 @@ add_library(Core STATIC
 	MIPS/MIPSVFPUUtils.h
 	MIPS/MIPSVFPUFallbacks.cpp
 	MIPS/MIPSVFPUFallbacks.h
-	MIPS/MIPSAsm.cpp
-	MIPS/MIPSAsm.h
 	MIPS/MIPSTracer.cpp
 	MIPS/MIPSTracer.h
 	MIPS/JitCommon/JitCommon.cpp
@@ -652,8 +669,6 @@ add_library(Core STATIC
 	MIPS/JitCommon/JitState.h
 	Util/DisArm64.h
 	Util/DisArm64.cpp
-	MIPS/fake/FakeJit.cpp
-	MIPS/fake/FakeJit.h
 	MemFault.cpp
 	MemFault.h
 	MemMap.cpp
@@ -678,8 +693,6 @@ add_library(Core STATIC
 	Util/AtracTrack.h
 	Util/AudioFormat.cpp
 	Util/AudioFormat.h
-	Util/GameManager.cpp
-	Util/GameManager.h
 	Util/MemStick.cpp
 	Util/MemStick.h
 	Util/GameDB.cpp
@@ -694,8 +707,6 @@ add_library(Core STATIC
 	Util/PPGeDraw.h
 	Util/RecentFiles.cpp
 	Util/RecentFiles.h
-	Util/VideoPlayer.cpp
-	Util/VideoPlayer.h
 	${CMAKE_SOURCE_DIR}/ext/disarm.cpp
 	${CMAKE_SOURCE_DIR}/ext/disarm.h
 	${CMAKE_SOURCE_DIR}/ext/riscv-disas.cpp
