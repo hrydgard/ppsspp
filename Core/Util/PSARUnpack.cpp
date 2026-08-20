@@ -25,8 +25,11 @@
 #include "Common/File/Path.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/Util/PSARUnpack.h"
 
@@ -46,6 +49,8 @@ static const int PSAR_DEMANGLE_KEYSEED = 0x55;
 // Sanity bound on the sizes we take from the archive, so a corrupt one can't ask for a huge
 // allocation. No file inside an updater comes close.
 static const u32 PSAR_MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+// Same idea for the archive itself. The biggest official updater is a few tens of MB.
+static const s64 PSAR_MAX_DISC_FILE_BYTES = 256 * 1024 * 1024;
 
 const char *PSARCompressionToString(PSARCompression c) {
 	switch (c) {
@@ -340,20 +345,64 @@ bool PSPModelGenerationFromString(std::string_view name, PSPModelGeneration *gen
 	return true;
 }
 
-// Entries "00001".."00012" are per-model file lists rather than files, numbered by generation.
+// Entries are named one of two ways, depending on the firmware's age.
+//
+// 6.x archives use a flat five-digit token: "00001".."00012" are the per-model file lists, and
+// everything above that is a file which could be named by any of them.
+//
+// 3.x archives group by model instead - "com:00123", "01g:00005" - where the group is either
+// "com" for files every model gets or "NNg" for one model's, and "<group>:00000" is that group's
+// file list. Files there only ever need their own group's list.
+//
+// Returns the group's generation (0 for "com" and for the flat form) and the numeric index.
+static bool SplitEntryName(std::string_view name, int *generation, int *index, bool *grouped) {
+	std::string_view digits = name;
+	*generation = 0;
+	*grouped = false;
+
+	const size_t colon = name.find(':');
+	if (colon != std::string_view::npos) {
+		const std::string_view group = name.substr(0, colon);
+		digits = name.substr(colon + 1);
+		*grouped = true;
+		if (group != "com") {
+			// "01g".."12g".
+			if (group.size() != 3 || group[2] != 'g' || group[0] < '0' || group[0] > '9' || group[1] < '0' || group[1] > '9') {
+				return false;
+			}
+			*generation = (group[0] - '0') * 10 + (group[1] - '0');
+		}
+	}
+
+	if (digits.size() != 5) {
+		return false;
+	}
+	int value = 0;
+	for (char c : digits) {
+		if (c < '0' || c > '9') {
+			return false;
+		}
+		value = value * 10 + (c - '0');
+	}
+	*index = value;
+	return true;
+}
+
+// True if this entry is a file list rather than a file, and if so which model's.
 static bool IsNameTableEntry(std::string_view name, int *generation) {
-	if (name.size() != 5 || name.compare(0, 3, "000") != 0) {
+	int index = 0;
+	bool grouped = false;
+	int group = 0;
+	if (!SplitEntryName(name, &group, &index, &grouped)) {
 		return false;
 	}
-	if (name[3] < '0' || name[3] > '9' || name[4] < '0' || name[4] > '9') {
-		return false;
-	}
-	const int index = (name[3] - '0') * 10 + (name[4] - '0');
-	if (index < 1 || index > (int)PSPModelGeneration::MAX) {
-		return false;
+	if (grouped) {
+		// "<group>:00000" lists that group.
+		*generation = group;
+		return index == 0;
 	}
 	*generation = index;
-	return true;
+	return index >= 1 && index <= (int)PSPModelGeneration::MAX;
 }
 
 // Decrypts a name table in place and returns the length of the text in it, or <= 0 on failure.
@@ -387,7 +436,9 @@ static int DecryptNameTable(std::vector<u8> &table, int keyIndex) {
 	return pspDecryptPRX(table.data(), table.data(), (u32)table.size());
 }
 
-// Table text is lines of "shortname,realpath".
+// Table text is one "shortname<sep>realpath" per line. 6.x separates with a comma and writes the
+// path as "flash0:/font/x.pgf"; 3.x separates with a bar and writes "flash0/font/x.pgf". The path
+// difference doesn't matter - RelativePathFromEntryName normalizes both.
 static void ParseNameTable(const char *text, size_t length, std::map<std::string, std::string> *names) {
 	size_t start = 0;
 	while (start < length) {
@@ -396,9 +447,9 @@ static void ParseNameTable(const char *text, size_t length, std::map<std::string
 			end++;
 		}
 		const std::string_view line(text + start, end - start);
-		const size_t comma = line.find(',');
-		if (comma != std::string_view::npos && comma > 0) {
-			names->emplace(std::string(line.substr(0, comma)), std::string(line.substr(comma + 1)));
+		const size_t separator = line.find_first_of(",|");
+		if (separator != std::string_view::npos && separator > 0) {
+			names->emplace(std::string(line.substr(0, separator)), std::string(line.substr(separator + 1)));
 		}
 		while (end < length && (text[end] == '\r' || text[end] == '\n')) {
 			end++;
@@ -434,6 +485,9 @@ private:
 	bool oldschool_ = false;
 	u32 overhead_ = PSAR_HEADER_SIZE;
 	u32 pos_ = 0;
+	// Where the records stop. The header says how long the archive really is, and both the ones
+	// I've looked at have a few bytes of padding after that which don't decode as a record.
+	size_t limit_ = 0;
 	std::string firmwareVersion_;
 
 	std::string entryName_;
@@ -493,7 +547,14 @@ bool PSARReader::Init(std::string *error) {
 	decrypted_ = ReadU32(psar_ + 0x20) == PSAR_DECRYPTED_MARKER;
 	overhead_ = decrypted_ ? 0 : PSAR_HEADER_SIZE;
 
-	INFO_LOG(Log::Loader, "PSAR version %d, %s, %d bytes", version, decrypted_ ? "already decrypted" : "encrypted", (int)size_);
+	limit_ = size_;
+	const u32 declaredSize = ReadU32(psar_ + 8);
+	if (declaredSize >= 0x40 && declaredSize <= size_) {
+		limit_ = declaredSize;
+	}
+
+	INFO_LOG(Log::Loader, "PSAR version %d, %s, %d bytes (%d of records)", version,
+		decrypted_ ? "already decrypted" : "encrypted", (int)size_, (int)limit_);
 
 	int decoded = DecodeBlock(0x10, overhead_ + PSAR_ENTRY_SIZE, block_);
 	if (decoded != (int)PSAR_ENTRY_SIZE) {
@@ -550,7 +611,10 @@ int PSARReader::NextEntry(std::string *error) {
 	entryIsDirectory_ = false;
 	entryCompression_ = PSARCompression::None;
 
-	if ((size_t)pos_ + overhead_ >= size_) {
+	// Stop when what's left can't hold another whole record. Both archives I've looked at end with
+	// a few bytes of padding that would otherwise be decoded as a truncated entry and reported as
+	// a failure right at the finish line.
+	if ((size_t)pos_ + overhead_ + PSAR_ENTRY_SIZE > limit_) {
 		return 0;
 	}
 
@@ -655,24 +719,46 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 		// own ordering takes care of.
 		int tableGeneration = 0;
 		if (IsNameTableEntry(reader.entryName(), &tableGeneration)) {
-			stats->nameTables++;
 			std::vector<u8> table = reader.entryData();
 			const int textLength = DecryptNameTable(table, tableKeyIndex);
-			if (textLength <= 0 || (size_t)textLength > table.size()) {
-				ERROR_LOG(Log::Loader, "PSAR: couldn't decrypt the %02dg file list (%d)", tableGeneration, textLength);
-				stats->failed++;
-			} else {
+			if (textLength > 0 && (size_t)textLength <= table.size()) {
+				stats->nameTables++;
 				std::map<std::string, std::string> &names = namesByModel[tableGeneration];
 				ParseNameTable((const char *)table.data(), textLength, &names);
-				INFO_LOG(Log::Loader, "PSAR: %02dg file list names %d files", tableGeneration, (int)names.size());
+				INFO_LOG(Log::Loader, "PSAR: file list '%s' names %d files", reader.entryName().c_str(), (int)names.size());
+				continue;
 			}
-			continue;
+			// Which numbers are file lists varies between firmwares - 6.61 uses 1-11, 6.00 stops
+			// earlier and has real files in that range. A list always decrypts (the PRX layer
+			// underneath validates a hash), so failing here means this is just a file.
+			DEBUG_LOG(Log::Loader, "PSAR: '%s' isn't a file list, treating it as a file", reader.entryName().c_str());
 		}
+
+		int entryGeneration = 0;
+		int entryIndex = 0;
+		bool entryGrouped = false;
+		SplitEntryName(reader.entryName(), &entryGeneration, &entryIndex, &entryGrouped);
 
 		std::string realName;
 		bool wrongModel = false;
 		if (EntryNameIsRealPath(reader.entryName())) {
 			realName = reader.entryName();
+		} else if (entryGrouped) {
+			// The name says which list to look in, and the lists key on just the number - entry
+			// "com:00004" is "00004" in the com list. "com" entries are common to every model, so
+			// they're wanted whichever one was asked for.
+			if (options.model != PSPModelGeneration::Any && entryGeneration != 0 && entryGeneration != (int)options.model) {
+				wrongModel = true;
+			} else {
+				const auto model = namesByModel.find(entryGeneration);
+				if (model != namesByModel.end()) {
+					const std::string key = reader.entryName().substr(reader.entryName().find(':') + 1);
+					const auto found = model->second.find(key);
+					if (found != model->second.end()) {
+						realName = found->second;
+					}
+				}
+			}
 		} else if (options.model != PSPModelGeneration::Any) {
 			// Only this model's list counts. A file it doesn't name belongs to some other model.
 			const auto model = namesByModel.find((int)options.model);
@@ -750,33 +836,148 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 	return true;
 }
 
-bool UnpackUpdaterPBP(const Path &pbpFilename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
+// Where a disc keeps its updater. Both files are unwrapped: DATA.BIN is the bare archive, with no
+// PBP around it, and EBOOT.BIN next to it is the updater executable we have no use for.
+static const char *UPDATE_DIR = "/PSP_GAME/SYSDIR/UPDATE";
+static const char *DISC_PSAR_PATH = "/PSP_GAME/SYSDIR/UPDATE/DATA.BIN";
+static const char *DISC_SFO_PATH = "/PSP_GAME/SYSDIR/UPDATE/PARAM.SFO";
+
+// Opens filename as a disc image, if it is one. Returns null otherwise, which is the normal
+// outcome for a PBP or a loose DATA.BIN.
+static ISOFileSystem *OpenDisc(const Path &filename, FileLoader *loader, IHandleAllocator *hAlloc) {
+	std::string blockError;
+	std::shared_ptr<BlockDevice> device(ConstructBlockDevice(loader, &blockError));
+	if (!device) {
+		return nullptr;
+	}
+	ISOFileSystem *iso = new ISOFileSystem(hAlloc, device);
+	if (!iso->GetFileInfo(UPDATE_DIR).exists) {
+		delete iso;
+		return nullptr;
+	}
+	return iso;
+}
+
+static bool ReadWholeFile(IFileSystem *fs, const char *path, std::vector<u8> *out) {
+	const PSPFileInfo info = fs->GetFileInfo(path);
+	if (!info.exists || info.size == 0 || info.size > PSAR_MAX_DISC_FILE_BYTES) {
+		return false;
+	}
+	const int handle = fs->OpenFile(path, FILEACCESS_READ);
+	if (handle < 0) {
+		return false;
+	}
+	out->resize((size_t)info.size);
+	const size_t read = fs->ReadFile(handle, out->data(), info.size);
+	fs->CloseFile(handle);
+	if (read != (size_t)info.size) {
+		out->clear();
+		return false;
+	}
+	return true;
+}
+
+// Pulls the archive out of whatever this is - see the header for the shapes we accept.
+static bool ReadUpdaterPSAR(const Path &filename, std::vector<u8> *psar, std::string *sfoVersion, std::string *error) {
+	FileLoader *loader = ConstructFileLoader(filename);
+	if (!loader || !loader->Exists()) {
+		*error = "Couldn't open " + filename.ToString();
+		delete loader;
+		return false;
+	}
+
+	SequentialHandleAllocator hAlloc;
+	if (ISOFileSystem *disc = OpenDisc(filename, loader, &hAlloc)) {
+		// A game disc with an updater on it.
+		std::vector<u8> sfo;
+		if (sfoVersion && ReadWholeFile(disc, DISC_SFO_PATH, &sfo)) {
+			ParamSFOData paramSFO;
+			if (paramSFO.ReadSFO(sfo)) {
+				*sfoVersion = paramSFO.GetValueString("TITLE");
+			}
+		}
+		const bool ok = ReadWholeFile(disc, DISC_PSAR_PATH, psar);
+		delete disc;
+		delete loader;
+		if (!ok) {
+			*error = "No updater on the disc " + filename.ToString();
+			return false;
+		}
+		INFO_LOG(Log::Loader, "Found a %d byte updater on the disc %s", (int)psar->size(), filename.c_str());
+		return true;
+	}
+
+	u8 magic[4]{};
+	loader->ReadAt(0, sizeof(magic), magic);
+
+	if (!memcmp(magic, "\0PBP", 4)) {
+		// A downloaded updater.
+		PBPReader pbp(loader);
+		std::vector<u8> sfo;
+		if (sfoVersion && pbp.IsValid() && pbp.GetSubFile(PBP_PARAM_SFO, &sfo)) {
+			ParamSFOData paramSFO;
+			if (paramSFO.ReadSFO(sfo)) {
+				*sfoVersion = paramSFO.GetValueString("TITLE");
+			}
+		}
+		const bool ok = pbp.IsValid() && pbp.GetSubFile(PBP_UNKNOWN_PSAR, psar);
+		delete loader;
+		if (!ok || psar->size() < 0x40) {
+			*error = "No DATA.PSAR in " + filename.ToString();
+			return false;
+		}
+		INFO_LOG(Log::Loader, "Found a %d byte DATA.PSAR in %s", (int)psar->size(), filename.c_str());
+		return true;
+	}
+
+	if (ReadU32(magic) == PSAR_MAGIC) {
+		// A disc updater's DATA.BIN, or an archive someone already pulled out.
+		const s64 size = loader->FileSize();
+		if (size < 0x40 || size > PSAR_MAX_DISC_FILE_BYTES) {
+			*error = "Bad PSAR size in " + filename.ToString();
+			delete loader;
+			return false;
+		}
+		psar->resize((size_t)size);
+		const size_t read = loader->ReadAt(0, psar->size(), psar->data());
+		delete loader;
+		if (read != psar->size()) {
+			*error = "Couldn't read " + filename.ToString();
+			return false;
+		}
+		INFO_LOG(Log::Loader, "Found a %d byte bare PSAR: %s", (int)psar->size(), filename.c_str());
+		return true;
+	}
+
+	delete loader;
+	*error = filename.ToString() + " isn't an updater, a PSAR or a disc with one on it";
+	return false;
+}
+
+std::string ReadUpdaterVersion(const Path &filename) {
+	std::vector<u8> psar;
+	std::string version;
+	std::string error;
+	if (!ReadUpdaterPSAR(filename, &psar, &version, &error)) {
+		return std::string();
+	}
+	// A disc's PARAM.SFO says "PSP(tm) Update ver 3.95" - the number at the end is what we want.
+	const size_t space = version.rfind(' ');
+	if (space != std::string::npos) {
+		return version.substr(space + 1);
+	}
+	return version;
+}
+
+bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
 	std::string localError;
 	if (!error) {
 		error = &localError;
 	}
 
-	FileLoader *loader = ConstructFileLoader(pbpFilename);
-	if (!loader) {
-		*error = "Couldn't open " + pbpFilename.ToString();
-		return false;
-	}
-
-	PBPReader pbp(loader);
-	if (!pbp.IsValid()) {
-		*error = pbpFilename.ToString() + " is not a PBP";
-		delete loader;
-		return false;
-	}
-
 	std::vector<u8> psar;
-	if (!pbp.GetSubFile(PBP_UNKNOWN_PSAR, &psar) || psar.size() < 0x40) {
-		*error = "No DATA.PSAR in " + pbpFilename.ToString();
-		delete loader;
+	if (!ReadUpdaterPSAR(filename, &psar, nullptr, error)) {
 		return false;
 	}
-	delete loader;
-
-	INFO_LOG(Log::Loader, "Found a %d byte DATA.PSAR in %s", (int)psar.size(), pbpFilename.c_str());
 	return UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error);
 }

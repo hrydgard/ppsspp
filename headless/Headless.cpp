@@ -617,7 +617,7 @@ int main(int argc, const char* argv[]) {
 	// before any of the setup below.
 	if (cmdLineOptions.unpackUpdater.has_value()) {
 		if (cmdLineOptions.bootFilenames.size() != 1) {
-			fprintf(stderr, "--unpack-updater takes exactly one updater EBOOT.PBP\n");
+			fprintf(stderr, "--unpack-updater takes exactly one updater, disc image or PSAR\n");
 			return 1;
 		}
 
@@ -630,7 +630,7 @@ int main(int argc, const char* argv[]) {
 		}
 		PSARUnpackStats stats;
 		std::string unpackError;
-		const bool ok = UnpackUpdaterPBP(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
+		const bool ok = UnpackUpdater(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
 		if (!ok) {
 			fprintf(stderr, "Unpacking failed: %s\n", unpackError.c_str());
 		}

@@ -97,5 +97,14 @@ struct PSARUnpackStats {
 // psar points at the DATA.PSAR contents, starting with the "PSAR" magic.
 bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
 
-// Convenience wrapper: opens an updater EBOOT.PBP, finds its DATA.PSAR and unpacks that.
-bool UnpackUpdaterPBP(const Path &pbpFilename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
+// Finds the firmware image in whatever an updater arrives as and unpacks it:
+//  - a downloaded updater EBOOT.PBP, where the archive is its DATA.PSAR
+//  - a disc updater's DATA.BIN, which is the same archive without the PBP wrapper
+//  - a game ISO/CSO/CHD, which is searched for PSP_GAME/SYSDIR/UPDATE/DATA.BIN
+// The last one is the interesting case: most UMDs carry a firmware updater, so the fonts can come
+// from whatever game the user already has rather than a separate download.
+bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
+
+// The version string an updater advertises ("6.61"), read from the PARAM.SFO next to it - no
+// decryption needed, so it's cheap enough to check every disc with. Empty if there's no updater.
+std::string ReadUpdaterVersion(const Path &filename);
