@@ -57,6 +57,7 @@
 #include "Core/EmuThread.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
@@ -610,6 +611,34 @@ int main(int argc, const char* argv[]) {
 	if (fullLog) {
 		// Only with --log, add the printfLogger.
 		g_logManager.EnableOutput(LogOutput::Printf);
+	}
+
+	// Unpacking an updater is a standalone action - no emulation involved, so do it here and exit
+	// before any of the setup below.
+	if (cmdLineOptions.unpackUpdater.has_value()) {
+		if (cmdLineOptions.bootFilenames.size() != 1) {
+			fprintf(stderr, "--unpack-updater takes exactly one updater EBOOT.PBP\n");
+			return 1;
+		}
+
+		PSARUnpackOptions unpackOptions;
+		unpackOptions.verbose = testOptions.verbose;
+		PSARUnpackStats stats;
+		std::string unpackError;
+		const bool ok = UnpackUpdaterPBP(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
+		if (!ok) {
+			fprintf(stderr, "Unpacking failed: %s\n", unpackError.c_str());
+		}
+		printf("Firmware %s: %d entries, %d files written, %d directories, %d unresolved names, %d failed\n",
+			stats.firmwareVersion.c_str(), stats.entries, stats.written, stats.directories, stats.unnamed, stats.failed);
+		printf("Compression: none=%d zlib=%d KL4E=%d KL3E=%d LZR=%d unknown=%d\n",
+			stats.compressionCounts[(int)PSARCompression::None],
+			stats.compressionCounts[(int)PSARCompression::Zlib],
+			stats.compressionCounts[(int)PSARCompression::KL4E],
+			stats.compressionCounts[(int)PSARCompression::KL3E],
+			stats.compressionCounts[(int)PSARCompression::LZR],
+			stats.compressionCounts[(int)PSARCompression::Unknown]);
+		return ok ? 0 : 1;
 	}
 
 	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);

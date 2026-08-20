@@ -284,12 +284,24 @@ static const u32 g_key_INDEXDAT1xx[] = {
 		0xA34D8C80, 0x962B235D, 0x3E420548, 0x09CF9FFE, 0xD4883F5C, 0xD90E9CB5,
 		0x00AEF4E9, 0xF0886DE9, 0x62A58A5B, 0x52A55546, 0x971941B5, 0xF5B79FAC};
 
+// The blocks inside an official updater's DATA.PSAR carry this tag. See Core/Util/PSARUnpack.cpp.
+static const u32 g_keyUPDATER_PSAR[] = {
+		0x77B757DE, 0xEE62DD17, 0x5D03787B, 0x59CA8644, 0x93F68D20, 0x21819328,
+		0x86A74E71, 0x1B2482CA, 0x5F74AE58, 0x568D016C, 0x9A4D8832, 0x2EA24372,
+		0x820CF484, 0xFCFC06B9, 0x8A5BFB6A, 0xBF9F9CD7, 0x15850D01, 0x39ED5FBA,
+		0x4CC38393, 0xED3ADEAF, 0x1AA768BF, 0x89BD8A77, 0x46564165, 0x7333DBD9,
+		0x62E86C81, 0x03299B96, 0x73AFAE5A, 0x40A05320, 0x10664BE8, 0xE5B76A99,
+		0x29E0DD70, 0xEA602428, 0x2042AE30, 0x946F8D32, 0xA29E5F71, 0x7C0C7FD5};
+
 struct TAG_INFO
 {
 	u32 tag; // 4 byte value at offset 0xD0 in the PRX file
 	const u32 *key; // "step1_result" use for XOR step
 	u8 code;
 	u8 codeExtra;
+	// Most keys here are stored already scrambled, so the kirk7 pass the hardware would do is
+	// skipped. Set this for a key that's stored raw and needs that pass applied first.
+	bool scrambleKey;
 };
 
 static const TAG_INFO g_tagInfo[] =
@@ -310,7 +322,8 @@ static const TAG_INFO g_tagInfo[] =
 	{ 0x862648D1, g_keyMEIMG260, 0x52, 0x52 },
 	{ 0x207BBF2F, g_keyUNK1, 0x5A, 0x5A },
 	{ 0x09000000, g_key_GAMESHARE1xx, 0x4C },
-	{ 0xBB67C59F, g_key_GAMESHARE2xx, 0x5E, 0x5E }
+	{ 0xBB67C59F, g_key_GAMESHARE2xx, 0x5E, 0x5E },
+	{ 0x0E000000, g_keyUPDATER_PSAR, 0x51, 0x00, true }
 };
 
 static const TAG_INFO *GetTagInfo(u32 tagFind)
@@ -726,6 +739,11 @@ static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	// normally this would be a kirk7 op, but we have the seed pre-decrypted
 	std::array<u8, 0x90> xorbuf;
 	memcpy(xorbuf.data(), reinterpret_cast<const u8 *>(pti->key), xorbuf.size());
+	if (pti->scrambleKey)
+	{
+		// ...except for keys we have in their raw form, which need that pass after all.
+		kirk7(xorbuf.data(), xorbuf.data(), xorbuf.size(), pti->code);
+	}
 
 	// construct the header format for a type 0 prx
 	PRXType0 type0(inbuf);

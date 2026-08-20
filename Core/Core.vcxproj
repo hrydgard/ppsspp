@@ -917,6 +917,7 @@
     <ClCompile Include="Util\PathUtil.cpp" />
     <ClCompile Include="Util\PortManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
+    <ClCompile Include="Util\PSARUnpack.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">MaxSpeed</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</IntrinsicFunctions>
@@ -1280,6 +1281,7 @@
     <ClInclude Include="Util\PathUtil.h" />
     <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
+    <ClInclude Include="Util\PSARUnpack.h" />
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="Util\RecentFiles.h" />
     <ClInclude Include="Util\VideoPlayer.h" />
