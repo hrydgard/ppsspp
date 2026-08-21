@@ -58,6 +58,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
+#include "Core/Util/PkgUnpack.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
@@ -669,6 +670,38 @@ int main(int argc, const char* argv[]) {
 			stats.compressionCounts[(int)PSARCompression::LZR],
 			stats.compressionCounts[(int)PSARCompression::Unknown]);
 		return ok ? 0 : 1;
+	}
+
+	// Same deal for installing a game update package.
+	if (cmdLineOptions.installPkg.has_value()) {
+		if (cmdLineOptions.bootFilenames.size() != 1) {
+			fprintf(stderr, "--install-pkg takes exactly one .pkg file\n");
+			return 1;
+		}
+		std::unique_ptr<FileLoader> loader(ConstructFileLoader(Path(cmdLineOptions.bootFilenames[0])));
+		PkgReader reader;
+		std::string pkgError;
+		if (!loader || !reader.Open(loader.get(), &pkgError)) {
+			fprintf(stderr, "Not a usable PKG: %s\n", pkgError.c_str());
+			return 1;
+		}
+		const PkgInfo &info = reader.Info();
+		printf("%s (%s)\n", info.title.c_str(), info.contentId.c_str());
+		printf("Category %s, %d items, %lld bytes installed\n", info.category.c_str(),
+			(int)info.items.size(), (long long)PkgInstalledSize(info));
+		if (info.isGameUpdate) {
+			printf("Game update for %s v%s -> app version %s (firmware %s)\n", info.discId.c_str(),
+				info.discVersion.c_str(), info.appVer.c_str(), info.systemVer.c_str());
+		} else {
+			fprintf(stderr, "This PKG isn't a game update - nothing we know how to install\n");
+			return 1;
+		}
+		if (!InstallPkg(reader, Path(cmdLineOptions.installPkg.value()), nullptr, &pkgError)) {
+			fprintf(stderr, "Install failed: %s\n", pkgError.c_str());
+			return 1;
+		}
+		printf("Installed into %s\n", cmdLineOptions.installPkg.value().c_str());
+		return 0;
 	}
 
 	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);

@@ -902,6 +902,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/KL4E.cpp \
 	       $(COREDIR)/Util/PSARUnpack.cpp \
+	       $(COREDIR)/Util/PkgUnpack.cpp \
 	       $(COREDIR)/Util/RecentFiles.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PathUtil.cpp \

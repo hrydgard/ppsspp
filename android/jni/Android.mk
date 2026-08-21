@@ -814,6 +814,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/PPGeDraw.cpp \
   $(SRC)/Core/Util/KL4E.cpp \
   $(SRC)/Core/Util/PSARUnpack.cpp \
+  $(SRC)/Core/Util/PkgUnpack.cpp \
   $(SRC)/Core/Util/RecentFiles.cpp \
   $(SRC)/Core/Util/VideoPlayer.cpp \
   $(SRC)/git-version.cpp

@@ -924,6 +924,7 @@
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="Util\KL4E.cpp" />
     <ClCompile Include="Util\PSARUnpack.cpp" />
+    <ClCompile Include="Util\PkgUnpack.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">MaxSpeed</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</IntrinsicFunctions>
@@ -1294,6 +1295,7 @@
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\KL4E.h" />
     <ClInclude Include="Util\PSARUnpack.h" />
+    <ClInclude Include="Util\PkgUnpack.h" />
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="Util\RecentFiles.h" />
     <ClInclude Include="Util\VideoPlayer.h" />
