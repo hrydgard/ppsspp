@@ -167,7 +167,7 @@ patch file are silently dropped, with no warning that anything was skipped.
 
 ## How PPSSPP handles them
 
-Three pieces, added 2026-08-21:
+Four pieces:
 
 - **`Core/Util/PkgUnpack.cpp`** reads a package: header, item table, both PARAM.SFOs, and the
   decryption. `PkgReader::Open()` gives you a `PkgInfo` with the disc ID, disc version and patch
@@ -177,6 +177,10 @@ Three pieces, added 2026-08-21:
   `InstallZipScreen` - it shows what the update patches, what it'll take up on disk, and where it's
   going. The size is exact rather than an estimate: package contents aren't compressed, so summing
   the item table is the answer. `GameManager::InstallPkgOnThread()` does the work.
+- **`GameScreen`** shows an installed update in the info pane, and offers "Delete Game Update" in
+  its context menu. Deleting takes the whole `PSP/GAME/<DISC_ID>` folder when the update is all
+  that's in it, and only `PBOOT.PBP` when a digital game shares the folder - nothing records what
+  an install wrote, so the executable is the only part still identifiable afterwards.
 - **`FindGameUpdatePBOOT()` in `Core/PSPLoaders.cpp`** is the boot-time half. Starting a disc looks
   for `ms0:/PSP/GAME/<DISC_ID>/PBOOT.PBP`, and boots that instead of `disc0:/PSP_GAME/SYSDIR/EBOOT.BIN`
   if it's there, leaving the disc mounted.

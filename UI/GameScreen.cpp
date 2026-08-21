@@ -262,6 +262,15 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	}
 }
 
+void GameScreen::RefreshInstalledUpdate() {
+	hasInstalledUpdate_ = false;
+	// Homebrew reuses real disc IDs often enough that we'd get false positives.
+	if (isHomebrew_ || !(knownFlags_ & GameInfoFlags::PARAM_SFO)) {
+		return;
+	}
+	hasInstalledUpdate_ = FindInstalledGameUpdate(info_->id, &installedUpdate_);
+}
+
 void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (!info_) {
 		// Shouldn't happen
@@ -505,6 +514,24 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 	}
 
+	// An installed game update replaces the disc's executable, so it's worth saying so here -
+	// otherwise there's nothing in the UI to explain why a patched game is running.
+	RefreshInstalledUpdate();
+	if (hasInstalledUpdate_) {
+		infoLayout->Add(new ItemHeader(ga->T("Game update")));
+		std::string updateLine = installedUpdate_.title;
+		if (!installedUpdate_.appVer.empty()) {
+			const std::string version = ApplySafeSubstitutions(ga->T("Version %1"), installedUpdate_.appVer);
+			updateLine = updateLine.empty() ? version : updateLine + " - " + version;
+		}
+		if (updateLine.empty()) {
+			updateLine = ga->T("Installed");
+		}
+		updateLine += " - " + NiceSizeFormat(installedUpdate_.sizeOnDisk);
+		infoLayout->Add(new TextView(updateLine, ALIGN_LEFT, true))->SetBullet(true);
+		infoLayout->Add(new TextView(GetFriendlyPath(installedUpdate_.folder), ALIGN_LEFT | FLAG_WRAP_TEXT, true))->SetBullet(true);
+	}
+
 	// Show plugin info_, if any. Later might add checkboxes.
 	auto plugins = HLEPlugins::FindPlugins(info_->id, g_Config.sLanguageIni);
 	if (!plugins.empty()) {
@@ -625,11 +652,46 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
+	RefreshInstalledUpdate();
+	if (!inGame_ && hasInstalledUpdate_) {
+		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete Game Update"), ImageID("I_TRASHCAN")));
+		btnDeleteUpdate->OnClick.Handle(this, &GameScreen::OnDeleteGameUpdate);
+	}
+
 	// Don't want to be able to delete the game while it's running.
 	if (!inGame_) {
 		Choice *deleteChoice = parent->Add(new Choice(ga->T("Delete Game"), ImageID("I_WARNING")));
 		deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	}
+}
+
+void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
+	if (!hasInstalledUpdate_) {
+		return;
+	}
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ga = GetI18NCategory(I18NCat::GAME);
+
+	std::string prompt(ga->T("DeleteConfirmGameUpdate", "Do you really want to remove the installed update?\nThe game will go back to running the version on the disc."));
+	prompt += "\n\n";
+	// Say exactly what disappears - for a digital game the folder holds the game itself, so only
+	// the update's executable goes.
+	prompt += GetFriendlyPath(installedUpdate_.sharesFolderWithGame ? installedUpdate_.pbootPath : installedUpdate_.folder);
+
+	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+	const InstalledGameUpdate update = installedUpdate_;
+	screenManager()->push(
+		new UI::MessagePopupScreen(ga->T("Delete Game Update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+			[this, update](bool yes) {
+		if (!yes) {
+			return;
+		}
+		if (!DeleteInstalledGameUpdate(update)) {
+			auto er = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, er->T("Failed to delete the game update"));
+		}
+		RecreateViews();
+	}));
 }
 
 void GameScreen::OnCreateConfig(UI::EventParams &e) {

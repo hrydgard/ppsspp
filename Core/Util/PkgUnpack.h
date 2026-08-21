@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 
 class FileLoader;
-class Path;
 
 // Reads .PKG files - the NPDRM container Sony distributed downloadable content in. We're only
 // interested in one flavor: PSP *game updates*, which hold a patched EBOOT (PBOOT.PBP) plus the
@@ -106,3 +106,25 @@ u64 PkgInstalledSize(const PkgInfo &info);
 // Unpacks the installable items into destDir, which should be the game folder itself
 // (PSP/GAME/<DISC_ID>). progress is called with 0..1 as it goes, and may be null.
 bool InstallPkg(PkgReader &reader, const Path &destDir, const std::function<void(float)> &progress, std::string *error);
+
+// An update that has been installed, i.e. what's left over in PSP/GAME/<DISC_ID> afterwards.
+struct InstalledGameUpdate {
+	Path folder;
+	Path pbootPath;
+	std::string appVer;         // The update's version, from PBOOT.PBP's own PARAM.SFO.
+	std::string discVersion;    // The disc version it was built against.
+	std::string title;          // PBOOT_TITLE, when the update names itself ("Update 2.01").
+	u64 sizeOnDisk = 0;         // How much deleting it would actually free.
+	// True when a game shares the folder - a digital title, whose EBOOT.PBP sits right next to the
+	// update. Deleting the whole folder would take the game with it.
+	bool sharesFolderWithGame = false;
+};
+
+// Looks for an update installed for discId. Cheap enough to call while building a UI - a stat and
+// a small read, plus a directory walk for the size.
+bool FindInstalledGameUpdate(std::string_view discId, InstalledGameUpdate *update);
+
+// Removes an installed update, to the trash where there is one. Takes the whole folder when the
+// update is all that's in it, and only PBOOT.PBP when a game shares the folder - that stops the
+// update from being used, and it's the only part we can still identify after the fact.
+bool DeleteInstalledGameUpdate(const InstalledGameUpdate &update);

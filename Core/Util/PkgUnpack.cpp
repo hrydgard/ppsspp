@@ -17,13 +17,18 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/System/Request.h"
+#include "Common/System/System.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/ELF/PBPReader.h"
 #include "Core/Loaders.h"
+#include "Core/System.h"
 #include "Core/Util/PkgUnpack.h"
 
 extern "C" {
@@ -495,4 +500,52 @@ bool InstallPkg(PkgReader &reader, const Path &destDir, const std::function<void
 		progress(1.0f);
 	}
 	return true;
+}
+
+bool FindInstalledGameUpdate(std::string_view discId, InstalledGameUpdate *update) {
+	if (discId.empty()) {
+		return false;
+	}
+	const Path folder = GetSysDirectory(DIRECTORY_GAME) / std::string(discId);
+	const Path pbootPath = folder / "PBOOT.PBP";
+	if (!File::Exists(pbootPath)) {
+		return false;
+	}
+
+	// The version we want is in the PBOOT's own PARAM.SFO, which isn't encrypted.
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(pbootPath));
+	if (!loader) {
+		return false;
+	}
+	PBPReader pbp(loader.get());
+	std::vector<u8> sfoData;
+	ParamSFOData sfo;
+	if (!pbp.IsValid() || !pbp.GetSubFile(PBP_PARAM_SFO, &sfoData) || !sfo.ReadSFO(sfoData)) {
+		WARN_LOG(Log::Loader, "'%s' doesn't look like a game update", pbootPath.c_str());
+		return false;
+	}
+
+	update->folder = folder;
+	update->pbootPath = pbootPath;
+	update->appVer = sfo.GetValueString("APP_VER");
+	update->discVersion = sfo.GetValueString("DISC_VERSION");
+	update->title = sfo.GetValueString("PBOOT_TITLE");
+	update->sharesFolderWithGame = File::Exists(folder / "EBOOT.PBP");
+	update->sizeOnDisk = update->sharesFolderWithGame
+		? (u64)std::max<s64>(0, File::GetFileSize(pbootPath))
+		: File::ComputeRecursiveDirectorySize(folder);
+	return true;
+}
+
+bool DeleteInstalledGameUpdate(const InstalledGameUpdate &update) {
+	const bool useTrash = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+	// Only the PBOOT when the folder is a game in its own right - see the struct's comment.
+	const Path target = update.sharesFolderWithGame ? update.pbootPath : update.folder;
+	INFO_LOG(Log::Loader, "Removing game update '%s'", target.c_str());
+	if (useTrash) {
+		// TODO: No way to tell whether this succeeded.
+		System_MoveToTrash(target);
+		return true;
+	}
+	return update.sharesFolderWithGame ? File::Delete(target) : File::DeleteDirRecursively(target);
 }
