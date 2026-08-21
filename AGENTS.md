@@ -169,6 +169,8 @@ codebase first - PPSSPP already has implementations of many formats (CSO, LZRC, 
 handlers, PBP, SevenZip, etc.), possibly in several places. Reuse or extend an existing one instead of
 writing a new one (e.g. there is an LZRC decompressor in Core/FileSystems/tlzrc.cpp).
 
+For string sanitation, we already have SanitizeString in StringUtils.cpp - add new modes if needed.
+
 ## Headless and unittest builds
 
 We have additional PPSSPPHeadless and unit test builds (/headless and /unittest), that have their own separate
@@ -536,6 +538,12 @@ Concretely, as measured against the headless build (2026-08-16), per CPU backend
 | `cpu.stepInto/Over/Out`, `runUntil`, `nextHLE` | works | works |
 | `memory.breakpoint.*` (memchecks) | works | **only for constant addresses** - see below |
 | `cpu.regBreakpoint.*` | works | never trips (as documented) |
+
+## Commit message style
+
+Keep commit messages focused, not overly long (although sometimes it's motivated if a single commit
+is super complex). Do not report things like 100/100 tests passed - that's a given, if tests break
+you aren't supposed to make a commit.
 
 ## Quick rebuild on Linux
 

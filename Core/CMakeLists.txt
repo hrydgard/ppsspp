@@ -705,6 +705,8 @@ add_library(Core STATIC
 	Util/BlockAllocator.h
 	Util/PPGeDraw.cpp
 	Util/PPGeDraw.h
+	Util/PSARUnpack.cpp
+	Util/PSARUnpack.h
 	Util/RecentFiles.cpp
 	Util/RecentFiles.h
 	${CMAKE_SOURCE_DIR}/ext/disarm.cpp
