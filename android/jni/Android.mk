@@ -989,6 +989,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/BaseScreens.cpp \
   $(SRC)/UI/Background.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
+  $(SRC)/UI/InstallPkgScreen.cpp \
   $(SRC)/UI/InstallUpdateScreen.cpp \
   $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/JitCompareScreen.cpp \

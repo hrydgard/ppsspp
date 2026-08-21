@@ -103,6 +103,8 @@ list(APPEND UISource
 	InstallUpdateScreen.cpp
 	InstallZipScreen.h
 	InstallZipScreen.cpp
+	InstallPkgScreen.h
+	InstallPkgScreen.cpp
 	JitCompareScreen.h
 	JitCompareScreen.cpp
 	MemStickScreen.h
