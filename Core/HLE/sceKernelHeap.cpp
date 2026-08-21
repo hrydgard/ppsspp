@@ -165,7 +165,20 @@ static int sceKernelGetModel() {
 	return hleLogWarning(Log::sceKernel, model - 1);
 }
 
+// Both configure things PPSSPP has no equivalent of - which kernel image a reboot would use, and
+// whether the UMD read cache is on. Accepted and ignored; the VSH calls them once each during
+// startup and only cares that they succeed.
+static int sceKernelSetRebootKernel(u32 arg) {
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
+}
+
+static int sceKernelSetUmdCacheOn(int on) {
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
+}
+
 const HLEFunction SysMemForKernel[] = {
+	{ 0X96A3CE2C, &WrapI_U<sceKernelSetRebootKernel>,              "sceKernelSetRebootKernel",           'i', "x",     HLE_KERNEL_SYSCALL },
+	{ 0X1404C1AA, &WrapI_I<sceKernelSetUmdCacheOn>,                "sceKernelSetUmdCacheOn",             'i', "i",     HLE_KERNEL_SYSCALL },
 	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,             "sceKernelAllocHeapMemory",           'x', "ii",    HLE_KERNEL_SYSCALL },
 	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                   "sceKernelDeleteHeap",                'i', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                "sceKernelCreateHeap",                'i', "iixs",  HLE_KERNEL_SYSCALL },

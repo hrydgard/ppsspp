@@ -137,6 +137,7 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 int printUsage(const CommandLineOptions &options, const char *progname, const char *reason) {
 	options.PrintUsage(progname, reason);
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
+	fprintf(stderr, "  --flash0=DIR          use DIR as flash0: instead of the bundled assets (e.g. a real dump)\n");
 	return 1;
 }
 

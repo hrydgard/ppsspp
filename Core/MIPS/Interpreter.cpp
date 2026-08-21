@@ -35,6 +35,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/HW/GpioMMIO.h"
 
 #define R(i) (mips->r[i])
 #define F(i) (mips->f[i])
@@ -122,6 +123,12 @@ static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
 		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
 		return (u8)UNKNOWN_MMIO_POISON;
 	}
+	if (GpioMMIO::IsGpioAddress(addr)) {
+		return GpioMMIO::Read32(addr);
+	}
+	if (SysconSerialMMIO::IsSysconSerialAddress(addr)) {
+		return SysconSerialMMIO::Read32(addr);
+	}
 	WARN_LOG(Log::CPU, "MMIO Read32 at %08x", addr);
 	return UNKNOWN_MMIO_POISON;
 }
@@ -145,6 +152,13 @@ void WriteMMIO_U16(MIPSState *mips, u32 addr, u16 value) {
 void WriteMMIO_U32(MIPSState *mips, u32 addr, u32 value) {
 	if (!Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
+	}
+	if (GpioMMIO::IsGpioAddress(addr)) {
+		GpioMMIO::Write32(addr, value);
+		return;
+	}
+	if (SysconSerialMMIO::IsSysconSerialAddress(addr)) {
+		SysconSerialMMIO::Write32(addr, value);
 		return;
 	}
 	WARN_LOG(Log::CPU, "MMIO Write32 at %08x = %08x", addr, value);

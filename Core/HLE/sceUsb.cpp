@@ -210,8 +210,14 @@ static int sceUsbstorBootSetCapacity(u32 capacity) {
 	return hleReportError(Log::HLE, 0, "unimplemented");
 }
 
+// Purpose unknown - JPCSP names it after its NID and returns 0.
+static int sceUsb_8BFC3DE8(u32 arg) {
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
 const HLEFunction sceUsb[] =
 {
+	{0X8BFC3DE8, &WrapI_U<sceUsb_8BFC3DE8>,          "sceUsb_8BFC3DE8",                         'i', "x"  },
 	{0XAE5DE6AF, &WrapI_CUU<sceUsbStart>,            "sceUsbStart",                             'i', "sxx"},
 	{0XC2464FA0, &WrapI_CUU<sceUsbStop>,             "sceUsbStop",                              'i', "sxx"},
 	{0XC21645A4, &WrapI_V<sceUsbGetState>,           "sceUsbGetState",                          'i', ""   },

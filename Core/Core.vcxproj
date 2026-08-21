@@ -492,6 +492,7 @@
     <ClCompile Include="HW\BufferQueue.cpp" />
     <ClCompile Include="HW\Camera.cpp" />
     <ClCompile Include="HW\Display.cpp" />
+    <ClCompile Include="HW\GpioMMIO.cpp" />
     <ClCompile Include="HW\GranularMixer.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyMap.cpp" />
@@ -644,6 +645,7 @@
     <ClCompile Include="HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="HLE\sceNp.cpp" />
     <ClCompile Include="HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="HLE\sceResmgr.cpp" />
     <ClCompile Include="HLE\sceParseHttp.cpp" />
     <ClCompile Include="HLE\sceParseUri.cpp" />
     <ClCompile Include="HLE\scePauth.cpp" />
@@ -667,6 +669,7 @@
     <ClCompile Include="HLE\sceUsbGps.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
+    <ClCompile Include="HLE\sceVshBridge.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
@@ -1041,6 +1044,7 @@
     <ClInclude Include="HW\Atrac3Standalone.h" />
     <ClInclude Include="HW\Camera.h" />
     <ClInclude Include="HW\Display.h" />
+    <ClInclude Include="HW\GpioMMIO.h" />
     <ClInclude Include="HW\GranularMixer.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyMap.h" />
@@ -1152,6 +1156,7 @@
     <ClInclude Include="HLE\sceNetAdhocMatching.h" />
     <ClInclude Include="HLE\sceNp.h" />
     <ClInclude Include="HLE\sceOpenPSID.h" />
+    <ClInclude Include="HLE\sceResmgr.h" />
     <ClInclude Include="HLE\sceParseHttp.h" />
     <ClInclude Include="HLE\sceParseUri.h" />
     <ClInclude Include="HLE\scePauth.h" />
@@ -1176,6 +1181,7 @@
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\sceVaudio.h" />
+    <ClInclude Include="HLE\sceVshBridge.h" />
     <ClInclude Include="HLE\ThreadQueueList.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="HW\BufferQueue.h" />

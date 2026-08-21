@@ -958,6 +958,15 @@ const HLEFunction ThreadManForKernel[] =
 	{0xC11BA8C4, &WrapI_II<sceKernelNotifyCallback>,                 "sceKernelNotifyCallback",                   'i', "ii",     HLE_KERNEL_SYSCALL },
 	{0xF6427665, &WrapI_V<sceKernelGetUserLevel>,                    "sceKernelGetUserLevel",                     'i', "",       HLE_KERNEL_SYSCALL },
 	{0x85A2A5BF, &WrapI_V<sceKernelIsUserModeThread>,                "sceKernelIsUserModeThread",                 'i', "",       HLE_KERNEL_SYSCALL },
+	// NOT added on purpose, even though we implement all four for user mode already:
+	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F), sceKernelUnlockMutex
+	// (0x6B30100F) and sceKernelAllocateFpl (0xD979E9BF). They are what the real flash0 NAND and
+	// ID storage drivers use to set themselves up while booting the VSH, and leaving them
+	// unresolved is load-bearing: the drivers fail their init early and the boot moves on. Resolve
+	// them and the drivers instead get all the way through to talking to the NAND controller, which
+	// we don't emulate - sceIdStorage_Service then polls 0xbd101300 forever, no plugin module ever
+	// starts, and the boot is dead where it used to reach the shell. Adding these needs NAND MMIO
+	// (or HLE'ing sceIdStorage/sceNand above the driver) to land first.
 };
 
 void Register_ThreadManForUser()
@@ -981,15 +990,92 @@ void Register_LoadExecForUser()
 	RegisterHLEModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
  
-const HLEFunction LoadExecForKernel[] =
-{
+// sceKernelExitVSHVSH and sceKernelExitVSHKernel (two NIDs each, across firmware versions) are
+// the VSH's own way of tearing itself down - when called from a regular game/homebrew context
+// (which can happen, since these live in a kernel-mode module games can still reach) they have
+// the same observable effect as sceKernelExitGame. See SceKernelLoadExecVSHParam in sceKernel.h.
+static int sceKernelExitVSH(u32 paramPtr) {
+	if (Memory::IsValidRange(paramPtr, sizeof(SceKernelLoadExecVSHParam))) {
+		auto param = PSPPointer<SceKernelLoadExecVSHParam>::Create(paramPtr);
+		INFO_LOG(Log::sceKernel, "sceKernelExitVSH: size=%d, args=%08x, argp=%08x, flags=%08x", param->size, param->args, param->argp, param->flags);
+	}
+
+	INFO_LOG(Log::sceKernel, "sceKernelExitVSH");
+	__KernelSwitchOffThread("VSH exited");
+	Core_Stop();
+
+	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitVSH()", 0.0f, "kernelexit");
+	return hleNoLog(0);
+}
+
+// The VSH's own version of sceKernelLoadExec, used for pushing a game to run over USB/WLAN
+// (e.g. from a PC) rather than loading it from a file already on the memory stick/UMD.
+static int sceKernelLoadExecBufferVSHUsbWlan(int bufferSize, u32 bufferAddr, u32 paramPtr) {
+	if (!Memory::IsValidRange(bufferAddr, bufferSize)) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer");
+	}
+
+	const u8 *data = Memory::GetPointerUnchecked(bufferAddr);
+	std::string error_string;
+	if (!__KernelLoadExecFromBuffer(currentMIPS, data, (size_t)bufferSize, paramPtr, &error_string)) {
+		Core_UpdateState(CORE_RUNTIME_ERROR);
+		return hleLogError(Log::sceKernel, -1, "failed: %s", error_string.c_str());
+	}
+	if (gpu) {
+		gpu->Reinitialize();
+	}
+	return hleLogInfo(Log::sceKernel, 0);
+}
+
+const HLEFunction LoadExecForKernel[] = {
 	{0x4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,            "sceKernelRegisterExitCallback",             'i', "i",      HLE_KERNEL_SYSCALL },
-	{0XA3D5E142, nullptr,                                            "sceKernelExitVSHVSH",                       '?', ""        },
+	{0XA3D5E142, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHVSH",                       'i', "x",      HLE_KERNEL_SYSCALL },
 	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
-	{0x6D302D3D, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitVSHKernel",                    'v', "x", HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame 	
+	{0x6D302D3D, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHKernel",                    'i', "x",      HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame
 	{0x05572A5F, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitGame",                         'v', "", HLE_KERNEL_SYSCALL },
+	{0X08F7166C, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHVSH",                       'i', "x",      HLE_KERNEL_SYSCALL },
+	{0XD940C83C, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
+	{0XF9CFCF2F, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExec_F9CFCF2F",                'i', "sx"      },
+	{0XD8320A28, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHDisc",                  'i', "sx"      },
+	{0XC3474C2A, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHKernel",                    'i', "x",      HLE_KERNEL_SYSCALL },
+	{0XBEF585EC, &WrapI_IUU<sceKernelLoadExecBufferVSHUsbWlan>,      "sceKernelLoadExecBufferVSHUsbWlan",         'i', "ixx"     },
+	// Everything below here is only known by NID - even JPCSP, which is further along in VSH
+	// support, only knows them by name/NID (or not even that) and stubs them all out.
+	{0X11412288, nullptr,                                            "sceKernelLoadExec_11412288",                '?', ""        },
+	{0XA5ECA6E3, nullptr,                                            "sceKernelLoadExec_11412288",                '?', ""        },
+	{0X00745486, nullptr,                                            "sceKernelLoadExecVSHMs4",                   '?', ""        },
+	{0X4FB44D27, nullptr,                                            "sceKernelLoadExecVSHMs1",                   '?', ""        },
+	{0XCC6A47D2, nullptr,                                            "sceKernelLoadExecVSHMs3",                   '?', ""        },
+	{0X7CABED9B, nullptr,                                            "sceKernelLoadExecVSHMs5",                   '?', ""        },
+	{0X1B305B09, nullptr,                                            "sceKernelLoadExecVSHDiscDebug",             '?', ""        },
+	{0XD4B49C4B, nullptr,                                            "sceKernelLoadExecVSHDiscUpdater",           '?', ""        },
+	{0X2B8813AF, nullptr,                                            "sceKernelLoadExecBufferVSHUsbWlanDebug",    '?', ""        },
+	{0X1F08547A, nullptr,                                            "sceKernelInvokeExitCallback",               '?', ""        },
+	{0X1F88A490, nullptr,                                            "sceKernelRegisterExitCallback",             '?', ""        },
+	{0X24114598, nullptr,                                            "sceKernelUnregisterExitCallback",           '?', ""        },
+	{0XB57D0DEC, nullptr,                                            "sceKernelCheckExitCallback",                '?', ""        },
+	{0X032A7938, nullptr,                                            "LoadExecForKernel_032A7938",                '?', ""        },
+	{0X077BA314, nullptr,                                            "LoadExecForKernel_077BA314",                '?', ""        },
+	{0X16A68007, nullptr,                                            "LoadExecForKernel_16A68007",                '?', ""        },
+	{0X1B8AB02E, nullptr,                                            "LoadExecForKernel_1B8AB02E",                '?', ""        },
+	{0X40564748, nullptr,                                            "LoadExecForKernel_40564748",                '?', ""        },
+	{0X47A5A49C, nullptr,                                            "LoadExecForKernel_47A5A49C",                '?', ""        },
+	{0X7CAFE77F, nullptr,                                            "LoadExecForKernel_7CAFE77F",                '?', ""        },
+	{0X87C3589C, nullptr,                                            "LoadExecForKernel_87C3589C",                '?', ""        },
+	{0X8C4679D3, nullptr,                                            "LoadExecForKernel_8C4679D3",                '?', ""        },
+	{0X9BD32619, nullptr,                                            "LoadExecForKernel_9BD32619",                '?', ""        },
+	{0XA6658F10, nullptr,                                            "LoadExecForKernel_A6658F10",                '?', ""        },
+	{0XB343FDAB, nullptr,                                            "LoadExecForKernel_B343FDAB",                '?', ""        },
+	{0XBC26BEEF, nullptr,                                            "LoadExecForKernel_BC26BEEF",                '?', ""        },
+	{0XC11E6DF1, nullptr,                                            "LoadExecForKernel_C11E6DF1",                '?', ""        },
+	{0XC540E3B3, nullptr,                                            "LoadExecForKernel_C540E3B3",                '?', ""        },
+	{0XC7C83B1E, nullptr,                                            "LoadExecForKernel_C7C83B1E",                '?', ""        },
+	{0XDBD0CF1B, nullptr,                                            "LoadExecForKernel_DBD0CF1B",                '?', ""        },
+	{0XE1972A24, nullptr,                                            "LoadExecForKernel_E1972A24",                '?', ""        },
+	{0XE704ECC3, nullptr,                                            "LoadExecForKernel_E704ECC3",                '?', ""        },
+	{0XAE9EFC0D, nullptr,                                            "LoadExecForKernel_AE9EFC0D",                '?', ""        },
 };
- 
+
 void Register_LoadExecForKernel()
 {
 	RegisterHLEModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);

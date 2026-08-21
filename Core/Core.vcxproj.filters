@@ -375,6 +375,9 @@
     <ClCompile Include="HLE\sceOpenPSID.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceResmgr.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceParseUri.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -385,6 +388,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceVaudio.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceVshBridge.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="Dialog\PSPDialog.cpp">
@@ -1204,6 +1210,9 @@
     <ClCompile Include="HW\Display.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HW\GpioMMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNp2.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -1692,6 +1701,9 @@
     <ClInclude Include="HLE\sceOpenPSID.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceResmgr.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceParseUri.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -1702,6 +1714,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceVaudio.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceVshBridge.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Dialog\PSPDialog.h">
@@ -2161,6 +2176,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="HW\Display.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\GpioMMIO.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNp2.h">

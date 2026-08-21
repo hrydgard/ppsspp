@@ -210,6 +210,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(yres), CmdParamType::Int, "yres", '\0', "Set Y resolution", CmdLineMode::Application},
 	{POFF(dpi), CmdParamType::Double, "dpi", '\0', "Set DPI", CmdLineMode::Application},
 	{POFF(scale), CmdParamType::Double, "scale", '\0', "Set scale", CmdLineMode::Application},
+	{POFF(flash0), CmdParamType::String, "flash0", '\0', "Set flash0 directory", CmdLineMode::Both},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -573,6 +574,11 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (logNativeCrashes.has_value()) {
 		g_Config.bLogNativeCrashStackTraces = logNativeCrashes.value();
 		g_Config.DoNotSaveSetting(&g_Config.bLogNativeCrashStackTraces);
+	}
+
+	if (flash0.has_value()) {
+		g_Config.flash0Directory = Path(flash0.value());
+		g_Config.DoNotSaveSetting(&g_Config.flash0Directory);
 	}
 
 	// --vsh is applied by the caller (by setting their boot file name variable).

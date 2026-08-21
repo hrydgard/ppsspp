@@ -2469,6 +2469,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.ToString());
 				});
 			}
+			if (ImGui::MenuItem("Load XMB (VSH)")) {
+				System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, (g_Config.flash0Directory / "vsh/module/vshmain.prx").ToString());
+			}
 			if (ImGui::MenuItem("Open directory...")) {
 				System_BrowseForFolder(reqToken_, "Load", Path(), [](std::string_view value, int) {
 					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, value);

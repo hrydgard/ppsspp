@@ -609,6 +609,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/BufferQueue.cpp \
   $(SRC)/Core/HW/Camera.cpp \
   $(SRC)/Core/HW/Display.cpp \
+  $(SRC)/Core/HW/GpioMMIO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
@@ -760,6 +761,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceNetInet.cpp \
   $(SRC)/Core/HLE/sceNetResolver.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
+  $(SRC)/Core/HLE/sceResmgr.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
   $(SRC)/Core/HLE/sceMt19937.cpp \
   $(SRC)/Core/HLE/sceParseHttp.cpp \
@@ -781,6 +783,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceUsbMic.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
+  $(SRC)/Core/HLE/sceVshBridge.cpp \
   $(SRC)/Core/HLE/scePspNpDrm_user.cpp \
   $(SRC)/Core/HLE/sceGameUpdate.cpp \
   $(SRC)/Core/HLE/sceNp.cpp \

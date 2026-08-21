@@ -58,6 +58,7 @@
 #include "sceNp.h"
 #include "sceMpeg.h"
 #include "sceOpenPSID.h"
+#include "sceResmgr.h"
 #include "sceP3da.h"
 #include "sceParseHttp.h"
 #include "sceParseUri.h"
@@ -78,6 +79,7 @@
 #include "sceUsbMic.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
+#include "sceVshBridge.h"
 #include "sceMt19937.h"
 #include "sceSha256.h"
 #include "sceAdler.h"
@@ -163,6 +165,13 @@ static const HLEFunction LoadCoreForKernel[] = {
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 };
 
+// sceKernelSm1ReferOperations() returns a pointer to a driver-registered "SM1 operations"
+// table (set up via the sibling sceKernelSm1RegisterOperations(), also unimplemented here),
+// or NULL if nothing has registered one.
+static u32 sceKernelSm1ReferOperations() {
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
 static const HLEFunction KDebugForKernel[] = {
 	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
@@ -181,7 +190,7 @@ static const HLEFunction KDebugForKernel[] = {
 	{0X5282DD5E, nullptr,                                            "sceKernelDipswSet",                       '?', ""   },
 	{0X9F8703E4, nullptr,                                            "sceKernelDipswCpTime",                    '?', ""   },
 	{0X333DCEC7, nullptr,                                            "sceKernelSm1RegisterOperations",          '?', ""   },
-	{0XE892D9A1, nullptr,                                            "sceKernelSm1ReferOperations",             '?', ""   },
+	{0XE892D9A1, &WrapU_V<sceKernelSm1ReferOperations>,              "sceKernelSm1ReferOperations",             'x', ""   },
 	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
@@ -315,9 +324,11 @@ void RegisterAllModules() {
 	Register_sceImpose_driver();
 	Register_sceHprm_driver();
 	Register_sceChkreg();
+	Register_sceVshBridge();
+	Register_sceResmgr();
+
 	// add new modules here.
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
 }
-
