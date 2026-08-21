@@ -73,8 +73,8 @@ static const std::unordered_map<std::string, BuiltIn> knownBuiltIns = {
 	{"/void", {BuiltInType::Void, -1, nullptr}},
 };
 
-static void DrawBuiltInEditPopup(const BuiltIn &builtIn, const u32 address) {
-	if (builtIn.imGuiType == -1) {
+static void DrawBuiltInEditPopup(const BuiltIn &builtIn, const u32 address, const int length) {
+	if (builtIn.imGuiType == -1 || length <= 0 || !Memory::IsValidRange(address, length)) {
 		return;
 	}
 	ImGui::OpenPopupOnItemClick("edit", ImGuiPopupFlags_MouseButtonRight);
@@ -84,68 +84,58 @@ static void DrawBuiltInEditPopup(const BuiltIn &builtIn, const u32 address) {
 				case BuiltInType::Bool:
 				case BuiltInType::Char:
 				case BuiltInType::Int8:
-					if (Memory::IsValidAddress(address)) {
-						Memory::WriteUnchecked_U8(0, address);
-					}
+					Memory::WriteUnchecked_U8(0, address);
 					break;
 				case BuiltInType::Int16:
-					if (Memory::IsValidRange(address, 2)) {
-						Memory::WriteUnchecked_U16(0, address);
-					}
+					Memory::WriteUnchecked_U16(0, address);
 					break;
 				case BuiltInType::Int32:
-					if (Memory::IsValidRange(address, 4)) {
-						Memory::WriteUnchecked_U32(0, address);
-					}
+					Memory::WriteUnchecked_U32(0, address);
 					break;
 				case BuiltInType::Int64:
-					if (Memory::IsValidRange(address, 8)) {
-						Memory::WriteUnchecked_U64(0, address);
-					}
+					Memory::WriteUnchecked_U64(0, address);
 					break;
 				case BuiltInType::Float:
-					if (Memory::IsValidRange(address, 4)) {
-						Memory::WriteUnchecked_Float(0, address);
-					}
+					Memory::WriteUnchecked_Float(0, address);
 					break;
 				default:
 					break;
 			}
 		}
-		if (Memory::IsValidRange(address, 8)) {
-			void *data = Memory::GetPointerWriteUnchecked(address);
-			if (builtIn.hexFormat) {
-				ImGui::DragScalar("Value (hex)", builtIn.imGuiType, data, 0.2f, nullptr, nullptr, builtIn.hexFormat);
-			}
-			ImGui::DragScalar("Value", builtIn.imGuiType, data, 0.2f);
+		void *data = Memory::GetPointerWriteUnchecked(address);
+		if (builtIn.hexFormat) {
+			ImGui::DragScalar("Value (hex)", builtIn.imGuiType, data, 0.2f, nullptr, nullptr, builtIn.hexFormat);
 		}
+		ImGui::DragScalar("Value", builtIn.imGuiType, data, 0.2f);
 		ImGui::EndPopup();
 	}
 }
 
-static void DrawIntBuiltInEditPopup(const u32 address, const u32 length) {
+static void DrawIntBuiltInEditPopup(const u32 address, const int length) {
 	switch (length) {
 		case 1:
-			DrawBuiltInEditPopup(knownBuiltIns.at("/byte"), address);
+			DrawBuiltInEditPopup(knownBuiltIns.at("/byte"), address, length);
 			break;
 		case 2:
-			DrawBuiltInEditPopup(knownBuiltIns.at("/word"), address);
+			DrawBuiltInEditPopup(knownBuiltIns.at("/word"), address, length);
 			break;
 		case 4:
-			DrawBuiltInEditPopup(knownBuiltIns.at("/dword"), address);
+			DrawBuiltInEditPopup(knownBuiltIns.at("/dword"), address, length);
 			break;
 		case 8:
-			DrawBuiltInEditPopup(knownBuiltIns.at("/qword"), address);
+			DrawBuiltInEditPopup(knownBuiltIns.at("/qword"), address, length);
 			break;
 		default:
 			break;
 	}
 }
 
-static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
-	if (!Memory::IsValidRange(address, address + 8)) {
-		// Check a little too crude, but...
-		ImGui::Text("(invalid address: %08x)", address);
+static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address, const int length) {
+	// Length is negative for unsized type (e.g. null terminated string) and 0 for void type, at least first byte must be valid then
+	if (!Memory::IsValidRange(address, length <= 0 ? 1 : length)) {
+		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GRAY);
+		ImGui::Text("<invalid address: %08x>", address);
+		ImGui::PopStyleColor();
 		return;
 	}
 	switch (builtIn.type) {
@@ -177,7 +167,7 @@ static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
 			if (Memory::IsValidNullTerminatedString(address)) {
 				ImGui::Text("= \"%s\"", Memory::GetCharPointerUnchecked(address));
 			} else {
-				ImGui::Text("= %x <invalid string @ %x>", Memory::ReadUnchecked_U8(address), address);
+				ImGui::Text("= %x <invalid string @ %08x>", Memory::ReadUnchecked_U8(address), address);
 			}
 			break;
 		case BuiltInType::Float:
@@ -189,11 +179,11 @@ static void DrawBuiltInContent(const BuiltIn &builtIn, const u32 address) {
 		default:
 			return;
 	}
-	DrawBuiltInEditPopup(builtIn, address);
+	DrawBuiltInEditPopup(builtIn, address, length);
 }
 
-static u64 ReadMemoryInt(const u32 address, const u32 length) {
-	if (!Memory::IsValidRange(address, length)) {
+static u64 ReadMemoryInt(const u32 address, const int length) {
+	if (length <= 0 || !Memory::IsValidRange(address, length)) {
 		return 0;
 	}
 	switch (length) {
@@ -508,9 +498,9 @@ static void DrawTypeColumn(
 	ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GRAY);
 	ImGui::SameLine();
 	if (offset != 0) {
-		ImGui::Text("@ %x+%x", base, offset);
+		ImGui::Text("@ %08x+%x", base, offset);
 	} else {
-		ImGui::Text("@ %x", base);
+		ImGui::Text("@ %08x", base);
 	}
 	ImGui::PopStyleColor();
 }
@@ -534,22 +524,26 @@ static void DrawArrayContent(
 	if (!charElement) {
 		return;
 	}
-	const char *charPointer = Memory::GetCharPointerUnchecked(address);
-	std::string text(charPointer, charPointer + type.arrayElementCount);
-	text = std::regex_replace(text, std::regex("\n"), "\\n");
-	ImGui::Text("= \"%s\"", text.c_str());
+	if (Memory::IsValidRange(address, type.arrayElementCount)) {
+		const char *charPointer = Memory::GetCharPointerUnchecked(address);
+		std::string text(charPointer, charPointer + type.arrayElementCount);
+		text = std::regex_replace(text, std::regex("\n"), "\\n");
+		ImGui::Text("= \"%s\"", text.c_str());
+	} else {
+		ImGui::Text("= %x <invalid string @ %08x>", Memory::ReadUnchecked_U8(address), address);
+	}
 }
 
 static void DrawPointerText(const u32 value) {
 	if (Memory::IsValidAddress(value)) {
-		ImGui::Text("* %x", value);
+		ImGui::Text("* %08x", value);
 		return;
 	}
 	ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GRAY);
 	if (value == 0) {
 		ImGui::Text("* NULL");
 	} else {
-		ImGui::Text("* <invalid pointer: %x>", value);
+		ImGui::Text("* <invalid pointer: %08x>", value);
 	}
 	ImGui::PopStyleColor();
 }
@@ -654,11 +648,7 @@ void ImStructViewer::DrawType(
 		}
 	}
 
-	const u32 address = base + offset;
-	if (!Memory::IsValidAddress(address)) {
-		// Bad!
-		return;
-	}
+	const u32 address = base + offset; // We check if this address is valid a bit later
 	ImGui::PushID(static_cast<int>(address));
 	ImGui::PushID(watchId); // We push watch id too as it's possible to have multiple watches on the same address
 
@@ -694,7 +684,7 @@ void ImStructViewer::DrawType(
 		DrawTypeColumn("%s", typeDisplayName, base, offset);
 		ImGui::TableSetColumnIndex(COLUMN_CONTENT);
 		ImGui::PushStyleColor(ImGuiCol_Text, COLOR_GRAY);
-		ImGui::Text("<invalid address: %x>", address);
+		ImGui::Text("<invalid address: %08x>", address);
 		ImGui::PopStyleColor();
 		ImGui::PopID();
 		ImGui::PopID();
@@ -718,7 +708,7 @@ void ImStructViewer::DrawType(
 		}
 		case POINTER: {
 			const bool nodeOpen = ImGui::TreeNodeEx("Pointer", extraTreeNodeFlags, "%s", name);
-			const u32 pointer = Memory::ReadUnchecked_U32(address);
+			const u32 pointer = ReadMemoryInt(address, 4);
 			const u64 pointer64 = pointer;
 			DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, &pointer64);
 			DrawTypeColumn("%s", typeDisplayName, base, offset);
@@ -804,7 +794,7 @@ void ImStructViewer::DrawType(
 				DrawContextMenu(base, offset, type.alignedLength, typePathName, name, watchId, &value);
 				DrawTypeColumn("%s", typeDisplayName, base, offset);
 				ImGui::TableSetColumnIndex(COLUMN_CONTENT);
-				DrawBuiltInContent(knownBuiltIns.at(typePathName), address);
+				DrawBuiltInContent(knownBuiltIns.at(typePathName), address, type.alignedLength);
 			} else {
 				// Some built in types are rather obscure so we don't handle every possible one
 				ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
