@@ -941,11 +941,9 @@ static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 	return 0;
 }
 
-//Returns 0 on success, according to Project Diva 2nd jpcsptrace log
-static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
-{
-	ERROR_LOG_REPORT(Log::sceRtc, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
-	return 0;
+// Returns 0 on success, according to Project Diva 2nd jpcsptrace log
+static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2) {
+	return hleLogError(Log::sceRtc, 0, "UNIMPL");
 }
 
 // Real signature per uofw (sceRtc_C2DDBEB5, src/kd/rtc/rtc.c): s32 sceRtcGetAlarmTick(u64 *tick).

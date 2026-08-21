@@ -186,7 +186,8 @@ static int sceAudioGetChannelRestLength(u32 chan) {
 }
 
 static u32 GetFreeChannel() {
-	for (u32 i = PSP_AUDIO_CHANNEL_MAX - 1; i > 0; --i) {
+	// Changed this to allow channel 0. Fixes the startup sound in VSH. TODO: Why did we not allow channel 0 before?
+	for (u32 i = PSP_AUDIO_CHANNEL_MAX - 1; i >= 0; --i) {
 		if (!g_audioChans[i].reserved)
 			return i;
 	}

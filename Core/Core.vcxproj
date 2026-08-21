@@ -477,6 +477,7 @@
     <ClCompile Include="HLE\NetInetConstants.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceAac.cpp" />
+    <ClCompile Include="HLE\sceChkreg.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
     <ClCompile Include="HLE\sceNetApctl.cpp" />
     <ClCompile Include="HLE\sceNetInet.cpp" />
@@ -1026,6 +1027,7 @@
     <ClInclude Include="HLE\Plugins.h" />
     <ClInclude Include="HLE\PSPThreadContext.h" />
     <ClInclude Include="HLE\sceAac.h" />
+    <ClInclude Include="HLE\sceChkreg.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
     <ClInclude Include="HLE\sceNetApctl.h" />
     <ClInclude Include="HLE\sceNetInet.h" />

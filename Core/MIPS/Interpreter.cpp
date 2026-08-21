@@ -100,27 +100,53 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 constexpr u32 UNKNOWN_MMIO_POISON = 0x1337BEEF;
 
 static u8 ReadMMIO_U8(MIPSState *mips, u32 addr) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, 1, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
+		return (u8)UNKNOWN_MMIO_POISON;
+	}
 	WARN_LOG(Log::CPU, "MMIO Read8 at %08x", addr);
 	return (u8)UNKNOWN_MMIO_POISON;
 }
 
 static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, 2, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
+		return (u8)UNKNOWN_MMIO_POISON;
+	}
 	WARN_LOG(Log::CPU, "MMIO Read16 at %08x", addr);
 	return (u16)UNKNOWN_MMIO_POISON;
 }
 
 static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
+		return (u8)UNKNOWN_MMIO_POISON;
+	}
 	WARN_LOG(Log::CPU, "MMIO Read32 at %08x", addr);
 	return UNKNOWN_MMIO_POISON;
 }
 
 void WriteMMIO_U8(MIPSState *mips, u32 addr, u8 value) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, 1, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
+		return;
+	}
 	WARN_LOG(Log::CPU, "MMIO Write8 at %08x = %02x", addr, value);
 }
+
 void WriteMMIO_U16(MIPSState *mips, u32 addr, u16 value) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, 2, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
+		return;
+	}
 	WARN_LOG(Log::CPU, "MMIO Write16 at %08x = %04x", addr, value);
 }
+
 void WriteMMIO_U32(MIPSState *mips, u32 addr, u32 value) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
+		return;
+	}
 	WARN_LOG(Log::CPU, "MMIO Write32 at %08x = %08x", addr, value);
 }
 

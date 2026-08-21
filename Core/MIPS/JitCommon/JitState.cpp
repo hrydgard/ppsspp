@@ -20,6 +20,7 @@
 #include "Core/Config.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MemMap.h"
 #include "Common/MemoryUtil.h"
 
 namespace MIPSComp {
@@ -36,6 +37,7 @@ void JitState::Begin(JitBlock *block) {
 	inDelaySlot = false;
 	blockWrotePrefixes = false;
 	afterOp = JitState::AFTER_NONE;
+	kernelMode = Memory::IsKernelCodeAddress(block->originalAddress);
 	PrefixStart();
 }
 

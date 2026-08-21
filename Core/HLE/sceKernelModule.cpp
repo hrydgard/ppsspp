@@ -2199,7 +2199,7 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 		// TODO: Why do we skip smoption->attribute here?
 
 		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
-		_dbg_assert_(threadID > 0);
+		_dbg_assert_msg_(threadID > 0, "__KernelCreateThread returned %08x", threadID);
 		// TOOD: Check the return value and bail?
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);

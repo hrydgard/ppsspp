@@ -453,6 +453,8 @@ add_library(Core STATIC
 	HLE/sceAudio.h
 	HLE/sceCcc.h
 	HLE/sceCcc.cpp
+	HLE/sceChkreg.cpp
+	HLE/sceChkreg.h
 	HLE/sceChnnlsv.cpp
 	HLE/sceChnnlsv.h
 	HLE/sceCtrl.cpp

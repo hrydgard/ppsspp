@@ -160,6 +160,11 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	return addr;
 }
 
+static int sceKernelGetModel() {
+	constexpr u32 model = 2;  // 2 = original slim.
+	return hleLogWarning(Log::sceKernel, model - 1);
+}
+
 const HLEFunction SysMemForKernel[] = {
 	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,             "sceKernelAllocHeapMemory",           'x', "ii",    HLE_KERNEL_SYSCALL },
 	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                   "sceKernelDeleteHeap",                'i', "i" ,    HLE_KERNEL_SYSCALL },
@@ -173,7 +178,8 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0X536AD5E1, &WrapU_V<sceKernelGetUidmanCB>,                  "sceKernelGetUidmanCB",               'i', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0X7B749390, &WrapI_IU<sceKernelFreeHeapMemory>,              "sceKernelFreeHeapMemory",            'i', "ix" ,   HLE_KERNEL_SYSCALL },
 	{ 0XEB7A74DB, &WrapI_IUU<sceKernelAllocHeapMemoryWithOption>,  "sceKernelAllocHeapMemoryWithOption", 'i', "ixp" ,  HLE_KERNEL_SYSCALL },
-	{ 0x6373995d, nullptr,                                         "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x6373995d, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL},  // 220
+	{ 0x07C586A1, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },  // 220
 };
 
 void Register_SysMemForKernel() {

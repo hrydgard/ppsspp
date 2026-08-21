@@ -1849,6 +1849,9 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return hleLogError(Log::sceIo, -1, "Failed 0x02425824 fat");
 			}
 			break;
+		case 0x02425856:
+			// Used by VSH, no clue what it should do. Let's just return 0.
+			return hleLogError(Log::sceIo, 0, "Unknown memstick devctl: %08x", cmd);
 		}
 	}
 

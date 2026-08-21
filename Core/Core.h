@@ -266,6 +266,7 @@ enum class MemoryExceptionType {
 enum class ExecExceptionType {
 	JUMP,
 	THREAD,
+	PERM,  // trying to execute kernel space instructions in user space
 	ILLEGAL,
 };
 

@@ -204,6 +204,24 @@ static int scePowerIsLowBattery() {
 	return hleLogDebug(Log::HLE, 0);
 }
 
+static int scePowerIsSuspendRequired() {
+	return hleLogInfo(Log::HLE, 0);
+}
+
+static int scePowerCancelRequest(u32 something) {
+	return hleLogError(Log::sceMisc, 0, "UNIMPL");
+}
+
+static int scePowerRequestSuspend() {
+	// Don't think we need to do anything.
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
+static int scePowerRequestStandby() {
+	// Don't think we need to do anything.
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
 static int scePowerRegisterCallback(int slot, int cbId) {
 	if (slot < -1 || slot >= numberOfCBPowerSlotsPrivate) {
 		return hleLogError(Log::HLE, PSP_POWER_ERROR_INVALID_SLOT);
@@ -568,7 +586,7 @@ static const HLEFunction scePower[] = {
 	{0X1E490401, &WrapI_V<scePowerIsBatteryCharging>,         "scePowerIsBatteryCharging",         'i', ""   },
 	{0XB4432BC8, &WrapI_V<scePowerGetBatteryChargingStatus>,  "scePowerGetBatteryChargingStatus",  'i', ""   },
 	{0XD3075926, &WrapI_V<scePowerIsLowBattery>,              "scePowerIsLowBattery",              'i', ""   },
-	{0X78A1A796, nullptr,                                     "scePowerIsSuspendRequired",         '?', ""   },
+	{0X78A1A796, &WrapI_V<scePowerIsSuspendRequired>,         "scePowerIsSuspendRequired",         '?', ""   },
 	{0X94F5A53F, nullptr,                                     "scePowerGetBatteryRemainCapacity",  '?', ""   },
 	{0XFD18A0FF, nullptr,                                     "scePowerGetBatteryFullCapacity",    '?', ""   },
 	{0X2085D15D, &WrapI_V<scePowerGetBatteryLifePercent>,     "scePowerGetBatteryLifePercent",     'i', ""   },
@@ -582,10 +600,10 @@ static const HLEFunction scePower[] = {
 	{0X165CE085, nullptr,                                     "scePowerGetPowerSwMode",            '?', ""   },
 	{0XD6D016EF, nullptr,                                     "scePowerLock",                      '?', ""   },
 	{0XCA3D34C1, nullptr,                                     "scePowerUnlock",                    '?', ""   },
-	{0XDB62C9CF, nullptr,                                     "scePowerCancelRequest",             '?', ""   },
+	{0XDB62C9CF, &WrapI_U<scePowerCancelRequest>,             "scePowerCancelRequest",             'i', ""   },
 	{0X7FA406DD, nullptr,                                     "scePowerIsRequest",                 '?', ""   },
-	{0X2B7C7CF4, nullptr,                                     "scePowerRequestStandby",            '?', ""   },
-	{0XAC32C9CC, nullptr,                                     "scePowerRequestSuspend",            '?', ""   },
+	{0X2B7C7CF4, &WrapI_V<scePowerRequestStandby>,            "scePowerRequestStandby",            'I', ""   },
+	{0XAC32C9CC, &WrapI_V<scePowerRequestSuspend>,            "scePowerRequestSuspend",            'I', ""   },
 	{0X2875994B, nullptr,                                     "scePower_2875994B",                 '?', ""   },
 	{0X0074EF9B, nullptr,                                     "scePowerGetResumeCount",            '?', ""   },
 	{0XDFA8BAF8, &WrapI_I<scePowerUnregisterCallback>,        "scePowerUnregisterCallback",        'i', "i"  },

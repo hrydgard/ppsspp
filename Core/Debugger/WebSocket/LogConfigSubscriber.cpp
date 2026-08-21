@@ -119,6 +119,9 @@ void WebSocketLogChannelSet(DebuggerRequest &req) {
 		if (channelName != LogManager::GetLogTypeName(type))
 			continue;
 
+		// These are meant as temporary, session-only diagnostic tweaks - make sure they never
+		// get written back over the user's actual saved log settings.
+		g_logManager.NotifyChannelsChangedByDebugger();
 		if (hasLevel)
 			g_logManager.SetLogLevel(type, level);
 		if (hasEnabled)

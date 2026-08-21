@@ -729,6 +729,11 @@ bool CreateFullPath(const Path &path) {
 		return true;
 	}
 
+	if (path.empty()) {
+		ERROR_LOG(Log::IO, "Can't create an empty path");
+		return false;
+	}
+
 	switch (path.Type()) {
 	case PathType::NATIVE:
 	case PathType::CONTENT_URI:

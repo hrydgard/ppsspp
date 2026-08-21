@@ -208,19 +208,26 @@ void LogManager::SetFileLogPath(const Path &filename) {
 		fp_ = nullptr;
 	}
 
-	logFilename_ = Path(filename);
+	if (!filename.empty()) {
+		logFilename_ = Path(filename);
 
-	if (outputs_ & LogOutput::File) {
-		File::CreateFullPath(logFilename_.NavigateUp());
-		fp_ = File::OpenCFile(logFilename_, "at");
-		logFileOpenFailed_ = fp_ == nullptr;
-		if (logFileOpenFailed_) {
-			printf("Failed to open log file %s\n", logFilename_.c_str());
+		if (outputs_ & LogOutput::File) {
+			File::CreateFullPath(logFilename_.NavigateUp());
+			fp_ = File::OpenCFile(logFilename_, "at");
+			logFileOpenFailed_ = fp_ == nullptr;
+			if (logFileOpenFailed_) {
+				printf("Failed to open log file %s\n", logFilename_.c_str());
+			}
 		}
 	}
 }
 
 void LogManager::SaveConfig(Section *section) {
+	if (channelsChangedByDebugger_) {
+		// Leave the section as whatever was already on disk - see the doc comment on
+		// NotifyChannelsChangedByDebugger().
+		return;
+	}
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		section->Set((std::string(g_logTypeNames[i]) + "Enabled"), g_log[i].enabled);
 		section->Set((std::string(g_logTypeNames[i]) + "Level"), (int)g_log[i].level);

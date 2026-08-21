@@ -770,6 +770,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceAudiocodec.cpp \
 	       $(COREDIR)/HLE/sceAudioRouting.cpp \
 	       $(COREDIR)/HLE/sceCcc.cpp \
+	       $(COREDIR)/HLE/sceChkreg.cpp \
 	       $(COREDIR)/HLE/sceChnnlsv.cpp \
 	       $(COREDIR)/HLE/sceCtrl.cpp \
 	       $(COREDIR)/HLE/sceDeflt.cpp \

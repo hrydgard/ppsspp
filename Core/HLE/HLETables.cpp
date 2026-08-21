@@ -26,6 +26,7 @@
 #include "sceCcc.h"
 #include "sceChnnlsv.h"
 #include "sceCtrl.h"
+#include "sceChkreg.h"
 #include "sceDeflt.h"
 #include "sceDisplay.h"
 #include "sceDmac.h"
@@ -313,6 +314,7 @@ void RegisterAllModules() {
 	Register_scePower_driver();
 	Register_sceImpose_driver();
 	Register_sceHprm_driver();
+	Register_sceChkreg();
 	// add new modules here.
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.

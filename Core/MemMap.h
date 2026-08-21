@@ -403,6 +403,13 @@ inline bool IsValidTextureAddress(const u32 address) {
 	}
 }
 
+// This is a bit of a hack, to let the JITs and interpreters know where to apply kernel
+// mode restrictions on instruction emulation (and where to use slow memory handlers that can handle MMIO).
+inline bool IsKernelCodeAddress(u32 address) {
+	address &= 0x3FFFFFFF;
+	return ((address & 0x0F800003) == 0x08000000) && address >= 0x08000100;
+}
+
 // I believe this is the same, but let's keep a separate function.
 inline bool IsValidCLUTAddress(const u32 address) {
 	return IsValidTextureAddress(address);
