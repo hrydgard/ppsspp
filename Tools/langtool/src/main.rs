@@ -1,6 +1,6 @@
 use std::io;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 mod section;
 use section::{Section, line_value};
@@ -473,7 +473,7 @@ fn finish_language_with_ai(
             continue;
         };
         let mut alias_map = BTreeMap::new();
-        let mut alias_inverse_map = BTreeMap::new();
+        let mut alias_inverse_map: BTreeMap<String, Vec<&str>> = BTreeMap::new();
         for line in &ref_section.lines {
             if let Some((key, value)) = split_line(line) {
                 // We actually process almost everything here, we could check for case but we don't
@@ -481,7 +481,13 @@ fn finish_language_with_ai(
                 if key != value {
                     println!("Saving alias: {key} = {value}");
                     alias_map.insert(key, value.to_string());
-                    alias_inverse_map.insert(value.to_string(), key);
+                    // Several keys can share the same English string (like "Texture Filter" and
+                    // "Texture Filtering" in [Graphics]), so this can't be a plain value -> key
+                    // map, we'd silently lose all but the last of them.
+                    alias_inverse_map
+                        .entry(value.to_string())
+                        .or_default()
+                        .push(key);
                 }
             }
         }
@@ -537,6 +543,9 @@ fn finish_language_with_ai(
             untranslated_keys
                 .iter()
                 .map(|(k, _v)| format!("{} = ", alias_map.get(k).unwrap_or(&k.to_string())))
+                // Deduped, since keys that share an English string produce the same line.
+                .collect::<BTreeSet<String>>()
+                .into_iter()
                 .collect::<Vec<String>>()
                 .join("\n"),
             translated_keys
@@ -565,25 +574,34 @@ fn finish_language_with_ai(
                     println!("Merging AI response for section '{}'", parsed_section.name);
                     for line in &parsed_section.lines {
                         if let Some((key, value)) = split_line(line) {
-                            // Put the key through the inverse alias map.
-                            let original_key = alias_inverse_map.get(key).unwrap_or(&key);
-                            let ref_value = ref_section.get_value(original_key).unwrap_or_default();
-                            let issues = validate::check_ai_translation(&ref_value, value);
-                            if !issues.is_empty() {
-                                for issue in issues {
-                                    println!("Rejecting '{original_key}' = '{value}': {issue}");
+                            // Put the key through the inverse alias map. Can give us more than one
+                            // key, if they share the same English string - they all get the same
+                            // translation, which is what we want.
+                            let itself = vec![key];
+                            let original_keys = alias_inverse_map.get(key).unwrap_or(&itself);
+                            for original_key in original_keys {
+                                let ref_value =
+                                    ref_section.get_value(original_key).unwrap_or_default();
+                                let issues = validate::check_ai_translation(&ref_value, value);
+                                if !issues.is_empty() {
+                                    for issue in issues {
+                                        println!("Rejecting '{original_key}' = '{value}': {issue}");
+                                    }
+                                    continue;
                                 }
-                                continue;
-                            }
-                            print!("Updating '{}': {}", original_key, value);
-                            if key != *original_key {
-                                println!(" ({})", key);
-                            } else {
-                                println!();
-                            }
-                            if !target_section.set_value(original_key, value, Some("AI translated"))
-                            {
-                                println!("Failed to update '{}'", original_key);
+                                print!("Updating '{}': {}", original_key, value);
+                                if key != *original_key {
+                                    println!(" ({})", key);
+                                } else {
+                                    println!();
+                                }
+                                if !target_section.set_value(
+                                    original_key,
+                                    value,
+                                    Some("AI translated"),
+                                ) {
+                                    println!("Failed to update '{}'", original_key);
+                                }
                             }
                         }
                     }
