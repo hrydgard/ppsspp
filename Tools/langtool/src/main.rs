@@ -673,8 +673,7 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
-    let reference_ini =
-        IniFile::parse_file(&format!("{root}/{reference_ini_filename}")).unwrap();
+    let reference_ini = IniFile::parse_file(&format!("{root}/{reference_ini_filename}")).unwrap();
 
     let mut filenames = Vec::new();
     if filenames.is_empty() {
@@ -801,11 +800,15 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 language: _,
                 section: _,
             } => {}
-            Command::FixupRefKeys => if is_reference {
-                fixup_keys(&target_ini, dry_run).unwrap();
+            Command::FixupRefKeys => {
+                if is_reference {
+                    fixup_keys(&target_ini, dry_run).unwrap();
+                }
             }
-            Command::CheckRefKeys => if is_reference {
-                check_keys(&target_ini).unwrap();
+            Command::CheckRefKeys => {
+                if is_reference {
+                    check_keys(&target_ini).unwrap();
+                }
             }
             Command::CopyMissingLines {
                 dont_comment_missing,
@@ -916,14 +919,8 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 } else {
                     if ai_response.is_some() {
                         let _ = extra;
-                        add_new_key(
-                            &mut target_ini,
-                            section,
-                            key,
-                            value,
-                            overwrite_translated,
-                        )
-                        .unwrap();
+                        add_new_key(&mut target_ini, section, key, value, overwrite_translated)
+                            .unwrap();
                     }
                 }
             }
