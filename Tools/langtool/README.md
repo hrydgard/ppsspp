@@ -47,6 +47,11 @@ cargo run -- --model gpt-4o finish-language-with-ai sv_SE
 
 The provider is inferred from the model name, so `--provider` is only needed to disambiguate.
 
+Strings that are deliberately the same as the English one (terms like "Vsync") are marked with a
+`# same as English` comment. `finish-language-with-ai` skips those instead of paying to have them
+"translated" again on every run, and writes the comment itself when the AI hands the English string
+back unchanged. Delete the comment if you disagree with it and it'll be picked up again next time.
+
 To autoformat the code, use:
 
 ```bash

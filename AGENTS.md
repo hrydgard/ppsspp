@@ -203,7 +203,9 @@ from `Tools/langtool`:
    No trailing `# comments` on those lines, they'd end up inside the translation. Placeholders have to
    survive verbatim. If you don't know a language well enough, leave it out - a key that's missing from
    a language file falls back to the English string at runtime, which is much better than a confident
-   guess.
+   guess. If a language deliberately keeps the English string (a term like "Vsync" that isn't
+   translated), do include it with the English text - it gets written with a `# same as English`
+   comment, which stops langtool from trying to translate it again on every later run.
 3. `cargo run -- import-single <scratch-file> <Section> "<Key>"` writes them all in, including a new
    key in en_US.ini, tagged `# AI translated` except for the en_US line, which is the string the rest
    were translated from. Note it overwrites existing values for that key, so take care with keys that

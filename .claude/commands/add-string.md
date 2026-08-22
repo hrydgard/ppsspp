@@ -44,6 +44,11 @@ Follow the workflow in AGENTS.md under "Translated UI strings (assets/lang)". Ru
    from a language file falls back to the English string at runtime, which is normal and fine - much
    better than a confident guess that nobody in the project can read well enough to catch.
 
+   If a language deliberately keeps the English string (a term like "Vsync" that language doesn't
+   translate), that's different from not knowing - include it with the English text. It gets written
+   with a `# same as English` comment, which is what stops langtool from trying to translate it
+   again on every later run.
+
 3. `cargo run -- import-single <scratch-file> "$1" "$2"`
 
    Note this overwrites any existing value for that key, so if the key already had human

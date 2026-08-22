@@ -28,6 +28,26 @@ pub fn line_value(line: &str) -> Option<&str> {
     split_line(line).map(|tuple| tuple.1)
 }
 
+/// The comment we put on a line that's deliberately identical to the English string, so we don't
+/// keep paying to have it "translated" over and over.
+pub const SAME_COMMENT: &str = "same as English";
+
+/// Splits the value part of a line into the value itself and its trailing comment, if any
+/// (without the '#').
+pub fn split_comment(value: &str) -> (&str, &str) {
+    match value.split_once('#') {
+        Some((value, comment)) => (value.trim(), comment.trim()),
+        None => (value.trim(), ""),
+    }
+}
+
+/// True if the comment marks the line as deliberately left as the English string. Lenient about
+/// what follows, so "# same", "# same as English" and "# same as English, checked by hrydgard"
+/// all count.
+pub fn marked_same(comment: &str) -> bool {
+    comment.to_ascii_lowercase().starts_with("same")
+}
+
 impl Section {
     pub fn apply_regex(&mut self, key: &str, pattern: &str, replacement: &str) {
         let re = Regex::new(pattern).unwrap();
@@ -375,10 +395,8 @@ impl Section {
         for line in &self.lines {
             if let Some((ref_key, value)) = split_line(line) {
                 if key.eq(ref_key) {
-                    // Found it!
-                    // The value might have a comment starting with #, strip that before returning.
-                    let value = value.split('#').next().unwrap().trim();
-                    return Some(value.to_string());
+                    // Found it! The value might have a comment, that's not part of the value.
+                    return Some(split_comment(value).0.to_string());
                 }
             }
         }

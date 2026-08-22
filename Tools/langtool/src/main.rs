@@ -3,7 +3,7 @@ use std::io;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod section;
-use section::{Section, line_value};
+use section::{SAME_COMMENT, Section, line_value, marked_same, split_comment};
 
 mod inifile;
 use inifile::IniFile;
@@ -498,8 +498,13 @@ fn finish_language_with_ai(
         let mut untranslated_keys = vec![];
         let mut translated_keys = vec![];
         for line in &section.lines {
-            if let Some((key, value)) = split_line(line) {
+            if let Some((key, raw_value)) = split_line(line) {
+                let (value, comment) = split_comment(raw_value);
                 if let Some(ref_value) = ref_section.get_value(key) {
+                    if marked_same(comment) {
+                        // Settled: this one stays as the English string, don't ask about it again.
+                        continue;
+                    }
                     if value == ref_value {
                         // Key not translated.
                         // However, we need to reject some things that the AI likes to mishandle.
@@ -583,6 +588,18 @@ fn finish_language_with_ai(
                                 let ref_value =
                                     ref_section.get_value(original_key).unwrap_or_default();
                                 let issues = validate::check_ai_translation(&ref_value, value);
+                                if issues == vec![validate::Issue::Untranslated] {
+                                    // The AI handed the English string back unchanged, which for
+                                    // things like "Vsync" or "Ad Hoc multiplayer" is the right
+                                    // answer. Write that down so we stop asking every run.
+                                    println!("Marking '{original_key}' as not needing translation");
+                                    target_section.set_value(
+                                        original_key,
+                                        value,
+                                        Some(SAME_COMMENT),
+                                    );
+                                    continue;
+                                }
                                 if !issues.is_empty() {
                                     for issue in issues {
                                         println!("Rejecting '{original_key}' = '{value}': {issue}");
@@ -1033,17 +1050,24 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 ref key,
             } => {
                 let lang_id = filename.strip_suffix(".ini").unwrap();
-                // en_US is in here too, if the file has a line for it - that one is the English
-                // string the others were translated from, not a translation, so no comment on it.
-                let comment = if is_reference {
-                    None
-                } else {
-                    Some("AI translated")
-                };
                 if let Some(single_section) = &single_ini_section {
+                    let english = single_section
+                        .get_line("en_US")
+                        .and_then(|line| line_value(&line).map(|value| value.to_string()));
                     if let Some(target_section) = target_ini.get_section_mut(section) {
                         if let Some(single_line) = single_section.get_line(lang_id) {
                             if let Some(value) = line_value(&single_line) {
+                                // en_US is the string the others were translated from, not a
+                                // translation, so it gets no comment. A language where the
+                                // translation is just the English string gets marked as such, so
+                                // nothing tries to translate it again later.
+                                let comment = if is_reference {
+                                    None
+                                } else if Some(value) == english.as_deref() {
+                                    Some(SAME_COMMENT)
+                                } else {
+                                    Some("AI translated")
+                                };
                                 println!(
                                     "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
                                 );
