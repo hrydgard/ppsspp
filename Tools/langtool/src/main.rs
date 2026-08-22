@@ -1032,31 +1032,38 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 ref section,
                 ref key,
             } => {
-                if !is_reference {
-                    let lang_id = filename.strip_suffix(".ini").unwrap();
-                    if let Some(single_section) = &single_ini_section {
-                        if let Some(target_section) = target_ini.get_section_mut(section) {
-                            if let Some(single_line) = single_section.get_line(lang_id) {
-                                if let Some(value) = line_value(&single_line) {
-                                    println!(
-                                        "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
-                                    );
-                                    if !target_section.insert_line_if_missing(&format!(
-                                        "{key} = {value} # AI translated"
-                                    )) {
-                                        // Didn't insert it, so it exists. We need to replace it.
-                                        target_section.set_value(key, value, Some("AI translated"));
-                                    }
+                let lang_id = filename.strip_suffix(".ini").unwrap();
+                // en_US is in here too, if the file has a line for it - that one is the English
+                // string the others were translated from, not a translation, so no comment on it.
+                let comment = if is_reference {
+                    None
+                } else {
+                    Some("AI translated")
+                };
+                if let Some(single_section) = &single_ini_section {
+                    if let Some(target_section) = target_ini.get_section_mut(section) {
+                        if let Some(single_line) = single_section.get_line(lang_id) {
+                            if let Some(value) = line_value(&single_line) {
+                                println!(
+                                    "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
+                                );
+                                let line = match comment {
+                                    Some(comment) => format!("{key} = {value} # {comment}"),
+                                    None => format!("{key} = {value}"),
+                                };
+                                if !target_section.insert_line_if_missing(&line) {
+                                    // Didn't insert it, so it exists. We need to replace it.
+                                    target_section.set_value(key, value, comment);
                                 }
-                            } else {
-                                println!("No lang_id {lang_id} in single section");
                             }
                         } else {
-                            println!("No section {section} in {target_ini_filename}");
+                            println!("No lang_id {lang_id} in single section");
                         }
                     } else {
-                        println!("No section {section} in {filename}");
+                        println!("No section {section} in {target_ini_filename}");
                     }
+                } else {
+                    println!("No section {section} in {filename}");
                 }
             }
         }
