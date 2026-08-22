@@ -16,6 +16,18 @@ To see command line usage, type:
 cargo run -- --help
 ```
 
+## Validating
+
+```bash
+cargo run -- validate
+```
+
+Checks every translated string in every language file against the English one it came from:
+placeholders (`%1`, `%d`, ...) must survive translation, no line breaks or stray quotes, nothing
+empty. Exits with a non-zero code if it finds anything, so it can be used as a check in a script.
+
+The same checks run on anything the AI produces, before it gets written to a file.
+
 ## AI translation
 
 Some commands (`add-new-key-ai`, `add-new-key-value-ai`, `finish-language-with-ai`) use an LLM to

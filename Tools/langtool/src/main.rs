@@ -14,6 +14,7 @@ mod claude;
 use clap::Parser;
 
 mod util;
+mod validate;
 
 use crate::{
     ai::{Ai, Provider},
@@ -123,6 +124,8 @@ enum Command {
         section: String,
         key: String,
     },
+    /// Check every translated string against the English one, see validate.rs.
+    Validate,
 }
 
 fn copy_missing_lines(
@@ -282,6 +285,33 @@ fn add_new_key(
         println!("No section {section}");
     }
     Ok(())
+}
+
+/// Runs the validation checks over a whole language file, printing what it finds.
+/// Returns the number of problems, so the caller can set the exit code.
+fn validate_ini(target_ini: &IniFile, reference_ini: &IniFile, language: &str) -> usize {
+    let mut count = 0;
+    for section in &target_ini.sections {
+        let Some(ref_section) = reference_ini.get_section(&section.name) else {
+            continue;
+        };
+        for line in &section.lines {
+            let Some((key, _)) = split_line(line) else {
+                continue;
+            };
+            let (Some(value), Some(ref_value)) = (section.get_value(key), ref_section.get_value(key))
+            else {
+                continue;
+            };
+            for issue in validate::check(&ref_value, &value) {
+                println!("{language} [{}] {key}: {issue}", section.name);
+                println!("      en: {ref_value}");
+                println!("   {language}: {value}");
+                count += 1;
+            }
+        }
+    }
+    count
 }
 
 fn check_keys(target_ini: &IniFile) -> io::Result<()> {
@@ -537,6 +567,14 @@ fn finish_language_with_ai(
                         if let Some((key, value)) = split_line(line) {
                             // Put the key through the inverse alias map.
                             let original_key = alias_inverse_map.get(key).unwrap_or(&key);
+                            let ref_value = ref_section.get_value(original_key).unwrap_or_default();
+                            let issues = validate::check_ai_translation(&ref_value, value);
+                            if !issues.is_empty() {
+                                for issue in issues {
+                                    println!("Rejecting '{original_key}' = '{value}': {issue}");
+                                }
+                                continue;
+                            }
                             print!("Updating '{}': {}", original_key, value);
                             if key != *original_key {
                                 println!(" ({})", key);
@@ -759,6 +797,8 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
         None
     };
 
+    let mut issue_count = 0;
+
     for filename in &filenames {
         let reference_ini = &reference_ini;
         if filename == "langtool" {
@@ -795,6 +835,12 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 ref key,
             } => {
                 split_key(&mut target_ini, section, key).unwrap();
+            }
+            Command::Validate => {
+                if !is_reference {
+                    let language = filename.split_once('.').unwrap().0;
+                    issue_count += validate_ini(&target_ini, reference_ini, language);
+                }
             }
             Command::FinishLanguageWithAI {
                 language: _,
@@ -878,8 +924,8 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                             )
                             .unwrap();
                         } else {
-                            println!("Language {lang} not found in response. Bailing.");
-                            return;
+                            println!("No usable translation for {lang}, skipping it.");
+                            continue;
                         }
                     }
                 } else {
@@ -912,8 +958,8 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                             )
                             .unwrap();
                         } else {
-                            println!("Language {lang} not found in response. Bailing.");
-                            return;
+                            println!("No usable translation for {lang}, skipping it.");
+                            continue;
                         }
                     }
                 } else {
@@ -1002,6 +1048,14 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
         }
     }
 
+    if let Command::Validate = cmd {
+        println!("Found {issue_count} problems.");
+        if issue_count > 0 {
+            // Makes this usable as a check in scripts.
+            std::process::exit(1);
+        }
+    }
+
     // Don't need to additionally process reference here like we did before, this is done
     // in the main loop.
 }
@@ -1027,8 +1081,21 @@ fn generate_ai_response(
             .map_err(|e| anyhow::anyhow!("chat failed: {e}"))
             .unwrap();
         println!("AI response: {response}");
-        if let Some(parsed) = parse_response(&response) {
+        if let Some(mut parsed) = parse_response(&response) {
             println!("Parsed: {:?}", parsed);
+
+            // The English string we asked for a translation of is in the prompt as 'key'.
+            parsed.retain(|language, translation| {
+                let issues = if language == "en_US" {
+                    validate::check(key, translation)
+                } else {
+                    validate::check_ai_translation(key, translation)
+                };
+                for issue in &issues {
+                    println!("Rejecting {language} translation '{translation}': {issue}");
+                }
+                issues.is_empty()
+            });
 
             if parsed.len() < filenames.len() {
                 println!(
