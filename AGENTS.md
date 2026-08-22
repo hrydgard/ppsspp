@@ -182,6 +182,36 @@ writing a new one (e.g. there is an LZRC decompressor in Core/FileSystems/tlzrc.
 
 For string sanitation, we already have SanitizeString in StringUtils.cpp - add new modes if needed.
 
+## Translated UI strings (assets/lang)
+
+One .ini file per language, keyed by section and key against `assets/lang/en_US.ini`. **Don't hand-edit
+the ~47 files**, and don't run the AI commands in `Tools/langtool` either - you can read the call site,
+which its fixed prompt can't. Do the translating yourself and let the tool do the file surgery. Run it
+from `Tools/langtool`:
+
+1. `cargo run -- add-new-key-value <Section> "<Key>" "<English string>"` adds the key to every file,
+   English everywhere. (Skip if the key already exists and you're only filling in translations.)
+2. Work out what the string actually means before translating it: find where it's used in the C++,
+   what any `%1`/`%d` placeholders get substituted with, how long it can be without breaking the
+   layout, and how neighboring keys are already phrased in each language (that's your style guide).
+   Then write a scratch file, one line per language, named after the ini file minus the extension:
+   ```ini
+   [Single]
+   sv_SE = Teststräng
+   lt-LT = Testeilutė
+   ```
+   No trailing `# comments` on those lines, they'd end up inside the translation. Placeholders have to
+   survive verbatim. If you don't know a language well enough, leave it out - it keeps the English
+   string, which is the normal fallback, and that's much better than a confident guess.
+3. `cargo run -- import-single <scratch-file> <Section> "<Key>"` writes them in, tagged
+   `# AI translated`. Note that it overwrites existing values for that key, so take care with keys
+   that already have human translations.
+4. `cargo run -- validate` at the end, always. It checks that placeholders survived and exits
+   non-zero if anything is off.
+
+The other mechanical jobs (renaming and moving keys, sorting sections, copying missing lines to all
+files) are langtool commands too - prefer them over editing the ini files by hand.
+
 ## Headless and unittest builds
 
 We have additional PPSSPPHeadless and unit test builds (/headless and /unittest), that have their own separate
