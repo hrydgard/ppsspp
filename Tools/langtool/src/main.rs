@@ -8,12 +8,18 @@ use section::{Section, line_value};
 mod inifile;
 use inifile::IniFile;
 
+mod ai;
 mod chatgpt;
+mod claude;
 use clap::Parser;
 
 mod util;
 
-use crate::{chatgpt::ChatGPT, section::split_line, util::ask_letter};
+use crate::{
+    ai::{Ai, Provider},
+    section::split_line,
+    util::ask_letter,
+};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -23,9 +29,12 @@ struct Args {
     dry_run: bool,
     #[arg(short, long)]
     verbose: bool,
-    // gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini,  gpt-4.1-nano, o3, o4-mini, gpt-4o, gpt-4o-realtime-preview
-    #[arg(short, long, default_value = "gpt-4o-mini")]
-    model: String,
+    /// Which AI service to use for translation. Defaults to whichever one we have an API key for.
+    #[arg(short, long, value_enum)]
+    provider: Option<Provider>,
+    /// Model to use, see ai.rs for examples. Defaults to a reasonable one for the provider.
+    #[arg(short, long)]
+    model: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -391,10 +400,10 @@ fn finish_language_with_ai(
     target_ini: &mut IniFile,
     ref_ini: &IniFile,
     section: Option<&str>,
-    ai: &ChatGPT,
+    ai: &Ai,
     dry_run: bool,
 ) -> anyhow::Result<()> {
-    println!("Finishing language with AI");
+    println!("Finishing language with {}", ai.description());
     println!(
         "Step 1: Compare all strings in the section with the matching strings from the reference."
     );
@@ -653,15 +662,14 @@ fn parse_response(response: &str) -> Option<BTreeMap<String, String>> {
 fn main() {
     let opt = Args::parse();
 
-    let api_key = std::env::var("OPENAI_API_KEY").ok();
-    let ai = api_key.map(|key| chatgpt::ChatGPT::new(key, opt.model));
+    let ai = Ai::create(opt.provider, opt.model);
 
     // TODO: Grab extra arguments from opt somehow.
     // let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
     execute_command(opt.cmd, ai.as_ref(), opt.dry_run, opt.verbose);
 }
 
-fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: bool) {
+fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) {
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
@@ -1002,7 +1010,7 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
 }
 
 fn generate_ai_response(
-    ai: Option<&ChatGPT>,
+    ai: Option<&Ai>,
     filenames: &[String],
     section: &str,
     key: &str,
@@ -1016,7 +1024,7 @@ fn generate_ai_response(
     );
     println!("generated prompt:\n{prompt}");
     Some(if let Some(ai) = &ai {
-        println!("Using AI for translation...");
+        println!("Using {} for translation...", ai.description());
         let response = ai
             .chat(&prompt)
             .map_err(|e| anyhow::anyhow!("chat failed: {e}"))
