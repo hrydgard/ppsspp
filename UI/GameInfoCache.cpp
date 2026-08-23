@@ -697,11 +697,13 @@ public:
 
 		case IdentifiedFileType::PSP_ELF:
 handleELF:
-			info_->title = info_->GetFilePath().GetFilename();
+			info_->SetTitle(info_->GetFilePath().GetFilename());
 			// An elf on its own has no usable information, no icons, no nothing.
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
-				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
-				info_->id_version = info_->id + "_1.00";
+				const std::string fakeID = g_paramSFO.GenerateFakeID(gamePath_);
+				std::lock_guard<std::mutex> lock(info_->lock);
+				info_->id = fakeID;
+				info_->id_version = fakeID + "_1.00";
 				info_->region = equals(info_->title, "vshmain.prx") ? GameRegion::VSH : GameRegion::HOMEBREW;
 			}
 
@@ -768,7 +770,7 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
-			info_->title = info_->GetFilePath().GetFilename();
+			info_->SetTitle(info_->GetFilePath().GetFilename());
 			if (flags_ & GameInfoFlags::ICON) {
 				Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
 				// Let's use the comparison screenshot as an icon, if it exists.
@@ -857,7 +859,7 @@ handleELF:
 							info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 						}
 					} else {
-						info_->title = info_->GetFilePath().GetFilename();
+						info_->SetTitle(info_->GetFilePath().GetFilename());
 					}
 				}
 
@@ -911,22 +913,33 @@ handleELF:
 			}
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
-				info_->title = info_->GetFilePath().GetFilename();
+				info_->SetTitle(info_->GetFilePath().GetFilename());
 				info_->icon.dataLoaded = true;
 				break;
 
 			case IdentifiedFileType::NORMAL_DIRECTORY:
 			default:
-				info_->title = info_->GetFilePath().GetFilename();
+			{
+				info_->SetTitle(info_->GetFilePath().GetFilename());
+				std::lock_guard<std::mutex> lock(info_->lock);
 				if (info_->errorString.empty()) {
 					info_->errorString = errorString;
 				}
 				break;
+			}
 		}
 
 		if (flags_ & GameInfoFlags::PARAM_SFO) {
 			// We fetch the hasConfig together with the params, since that's what fills out the id.
-			info_->hasConfig = g_Config.HasGameConfig(info_->id);
+			// Don't hold the lock across HasGameConfig(), it hits the file system.
+			std::string id;
+			{
+				std::lock_guard<std::mutex> lock(info_->lock);
+				id = info_->id;
+			}
+			const bool hasConfig = g_Config.HasGameConfig(id);
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->hasConfig = hasConfig;
 		}
 
 		if (flags_ & GameInfoFlags::SIZE) {
@@ -957,7 +970,10 @@ handleELF:
 		}
 
 		if (flags_ & GameInfoFlags::UNCOMPRESSED_SIZE) {
-			info_->gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
+			// Expensive, so compute it before taking the lock.
+			const u64 gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->gameSizeUncompressed = gameSizeUncompressed;
 		}
 
 		// Time to update the flags.
@@ -1045,17 +1061,29 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 			std::lock_guard<std::mutex> lock(mapLock_);
 			for (auto iter = info_.begin(); iter != info_.end();) {
 				auto &info = iter->second;
-				if (!(info->hasFlags & GameInfoFlags::FILE_TYPE)) {
-					iter++;
-					continue;
+				GameInfoFlags pendingFlags = GameInfoFlags::EMPTY;
+				{
+					std::lock_guard<std::mutex> infoLock(info->lock);
+					if (!(info->hasFlags & GameInfoFlags::FILE_TYPE) || info->fileType != fileType) {
+						iter++;
+						continue;
+					}
+					// TODO: Find a better way to wait here.
+					pendingFlags = info->pendingFlags;
+					if (pendingFlags == GameInfoFlags::EMPTY) {
+						// Drop the textures here, on the main thread. A work item that finished just before
+						// we took the lock can still hold the last reference to this GameInfo, and then
+						// ~GameInfo would run - and release them - on a worker thread. Same reasoning as
+						// the NOTE in Clear().
+						info->pic0.Clear();
+						info->pic1.Clear();
+						info->icon.Clear();
+						info->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON);
+					}
 				}
-				if (info->fileType != fileType) {
-					iter++;
-					continue;
-				}
-				// TODO: Find a better way to wait here.
-				if (info->pendingFlags != (GameInfoFlags)0) {
-					INFO_LOG(Log::Loader, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)info->pendingFlags);
+				if (pendingFlags != GameInfoFlags::EMPTY) {
+					// Note: GetTitle() takes info->lock, so this has to be outside the block above.
+					INFO_LOG(Log::Loader, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)pendingFlags);
 					retry = true;
 					break;
 				}

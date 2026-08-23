@@ -592,8 +592,8 @@ void GamePauseScreen::CreateViews() {
 		}
 	}
 
-	bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
-	bool showSavestateControls = achievementsAllowSavestates && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP;
+	const bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
+	bool showSavestateControls = achievementsAllowSavestates && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP && PSP_CoreParameter().fileToStart.GetFilename() != "vshmain.prx";
 	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
 		showSavestateControls = false;
 	}
