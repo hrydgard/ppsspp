@@ -28,23 +28,43 @@ pub fn line_value(line: &str) -> Option<&str> {
     split_line(line).map(|tuple| tuple.1)
 }
 
+/// The comment we put on a line that's deliberately identical to the English string, so we don't
+/// keep paying to have it "translated" over and over.
+pub const SAME_COMMENT: &str = "same as English";
+
+/// Splits the value part of a line into the value itself and its trailing comment, if any
+/// (without the '#').
+pub fn split_comment(value: &str) -> (&str, &str) {
+    match value.split_once('#') {
+        Some((value, comment)) => (value.trim(), comment.trim()),
+        None => (value.trim(), ""),
+    }
+}
+
+/// True if the comment marks the line as deliberately left as the English string. Lenient about
+/// what follows, so "# same", "# same as English" and "# same as English, checked by hrydgard"
+/// all count.
+pub fn marked_same(comment: &str) -> bool {
+    comment.to_ascii_lowercase().starts_with("same")
+}
+
 impl Section {
-	pub fn apply_regex(&mut self, key: &str, pattern: &str, replacement: &str) {
-		let re = Regex::new(pattern).unwrap();
-		for line in self.lines.iter_mut() {
-			let prefix = if let Some(pos) = line.find(" =") {
-				&line[0..pos]
-			} else {
-				continue;
-			};
-			if prefix.eq(key) {
-				if let Some((_, value)) = split_line(line) {
-					let new_value = re.replace_all(value, replacement);
-					*line = format!("{} = {}", key, new_value);
-				}
-			}
-		}
-	}
+    pub fn apply_regex(&mut self, key: &str, pattern: &str, replacement: &str) {
+        let re = Regex::new(pattern).unwrap();
+        for line in self.lines.iter_mut() {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos]
+            } else {
+                continue;
+            };
+            if prefix.eq(key) {
+                if let Some((_, value)) = split_line(line) {
+                    let new_value = re.replace_all(value, replacement);
+                    *line = format!("{} = {}", key, new_value);
+                }
+            }
+        }
+    }
 
     pub fn remove_line(&mut self, key: &str) -> Option<String> {
         let mut remove_index = None;
@@ -203,16 +223,26 @@ impl Section {
             let right_part = line.strip_prefix(&prefix).unwrap().to_string();
             if let Some(pos) = key.find('(') {
                 let key_name = key[0..pos].trim();
-                let key_desc = key[pos+1..key.len()-1].trim();
+                let key_desc = key[pos + 1..key.len() - 1].trim();
                 if let Some(pos) = right_part.find('(') {
                     let value_name = right_part[0..pos].trim();
-                    let value_desc = right_part[pos+1..right_part.len()-1].trim();
+                    let value_desc = right_part[pos + 1..right_part.len() - 1].trim();
                     self.insert_line_if_missing(&format!("{} = {}", key_name, value_name));
-                    self.insert_line_if_missing(&format!("{} = {}", Self::capitalize_first_letter(key_desc), Self::capitalize_first_letter(value_desc)));
+                    self.insert_line_if_missing(&format!(
+                        "{} = {}",
+                        Self::capitalize_first_letter(key_desc),
+                        Self::capitalize_first_letter(value_desc)
+                    ));
                 } else {
-                    println!("split_key: didn't find '(' in the value part {right_part} for key {key}. Leaving description untranslated.");
+                    println!(
+                        "split_key: didn't find '(' in the value part {right_part} for key {key}. Leaving description untranslated."
+                    );
                     self.insert_line_if_missing(&format!("{} = {}", key_name, right_part.trim()));
-                    self.insert_line_if_missing(&format!("{} = {}", Self::capitalize_first_letter(key_desc), Self::capitalize_first_letter(key_desc)));
+                    self.insert_line_if_missing(&format!(
+                        "{} = {}",
+                        Self::capitalize_first_letter(key_desc),
+                        Self::capitalize_first_letter(key_desc)
+                    ));
                 }
             } else {
                 println!("split_key: didn't find '(' in the key {key}");
@@ -365,10 +395,8 @@ impl Section {
         for line in &self.lines {
             if let Some((ref_key, value)) = split_line(line) {
                 if key.eq(ref_key) {
-                    // Found it!
-                    // The value might have a comment starting with #, strip that before returning.
-                    let value = value.split('#').next().unwrap().trim();
-                    return Some(value.to_string());
+                    // Found it! The value might have a comment, that's not part of the value.
+                    return Some(split_comment(value).0.to_string());
                 }
             }
         }
