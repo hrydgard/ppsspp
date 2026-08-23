@@ -569,16 +569,25 @@ public:
 
 		std::string errorString;
 
+		// Work on a local copy: another work item for the same GameInfo can be running alongside us,
+		// so info_->fileType isn't stable to switch on. GetInfo() guarantees we either compute it
+		// ourselves here, or that it's already in hasFlags and thus final.
+		IdentifiedFileType fileType;
 		if (flags_ & GameInfoFlags::FILE_TYPE) {
-			info_->fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
+			fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->fileType = fileType;
+		} else {
+			std::lock_guard<std::mutex> lock(info_->lock);
+			fileType = info_->fileType;
 		}
 
-		switch (info_->fileType) {
+		switch (fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			{
 				auto pbpLoader = info_->GetFileLoader();
-				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+				if (fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 					Path ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
 						pbpLoader.reset(ConstructFileLoader(ebootPath));
@@ -611,12 +620,12 @@ public:
 					if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO(sfoData);
-						info_->ParseParamSFO(info_->fileType);
+						info_->ParseParamSFO(fileType);
 
 						// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
 						if ((info_->id.empty() || !info_->disc_total)
 							&& gamePath_.FilePathContainsNoCase("PSP/GAME/")
-							&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+							&& fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 							info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 							info_->id_version = info_->id + "_1.00";
 							info_->region = GameRegion::HOMEBREW; // Homebrew
@@ -724,7 +733,7 @@ handleELF:
 				if (ReadFileToString(&umd, "/PARAM.SFO", &paramSFOcontents, 0)) {
 					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-					info_->ParseParamSFO(info_->fileType);
+					info_->ParseParamSFO(fileType);
 					info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 				}
 			}
@@ -781,7 +790,7 @@ handleELF:
 					if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, nullptr)) {
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-						info_->ParseParamSFO(info_->fileType);
+						info_->ParseParamSFO(fileType);
 						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
 				}
@@ -812,7 +821,7 @@ handleELF:
 		case IdentifiedFileType::PSP_ISO_NP:
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 			{
-				std::string_view gameRoot = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? "/UMD_VIDEO/" : "/PSP_GAME/";
+				std::string_view gameRoot = fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? "/UMD_VIDEO/" : "/PSP_GAME/";
 				SequentialHandleAllocator handles;
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
@@ -842,7 +851,7 @@ handleELF:
 						{
 							std::lock_guard<std::mutex> lock(info_->lock);
 							info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-							info_->ParseParamSFO(info_->fileType);
+							info_->ParseParamSFO(fileType);
 
 							// quick-update the info while we have the lock, so we don't need to wait for the image load to display the title.
 							info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
@@ -930,7 +939,7 @@ handleELF:
 		}
 
 		if (flags_ & GameInfoFlags::SAVEDATA_SIZE) {
-			switch (info_->fileType) {
+			switch (fileType) {
 			case IdentifiedFileType::PSP_ISO:
 			case IdentifiedFileType::PSP_ISO_NP:
 			case IdentifiedFileType::PSP_DISC_DIRECTORY:
@@ -1090,6 +1099,12 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 			}
 			GameInfoFlags willHaveFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
 			wanted = (GameInfoFlags)((int)wantFlags & ~(int)willHaveFlags);  // & is reserved for testing so we have to cast to int. ugh.
+			// FILE_TYPE is special: every work item switches on info->fileType, so it's not enough that
+			// some *pending* item is going to compute it - that item may not have got there yet, and we'd
+			// switch on UNKNOWN and mark our flags ready having loaded nothing. Cheap enough to redo.
+			if (wanted != GameInfoFlags::EMPTY && !(info->hasFlags & GameInfoFlags::FILE_TYPE)) {
+				wanted |= GameInfoFlags::FILE_TYPE;
+			}
 			info->pendingFlags |= wanted;
 			if (outHasFlags) {
 				*outHasFlags = info->hasFlags;
