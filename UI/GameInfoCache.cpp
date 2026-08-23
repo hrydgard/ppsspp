@@ -395,17 +395,18 @@ std::string GameInfo::GetTitle() {
 
 std::string GameInfo::GetDBTitle() {
 	std::lock_guard<std::mutex> guard(lock);
-	if (!(hasFlags & GameInfoFlags::PARAM_SFO) && !title.empty()) {
-		return filePath_.GetFilename();
+	// Without PARAM_SFO there's no id_version to look up, so don't bother.
+	if (hasFlags & GameInfoFlags::PARAM_SFO) {
+		std::vector<GameDBInfo> dbInfos;
+		if (g_gameDB.GetGameInfos(id_version, &dbInfos)) {
+			return std::string(dbInfos[0].title);
+		}
+		if (!title.empty()) {
+			return title;
+		}
 	}
-
-	std::vector<GameDBInfo> dbInfos;
-	const bool inGameDB = g_gameDB.GetGameInfos(id_version, &dbInfos);
-	if (inGameDB) {
-		return std::string(dbInfos[0].title);
-	} else {
-		return title;
-	}
+	// Same fallback as GetTitle(), which we can't just call from here since the lock isn't recursive.
+	return filePath_.GetFilename();
 }
 
 void GameInfo::SetTitle(const std::string &newTitle) {
@@ -802,7 +803,7 @@ handleELF:
 				}
 				if (flags_ & GameInfoFlags::SND) {
 					ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, &info_->lock);
-					info_->pic1.dataLoaded = true;
+					info_->sndDataLoaded = true;
 				}
 				break;
 			}
@@ -921,13 +922,11 @@ handleELF:
 
 		if (flags_ & GameInfoFlags::SIZE) {
 			const u64 gameSizeOnDisk = info_->GetSizeOnDiskInBytes();
-			u64 saveDataSize = 0;
-			u64 installDataSize = 0;
 
+			// NOTE: Don't touch saveDataSize/installDataSize here - those belong to SAVEDATA_SIZE,
+			// which can have been fetched by an earlier work item.
 			std::lock_guard<std::mutex> lock(info_->lock);
 			info_->gameSizeOnDisk = gameSizeOnDisk;
-			info_->saveDataSize = saveDataSize;
-			info_->installDataSize = installDataSize;
 		}
 
 		if (flags_ & GameInfoFlags::SAVEDATA_SIZE) {
