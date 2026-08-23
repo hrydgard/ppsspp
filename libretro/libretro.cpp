@@ -1267,10 +1267,10 @@ void retro_init(void)
    g_Config.currentDirectory = retro_base_dir;
    g_Config.defaultCurrentDirectory = retro_base_dir;
    g_Config.memStickDirectory = retro_save_dir;
-   g_Config.flash0Directory = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
    g_Config.bEnableNetworkChat = false;
    g_Config.bDiscordRichPresence = false;
+   g_Config.nandRootDirectory = GetSysDirectory(PSPDirectories::DIRECTORY_NAND);
 
    g_VFS.Register("", new DirectoryReader(retro_base_dir));
 

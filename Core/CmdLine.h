@@ -59,6 +59,8 @@ struct CommandLineOptions {
 	std::optional<std::string> appendConfig;
 	std::optional<std::string> root;  // This is supposed to configure host0:.
 
+	std::optional<std::string> nand;  // Set the root nand directory (one level above flash0, ...)
+
 	// Memory stick root (the directory containing PSP/GAME, PSP/SYSTEM, ...). Mainly for headless,
 	// which otherwise always uses "memstick" next to the executable - so testing a real game there
 	// meant copying it in. Points at the same layout the app uses, so the two can share one.

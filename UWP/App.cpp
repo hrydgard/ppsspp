@@ -61,13 +61,13 @@ void App::InitialPPSSPP() {
 	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
 	g_VFS.Register("", new DirectoryReader(exePath));
 
-	// Mount a filesystem
-	g_Config.flash0Directory = exePath / "assets/flash0";
-
 	// Prepare for initialization
 	std::wstring internalDataFolderW = std::wstring(winrt::Windows::Storage::ApplicationData::Current().LocalFolder().Path());
 	g_Config.internalDataDirectory = Path(internalDataFolderW);
 	g_Config.memStickDirectory = g_Config.internalDataDirectory;
+
+	// Mount a filesystem
+	g_Config.nandRootDirectory = GetSysDirectory(PSPDirectories::DIRECTORY_NAND);
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.

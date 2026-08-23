@@ -195,6 +195,7 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
 	// appears to mean the current directory on the UMD.
+	// Actually, not sure if this is still needed. It doesn't make a whole lot of sense.
 	if (startsWithNoCase(inpath.c_str(), "host0:") && !host0Mapped_) {
 		inpath = "umd0:" + inpath.substr(strlen("host0:"));
 	}

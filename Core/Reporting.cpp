@@ -558,12 +558,6 @@ namespace Reporting
 		if (PSP_GetBootState() == BootState::Complete && g_paramSFO.GetValueString("DISC_VERSION").empty())
 			return false;
 
-		// Some users run the exe from a zip or something, and don't have fonts.
-		// This breaks things, but let's not report it since it's confusing.
-		File::FileInfo fo;
-		if (!File::Exists(g_Config.flash0Directory / "font/jpn0.pgf") || !g_VFS.GetFileInfo("flash0/font/jpn0.pgf", &fo))
-			return false;
-
 		return !everUnsupported;
 	}
 

@@ -59,8 +59,11 @@ struct CoreParameter {
 	bool enableSound = true;  // there aren't multiple sound cores.
 
 	Path fileToStart;
+
 	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
 	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0:.
+
+	Path nandRoot;  // If non-empty, use this directory as the root above flash0:-flash3: (which are hosted in subdirectories flash0-flash3 of it).
 
 	std::string errorString;
 	bool loadGameConfigs = true;

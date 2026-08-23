@@ -782,11 +782,11 @@ int main(int argc, const char* argv[]) {
 	coreParameter.fastForward = true;
 
 	Path exePath = File::GetExeDirectory();
-	g_Config.flash0Directory = exePath / "assets/flash0";
 
 	// --memstick, applied by ApplyToConfig() further up, wins. This runs after it, so without the
 	// check the default below would silently overwrite whatever was asked for.
 	if (!cmdLineOptions.memStick.has_value()) {
+		// TODO: Share this derivation with the main build.
 #if PPSSPP_PLATFORM(WINDOWS)
 		// Mount a filesystem
 		g_Config.memStickDirectory = exePath / "memstick";
@@ -796,12 +796,14 @@ int main(int argc, const char* argv[]) {
 		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
 	}
+	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
+	coreParameter.nandRoot = g_Config.nandRootDirectory;
 
-	// Try to find the flash0 directory.  Often this is from a subdirectory.
+	// Try to find the assets flash0 directory. Often this is from a subdirectory.
+	// This is needed for our fallback fonts.
 	Path nextPath = exePath;
 	for (int i = 0; i < 5; ++i) {
 		if (File::Exists(nextPath / "assets/flash0")) {
-			g_Config.flash0Directory = nextPath / "assets/flash0";
 #if !PPSSPP_PLATFORM(ANDROID)
 			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
 #endif
@@ -847,8 +849,9 @@ int main(int argc, const char* argv[]) {
 	UpdateUIState(UISTATE_INGAME);
 
 	if (cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
-		AddToTestsByPath(&testFilenames, (g_Config.flash0Directory / "vsh/module/vshmain.prx").ToString());
+		AddToTestsByPath(&testFilenames, (coreParameter.nandRoot / "flash0/vsh/module/vshmain.prx").ToString());
 	}
+
 	if (testFilenames.empty()) {
 		return printUsage(cmdLineOptions, argv[0], argc <= 1 ? NULL : "No executables specified");
 	}

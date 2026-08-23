@@ -300,12 +300,6 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 extern const std::string INDEX_FILENAME;
 
 static void MountFileSystems() {
-	// TODO: Revisit this flash0 configurability. It was added for 
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MACOS)
-	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
-#else
-	auto flash0System = std::make_shared<VFSFileSystem>(&pspFileSystem, "flash0");
-#endif
 	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
 
 	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
@@ -322,10 +316,13 @@ static void MountFileSystems() {
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
 
+	// TODO: These should be made "lazy" mounts.
+	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.nandRootDirectory / "flash0", FileSystemFlags::FLASH);
+	auto flash1System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.nandRootDirectory / "flash1", FileSystemFlags::FLASH);
 	pspFileSystem.Mount("flash0:", flash0System);
+	pspFileSystem.Mount("flash1:", flash1System);
 
 	// NOTE: We don't handle the host0: mount here, it's in Load_PSP_ELF_PBP.
-	// Additionally, host0: is remapped to umd0: if there is an UMD inserted (old hack in MetaFileSystem).
 
 	if (g_RemasterMode) {
 		const std::string gameId = g_paramSFO.GetDiscID();

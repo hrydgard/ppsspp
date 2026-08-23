@@ -512,7 +512,6 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (pauseMenuExit.has_value()) {
 		g_Config.bPauseMenuExitsEmulator = pauseMenuExit.value();
 	}
-
 	if (debuggerPort.has_value()) {
 		g_Config.iRemoteISOPort = debuggerPort.value();
 		g_Config.DoNotSaveSetting(&g_Config.iRemoteISOPort);
@@ -549,6 +548,12 @@ void CommandLineOptions::ApplyToConfig() const {
 		g_Config.memStickDirectory = Path(memStick.value());
 		File::CreateFullPath(g_Config.memStickDirectory);
 		CreateSysDirectories();
+	}
+
+	if (nand.has_value()) {
+		// No DoNotSaveSetting() here - memStickDirectory isn't an ordinary setting and never gets
+		// written to ppsspp.ini, since the ini itself lives inside the memory stick directory.
+		g_Config.nandRootDirectory = Path(nand.value());
 	}
 
 	if (resolutionScale.has_value()) {
