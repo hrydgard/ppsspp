@@ -877,13 +877,14 @@ static void __LoadInternalFonts() {
 		// Fonts already loaded.
 		return;
 	}
-	const std::string fontPath = "flash0:/font/";
 	const std::string fontOverridePath = "ms0:/PSP/flash0/font/";
 	const std::string gameFontPath = "disc0:/PSP_GAME/USRDIR/";
 
-	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
-		pspFileSystem.MkDir(fontPath);
+	const bool checkClassicOverrides = pspFileSystem.GetFileInfo(fontOverridePath).exists;
+	if (checkClassicOverrides) {
+		WARN_LOG(Log::sceFont, "Classic font overrides active, ignoring NAND: %s", fontOverridePath.c_str());
 	}
+
 	if ((pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/zh_gb.pgf").exists) && (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/oldfont.prx").exists)) {
 		for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 			const FontRegistryEntry &entry = fontRegistry[i];
@@ -908,16 +909,16 @@ static void __LoadInternalFonts() {
 		std::string fontFilename = gameFontPath + entry.fileName;
 		bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
 
-		if (!bufferRead) {
-			// No game font, let's try override path.
+		if (checkClassicOverrides && !bufferRead) {
+			// No game font, let's try classic override path. NOTE: This is not recommended - use flash0.
 			fontFilename = fontOverridePath + entry.fileName;
 			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
 		}
 
 		if (!bufferRead) {
-			// No override, let's use the default path.
-			fontFilename = fontPath + entry.fileName;
-			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer) >= 0;
+			// No override, let's read fonts from assets from VFS.
+			fontFilename = std::string("flash0/font/") + entry.fileName;
+			bufferRead = g_VFS.ReadFileInto(fontFilename, &buffer);
 		}
 
 		if (bufferRead) {
