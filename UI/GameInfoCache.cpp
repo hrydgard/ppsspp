@@ -851,6 +851,15 @@ handleELF:
 					}
 				}
 
+				// Most UMDs carry a firmware updater, which is a source of things like the
+				// system fonts. Just note down what's there - unpacking it is a separate step.
+				if (flags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) {
+					BundledUpdateInfo update;
+					ReadBundledUpdateInfo(&umd, "/", &update);
+					std::lock_guard<std::mutex> lock(info_->lock);
+					info_->bundledUpdate = update;
+				}
+
 				if (flags_ & GameInfoFlags::PIC0) {
 					info_->pic0.dataLoaded = ReadFileToString(&umd, join(gameRoot, "PIC0.PNG"), &info_->pic0.data, &info_->lock);
 				}

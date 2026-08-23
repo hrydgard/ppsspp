@@ -876,12 +876,20 @@ static std::string VersionFromUpdaterTitle(std::string_view title) {
 	return std::string(title);
 }
 
-static std::string VersionFromSFO(const std::vector<u8> &sfo) {
+static std::string TitleFromSFO(const std::vector<u8> &sfo) {
 	ParamSFOData paramSFO;
 	if (sfo.empty() || !paramSFO.ReadSFO(sfo)) {
 		return std::string();
 	}
-	return VersionFromUpdaterTitle(paramSFO.GetValueString("TITLE"));
+	return paramSFO.GetValueString("TITLE");
+}
+
+static std::string VersionFromSFO(const std::vector<u8> &sfo) {
+	const std::string title = TitleFromSFO(sfo);
+	if (title.empty()) {
+		return std::string();
+	}
+	return VersionFromUpdaterTitle(title);
 }
 
 // Opens filename as a disc image, if it is one. Returns null otherwise, which is the normal
@@ -917,6 +925,18 @@ static bool ReadWholeFile(IFileSystem *fs, const char *path, std::vector<u8> *ou
 		return false;
 	}
 	return true;
+}
+
+// Just the first few bytes, for a magic check. ReadWholeFile isn't an option when the file we're
+// sniffing can be a hundred megabytes.
+static bool ReadFileMagic(IFileSystem *fs, const std::string &path, u8 *out, size_t size) {
+	const int handle = fs->OpenFile(path, FILEACCESS_READ);
+	if (handle < 0) {
+		return false;
+	}
+	const size_t read = fs->ReadFile(handle, out, size);
+	fs->CloseFile(handle);
+	return read == size;
 }
 
 // Pulls the archive out of whatever this is - see the header for the shapes we accept.
@@ -988,6 +1008,58 @@ static bool ReadUpdaterPSAR(const Path &filename, std::vector<u8> *psar, std::st
 	delete loader;
 	*error = filename.ToString() + " isn't an updater, a PSAR or a disc with one on it";
 	return false;
+}
+
+std::string BundledUpdateInfo::Describe() const {
+	if (!present) {
+		return std::string();
+	}
+	std::string desc = version.empty() ? "?" : version;
+	if (mtime != 0) {
+		const time_t t = (time_t)mtime;
+		tm local{};
+		localtime_r(&t, &local);
+		desc += StringFromFormat(" (%04d-%02d-%02d)", local.tm_year + 1900, local.tm_mon + 1, local.tm_mday);
+	}
+	return desc;
+}
+
+bool ReadBundledUpdateInfo(IFileSystem *fs, std::string_view pathPrefix, BundledUpdateInfo *info) {
+	*info = BundledUpdateInfo{};
+
+	const std::string psarPath = std::string(pathPrefix) + UPDATE_PSAR_SUFFIX;
+	const PSPFileInfo psarFileInfo = fs->GetFileInfo(psarPath);
+	if (!psarFileInfo.exists || psarFileInfo.size == 0) {
+		return false;
+	}
+
+	// Check that the file is actually an updater.
+	u8 magic[4]{};
+	if (!ReadFileMagic(fs, psarPath, magic, sizeof(magic)) || ReadU32(magic) != PSAR_MAGIC) {
+		DEBUG_LOG(Log::Loader, "Disc has a %lld byte %s, but it isn't a PSAR - ignoring it",
+			(long long)psarFileInfo.size, UPDATE_PSAR_SUFFIX);
+		return false;
+	}
+
+	info->present = true;
+	info->archiveSize = psarFileInfo.size;
+	// PSPFileInfo reports local time, since that's what the PSP wants. Back to UTC seconds -
+	// mktime is the exact inverse of the localtime_r the file system used. Not every kind of
+	// "disc" we can mount records a date at all, hence the check.
+	if (psarFileInfo.mtime.tm_mday != 0) {
+		tm local = psarFileInfo.mtime;
+		const time_t t = mktime(&local);
+		info->mtime = t == (time_t)-1 ? 0 : (s64)t;
+	}
+
+	std::vector<u8> sfo;
+	if (ReadWholeFile(fs, (std::string(pathPrefix) + UPDATE_SFO_SUFFIX).c_str(), &sfo)) {
+		info->title = TitleFromSFO(sfo);
+		if (!info->title.empty()) {
+			info->version = VersionFromUpdaterTitle(info->title);
+		}
+	}
+	return true;
 }
 
 std::string ReadUpdaterVersion(const Path &filename) {

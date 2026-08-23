@@ -17,12 +17,15 @@
 
 #pragma once
 
+#include <ctime>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Common/CommonTypes.h"
 
 class Path;
+class IFileSystem;
 
 // Unpacks the firmware image inside an official PSP updater (PSP/GAME/UPDATE/EBOOT.PBP).
 //
@@ -104,6 +107,27 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 // The last one is the interesting case: most UMDs carry a firmware updater, so the fonts can come
 // from whatever game the user already has rather than a separate download.
 bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
+
+// What a game disc's bundled firmware updater says about itself. All of this comes from the
+// PARAM.SFO and the directory entry next to the archive, so gathering it costs a couple of small
+// reads - no decryption, and the archive itself is never touched.
+struct BundledUpdateInfo {
+	bool present = false;
+	std::string version;      // "6.61". Can be empty even when present, if the SFO is unreadable.
+	std::string title;        // The updater's full SFO title, e.g. "PSP(tm) Update ver 6.61".
+	s64 archiveSize = 0;      // Size of DATA.BIN, i.e. how much firmware is in there.
+	// When DATA.BIN was written, as Unix UTC seconds. 0 if the disc doesn't record one, which
+	// is normal for the shapes that aren't really an ISO.
+	s64 mtime = 0;
+
+	// "6.61 (2011-01-25)", or just the version if there's no date. Empty if there's no updater.
+	std::string Describe() const;
+};
+
+// Reads the above out of a disc that's already open, whether that's an ISOFileSystem the caller
+// mounted or the running game's disc0:. pathPrefix is what to stick in front of "PSP_GAME/..." -
+// "/" for a freshly mounted image, "disc0:/" for the meta file system.
+bool ReadBundledUpdateInfo(IFileSystem *fs, std::string_view pathPrefix, BundledUpdateInfo *info);
 
 // The version string an updater advertises ("6.61"), read from the PARAM.SFO next to it - no
 // decryption needed, so it's cheap enough to check every disc with. Empty if there's no updater.
