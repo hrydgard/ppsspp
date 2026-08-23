@@ -217,7 +217,7 @@ public:
 	GameInfoCache();
 	~GameInfoCache();
 
-	// This creates a background worker thread!
+	// Cancels in-flight loads and drops everything, textures included. Main thread only.
 	void Clear();
 	void PurgeType(IdentifiedFileType fileType);
 

@@ -50,10 +50,11 @@
 GameInfoCache *g_gameInfoCache;
 
 void GameInfoTex::Clear() {
-	if (!data.empty()) {
-		data.clear();
-		dataLoaded = false;
-	}
+	data.clear();
+	// Note: has to be reset even when data was already empty - plenty of paths set dataLoaded on a
+	// file that turned out not to exist, and leaving it set makes FinishPendingTextureLoads stamp
+	// timeLoaded again, so the tex reads as permanently Failed().
+	dataLoaded = false;
 	if (texture) {
 		texture->Release();
 		texture = nullptr;
@@ -338,8 +339,7 @@ bool GameInfo::CreateLoader() {
 
 std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
 	if (filePath_.empty()) {
-		// Happens when workqueue tries to figure out priorities,
-		// because Priority() calls GetFileLoader()... gnarly.
+		// Defensive - don't try to construct a loader for nothing. Just hand back whatever we have.
 		return fileLoader;
 	}
 
@@ -557,10 +557,10 @@ public:
 	}
 
 	void Run() override {
-		// An early-return will result in the destructor running, where we can set
-		// flags like working and pending.
+		// Every exit from here has to MarkReadyNoLock(flags_) - otherwise those bits stay in
+		// pendingFlags forever and GetInfo() will never ask for them again.
 		if (!info_->CreateLoader() || !info_->GetFileLoader()) {
-			// Mark everything requested as done, so 
+			// Mark everything requested as done, so the caller can handle the missing data.
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
 			ERROR_LOG(Log::Loader, "Failed getting game info for %s", info_->GetFilePath().ToVisualString().c_str());
@@ -1091,7 +1091,9 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 			}
 		}
 
-		sleep_ms(10, "game-info-cache-purge-poll");
+		if (retry) {
+			sleep_ms(10, "game-info-cache-purge-poll");
+		}
 	} while (retry);
 }
 
