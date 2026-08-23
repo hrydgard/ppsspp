@@ -236,7 +236,24 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 			size_t prefLen = fileSystems[i].prefix.size();
 			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
 			{
-				*outpath = realpath.substr(prefixPos + 1);
+				// Map into the underlying filesystem. If the mount specifies a subDir,
+				// join that with the path inside the device.
+				std::string basePath = realpath.substr(prefixPos + 1); // may be empty or start with '/'
+				const std::string &mountSub = fileSystems[i].subDir;
+				if (mountSub.empty()) {
+					*outpath = basePath;
+				} else {
+					// Normalize subDir: ensure it starts with '/' and has no trailing slash (unless it's root "/").
+					std::string s = mountSub;
+					if (s.empty()) s = "/";
+					if (s[0] != '/') s.insert(s.begin(), '/');
+					if (s.size() > 1 && s.back() == '/') s.pop_back();
+					if (basePath.empty()) {
+						*outpath = s;
+					} else {
+						*outpath = s + basePath; // basePath usually starts with '/'
+					}
+				}
 				*system = &(fileSystems[i]);
 
 				VERBOSE_LOG(Log::FileSystem, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath->c_str());
@@ -252,31 +269,30 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 	return error;
 }
 
-std::string MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
+std::string_view MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
 	// Let's apply some mapping here since it won't break savestates.
 	if (prefix == "memstick:")
-		prefix = "ms0:";
+		return "ms0:";
 	// Seems like umd00: etc. work just fine... avoid umd1/umd for tests.
 	if (startsWith(prefix, "umd") && prefix != "umd1:" && prefix != "umd:")
-		prefix = "umd0:";
+		return "umd0:";
 	// Seems like umd00: etc. work just fine...
 	if (startsWith(prefix, "host"))
-		prefix = "host0:";
+		return "host0:";
 
 	// Should we simply make this case insensitive?
 	if (prefix == "DISC0:")
-		prefix = "disc0:";
-
-	return std::string(prefix);
+		return "disc0:";
+	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system) {
+void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system, std::string_view subDir) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
 			// Overwrite the old mount.
-			// shared_ptr makes sure there's no leak.
 			it.system = system;
+			it.subDir = std::string(subDir);
 			return;
 		}
 	}
@@ -285,6 +301,7 @@ void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem>
 	MountPoint x;
 	x.prefix = prefix;
 	x.system = system;
+	x.subDir = std::string(subDir);
 	fileSystems.push_back(x);
 }
 

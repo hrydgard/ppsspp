@@ -31,9 +31,13 @@ private:
 	struct MountPoint {
 		std::string prefix;
 		std::shared_ptr<IFileSystem> system;
+		// Optional subdirectory inside the filesystem to treat as the root for this mount.
+		// Example: mounting "ms0:" with subDir "/PSP/GAME" will map "ms0:/file"
+		// to the underlying filesystem path "/PSP/GAME/file".
+		std::string subDir;
 
 		bool operator == (const MountPoint &other) const {
-			return prefix == other.prefix && system == other.system;
+			return prefix == other.prefix && system == other.system && subDir == other.subDir;
 		}
 	};
 
@@ -59,9 +63,8 @@ public:
 		Reset();
 	}
 
-	// Will replace the existing mount if already exists.
-	void Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system);
-
+	// Will replace the existing mount if already exists. Mount with an optional sub-directory inside the filesystem to treat as the root.
+	void Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system, std::string_view subDir = std::string_view());
 	void UnmountAll();
 	void Unmount(std::string_view prefix);
 
@@ -107,7 +110,7 @@ public:
 		return error;
 	}
 
-	std::string NormalizePrefix(std::string_view prefix) const;
+	std::string_view NormalizePrefix(std::string_view prefix) const;
 
 	std::vector<PSPFileInfo> GetDirListing(std::string_view path, bool *exists = nullptr) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
