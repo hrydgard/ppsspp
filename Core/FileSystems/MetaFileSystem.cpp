@@ -194,48 +194,34 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 	}
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
-	// appears to mean the current directory on the UMD. Let's just assume the current directory.
-	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
-		INFO_LOG(Log::FileSystem, "Host0 path detected, stripping: %s", inpath.c_str());
-		// However, this causes trouble when running tests, since our test framework uses host0:.
-		// Maybe it's really just supposed to map to umd0 or something?
-		if (PSP_CoreParameter().headLess) {
-			inpath = "umd0:" + inpath.substr(strlen("host0:"));
-		} else {
-			inpath = inpath.substr(strlen("host0:"));
-		}
+	// appears to mean the current directory on the UMD.
+	if (startsWithNoCase(inpath.c_str(), "host0:") && !host0Mapped_) {
+		inpath = "umd0:" + inpath.substr(strlen("host0:"));
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
 
+	// Hm, does this make sense? Doesn't each drive has its own currentDir per thread, or maybe not?
 	int currentThread = __KernelGetCurThread();
 	currentDir_t::iterator it = currentDir.find(currentThread);
-	if (it == currentDir.end()) 
-	{
-		//Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
-		if (inpath.find(':') == std::string::npos /* means path is relative */) 
-		{
+	if (it == currentDir.end()) {
+		// Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
+		if (inpath.find(':') == std::string::npos /* means path is relative */) {
 			error = SCE_KERNEL_ERROR_NOCWD;
 			WARN_LOG(Log::FileSystem, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
-	}
-	else
-	{
+	} else {
 		currentDirectory = &(it->second);
 	}
 
-	if (RealPath(*currentDirectory, inpath, realpath))
-	{
+	if (RealPath(*currentDirectory, inpath, realpath)) {
 		std::string prefix = realpath;
 		size_t prefixPos = realpath.find(':');
 		if (prefixPos != realpath.npos)
 			prefix = NormalizePrefix(realpath.substr(0, prefixPos + 1));
 
-		for (size_t i = 0; i < fileSystems.size(); i++)
-		{
-			size_t prefLen = fileSystems[i].prefix.size();
-			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
-			{
+		for (size_t i = 0; i < fileSystems.size(); i++) {
+			if (equalsNoCase(fileSystems[i].prefix, prefix)) {
 				// Map into the underlying filesystem. If the mount specifies a subDir,
 				// join that with the path inside the device.
 				std::string basePath = realpath.substr(prefixPos + 1); // may be empty or start with '/'
@@ -297,6 +283,10 @@ void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem>
 		}
 	}
 
+	if (equalsNoCase(prefix, "host0:")) {
+		host0Mapped_ = true;
+	}
+
 	// Prefix not yet mounted, do so.
 	MountPoint x;
 	x.prefix = prefix;
@@ -309,10 +299,14 @@ void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem>
 void MetaFileSystem::UnmountAll() {
 	fileSystems.clear();
 	currentDir.clear();
+	host0Mapped_ = false;
 }
 
 void MetaFileSystem::Unmount(std::string_view prefix) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
+	if (equalsNoCase(prefix, "host0:")) {
+		host0Mapped_ = false;
+	}
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
 			fileSystems.erase(iter);

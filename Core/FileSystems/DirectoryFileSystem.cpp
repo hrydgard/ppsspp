@@ -466,8 +466,10 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 
 	LARGE_INTEGER distance;
 	distance.QuadPart = position;
-	LARGE_INTEGER cursor;
-	SetFilePointerEx(hFile, distance, &cursor, moveMethod);
+	LARGE_INTEGER cursor{};
+	if (!SetFilePointerEx(hFile, distance, &cursor, moveMethod)) {
+		ERROR_LOG(Log::IO, "DirectoryFileHandle::Seek(%d, %d) failed", position, (int)type);
+	}
 	result = (size_t)cursor.QuadPart;
 #else
 	int moveMethod = 0;

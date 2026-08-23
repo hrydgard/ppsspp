@@ -50,6 +50,9 @@ private:
 	std::string startingDirectory;
 	mutable std::recursive_mutex lock;  // must be recursive. TODO: fix that
 
+	// For the UMD host0 hack.
+	bool host0Mapped_ = false;
+
 	// Assumes the lock is held
 	void Reset() {
 		// This used to be 6, probably an attempt to replicate PSP handles.

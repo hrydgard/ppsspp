@@ -1816,7 +1816,6 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
 }
 
-
 u32 __KernelGetModuleGP(SceUID uid) {
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);

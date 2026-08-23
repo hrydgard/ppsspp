@@ -324,6 +324,9 @@ static void MountFileSystems() {
 
 	pspFileSystem.Mount("flash0:", flash0System);
 
+	// NOTE: We don't handle the host0: mount here, it's in Load_PSP_ELF_PBP.
+	// Additionally, host0: is remapped to umd0: if there is an UMD inserted (old hack in MetaFileSystem).
+
 	if (g_RemasterMode) {
 		const std::string gameId = g_paramSFO.GetDiscID();
 		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;

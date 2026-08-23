@@ -177,7 +177,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
-	{POFF(root), CmdParamType::String, "root", 'r', "Mount root directory"},
+	{POFF(root), CmdParamType::String, "root", 'r', "Mount directory as the root of host0:/."},
 	{POFF(memStick), CmdParamType::String, "memstick", '\0', "Memory stick root directory (contains PSP/GAME etc)"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
@@ -538,7 +538,8 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 
 	if (root.has_value()) {
-		g_Config.DoNotSaveSetting(&g_Config.mountRoot);
+		// No DoNotSaveSetting() here - mountRoot isn't an ordinary setting and never gets
+		// written to ppsspp.ini, since the ini itself lives inside the memory stick directory.
 		g_Config.mountRoot = Path(root.value());
 	}
 

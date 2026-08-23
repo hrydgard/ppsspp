@@ -887,6 +887,8 @@ int main(int argc, const char* argv[]) {
 
 	graphicsContext->ShutdownAPI();
 
+	delete graphicsContext;
+
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		ShutdownWebServer();
 	}

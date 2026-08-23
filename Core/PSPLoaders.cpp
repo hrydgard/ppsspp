@@ -374,17 +374,17 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		path = AndroidContentURI(full_path.GetDirectory()).FilePath();
 	}
 
+	// TODO: More robust check.
 	size_t pos = path.find("PSP/GAME/");
 	std::string ms_path;
 	if (pos != std::string::npos) {
 		ms_path = "ms0:/" + path.substr(pos) + "/";
 	} else {
-		// This is wrong, but it's better than not having a working directory at all.
-		// Note that umd0:/ is actually the writable containing directory, in this case.
-		ms_path = "umd0:/";
+		// We map host0: to the containing directory, see below. This will also be set as the current dir
+		ms_path = "host0:/";
 	}
 
-	Path dir;
+	Path host0Dir;
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
@@ -425,28 +425,31 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		file = filepath + "/" + file;
 		path = rootNorm.ToString();
 		pspFileSystem.SetStartingDirectory(filepath);
-		dir = Path(path);
+		host0Dir = Path(path);
 	} else {
 		pspFileSystem.SetStartingDirectory(ms_path);
-		dir = full_path.NavigateUp();
+		host0Dir = full_path.NavigateUp();
 	}
 
-	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
-	pspFileSystem.Mount("umd0:", fs);
+	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, host0Dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	pspFileSystem.Mount("host0:", fs);
 
 	std::string finalName = ms_path + file;
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
 	std::size_t lslash = homebrewName.find_last_of('/');
 	std::size_t rslash = homebrewName.find_last_of('\\');
-	if (lslash != homebrewName.npos)
+	if (lslash != homebrewName.npos) {
 		homebrewName = homebrewName.substr(lslash + 1);
-	if (rslash != homebrewName.npos)
+	}
+	if (rslash != homebrewName.npos) {
 		homebrewName = homebrewName.substr(rslash + 1);
+	}
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
 	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
+	// TODO: This was long enough ago that I think this can be safely removed.
 	// Migrate old save states from old versions of fake game IDs.
 	// Ugh, this might actually be slow on Android.
 	// The strings here are attacker-controlled (from PARAM.SFO / filenames), so
