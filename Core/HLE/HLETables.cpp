@@ -168,14 +168,7 @@ static const HLEFunction LoadCoreForKernel[] = {
 
 // sceKernelSm1ReferOperations() returns a pointer to a driver-registered "SM1 operations"
 // table (set up via the sibling sceKernelSm1RegisterOperations(), also unimplemented here),
-// or NULL if nothing has registered one. Real callers (e.g. kd/lowio.prx) only check the
-// return value against exactly zero before dereferencing it as a struct/vtable pointer -
-// leaving this as a generic `nullptr` HLE table entry meant it fell through to the "function
-// unimplemented" fallback, which returns SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED
-// (0x8002013A) in v0 instead of 0. That error code isn't zero, so the caller's null check
-// didn't catch it, and it went on to call through a function pointer read from an offset
-// within that "structure" - really an unrelated error code - causing a wild read/jump. Since
-// nothing currently registers real SM1 operations, returning NULL here is correct.
+// or NULL if nothing has registered one.
 static u32 sceKernelSm1ReferOperations() {
 	return hleLogDebug(Log::sceKernel, 0);
 }

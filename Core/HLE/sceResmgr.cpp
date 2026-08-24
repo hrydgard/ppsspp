@@ -17,8 +17,6 @@
 
 #include <vector>
 
-// MemMap.h first: PrxDecrypter.h's PSP_Header is written in u32_le and friends, and doesn't pull
-// in the header that defines them.
 #include "Core/MemMap.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/PrxDecrypter.h"

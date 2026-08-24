@@ -1027,18 +1027,7 @@ static int sceKernelLoadExecBufferVSHUsbWlan(int bufferSize, u32 bufferAddr, u32
 	return hleLogInfo(Log::sceKernel, 0);
 }
 
-const HLEFunction LoadExecForKernel[] =
-{
-	// The first 5 entries below (up through sceKernelExitGame) are this array's original,
-	// pre-VSH-work content, in their original order - kept exactly where they were. Every entry
-	// added since must go after them, never inserted earlier in this table: the funcindex (this
-	// array position) gets baked directly into resolved-import syscall opcodes written into
-	// guest RAM (see GetSyscallOp() in HLE.cpp), which savestates capture verbatim, so inserting
-	// a new entry before an existing one shifts every later entry's index and silently corrupts
-	// any savestate taken after that entry was already resolved (see AGENTS.md). A previous
-	// version of this table's VSH additions violated this three separate times (shifting
-	// sceKernelLoadExecVSHMs2/0X28D0D249, sceKernelExitVSHKernel/0x6D302D3D, and
-	// sceKernelExitGame/0x05572A5F) - fixed by moving the new entries after them instead.
+const HLEFunction LoadExecForKernel[] = {
 	{0x4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,            "sceKernelRegisterExitCallback",             'i', "i",      HLE_KERNEL_SYSCALL },
 	{0XA3D5E142, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHVSH",                       'i', "x",      HLE_KERNEL_SYSCALL },
 	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },

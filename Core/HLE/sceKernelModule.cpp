@@ -1495,7 +1495,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
 
-	if (!strcmp(module->nm.name, "scePaf_Module")) {
+	if (equals(module->nm.name, "scePaf_Module")) {
+		// NOTE: This hackery is likely firmware-version-specific, so will need tweaking for
+		// other firmware versions than 6.61.
+		//
 		// scePaf's own heap allocator expects a real memory-pool base address to already be
 		// patched into this BSS slot before any of its code runs. Real hardware's loader (or
 		// an early kernel init step) apparently does this - checked all 27 of scePaf's
@@ -1515,7 +1518,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 	}
 
-	if (!strcmp(module->nm.name, "vsh_module")) {
+	if (equals(module->nm.name, "vsh_module")) {
+		// Like the above patch, this is likely firmware-version-specific.
+		//
 		// vsh_module's SCE_VSH_GRAPHICS thread runs a scan over a small fixed table of
 		// "alarm task" categories (2 categories, each with a count followed by that many
 		// 4-byte item IDs). Category 0's data is legitimate, compiled-in content (count=8,
