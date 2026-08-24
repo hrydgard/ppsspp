@@ -927,12 +927,10 @@ std::vector<std::wstring> GetWideCmdLine() {
 }
 
 static void InitMemstickDirectory() {
-	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
+	if (!g_Config.memStickDirectory.empty() && !g_Config.nandRootDirectory.empty())
 		return;
 
 	const Path &exePath = File::GetExeDirectory();
-	// Mount a filesystem
-	g_Config.flash0Directory = exePath / "assets/flash0";
 
 	// Caller sets this to the Documents folder.
 	const Path rootMyDocsPath = g_Config.internalDataDirectory;

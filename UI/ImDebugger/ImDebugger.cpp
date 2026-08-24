@@ -419,15 +419,16 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 	}
 
 	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	if (ImGui::BeginTable("threads", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	if (ImGui::BeginTable("threads", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Id", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("PC", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("Priority", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed);
-		ImGui::TableSetupColumn("Wait Type", ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableSetupColumn("Wait ID", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Wait Type", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Wait ID", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("Cur Dir", ImGuiTableColumnFlags_WidthStretch);
 		// .initialStack, .stackSize, etc
 		ImGui::TableHeadersRow();
 
@@ -459,6 +460,9 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 			char temp[64];
 			WaitIDToString(thread.waitType, thread.waitID, temp, sizeof(temp));
 			ImGui::TextUnformatted(temp);
+			std::string curDir = pspFileSystem.GetCurrentDirForThread(thread.id);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(curDir.empty() ? "N/A" : curDir.c_str());
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);

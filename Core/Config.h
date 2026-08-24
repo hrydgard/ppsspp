@@ -706,7 +706,7 @@ public:
 	Path defaultCurrentDirectory;  // Platform dependent, initialized at startup.
 
 	Path memStickDirectory;
-	Path flash0Directory;
+	Path nandRootDirectory;
 	Path internalDataDirectory;
 	Path appCacheDirectory;
 

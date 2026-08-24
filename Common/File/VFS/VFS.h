@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <cstring>
 #include <string_view>
 
 #include "Common/File/DirListing.h"
@@ -37,7 +38,23 @@ public:
 class VFSInterface {
 public:
 	virtual ~VFSInterface() {}
+
+	// The return value should be delete[]-ed.
 	virtual uint8_t *ReadFile(std::string_view path, size_t *size) = 0;
+
+	// Slow convenience wrapper (well, we should probably change the interface).
+	bool ReadFileInto(std::string_view path, std::vector<uint8_t> *buf) {
+		size_t sz;
+		uint8_t *data = ReadFile(path, &sz);
+		if (!data) {
+			return false;
+		}
+		buf->resize(sz);
+		memcpy(buf->data(), data, sz);
+		delete[] data;
+		return true;
+	}
+
 	// If listing already contains files, it'll be cleared.
 	virtual bool GetFileListing(std::string_view path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) = 0;
 };

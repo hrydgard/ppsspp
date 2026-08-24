@@ -712,8 +712,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	if (shouldHLE && GetHLEFunc(func.moduleName, func.nid)) {
 		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
 			const char *name = GetHLEFuncName(func.moduleName, func.nid);
-			char temp[256];
-			if (temp) {
+			if (name) {
 				WARN_LOG(Log::Loader, "Reimporting updated syscall from %s: %s", func.moduleName, name);
 			} else {
 				WARN_LOG(Log::Loader, "Reimporting updated syscall from %s: zz_%08x", func.moduleName, func.nid);
@@ -1815,7 +1814,6 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
 }
-
 
 u32 __KernelGetModuleGP(SceUID uid) {
 	u32 error;
