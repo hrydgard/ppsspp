@@ -184,6 +184,11 @@ For string sanitation, we already have SanitizeString in StringUtils.cpp - add n
 
 ## Translated UI strings (assets/lang)
 
+**When implementing new UI, translations come last, in their own commit after everything else is
+done.** Write the English strings, get the feature built and working, commit that - then stop and ask
+the user to check the English wording before translating anything. The English string is what all ~47
+languages get derived from, so rewording it afterwards means redoing the whole sweep.
+
 One .ini file per language, keyed by section and key against `assets/lang/en_US.ini`. **Don't hand-edit
 the ~47 files**, and don't run the AI commands in `Tools/langtool` either - you can read the call site,
 which its fixed prompt can't. Do the translating yourself and let the tool do the file surgery. Run it

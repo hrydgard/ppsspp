@@ -73,6 +73,9 @@
     <ClCompile Include="..\..\UI\IAPScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\InstallUpdateScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -214,6 +217,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\IAPScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\InstallUpdateScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\InstallZipScreen.h">

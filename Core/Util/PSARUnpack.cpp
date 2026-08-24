@@ -489,6 +489,9 @@ public:
 	PSARCompression entryCompression() const { return entryCompression_; }
 	// Empty for a directory, or for an entry we couldn't decompress.
 	const std::vector<u8> &entryData() const { return entryData_; }
+	// How far into the archive the next record starts, and where the records stop - i.e. progress.
+	u32 position() const { return pos_; }
+	size_t limit() const { return limit_; }
 
 private:
 	// Decrypts one record into 'out'. Returns the decrypted size, or <= 0 on failure.
@@ -725,6 +728,10 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 
 		stats->entries++;
 		stats->compressionCounts[(int)reader.entryCompression()]++;
+
+		if (options.progress && reader.limit() > 0) {
+			options.progress(std::min(1.0f, (float)reader.position() / (float)reader.limit()));
+		}
 
 		if (options.verbose) {
 			INFO_LOG(Log::Loader, "PSAR entry '%s' (%s, %d bytes)", reader.entryName().c_str(),
