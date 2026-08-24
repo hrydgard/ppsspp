@@ -48,6 +48,7 @@
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
+#include "Core/HLE/scePspNpDrm_user.h"
 #include "Core/Util/KL4E.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -1216,7 +1217,9 @@ static void LoadAndStartVshKernelModules() {
 }
 
 // filename is only used for dumping/metadata.
-static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error) {
+// prxSeed is the extra key a module that came out of an NPDRM container needs to decrypt - see
+// NpDrmDeriveModuleKey(). Null for everything else, which is the overwhelming majority.
+static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr) {
 	// The magic reads below need four bytes, and the ~SCE branch another four after that. Everything
 	// downstream checks its own sizes; this is just so we can look at the magic at all. The PBP path
 	// in __KernelLoadModule computes elfSize from two offsets in the file and doesn't floor it.
@@ -1289,7 +1292,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed);
 		// If decryption got us nowhere, the PRX may simply not be encrypted - in which case the ELF
 		// starts right after the header. Check the source buffer, not the destination: on the paths
 		// where decryption bails early nothing has been written to newptr yet, so this used to read
@@ -2304,6 +2307,37 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 		return hleDelayResult(error, "module loaded", 500);
 	}
 
+	// A .sprx installed by a PKG game update comes wrapped in an NPDRM "\0PSPEDAT" container: a
+	// 0x90-byte header naming the content ID, then the payload at the offset in its u16 at 0x0C.
+	// The payload is an ordinary ~PSP PRX, so stepping over the header is enough to get it to the
+	// decrypter - otherwise the ELF check sees the EDAT magic and the load fails with
+	// SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE. It doesn't decrypt with the tag's key alone though;
+	// the header also yields the seed it's really encrypted against.
+	//
+	// Data EDATs put a PGD at the payload offset instead (0x0003 rather than 0x0101 at 0x0E), and
+	// those aren't loaded as modules - they go through sceNpDrmEdataSetupKey and the io layer.
+	//
+	// Hardware only unwraps this for sceKernelLoadModuleNpDrm, but keying off the file's own magic
+	// costs nothing: an unwrapped module never has it. See docs/pkg_notes.md.
+	u8 prxSeed[16];
+	bool havePrxSeed = false;
+	if (fileData.size() > 0x90 && !memcmp(fileData.data(), "\0PSPEDAT", 8)) {
+		const size_t payloadOffset = fileData[0x0C] | (fileData[0x0D] << 8);
+		if (payloadOffset >= 0x90 && payloadOffset < fileData.size()) {
+			havePrxSeed = NpDrmDeriveModuleKey(fileData.data(), prxSeed);
+			if (!havePrxSeed) {
+				// Not fatal on its own - a module that needs no seed decrypts without one, and one
+				// that does will fail below with the same error as any other undecryptable module.
+				WARN_LOG(Log::Loader, "Couldn't derive the NPDRM key for '%s'", name);
+			}
+			DEBUG_LOG(Log::Loader, "Unwrapping NPDRM module '%s' (%d bytes of EDAT header)", name, (int)payloadOffset);
+			fileData.erase(fileData.begin(), fileData.begin() + payloadOffset);
+		} else {
+			// Fall through - the magic check further down reports it like any other bad module.
+			WARN_LOG(Log::Loader, "'%s' has an EDAT header with a bad payload offset %d", name, (int)payloadOffset);
+		}
+	}
+
 	// We log before hand because ELF loading logs a bunch.
 	DEBUG_LOG(Log::Loader, "sceKernelLoadModule(%s, %08x)", name, flags);
 
@@ -2332,7 +2366,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error);
+	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, havePrxSeed ? prxSeed : nullptr);
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -2368,7 +2402,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 }
 
 static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr) {
-	// Just forward it, same parameters so the logging will make sense.
+	// Just forward it, same parameters so the logging will make sense. The NPDRM EDAT wrapper these
+	// modules carry is stepped over in there, since that's keyed off the file's own magic.
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 

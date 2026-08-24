@@ -14,6 +14,20 @@ extern "C"
 
 #define ROUNDUP16(x)  (((x)+15)&~15)
 
+// PSP_Header::decrypt_mode, the byte at 0x7C. Only the one we act on is named; the rest select
+// which decryption variant a real PSP would use, which we don't need since we try them in turn.
+enum {
+	PRX_DECRYPT_MODE_SPRX = 23,
+};
+
+// A module that arrived inside an NPDRM EDAT carries this fixed XOR on top of its tag's key. It
+// goes with the decrypt_mode above rather than with any particular tag - tag 0x407810F0's table
+// entry has no seed of its own, in JPCSP's tables as well as ours, so keying this on the tag
+// would be wrong for a 0x407810F0 module that arrived some other way.
+static const u8 xor_91E0A9AD[16] = {
+	0x84, 0x7B, 0xF5, 0xFE, 0xE8, 0x4D, 0xAD, 0x7A, 0xB5, 0x06, 0x28, 0x0E, 0x09, 0xFA, 0x81, 0xE1,
+};
+
 // Thank you PSARDUMPER & JPCSP keys
 
 // PRXDecrypter 16-byte tag keys.
@@ -966,9 +980,13 @@ static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	// expand the seed into a xor buffer
 	auto xorbuf = expandSeed(pti->key, pti->code, seed);
 
+	// The XOR the decrypt_mode implies wins over the tag table's, which is only the fallback -
+	// same precedence as JPCSP, and it leaves every tag that has a seed of its own alone.
+	const u8 *xor1 = inbuf[0x7C] == PRX_DECRYPT_MODE_SPRX ? xor_91E0A9AD : pti->seed;
+
 	// construct the header format for a type 2 prx
 	PRXType5 type5(inbuf);
-	type5.decrypt(pti->code, pti->seed, seed);
+	type5.decrypt(pti->code, xor1, seed);
 
 	SHA_CTX ctx;
 	SHAInit(&ctx);

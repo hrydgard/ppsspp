@@ -115,8 +115,11 @@ encrypted - a decoder can tell what it is holding before looking at it:
 | 8 | PSP EDAT (`.sprx` modules) | `\0PSPEDAT` |
 | 11 | PBP | `\0PBP` |
 
-The `\0PSPEDAT` files are the PGD-wrapped kind PPSSPP already decrypts at runtime, via
-`sceNpDrmEdataSetupKey` in `Core/HLE/scePspNpDrm_user.cpp`.
+Both flags 5 and 8 give you a `\0PSPEDAT`, but they are not the same thing inside. A flags-5 data
+file wraps a PGD, which PPSSPP decrypts at runtime through `sceNpDrmEdataSetupKey()` in
+`Core/HLE/scePspNpDrm_user.cpp`. A flags-8 `.sprx` wraps an encrypted PRX instead, and goes through
+the module loader - see "NPDRM `.sprx` modules" below. The byte at 0x0E of the header tells them apart
+(3 for the PGD kind, 1 for the PRX kind).
 
 ## What an update package contains
 
@@ -253,43 +256,93 @@ because the dumps in circulation are later disc revisions than the updates were 
 Refusing outright would make most of them unusable. Elminage Original was the one clean
 exact-match case, disc 1.01 against an update for 1.01, and it boots without a warning.
 
-### Known limitation: PGD-wrapped `.sprx` modules don't load
+### NPDRM `.sprx` modules
 
 Package payloads are full of `\0PSPEDAT` files. That's fine for
 *data*: `sceNpDrmEdataSetupKey()` in `Core/HLE/scePspNpDrm_user.cpp` wraps an open file descriptor
 with the `0x04100002`/`0x04100001` ioctl pair, and the game reads plaintext.
 
-A few packages ship `\0PSPEDAT` **executables** - `.sprx` modules - and that path is not
-implemented. God Eater 2 (NPJH50832, 45 of them) installs cleanly, boots its `PBOOT.PBP`, and then
-loops forever on:
+A few packages wrap **executables** that way - `.sprx` modules the game loads with
+`sceKernelLoadModuleNpDrm`. Those need more than the data path does. Until they were handled, God
+Eater 2 (NPJH50832) installed cleanly, booted its `PBOOT.PBP`, and then looped forever failing to
+load `system.sprx`; Shiren 4 Plus (NPJH50698), which keeps the whole game in one `.sprx` behind a
+small loader, failed the same way.
+
+An NPDRM module is two layers, and the loader originally saw only the outer one:
 
 ```
-E Loader: SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE=sceKernelLoadModuleNpDrm(
-    ms0:/PSP/GAME/NPJH50832/system.sprx, 00000000, 00000000): failed to load
-E sceModule: Wrong magic number 50535000
++0x00  "\0PSPEDAT" header, 0x90 bytes
+       +0x08  u32   key mode; low byte is what sceNpDrmGetFixedKey takes (3 in all of these)
+       +0x0C  u16   payload offset (0x90 in everything seen)
+       +0x0F  u8    flag bits: 1 = XOR in the licensee key, 2 = XOR in the 16 bytes at 0x40
+       +0x10  char[0x30]  content ID, "JP0365-NPJH50698_00-SIREN4PLUS2012MA"
++0x90  a normal "~PSP" PRX: tag 0x407810F0 at 0xD0, decrypt_mode 23 at 0x7C
 ```
 
-Shiren 4 Plus (NPJH50698, one `.sprx` holding the whole game behind a 62 KB loader) fails
-identically. Tales of the World Radiant Mythology 3 (NPJH50353, two) doesn't reach its modules
-within 100 seconds of headless boot, so it gets past startup - it presumably hits the same wall
-whenever it does load them.
+`sceKernelLoadModule()` steps over the EDAT header, and the PRX inside then decrypts. Two keys go
+into that, both worked out from JPCSP (`ModuleMgrForUser.sceKernelLoadModuleNpDrm`, `crypto/DRM.java`,
+`crypto/PRX.java`, `crypto/KeyVault.java`), and both feed `pspDecryptType5()`, which already had a
+slot for each.
 
-`sceKernelLoadModuleNpDrm()` in `Core/HLE/sceKernelModule.cpp` is a one-line forward to
-`sceKernelLoadModule()`, which sees something that isn't ELF magic and gives up. Fixing it means
-unwrapping the EDAT before handing the bytes to the ELF loader, using the licensee key the game has
-already set via `sceNpDrmSetLicenseeKey` - the same material the data path uses.
+**xor2, the per-content key** - `NpDrmDeriveModuleKey()` in `Core/HLE/scePspNpDrm_user.cpp`, four
+steps in order:
 
-This is a pre-existing emulator gap rather than something the installer gets wrong: until now
-nothing put such a file on the memory stick, so it was unreachable. The unpatched God Eater 2 never
-calls `sceKernelLoadModuleNpDrm` at all - the update is what introduces the modules - so for that
-title the update is currently better not installed, since the unpatched game boots. It's also why a
-"God Eater 2 DLC Update v1.40 *Decrypted for PPSSPP Emulator*" folder circulates: the `PBOOT.PBP` in
-it is byte-for-byte what `InstallPkg()` writes, and the only difference is that its `.sprx` files
-have been unwrapped to plain ELF by hand.
+1. `sceNpDrmGetFixedKey(kirk, key, edat+0x10, 0x01000000 | edat[0x08])` - already in
+   `ext/libkirk/amctrl.c`, and identical to JPCSP's `hleNpDrmGetFixedKey`: our `key_363C` is its
+   `drmFixedKey`, our `key_357C[0/1/2]` are its `drmEncKey1/2/3`, and its AES-CBC under an all-zero
+   IV over one block is our `AES_encrypt`. Nothing had called this function before.
+2. If `edat[0x0F] & 1`: XOR the licensee key the game passed to `sceNpDrmSetLicenseeKey()`, which
+   this file already kept but never used. The game sets it before it loads the module.
+3. If `edat[0x0F] & 2`: XOR the 16 bytes at `edat+0x40`. None seen here use it.
+4. AES-128 decrypt the result under `drmModuleKey`, the one constant that had to be added here.
+   JPCSP does CBC with a zero IV; over a single block that is a plain `AES_decrypt`.
+
+**xor1, a static key picked by `decrypt_mode`** - the PRX header byte at 0x7C being 23
+(`DECRYPT_MODE_SPRX`), which is what these payloads are. JPCSP keys this on the mode rather than on
+the tag, and so do we: tag 0x407810F0's table entry has no seed of its own in JPCSP's tables either,
+so our table was never wrong, it just had nothing to say about a case selected somewhere else.
+`pspDecryptType5()` takes the mode-derived XOR when the mode calls for it and falls back to the tag
+table's otherwise - the same precedence JPCSP uses, which leaves every tag that does carry a seed
+(the `pauth` ones) exactly as it was.
+
+No new decryption logic was needed. `pspDecryptType5()` is structurally identical to JPCSP's "new
+method" for type 5: `expandSeed(pti->key, pti->code, seed)` XORs xor2 over the 0x90-byte scrambled
+key buffer as `RoundXOR(buf2, 0, 0x90, xor2, null)` does; `PRXType5::decrypt()` XORs both over the
+0x50-byte kirk header and SHA1 as `RoundXOR(buf2, 0x14, 0x50, xor1, xor2)` does, and then xor1 alone
+over the 0x60 bytes at `id` as `RoundXOR(buf4, 0x14, 0x60, xor1, null)` does. JPCSP's `RoundXOR` is
+`buf[i] ^= key[i & 0xF]`, the same repeating XOR as our `xor[i % 0x10]`.
+
+### The other half of it: KL4E
+
+Decrypting is only half the job. Shiren 4 Plus's `f5psp.sprx` decrypts to bytes that start with
+`KL4E`: every one of these modules has `comp_attribute = 0x0201`, i.e. compressed, and
+`(comp_attribute & 0xF00) != 0` means KL4E/KL3E rather than gzip. So decryption alone would just
+move the failure from "unsupported PRX type" to "decompression failed".
+
+`Core/Util/KL4E.cpp` already handles that - it went in for firmware modules that use the same
+compression, and these get it for free. It's worth knowing the two halves are independent, because
+each one on its own leaves the module unloadable and the error doesn't say which is missing.
+
+Note that none of this can be checked offline against the hand-decrypted `.sprx` files that
+circulate for God Eater 2: their flag byte says the licensee key is part of the derivation, and that
+key only exists while the game is running. Those files are still useful as a cross-check of the
+installer itself - the `PBOOT.PBP` in such a folder is byte-for-byte what `InstallPkg()` writes, and
+the only difference is that the `.sprx` files beside it were decrypted by hand.
+
+### Where that leaves the three module titles
+
+- **God Eater 2 (NPJH50832)** installs, boots, loads its modules and plays. Decryption alone wasn't
+  enough for it: it also needed the type-B relocation fix in `ElfReader::LoadRelocations2` (issue
+  #8075), where two `lui`s sharing one `addiu` got different high halves, so a callback pointer
+  landed 0x48 bytes inside a function.
+- **Shiren 4 Plus (NPJH50698)** loads `f5psp.sprx` - the log says `'FDS3PSP' is KL4E-compressed,
+  decompressing` - and runs.
+- **Tales of the World Radiant Mythology 3 (NPJH50353)** still doesn't reach its modules inside a
+  headless boot, so it remains untested rather than known-good.
 
 ### Still not tested
 
-- Nothing here plays past a title screen. The runs are 25-second headless boots, so "the update is
-  in use" means the patched executable is what loaded and ran - not that a patched *asset* was read.
-  LittleBigPlanet's `PATCH.ARC` covers that for a UMD title; there's no equivalent observation for a
-  digital one yet.
+- Only God Eater 2 has been played past a title screen. For the rest the runs are short headless
+  boots, so "the update is in use" means the patched executable is what loaded and ran - not that a
+  patched *asset* was read. LittleBigPlanet's `PATCH.ARC` covers that for a UMD title; there's no
+  equivalent observation for a digital one yet.
