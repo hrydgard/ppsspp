@@ -7,9 +7,10 @@ static int sceChkregCheckRegion(int unknown1, int unknown2) {
 	return hleLogWarning(Log::sceMisc, 1);
 }
 
-int sceChkreg_driver_6894A027(u32 unknown1, u32 unknown2) {
-	if (Memory::IsValid4AlignedAddress(unknown1)) {
-		Memory::WriteUnchecked_U32(1, unknown1);
+// uofw: s32 sceChkregGetPsFlags(u8 *pPsFlags, s32 index)
+static int sceChkregGetPsFlags(u32 pPsFlags, int index) {
+	if (Memory::IsValid4AlignedAddress(pPsFlags)) {
+		Memory::WriteUnchecked_U32(1, pPsFlags);
 	}
 	return hleLogWarning(Log::sceMisc, 0);
 }
@@ -31,7 +32,7 @@ int sceChkregGetPsCode(u32 ptr) {
 static const HLEFunction sceChkreg[] = {
 	{0x54495B19, &WrapI_II<sceChkregCheckRegion>,      "sceChkregCheckRegion",      'i', "ii" },
 	{0x59F8491D, &WrapI_U< sceChkregGetPsCode>,        "sceChkregGetPsCode",        'i', "x"},
-	{0x6894A027, &WrapI_UU<sceChkreg_driver_6894A027>, "sceChkreg_driver_6894A027", 'i', "xx" },
+	{0x6894A027, &WrapI_UI<sceChkregGetPsFlags>,       "sceChkregGetPsFlags",       'i', "xi" },
 	{0x7939C851, &WrapI_V<sceChkregGetPspModel>,       "sceChkregGetPspModel",      'i', "" },
 };
 
