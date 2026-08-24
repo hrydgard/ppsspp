@@ -769,9 +769,8 @@ struct PRXType9
 };
 static_assert(sizeof(PRXType9) == 0x150, "inconsistent size of PRX Type 9");
 
-static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
-{
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size) {
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <ctime>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -81,6 +82,9 @@ struct PSARUnpackOptions {
 	bool listOnly = false;
 	// Log a line per entry. Off by default - an updater holds well over a thousand of them.
 	bool verbose = false;
+	// Called on the unpacking thread after every entry, with how far through the archive we are
+	// (0.0 to 1.0). Unpacking a full firmware takes a while, so a UI wants this.
+	std::function<void(float)> progress;
 };
 
 struct PSARUnpackStats {

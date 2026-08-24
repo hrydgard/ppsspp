@@ -99,6 +99,8 @@ list(APPEND UISource
 	UploadScreen.cpp
 	CwCheatScreen.h
 	CwCheatScreen.cpp
+	InstallUpdateScreen.h
+	InstallUpdateScreen.cpp
 	InstallZipScreen.h
 	InstallZipScreen.cpp
 	JitCompareScreen.h

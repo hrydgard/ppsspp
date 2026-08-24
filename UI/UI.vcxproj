@@ -79,6 +79,7 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
+    <ClCompile Include="InstallUpdateScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="Theme.cpp" />
     <ClCompile Include="UIAtlas.cpp" />
@@ -136,6 +137,7 @@
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
+    <ClInclude Include="InstallUpdateScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="Theme.h" />
     <ClInclude Include="UIAtlas.h" />

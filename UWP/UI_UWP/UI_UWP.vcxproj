@@ -114,6 +114,7 @@
     <ClInclude Include="..\..\UI\ImDebugger\ImJitViewer.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImMemView.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImStructViewer.h" />
+    <ClInclude Include="..\..\UI\InstallUpdateScreen.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JitCompareScreen.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
@@ -172,6 +173,7 @@
     <ClCompile Include="..\..\UI\ImDebugger\ImJitViewer.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImMemView.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImStructViewer.cpp" />
+    <ClCompile Include="..\..\UI\InstallUpdateScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
