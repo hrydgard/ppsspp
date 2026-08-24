@@ -175,6 +175,14 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle) const
 	return nullptr;
 }
 
+std::string MetaFileSystem::GetCurrentDirForThread(int threadID) const {
+	auto iter = currentDir.find(threadID);
+	if (iter == currentDir.end()) {
+		return "";
+	}
+	return iter->second;
+}
+
 int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, MountPoint **system) {
 	int error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	std::lock_guard<std::recursive_mutex> guard(lock);
@@ -204,7 +212,7 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 
 	// Hm, does this make sense? Doesn't each drive has its own currentDir per thread, or maybe not?
 	int currentThread = __KernelGetCurThread();
-	currentDir_t::iterator it = currentDir.find(currentThread);
+	auto it = currentDir.find(currentThread);
 	if (it == currentDir.end()) {
 		// Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
 		if (inpath.find(':') == std::string::npos /* means path is relative */) {

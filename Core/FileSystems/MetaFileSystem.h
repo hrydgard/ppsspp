@@ -44,8 +44,7 @@ private:
 	// The order of this vector is meaningful - lookups are always a linear search from the start.
 	std::vector<MountPoint> fileSystems;
 
-	typedef std::map<int, std::string> currentDir_t;
-	currentDir_t currentDir;
+	std::map<int, std::string> currentDir;
 
 	std::string startingDirectory;
 	mutable std::recursive_mutex lock;  // must be recursive. TODO: fix that
@@ -87,6 +86,8 @@ public:
 
 	void ThreadEnded(int threadID);
 	void Shutdown();
+
+	std::string GetCurrentDirForThread(int threadID) const;
 
 	u32 GetNewHandle() override {
 		u32 res = current++;
