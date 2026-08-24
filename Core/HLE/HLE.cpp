@@ -1003,6 +1003,9 @@ void CallSyscall(MIPSOpcode op) {
 
 void CallSyscallUnresolvedAtPC(u32 pc) {
 	LogBadSyscallAtPC(pc, false);
+	// Same as the !info path in CallSyscallWithPC - the call has to leave an error in v0,
+	// otherwise the caller sees a stale value and thinks the unresolved import succeeded.
+	RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
 }
 
 void hlePushFuncDesc(std::string_view module, std::string_view funcName) {

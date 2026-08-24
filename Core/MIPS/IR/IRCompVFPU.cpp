@@ -400,6 +400,13 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, offset);
 
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
+
 		switch (op >> 26) {
 		case 50: //lv.s
 			ir.Write(IROp::LoadFloat, vfpuBase + voffset[vt], rs, 0, offset);
@@ -424,6 +431,13 @@ namespace MIPSComp {
 		GetVectorRegs(vregs, V_Quad, vt);
 
 		CheckMemoryBreakpoint(rs, imm);
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
 
 		enum class LSVType {
 			INVALID,
