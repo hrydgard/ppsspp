@@ -1187,13 +1187,12 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 	if (ImGui::RepeatButtonShift("Single step", fastRepeatRate)) {
 		gpuDebug->SetBreakNext(GPUDebug::BreakNext::OP);
 	}
+	if (disableStepButtons) {
+		ImGui::EndDisabled();
+	}
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel step")) {
 		gpuDebug->ClearBreakNext();
-	}
-
-	if (disableStepButtons) {
-		ImGui::EndDisabled();
 	}
 
 	ImGui::Text("%d/%d", gpuDebug->PrimsThisFrame(), gpuDebug->PrimsLastFrame());
