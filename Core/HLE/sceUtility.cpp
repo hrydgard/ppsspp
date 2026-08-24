@@ -1587,10 +1587,10 @@ const HLEFunction sceUtility[] = {
 	{0X417BED54, nullptr,                                          "sceNetplayDialogUpdate",                 '?', ""   },
 	{0XB6CEE597, nullptr,                                          "sceNetplayDialogGetStatus",              '?', ""   },
 
-	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   },
-	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   },
-	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   },
-	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   },
+	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   }, // jpcsp: getAuthName(char *authNameOut64)
+	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   }, // jpcsp: setAuthKey(const char *authKey64)
+	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   }, // jpcsp: setAuthName(const char *authName64)
+	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   }, // jpcsp: getAuthKey(char *authKeyOut64)
 
 	{0x05e242a1, nullptr,                                          "sceUtility_05e242a1",                    '?', ""   },
 	{0x644b513b, nullptr,                                          "sceUtility_644b513b",                    '?', ""   },

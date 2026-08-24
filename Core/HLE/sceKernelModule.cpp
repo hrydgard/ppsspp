@@ -2986,8 +2986,8 @@ const HLEFunction ModuleMgrForUser[] = {
 	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx"     },
 	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx"    },
 	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx"    },
-	{0XE4C4211C, nullptr,                                               "ModuleMgrForUser_E4C4211C",               '?', ""       },
-	{0XFBE27467, nullptr,                                               "ModuleMgrForUser_FBE27467",               '?', ""       },
+	{0XE4C4211C, nullptr,                                               "sceKernelLoadModuleWithBlockOffset",      '?', ""       },
+	{0XFBE27467, nullptr,                                               "sceKernelLoadModuleByIDWithBlockOffset",  '?', ""       },
 };
 
 const HLEFunction ModuleMgrForKernel[] = {

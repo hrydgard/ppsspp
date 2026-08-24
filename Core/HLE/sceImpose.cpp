@@ -136,7 +136,7 @@ const HLEFunction sceImpose[] = {
 	{0XFCD44963, nullptr,                                  "sceImpose_FCD44963",            '?', ""  },
 	{0XA9884B00, nullptr,                                  "sceImpose_A9884B00",            '?', ""  },
 	{0XBB3F5DEC, nullptr,                                  "sceImpose_BB3F5DEC",            '?', ""  },
-	{0X9BA61B49, nullptr,                                  "sceImpose_9BA61B49",            '?', ""  },
+	{0X9BA61B49, nullptr,                                  "sceImpose_9BA61B49",            '?', ""  }, // jpcsp: isHomeButtonPressed() -> bool
 	{0XFF1A2F07, nullptr,                                  "sceImpose_FF1A2F07",            '?', ""  },
 };
 

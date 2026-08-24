@@ -3063,7 +3063,7 @@ const HLEFunction IoFileMgrForKernel[] = {
 	{0xE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "iP",     HLE_KERNEL_SYSCALL },
 	{0x35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "iP",     HLE_KERNEL_SYSCALL },
 	{0xBD17474F, nullptr,                               "sceIoGetIobUserLevel",        '?', ""        },
-	{0x76DA16E3, nullptr,                               "IoFileMgrForKernel_76DA16E3", '?', ""        },
+	{0x76DA16E3, nullptr,                               "sceIoTerminateFd",            '?', ""        },
 };
 
 void Register_IoFileMgrForKernel() {
