@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 
 #include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
@@ -123,9 +124,23 @@ public:
 		return ((int)hasFlags & (int)flags) == (int)flags;
 	}
 
+	// Blocks the calling thread until the specified flags have been loaded. Note that you must
+	// have requested them through GetInfo first, otherwise nobody will ever compute them and
+	// this will simply hang.
+	// Only use this where there's really no way to wait asynchronously by polling Ready() every
+	// frame - loading can take a while, especially from slow or remote storage.
+	void WaitUntilReady(GameInfoFlags flags) {
+		std::unique_lock<std::mutex> guard(lock);
+		readyCond.wait(guard, [this, flags]() {
+			// Avoid the operator, we want to check all the bits.
+			return ((int)hasFlags & (int)flags) == (int)flags;
+		});
+	}
+
 	void MarkReadyNoLock(GameInfoFlags flags) {
 		hasFlags |= flags;
 		pendingFlags &= ~flags;
+		readyCond.notify_all();
 	}
 
 	GameInfoTex *GetPIC1() {
@@ -139,6 +154,9 @@ public:
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
 	std::mutex lock;
+
+	// Signalled whenever flags are marked as ready, see WaitUntilReady. Goes with the lock above.
+	std::condition_variable readyCond;
 
 	// Controls access to the fileLoader pointer.
 	std::mutex loaderLock;

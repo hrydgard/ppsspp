@@ -70,8 +70,11 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 	} else {
 		// Check if we already know that this game isn't playable.
 		// If coming from the main screen, the info will already be computed here since the icon is displayed etc.
-		// Otherwise, we probably technically should wait for it...
-		auto info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO);
+		// Otherwise (launching from a file association, a shortcut, drag-and-drop...) we have to block until
+		// it's available - we can't decide what to do below without it.
+		const GameInfoFlags neededFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO;
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags);
+		info->WaitUntilReady(neededFlags);
 
 		switch (info->fileType) {
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
