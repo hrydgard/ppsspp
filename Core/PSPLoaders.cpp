@@ -485,5 +485,5 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	auto umd = std::make_shared<BlobFileSystem>(&pspFileSystem, fileLoader, "data.ppdmp");
 	pspFileSystem.Mount("disc0:", umd);
 
-	return __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
+	return __KernelLoadGEDump(currentMIPS, "disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 }

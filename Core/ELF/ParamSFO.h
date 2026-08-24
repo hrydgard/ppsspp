@@ -117,6 +117,7 @@ enum class GameRegion {
 	TEST,
 	DIAGNOSTIC,
 	FIRMWARE,
+	VSH,
 };
 
 GameRegion DetectGameRegionFromID(std::string_view id_version);

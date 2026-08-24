@@ -538,6 +538,8 @@ add_library(Core STATIC
 	HLE/proAdhocServer.cpp
 	HLE/sceOpenPSID.cpp
 	HLE/sceOpenPSID.h
+	HLE/sceResmgr.cpp
+	HLE/sceResmgr.h
 	HLE/sceP3da.cpp
 	HLE/sceP3da.h
 	HLE/sceMt19937.cpp
@@ -588,6 +590,8 @@ add_library(Core STATIC
 	HLE/sceUtility.h
 	HLE/sceVaudio.cpp
 	HLE/sceVaudio.h
+	HLE/sceVshBridge.cpp
+	HLE/sceVshBridge.h
 	HLE/scePspNpDrm_user.cpp
 	HLE/scePspNpDrm_user.h
 	HLE/sceNp.cpp
@@ -609,6 +613,8 @@ add_library(Core STATIC
 	HW/Camera.h
 	HW/Display.cpp
 	HW/Display.h
+	HW/GpioMMIO.cpp
+	HW/GpioMMIO.h
 	HW/MediaEngine.cpp
 	HW/MediaEngine.h
 	HW/MpegDemux.cpp

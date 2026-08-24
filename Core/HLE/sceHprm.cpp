@@ -81,9 +81,16 @@ void Register_sceHprm()
 // Kernel-mode variant library used by VSH modules (e.g. vshbridge). NID 0xE9B776BE is the
 // firmware 6.60+ alias of sceHprmReadLatch, listed as nid=0xE9B776BE version=660 alongside the
 // 0x40D2F9F0 version=150 NID in JPCSP's sceHprm.java - both resolve to the same function there.
+static u32 sceHprm_driver_DC895B2B() {
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
 const HLEFunction sceHprm_driver[] =
 {
 	{0XE9B776BE, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},
+	// Purpose unknown - JPCSP names it after its NID too, and returns 0. Present so the VSH's
+	// one startup call resolves instead of trapping.
+	{0XDC895B2B, &WrapU_V<sceHprm_driver_DC895B2B>, "sceHprm_driver_DC895B2B", 'x', ""},
 };
 
 void Register_sceHprm_driver()

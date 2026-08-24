@@ -205,7 +205,7 @@ static int scePowerIsLowBattery() {
 }
 
 static int scePowerIsSuspendRequired() {
-	return hleLogInfo(Log::HLE, 0);
+	return hleLogDebug(Log::HLE, 0);
 }
 
 static int scePowerCancelRequest(u32 something) {
@@ -660,8 +660,15 @@ static int scePower_driver_5F5006D2() {
 	return hleLogDebug(Log::HLE, 0, "UNTESTED");
 }
 
+// Configures which events would wake the console from suspend. We never suspend, so there's
+// nothing to arm - but the VSH calls it during startup and wants a success back.
+static int scePowerSetWakeupCondition(u32 condition) {
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
 const HLEFunction scePower_driver[] = {
 	{0X5F5006D2, &WrapI_V<scePower_driver_5F5006D2>,          "scePower_driver_5F5006D2",          'i', ""   },
+	{0XBA566CD0, &WrapI_U<scePowerSetWakeupCondition>,        "scePowerSetWakeupCondition",        'i', "x"  },
 };
 
 void Register_scePower_driver() {

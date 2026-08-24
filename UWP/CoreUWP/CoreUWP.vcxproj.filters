@@ -136,6 +136,7 @@
     <ClCompile Include="..\..\Core\HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceResmgr.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceP3da.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceParseHttp.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceParseUri.cpp" />
@@ -162,6 +163,7 @@
     <ClCompile Include="..\..\Core\HW\BufferQueue.cpp" />
     <ClCompile Include="..\..\Core\HW\Camera.cpp" />
     <ClCompile Include="..\..\Core\HW\Display.cpp" />
+    <ClCompile Include="..\..\Core\HW\GpioMMIO.cpp" />
     <ClCompile Include="..\..\Core\HW\MediaEngine.cpp" />
     <ClCompile Include="..\..\Core\HW\MemoryStick.cpp" />
     <ClCompile Include="..\..\Core\HW\MpegDemux.cpp" />
@@ -420,6 +422,7 @@
     <ClCompile Include="..\..\Core\CmdLine.cpp" />
     <ClCompile Include="..\..\Core\EmuThread.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceChkreg.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceVshBridge.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Core\AVIDump.h" />
@@ -561,6 +564,7 @@
     <ClInclude Include="..\..\Core\HLE\sceNetAdhocMatching.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp.h" />
     <ClInclude Include="..\..\Core\HLE\sceOpenPSID.h" />
+    <ClInclude Include="..\..\Core\HLE\sceResmgr.h" />
     <ClInclude Include="..\..\Core\HLE\sceP3da.h" />
     <ClInclude Include="..\..\Core\HLE\sceParseHttp.h" />
     <ClInclude Include="..\..\Core\HLE\sceParseUri.h" />
@@ -588,6 +592,7 @@
     <ClInclude Include="..\..\Core\HW\BufferQueue.h" />
     <ClInclude Include="..\..\Core\HW\Camera.h" />
     <ClInclude Include="..\..\Core\HW\Display.h" />
+    <ClInclude Include="..\..\Core\HW\GpioMMIO.h" />
     <ClInclude Include="..\..\Core\HW\MediaEngine.h" />
     <ClInclude Include="..\..\Core\HW\MemoryStick.h" />
     <ClInclude Include="..\..\Core\HW\MpegDemux.h" />
@@ -702,6 +707,7 @@
     <ClInclude Include="..\..\Core\CmdLine.h" />
     <ClInclude Include="..\..\Core\EmuThread.h" />
     <ClInclude Include="..\..\Core\HLE\sceChkreg.h" />
+    <ClInclude Include="..\..\Core\HLE\sceVshBridge.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE" />

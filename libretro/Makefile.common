@@ -812,6 +812,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/proAdhocServer.cpp \
 	       $(COREDIR)/HLE/proAdhoc.cpp \
 	       $(COREDIR)/HLE/sceOpenPSID.cpp \
+	       $(COREDIR)/HLE/sceResmgr.cpp \
 	       $(COREDIR)/HLE/sceP3da.cpp \
 	       $(COREDIR)/HLE/sceMt19937.cpp \
 	       $(COREDIR)/HLE/sceMd5.cpp \
@@ -832,6 +833,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceUsbCam.cpp \
 	       $(COREDIR)/HLE/sceUtility.cpp \
 	       $(COREDIR)/HLE/sceVaudio.cpp \
+	       $(COREDIR)/HLE/sceVshBridge.cpp \
 	       $(COREDIR)/HLE/scePspNpDrm_user.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
 	       $(COREDIR)/HLE/sceNp2.cpp \
@@ -840,6 +842,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/BufferQueue.cpp \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/Display.cpp \
+	       $(COREDIR)/HW/GpioMMIO.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
 	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \

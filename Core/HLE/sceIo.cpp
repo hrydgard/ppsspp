@@ -1632,7 +1632,19 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 	// UMD checks
 	switch (cmd) {
-	case 0x01F20001:  
+	case 0x01E18030:
+		// Check whether the disc's region matches the console's. Unusually, the answer is the
+		// return value rather than something written to outPtr: 1 matches, 0 doesn't. We have no
+		// notion of a region-locked disc - anything PPSSPP can load is something it should run -
+		// so this always matches. Leaving it unimplemented made the VSH open with "This disc
+		// cannot be started. The region code is not correct."
+		if (argLen >= 16) {
+			return hleLogDebug(Log::sceIo, 1, "region matches");
+		} else {
+			return hleLogError(Log::sceIo, -1, "bad params");
+		}
+		break;
+	case 0x01F20001:
 		// Get UMD disc type
 		if (Memory::IsValid4AlignedRange(outPtr, 8) && outLen >= 8) {
 			Memory::WriteUnchecked_U32(0x10, outPtr + 4);  // Always return game disc (if present)
