@@ -1392,6 +1392,9 @@ namespace Libretro {
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
+            case EmuThreadState::PAUSE_REQUESTED:
+               emuThreadState = EmuThreadState::PAUSED;
+               [[fallthrough]];
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;
@@ -1441,7 +1444,7 @@ namespace Libretro {
       if (emuThreadState != EmuThreadState::RUNNING)
          return;
 
-      emuThreadState = EmuThreadState::PAUSED;
+      emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
       // Is this safe?
       ctx->ThreadFrame(); // Eat 1 frame
@@ -1715,7 +1718,8 @@ void retro_run(void) {
 
    // Handle thread pumping.
    if (useEmuThread) {
-      if (emuThreadState == EmuThreadState::PAUSED) {
+      if (emuThreadState == EmuThreadState::PAUSED ||
+          emuThreadState == EmuThreadState::PAUSE_REQUESTED) {
          VsyncSwapIntervalDetect();
          ctx->SwapBuffers();
          return;
