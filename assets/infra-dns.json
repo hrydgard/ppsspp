@@ -217,6 +217,24 @@
 			]
 		},
 		{
+			"name": "Madden NFL 06",
+			"comment": {
+				"en_US": "Works but there are incompatibilities between platforms. Requires a patch!"
+			},
+			"revival_credits": {
+				"group": "EA Nation Hub",
+				"url": "https://discord.gg/fwrQHHxrQQ"
+			},
+			"dns": "eahub.eu",
+			"domains": {
+				"pspmadden06.ea.com": "eahub.eu"
+			},
+			"score": 4,
+			"known_working_ids": [
+				"ULUS10024"
+			]
+		},
+		{
 			"name": "Madden NFL 07",
 			"comment": {
 				"en_US": "Works but there are incompatibilities between platforms"
