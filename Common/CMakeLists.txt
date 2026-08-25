@@ -102,6 +102,8 @@ add_library(Common STATIC
 	Data/Format/ZIMSave.h
 	Data/Hash/Hash.cpp
 	Data/Hash/Hash.h
+	Data/Text/Demangle.cpp
+	Data/Text/Demangle.h
 	Data/Text/I18n.cpp
 	Data/Text/I18n.h
 	Data/Text/Parsers.cpp

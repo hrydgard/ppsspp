@@ -333,6 +333,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Format/ZIMSave.h \
   $(SRC)/Common/Data/Hash/Hash.cpp \
   $(SRC)/Common/Data/Text/I18n.cpp \
+  $(SRC)/Common/Data/Text/Demangle.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
   $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/File/AndroidStorage.cpp \
@@ -1048,6 +1049,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestVertexJit.cpp \
     $(SRC)/unittest/TestTextureReplacer.cpp \
     $(SRC)/unittest/TestVFS.cpp \
+    $(SRC)/unittest/TestDemangle.cpp \
     $(SRC)/unittest/TestLzrc.cpp \
     $(SRC)/unittest/TestZipSlip.cpp \
     $(SRC)/unittest/UnitTest.cpp

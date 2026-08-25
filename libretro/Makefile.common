@@ -450,6 +450,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Format/ZIMSave.cpp \
 	$(COMMONDIR)/Data/Hash/Hash.cpp \
 	$(COMMONDIR)/Data/Text/I18n.cpp \
+	$(COMMONDIR)/Data/Text/Demangle.cpp \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
 	$(COMMONDIR)/File/VFS/VFS.cpp \
