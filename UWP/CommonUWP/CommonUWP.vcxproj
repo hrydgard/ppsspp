@@ -93,6 +93,7 @@
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\Buffer.h" />
     <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h" />
+    <ClInclude Include="..\..\Common\Data\Text\StringWriter.h" />
     <ClInclude Include="..\..\Common\File\AndroidContentURI.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
     <ClInclude Include="..\..\Common\File\VFS\SevenZipFileReader.h" />
@@ -305,6 +306,7 @@
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\Buffer.cpp" />
     <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp" />
+    <ClCompile Include="..\..\Common\Data\Text\StringWriter.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\SevenZipFileReader.cpp" />

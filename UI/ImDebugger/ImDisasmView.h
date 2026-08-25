@@ -230,6 +230,16 @@ private:
 	std::vector<int> symMatches_;
 	bool symMatchesDirty_ = true;
 
+	// Currently loaded modules, for the module filter dropdown. Refreshed every frame the
+	// symbol list is visible: modules come and go while a game runs, and nothing notifies us.
+	// A change here also invalidates symCache_, since it's built from active symbols only.
+	std::vector<LoadedModuleInfo> symModules_;
+	// The module filter is remembered as a name plus an address range rather than an index into
+	// symModules_, so a selection survives that list being rebuilt. Empty name means "All".
+	std::string symModuleFilter_;
+	u32 symModuleFilterStart_ = 0;
+	u32 symModuleFilterSize_ = 0;
+
 	ImDisasmView disasmView_;
 	char searchTerm_[64]{};
 };

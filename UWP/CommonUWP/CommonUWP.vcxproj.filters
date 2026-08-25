@@ -591,6 +591,9 @@
     <ClCompile Include="..\..\Common\UI\ScreenManager.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\StringWriter.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -1144,6 +1147,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\ScreenManager.h">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\StringWriter.h">
+      <Filter>Data\Text</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

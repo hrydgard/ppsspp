@@ -1472,6 +1472,9 @@
     <ClCompile Include="UI\ScreenManager.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="Data\Text\StringWriter.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

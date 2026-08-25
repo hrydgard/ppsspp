@@ -107,6 +107,7 @@ add_library(Common STATIC
 	Data/Text/Parsers.cpp
 	Data/Text/Parsers.h
 	Data/Text/StringWriter.h
+	Data/Text/StringWriter.cpp
 	Data/Text/WrapText.cpp
 	Data/Text/WrapText.h
 	Data/Random/Rng.h

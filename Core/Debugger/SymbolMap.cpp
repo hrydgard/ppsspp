@@ -477,11 +477,14 @@ u32 SymbolMap::GetModuleCrc(int moduleIndex) const {
 // per-game rather than per-module, hence GetGameSymbolsPath instead of GetModuleSymbolsPath.
 bool SymbolMap::SaveModuleSymbols(int moduleIndex, const Path &filename, const std::string &gameID, const std::string &gameTitle) const {
 	u32 crc = 0;
+	// Only for logging - module 0 isn't a module, it's the symbols that aren't in one.
+	const char *moduleName = "(no module)";
 	if (moduleIndex != 0) {
 		bool found = false;
 		for (const auto &module : modules) {
 			if (module.index == moduleIndex) {
 				crc = module.crc;
+				moduleName = module.name;
 				found = true;
 				break;
 			}
@@ -529,8 +532,10 @@ bool SymbolMap::SaveModuleSymbols(int moduleIndex, const Path &filename, const s
 	if (count == 0) {
 		// Nothing worth keeping. Remove any previous file rather than leaving one behind that
 		// would restore symbols the user has since deleted.
-		if (File::Exists(filename))
+		if (File::Exists(filename)) {
+			INFO_LOG(Log::Loader, "SaveModuleSymbols: '%s' has no named symbols left, deleting %s", moduleName, filename.c_str());
 			File::Delete(filename);
+		}
 		return true;
 	}
 
@@ -552,6 +557,7 @@ bool SymbolMap::SaveModuleSymbols(int moduleIndex, const Path &filename, const s
 	fwrite(text.data(), 1, text.size(), f);
 
 	fclose(f);
+	INFO_LOG(Log::Loader, "SaveModuleSymbols: wrote %d symbol(s) for '%s' to %s", count, moduleName, filename.c_str());
 	return true;
 }
 

@@ -1323,6 +1323,38 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	avail.y -= ImGui::GetTextLineHeightWithSpacing();
 
 	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
+		// Modules load and unload as the game runs and nothing tells us about it, so poll. The
+		// list is a couple of dozen entries at most, and this only runs while the panel is open.
+		std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
+		modules.erase(std::remove_if(modules.begin(), modules.end(), [](const LoadedModuleInfo &m) {
+			return !m.active;
+		}), modules.end());
+		if (modules.size() != symModules_.size() || !std::equal(modules.begin(), modules.end(), symModules_.begin(),
+			[](const LoadedModuleInfo &a, const LoadedModuleInfo &b) {
+				return a.address == b.address && a.size == b.size && a.name == b.name;
+			})) {
+			symModules_ = std::move(modules);
+			// symCache_ holds active symbols only, so it's stale now too.
+			symsDirty_ = true;
+
+			// Re-resolve the module filter against the new list. A module that reloaded lands at
+			// a different address, and one that's gone should drop back to All rather than leave
+			// the list mysteriously empty.
+			if (!symModuleFilter_.empty()) {
+				auto found = std::find_if(symModules_.begin(), symModules_.end(), [this](const LoadedModuleInfo &m) {
+					return m.name == symModuleFilter_;
+				});
+				if (found == symModules_.end()) {
+					symModuleFilter_.clear();
+					symModuleFilterStart_ = 0;
+					symModuleFilterSize_ = 0;
+				} else {
+					symModuleFilterStart_ = found->address;
+					symModuleFilterSize_ = found->size;
+				}
+			}
+		}
+
 		if (symCache_.empty() || symsDirty_) {
 			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
 			symsDirty_ = false;
@@ -1346,6 +1378,30 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			symMatchesDirty_ = true;
 		}
 
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::BeginCombo("##symmodule", symModuleFilter_.empty() ? "All modules" : symModuleFilter_.c_str())) {
+			if (ImGui::Selectable("All modules", symModuleFilter_.empty())) {
+				symModuleFilter_.clear();
+				symModuleFilterStart_ = 0;
+				symModuleFilterSize_ = 0;
+				symMatchesDirty_ = true;
+			}
+			for (int i = 0; i < (int)symModules_.size(); i++) {
+				const LoadedModuleInfo &module = symModules_[i];
+				// Module names are not unique - the same one can be loaded more than once.
+				ImGui::PushID(i);
+				const bool selected = symModuleFilter_ == module.name && symModuleFilterStart_ == module.address;
+				if (ImGui::Selectable(module.name.c_str(), selected)) {
+					symModuleFilter_ = module.name;
+					symModuleFilterStart_ = module.address;
+					symModuleFilterSize_ = module.size;
+					symMatchesDirty_ = true;
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndCombo();
+		}
+
 		if (symMatchesDirty_) {
 			symMatchesDirty_ = false;
 			symMatches_.clear();
@@ -1353,6 +1409,11 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			// path to get wrong. These lists run to a few thousand entries, and this only reruns
 			// when the filter or the symbol map changes, not per frame.
 			for (int i = 0; i < (int)symCache_.size(); i++) {
+				if (!symModuleFilter_.empty()) {
+					const u32 addr = symCache_[i].address;
+					if (addr < symModuleFilterStart_ || addr >= symModuleFilterStart_ + symModuleFilterSize_)
+						continue;
+				}
 				if (symFilter_[0] == '\0' || containsNoCase(symCache_[i].name, symFilter_))
 					symMatches_.push_back(i);
 			}

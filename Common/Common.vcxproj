@@ -900,6 +900,7 @@
     <ClCompile Include="Data\Hash\Hash.cpp" />
     <ClCompile Include="Data\Text\I18n.cpp" />
     <ClCompile Include="Data\Text\Parsers.cpp" />
+    <ClCompile Include="Data\Text\StringWriter.cpp" />
     <ClCompile Include="Data\Text\WrapText.cpp" />
     <ClCompile Include="File\AndroidContentURI.cpp" />
     <ClCompile Include="File\AndroidStorage.cpp" />

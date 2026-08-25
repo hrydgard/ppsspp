@@ -451,6 +451,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Hash/Hash.cpp \
 	$(COMMONDIR)/Data/Text/I18n.cpp \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
+	$(COMMONDIR)/Data/Text/StringWriter.cpp \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
 	$(COMMONDIR)/File/VFS/VFS.cpp \
 	$(COMMONDIR)/File/VFS/DirectoryReader.cpp \

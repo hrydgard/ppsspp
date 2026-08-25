@@ -334,6 +334,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Hash/Hash.cpp \
   $(SRC)/Common/Data/Text/I18n.cpp \
   $(SRC)/Common/Data/Text/Parsers.cpp \
+  $(SRC)/Common/Data/Text/StringWriter.cpp \
   $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/File/AndroidStorage.cpp \
   $(SRC)/Common/File/AndroidContentURI.cpp \
