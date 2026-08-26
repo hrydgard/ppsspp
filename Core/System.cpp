@@ -50,6 +50,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/System.h"
@@ -615,6 +616,10 @@ void CPU_Shutdown(bool success) {
 	DisplayHWShutdown();
 
 	pspFileSystem.Shutdown();  // This unmounts all filesystems.
+
+	// Everything the disassembly cache describes - emulated memory and the symbol map - is about
+	// to go away, so drop it here rather than leaving it to whichever debugger UI closes last.
+	ClearDisassemblyCache();
 
 	mipsr4k.Shutdown();
 	Memory::Shutdown();

@@ -38,10 +38,6 @@ ImDisasmView::ImDisasmView() {
 	displaySymbols_ = true;
 }
 
-ImDisasmView::~ImDisasmView() {
-	g_disassemblyManager.clear();
-}
-
 void ImDisasmView::ScanVisibleFunctions() {
 	g_disassemblyManager.analyze(windowStart_, g_disassemblyManager.getNthNextAddress(windowStart_, visibleRows_) - windowStart_);
 }
