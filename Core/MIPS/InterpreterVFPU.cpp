@@ -1642,7 +1642,8 @@ namespace MIPSInt
 		}
 
 		// D prefix works, just not for the cosine lane.
-		uint32_t dprefixRemove = (3 << cosineLane) | (1 << (8 + cosineLane));
+		// The saturation field is two bits per element (see ApplyPrefixD), the mask field one.
+		uint32_t dprefixRemove = (3 << (cosineLane * 2)) | (1 << (8 + cosineLane));
 		mips->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFFFF ^ dprefixRemove;
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
