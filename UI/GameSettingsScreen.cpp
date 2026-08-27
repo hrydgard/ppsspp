@@ -153,10 +153,7 @@ GameSettingsScreen::~GameSettingsScreen() {
 
 	// Wipe some caches after potentially changing settings.
 	// Let's not send resize messages here, handled elsewhere.
-	
-#if !PPSSPP_PLATFORM(SWITCH)
 	System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-#endif
 }
 
 void GameSettingsScreen::PreCreateViews() {
