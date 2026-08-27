@@ -82,6 +82,8 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 		return 0;
 	}
 	MIPSOpcode op = Memory::Read_Opcode_JIT(mips->pc);  // now unchecked
+	// Same reason as the run loop in MIPSInterpret_RunUntil - see ApplyHostRoundingMode.
+	ApplyHostRoundingMode(mips);
 	if (mips->inDelaySlot) {
 		MIPSInterpret(mips, op);
 		if (mips->inDelaySlot) {
@@ -91,6 +93,7 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 	} else {
 		MIPSInterpret(mips, op);
 	}
+	RestoreHostRoundingMode();
 	return 1;
 }
 
@@ -235,7 +238,10 @@ namespace MIPSInt {
 			mips->pc += 4;
 		}
 		mips->inDelaySlot = false;
+		// HLE code is host code - it must not run under the guest's rounding mode.
+		RestoreHostRoundingMode();
 		CallSyscallWithPC(op, syscallPC);
+		ApplyHostRoundingMode(mips);
 	}
 
 	void Int_Sync(MIPSState *mips, MIPSOpcode op) {
@@ -718,6 +724,13 @@ namespace MIPSInt {
 					if (MIPSComp::jit) {
 						// In case of DISABLE, we need to tell jit we updated FCR31.
 						MIPSComp::jit->UpdateFCR31();
+					} else {
+						// The interpreter emulates the rounding mode by putting the host FPU in it,
+						// so it has to switch right here rather than at the next block boundary.
+						// Restore first: the new value may be back to the default, which Apply
+						// deliberately doesn't write.
+						RestoreHostRoundingMode();
+						ApplyHostRoundingMode(mips);
 					}
 				} else {
 					WARN_LOG_REPORT(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
@@ -1100,7 +1113,9 @@ namespace MIPSInt {
 			}
 			switch (op & 0x3f)
 			{
-			case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+			// round.w.s is round-half-to-even, not half-away-from-zero - and its mode is fixed,
+			// so unlike cvt.w.s below it must not follow fcr31. round_ieee_754 is both.
+			case 12: FsI(fd) = (int)round_ieee_754(F(fs)); break; //round.w.s
 			case 13: //trunc.w.s
 				if (F(fs) >= 0.0f) {
 					FsI(fd) = (int)floorf(F(fs));
@@ -1247,7 +1262,10 @@ namespace MIPSInt {
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
+			// Like a syscall, a replacement function is host code - see Int_Syscall.
+			RestoreHostRoundingMode();
 			int cycles = entry->replaceFunc();
+			ApplyHostRoundingMode(mips);
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.

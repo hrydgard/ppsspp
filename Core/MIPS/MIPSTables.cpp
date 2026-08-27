@@ -1272,12 +1272,20 @@ int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 	while (coreState == CORE_RUNNING_CPU) {
 		CoreTiming::Advance(mips);
 
+		// The emulated instructions below do their float math with plain host float ops, so the
+		// host FPU has to be in the guest's rounding mode while they run - and back in the normal
+		// one whenever we're not running them, which is what the JITs do too. Calls out from
+		// inside the run loops (syscalls, replacement functions) restore it themselves.
+		ApplyHostRoundingMode(mips);
+
 		uint64_t ticksLeft = globalTicks - CoreTiming::GetTicks(mips);
 		if (g_breakpoints.HasBreakPoints() || g_breakpoints.HasMemChecks() || g_breakpoints.HasRegBreakpoints() || ticksLeft <= mips->downcount) {
 			RunUntilDowncountZeroWithChecks(mips, globalTicks);
 		} else {
 			RunUntilDowncountZeroFast(mips);
 		}
+
+		RestoreHostRoundingMode();
 
 		if (CoreTiming::GetTicks(mips) > globalTicks) {
 			// DEBUG_LOG(Log::CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks(mips));
