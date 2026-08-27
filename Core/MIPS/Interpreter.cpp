@@ -420,9 +420,10 @@ namespace MIPSInt {
 			if (rt != 0) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
-					return;
+					R(rt) = 0;
+				} else {
+					R(rt) = Memory::ReadUnchecked_U32(addr);
 				}
-				R(rt) = Memory::ReadUnchecked_U32(addr);
 			}
 			mips->llBit = 1;
 			break;
@@ -430,9 +431,9 @@ namespace MIPSInt {
 			if (mips->llBit) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
-					return;
+				} else {
+					Memory::WriteUnchecked_U32(R(rt), addr);
 				}
-				Memory::WriteUnchecked_U32(R(rt), addr);
 				if (rt != 0) {
 					R(rt) = 1;
 				}
@@ -501,7 +502,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lb");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = SignExtend8ToU32(Memory::ReadUnchecked_U8(addr));
 			break; //lb
@@ -513,7 +515,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lh");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = SignExtend16ToU32(Memory::ReadUnchecked_U16(addr));
 			break; //lh
@@ -525,7 +528,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lw");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = Memory::ReadUnchecked_U32(addr);
 			break; //lw
@@ -537,7 +541,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = Memory::ReadUnchecked_U8(addr);
 			break; //lbu
@@ -549,7 +554,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = Memory::ReadUnchecked_U16(addr);
 			break; //lhu
@@ -561,7 +567,7 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U8(R(rt), addr);
 			break; //sb
@@ -573,7 +579,7 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U16(R(rt), addr);
 			break; //sh
@@ -585,7 +591,7 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U32(R(rt), addr);
 			break; //sw
@@ -597,7 +603,7 @@ namespace MIPSInt {
 				// Not checking for alignment here - the actual read will be aligned.
 				if (!Memory::IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwl");
-					return;
+					break;
 				}
 				u32 shift = (addr & 3) * 8;
 				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
@@ -611,7 +617,7 @@ namespace MIPSInt {
 				// Not checking for alignment here - the actual read will be aligned.
 				if (!Memory::IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwr");
-					return;
+					break;
 				}
 				u32 shift = (addr & 3) * 8;
 				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
@@ -626,7 +632,7 @@ namespace MIPSInt {
 				// Not checking for alignment here - the actual read/write will be aligned.
 				if (!Memory::IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swl");
-					return;
+					break;
 				}
 				u32 shift = (addr & 3) * 8;
 				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
@@ -640,7 +646,7 @@ namespace MIPSInt {
 				// Not checking for alignment here - the actual read/write will be aligned.
 				if (!Memory::IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swr");
-					return;
+					break;
 				}
 				u32 shift = (addr & 3) << 3;
 				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
@@ -666,14 +672,15 @@ namespace MIPSInt {
 		case 49:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwc1");
-				return;
+				FI(ft) = 0;
+				break;
 			}
 			FI(ft) = Memory::ReadUnchecked_U32(addr);
 			break; //lwc1
 		case 57:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swc1");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U32(FI(ft), addr);
 			break; //swc1

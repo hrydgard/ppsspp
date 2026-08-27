@@ -219,7 +219,7 @@ namespace MIPSInt
 				if ((op & 2) == 0) {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvl.q");
-						return;
+						break;
 					}
 					// It's an LVL
 					for (int i = 0; i < offset + 1; i++) {
@@ -228,7 +228,7 @@ namespace MIPSInt
 				} else {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvr.q");
-						return;
+						break;
 					}
 					// It's an LVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
@@ -268,7 +268,7 @@ namespace MIPSInt
 				if ((op & 2) == 0) {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svl.q");
-						return;
+						break;
 					}
 					// It's an SVL
 					for (int i = 0; i < offset + 1; i++)
@@ -278,7 +278,7 @@ namespace MIPSInt
 				} else {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svr.q");
-						return;
+						break;
 					}
 					// It's an SVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
@@ -1757,14 +1757,15 @@ namespace MIPSInt
 		case 50: //lv.s
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lv.s");
-				return;
+				VI(vt) = 0;
+				break;
 			}
 			VI(vt) = Memory::ReadUnchecked_U32(addr);
 			break;
 		case 58: //sv.s
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sv.s");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U32(VI(vt), addr);
 			break;
