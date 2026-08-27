@@ -10,6 +10,7 @@ namespace UI {
 
 struct Margins;
 enum class FocusFlags;
+enum class FocusMove;
 
 // The ONLY global is the currently focused item.
 // Can be and often is null.
@@ -24,6 +25,11 @@ void EventTriggered(Event *e, EventParams params);
 DialogResult DispatchEvents();
 
 class ViewGroup;
+
+// Where Tab (FocusMove::NEXT) and Shift+Tab (FocusMove::PREV) move the focus to, wrapping around
+// at the ends. See ViewGroup::CollectTabOrder for what counts as a stop and in what order.
+// nullptr if there's nothing focusable at all. Exposed mainly so it can be tested directly.
+View *FindTabOrderNeighbor(ViewGroup *root, View *focusedView, FocusMove direction);
 
 void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode);
 DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement = true);
