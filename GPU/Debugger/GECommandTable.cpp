@@ -15,7 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <strings.h> // strcasecmp on Switch
+#include "ppsspp_config.h"
+#include <cstring>
+#if PPSSPP_PLATFORM(SWITCH)
+#include <strings.h>  // strcasecmp: newlib does not reach it through <cstring>
+#endif
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "GPU/Debugger/GECommandTable.h"
