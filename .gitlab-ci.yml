@@ -58,7 +58,10 @@ include:
     file: '/tvos-cmake.yml'
 
   ################################## CONSOLES ################################
-  
+  # Nintendo Switch
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/libnx-static.yml'
+
   #################################### MISC ##################################
   # webOS (LGTV)
   - project: 'libretro-infrastructure/ci-templates'
@@ -167,6 +170,16 @@ libretro-build-tvos-arm64:
     - .cmake-defs
   variables:
     CORE_ARGS: -DIOS_PLATFORM=TVOS -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
+
+#################################### MISC ####################################
+################################### CONSOLES #################################
+# Nintendo Switch - the core links into RetroArch statically there, so this one
+# goes through libretro/Makefile rather than cmake.
+libretro-build-libnx-aarch64:
+  extends:
+    - .libretro-libnx-static-retroarch-master
+    - .core-defs
+    - .make-defs
 
 #################################### MISC ####################################
 # webOS
