@@ -1323,18 +1323,30 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	avail.y -= ImGui::GetTextLineHeightWithSpacing();
 
 	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
-		if (symCache_.empty() || symsDirty_) {
+		if (symCacheVersion_ != g_symbolMap->Version()) {
+			// The index into symCache_ means something different after a rebuild, and nothing at
+			// all if the map was replaced (which is what happens when a game exits), so re-find
+			// the selection by address instead of carrying the index over.
+			const u32 selectedAddr = (selectedSymbol_ >= 0 && selectedSymbol_ < (int)symCache_.size()) ? symCache_[selectedSymbol_].address : (u32)INVALID_ADDR;
 			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
-			symsDirty_ = false;
+			symCacheVersion_ = g_symbolMap->Version();
 			symMatchesDirty_ = true;
+			selectedSymbol_ = -1;
+			if (selectedAddr != INVALID_ADDR) {
+				for (int i = 0; i < (int)symCache_.size(); i++) {
+					if (symCache_[i].address == selectedAddr) {
+						selectedSymbol_ = i;
+						break;
+					}
+				}
+			}
 		}
 
-		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
+		if (selectedSymbol_ >= 0 && selectedSymbol_ < (int)symCache_.size()) {
 			auto &sym = symCache_[selectedSymbol_];
 			if (ImGui::TreeNode("Edit Symbol", "Edit %s", sym.name.c_str())) {
 				if (ImGui::InputText("Name", selectedSymbolName_, sizeof(selectedSymbolName_), ImGuiInputTextFlags_EnterReturnsTrue)) {
 					g_symbolMap->SetLabelName(selectedSymbolName_, sym.address);
-					symsDirty_ = true;
 				}
 				ImGui::Text("%08x (size: %0d)", sym.address, sym.size);
 				ImGui::TreePop();
