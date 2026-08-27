@@ -202,9 +202,6 @@ public:
 	void NotifyStep() {
 		disasmView_.NotifyStep();
 	}
-	void DirtySymbolMap() {
-		symsDirty_ = true;
-	}
 	const char *Title() const {
 		return "CPU Debugger";
 	}
@@ -218,9 +215,11 @@ private:
 
 	u32 gotoAddr_ = 0x08800000;
 
-	// Symbol cache
+	// Symbol cache. Rebuilt whenever the symbol map's version no longer matches the one the
+	// cache was built from - that covers the map being replaced wholesale when a game boots or
+	// exits, not just edits made from here.
 	std::vector<SymbolEntry> symCache_;
-	bool symsDirty_ = true;
+	uint32_t symCacheVersion_ = 0;
 	int selectedSymbol_ = -1;
 	char selectedSymbolName_[128];
 

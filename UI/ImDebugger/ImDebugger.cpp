@@ -2626,12 +2626,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				ImGui::Separator();
 
 				if (ImGui::MenuItem("Load .ppmap...")) {
-					System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [this](std::string_view responseString, int) {
+					System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
 						Path path(responseString);
 						if (!g_symbolMap->LoadSymbolMap(path)) {
 							ERROR_LOG(Log::Common, "Failed to load symbol map");
 						}
-						disasm_.DirtySymbolMap();
 					});
 				}
 				if (ImGui::MenuItem("Save .ppmap...")) {
@@ -2643,12 +2642,11 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 					});
 				}
 				if (ImGui::MenuItem("Load No$ .sym...")) {
-					System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [this](std::string_view responseString, int) {
+					System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
 						Path path(responseString);
 						if (!g_symbolMap->LoadNocashSym(path)) {
 							ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
 						}
-						disasm_.DirtySymbolMap();
 					});
 				}
 				if (ImGui::MenuItem("Save No$ .sym...")) {
@@ -2663,7 +2661,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				ImGui::MenuItem("Compress .ppmap files", nullptr, &g_Config.bCompressSymbols);
 				if (ImGui::MenuItem("Reset symbol map")) {
 					g_symbolMap->Clear();
-					disasm_.DirtySymbolMap();
 					// NotifyDebuggerMapLoaded();
 				}
 				ImGui::EndMenu();

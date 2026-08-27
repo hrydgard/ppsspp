@@ -89,7 +89,14 @@ typedef struct HWND__ *HWND;
 // symbols added without an explicit module.
 class SymbolMap {
 public:
-	SymbolMap() {}
+	SymbolMap();
+
+	// Changes every time anything in the map changes, so a UI that caches a flattened copy of
+	// it (see GetAllActiveSymbols) can tell that its copy went stale without being explicitly
+	// told. Values are unique across SymbolMap instances, not just within one - a new map is
+	// created for every game boot (see PSP_Init), so a per-instance counter starting over at
+	// zero would let a fresh map's version compare equal to a cached one from the last game.
+	uint32_t Version() const { return version_; }
 
 	void Clear();
 	void SortSymbols();
@@ -194,6 +201,8 @@ public:
 	void UpdateActiveSymbols();
 
 private:
+	// Call from anything that adds, removes, renames or moves a symbol or module.
+	void Bump();
 	void AssignFunctionIndices();
 	const char *GetLabelName(u32 address);
 	const char *GetLabelNameRel(u32 relAddress, int moduleIndex) const;
@@ -246,6 +255,7 @@ private:
 	std::map<SymbolKey, DataEntry> data;
 	std::vector<ModuleEntry> modules;
 
+	uint32_t version_ = 0;
 	bool sawUnknownModule = false;
 };
 

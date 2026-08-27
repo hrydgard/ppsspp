@@ -1611,6 +1611,38 @@ bool TestSymbolMap() {
 		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
 	}
 
+	// Version() is what the ImDebugger's symbol list uses to notice its cached copy went stale.
+	{
+		SymbolMap map;
+		const uint32_t v0 = map.Version();
+		map.AddModule("TEST", kModStart, kModSize);
+		const uint32_t v1 = map.Version();
+		EXPECT_TRUE(v0 != v1);
+		map.AddFunction("func", kModStart + 0x100, 0x40);
+		const uint32_t v2 = map.Version();
+		EXPECT_TRUE(v1 != v2);
+		map.SetLabelName("renamed", kModStart + 0x100);
+		const uint32_t v3 = map.Version();
+		EXPECT_TRUE(v2 != v3);
+		// Reads don't count as changes.
+		map.SortSymbols();
+		map.GetAllActiveSymbols(ST_FUNCTION);
+		EXPECT_EQ_INT((int)map.Version(), (int)v3);
+		map.UnloadModule(kModStart, kModSize);
+		EXPECT_TRUE(v3 != map.Version());
+		map.Clear();
+		EXPECT_TRUE(v3 != map.Version());
+
+		// The emulator throws the whole map away and builds a new one on every boot, so a fresh
+		// map must never hand out a version a previous one already used - otherwise a cache built
+		// from the last game's symbols looks current for the next game.
+		SymbolMap map2;
+		EXPECT_TRUE(map.Version() != map2.Version());
+		map2.AddModule("TEST", kModStart, kModSize);
+		map2.AddFunction("func", kModStart + 0x100, 0x40);
+		EXPECT_TRUE(map.Version() != map2.Version());
+	}
+
 	return true;
 }
 
