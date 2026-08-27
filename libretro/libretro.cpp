@@ -1797,6 +1797,7 @@ bool retro_unserialize(const void *data, size_t size) {
    if (!gpu) {
       unserialize_data = malloc(size);
       memcpy(unserialize_data, data, size);
+      unserialize_size = size;
       return true;
    }
 
