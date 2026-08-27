@@ -642,8 +642,8 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
-	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+	lin->Add(new Button("", ImageID("I_MINUS")))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
+	lin->Add(new Button("", ImageID("I_PLUS")))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -684,8 +684,8 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
-	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	lin->Add(new Button("", ImageID("I_MINUS")))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
+	lin->Add(new Button("", ImageID("I_PLUS")))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
