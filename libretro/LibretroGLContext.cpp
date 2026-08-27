@@ -5,7 +5,9 @@
 #include "Core/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
 #include <glsym/rglgen.h>
+#endif
 #include "libretro/LibretroGLContext.h"
 
 bool LibretroGLContext::InitAPI(void *wnd, std::string *deviceName, std::string *error_message) {
@@ -16,14 +18,28 @@ bool LibretroGLContext::InitAPI(void *wnd, std::string *deviceName, std::string 
 	return true;
 }
 
-extern const struct rglgen_sym_map rglgen_symbol_map_ppsspp;
 void LibretroGLContext::CreateDrawContext() {
-	if (!glewInitDone) {
-		rglgen_resolve_symbols_custom(&eglGetProcAddress, &rglgen_symbol_map_ppsspp);
-		CheckGLExtensions();
+#if PPSSPP_PLATFORM(SWITCH)
+    // No glew here - entry points come from eglGetProcAddress through glsym.
+    if (!glewInitDone) {
+        rglgen_resolve_symbols(&eglGetProcAddress);
         glewInitDone = true;
-	}
-    draw_ = Draw::T3DCreateGLContext();
+    }
+#elif !defined(USING_GLES2)
+    // Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+    // glewExperimental allows us to force GLEW to search for the pointers anyway.
+    if (gl_extensions.IsCoreContext)
+        glewExperimental = true;
+    if (GLEW_OK != glewInit()) {
+        printf("Failed to initialize glew!\n");
+    }
+    // Unfortunately, glew will generate an invalid enum error, ignore.
+    if (gl_extensions.IsCoreContext)
+        glGetError();
+#endif
+
+    CheckGLExtensions();
+    draw_ = Draw::T3DCreateGLContext(false);
     renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
     renderManager_->SetInflightFrames(g_Config.iInflightFrames);
     SetGPUBackend(GPUBackend::OPENGL);

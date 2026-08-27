@@ -2,6 +2,8 @@
 
 #include "ppsspp_config.h"
 
+#include "Common/CommonTypes.h"
+
 #if PPSSPP_PLATFORM(WINDOWS)
 #ifndef _CRT_NO_POSIX_ERROR_CODES
 #define _CRT_NO_POSIX_ERROR_CODES
