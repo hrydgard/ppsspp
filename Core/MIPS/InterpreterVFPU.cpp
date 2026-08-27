@@ -240,8 +240,11 @@ namespace MIPSInt
 			break;
 
 		case 54: //lv.q
+			// A quadword access has to be 16-byte aligned, so a misaligned one is simply
+			// rejected - we don't try to carry it out anyway, same as every other path here.
 			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
+				break;
 			}
 
 #ifndef COMMON_BIG_ENDIAN
@@ -289,8 +292,10 @@ namespace MIPSInt
 			}
 
 		case 62: //sv.q
+			// See lv.q above.
 			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "sv.q");
+				break;
 			}
 #ifndef COMMON_BIG_ENDIAN
 			f = reinterpret_cast<float *>(Memory::GetPointerWriteUnchecked(addr));
