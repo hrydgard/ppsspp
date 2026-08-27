@@ -1657,12 +1657,13 @@ bool NativeKey(const KeyInput &key) {
 		modifierFlags |= KeyInputFlags::ModMeta;
 	}
 
-	KeyInput modKey = key;
-	modKey.flags |= modifierFlags;
+	// Everything below here gets the key with the modifiers attached, since that's what the
+	// keyboard shortcuts in the screens are matched against.
+	const KeyInput modKey{ key.deviceId, key.keyCode, key.flags | modifierFlags };
 
 	bool retval = false;
 
-	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(key);
+	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(modKey);
 	if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
 		// If a repeat, we follow what KeyEventToFocusMoves set it to.
 		// Otherwise we signal that we used the key, always.
@@ -1683,7 +1684,7 @@ bool NativeKey(const KeyInput &key) {
 	// Queue up the key event for synchronous processing in the UI.
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::KEY;
-	ev.key = key;
+	ev.key = modKey;
 	{
 		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
 		g_inputEventQueue.push_back(ev);
