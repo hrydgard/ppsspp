@@ -233,6 +233,9 @@
     <ClCompile Include="..\..\Common\Data\Hash\Hash.cpp">
       <Filter>Data\Hash</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Text\Demangle.cpp">
+      <Filter>Data\Text</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\Data\Text\I18n.cpp">
       <Filter>Data\Text</Filter>
     </ClCompile>
@@ -720,6 +723,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Data\Hash\Hash.h">
       <Filter>Data\Hash</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Text\Demangle.h">
+      <Filter>Data\Text</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Data\Text\I18n.h">
       <Filter>Data\Text</Filter>

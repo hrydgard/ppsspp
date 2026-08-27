@@ -1374,12 +1374,25 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 			while (clipper.Step()) {
 				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
 					const int i = symMatches_[row];
+					// Names aren't unique (static functions in different modules, mainly),
+					// so the index has to provide the ID instead.
+					ImGui::PushID(i);
 					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
 						truncate_cpy(selectedSymbolName_, symCache_[i].name);
 						selectedSymbol_ = i;
 					}
+					if (ImGui::BeginPopupContextItem("symctx")) {
+						if (ImGui::MenuItem("Copy name to clipboard")) {
+							System_CopyStringToClipboard(symCache_[i].name);
+						}
+						if (ImGui::MenuItem("Copy address to clipboard")) {
+							System_CopyStringToClipboard(StringFromFormat("%08x", symCache_[i].address));
+						}
+						ImGui::EndPopup();
+					}
+					ImGui::PopID();
 				}
 			}
 			clipper.End();

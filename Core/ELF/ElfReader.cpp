@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
+#include "Common/Data/Text/Demangle.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 
@@ -932,7 +933,8 @@ bool ElfReader::LoadSymbols()
 				g_symbolMap->AddData(value,size,DATATYPE_BYTE);
 				break;
 			case STT_FUNC:
-				g_symbolMap->AddFunction(name,value,size);
+				// C++ homebrew is otherwise a wall of _ZN... - see DemangleSymbolName.
+				g_symbolMap->AddFunction(DemangleSymbolName(name).c_str(),value,size);
 				break;
 			default:
 				continue;
@@ -1026,16 +1028,18 @@ static int LoadSymbolsFromCompanion(const std::string &data, u32 moduleBase, u32
 			continue;
 
 		const u32 addr = moduleBase + sym->st_value;
+		// C++ homebrew is otherwise a wall of _ZN... - see DemangleSymbolName.
+		const std::string readable = DemangleSymbolName(name);
 		switch (sym->st_info & 0xF) {
 		case STT_FUNC:
 			// updateName: these are the names a human wrote, so they beat the analyzer's
 			// z_un_<address> placeholders rather than losing to whichever got there first.
-			g_symbolMap->AddFunction(name, addr, sym->st_size, -1, true);
+			g_symbolMap->AddFunction(readable.c_str(), addr, sym->st_size, -1, true);
 			added++;
 			break;
 		case STT_OBJECT:
 			g_symbolMap->AddData(addr, sym->st_size, DATATYPE_BYTE);
-			g_symbolMap->AddLabel(name, addr, -1, true);
+			g_symbolMap->AddLabel(readable.c_str(), addr, -1, true);
 			added++;
 			break;
 		default:

@@ -92,6 +92,9 @@
     <ClInclude Include="Data\Random\Rng.h">
       <Filter>Data\Random</Filter>
     </ClInclude>
+    <ClInclude Include="Data\Text\Demangle.h">
+      <Filter>Data\Text</Filter>
+    </ClInclude>
     <ClInclude Include="Data\Text\I18n.h">
       <Filter>Data\Text</Filter>
     </ClInclude>
@@ -889,6 +892,9 @@
     </ClCompile>
     <ClCompile Include="Input\InputState.cpp">
       <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Text\Demangle.cpp">
+      <Filter>Data\Text</Filter>
     </ClCompile>
     <ClCompile Include="Data\Text\I18n.cpp">
       <Filter>Data\Text</Filter>

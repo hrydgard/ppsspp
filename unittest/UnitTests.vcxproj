@@ -292,6 +292,7 @@
     <ClCompile Include="TestRiscVEmitter.cpp" />
     <ClCompile Include="TestShaderGenerators.cpp" />
     <ClCompile Include="TestSoftwareGPUJit.cpp" />
+    <ClCompile Include="TestDemangle.cpp" />
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />

@@ -2854,6 +2854,7 @@ bool TestThreadManager();
 bool TestVFS();
 bool TestZipSlip();
 bool TestLzrc();
+bool TestDemangle();
 bool TestTextureReplacer();
 
 TestItem availableTests[] = {
@@ -2921,6 +2922,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(CmdLine),
 	TEST_ITEM(ZipSlip),
 	TEST_ITEM(Lzrc),
+	TEST_ITEM(Demangle),
 	TEST_ITEM(TextureReplacer),
 };
 
