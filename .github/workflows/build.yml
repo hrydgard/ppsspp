@@ -552,3 +552,33 @@ jobs:
     - name: Execute headless tests
       run: |
         python test.py -g --graphics=software
+
+  build_libretro_switch:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        submodules: recursive
+
+    - name: Fix git detected dubious ownership in repository
+      run: |
+        chown -R $(id -u):$(id -g) $PWD
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
+      with:
+        key: libretro-switch
+
+    - name: Build
+      run: |
+        cd libretro
+        make platform=libnx -j$(nproc)
+
+    - name: Package build
+      if: success()
+      uses: actions/upload-artifact@v7
+      with:
+        name: ppsspp-libretro-switch
+        path: libretro/ppsspp_libretro_libnx.a
