@@ -99,6 +99,9 @@
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
@@ -2887,6 +2890,70 @@ bool TestVFS();
 bool TestZipSlip();
 bool TestLzrc();
 bool TestDemangle();
+
+// Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
+// geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
+// down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
+bool TestUITabOrder() {
+	using namespace UI;
+
+	LinearLayout root(ORIENT_VERTICAL);
+
+	// A label is not a tab stop, but the item after it is.
+	root.Add(new TextView("label"));
+	Choice *a = root.Add(new Choice("a"));
+
+	// Nested groups are flattened in place, in order.
+	LinearLayout *inner = root.Add(new LinearLayout(ORIENT_HORIZONTAL));
+	Choice *b = inner->Add(new Choice("b"));
+	Choice *disabled = inner->Add(new Choice("disabled"));
+	disabled->SetEnabled(false);
+
+	// A hidden subtree is skipped whole - this is how the inactive tabs of a TabHolder,
+	// which are V_GONE rather than removed, stay out of the way.
+	LinearLayout *hidden = root.Add(new LinearLayout(ORIENT_VERTICAL));
+	hidden->SetVisibility(V_GONE);
+	hidden->Add(new Choice("hidden"));
+
+	root.Add(new Spacer());
+	Choice *c = root.Add(new Choice("c"));
+	Choice *invisible = root.Add(new Choice("invisible"));
+	invisible->SetVisibility(V_INVISIBLE);
+
+	std::vector<View *> order;
+	root.CollectTabOrder(&order);
+	EXPECT_EQ_INT((int)order.size(), 3);
+	EXPECT_TRUE(order[0] == a);
+	EXPECT_TRUE(order[1] == b);
+	EXPECT_TRUE(order[2] == c);
+
+	// Tab walks forwards and wraps at the end, Shift+Tab does the reverse.
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, a, FocusMove::NEXT) == b);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::NEXT) == c);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::NEXT) == a);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::PREV) == b);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::PREV) == a);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, a, FocusMove::PREV) == c);
+
+	// A view that has gone away (or was never a stop) doesn't stall navigation - it starts
+	// from whichever end we're heading towards.
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::NEXT) == a);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::PREV) == c);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, nullptr, FocusMove::NEXT) == a);
+
+	// With a single stop, both directions land back on it, and with none there's nothing to do.
+	LinearLayout one(ORIENT_VERTICAL);
+	Choice *only = one.Add(new Choice("only"));
+	EXPECT_TRUE(FindTabOrderNeighbor(&one, only, FocusMove::NEXT) == only);
+	EXPECT_TRUE(FindTabOrderNeighbor(&one, only, FocusMove::PREV) == only);
+
+	LinearLayout empty(ORIENT_VERTICAL);
+	empty.Add(new TextView("just a label"));
+	EXPECT_TRUE(FindTabOrderNeighbor(&empty, nullptr, FocusMove::NEXT) == nullptr);
+
+	return true;
+}
+
 bool TestTextureReplacer();
 
 TestItem availableTests[] = {
@@ -2956,6 +3023,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Lzrc),
 	TEST_ITEM(Demangle),
 	TEST_ITEM(TextureReplacer),
+	TEST_ITEM(UITabOrder),
 };
 
 int main(int argc, const char *argv[]) {
