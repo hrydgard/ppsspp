@@ -4,10 +4,6 @@
 #include "libretro/LibretroGraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 
-#if PPSSPP_PLATFORM(SWITCH)
-#include "../Common/GL/GLInterfaceBase.h"
-#endif // PPSSPP_PLATFORM(SWITCH)
-
 class LibretroGLContext : public LibretroHWRenderContext {
 public:
 	LibretroGLContext()
@@ -43,8 +39,4 @@ public:
 private:
 	GLRenderManager *renderManager_ = nullptr;
 	bool glewInitDone = false;
-#if PPSSPP_PLATFORM(SWITCH)
-	// unknown leftover??
-	cInterfaceBase* gl = nullptr;
-#endif // PPSSPP_PLATFORM(SWITCH)
 };

@@ -22,6 +22,12 @@
 
 #include <stddef.h>
 
+/* The generated declarations below use the RGLSYM/OES spellings that the
+ * Switch header pair provides; glsym.h on its own does not carry them. Same
+ * include order as Common/GPU/OpenGL/GLCommon.h. */
+#include <glsym/switch/nx_gl.h>
+#include <GL/glext.h>
+#include <glsym/switch/nx_glsym.h>
 #include <glsym/glsym.h>
 
 #define SYM(x) { "gl" #x, &(__gl##x) }
@@ -1394,7 +1400,7 @@ PFNGLCOPYIMAGESUBDATAOES __glCopyImageSubDataOES;
 // Not actually used for Switch
 RGLSYMGETTEXTURESUBIMAGEPROC __glGetTextureSubImage;
 
-const struct rglgen_sym_map rglgen_symbol_map_ppsspp[] = {
+const struct rglgen_sym_map rglgen_symbol_map[] = {
     SYM(BindFragDataLocationIndexedEXT),
     SYM(CopyImageSubDataOES),
     SYM(Accum),

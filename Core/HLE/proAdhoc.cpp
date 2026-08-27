@@ -2203,44 +2203,6 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
 	setSockNoSIGPIPE((int)metasocket, 1);
 
-	struct sockaddr_in server_addr;
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(SERVER_PORT); //27312 // Maybe read this from config too
-
-	// Resolve dns
-	addrinfo * resultAddr;
-	addrinfo * ptr;
-	in_addr serverIp;
-	serverIp.s_addr = INADDR_ANY;
-
-	addrinfo hints = {0};
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = /*AI_V4MAPPED |*/ AI_ADDRCONFIG;
-	hints.ai_protocol = 0;
-	hints.ai_family = AF_INET;
-
-	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),"27312",&hints,&resultAddr);
-	if (iResult == EAI_AGAIN) {
-		// Temporary failure.  Since this already blocks, let's just try once more.
-		sleep_ms(1, "pro-adhoc-socket-dns-retry");
-		iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),"27312",&hints,&resultAddr);
-	}
-
-	if (iResult != 0) {
-		ERROR_LOG(Log::sceNet, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
-		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string("DNS Error connecting to " + g_Config.proAdhocServer, 2.0f, 0x0000ff).c_str());
-		return iResult;
-	}
-	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
-		switch (ptr->ai_family) {
-		case AF_INET:
-			serverIp = ((sockaddr_in *)ptr->ai_addr)->sin_addr;
-			break;
-		}
-	}
-
-	freeaddrinfo(resultAddr);
-
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
 	if (isLoopbackIP(g_adhocServerIP.in.sin_addr.s_addr)) { 

@@ -230,9 +230,11 @@ else ifeq ($(platform), libnx)
    CPUOPTS := -g -march=armv8-a -mtune=cortex-a57 -mtp=soft -mcpu=cortex-a57+crc+fp+simd
    PLATCFLAGS = -D__aarch64__ -fPIE -I$(PORTLIBS)/include/ -I$(LIBNX)/include/ -ffunction-sections -fdata-sections -ftls-model=local-exec -DEGL
    PLATCFLAGS += $(INCLUDE) -D__SWITCH__=1 -DMOBILE_DEVICE -DHAVE_LIBNX
-   FFMPEGINCFLAGS += -I$(PORTLIBS)/include
-   FFMPEGLIBDIR := -I$(PORTLIBS)/lib
-   CXXFLAGS += -fno-rtti
+   # ext/aemu_postoffice's sock_impl.h only reaches for <netinet/in.h> under
+   # __unix/__APPLE__/__PSP__, so on the Switch sockaddr_in stays incomplete.
+   # Stand-in until that submodule learns about __SWITCH__; nothing else in the
+   # compiled set tests __unix (the two libretro-common users spell it __unix__).
+   PLATCFLAGS += -D__unix
    WITH_DYNAREC = 1
    STATIC_LINKING = 1
    HAVE_NEON = 1
@@ -443,10 +445,18 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-# COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DUSE_FFMPEG
-ifneq ($(platform), emscripten)
-	# ffmpeg does not work with emscripten
+COREFLAGS += -D__LIBRETRO__ -DPPSSPP
+
+# The Switch builds neither miniupnp nor glew (see Makefile.common), so the
+# defines that go with them would only promise something that is not there.
+ifneq ($(platform), libnx)
+	COREFLAGS += -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
+endif
+
+# ffmpeg does not work with emscripten. On the Switch the bundled fork has no
+# build, and the portlibs one is far newer than the media code here expects -
+# avcodec_find_decoder returns const AVCodec* there, for one.
+ifeq (,$(filter emscripten libnx,$(platform)))
 	COREFLAGS += -DUSE_FFMPEG
 endif
 

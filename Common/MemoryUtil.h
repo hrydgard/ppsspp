@@ -20,11 +20,10 @@
 #ifndef _WIN32
 #ifndef __SWITCH__
 #include <sys/mman.h>
-#else
-#include <switch.h>
 #endif // !__SWITCH__
 #endif
-#include <stdint.h>
+#include <cstdint>
+#include <cstddef>
 
 // Returns true if we need to avoid setting both writable and executable at the same time (W^X)
 bool PlatformIsWXExclusive();
