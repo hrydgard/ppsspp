@@ -1088,10 +1088,16 @@ namespace MIPSInt {
 			break;
 		case 0x4: //ins
 			{
-				int size = (_SIZE + 1) - pos;
-				u32 sourcemask = 0xFFFFFFFFUL >> (32 - size);
-				u32 destmask = sourcemask << pos;
-				R(rt) = (R(rt) & ~destmask) | ((R(rs)&sourcemask) << pos);
+				// The size field actually holds msb (= pos + size - 1), so build the mask from
+				// that and shift it down, the way the JITs do. Computing the width as
+				// (_SIZE + 1) - pos instead would shift by 32 or more when msb < pos - undefined
+				// behavior, and on x86 it yields an all-ones mask that writes bits the JITs leave
+				// alone. Hardware calls that encoding unpredictable, so all we need is to be
+				// consistent and not invoke UB.
+				const u32 mask = 0xFFFFFFFFUL >> (31 - _SIZE);
+				const u32 sourcemask = mask >> pos;
+				const u32 destmask = sourcemask << pos;
+				R(rt) = (R(rt) & ~destmask) | ((R(rs) & sourcemask) << pos);
 			}
 			break;
 		}
