@@ -907,9 +907,13 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
 		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
-	} else {
-		VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanDeviceApiVersion_);
+		// Don't fall through - there's nothing below that makes sense without a device, and creating the
+		// VMA allocator on a null one asserts. The caller falls back to another backend on failure.
+		return res;
 	}
+
+	VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanDeviceApiVersion_);
+
 	INFO_LOG(Log::G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
 
 	// Since we successfully created a device (however we got here, might be interesting in debug), we force the choice to be visible in the menu.
