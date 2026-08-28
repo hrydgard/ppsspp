@@ -694,7 +694,7 @@ void VulkanRenderManager::PollPresentTiming() {
 }
 
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
-	double frameBeginTime = time_now_d()
+	double frameBeginTime = time_now_d();
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
@@ -1806,12 +1806,22 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 1024);
 	}
 
-	pipelineLayouts_.push_back(layout);
+	{
+		std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
+		pipelineLayouts_.push_back(layout);
+	}
 	return layout;
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
+	// The layout has to stay in pipelineLayouts_ until the frames that were recorded with it have been
+	// flushed by the render thread, otherwise their descriptor sets never get written. So, we can't
+	// remove it here - instead we let it ride along on the delete list, which won't be run until the
+	// fence for the frame it was queued in has been waited on.
 	vulkan_->Delete().QueueCallback([this, layout](VulkanContext *vulkan) {
+		// Runs on the main thread, while the render thread may be in FlushDescriptors - so both the
+		// erase and the destruction of the layout itself have to be under the lock.
+		std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
 		for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
 			if (*iter == layout) {
 				pipelineLayouts_.erase(iter);
@@ -1828,13 +1838,17 @@ void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 	});
 }
 
+// Called on the render thread.
 void VulkanRenderManager::FlushDescriptors(int frame) {
+	std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
 	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
 	}
 }
 
+// Called on the main thread, from BeginFrame.
 void VulkanRenderManager::ResetDescriptorLists(int frame) {
+	std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
 	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
 
