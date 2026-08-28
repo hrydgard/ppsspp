@@ -2814,8 +2814,11 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		MULPS(sReg, M(constWidthHeight256f_));
 	}
 
-	// And now, convert to integers for all later processing.
-	CVTPS2DQ(sReg, R(sReg));
+	// And now, convert to integers for all later processing. Must truncate, not round: the C++
+	// reference casts with (int), and the nearest paths above use CVTTPS2DQ. CVTPS2DQ also follows
+	// MXCSR's rounding mode, which would let anything that leaves a non-default mode in this thread
+	// change rasterized pixels.
+	CVTTPS2DQ(sReg, R(sReg));
 
 	// Now adjust X and Y...
 	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
