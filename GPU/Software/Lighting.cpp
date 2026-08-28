@@ -69,20 +69,23 @@ static inline Vec4<int> LightColorFactor(uint32_t c, const Vec4<int> &ones) {
 	return LightColorFactor(Vec4<int>::FromRGBA(c), ones);
 }
 
+// True if any component of the color factor is non-zero, i.e. the color isn't black.
+// The factors come from LightColorFactor as 2*c+1, so every component is >= 1 and the sum of the
+// four is >= 4 - which is why summing and comparing against 4 answers the question. This replaced
+// an explicit `!(colorFactor == ones)` test, and all paths have to keep agreeing with that: a
+// light that contributes on one platform and is switched off on another is very visible.
 static inline bool IsLargerThanHalf(const Vec4<int> &v) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128i add23 = _mm_add_epi32(v.ivec, _mm_shuffle_epi32(v.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
 	__m128i add1 = _mm_add_epi32(add23, _mm_shuffle_epi32(add23, _MM_SHUFFLE(1, 1, 1, 1)));
 	return _mm_cvtsi128_si32(add1) > 4;
 #elif PPSSPP_ARCH(ARM64_NEON)
-	int32x2_t add02 = vpmax_s32(vget_low_s32(v.ivec), vget_high_s32(v.ivec));
-	int32x2_t add1 = vpmax_s32(add02, add02);
-	return vget_lane_s32(add1, 0) > 4;
+	return vaddvq_s32(v.ivec) > 4;
 #else
-	bool larger = false;
-	for (int i = 0; i < 3; ++i)
-		larger = v[i] > 1;
-	return larger;
+	int sum = 0;
+	for (int i = 0; i < 4; ++i)
+		sum += v[i];
+	return sum > 4;
 #endif
 }
 
