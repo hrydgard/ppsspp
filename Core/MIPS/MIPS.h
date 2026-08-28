@@ -293,3 +293,12 @@ extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
 
 extern const float cst_constants[32];
+
+// The guest's rounding mode and flush-to-zero flag (fcr31 bits 0-1 and 24) are emulated by putting
+// the *host* FPU into the matching mode, since we do the arithmetic with plain host float ops.
+// That mode must not be left on while running anything that isn't emulating a guest instruction -
+// HLE syscalls, replacement functions, the GPU - so an emulation loop applies it on entry and
+// restores it before calling out, the way the JITs do (see Jit::ApplyRoundingMode).
+// Apply is cheap when the guest is in the default mode (by far the common case): it does nothing.
+void ApplyHostRoundingMode(const MIPSState *mips);
+void RestoreHostRoundingMode();

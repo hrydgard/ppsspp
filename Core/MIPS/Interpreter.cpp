@@ -82,6 +82,8 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 		return 0;
 	}
 	MIPSOpcode op = Memory::Read_Opcode_JIT(mips->pc);  // now unchecked
+	// Same reason as the run loop in MIPSInterpret_RunUntil - see ApplyHostRoundingMode.
+	ApplyHostRoundingMode(mips);
 	if (mips->inDelaySlot) {
 		MIPSInterpret(mips, op);
 		if (mips->inDelaySlot) {
@@ -91,6 +93,7 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 	} else {
 		MIPSInterpret(mips, op);
 	}
+	RestoreHostRoundingMode();
 	return 1;
 }
 
@@ -113,7 +116,7 @@ static u8 ReadMMIO_U8(MIPSState *mips, u32 addr) {
 static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
 	if (!Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, 2, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return (u8)UNKNOWN_MMIO_POISON;
+		return (u16)UNKNOWN_MMIO_POISON;
 	}
 	WARN_LOG(Log::CPU, "Unhandled MMIO Read16 at %08x", addr);
 	return (u16)UNKNOWN_MMIO_POISON;
@@ -122,7 +125,7 @@ static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
 static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
 	if (!Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return (u8)UNKNOWN_MMIO_POISON;
+		return UNKNOWN_MMIO_POISON;
 	}
 	if (GpioMMIO::IsGpioAddress(addr)) {
 		return GpioMMIO::Read32(addr);
@@ -235,7 +238,10 @@ namespace MIPSInt {
 			mips->pc += 4;
 		}
 		mips->inDelaySlot = false;
+		// HLE code is host code - it must not run under the guest's rounding mode.
+		RestoreHostRoundingMode();
 		CallSyscallWithPC(op, syscallPC);
+		ApplyHostRoundingMode(mips);
 	}
 
 	void Int_Sync(MIPSState *mips, MIPSOpcode op) {
@@ -414,9 +420,10 @@ namespace MIPSInt {
 			if (rt != 0) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
-					return;
+					R(rt) = 0;
+				} else {
+					R(rt) = Memory::ReadUnchecked_U32(addr);
 				}
-				R(rt) = Memory::ReadUnchecked_U32(addr);
 			}
 			mips->llBit = 1;
 			break;
@@ -424,9 +431,11 @@ namespace MIPSInt {
 			if (mips->llBit) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
-					return;
+				} else {
+					Memory::WriteUnchecked_U32(R(rt), addr);
 				}
-				Memory::WriteUnchecked_U32(R(rt), addr);
+				// Report success even if the store got dropped - reporting failure just makes
+				// the usual retry loop spin on the same bad address forever.
 				if (rt != 0) {
 					R(rt) = 1;
 				}
@@ -474,6 +483,11 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
+	// On a bad access that's set to be ignored (the default), we mirror what
+	// Memory::ReadOrException_*/WriteOrException_* do, which is also what the JIT's slow
+	// path calls: loads produce zero, stores are dropped, and PC advances either way.
+	// Returning without advancing PC instead would just re-execute the same instruction forever.
+	// When the access is set to break, Core_MemoryException has already stopped the core.
 	void Int_ITypeMem(MIPSState *mips, MIPSOpcode op) {
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
@@ -495,7 +509,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lb");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = SignExtend8ToU32(Memory::ReadUnchecked_U8(addr));
 			break; //lb
@@ -507,7 +522,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lh");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = SignExtend16ToU32(Memory::ReadUnchecked_U16(addr));
 			break; //lh
@@ -519,7 +535,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lw");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = Memory::ReadUnchecked_U32(addr);
 			break; //lw
@@ -531,7 +548,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = Memory::ReadUnchecked_U8(addr);
 			break; //lbu
@@ -543,7 +561,8 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
-				return;
+				R(rt) = 0;
+				break;
 			}
 			R(rt) = Memory::ReadUnchecked_U16(addr);
 			break; //lhu
@@ -555,7 +574,7 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U8(R(rt), addr);
 			break; //sb
@@ -567,7 +586,7 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U16(R(rt), addr);
 			break; //sh
@@ -579,7 +598,7 @@ namespace MIPSInt {
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U32(R(rt), addr);
 			break; //sw
@@ -589,12 +608,13 @@ namespace MIPSInt {
 		case 34: //lwl
 			{
 				// Not checking for alignment here - the actual read will be aligned.
-				if (!Memory::IsValidAddress(addr)) {
+				u32 mem = 0;
+				if (Memory::IsValidAddress(addr)) {
+					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwl");
-					return;
 				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 result = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
 				R(rt) = result;
 			}
@@ -603,12 +623,13 @@ namespace MIPSInt {
 		case 38: //lwr
 			{
 				// Not checking for alignment here - the actual read will be aligned.
-				if (!Memory::IsValidAddress(addr)) {
+				u32 mem = 0;
+				if (Memory::IsValidAddress(addr)) {
+					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwr");
-					return;
 				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 regval = R(rt);
 				u32 result = ( regval & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
 				R(rt) = result;
@@ -620,7 +641,7 @@ namespace MIPSInt {
 				// Not checking for alignment here - the actual read/write will be aligned.
 				if (!Memory::IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swl");
-					return;
+					break;
 				}
 				u32 shift = (addr & 3) * 8;
 				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
@@ -634,7 +655,7 @@ namespace MIPSInt {
 				// Not checking for alignment here - the actual read/write will be aligned.
 				if (!Memory::IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swr");
-					return;
+					break;
 				}
 				u32 shift = (addr & 3) << 3;
 				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
@@ -660,14 +681,15 @@ namespace MIPSInt {
 		case 49:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwc1");
-				return;
+				FI(ft) = 0;
+				break;
 			}
 			FI(ft) = Memory::ReadUnchecked_U32(addr);
 			break; //lwc1
 		case 57:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swc1");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U32(FI(ft), addr);
 			break; //swc1
@@ -718,6 +740,13 @@ namespace MIPSInt {
 					if (MIPSComp::jit) {
 						// In case of DISABLE, we need to tell jit we updated FCR31.
 						MIPSComp::jit->UpdateFCR31();
+					} else {
+						// The interpreter emulates the rounding mode by putting the host FPU in it,
+						// so it has to switch right here rather than at the next block boundary.
+						// Restore first: the new value may be back to the default, which Apply
+						// deliberately doesn't write.
+						RestoreHostRoundingMode();
+						ApplyHostRoundingMode(mips);
 					}
 				} else {
 					WARN_LOG_REPORT(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
@@ -1068,10 +1097,16 @@ namespace MIPSInt {
 			break;
 		case 0x4: //ins
 			{
-				int size = (_SIZE + 1) - pos;
-				u32 sourcemask = 0xFFFFFFFFUL >> (32 - size);
-				u32 destmask = sourcemask << pos;
-				R(rt) = (R(rt) & ~destmask) | ((R(rs)&sourcemask) << pos);
+				// The size field actually holds msb (= pos + size - 1), so build the mask from
+				// that and shift it down, the way the JITs do. Computing the width as
+				// (_SIZE + 1) - pos instead would shift by 32 or more when msb < pos - undefined
+				// behavior, and on x86 it yields an all-ones mask that writes bits the JITs leave
+				// alone. Hardware calls that encoding unpredictable, so all we need is to be
+				// consistent and not invoke UB.
+				const u32 mask = 0xFFFFFFFFUL >> (31 - _SIZE);
+				const u32 sourcemask = mask >> pos;
+				const u32 destmask = sourcemask << pos;
+				R(rt) = (R(rt) & ~destmask) | ((R(rs) & sourcemask) << pos);
 			}
 			break;
 		}
@@ -1100,7 +1135,9 @@ namespace MIPSInt {
 			}
 			switch (op & 0x3f)
 			{
-			case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+			// round.w.s is round-half-to-even, not half-away-from-zero - and its mode is fixed,
+			// so unlike cvt.w.s below it must not follow fcr31. round_ieee_754 is both.
+			case 12: FsI(fd) = (int)round_ieee_754(F(fs)); break; //round.w.s
 			case 13: //trunc.w.s
 				if (F(fs) >= 0.0f) {
 					FsI(fd) = (int)floorf(F(fs));
@@ -1247,7 +1284,10 @@ namespace MIPSInt {
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
+			// Like a syscall, a replacement function is host code - see Int_Syscall.
+			RestoreHostRoundingMode();
 			int cycles = entry->replaceFunc();
+			ApplyHostRoundingMode(mips);
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.

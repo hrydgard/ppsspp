@@ -20,8 +20,14 @@
 #include <mutex>
 #include <utility>
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM64)
+#include <arm64intr.h>
+#endif
 
 #include "Common/CommonTypes.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"
@@ -41,6 +47,82 @@ MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;
 MIPSDebugInterface debugr4k(&mipsr4k);
 MIPSDebugInterface *currentDebugMIPS = &debugr4k;
+
+#if PPSSPP_ARCH(ARM64)
+
+static inline u64 ARM64ReadFPCR() {
+#if PPSSPP_PLATFORM(WINDOWS)
+	return _ReadStatusReg(ARM64_FPCR);
+#else
+	// TODO: Try __builtin_arm_get_fpcr()
+	u64 fpcr;  // not really 64-bit, just to match the register size.
+	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+	return fpcr;
+#endif
+}
+
+static inline void ARM64WriteFPCR(u64 fpcr) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	_WriteStatusReg(ARM64_FPCR, fpcr);
+#else
+	// TODO: Try __builtin_arm_set_fpcr()
+	// Write back the modified FPCR
+	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+#endif
+}
+
+#endif
+
+void ApplyHostRoundingMode(const MIPSState *mips) {
+	u32 fcr1Bits = mips->fcr31 & 0x01000003;
+	// If these are 0, we just leave things as they are.
+	if (fcr1Bits) {
+		int rmode = fcr1Bits & 3;
+		bool ftz = (fcr1Bits & 0x01000000) != 0;
+#if PPSSPP_ARCH(SSE2)
+		u32 csr = _mm_getcsr() & ~0x6000;
+		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
+		if (rmode & 1) {
+			rmode ^= 2;
+		}
+		csr |= rmode << 13;
+
+		if (ftz) {
+			// Flush to zero
+			csr |= 0x8000;
+		}
+		_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64)
+		u64 fpcr = ARM64ReadFPCR();
+		// Translate MIPS to ARM rounding mode
+		static const u8 lookup[4] = {0, 3, 1, 2};
+
+		fpcr &= ~(3 << 22);    // Clear bits [23:22]
+		fpcr |= ((u64)lookup[rmode] << 22);
+
+		if (ftz) {
+			fpcr |= 1 << 24;
+		}
+
+		ARM64WriteFPCR(fpcr);
+#endif
+	}
+}
+
+void RestoreHostRoundingMode() {
+	// TODO: We should avoid this if we didn't apply rounding in the first place.
+	// In the meantime, clear out FTZ and rounding mode bits.
+#if PPSSPP_ARCH(SSE2)
+	u32 csr = _mm_getcsr();
+	csr &= ~(7 << 13);
+	_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64)
+	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the register size.
+	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
+	// Write back the modified FPCR
+	ARM64WriteFPCR(fpcr);
+#endif
+}
 
 u8 voffset[128];
 u8 fromvoffset[128];

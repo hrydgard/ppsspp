@@ -216,23 +216,22 @@ namespace MIPSInt
 				float d[4];
 				ReadVector(mips, d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
+				const bool valid = Memory::IsValid4AlignedAddress(addr);
 				if ((op & 2) == 0) {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!valid) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvl.q");
-						return;
 					}
 					// It's an LVL
 					for (int i = 0; i < offset + 1; i++) {
-						d[3 - i] = Memory::ReadUnchecked_Float(addr - 4 * i);
+						d[3 - i] = valid ? Memory::ReadUnchecked_Float(addr - 4 * i) : 0.0f;
 					}
 				} else {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!valid) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvr.q");
-						return;
 					}
 					// It's an LVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
-						d[i] = Memory::ReadUnchecked_Float(addr + 4 * i);
+						d[i] = valid ? Memory::ReadUnchecked_Float(addr + 4 * i) : 0.0f;
 					}
 				}
 				WriteVector(mips, d, V_Quad, vt);
@@ -240,14 +239,18 @@ namespace MIPSInt
 			break;
 
 		case 54: //lv.q
+			// A quadword access has to be 16-byte aligned, so a misaligned one is simply
+			// rejected - we don't try to carry it out anyway, same as every other path here.
 			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
+				const float zero[4]{};
+				WriteVector(mips, zero, V_Quad, vt);
+				break;
 			}
 
 #ifndef COMMON_BIG_ENDIAN
 			cf = reinterpret_cast<const float *>(Memory::GetPointerUnchecked(addr));
-			if (cf)
-				WriteVector(mips, cf, V_Quad, vt);
+			WriteVector(mips, cf, V_Quad, vt);
 #else
 			float lvqd[4];
 
@@ -268,7 +271,7 @@ namespace MIPSInt
 				if ((op & 2) == 0) {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svl.q");
-						return;
+						break;
 					}
 					// It's an SVL
 					for (int i = 0; i < offset + 1; i++)
@@ -278,7 +281,7 @@ namespace MIPSInt
 				} else {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svr.q");
-						return;
+						break;
 					}
 					// It's an SVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
@@ -289,8 +292,10 @@ namespace MIPSInt
 			}
 
 		case 62: //sv.q
+			// See lv.q above.
 			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "sv.q");
+				break;
 			}
 #ifndef COMMON_BIG_ENDIAN
 			f = reinterpret_cast<float *>(Memory::GetPointerWriteUnchecked(addr));
@@ -1642,7 +1647,8 @@ namespace MIPSInt
 		}
 
 		// D prefix works, just not for the cosine lane.
-		uint32_t dprefixRemove = (3 << cosineLane) | (1 << (8 + cosineLane));
+		// The saturation field is two bits per element (see ApplyPrefixD), the mask field one.
+		uint32_t dprefixRemove = (3 << (cosineLane * 2)) | (1 << (8 + cosineLane));
 		mips->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFFFF ^ dprefixRemove;
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -1757,14 +1763,15 @@ namespace MIPSInt
 		case 50: //lv.s
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lv.s");
-				return;
+				VI(vt) = 0;
+				break;
 			}
 			VI(vt) = Memory::ReadUnchecked_U32(addr);
 			break;
 		case 58: //sv.s
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sv.s");
-				return;
+				break;
 			}
 			Memory::WriteUnchecked_U32(VI(vt), addr);
 			break;
