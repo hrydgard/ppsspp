@@ -534,26 +534,6 @@ private:
 	PresentMode requestedPresentMode_{};
 };
 
-static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
-	return (v1 << 16) | (v2 << 8) | v3;
-}
-
-static bool HasIntelDualSrcBug(const int versions[4]) {
-	// Intel uses a confusing set of at least 3 version numbering schemes.  This is the one given to OpenGL.
-	switch (MakeIntelSimpleVer(versions[0], versions[1], versions[2])) {
-	case MakeIntelSimpleVer(9, 17, 10):
-	case MakeIntelSimpleVer(9, 18, 10):
-		return false;
-	case MakeIntelSimpleVer(10, 18, 10):
-		return versions[3] < 4061;
-	case MakeIntelSimpleVer(10, 18, 14):
-		return versions[3] < 4080;
-	default:
-		// Older than above didn't support dual src anyway, newer should have the fix.
-		return false;
-	}
-}
-
 OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameTimeHistory_) {
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
@@ -647,17 +627,6 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
 		// Don't use this extension on sub 3.0 OpenGL versions as it does not seem reliable.
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
-	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
-		// Note: this is for Intel drivers with GL3+.
-		// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/10117
-		// TODO: Remove entirely sometime reasonably far in driver years after 2015.
-		const std::string ver = OpenGLContext::GetInfoString(Draw::InfoField::APIVERSION);
-		int versions[4]{};
-		if (sscanf(ver.c_str(), "Build %d.%d.%d.%d", &versions[0], &versions[1], &versions[2], &versions[3]) == 4) {
-			if (HasIntelDualSrcBug(versions)) {
-				bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
-			}
-		}
 	}
 
 #if PPSSPP_ARCH(ARMV7)
