@@ -412,6 +412,22 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 	return true;
 }
 
+bool VulkanRenderManager::RecreatePresentation() {
+	VulkanPresentation *presentation = vulkan_->GetPresentation();
+	if (!presentation || !presentation->NeedsRecreate()) {
+		return true;
+	}
+
+	DestroyBackbuffers();
+	// DestroyBackbuffers() queues its views for deletion. They must be gone before a presentation
+	// backend destroys the images those views reference.
+	vulkan_->PerformPendingDeletes();
+	if (!presentation->Recreate(vulkan_)) {
+		return false;
+	}
+	return CreateBackbuffers();
+}
+
 void VulkanRenderManager::StartThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
@@ -718,6 +734,11 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		_assert_msg_(false, "Device lost in vkWaitForFences");
 	}
 	vkResetFences(device, 1, &frameData.fence);
+
+	if (!RecreatePresentation()) {
+		ERROR_LOG(Log::G3D, "Failed to recreate Vulkan presentation backbuffers");
+		return;
+	}
 
 	uint64_t frameId = frameIdGen_++;
 

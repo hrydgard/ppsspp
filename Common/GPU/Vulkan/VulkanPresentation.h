@@ -18,6 +18,13 @@ public:
 
 	virtual void Destroy(VulkanContext *vulkan) = 0;
 
+	// Some presentation backends can change their image set while the device remains alive. The
+	// render manager checks this at a safe frame boundary before recording new work.
+	virtual bool NeedsRecreate() const { return false; }
+	// Called after the render manager has stopped submission, waited for the queue, and destroyed
+	// its backbuffer views. The backend must rebuild any images exposed through GetImage().
+	virtual bool Recreate(VulkanContext *) { return true; }
+
 	// Mirrors vkAcquireNextImageKHR: waits for the next image to become available, and signals
 	// signalSemaphore once it's safe to render into it.
 	virtual VkResult AcquireNextImage(VulkanContext *vulkan, VkSemaphore signalSemaphore, uint32_t *imageIndex) = 0;

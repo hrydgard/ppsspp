@@ -565,6 +565,7 @@ private:
 
 	void SanityCheckPassesOnAdd();
 	bool CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared);
+	bool RecreatePresentation();
 
 	FrameDataShared frameDataShared_;
 
