@@ -138,7 +138,7 @@ public:
 	}
 
 	// Moves everything from del into this list. Only the source list is locked - the destination is
-	// always a frame's own list, which only the main thread touches.
+	// either a frame's own list or a stack local, neither of which another thread can reach.
 	void Take(VulkanDeleteList &del);
 	void PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator);
 

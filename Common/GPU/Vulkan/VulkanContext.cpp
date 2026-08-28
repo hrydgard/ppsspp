@@ -1908,13 +1908,24 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 }
 
 void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator) {
-	// Drain into a local list first. A callback is allowed to queue more deletes (~VKFramebuffer does,
-	// via ~VKRFramebuffer) - with the vectors already moved out, those land on an empty list and get
-	// performed on a later pass, rather than being appended to a vector we're iterating. It also means
-	// they get the normal deferral instead of being destroyed in the same pass they were queued in.
-	VulkanDeleteList taken;
-	taken.Take(*this);
-	deleteCount_ = taken.PerformDeletesInternal(vulkan, allocator);
+	// Drain into a local list before destroying anything - a callback is allowed to queue more deletes
+	// (~VKFramebuffer does, via ~VKRFramebuffer), and we mustn't append to a vector we're iterating.
+	// Anything queued back onto this list gets picked up by the next lap, so keep going until a lap
+	// comes up empty. In the normal per-frame case that's a single extra lap, since callbacks queue
+	// onto the global list rather than the frame's own list - the loop matters for
+	// VulkanContext::PerformPendingDeletes(), which drains the global list itself just before the
+	// device goes away, with no later pass to catch the stragglers.
+	int deleteCount = 0;
+	for (;;) {
+		VulkanDeleteList taken;
+		taken.Take(*this);
+		int count = taken.PerformDeletesInternal(vulkan, allocator);
+		if (!count) {
+			break;
+		}
+		deleteCount += count;
+	}
+	deleteCount_ = deleteCount;
 }
 
 // See the note on Take() - every vector in the class must be handled here too, or it leaks.
