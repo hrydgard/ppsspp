@@ -586,12 +586,15 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 		const int32x4_t df = vaddq_s32(vshlq_n_s32(dstfactor.ivec, 1), half);
 		const int32x4_t d = vshrq_n_s32(vmulq_s32(drgb, df), 10);
 
-		return Vec3<int>(vqsubq_s32(s, d));
+		// Clamp to 0 here, not just at ToRGB() - the caller adds dither in between.
+		return Vec3<int>(vmaxq_s32(vqsubq_s32(s, d), vdupq_n_s32(0)));
 #else
 		static constexpr Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
 		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
-		return lhs - rhs;
+		// Clamp to 0 here, not just at ToRGB() - the caller adds dither in between.
+		const Vec3<int> diff = lhs - rhs;
+		return Vec3<int>(diff.x < 0 ? 0 : diff.x, diff.y < 0 ? 0 : diff.y, diff.z < 0 ? 0 : diff.z);
 #endif
 	}
 
@@ -620,12 +623,15 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 		const int32x4_t df = vaddq_s32(vshlq_n_s32(dstfactor.ivec, 1), half);
 		const int32x4_t d = vshrq_n_s32(vmulq_s32(drgb, df), 10);
 
-		return Vec3<int>(vqsubq_s32(d, s));
+		// Clamp to 0 here, not just at ToRGB() - the caller adds dither in between.
+		return Vec3<int>(vmaxq_s32(vqsubq_s32(d, s), vdupq_n_s32(0)));
 #else
 		static constexpr Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
 		Vec3<int> rhs = ((dst.rgb() * 2 + half) * (dstfactor * 2 + half)) / 1024;
-		return rhs - lhs;
+		// Clamp to 0 here, not just at ToRGB() - the caller adds dither in between.
+		const Vec3<int> diff = rhs - lhs;
+		return Vec3<int>(diff.x < 0 ? 0 : diff.x, diff.y < 0 ? 0 : diff.y, diff.z < 0 ? 0 : diff.z);
 #endif
 	}
 
@@ -733,7 +739,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 
 		// ToRGB() always automatically clamps.
 		new_color = blended.ToRGB();
-		new_color |= stencil << 24;
+		new_color |= (u32)stencil << 24;
 	} else {
 		if (pixelID.dithering) {
 			// We'll discard alpha anyway.
@@ -742,7 +748,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 
 #if defined(_M_SSE) || PPSSPP_ARCH(ARM64_NEON)
 		new_color = Vec3<int>(prim_color.ivec).ToRGB();
-		new_color |= stencil << 24;
+		new_color |= (u32)stencil << 24;
 #else
 		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
 #endif

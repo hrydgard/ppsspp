@@ -1998,7 +1998,9 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	skipStandardWrites_.push_back(J(true));
 
 	tableValues[GE_LOGIC_NAND] = GetCodePointer();
-	AND(bits, R(temp1Reg), MatR(colorOff));
+	// NAND is ~(new & old). This used to AND into temp1Reg, which is uninitialized here and whose
+	// result went unused, leaving just the NOT - i.e. COPY_INVERTED.
+	AND(bits, R(colorReg), MatR(colorOff));
 	NOT(32, R(colorReg));
 	if (stencilReg != INVALID_REG) {
 		AND(bits, R(colorReg), notStencilMask);
