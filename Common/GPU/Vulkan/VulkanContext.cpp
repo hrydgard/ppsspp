@@ -1845,7 +1845,12 @@ void finalize_glslang() {
 	glslang::FinalizeProcess();
 }
 
+// NOTE: Every vector in the class has to be listed both here and in PerformDeletes. If one is missing
+// from Take, the objects in it linger on the global list until device teardown instead of being deleted
+// a few frames later; if one is missing from PerformDeletes, they leak outright. Both are bugs.
 void VulkanDeleteList::Take(VulkanDeleteList &del) {
+	// The render thread can be queueing deletes into del (the global list) while we do this.
+	std::lock_guard<std::mutex> lock(del.mutex_);
 	_dbg_assert_(cmdPools_.empty());
 	_dbg_assert_(descPools_.empty());
 	_dbg_assert_(modules_.empty());
@@ -1862,6 +1867,7 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	_dbg_assert_(framebuffers_.empty());
 	_dbg_assert_(pipelineLayouts_.empty());
 	_dbg_assert_(descSetLayouts_.empty());
+	_dbg_assert_(queryPools_.empty());
 	_dbg_assert_(callbacks_.empty());
 	cmdPools_ = std::move(del.cmdPools_);
 	descPools_ = std::move(del.descPools_);
@@ -1879,12 +1885,14 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	framebuffers_ = std::move(del.framebuffers_);
 	pipelineLayouts_ = std::move(del.pipelineLayouts_);
 	descSetLayouts_ = std::move(del.descSetLayouts_);
+	queryPools_ = std::move(del.queryPools_);
 	callbacks_ = std::move(del.callbacks_);
 	del.cmdPools_.clear();
 	del.descPools_.clear();
 	del.modules_.clear();
 	del.buffers_.clear();
 	del.buffersWithAllocs_.clear();
+	del.bufferViews_.clear();
 	del.imageViews_.clear();
 	del.imagesWithAllocs_.clear();
 	del.deviceMemory_.clear();
@@ -1895,10 +1903,22 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.framebuffers_.clear();
 	del.pipelineLayouts_.clear();
 	del.descSetLayouts_.clear();
+	del.queryPools_.clear();
 	del.callbacks_.clear();
 }
 
 void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator) {
+	// Drain into a local list first. A callback is allowed to queue more deletes (~VKFramebuffer does,
+	// via ~VKRFramebuffer) - with the vectors already moved out, those land on an empty list and get
+	// performed on a later pass, rather than being appended to a vector we're iterating. It also means
+	// they get the normal deferral instead of being destroyed in the same pass they were queued in.
+	VulkanDeleteList taken;
+	taken.Take(*this);
+	deleteCount_ = taken.PerformDeletesInternal(vulkan, allocator);
+}
+
+// See the note on Take() - every vector in the class must be handled here too, or it leaks.
+int VulkanDeleteList::PerformDeletesInternal(VulkanContext *vulkan, VmaAllocator allocator) {
 	int deleteCount = 0;
 
 	for (auto &callback : callbacks_) {
@@ -1993,7 +2013,7 @@ void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator alloca
 		deleteCount++;
 	}
 	queryPools_.clear();
-	deleteCount_ = deleteCount;
+	return deleteCount;
 }
 
 void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {
