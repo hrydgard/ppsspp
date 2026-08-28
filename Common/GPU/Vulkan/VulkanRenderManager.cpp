@@ -727,18 +727,32 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		}
 		frameData.readyForFence = false;
 	}
+	auto restoreReadyForFence = [&]() {
+		if (useRenderThread_) {
+			std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+			frameData.readyForFence = true;
+			frameData.fenceCondVar.notify_one();
+		}
+	};
 
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
 	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Device lost in vkWaitForFences");
 	}
-	vkResetFences(device, 1, &frameData.fence);
 
 	if (!RecreatePresentation()) {
+		restoreReadyForFence();
 		ERROR_LOG(Log::G3D, "Failed to recreate Vulkan presentation backbuffers");
 		return;
 	}
+	// CreateBackbuffers() resets readyForFence for all frames. Keep the current frame consumed until
+	// its new submission signals the fence. Also, don't reset the fence until recreation succeeded.
+	if (useRenderThread_) {
+		std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+		frameData.readyForFence = false;
+	}
+	vkResetFences(device, 1, &frameData.fence);
 
 	uint64_t frameId = frameIdGen_++;
 
