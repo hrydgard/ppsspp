@@ -168,6 +168,12 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 }
 
 void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) {
+	// Called from InvalidateMSAAPipelines on the main thread, mid-frame, while the render thread may be
+	// reading and replacing these same slots in PerformRenderPass - so take the lock that's documented
+	// as protecting the array. It also has to be held across the delete below, or the render thread can
+	// be left holding a freed Promise.
+	std::lock_guard<std::mutex> lock(mutex_);
+
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!this->pipeline[i])
 			continue;
@@ -179,6 +185,9 @@ void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) 
 		if (pipeline) {
 			vulkan->Delete().QueueDeletePipeline(pipeline);
 		}
+		// The array owns the Promise - DestroyVariantsInstant deletes it too. Forgetting it here leaked
+		// one per destroyed variant on every MSAA or resolution change.
+		delete this->pipeline[i];
 		this->pipeline[i] = nullptr;
 	}
 	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
