@@ -359,8 +359,19 @@ inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t strid
 		return;
 	}
 
-	if (stride != 0)
-		height += ((int)base - (int)newBase) / (stride * bpp);
+	if (stride != 0) {
+		// Careful with the subtraction: stride * bpp is unsigned, so a signed difference gets converted
+		// before the division. When newBase was above base that turned into ~4 billion rows, and the
+		// wrapped height made HasPendingWrite() report "no overlap" for every later query.
+		const uint32_t newStrideBytes = stride * bpp;
+		if (newBase < base) {
+			// The base moves up, so everything we already tracked shifts down by this many rows.
+			height += (base - newBase) / newStrideBytes;
+		} else {
+			// The new range starts further down - make sure the height still reaches its bottom.
+			height = std::max(height, (newBase - base) / newStrideBytes + h);
+		}
+	}
 	base = std::min(base, newBase);
 	strideBytes = std::max(strideBytes, stride * bpp);
 	widthBytes = strideBytes;

@@ -703,6 +703,11 @@ bool SoftGPU::ClearDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value) 
 
 	uint32_t start = ((addr - PSP_GetVidMemBase()) & 0x001FFFFF) >> 10;
 	uint32_t end = start + ((bytes + 1023) >> 10);
+	// Same clamp as MarkDirty - the endpoint checks above accept the whole mirrored 8MB window, so
+	// bytes can carry us past the end of the array. Without this the loop below writes past it.
+	if (end > sizeof(vramDirty_)) {
+		end = sizeof(vramDirty_);
+	}
 	bool result = false;
 	for (uint32_t i = start; i < end; ++i) {
 		if (vramDirty_[i] & (uint8_t)value) {
