@@ -2863,6 +2863,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// These will only work correctly in the top 512x512 part. So, I've increased the threshold quite a bit.
 		// We probably should handle these differently, by clamping the texture size and texture coordinates, but meh.
 		if (plan.w > 2048 || plan.h > 2048) {
+			// Strangely, the homebrew "Kitten Cannon" hits this a bunch, with a clearly invalid 512x32768 texture.
+			// Some noise bit in the texture size command that we might just want to ignore.
 			ERROR_LOG(Log::TexCache, "Bad texture dimensions: %dx%d", plan.w, plan.h);
 			return false;
 		}
