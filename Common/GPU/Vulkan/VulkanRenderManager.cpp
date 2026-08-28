@@ -425,7 +425,14 @@ bool VulkanRenderManager::RecreatePresentation() {
 	if (!presentation->Recreate(vulkan_)) {
 		return false;
 	}
-	return CreateBackbuffers();
+	if (!CreateBackbuffers()) {
+		// Keep the presentation empty so a later frame retries the complete recreation.
+		DestroyBackbuffers();
+		vulkan_->PerformPendingDeletes();
+		presentation->Destroy(vulkan_);
+		return false;
+	}
+	return true;
 }
 
 void VulkanRenderManager::StartThreads() {
@@ -459,7 +466,8 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	_dbg_assert_(!useRenderThread_ || renderThread_.joinable());
+	// A failed presentation recreation may leave the threads already stopped, so this cleanup must
+	// also be safe to call during a later retry.
 	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
@@ -483,7 +491,6 @@ void VulkanRenderManager::StopThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
 		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
-		_dbg_assert_(compileThread_.joinable());
 		compileCond_.notify_one();
 	}
 	if (compileThread_.joinable()) {
