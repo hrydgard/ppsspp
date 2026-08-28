@@ -216,23 +216,22 @@ namespace MIPSInt
 				float d[4];
 				ReadVector(mips, d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
+				const bool valid = Memory::IsValid4AlignedAddress(addr);
 				if ((op & 2) == 0) {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!valid) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvl.q");
-						break;
 					}
 					// It's an LVL
 					for (int i = 0; i < offset + 1; i++) {
-						d[3 - i] = Memory::ReadUnchecked_Float(addr - 4 * i);
+						d[3 - i] = valid ? Memory::ReadUnchecked_Float(addr - 4 * i) : 0.0f;
 					}
 				} else {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!valid) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvr.q");
-						break;
 					}
 					// It's an LVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
-						d[i] = Memory::ReadUnchecked_Float(addr + 4 * i);
+						d[i] = valid ? Memory::ReadUnchecked_Float(addr + 4 * i) : 0.0f;
 					}
 				}
 				WriteVector(mips, d, V_Quad, vt);
@@ -244,13 +243,14 @@ namespace MIPSInt
 			// rejected - we don't try to carry it out anyway, same as every other path here.
 			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
+				const float zero[4]{};
+				WriteVector(mips, zero, V_Quad, vt);
 				break;
 			}
 
 #ifndef COMMON_BIG_ENDIAN
 			cf = reinterpret_cast<const float *>(Memory::GetPointerUnchecked(addr));
-			if (cf)
-				WriteVector(mips, cf, V_Quad, vt);
+			WriteVector(mips, cf, V_Quad, vt);
 #else
 			float lvqd[4];
 

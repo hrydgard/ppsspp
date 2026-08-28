@@ -116,7 +116,7 @@ static u8 ReadMMIO_U8(MIPSState *mips, u32 addr) {
 static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
 	if (!Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, 2, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return (u8)UNKNOWN_MMIO_POISON;
+		return (u16)UNKNOWN_MMIO_POISON;
 	}
 	WARN_LOG(Log::CPU, "Unhandled MMIO Read16 at %08x", addr);
 	return (u16)UNKNOWN_MMIO_POISON;
@@ -125,7 +125,7 @@ static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
 static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
 	if (!Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return (u8)UNKNOWN_MMIO_POISON;
+		return UNKNOWN_MMIO_POISON;
 	}
 	if (GpioMMIO::IsGpioAddress(addr)) {
 		return GpioMMIO::Read32(addr);
@@ -434,6 +434,8 @@ namespace MIPSInt {
 				} else {
 					Memory::WriteUnchecked_U32(R(rt), addr);
 				}
+				// Report success even if the store got dropped - reporting failure just makes
+				// the usual retry loop spin on the same bad address forever.
 				if (rt != 0) {
 					R(rt) = 1;
 				}
@@ -481,6 +483,11 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
+	// On a bad access that's set to be ignored (the default), we mirror what
+	// Memory::ReadOrException_*/WriteOrException_* do, which is also what the JIT's slow
+	// path calls: loads produce zero, stores are dropped, and PC advances either way.
+	// Returning without advancing PC instead would just re-execute the same instruction forever.
+	// When the access is set to break, Core_MemoryException has already stopped the core.
 	void Int_ITypeMem(MIPSState *mips, MIPSOpcode op) {
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
@@ -601,12 +608,13 @@ namespace MIPSInt {
 		case 34: //lwl
 			{
 				// Not checking for alignment here - the actual read will be aligned.
-				if (!Memory::IsValidAddress(addr)) {
+				u32 mem = 0;
+				if (Memory::IsValidAddress(addr)) {
+					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwl");
-					break;
 				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 result = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
 				R(rt) = result;
 			}
@@ -615,12 +623,13 @@ namespace MIPSInt {
 		case 38: //lwr
 			{
 				// Not checking for alignment here - the actual read will be aligned.
-				if (!Memory::IsValidAddress(addr)) {
+				u32 mem = 0;
+				if (Memory::IsValidAddress(addr)) {
+					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwr");
-					break;
 				}
 				u32 shift = (addr & 3) * 8;
-				u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				u32 regval = R(rt);
 				u32 result = ( regval & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
 				R(rt) = result;
