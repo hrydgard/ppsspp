@@ -884,10 +884,14 @@ int main(int argc, const char* argv[]) {
 	}
 
 	int retval = 0;
-	MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
+	if (!MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
 		retval = RunTests(graphicsContext, coreParameter, testOptions, testFilenames);
 		return false;
-	});
+	}, &errorMessage)) {
+		// No fallbacks in headless - if we can't run it, we can't. Let's not get confusing.
+		fprintf(stderr, "Failed to initialize graphics surface: %s\n", errorMessage.c_str());
+		retval = 1;
+	}
 
 	graphicsContext->ShutdownAPI();
 

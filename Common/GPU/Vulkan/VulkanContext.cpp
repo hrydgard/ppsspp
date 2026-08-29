@@ -1316,10 +1316,14 @@ VkResult VulkanContext::ReinitSurface() {
 	}
 
 	if (retval != VK_SUCCESS) {
+		init_error_ = StringFromFormat("Failed to create a Vulkan surface for window system %s: %s", WindowSystemToString(winsys_), VulkanResultToString(retval));
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
 		return retval;
 	}
 
 	if (!ChooseQueue()) {
+		init_error_ = "Failed to find a Vulkan queue and surface format that can present to the window";
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
@@ -1336,6 +1340,13 @@ VkResult VulkanContext::ReinitSurface() {
 		availablePresentModes_.resize(presentModeCount);
 		res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
 		_dbg_assert_(res == VK_SUCCESS);
+	}
+	if (res != VK_SUCCESS || availablePresentModes_.empty()) {
+		// Should be impossible - the spec guarantees at least FIFO for any surface we could create.
+		availablePresentModes_.clear();
+		init_error_ = StringFromFormat("Failed to enumerate Vulkan present modes: %s (count %d)", VulkanResultToString(res), (int)presentModeCount);
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
+		return res != VK_SUCCESS ? res : VK_ERROR_INITIALIZATION_FAILED;
 	}
 	return VK_SUCCESS;
 }
