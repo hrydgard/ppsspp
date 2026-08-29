@@ -515,9 +515,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	IncrementDebugCounter(DebugCounter::APP_BOOT);
 
-	// Probably an excessive timeout. it only causes delays on shutdown, though.
-	__UPnPInit(2000);
-
 	ShaderTranslationInit();
 
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -703,6 +700,11 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
 		g_Config.LoadAppendedConfig();
 	}
+
+	// Has to be after the config is loaded: it only starts a service thread if UPnP is enabled,
+	// and g_Config.Init() above doesn't read the ini, it just builds a lookup table.
+	// Probably an excessive timeout. It only causes delays on shutdown, though.
+	__UPnPInit(2000);
 
 	// This parameter should be a boot filename. Only accept it if we
 	// don't already have one.
@@ -1850,8 +1852,6 @@ void NativeShutdown() {
 	ShutdownWebServer();
 
 	__UPnPShutdown();
-
-	g_PortManager.Shutdown();
 
 	net::Shutdown();
 

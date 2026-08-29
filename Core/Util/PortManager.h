@@ -37,13 +37,6 @@
 #include <string>
 #include <deque>
 
-struct UPnPArgs {
-	int cmd;
-	std::string protocol;
-	unsigned short port;
-	unsigned short intport;
-};
-
 #define IP_PROTOCOL_TCP	"TCP"
 #define IP_PROTOCOL_UDP	"UDP"
 
@@ -56,11 +49,20 @@ enum {
 enum {
 	UPNP_CMD_ADD = 0,
 	UPNP_CMD_REMOVE = 1,
-	UPNP_CMD_EXIT = 2,
 };
 
-struct UPNPUrls;
-struct IGDdatas;
+struct UPnPArgs {
+	int cmd = UPNP_CMD_ADD;
+	std::string protocol;
+	unsigned short port = 0;
+	unsigned short intport = 0;
+	// Description to register the mapping under. Built when the request is queued, on the thread
+	// that owns the game state, since the UPnP service thread can't safely read it later.
+	std::string desc;
+	// How many times we've failed to reach the router about this request. Bounded so a request
+	// can't get retried forever, blocking everything queued behind it.
+	int attempts = 0;
+};
 
 struct PortMap {
 	bool taken;
@@ -74,29 +76,33 @@ struct PortMap {
 	std::string enabled;
 };
 
+// Only ever touched by the UPnP service thread (see PortManager.cpp). Don't call into it
+// from anywhere else - queue a request with UPnP_Add()/UPnP_Remove() instead.
 class PortManager {
 public:
-	// Initialize UPnP
-	// timeout: milliseconds to wait for a router to respond (default = 2000 ms)
-	bool Initialize(const unsigned int timeout = 2000);
+	// Discover a router and pick up any mappings we left behind earlier.
+	// timeout: milliseconds to wait for a router to respond.
+	bool Initialize(unsigned int timeout = 2000);
 
-	// Get UPnP Initialization status
-	int GetInitState();
+	int GetInitState() const { return m_InitState; }
 
 	// Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding (intport = 0 : same as [external] port)
-	bool Add(const char* protocol, unsigned short port, unsigned short intport = 0);
+	bool Add(const char *protocol, unsigned short port, unsigned short intport, const std::string &desc);
 
 	// Remove a port mapping (external port)
-	bool Remove(const char* protocol, unsigned short port);
+	bool Remove(const char *protocol, unsigned short port);
 
-	// Call on exit. Does a full shutdown.
-	void Shutdown();
+	// Drops our mappings, restores any that we took over, and resets to the uninitialized state.
+	// budgetSeconds bounds how long we're willing to keep talking to the router: a router that has
+	// gone away answers with socket timeouts, which would otherwise stall app exit for a long time.
+	void Shutdown(double budgetSeconds = 3.0);
 
 private:
 	// Retrieves port lists mapped by PPSSPP for current LAN IP & other's applications
 	bool RefreshPortList();
 
-	// Removes any lingering mapped ports created by PPSSPP (including from previous crashes)
+	// Removes the port mappings we know PPSSPP created (including leftovers from previous crashes,
+	// which RefreshPortList() picks up at init time).
 	bool Clear();
 
 	// Restore ports mapped by others that were taken by PPSSPP, better used after Clear()
@@ -105,30 +111,35 @@ private:
 	// Uninitialize/Reset the state
 	void Terminate();
 
-	struct UPNPUrls* urls = nullptr;
-	struct IGDdatas* datas = nullptr;
+	bool HaveControlURL() const;
+	// True once the current operation has used up its time budget, see Shutdown().
+	bool OutOfTime() const;
+
+	UPNPUrls m_urls{};
+	IGDdatas m_datas{};
+	bool m_urlsValid = false;
 
 	int m_InitState = UPNP_INITSTATE_NONE;
 	int m_LocalPort = UPNP_LOCAL_PORT_ANY;
+	double m_deadline = 0.0;
 	std::string m_lanip;
-	std::string m_defaultDesc;
-	std::string m_leaseDuration = "43200"; // range(0-604800) in seconds (0 = Indefinite/permanent). Some routers doesn't support non-zero value
+	std::string m_leaseDuration;
 	std::deque<std::pair<std::string, std::string>> m_portList;
 	std::deque<PortMap> m_otherPortList;
 };
 
 extern PortManager g_PortManager;
 
-void __UPnPInit(const unsigned int timeout_ms);
+void __UPnPInit(unsigned int timeout_ms);
 void __UPnPShutdown();
 
 // Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding (intport = 0 : same as [external] port)
-void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport = 0);
+void UPnP_Add(const char *protocol, unsigned short port, unsigned short intport = 0);
 
 // Remove a port mapping (external port)
-void UPnP_Remove(const char* protocol, unsigned short port);
+void UPnP_Remove(const char *protocol, unsigned short port);
 
-// Wakes the UPnP service thread immediately, without queuing a request - useful after
-// changing the enable setting or similar, so it can (re)connect without waiting for the
-// periodic retry.
+// Wakes the UPnP service thread immediately, without queuing a request - call this after
+// changing the enable setting so it can connect (or tear down its mappings) right away
+// instead of waiting for the next retry.
 void UPnP_Notify();
