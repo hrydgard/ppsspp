@@ -49,6 +49,43 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Record.h"
 
+// TODO list for the software renderer, from the platform-consistency audit.
+//
+// The goal these all serve: the softgpu should produce bit-identical output on every platform, so
+// that comparing against the pspautotests rendering tests measures emulation accuracy rather than
+// which compiler and CPU happened to build it. Most of the fixed issues weren't rounding drift -
+// they were fallback paths computing something different from the SIMD ones.
+//
+// Correctness / undefined behavior:
+//  * BinManager's Add* functions OR into states_[stateIndex_].flags after pushing the item, which
+//    items dispatched by an earlier Drain() may be reading on a worker thread. Optimizing the states
+//    is now confined to the drained window, but this one needs the state entries to become
+//    copy-on-write once anything referencing them has been dispatched.
+//  * ClipToScreenInternal converts out-of-range and NaN floats to int. x86 gives 0x80000000 while
+//    AArch64 saturates to 0x7FFFFFFF - which is exactly ClipVertexData::OutsideRange()'s sentinel,
+//    so ARM64 discards triangles that x86 draws. Reachable for any vertex behind the near plane
+//    with depth clip enabled.
+//  * The edge functions in Rasterizer.cpp and the back-face cross product in BinManager.cpp can
+//    overflow int - screen coords are 1/16 fixed point and through-mode coords reach +-524288, so
+//    the products pass INT_MAX. The sign of an overflowed expression decides whether we cull.
+//  * Collinear triangles aren't culled (AddTriangle only rejects cross < 0), so wsum_recip is inf
+//    and the interpolators feed inf/NaN into Cast<int>().
+//  * The CLUT index plus the per-mip level offset can reach 623 in a 512-entry table. The JIT
+//    reproduces the overrun exactly, so the sampled color is whatever links after clut[].
+//  * 32-bit vertex indices above 0xFFFF index out of bounds: GetIndexBounds truncates the bounds to
+//    uint16_t and only logs, while IndexConverter returns the full u32.
+//
+// Remaining platform differences:
+//  * Vec4<float>::ToRGBA and friends (Math3D.h) convert float->u8 with _mm_cvtps_epi32 under SSE and
+//    vcvtq_s32_f32 under NEON - rounding versus truncating, same split we fixed for depth. Rounding
+//    is probably the correct answer for a 0..1 -> 0..255 conversion, so this needs a decision rather
+//    than a mechanical fix, and it changes x86 output either way.
+//  * pspLightPow still calls std::pow, which isn't correctly rounded and so differs between libm
+//    implementations; see the note there.
+//  * -ffp-contract=off is set for these files in GPU/CMakeLists.txt, which covers the CMake builds
+//    including Android's. The legacy android/jni ndk-build and libretro/Makefile.common have no
+//    per-file mechanism and are still contracting.
+
 constexpr int FB_WIDTH = 480;
 constexpr int FB_HEIGHT = 272;
 
