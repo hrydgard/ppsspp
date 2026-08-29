@@ -412,7 +412,7 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 	return true;
 }
 
-bool VulkanRenderManager::RecreatePresentation() {
+bool VulkanRenderManager::RecreatePresentationIfNeeded() {
 	VulkanPresentation *presentation = vulkan_->GetPresentation();
 	if (!presentation || !presentation->NeedsRecreate()) {
 		return true;
@@ -748,7 +748,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		_assert_msg_(false, "Device lost in vkWaitForFences");
 	}
 
-	if (!RecreatePresentation()) {
+	if (!RecreatePresentationIfNeeded()) {
 		restoreReadyForFence();
 		ERROR_LOG(Log::G3D, "Failed to recreate Vulkan presentation backbuffers");
 		return;
