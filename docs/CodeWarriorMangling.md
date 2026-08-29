@@ -227,11 +227,12 @@ The values that actually get passed, counted over the call sites in a retail bin
 | `1` | Destroy and free - what `delete` compiles to | A handful |
 | `0` | Destroy a base-class subobject | A handful |
 
-Only the sign is tested in the destructors examined here, so `-1` and `0` behave identically in
-them; the distinction presumably matters for classes with virtual bases, which these binaries
-don't appear to contain. Constructors in these binaries take only `this` (and also return it) -
-for a class with virtual bases they are said to take a similar flag, but that isn't confirmed
-here.
+`0` and `-1` are a caller-side distinction: the destructors examined here only test the sign, so
+both simply mean "don't free", but the compiler still passes `0` specifically when destroying a
+base subobject and `-1` everywhere else. Treat `0` as "this call is destroying me as somebody's
+base" when reading a call site, even though the callee can't tell.
+
+Constructors in these binaries take only `this` (and also return it).
 
 Note that the vtable slot holds this same function, flag and all, which is how CodeWarrior gets
 away without separate deleting and non-deleting destructors: a virtual `delete` passes 1 through
