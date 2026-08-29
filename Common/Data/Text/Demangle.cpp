@@ -1210,6 +1210,13 @@ bool DemangleItanium(std::string_view mangled, std::string *out) {
 // Q<n>-introduced chain of them, and the parameters are cfront type codes. Rough by design:
 // the goal is a correctly qualified name plus a plausible parameter list, not byte-exact
 // agreement with any particular demangler.
+//
+// Two places deviate from cfront, both worked out from real PSP binaries rather than from
+// the Macintosh ABI document (which is wrong about them): template arguments are written
+// literally as "<...>" inside the length-prefixed name rather than with a "__PT" prefix, and
+// there is a whole family of "@"-decorated names for symbols the compiler generates itself.
+// See DemangleCodeWarriorSpecial below for those, and docs/CodeWarriorMangling.md for a
+// description of the whole format.
 
 namespace {
 
@@ -1253,6 +1260,16 @@ static bool IsDigit(char c) {
 	return c >= '0' && c <= '9';
 }
 
+// A type, split around where a declarator name would go, so a pointer to a function or an
+// array can be wrapped: "int (*)(char)" is pre="int (*", post=")(char)". Plain types leave
+// post empty. Same idea as Decl above, kept separate because the two manglings share nothing.
+struct CWDecl {
+	std::string pre;
+	std::string post;
+
+	std::string str() const { return pre + post; }
+};
+
 class CodeWarriorParser {
 public:
 	// strict: fail outright on a parameter we can't decode, rather than printing "...".
@@ -1267,13 +1284,18 @@ public:
 	// Standalone entry point, for the type after a "__op" conversion-operator name.
 	std::string ParseWholeType();
 
+	// Standalone entry point, for a template function's arguments, which are spelled out in
+	// the name rather than in the part after the "__".
+	std::string ParseTemplateArgs(std::string_view args);
+
 private:
 	char Peek() const { return pos_ < s_.size() ? s_[pos_] : 0; }
 	bool Fail() { failed_ = true; return false; }
 	int ParseNumber();
 	std::string ParseIdentifier();
 	std::string ParseQualifiedName();
-	std::string ParseType();
+	CWDecl ParseDecl();
+	std::string ParseType() { return ParseDecl().str(); }
 	bool ParseParams(std::string *out);
 
 	std::string_view s_;
@@ -1309,7 +1331,54 @@ std::string CodeWarriorParser::ParseIdentifier() {
 	}
 	std::string name(s_.substr(pos_, len));
 	pos_ += len;
+	// A class template's arguments live inside the length-prefixed name, spelled with the
+	// same type codes as everywhere else: "39CList<Q38hlScreen5Brwsr13CContentsUnit>".
+	const size_t lt = name.find('<');
+	if (lt != std::string::npos && name.back() == '>') {
+		const std::string_view args = std::string_view(name).substr(lt + 1, name.size() - lt - 2);
+		name = name.substr(0, lt) + ParseTemplateArgs(args);
+	}
 	return name;
+}
+
+// The inside of a "<...>", as a comma-separated list of types and integer literals. Returns
+// the whole thing including the brackets, and falls back to the raw text if any argument
+// doesn't parse - half a decoded argument list is worse than the mangled one.
+std::string CodeWarriorParser::ParseTemplateArgs(std::string_view args) {
+	std::vector<std::string> parts;
+	size_t start = 0;
+	int depth = 0;
+	for (size_t i = 0; i <= args.size(); i++) {
+		if (i < args.size()) {
+			if (args[i] == '<')
+				depth++;
+			else if (args[i] == '>')
+				depth--;
+			// Only a top-level comma separates arguments; a nested "<...>" has its own.
+			if (args[i] != ',' || depth != 0)
+				continue;
+		}
+		const std::string_view arg = args.substr(start, i - start);
+		start = i + 1;
+		if (arg.empty())
+			return "<" + std::string(args) + ">";
+		// All digits is a non-type argument ("CSimpleChar<24>"); anything else is a type.
+		size_t digits = arg[0] == '-' ? 1 : 0;
+		while (digits < arg.size() && IsDigit(arg[digits]))
+			digits++;
+		if (digits == arg.size()) {
+			parts.push_back(std::string(arg));
+			continue;
+		}
+		CodeWarriorParser sub(arg, true);
+		const std::string type = sub.ParseWholeType();
+		if (type.empty())
+			return "<" + std::string(args) + ">";
+		parts.push_back(type);
+	}
+	std::string out;
+	JoinInto(out, parts, ", ");
+	return "<" + out + ">";
 }
 
 // "9ANIMEData", or "Q33std10ctype_base4mask" for a qualified one. The count after Q is a
@@ -1344,37 +1413,47 @@ std::string CodeWarriorParser::ParseQualifiedName() {
 	return out;
 }
 
-std::string CodeWarriorParser::ParseType() {
+CWDecl CodeWarriorParser::ParseDecl() {
 	if (failed_ || depth_ > 64) {
 		Fail();
-		return "";
+		return CWDecl();
 	}
 	depth_++;
-	std::string result;
+	CWDecl result;
 	const char c = Peek();
 	switch (c) {
 	case 'P':
 	case 'R':
+	{
 		pos_++;
-		result = ParseType() + (c == 'P' ? " *" : " &");
+		result = ParseDecl();
+		const char sigil = c == 'P' ? '*' : '&';
+		if (result.post.empty()) {
+			result.pre += ' ';
+		}
+		// Pointing at a function or an array, the sigil goes inside the parens the inner
+		// type left open: "int (*)(char)", not "int ()(char) *".
+		result.pre += sigil;
 		break;
+	}
 	case 'C':
 	case 'V':
 	{
 		pos_++;
 		const char *qual = c == 'C' ? "const" : "volatile";
-		const std::string inner = ParseType();
+		result = ParseDecl();
 		// "char * const", but "const char *" - the qualifier binds to whatever came before.
-		if (!inner.empty() && (inner.back() == '*' || inner.back() == '&'))
-			result = inner + " " + qual;
+		if (!result.pre.empty() && (result.pre.back() == '*' || result.pre.back() == '&'))
+			result.pre += std::string(" ") + qual;
 		else
-			result = std::string(qual) + " " + inner;
+			result.pre = std::string(qual) + " " + result.pre;
 		break;
 	}
 	case 'U':
 	case 'S':
 		pos_++;
-		result = std::string(c == 'U' ? "unsigned " : "signed ") + ParseType();
+		result = ParseDecl();
+		result.pre = std::string(c == 'U' ? "unsigned " : "signed ") + result.pre;
 		break;
 	case 'A':
 	{
@@ -1385,14 +1464,14 @@ std::string CodeWarriorParser::ParseType() {
 			break;
 		}
 		pos_++;
-		result = ParseType() + " [" + std::to_string(count) + "]";
+		result = ParseDecl();
+		result.post = " [" + std::to_string(count) + "]" + result.post;
 		break;
 	}
 	case 'F':
 	{
-		// A function type: parameters, then "_" and the return type. Printed without the
-		// declarator gymnastics a real demangler does, so a pointer to one comes out as
-		// "int () *" rather than "int (*)()".
+		// A function type: parameters, then "_" and the return type. The parens around the
+		// declarator are left open for a P or R to put its sigil in - see above.
 		pos_++;
 		std::string args;
 		if (!ParseParams(&args))
@@ -1402,7 +1481,8 @@ std::string CodeWarriorParser::ParseType() {
 			pos_++;
 			ret = ParseType();
 		}
-		result = ret + " (" + args + ")";
+		result.pre = ret + " (";
+		result.post = ")(" + args + ")";
 		break;
 	}
 	case 'T':
@@ -1413,26 +1493,26 @@ std::string CodeWarriorParser::ParseType() {
 		if (index < 1 || (size_t)index > params_.size())
 			Fail();
 		else
-			result = params_[index - 1];
+			result.pre = params_[index - 1];
 		break;
 	}
 	case 'e':
 		pos_++;
-		result = "...";
+		result.pre = "...";
 		break;
 	default:
 		if (c == 'Q' || IsDigit(c)) {
-			result = ParseQualifiedName();
+			result.pre = ParseQualifiedName();
 		} else if (const char *basic = CWBasicType(c)) {
 			pos_++;
-			result = basic;
+			result.pre = basic;
 		} else {
 			Fail();
 		}
 		break;
 	}
 	depth_--;
-	return failed_ ? "" : result;
+	return failed_ ? CWDecl() : result;
 }
 
 bool CodeWarriorParser::ParseParams(std::string *out) {
@@ -1541,6 +1621,13 @@ static std::string CodeWarriorName(std::string_view name, const std::string &qua
 	}
 	if (base.empty())
 		base = std::string(name);
+	// A function template spells its arguments out in the name: "sort<Pf>__3stdFPfPf_v".
+	const size_t lt = base.find('<');
+	if (lt != std::string::npos && base.back() == '>') {
+		CodeWarriorParser argParser("", true);
+		const std::string_view args = std::string_view(base).substr(lt + 1, base.size() - lt - 2);
+		base = base.substr(0, lt) + argParser.ParseTemplateArgs(args);
+	}
 	return qualifier.empty() ? base : qualifier + "::" + base;
 }
 
@@ -1549,6 +1636,12 @@ static bool TryCodeWarriorSplit(std::string_view mangled, size_t sep, bool stric
 	DemangledSymbol sym;
 	if (!parser.ParseAfterSeparator(&sym))
 		return false;
+	// A plain C name with a "__" in it ("I3dClut__FlushCache") can look like an unqualified
+	// function whose parameters happen not to decode, so in the lenient pass - where the
+	// parameters are allowed not to decode - insist on a class qualifier as evidence that
+	// this really is a mangled name.
+	if (!strict && parser.qualifier().empty())
+		return false;
 	sym.name = CodeWarriorName(mangled.substr(0, sep), parser.qualifier());
 	*out = sym;
 	return true;
@@ -1556,7 +1649,114 @@ static bool TryCodeWarriorSplit(std::string_view mangled, size_t sep, bool stric
 
 }  // namespace
 
+// A compiler-generated symbol that carries a mangled name inside it, rather than being one:
+//
+//   __vt__3Son                              vtable for Son
+//   __RTTI__Q23std9exception                typeinfo for std::exception
+//   __sinit_hl_app.cpp                      static initializers for hl_app.cpp
+//   @12@__dt__3SonFv                        non-virtual thunk (12) to Son::~Son()
+//   @STRING@Init__Q25shTbb3TbbFPvPci@0      string literal 0 in shTbb::Tbb::Init(...)
+//   @LOCAL@sort<Pf>__3stdFPfPf_v@shuffle@0  std::sort<float *>(...)::shuffle
+//
+// The @-forms are how CodeWarrior names things that have no C++ name of their own; the
+// trailing @<n> distinguishes several of them within the same function. Returns false if
+// this isn't one of them, leaving the caller to demangle the name as an ordinary symbol.
+static bool DemangleCodeWarriorSpecial(std::string_view mangled, DemangledSymbol *out) {
+	// Splits off a trailing "@<digits>" discriminator, which is only there when a function
+	// has more than one of whatever this is. Then demangles what's left of the front half.
+	auto splitIndex = [](std::string_view s, DemangledSymbol *inner, std::string *index) {
+		const size_t at = s.rfind('@');
+		if (at != std::string_view::npos && at + 1 < s.size() &&
+				s.find_first_not_of("0123456789", at + 1) == std::string_view::npos) {
+			*index = std::string(s.substr(at + 1)) + " ";
+			s = s.substr(0, at);
+		}
+		return DemangleCodeWarrior(s, inner);
+	};
+
+	static const struct { const char *prefix; const char *text; } kinds[] = {
+		{"__vt__", "vtable for "},
+		{"__RTTI__", "typeinfo for "},
+		{"__sinit_", "static initializers for "},
+		{"__sterm_", "static destructors for "},
+	};
+	for (const auto &kind : kinds) {
+		const size_t len = strlen(kind.prefix);
+		if (mangled.size() <= len || mangled.compare(0, len, kind.prefix) != 0)
+			continue;
+		const std::string_view rest = mangled.substr(len);
+		out->name = kind.text;
+		if (kind.prefix[2] == 's') {
+			// The static init/term functions are named after a source file, not a class.
+			out->name += std::string(rest);
+		} else {
+			CodeWarriorParser parser(rest, true);
+			DemangledSymbol type;
+			if (!parser.ParseAfterSeparator(&type) || type.isFunction || parser.qualifier().empty())
+				return false;
+			out->name += parser.qualifier();
+		}
+		out->isFunction = false;
+		return true;
+	}
+
+	if (mangled.compare(0, 8, "@STRING@") == 0) {
+		// A string literal inside a function - typically the __FILE__ an assert expanded to.
+		DemangledSymbol inner;
+		std::string index;
+		if (!splitIndex(mangled.substr(8), &inner, &index))
+			return false;
+		out->name = "string literal " + index + "in " + inner.ToString();
+		out->isFunction = false;
+		return true;
+	}
+	if (mangled.compare(0, 7, "@GUARD@") == 0) {
+		// The "has this local static been constructed yet" flag. The name is the variable's,
+		// undecorated apart from the "$<n>" that CodeWarrior gives every function-local one.
+		out->name = "guard variable for " + std::string(mangled.substr(7));
+		out->isFunction = false;
+		return true;
+	}
+	if (mangled.compare(0, 7, "@LOCAL@") == 0) {
+		// A function-local static: "@LOCAL@<function>@<variable>", plus the usual index.
+		std::string_view body = mangled.substr(7);
+		size_t at = body.rfind('@');
+		if (at != std::string_view::npos && at + 1 < body.size() &&
+				body.find_first_not_of("0123456789", at + 1) == std::string_view::npos)
+			body = body.substr(0, at);
+		at = body.rfind('@');
+		if (at == std::string_view::npos)
+			return false;
+		DemangledSymbol inner;
+		if (!DemangleCodeWarrior(body.substr(0, at), &inner))
+			return false;
+		out->name = inner.ToString() + "::" + std::string(body.substr(at + 1));
+		out->isFunction = false;
+		return true;
+	}
+	if (mangled[0] == '@' && IsDigit(mangled[1])) {
+		// "@<this-adjustment>@<function>": a thunk for a base other than the first.
+		const size_t at = mangled.find('@', 1);
+		if (at == std::string_view::npos)
+			return false;
+		const std::string_view offset = mangled.substr(1, at - 1);
+		if (offset.find_first_not_of("0123456789") != std::string_view::npos)
+			return false;
+		DemangledSymbol inner;
+		if (!DemangleCodeWarrior(mangled.substr(at + 1), &inner))
+			return false;
+		out->name = "non-virtual thunk (" + std::string(offset) + ") to " + inner.ToString();
+		out->isFunction = false;
+		return true;
+	}
+	return false;
+}
+
 bool DemangleCodeWarrior(std::string_view mangled, DemangledSymbol *out) {
+	if (mangled.size() > 2 && (mangled[0] == '@' || mangled[0] == '_') &&
+			DemangleCodeWarriorSpecial(mangled, out))
+		return true;
+
 	// Names can themselves start with underscores ("__SetupFrameInfo__F..."), and can
 	// contain "__" further in, so every candidate separator gets tried. Strict first, so a
 	// split that decodes completely wins over one that only decodes its name.

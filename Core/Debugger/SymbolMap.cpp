@@ -141,9 +141,9 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 		int moduleIndex = 0;
 		int typeInt = ST_NONE;
 		SymbolType type;
-		char name[128] = {0};
+		char name[256] = {0};
 
-		if (sscanf(line, ".module %x %08x %08x %127c", (unsigned int *)&moduleIndex, &address, &size, name) >= 3) {
+		if (sscanf(line, ".module %x %08x %08x %255c", (unsigned int *)&moduleIndex, &address, &size, name) >= 3) {
 			// Found a module definition.
 			ModuleEntry mod;
 			mod.index = moduleIndex;
@@ -155,7 +155,7 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 			continue;
 		}
 
-		const int matched = sscanf(line, "%08x %08x %x %i %127c", &address, &size, &vaddress, &typeInt, name);
+		const int matched = sscanf(line, "%08x %08x %x %i %255c", &address, &size, &vaddress, &typeInt, name);
 		if (matched < 1)
 			continue;
 		type = (SymbolType) typeInt;
@@ -316,8 +316,8 @@ bool SymbolMap::LoadNocashSym(const Path &filename) {
 		return false;
 
 	while (!feof(f)) {
-		char line[256], value[256] = {0};
-		char *p = fgets(line, 256, f);
+		char line[512], value[256] = {0};
+		char *p = fgets(line, sizeof(line), f);
 		if (p == NULL)
 			break;
 
@@ -1262,7 +1262,7 @@ void SymbolMap::SetLabelName(const char* name, u32 address) {
 		auto label = labels.find(symbolKey);
 		if (label != labels.end()) {
 			truncate_cpy(label->second.name, name);
-			label->second.name[127] = 0;
+			label->second.name[255] = 0;
 
 			// Refresh the active item if it exists.
 			auto active = activeLabels.find(address);
