@@ -509,11 +509,16 @@ void BinManager::Drain(bool flushing) {
 		}
 
 		tasksSplit_ = true;
-	}
 
-	// Let's try to optimize states, if we can.
-	OptimizePendingStates(pendingStateIndex_, stateIndex_);
-	pendingStateIndex_ = stateIndex_;
+		// Let's try to optimize states, if we can.
+		// This has to stay inside the drained check above: it memcpys a whole PixelFuncID over the
+		// state and swaps drawPixel/samplerID, and worker threads copy those same entries by value
+		// while rasterizing. Doing it with tasks in flight is a torn read waiting to happen. Skipping
+		// a round only means those draws run the unoptimized function, which is correct, just slower -
+		// the next Drain with an empty waitable picks up the whole accumulated range.
+		OptimizePendingStates(pendingStateIndex_, stateIndex_);
+		pendingStateIndex_ = stateIndex_;
+	}
 
 	if (taskRanges_.size() <= 1) {
 		PROFILE_THIS_SCOPE("bin_drain_single");
