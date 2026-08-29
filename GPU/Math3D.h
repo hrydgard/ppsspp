@@ -595,7 +595,9 @@ public:
 	Vec4<T2> Cast() const {
 		if constexpr (std::is_same<T, float>::value && std::is_same<T2, int>::value) {
 #if defined(_M_SSE)
-			return _mm_cvtps_epi32(SAFE_M128(vec));
+			// Truncate, don't round. NEON's vcvtq_s32_f32 and the scalar (T2)x below both truncate,
+			// and _mm_cvtps_epi32 would additionally follow MXCSR's rounding mode.
+			return _mm_cvttps_epi32(SAFE_M128(vec));
 #elif PPSSPP_ARCH(ARM_NEON)
 			return vcvtq_s32_f32(vec);
 #endif

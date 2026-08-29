@@ -56,7 +56,8 @@ static inline __m128 InterpolateF(const __m128 &c0, const __m128 &c1, const __m1
 }
 
 static inline __m128i InterpolateI(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
-	return _mm_cvtps_epi32(InterpolateF(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+	// Truncate to match the NEON and scalar paths, see Vec4<float>::Cast<int>().
+	return _mm_cvttps_epi32(InterpolateF(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
 }
 #elif PPSSPP_ARCH(ARM64_NEON)
 static inline float32x4_t InterpolateF(const float32x4_t &c0, const float32x4_t &c1, const float32x4_t &c2, int w0, int w1, int w2, float wsum) {
