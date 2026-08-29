@@ -766,6 +766,7 @@ const char *ExceptionTypeAsString(MIPSExceptionType type) {
 	case MIPSExceptionType::MEMORY: return "Invalid Memory Access";
 	case MIPSExceptionType::BREAK: return "Break";
 	case MIPSExceptionType::BAD_EXEC_ADDR: return "Bad Execution Address";
+	case MIPSExceptionType::FPU: return "FPU Exception";
 	default: return "N/A";
 	}
 }
@@ -791,6 +792,14 @@ const char *ExecExceptionTypeAsString(ExecExceptionType type) {
 	case ExecExceptionType::THREAD: return "Thread switch";
 	case ExecExceptionType::PERM: return "Kernel permission";
 	case ExecExceptionType::ILLEGAL: return "Illegal instruction";   // or unknown, but I think we have all now.
+	default:
+		return "N/A";
+	}
+}
+
+const char *FPUExceptionTypeAsString(FPUExceptionType type) {
+	switch (type) {
+	case FPUExceptionType::DIVIDE_BY_ZERO: return "Divide by zero";
 	default:
 		return "N/A";
 	}
@@ -1036,6 +1045,38 @@ void Core_BreakException(u32 pc) {
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\n%s", msg, stackTrace.c_str()));
 	if (action == ExceptionAction::Break) {
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
+	}
+}
+
+// We can't actually deliver the trap to the game's exception handler - nothing in PPSSPP emulates
+// the FPU exception vector - so all we can do is tell the user about it. Execution continues after
+// this returns, just without the destination register having been written (as on hardware).
+// Shares the "break instruction" action setting: both are exceptions the game deliberately asked
+// for, as opposed to the memory ones, which mean it has gone off the rails.
+void Core_FPUException(u32 pc, FPUExceptionType type) {
+	const char *desc = FPUExceptionTypeAsString(type);
+	const std::string pcSuffix = ModuleAddressSuffix(pc);
+
+	const ExceptionAction action = ResolveExceptionAction((ExceptionAction)g_Config.iExceptionActionBreak);
+	if (action == ExceptionAction::Ignore) {
+		Core_SendDebugOutput(LogLevel::LINFO, StringFromFormat("Ignoring FPU exception: %s at %08x%s", desc, pc, pcSuffix.c_str()));
+		return;
+	}
+
+	char msg[512];
+	snprintf(msg, sizeof(msg), "FPU exception: %s at %08x%s, unmasked in fcr31 (%08x)", desc, pc, pcSuffix.c_str(), currentMIPS->fcr31);
+
+	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
+	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\nMIPS call stack:\n%s", msg, stackTrace.c_str()));
+	if (action == ExceptionAction::Break) {
+		MIPSExceptionInfo &e = g_exceptionInfo;
+		e = {};
+		e.type = MIPSExceptionType::FPU;
+		e.info.clear();
+		e.fpu_type = type;
+		e.stackTrace = stackTrace;
+		e.pc = pc;
+		Core_Break(BreakReason::CpuException, pc);
 	}
 }
 
