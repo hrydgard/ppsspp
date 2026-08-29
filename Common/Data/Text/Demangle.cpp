@@ -1270,6 +1270,13 @@ struct CWDecl {
 	std::string str() const { return pre + post; }
 };
 
+// Whether a declarator's prefix is already open for a "*" or "&" to be written into it - that
+// is, whether it came from a function type ("int ("), a pointer to one ("int (*"), or a
+// pointer to member ("int (Foo::").
+static bool EndsDeclarator(const std::string &pre) {
+	return !pre.empty() && (pre.back() == '(' || pre.back() == '*' || pre.back() == ':');
+}
+
 class CodeWarriorParser {
 public:
 	// strict: fail outright on a parameter we can't decode, rather than printing "...".
@@ -1430,9 +1437,13 @@ CWDecl CodeWarriorParser::ParseDecl() {
 		const char sigil = c == 'P' ? '*' : '&';
 		if (result.post.empty()) {
 			result.pre += ' ';
+		} else if (!EndsDeclarator(result.pre)) {
+			// An array, which needs parens of its own: "short (*)[64]", not "short * [64]".
+			result.pre += " (";
+			result.post = ")" + result.post;
 		}
-		// Pointing at a function or an array, the sigil goes inside the parens the inner
-		// type left open: "int (*)(char)", not "int ()(char) *".
+		// Otherwise the inner type is a function or a pointer to one, and has already opened
+		// the parens for us: "int (*)(char)", not "int ()(char) *".
 		result.pre += sigil;
 		break;
 	}
@@ -1775,74 +1786,520 @@ bool DemangleCodeWarrior(std::string_view mangled, DemangledSymbol *out) {
 	return false;
 }
 
-// SN Systems (SNC / ProDG), a much more compact scheme:
+// SN Systems (SNC / ProDG), a much more compact scheme, and unrelated to cfront:
 //
-//   __0f5DstdIbad_castEwhatvK  ->  std::bad_cast::what() const
+//   __0fLCHeapMemoryFAlloci  ->  CHeapMemory::Alloc(int)
 //
-// "__0", a kind character, a tag digit, then the name as a chain of components whose lengths
-// are *letters* (A = 0, so D = 3 and J = 9), then the parameters, then any cv-qualifier.
+// "__0", a kind character, then the name as a chain of components whose lengths are written
+// as *letters* (A = 0, so F = 5 and a = 26), then the parameters, then any qualifier. What
+// the name consists of follows from the kind: a member function is class + function, a free
+// function is just the function, and a "5" before a component makes it a namespace.
 //
-// Reverse engineered from a handful of real symbols, so parts of this are educated guesses:
-// the tag digit (5 for a function, 6 for a class type used as a parameter), and 'f' vs 'F'
-// for a non-static member function vs. a free or static one. Neither affects the name, which
-// is the part worth trusting.
-bool DemangleSNSystems(std::string_view mangled, DemangledSymbol *out) {
-	if (mangled.size() < 6 || mangled.compare(0, 3, "__0") != 0)
-		return false;
-	size_t pos = 3;
-	const char kind = mangled[pos++];
-	if (kind != 'f' && kind != 'F')
-		return false;
-	if (!IsDigit(mangled[pos]))
-		return false;
-	pos++;
+// See docs/SNSystemsMangling.md for the format; the parts that are guesses are flagged there
+// and in the comments below.
 
-	std::vector<std::string> parts;
-	while (pos < mangled.size() && mangled[pos] >= 'A' && mangled[pos] <= 'Z') {
-		const size_t len = (size_t)(mangled[pos] - 'A');
-		pos++;
-		if (pos + len > mangled.size())
-			return false;
-		parts.push_back(std::string(mangled.substr(pos, len)));
-		pos += len;
+namespace {
+
+// Operator codes, matched against the two characters after the class name ("nw" and "dl" take
+// an optional "a" for the array forms).
+static const CWOperator snOperators[] = {
+	{"nw", "new"}, {"dl", "delete"},
+	{"apl", "+="}, {"ami", "-="}, {"amu", "*="}, {"adv", "/="}, {"amd", "%="},
+	{"aad", "&="}, {"aor", "|="}, {"aer", "^="}, {"als", "<<="}, {"ars", ">>="},
+	{"pl", "+"}, {"mi", "-"}, {"ml", "*"}, {"dv", "/"}, {"md", "%"},
+	{"eq", "=="}, {"ne", "!="}, {"lt", "<"}, {"gt", ">"}, {"le", "<="}, {"ge", ">="},
+	{"aa", "&&"}, {"oo", "||"}, {"nt", "!"}, {"co", "~"}, {"er", "^"},
+	{"ad", "&"}, {"or", "|"}, {"ls", "<<"}, {"rs", ">>"}, {"as", "="},
+	{"pp", "++"}, {"mm", "--"}, {"cl", "()"}, {"vc", "[]"}, {"rf", "->"},
+	{"rm", "->*"}, {"cm", ","},
+};
+
+static const char *SNBasicType(char c) {
+	switch (c) {
+	case 'v': return "void";
+	case 'c': return "char";
+	case 's': return "short";
+	case 'i': return "int";
+	case 'l': return "long";
+	case 'x': return "long long";
+	case 'f': return "float";
+	case 'd': return "double";
+	case 'r': return "long double";
+	case 'b': return "bool";
+	case 'w': return "wchar_t";
+	case 'e': return "...";
+	default: return nullptr;
 	}
-	if (parts.empty())
-		return false;
+}
 
-	DemangledSymbol sym;
-	sym.isFunction = true;
-	std::vector<std::string> params;
-	while (pos < mangled.size()) {
-		const char c = mangled[pos];
-		if (c == 'v') {
-			// void, i.e. no parameters at all.
-			pos++;
-			continue;
+// Lengths, and the small numbers in template arguments, are single letters: A-Z is 0-25 and
+// a-z is 26-51. Returns -1 for anything else.
+static int SNLetterValue(char c) {
+	if (c >= 'A' && c <= 'Z')
+		return c - 'A';
+	if (c >= 'a' && c <= 'z')
+		return c - 'a' + 26;
+	return -1;
+}
+
+class SNSystemsParser {
+public:
+	explicit SNSystemsParser(std::string_view s) : s_(s) {}
+
+	bool Parse(DemangledSymbol *out);
+
+	// Standalone entry point, for the bare type name in a "__TID_"/"__T_" symbol. Those spell
+	// an enclosing namespace as just another component rather than marking it with a "5", so
+	// components are read until the symbol runs out.
+	std::string ParseWholeType() {
+		const std::string type = ParseType();
+		return (failed_ || pos_ != s_.size()) ? "" : type;
+	}
+
+	std::string ParseWholeName() {
+		std::vector<std::string> parts;
+		while (pos_ < s_.size()) {
+			parts.push_back(ParseName(nullptr));
+			if (failed_)
+				return "";
 		}
-		if (c == 'K' && pos + 1 == mangled.size()) {
-			sym.qualifiers = "const";
-			pos++;
-			continue;
+		std::string out;
+		JoinInto(out, parts, "::");
+		return out;
+	}
+
+private:
+	char Peek(size_t ahead = 0) const { return pos_ + ahead < s_.size() ? s_[pos_ + ahead] : 0; }
+	bool ConsumeIf(const char *str) {
+		const size_t len = strlen(str);
+		if (s_.compare(pos_, len, str) != 0)
+			return false;
+		pos_ += len;
+		return true;
+	}
+	void Fail() { failed_ = true; }
+
+	std::string ParseIdentifier();
+	std::string ParseNumber();
+	std::string ParseName(std::vector<std::string> *templateArgs);
+	std::string ParseTemplateArgs(std::vector<std::string> *args);
+	CWDecl ParseDecl();
+	std::string ParseType() { return ParseDecl().str(); }
+	std::string ParseParams();
+
+	std::string_view s_;
+	size_t pos_ = 0;
+	bool failed_ = false;
+	int depth_ = 0;
+	// The template arguments of the name this symbol belongs to, for resolving "9" back-
+	// references in the parameters and return type.
+	std::vector<std::string> templateArgs_;
+	// Parameter types so far, for resolving the "T" and "N" back-references.
+	std::vector<std::string> params_;
+};
+
+std::string SNSystemsParser::ParseIdentifier() {
+	const int len = SNLetterValue(Peek());
+	if (len < 0 || pos_ + 1 + (size_t)len > s_.size()) {
+		Fail();
+		return "";
+	}
+	pos_++;
+	std::string name(s_.substr(pos_, len));
+	pos_ += len;
+	return name;
+}
+
+// A non-negative integer, in one of two forms: a run of '0's each worth 52 followed by a
+// letter for the remainder (so "0M" is 64), or "8" plus a length letter and that many decimal
+// digits, which is how values too big for the first form are written ("8E1024" is 1024).
+std::string SNSystemsParser::ParseNumber() {
+	if (Peek() == '8') {
+		pos_++;
+		const int len = SNLetterValue(Peek());
+		if (len <= 0 || pos_ + 1 + (size_t)len > s_.size()) {
+			Fail();
+			return "";
 		}
-		if (IsDigit(c) && pos + 1 < mangled.size() &&
-				mangled[pos + 1] >= 'A' && mangled[pos + 1] <= 'Z') {
-			// A tagged, length-prefixed type name.
-			const size_t len = (size_t)(mangled[pos + 1] - 'A');
-			if (pos + 2 + len > mangled.size())
-				return false;
-			params.push_back(std::string(mangled.substr(pos + 2, len)));
-			pos += 2 + len;
-			continue;
+		pos_++;
+		std::string digits(s_.substr(pos_, len));
+		pos_ += len;
+		if (digits.find_first_not_of("0123456789") != std::string::npos) {
+			Fail();
+			return "";
 		}
-		// Anything else is a type code we haven't seen yet. Keep the name, admit to not
-		// knowing the rest.
-		params.push_back("...");
+		return digits;
+	}
+	int value = 0;
+	while (Peek() == '0') {
+		pos_++;
+		value += 52;
+		if (value > 1000000) {
+			Fail();
+			return "";
+		}
+	}
+	const int digit = SNLetterValue(Peek());
+	if (digit < 0) {
+		Fail();
+		return "";
+	}
+	pos_++;
+	return std::to_string(value + digit);
+}
+
+// "7" then a list of arguments, terminated by "_". An argument is a type, or "4" and an
+// integer for a non-type parameter.
+std::string SNSystemsParser::ParseTemplateArgs(std::vector<std::string> *args) {
+	pos_++;
+	while (Peek() != '_') {
+		if (!Peek() || failed_) {
+			Fail();
+			return "";
+		}
+		if (Peek() == '4') {
+			pos_++;
+			args->push_back(ParseNumber());
+		} else {
+			args->push_back(ParseType());
+		}
+		if (failed_)
+			return "";
+	}
+	pos_++;
+	std::string out;
+	JoinInto(out, *args, ", ");
+	return "<" + out + ">";
+}
+
+// Any number of "5"-introduced enclosing scopes, then the name itself, then its template
+// arguments if it has any.
+std::string SNSystemsParser::ParseName(std::vector<std::string> *templateArgs) {
+	std::vector<std::string> parts;
+	while (Peek() == '5') {
+		pos_++;
+		parts.push_back(ParseIdentifier());
+		if (failed_)
+			return "";
+	}
+	parts.push_back(ParseIdentifier());
+	if (failed_)
+		return "";
+	if (Peek() == '7') {
+		std::vector<std::string> args;
+		const std::string printed = ParseTemplateArgs(&args);
+		if (failed_)
+			return "";
+		parts.back() += printed;
+		if (templateArgs && !args.empty())
+			*templateArgs = args;
+	}
+	std::string out;
+	JoinInto(out, parts, "::");
+	return out;
+}
+
+CWDecl SNSystemsParser::ParseDecl() {
+	if (failed_ || depth_ > 64) {
+		Fail();
+		return CWDecl();
+	}
+	depth_++;
+	CWDecl result;
+	const char c = Peek();
+	switch (c) {
+	case 'P':
+	case 'R':
+	{
+		pos_++;
+		result = ParseDecl();
+		const char sigil = c == 'P' ? '*' : '&';
+		if (result.post.empty()) {
+			result.pre += ' ';
+		} else if (!EndsDeclarator(result.pre)) {
+			// An array, which needs parens of its own: "short (*)[64]", not "short * [64]".
+			result.pre += " (";
+			result.post = ")" + result.post;
+		}
+		// Otherwise the inner type is a function or a pointer to one, and has already opened
+		// the parens for us: "int (*)(char)", not "int ()(char) *".
+		result.pre += sigil;
 		break;
 	}
-	JoinInto(sym.name, parts, "::");
-	JoinInto(sym.parameters, params, ", ");
+	case 'C':
+	case 'V':
+		pos_++;
+		result = ParseDecl();
+		result.pre = std::string(c == 'C' ? "const " : "volatile ") + result.pre;
+		break;
+	case 'U':
+	case 'S':
+		pos_++;
+		result = ParseDecl();
+		result.pre = std::string(c == 'U' ? "unsigned " : "signed ") + result.pre;
+		break;
+	case '6':
+		pos_++;
+		result.pre = ParseName(nullptr);
+		break;
+	case 'A':
+	{
+		pos_++;
+		const std::string count = ParseNumber();
+		if (failed_)
+			break;
+		result = ParseDecl();
+		result.post = " [" + count + "]" + result.post;
+		break;
+	}
+	case 'F':
+	{
+		// A function type: parameters, then "_" and the return type. The parens around the
+		// declarator are left open for a P, R or M to fill in - see above.
+		pos_++;
+		std::vector<std::string> parts;
+		while (Peek() && Peek() != '_') {
+			const std::string type = ParseType();
+			if (failed_)
+				break;
+			if (type != "void")
+				parts.push_back(type);
+		}
+		if (failed_ || Peek() != '_') {
+			Fail();
+			break;
+		}
+		pos_++;
+		const std::string ret = ParseType();
+		if (failed_)
+			break;
+		std::string args;
+		JoinInto(args, parts, ", ");
+		result.pre = ret + " (";
+		result.post = ")(" + args + ")";
+		break;
+	}
+	case 'M':
+	{
+		// Pointer to member: the class, then the member's type. The enclosing P supplies the
+		// "*", so this only has to name the class inside the parens.
+		pos_++;
+		const std::string cls = ParseName(nullptr);
+		if (failed_)
+			break;
+		result = ParseDecl();
+		if (result.post.empty())
+			result.pre += " " + cls + "::";
+		else
+			result.pre += cls + "::";
+		break;
+	}
+	case '9':
+	{
+		// A reference to one of the enclosing name's template arguments: the index (1-based),
+		// then what appears to be a nesting level, always "A" in practice.
+		pos_++;
+		const int index = SNLetterValue(Peek());
+		pos_++;
+		if (SNLetterValue(Peek()) < 0) {
+			Fail();
+			break;
+		}
+		pos_++;
+		if (index < 1 || (size_t)index > templateArgs_.size())
+			Fail();
+		else
+			result.pre = templateArgs_[index - 1];
+		break;
+	}
+	default:
+		if (const char *basic = SNBasicType(c)) {
+			pos_++;
+			result.pre = basic;
+		} else {
+			Fail();
+		}
+		break;
+	}
+	depth_--;
+	return failed_ ? CWDecl() : result;
+}
+
+// Parameters run until the return type ("_"), a qualifier, or the end of the symbol.
+std::string SNSystemsParser::ParseParams() {
+	while (pos_ < s_.size() && Peek() != 'K' && Peek() != '_') {
+		if (Peek() == 'T') {
+			// "T<index>": the same type as parameter <index>. A "T" with nothing usable after
+			// it is the static marker instead, which ends the list.
+			const int index = SNLetterValue(Peek(1));
+			if (index < 1 || (size_t)index > params_.size())
+				break;
+			pos_ += 2;
+			params_.push_back(params_[index - 1]);
+			continue;
+		}
+		if (Peek() == 'N') {
+			// "N<count><index>": <count> more parameters, each the type of parameter <index>.
+			const int count = SNLetterValue(Peek(1));
+			const int index = SNLetterValue(Peek(2));
+			if (count >= 1 && index >= 1 && (size_t)index <= params_.size()) {
+				pos_ += 3;
+				for (int i = 0; i < count; i++)
+					params_.push_back(params_[index - 1]);
+				continue;
+			}
+		}
+		const std::string type = ParseType();
+		if (failed_)
+			return "";
+		params_.push_back(type);
+	}
+	// A lone "void" is how a parameterless function is spelled.
+	if (params_.size() == 1 && params_[0] == "void")
+		params_.clear();
+	std::string out;
+	JoinInto(out, params_, ", ");
+	return out;
+}
+
+bool SNSystemsParser::Parse(DemangledSymbol *out) {
+	if (!ConsumeIf("__0"))
+		return false;
+	const char kind = Peek();
+	pos_++;
+
+	std::string name;
+	bool isOperator = false;
+	if (kind == 'O') {
+		// A global operator: no class, just the code.
+		isOperator = true;
+	} else if (kind == 'f' || kind == 'F' || kind == 'o' || kind == 'd') {
+		name = ParseName(&templateArgs_);
+		if (failed_)
+			return false;
+		isOperator = kind == 'o';
+	} else {
+		return false;
+	}
+
+	if (isOperator) {
+		// "ct" and "dt" are the constructor and destructor rather than operators; the class
+		// name isn't repeated, so it has to be taken from the qualifier.
+		const std::string_view code = s_.substr(pos_, 2);
+		const std::string base = BaseName(name);
+		std::string op;
+		if (code == "ct" && !base.empty()) {
+			op = base;
+		} else if (code == "dt" && !base.empty()) {
+			op = "~" + base;
+		} else {
+			for (const CWOperator &candidate : snOperators) {
+				if (code != candidate.code)
+					continue;
+				op = std::string("operator") + (candidate.name[0] >= 'a' ? " " : "") + candidate.name;
+				// "nwa" and "dla" are the array forms.
+				if (s_.compare(pos_ + 2, 1, "a") == 0 && (code == "nw" || code == "dl")) {
+					pos_++;
+					op += "[]";
+				}
+				break;
+			}
+			if (op.empty())
+				return false;
+		}
+		pos_ += 2;
+		name = name.empty() ? op : name + "::" + op;
+	} else if (kind == 'f' || kind == 'd') {
+		// A member: the name so far was the class, and its own name follows.
+		std::vector<std::string> memberArgs;
+		const std::string member = ParseName(&memberArgs);
+		if (failed_)
+			return false;
+		if (!memberArgs.empty())
+			templateArgs_ = memberArgs;
+		name += "::" + member;
+	}
+
+	DemangledSymbol sym;
+	sym.name = name;
+	if (kind == 'd') {
+		// Data, so there's nothing after the name.
+		sym.isFunction = false;
+		if (pos_ != s_.size())
+			return false;
+		*out = sym;
+		return true;
+	}
+
+	// An unidentified marker that shows up between the name and the parameters on a couple of
+	// template members. It doesn't affect the name, so skip it rather than giving up.
+	ConsumeIf("__S");
+
+	sym.isFunction = true;
+	sym.parameters = ParseParams();
+	if (failed_)
+		return false;
+	if (Peek() == '_') {
+		// Templates encode their return type, same as in the other manglings.
+		pos_++;
+		sym.returnType = ParseType();
+		if (failed_)
+			return false;
+	}
+	if (Peek() == 'K') {
+		pos_++;
+		sym.qualifiers = "const";
+	} else if (Peek() == 'T') {
+		// A static member function - it's what "operator new" and every thread entry point and
+		// callback in the corpus this was worked out from carries, and it never appears on a
+		// free function, which wouldn't need marking.
+		pos_++;
+		sym.returnType = sym.returnType.empty() ? "static" : "static " + sym.returnType;
+	}
+	if (pos_ != s_.size())
+		return false;
 	*out = sym;
 	return true;
+}
+
+}  // namespace
+
+bool DemangleSNSystems(std::string_view mangled, DemangledSymbol *out) {
+	if (mangled.size() > 3 && mangled.compare(0, 3, "__0") == 0) {
+		SNSystemsParser parser(mangled);
+		return parser.Parse(out);
+	}
+
+	// Symbols the compiler generates for a type, using the same name encoding.
+	static const struct { const char *prefix; const char *text; } kinds[] = {
+		{"__TID_", "type id for "},
+		{"__T_", "typeinfo for "},
+		{"__sti__", "static initializers for "},
+	};
+	for (const auto &kind : kinds) {
+		const size_t len = strlen(kind.prefix);
+		if (mangled.size() <= len || mangled.compare(0, len, kind.prefix) != 0)
+			continue;
+		out->name = kind.text;
+		out->isFunction = false;
+		if (kind.prefix[2] == 's') {
+			// The static initializer is named after a source file, not a type.
+			out->name += std::string(mangled.substr(len));
+			return true;
+		}
+		SNSystemsParser parser(mangled.substr(len));
+		std::string name = parser.ParseWholeName();
+		if (name.empty()) {
+			// It can also be a plain type rather than a class - "__TID_v" is void's.
+			SNSystemsParser typeParser(mangled.substr(len));
+			name = typeParser.ParseWholeType();
+		}
+		if (name.empty())
+			return false;
+		out->name += name;
+		return true;
+	}
+	return false;
 }
 
 std::string DemangledSymbol::ToString() const {
