@@ -197,6 +197,35 @@ set(GPU_SOURCES
 add_library(GPU OBJECT ${GPU_SOURCES})
 target_compile_features(GPU PUBLIC cxx_std_17)
 
+# The software rasterizer has to produce identical output everywhere, so don't let the compiler
+# fuse a*b + c into an FMA. GCC defaults to -ffp-contract=fast and Clang to on, while MSVC
+# /fp:precise doesn't contract at all - which means the same source gives different depth, fog and
+# lighting values on aarch64 Linux/Android than on Windows-on-ARM, where FMLA is baseline. x86-64
+# only escapes today because the SSE4.1 baseline has no FMA; -march=native or x86-64-v3, which
+# distro and Flatpak packagers do use, would lose that.
+# This covers the Math3D.h scalar operator chains inlined into these TUs, which is where it matters.
+# MSVC needs nothing - /fp:precise already implies no contraction.
+# TODO: Evaluate whether the rest of GPU/ wants this too.
+if(NOT MSVC)
+	set(SOFTGPU_SOURCES
+		Software/BinManager.cpp
+		Software/Clipper.cpp
+		Software/DrawPixel.cpp
+		Software/DrawPixelX86.cpp
+		Software/FuncId.cpp
+		Software/Lighting.cpp
+		Software/Rasterizer.cpp
+		Software/RasterizerRectangle.cpp
+		Software/RasterizerRegCache.cpp
+		Software/Sampler.cpp
+		Software/SamplerX86.cpp
+		Software/SoftGpu.cpp
+		Software/TransformUnit.cpp
+	)
+	# Listing sources that aren't in GPU_SOURCES on this platform (the X86 ones) is harmless.
+	set_source_files_properties(${SOFTGPU_SOURCES} PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()
+
 if(LIBRETRO)
 	target_include_directories(GPU PRIVATE ${CMAKE_SOURCE_DIR}/libretro/libretro-common/include)
 endif()
