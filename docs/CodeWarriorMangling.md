@@ -189,6 +189,54 @@ recognising:
 - `<len>@unnamed@<file>@` - used as a qualifier for file-scope statics, i.e. an unnamed namespace.
   `ARWMENU_MODEL_NAME__34@unnamed@hl_editor_arrow_menu_cpp@` is a data symbol in one.
 
+## The hidden destructor parameter
+
+**The mangling describes the source-level signature, not the generated one.** `__dt__3SonFv`
+demangles to `Son::~Son()`, and that is the right answer for a demangler - but the function the
+compiler emitted takes a second argument, and anything that turns a demangled name into a
+function signature (a decompiler, a debugger's parameter view) will be wrong about it.
+
+CodeWarrior emits one destructor per class rather than the two or three the Itanium ABI clones,
+and distinguishes the cases with a flag. On PSP that flag is a **`short` in `a1`**, and the
+destructor **returns `this` in `v0`**. So the real signature is:
+
+```c
+Son *__dt__3SonFv(Son *this, short flag);
+```
+
+Decompiled from a real one, the body is:
+
+```c
+Son *__dt__3SonFv(Son *this, short flag) {
+    if (this) {                       // destructors are null-safe
+        ... restore vtable pointers, destroy members ...
+        __dt__3DadFv(this + 12, 0);   // base subobjects get 0
+        __dt__3MomFv(this, 0);
+        if (flag > 0)                 // "blez" - only a positive flag frees
+            __dl__FPv(this);          // operator delete
+    }
+    return this;
+}
+```
+
+The values that actually get passed, counted over the call sites in a retail binary:
+
+| Flag | Meaning | Frequency |
+| --- | --- | --- |
+| `-1` | Destroy a complete object without freeing it - a stack object, a member, an explicit `~T()` call | Most calls |
+| `1` | Destroy and free - what `delete` compiles to | A handful |
+| `0` | Destroy a base-class subobject | A handful |
+
+Only the sign is tested in the destructors examined here, so `-1` and `0` behave identically in
+them; the distinction presumably matters for classes with virtual bases, which these binaries
+don't appear to contain. Constructors in these binaries take only `this` (and also return it) -
+for a class with virtual bases they are said to take a similar flag, but that isn't confirmed
+here.
+
+Note that the vtable slot holds this same function, flag and all, which is how CodeWarrior gets
+away without separate deleting and non-deleting destructors: a virtual `delete` passes 1 through
+the vtable.
+
 ## Hazards
 
 - **A truncated name is unrecoverable.** Some symbol tables cap names (127 characters is a common
