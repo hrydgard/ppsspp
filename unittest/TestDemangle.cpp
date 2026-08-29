@@ -96,6 +96,56 @@ static const DemangleCase demangleCases[] = {
 	  "Foo::operator Bar() const" },
 };
 
+// Metrowerks CodeWarrior (cfront-derived). No reference demangler was available to check
+// these against, so they're what our own parser produces - readable and correctly qualified,
+// but not claimed to be byte-identical to what CodeWarrior's own tools would print.
+static const DemangleCase codeWarriorCases[] = {
+	{ "__as__9ANIMEDataFRC9ANIMEData",
+	  "ANIMEData::operator=(const ANIMEData &)" },
+	{ "__SetupFrameInfo__FP12ThrowContextP13ExceptionInfo",
+	  "__SetupFrameInfo(ThrowContext *, ExceptionInfo *)" },
+	{ "getDistance__6KzUtilFP7st_unitP7st_unit",
+	  "KzUtil::getDistance(st_unit *, st_unit *)" },
+	{ "__ad__3stdFQ33std10ctype_base4maskQ33std10ctype_base4mask",
+	  "std::operator&(std::ctype_base::mask, std::ctype_base::mask)" },
+	{ "__ml__10DTVector3dCFf",
+	  "DTVector3d::operator*(float) const" },
+	{ "__ct__Q23std12basic_stringFv",
+	  "std::basic_string::basic_string()" },
+	{ "__dt__6KzUtilFv",
+	  "KzUtil::~KzUtil()" },
+	{ "__op4Type__3FooCFv",
+	  "Foo::operator Type() const" },
+	{ "__vc__5ArrayFi",
+	  "Array::operator[](int)" },
+	{ "__nw__FUi",
+	  "operator new(unsigned int)" },
+	{ "draw__3FooFA10_iRCf",
+	  "Foo::draw(int [10], const float &)" },
+	// "N<count><index>" repeats an earlier parameter, "T<index>" refers back to one.
+	{ "foo__FPCcUiN21",
+	  "foo(const char *, unsigned int, const char *, const char *)" },
+	{ "sort__FPiT1",
+	  "sort(int *, int *)" },
+	// A static data member: no "F", so no parameter list.
+	{ "count__Q23foo3bar",
+	  "foo::bar::count" },
+	// A parameter type we can't decode still gets to keep its name.
+	{ "weird__3FooFZZZ",
+	  "Foo::weird(...)" },
+};
+
+// SN Systems (SNC/ProDG). Same caveat as above, plus the format itself is reverse
+// engineered from a small sample - see the comments in Demangle.cpp.
+static const DemangleCase snSystemsCases[] = {
+	{ "__0f5DstdIbad_castEwhatvK",
+	  "std::bad_cast::what() const" },
+	{ "__0F5DstdJTerminatev",
+	  "std::Terminate()" },
+	{ "__0F5INTskMenuKEventInit_6LtagSTaskHdl",
+	  "NTskMenu::EventInit_(tagSTaskHdl)" },
+};
+
 // Things that aren't Itanium-mangled names, or that we deliberately don't try to parse.
 // All of these have to be reported as "not demangled" rather than half-parsed.
 static const char *notMangled[] = {
@@ -110,6 +160,12 @@ static const char *notMangled[] = {
 	"_ZN3foo3barES9_",      // Substitution past the end of the table.
 	"_Z3fooIiEvT0_",        // Template parameter past the end of the argument list.
 	"_Z3fooIXadL_Z1xEEEvv", // An <expression> template argument - no expression parser.
+	"Foo__Bar",             // A "__" that isn't a CodeWarrior separator.
+	"a__b__c",
+	"__0",                  // Too short to be an SN Systems name.
+	// A CodeWarrior template name, truncated by a 127-character symbol table limit. The
+	// length prefixes no longer match what's left, so there's nothing to recover.
+	"__distance<Q23std164__wrap_iterator<Q23std100vector<Q210Metrowerks20range_map_entry<w,w>,Q23std47allocator<Q210Metrowerks20rang",
 };
 
 bool TestDemangle() {
@@ -123,10 +179,52 @@ bool TestDemangle() {
 		EXPECT_EQ_STR(out, expected);
 	}
 
+	for (const DemangleCase &testCase : codeWarriorCases) {
+		DemangledSymbol sym;
+		if (!DemangleCodeWarrior(testCase.mangled, &sym)) {
+			printf("Failed to demangle %s\n", testCase.mangled);
+			return false;
+		}
+		const std::string out = sym.ToString();
+		const std::string expected = testCase.expected;
+		EXPECT_EQ_STR(out, expected);
+		// The parts have to add up to the same thing the wrapper prints.
+		const std::string full = DemangleSymbolName(testCase.mangled);
+		EXPECT_EQ_STR(full, expected);
+	}
+
+	for (const DemangleCase &testCase : snSystemsCases) {
+		DemangledSymbol sym;
+		if (!DemangleSNSystems(testCase.mangled, &sym)) {
+			printf("Failed to demangle %s\n", testCase.mangled);
+			return false;
+		}
+		const std::string out = sym.ToString();
+		const std::string expected = testCase.expected;
+		EXPECT_EQ_STR(out, expected);
+		const std::string full = DemangleSymbolName(testCase.mangled);
+		EXPECT_EQ_STR(full, expected);
+	}
+
+	// The split-up form is there for callers that want more than the printed string.
+	{
+		DemangledSymbol sym;
+		EXPECT_TRUE(DemangleCodeWarrior("__ml__10DTVector3dCFf", &sym));
+		EXPECT_EQ_STR(sym.name, std::string("DTVector3d::operator*"));
+		EXPECT_EQ_STR(sym.parameters, std::string("float"));
+		EXPECT_EQ_STR(sym.qualifiers, std::string("const"));
+		EXPECT_TRUE(sym.isFunction);
+		EXPECT_TRUE(DemangleCodeWarrior("count__Q23foo3bar", &sym));
+		EXPECT_FALSE(sym.isFunction);
+	}
+
 	for (const char *name : notMangled) {
 		std::string out = "unchanged";
 		EXPECT_FALSE(DemangleItanium(name, &out));
 		EXPECT_TRUE(out == "unchanged");
+		DemangledSymbol sym;
+		EXPECT_FALSE(DemangleCodeWarrior(name, &sym));
+		EXPECT_FALSE(DemangleSNSystems(name, &sym));
 		// The convenience wrapper hands back the original in that case.
 		const std::string passedThrough = DemangleSymbolName(name);
 		const std::string original = name;

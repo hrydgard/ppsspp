@@ -23,6 +23,9 @@
 // mess. The trickiest part is the substitution table (S_, S0_, ...): entries have to be
 // appended in exactly the order the ABI says, or every later back-reference in the symbol
 // resolves to the wrong thing.
+//
+// Two much simpler demanglers for older compilers - Metrowerks CodeWarrior and SN Systems -
+// live at the bottom of the file.
 
 #include <cstdio>
 #include <cstring>
@@ -1198,9 +1201,468 @@ bool DemangleItanium(std::string_view mangled, std::string *out) {
 	return demangler.Run(out);
 }
 
+
+// Metrowerks CodeWarrior, a descendant of the AT&T cfront scheme:
+//
+//   getDistance__6KzUtilFP7st_unitP7st_unit  ->  KzUtil::getDistance(st_unit *, st_unit *)
+//
+// "<name>__<class><cv>F<params>", where <class> is a length-prefixed identifier or a
+// Q<n>-introduced chain of them, and the parameters are cfront type codes. Rough by design:
+// the goal is a correctly qualified name plus a plausible parameter list, not byte-exact
+// agreement with any particular demangler.
+
+namespace {
+
+struct CWOperator {
+	const char *code;
+	const char *name;
+};
+
+// Operator codes, as spelled after the leading "__". Matched against the whole name, so the
+// three-letter ones don't need to come first.
+static const CWOperator cwOperators[] = {
+	{"nwa", "new[]"}, {"dla", "delete[]"}, {"nw", "new"}, {"dl", "delete"},
+	{"apl", "+="}, {"ami", "-="}, {"amu", "*="}, {"adv", "/="}, {"amd", "%="},
+	{"aad", "&="}, {"aor", "|="}, {"aer", "^="}, {"als", "<<="}, {"ars", ">>="},
+	{"pl", "+"}, {"mi", "-"}, {"ml", "*"}, {"dv", "/"}, {"md", "%"},
+	{"eq", "=="}, {"ne", "!="}, {"lt", "<"}, {"gt", ">"}, {"le", "<="}, {"ge", ">="},
+	{"aa", "&&"}, {"oo", "||"}, {"nt", "!"}, {"co", "~"}, {"er", "^"},
+	{"ad", "&"}, {"or", "|"}, {"ls", "<<"}, {"rs", ">>"}, {"as", "="},
+	{"pp", "++"}, {"mm", "--"}, {"cl", "()"}, {"vc", "[]"}, {"rf", "->"},
+	{"rm", "->*"}, {"cm", ","},
+};
+
+static const char *CWBasicType(char c) {
+	switch (c) {
+	case 'v': return "void";
+	case 'c': return "char";
+	case 's': return "short";
+	case 'i': return "int";
+	case 'l': return "long";
+	case 'x': return "long long";
+	case 'f': return "float";
+	case 'd': return "double";
+	case 'r': return "long double";
+	case 'b': return "bool";
+	case 'w': return "wchar_t";  // A Metrowerks addition to the cfront set.
+	default: return nullptr;
+	}
+}
+
+static bool IsDigit(char c) {
+	return c >= '0' && c <= '9';
+}
+
+class CodeWarriorParser {
+public:
+	// strict: fail outright on a parameter we can't decode, rather than printing "...".
+	CodeWarriorParser(std::string_view s, bool strict) : s_(s), strict_(strict) {}
+
+	// Parses everything after the "__" separator, and fills in out (except for the name,
+	// which the caller builds from the qualifier and the part before the separator).
+	bool ParseAfterSeparator(DemangledSymbol *out);
+
+	const std::string &qualifier() const { return qualifier_; }
+
+	// Standalone entry point, for the type after a "__op" conversion-operator name.
+	std::string ParseWholeType();
+
+private:
+	char Peek() const { return pos_ < s_.size() ? s_[pos_] : 0; }
+	bool Fail() { failed_ = true; return false; }
+	int ParseNumber();
+	std::string ParseIdentifier();
+	std::string ParseQualifiedName();
+	std::string ParseType();
+	bool ParseParams(std::string *out);
+
+	std::string_view s_;
+	size_t pos_ = 0;
+	bool failed_ = false;
+	bool strict_ = true;
+	int depth_ = 0;
+	std::string qualifier_;
+	std::vector<std::string> params_;  // Targets of T/N back-references.
+};
+
+int CodeWarriorParser::ParseNumber() {
+	if (!IsDigit(Peek()))
+		return -1;
+	int value = 0;
+	while (IsDigit(Peek())) {
+		value = value * 10 + (s_[pos_] - '0');
+		if (value > 1000000)
+			return -1;
+		pos_++;
+	}
+	return value;
+}
+
+std::string CodeWarriorParser::ParseIdentifier() {
+	const int len = ParseNumber();
+	// A too-long length means the symbol was truncated by whatever wrote the symbol table -
+	// 127 characters is a common limit, and template names blow past it easily. Nothing
+	// useful survives, so don't guess.
+	if (len <= 0 || pos_ + (size_t)len > s_.size()) {
+		Fail();
+		return "";
+	}
+	std::string name(s_.substr(pos_, len));
+	pos_ += len;
+	return name;
+}
+
+// "9ANIMEData", or "Q33std10ctype_base4mask" for a qualified one. The count after Q is a
+// single digit, with "Q_<n>_" for the rare case of ten or more components.
+std::string CodeWarriorParser::ParseQualifiedName() {
+	if (Peek() != 'Q')
+		return ParseIdentifier();
+	pos_++;
+	int count;
+	if (Peek() == '_') {
+		pos_++;
+		count = ParseNumber();
+		if (Peek() != '_')
+			count = -1;
+		else
+			pos_++;
+	} else {
+		count = IsDigit(Peek()) ? (s_[pos_++] - '0') : -1;
+	}
+	if (count <= 0) {
+		Fail();
+		return "";
+	}
+	std::vector<std::string> parts;
+	for (int i = 0; i < count; i++) {
+		parts.push_back(ParseIdentifier());
+		if (failed_)
+			return "";
+	}
+	std::string out;
+	JoinInto(out, parts, "::");
+	return out;
+}
+
+std::string CodeWarriorParser::ParseType() {
+	if (failed_ || depth_ > 64) {
+		Fail();
+		return "";
+	}
+	depth_++;
+	std::string result;
+	const char c = Peek();
+	switch (c) {
+	case 'P':
+	case 'R':
+		pos_++;
+		result = ParseType() + (c == 'P' ? " *" : " &");
+		break;
+	case 'C':
+	case 'V':
+	{
+		pos_++;
+		const char *qual = c == 'C' ? "const" : "volatile";
+		const std::string inner = ParseType();
+		// "char * const", but "const char *" - the qualifier binds to whatever came before.
+		if (!inner.empty() && (inner.back() == '*' || inner.back() == '&'))
+			result = inner + " " + qual;
+		else
+			result = std::string(qual) + " " + inner;
+		break;
+	}
+	case 'U':
+	case 'S':
+		pos_++;
+		result = std::string(c == 'U' ? "unsigned " : "signed ") + ParseType();
+		break;
+	case 'A':
+	{
+		pos_++;
+		const int count = ParseNumber();
+		if (count < 0 || Peek() != '_') {
+			Fail();
+			break;
+		}
+		pos_++;
+		result = ParseType() + " [" + std::to_string(count) + "]";
+		break;
+	}
+	case 'F':
+	{
+		// A function type: parameters, then "_" and the return type. Printed without the
+		// declarator gymnastics a real demangler does, so a pointer to one comes out as
+		// "int () *" rather than "int (*)()".
+		pos_++;
+		std::string args;
+		if (!ParseParams(&args))
+			break;
+		std::string ret = "void";
+		if (Peek() == '_') {
+			pos_++;
+			ret = ParseType();
+		}
+		result = ret + " (" + args + ")";
+		break;
+	}
+	case 'T':
+	{
+		// "T<n>": the same type as parameter n, 1-based.
+		pos_++;
+		const int index = IsDigit(Peek()) ? (s_[pos_++] - '0') : -1;
+		if (index < 1 || (size_t)index > params_.size())
+			Fail();
+		else
+			result = params_[index - 1];
+		break;
+	}
+	case 'e':
+		pos_++;
+		result = "...";
+		break;
+	default:
+		if (c == 'Q' || IsDigit(c)) {
+			result = ParseQualifiedName();
+		} else if (const char *basic = CWBasicType(c)) {
+			pos_++;
+			result = basic;
+		} else {
+			Fail();
+		}
+		break;
+	}
+	depth_--;
+	return failed_ ? "" : result;
+}
+
+bool CodeWarriorParser::ParseParams(std::string *out) {
+	std::vector<std::string> parts;
+	bool unknown = false;
+	while (pos_ < s_.size() && Peek() != '_') {
+		if (Peek() == 'N') {
+			// "N<count><index>": <count> parameters, each the same type as parameter <index>.
+			const size_t save = pos_;
+			pos_++;
+			const int count = IsDigit(Peek()) ? (s_[pos_++] - '0') : -1;
+			const int index = IsDigit(Peek()) ? (s_[pos_++] - '0') : -1;
+			if (count >= 1 && index >= 1 && (size_t)index <= params_.size()) {
+				for (int i = 0; i < count; i++) {
+					parts.push_back(params_[index - 1]);
+					params_.push_back(params_[index - 1]);
+				}
+				continue;
+			}
+			pos_ = save;
+		}
+		const std::string type = ParseType();
+		if (failed_) {
+			// Something we don't know. In lenient mode, say so instead of throwing the
+			// whole (perfectly readable) name away.
+			if (strict_)
+				return false;
+			failed_ = false;
+			unknown = true;
+			pos_ = s_.size();
+			break;
+		}
+		// A lone "void" is how a parameterless function is spelled.
+		if (type == "void" && parts.empty() && (pos_ >= s_.size() || Peek() == '_'))
+			break;
+		parts.push_back(type);
+		params_.push_back(type);
+	}
+	if (unknown)
+		parts.push_back("...");
+	JoinInto(*out, parts, ", ");
+	return true;
+}
+
+std::string CodeWarriorParser::ParseWholeType() {
+	const std::string type = ParseType();
+	return (failed_ || pos_ != s_.size()) ? "" : type;
+}
+
+bool CodeWarriorParser::ParseAfterSeparator(DemangledSymbol *out) {
+	if (Peek() == 'Q' || IsDigit(Peek())) {
+		qualifier_ = ParseQualifiedName();
+		if (failed_)
+			return false;
+	}
+	std::vector<std::string> quals;
+	while (Peek() == 'C' || Peek() == 'V')
+		quals.push_back(s_[pos_++] == 'C' ? "const" : "volatile");
+	JoinInto(out->qualifiers, quals, " ");
+
+	if (pos_ >= s_.size()) {
+		// No function type: a static data member, which only makes sense qualified.
+		if (qualifier_.empty() || !out->qualifiers.empty())
+			return false;
+		out->isFunction = false;
+		return true;
+	}
+	if (Peek() != 'F')
+		return false;
+	pos_++;
+	out->isFunction = true;
+	if (!ParseParams(&out->parameters))
+		return false;
+	if (Peek() == '_') {
+		// Templates encode their return type, same as in the Itanium mangling.
+		pos_++;
+		out->returnType = ParseType();
+		if (failed_)
+			return false;
+	}
+	return pos_ == s_.size();
+}
+
+// Turns the part before the "__" into a printable name, given the class it belongs to.
+static std::string CodeWarriorName(std::string_view name, const std::string &qualifier) {
+	std::string base;
+	if (name == "__ct") {
+		base = BaseName(qualifier);
+	} else if (name == "__dt") {
+		base = "~" + BaseName(qualifier);
+	} else if (name.size() > 4 && name.compare(0, 4, "__op") == 0) {
+		// A conversion operator carries its target type in the name itself.
+		CodeWarriorParser typeParser(name.substr(4), true);
+		const std::string type = typeParser.ParseWholeType();
+		if (!type.empty())
+			base = "operator " + type;
+	} else if (name.size() > 2 && name.compare(0, 2, "__") == 0) {
+		const std::string_view code = name.substr(2);
+		for (const CWOperator &op : cwOperators) {
+			if (code == op.code) {
+				// "operator new", but "operator+".
+				base = std::string("operator") + (op.name[0] >= 'a' ? " " : "") + op.name;
+				break;
+			}
+		}
+	}
+	if (base.empty())
+		base = std::string(name);
+	return qualifier.empty() ? base : qualifier + "::" + base;
+}
+
+static bool TryCodeWarriorSplit(std::string_view mangled, size_t sep, bool strict, DemangledSymbol *out) {
+	CodeWarriorParser parser(mangled.substr(sep + 2), strict);
+	DemangledSymbol sym;
+	if (!parser.ParseAfterSeparator(&sym))
+		return false;
+	sym.name = CodeWarriorName(mangled.substr(0, sep), parser.qualifier());
+	*out = sym;
+	return true;
+}
+
+}  // namespace
+
+bool DemangleCodeWarrior(std::string_view mangled, DemangledSymbol *out) {
+	// Names can themselves start with underscores ("__SetupFrameInfo__F..."), and can
+	// contain "__" further in, so every candidate separator gets tried. Strict first, so a
+	// split that decodes completely wins over one that only decodes its name.
+	size_t start = 0;
+	while (start < mangled.size() && mangled[start] == '_')
+		start++;
+	if (start == mangled.size())
+		return false;
+	for (int pass = 0; pass < 2; pass++) {
+		for (size_t i = start; i + 2 < mangled.size(); i++) {
+			if (mangled[i] == '_' && mangled[i + 1] == '_' &&
+					TryCodeWarriorSplit(mangled, i, pass == 0, out))
+				return true;
+		}
+	}
+	return false;
+}
+
+// SN Systems (SNC / ProDG), a much more compact scheme:
+//
+//   __0f5DstdIbad_castEwhatvK  ->  std::bad_cast::what() const
+//
+// "__0", a kind character, a tag digit, then the name as a chain of components whose lengths
+// are *letters* (A = 0, so D = 3 and J = 9), then the parameters, then any cv-qualifier.
+//
+// Reverse engineered from a handful of real symbols, so parts of this are educated guesses:
+// the tag digit (5 for a function, 6 for a class type used as a parameter), and 'f' vs 'F'
+// for a non-static member function vs. a free or static one. Neither affects the name, which
+// is the part worth trusting.
+bool DemangleSNSystems(std::string_view mangled, DemangledSymbol *out) {
+	if (mangled.size() < 6 || mangled.compare(0, 3, "__0") != 0)
+		return false;
+	size_t pos = 3;
+	const char kind = mangled[pos++];
+	if (kind != 'f' && kind != 'F')
+		return false;
+	if (!IsDigit(mangled[pos]))
+		return false;
+	pos++;
+
+	std::vector<std::string> parts;
+	while (pos < mangled.size() && mangled[pos] >= 'A' && mangled[pos] <= 'Z') {
+		const size_t len = (size_t)(mangled[pos] - 'A');
+		pos++;
+		if (pos + len > mangled.size())
+			return false;
+		parts.push_back(std::string(mangled.substr(pos, len)));
+		pos += len;
+	}
+	if (parts.empty())
+		return false;
+
+	DemangledSymbol sym;
+	sym.isFunction = true;
+	std::vector<std::string> params;
+	while (pos < mangled.size()) {
+		const char c = mangled[pos];
+		if (c == 'v') {
+			// void, i.e. no parameters at all.
+			pos++;
+			continue;
+		}
+		if (c == 'K' && pos + 1 == mangled.size()) {
+			sym.qualifiers = "const";
+			pos++;
+			continue;
+		}
+		if (IsDigit(c) && pos + 1 < mangled.size() &&
+				mangled[pos + 1] >= 'A' && mangled[pos + 1] <= 'Z') {
+			// A tagged, length-prefixed type name.
+			const size_t len = (size_t)(mangled[pos + 1] - 'A');
+			if (pos + 2 + len > mangled.size())
+				return false;
+			params.push_back(std::string(mangled.substr(pos + 2, len)));
+			pos += 2 + len;
+			continue;
+		}
+		// Anything else is a type code we haven't seen yet. Keep the name, admit to not
+		// knowing the rest.
+		params.push_back("...");
+		break;
+	}
+	JoinInto(sym.name, parts, "::");
+	JoinInto(sym.parameters, params, ", ");
+	*out = sym;
+	return true;
+}
+
+std::string DemangledSymbol::ToString() const {
+	std::string out;
+	if (!returnType.empty())
+		out = returnType + " ";
+	out += name;
+	if (isFunction)
+		out += "(" + parameters + ")";
+	if (!qualifiers.empty())
+		out += " " + qualifiers;
+	return out;
+}
+
 std::string DemangleSymbolName(std::string_view name) {
 	std::string out;
 	if (DemangleItanium(name, &out))
 		return out;
+	DemangledSymbol sym;
+	if (DemangleCodeWarrior(name, &sym) || DemangleSNSystems(name, &sym))
+		return sym.ToString();
 	return std::string(name);
 }

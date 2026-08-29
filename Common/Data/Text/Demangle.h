@@ -30,6 +30,30 @@
 // Returns false and leaves *out alone if this isn't a mangled name, or we can't parse it.
 bool DemangleItanium(std::string_view mangled, std::string *out);
 
-// Convenience wrapper: returns the demangled name, or a copy of the input if it isn't
-// something we can demangle.
+// The other two manglings that show up in PSP binaries, both from compilers older than the
+// PSP SDK's GCC: Metrowerks CodeWarrior (a descendant of the AT&T cfront scheme) and SN
+// Systems' SNC/ProDG. Both are much rougher than the Itanium demangler above - they aim to
+// recover a readable, correctly qualified *name* and make a best effort at the parameter
+// list, rather than to reproduce any particular tool's output byte for byte.
+
+// A demangled symbol, kept split up so callers can use the parts. The Itanium demangler
+// doesn't fill this in (it prints straight to a string); the two below do.
+struct DemangledSymbol {
+	std::string name;        // Qualified, no parameters: "ANIMEData::operator=".
+	std::string parameters;  // What goes between the parens. Empty means "()".
+	std::string returnType;  // Usually empty - neither format encodes it in most cases.
+	std::string qualifiers;  // "const" and friends, printed after the parameter list.
+	bool isFunction = false; // False for data symbols, where there are no parens at all.
+
+	std::string ToString() const;
+};
+
+// Metrowerks CodeWarrior: "getDistance__6KzUtilFP7st_unitP7st_unit".
+bool DemangleCodeWarrior(std::string_view mangled, DemangledSymbol *out);
+
+// SN Systems (SNC/ProDG): "__0f5DstdIbad_castEwhatvK".
+bool DemangleSNSystems(std::string_view mangled, DemangledSymbol *out);
+
+// Convenience wrapper: tries all three manglings and returns the demangled name, or a
+// copy of the input if it isn't something we can demangle.
 std::string DemangleSymbolName(std::string_view name);
