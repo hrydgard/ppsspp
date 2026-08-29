@@ -559,6 +559,9 @@ VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, Vk
 
 	_dbg_assert_(!((rpType & RenderPassType::MULTISAMPLE) && sampleCount == VK_SAMPLE_COUNT_1_BIT));
 
+	// Called from both the main thread and the render thread, see the note on mutex_.
+	std::lock_guard<std::mutex> lock(mutex_);
+
 	if (!pass[(int)rpType] || sampleCounts[(int)rpType] != sampleCount) {
 		if (pass[(int)rpType]) {
 			vulkan->Delete().QueueDeleteRenderPass(pass[(int)rpType]);
