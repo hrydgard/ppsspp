@@ -26,28 +26,18 @@
 
 namespace Math3D {
 
+// NOTE: The float Length/Normalize functions below are deliberately scalar on every platform.
+// They used to have SSE and NEON specializations, but the three summed the components in three
+// different orders (and the SSE normalize used _mm_rsqrt_ps with no Newton step, roughly 12 bits),
+// so the same vertex normal came out different per architecture, per build, and - since the SSE4
+// variant was picked from cpu_info at runtime - per CPU within one binary. That fed environment-map
+// texture coordinates and specular, i.e. actual pixels. sqrtf and division are correctly rounded by
+// IEEE-754, so a single scalar version is bit-identical everywhere; the horizontal sum these were
+// doing was never much faster than the three multiplies it replaced.
 template<>
 float Vec2<float>::Length() const
 {
-	// Doubt this is worth it for a vec2 :/
-#if defined(_M_SSE)
-	float ret;
-	__m128d tmp = _mm_load_sd((const double*)&x);
-	__m128 xy = _mm_castpd_ps(tmp);
-	__m128 sq = _mm_mul_ps(xy, xy);
-	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
-	const __m128 res = _mm_add_ss(sq, r2);
-	_mm_store_ss(&ret, _mm_sqrt_ss(res));
-	return ret;
-#elif PPSSPP_ARCH(ARM64_NEON)
-	float32x2_t vec = vld1_f32(&x);
-	float32x2_t sq = vmul_f32(vec, vec);
-	float32x2_t add2 = vpadd_f32(sq, sq);
-	float32x2_t res = vsqrt_f32(add2);
-	return vget_lane_f32(res, 0);
-#else
 	return sqrtf(Length2());
-#endif
 }
 
 template<>
@@ -84,24 +74,7 @@ float Vec2<float>::Normalize()
 template<>
 float Vec3<float>::Length() const
 {
-#if defined(_M_SSE)
-	float ret;
-	__m128 xyz = _mm_loadu_ps(&x);
-	__m128 sq = _mm_mul_ps(xyz, xyz);
-	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
-	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
-	const __m128 res = _mm_add_ss(sq, _mm_add_ss(r2, r3));
-	_mm_store_ss(&ret, _mm_sqrt_ss(res));
-	return ret;
-#elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sq = vsetq_lane_f32(0.0f, vmulq_f32(vec, vec), 3);
-	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
-	float32x2_t add2 = vpadd_f32(add1, add1);
-	float32x2_t res = vsqrt_f32(add2);
-	return vget_lane_f32(res, 0);
-#else
 	return sqrtf(Length2());
-#endif
 }
 
 template<>
@@ -121,82 +94,8 @@ float Vec3<float>::Distance2To(const Vec3<float> &other) const {
 	return Vec3<float>(other-(*this)).Length2();
 }
 
-#if defined(_M_SSE)
-__m128 SSENormalizeMultiplierSSE2(__m128 v)
-{
-	const __m128 sq = _mm_mul_ps(v, v);
-	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
-	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
-	const __m128 res = _mm_add_ss(r3, _mm_add_ss(r2, sq));
-
-	const __m128 rt = _mm_rsqrt_ss(res);
-	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
-}
-
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-__m128 SSENormalizeMultiplierSSE4(__m128 v)
-{
-	// This is only used for Vec3f, so ignore the 4th component, might be garbage.
-	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0x77));
-}
-
-__m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
-{
-	if (useSSE4)
-		return SSENormalizeMultiplierSSE4(v);
-	return SSENormalizeMultiplierSSE2(v);
-}
-
-template<>
-Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
-{
-	const __m128 normalize = SSENormalizeMultiplier(useSSE4, vec);
-	return _mm_mul_ps(normalize, vec);
-}
-
-template<>
-Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
-	const __m128 normalize = SSENormalizeMultiplier(useSSE4, vec);
-	const __m128 result = _mm_mul_ps(normalize, vec);
-	const __m128 mask = _mm_cmpunord_ps(result, vec);
-	const __m128 replace = _mm_and_ps(_mm_set_ps(0.0f, 1.0f, 0.0f, 0.0f), mask);
-	// Replace with the constant if the mask matched.
-	return _mm_or_ps(_mm_andnot_ps(mask, result), replace);
-}
-#elif PPSSPP_ARCH(ARM64_NEON)
-template<>
-Vec3<float> Vec3<float>::Normalized(bool useSSE4) const {
-	float32x4_t sq = vsetq_lane_f32(0.0f, vmulq_f32(vec, vec), 3);
-	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
-	float32x2_t summed = vpadd_f32(add1, add1);
-
-	float32x2_t e = vrsqrte_f32(summed);
-	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
-	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
-
-	float32x4_t factor = vdupq_lane_f32(e, 0);
-	return Vec3<float>(vmulq_f32(vec, factor));
-}
-
-template<>
-Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
-	float32x4_t sq = vsetq_lane_f32(0.0f, vmulq_f32(vec, vec), 3);
-	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
-	float32x2_t summed = vpadd_f32(add1, add1);
-	if (vget_lane_f32(summed, 0) == 0.0f) {
-		return Vec3<float>(vsetq_lane_f32(1.0f, vdupq_lane_f32(summed, 0), 2));
-	}
-
-	float32x2_t e = vrsqrte_f32(summed);
-	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
-	e = vmul_f32(vrsqrts_f32(vmul_f32(e, e), summed), e);
-
-	float32x4_t factor = vdupq_lane_f32(e, 0);
-	return Vec3<float>(vmulq_f32(vec, factor));
-}
-#else
+// The useSSE4 parameter is kept for source compatibility with the call sites; there is no longer a
+// separate path for it to select. See the note above - a runtime-selected variant was part of the bug.
 template<>
 Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
 {
@@ -209,9 +108,8 @@ Vec3<float> Vec3<float>::NormalizedOr001(bool useSSE4) const {
 	if (len == 0.0f) {
 		return Vec3<float>(0.0f, 0.0f, 1.0f);
 	}
-	return *this / len;
+	return (*this) / len;
 }
-#endif
 
 template<>
 float Vec3<float>::Normalize()
@@ -300,23 +198,7 @@ float Vec3Packed<float>::Normalize()
 template<>
 float Vec4<float>::Length() const
 {
-#if defined(_M_SSE)
-	float ret;
-	__m128 xyzw = _mm_loadu_ps(&x);
-	__m128 sq = _mm_mul_ps(xyzw, xyzw);
-	const __m128 r2 = _mm_add_ps(sq, _mm_movehl_ps(sq, sq));
-	const __m128 res = _mm_add_ss(r2, _mm_shuffle_ps(r2, r2, _MM_SHUFFLE(0, 0, 0, 1)));
-	_mm_store_ss(&ret, _mm_sqrt_ss(res));
-	return ret;
-#elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t sq = vmulq_f32(vec, vec);
-	float32x2_t add1 = vget_low_f32(vpaddq_f32(sq, sq));
-	float32x2_t add2 = vpadd_f32(add1, add1);
-	float32x2_t res = vsqrt_f32(add2);
-	return vget_lane_f32(res, 0);
-#else
 	return sqrtf(Length2());
-#endif
 }
 
 template<>
