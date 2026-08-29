@@ -167,6 +167,7 @@ tests_good = [
   "gpu/displaylist/alignment",
   "gpu/dither/dither",
   "gpu/filtering/mipmaplinear",
+  "gpu/filtering/precisionnearest2d",
   "gpu/filtering/precisionnearest3d",
   "gpu/ge/break",
   "gpu/ge/context",
@@ -424,12 +425,14 @@ tests_next = [
   "gpu/displaylist/state",
   "gpu/filtering/linear",
   "gpu/filtering/nearest",
+  # These two pass with --graphics=software, but still fail on the hardware backends,
+  # so they stay here rather than in tests_good until those match too.
   "gpu/filtering/precisionlinear2d",
   "gpu/filtering/precisionlinear3d",
-  "gpu/filtering/precisionnearest2d",
   "gpu/ge/edramswizzle",
   "gpu/ge/get",
   "gpu/primitives/bezier",
+  # Passes with --graphics=software, still fails on the hardware backends.
   "gpu/primitives/continue",
   "gpu/primitives/immediate",
   "gpu/primitives/lines",

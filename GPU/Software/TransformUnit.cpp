@@ -176,8 +176,11 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	// 16 = 0xFFFF / 4095.9375
 	// Round up at 0.625 to the nearest subpixel.
 	static_assert(SCREEN_SCALE_FACTOR == 16, "Currently only supports scale 16");
-	int x = (int)(scaled.x * 16.0f + 0.375f - gstate.getOffsetX16());
-	int y = (int)(scaled.y * 16.0f + 0.375f - gstate.getOffsetY16());
+	// floorf, not a plain (int) cast: the cast truncates toward zero, so once the region offset
+	// pushes the result negative it rounds the opposite way from the positive case - and from the
+	// through-mode path below, which is what made the two disagree by one subpixel.
+	int x = (int)floorf(scaled.x * 16.0f + 0.375f - gstate.getOffsetX16());
+	int y = (int)floorf(scaled.y * 16.0f + 0.375f - gstate.getOffsetY16());
 	return ScreenCoords(x, y, scaled.z);
 }
 

@@ -1293,8 +1293,11 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		}
 
 		// Okay, now move ST to the minX, minY position.
-		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
-		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
+		// This is the exact distance from the primitive's edge to the sample point - minX and minY
+		// already sit at the pixel center. The +1 that used to be here was compensating for
+		// TriangleEdge::Start's centerOff being a sixteenth of a pixel short of center.
+		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1);
+		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1);
 	}
 
 	// And now what we add to spread out to 4 values.
