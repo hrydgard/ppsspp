@@ -49,7 +49,15 @@ static inline float pspLightPow(float v, float e) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
-		return pow(v, e);
+		// TODO: Find something better than powf here. It isn't correctly rounded, so it differs
+		// between glibc, musl, bionic, Apple's libm and the UCRT - and all three callers feed the
+		// result into a LightCeil, which turns a one-ULP difference into a full 1/512 step in the
+		// light factor rather than letting it wash out. The PSP almost certainly uses some fixed
+		// approximation of its own; once the platform differences are gone and we have a stable
+		// base, matching that against the pspautotests rendering tests is the way to settle it.
+		// Qualified so we always get the float overload - unqualified pow picks up the double one
+		// on platforms whose <cmath> only drops the C version into the global namespace.
+		return std::pow(v, e);
 	}
 	// Negative stays negative, so let's just return the original.
 	return v;
