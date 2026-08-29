@@ -1719,7 +1719,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	double x = a.x > b.x ? a.x - 1 : a.x;
 	double y = a.y > b.y ? a.y - 1 : a.y;
 	double z = a.z;
-	const int steps1 = steps == 0 ? 1 : steps;
+	// Interpolate to the center of each drawn pixel, i.e. parameter (i + 0.5) / steps. Dividing by
+	// steps with a plain i sampled the leading edge instead, so the last pixel came up a full step
+	// short of v1 and never saw the end vertex's values at all. Kept in halves so the color
+	// interpolation below stays integer: v0's weight is (stepsH - iH) and v1's is iH, over stepsH.
+	const int stepsH = steps <= 0 ? 2 : steps * 2;
 	for (int i = 0; i < steps; i++) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
 
@@ -1742,8 +1746,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
 			if (interpolateColor) {
-				prim_color = (v0_c0 * (steps - i) + v1_c0 * i) / steps1;
-				sec_color = (v0_c1 * (steps - i) + v1_c1 * i) / steps1;
+				prim_color = (v0_c0 * (stepsH - (2 * i + 1)) + v1_c0 * (2 * i + 1)) / stepsH;
+				sec_color = (v0_c1 * (stepsH - (2 * i + 1)) + v1_c1 * (2 * i + 1)) / stepsH;
 			} else {
 				prim_color = v1_c0;
 				sec_color = v1_c1;
@@ -1751,7 +1755,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 			u8 fog = 255;
 			if (pixelID.applyFog) {
-				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+				fog = ClampFogDepth((v0.fogdepth * (float)(stepsH - (2 * i + 1)) + v1.fogdepth * (float)(2 * i + 1)) / stepsH);
 			}
 
 			if (state.antialiasLines) {
@@ -1764,26 +1768,26 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				float s, s1;
 				float t, t1;
 				if (state.throughMode) {
-					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps - i) + v1.texturecoords.uv() * (float)i) / steps1;
-					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
+					Vec2<float> tc = (v0.texturecoords.uv() * (float)(stepsH - (2 * i + 1)) + v1.texturecoords.uv() * (float)(2 * i + 1)) / stepsH;
+					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(stepsH - (2 * i + 3)) + v1.texturecoords.uv() * (float)(2 * i + 3)) / stepsH;
 
 					s = tc.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					t = tc.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 					t1 = tc1.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 				} else if (state.textureProj) {
-					GetTextureCoordinatesProj(v0, v1, (float)(steps - i) / steps1, s, t);
-					GetTextureCoordinatesProj(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
+					GetTextureCoordinatesProj(v0, v1, (float)(stepsH - (2 * i + 1)) / stepsH, s, t);
+					GetTextureCoordinatesProj(v0, v1, (float)(stepsH - (2 * i + 3)) / stepsH, s1, t1);
 				} else {
 					// Texture coordinate interpolation must definitely be perspective-correct.
-					GetTextureCoordinates(v0, v1, (float)(steps - i) / steps1, s, t);
-					GetTextureCoordinates(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
+					GetTextureCoordinates(v0, v1, (float)(stepsH - (2 * i + 1)) / stepsH, s, t);
+					GetTextureCoordinates(v0, v1, (float)(stepsH - (2 * i + 3)) / stepsH, s1, t1);
 				}
 
 				// If inc is 0, force the delta to zero.
 				float ds = xinc == 0.0 ? 0.0f : (s1 - s) * (float)SCREEN_SCALE_FACTOR * (1.0f / xinc);
 				float dt = yinc == 0.0 ? 0.0f : (t1 - t) * (float)SCREEN_SCALE_FACTOR * (1.0f / yinc);
-				float w = (v0.clipw * (float)(steps - i) + v1.clipw * (float)i) / steps1;
+				float w = (v0.clipw * (float)(stepsH - (2 * i + 1)) + v1.clipw * (float)(2 * i + 1)) / stepsH;
 
 				int texLevel;
 				int texLevelFrac;
