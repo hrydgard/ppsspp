@@ -1245,7 +1245,8 @@ inline T Dot(const Vec3<T>& a, const Vec3<T>& b)
 template<typename T>
 inline T Dot(const Vec4<T>& a, const Vec4<T>& b)
 {
-	return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
+	// Parenthesized to make the summation order explicit - for floats it's part of the result.
+	return ((a.x*b.x + a.y*b.y) + a.z*b.z) + a.w*b.w;
 }
 
 template<typename T>

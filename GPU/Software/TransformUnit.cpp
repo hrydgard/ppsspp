@@ -320,28 +320,13 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<false, false>;
 }
 
-#if defined(_M_SSE)
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-static inline __m128 Dot43SSE4(__m128 a, __m128 b) {
-	__m128 multiplied = _mm_mul_ps(a, _mm_insert_ps(b, _mm_set1_ps(1.0f), 0x30));
-	__m128 lanes3311 = _mm_movehdup_ps(multiplied);
-	__m128 partial = _mm_add_ps(multiplied, lanes3311);
-	return _mm_add_ss(partial, _mm_movehl_ps(lanes3311, partial));
-}
-#endif
-
+// Deliberately not vectorized. The SSE4 and NEON versions summed pairwise while the scalar Dot()
+// sums left to right, and float addition isn't associative - so this returned different last bits
+// depending on the build (32-bit x86 was excluded from the SSE path) and, since the SSE4 variant was
+// chosen from cpu_info, on which x86 CPU it ran. The result is fogdepth, which Clipper compares
+// against v0's to decide whether to split a rectangle into two draws, so a ULP changed the number of
+// primitives emitted. A 4-element dot product is not where the time goes.
 static inline float Dot43(const Vec4f &a, const Vec3f &b) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (cpu_info.bSSE4_1)
-		return _mm_cvtss_f32(Dot43SSE4(a.vec, b.vec));
-#elif PPSSPP_ARCH(ARM64_NEON)
-	float32x4_t multipled = vmulq_f32(a.vec, vsetq_lane_f32(1.0f, b.vec, 3));
-	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
-	float32x2_t add2 = vpadd_f32(add1, add1);
-	return vget_lane_f32(add2, 0);
-#endif
 	return Dot(a, Vec4f(b, 1.0f));
 }
 
