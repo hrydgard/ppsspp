@@ -1249,7 +1249,35 @@ namespace MIPSInt {
 				F(fd) = F(fs) * F(ft);
 			}
 			break;
-		case 3: F(fd) = F(fs) / F(ft); break; // div.s
+		case 3: // div.s
+		{
+			// The only FPU exception we implement so far. IEEE 754 raises divide-by-zero only when
+			// an exact infinity comes out of finite operands, so 0/0 (invalid operation, which we
+			// don't detect) and inf/0 and NaN operands (no exception at all) are all excluded.
+			// Cause is per-instruction, so clear it here rather than leaving the last one set.
+			// Real hardware clears all five Cause bits in every FPU op, we only manage this one.
+			mips->fcr31 &= ~FCR31_CAUSE_DIV_BY_ZERO;
+			if (F(ft) == 0.0f && F(fs) != 0.0f && !my_isnanorinf(F(fs))) {
+				mips->fcr31 |= FCR31_CAUSE_DIV_BY_ZERO;
+				if (mips->fcr31 & FCR31_ENABLE_DIV_BY_ZERO) {
+					// Unmasked. Hardware takes the trap here, leaving fd alone and not setting the
+					// sticky flag - the handler is expected to deal with it. We can't run the
+					// guest's handler, and PSP threads start with this trap enabled (fcr31 =
+					// 0x00000e00) while games divide by zero all the time, so acting on it at all
+					// is a developer opt-in. The fcr31 bits above are updated either way, so what
+					// the game sees when it reads the register doesn't depend on the setting.
+					if (g_Config.bEnableFPUExceptionTraps) {
+						Core_FPUException(PC, FPUExceptionType::DIVIDE_BY_ZERO);
+						break;
+					}
+				} else {
+					// Masked: sticky flag, and the default result (a correctly signed infinity).
+					mips->fcr31 |= FCR31_FLAG_DIV_BY_ZERO;
+				}
+			}
+			F(fd) = F(fs) / F(ft);
+			break;
+		}
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret FPU3Op instruction that can't be interpreted");
 			break;

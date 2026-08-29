@@ -140,6 +140,17 @@ enum VCondition
 	VC_NS
 };
 
+// fcr31, the FPU control/status register, in the standard MIPS layout: bits 0-1 are the
+// rounding mode, 2-6 the sticky Flags, 7-11 the trap Enables, 12-16 the per-instruction Cause,
+// 23 the condition flag (mirrored in fpcond) and 24 flush-to-zero. Each of the three 5-bit
+// fields holds the IEEE exceptions in the same order (inexact, underflow, overflow, divide by
+// zero, invalid operation); only divide by zero is implemented so far, and only in the interpreter.
+enum {
+	FCR31_FLAG_DIV_BY_ZERO = 1 << 5,
+	FCR31_ENABLE_DIV_BY_ZERO = 1 << 10,
+	FCR31_CAUSE_DIV_BY_ZERO = 1 << 15,
+};
+
 // In memory, we order the VFPU registers differently. 
 // Games use columns a whole lot more than rows, and it would thus be good if columns
 // were contiguous in memory. Also, matrices aren't but should be.

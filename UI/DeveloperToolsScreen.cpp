@@ -160,6 +160,10 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	core->HideChoice(3);
 #endif
 
+	// Only the interpreter raises these, but don't hide it behind the CPU core choice - it'd just
+	// look like the setting had vanished.
+	list->Add(new CheckBox(&g_Config.bEnableFPUExceptionTraps, dev->T("Enable FPU exceptions")));
+
 	list->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show in-game developer menu")));
 
