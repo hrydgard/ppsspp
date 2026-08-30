@@ -421,6 +421,29 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 	return true;
 }
 
+bool VulkanRenderManager::RecreatePresentationIfNeeded() {
+	VulkanPresentation *presentation = vulkan_->GetPresentation();
+	if (!presentation || !presentation->NeedsRecreate()) {
+		return true;
+	}
+
+	DestroyBackbuffers();
+	// DestroyBackbuffers() queues its views for deletion. They must be gone before a presentation
+	// backend destroys the images those views reference.
+	vulkan_->PerformPendingDeletes();
+	if (!presentation->Recreate(vulkan_)) {
+		return false;
+	}
+	if (!CreateBackbuffers()) {
+		// Keep the presentation empty so a later frame retries the complete recreation.
+		DestroyBackbuffers();
+		vulkan_->PerformPendingDeletes();
+		presentation->Destroy(vulkan_);
+		return false;
+	}
+	return true;
+}
+
 void VulkanRenderManager::StartThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
@@ -452,7 +475,8 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	_dbg_assert_(!useRenderThread_ || renderThread_.joinable());
+	// A failed presentation recreation may leave the threads already stopped, so this cleanup must
+	// also be safe to call during a later retry.
 	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
@@ -476,7 +500,6 @@ void VulkanRenderManager::StopThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
 		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
-		_dbg_assert_(compileThread_.joinable());
 		compileCond_.notify_one();
 	}
 	if (compileThread_.joinable()) {
@@ -720,11 +743,30 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		}
 		frameData.readyForFence = false;
 	}
+	auto restoreReadyForFence = [&]() {
+		if (useRenderThread_) {
+			std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+			frameData.readyForFence = true;
+			frameData.fenceCondVar.notify_one();
+		}
+	};
 
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
 	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Device lost in vkWaitForFences");
+	}
+
+	if (!RecreatePresentationIfNeeded()) {
+		restoreReadyForFence();
+		ERROR_LOG(Log::G3D, "Failed to recreate Vulkan presentation backbuffers");
+		return;
+	}
+	// CreateBackbuffers() resets readyForFence for all frames. Keep the current frame consumed until
+	// its new submission signals the fence. Also, don't reset the fence until recreation succeeded.
+	if (useRenderThread_) {
+		std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+		frameData.readyForFence = false;
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
