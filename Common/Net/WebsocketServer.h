@@ -74,6 +74,8 @@ protected:
 	void SendHeader(bool fin, int opcode, size_t sz);
 	void SendBytes(const void *p, size_t sz);
 	void SendFlush();
+	void CompactOutBuf();
+	size_t OutBufPending() const { return outBuf_.size() - outBufOffset_; }
 	bool ReadFrames();
 	bool ReadFrame();
 	bool ReadPending();
@@ -87,6 +89,8 @@ protected:
 	OutputSink *out_ = nullptr;
 	WebSocketClose closeReason_ = WebSocketClose::NO_STATUS;
 	std::vector<uint8_t> outBuf_;
+	// How much of outBuf_ has already been handed to out_. See CompactOutBuf().
+	size_t outBufOffset_ = 0;
 	size_t lastPressure_ = 0;
 
 	std::vector<uint8_t> pendingBuf_;

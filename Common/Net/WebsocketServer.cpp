@@ -37,6 +37,8 @@ enum class Opcode {
 };
 
 static const size_t OUT_PRESSURE = 65536;
+// How much already-sent data we let sit at the front of outBuf_ before reclaiming it.
+static const size_t OUT_COMPACT_THRESHOLD = 1024 * 1024;
 
 static inline std::string TrimString(const std::string &s) {
 	auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c) {
@@ -205,7 +207,20 @@ bool WebSocketServer::Process(float timeout) {
 
 	SendFlush();
 
-	if (outBuf_.empty() && out_->Empty() && sentClose_) {
+	if (out_->HasError()) {
+		// The socket is broken (peer gone, reset, ...), so out_ can never drain again. We must not
+		// keep waiting for it to empty: select() reports an errored socket as ready every single
+		// time and SendFlush() can't make progress, so we'd return true forever and the caller
+		// would sit in a tight loop burning a core.
+		closeReason_ = WebSocketClose::ABNORMAL;
+		open_ = false;
+		out_->Discard();
+		outBuf_.clear();
+		outBufOffset_ = 0;
+		return false;
+	}
+
+	if (OutBufPending() == 0 && out_->Empty() && sentClose_) {
 		// Okay, we've sent the close.  Don't wait for anything else (whether we got a close or not.)
 		open_ = false;
 		return false;
@@ -224,16 +239,29 @@ bool WebSocketServer::Process(float timeout) {
 
 	fd_set write;
 	FD_ZERO(&write);
-	if (!outBuf_.empty() || !out_->Empty()) {
+	if (OutBufPending() != 0 || !out_->Empty()) {
 		FD_SET(fd_, &write);
 	}
 
 	// First argument to select is the highest socket in the set + 1.
 	int rval = select((int)fd_ + 1, &read, &write, nullptr, &tv);
 	if (rval < 0) {
-		// Something went wrong with the select() call.
-		// TODO: Could be EINTR, for now returning true...
-		return true;
+		const int err = socket_errno;
+#if !PPSSPP_PLATFORM(WINDOWS)
+		if (err == EINTR) {
+			// Just a signal, the next lap will select() again - and it did wait, so no spinning.
+			return true;
+		}
+#endif
+		// Anything else isn't going to fix itself (a bad fd, say), and returning true on a call
+		// that fails immediately means the caller busy-loops instead of being paced by the timeout.
+		ERROR_LOG(Log::IO, "WebSocket select() failed: %d - closing connection", err);
+		closeReason_ = WebSocketClose::ABNORMAL;
+		open_ = false;
+		out_->Discard();
+		outBuf_.clear();
+		outBufOffset_ = 0;
+		return false;
 	}
 
 	if (rval == 0) {
@@ -499,7 +527,7 @@ void WebSocketServer::SendHeader(bool fin, int opcode, size_t sz) {
 
 void WebSocketServer::SendBytes(const void *p, size_t sz) {
 	const char *data = (const char *)p;
-	if (outBuf_.empty()) {
+	if (OutBufPending() == 0) {
 		size_t pushed = out_->PushAtMost(data, sz);
 		data += pushed;
 		sz -= pushed;
@@ -510,12 +538,11 @@ void WebSocketServer::SendBytes(const void *p, size_t sz) {
 		outBuf_.resize(pos + sz);
 		memcpy(&outBuf_[pos], data, sz);
 
-		if (pos + sz > lastPressure_ + OUT_PRESSURE) {
-			size_t pushed = out_->PushAtMost((const char *)&outBuf_[0], outBuf_.size());
-			if (pushed != 0) {
-				outBuf_.erase(outBuf_.begin(), outBuf_.begin() + pushed);
-			}
-			lastPressure_ = outBuf_.size();
+		if (OutBufPending() > lastPressure_ + OUT_PRESSURE) {
+			size_t pushed = out_->PushAtMost((const char *)&outBuf_[outBufOffset_], OutBufPending());
+			outBufOffset_ += pushed;
+			CompactOutBuf();
+			lastPressure_ = OutBufPending();
 		}
 	}
 }
@@ -524,21 +551,30 @@ void WebSocketServer::SendFlush() {
 	out_->Flush(false);
 
 	// Drain out as much of our buffer as possible.
-	size_t totalPushed = 0;
-	while (outBuf_.size() - totalPushed != 0) {
-		size_t pushed = out_->PushAtMost((const char *)&outBuf_[totalPushed], outBuf_.size() - totalPushed);
+	while (OutBufPending() != 0) {
+		size_t pushed = out_->PushAtMost((const char *)&outBuf_[outBufOffset_], OutBufPending());
 		if (pushed == 0)
 			break;
 
-		totalPushed += pushed;
+		outBufOffset_ += pushed;
 		out_->Flush(false);
 	}
 
-	if (totalPushed != 0) {
-		// Hopefully this is usually the entire buffer.
-		outBuf_.erase(outBuf_.begin(), outBuf_.begin() + totalPushed);
+	CompactOutBuf();
+	lastPressure_ = OutBufPending();
+}
+
+// outBufOffset_ marks how much of outBuf_ has already gone out. We don't erase it every time we
+// drain some: when a client falls behind and the backlog grows, erasing from the front on every
+// lap memmoves the whole backlog each time, which is quadratic and can eat a core by itself.
+void WebSocketServer::CompactOutBuf() {
+	if (outBufOffset_ == outBuf_.size()) {
+		outBuf_.clear();
+		outBufOffset_ = 0;
+	} else if (outBufOffset_ >= OUT_COMPACT_THRESHOLD) {
+		outBuf_.erase(outBuf_.begin(), outBuf_.begin() + outBufOffset_);
+		outBufOffset_ = 0;
 	}
-	lastPressure_ = outBuf_.size();
 }
 
 };
