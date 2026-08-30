@@ -2375,15 +2375,15 @@ void XEmitter::VGATHERDPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
 }
 void XEmitter::VGATHERDPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
 	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
-	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg);
+	WriteAVX2Op(bits, 0x66, 0x3892, regOp1, regOp2, arg, 0, 1);
 }
 void XEmitter::VGATHERQPS(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
 	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
-	WriteAVX2Op(bits, 0x66, 0x3892, regOp1, regOp2, arg);
+	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg);
 }
 void XEmitter::VGATHERQPD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
 	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VGATHER cannot have overlapped registers");
-	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg);
+	WriteAVX2Op(bits, 0x66, 0x3893, regOp1, regOp2, arg, 0, 1);
 }
 void XEmitter::VPGATHERDD(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {
 	_assert_msg_(regOp1 != regOp2 && !arg.IsIndexedReg(regOp1) && !arg.IsIndexedReg(regOp2), "VPGATHER cannot have overlapped registers");
