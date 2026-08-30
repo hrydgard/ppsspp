@@ -123,6 +123,8 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::ServerRequest &req
 
 void WebSocketServer::Send(const std::string &str) {
 	_assert_(open_);
+	if (SendingIsOver())
+		return;
 	_assert_(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::TEXT, str.size());
 	SendBytes(str.c_str(), str.size());
@@ -130,6 +132,8 @@ void WebSocketServer::Send(const std::string &str) {
 
 void WebSocketServer::Send(const std::vector<uint8_t> &payload) {
 	_assert_(open_);
+	if (SendingIsOver())
+		return;
 	_assert_(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::BINARY, payload.size());
 	SendBytes((const char *)payload.data(), payload.size());
@@ -137,6 +141,8 @@ void WebSocketServer::Send(const std::vector<uint8_t> &payload) {
 
 void WebSocketServer::AddFragment(bool finish, const std::string &str) {
 	_assert_(open_);
+	if (SendingIsOver())
+		return;
 	if (fragmentOpcode_ == -1) {
 		SendHeader(finish, (int)Opcode::TEXT, str.size());
 		fragmentOpcode_ = (int)Opcode::TEXT;
@@ -153,6 +159,8 @@ void WebSocketServer::AddFragment(bool finish, const std::string &str) {
 
 void WebSocketServer::AddFragment(bool finish, const std::vector<uint8_t> &payload) {
 	_assert_(open_);
+	if (SendingIsOver())
+		return;
 	if (fragmentOpcode_ == -1) {
 		SendHeader(finish, (int)Opcode::BINARY, payload.size());
 		fragmentOpcode_ = (int)Opcode::BINARY;
@@ -169,6 +177,8 @@ void WebSocketServer::AddFragment(bool finish, const std::vector<uint8_t> &paylo
 
 void WebSocketServer::Ping(const std::vector<uint8_t> &payload) {
 	_assert_(open_);
+	if (SendingIsOver())
+		return;
 	_assert_(payload.size() <= 125);
 	SendHeader(true, (int)Opcode::PING, payload.size());
 	SendBytes((const char *)payload.data(), payload.size());
@@ -176,12 +186,18 @@ void WebSocketServer::Ping(const std::vector<uint8_t> &payload) {
 
 void WebSocketServer::Pong(const std::vector<uint8_t> &payload) {
 	_assert_(open_);
+	if (SendingIsOver())
+		return;
 	_assert_(payload.size() <= 125);
 	SendHeader(true, (int)Opcode::PONG, payload.size());
 	SendBytes((const char *)payload.data(), payload.size());
 }
 
 void WebSocketServer::Close(WebSocketClose reason) {
+	if (sentClose_) {
+		// Already closing - a second close frame would just be more data we can't send.
+		return;
+	}
 	closeReason_ = reason;
 	if (reason == WebSocketClose::NO_STATUS) {
 		// This means we received a CLOSE without a code.
@@ -200,6 +216,16 @@ void WebSocketServer::Close(WebSocketClose reason) {
 	sentClose_ = true;
 }
 
+// The connection is gone or unusable - there's nothing left to send and no point waiting for
+// anything, so drop whatever is queued and let the caller's loop end.
+void WebSocketServer::CloseAbnormally() {
+	closeReason_ = WebSocketClose::ABNORMAL;
+	open_ = false;
+	out_->Discard();
+	outBuf_.clear();
+	outBufOffset_ = 0;
+}
+
 bool WebSocketServer::Process(float timeout) {
 	if (!open_) {
 		return false;
@@ -212,11 +238,7 @@ bool WebSocketServer::Process(float timeout) {
 		// keep waiting for it to empty: select() reports an errored socket as ready every single
 		// time and SendFlush() can't make progress, so we'd return true forever and the caller
 		// would sit in a tight loop burning a core.
-		closeReason_ = WebSocketClose::ABNORMAL;
-		open_ = false;
-		out_->Discard();
-		outBuf_.clear();
-		outBufOffset_ = 0;
+		CloseAbnormally();
 		return false;
 	}
 
@@ -256,11 +278,7 @@ bool WebSocketServer::Process(float timeout) {
 		// Anything else isn't going to fix itself (a bad fd, say), and returning true on a call
 		// that fails immediately means the caller busy-loops instead of being paced by the timeout.
 		ERROR_LOG(Log::IO, "WebSocket select() failed: %d - closing connection", err);
-		closeReason_ = WebSocketClose::ABNORMAL;
-		open_ = false;
-		out_->Discard();
-		outBuf_.clear();
-		outBufOffset_ = 0;
+		CloseAbnormally();
 		return false;
 	}
 
@@ -273,17 +291,27 @@ bool WebSocketServer::Process(float timeout) {
 		SendFlush();
 	}
 	if (FD_ISSET(fd_, &read)) {
-		if (in_->Empty() && !in_->TryFill()) {
-			// Since select said it was readable, we assume this means disconnect.
-			closeReason_ = WebSocketClose::ABNORMAL;
-			open_ = false;
-			// Kill any remaining output too.
-			out_->Discard();
+		// Fill even when the sink still holds bytes. Otherwise a disconnect goes unnoticed for as
+		// long as there are leftovers, and if those leftovers are half a frame, ReadFrames() ends
+		// up waiting inside TakeExact() for bytes that can never arrive.
+		if (!in_->TryFill()) {
+			// select() said readable and there's still nothing, so the peer is gone.
+			CloseAbnormally();
 			return false;
 		}
 
+		// Note this before draining - the peer can close with data still in flight, and we want to
+		// hand over what it did send before acting on the disconnect.
+		const bool atEnd = in_->AtEnd();
+
 		while (ReadFrames() && !in_->Empty())
 			continue;
+
+		if (atEnd && in_->Empty()) {
+			// Consumed everything they sent, and nothing more is coming.
+			CloseAbnormally();
+			return false;
+		}
 	}
 
 	return true;
@@ -297,6 +325,16 @@ bool WebSocketServer::ReadFrames() {
 	return ReadFrame();
 }
 
+// A read came up short. TakeExact() only tells us it failed, not why - so ask the sink whether
+// the peer is simply gone, rather than blaming it for a protocol violation it didn't commit.
+void WebSocketServer::CloseForReadFailure() {
+	if (in_->AtEnd() || in_->HasError()) {
+		Close(WebSocketClose::ABNORMAL);
+	} else {
+		Close(WebSocketClose::POLICY_VIOLATION);
+	}
+}
+
 bool WebSocketServer::ReadFrame() {
 	_assert_(pendingLeft_ == 0);
 
@@ -304,7 +342,7 @@ bool WebSocketServer::ReadFrame() {
 	auto readExact = [&](void *p, size_t sz) {
 		if (!in_->TakeExact((char *)p, sz)) {
 			// TODO: Failing on too slow trickle timeout for now.
-			Close(WebSocketClose::POLICY_VIOLATION);
+			CloseForReadFailure();
 			return false;
 		}
 		return true;
@@ -422,6 +460,12 @@ bool WebSocketServer::ReadPending() {
 
 		// Truncate out the unread bytes for next time.
 		pendingBuf_.resize(pos + readBytes);
+
+		if (in_->AtEnd() || in_->HasError()) {
+			// TakeAtMost() returns 0 both for "nothing right now" and "nothing ever again", so we
+			// have to ask the sink which it was. The rest of this message is never arriving.
+			return false;
+		}
 		return true;
 	}
 
@@ -454,7 +498,7 @@ bool WebSocketServer::ReadControlFrame(int opcode, size_t sz) {
 	// Just block here to read the payload.
 	if (!in_->TakeExact((char *)payload.data(), sz)) {
 		// TODO: Failing on too slow trickle timeout for now.
-		Close(WebSocketClose::POLICY_VIOLATION);
+		CloseForReadFailure();
 		return false;
 	}
 

@@ -28,6 +28,9 @@ public:
 	bool Empty() const;
 	bool TryFill();
 	bool HasError() const { return hasError_; }
+	// True once the peer has closed its end. Sticky - no more data can ever arrive, which is not
+	// the same as "nothing right now", and callers that wait for more need to tell them apart.
+	bool AtEnd() const { return atEnd_; }
 
 	size_t ValidAmount() const {
 		return valid_;
@@ -58,6 +61,7 @@ private:
 	size_t write_;
 	size_t valid_;
 	bool hasError_ = false;
+	bool atEnd_ = false;
 };
 
 class OutputSink {
