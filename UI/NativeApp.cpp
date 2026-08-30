@@ -1730,7 +1730,10 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
-		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
+		// axisId comes straight from the device, and can exceed the axes we know about.
+		if ((size_t)axis.axisId < JOYSTICK_AXIS_MAX) {
+			HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
+		}
 	}
 }
 
