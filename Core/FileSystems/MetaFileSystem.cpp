@@ -645,9 +645,19 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 	u32 n = (u32) fileSystems.size();
 	Do(p, n);
 
-	// The mounts are serialized positionally, one section each and no length to skip by, so a
-	// savestate from an older build is simply missing the sections for mounts that didn't exist
-	// yet - and we have to leave out exactly those to stay lined up. Most recently added first.
+	// The mounts are serialized positionally: one section per mount, in mount order, with no
+	// length to skip by. So a savestate from an older build simply lacks the sections for mounts
+	// that didn't exist yet, and we have to leave out exactly those to stay lined up. We only know
+	// how many are missing (n), not which, so the list below says which ones came last.
+	//
+	// ADDING A NEW MOUNT: prepend its prefix here, or every existing savestate stops loading with
+	// "Failure at <whatever section follows>". The list is newest first, because a state that is
+	// missing k mounts is missing the k most recently added ones. Where in the mount order the new
+	// mount goes doesn't matter - removing it by prefix restores the old relative order either way.
+	//
+	// RENAMING OR REMOVING A MOUNT is not covered by any of this: a section in the state that we
+	// have no mount for can't be skipped, since we can't know how long it is. That would need a
+	// format change - storing the prefixes, or a length per section.
 	static const char * const mountsAddedOverTime[] = { "flash1:", "pfat0:" };
 
 	const size_t missing = n < (u32)fileSystems.size() ? fileSystems.size() - n : 0;
