@@ -1978,6 +1978,14 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
+	// Source rows are only bufw texels wide, and both the range check below and the unswizzle
+	// buffer are sized from bufw - so don't let the decode loops read past that. w and bufw are
+	// independent GE registers, so w > bufw is reachable. The DXT paths already clamp this way
+	// (see minw in DecodeDXTBlocks).
+	if (w > bufw) {
+		w = bufw;
+	}
+
 	u32 ppgeOffset;
 	const bool isPPGE = IsPPGEAtlasFakeAddress(texaddr, &ppgeOffset);
 
@@ -2790,24 +2798,26 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			break;
 		}
 
-		// If size reaches 1, stop, and override maxlevel.
 		int tw = gstate.getTextureWidth(i);
 		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			plan.levelsToLoad = i + 1;  // next level is assumed to be invalid
-			break;
-		}
 
+		// Note: this has to happen before the size-1 break below, or a level like 1x256 under a
+		// 256x256 level 0 is accepted as a valid mip and then decoded into an allocation sized
+		// from the halved level-0 dimensions, overrunning it.
 		if (i > 0) {
 			int lastW = gstate.getTextureWidth(i - 1);
 			int lastH = gstate.getTextureHeight(i - 1);
 
-			if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
-				if (tw != 1 && tw != (lastW >> 1))
-					plan.badMipSizes = true;
-				else if (th != 1 && th != (lastH >> 1))
-					plan.badMipSizes = true;
-			}
+			if (tw != 1 && tw != (lastW >> 1))
+				plan.badMipSizes = true;
+			else if (th != 1 && th != (lastH >> 1))
+				plan.badMipSizes = true;
+		}
+
+		// If size reaches 1, stop, and override maxlevel.
+		if (tw == 1 || th == 1) {
+			plan.levelsToLoad = i + 1;  // next level is assumed to be invalid
+			break;
 		}
 	}
 
