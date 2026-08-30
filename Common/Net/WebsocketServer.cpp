@@ -400,9 +400,10 @@ bool WebSocketServer::ReadFrame() {
 			return false;
 
 		mask = &header[10];
-		// Read from big endian.
-		uint64_t high = (header[2] << 24) | (header[3] << 16) | (header[4] << 8) | (header[5] << 0);
-		uint64_t low = (header[6] << 24) | (header[7] << 16) | (header[8] << 8) | (header[9] << 0);
+		// Read from big endian. Cast first: these promote to int, so a byte >= 0x80 in the top
+		// position would shift into the sign bit and then sign-extend into the u64.
+		uint64_t high = ((uint64_t)header[2] << 24) | ((uint64_t)header[3] << 16) | ((uint64_t)header[4] << 8) | (uint64_t)header[5];
+		uint64_t low = ((uint64_t)header[6] << 24) | ((uint64_t)header[7] << 16) | ((uint64_t)header[8] << 8) | (uint64_t)header[9];
 		sz = (high << 32) | low;
 
 		if ((sz & 0x8000000000000000ULL) != 0) {

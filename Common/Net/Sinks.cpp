@@ -358,6 +358,10 @@ bool OutputSink::Printf(const char *fmt, ...) {
 }
 
 bool OutputSink::Block() {
+	if (hasError_) {
+		// A broken socket reports as ready forever, so waiting on it would just spin.
+		return false;
+	}
 	if (!fd_util::WaitUntilReady((int)fd_, 5.0, true)) {
 		return false;
 	}
