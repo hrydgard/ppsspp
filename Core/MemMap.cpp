@@ -315,9 +315,16 @@ void MemoryMap_Shutdown() {
 #endif
 }
 
+// On some 32 bit platforms (like old Android, old iOS, etc.), there are/were restrictions on memory map sizes.
+// This particular size I can't find any sources for though.
+static const int MAX_MMAP_SIZE = 31 * 1024 * 1024;
+
+// Every size we actually use (32MB, 64MB, and the 76MB remasters) is a whole number of megabytes.
+static bool IsPlausibleMemorySize(u32 size) {
+	return size != 0 && size <= (u32)MAX_MMAP_SIZE * 3 && (size & 0xFFFFF) == 0;
+}
+
 bool Init(MemMapSetupFlags flags) {
-	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
-	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].flags & MV_IS_PRIMARY_RAM)
@@ -339,7 +346,9 @@ bool Init(MemMapSetupFlags flags) {
 	return true;
 }
 
-void Reinit() {
+// Returns false if the new map couldn't be set up - in which case there is no memory map at all,
+// and base is null. Callers must not carry on writing to guest memory.
+bool Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
 	// Held across both halves: between Shutdown() and Init() there is no memory map at all, and a
@@ -347,8 +356,9 @@ void Reinit() {
 	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
-	Init(flags);
+	const bool success = Init(flags);
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
+	return success;
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
@@ -397,8 +407,10 @@ void DoState(PointerWrap &p) {
 		p.DoMarker("PSPModel");
 		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
-			if (oldMemorySize < g_MemorySize) {
-				Reinit();
+			if (oldMemorySize < g_MemorySize && !Reinit()) {
+				ERROR_LOG(Log::MemMap, "Failed to reinit memory to %08x bytes", g_MemorySize);
+				p.SetError(PointerWrap::ERROR_FAILURE);
+				return;
 			}
 		}
 	} else {
@@ -408,8 +420,20 @@ void DoState(PointerWrap &p) {
 		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
 		Do(p, g_MemorySize);
-		if (oldMemorySize != g_MemorySize) {
+		if (p.mode == PointerWrap::MODE_READ && !IsPlausibleMemorySize(g_MemorySize)) {
+			// Straight out of the file, so don't hand it to Init() - a bogus size makes the map
+			// fail to allocate, and we'd carry on writing RAM through a null base.
+			ERROR_LOG(Log::MemMap, "Savestate specifies an implausible memory size: %08x", g_MemorySize);
+			g_MemorySize = oldMemorySize;
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
+		}
+		if (oldMemorySize != g_MemorySize && !Reinit()) {
+			ERROR_LOG(Log::MemMap, "Failed to reinit memory to %08x bytes, restoring %08x", g_MemorySize, oldMemorySize);
+			g_MemorySize = oldMemorySize;
 			Reinit();
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
 		}
 	}
 

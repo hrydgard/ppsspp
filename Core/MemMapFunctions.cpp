@@ -31,7 +31,7 @@ u8 *GetPointerWriteOrException(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
-		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
+		((address & 0x3FFFFFFF) >= 0x08000000 && (address & 0x3FFFFFFF) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerWriteUnchecked(address);
 	} else {
 		// Size is not known, we pass 0 to signal that.
@@ -44,7 +44,7 @@ const u8 *GetPointerOrException(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
-		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
+		((address & 0x3FFFFFFF) >= 0x08000000 && (address & 0x3FFFFFFF) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
 	} else {
 		// Size is not known, we pass 0 to signal that.
@@ -90,7 +90,7 @@ inline void ReadMemoryOrException(T &var, const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
-		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
+		((address & 0x3FFFFFFF) >= 0x08000000 && (address & 0x3FFFFFFF) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
 		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::READ_WORD);
@@ -103,7 +103,7 @@ inline void WriteMemoryOrException(u32 address, const T data) {
 	if ((address & 0x3E000000) == 0x08000000 || // RAM
 		(address & 0xBF800000) == 0x04000000 || // VRAM
 		(address & 0x3FFFC000) == 0x00010000 || // Scratchpad
-		((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
+		((address & 0x3FFFFFFF) >= 0x08000000 && (address & 0x3FFFFFFF) < 0x08000000 + g_MemorySize)) { // More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
 		Core_MemoryException(address, sizeof(T), currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
@@ -113,7 +113,7 @@ inline void WriteMemoryOrException(u32 address, const T data) {
 bool IsRAMAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+	} else if ((address & 0x3FFFFFFF) >= 0x08000000 && (address & 0x3FFFFFFF) < 0x08000000 + g_MemorySize) {
 		return true;
 	} else {
 		return false;
