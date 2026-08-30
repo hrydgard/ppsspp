@@ -133,6 +133,39 @@ static const DemangleCase codeWarriorCases[] = {
 	// A parameter type we can't decode still gets to keep its name.
 	{ "weird__3FooFZZZ",
 	  "Foo::weird(...)" },
+	// A pointer to a function needs the declarator wrapped, not just a "*" stuck on.
+	{ "__call_static_initializers__FPPFv_vPPFv_v",
+	  "__call_static_initializers(void (**)(), void (**)())" },
+	{ "GetCalcHeapSize__Q26hlSave14SaveDataBufferFPFi_i",
+	  "hlSave::SaveDataBuffer::GetCalcHeapSize(int (*)(int))" },
+	// Template arguments are spelled inside the length-prefixed name, and are themselves
+	// mangled types (or plain integers, for a non-type parameter).
+	{ "Init__Q26shList39CList<Q38hlScreen5Brwsr13CContentsUnit>FPCc",
+	  "shList::CList<hlScreen::Brwsr::CContentsUnit>::Init(const char *)" },
+	{ "Reset__Q28shString15CSimpleChar<24>Fv",
+	  "shString::CSimpleChar<24>::Reset()" },
+	{ "AddItem__Q26shList47CList<Q26ssTool29tag_<Q26shFont12SysCmdString>>FPQ26ssTool29tag_<Q26shFont12SysCmdString>",
+	  "shList::CList<ssTool::tag_<shFont::SysCmdString>>::AddItem(ssTool::tag_<shFont::SysCmdString> *)" },
+	// A function template puts them in the base name instead, and encodes its return type.
+	{ "sort<Pf>__3stdFPfPf_v",
+	  "void std::sort<float *>(float *, float *)" },
+	// Compiler-generated symbols that wrap a mangled name rather than being one.
+	{ "__vt__Q23std9exception",
+	  "vtable for std::exception" },
+	{ "__RTTI__Q23std9exception",
+	  "typeinfo for std::exception" },
+	{ "__sinit_hl_app.cpp",
+	  "static initializers for hl_app.cpp" },
+	{ "@12@__dt__3SonFv",
+	  "non-virtual thunk (12) to Son::~Son()" },
+	{ "@STRING@what__Q23std9exceptionCFv",
+	  "string literal in std::exception::what() const" },
+	{ "@STRING@Get_BGM__Q25hlBHC4SBhcFi@0",
+	  "string literal 0 in hlBHC::SBhc::Get_BGM(int)" },
+	{ "@LOCAL@sort<Pf>__3stdFPfPf_v@shuffle@0",
+	  "void std::sort<float *>(float *, float *)::shuffle" },
+	{ "@GUARD@app$16079",
+	  "guard variable for app$16079" },
 };
 
 // SN Systems (SNC/ProDG). Same caveat as above, plus the format itself is reverse
@@ -144,6 +177,57 @@ static const DemangleCase snSystemsCases[] = {
 	  "std::Terminate()" },
 	{ "__0F5INTskMenuKEventInit_6LtagSTaskHdl",
 	  "NTskMenu::EventInit_(tagSTaskHdl)" },
+	// A member function, and one in a namespace. The kind character decides how many name
+	// components there are; a "5" marks an extra enclosing one.
+	{ "__0fLCHeapMemoryFAlloci",
+	  "CHeapMemory::Alloc(int)" },
+	{ "__0f5FsoundMCSoundPlayerPGetPlayerObjectUi",
+	  "sound::CSoundPlayer::GetPlayerObject(unsigned int)" },
+	{ "__0fLCHeapMemoryKGetUseSizevK",
+	  "CHeapMemory::GetUseSize() const" },
+	// Constructors, destructors and operators, member and global.
+	{ "__0oLCHeapMemoryctv",
+	  "CHeapMemory::CHeapMemory()" },
+	{ "__0oLCHeapMemorydtv",
+	  "CHeapMemory::~CHeapMemory()" },
+	{ "__0OnwUi",
+	  "operator new(unsigned int)" },
+	// operator new is implicitly static, which is what the trailing "T" marks.
+	{ "__0oECMsgnwaUiT",
+	  "static CMsg::operator new[](unsigned int)" },
+	// Data, which has nothing after the name at all.
+	{ "__0dLCHeapMemoryG__vtbl",
+	  "CHeapMemory::__vtbl" },
+	// "T<index>" repeats an earlier parameter, "N<count><index>" repeats it several times,
+	// and "9<index>A" refers back to a template argument.
+	{ "__0FDmax7f_RC9BATB_RC9BA",
+	  "const float & max<float>(const float &, const float &)" },
+	{ "__0FFClamp7i_RC9BANCB_RC9BA",
+	  "const int & Clamp<int>(const int &, const int &, const int &)" },
+	{ "__0FKRadixSortSPUiNCBUi",
+	  "RadixSortS(unsigned int *, unsigned int *, unsigned int *, unsigned int)" },
+	// Non-type template arguments: "0" is worth 52 each, and "8<len>" escapes to decimal.
+	{ "__0dKTFixString748D512_G__vtbl",
+	  "TFixString<512>::__vtbl" },
+	{ "__0fLCFileListup74000s_LGetListFilei_R6KTFixString748D512_",
+	  "TFixString<512> & CFileListup<200>::GetListFile(int)" },
+	// Declarators have to be wrapped, not just suffixed.
+	{ "__0F5DstdNset_terminatePFv_v",
+	  "std::set_terminate(void (*)())" },
+	{ "__0FKdecode_mcuP6Wjpeg_decompress_structPPA0Ms",
+	  "decode_mcu(jpeg_decompress_struct *, short (**) [64])" },
+	{ "__0FS_AfxDispatchCmdMsgP6KCCmdTargetUiiPMKCCmdTargetFR6KCCmdTarget_vPvTCP6SAFX_CMDHANDLERINFO",
+	  "_AfxDispatchCmdMsg(CCmdTarget *, unsigned int, int, void (CCmdTarget::*)(CCmdTarget &), void *, unsigned int, AFX_CMDHANDLERINFO *)" },
+	// Compiler-generated symbols. These spell an enclosing namespace as a plain component
+	// rather than marking it with a "5".
+	{ "__TID_LCHeapMemory",
+	  "type id for CHeapMemory" },
+	{ "__T_DstdIbad_cast",
+	  "typeinfo for std::bad_cast" },
+	{ "__TID_v",
+	  "type id for void" },
+	{ "__sti__CHeapMemory_cpp",
+	  "static initializers for CHeapMemory_cpp" },
 };
 
 // Things that aren't Itanium-mangled names, or that we deliberately don't try to parse.
@@ -162,6 +246,12 @@ static const char *notMangled[] = {
 	"_Z3fooIXadL_Z1xEEEvv", // An <expression> template argument - no expression parser.
 	"Foo__Bar",             // A "__" that isn't a CodeWarrior separator.
 	"a__b__c",
+	// The same, but where the tail happens to start with an "F" and a valid type code, so
+	// only the lack of a class qualifier tells it apart from a real mangled name.
+	"I3dClut__FlushCache",
+	"@10046",               // An anonymous string constant: nothing to demangle.
+	"__adddf3",             // A C runtime name that starts like an SN Systems one.
+	"__sti",
 	"__0",                  // Too short to be an SN Systems name.
 	// A CodeWarrior template name, truncated by a 127-character symbol table limit. The
 	// length prefixes no longer match what's left, so there's nothing to recover.

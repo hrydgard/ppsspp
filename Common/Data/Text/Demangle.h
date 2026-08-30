@@ -41,7 +41,8 @@ bool DemangleItanium(std::string_view mangled, std::string *out);
 struct DemangledSymbol {
 	std::string name;        // Qualified, no parameters: "ANIMEData::operator=".
 	std::string parameters;  // What goes between the parens. Empty means "()".
-	std::string returnType;  // Usually empty - neither format encodes it in most cases.
+	std::string returnType;  // Usually empty - only templates encode one. Also carries the
+	                         // "static" of an SN Systems static member function.
 	std::string qualifiers;  // "const" and friends, printed after the parameter list.
 	bool isFunction = false; // False for data symbols, where there are no parens at all.
 
@@ -49,9 +50,11 @@ struct DemangledSymbol {
 };
 
 // Metrowerks CodeWarrior: "getDistance__6KzUtilFP7st_unitP7st_unit".
+// See docs/CodeWarriorMangling.md.
 bool DemangleCodeWarrior(std::string_view mangled, DemangledSymbol *out);
 
-// SN Systems (SNC/ProDG): "__0f5DstdIbad_castEwhatvK".
+// SN Systems (SNC/ProDG): "__0fLCHeapMemoryFAlloci".
+// See docs/SNSystemsMangling.md.
 bool DemangleSNSystems(std::string_view mangled, DemangledSymbol *out);
 
 // Convenience wrapper: tries all three manglings and returns the demangled name, or a

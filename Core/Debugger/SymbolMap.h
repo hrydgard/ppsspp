@@ -217,7 +217,7 @@ private:
 	struct LabelEntry {
 		u32 addr;
 		int module;
-		char name[128];
+		char name[256];
 	};
 
 	struct DataEntry {
@@ -232,7 +232,7 @@ private:
 		int index;
 		u32 start;
 		u32 size;
-		char name[128];
+		char name[256];
 		// 0 = unknown. See AddModule.
 		u32 crc = 0;
 	};
