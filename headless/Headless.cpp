@@ -82,6 +82,8 @@ static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
 static bool g_writeFailureScreenshot = true;
 static bool g_writeDebugOutput = true;
+// Set from the savestate callback on the emu thread, read after it has been joined.
+static bool g_stateLoadFailed = false;
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -339,6 +341,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double deadline = time_now_d() + opt.timeout;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
+		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
+		// app. Without this, --state silently did nothing at all.
+		SaveState::Process();
+
 		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
 
@@ -873,7 +879,14 @@ int main(int argc, const char* argv[]) {
 	}
 
 	if (stateToLoad) {
-		SaveState::Load(Path(stateToLoad), -1);
+		// Queued now, actually applied by SaveState::Process() once the game is up and running.
+		SaveState::Load(Path(stateToLoad), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+			// The message already reads as a full sentence, e.g. "Failed to load state: <reason>".
+			fprintf(stderr, "%.*s\n", (int)message.size(), message.data());
+			if (status == SaveState::Status::FAILURE) {
+				g_stateLoadFailed = true;
+			}
+		});
 	}
 
 	std::string errorMessage;
@@ -890,6 +903,11 @@ int main(int argc, const char* argv[]) {
 	}, &errorMessage)) {
 		// No fallbacks in headless - if we can't run it, we can't. Let's not get confusing.
 		fprintf(stderr, "Failed to initialize graphics surface: %s\n", errorMessage.c_str());
+		retval = 1;
+	}
+
+	if (g_stateLoadFailed && retval == 0) {
+		// Whatever the run itself reported, the state we were told to load never got applied.
 		retval = 1;
 	}
 
