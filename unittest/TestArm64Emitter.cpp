@@ -4,6 +4,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Util/DisArm64.h"
 
+#include <cfloat>
 #include <string.h>
 
 #include "UnitTest.h"
