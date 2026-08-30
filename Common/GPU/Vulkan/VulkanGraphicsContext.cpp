@@ -61,6 +61,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/Data/Text/Parsers.h"
+#include "Common/StringUtils.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 #ifdef _DEBUG
@@ -119,7 +120,17 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 }
 
 bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) {
-	vulkan_->InitSurface(winsys, data1, data2);
+	// Don't proceed on failure - without a surface there's no present mode, no swapchain and no queue,
+	// so everything below would just fail in more confusing ways further down (it used to assert deep
+	// inside the thin3d context constructor). Let the caller fall back to another backend instead.
+	VkResult res = vulkan_->InitSurface(winsys, data1, data2);
+	if (res != VK_SUCCESS) {
+		*errorMessage = vulkan_->InitError();
+		if (errorMessage->empty()) {
+			*errorMessage = StringFromFormat("Failed to initialize Vulkan surface: %s", VulkanResultToString(res));
+		}
+		return false;
+	}
 
 	bool useMultiThreading = g_Config.bRenderMultiThreading;
 	if (g_Config.iInflightFrames == 1) {

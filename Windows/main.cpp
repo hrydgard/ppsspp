@@ -1251,8 +1251,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			[](GraphicsContext *graphicsContext) {
 				NativeFrame(graphicsContext);
 				return GetUIState() != UISTATE_EXIT;
-		})) {
-			HandleGraphicsFailure("Failed to initialize main thread function.");
+		}, &errorMessage)) {
+			HandleGraphicsFailure(errorMessage);
 			return;
 		}
 		graphicsContext->ShutdownAPI();
