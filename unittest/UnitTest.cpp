@@ -2228,6 +2228,12 @@ static bool TestPath() {
 	Path path3 = path2 / "foo/bar";
 	EXPECT_EQ_STR(path3.WithExtraExtension(".txt").ToString(), std::string("/asdf/jkl/foo/bar.txt"));
 
+	// An empty base does NOT anchor anything - the component is simply taken as-is. Anything
+	// joining a user-configured directory with a request-supplied component has to check the base
+	// itself (see LocalFromRemotePath in Core/WebServer.cpp, where this was a filesystem-wide leak).
+	EXPECT_EQ_STR((Path("") / "/etc/passwd").ToString(), std::string("/etc/passwd"));
+	EXPECT_EQ_INT((Path("") / "/etc/passwd").empty(), false);
+
 	EXPECT_EQ_STR(Path("foo.bar/hello").GetFileExtension(), std::string());
 	EXPECT_EQ_STR(Path("foo.bar/hello.txt").WithReplacedExtension(".txt", ".html").ToString(), std::string("foo.bar/hello.html"));
 
