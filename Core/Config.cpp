@@ -1382,7 +1382,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Load post process shader values
 	mPostShaderSetting.clear();
 	for (const auto &[key, value] : postShaderSetting->ToMap()) {
-		mPostShaderSetting[key] = std::stof(value);
+		// The ini is user-editable, and std::stof throws - which would take the process down
+		// during startup config load. LoadGameConfig already parses this section this way.
+		float f = 0.0f;
+		if (sscanf(value.c_str(), "%f", &f) == 1) {
+			mPostShaderSetting[key] = f;
+		} else {
+			WARN_LOG(Log::Config, "Invalid float value string for param %s: '%s'", key.c_str(), value.c_str());
+		}
 	}
 
 	const Section *hostOverrideSetting = iniFile.GetOrCreateSection("HostAliases");
@@ -1955,7 +1962,12 @@ void Config::UnloadGameConfig() {
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
 	for (const auto &[k, v] : postShaderSetting) {
-		mPostShaderSetting[k] = std::stof(v);
+		float f = 0.0f;
+		if (sscanf(v.c_str(), "%f", &f) == 1) {
+			mPostShaderSetting[k] = f;
+		} else {
+			WARN_LOG(Log::Config, "Invalid float value string for param %s: '%s'", k.c_str(), v.c_str());
+		}
 	}
 
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
