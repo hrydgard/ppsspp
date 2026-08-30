@@ -644,20 +644,29 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 
 	u32 n = (u32) fileSystems.size();
 	Do(p, n);
-	bool skipPfat0 = false;
-	if (n != (u32) fileSystems.size()) {
-		if (n == (u32) fileSystems.size() - 1) {
-			skipPfat0 = true;
-		} else {
-			p.SetError(p.ERROR_FAILURE);
-			ERROR_LOG(Log::FileSystem, "Savestate failure: number of filesystems doesn't match.");
-			return;
-		}
+
+	// The mounts are serialized positionally, one section each and no length to skip by, so a
+	// savestate from an older build is simply missing the sections for mounts that didn't exist
+	// yet - and we have to leave out exactly those to stay lined up. Most recently added first.
+	static const char * const mountsAddedOverTime[] = { "flash1:", "pfat0:" };
+
+	const size_t missing = n < (u32)fileSystems.size() ? fileSystems.size() - n : 0;
+	if (n > (u32)fileSystems.size() || missing > ARRAY_SIZE(mountsAddedOverTime)) {
+		p.SetError(p.ERROR_FAILURE);
+		ERROR_LOG(Log::FileSystem, "Savestate failure: number of filesystems doesn't match (%d in state, %d mounted).", (int)n, (int)fileSystems.size());
+		return;
 	}
 
-	for (u32 i = 0; i < n; ++i) {
-		if (!skipPfat0 || fileSystems[i].prefix != "pfat0:") {
-			fileSystems[i].system->DoState(p);
+	for (const MountPoint &mount : fileSystems) {
+		bool skip = false;
+		for (size_t i = 0; i < missing; i++) {
+			if (mount.prefix == mountsAddedOverTime[i]) {
+				skip = true;
+				break;
+			}
+		}
+		if (!skip) {
+			mount.system->DoState(p);
 		}
 	}
 }
