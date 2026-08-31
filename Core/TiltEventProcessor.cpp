@@ -55,6 +55,13 @@ inline float ApplyDeadzoneAxis(float x, float deadzone) {
 
 inline void ApplyDeadzoneXY(float x, float y, float *adjustedX, float *adjustedY, float deadzone, bool circular) {
 	if (circular) {
+		if (deadzone >= 0.99f) {
+			// Same guard as ApplyDeadzoneAxis - without it the factor below divides by ~0.
+			*adjustedX = x;
+			*adjustedY = y;
+			return;
+		}
+
 		if (x == 0.0f && y == 0.0f) {
 			*adjustedX = 0.0f;
 			*adjustedY = 0.0f;
