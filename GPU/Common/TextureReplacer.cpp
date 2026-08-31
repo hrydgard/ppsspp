@@ -109,6 +109,12 @@ void TextureReplacer::NotifyConfigChanged() {
 	}
 
 	if (!replaceEnabled_ && wasReplaceEnabled) {
+		// Everything in levelCache_ holds this pointer - LoadIni fixes them up when it swaps the
+		// VFS, and the same has to happen here or they're left dangling. Decimate(ALL) below only
+		// frees their data, it doesn't erase the entries.
+		for (auto &repl : levelCache_) {
+			repl.second->vfs_ = nullptr;
+		}
 		delete vfs_;
 		vfs_ = nullptr;
 		Decimate(ReplacerDecimateMode::ALL);
@@ -178,6 +184,14 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename)) {
 			if (overrideFilename == "true") {
 				// Ignore it
+			} else if (HasParentDirComponent(overrideFilename)) {
+				// Same reason the [hashes] filenames are checked: for a directory-backed pack,
+				// DirectoryReader resolves this against the pack directory, so "../.." reaches
+				// anything on disk. Third-party packs are just downloads.
+				*error = "Override ini name must stay inside the pack: '" + overrideFilename + "'";
+				ERROR_LOG(Log::TexReplacement, "%s", error->c_str());
+				delete dir;
+				return false;
 			} else if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
 				IniFile overrideIni;
 				iniLoaded = overrideIni.LoadFromVFS(*dir, overrideFilename);

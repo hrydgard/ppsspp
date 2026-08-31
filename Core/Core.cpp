@@ -913,7 +913,7 @@ void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, Memor
 	// We try to derive the reason here, though maybe it should be passed in explicitly?
 	// TODO: This check should probably be added to regular memory accesses too.
 	if (Memory::IsValidAddress(address)) {
-		if (accessSize == 2 || accessSize == 4 || accessSize == 8 || (address & (accessSize - 1))) {
+		if ((accessSize == 2 || accessSize == 4 || accessSize == 8) && (address & (accessSize - 1))) {
 			extra = " (unaligned)";
 		} else if (accessSize > 8 && (accessSize & 3)) {
 			extra = " (unaligned struct)";

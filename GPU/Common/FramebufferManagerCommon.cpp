@@ -2627,7 +2627,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 
 	if (srcRect.channel == RASTER_DEPTH) {
 		// Ignore the found buffer if it's not 16-bit - we create a new more suitable one instead.
-		if (dstRect.channel == RASTER_COLOR && dstRect.vfb->fb_format == GE_FORMAT_8888) {
+		if (dstBuffer && dstRect.channel == RASTER_COLOR && dstRect.vfb->fb_format == GE_FORMAT_8888) {
 			dstBuffer = false;
 		}
 	}
