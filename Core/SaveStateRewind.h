@@ -65,6 +65,10 @@ private:
 
 	std::vector<RewindState> states_;
 	StateBuffer bases_[2];
+	// Which generation each base slot currently holds, and which generation each state was
+	// compressed against. There are more states than bases, so states do go stale.
+	int baseGeneration_[2] = {-1, -1};
+	int nextBaseGeneration_ = 0;
 	std::vector<int> baseMapping_;
 	std::mutex lock_;
 	std::thread compressThread_;

@@ -955,7 +955,8 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 
 static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, bool *pixelMappedExactly) {
 	// Before we start, do a sanity check - does the output fit?
-	if ((vertexCount / 2) * 6 > indsSize) {
+	// The expanded indices are written after the input ones, at inds + vertexCount.
+	if (vertexCount + (vertexCount / 2) * 6 > indsSize) {
 		// Won't fit, kill the draw.
 		return false;
 	}
@@ -1128,7 +1129,8 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize) {
 
 static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
-	if ((vertexCount / 2) * 6 > indsSize) {
+	// The expanded indices are written after the input ones, at inds + vertexCount.
+	if (vertexCount + (vertexCount / 2) * 6 > indsSize) {
 		// Won't fit, kill the draw.
 		return false;
 	}
@@ -1261,7 +1263,8 @@ static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u1
 
 static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, float pointScale) {
 	// Before we start, do a sanity check - does the output fit?
-	if (vertexCount * 6 > indsSize) {
+	// The expanded indices are written after the input ones, at inds + vertexCount.
+	if (vertexCount + vertexCount * 6 > indsSize) {
 		// Won't fit, kill the draw.
 		return false;
 	}
@@ -1487,9 +1490,11 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
 	const bool throughMode = (vertTypeID & GE_VTYPE_THROUGH) != 0;
 
-	// Points is the only primitive that generates 6x as many vertices as input indices (2 triangles per point).
+	// Two expansions happen in here, and both multiply the input count, so a fixed 65536 wasn't
+	// enough: index generation turns strips/fans into up to 3 indices per input index, and then
+	// RunSoftwareTransform can expand points/lines/rects to 6 more each, written after those.
 	std::vector<u16> indexTemp;
-	indexTemp.resize(65536); // (prim == GEPrimitiveType::GE_PRIM_POINTS ? count * 6 : count * 3) * 4);
+	indexTemp.resize((size_t)count * 3 * 7 + 32);
 
 	// First, inspect the indices to find the range we need to decode.
 	const u8 *indsPtr = Memory::GetPointerUnchecked(gstate_c.indexAddr);
