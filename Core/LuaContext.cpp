@@ -98,6 +98,14 @@ void LuaContext::Print(LogLineType type, std::string_view text) {
 }
 
 void LuaContext::ExecuteConsoleCommand(std::string_view cmd) {
+	if (!lua_) {
+		// Init() only runs on game load and Shutdown() nulls this back out, but the ImDebugger draws
+		// the Lua console outside its PSP_IsInited() check - and whether it's open is persisted
+		// config, so it can be up with no game loaded at all.
+		Print(LogLineType::Error, "No Lua state - load a game first.");
+		return;
+	}
+
 	// TODO: Also rewrite expressions like:
 	// print "hello"
 	// to
