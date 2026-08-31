@@ -25,6 +25,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/ViewGroup.h"
 
 #include "Core/Config.h"
@@ -33,6 +34,7 @@
 
 #include "UI/InstallUpdateScreen.h"
 #include "UI/MiscViews.h"
+#include "UI/EmuScreen.h"
 
 // An updater carries one file list per hardware revision, and anything the chosen model's list
 // doesn't name isn't part of its firmware. Unpacking the model we claim to be keeps flash0
@@ -92,6 +94,11 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	installChoice_ = container->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 	installChoice_->OnClick.Add([this](UI::EventParams &e) {
 		StartInstall();
+	});
+
+	Choice *runChoice = container->Add(new Choice(iz->T("Run"), ImageID("I_PLAY")));
+	runChoice->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->switchScreen(new EmuScreen(path_));
 	});
 
 	progressBar_ = container->Add(new ProgressBar());
