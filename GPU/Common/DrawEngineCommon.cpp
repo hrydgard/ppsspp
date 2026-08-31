@@ -755,14 +755,23 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		if (numDrawInds >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX) {
 			break;
 		}
-		DeferredInds &di = drawInds_[numDrawInds++];
-		di.indexType = 0;
-		di.prim = newPrim;
-		seenPrims |= (1 << newPrim);
-		di.clockwise = clockwise;
-		di.vertexCount = vertexCount;
-		di.vertDecodeIndex = prevDrawVerts;
-		di.offset = offset;
+		// SubmitPrim rounds a GE_PRIM_TRIANGLES count down to a multiple of 3 (issue #7503) after
+		// having already counted the full vertex data, so do both here too - otherwise a 4-vertex
+		// triangle prim taking this path emits two triangles instead of one.
+		int indexCount = vertexCount;
+		if (newPrim == GE_PRIM_TRIANGLES) {
+			indexCount -= indexCount % 3;
+		}
+		if (indexCount > 0) {
+			DeferredInds &di = drawInds_[numDrawInds++];
+			di.indexType = 0;
+			di.prim = newPrim;
+			seenPrims |= (1 << newPrim);
+			di.clockwise = clockwise;
+			di.vertexCount = indexCount;
+			di.vertDecodeIndex = prevDrawVerts;
+			di.offset = offset;
+		}
 		offset += vertexCount;
 		cmd++;
 	}
