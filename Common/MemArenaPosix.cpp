@@ -97,7 +97,11 @@ bool MemArena::GrabMemSpace(size_t size) {
 	}
 	if (ftruncate(fd, size) != 0) {
 		ERROR_LOG(Log::MemMap, "Failed to ftruncate %d (%s) to size %08x", (int)fd, ram_temp_file.c_str(), (int)size);
-		// Should this be a failure?
+		// This is a failure: the mmaps below succeed against a short file, and touching a page past
+		// its end raises SIGBUS - which is only hooked on __APPLE__, so elsewhere it's a bare crash.
+		close(fd);
+		fd = -1;
+		return false;
 	}
 #endif
 	return true;
