@@ -4,6 +4,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Util/DisArm64.h"
 
+#include <cfloat>
 #include <string.h>
 
 #include "UnitTest.h"
@@ -281,6 +282,21 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "b2401461 orr x1, x3, #0x3f"));
 	emitter.EORI2R(X1, X3, 0x3F0000003F0, INVALID_REG);
 	RET(CheckLast(emitter, "d21c1461 eor x1, x3, #0x3f0000003f0"));
+
+	// Regression test: TryMOVI(8) used to claim it could encode any value ("can always do 8"),
+	// and TryAnyMOVI always tries element size 8 first - so this emitted "movi v0.16b, #0xff",
+	// a quiet NaN, instead of FLT_MAX. That silently disabled the vertex decoder's infinity clamp,
+	// since FMINNM/FMAXNM just return the other operand when one side is a quiet NaN.
+	{
+		const u8 *start = emitter.GetCodePointer();
+		fp.MOVI2FDUP(Q0, FLT_MAX, X1);
+		EXPECT_EQ_INT((int)(emitter.GetCodePointer() - start), 8);
+		u32 instrs[2];
+		memcpy(instrs, start, sizeof(instrs));
+		// mvni v0.4s, #0x80, lsl #16 (that's -FLT_MAX), then negate it.
+		EXPECT_EQ_HEX(instrs[0], 0x6F044400);
+		EXPECT_EQ_HEX(instrs[1], 0x6EA0F800);
+	}
 
 	printf("ARM64 emitter test completed!\n");
 	//emitter.ANDI2R(W1, W3, 0xFF00FF00FF00FF00ULL, INVALID_REG);
