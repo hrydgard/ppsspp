@@ -213,6 +213,13 @@ void InputSink::Fill() {
 			return;
 		}
 
+		if (bytes == 0 && avail > 0) {
+			// recv() returning 0 on a non-empty request means the peer closed. Sticky: nothing more
+			// will ever arrive, and anything waiting for more has to stop rather than poll forever.
+			atEnd_ = true;
+			return;
+		}
+
 		// Okay, move forward (might be by zero.)
 		valid_ += bytes;
 		write_ += bytes;
@@ -223,12 +230,17 @@ void InputSink::Fill() {
 }
 
 bool InputSink::Block() {
+	if (atEnd_ || hasError_) {
+		// Nothing can arrive any more. Without this we'd spin: a closed socket is always "ready",
+		// so WaitUntilReady returns immediately and Fill() reads nothing, forever.
+		return false;
+	}
 	if (!fd_util::WaitUntilReady((int)fd_, 5.0)) {
 		return false;
 	}
 
 	Fill();
-	return true;
+	return !atEnd_;
 }
 
 void InputSink::AccountDrain(size_t bytes) {
@@ -346,6 +358,10 @@ bool OutputSink::Printf(const char *fmt, ...) {
 }
 
 bool OutputSink::Block() {
+	if (hasError_) {
+		// A broken socket reports as ready forever, so waiting on it would just spin.
+		return false;
+	}
 	if (!fd_util::WaitUntilReady((int)fd_, 5.0, true)) {
 		return false;
 	}

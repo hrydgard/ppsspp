@@ -651,6 +651,16 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		}
 		progress.AddBytes(readBytes);
 		bytesTransferred += readBytes;
+		if (readBytes == 0 && !terminatorFound && (request.In()->AtEnd() || request.In()->HasError())) {
+			// Peer went away mid-upload (a cancelled browser upload, say). Without this the loop
+			// spins forever, which also blocks web server shutdown since it joins its threads.
+			ERROR_LOG(Log::HTTP, "Connection closed during upload of '%s'", filename.c_str());
+			if (fp) {
+				fclose(fp);
+				File::Delete(destPath);
+			}
+			return MultiPartResult::RequestError;
+		}
 		if (terminatorFound) {
 			INFO_LOG(Log::HTTP, "Found terminator, skipping and proceeding.");
 			break;
