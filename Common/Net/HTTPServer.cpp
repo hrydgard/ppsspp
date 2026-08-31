@@ -44,14 +44,37 @@
 
 
 void NewThreadExecutor::Run(std::function<void()> func) {
-	threads_.push_back(std::thread(func));
+	// Every connection gets a thread, and we only ever joined them at shutdown - so a server that
+	// had served N connections was still holding N joinable std::threads. Reap the finished ones.
+	Prune();
+
+	auto done = std::make_shared<std::atomic<bool>>(false);
+	Worker worker;
+	worker.done = done;
+	worker.thread = std::thread([func, done]() {
+		func();
+		done->store(true, std::memory_order_release);
+	});
+	workers_.push_back(std::move(worker));
+}
+
+void NewThreadExecutor::Prune() {
+	for (size_t i = 0; i < workers_.size(); ) {
+		if (workers_[i].done->load(std::memory_order_acquire)) {
+			// Set right at the end of the thread body, so this join returns essentially at once.
+			workers_[i].thread.join();
+			workers_.erase(workers_.begin() + i);
+		} else {
+			++i;
+		}
+	}
 }
 
 NewThreadExecutor::~NewThreadExecutor() {
 	// If Run was ever called...
-	for (auto &thread : threads_)
-		thread.join();
-	threads_.clear();
+	for (auto &worker : workers_)
+		worker.thread.join();
+	workers_.clear();
 }
 
 namespace http {
