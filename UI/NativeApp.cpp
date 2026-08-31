@@ -515,9 +515,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	IncrementDebugCounter(DebugCounter::APP_BOOT);
 
-	// Probably an excessive timeout. it only causes delays on shutdown, though.
-	__UPnPInit(2000);
-
 	ShaderTranslationInit();
 
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -595,11 +592,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		g_Config.defaultCurrentDirectory = Path(external_dir);
 	}
 
-	// Might also add an option to move it to internal / non-visible storage, but there's
-	// little point, really.
-
-	g_Config.flash0Directory = Path(external_dir) / "flash0";
-
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(Log::System, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
@@ -650,13 +642,10 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 #elif PPSSPP_PLATFORM(IOS)
 	g_Config.defaultCurrentDirectory = g_Config.internalDataDirectory;
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
-	g_Config.flash0Directory = Path(external_dir) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
-	g_Config.flash0Directory = Path(external_dir) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory / "config/ppsspp";
-	g_Config.flash0Directory = g_Config.internalDataDirectory / "assets/flash0";
 #elif PPSSPP_PLATFORM(WINDOWS)
 	// ...
 #else
@@ -669,7 +658,6 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		config = "./config";
 
 	g_Config.memStickDirectory = Path(config) / "ppsspp";
-	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 	if (getenv("HOME") != nullptr) {
 		g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
 	} else {
@@ -682,6 +670,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
+
+	// Mount a filesystem
+	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
 
 	if (cache_dir && strlen(cache_dir)) {
 		g_Config.appCacheDirectory = Path(cache_dir);
@@ -701,14 +692,19 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	cmdLineOptions.ApplyToConfig();
 
 	boot_filename.clear();
-	if (boot_filename.empty() && cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
-		boot_filename = g_Config.flash0Directory / "vsh/module/vshmain.prx";
+	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
+		boot_filename = g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
 	}
 
 	if (cmdLineOptions.appendConfig.has_value()) {
 		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
 		g_Config.LoadAppendedConfig();
 	}
+
+	// Has to be after the config is loaded: it only starts a service thread if UPnP is enabled,
+	// and g_Config.Init() above doesn't read the ini, it just builds a lookup table.
+	// Probably an excessive timeout. It only causes delays on shutdown, though.
+	__UPnPInit(2000);
 
 	// This parameter should be a boot filename. Only accept it if we
 	// don't already have one.
@@ -1273,8 +1269,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	{
 		std::lock_guard<std::mutex> emuStateGuard(g_frameMutex);
 
-		g_breakpoints.Frame();
-
 		// Apply the UIContext bounds as a 2D transformation matrix.
 		// NOTE: We compensate for the Y and Z conventions in the shaders, so we can use the same matrices in all backends.
 		Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, g_draw->GetDeviceCaps().coordConvention);
@@ -1286,12 +1280,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 		g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-		// Drain any work queued by Core_RunOnCPUThread() from other threads. Core_RunLoopUntil()
-		// (called from within render() below, but only while a game is actually loaded/running)
-		// also does this, but that path isn't reached at all outside a game - e.g. from the main
-		// menu - so queued work would otherwise hang forever waiting for it. See Core_ProcessCPUQueue()
-		// in Core.h.
-		Core_ProcessCPUQueue();
+		if (GetUIState() != UISTATE_INGAME) {
+			// In case there are any cross thread requests outside the game.
+			Core_ProcessCPUQueue();
+		}
 
 		// All actual rendering (and also emulation) happens in this render() call.
 		renderFlags = g_screenManager->Render([]() {
@@ -1673,12 +1665,13 @@ bool NativeKey(const KeyInput &key) {
 		modifierFlags |= KeyInputFlags::ModMeta;
 	}
 
-	KeyInput modKey = key;
-	modKey.flags |= modifierFlags;
+	// Everything below here gets the key with the modifiers attached, since that's what the
+	// keyboard shortcuts in the screens are matched against.
+	const KeyInput modKey{ key.deviceId, key.keyCode, key.flags | modifierFlags };
 
 	bool retval = false;
 
-	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(key);
+	UI::KeyEventResult kev = UI::KeyEventToFocusMoves(modKey);
 	if (!(key.flags & KeyInputFlags::IS_REPEAT)) {
 		// If a repeat, we follow what KeyEventToFocusMoves set it to.
 		// Otherwise we signal that we used the key, always.
@@ -1699,7 +1692,7 @@ bool NativeKey(const KeyInput &key) {
 	// Queue up the key event for synchronous processing in the UI.
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::KEY;
-	ev.key = key;
+	ev.key = modKey;
 	{
 		std::lock_guard<std::mutex> guard(g_inputEventQueueLock);
 		g_inputEventQueue.push_back(ev);
@@ -1865,8 +1858,6 @@ void NativeShutdown() {
 	ShutdownWebServer();
 
 	__UPnPShutdown();
-
-	g_PortManager.Shutdown();
 
 	net::Shutdown();
 

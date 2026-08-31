@@ -159,7 +159,7 @@ uint32_t PackDepalBits(bool pixelMapped) {
 	uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
 	// NOTE: This must follow similar logic to TextureCacheCommon::GetSamplingParams -
 	// maybe we can share it somehow.
-	// TOOD: Handle replaced textures.
+	// TODO: Handle replaced textures.
 	bool bilinear = gstate.isMagnifyFilteringEnabled() && !pixelMapped;
 	switch (g_Config.iTexFiltering) {
 	case TEX_FILTER_FORCE_NEAREST:

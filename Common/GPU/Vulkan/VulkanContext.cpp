@@ -907,9 +907,13 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
 		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
-	} else {
-		VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanDeviceApiVersion_);
+		// Don't fall through - there's nothing below that makes sense without a device, and creating the
+		// VMA allocator on a null one asserts. The caller falls back to another backend on failure.
+		return res;
 	}
+
+	VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanDeviceApiVersion_);
+
 	INFO_LOG(Log::G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
 
 	// Since we successfully created a device (however we got here, might be interesting in debug), we force the choice to be visible in the menu.
@@ -1312,10 +1316,14 @@ VkResult VulkanContext::ReinitSurface() {
 	}
 
 	if (retval != VK_SUCCESS) {
+		init_error_ = StringFromFormat("Failed to create a Vulkan surface for window system %s: %s", WindowSystemToString(winsys_), VulkanResultToString(retval));
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
 		return retval;
 	}
 
 	if (!ChooseQueue()) {
+		init_error_ = "Failed to find a Vulkan queue and surface format that can present to the window";
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
@@ -1332,6 +1340,13 @@ VkResult VulkanContext::ReinitSurface() {
 		availablePresentModes_.resize(presentModeCount);
 		res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, availablePresentModes_.data());
 		_dbg_assert_(res == VK_SUCCESS);
+	}
+	if (res != VK_SUCCESS || availablePresentModes_.empty()) {
+		// Should be impossible - the spec guarantees at least FIFO for any surface we could create.
+		availablePresentModes_.clear();
+		init_error_ = StringFromFormat("Failed to enumerate Vulkan present modes: %s (count %d)", VulkanResultToString(res), (int)presentModeCount);
+		ERROR_LOG(Log::G3D, "%s", init_error_.c_str());
+		return res != VK_SUCCESS ? res : VK_ERROR_INITIALIZATION_FAILED;
 	}
 	return VK_SUCCESS;
 }
@@ -1845,7 +1860,12 @@ void finalize_glslang() {
 	glslang::FinalizeProcess();
 }
 
+// NOTE: Every vector in the class has to be listed both here and in PerformDeletes. If one is missing
+// from Take, the objects in it linger on the global list until device teardown instead of being deleted
+// a few frames later; if one is missing from PerformDeletes, they leak outright. Both are bugs.
 void VulkanDeleteList::Take(VulkanDeleteList &del) {
+	// The render thread can be queueing deletes into del (the global list) while we do this.
+	std::lock_guard<std::mutex> lock(del.mutex_);
 	_dbg_assert_(cmdPools_.empty());
 	_dbg_assert_(descPools_.empty());
 	_dbg_assert_(modules_.empty());
@@ -1862,6 +1882,7 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	_dbg_assert_(framebuffers_.empty());
 	_dbg_assert_(pipelineLayouts_.empty());
 	_dbg_assert_(descSetLayouts_.empty());
+	_dbg_assert_(queryPools_.empty());
 	_dbg_assert_(callbacks_.empty());
 	cmdPools_ = std::move(del.cmdPools_);
 	descPools_ = std::move(del.descPools_);
@@ -1879,12 +1900,14 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	framebuffers_ = std::move(del.framebuffers_);
 	pipelineLayouts_ = std::move(del.pipelineLayouts_);
 	descSetLayouts_ = std::move(del.descSetLayouts_);
+	queryPools_ = std::move(del.queryPools_);
 	callbacks_ = std::move(del.callbacks_);
 	del.cmdPools_.clear();
 	del.descPools_.clear();
 	del.modules_.clear();
 	del.buffers_.clear();
 	del.buffersWithAllocs_.clear();
+	del.bufferViews_.clear();
 	del.imageViews_.clear();
 	del.imagesWithAllocs_.clear();
 	del.deviceMemory_.clear();
@@ -1895,10 +1918,33 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	del.framebuffers_.clear();
 	del.pipelineLayouts_.clear();
 	del.descSetLayouts_.clear();
+	del.queryPools_.clear();
 	del.callbacks_.clear();
 }
 
 void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator) {
+	// Drain into a local list before destroying anything - a callback is allowed to queue more deletes
+	// (~VKFramebuffer does, via ~VKRFramebuffer), and we mustn't append to a vector we're iterating.
+	// Anything queued back onto this list gets picked up by the next lap, so keep going until a lap
+	// comes up empty. In the normal per-frame case that's a single extra lap, since callbacks queue
+	// onto the global list rather than the frame's own list - the loop matters for
+	// VulkanContext::PerformPendingDeletes(), which drains the global list itself just before the
+	// device goes away, with no later pass to catch the stragglers.
+	int deleteCount = 0;
+	for (;;) {
+		VulkanDeleteList taken;
+		taken.Take(*this);
+		int count = taken.PerformDeletesInternal(vulkan, allocator);
+		if (!count) {
+			break;
+		}
+		deleteCount += count;
+	}
+	deleteCount_ = deleteCount;
+}
+
+// See the note on Take() - every vector in the class must be handled here too, or it leaks.
+int VulkanDeleteList::PerformDeletesInternal(VulkanContext *vulkan, VmaAllocator allocator) {
 	int deleteCount = 0;
 
 	for (auto &callback : callbacks_) {
@@ -1993,7 +2039,7 @@ void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator alloca
 		deleteCount++;
 	}
 	queryPools_.clear();
-	deleteCount_ = deleteCount;
+	return deleteCount;
 }
 
 void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {

@@ -537,7 +537,8 @@ bool VulkanMayBeAvailable() {
 			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
 			instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
 			platformSurfaceExtensionFound = true;
-			break;
+			// Note: Can't stop here - the enumeration order isn't specified anywhere, so VK_KHR_surface
+			// may well come after the platform one, and we need both.
 		} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
 			instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 			surfaceExtensionFound = true;
@@ -618,8 +619,9 @@ bool VulkanMayBeAvailable() {
 					}
 				}
 			}
-			anyGood = !blacklisted;
-			if (anyGood) {
+			// Note: Must not overwrite the verdict from a previously seen device, one good one is enough.
+			anyGood = anyGood || !blacklisted;
+			if (!blacklisted) {
 				INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
 			} else {
 				INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Blacklisted device found and ignored: '%s'", props.deviceName);

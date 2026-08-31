@@ -729,6 +729,11 @@ bool CreateFullPath(const Path &path) {
 		return true;
 	}
 
+	if (path.empty()) {
+		ERROR_LOG(Log::IO, "Can't create an empty path");
+		return false;
+	}
+
 	switch (path.Type()) {
 	case PathType::NATIVE:
 	case PathType::CONTENT_URI:
@@ -1438,7 +1443,7 @@ uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
 		return nullptr;
 	}
 	Fseek(file, 0, SEEK_SET);
-	// NOTE: If you find ~10 memory leaks from here, with very varying sizes, it might be the VFPU LUTs.
+	// NOTE: If you find up to ~10-ish memory leaks from here, with very varying sizes, it might be the VFPU LUTs.
 	uint8_t *contents = new uint8_t[f_size + 1];
 	if (fread(contents, 1, f_size, file) != f_size) {
 		delete[] contents;

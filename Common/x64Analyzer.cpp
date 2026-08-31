@@ -28,11 +28,12 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 	u8 codeByte2 = 0;
 	
 	//Check for regular prefix
-	info.operandSize = 4;
+	info.operandSizeInBytes = 4;
 	info.zeroExtend = false;
 	info.signExtend = false;
 	info.hasImmediate = false;
 	info.isMemoryWrite = false;
+	info.instructionClass = InstructionClass::GPR;
 
 	int addressSize = 8;
 	u8 modRMbyte = 0;
@@ -40,17 +41,24 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
     bool hasModRM = false;
 	bool hasSIBbyte = false;
 	bool hasDisplacement = false;
+	bool hasF3Prefix = false;
 
 	int displacementSize = 0;
 
 	if (*codePtr == 0x66)
 	{
-		info.operandSize = 2;
+		info.operandSizeInBytes = 2;
 		codePtr++;
-	} 
+	}
 	else if (*codePtr == 0x67)
 	{
 		addressSize = 4;
+		codePtr++;
+	}
+	else if (*codePtr == 0xF3)
+	{
+		// Mandatory prefix, distinguishes MOVSS (scalar) from MOVUPS (full xmm) on the same opcode.
+		hasF3Prefix = true;
 		codePtr++;
 	}
 
@@ -60,7 +68,7 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 		rex = *codePtr;
 		if (rex & 8) //REX.W
 		{
-			info.operandSize = 8;
+			info.operandSizeInBytes = 8;
 		}
 		codePtr++;
 	}
@@ -159,19 +167,19 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 
 		case MOVE_16_32BIT: //move 16 or 32-bit immediate, easiest case for writes
 			{
-				if (info.operandSize == 2)
+				if (info.operandSizeInBytes == 2)
 				{
 					info.hasImmediate = true;
 					info.immediate = *(u16*)codePtr;
 					codePtr += 2;
 				}
-				else if (info.operandSize == 4)
+				else if (info.operandSizeInBytes == 4)
 				{
 					info.hasImmediate = true;
 					info.immediate = *(u32*)codePtr;
 					codePtr += 4;
 				}
-				else if (info.operandSize == 8)
+				else if (info.operandSizeInBytes == 8)
 				{
 					info.zeroExtend = true;
 					info.immediate = *(u32*)codePtr;
@@ -205,28 +213,46 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 			{
 			case MOVZX_BYTE: //movzx on byte
 				info.zeroExtend = true;
-				info.operandSize = 1;
+				info.operandSizeInBytes = 1;
 				break;
 			case MOVZX_SHORT: //movzx on short
 				info.zeroExtend = true;
-				info.operandSize = 2;
+				info.operandSizeInBytes = 2;
 				break;
 			case MOVSX_BYTE: //movsx on byte
 				info.signExtend = true;
-				info.operandSize = 1;
+				info.operandSizeInBytes = 1;
 				break;
 			case MOVSX_SHORT: //movsx on short
 				info.signExtend = true;
-				info.operandSize = 2;
+				info.operandSizeInBytes = 2;
+				break;
+			case MOVUPS_MOVSS_FROM_RM: //movups/movss xmm, xmm/m (load)
+				info.instructionClass = hasF3Prefix ? InstructionClass::FP : InstructionClass::FP_SIMD;
+				info.operandSizeInBytes = hasF3Prefix ? 4 : 16;
+				break;
+			case MOVUPS_MOVSS_TO_RM: //movups/movss xmm/m, xmm (store)
+				info.instructionClass = hasF3Prefix ? InstructionClass::FP : InstructionClass::FP_SIMD;
+				info.operandSizeInBytes = hasF3Prefix ? 4 : 16;
+				info.isMemoryWrite = true;
+				break;
+			case MOVAPS_FROM_RM: //movaps xmm, xmm/m (load)
+				info.instructionClass = InstructionClass::FP_SIMD;
+				info.operandSizeInBytes = 16;
+				break;
+			case MOVAPS_TO_RM: //movaps xmm/m, xmm (store)
+				info.instructionClass = InstructionClass::FP_SIMD;
+				info.operandSizeInBytes = 16;
+				info.isMemoryWrite = true;
 				break;
 			default:
 				return false;
 			}
 			break;
 		case 0x8a: 
-			if (info.operandSize == 4)
+			if (info.operandSizeInBytes == 4)
 			{
-				info.operandSize = 1;
+				info.operandSizeInBytes = 1;
 				break;
 			}
 			else 

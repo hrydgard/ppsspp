@@ -255,10 +255,10 @@ MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
 }
 
 int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr) const {
-	if (!blocks_ || !Memory::IsValidAddress(addr))
+	if (!blocks_ || !Memory::IsValid4AlignedAddress(addr))
 		return -1;
 
-	MIPSOpcode inst = MIPSOpcode(Memory::Read_U32(addr));
+	MIPSOpcode inst = MIPSOpcode(Memory::ReadUnchecked_U32(addr));
 	int bl = GetBlockNumberFromEmuHackOp(inst);
 	if (bl < 0) {
 		return -1;

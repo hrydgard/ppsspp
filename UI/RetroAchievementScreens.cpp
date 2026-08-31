@@ -259,10 +259,14 @@ void RetroAchievementsLeaderboardScreen::FetchEntries() {
 		thiz->pendingAsyncCall_ = nullptr;
 	};
 
+	// Store the handle so the destructor can abort it if we're closed before the
+	// response arrives - without this, the callback above would run later against
+	// a freed `this` (its pendingAsyncCall_ null-check in the destructor was
+	// otherwise always a no-op since this was never assigned).
 	if (nearMe_) {
-		rc_client_begin_fetch_leaderboard_entries_around_user(Achievements::GetClient(), leaderboardID_, 10, callback, this);
+		pendingAsyncCall_ = rc_client_begin_fetch_leaderboard_entries_around_user(Achievements::GetClient(), leaderboardID_, 10, callback, this);
 	} else {
-		rc_client_begin_fetch_leaderboard_entries(Achievements::GetClient(), leaderboardID_, 0, 25, callback, this);
+		pendingAsyncCall_ = rc_client_begin_fetch_leaderboard_entries(Achievements::GetClient(), leaderboardID_, 0, 25, callback, this);
 	}
 }
 

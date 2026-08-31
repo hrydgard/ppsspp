@@ -12,11 +12,13 @@
 #include "Windows/main.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Core.h"
+#include "Core/Debugger/LineInfo.h"
+#include "Core/MemMap.h"
 #include "Core/HLE/sceKernelThread.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_ENABLED, BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_COLUMNCOUNT };
-enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
+enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_SOURCE, SF_COLUMNCOUNT };
 enum { ML_NAME, ML_ADDRESS, ML_SIZE, ML_ACTIVE, ML_COLUMNCOUNT };
 enum { WL_NAME, WL_EXPRESSION, WL_VALUE, WL_COLUMNCOUNT };
 
@@ -52,8 +54,9 @@ GenericListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 	{ L"Name",			0.24f },
 	{ L"PC",			0.12f },
 	{ L"Opcode",		0.28f },
-	{ L"SP",			0.12f },
-	{ L"Frame Size",	0.12f }
+	{ L"SP",			0.10f },
+	{ L"Frame Size",	0.10f },
+	{ L"Source",		0.16f }
 };
 
 GenericListViewDef stackTraceListDef = {
@@ -260,6 +263,7 @@ void CtrlThreadList::reloadThreads()
 	// while it's actually touching that state. See g_frameMutex in Core.h.
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 		threads = GetThreadsInfo();
 	}
 	Update();
@@ -335,6 +339,7 @@ void CtrlBreakpointList::reloadBreakpoints()
 	// with the CPU thread - see g_frameMutex in Core.h.
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 		displayedBreakPoints_ = g_breakpoints.GetBreakpoints();
 		displayedMemChecks_= g_breakpoints.GetMemChecks();
 	}
@@ -399,10 +404,10 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 	// GUI thread - see Core_RunOnCPUThread() in Core.h.
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.action ^ BREAK_ACTION_PAUSE)); });
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
+		Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.action ^ BREAK_ACTION_PAUSE)); });
 	}
 }
 
@@ -444,13 +449,8 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 }
 
 int CtrlBreakpointList::getTotalBreakpointCount() {
-	int count = (int)displayedMemChecks_.size();
-	for (auto bp : displayedBreakPoints_) {
-		if (!bp.temporary)
-			++count;
-	}
-
-	return count;
+	// displayedBreakPoints_ never contains the internal step-over/run-until breakpoint.
+	return (int)displayedMemChecks_.size() + (int)displayedBreakPoints_.size();
 }
 
 int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
@@ -467,12 +467,6 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 	size_t i = 0;
 	while (i < displayedBreakPoints_.size())
 	{
-		if (displayedBreakPoints_[i].temporary)
-		{
-			i++;
-			continue;
-		}
-
 		// the index is 0 when there are no more breakpoints to skip
 		if (itemIndex == 0)
 		{
@@ -644,9 +638,9 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			// Route the breakpoint mutation to the CPU thread instead of poking at it directly
 			// from this GUI thread - see Core_RunOnCPUThread() in Core.h.
 			if (isMemory) {
-				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE)); });
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.action ^ BREAK_ACTION_PAUSE)); });
 			} else {
-				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE)); });
+				Core_RunOnCPUThread([&] { g_breakpoints.ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.action ^ BREAK_ACTION_PAUSE)); });
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:
@@ -745,6 +739,13 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, size_t destSize, int row, 
 	case SF_FRAMESIZE:
 		wsprintf(dest,L"%08X",frames[row].stackSize);
 		break;
+	case SF_SOURCE:
+		{
+			// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+			const std::string source = g_lineInfo.LookupString(frames[row].pc);
+			wcscpy(dest, source.empty() ? L"-" : ConvertUTF8ToWString(source).c_str());
+		}
+		break;
 	}
 }
 
@@ -754,14 +755,15 @@ void CtrlStackTraceView::OnDoubleClick(int itemIndex, int column)
 }
 
 void CtrlStackTraceView::loadStackTrace() {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
-	if (!PSP_IsInited())
-		return;
-
 	// Reading live thread/register/stack state here on the GUI thread would otherwise race with
 	// the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame() also
 	// holds while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Core_LockAgainstShutdown() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
+	if (!PSP_IsInited())
+		return;
 
 	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
 
@@ -855,6 +857,7 @@ void CtrlModuleList::loadModules()
 	// actually touching that state. See g_frameMutex in Core.h.
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 		if (g_symbolMap) {
 			modules = g_symbolMap->getAllModules();
 		} else {
@@ -880,6 +883,7 @@ void CtrlWatchList::RefreshValues() {
 	// otherwise race with the CPU thread - hold g_frameMutex for the duration, which NativeFrame()
 	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 
 	int steppingCounter = Core_GetSteppingCounter();
 	int changes = false;

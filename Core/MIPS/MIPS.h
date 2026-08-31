@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstddef>
+#include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
@@ -139,6 +140,17 @@ enum VCondition
 	VC_NS
 };
 
+// fcr31, the FPU control/status register, in the standard MIPS layout: bits 0-1 are the
+// rounding mode, 2-6 the sticky Flags, 7-11 the trap Enables, 12-16 the per-instruction Cause,
+// 23 the condition flag (mirrored in fpcond) and 24 flush-to-zero. Each of the three 5-bit
+// fields holds the IEEE exceptions in the same order (inexact, underflow, overflow, divide by
+// zero, invalid operation); only divide by zero is implemented so far, and only in the interpreter.
+enum {
+	FCR31_FLAG_DIV_BY_ZERO = 1 << 5,
+	FCR31_ENABLE_DIV_BY_ZERO = 1 << 10,
+	FCR31_CAUSE_DIV_BY_ZERO = 1 << 15,
+};
+
 // In memory, we order the VFPU registers differently. 
 // Games use columns a whole lot more than rows, and it would thus be good if columns
 // were contiguous in memory. Also, matrices aren't but should be.
@@ -163,12 +175,13 @@ enum class CPUCore;
 
 #endif
 
-enum {
-	NUM_X86_FPU_TEMPS = 16,
+// Only icache invalidations currently, so no type field.
+struct PendingCacheOperation {
+	u32 addr;
+	u32 size;
 };
 
-class MIPSState
-{
+class MIPSState {
 public:
 	MIPSState();
 	~MIPSState();
@@ -245,6 +258,9 @@ public:
 	static const u32 FCR0_VALUE = 0x00003351;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	enum {
+		NUM_X86_FPU_TEMPS = 16,
+	};
 	// FPU TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
 	float tempValues[NUM_X86_FPU_TEMPS];
 #endif
@@ -260,22 +276,40 @@ public:
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
+
 	// To clear jit caches, etc.
-	void InvalidateICache(u32 address, int length = 4);
-	void ClearJitCache();
 
-	void ProcessPendingClears();
+	// The immediate functions have the risk of invalidating the currently running block -
+	// might not behave correctly in all cases. Use Deferred when possible.
+	void InvalidateICacheRangeImmediate(u32 address, u32 length);
 
+	// Actual clearing is deferred until execution begins again.
+	void InvalidateICacheRangeDeferred(u32 address, u32	length);
+	void ClearJitCacheDeferred();
+
+	void ProcessPendingInvalidates();
+
+private:
 	// Doesn't need save stating.
-	volatile bool insideJit = false;
-	volatile bool hasPendingClears = false;
+	std::vector<PendingCacheOperation> pendingInvalidates_;
+	bool invalidateAll_ = false;
 };
 
 class MIPSDebugInterface;
 
-//The one we are compiling or running currently
+// The one we are compiling or running currently
+// TODO: These globals should be refactored away.
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
 
 extern const float cst_constants[32];
+
+// The guest's rounding mode and flush-to-zero flag (fcr31 bits 0-1 and 24) are emulated by putting
+// the *host* FPU into the matching mode, since we do the arithmetic with plain host float ops.
+// That mode must not be left on while running anything that isn't emulating a guest instruction -
+// HLE syscalls, replacement functions, the GPU - so an emulation loop applies it on entry and
+// restores it before calling out, the way the JITs do (see Jit::ApplyRoundingMode).
+// Apply is cheap when the guest is in the default mode (by far the common case): it does nothing.
+void ApplyHostRoundingMode(const MIPSState *mips);
+void RestoreHostRoundingMode();

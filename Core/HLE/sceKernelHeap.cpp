@@ -144,12 +144,14 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	u32 grain = 4;
 	// 0 is ignored.
 	if (paramsPtr != 0) {
-		u32 size = Memory::Read_U32(paramsPtr);
+		if (!Memory::IsValid4AlignedRange(paramsPtr, 8))
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid paramsPtr");
+		u32 size = Memory::ReadUnchecked_U32(paramsPtr);  // size of the params struct
 		if (size < 8)
 			return hleLogError(Log::sceKernel, 0, "invalid param size");
 		if (size > 8)
 			WARN_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
-		grain = Memory::Read_U32(paramsPtr + 4);
+		grain = Memory::ReadUnchecked_U32(paramsPtr + 4);
 	}
 	INFO_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapId, memSize, paramsPtr);
 	// There's 8 bytes at the end of every block, reserved.
@@ -158,7 +160,25 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	return addr;
 }
 
+static int sceKernelGetModel() {
+	constexpr u32 model = 2;  // 2 = original slim.
+	return hleLogWarning(Log::sceKernel, model - 1);
+}
+
+// Both configure things PPSSPP has no equivalent of - which kernel image a reboot would use, and
+// whether the UMD read cache is on. Accepted and ignored; the VSH calls them once each during
+// startup and only cares that they succeed.
+static int sceKernelSetRebootKernel(u32 arg) {
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
+}
+
+static int sceKernelSetUmdCacheOn(int on) {
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
+}
+
 const HLEFunction SysMemForKernel[] = {
+	{ 0X96A3CE2C, &WrapI_U<sceKernelSetRebootKernel>,              "sceKernelSetRebootKernel",           'i', "x",     HLE_KERNEL_SYSCALL },
+	{ 0X1404C1AA, &WrapI_I<sceKernelSetUmdCacheOn>,                "sceKernelSetUmdCacheOn",             'i', "i",     HLE_KERNEL_SYSCALL },
 	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,             "sceKernelAllocHeapMemory",           'x', "ii",    HLE_KERNEL_SYSCALL },
 	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                   "sceKernelDeleteHeap",                'i', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                "sceKernelCreateHeap",                'i', "iixs",  HLE_KERNEL_SYSCALL },
@@ -171,7 +191,8 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0X536AD5E1, &WrapU_V<sceKernelGetUidmanCB>,                  "sceKernelGetUidmanCB",               'i', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0X7B749390, &WrapI_IU<sceKernelFreeHeapMemory>,              "sceKernelFreeHeapMemory",            'i', "ix" ,   HLE_KERNEL_SYSCALL },
 	{ 0XEB7A74DB, &WrapI_IUU<sceKernelAllocHeapMemoryWithOption>,  "sceKernelAllocHeapMemoryWithOption", 'i', "ixp" ,  HLE_KERNEL_SYSCALL },
-	{ 0x6373995d, nullptr,                                         "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x6373995d, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL},  // 220
+	{ 0x07C586A1, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },  // 220
 };
 
 void Register_SysMemForKernel() {

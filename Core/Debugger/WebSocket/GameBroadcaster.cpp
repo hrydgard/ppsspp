@@ -73,22 +73,28 @@ struct GameStatusEvent {
 //     - id: string disc ID (such as ULUS12345.)
 //     - version: string disc version.
 //     - title: string game title.
-void GameBroadcaster::Broadcast(net::WebSocketServer *ws) {
-	// TODO: This is ugly.  Callbacks instead?
-	GlobalUIState state = GetUIState();
-	if (prevState_ != state) {
-		if (state == UISTATE_PAUSEMENU) {
-			ws->Send(GameStatusEvent{"game.pause"});
-			prevState_ = state;
-		} else if (state == UISTATE_INGAME && prevState_ == UISTATE_PAUSEMENU) {
-			ws->Send(GameStatusEvent{"game.resume"});
-			prevState_ = state;
-		} else if (state == UISTATE_INGAME && PSP_GetBootState() == BootState::Complete) {
-			ws->Send(GameStatusEvent{"game.start"});
-			prevState_ = state;
-		} else if (state == UISTATE_MENU && PSP_GetBootState() != BootState::Complete) {
-			ws->Send(GameStatusEvent{"game.quit"});
-			prevState_ = state;
-		}
+std::string GameBroadcaster::PollChange() {
+	// Tracked globally rather than per connection: this runs on the CPU thread, which owns the state
+	// being read, and the resulting event is then handed to every connected debugger.
+	static GlobalUIState prevState = GetUIState();
+
+	const GlobalUIState state = GetUIState();
+	if (prevState == state)
+		return std::string();
+
+	const char *ev = nullptr;
+	if (state == UISTATE_PAUSEMENU) {
+		ev = "game.pause";
+	} else if (state == UISTATE_INGAME && prevState == UISTATE_PAUSEMENU) {
+		ev = "game.resume";
+	} else if (state == UISTATE_INGAME && PSP_GetBootState() == BootState::Complete) {
+		ev = "game.start";
+	} else if (state == UISTATE_MENU && PSP_GetBootState() != BootState::Complete) {
+		ev = "game.quit";
 	}
+	if (!ev)
+		return std::string();
+
+	prevState = state;
+	return GameStatusEvent{ev};
 }

@@ -9,6 +9,8 @@
 // > -l --graphics=vulkan --screenshot-save=vt_ref.bmp "D:\PSP ISO\dump\Depth\11578 Virtua Tennis pause menu ULES00126_0002.zip" --resolution-scale=2
 // Example command line for messing with the vsh:
 // > -l --vsh --memread=break --memwrite=break --break=break
+// Example command line for looking at crash output:
+// > -l --graphics=software pspautotests/tests/cpu/crash/crash_read_f32.prx
 //
 // NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 
@@ -36,6 +38,7 @@
 #include <csignal>
 #endif
 #include "Common/CPUDetect.h"
+#include "Common/ExceptionHandlerSetup.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -52,7 +55,9 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
@@ -106,12 +111,10 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
-		case SYSPROP_CAN_JIT:
-			return true;
-		case SYSPROP_SKIP_UI:
-			return true;
-		default:
-			return false;
+	case SYSPROP_IS_HEADLESS: return true;
+	case SYSPROP_CAN_JIT: return true;
+	default:
+		return false;
 	}
 }
 void System_Notify(SystemNotification notification) {}
@@ -134,6 +137,7 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 int printUsage(const CommandLineOptions &options, const char *progname, const char *reason) {
 	options.PrintUsage(progname, reason);
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
+	fprintf(stderr, "  --flash0=DIR          use DIR as flash0: instead of the bundled assets (e.g. a real dump)\n");
 	return 1;
 }
 
@@ -142,10 +146,6 @@ void FlushDebugOutput() {
 		fwrite(g_debugOutputBuffer.data(), sizeof(char), g_debugOutputBuffer.length(), stdout);
 		g_debugOutputBuffer.clear();
 	}
-}
-
-void SetWriteDebugOutput(bool flag) {
-	g_writeDebugOutput = flag;
 }
 
 void SetComparisonScreenshot(const Path &filename, double maxError) {
@@ -174,31 +174,27 @@ void SendDebugOutput(std::string_view output) {
 	}
 }
 
-bool System_SendDebugOutput(std::string_view data) {
-	SendDebugOutput(data);
-	return true;
-}
-
-void SendAndCollectOutput(const std::string &output) {
+void SendAndCollectOutput(std::string_view output) {
 	SendDebugOutput(output);
 	if (PSP_CoreParameter().collectDebugOutput) {
 		*PSP_CoreParameter().collectDebugOutput += output;
 	}
 }
 
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {
-	const u8 *pixbuf = (const u8 *)data;
-	u32 w = width;
-	u32 h = height;
+void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
+	const u8 *pixbuf = (const u8 *)desc.data;
+	u32 w = desc.stride;
+	u32 h = desc.height;
 
 	// We ignore the current framebuffer parameters and just grab the full screen.
+	// TOOD: Uh, why not use them? They should be the same.
 	const static u32 FRAME_STRIDE = 512;
 	const static u32 FRAME_WIDTH = 480;
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
 	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
-	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
+	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, FRAME_STRIDE, FRAME_HEIGHT);
 
 	// If a screenshot save path is set, save unconditionally.
 	if (!g_screenshotSavePath.empty()) {
@@ -301,8 +297,9 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	g_screenshotFailed = false;
 
 	std::string output;
-	if (opt.compare || opt.bench)
+	if (opt.compare || opt.bench) {
 		coreParameter.collectDebugOutput = &output;
+	}
 
 	if (!PSP_InitStart(coreParameter)) {
 		// Shouldn't really happen anymore, the errors happen later in PSP_InitUpdate.
@@ -397,7 +394,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		passed = CompareOutput(coreParameter.fileToStart, output, opt.verbose, opt.printEqualLines);
 	}
 
-	// Screenshot comparison failures are recorded in System_SendDebugScreenshot.
+	// Screenshot comparison failures are recorded in SendDebugScreenshot.
 	if (!g_comparisonScreenshot.empty() && g_screenshotFailed) {
 		passed = false;
 	}
@@ -540,9 +537,7 @@ int main(int argc, const char* argv[]) {
 	}
 #endif
 
-#if defined(_DEBUG) && defined(_MSC_VER)
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-#endif
+	SetupCRT(true);
 
 	CommandLineOptions cmdLineOptions;
 	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv, CmdLineMode::Headless);
@@ -553,6 +548,12 @@ int main(int argc, const char* argv[]) {
 		return 1;
 	case CommandLineParseResult::Continue:
 		break;
+	}
+
+	if (cmdLineOptions.generateInterpreterDispatch.value_or(false)) {
+		std::string code = GenerateInterpreterDispatch();
+		fwrite(code.data(), 1, code.size(), stdout);
+		return 0;
 	}
 
 	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the
@@ -571,8 +572,6 @@ int main(int argc, const char* argv[]) {
 
 	bool fullLog = cmdLineOptions.enableLogging.value_or(false);
 	const char *stateToLoad = cmdLineOptions.stateToLoad.has_value() ? cmdLineOptions.stateToLoad.value().c_str() : nullptr;
-	GPUCore gpuCore = GPUCORE_SOFTWARE;
-	CPUCore cpuCore = CPUCore::JIT;
 	bool oldAtrac = false;
 	bool outputDebugStringLog = cmdLineOptions.odsLog.value_or(false);
 
@@ -580,10 +579,6 @@ int main(int argc, const char* argv[]) {
 	const std::vector<std::string> &ignoredTests = cmdLineOptions.ignoredTests;
 	std::string mountIso = cmdLineOptions.mountIso.value_or("");
 	std::string mountRoot;
-
-	if (cmdLineOptions.cpuCore.has_value()) {
-		cpuCore = cmdLineOptions.cpuCore.value();
-	}
 
 	if (cmdLineOptions.root.has_value()) {
 		mountRoot = cmdLineOptions.root.value().c_str();
@@ -619,7 +614,43 @@ int main(int argc, const char* argv[]) {
 		g_logManager.EnableOutput(LogOutput::Printf);
 	}
 
+	// Unpacking an updater is a standalone action - no emulation involved, so do it here and exit
+	// before any of the setup below.
+	if (cmdLineOptions.unpackUpdater.has_value()) {
+		if (cmdLineOptions.bootFilenames.size() != 1) {
+			fprintf(stderr, "--unpack-updater takes exactly one updater, disc image or PSAR\n");
+			return 1;
+		}
+
+		PSARUnpackOptions unpackOptions;
+		unpackOptions.verbose = testOptions.verbose;
+		if (cmdLineOptions.unpackUpdaterModel.has_value() &&
+			!PSPModelGenerationFromString(cmdLineOptions.unpackUpdaterModel.value(), &unpackOptions.model)) {
+			fprintf(stderr, "Unknown PSP model '%s' - expected 01g..12g or any\n", cmdLineOptions.unpackUpdaterModel.value().c_str());
+			return 1;
+		}
+		PSARUnpackStats stats;
+		std::string unpackError;
+		const bool ok = UnpackUpdater(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
+		if (!ok) {
+			fprintf(stderr, "Unpacking failed: %s\n", unpackError.c_str());
+		}
+		printf("Firmware %s (model %s): %d entries, %d files written, %d directories, %d unresolved names, %d for other models, %d failed\n",
+			stats.firmwareVersion.c_str(), PSPModelGenerationToString(unpackOptions.model), stats.entries, stats.written,
+			stats.directories, stats.unnamed, stats.otherModel, stats.failed);
+		printf("Compression: none=%d zlib=%d KL4E=%d KL3E=%d LZR=%d unknown=%d\n",
+			stats.compressionCounts[(int)PSARCompression::None],
+			stats.compressionCounts[(int)PSARCompression::Zlib],
+			stats.compressionCounts[(int)PSARCompression::KL4E],
+			stats.compressionCounts[(int)PSARCompression::KL3E],
+			stats.compressionCounts[(int)PSARCompression::LZR],
+			stats.compressionCounts[(int)PSARCompression::Unknown]);
+		return ok ? 0 : 1;
+	}
+
 	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);
+
+	Core_RegisterDebugOutputListeners(&SendDebugOutput, &SendDebugScreenshot);
 
 	// Needs to be after log so we don't interfere with test output.
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
@@ -630,10 +661,10 @@ int main(int argc, const char* argv[]) {
 	// ApplyToConfig() below, so a matching command line flag can still override any of it -
 	// ApplyToConfig() always has the final say on the settings in g_Config.
 	//
-	// Somehow this affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
-	// we actually set the cpu core in CoreParameter below. Probably because we end up using the JIT vs non-JIT
-	// vertex decoder.
-	g_Config.iCpuCore = 0;
+	// This affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
+	// we actually set the cpu core in CoreParameter below.
+	// The check that decides that is in the DrawEngineCommon constructor.
+	g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 
 	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;
@@ -674,18 +705,23 @@ int main(int argc, const char* argv[]) {
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
 	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
+	g_Config.bSkipDeadbeefFilling = false;
 
 	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
+	// This looks contradictory to the above. But, this preserves the old test behavior which apparently ran the JIT for the CPU
+	// but ended up running software vertex decoding due to the setting in g_Config. Yeah, it's a mess.
+	CPUCore cpuCore = CPUCore::JIT;
+	if (cmdLineOptions.cpuCore.has_value()) {
+		cpuCore = cmdLineOptions.cpuCore.value();
+	}
+
+	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	// Translate backend to core. We probably should consider merging these enums.
 	if (!g_Config.bSoftwareRendering) {
-		if (!cmdLineOptions.gpuBackend.has_value()) {
-			fprintf(stderr, "No graphics backend specified, but software rendering is disabled. Use --graphics=software, gles, directx11, or vulkan.\n");
-			return 1;
-		}
-		switch (cmdLineOptions.gpuBackend.value()) {
+		switch ((GPUBackend)g_Config.iGPUBackend) {
 		case GPUBackend::OPENGL:
 			gpuCore = GPUCORE_GLES;
 			break;
@@ -713,7 +749,7 @@ int main(int argc, const char* argv[]) {
 		return 1;
 #else
 		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value(), &windowDesc);
+		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
 		if (!windowDesc.Valid()) {
 			fprintf(stderr, "Failed to create a window for graphics context");
 			return 1;
@@ -730,8 +766,8 @@ int main(int argc, const char* argv[]) {
 	// TODO: This whole function should be refactored to set up CoreParameter in one place,
 	// but not now.
 	CoreParameter coreParameter;
-	coreParameter.cpuCore = cpuCore;  // apprently this gets overwritten somehow by g_Config above.
-	coreParameter.gpuCore = gpuCore;
+	coreParameter.cpuCore = (CPUCore)cpuCore;
+	coreParameter.gpuCore = (GPUCore)gpuCore;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso.empty() ? Path() : Path(mountIso);
@@ -747,22 +783,28 @@ int main(int argc, const char* argv[]) {
 	coreParameter.fastForward = true;
 
 	Path exePath = File::GetExeDirectory();
-	g_Config.flash0Directory = exePath / "assets/flash0";
 
+	// --memstick, applied by ApplyToConfig() further up, wins. This runs after it, so without the
+	// check the default below would silently overwrite whatever was asked for.
+	if (!cmdLineOptions.memStick.has_value()) {
+		// TODO: Share this derivation with the main build.
 #if PPSSPP_PLATFORM(WINDOWS)
-	// Mount a filesystem
-	g_Config.memStickDirectory = exePath / "memstick";
-	File::CreateDir(g_Config.memStickDirectory, true);
-	CreateSysDirectories();
+		// Mount a filesystem
+		g_Config.memStickDirectory = exePath / "memstick";
+		File::CreateDir(g_Config.memStickDirectory, true);
+		CreateSysDirectories();
 #elif !PPSSPP_PLATFORM(ANDROID)
-	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
+		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
+	}
+	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
+	coreParameter.nandRoot = g_Config.nandRootDirectory;
 
-	// Try to find the flash0 directory.  Often this is from a subdirectory.
+	// Try to find the assets flash0 directory. Often this is from a subdirectory.
+	// This is needed for our fallback fonts.
 	Path nextPath = exePath;
 	for (int i = 0; i < 5; ++i) {
 		if (File::Exists(nextPath / "assets/flash0")) {
-			g_Config.flash0Directory = nextPath / "assets/flash0";
 #if !PPSSPP_PLATFORM(ANDROID)
 			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
 #endif
@@ -786,8 +828,9 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.screenshotSaveKeepAlpha.has_value()) {
 		g_screenshotSaveKeepAlpha = cmdLineOptions.screenshotSaveKeepAlpha.value();
 	}
+
 	SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
-	SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
+	g_writeDebugOutput = !testOptions.compare && !testOptions.bench;
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
@@ -807,8 +850,9 @@ int main(int argc, const char* argv[]) {
 	UpdateUIState(UISTATE_INGAME);
 
 	if (cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
-		AddToTestsByPath(&testFilenames, (g_Config.flash0Directory / "vsh/module/vshmain.prx").ToString());
+		AddToTestsByPath(&testFilenames, (coreParameter.nandRoot / "flash0/vsh/module/vshmain.prx").ToString());
 	}
+
 	if (testFilenames.empty()) {
 		return printUsage(cmdLineOptions, argv[0], argc <= 1 ? NULL : "No executables specified");
 	}
@@ -816,6 +860,16 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		coreParameter.startBreak = true;
 		StartWebServer(WebServerFlags::DEBUGGER);
+		// We break at start and wait for a debugger to drive us, so coming up without one just
+		// hangs until the timeout. Better to say why and bail - see WebServerSetRequireExactPort().
+		if (!WebServerWaitForStartup()) {
+			fprintf(stderr, "Failed to start the debugger web server on port %d\n", cmdLineOptions.debuggerPort.value());
+			// The server thread has exited but is still joinable - without this, its std::thread
+			// destructor would call std::terminate() on the way out and we'd abort instead of
+			// returning a useful exit code.
+			ShutdownWebServer();
+			return 1;
+		}
 	}
 
 	if (stateToLoad) {
@@ -830,12 +884,18 @@ int main(int argc, const char* argv[]) {
 	}
 
 	int retval = 0;
-	MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
+	if (!MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
 		retval = RunTests(graphicsContext, coreParameter, testOptions, testFilenames);
 		return false;
-	});
+	}, &errorMessage)) {
+		// No fallbacks in headless - if we can't run it, we can't. Let's not get confusing.
+		fprintf(stderr, "Failed to initialize graphics surface: %s\n", errorMessage.c_str());
+		retval = 1;
+	}
 
 	graphicsContext->ShutdownAPI();
+
+	delete graphicsContext;
 
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		ShutdownWebServer();

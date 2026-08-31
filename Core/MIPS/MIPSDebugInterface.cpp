@@ -24,6 +24,7 @@
 
 #include "Common/StringUtils.h"
 #include "Core/CoreTiming.h"
+#include "Core/HW/Display.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -49,6 +50,8 @@ enum ReferenceIndexType {
 	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
 	REF_INDEX_USEC     = REF_INDEX_HLE | 2,
 	REF_INDEX_TICKS    = REF_INDEX_HLE | 3,
+	REF_INDEX_VCOUNT   = REF_INDEX_HLE | 4,
+	REF_INDEX_FLIPS    = REF_INDEX_HLE | 5,
 };
 
 
@@ -133,6 +136,17 @@ public:
 			referenceIndex = REF_INDEX_TICKS;
 			return true;
 		}
+		// The PSP's own vblank counter, as returned by sceDisplayGetVcount.
+		if (strcasecmp(str, "vcount") == 0) {
+			referenceIndex = REF_INDEX_VCOUNT;
+			return true;
+		}
+		// Frames actually presented. Unlike vcount this tracks what reached the screen, so
+		// "flipcount > N" is how a breakpoint condition says "only from the next frame onwards".
+		if (strcasecmp(str, "flipcount") == 0) {
+			referenceIndex = REF_INDEX_FLIPS;
+			return true;
+		}
 
 		return false;
 	}
@@ -159,7 +173,11 @@ public:
 		if (referenceIndex == REF_INDEX_USEC)
 			return (uint32_t)CoreTiming::GetGlobalTimeUs();  // Loses information
 		if (referenceIndex == REF_INDEX_TICKS)
-			return (uint32_t)CoreTiming::GetTicks();
+			return (uint32_t)CoreTiming::GetTicks(currentMIPS);
+		if (referenceIndex == REF_INDEX_VCOUNT)
+			return (uint32_t)__DisplayGetVCount();
+		if (referenceIndex == REF_INDEX_FLIPS)
+			return (uint32_t)__DisplayGetFlipCount();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
@@ -202,7 +220,7 @@ private:
 	const DebugInterface *cpu;
 };
 
-unsigned int MIPSDebugInterface::readMemory(unsigned int address) {
+unsigned int MIPSDebugInterface::readMemory(unsigned int address) const {
 	if (Memory::IsValidRange(address, 4))
 		return Memory::ReadUnchecked_Instruction(address).encoding;
 	return 0;
@@ -248,10 +266,6 @@ int MIPSDebugInterface::getColor(unsigned int address, bool darkMode) const {
 	} else {
 		return colors[n % ARRAY_SIZE(colors)];
 	}
-}
-
-std::string MIPSDebugInterface::getDescription(unsigned int address) {
-	return g_symbolMap->GetDescription(address);
 }
 
 std::string MIPSDebugInterface::GetRegName(int cat, int index) {

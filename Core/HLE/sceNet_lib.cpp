@@ -26,6 +26,8 @@
 
 
 // This is one of the firmware modules (pspnet.prx), the official PSP games can't call these funcs
+// Fortunately, because this is badly implemented currently. Need to go through all this and make
+// it safe.
 
 // Ugh, this is ugly.
 u32 sceNetStrtoul(const char *str, u32 strEndAddrPtr, int base) {
@@ -115,7 +117,7 @@ u32 sceNetStrlen(const char* str) {
 
 s32 sceNetMemcmp(u32 lhsPtr, u32 rhsPtr, u32 count) {
 	// Redirect that to libc
-	s32 res = std::memcmp(Memory::GetPointer(lhsPtr), Memory::GetPointer(rhsPtr), count);
+	s32 res = std::memcmp(Memory::GetPointerOrException(lhsPtr), Memory::GetPointerOrException(rhsPtr), count);
 
 	return hleLogDebug(Log::sceNet, res);
 }

@@ -180,9 +180,6 @@ public:
 	ImMemView &View() {
 		return memView_;
 	}
-	void DirtySymbolMap() {
-		symsDirty_ = true;
-	}
 	void GotoAddr(u32 addr) {
 		gotoAddr_ = addr;
 		memView_.gotoAddr(addr);
@@ -195,11 +192,6 @@ private:
 		INVALID_ADDR = 0xFFFFFFFF,
 	};
 	void ProcessKeyboardShortcuts();
-	// Symbol cache
-	std::vector<SymbolEntry> symCache_;
-	bool symsDirty_ = true;
-	int selectedSymbol_ = -1;
-	char selectedSymbolName_[128];
 
 	bool drawZeroDark_ = false;
 	bool editableMemory_ = false;

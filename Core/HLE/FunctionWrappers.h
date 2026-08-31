@@ -106,7 +106,7 @@ template<u32 func()> void WrapU_V() {
 }
 
 template<u32 func(int, void *, int)> void WrapU_IVI() {
-	u32 retval = func(PARAM(0), Memory::GetPointerWrite(PARAM(1)), PARAM(2));
+	u32 retval = func(PARAM(0), Memory::GetPointerWriteOrException(PARAM(1)), PARAM(2));
 	RETURN(retval);
 }
 
@@ -116,7 +116,7 @@ template<int func(const char *, int, int, u32)> void WrapI_CIIU() {
 }
 
 template<int func(int, const char *, u32, void *, void *, u32, int)> void WrapI_ICUVVUI() {
-	u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointerWrite(PARAM(3)),Memory::GetPointerWrite(PARAM(4)), PARAM(5), PARAM(6) );
+	u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointerWriteOrException(PARAM(3)),Memory::GetPointerWriteOrException(PARAM(4)), PARAM(5), PARAM(6) );
 	RETURN(retval);
 }
 
@@ -147,13 +147,13 @@ template<int func(int, int, int, int, int, int, u32)> void WrapI_IIIIIIU() {
 
 // Hm, do so many params get passed in registers?
 template<int func(int, int, int, int, int, int, int, int, u32)> void WrapI_IIIIIIIIU() {
-	u32 param8 = *(const u32_le *)Memory::GetPointerWrite(currentMIPS->r[29]); //Fixed 9th parameter, thanks to Kingcom
+	u32 param8 = *(const u32_le *)Memory::GetPointerWriteOrException(currentMIPS->r[29]); //Fixed 9th parameter, thanks to Kingcom
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6), PARAM(7), param8);
 	RETURN(retval);
 }
 
 template<u32 func(int, void *)> void WrapU_IV() {
-	u32 retval = func(PARAM(0), Memory::GetPointerWrite(PARAM(1)));
+	u32 retval = func(PARAM(0), Memory::GetPointerWriteOrException(PARAM(1)));
 	RETURN(retval);
 }
 
@@ -881,27 +881,27 @@ template <int func(int, const char *, int)> void WrapI_ICI() {
 }
 
 template<int func(int, void *, void *, void *, void *, u32, int)> void WrapI_IVVVVUI(){
-  u32 retval = func(PARAM(0), Memory::GetPointerWrite(PARAM(1)), Memory::GetPointerWrite(PARAM(2)), Memory::GetPointerWrite(PARAM(3)), Memory::GetPointerWrite(PARAM(4)), PARAM(5), PARAM(6) );
+  u32 retval = func(PARAM(0), Memory::GetPointerWriteOrException(PARAM(1)), Memory::GetPointerWriteOrException(PARAM(2)), Memory::GetPointerWriteOrException(PARAM(3)), Memory::GetPointerWriteOrException(PARAM(4)), PARAM(5), PARAM(6) );
   RETURN(retval);
 }
 
 template<int func(int, const char *, u32, void *, int, int, int)> void WrapI_ICUVIII(){
-  u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointerWrite(PARAM(3)), PARAM(4), PARAM(5), PARAM(6));
+  u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointerWriteOrException(PARAM(3)), PARAM(4), PARAM(5), PARAM(6));
   RETURN(retval);
 }
 
 template<int func(void *, u32, int)> void WrapI_VUI(){
-	u32 retval = func(Memory::GetPointerWrite(PARAM(0)), PARAM(1), PARAM(2));
+	u32 retval = func(Memory::GetPointerWriteOrException(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN(retval);
 }
 
 template<u32 func(void *, u32, u32)> void WrapU_VUU() {
-	u32 retval = func(Memory::GetPointerWrite(PARAM(0)), PARAM(1), PARAM(2));
+	u32 retval = func(Memory::GetPointerWriteOrException(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN(retval);
 }
 
 template<u32 func(void *, const char *)> void WrapU_VC() {
-	u32 retval = func(Memory::GetPointerWrite(PARAM(0)), Memory::GetCharPointer(PARAM(1)));
+	u32 retval = func(Memory::GetPointerWriteOrException(PARAM(0)), Memory::GetCharPointer(PARAM(1)));
 	RETURN(retval);
 }
 
@@ -916,11 +916,11 @@ template<int func(const char *, const char*)> void WrapI_CC() {
 }
 
 template<u32 func(void *, const char *, u32)> void WrapU_VCU() {
-	u32 retval = func(Memory::GetPointerWrite(PARAM(0)), Memory::GetCharPointer(PARAM(1)), PARAM(2));
+	u32 retval = func(Memory::GetPointerWriteOrException(PARAM(0)), Memory::GetCharPointer(PARAM(1)), PARAM(2));
 	RETURN(retval);
 }
 
 template<u32 func(void *, int)> void WrapU_VI() {
-	u32 retval = func(Memory::GetPointerWrite(PARAM(0)), PARAM(1));
+	u32 retval = func(Memory::GetPointerWriteOrException(PARAM(0)), PARAM(1));
 	RETURN(retval);
 }

@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <unordered_set>
-#include <mutex>
 #include <sstream>
 
 #include "Common/StringUtils.h"
@@ -32,6 +31,8 @@
 #include "Core/Util/DisArm64.h"
 #elif PPSSPP_ARCH(ARM)
 #include "ext/disarm.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "ext/riscv-disas.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
 #include "ext/loongarch-disasm.h"
 #endif
@@ -42,6 +43,7 @@
 #include "Core/MemFault.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 
 // Stack walking stuff
@@ -119,8 +121,6 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-
 	// We set this later if we think it can be resumed from.
 	g_lastCrashAddress = nullptr;
 
@@ -184,67 +184,12 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	ArmLSInstructionInfo info{};
 	success = ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
 #elif PPSSPP_ARCH(RISCV64)
-	// TODO: Put in a disassembler.
-	struct RiscVLSInstructionInfo {
-		int instructionSize;
-		bool isIntegerLoadStore;
-		bool isFPLoadStore;
-		int size;
-		bool isMemoryWrite;
-	};
-
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
-
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	RiscVLSInstructionInfo info{};
-	// Compressed instructions have low bits 00, 01, or 10.
-	info.instructionSize = (word & 3) == 3 ? 4 : 2;
+	success = RiscVAnalyzeLoadStore((uint64_t)codePtr, word, &info);
 	instructionSize = info.instructionSize;
-
-	success = true;
-	switch (word & 0x7F) {
-	case 3:
-		info.isIntegerLoadStore = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	case 7:
-		info.isFPLoadStore = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	case 35:
-		info.isIntegerLoadStore = true;
-		info.isMemoryWrite = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	case 39:
-		info.isFPLoadStore = true;
-		info.isMemoryWrite = true;
-		info.size = 1 << ((word >> 12) & 3);
-		break;
-	default:
-		// Compressed instruction.
-		switch (word & 0x6003) {
-		case 0x4000:
-		case 0x4002:
-		case 0x6000:
-		case 0x6002:
-			info.isIntegerLoadStore = true;
-			info.size = (word & 0x2000) != 0 ? 8 : 4;
-			info.isMemoryWrite = (word & 0x8000) != 0;
-			break;
-		case 0x2000:
-		case 0x2002:
-			info.isFPLoadStore = true;
-			info.size = 8;
-			info.isMemoryWrite = (word & 0x8000) != 0;
-			break;
-		default:
-			// Not a read or a write.
-			success = false;
-			break;
-		}
-		break;
-	}
 #elif PPSSPP_ARCH(LOONGARCH64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
@@ -308,11 +253,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		std::string infoString = "";
 		std::string temp;
 		if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
-			infoString += temp + "\n";
+			infoString += temp + " ";
 		}
 		temp.clear();
 		if (DisassembleNativeAt(codePtr, instructionSize, &temp)) {
-			infoString += temp + "\n";
+			infoString += "(" + temp + ") ";
 		}
 
 		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
@@ -320,7 +265,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		uint32_t approximatePC = currentMIPS->pc;
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.
-		Core_MemoryException(guestAddress, 0, approximatePC, type, infoString);
+		Core_MemoryException(guestAddress, info.OperandSizeInBytes(), approximatePC, type, infoString);
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
@@ -333,7 +278,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			context->CTX_PC = crashHandler;
 		else
 			handled = false;
-		ERROR_LOG(Log::MemMap, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
+		// ERROR_LOG(Log::MemMap, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
 
 	inCrashHandler = false;
@@ -351,11 +296,13 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 }  // namespace Memory
 
-std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
+std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID, uint32_t startPC) {
 	DebugInterface *cpuDebug = currentDebugMIPS;
+	if (startPC == 0)
+		startPC = cpuDebug->GetPC();
 
 	auto threads = GetThreadsInfo();
-	uint32_t entry = cpuDebug->GetPC();
+	uint32_t entry = startPC;
 	uint32_t stackTop = 0;
 	for (const DebugThreadInfo &th : threads) {
 		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
@@ -367,22 +314,23 @@ std::vector<MIPSStackWalk::StackFrame> WalkCurrentStack(int threadID) {
 
 	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
 	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
-	return MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
+	return MIPSStackWalk::Walk(startPC, ra, sp, entry, stackTop);
 }
 
 std::string FormatStackTrace(const std::vector<MIPSStackWalk::StackFrame> &frames) {
 	std::stringstream str;
 	for (const auto &frame : frames) {
-		if (frame.pc == 0xFFFFFFFF) {
-			// Bottom of stack, probably.
-			continue;
-		}
+		const u32 frameEntry = frame.entry == 0xFFFFFFFF ? 0 : frame.entry;
 		std::string desc = g_symbolMap->GetDescription(frame.entry);
+		// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h. A crash
+		// report is the single place this is worth the most, so it goes first on the line.
+		const std::string source = g_lineInfo.LookupString(frame.pc);
+		const std::string at = source.empty() ? std::string() : " at " + source;
 		char moduleDesc[96];
-		if (DescribeKernelModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
-			str << StringFromFormat("%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), moduleDesc, frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+		if (DescribeModuleAddress(frame.entry, moduleDesc, sizeof(moduleDesc))) {
+			str << StringFromFormat("%s%s [%s] (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), at.c_str(), moduleDesc, frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		} else {
-			str << StringFromFormat("%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), frame.entry, frame.pc - frame.entry, frame.pc, frame.sp);
+			str << StringFromFormat("%s%s (%08x+%03x, pc: %08x sp: %08x)\n", desc.c_str(), at.c_str(), frameEntry, frame.pc - frameEntry, frame.pc, frame.sp);
 		}
 	}
 	return str.str();

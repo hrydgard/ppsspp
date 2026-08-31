@@ -98,8 +98,8 @@ struct LogChannel {
 #endif
 	bool enabled = true;
 
-	bool IsEnabled(LogLevel level) const {
-		if (level > this->level || !this->enabled)
+	bool IsEnabled(LogLevel logLevel) const {
+		if (logLevel > level || !enabled)
 			return false;
 		return true;
 	}

@@ -63,6 +63,12 @@ LocalFileLoader::LocalFileLoader(const Path &filename)
 		return;
 	}
 
+	isDirectory_ = File::IsDirectory(filename);
+	if (isDirectory_) {
+		// Don't need to continue.
+		return;
+	}
+
 #if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
 	if (filename.Type() == PathType::CONTENT_URI) {
 		int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ);
@@ -150,6 +156,9 @@ LocalFileLoader::~LocalFileLoader() {
 }
 
 bool LocalFileLoader::Exists() {
+	if (isDirectory_) {
+		return true;
+	}
 	// If we opened it for reading, it must exist.  Done.
 #if defined(HAVE_LIBRETRO_VFS)
 	return file_ != nullptr;
@@ -160,14 +169,6 @@ bool LocalFileLoader::Exists() {
 #else
 	return handle_ != INVALID_HANDLE_VALUE;
 #endif
-}
-
-bool LocalFileLoader::IsDirectory() {
-	File::FileInfo info;
-	if (File::GetFileInfo(filename_, &info)) {
-		return info.exists && info.isDirectory;
-	}
-	return false;
 }
 
 s64 LocalFileLoader::FileSize() {

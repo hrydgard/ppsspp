@@ -35,6 +35,10 @@ enum class FPSLimit {
 	CUSTOM1 = 1,
 	CUSTOM2 = 2,
 	ANALOG = 3,
+	// Set over the WebSocket debugger (game.speed.set). Deliberately its own mode instead of
+	// reusing CUSTOM1/2: those read their rate from g_Config, which is persisted per game, so a
+	// debugger session would permanently overwrite the user's configured alternative speed.
+	DEBUGGER = 4,
 };
 
 class FileLoader;
@@ -55,8 +59,12 @@ struct CoreParameter {
 	bool enableSound = true;  // there aren't multiple sound cores.
 
 	Path fileToStart;
+
 	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
-	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
+	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0:.
+
+	Path nandRoot;  // If non-empty, use this directory as the root above flash0:-flash3: (which are hosted in subdirectories flash0-flash3 of it).
+
 	std::string errorString;
 	bool loadGameConfigs = true;
 
@@ -77,6 +85,10 @@ struct CoreParameter {
 	bool fastForward = false;
 	FPSLimit fpsLimit = FPSLimit::NORMAL;
 	int analogFpsLimit = 0;
+	// Target FPS for FPSLimit::DEBUGGER. Lives here rather than in g_Config on purpose - see the
+	// enum. Resets with the rest of this struct on every boot, so a debugger can't leave a game
+	// permanently slowed down.
+	int debuggerFpsLimit = 0;
 
 	bool updateRecent = true;
 

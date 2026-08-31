@@ -15,10 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/TimeUtil.h"
+#include "Core/Core.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -54,10 +59,13 @@
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
+#include "Core/Debugger/WebSocket/GPUDisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
+#include "Core/Debugger/WebSocket/HLEKernelObjectSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
+#include "Core/Debugger/WebSocket/LogConfigSubscriber.h"
 #include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
@@ -71,10 +79,13 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketDisasmInit,
 	&WebSocketGameInit,
 	&WebSocketGPUBufferInit,
+	&WebSocketGPUDisasmInit,
 	&WebSocketGPURecordInit,
 	&WebSocketGPUStatsInit,
+	&WebSocketHLEKernelObjectInit,
 	&WebSocketHLEInit,
 	&WebSocketInputInit,
+	&WebSocketLogConfigInit,
 	&WebSocketMemoryInfoInit,
 	&WebSocketMemoryInit,
 	&WebSocketReplayInit,
@@ -88,9 +99,12 @@ static volatile bool stopRequested = false;
 static std::mutex stopLock;
 static std::condition_variable stopCond;
 
-// Prevent threading surprises and obscure crashes by locking startup/shutdown.
-static bool lifecycleLockSetup = false;
-static std::mutex lifecycleLock;
+// There is deliberately no lock guarding debugger handlers against the core being started or torn
+// down under them: every handler either does its emulator-state access inside Core_RunOnCPUThread()
+// (so it's serialized with startup/shutdown, which also run on the CPU thread), or only touches
+// state that carries its own lock - the log ring buffer, ctrlMutex, GPUStepping's rendezvous.
+// The lock that used to be here had to be held across a whole handler, including the blocking wait
+// inside Core_RunOnCPUThread(), which deadlocked against the CPU thread taking it on STOPPING.
 
 static void UpdateConnected(int delta) {
 	std::lock_guard<std::mutex> guard(stopLock);
@@ -98,32 +112,109 @@ static void UpdateConnected(int delta) {
 	stopCond.notify_all();
 }
 
-static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
-	switch (stage) {
-	case CoreLifecycle::STARTING:
-	case CoreLifecycle::STOPPING:
-	case CoreLifecycle::MEMORY_REINITING:
-		if (debuggersConnected > 0) {
-			DEBUG_LOG(Log::System, "Waiting for debugger to complete on shutdown");
-		}
-		lifecycleLock.lock();
-		break;
+// Per-connection mailbox for events the CPU thread produces (cpu.stepping, game.start, ...).
+//
+// These used to be polled per connection from the WebSocket thread, which meant every connected
+// debugger was reading pc, the tick count, the UI state and the param SFO out from under the CPU
+// thread on every lap of its loop. Now the CPU thread notices the transition once, formats the
+// event, and drops it in here; the connection's own thread just drains and sends.
+// A log-only breakpoint in a hot loop can produce events far faster than a connection drains them
+// (the drain runs once per lap of ws->Process, so at best a few hundred times a second). Without a
+// cap the queue grows without bound and the connection falls further and further behind. Dropping
+// is the only sane answer; cpu.breakpoint.hit carries a sequence number so a client can tell
+// exactly how many it missed rather than silently believing it saw everything.
+static constexpr size_t MAX_PENDING_EVENTS = 4096;
 
-	case CoreLifecycle::START_COMPLETE:
-	case CoreLifecycle::STOPPED:
-	case CoreLifecycle::MEMORY_REINITED:
-		lifecycleLock.unlock();
-		if (debuggersConnected > 0) {
-			DEBUG_LOG(Log::System, "Debugger ready for shutdown");
-		}
-		break;
+struct DebuggerEventSink {
+	std::mutex lock;
+	std::vector<std::pair<const char *, std::string>> pending;
+	// A debugger that connects while the CPU is already stopped still wants to hear about it.
+	bool needsSteppingPrime = true;
+
+	void Push(const char *category, std::string json) {
+		std::lock_guard<std::mutex> guard(lock);
+		if (pending.size() >= MAX_PENDING_EVENTS)
+			return;
+		pending.emplace_back(category, std::move(json));
 	}
+
+	void Take(std::vector<std::pair<const char *, std::string>> *out) {
+		std::lock_guard<std::mutex> guard(lock);
+		out->swap(pending);
+		pending.clear();
+	}
+};
+
+static std::mutex g_sinkLock;
+static std::vector<DebuggerEventSink *> g_sinks;
+// Mirrors g_sinks.size() so the breakpoint path can check "is anyone listening" with one relaxed
+// load, instead of taking g_sinkLock on every single breakpoint hit.
+static std::atomic<int> g_sinkCount{ 0 };
+
+static void RegisterSink(DebuggerEventSink *sink) {
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	g_sinks.push_back(sink);
+	g_sinkCount.store((int)g_sinks.size(), std::memory_order_relaxed);
 }
 
-static void SetupDebuggerLock() {
-	if (!lifecycleLockSetup) {
-		Core_ListenLifecycle(&WebSocketNotifyLifecycle);
-		lifecycleLockSetup = true;
+static void UnregisterSink(DebuggerEventSink *sink) {
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	g_sinks.erase(std::remove(g_sinks.begin(), g_sinks.end(), sink), g_sinks.end());
+	g_sinkCount.store((int)g_sinks.size(), std::memory_order_relaxed);
+}
+
+bool WebSocketDebuggerHasClients() {
+	return g_sinkCount.load(std::memory_order_relaxed) != 0;
+}
+
+void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {
+	// Counts hits produced, not hits delivered, so a gap in what a client receives tells it how
+	// many were dropped by the cap in Push().
+	static uint64_t g_hitSequence = 0;
+
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	if (g_sinks.empty())
+		return;
+
+	// Formatted once here on the CPU thread, then shared - same rule as the other pushed events:
+	// a connection's own thread must never be the one reading emulator state.
+	JsonWriter j;
+	j.begin();
+	j.writeString("event", "cpu.breakpoint.hit");
+	j.writeFloat("sequence", (double)++g_hitSequence);
+	WriteBreakpointHit(j, hit);
+	j.end();
+	const std::string json = j.str();
+
+	for (DebuggerEventSink *sink : g_sinks)
+		sink->Push("breakpoint", json);
+}
+
+void WebSocketDebuggerTick() {
+	// Poll unconditionally, even with nothing connected: these track transitions, and skipping them
+	// would let the "previous" state go stale and fire a bogus event at whoever connects next.
+	const std::string gameEvent = GameBroadcaster::PollChange();
+	const std::string steppingEvent = SteppingBroadcaster::PollChange();
+
+	std::lock_guard<std::mutex> guard(g_sinkLock);
+	if (g_sinks.empty())
+		return;
+
+	std::string steppingPrime;
+	for (DebuggerEventSink *sink : g_sinks) {
+		if (sink->needsSteppingPrime) {
+			sink->needsSteppingPrime = false;
+			// Only format it if somebody actually needs it.
+			if (steppingPrime.empty())
+				steppingPrime = SteppingBroadcaster::CurrentState();
+			if (!steppingPrime.empty())
+				sink->Push("stepping", steppingPrime);
+			continue;
+		}
+		if (!gameEvent.empty())
+			sink->Push("game", gameEvent);
+		if (!steppingEvent.empty())
+			sink->Push("stepping", steppingEvent);
 	}
 }
 
@@ -136,20 +227,26 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	}
 
 	UpdateConnected(1);
-	SetupDebuggerLock();
 
 	WebSocketClientInfo client_info;
 	auto& disallowed_config = client_info.disallowed;
+	// Seed every broadcaster category. broadcast.config.set only accepts keys that already exist
+	// here (so a typo is rejected rather than silently ignored), and these otherwise only appear
+	// as a side effect of operator[] the first time each category actually broadcasts - which
+	// meant "game" and "stepping" were rejected as unsupported until one happened to fire, even
+	// though they're documented and valid. Keep in sync with the Broadcast calls further down.
+	for (const char *category : { "logger", "input", "game", "stepping", "breakpoint" })
+		disallowed_config[category] = false;
 
-	GameBroadcaster game;
 	LogBroadcaster logger;
 	InputBroadcaster input;
-	SteppingBroadcaster stepping;
+
+	DebuggerEventSink sink;
+	RegisterSink(&sink);
 
 	DebuggerEventHandlerMap eventHandlers;
 	std::vector<DebuggerSubscriber *> subscriberData;
 	for (auto init : subscribers) {
-		std::lock_guard<std::mutex> guard(lifecycleLock);
 		subscriberData.push_back(init(eventHandlers));
 	}
 
@@ -174,9 +271,16 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		DebuggerRequest req(event, ws, root, &client_info);
 		auto eventFunc = eventHandlers.find(event);
 		if (eventFunc != eventHandlers.end()) {
-			std::lock_guard<std::mutex> guard(lifecycleLock);
 			eventFunc->second(req);
 			if (!req.Finish()) {
+				// The handler arranged something that finishes later - a step, a resume, a stats
+				// feed - rather than answering now. A client that asked for it gets told so, so it
+				// can tell "accepted, wait for the event" from "dropped on the floor" without
+				// carrying a hardcoded list of the events that don't answer. Everyone else sees
+				// exactly what they saw before; see client.config.set for why it can't be the
+				// default.
+				if (client_info.acknowledgeDeferred)
+					ws->Send(DebuggerDeferredEvent(event, root));
 				// Poll more frequently for a second in case this triggers something.
 				highActivity = 1000;
 			}
@@ -194,19 +298,22 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	constexpr float lowActivityPollTimeStep = 1.0f / 60.0f;
 	constexpr float highActivityPollTimeStep = 1.0f / 1000.0f;
 	while (ws->Process(highActivity ? highActivityPollTimeStep : lowActivityPollTimeStep)) {
-		std::lock_guard<std::mutex> guard(lifecycleLock);
 		// These send events that aren't just responses to requests
 
 		// The client can explicitly ask not to be notified about some events
 		// so we check the client settings first
 		if (!disallowed_config["logger"])
 			logger.Broadcast(ws);
-		if (!disallowed_config["game"])
-			game.Broadcast(ws);
-		if (!disallowed_config["stepping"])
-			stepping.Broadcast(ws);
 		if (!disallowed_config["input"])
 			input.Broadcast(ws);
+
+		// Whatever the CPU thread queued up for us since last lap.
+		std::vector<std::pair<const char *, std::string>> events;
+		sink.Take(&events);
+		for (const auto &ev : events) {
+			if (!disallowed_config[ev.first])
+				ws->Send(ev.second);
+		}
 
 		for (size_t i = 0; i < subscribers.size(); ++i) {
 			if (subscriberData[i]) {
@@ -223,7 +330,8 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		}
 	}
 
-	std::lock_guard<std::mutex> guard(lifecycleLock);
+	UnregisterSink(&sink);
+
 	for (size_t i = 0; i < subscribers.size(); ++i) {
 		delete subscriberData[i];
 	}

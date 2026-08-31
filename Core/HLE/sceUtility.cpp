@@ -1090,7 +1090,7 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 static int sceUtilityGetNetParamLatestID(u32 idAddr) {
 	DEBUG_LOG(Log::sceUtility, "sceUtilityGetNetParamLatestID(%08x)", idAddr);
 	// This function is saving the last net param ID (non-zero ID?) and not the number of net configurations.
-	Memory::Write_U32(netParamLatestId, idAddr);
+	Memory::WriteOrException_U32(netParamLatestId, idAddr);
 
 	return 0;
 }
@@ -1269,7 +1269,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED),
 			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING),
 			//        or 0x60 early when in connected state (ie. adhocctlState == ADHOCCTL_STATE_CONNECTED) right after Creating a group, regardless the channel settings.
-			Memory::Write_U32(param, destaddr);
+			Memory::WriteOrException_U32(param, destaddr);
 			return 0x800ADF4;
 		}
 		break;
@@ -1309,7 +1309,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
 
-	Memory::Write_U32(param, destaddr);
+	Memory::WriteOrException_U32(param, destaddr);
 	return hleLogInfo(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
 }
 
@@ -1587,10 +1587,10 @@ const HLEFunction sceUtility[] = {
 	{0X417BED54, nullptr,                                          "sceNetplayDialogUpdate",                 '?', ""   },
 	{0XB6CEE597, nullptr,                                          "sceNetplayDialogGetStatus",              '?', ""   },
 
-	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   },
-	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   },
-	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   },
-	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   },
+	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   }, // jpcsp: getAuthName(char *authNameOut64)
+	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   }, // jpcsp: setAuthKey(const char *authKey64)
+	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   }, // jpcsp: setAuthName(const char *authName64)
+	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   }, // jpcsp: getAuthKey(char *authKeyOut64)
 
 	{0x05e242a1, nullptr,                                          "sceUtility_05e242a1",                    '?', ""   },
 	{0x644b513b, nullptr,                                          "sceUtility_644b513b",                    '?', ""   },

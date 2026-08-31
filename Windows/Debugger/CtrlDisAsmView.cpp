@@ -12,6 +12,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
 #include "Common/StringUtils.h"
@@ -61,9 +62,10 @@ void CtrlDisAsmView::deinit()
 void CtrlDisAsmView::scanVisibleFunctions()
 {
 	// Reads live memory/symbol state to detect function boundaries - hold g_frameMutex for the
-	// duration, which NativeFrame() also holds while it's actually touching that state. See
-	// g_frameMutex in Core.h.
+	// duration, which NativeFrame() also holds while it's actually touching that state, and
+	// Core_LockAgainstShutdown() so the core can't be torn down mid-read. See g_frameMutex in Core.h.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	g_disassemblyManager.analyze(windowStart, g_disassemblyManager.getNthNextAddress(windowStart,visibleRows)-windowStart);
 }
 
@@ -243,7 +245,7 @@ std::string trimString(std::string input)
 
 void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!Core_IsStepping()) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
@@ -457,13 +459,14 @@ void CtrlDisAsmView::drawArguments(HDC hdc, const DisassemblyLineInfo &line, int
 
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
-	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
-
 	// Reading live disassembly/symbol/breakpoint state here on the GUI thread would otherwise race
 	// with the CPU thread - hold g_frameMutex for the duration of the read, which NativeFrame()
 	// also holds while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Core_LockAgainstShutdown() - never the other way around. See CtrlMemView::onPaint.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
+	if (!debugger->isAlive() || Achievements::HardcoreModeActive()) return;
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -954,12 +957,17 @@ void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
 	// Route the memory writes to the CPU thread instead of poking at it directly from this GUI
 	// thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
+		if (!Memory::IsValid4AlignedRange(selectRangeStart, selectRangeEnd - selectRangeStart)) {
+			ERROR_LOG(Log::Debugger, "NopIntructions: Bad address range %08x->%08x", selectRangeStart, selectRangeEnd);
+			return;
+		}
+
 		for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
-			Memory::Write_U32(0, addr);
+			Memory::WriteUnchecked_U32(0, addr);
 		}
 
 		if (currentMIPS) {
-			currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
+			currentMIPS->InvalidateICacheRangeDeferred(selectRangeStart, selectRangeEnd - selectRangeStart);
 		}
 	});
 }
@@ -1189,7 +1197,7 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::updateStatusBarText()
 {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited())
 		return;
 
@@ -1201,7 +1209,12 @@ void CtrlDisAsmView::updateStatusBarText()
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
 
-	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
+	// Empty unless the game shipped an unstripped ELF - see Core/Debugger/LineInfo.h.
+	const std::string source = g_lineInfo.LookupString(curAddress);
+	std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
+	if (!source.empty()) {
+		label = label.empty() ? source : label + "   " + source;
+	}
 	if (!label.empty()) {
 		SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,1,(LPARAM)label.c_str());
 	}
@@ -1223,7 +1236,7 @@ void CtrlDisAsmView::calculatePixelPositions()
 
 void CtrlDisAsmView::search(bool continueSearch)
 {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 searchAddress;
 
 	if (continueSearch == false || searchQuery[0] == 0)

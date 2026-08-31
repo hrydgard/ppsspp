@@ -41,7 +41,7 @@ struct Arm64LSInstructionInfo {
 	int Rn;
 	int Rm;
 
-	// TODO: more.
+	int OperandSizeInBytes() const { return 1 << size; }
 };
 
 bool Arm64AnalyzeLoadStore(uint64_t addr, uint32_t op, Arm64LSInstructionInfo *info);

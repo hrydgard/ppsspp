@@ -1540,7 +1540,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 
 	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList.IsValid()) {
+	if (param->saveNameList.IsValid() && WouldHaveMultiSaveName(param)) {
 		Clear();
 
 		saveNameListData = param->saveNameList;
@@ -1558,7 +1558,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 			saveDataListCount++;
 		}
 
-		if (saveDataListCount > 0 && WouldHaveMultiSaveName(param)) {
+		if (saveDataListCount > 0) {
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			

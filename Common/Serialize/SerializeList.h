@@ -27,7 +27,7 @@ void DoList(PointerWrap &p, std::list<T> &x, T &default_val) {
 	Do(p, list_size);
 	// Guard against an attacker-controlled size driving a huge resize, same as DoVector.
 	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
-		if (list_size > p.Remaining() / sizeof(T)) {
+		if (list_size > p.Remaining() / SerializeMinElemSize<T>()) {
 			p.SetError(PointerWrap::ERROR_FAILURE);
 			return;
 		}

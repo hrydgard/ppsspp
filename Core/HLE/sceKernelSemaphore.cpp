@@ -38,51 +38,18 @@
 * @see sceKernelReferSemaStatus.
 */
 
-struct NativeSemaphore
-{
-	/** Size of the ::SceKernelSemaInfo structure. */
-	SceSize_le size;
-	/** NUL-terminated name of the semaphore. */
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	/** Attributes. */
-	SceUInt_le attr;
-	/** The initial count the semaphore was created with. */
-	s32_le initCount;
-	/** The current count. */
-	s32_le currentCount;
-	/** The maximum count. */
-	s32_le maxCount;
-	/** The number of threads waiting on the semaphore. */
-	s32_le numWaitThreads;
-};
+// NativeSemaphore/PSPSemaphore itself now live in sceKernelSemaphore.h - see the comment on the
+// class there for why.
+void PSPSemaphore::DoState(PointerWrap &p) {
+	auto s = p.Section("Semaphore", 1);
+	if (!s)
+		return;
 
-
-struct PSPSemaphore : public KernelObject {
-	const char *GetName() override { return ns.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "Semaphore"; }
-
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Semaphore; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Semaphore; }
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Semaphore", 1);
-		if (!s)
-			return;
-
-		Do(p, ns);
-		SceUID dv = 0;
-		Do(p, waitingThreads, dv);
-		Do(p, pausedWaits);
-	}
-
-	NativeSemaphore ns;
-	std::vector<SceUID> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, u64> pausedWaits;
-};
+	Do(p, ns);
+	SceUID dv = 0;
+	Do(p, waitingThreads, dv);
+	Do(p, pausedWaits);
+}
 
 static int semaWaitTimer = -1;
 
@@ -132,7 +99,7 @@ static bool __KernelUnlockSemaForThread(PSPSemaphore *s, SceUID threadID, u32 &e
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
 		if (cyclesLeft < 0)
 			cyclesLeft = 0;
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -184,7 +151,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 
 		s->ns.numWaitThreads = (int) s->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
+			Memory::WriteOrException_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
 
 		if (newCount < 0)
 			s->ns.currentCount = s->ns.initCount;
@@ -329,12 +296,11 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate) {
 	}
 }
 
-// Assumes timeoutPtr is zero or valid.
 static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || semaWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadUnchecked_U32(timeoutPtr);
+	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
@@ -346,7 +312,6 @@ static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
 	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
 }
 
-// Assumes timeoutPtr is zero or valid.
 static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks) {
 	hleEatCycles(900);
 
@@ -381,10 +346,6 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 }
 
 int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr) {
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_BAD_ARGUMENT, "invalid timeout pointer");  // untested
-	}
-
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
 
 	if (id == 0 && result == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {
@@ -396,10 +357,6 @@ int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr) {
 }
 
 int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr) {
-	if (timeoutPtr && !Memory::IsValid4AlignedAddress(timeoutPtr)) {
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_BAD_ARGUMENT, "invalid timeout pointer");  // untested
-	}
-
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
 
 	if (id == 0 && result == SCE_KERNEL_ERROR_UNKNOWN_SEMID) {

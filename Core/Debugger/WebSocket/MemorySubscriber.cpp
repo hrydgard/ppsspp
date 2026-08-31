@@ -19,6 +19,7 @@
 #include <cstring>
 #include <mutex>
 #include "Common/Data/Encoding/Base64.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
@@ -52,7 +53,6 @@ struct AutoDisabledReplacements {
 	AutoDisabledReplacements &operator =(const AutoDisabledReplacements &) = delete;
 	~AutoDisabledReplacements();
 
-	Memory::MemoryInitedLock *lock = nullptr;
 	std::map<u32, u32> replacements;
 	std::vector<u32> emuhacks;
 	bool saved = false;
@@ -63,26 +63,25 @@ struct AutoDisabledReplacements {
 // by the time this is called, so nothing else can be concurrently executing MIPS code or touching the
 // JIT's emuhack ops on this thread while we hold onto them below.
 //
+// Deliberately does NOT take a CoreShutdownLock: memory teardown only ever happens on the
+// CPU thread too, so there's nothing to guard against, and taking it here deadlocked against the
+// Win32 debugger's paint handlers. See the lock ordering section in AGENTS.md.
+//
 // Important: Only use keepReplacements=false when reading, not writing.
 static AutoDisabledReplacements LockMemory(bool keepReplacements) {
 	AutoDisabledReplacements result;
-	// This still guards against a *different* thread (not the CPU thread) tearing down or
-	// reinitializing the memory system underneath us, e.g. during shutdown.
-	result.lock = new Memory::MemoryInitedLock();
 	if (!keepReplacements) {
 		result.saved = true;
 		// Okay, save so we can restore later.
 		result.replacements = SaveAndClearReplacements();
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-		if (MIPSComp::jit)
+		if (MIPSComp::jit) {
 			result.emuhacks = MIPSComp::jit->SaveAndClearEmuHackOps();
+		}
 	}
 	return result;
 }
 
 AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&other) {
-	lock = other.lock;
-	other.lock = nullptr;
 	replacements = std::move(other.replacements);
 	emuhacks = std::move(other.emuhacks);
 	saved = other.saved;
@@ -91,12 +90,10 @@ AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&ot
 
 AutoDisabledReplacements::~AutoDisabledReplacements() {
 	if (saved) {
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 		if (MIPSComp::jit)
 			MIPSComp::jit->RestoreSavedEmuHackOps(emuhacks);
 		RestoreSavedReplacements(replacements);
 	}
-	delete lock;
 }
 
 // Read a byte from memory (memory.read_u8)
@@ -106,6 +103,8 @@ AutoDisabledReplacements::~AutoDisabledReplacements() {
 //
 // Response (same event name):
 //  - value: unsigned integer
+//  - uintValue: the same number under the name cpu.getReg/cpu.getAllRegs use, so a client can
+//    read either without special-casing which event it came from
 void WebSocketMemoryReadU8(DebuggerRequest &req) {
 	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
@@ -125,6 +124,8 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
+		// Alias: cpu.getReg and cpu.getAllRegs call this uintValue. Same number, both names.
+		json.writeUint("uintValue", Memory::ReadUnchecked_U8(addr));
 	});
 }
 
@@ -135,6 +136,8 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 //
 // Response (same event name):
 //  - value: unsigned integer
+//  - uintValue: the same number under the name cpu.getReg/cpu.getAllRegs use, so a client can
+//    read either without special-casing which event it came from
 void WebSocketMemoryReadU16(DebuggerRequest &req) {
 	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
@@ -154,6 +157,7 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U16(addr));
 	});
 }
 
@@ -164,6 +168,8 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 //
 // Response (same event name):
 //  - value: unsigned integer
+//  - uintValue: the same number under the name cpu.getReg/cpu.getAllRegs use, so a client can
+//    read either without special-casing which event it came from
 void WebSocketMemoryReadU32(DebuggerRequest &req) {
 	uint32_t addr;
 	if (!req.ParamU32("address", &addr, false)) {
@@ -183,6 +189,7 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U32(addr));
 	});
 }
 
@@ -250,7 +257,9 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 //  - type: optional, 'utf-8' (default) or 'base64'.
 //
 // Response (same event name) for 'utf8':
-//  - value: string value read.
+//  - value: string value read.  Since this reads arbitrary emulated memory, which is under no
+//    obligation to hold text at all, any byte sequence that isn't valid UTF-8 is replaced with
+//    U+FFFD.  Use 'base64' if you need the bytes exactly as they are.
 //
 // Response (same event name) for 'base64':
 //  - base64: base64 encode of binary data, not including NUL.
@@ -288,7 +297,10 @@ void WebSocketMemoryReadString(DebuggerRequest &req) {
 
 	JsonWriter &json = req.Respond();
 	if (type == "utf-8") {
-		json.writeString("value", raw);
+		// Must not go out raw: WebSocket text frames are required to be valid UTF-8, so a stray
+		// byte from some non-text address would make a conforming client (browsers included) drop
+		// the connection - taking down the whole debugger session over one bad read.
+		json.writeString("value", ReplaceInvalidUTF8(raw));
 	} else if (type == "base64") {
 		json.writeString("base64", Base64Encode((const uint8_t *)raw.data(), raw.size()));
 	}
@@ -322,12 +334,14 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, 1);
-		Memory::Write_U8(val, addr);
+		Memory::WriteUnchecked_U8(val, addr);
+		currentMIPS->InvalidateICacheRangeDeferred(addr, 1);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U8(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
+		// Alias: cpu.getReg and cpu.getAllRegs call this uintValue. Same number, both names.
+		json.writeUint("uintValue", Memory::ReadUnchecked_U8(addr));
 	});
 }
 
@@ -359,12 +373,13 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, 2);
 		Memory::WriteUnchecked_U16(val, addr);
+		currentMIPS->InvalidateICacheRangeDeferred(addr, 2);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
-		json.writeUint("value", Memory::Read_U16(addr));
+		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U16(addr));
 	});
 }
 
@@ -396,12 +411,13 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, 4);
 		Memory::WriteUnchecked_U32(val, addr);
+		currentMIPS->InvalidateICacheRangeDeferred(addr, 4);
 		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
+		json.writeUint("uintValue", Memory::ReadUnchecked_U32(addr));
 	});
 }
 
@@ -437,9 +453,10 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
 		AutoDisabledReplacements memLock = LockMemory(true);
-		currentMIPS->InvalidateICache(addr, size);
-		if (size != 0)
+		currentMIPS->InvalidateICacheRangeDeferred(addr, size);
+		if (size != 0) {
 			Memory::MemcpyUnchecked(addr, &value[0], size);
+		}
 		Reporting::NotifyDebugger();
 		req.Respond();
 	});

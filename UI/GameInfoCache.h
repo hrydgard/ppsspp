@@ -22,9 +22,11 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 
 #include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Common/File/Path.h"
 
 namespace Draw {
@@ -50,6 +52,7 @@ enum class GameInfoFlags {
 	UNCOMPRESSED_SIZE = 0x80,
 	SAVEDATA_SIZE = 0x100,
 	ICON1_PMF = 0x200,
+	BUNDLED_UPDATE_INFO = 0x400,  // The firmware updater that most game discs carry. ISO only.
 };
 ENUM_CLASS_BITOPS(GameInfoFlags);
 
@@ -121,9 +124,23 @@ public:
 		return ((int)hasFlags & (int)flags) == (int)flags;
 	}
 
+	// Blocks the calling thread until the specified flags have been loaded. Note that you must
+	// have requested them through GetInfo first, otherwise nobody will ever compute them and
+	// this will simply hang.
+	// Only use this where there's really no way to wait asynchronously by polling Ready() every
+	// frame - loading can take a while, especially from slow or remote storage.
+	void WaitUntilReady(GameInfoFlags flags) {
+		std::unique_lock<std::mutex> guard(lock);
+		readyCond.wait(guard, [this, flags]() {
+			// Avoid the operator, we want to check all the bits.
+			return ((int)hasFlags & (int)flags) == (int)flags;
+		});
+	}
+
 	void MarkReadyNoLock(GameInfoFlags flags) {
 		hasFlags |= flags;
 		pendingFlags &= ~flags;
+		readyCond.notify_all();
 	}
 
 	GameInfoTex *GetPIC1() {
@@ -137,6 +154,9 @@ public:
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
 	std::mutex lock;
+
+	// Signalled whenever flags are marked as ready, see WaitUntilReady. Goes with the lock above.
+	std::condition_variable readyCond;
 
 	// Controls access to the fileLoader pointer.
 	std::mutex loaderLock;
@@ -170,6 +190,10 @@ public:
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
 
+	// The firmware updater bundled on the disc, if any - see GameInfoFlags::BUNDLED_UPDATE_INFO.
+	// Always left empty for anything that isn't an ISO.
+	BundledUpdateInfo bundledUpdate;
+
 	std::string errorString;
 
 protected:
@@ -193,7 +217,7 @@ public:
 	GameInfoCache();
 	~GameInfoCache();
 
-	// This creates a background worker thread!
+	// Cancels in-flight loads and drops everything, textures included. Main thread only.
 	void Clear();
 	void PurgeType(IdentifiedFileType fileType);
 

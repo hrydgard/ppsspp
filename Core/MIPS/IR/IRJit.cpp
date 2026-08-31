@@ -33,7 +33,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
@@ -172,15 +172,15 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 	// ApplyRoundingMode(true);
 	// IR Dispatcher
 	
+	MIPSState *mips = mips_;
 	while (true) {
 		// RestoreRoundingMode(true);
-		CoreTiming::Advance();
+		CoreTiming::Advance(currentMIPS);
 		// ApplyRoundingMode(true);
 		if (coreState != 0) {
 			break;
 		}
 
-		MIPSState *mips = mips_;
 #ifdef _DEBUG
 		compilerEnabled_ = false;
 #endif

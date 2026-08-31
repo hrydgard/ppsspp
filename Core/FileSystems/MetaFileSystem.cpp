@@ -175,6 +175,14 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle) const
 	return nullptr;
 }
 
+std::string MetaFileSystem::GetCurrentDirForThread(int threadID) const {
+	auto iter = currentDir.find(threadID);
+	if (iter == currentDir.end()) {
+		return "";
+	}
+	return iter->second;
+}
+
 int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, MountPoint **system) {
 	int error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	std::lock_guard<std::recursive_mutex> guard(lock);
@@ -194,49 +202,53 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 	}
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
-	// appears to mean the current directory on the UMD. Let's just assume the current directory.
-	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
-		INFO_LOG(Log::FileSystem, "Host0 path detected, stripping: %s", inpath.c_str());
-		// However, this causes trouble when running tests, since our test framework uses host0:.
-		// Maybe it's really just supposed to map to umd0 or something?
-		if (PSP_CoreParameter().headLess) {
-			inpath = "umd0:" + inpath.substr(strlen("host0:"));
-		} else {
-			inpath = inpath.substr(strlen("host0:"));
-		}
+	// appears to mean the current directory on the UMD.
+	// Actually, not sure if this is still needed. It doesn't make a whole lot of sense.
+	if (startsWithNoCase(inpath.c_str(), "host0:") && !host0Mapped_) {
+		inpath = "umd0:" + inpath.substr(strlen("host0:"));
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
 
+	// Hm, does this make sense? Doesn't each drive has its own currentDir per thread, or maybe not?
 	int currentThread = __KernelGetCurThread();
-	currentDir_t::iterator it = currentDir.find(currentThread);
-	if (it == currentDir.end()) 
-	{
-		//Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
-		if (inpath.find(':') == std::string::npos /* means path is relative */) 
-		{
+	auto it = currentDir.find(currentThread);
+	if (it == currentDir.end()) {
+		// Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
+		if (inpath.find(':') == std::string::npos /* means path is relative */) {
 			error = SCE_KERNEL_ERROR_NOCWD;
 			WARN_LOG(Log::FileSystem, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
-	}
-	else
-	{
+	} else {
 		currentDirectory = &(it->second);
 	}
 
-	if (RealPath(*currentDirectory, inpath, realpath))
-	{
+	if (RealPath(*currentDirectory, inpath, realpath)) {
 		std::string prefix = realpath;
 		size_t prefixPos = realpath.find(':');
 		if (prefixPos != realpath.npos)
 			prefix = NormalizePrefix(realpath.substr(0, prefixPos + 1));
 
-		for (size_t i = 0; i < fileSystems.size(); i++)
-		{
-			size_t prefLen = fileSystems[i].prefix.size();
-			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
-			{
-				*outpath = realpath.substr(prefixPos + 1);
+		for (size_t i = 0; i < fileSystems.size(); i++) {
+			if (equalsNoCase(fileSystems[i].prefix, prefix)) {
+				// Map into the underlying filesystem. If the mount specifies a subDir,
+				// join that with the path inside the device.
+				std::string basePath = realpath.substr(prefixPos + 1); // may be empty or start with '/'
+				const std::string &mountSub = fileSystems[i].subDir;
+				if (mountSub.empty()) {
+					*outpath = basePath;
+				} else {
+					// Normalize subDir: ensure it starts with '/' and has no trailing slash (unless it's root "/").
+					std::string s = mountSub;
+					if (s.empty()) s = "/";
+					if (s[0] != '/') s.insert(s.begin(), '/');
+					if (s.size() > 1 && s.back() == '/') s.pop_back();
+					if (basePath.empty()) {
+						*outpath = s;
+					} else {
+						*outpath = s + basePath; // basePath usually starts with '/'
+					}
+				}
 				*system = &(fileSystems[i]);
 
 				VERBOSE_LOG(Log::FileSystem, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath->c_str());
@@ -252,39 +264,43 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 	return error;
 }
 
-std::string MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
+std::string_view MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
 	// Let's apply some mapping here since it won't break savestates.
 	if (prefix == "memstick:")
-		prefix = "ms0:";
+		return "ms0:";
 	// Seems like umd00: etc. work just fine... avoid umd1/umd for tests.
 	if (startsWith(prefix, "umd") && prefix != "umd1:" && prefix != "umd:")
-		prefix = "umd0:";
+		return "umd0:";
 	// Seems like umd00: etc. work just fine...
 	if (startsWith(prefix, "host"))
-		prefix = "host0:";
+		return "host0:";
 
 	// Should we simply make this case insensitive?
 	if (prefix == "DISC0:")
-		prefix = "disc0:";
-
-	return std::string(prefix);
+		return "disc0:";
+	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system) {
+void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system, std::string_view subDir) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
 			// Overwrite the old mount.
-			// shared_ptr makes sure there's no leak.
 			it.system = system;
+			it.subDir = std::string(subDir);
 			return;
 		}
+	}
+
+	if (equalsNoCase(prefix, "host0:")) {
+		host0Mapped_ = true;
 	}
 
 	// Prefix not yet mounted, do so.
 	MountPoint x;
 	x.prefix = prefix;
 	x.system = system;
+	x.subDir = std::string(subDir);
 	fileSystems.push_back(x);
 }
 
@@ -292,10 +308,14 @@ void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem>
 void MetaFileSystem::UnmountAll() {
 	fileSystems.clear();
 	currentDir.clear();
+	host0Mapped_ = false;
 }
 
 void MetaFileSystem::Unmount(std::string_view prefix) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
+	if (equalsNoCase(prefix, "host0:")) {
+		host0Mapped_ = false;
+	}
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
 			fileSystems.erase(iter);

@@ -53,6 +53,8 @@ MemArena g_arena;
 u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
+u8 *m_pKernelScratchPad;
+u8 *m_pUncachedKernelScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
 u8 *m_pPhysicalRAM[3];
@@ -71,6 +73,11 @@ u8 *m_pUncachedKernelRAM[3];
 static u8 *m_pPhysicalVRAM[4];
 static u8 *m_pUncachedVRAM[4];
 
+// Hardware registers are mapped at 0xbc000000 and forwards (physical address 0x1C000000, but we need
+// the 0x80000000 kernel flag and 0x40000000 uncached flag for these). Exception vectors are at 0xbfc00000.
+// Since we do HLE emulation, we currently don't bother with any of that.
+// Some limited documentation here: https://www.psdevwiki.com/psp/Hardware_Registers#Introduction
+
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
 // This replaces RAM_NORMAL_SIZE at runtime.
@@ -80,13 +87,18 @@ u32 g_PSPModel;
 
 static MemMapSetupFlags g_setupFlags;
 
-std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] = {
 	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	// Kernel-mode code (e.g. flash0:/reboot.bin) sees the scratchpad through these mirrors -
+	// same two address bits as RAM below (0x80000000 = kernel, 0x40000000 = uncached,
+	// independently combinable), just missing here until this was noticed via a real SIGSEGV
+	// writing 0x80010000 (see docs/VSHBootInvestigation.md).
+	{&m_pKernelScratchPad,        0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
+	{&m_pUncachedKernelScratchPad,0xC0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
 	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
@@ -330,6 +342,9 @@ bool Init(MemMapSetupFlags flags) {
 void Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	// Held across both halves: between Shutdown() and Init() there is no memory map at all, and a
+	// reader that only saw Shutdown()'s own acquire could slip into that gap.
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
 	Init(flags);
@@ -337,7 +352,7 @@ void Reinit() {
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
-	uint8_t *d = GetPointerWrite(start);
+	uint8_t *d = GetPointerWriteOrException(start);
 	uint8_t *&storage = *p.ptr;
 
 	// We only handle aligned data and sizes.
@@ -408,7 +423,7 @@ void DoState(PointerWrap &p) {
 }
 
 void Shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 flags = 0;
 	MemoryMap_Shutdown();
 	base = nullptr;
@@ -417,21 +432,6 @@ void Shutdown() {
 
 bool IsActive() {
 	return base != nullptr;
-}
-
-// Wanting to avoid include pollution, MemMap.h is included a lot.
-MemoryInitedLock::MemoryInitedLock()
-{
-	g_shutdownLock.lock();
-}
-MemoryInitedLock::~MemoryInitedLock()
-{
-	g_shutdownLock.unlock();
-}
-
-MemoryInitedLock Lock()
-{
-	return MemoryInitedLock();
 }
 
 static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {
@@ -519,10 +519,10 @@ void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {
 		memset(ptr, value, size);
 	} else {
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
-		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
-		for (size_t i = 0; i < size; i++) {
-			if (Memory::IsValidAddress(addr + (u32)i)) {
-				WriteUnchecked_U8(value, (u32)(addr + i));
+		// Replace_memset_jak().
+		if (Memory::IsValidRange(addr, size)) {
+			for (size_t i = 0; i < size; i++) {
+				Memory::WriteUnchecked_U8(value, (u32)(addr + i));
 			}
 		}
 	}

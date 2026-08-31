@@ -177,7 +177,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_32=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_32=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -216,7 +216,7 @@
     </Midl>
     <ClCompile>
       <MinimalRebuild>false</MinimalRebuild>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
@@ -250,7 +250,7 @@
     <Midl />
     <ClCompile>
       <MinimalRebuild>false</MinimalRebuild>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
@@ -285,7 +285,7 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_32=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_32=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -334,7 +334,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;RC_CLIENT_SUPPORTS_RAINTEGRATION;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -376,7 +376,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>

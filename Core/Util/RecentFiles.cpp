@@ -7,6 +7,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Loaders.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
@@ -126,6 +127,11 @@ void RecentFilesManager::Save(Section *recent, int maxRecent) {
 
 void RecentFilesManager::Add(std::string_view filename) {
 	if (g_Config.iMaxRecent <= 0) {
+		return;
+	}
+
+	// Some things should not be added to recent, such as the VSH (which will have a separate UI for launching it)
+	if (endsWithNoCase(filename, "vshmain.prx")) {
 		return;
 	}
 

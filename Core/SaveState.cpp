@@ -165,7 +165,6 @@ int g_screenshotFailures;
 		// These must be saved before copying out memory and restored after.
 		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			if (MIPSComp::jit) {
 				std::vector<u32> savedBlocks;
 				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();

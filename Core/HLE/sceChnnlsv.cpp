@@ -218,10 +218,10 @@ static int sub_17A8(KirkState *kirk, u8* data)
 
 static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 	auto ctx = PSPPointer<pspChnnlsvContext1>::Create(addressCtx);
-	u8 *hash = Memory::GetPointerWrite(addressHash);
+	u8 *hash = Memory::GetPointerWriteOrException(addressHash);
 	if (!ctx.IsValid() || !hash)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
-	return hleLogDebug(Log::sceMisc, sceSdMacFinal(*ctx, hash, Memory::GetPointerWrite(addressKey)));
+	return hleLogDebug(Log::sceMisc, sceSdMacFinal(*ctx, hash, Memory::GetPointerWriteOrException(addressKey)));
 }
 
 int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
@@ -347,7 +347,7 @@ static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length) {
 	auto ctx = PSPPointer<pspChnnlsvContext1>::Create(addressCtx);
 	if (!ctx.IsValid() || !Memory::IsValidAddress(addressData))
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
-	return hleLogDebug(Log::sceMisc, sceSdMacUpdate(*ctx, Memory::GetPointerWrite(addressData), length));
+	return hleLogDebug(Log::sceMisc, sceSdMacUpdate(*ctx, Memory::GetPointerWriteOrException(addressData), length));
 }
 
 int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
@@ -394,8 +394,8 @@ int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 
 static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 cryptkeyAddr) {
 	auto ctx2 = PSPPointer<pspChnnlsvContext2>::Create(ctx2Addr);
-	u8* data = Memory::GetPointerWrite(dataAddr);
-	u8* cryptkey = Memory::GetPointerWrite(cryptkeyAddr);
+	u8* data = Memory::GetPointerWriteOrException(dataAddr);
+	u8* cryptkey = Memory::GetPointerWriteOrException(cryptkeyAddr);
 	if (!ctx2.IsValid() || !data)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 
@@ -458,7 +458,7 @@ int sceSdCipherInit(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, cons
 
 static int sceSdSetMember(u32 ctxAddr, u32 dataAddr, int alignedLen) {
 	auto ctx = PSPPointer<pspChnnlsvContext2>::Create(ctxAddr);
-	u8 *data = Memory::GetPointerWrite(dataAddr);
+	u8 *data = Memory::GetPointerWriteOrException(dataAddr);
 	if (!ctx.IsValid() || !data)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 

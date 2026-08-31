@@ -181,11 +181,14 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 	if (Achievements::HardcoreModeActive())
 		return;
 
-	Memory::MemoryInitedLock memLock = Memory::Lock();
 	// Reading live memory/tracking state here on the GUI thread would otherwise race with the CPU
 	// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also holds
 	// while it's actually touching that state. See g_frameMutex in Core.h.
+	//
+	// g_frameMutex first, then Core_LockAgainstShutdown() - never the other way around. The CPU thread has no
+	// choice but that order (NativeFrame wraps everything below it), so this side has to match.
 	std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 
 	// draw to a bitmap for double buffering
 	PAINTSTRUCT ps;	
@@ -421,7 +424,7 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam) {
 }
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
-	Memory::MemoryInitedLock memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited())
 		return;
 
@@ -523,7 +526,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			
 		case ID_MEMVIEW_COPYVALUE_8:
 			{
-				auto memLock = Memory::Lock();
+				CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 				size_t tempSize = 3 * selectedSize + 1;
 				char *temp = new char[tempSize];
 				memset(temp, 0, tempSize);
@@ -553,7 +556,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			
 		case ID_MEMVIEW_COPYVALUE_16:
 			{
-				auto memLock = Memory::Lock();
+				CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 				size_t tempSize = 5 * ((selectedSize + 1) / 2) + 1;
 				char *temp = new char[tempSize];
 				memset(temp, 0, tempSize);
@@ -574,7 +577,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			
 		case ID_MEMVIEW_COPYVALUE_32:
 			{
-				auto memLock = Memory::Lock();
+				CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 				size_t tempSize = 9 * ((selectedSize + 3) / 4) + 1;
 				char *temp = new char[tempSize];
 				memset(temp, 0, tempSize);
@@ -595,7 +598,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 
 		case ID_MEMVIEW_COPYFLOAT_32:
 		{
-			auto memLock = Memory::Lock();
+			CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 			std::ostringstream stream;
 			stream << (Memory::IsValid4AlignedAddress(curAddress_) ? Memory::ReadUnchecked_Float(curAddress_) : NAN);
 			auto temp_string = stream.str();
@@ -853,7 +856,7 @@ bool CtrlMemView::ParseSearchString(std::string_view query, bool asHex, std::vec
 std::vector<u32> CtrlMemView::searchString(std::string_view searchQuery) {
 	std::vector<u32> searchResAddrs;
 
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited())
 		return searchResAddrs;
 
@@ -890,7 +893,7 @@ std::vector<u32> CtrlMemView::searchString(std::string_view searchQuery) {
 };
 
 void CtrlMemView::search(bool continueSearch) {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited())
 		return;
 

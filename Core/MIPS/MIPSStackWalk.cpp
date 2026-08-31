@@ -133,8 +133,8 @@ namespace MIPSStackWalk {
 
 				frame.entry = pc;
 				frame.stackSize = -_IMM16;
-				if (ra_offset != -1 && Memory::IsValidAddress(frame.sp + ra_offset)) {
-					ra = Memory::Read_U32(frame.sp + ra_offset);
+				if (ra_offset != -1 && Memory::IsValid4AlignedAddress(frame.sp + ra_offset)) {
+					ra = Memory::ReadUnchecked_U32(frame.sp + ra_offset);
 				}
 				return true;
 			}

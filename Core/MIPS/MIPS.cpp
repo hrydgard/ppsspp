@@ -20,13 +20,19 @@
 #include <mutex>
 #include <utility>
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM64)
+#include <arm64intr.h>
+#endif
 
 #include "Common/CommonTypes.h"
+#include "Common/Math/SIMDHeaders.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -41,6 +47,82 @@ MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;
 MIPSDebugInterface debugr4k(&mipsr4k);
 MIPSDebugInterface *currentDebugMIPS = &debugr4k;
+
+#if PPSSPP_ARCH(ARM64)
+
+static inline u64 ARM64ReadFPCR() {
+#if PPSSPP_PLATFORM(WINDOWS)
+	return _ReadStatusReg(ARM64_FPCR);
+#else
+	// TODO: Try __builtin_arm_get_fpcr()
+	u64 fpcr;  // not really 64-bit, just to match the register size.
+	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
+	return fpcr;
+#endif
+}
+
+static inline void ARM64WriteFPCR(u64 fpcr) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	_WriteStatusReg(ARM64_FPCR, fpcr);
+#else
+	// TODO: Try __builtin_arm_set_fpcr()
+	// Write back the modified FPCR
+	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
+#endif
+}
+
+#endif
+
+void ApplyHostRoundingMode(const MIPSState *mips) {
+	u32 fcr1Bits = mips->fcr31 & 0x01000003;
+	// If these are 0, we just leave things as they are.
+	if (fcr1Bits) {
+		int rmode = fcr1Bits & 3;
+		bool ftz = (fcr1Bits & 0x01000000) != 0;
+#if PPSSPP_ARCH(SSE2)
+		u32 csr = _mm_getcsr() & ~0x6000;
+		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
+		if (rmode & 1) {
+			rmode ^= 2;
+		}
+		csr |= rmode << 13;
+
+		if (ftz) {
+			// Flush to zero
+			csr |= 0x8000;
+		}
+		_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64)
+		u64 fpcr = ARM64ReadFPCR();
+		// Translate MIPS to ARM rounding mode
+		static const u8 lookup[4] = {0, 3, 1, 2};
+
+		fpcr &= ~(3 << 22);    // Clear bits [23:22]
+		fpcr |= ((u64)lookup[rmode] << 22);
+
+		if (ftz) {
+			fpcr |= 1 << 24;
+		}
+
+		ARM64WriteFPCR(fpcr);
+#endif
+	}
+}
+
+void RestoreHostRoundingMode() {
+	// TODO: We should avoid this if we didn't apply rounding in the first place.
+	// In the meantime, clear out FTZ and rounding mode bits.
+#if PPSSPP_ARCH(SSE2)
+	u32 csr = _mm_getcsr();
+	csr &= ~(7 << 13);
+	_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64)
+	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the register size.
+	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
+	// Write back the modified FPCR
+	ARM64WriteFPCR(fpcr);
+#endif
+}
 
 u8 voffset[128];
 u8 fromvoffset[128];
@@ -161,12 +243,13 @@ MIPSState::~MIPSState() {
 }
 
 void MIPSState::Shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	if (oldjit) {
 		MIPSComp::jit = nullptr;
 		delete oldjit;
 	}
+	pendingInvalidates_.clear();
+	invalidateAll_ = false;
 }
 
 void MIPSState::Reset() {
@@ -209,7 +292,6 @@ void MIPSState::Init() {
 
 	memset(vcmpResult, 0, sizeof(vcmpResult));
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
@@ -231,12 +313,9 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	IncrementDebugCounter(DebugCounter::CPUCORE_SWITCHES);
 
 	// Get rid of the old JIT first, before switching.
-	{
-		std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-		if (MIPSComp::jit) {
-			delete MIPSComp::jit;
-			MIPSComp::jit = nullptr;
-		}
+	if (MIPSComp::jit) {
+		delete MIPSComp::jit;
+		MIPSComp::jit = nullptr;
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
@@ -264,7 +343,6 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 	}
 
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	MIPSComp::jit = newjit;
 }
 
@@ -308,8 +386,8 @@ void MIPSState::DoState(PointerWrap &p) {
 	Do(p, fcr31);
 	if (s <= 3) {
 		uint32_t dummy;
-		Do(p, dummy); // rng.m_w
-		Do(p, dummy); // rng.m_z
+		Do(p, dummy);  // rng.m_w
+		Do(p, dummy);  // rng.m_z
 	}
 
 	Do(p, inDelaySlot);
@@ -323,9 +401,9 @@ void MIPSState::DoState(PointerWrap &p) {
 }
 
 void MIPSState::SingleStep() {
-	int cycles = MIPS_SingleStep();
-	currentMIPS->downcount -= cycles;
-	CoreTiming::Advance();
+	ProcessPendingInvalidates();
+	int cycles = MIPS_InterpretSingleStep(this);
+	downcount -= cycles;
 }
 
 // returns 1 if reached ticks limit
@@ -337,54 +415,68 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 		while (inDelaySlot) {
 			// We must get out of the delay slot before going into jit.
 			// This normally should never take more than one step...
-			SingleStep();
+			int cycles = MIPS_InterpretSingleStep(this);
+			downcount -= cycles;
 		}
-		insideJit = true;
-		if (hasPendingClears)
-			ProcessPendingClears();
+		ProcessPendingInvalidates();
 		MIPSComp::jit->RunLoopUntil(globalTicks);
-		insideJit = false;
 		break;
 
 	case CPUCore::INTERPRETER:
-		return MIPSInterpret_RunUntil(globalTicks);
+		return MIPSInterpret_RunUntil(this, globalTicks);
 	}
 	return 1;
 }
 
-// Kept outside MIPSState to avoid header pollution (MIPS.h doesn't even have vector, and is used widely.)
-static std::vector<std::pair<u32, int>> pendingClears;
-
-void MIPSState::ProcessPendingClears() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	for (auto &p : pendingClears) {
-		if (p.first == 0 && p.second == 0)
-			MIPSComp::jit->ClearCache();
-		else
-			MIPSComp::jit->InvalidateCacheAt(p.first, p.second);
+void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
+	if (!MIPSComp::jit) {
+		// Nothing to do.
+		return;
 	}
-	pendingClears.clear();
-	hasPendingClears = false;
-}
-
-void MIPSState::InvalidateICache(u32 address, int length) {
-	// Only really applies to jit.
-	// Note that the backend is responsible for ensuring native code can still be returned to.
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (MIPSComp::jit && length != 0) {
+	if (length != 0) {
 		MIPSComp::jit->InvalidateCacheAt(address, length);
 	}
 }
 
-void MIPSState::ClearJitCache() {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (MIPSComp::jit) {
-		if (coreState == CORE_RUNNING_CPU || insideJit) {
-			pendingClears.emplace_back(0, 0);
-			hasPendingClears = true;
-			CoreTiming::ForceCheck();
-		} else {
-			MIPSComp::jit->ClearCache();
-		}
+void MIPSState::ProcessPendingInvalidates() {
+	if (!MIPSComp::jit) {
+		// Nothing to do. Clear any old state from CPU core switching.
+		pendingInvalidates_.clear();
+		return;
 	}
+
+	if (invalidateAll_) {
+		MIPSComp::jit->ClearCache();
+		pendingInvalidates_.clear();
+		invalidateAll_ = false;
+		return;
+	}
+
+	if (!pendingInvalidates_.empty()) {
+		for (const auto &p : pendingInvalidates_) {
+			MIPSComp::jit->InvalidateCacheAt(p.addr, p.size);
+		}
+		pendingInvalidates_.clear();
+	}
+}
+
+void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
+	if (!MIPSComp::jit) {
+		// Nothing to do.
+		return;
+	}
+
+	// TODO: We can try to merge the invalidate with the previous one.
+	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
+	Core_ReenterDispatcher();
+}
+
+void MIPSState::ClearJitCacheDeferred() {
+	if (!MIPSComp::jit) {
+		return;
+	}
+
+	pendingInvalidates_.clear();
+	invalidateAll_ = true;
+	Core_ReenterDispatcher();
 }

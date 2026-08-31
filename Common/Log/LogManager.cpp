@@ -60,6 +60,7 @@ static const char level_to_char[8] = "-NEWIDV";
 void AndroidLog(const LogMessage &message);
 #endif
 
+// TODO: Get rid of this wrapper, not much point.
 void GenericLog(Log type, LogLevel level, const char *file, int line, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -207,19 +208,26 @@ void LogManager::SetFileLogPath(const Path &filename) {
 		fp_ = nullptr;
 	}
 
-	logFilename_ = Path(filename);
+	if (!filename.empty()) {
+		logFilename_ = Path(filename);
 
-	if (outputs_ & LogOutput::File) {
-		File::CreateFullPath(logFilename_.NavigateUp());
-		fp_ = File::OpenCFile(logFilename_, "at");
-		logFileOpenFailed_ = fp_ == nullptr;
-		if (logFileOpenFailed_) {
-			printf("Failed to open log file %s\n", logFilename_.c_str());
+		if (outputs_ & LogOutput::File) {
+			File::CreateFullPath(logFilename_.NavigateUp());
+			fp_ = File::OpenCFile(logFilename_, "at");
+			logFileOpenFailed_ = fp_ == nullptr;
+			if (logFileOpenFailed_) {
+				printf("Failed to open log file %s\n", logFilename_.c_str());
+			}
 		}
 	}
 }
 
 void LogManager::SaveConfig(Section *section) {
+	if (channelsChangedByDebugger_) {
+		// Leave the section as whatever was already on disk - see the doc comment on
+		// NotifyChannelsChangedByDebugger().
+		return;
+	}
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		section->Set((std::string(g_logTypeNames[i]) + "Enabled"), g_log[i].enabled);
 		section->Set((std::string(g_logTypeNames[i]) + "Level"), (int)g_log[i].level);

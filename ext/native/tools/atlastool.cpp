@@ -42,7 +42,9 @@
 #include "Common/CommonTypes.h"
 #include "Common/Data/Format/ZIMSave.h"
 #include "kanjifilter.h"
+#include "Common/System/System.h"
 
+bool System_GetPropertyBool(SystemProperty prop) { return false; }
 
 constexpr int supersample = 16;
 constexpr int distmult = 64 * 3;  // this is "one pixel in the final version equals 64 difference". reduce this number to increase the "blur" radius, increase it to make things "sharper"

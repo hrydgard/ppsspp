@@ -25,9 +25,13 @@ public:
 
 	bool Create(VulkanContext *context);
 	void Destroy(VulkanContext *context) override;
+	bool NeedsRecreate() const override;
+	bool Recreate(VulkanContext *context) override;
 
 	VkResult AcquireNextImage(VulkanContext *vulkan, VkSemaphore signalSemaphore, uint32_t *imageIndex) override;
 	VkResult QueuePresent(VulkanContext *vulkan, VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore) override;
+	void BeginPresent() override;
+	void EndPresent() override;
 
 	uint32_t GetImageCount() const override { return (uint32_t)images_.size(); }
 	VkImage GetImage(uint32_t index) const override { return images_[index].image; }
@@ -57,11 +61,14 @@ private:
 	VkFormat format_;
 	VkExtent2D extent_;
 	bool dedicatedAllocation_ = false;
+	uint32_t syncIndexMask_ = 0;
 
 	std::vector<Image> images_;
 
 	std::mutex mutex_;
 	std::condition_variable condVar_;
-	int currentIndex_ = -1;
-	bool everPresented_ = false;
+	bool presentPending_ = false;
+
+	static uint32_t ImageCountFromMask(uint32_t mask);
+	bool IsValidImageIndex(uint32_t imageIndex) const;
 };

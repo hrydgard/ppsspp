@@ -409,7 +409,7 @@ void DumpExecute::SyncStall() {
 
 	s64 listTicks = gpu->GetListTicks(execListID);
 	if (listTicks != -1) {
-		s64 nowTicks = CoreTiming::GetTicks();
+		s64 nowTicks = CoreTiming::GetTicks(currentMIPS);
 		if (listTicks > nowTicks) {
 			currentMIPS->downcount -= listTicks - nowTicks;
 		}
@@ -434,7 +434,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 		}
 
 		execListPos = execListBuf;
-		Memory::Write_U32(GE_CMD_NOP << 24, execListPos);
+		Memory::WriteUnchecked_U32(GE_CMD_NOP << 24, execListPos);
 		execListPos += 4;
 
 		// TODO: Why do we disable interrupts here?
@@ -447,8 +447,8 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 	// Validate space for jump.
 	u32 allocSize = pendingSize + sz + 8;
 	if (execListPos + allocSize >= execListBuf + LIST_BUF_SIZE) {
-		Memory::Write_U32((GE_CMD_BASE << 24) | ((execListBuf >> 8) & 0x00FF0000), execListPos);
-		Memory::Write_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
+		Memory::WriteUnchecked_U32((GE_CMD_BASE << 24) | ((execListBuf >> 8) & 0x00FF0000), execListPos);
+		Memory::WriteUnchecked_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
 
 		execListPos = execListBuf;
 		lastBase_ = execListBuf & 0xFF000000;
@@ -506,8 +506,8 @@ void DumpExecute::SubmitListEnd() {
 	}
 
 	// There's always space for the end, same size as a jump.
-	Memory::Write_U32(GE_CMD_FINISH << 24, execListPos);
-	Memory::Write_U32(GE_CMD_END << 24, execListPos + 4);
+	Memory::WriteUnchecked_U32(GE_CMD_FINISH << 24, execListPos);
+	Memory::WriteUnchecked_U32(GE_CMD_END << 24, execListPos + 4);
 	execListPos += 8;
 
 	for (int i = 0; i < 8; ++i)

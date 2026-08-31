@@ -539,7 +539,6 @@ endif()
 
 if(WIN32)
 	add_compile_definitions(_UNICODE UNICODE)
-	add_compile_definitions(USING_WIN_UI)
 endif()
 
 if(NOT ANDROID)
@@ -845,8 +844,8 @@ else()
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
-# Arm platforms require at least libpng17.
-if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
+# Android and iOS require at least libpng17.
+if(ANDROID OR IOS)
 	set(PNG_REQUIRED_VERSION 1.7)
 else()
 	set(PNG_REQUIRED_VERSION 1.6)
@@ -1354,6 +1353,7 @@ if(UNITTEST)
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestDemangle.cpp
 		unittest/TestTextureReplacer.cpp
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestLoongArch64Emitter.cpp

@@ -35,7 +35,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
@@ -569,7 +569,7 @@ void ArmJit::Comp_Generic(MIPSOpcode op)
 		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
-		QuickCallFunction(R1, (void *)func);
+		QuickCallFunction(R1, (void *)&MIPSInterpretTrampoline);
 		ApplyRoundingMode();
 		RestoreDowncount();
 	}
@@ -712,7 +712,7 @@ void ArmJit::WriteSyscallExit()
 }
 
 bool ArmJit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		MRS(R8);
 		FlushAll();
 		MOVI2R(SCRATCHREG1, GetCompilerPC());

@@ -49,6 +49,7 @@
 #include "UI/RemoteISOScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
+#include "UI/InstallUpdateScreen.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/Background.h"
 #include "UI/GameBrowser.h"
@@ -68,7 +69,12 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		screenManager->push(new InstallZipScreen(path));
 	} else {
 		// Check if we already know that this game isn't playable.
-		auto info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE);
+		// If coming from the main screen, the info will already be computed here since the icon is displayed etc.
+		// Otherwise (launching from a file association, a shortcut, drag-and-drop...) we have to block until
+		// it's available - we can't decide what to do below without it.
+		const GameInfoFlags neededFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO;
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags);
+		info->WaitUntilReady(neededFlags);
 
 		switch (info->fileType) {
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
@@ -81,6 +87,20 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
 			screenManager->push(new SavedataPopupScreen(Path(), path, title));
 			return;
+		}
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		{
+			// Check if it's an update file. If so, we'll offer to install it directly,
+			// instead of running it (which currently will not work).
+			if (info->id == "MSTKUPDATE") {
+				std::string title = info->GetTitle();  // includes the version.
+				// The unpacker wants the PBP itself, not the folder it happens to sit in.
+				const Path pbpPath = info->fileType == IdentifiedFileType::PSP_PBP ? path : path / "EBOOT.PBP";
+				screenManager->push(new InstallUpdateScreen(pbpPath, title));
+				return;
+			}
+			break;
 		}
 		default:
 			break;

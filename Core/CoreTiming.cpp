@@ -60,6 +60,11 @@ alignas(16) static s64 globalTimer;
 static s64 idledCycles;
 static s64 lastGlobalTimeTicks;
 static s64 lastGlobalTimeUs;
+// See SetBreakDeadlineUs. 0 = none. Deliberately not saved in savestates - it belongs to a
+// debugger session, not to the emulated machine.
+static s64 breakDeadlineUs;
+static s64 breakDeadlineTicks;
+static void RecomputeBreakDeadline();
 
 bool SetClockFrequencyHz(int cpuHz) {
 	if (cpuHz <= 0) {
@@ -75,9 +80,12 @@ bool SetClockFrequencyHz(int cpuHz) {
 	// When the mhz changes, we keep track of what "time" it was before hand.
 	// This way, time always moves forward, even if mhz is changed.
 	lastGlobalTimeUs = GetGlobalTimeUs();
-	lastGlobalTimeTicks = GetTicks();
+	lastGlobalTimeTicks = GetTicks(currentMIPS);
 
 	CPU_HZ = cpuHz;
+
+	// The remaining time to a debugger deadline is now a different number of ticks.
+	RecomputeBreakDeadline();
 
 	// TODO: Rescale times of scheduled events?
 	__AudioCPUMHzChange();
@@ -93,16 +101,44 @@ u64 GetGlobalTimeUsScaled() {
 }
 
 u64 GetGlobalTimeUs() {
-	s64 ticksSinceLast = GetTicks() - lastGlobalTimeTicks;
+	s64 ticksSinceLast = GetTicks(currentMIPS) - lastGlobalTimeTicks;
 	int freq = GetClockFrequencyHz();
 	s64 usSinceLast = ticksSinceLast * 1000000 / freq;
 	if (ticksSinceLast > UINT_MAX) {
 		// Adjust the calculated value to avoid overflow errors.
 		lastGlobalTimeUs += usSinceLast;
-		lastGlobalTimeTicks = GetTicks();
+		lastGlobalTimeTicks = GetTicks(currentMIPS);
 		usSinceLast = 0;
 	}
 	return lastGlobalTimeUs + usSinceLast;
+}
+
+// Turns the microsecond deadline into the tick count Advance() compares against. Has to be redone
+// whenever the clock frequency changes, since that changes how many ticks the remaining time is.
+static void RecomputeBreakDeadline() {
+	if (!breakDeadlineUs) {
+		breakDeadlineTicks = 0;
+		return;
+	}
+	const s64 remainingUs = breakDeadlineUs - (s64)GetGlobalTimeUs();
+	breakDeadlineTicks = (s64)GetTicks(currentMIPS) + (remainingUs > 0 ? usToCycles(remainingUs) : 0);
+}
+
+void SetBreakDeadlineUs(u64 us) {
+	breakDeadlineUs = (s64)us;
+	RecomputeBreakDeadline();
+}
+
+u64 GetBreakDeadlineUs() {
+	return (u64)breakDeadlineUs;
+}
+
+u64 PeekGlobalTimeUs() {
+	// Same sum as above without the rebasing, so this stays callable from a thread that isn't the
+	// CPU thread. The rebasing exists purely to keep the multiply below from overflowing, and it
+	// happens often enough on the CPU thread that ticksSinceLast stays small here.
+	const s64 ticksSinceLast = GetTicks(currentMIPS) - lastGlobalTimeTicks;
+	return lastGlobalTimeUs + ticksSinceLast * 1000000 / GetClockFrequencyHz();
 }
 
 const Event *GetFirstEvent() {
@@ -178,14 +214,15 @@ void UnregisterAllEvents() {
 	restoredEventTypes.clear();
 }
 
-void Init()
-{
-	currentMIPS->downcount = INITIAL_SLICE_LENGTH;
+void Init(MIPSState *mips) {
+	mips->downcount = INITIAL_SLICE_LENGTH;
 	slicelength = INITIAL_SLICE_LENGTH;
 	globalTimer = 0;
 	idledCycles = 0;
 	lastGlobalTimeTicks = 0;
 	lastGlobalTimeUs = 0;
+	breakDeadlineUs = 0;
+	breakDeadlineTicks = 0;
 	CPU_HZ = initialHz;
 }
 
@@ -201,18 +238,16 @@ void Shutdown()
 	}
 }
  
-u64 GetTicks()
-{
-	if (currentMIPS) {
-		return (u64)globalTimer + slicelength - currentMIPS->downcount;
+u64 GetTicks(MIPSState *mips) {
+	if (mips) {
+		return (u64)globalTimer + slicelength - mips->downcount;
 	} else {
 		// Reporting can actually end up here during weird task switching sequences on Android
 		return false;
 	}
 }
 
-u64 GetIdleTicks()
-{
+u64 GetIdleTicks() {
 	return (u64)idledCycles;
 }
 
@@ -252,7 +287,7 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 	Event *ne = GetNewEvent();
 	ne->userdata = userdata;
 	ne->type = event_type;
-	ne->time = GetTicks() + cyclesIntoFuture;
+	ne->time = GetTicks(currentMIPS) + cyclesIntoFuture;
 	AddEventToQueue(ne);
 }
 
@@ -266,7 +301,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 	{
 		if (first->type == event_type && first->userdata == userdata)
 		{
-			result = first->time - GetTicks();
+			result = first->time - GetTicks(currentMIPS);
 
 			Event *next = first->next;
 			FreeEvent(first);
@@ -285,7 +320,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 	{
 		if (ptr->type == event_type && ptr->userdata == userdata)
 		{
-			result = ptr->time - GetTicks();
+			result = ptr->time - GetTicks(currentMIPS);
 
 			prev->next = ptr->next;
 			FreeEvent(ptr);
@@ -352,12 +387,12 @@ void RemoveEvent(int event_type)
 
 void ProcessEvents() {
 	while (first) {
-		if (first->time <= (s64)GetTicks()) {
-			// INFO_LOG(Log::CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
+		if (first->time <= (s64)GetTicks(currentMIPS)) {
+			// INFO_LOG(Log::CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(currentMIPS), (u64)first->time);
 			Event *evt = first;
 			first = first->next;
 			if (evt->type >= 0 && evt->type < (int)event_types.size()) {
-				event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
+				event_types[evt->type].callback(evt->userdata, (int)(GetTicks(currentMIPS) - evt->time));
 			} else {
 				_dbg_assert_msg_(false, "Bad event type %d", evt->type);
 			}
@@ -369,12 +404,11 @@ void ProcessEvents() {
 	}
 }
 
-void ForceCheck()
-{
-	int cyclesExecuted = slicelength - currentMIPS->downcount;
+void ForceCheck(MIPSState *mips) {
+	int cyclesExecuted = slicelength - mips->downcount;
 	globalTimer += cyclesExecuted;
 	// This will cause us to check for new events immediately.
-	currentMIPS->downcount = -1;
+	mips->downcount = -1;
 	// But let's not eat a bunch more time in Advance() because of this.
 	slicelength = -1;
 
@@ -383,11 +417,19 @@ void ForceCheck()
 #endif
 }
 
-void Advance() {
+void Advance(MIPSState *mips) {
 	PROFILE_THIS_SCOPE("advance");
-	int cyclesExecuted = slicelength - currentMIPS->downcount;
+	int cyclesExecuted = slicelength - mips->downcount;
 	globalTimer += cyclesExecuted;
-	currentMIPS->downcount = slicelength;
+	mips->downcount = slicelength;
+
+	// Debugger deadline - see SetBreakDeadlineTicks. Checked before the events so the break lands
+	// on the requested tick rather than after whatever the events do.
+	if (breakDeadlineTicks && globalTimer >= breakDeadlineTicks) {
+		breakDeadlineTicks = 0;
+		breakDeadlineUs = 0;
+		Core_Break(BreakReason::RunUntilTime, mips->pc);
+	}
 
 	ProcessEvents();
 
@@ -395,7 +437,7 @@ void Advance() {
 		// This should never happen in PPSSPP.
 		if (slicelength < 10000) {
 			slicelength += 10000;
-			currentMIPS->downcount += 10000;
+			mips->downcount += 10000;
 		}
 	} else {
 		// Note that events can eat cycles as well.
@@ -405,7 +447,18 @@ void Advance() {
 
 		const int diff = target - slicelength;
 		slicelength += diff;
-		currentMIPS->downcount += diff;
+		mips->downcount += diff;
+	}
+
+	// Shorten the slice so we come back exactly on the deadline instead of up to a whole slice
+	// past it - the point of cpu.runUntilTime is that it stops at a reproducible place.
+	if (breakDeadlineTicks) {
+		const s64 remaining = breakDeadlineTicks - globalTimer;
+		if (remaining > 0 && remaining < slicelength) {
+			const int diff = (int)remaining - slicelength;
+			slicelength += diff;
+			mips->downcount += diff;
+		}
 	}
 }
 
@@ -417,13 +470,13 @@ void LogPendingEvents() {
 	}
 }
 
-void Idle(int maxIdle) {
-	int cyclesDown = currentMIPS->downcount;
+void Idle(MIPSState *mips, int maxIdle) {
+	int cyclesDown = mips->downcount;
 	if (maxIdle != 0 && cyclesDown > maxIdle)
 		cyclesDown = maxIdle;
 
 	if (first && cyclesDown > 0) {
-		int cyclesExecuted = slicelength - currentMIPS->downcount;
+		int cyclesExecuted = slicelength - mips->downcount;
 		int cyclesNextEvent = (int) (first->time - globalTimer);
 
 		if (cyclesNextEvent < cyclesExecuted + cyclesDown)
@@ -437,9 +490,9 @@ void Idle(int maxIdle) {
 	// VERBOSE_LOG(Log::CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
-	currentMIPS->downcount -= cyclesDown;
-	if (currentMIPS->downcount == 0)
-		currentMIPS->downcount = -1;
+	mips->downcount -= cyclesDown;
+	if (mips->downcount == 0)
+		mips->downcount = -1;
 }
 
 std::string GetScheduledEventsSummary() {

@@ -552,7 +552,7 @@ void CGEDebugger::PreviewToClipboard(const GPUDebugBuffer *dbgBuffer, bool saveA
 }
 
 void CGEDebugger::UpdatePreviews() {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited()) {
 		return;
 	}

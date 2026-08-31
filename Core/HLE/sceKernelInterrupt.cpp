@@ -607,8 +607,9 @@ static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n) {
 
 static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size) {
 	// Some games copy from executable code.  We need to flush emuhack ops.
-	if (size != 0)
-		currentMIPS->InvalidateICache(src, size);
+	if (size != 0) {
+		currentMIPS->InvalidateICacheRangeDeferred(src, size);
+	}
 
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
@@ -778,11 +779,11 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 					int stack_idx = arg_idx - 6;
 					u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
 
-					if (!Memory::IsValidAddress(stack_cur)) {
+					if (!Memory::IsValid4AlignedAddress(stack_cur)) {
 						ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
 						return 0;
 					}
-					val = Memory::Read_U32(stack_cur);
+					val = Memory::ReadUnchecked_U32(stack_cur);
 					VERBOSE_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val, stack_idx * 4);
 				}
 				arg_idx++;
@@ -825,11 +826,11 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 						int stack_idx = arg_idx - 6;
 						u32 stack_cur = currentMIPS->r[MIPS_REG_SP] + stack_idx * 4;
 
-						if (!Memory::IsValidAddress(stack_cur)) {
+						if (!Memory::IsValid4AlignedAddress(stack_cur)) {
 							ERROR_LOG(Log::sceKernel, "sysclib_sprintf bad stack pointer %08x", stack_cur);
 							return 0;
 						}
-						val_from_arg = Memory::Read_U32(stack_cur);
+						val_from_arg = Memory::ReadUnchecked_U32(stack_cur);
 						DEBUG_LOG(Log::sceKernel, "sysclib_sprintf fetching %08x from sp + %u", val_from_arg, stack_idx * 4);
 					}
 					arg_idx++;
@@ -1047,6 +1048,11 @@ void Register_InterruptManager()
 }
 
 
+static int sceKernelIsIntrContext() {
+	return hleLogDebug(Log::sceKernel, __IsInInterrupt() ? 1 : 0);
+}
+
+
 const HLEFunction InterruptManagerForKernel[] =
 {
 	{0x092968F4, &WrapI_V<sceKernelCpuSuspendIntr>,            "sceKernelCpuSuspendIntr",             'i', ""    ,HLE_KERNEL_SYSCALL },
@@ -1067,6 +1073,16 @@ const HLEFunction InterruptManagerForKernel[] =
 	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"   ,HLE_KERNEL_SYSCALL },
 	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""    ,HLE_KERNEL_SYSCALL },
 	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0XFE28C6D9, &WrapI_V<sceKernelIsIntrContext>,             "sceKernelIsIntrContext",              'i', ""    ,HLE_KERNEL_SYSCALL },
+	// NOT added on purpose, even though JPCSP implements all four: sceKernelRegisterIntrHandler
+	// (0x58DD8978), sceKernelReleaseIntrHandler (0xF987B1F0), sceKernelEnableIntr (0x4D6E7305)
+	// and sceKernelDisableIntr (0xD774BA45). JPCSP can honour them because it emulates the
+	// interrupt controller as MMIO; we dispatch the few interrupts we emulate ourselves (see
+	// __RegisterIntrHandler and its callers in sceGe/sceKernelAlarm/sceKernelVTimer) and have no
+	// way to run a guest handler for one. Stubbing them to return success is therefore a lie the
+	// real flash0 drivers act on - measured while booting the VSH, they make 31 such calls
+	// (interrupts 4, 12, 15-18, 20-24, 31), and the boot then stalls in GE list execution without
+	// ever starting a plugin module, where leaving them unresolved reaches the shell.
 };
 
 void Register_InterruptManagerForKernel()

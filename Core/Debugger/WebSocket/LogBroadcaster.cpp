@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <mutex>
 #include "Common/Log/LogManager.h"
+#include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -36,8 +38,17 @@ public:
 		std::lock_guard<std::mutex> guard(lock_);
 		int splitPoint;
 		int readCount;
+		// A source that logs faster than this listener gets polled (WebSocket.cpp's event loop,
+		// up to 1000Hz under high activity) - a log-only breakpoint hit thousands of times in a
+		// tight loop is a real example, see docs/VSHBootInvestigation.md - can wrap the ring
+		// buffer before GetMessages() ever reads the oldest entries, silently losing them. That
+		// used to just look like "my breakpoint only logged a few hits" from the client's side,
+		// indistinguishable from the breakpoint genuinely not firing - synthesize a warning
+		// message reporting exactly how many were lost instead of staying silent about it.
+		int droppedCount = 0;
 		if (read_ + BUFFER_SIZE < count_) {
 			// We'll start with our oldest then.
+			droppedCount = (count_ - BUFFER_SIZE) - read_;
 			splitPoint = nextMessage_;
 			readCount = Count();
 		} else {
@@ -48,6 +59,15 @@ public:
 		read_ = count_;
 
 		std::vector<LogMessage> results;
+		if (droppedCount > 0) {
+			LogMessage dropped;
+			dropped.level = LogLevel::LWARNING;
+			dropped.log = "Debugger";
+			GetCurrentTimeFormatted(dropped.timestamp);
+			truncate_cpy(dropped.header, "LogBroadcaster: ring buffer overflow");
+			dropped.msg = StringFromFormat("%d log message(s) dropped - loop polling too slow for this volume\n", droppedCount);
+			results.push_back(dropped);
+		}
 		int splitEnd = std::min(splitPoint + readCount, (int)BUFFER_SIZE);
 		for (int i = splitPoint; i < splitEnd; ++i) {
 			results.push_back(messages_[i]);

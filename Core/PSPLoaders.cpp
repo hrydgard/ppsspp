@@ -42,6 +42,7 @@
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/MIPS/MIPS.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -160,8 +161,10 @@ void InitMemorySizeForGame() {
 
 		if (umdData.empty()) {
 			std::vector<u8> umdDataBin;
+			// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
+			// indexing an empty vector is undefined.
 			if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
-				umdData = std::string((const char *)&umdDataBin[0], umdDataBin.size());
+				umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
 			}
 		}
 
@@ -271,10 +274,13 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	bool hasEncrypted = false;
 	int fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0) {
-		u8 head[4];
-		pspFileSystem.ReadFile(fd, head, 4);
-		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
-			hasEncrypted = true;
+		u8 head[4]{};
+		// A file shorter than the magic used to leave head partly uninitialized, and then decided
+		// which boot file to use by comparing against it.
+		if (pspFileSystem.ReadFile(fd, head, sizeof(head)) == sizeof(head)) {
+			if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
+				hasEncrypted = true;
+			}
 		}
 		pspFileSystem.CloseFile(fd);
 	}
@@ -307,7 +313,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
 	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
 	// TODO: We can't use the initial error_string pointer.
-	return __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
+	return __KernelLoadExec(currentMIPS, bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 }
 
 // TODO: Move this to common. Merge with ResolvePath?
@@ -318,18 +324,23 @@ static Path NormalizePath(const Path &path) {
 	}
 
 #ifdef _WIN32
-	std::wstring wpath = path.ToWString();
+	const std::wstring wpath = path.ToWString();
 	std::wstring buf;
 	buf.resize(512);
-	size_t sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
-	if (sz != 0 && sz < buf.size()) {
+	// On success GetFullPathName returns the length without the terminator; if the buffer is too
+	// small it returns the required length *including* it, and on failure it returns 0. A zero used
+	// to fall through both branches below and hand back 512 characters of uninitialized buffer.
+	DWORD sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), buf.data(), nullptr);
+	if (sz >= buf.size()) {
 		buf.resize(sz);
-	} else if (sz > buf.size()) {
-		buf.resize(sz);
-		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
-		// This should truncate off the null terminator.
-		buf.resize(sz);
+		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), buf.data(), nullptr);
 	}
+	if (sz == 0 || sz >= buf.size()) {
+		WARN_LOG(Log::Loader, "GetFullPathName failed for '%s'", path.c_str());
+		return Path();
+	}
+	// Truncates off the null terminator.
+	buf.resize(sz);
 	return Path(buf);
 #else
 	char buf[PATH_MAX + 1];
@@ -363,17 +374,17 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		path = AndroidContentURI(full_path.GetDirectory()).FilePath();
 	}
 
+	// TODO: More robust check.
 	size_t pos = path.find("PSP/GAME/");
 	std::string ms_path;
 	if (pos != std::string::npos) {
 		ms_path = "ms0:/" + path.substr(pos) + "/";
 	} else {
-		// This is wrong, but it's better than not having a working directory at all.
-		// Note that umd0:/ is actually the writable containing directory, in this case.
-		ms_path = "umd0:/";
+		// We map host0: to the containing directory, see below. This will also be set as the current dir
+		ms_path = "host0:/";
 	}
 
-	Path dir;
+	Path host0Dir;
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
@@ -381,6 +392,13 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 
 		if (full_path.Type() == PathType::CONTENT_URI) {
 			pathNorm = full_path.NavigateUp();
+		}
+
+		// Path::StartsWith() returns true for an empty argument, so an unresolvable mountRoot would
+		// make the containment check below pass for any path at all.
+		if (rootNorm.empty() || pathNorm.empty()) {
+			*error_string = "Cannot boot ELF - couldn't resolve its path or mountRoot.";
+			return false;
 		}
 
 		// If root is not a subpath of path, we can't boot the game.
@@ -391,8 +409,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 
 		std::string filepath;
 		if (full_path.Type() == PathType::CONTENT_URI) {
-			std::string rootFilePath = AndroidContentURI(rootNorm.c_str()).FilePath();
-			std::string pathFilePath = AndroidContentURI(pathNorm.c_str()).FilePath();
+			const std::string rootFilePath = AndroidContentURI(rootNorm.c_str()).FilePath();
+			const std::string pathFilePath = AndroidContentURI(pathNorm.c_str()).FilePath();
+			// StartsWith above compared the URIs. That doesn't mean the decoded file paths have the
+			// same prefix relationship, and substr() throws when they don't.
+			if (!startsWith(pathFilePath, rootFilePath)) {
+				*error_string = "Cannot boot ELF located outside mountRoot.";
+				return false;
+			}
 			filepath = pathFilePath.substr(rootFilePath.size());
 		} else {
 			filepath = ReplaceAll(pathNorm.ToString().substr(rootNorm.ToString().size()), "\\", "/");
@@ -401,28 +425,31 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		file = filepath + "/" + file;
 		path = rootNorm.ToString();
 		pspFileSystem.SetStartingDirectory(filepath);
-		dir = Path(path);
+		host0Dir = Path(path);
 	} else {
 		pspFileSystem.SetStartingDirectory(ms_path);
-		dir = full_path.NavigateUp();
+		host0Dir = full_path.NavigateUp();
 	}
 
-	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
-	pspFileSystem.Mount("umd0:", fs);
+	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, host0Dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	pspFileSystem.Mount("host0:", fs);
 
 	std::string finalName = ms_path + file;
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
 	std::size_t lslash = homebrewName.find_last_of('/');
 	std::size_t rslash = homebrewName.find_last_of('\\');
-	if (lslash != homebrewName.npos)
+	if (lslash != homebrewName.npos) {
 		homebrewName = homebrewName.substr(lslash + 1);
-	if (rslash != homebrewName.npos)
+	}
+	if (rslash != homebrewName.npos) {
 		homebrewName = homebrewName.substr(rslash + 1);
+	}
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
 	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
+	// TODO: This was long enough ago that I think this can be safely removed.
 	// Migrate old save states from old versions of fake game IDs.
 	// Ugh, this might actually be slow on Android.
 	// The strings here are attacker-controlled (from PARAM.SFO / filenames), so
@@ -451,12 +478,12 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		g_Config.LoadGameConfig(discID);
 	}
 
-	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+	return __KernelLoadExec(currentMIPS, finalName.c_str(), 0, error_string);
 }
 
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	auto umd = std::make_shared<BlobFileSystem>(&pspFileSystem, fileLoader, "data.ppdmp");
 	pspFileSystem.Mount("disc0:", umd);
 
-	return __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
+	return __KernelLoadGEDump(currentMIPS, "disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 }

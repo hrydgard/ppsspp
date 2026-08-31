@@ -109,7 +109,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ext\libchdr\include;..\ffmpeg\Windows\x86\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -135,7 +135,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ext\libchdr\include;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib;../ext/zstd/lib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -162,7 +162,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ext\libchdr\include;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/glew;../ext/snappy;../ext/libpng17;../ext/zlib;../ext;../ext/zstd/lib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -195,7 +195,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_32=1;_M_IX86=1;_LIB;NDEBUG;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_32=1;_M_IX86=1;_LIB;NDEBUG;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -231,7 +231,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;MINIUPNP_STATICLIB;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -265,7 +265,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_LIB;NDEBUG;_UNICODE;UNICODE;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WITH_UPNP;WIN32;_ARCH_64=1;_LIB;NDEBUG;_UNICODE;UNICODE;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -441,6 +441,7 @@
     <ClCompile Include="ConfigSettings.cpp" />
     <ClCompile Include="ControlMapper.cpp" />
     <ClCompile Include="AVIDump.cpp" />
+    <ClCompile Include="Debugger\LineInfo.cpp" />
     <ClCompile Include="Debugger\MemBlockInfo.cpp" />
     <ClCompile Include="Debugger\WebSocket.cpp" />
     <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp" />
@@ -449,12 +450,15 @@
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\GPUDisasmSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPURecordSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPUStatsSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\HLEKernelObjectSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\InputBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\InputSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp" />
+    <ClCompile Include="Debugger\WebSocket\LogConfigSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\DisasmSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\MemoryInfoSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\MemorySubscriber.cpp" />
@@ -473,6 +477,7 @@
     <ClCompile Include="HLE\NetInetConstants.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceAac.cpp" />
+    <ClCompile Include="HLE\sceChkreg.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
     <ClCompile Include="HLE\sceNetApctl.cpp" />
     <ClCompile Include="HLE\sceNetInet.cpp" />
@@ -487,6 +492,7 @@
     <ClCompile Include="HW\BufferQueue.cpp" />
     <ClCompile Include="HW\Camera.cpp" />
     <ClCompile Include="HW\Display.cpp" />
+    <ClCompile Include="HW\GpioMMIO.cpp" />
     <ClCompile Include="HW\GranularMixer.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyMap.cpp" />
@@ -639,6 +645,7 @@
     <ClCompile Include="HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="HLE\sceNp.cpp" />
     <ClCompile Include="HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="HLE\sceResmgr.cpp" />
     <ClCompile Include="HLE\sceParseHttp.cpp" />
     <ClCompile Include="HLE\sceParseUri.cpp" />
     <ClCompile Include="HLE\scePauth.cpp" />
@@ -662,6 +669,7 @@
     <ClCompile Include="HLE\sceUsbGps.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
+    <ClCompile Include="HLE\sceVshBridge.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
@@ -844,8 +852,9 @@
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp" />
     <ClCompile Include="MIPS\MIPSDis.cpp" />
     <ClCompile Include="MIPS\MIPSDisVFPU.cpp" />
-    <ClCompile Include="MIPS\MIPSInt.cpp" />
-    <ClCompile Include="MIPS\MIPSIntVFPU.cpp" />
+    <ClCompile Include="MIPS\Interpreter.cpp" />
+    <ClCompile Include="MIPS\InterpreterDispatch.cpp" />
+    <ClCompile Include="MIPS\InterpreterVFPU.cpp" />
     <ClCompile Include="MIPS\MIPSTables.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp" />
     <ClCompile Include="MIPS\MIPSTracer.cpp" />
@@ -912,6 +921,7 @@
     <ClCompile Include="Util\PathUtil.cpp" />
     <ClCompile Include="Util\PortManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
+    <ClCompile Include="Util\PSARUnpack.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">MaxSpeed</Optimization>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</IntrinsicFunctions>
@@ -978,6 +988,7 @@
     <ClInclude Include="ControlMapper.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="ConfigValues.h" />
+    <ClInclude Include="Debugger\LineInfo.h" />
     <ClInclude Include="Debugger\MemBlockInfo.h" />
     <ClInclude Include="Debugger\Watch.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
@@ -986,8 +997,10 @@
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\GPUDisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPURecordSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPUStatsSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\HLEKernelObjectSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\InputBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\InputSubscriber.h" />
@@ -999,6 +1012,7 @@
     <ClInclude Include="Debugger\WebSocket\MemorySubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
+    <ClInclude Include="Debugger\WebSocket\LogConfigSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="Dialog\PSPOskConstants.h" />
     <ClInclude Include="EmuThread.h" />
@@ -1016,6 +1030,7 @@
     <ClInclude Include="HLE\Plugins.h" />
     <ClInclude Include="HLE\PSPThreadContext.h" />
     <ClInclude Include="HLE\sceAac.h" />
+    <ClInclude Include="HLE\sceChkreg.h" />
     <ClInclude Include="HLE\sceKernelHeap.h" />
     <ClInclude Include="HLE\sceNetApctl.h" />
     <ClInclude Include="HLE\sceNetInet.h" />
@@ -1029,6 +1044,7 @@
     <ClInclude Include="HW\Atrac3Standalone.h" />
     <ClInclude Include="HW\Camera.h" />
     <ClInclude Include="HW\Display.h" />
+    <ClInclude Include="HW\GpioMMIO.h" />
     <ClInclude Include="HW\GranularMixer.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyMap.h" />
@@ -1140,6 +1156,7 @@
     <ClInclude Include="HLE\sceNetAdhocMatching.h" />
     <ClInclude Include="HLE\sceNp.h" />
     <ClInclude Include="HLE\sceOpenPSID.h" />
+    <ClInclude Include="HLE\sceResmgr.h" />
     <ClInclude Include="HLE\sceParseHttp.h" />
     <ClInclude Include="HLE\sceParseUri.h" />
     <ClInclude Include="HLE\scePauth.h" />
@@ -1164,6 +1181,7 @@
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\sceVaudio.h" />
+    <ClInclude Include="HLE\sceVshBridge.h" />
     <ClInclude Include="HLE\ThreadQueueList.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="HW\BufferQueue.h" />
@@ -1229,8 +1247,9 @@
     <ClInclude Include="MIPS\MIPSDebugInterface.h" />
     <ClInclude Include="MIPS\MIPSDis.h" />
     <ClInclude Include="MIPS\MIPSDisVFPU.h" />
-    <ClInclude Include="MIPS\MIPSInt.h" />
-    <ClInclude Include="MIPS\MIPSIntVFPU.h" />
+    <ClInclude Include="MIPS\Interpreter.h" />
+    <ClInclude Include="MIPS\InterpreterDispatch.h" />
+    <ClInclude Include="MIPS\InterpreterVFPU.h" />
     <ClInclude Include="MIPS\MIPSTables.h" />
     <ClInclude Include="MIPS\MIPSVFPUUtils.h" />
     <ClInclude Include="MIPS\MIPSTracer.h" />
@@ -1270,6 +1289,7 @@
     <ClInclude Include="Util\PathUtil.h" />
     <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
+    <ClInclude Include="Util\PSARUnpack.h" />
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="Util\RecentFiles.h" />
     <ClInclude Include="Util\VideoPlayer.h" />

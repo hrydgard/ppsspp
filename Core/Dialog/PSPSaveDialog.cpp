@@ -678,7 +678,7 @@ int PSPSaveDialog::Update(int animSpeed) {
 	// Check if it has changed, reload it.
 	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
 	int size = std::min((u32)sizeof(originalRequest), Memory::ReadUnchecked_U32(requestAddr));
-	const u8 *updatedRequest = Memory::GetPointerRange(requestAddr, size);
+	const u8 *updatedRequest = Memory::GetPointerRangeOrException(requestAddr, size);
 	if (updatedRequest && memcmp(updatedRequest, &originalRequest, size) != 0) {
 		memset(&request, 0, sizeof(request));
 		Memory::Memcpy(&request, requestAddr, size);

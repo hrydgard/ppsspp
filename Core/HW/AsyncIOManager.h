@@ -55,7 +55,7 @@ struct AsyncIOResult {
 	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0), invalidateAddr(0) {}
 
 	AsyncIOResult(s64 r, int usec, u32 addr = 0) : result(r), invalidateAddr(addr) {
-		finishTicks = CoreTiming::GetTicks() + usToCycles(usec);
+		finishTicks = CoreTiming::GetTicks(currentMIPS) + usToCycles(usec);
 	}
 
 	void DoState(PointerWrap &p) {
@@ -156,7 +156,7 @@ public:
 				for (AsyncIOEvent ev = GetNextEvent(); AsyncIOEventType(ev) != IO_EVENT_INVALID; ev = GetNextEvent()) {
 					ProcessEventIfApplicable(ev, globalticks);
 				}
-			} while (CoreTiming::GetTicks() < globalticks);
+			} while (CoreTiming::GetTicks(currentMIPS) < globalticks);
 			return;
 		}
 
@@ -177,7 +177,7 @@ public:
 				ProcessEventIfApplicable(ev, globalticks);
 				guard.lock();
 			}
-		} while (CoreTiming::GetTicks() < globalticks);
+		} while (CoreTiming::GetTicks(currentMIPS) < globalticks);
 
 		// This will force the waiter to check coreState, even if we didn't actually drain.
 		NotifyDrain();

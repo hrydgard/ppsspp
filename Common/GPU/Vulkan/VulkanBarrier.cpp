@@ -212,7 +212,7 @@ void VulkanBarrierBatch::TransitionDepthStencilImageAuto(
 		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:

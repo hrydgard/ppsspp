@@ -234,6 +234,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FileLogging", SETTING(g_Config, bEnableFileLogging), false, CfgFlag::PER_GAME),
 	ConfigSetting("AutoRun", SETTING(g_Config, bAutoRun), true, CfgFlag::DEFAULT),
 	ConfigSetting("IgnoreBadMemAccess", SETTING(g_Config, bIgnoreBadMemAccess), true, CfgFlag::DEFAULT),
+	ConfigSetting("EnableFPUExceptionTraps", SETTING(g_Config, bEnableFPUExceptionTraps), false, CfgFlag::DEFAULT),
 	ConfigSetting("CurrentDirectory", SETTING(g_Config, currentDirectory), "", CfgFlag::DEFAULT),
 	ConfigSetting("ShowDebuggerOnLoad", SETTING(g_Config, bShowDebuggerOnLoad), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowImDebugger", SETTING(g_Config, bShowImDebugger), false, CfgFlag::DONT_SAVE),
@@ -327,13 +328,10 @@ static const ConfigSetting generalSettings[] = {
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	ConfigSetting("Wow64Warning", SETTING(g_Config, bWow64Warning), true, CfgFlag::DEFAULT),
-#endif
-
-#if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", SETTING(g_Config, bTopMost), false, CfgFlag::DEFAULT),
 #endif
 
-#if defined(USING_WIN_UI) || (defined (SDL) && !defined(MOBILE_DEVICE))
+#if PPSSPP_PLATFORM(WINDOWS) || (defined (SDL) && !defined(MOBILE_DEVICE))
 	ConfigSetting("PauseOnLostFocus", SETTING(g_Config, bPauseOnLostFocus), false, CfgFlag::PER_GAME),
 #endif
 
@@ -418,11 +416,7 @@ static const ConfigSetting cpuSettings[] = {
 
 static int DefaultInternalResolution() {
 	// Auto on Windows and Linux, 2x on large screens and iOS, 1x elsewhere.
-#if defined(USING_WIN_UI)
-	return 0;
-#elif PPSSPP_PLATFORM(IOS)
-	return 2;
-#else
+#if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
 		return 4;
 	}
@@ -430,6 +424,10 @@ static int DefaultInternalResolution() {
 	int scale = longestDisplaySide >= 1000 ? 2 : 1;
 	INFO_LOG(Log::Config, "Longest display side: %d pixels. Choosing scale %d", longestDisplaySide, scale);
 	return scale;
+#elif PPSSPP_PLATFORM(IOS)
+	return 2;
+#else
+	return 0;
 #endif
 }
 
@@ -696,6 +694,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("SkipBufferEffects", SETTING(g_Config, bSkipBufferEffects), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("DepthRasterMode", SETTING(g_Config, iDepthRasterMode), &DefaultDepthRaster, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SoftwareRenderer", SETTING(g_Config, bSoftwareRendering), false, CfgFlag::PER_GAME),
+	ConfigSetting("SoftwareDisableDithering", SETTING(g_Config, bSoftwareDisableDithering), false, CfgFlag::PER_GAME),
 	ConfigSetting("SoftwareRendererJit", SETTING(g_Config, bSoftwareRenderingJit), true, CfgFlag::PER_GAME),
 	ConfigSetting("HardwareTransform", SETTING(g_Config, bHardwareTransform), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TextureFiltering", SETTING(g_Config, iTexFiltering), 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -710,7 +709,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FrameRate", SETTING(g_Config, iFpsLimit1), 0, CfgFlag::PER_GAME),
 	ConfigSetting("FrameRate2", SETTING(g_Config, iFpsLimit2), -1, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogFrameRate", SETTING(g_Config, iAnalogFpsLimit), 240, CfgFlag::PER_GAME),
-#if defined(USING_WIN_UI)
+#if PPSSPP_PLATFORM(WINDOWS)
 	ConfigSetting("RestartRequired", SETTING(g_Config, bRestartRequired), false, CfgFlag::DONT_SAVE),
 #endif
 
@@ -949,7 +948,7 @@ static const ConfigSetting touchControlSettings[] = {
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
 	
-#if defined(USING_WIN_UI)
+#if PPSSPP_PLATFORM(WINDOWS)
 	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),
 #endif
 
@@ -1080,9 +1079,7 @@ static const ConfigSetting systemParamSettings[] = {
 	ConfigSetting("ButtonPreference", SETTING(g_Config, iButtonPreference), PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("LockParentalLevel", SETTING(g_Config, iLockParentalLevel), 0, CfgFlag::PER_GAME),
 	ConfigSetting("WlanAdhocChannel", SETTING(g_Config, iWlanAdhocChannel), PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC, CfgFlag::PER_GAME),
-#if defined(USING_WIN_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	ConfigSetting("BypassOSKWithKeyboard", SETTING(g_Config, bBypassOSKWithKeyboard), false, CfgFlag::PER_GAME),
-#endif
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", SETTING(g_Config, bEncryptSave), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("MemStickSize", SETTING(g_Config, iMemStickSizeGB), 16, CfgFlag::DEFAULT),
@@ -1110,6 +1107,7 @@ static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("FuncHashMap", SETTING(g_Config, bFuncHashMap), false, CfgFlag::DEFAULT),
 	ConfigSetting("SkipFuncHashMap", SETTING(g_Config, sSkipFuncHashMap), "", CfgFlag::DEFAULT),
 	ConfigSetting("MemInfoDetailed", SETTING(g_Config, bDebugMemInfoDetailed), false, CfgFlag::DEFAULT),
+	ConfigSetting("AutoSaveLoadSymbols", SETTING(g_Config, bAutoSaveLoadSymbols), false, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting jitSettings[] = {

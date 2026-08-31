@@ -21,6 +21,7 @@
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -40,12 +41,13 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 	void Over(DebuggerRequest &req);
 	void Out(DebuggerRequest &req);
 	void RunUntil(DebuggerRequest &req);
+	void RunUntilTime(DebuggerRequest &req);
 	void HLE(DebuggerRequest &req);
 
 protected:
 	uint32_t GetNextAddress(DebugInterface *cpuDebug);
 	void PrepareResume();
-	void AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID);
+	void AddThreadCondition(uint32_t threadID);
 };
 
 DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
@@ -54,6 +56,7 @@ DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
 	map["cpu.stepOver"] = [p](DebuggerRequest &req) { p->Over(req); };
 	map["cpu.stepOut"]  = [p](DebuggerRequest &req) { p->Out(req); };
 	map["cpu.runUntil"] = [p](DebuggerRequest &req) { p->RunUntil(req); };
+	map["cpu.runUntilTime"] = [p](DebuggerRequest &req) { p->RunUntilTime(req); };
 	map["cpu.nextHLE"]  = [p](DebuggerRequest &req) { p->HLE(req); };
 	return p;
 }
@@ -82,7 +85,10 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID =
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response on success (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
+// May fail (same-thread case only) if too many steps are already queued, which means a client is
+// firing them faster than they can possibly be carried out.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Into(DebuggerRequest &req) {
@@ -108,7 +114,14 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 			g_breakpoints.SetSkipFirst(currentMIPS->pc);
 
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			// Steps queue up now, so this only fails once the queue is full - a client stepping
+			// far faster than frames go by. No step happens and no cpu.stepping event fires in
+			// that case, which would otherwise be indistinguishable from one still in flight, so
+			// surface it as an error rather than leaving the caller waiting.
+			if (!Core_RequestCPUStep(CPUStepType::Into)) {
+				req.Fail("Could not step: a step or run request is already pending");
+				return;
+			}
 		} else {
 			uint32_t breakpointAddress = cpuDebug->GetPC();
 			PrepareResume();
@@ -116,8 +129,8 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
 			cpuDebug = CPUFromRequest(req);
 			if (cpuDebug != currentDebugMIPS) {
-				g_breakpoints.AddBreakPoint(breakpointAddress, true);
-				AddThreadCondition(breakpointAddress, threadID);
+				g_breakpoints.SetTempBreakPoint(breakpointAddress);
+				AddThreadCondition(threadID);
 				Core_Resume();
 			}
 		}
@@ -131,7 +144,8 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Over(DebuggerRequest &req) {
@@ -173,9 +187,9 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 		// Could have advanced to the breakpoint already in PrepareResume().
 		cpuDebug = CPUFromRequest(req);
 		if (cpuDebug->GetPC() != breakpointAddress) {
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			g_breakpoints.SetTempBreakPoint(breakpointAddress);
 			if (cpuDebug != currentDebugMIPS)
-				AddThreadCondition(breakpointAddress, threadID);
+				AddThreadCondition(threadID);
 			Core_Resume();
 		}
 	});
@@ -186,7 +200,8 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 // Parameters:
 //  - thread: optional number indicating the thread id to plan stepping on.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 //
 // Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Out(DebuggerRequest &req) {
@@ -226,9 +241,9 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 		// Could have advanced to the breakpoint already in PrepareResume().
 		cpuDebug = CPUFromRequest(req);
 		if (cpuDebug->GetPC() != breakpointAddress) {
-			g_breakpoints.AddBreakPoint(breakpointAddress, true);
+			g_breakpoints.SetTempBreakPoint(breakpointAddress);
 			if (cpuDebug != currentDebugMIPS)
-				AddThreadCondition(breakpointAddress, threadID);
+				AddThreadCondition(threadID);
 			Core_Resume();
 		}
 	});
@@ -239,7 +254,8 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 // Parameters:
 //  - address: number parameter for destination.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -258,9 +274,65 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 		PrepareResume();
 		// We may have arrived already if PauseResume() stepped out of a delay slot.
 		if (currentMIPS->pc != address || wasAtAddress) {
-			g_breakpoints.AddBreakPoint(address, true);
+			g_breakpoints.SetTempBreakPoint(address);
 			Core_Resume();
 		}
+	});
+}
+
+// Run until a point in emulated time (cpu.runUntilTime)
+//
+// The counterpart to cpu.runUntil for "let the game get N seconds in", which is what lining a
+// scripted repro up with a wall-clock description of a bug needs. Polling cpu.status in a loop
+// does the same job far more slowly and lands somewhere different every run; this stops on the
+// requested tick, so the same script reaches the same place every time.
+//
+// Parameters (exactly one of):
+//  - us: absolute emulated microseconds to run until, as reported by cpu.status.
+//  - relativeUs: microseconds to run for, measured from now.
+//
+// Response (same event name):
+//  - targetUs: the absolute emulated time it will stop at.
+//  - us: emulated time right now.
+// A cpu.stepping event follows once it gets there. Note that anything else that stops the CPU
+// first - a breakpoint, an exception - cancels the deadline, same as it cancels a step.
+void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+
+	const bool absolute = req.HasParam("us");
+	if (absolute == req.HasParam("relativeUs")) {
+		return req.Fail("Pass exactly one of 'us' or 'relativeUs'");
+	}
+
+	double requested = 0.0;
+	if (!req.ParamF64(absolute ? "us" : "relativeUs", &requested)) {
+		// Error already sent.
+		return;
+	}
+	if (requested < 0.0) {
+		return req.Fail("Time must not be negative");
+	}
+
+	// Route the actual stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const u64 nowUs = CoreTiming::GetGlobalTimeUs();
+		const u64 targetUs = absolute ? (u64)requested : nowUs + (u64)requested;
+		if (targetUs <= nowUs) {
+			req.Fail("Target time has already passed");
+			return;
+		}
+
+		CoreTiming::SetBreakDeadlineUs(targetUs);
+
+		PrepareResume();
+		Core_Resume();
+
+		JsonWriter &json = req.Respond();
+		json.writeFloat("targetUs", (double)targetUs);
+		json.writeFloat("us", (double)nowUs);
 	});
 }
 
@@ -268,7 +340,8 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// No immediate response.  A cpu.stepping event will be sent once complete.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  A cpu.stepping event will be sent once complete.
 void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -291,17 +364,36 @@ uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
 void WebSocketSteppingState::PrepareResume() {
 	if (currentMIPS->inDelaySlot) {
 		// Delay slot instructions are never joined, so we pass 1.
-		Core_RequestCPUStep(CPUStepType::Into, 1);
+		//
+		// This must happen synchronously, not via Core_RequestCPUStep(): that only queues the
+		// step for Core_ProcessStepping() to perform later (on the next iteration of the normal
+		// stepping-mode loop), while every caller of PrepareResume() immediately inspects
+		// currentMIPS->pc/inDelaySlot right after this returns to decide whether to add a
+		// breakpoint and call Core_Resume(). Core_Resume() itself sets coreState back to
+		// CORE_RUNNING_CPU, which makes Core_ProcessStepping() skip its pending-step check
+		// entirely - so the queued step was not just late, it was silently dropped, leaving
+		// g_cpuStepCommand permanently set until the next Core_Break() reset it. Any stepping
+		// request issued by the debugger client in that window (e.g. a script or fast-clicking
+		// UI immediately re-stepping instead of waiting for a fresh cpu.stepping event) hit
+		// Core_RequestCPUStep()'s "Can't submit two steps in one host frame" guard and got
+		// silently ignored - the "step-out sometimes just doesn't do anything" flakiness this
+		// was found while tracking down. PrepareResume() is only ever called from within a
+		// Core_RunOnCPUThread() callback (Into/Over/Out/RunUntil/HLE below), so it's always
+		// already running on the CPU thread - safe to single-step directly instead of queuing.
+		currentMIPS->SingleStep();
 	} else {
 		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 	}
 }
 
-void WebSocketSteppingState::AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID) {
+// Restricts the temporary breakpoint a step just planted to the thread the step was requested
+// for, so an unrelated thread running through the same address doesn't complete someone else's
+// step. Must be called right after SetTempBreakPoint().
+void WebSocketSteppingState::AddThreadCondition(uint32_t threadID) {
 	BreakPointCond cond;
 	cond.debug = currentDebugMIPS;
 	cond.expressionString = StringFromFormat("threadid == 0x%08x", threadID);
 	if (initExpression(currentDebugMIPS, cond.expressionString.c_str(), cond.expression))
-		g_breakpoints.ChangeBreakPointAddCond(breakpointAddress, cond);
+		g_breakpoints.SetTempBreakPointCond(cond);
 }

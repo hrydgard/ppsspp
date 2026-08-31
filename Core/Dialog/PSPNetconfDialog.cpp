@@ -66,7 +66,7 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	StartInfraJsonDownload();
 
 	requestAddr = paramAddr;
-	if (!ReadVariableSizedStruct(paramAddr, &request.common)) {
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
 		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
 	}
 
@@ -245,35 +245,31 @@ int PSPNetconfDialog::Update(int animSpeed) {
 								if (Memory::IsValidAddress(scanInfosAddr))
 									userMemory.Free(scanInfosAddr);
 								scanInfosAddr = userMemory.Alloc(structsz, false, "NetconfScanInfo");
-								// TOOD: What if scanInfosAddr is not valid?
-								if (Memory::IsValid4AlignedAddress(scanInfosAddr)) {
-									Memory::WriteUnchecked_U32(sizeof(SceNetAdhocctlScanInfoEmu), scanInfosAddr);
-								}
+								// TODO: What if scanInfosAddr is not valid?
+								Memory::WriteOrException_U32(sizeof(SceNetAdhocctlScanInfoEmu), scanInfosAddr);
 								scanStep = 1;
 							}
 						}
 						else if (scanStep == 1) {
-							s32 sz = Memory::ReadUnchecked_U32(scanInfosAddr);
+							s32 sz = Memory::ReadOrException_U32(scanInfosAddr);
 							// Get required buffer size
 							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, 0) >= 0) {
-								s32 reqsz = Memory::ReadUnchecked_U32(scanInfosAddr);
+								s32 reqsz = Memory::ReadOrException_U32(scanInfosAddr);
 								if (reqsz > sz) {
 									sz = reqsz;
 									userMemory.Free(scanInfosAddr);
 									u32 structsz = sz + sizeof(s32);
 									scanInfosAddr = userMemory.Alloc(structsz, false, "NetconfScanInfo");
-									// TOOD: What if scanInfosAddr is not valid?
-									if (Memory::IsValid4AlignedAddress(scanInfosAddr)) {
-										Memory::WriteUnchecked_U32(sz, scanInfosAddr);
-									}
+									// TODO: What if scanInfosAddr is not valid?
+									Memory::WriteOrException_U32(sz, scanInfosAddr);
 								}
 								if (reqsz > 0) {
 									if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, scanInfosAddr + (u32)sizeof(s32)) >= 0) {
-										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointer(scanInfosAddr);
+										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointerOrException(scanInfosAddr);
 										int n = scanInfos->sz / sizeof(SceNetAdhocctlScanInfoEmu);
-										// Assuming returned SceNetAdhocctlScanInfoEmu(s) are contagious where next is pointing to current addr + sizeof(SceNetAdhocctlScanInfoEmu)
+										// Assuming returned SceNetAdhocctlScanInfoEmu(s) are contiguous where next is pointing to current addr + sizeof(SceNetAdhocctlScanInfoEmu)
 										while (n > 0) {
-											SceNetAdhocctlScanInfoEmu* si = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointer(scanInfosAddr + sizeof(s32) + sizeof(SceNetAdhocctlScanInfoEmu) * (n - 1LL));
+											SceNetAdhocctlScanInfoEmu* si = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointerOrException(scanInfosAddr + sizeof(s32) + sizeof(SceNetAdhocctlScanInfoEmu) * (n - 1LL));
 											if (memcmp(si->group_name.data, request.NetconfData->groupName, ADHOCCTL_GROUPNAME_LEN) == 0) {
 												// Moving found group info to the front so we can use it on sceNetAdhocctlJoin easily
 												memcpy((char*)scanInfos + sizeof(s32), si, sizeof(SceNetAdhocctlScanInfoEmu));
@@ -299,7 +295,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 								connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlJoin, scanInfosAddr + (u32)sizeof(s32));
 								if (connResult >= 0) {
 									// We are done!
-									if (Memory::IsValid4AlignedAddress(scanInfosAddr))
+									if (Memory::IsValidAddress(scanInfosAddr))
 										userMemory.Free(scanInfosAddr);
 									scanInfosAddr = 0;
 								}
@@ -325,7 +321,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			}
 
 			// Let's not leaks any memory
-			if (Memory::IsValid4AlignedAddress(scanInfosAddr))
+			if (Memory::IsValidAddress(scanInfosAddr))
 				userMemory.Free(scanInfosAddr);
 			scanInfosAddr = 0;
 		}
@@ -335,7 +331,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
 			request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 			// Let's not leaks any memory
-			if (Memory::IsValid4AlignedAddress(scanInfosAddr))
+			if (Memory::IsValidAddress(scanInfosAddr))
 				userMemory.Free(scanInfosAddr);
 			scanInfosAddr = 0;
 		}

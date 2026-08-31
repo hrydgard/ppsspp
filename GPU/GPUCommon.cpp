@@ -186,7 +186,7 @@ u32 GPUCommon::DrawSync(int mode) {
 			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 		}
 
-		if (drawCompleteTicks > CoreTiming::GetTicks()) {
+		if (drawCompleteTicks > CoreTiming::GetTicks(currentMIPS)) {
 			__GeWaitCurrentThread(GPU_SYNC_DRAW, 1, "GeDrawSync");
 		} else {
 			for (int i = 0; i < DisplayListMaxCount; ++i) {
@@ -262,7 +262,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	}
 
-	if (dl.waitUntilTicks > CoreTiming::GetTicks()) {
+	if (dl.waitUntilTicks > CoreTiming::GetTicks(currentMIPS)) {
 		__GeWaitCurrentThread(GPU_SYNC_LIST, listid, "GeListSync");
 	}
 
@@ -367,7 +367,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	}
 
 	int id = -1;
-	u64 currentTicks = CoreTiming::GetTicks();
+	u64 currentTicks = CoreTiming::GetTicks(currentMIPS);
 	u32 stackAddr = args.IsValid() && args->size >= 16 ? (u32)args->stackAddr : 0;
 	// Check compatibility
 	// TODO: Figure out what games are affected by this...
@@ -735,7 +735,7 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
 	if (!resumingFromDebugBreak_) {
-		startingTicks = CoreTiming::GetTicks();
+		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
 
 		// ?? Seems to be correct behaviour to process the list anyway?
@@ -745,7 +745,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 		}
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, g_coreCollectDebugStats);
 
 	auto GetNextListIndex = [&]() -> int {
 		if (dlQueue.empty())
@@ -873,7 +873,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 	currentList = nullptr;
 
-	if (coreCollectDebugStats) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.otherGPUCycles += cyclesExecuted;
 	}
 
@@ -1394,7 +1394,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 
 	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
 
-	if (coreCollectDebugStats) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.otherGPUCycles += 2 * 14;
 	}
 }
@@ -1768,8 +1768,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			u32 bytesToCopy = width * height * bpp;
 
-			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+			const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+			u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 			memcpy(dstp, srcp, bytesToCopy);
 
 			if (MemBlockInfoDetailed(bytesToCopy)) {
@@ -1786,8 +1786,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			}
 
 			auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
-				const u8 *srcp = Memory::GetPointer(s);
-				u8 *dstp = Memory::GetPointerWrite(d);
+				const u8 *srcp = Memory::GetPointerOrException(s);
+				u8 *dstp = Memory::GetPointerWriteOrException(d);
 				memmove(dstp, srcp, sz);
 
 				if (notifyDetail) {
@@ -1809,8 +1809,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
 
 				if (!srcLineWrap && !dstLineWrap) {
-					const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-					u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+					const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+					u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 					for (u32 i = 0; i < bytesToCopy; i += 64) {
 						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
 						memmove(dstp + i, srcp + i, chunk);
@@ -1890,8 +1890,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+				const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+				u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 				memcpy(dstp, srcp, bytesToCopy);
 
 				// If we're tracking detail, it's useful to have the gaps illustrated properly.

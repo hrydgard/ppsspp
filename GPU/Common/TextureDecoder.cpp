@@ -244,8 +244,10 @@ static const u32 textureAlignMask16[16] = {
 
 u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format) {
 	// This is a hack to allow for us to draw the huge PPGe texture, which is always in kernel ram.
-	if (texaddr >= PSP_GetKernelMemoryBase() && texaddr < PSP_GetKernelMemoryEnd())
+	// Without this, the bufwidth gets masked away improperly.
+	if (IsPPGEAtlasFakeAddress(texaddr, nullptr)) {
 		return gstate.texbufwidth[level] & 0x1FFF;
+	}
 
 	u32 bufw = gstate.texbufwidth[level] & textureAlignMask16[format];
 	if (bufw == 0 && format <= GE_TFMT_DXT5) {

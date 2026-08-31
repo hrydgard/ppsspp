@@ -26,6 +26,7 @@
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
+#include "Core/Util/PPGeDraw.h"
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/TextureDecoder.h"
@@ -133,10 +134,16 @@ void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			state->texaddr[i] = texaddr;
 			state->texbufw[i] = (uint16_t)GetTextureBufw(i, texaddr, texfmt);
-			if (Memory::IsValidAddress(texaddr))
-				state->texptr[i] = Memory::GetPointerUnchecked(texaddr);
-			else
+			if (Memory::IsValidTextureAddress(texaddr)) {
+				u32 offset;
+				if (IsPPGEAtlasFakeAddress(texaddr, &offset)) {
+					state->texptr[i] = PPGeAtlasGetData() + offset;
+				} else {
+					state->texptr[i] = Memory::GetPointerUnchecked(texaddr);
+				}
+			} else {
 				state->texptr[i] = nullptr;
+			}
 		}
 
 		state->textureLodSlope = gstate.getTextureLodSlope();
@@ -1850,7 +1857,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 			return false;
 	}
 
-	u8 *texptr = Memory::GetPointerWrite(texaddr);
+	u8 *texptr = Memory::GetPointerWriteOrException(texaddr);
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {

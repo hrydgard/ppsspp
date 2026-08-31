@@ -36,7 +36,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 
@@ -111,7 +111,7 @@ static void JitLogMiss(MIPSOpcode op)
 		notJitOps[MIPSGetName(op)]++;
 
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
-	func(op);
+	func(currentMIPS, op);
 }
 
 #ifdef _MSC_VER
@@ -626,7 +626,7 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
-			ABI_CallFunctionC(func, op.encoding);
+			ABI_CallFunctionC(&MIPSInterpretTrampoline, op.encoding);
 		ApplyRoundingMode();
 	} else {
 		// These are basically always due to some kind of crash or corruption now.
@@ -773,7 +773,7 @@ void Jit::WriteSyscallExit() {
 }
 
 bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		SaveFlags();
 		FlushAll();
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));

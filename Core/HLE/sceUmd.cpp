@@ -207,7 +207,7 @@ static void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(umdStatTimeoutEvent, threadID);
 		if (cyclesLeft != 0)
-			umdPausedWaits[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
+			umdPausedWaits[pauseKey] = CoreTiming::GetTicks(currentMIPS) + cyclesLeft;
 		else
 			umdPausedWaits[pauseKey] = 0;
 
@@ -244,7 +244,7 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 		return;
 	}
 
-	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks(currentMIPS);
 	if (cyclesLeft < 0 && waitDeadline != 0)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	else

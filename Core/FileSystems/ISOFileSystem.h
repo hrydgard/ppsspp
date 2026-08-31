@@ -72,6 +72,10 @@ private:
 		u32 startingPosition = 0;
 		s64 size = 0;
 		bool isDirectory = false;
+		// The date/time from the ISO9660 directory record, as Unix UTC seconds (0 if there
+		// wasn't a usable one). ISO9660 only has the one timestamp per file, so it gets
+		// reported as all three of atime/ctime/mtime.
+		s64 recordTime = 0;
 
 		u32 startsector = 0;
 		u32 dirsize = 0;

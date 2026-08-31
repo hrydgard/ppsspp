@@ -890,9 +890,6 @@ static std::string GetDefaultLangRegion() {
 	}
 }
 
-bool System_SendDebugOutput(std::string_view data) { return false; }
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
-
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
 #ifndef _DEBUG
@@ -930,12 +927,10 @@ std::vector<std::wstring> GetWideCmdLine() {
 }
 
 static void InitMemstickDirectory() {
-	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
+	if (!g_Config.memStickDirectory.empty() && !g_Config.nandRootDirectory.empty())
 		return;
 
 	const Path &exePath = File::GetExeDirectory();
-	// Mount a filesystem
-	g_Config.flash0Directory = exePath / "assets/flash0";
 
 	// Caller sets this to the Documents folder.
 	const Path rootMyDocsPath = g_Config.internalDataDirectory;
@@ -1256,8 +1251,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			[](GraphicsContext *graphicsContext) {
 				NativeFrame(graphicsContext);
 				return GetUIState() != UISTATE_EXIT;
-		})) {
-			HandleGraphicsFailure("Failed to initialize main thread function.");
+		}, &errorMessage)) {
+			HandleGraphicsFailure(errorMessage);
 			return;
 		}
 		graphicsContext->ShutdownAPI();

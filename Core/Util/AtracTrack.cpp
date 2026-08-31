@@ -201,19 +201,10 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 				*error = StringFromFormat("smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
-			if (checkNumLoops < 0) {
+			u32 maxLoops = chunkSize >= 36 ? (chunkSize - 36) / 24 : 0;
+			if (checkNumLoops < 0 || checkNumLoops > maxLoops) {
 				*error = StringFromFormat("bad checkNumLoops (%d)", checkNumLoops);
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
-			}
-			// checkNumLoops is otherwise just an unvalidated field from the file - left
-			// unclamped, it could both drive an unbounded (up to ~2 billion entry)
-			// allocation here, and (since the loop below compares the loop counter `i`
-			// against chunkSize, rather than the byte offset actually being advanced by
-			// 24 per iteration) let reads run well past the end of this chunk. Clamp it
-			// to how many 24-byte loop entries could actually fit.
-			u32 maxLoops = chunkSize >= 36 ? (chunkSize - 36) / 24 : 0;
-			if ((u32)checkNumLoops > maxLoops) {
-				checkNumLoops = (int)maxLoops;
 			}
 
 			track->loopinfo.resize(checkNumLoops);

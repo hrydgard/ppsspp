@@ -155,10 +155,15 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		core->HideChoice(1);
 		core->HideChoice(3);
 	}
-	// TODO: Enable "JIT using IR" on more architectures.
+	// TODO: Enable "JIT using IR" on more architectures. ARM32 needs more testing.
+	// Note also that Loongarch and RISC-V only have a jit-ir backend, and it's used for the JIT option, so the fourth option isn't shown.
 #if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64) && !PPSSPP_ARCH(ARM64)
 	core->HideChoice(3);
 #endif
+
+	// Only the interpreter raises these, but don't hide it behind the CPU core choice - it'd just
+	// look like the setting had vanished.
+	list->Add(new CheckBox(&g_Config.bEnableFPUExceptionTraps, dev->T("Enable FPU exceptions")));
 
 	list->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show in-game developer menu")));
@@ -200,6 +205,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	CheckBox *localDebugger = list->Add(new CheckBox(&g_Config.bRemoteDebuggerLocal, dev->T("Use locally hosted remote debugger")));
 	localDebugger->SetEnabledPtr(&allowDebugger_);
+
+	list->Add(new CheckBox(&g_Config.bAutoSaveLoadSymbols, dev->T("Auto save/load symbols")));
 
 	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));

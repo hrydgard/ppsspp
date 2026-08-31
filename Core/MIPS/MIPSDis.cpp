@@ -120,10 +120,15 @@ namespace MIPSDis
 	}
 
 	void Dis_Syscall(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		u32 callno = (op>>6) & 0xFFFFF; //20 bits
-		int funcnum = callno & 0xFFF;
-		int modulenum = (callno & 0xFF000) >> 12;
-		snprintf(out, outSize, "syscall\t	%s", GetHLEFuncName(modulenum, funcnum));
+		const u32 callno = (op>>6) & 0xFFFFF; //20 bits
+		const int funcNum = callno & 0xFFF;
+		const int moduleNum = (callno & 0xFF000) >> 12;
+		const char *funcName = GetHLEFuncName(moduleNum, funcNum);
+		if (funcName) {
+			snprintf(out, outSize, "syscall\t	%s", funcName);
+		} else {
+			snprintf(out, outSize, "syscall\t	%02x:%03x", moduleNum, funcNum);
+		}
 	}
 
 	void Dis_ToHiloTransfer(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {

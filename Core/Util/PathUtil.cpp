@@ -112,6 +112,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return pspDirectory / "shaders";
 	case DIRECTORY_CUSTOM_THEMES:
 		return pspDirectory / "themes";
+	case DIRECTORY_NAND:
+		return pspDirectory / "NAND";
 
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;
@@ -133,7 +135,7 @@ bool CreateSysDirectories() {
 	INFO_LOG(Log::IO, "Creating '%s' and subdirs:", pspDir.c_str());
 	File::CreateFullPath(pspDir);
 	if (!File::Exists(pspDir)) {
-		INFO_LOG(Log::IO, "Not a workable memstick directory. Giving up");
+		INFO_LOG(Log::IO, "Not a workable memstick directory (%s). Giving up for now", pspDir.c_str());
 		return false;
 	}
 

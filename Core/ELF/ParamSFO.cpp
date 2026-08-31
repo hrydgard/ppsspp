@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -104,7 +105,8 @@ std::vector<std::string> ParamSFOData::GetKeys() const {
 }
 
 std::string ParamSFOData::GetDiscID() {
-	const std::string discID = GetValueString("DISC_ID");
+	const std::string rawDiscID = GetValueString("DISC_ID");
+	const std::string discID(StripSpaces(rawDiscID));
 	if (discID.empty()) {
 		std::string fakeID = GenerateFakeID(Path());
 		WARN_LOG(Log::Loader, "No DiscID found - generating a fake one: '%s' (from %s)", fakeID.c_str(), PSP_CoreParameter().fileToStart.c_str());
@@ -227,14 +229,18 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, size_t size, const char *dat
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
 	const u8 *key_start = paramsfo + header->key_table_start;
-	int data_start = header->data_table_start;
+	const size_t data_start = header->data_table_start;
 
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
+		// In size_t throughout - these are u32s from the file, and mixing them with int meant the
+		// bounds check below was done in whatever type the promotion landed on. ReadSFO does the
+		// same arithmetic this way.
 		size_t key_offset = header->key_table_start + indexTables[i].key_table_offset;
 		if (key_offset >= size)
 			continue;
-		if (data_start + indexTables[i].data_table_offset >= (int)size)
+		size_t data_offset = data_start + indexTables[i].data_table_offset;
+		if (data_offset >= size)
 			continue;
 
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
@@ -243,11 +249,17 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, size_t size, const char *dat
 			continue;
 		if (!strcmp(key, dataName))
 		{
-			return data_start + indexTables[i].data_table_offset;
+			return (int)data_offset;
 		}
 	}
 
 	return -1;
+}
+
+// How many bytes an entry gets in the data table. Everything written for it has to fit in here -
+// the size loop below and the fill loop after it both go through this, so they can't disagree.
+static u32 ReservedSize(const ParamSFOData::ValueData &value) {
+	return (u32)std::max(0, value.max_size);
 }
 
 void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
@@ -266,7 +278,7 @@ void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	for (const auto &[k, v] : values)
 	{
 		key_size += k.size() + 1;
-		data_size += v.max_size;
+		data_size += ReservedSize(v);
 
 		header.index_table_entries++;
 	}
@@ -299,35 +311,49 @@ void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 		index_ptr->key_table_offset = offset;
 		offset = (u16)(data_ptr - (data+header.data_table_start));
 		index_ptr->data_table_offset = offset;
-		index_ptr->param_max_len = v.max_size;
+		const u32 reserved = ReservedSize(v);
+		index_ptr->param_max_len = reserved;
 		if (v.type == VT_INT)
 		{
 			index_ptr->param_fmt = 0x0404;
-			index_ptr->param_len = 4;
+			index_ptr->param_len = std::min(4u, reserved);
 
-			*(s32_le *)data_ptr = v.i_value;
+			if (reserved >= 4)
+				*(s32_le *)data_ptr = v.i_value;
+			else
+				WARN_LOG(Log::Loader, "SFO key '%s' is an int but only reserves %d bytes, dropping", k.c_str(), (int)reserved);
 		}
 		else if (v.type == VT_UTF8_SPE)
 		{
 			index_ptr->param_fmt = 0x0004;
-			index_ptr->param_len = (u32)v.u_value.size();
+			// Raw data, no terminator, but it still has to fit in what the entry reserved.
+			const u32 len = std::min((u32)v.u_value.size(), reserved);
+			if (len != v.u_value.size())
+				WARN_LOG(Log::Loader, "SFO key '%s': %d bytes of data truncated to %d", k.c_str(), (int)v.u_value.size(), (int)len);
+			index_ptr->param_len = len;
 
-			memset(data_ptr, 0, index_ptr->param_max_len);
-			memcpy(data_ptr, v.u_value.data(), index_ptr->param_len);
+			memset(data_ptr, 0, reserved);
+			memcpy(data_ptr, v.u_value.data(), len);
 		}
 		else if (v.type == VT_UTF8)
 		{
 			index_ptr->param_fmt = 0x0204;
-			index_ptr->param_len = (u32)v.s_value.size()+1;
+			// param_len counts the NUL terminator, so the string itself gets reserved - 1 bytes.
+			// Several callers pass the string's own length as max_size (see PSPLoaders.cpp), which
+			// used to overrun the entry by the terminator plus one more from the stray write below.
+			const u32 len = std::min((u32)v.s_value.size(), reserved ? reserved - 1 : 0);
+			if (len != v.s_value.size())
+				WARN_LOG(Log::Loader, "SFO key '%s': string of %d chars truncated to %d", k.c_str(), (int)v.s_value.size(), (int)len);
+			index_ptr->param_len = reserved ? len + 1 : 0;
 
-			memcpy(data_ptr,v.s_value.c_str(),index_ptr->param_len);
-			data_ptr[index_ptr->param_len] = 0;
+			memset(data_ptr, 0, reserved);  // Also supplies the terminator.
+			memcpy(data_ptr, v.s_value.data(), len);
 		}
 
 		memcpy(key_ptr,k.c_str(),k.size());
 		key_ptr[k.size()] = 0;
 
-		data_ptr += index_ptr->param_max_len;
+		data_ptr += reserved;
 		key_ptr += k.size() + 1;
 		index_ptr++;
 
@@ -348,14 +374,18 @@ std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 
 	std::string file = path.GetFilename();
 
+	// Deliberately byte-wise and ASCII-only. Filenames are UTF-8, and a plain char is signed on x86
+	// and unsigned on ARM - so summing chars directly gave Windows and Android different IDs for the
+	// same non-ASCII folder name, and toupper() on a negative value trips MSVC's debug CRT. ASCII
+	// names, which is very nearly all of them, produce exactly the same ID as before either way.
 	int sumOfAllLetters = 0;
 	for (char &c : file) {
-		sumOfAllLetters += c;
+		sumOfAllLetters += (unsigned char)c;
 		// Get rid of some garbage characters than can arise when opening content URIs. Well, I've only seen '%', but...
-		if (strchr("%() []", c) != nullptr) {
+		if (c && strchr("%() []", c) != nullptr) {
 			c = 'X';
-		} else {
-			c = toupper(c);
+		} else if (c >= 'a' && c <= 'z') {
+			c = c - 'a' + 'A';
 		}
 	}
 
@@ -427,6 +457,8 @@ GameRegion DetectGameRegionFromID(std::string_view id_full) {
 			return GameRegion::TEST;
 		} else if (id_letters == "UMDT") {
 			return GameRegion::DIAGNOSTIC;
+		} else if (id_letters == "VSHM") {  // this is just generated from vshmain.elf
+			return GameRegion::FIRMWARE;
 		}
 	}
 	return GameRegion::HOMEBREW;
@@ -445,6 +477,7 @@ std::string_view GameRegionToString(GameRegion region) {
 	case GameRegion::TEST: return "Test disc";
 	case GameRegion::DIAGNOSTIC: return "Diagnostic tool";
 	case GameRegion::FIRMWARE: return "Firmware update";
+	case GameRegion::VSH: return "VSH";
 	default: return "unknown region";
 	}
 }

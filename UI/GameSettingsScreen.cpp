@@ -791,10 +791,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		screenManager()->push(new AnalogCalibrationScreen(gamePath_));
 	});
 
-#if defined(USING_WIN_UI) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
 #endif
-#if defined(USING_WIN_UI)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
 
@@ -885,14 +885,14 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 
 	if (deviceType != DEVICE_TYPE_VR) {
 		controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
-#if defined(USING_WIN_UI)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 		controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
-#endif // #if defined(USING_WIN_UI)
+#endif
 		PopupSliderChoiceFloat *analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, 0.6f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
 		controlsSettings->Add(analogLimiter);
 		controlsSettings->Add(new SettingHint(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), analogLimiter));
 		controlsSettings->Add(new PopupSliderChoice(&g_Config.iRapidFireInterval, 1, 10, 5, co->T("Rapid fire interval"), screenManager(), "frames"));
-#if defined(USING_WIN_UI) || defined(SDL) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(SDL) || PPSSPP_PLATFORM(ANDROID)
 		bool enableMouseSettings = true;
 #if PPSSPP_PLATFORM(ANDROID)
 		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 12) {
@@ -1049,9 +1049,13 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	dnsServer->SetDisabledPtr(&g_Config.bInfrastructureAutoDNS);
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")))->OnClick.Add([](UI::EventParams &e) {
-		// Wake the UPnP service thread immediately so it reacts to the new setting instead
-		// of waiting for the next periodic retry (or a port request that may never come).
+	// Only togglable outside a game - sceNet latches settings like UPnPUseOriginalPort at boot,
+	// and a game that's already mapped its ports wouldn't cope with them disappearing.
+	CheckBox *enableUPnP = networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
+	enableUPnP->SetEnabled(!PSP_IsInited());
+	enableUPnP->OnClick.Add([](UI::EventParams &e) {
+		// Wake the UPnP service thread so it connects (or tears its mappings back down) right
+		// away, instead of waiting for a port request that may never come.
 		UPnP_Notify();
 	});
 	auto *useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
@@ -1607,7 +1611,7 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [this](std::string_view value, int converted) {
 		if (converted == 1) {
 			// The platform code converted and saved the file to the desired path already.
-			INFO_LOG(Log::UI, "Converted file.");
+			INFO_LOG(Log::UI, "Platform converted the file: %.*s", STR_VIEW(value));
 		} else if (!value.empty()) {
 			Path path(value);
 

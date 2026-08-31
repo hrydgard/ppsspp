@@ -8,15 +8,28 @@ LibretroVulkanPresentation::LibretroVulkanPresentation(retro_hw_render_interface
 	: vulkan_(vulkan), format_(format), extent_(extent) {
 }
 
-bool LibretroVulkanPresentation::Create(VulkanContext *context) {
-	dedicatedAllocation_ = context->Extensions().KHR_dedicated_allocation;
-
-	uint32_t mask = vulkan_->get_sync_index_mask(vulkan_->handle);
+uint32_t LibretroVulkanPresentation::ImageCountFromMask(uint32_t mask) {
 	uint32_t count = 0;
 	while (mask) {
 		count++;
 		mask >>= 1;
 	}
+	return count;
+}
+
+bool LibretroVulkanPresentation::IsValidImageIndex(uint32_t imageIndex) const {
+	return imageIndex < images_.size() && imageIndex < 32 && (syncIndexMask_ & (1u << imageIndex)) != 0;
+}
+
+bool LibretroVulkanPresentation::Create(VulkanContext *context) {
+	dedicatedAllocation_ = context->Extensions().KHR_dedicated_allocation;
+
+	syncIndexMask_ = vulkan_->get_sync_index_mask(vulkan_->handle);
+	uint32_t count = ImageCountFromMask(syncIndexMask_);
+	auto fail = [this, context]() {
+		Destroy(context);
+		return false;
+	};
 
 	VkDevice device = context->GetDevice();
 	images_.resize(count);
@@ -35,7 +48,7 @@ bool LibretroVulkanPresentation::Create(VulkanContext *context) {
 		info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		if (vkCreateImage(device, &info, nullptr, &img.image) != VK_SUCCESS) {
-			return false;
+			return fail();
 		}
 
 		VkMemoryRequirements memreq;
@@ -51,13 +64,13 @@ bool LibretroVulkanPresentation::Create(VulkanContext *context) {
 		}
 
 		if (!context->MemoryTypeFromProperties(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &alloc.memoryTypeIndex)) {
-			return false;
+			return fail();
 		}
 		if (vkAllocateMemory(device, &alloc, nullptr, &img.memory) != VK_SUCCESS) {
-			return false;
+			return fail();
 		}
 		if (vkBindImageMemory(device, img.image, img.memory, 0) != VK_SUCCESS) {
-			return false;
+			return fail();
 		}
 
 		img.retroImage.create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -69,7 +82,7 @@ bool LibretroVulkanPresentation::Create(VulkanContext *context) {
 		img.retroImage.create_info.subresourceRange.layerCount = 1;
 		img.retroImage.create_info.subresourceRange.levelCount = 1;
 		if (vkCreateImageView(device, &img.retroImage.create_info, nullptr, &img.retroImage.image_view) != VK_SUCCESS) {
-			return false;
+			return fail();
 		}
 		img.retroImage.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
@@ -91,23 +104,53 @@ void LibretroVulkanPresentation::Destroy(VulkanContext *context) {
 		}
 	}
 	images_.clear();
+	syncIndexMask_ = 0;
+	std::lock_guard<std::mutex> lock(mutex_);
+	presentPending_ = false;
+	condVar_.notify_all();
+}
+
+bool LibretroVulkanPresentation::NeedsRecreate() const {
+	return vulkan_->get_sync_index_mask(vulkan_->handle) != syncIndexMask_;
+}
+
+bool LibretroVulkanPresentation::Recreate(VulkanContext *context) {
+	Destroy(context);
+	return Create(context);
 }
 
 VkResult LibretroVulkanPresentation::AcquireNextImage(VulkanContext *vulkan, VkSemaphore signalSemaphore, uint32_t *imageIndex) {
 	// Unlike a real swapchain, RetroArch doesn't signal signalSemaphore for us here - PrepareSubmit()
 	// strips any wait on it before the real vkQueueSubmit, matching the old hack's behavior.
+	if (vulkan_->get_sync_index_mask(vulkan_->handle) != syncIndexMask_) {
+		return VK_ERROR_OUT_OF_DATE_KHR;
+	}
 	vulkan_->wait_sync_index(vulkan_->handle);
 	*imageIndex = vulkan_->get_sync_index(vulkan_->handle);
+	if (!IsValidImageIndex(*imageIndex)) {
+		return VK_ERROR_OUT_OF_DATE_KHR;
+	}
 	return VK_SUCCESS;
 }
 
 VkResult LibretroVulkanPresentation::QueuePresent(VulkanContext *vulkan, VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore) {
+	if (vulkan_->get_sync_index_mask(vulkan_->handle) != syncIndexMask_ || !IsValidImageIndex(imageIndex)) {
+		return VK_ERROR_OUT_OF_DATE_KHR;
+	}
 	std::unique_lock<std::mutex> lock(mutex_);
-	currentIndex_ = (int)imageIndex;
 	vulkan_->set_image(vulkan_->handle, &images_[imageIndex].retroImage, 0, nullptr, vulkan_->queue_index);
-	everPresented_ = true;
-	condVar_.notify_all();
 	return VK_SUCCESS;
+}
+
+void LibretroVulkanPresentation::BeginPresent() {
+	std::lock_guard<std::mutex> lock(mutex_);
+	presentPending_ = true;
+}
+
+void LibretroVulkanPresentation::EndPresent() {
+	std::lock_guard<std::mutex> lock(mutex_);
+	presentPending_ = false;
+	condVar_.notify_all();
 }
 
 void LibretroVulkanPresentation::LockQueue() {
@@ -127,7 +170,5 @@ void LibretroVulkanPresentation::PrepareSubmit(VkSubmitInfo &submitInfo) {
 
 void LibretroVulkanPresentation::WaitForPresentation() {
 	std::unique_lock<std::mutex> lock(mutex_);
-	if (everPresented_ && currentIndex_ < 0) {
-		condVar_.wait(lock);
-	}
+	condVar_.wait(lock, [this] { return !presentPending_; });
 }

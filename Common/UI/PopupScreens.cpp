@@ -642,8 +642,8 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
-	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
+	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -658,7 +658,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
+		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			changing_ = true;
 			UpdateTextBox();
@@ -684,8 +684,8 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
-	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
+	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -701,7 +701,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
+		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;

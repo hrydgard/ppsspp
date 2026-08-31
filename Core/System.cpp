@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
 #include "ppsspp_config.h"
 
 #ifdef _WIN32
@@ -36,6 +37,7 @@
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/Path.h"
+#include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/AndroidContentURI.h"
@@ -48,6 +50,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
@@ -62,15 +65,15 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
-#include "Core/LuaContext.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/LuaContext.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
-#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Core/Util/RecentFiles.h"
-#include "Common/StringUtils.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Debugger/Playback.h"
@@ -92,8 +95,8 @@ static FileLoader *g_loadedFile;
 static std::mutex loadingLock;
 static std::thread g_loadingThread;
 
-bool coreCollectDebugStats = false;
-static int coreCollectDebugStatsCounter = 0;
+bool g_coreCollectDebugStats = false;
+static int g_coreCollectDebugStatsCounter = 0;
 
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
@@ -101,7 +104,9 @@ static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
 static bool g_fileLoggingWasEnabled;
 
-static BootState g_bootState = BootState::Off;
+// Atomic because it's read as a fast-fail from the WebSocket debugger's own thread while the
+// CPU and loader threads move it along.
+static std::atomic<BootState> g_bootState = BootState::Off;
 
 BootState PSP_GetBootState() {
 	return g_bootState;
@@ -182,6 +187,25 @@ static bool SaveSymbolMapIfSupported() {
 		return g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 	}
 	return false;
+}
+
+// The counterparts to the per-module symbol auto-load/save in Core/HLE/sceKernelModule.cpp, for
+// the symbols that don't belong to any module - see SymbolMap::GetGameSymbolsPath. Gated on the
+// same config setting as the module ones and, like them, deliberately not on SYSPROP_HAS_DEBUGGER
+// (which only the Windows port reports true for, so LoadSymbolsIfSupported above does nothing at
+// all on headless).
+static void LoadGameSymbolsIfEnabled() {
+	if (!g_symbolMap || !g_Config.bAutoSaveLoadSymbols)
+		return;
+	g_symbolMap->LoadModuleSymbols(0, SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID()));
+}
+
+static void SaveGameSymbolsIfEnabled() {
+	if (!g_symbolMap || !g_Config.bAutoSaveLoadSymbols)
+		return;
+	// Writes nothing (and cleans up any previous file) if there are no such symbols.
+	g_symbolMap->SaveModuleSymbols(0, SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID()),
+		g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"));
 }
 
 bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string *id) {
@@ -275,6 +299,44 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 
 extern const std::string INDEX_FILENAME;
 
+static void MountFileSystems() {
+	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
+
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	if (pspDir == g_Config.memStickDirectory) {
+		// Initially tried to do this with dual mounts, but failed due to save state compatibility issues.
+		INFO_LOG(Log::sceIo, "Enabling /PSP compatibility mode");
+		memstickFlags |= FileSystemFlags::STRIP_PSP;
+	}
+
+	auto memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
+
+	pspFileSystem.Mount("ms0:", memstickSystem);
+	pspFileSystem.Mount("fatms0:", memstickSystem);
+	pspFileSystem.Mount("fatms:", memstickSystem);
+	pspFileSystem.Mount("pfat0:", memstickSystem);
+
+	// TODO: These should be made "lazy" mounts.
+	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.nandRootDirectory / "flash0", FileSystemFlags::FLASH);
+	auto flash1System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.nandRootDirectory / "flash1", FileSystemFlags::FLASH);
+	pspFileSystem.Mount("flash0:", flash0System);
+	pspFileSystem.Mount("flash1:", flash1System);
+
+	// NOTE: We don't handle the host0: mount here, it's in Load_PSP_ELF_PBP.
+
+	if (g_RemasterMode) {
+		const std::string gameId = g_paramSFO.GetDiscID();
+		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
+		if (File::Exists(exdataPath)) {
+			auto exdataSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+			pspFileSystem.Mount("exdata0:", exdataSystem);
+			INFO_LOG(Log::sceIo, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		} else {
+			INFO_LOG(Log::sceIo, "Did not find exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		}
+	}
+}
+
 // NOTE: The loader has already been fully resolved (ResolveFileLoaderTarget) and identified here.
 static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::string *errorString) {
 	// Default memory settings
@@ -295,7 +357,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		// Doesn't seem to take ownership of fileLoader?
+		// Doesn't take ownership of fileLoader. We store it in g_loadedFile later.
 		if (!MountGameISO(fileLoader, errorString)) {
 			*errorString = "Failed to mount ISO file: " + *errorString;
 			return false;
@@ -359,7 +421,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	default:
 	{
 		// Trying to boot other things lands us here. We need to return a sensible error string.
-		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file. %s", errorString->c_str());
+		ERROR_LOG(Log::Loader, "CPU_Init didn't recognize file: %s. %s", fileLoader->GetPath().c_str(), errorString->c_str());
+		Core_SendDebugOutput(LogLevel::LINFO, StringFromFormat("File not recognized: %s. %s", fileLoader->GetPath().c_str(), errorString->c_str()));
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		if (errorString->empty()) {
 			*errorString = sy->T("Not a PSP game");
@@ -432,10 +495,11 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	InitVFPU();
 
 	LoadSymbolsIfSupported();
+	LoadGameSymbolsIfEnabled();
 
 	mipsr4k.Reset();
 
-	CoreTiming::Init();
+	CoreTiming::Init(&mipsr4k);
 
 	DisplayHWInit();
 
@@ -446,6 +510,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	if (!g_CoreParameter.mountIso.empty()) {
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
 	}
+
+	MountFileSystems();
 
 	// Game-specific settings are load from for example Load_PSP_ISO (which calls g_Config.LoadGameConfig).
 	// We can't do things that depend on these before the below switch. So for example, the adjustment of the GPU core
@@ -523,12 +589,21 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 }
 
 void CPU_Shutdown(bool success) {
+	// Held across the whole teardown, not just Memory::Shutdown() further down. Everything below
+	// frees state the debugger UIs read from other threads - kernel objects, the symbol map, the
+	// memory map - and this is the lock they take to be sure none of it goes away mid-read. See
+	// Core_LockAgainstShutdown(); it's recursive, so the nested acquire in Memory::Shutdown() is fine.
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
+
 	UninstallExceptionHandler();
 
 	GPURecord::Replay_Unload();
 
 	if (g_Config.bAutoSaveSymbolMap && success) {
 		SaveSymbolMapIfSupported();
+	}
+	if (success) {
+		SaveGameSymbolsIfEnabled();
 	}
 
 	Replacement_Shutdown();
@@ -539,7 +614,8 @@ void CPU_Shutdown(bool success) {
 
 	DisplayHWShutdown();
 
-	pspFileSystem.Shutdown();
+	pspFileSystem.Shutdown();  // This unmounts all filesystems.
+
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
 	HLEPlugins::Shutdown();
@@ -551,6 +627,9 @@ void CPU_Shutdown(bool success) {
 	g_CoreParameter.mountIsoLoader = nullptr;
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
+	// Line info outlives individual modules on purpose (see ~PSPModule), so the game going away is
+	// what ends it.
+	g_lineInfo.Clear();
 
 	g_lua.Shutdown();
 
@@ -564,10 +643,10 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 }
 
 void PSP_UpdateDebugStats(bool collectStats) {
-	bool newState = collectStats || coreCollectDebugStatsCounter > 0;
-	if (coreCollectDebugStats != newState) {
-		coreCollectDebugStats = newState;
-		mipsr4k.ClearJitCache();
+	bool newState = collectStats || g_coreCollectDebugStatsCounter > 0;
+	if (g_coreCollectDebugStats != newState) {
+		g_coreCollectDebugStats = newState;
+		mipsr4k.ClearJitCacheDeferred();
 	}
 
 	if (!PSP_CoreParameter().frozen && !Core_IsStepping()) {
@@ -578,11 +657,11 @@ void PSP_UpdateDebugStats(bool collectStats) {
 
 void PSP_ForceDebugStats(bool enable) {
 	if (enable) {
-		coreCollectDebugStatsCounter++;
+		g_coreCollectDebugStatsCounter++;
 	} else {
-		coreCollectDebugStatsCounter--;
+		g_coreCollectDebugStatsCounter--;
 	}
-	_assert_(coreCollectDebugStatsCounter >= 0);
+	_assert_(g_coreCollectDebugStatsCounter >= 0);
 }
 
 static void InitGPU(std::string *error_string) {
@@ -796,7 +875,7 @@ void PSP_RunLoopWhileState() {
 }
 
 void PSP_RunLoopFor(int cycles) {
-	Core_RunLoopUntil(CoreTiming::GetTicks() + cycles);
+	Core_RunLoopUntil(CoreTiming::GetTicks(currentMIPS) + cycles);
 }
 
 const char *DumpFileTypeToString(DumpFileType type) {

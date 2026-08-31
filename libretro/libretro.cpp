@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
@@ -247,7 +248,7 @@ namespace Libretro
       }
 
       // Get elapsed time (us) for this run
-      s64 runTicks = CoreTiming::GetTicks();
+      s64 runTicks = CoreTiming::GetTicks(currentMIPS);
       s64 runTimeUs = cyclesToUs(runTicks - runTicksLast);
 
       // Check if current internal frame rate is a
@@ -1266,10 +1267,10 @@ void retro_init(void)
    g_Config.currentDirectory = retro_base_dir;
    g_Config.defaultCurrentDirectory = retro_base_dir;
    g_Config.memStickDirectory = retro_save_dir;
-   g_Config.flash0Directory = retro_base_dir / "flash0";
    g_Config.internalDataDirectory = retro_base_dir;
    g_Config.bEnableNetworkChat = false;
    g_Config.bDiscordRichPresence = false;
+   g_Config.nandRootDirectory = GetSysDirectory(PSPDirectories::DIRECTORY_NAND);
 
    g_VFS.Register("", new DirectoryReader(retro_base_dir));
 
@@ -1391,6 +1392,9 @@ namespace Libretro {
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
+            case EmuThreadState::PAUSE_REQUESTED:
+               emuThreadState = EmuThreadState::PAUSED;
+               [[fallthrough]];
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;
@@ -1440,7 +1444,7 @@ namespace Libretro {
       if (emuThreadState != EmuThreadState::RUNNING)
          return;
 
-      emuThreadState = EmuThreadState::PAUSED;
+      emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
       // Is this safe?
       ctx->ThreadFrame(); // Eat 1 frame
@@ -1714,7 +1718,8 @@ void retro_run(void) {
 
    // Handle thread pumping.
    if (useEmuThread) {
-      if (emuThreadState == EmuThreadState::PAUSED) {
+      if (emuThreadState == EmuThreadState::PAUSED ||
+          emuThreadState == EmuThreadState::PAUSE_REQUESTED) {
          VsyncSwapIntervalDetect();
          ctx->SwapBuffers();
          return;
@@ -1792,6 +1797,7 @@ bool retro_unserialize(const void *data, size_t size) {
    if (!gpu) {
       unserialize_data = malloc(size);
       memcpy(unserialize_data, data, size);
+      unserialize_size = size;
       return true;
    }
 
@@ -1939,9 +1945,6 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
    return -1;
 }
 
-bool System_SendDebugOutput(std::string_view data) { return false; }
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
-
 float System_GetPropertyFloat(SystemProperty prop) {
    switch (prop) {
       case SYSPROP_DISPLAY_REFRESH_RATE:
@@ -1986,7 +1989,6 @@ void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
-
 void System_Toast(std::string_view str) {}
 
 inline int16_t Clamp16(int32_t sample) {

@@ -39,45 +39,18 @@
 #define PSP_MUTEX_ATTR_ALLOW_RECURSIVE 0x200
 #define PSP_MUTEX_ATTR_KNOWN (PSP_MUTEX_ATTR_PRIORITY | PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
 
-struct NativeMutex
-{
-	SceSize_le size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt_le attr;
-	s32_le initialCount;
-	s32_le lockLevel;
-	SceUID_le lockThread;
-	// Not kept up to date.
-	s32_le numWaitThreads;
-};
+// NativeMutex/PSPMutex itself now live in sceKernelMutex.h - see the comment on the class there
+// for why.
+void PSPMutex::DoState(PointerWrap &p) {
+	auto s = p.Section("Mutex", 1);
+	if (!s)
+		return;
 
-struct PSPMutex : public KernelObject
-{
-	const char *GetName() override { return nm.name; }
-	const char *GetTypeName() override { return GetStaticTypeName(); }
-	static const char *GetStaticTypeName() { return "Mutex"; }
-	static u32 GetMissingErrorCode() { return SCE_MUTEX_ERROR_NO_SUCH_MUTEX; }
-	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
-	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
-
-	void DoState(PointerWrap &p) override
-	{
-		auto s = p.Section("Mutex", 1);
-		if (!s)
-			return;
-
-		Do(p, nm);
-		SceUID dv = 0;
-		Do(p, waitingThreads, dv);
-		Do(p, pausedWaits);
-	}
-
-	NativeMutex nm;
-	std::vector<SceUID> waitingThreads;
-	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, u64> pausedWaits;
-};
-
+	Do(p, nm);
+	SceUID dv = 0;
+	Do(p, waitingThreads, dv);
+	Do(p, pausedWaits);
+}
 
 struct NativeLwMutexWorkarea
 {
@@ -263,7 +236,7 @@ static bool __KernelUnlockMutexForThread(PSPMutex *mutex, SceUID threadID, u32 &
 	{
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -498,8 +471,8 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr) {
 		// Remove threads no longer waiting on this first (so the numWaitThreads value is correct.)
 		HLEKernel::CleanupWaitingThreads(WAITTYPE_MUTEX, uid, mutex->waitingThreads);
 
-		if (Memory::IsValidAddress(numWaitThreadsPtr))
-			Memory::Write_U32((u32)mutex->waitingThreads.size(), numWaitThreadsPtr);
+		if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr))
+			Memory::WriteUnchecked_U32((u32)mutex->waitingThreads.size(), numWaitThreadsPtr);
 
 		bool wokeThreads = false;
 		for (auto iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
@@ -531,13 +504,6 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 		return hleNoLog(0);
 	}
 
-	if (timeoutPtr != 0) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
-	}
-
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
@@ -564,13 +530,6 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 }
 
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
-	if (timeoutPtr != 0) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
-	}
-
 	u32 error;
 	PSPMutex *mutex = kernelObjects.Get<PSPMutex>(id, error);
 
@@ -730,8 +689,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 		return false;
 
 	// If result is an error code, we're just letting it go.
-	if (result == 0)
-	{
+	if (result == 0) {
 		workarea->lockLevel = (int) __KernelGetWaitValue(threadID, error);
 		workarea->lockThread = threadID;
 	}
@@ -740,7 +698,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 	if (timeoutPtr != 0 && lwMutexWaitTimer != -1) {
 		// Remove any event for this thread.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
-		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
 	__KernelResumeThreadFromWait(threadID, result);
@@ -938,13 +896,6 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
-	if (timeoutPtr) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
-	}
-
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	hleEatCycles(48);
 
@@ -974,13 +925,6 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr) {
 	if (!Memory::IsValidAddress(workareaPtr)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
-	}
-
-	if (timeoutPtr) {
-		if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
-			Core_MemoryExceptionHLE(currentMIPS, timeoutPtr, 4, MemoryExceptionType::HLE_READ);
-			return hleNoLog(0);
-		}
 	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);

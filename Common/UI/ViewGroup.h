@@ -66,6 +66,12 @@ public:
 	NeighborResult FindNeighbor(View *view, FocusMove direction, NeighborResult best);
 	virtual NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best);
 
+	// Appends the views Tab/Shift+Tab step through, in the order they were added, depth first -
+	// so the order follows the hierarchy rather than the geometry, which is what makes tabbing
+	// predictable in a layout that arrow navigation has to guess its way around.
+	// Unlike FindNeighbor, this doesn't need layout to have taken place.
+	virtual void CollectTabOrder(std::vector<View *> *outViews) const;
+
 	bool CanBeFocused() const override { return false; }
 	bool IsViewGroup() const override { return true; }
 	bool ContainsSubview(const View *view) const override;

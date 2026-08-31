@@ -180,7 +180,8 @@ void ChatMenu::Update() {
 		UpdateChat();
 	}
 
-#if defined(USING_WIN_UI)
+// TODO: This check looks outdated.
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	// Could remove the fullscreen check here, it works now.
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {

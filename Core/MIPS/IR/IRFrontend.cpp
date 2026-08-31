@@ -51,7 +51,9 @@ void IRFrontend::DoState(PointerWrap &p) {
 	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
-		js.lastSetRounding = 0;
+		if (p.mode == p.MODE_READ) {
+			js.lastSetRounding = 0;
+		}
 	} else {
 		js.hasSetRounding = 1;
 	}
@@ -76,17 +78,17 @@ void IRFrontend::FlushPrefixV() {
 	}
 
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
-		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_SPREFIX, ir.AddConstant(js.prefixS));
+		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_SPREFIX, 0, 0, js.prefixS);
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
-		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_TPREFIX, ir.AddConstant(js.prefixT));
+		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_TPREFIX, 0, 0, js.prefixT);
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
-		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_DPREFIX, ir.AddConstant(js.prefixD));
+		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_DPREFIX, 0, 0, js.prefixD);
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 
@@ -164,8 +166,8 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	} else if (entry->replaceFunc) {
 		FlushAll();
 		RestoreRoundingMode();
-		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
-		ir.Write(IROp::CallReplacement, IRTEMP_0, ir.AddConstant(index));
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
+		ir.Write(IROp::CallReplacement, IRTEMP_0, 0, 0, index);
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
@@ -175,8 +177,8 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 			ApplyRoundingMode();
 			// If IRTEMP_0 was set to 1, it means the replacement needs to run again (sliced.)
 			// This is necessary for replacements that take a lot of cycles.
-			ir.Write(IROp::Downcount, 0, ir.AddConstant(js.downcountAmount));
-			ir.Write(IROp::ExitToConstIfNeq, ir.AddConstant(GetCompilerPC()), IRTEMP_0, MIPS_REG_ZERO);
+			ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount);
+			ir.Write(IROp::ExitToConstIfNeq, 0, IRTEMP_0, MIPS_REG_ZERO, GetCompilerPC());
 			ir.Write(IROp::ExitToReg, 0, MIPS_REG_RA, 0);
 			js.compiling = false;
 		}
@@ -187,7 +189,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 
 void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
-	ir.Write(IROp::Interpret, 0, ir.AddConstant(op.encoding));
+	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
 	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
@@ -251,6 +253,8 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	js.hadBreakpoints = false;
 	js.blockWrotePrefixes = false;
 	js.inDelaySlot = false;
+	js.kernelMode = Memory::IsKernelCodeAddress(em_address);
+
 	js.PrefixStart();
 	ir.Clear();
 	ir.Reserve(64); // Estimate a reasonable number of IR instructions per block
@@ -355,11 +359,11 @@ void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 }
 
 void IRFrontend::CheckBreakpoint(u32 addr) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		FlushAll();
 
 		// Can't skip this even at the start of a block, might impact block linking.
-		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
 
 		RestoreRoundingMode();
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
@@ -374,11 +378,12 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 			}
 		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		if (downcountAmount != 0)
-			ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
+		if (downcountAmount != 0) {
+			ir.Write(IROp::Downcount, 0, 0, 0, downcountAmount);
+		}
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
-		ir.Write(IROp::Breakpoint, 0, ir.AddConstant(addr));
+		ir.Write(IROp::Breakpoint, 0, 0, 0, addr);
 		ApplyRoundingMode();
 
 		js.hadBreakpoints = true;
@@ -390,7 +395,7 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 		FlushAll();
 
 		// Can't skip this even at the start of a block, might impact block linking.
-		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
 
 		RestoreRoundingMode();
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
@@ -407,10 +412,10 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
 		if (downcountAmount != 0)
-			ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
+			ir.Write(IROp::Downcount, 0, 0, 0, downcountAmount);
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
-		ir.Write(IROp::MemoryCheck, js.inDelaySlot ? 4 : 0, rs, ir.AddConstant(offset));
+		ir.Write(IROp::MemoryCheck, js.inDelaySlot ? 4 : 0, rs, 0, offset);
 		ApplyRoundingMode();
 
 		js.hadBreakpoints = true;

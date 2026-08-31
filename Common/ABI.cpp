@@ -442,7 +442,7 @@ void XEmitter::ABI_CallFunctionPPC(const void *func, void *param1, void *param2,
 // Pass a register as a parameter.
 void XEmitter::ABI_CallFunctionR(const void *func, X64Reg reg1) {
 	if (reg1 != ABI_PARAM1)
-		MOV(32, R(ABI_PARAM1), R(reg1));
+		MOV(64, R(ABI_PARAM1), R(reg1));
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {

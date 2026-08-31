@@ -19,6 +19,7 @@
 
 #include <vector>
 #include "Common/CommonTypes.h"
+#include "Common/File/Path.h"
 #include "Core/ELF/PSPElfTypes.h"
 
 enum {
@@ -45,15 +46,25 @@ enum KnownElfTypes {
 
 typedef int SectionID;
 
+// Placeholder in segmentVAddr for a program header that isn't PT_LOAD. Those have no address to
+// relocate against, and a relocation naming one is a defect in the file rather than something to
+// quietly treat as segment zero. Not a plausible load address, and distinct from 0, which a
+// prerelocated module's first segment could in principle have.
+constexpr u32 SEGMENT_NOT_LOADED = 0xFFFFFFFF;
+
 class ElfReader {
 public:
 	ElfReader(const void *ptr, size_t size) {
 		base = (const char*)ptr;
 		base32 = (const u32 *)ptr;
+		size_ = size;
+		// Don't read the header to find the segment and section tables before we know it's there.
+		// LoadInto() rejects anything this small; header stays null so nothing else can use it either.
+		if (size < sizeof(Elf32_Ehdr))
+			return;
 		header = (const Elf32_Ehdr*)ptr;
 		segments = (const Elf32_Phdr *)(base + header->e_phoff);
 		sections = (const Elf32_Shdr *)(base + header->e_shoff);
-		size_ = size;
 	}
 
 	~ElfReader() {
@@ -65,21 +76,22 @@ public:
 		return base32[off >> 2];
 	}
 
-	// Quick accessors
-	ElfType GetType() const { return (ElfType)(u16)(header->e_type); }
-	ElfMachine GetMachine() const { return (ElfMachine)(u16)(header->e_machine); }
+	// Quick accessors. header is null if we weren't even handed a full ELF header, see the
+	// constructor - so these all have to cope with that.
+	ElfType GetType() const { return header ? (ElfType)(u16)(header->e_type) : (ElfType)0; }
+	ElfMachine GetMachine() const { return header ? (ElfMachine)(u16)(header->e_machine) : (ElfMachine)0; }
 	u32 GetEntryPoint() const { return entryPoint; }
-	u32 GetFlags() const { return (u32)(header->e_flags); }
+	u32 GetFlags() const { return header ? (u32)(header->e_flags) : 0; }
 
-	int GetNumSegments() const { return (int)(header->e_phnum); }
-	int GetNumSections() const { return (int)(header->e_shnum); }
+	int GetNumSegments() const { return header ? (int)(header->e_phnum) : 0; }
+	int GetNumSections() const { return header ? (int)(header->e_shnum) : 0; }
 	const char *GetSectionName(int section) const;
 	const u8 *GetPtr(u32 offset) const {
 		return (const u8*)base + offset;
 	}
 	// Note: zero is not a valid output, means unavailable.
 	u32 GetSectionDataOffset(int section) const {
-		if (section < 0 || section >= header->e_shnum)
+		if (section < 0 || section >= GetNumSections())
 			return 0;
 		if (sections[section].sh_type == SHT_NOBITS)
 			return 0;
@@ -87,19 +99,26 @@ public:
 	}
 	const u8 *GetSectionDataPtr(int section) const {
 		u32 offset = GetSectionDataOffset(section);
-		if (offset == 0 || offset > size_)
+		// Note >=: an offset exactly at the end of the file addresses no bytes at all.
+		if (offset == 0 || offset >= size_)
 			return nullptr;
 		return GetPtr(offset);
 	}
 	const u8 *GetSegmentPtr(int segment) const {
-		if (segments[segment].p_offset > size_)
+		if (segment < 0 || segment >= GetNumSegments())
+			return nullptr;
+		if (segments[segment].p_offset >= size_)
 			return nullptr;
 		return GetPtr(segments[segment].p_offset);
 	}
 	u32 GetSectionAddr(SectionID section) const {
+		if (section < 0 || section >= GetNumSections() || !sectionAddrs)
+			return 0;
 		return sectionAddrs[section];
 	}
 	int GetSectionSize(SectionID section) const {
+		if (section < 0 || section >= GetNumSections())
+			return 0;
 		return sections[section].sh_size;
 	}
 
@@ -113,7 +132,16 @@ public:
 		return segments[segment].p_offset;
 	}
 	u32 GetSegmentVaddr(int segment) const {
+		// Answers 0 for a segment we didn't load, which is what this returned back when the table
+		// was a zero-initialized array - sceKernelModule stores this straight into the module info.
+		if (segment < 0 || (size_t)segment >= segmentVAddr.size() || segmentVAddr[segment] == SEGMENT_NOT_LOADED)
+			return 0;
 		return segmentVAddr[segment];
+	}
+
+	// True if this program header is one we loaded, so relocations can refer to it.
+	bool SegmentIsLoaded(int segment) const {
+		return segment >= 0 && (size_t)segment < segmentVAddr.size() && segmentVAddr[segment] != SEGMENT_NOT_LOADED;
 	}
 	u32 GetSegmentDataSize(int segment) const {
 		return segments[segment].p_filesz;
@@ -162,7 +190,23 @@ private:
 	u32 entryPoint = 0;
 	u32 totalSize = 0;
 	u32 vaddr = 0;
-	u32 segmentVAddr[32]{};
+	// One entry per program header, sized in LoadInto(). Real modules have a handful of segments,
+	// but not always - PES 2014's EBOOT has 71 - and e_phnum is a u16, so this can't be a fixed
+	// array that callers are trusted to stay inside.
+	std::vector<u32> segmentVAddr;
 	size_t size_ = 0;
 	u32 firstSegAlign = 0;
 };
+
+// Homebrew usually ships the unstripped ELF it was built from next to the EBOOT (app.elf beside
+// app.prx, and similar) - prxgen strips the symbol table on the way to the PRX, so the module
+// PPSSPP actually loads has no names in it and every function ends up called z_un_<address>.
+// This looks for such a companion in the game's own directory and, if one plausibly belongs to
+// this module, adds its function and data symbols at the module's load address.
+//
+// Symbols and DWARF line info both come out of that file, and both load unconditionally -
+// bAutoSaveLoadSymbols governs writing .ppsym files back out, not reading debug info that's
+// already sitting next to the game. Same reason the main ELF's own symbols aren't gated either.
+//
+// Returns the number of symbols added, 0 if none were or no matching ELF was found.
+int LoadCompanionElfDebugInfo(const Path &gameFile, u32 moduleBase, u32 moduleSize);

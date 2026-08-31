@@ -471,6 +471,10 @@ namespace MainWindow {
 			BrowseAndBoot(NON_EPHEMERAL_TOKEN, GetSysDirectory(DIRECTORY_GAME).ToString());
 			break;
 
+		case ID_FILE_LOAD_VSH:
+			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, (g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx").ToString());
+			break;
+
 		case ID_FILE_OPEN_NEW_INSTANCE:
 			W32Util::SpawnNewInstance(false);
 			break;

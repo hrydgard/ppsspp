@@ -59,21 +59,24 @@ void SetupCallbacks(AllowedCallback allowed, MessageCallback message) {
 
 void ReportMessage(const char *message, ...) {
 	const int MESSAGE_BUFFER_SIZE = 65536;
-	char *temp = new char [MESSAGE_BUFFER_SIZE];
 
 	va_list args;
 	va_start(args, message);
+	char *temp = new char[MESSAGE_BUFFER_SIZE];
 	vsnprintf(temp, MESSAGE_BUFFER_SIZE - 1, message, args);
 	temp[MESSAGE_BUFFER_SIZE - 1] = '\0';
 	va_end(args);
 
 	if (!allowedCallback || !messageCallback) {
 		ERROR_LOG(Log::System, "Reporting not initialized, skipping: %s", temp);
+		delete[] temp;
 		return;
 	}
 
-	if (!allowedCallback())
+	if (!allowedCallback()) {
+		delete[] temp;
 		return;
+	}
 
 	messageCallback(message, temp);
 

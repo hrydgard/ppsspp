@@ -47,13 +47,34 @@ struct CommandLineOptions {
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
 
+	// Overrides g_Config.bAutoSaveLoadSymbols for this run only (see SymbolMap::SaveModuleSymbols/
+	// LoadModuleSymbols and Core/HLE/sceKernelModule.cpp) - handy for headless runs that want
+	// symbol names without persisting the setting via Settings > Developer Tools.
+	std::optional<bool> autoSaveLoadSymbols;
+
 	// Attempts to boot the vsh, which will only work if the correct files are present in the flash
 	// and once we've fixed all the bugs. This is just here to allow testing.
 	std::optional<bool> bootVSH;
 
 	std::optional<std::string> appendConfig;
-	std::optional<std::string> root;  // mount root, needs more explanation
+	std::optional<std::string> root;  // This is supposed to configure host0:.
+
+	std::optional<std::string> nand;  // Set the root nand directory (one level above flash0, ...)
+
+	// Memory stick root (the directory containing PSP/GAME, PSP/SYSTEM, ...). Mainly for headless,
+	// which otherwise always uses "memstick" next to the executable - so testing a real game there
+	// meant copying it in. Points at the same layout the app uses, so the two can share one.
+	std::optional<std::string> memStick;
 	std::optional<std::string> stateToLoad;
+
+	// Headless: unpack the firmware inside an official updater EBOOT.PBP (given as the boot
+	// filename) into this directory, then exit without booting anything.
+	// See Core/Util/PSARUnpack.h - the API can also filter to a subfolder, which the command line
+	// deliberately doesn't expose since the in-app use is specifically flash0:/font.
+	std::optional<std::string> unpackUpdater;
+	// Headless: which PSP model the unpacker resolves names against - "01g".."12g", or "any"
+	// (the default) to take whatever file list names each file first.
+	std::optional<std::string> unpackUpdaterModel;
 
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;
@@ -107,6 +128,8 @@ struct CommandLineOptions {
 	std::optional<double> maxScreenshotError;
 	// Headless: test names to skip. May be specified more than once.
 	std::vector<std::string> ignoredTests;
+	// Headless: generate C++ interpreter dispatch code to stdout and exit.
+	std::optional<bool> generateInterpreterDispatch;
 
 	// SDL only.
 	std::optional<int> xres;

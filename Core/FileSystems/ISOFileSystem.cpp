@@ -18,8 +18,10 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/FileUtil.h"  // for localtime_r on Windows
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
@@ -137,6 +139,39 @@ struct VolDescriptor {
 	char reserved[512];
 	char zeroos[653];
 };
+
+// From http://howardhinnant.github.io/date_algorithms.html - same one sceRtc.cpp uses. Beats
+// timegm(), which isn't portable, and mktime(), which would drag the host's timezone in.
+static s64 DaysFromCivil(s64 y, u32 m, u32 d) {
+	y -= m <= 2;
+	const s64 era = (y >= 0 ? y : y - 399) / 400;
+	const u32 yoe = (u32)(y - era * 400);                    // [0, 399]
+	const u32 doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;  // [0, 365]
+	const u32 doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;   // [0, 146096]
+	return era * 146097 + (s64)doe - 719468;
+}
+
+// The 7-byte date in a directory record, as Unix UTC seconds. Returns 0 if there isn't a real
+// date in there - plenty of ISOs leave it zeroed, and "1900-00-00" isn't worth propagating.
+static s64 UnixTimeFromDirectoryEntry(const DirectoryEntry &dir) {
+	if (dir.month < 1 || dir.month > 12 || dir.day < 1 || dir.day > 31) {
+		return 0;
+	}
+	// years is an offset from 1900, and offsetFromGMT is a signed count of 15-minute steps.
+	const s64 days = DaysFromCivil(1900 + (s64)dir.years, dir.month, dir.day);
+	return days * 86400 + dir.hour * 3600 + dir.minute * 60 + dir.second - (s64)(s8)dir.offsetFromGMT * 15 * 60;
+}
+
+// ISO9660 has one timestamp per file, so it goes into all three of the PSP's. Local time, to
+// match what the other file systems report.
+static void FillFileTimes(PSPFileInfo *info, s64 unixTime) {
+	if (unixTime == 0) {
+		return;
+	}
+	const time_t t = (time_t)unixTime;
+	localtime_r(&t, &info->mtime);
+	info->atime = info->ctime = info->mtime;
+}
 
 // Removes version numbers from filenames.
 static std::string_view CleanISOFileName(std::string_view name) {
@@ -258,6 +293,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 			entry->startsector = dir.firstDataSector;
 			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
+			entry->recordTime = UnixTimeFromDirectoryEntry(dir);
 			VERBOSE_LOG(Log::FileSystem, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
 			// Round down to avoid any false reports.
@@ -455,7 +491,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		} else {
 			int block = (u16)desc.firstLETableSector;
 			u32 size = Memory::ClampValidSizeAt(outdataPtr, (u32)desc.pathTableLength);
-			u8 *out = Memory::GetPointerWriteRange(outdataPtr, size);
+			u8 *out = Memory::GetPointerWriteRangeOrException(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();
 			blockDevice->ReadBlocks(block, blocks, out);
@@ -662,6 +698,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = entry->startingPosition / 2048;
+		FillFileTimes(&x, entry->recordTime);
 	}
 	return x;
 }
@@ -679,6 +716,7 @@ PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = entry->startingPosition / 2048;
+		FillFileTimes(&x, entry->recordTime);
 	}
 	return x;
 }
@@ -714,6 +752,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string_view path, boo
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = e->startingPosition/2048;
+		FillFileTimes(&x, e->recordTime);
 		x.sectorSize = sectorSize;
 		x.numSectors = (u32)((e->size + sectorSize - 1) / sectorSize);
 		myVector.push_back(x);

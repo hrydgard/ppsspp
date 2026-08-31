@@ -50,6 +50,7 @@ extern "C" {
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -457,7 +458,7 @@ namespace Reporting
 	{
 		// Just to get an idea of how long they played.
 		if (PSP_GetBootState() == BootState::Complete)
-			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
+			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks(currentMIPS));
 
 		float vps, fps;
 		__DisplayGetAveragedFPS(&vps, &fps);
@@ -556,17 +557,6 @@ namespace Reporting
 		// TODO: Should really hash the ELF instead of the path, but then that affects savestates/cheats.
 		if (PSP_GetBootState() == BootState::Complete && g_paramSFO.GetValueString("DISC_VERSION").empty())
 			return false;
-
-		// Some users run the exe from a zip or something, and don't have fonts.
-		// This breaks things, but let's not report it since it's confusing.
-#if defined(USING_WIN_UI) || defined(APPLE)
-		if (!File::Exists(g_Config.flash0Directory / "font/jpn0.pgf"))
-			return false;
-#else
-		File::FileInfo fo;
-		if (!g_VFS.GetFileInfo("flash0/font/jpn0.pgf", &fo))
-			return false;
-#endif
 
 		return !everUnsupported;
 	}

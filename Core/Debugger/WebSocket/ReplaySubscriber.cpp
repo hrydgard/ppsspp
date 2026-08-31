@@ -19,6 +19,7 @@
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceRtc.h"
+#include "Core/Core.h"
 #include "Core/Replay.h"
 #include "Core/System.h"
 #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
@@ -45,7 +46,12 @@ DebuggerSubscriber *WebSocketReplayInit(DebuggerEventHandlerMap &map) {
 //
 // Response (same event name) with no extra data.
 void WebSocketReplayBegin(DebuggerRequest &req) {
-	ReplayBeginSave();
+	// Replay state is consumed by the CPU thread as it runs, so mutate it over there rather than
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h. Same for the rest
+	// of the handlers below.
+	Core_RunOnCPUThread([&] {
+		ReplayBeginSave();
+	});
 	req.Respond();
 }
 
@@ -57,7 +63,9 @@ void WebSocketReplayBegin(DebuggerRequest &req) {
 //
 // Response (same event name) with no extra data.
 void WebSocketReplayAbort(DebuggerRequest &req) {
-	ReplayAbort();
+	Core_RunOnCPUThread([&] {
+		ReplayAbort();
+	});
 	req.Respond();
 }
 
@@ -71,11 +79,15 @@ void WebSocketReplayAbort(DebuggerRequest &req) {
 //  - version: unsigned integer, version number of data.
 //  - base64: base64 encode of binary data.
 void WebSocketReplayFlush(DebuggerRequest &req) {
-	if (PSP_GetBootState() != BootState::Complete)
-		return req.Fail("Game not running");
-
+	bool running = false;
 	std::vector<uint8_t> data;
-	ReplayFlushBlob(&data);
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running)
+			ReplayFlushBlob(&data);
+	});
+	if (!running)
+		return req.Fail("Game not running");
 
 	JsonWriter &json = req.Respond();
 	json.writeInt("version", ReplayVersion());
@@ -90,9 +102,6 @@ void WebSocketReplayFlush(DebuggerRequest &req) {
 //
 // Response (same event name) with no extra data.
 void WebSocketReplayExecute(DebuggerRequest &req) {
-	if (PSP_GetBootState() != BootState::Complete)
-		return req.Fail("Game not running");
-
 	uint32_t version = -1;
 	if (!req.ParamU32("version", &version))
 		return;
@@ -101,7 +110,16 @@ void WebSocketReplayExecute(DebuggerRequest &req) {
 		return;
 
 	std::vector<uint8_t> data = Base64Decode(encoded.data(), encoded.size());
-	if (!ReplayExecuteBlob(version, data))
+	bool running = false;
+	bool ok = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running)
+			ok = ReplayExecuteBlob(version, data);
+	});
+	if (!running)
+		return req.Fail("Game not running");
+	if (!ok)
 		return req.Fail("Invalid replay data or version");
 
 	req.Respond();
@@ -115,9 +133,15 @@ void WebSocketReplayExecute(DebuggerRequest &req) {
 //  - executing: boolean if a replay is being executed.
 //  - saving: boolean if a replay is being recorded.
 void WebSocketReplayStatus(DebuggerRequest &req) {
+	bool executing = false, saving = false;
+	Core_RunOnCPUThread([&] {
+		executing = ReplayIsExecuting();
+		saving = ReplayIsSaving();
+	});
+
 	JsonWriter &json = req.Respond();
-	json.writeBool("executing", ReplayIsExecuting());
-	json.writeBool("saving", ReplayIsSaving());
+	json.writeBool("executing", executing);
+	json.writeBool("saving", saving);
 }
 
 // Get the base RTC (real time clock) time for replay data (replay.time.get)
@@ -130,11 +154,18 @@ void WebSocketReplayStatus(DebuggerRequest &req) {
 // Response (same event name):
 //  - value: unsigned integer, may have more than 32 integer bits.
 void WebSocketReplayTimeGet(DebuggerRequest &req) {
-	if (PSP_GetBootState() != BootState::Complete)
+	bool running = false;
+	uint32_t baseTime = 0;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running)
+			baseTime = RtcBaseTime();
+	});
+	if (!running)
 		return req.Fail("Game not running");
 
 	JsonWriter &json = req.Respond();
-	json.writeUint("value", RtcBaseTime());
+	json.writeUint("value", baseTime);
 }
 
 // Overwrite the base RTC time (replay.time.set)
@@ -144,14 +175,19 @@ void WebSocketReplayTimeGet(DebuggerRequest &req) {
 //
 // Response (same event name) with no extra data.
 void WebSocketReplayTimeSet(DebuggerRequest &req) {
-	if (PSP_GetBootState() != BootState::Complete)
-		return req.Fail("Game not running");
-
 	uint32_t value;
 	if (!req.ParamU32("value", &value, false)) {
 		return;
 	}
 
-	RtcSetBaseTime((int32_t)value);
+	bool running = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running)
+			RtcSetBaseTime((int32_t)value);
+	});
+	if (!running)
+		return req.Fail("Game not running");
+
 	req.Respond();
 }

@@ -481,6 +481,11 @@ AuCtx::~AuCtx() {
 }
 
 size_t AuCtx::FindNextMp3Sync() {
+	// sourcebuff.size() - 2 underflows to a huge size_t when size() is 0 or 1,
+	// turning this into an out-of-bounds scan - guard against that explicitly.
+	if (sourcebuff.size() < 3) {
+		return 0;
+	}
 	for (size_t i = 0; i < sourcebuff.size() - 2; ++i) {
 		if ((sourcebuff[i] & 0xFF) == 0xFF && (sourcebuff[i + 1] & 0xC0) == 0xC0) {
 			return i;
@@ -492,11 +497,11 @@ size_t AuCtx::FindNextMp3Sync() {
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr) {
 	u32 outptr = PCMBuf + nextOutputHalf * PCMBufSize / 2;
-	auto outbuf = Memory::GetPointerWriteRange(outptr, PCMBufSize / 2);
+	auto outbuf = Memory::GetPointerWriteRangeOrException(outptr, PCMBufSize / 2);
 	int outpcmbufsize = 0;
 
 	if (pcmAddr)
-		Memory::Write_U32(outptr, pcmAddr);
+		Memory::WriteOrException_U32(outptr, pcmAddr);
 
 	// Decode a single frame in sourcebuff and output into PCMBuf.
 	if (!sourcebuff.empty()) {
@@ -603,7 +608,12 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 		AuBufAvailable += size;
 	}
 
-	if (Memory::IsValidRange(AuBuf, size)) {
+	// `size` is game-supplied and was previously trusted outright: a negative value
+	// would make sourcebuff.resize() attempt a huge allocation (size_t underflow),
+	// and an unbounded positive value would grow sourcebuff without limit (DoS).
+	// The validated range also has to match what's actually read below - it was
+	// checking [AuBuf, AuBuf+size) while the copy reads from [AuBuf+offset, ...).
+	if (size > 0 && size <= (int)AuBufSize && Memory::IsValidRange(AuBuf + offset, size)) {
 		sourcebuff.resize(sourcebuff.size() + size);
 		Memory::MemcpyUnchecked(&sourcebuff[sourcebuff.size() - size], AuBuf + offset, size);
 	}

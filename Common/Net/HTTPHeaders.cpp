@@ -31,6 +31,11 @@ bool RequestHeader::GetParamValue(const char *param_name, std::string *value) co
 	for (size_t i = 0; i < v.size(); i++) {
 		std::vector<std::string_view> parts;
 		SplitString(v[i], '=', parts);
+		if (parts.size() < 2) {
+			// A parameter with no '=' at all, like "?foo". SplitString hands back a single element
+			// for that, so parts[1] would be reading off the end of the vector.
+			continue;
+		}
 		DEBUG_LOG(Log::HTTP, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
 		if (parts[0] == param_name) {
 			*value = parts[1];
@@ -49,8 +54,6 @@ bool RequestHeader::GetOther(const char *name, std::string *value) const {
 	return false;
 }
 
-// Intended to be a mad fast parser. It's not THAT fast currently, there's still
-// things to optimize, but meh.
 int RequestHeader::ParseHttpHeader(const char *buffer) {
 	if (first_header_) {
 		// Step 1: Method
@@ -101,7 +104,7 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 		resource[resource_name_len] = '\0';
 		if (q_ptr) {
 			int param_length = (int)(endptr - q_ptr - 1);
-			if (param_length < 0)
+			if (param_length < 0)  // This is likely just paranoia.
 				param_length = 0;
 			params = new char[param_length + 1];
 			memcpy(params, q_ptr + 1, param_length);

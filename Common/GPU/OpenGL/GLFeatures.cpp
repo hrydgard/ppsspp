@@ -306,6 +306,13 @@ bool CheckGLExtensions() {
 			// Otherwise, let's trust GL_MAJOR_VERSION.  Note that Mali is intentionally not banned here.
 			if (gl_extensions.ver[0] >= 3) {
 				gl_extensions.GLES3 = gl3stubInit();
+				if (!gl_extensions.GLES3) {
+					// We failed to load the ES3 entry points, so we can't use any of them - including
+					// glGetStringi below, which is one of the ones gl3stubInit() checks for. Drop back
+					// to 2.0 so nothing downstream keys off the version and calls into a null pointer.
+					gl_extensions.ver[0] = 2;
+					gl_extensions.ver[1] = 0;
+				}
 			}
 		}
 #else
@@ -331,6 +338,9 @@ bool CheckGLExtensions() {
 		g_set_gl_extensions.clear();
 		for (GLint i = 0; i < numExtensions; ++i) {
 			const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
+			if (!ext) {
+				continue;
+			}
 			g_set_gl_extensions.insert(ext);
 			g_all_gl_extensions += ext;
 			g_all_gl_extensions += " ";

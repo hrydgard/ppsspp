@@ -291,9 +291,6 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	}
 }
 
-bool System_SendDebugOutput(std::string_view data) { return false; }
-void System_SendDebugScreenshot(const uint8_t *data, int width, int height) {}
-
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
@@ -1398,6 +1395,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: DENIED");
 			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_DENIED;
+		} else {
+			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
 		}
 	} else if (msg == "permission_granted") {
 		if (prm == "storage") {
@@ -1406,6 +1405,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: GRANTED");
 			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_GRANTED;
+		} else {
+			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
 		}
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
 	} else if (msg == "sustained_perf_supported") {

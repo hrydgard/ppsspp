@@ -784,7 +784,7 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 				const int newPix = std::min((int)((oldColor >> (i * 8)) & 0xFF) + pixelColor, 255);
 				pix32 |= (u32)newPix << (i * 8);
 			}
-			Memory::Write_U32(pix32, framebufferAddr);
+			Memory::WriteUnchecked_U32(pix32, framebufferAddr);
 			break;
 		}
 	}

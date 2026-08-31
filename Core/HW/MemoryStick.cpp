@@ -31,6 +31,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
 #include "Common/CommonTypes.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/Promise.h"
@@ -85,7 +86,7 @@ MemStickState MemoryStick_State() {
 }
 
 MemStickFatState MemoryStick_FatState() {
-	if (memStickNeedsAssign && CoreTiming::GetTicks() > memStickInsertedAt + msToCycles(500)) {
+	if (memStickNeedsAssign && CoreTiming::GetTicks(currentMIPS) > memStickInsertedAt + msToCycles(500)) {
 		// It's been long enough for us to be done mounting the memory stick.
 		memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
 		memStickNeedsAssign = false;
@@ -181,7 +182,7 @@ void MemoryStick_SetState(MemStickState state) {
 	if (state == PSP_MEMORYSTICK_STATE_NOT_INSERTED) {
 		MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_UNASSIGNED);
 	} else {
-		memStickInsertedAt = CoreTiming::GetTicks();
+		memStickInsertedAt = CoreTiming::GetTicks(currentMIPS);
 		memStickNeedsAssign = true;
 	}
 }

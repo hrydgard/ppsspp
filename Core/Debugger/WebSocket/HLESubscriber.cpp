@@ -20,7 +20,10 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Common/File/FileUtil.h"
 #include "Core/Debugger/DisassemblyManager.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -46,6 +49,10 @@ DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.func.rename"] = &WebSocketHLEFuncRename;
 	map["hle.func.scan"] = &WebSocketHLEFuncScan;
 	map["hle.module.list"] = &WebSocketHLEModuleList;
+	map["hle.module.saveSymbols"] = &WebSocketHLEModuleSaveSymbols;
+	map["hle.module.loadSymbols"] = &WebSocketHLEModuleLoadSymbols;
+	map["hle.game.saveSymbols"] = &WebSocketHLEGameSaveSymbols;
+	map["hle.game.loadSymbols"] = &WebSocketHLEGameLoadSymbols;
 	map["hle.backtrace"] = &WebSocketHLEBacktrace;
 	map["hle.data.list"] = &WebSocketHLEDataList;
 	map["hle.data.add"] = &WebSocketHLEDataAdd;
@@ -92,7 +99,7 @@ static bool DataTypeFromString(const std::string &s, DataType *out) {
 //     - statuses: array of string status names, e.g. 'running'.  Typically only one set.
 //     - pc: unsigned integer address of next instruction on thread.
 //     - entry: unsigned integer address thread execution started at.
-//     - initialStackSize: unsigned integer, size of initial stack.
+//     - initialStack: unsigned integer, address of the base of the thread's stack.
 //     - currentStackSize: unsigned integer, size of stack (e.g. if resized.)
 //     - priority: numeric priority level, lower values are better priority.
 //     - waitType: numeric wait type, if the thread is waiting, or 0 if not waiting.
@@ -127,7 +134,9 @@ void WebSocketHLEThreadList(DebuggerRequest &req) {
 			json.pop();
 			json.writeUint("pc", th.curPC);
 			json.writeUint("entry", th.entrypoint);
-			json.writeUint("initialStackSize", th.initialStack);
+			// Named after the SceKernelThreadInfo field it comes from - it's the stack base
+			// address, not a size, despite what this used to be called.
+			json.writeUint("initialStack", th.initialStack);
 			json.writeUint("currentStackSize", th.stackSize);
 			json.writeInt("priority", th.priority);
 			json.writeInt("waitType", (int)th.waitType);
@@ -647,18 +656,176 @@ void WebSocketHLEModuleList(DebuggerRequest &req) {
 	});
 }
 
+// Save one module's symbols to its standard per-module file (hle.module.saveSymbols)
+//
+// Saves to <memstick>/PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym - see
+// SymbolMap::GetModuleSymbolsPath. Keyed by module name+crc rather than the current game, so
+// the file is shared by every game/homebrew that happens to load the exact same module. This is
+// the same file LoadModuleSymbols/hle.module.loadSymbols reads, and (if
+// g_Config.bAutoSaveLoadSymbols is on - see Core/HLE/sceKernelModule.cpp) the same file
+// auto-save-on-unload writes and auto-load-on-module-load reads.
+//
+// Parameters:
+//  - name: string, name of the module to save (as returned by hle.module.list.)
+//
+// Response (same event name):
+//  - path: string, the file path that was written.
+void WebSocketHLEModuleSaveSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	std::string name;
+	if (!req.ParamString("name", &name))
+		return;
+
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		int moduleIndex = g_symbolMap->GetModuleIndexByName(name);
+		if (moduleIndex <= 0) {
+			req.Fail("No module found with that name");
+			return;
+		}
+
+		Path path = SymbolMap::GetModuleSymbolsPath(name, g_symbolMap->GetModuleCrc(moduleIndex));
+		if (!g_symbolMap->SaveModuleSymbols(moduleIndex, path, g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"))) {
+			req.Fail("Failed to save symbols file");
+			return;
+		}
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+	});
+}
+
+// Load a module's previously saved symbols (hle.module.loadSymbols)
+//
+// Reads from the same standard path hle.module.saveSymbols writes - see its docs above.
+// Existing symbol names for this module are overwritten by what's in the file.
+//
+// Parameters:
+//  - name: string, name of the module to load into (must currently be loaded - see
+//    hle.module.list.)
+//
+// Response (same event name):
+//  - path: string, the file path that was read.
+void WebSocketHLEModuleLoadSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	std::string name;
+	if (!req.ParamString("name", &name))
+		return;
+
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		int moduleIndex = g_symbolMap->GetModuleIndexByName(name);
+		if (moduleIndex <= 0 || !g_symbolMap->IsModuleActive(moduleIndex)) {
+			req.Fail("No active module found with that name");
+			return;
+		}
+
+		Path path = SymbolMap::GetModuleSymbolsPath(name, g_symbolMap->GetModuleCrc(moduleIndex));
+		if (!g_symbolMap->LoadModuleSymbols(moduleIndex, path)) {
+			req.Fail("Failed to load symbols file (does it exist?)");
+			return;
+		}
+
+		// Clear cache so the disassembly view picks up the newly loaded names.
+		g_disassemblyManager.clear();
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+	});
+}
+
+// Save the symbols that aren't inside any module (hle.game.saveSymbols)
+//
+// The counterpart to hle.module.saveSymbols for everything the user labelled outside a module -
+// heap, stack, scratchpad, hardware registers. Those describe this game's own memory layout and
+// mean nothing to another game, so they go to a per-game file rather than a shared per-module one:
+// <memstick>/PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym. See SymbolMap::GetGameSymbolsPath.
+//
+// Parameters: none.
+//
+// Response (same event name):
+//  - path: string, the file path that was written.
+//  - saved: boolean, false if there were no such symbols to save (any previous file is removed.)
+void WebSocketHLEGameSaveSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	// Route the actual symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const Path path = SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID());
+		if (!g_symbolMap->SaveModuleSymbols(0, path, g_paramSFO.GetDiscID(), g_paramSFO.GetValueString("TITLE"))) {
+			req.Fail("Failed to save symbols file");
+			return;
+		}
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+		// False when there was nothing to save - any previous file has been removed.
+		json.writeBool("saved", File::Exists(path));
+	});
+}
+
+// Load the symbols that aren't inside any module (hle.game.loadSymbols)
+//
+// Reads back what hle.game.saveSymbols wrote - see its docs above. Existing names at those
+// addresses are overwritten by what's in the file.
+//
+// Parameters: none.
+//
+// Response (same event name):
+//  - path: string, the file path that was read.
+void WebSocketHLEGameLoadSymbols(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+
+	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		const Path path = SymbolMap::GetGameSymbolsPath(g_paramSFO.GetDiscID());
+		if (!g_symbolMap->LoadModuleSymbols(0, path)) {
+			req.Fail("Failed to load symbols file (does it exist?)");
+			return;
+		}
+
+		// Clear cache so the disassembly view picks up the newly loaded names.
+		g_disassemblyManager.clear();
+
+		JsonWriter &json = req.Respond();
+		json.writeString("path", path.ToString());
+	});
+}
+
 // Walk the stack and list stack frames (hle.backtrace)
 //
 // Parameters:
 //  - thread: optional number indicating the thread id to backtrace, default current.
 //
 // Response (same event name):
+//  - walked: boolean, false if the stack walk failed and the frames below are the fallback
+//    described under 'frames'.
 //  - frames: array of objects, each with properties:
 //     - entry: unsigned integer address of function start (may be estimated.)
 //     - pc: unsigned integer next execution address.
 //     - sp: unsigned integer stack address in this func (beware of alloca().)
 //     - stackSize: integer size of stack frame.
-//     - code: string disassembly of pc.
+//     - code: string disassembly of pc, empty if pc isn't readable.
+//     - file: string source file name, or null when there's no line info for this address.
+//     - line: integer source line number, or null. Only ever available when the game shipped an
+//       unstripped ELF - PRX conversion drops DWARF, so this is a homebrew-only luxury.
+//
+// A real stack walk needs to recognize the function it starts in, so it comes back empty exactly
+// when execution has gone somewhere unexpected - a jump through a bad pointer, say - which is
+// when a backtrace is most wanted. In that case this falls back to the two things that are still
+// known: the current pc, and ra, which for a botched call still holds the return address and so
+// points at the instruction after the call site. Those frames have "walked": false, and there is
+// no guarantee ra hasn't already been overwritten - it's a lead, not a stack walk.
 void WebSocketHLEBacktrace(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
@@ -696,7 +863,25 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 		uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
 		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
 
+		// See the note above the function: a failed walk is the case that matters most, so rather
+		// than an empty array, hand back what can still be salvaged.
+		const bool walked = !frames.empty();
+		if (!walked) {
+			auto addFrame = [&](uint32_t pc) {
+				MIPSStackWalk::StackFrame f{};
+				f.pc = pc;
+				f.sp = sp;
+				const uint32_t start = g_symbolMap->GetFunctionStart(pc);
+				f.entry = start == SymbolMap::INVALID_ADDRESS ? pc : start;
+				frames.push_back(f);
+			};
+			addFrame(cpuDebug->GetPC());
+			if (ra != cpuDebug->GetPC() && Memory::IsValidAddress(ra))
+				addFrame(ra);
+		}
+
 		JsonWriter &json = req.Respond();
+		json.writeBool("walked", walked);
 		json.pushArray("frames");
 		for (const MIPSStackWalk::StackFrame &f : frames) {
 			json.pushDict();
@@ -705,9 +890,28 @@ void WebSocketHLEBacktrace(DebuggerRequest &req) {
 			json.writeUint("sp", f.sp);
 			json.writeUint("stackSize", f.stackSize);
 
-			DisassemblyLineInfo line;
-			g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
-			json.writeString("code", line.name + " " + line.params);
+			// The fallback frames can point at unmapped memory - that's the whole reason we're
+			// here - so don't ask the disassembler to read it.
+			if (Memory::IsValidAddress(f.pc)) {
+				DisassemblyLineInfo line;
+				g_disassemblyManager.getLine(g_disassemblyManager.getStartAddress(f.pc), true, line, cpuDebug);
+				json.writeString("code", line.name + " " + line.params);
+			} else {
+				json.writeString("code", "");
+			}
+
+			// Only present when the game shipped an unstripped ELF to read DWARF out of, which in
+			// practice means homebrew - see Core/Debugger/LineInfo.h. A backtrace is where this
+			// pays off most: four addresses versus four source locations.
+			std::string file;
+			int line = 0;
+			if (g_lineInfo.Lookup(f.pc, &file, &line)) {
+				json.writeString("file", file);
+				json.writeInt("line", line);
+			} else {
+				json.writeNull("file");
+				json.writeNull("line");
+			}
 
 			json.pop();
 		}
@@ -763,7 +967,9 @@ void WebSocketHLEDataList(DebuggerRequest &req) {
 //  - address: the start address, repeated back.
 //  - size: the size, repeated back.
 //  - type: the type, repeated back.
-//  - name: name of the new data symbol.
+//  - name: name the data symbol actually ended up with.  Normally the requested one, but a
+//    function starting at this address keeps its own name (labels are shared between the two),
+//    so check this rather than assuming the request was applied verbatim.
 void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	if (!g_symbolMap)
 		return req.Fail("CPU not active");
@@ -800,18 +1006,35 @@ void WebSocketHLEDataAdd(DebuggerRequest &req) {
 	// Route the actual symbol manipulation to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		g_symbolMap->AddData(addr, size, type);
-		g_symbolMap->AddLabel(name.c_str(), addr);
+		// -1 lets SymbolMap work the module out from the address, landing on module 0 ("no
+		// module, absolute address") for a label the user put on the heap, the stack or
+		// scratchpad after e.g. a memory.search.
+		const int moduleIndex = -1;
+
+		// Labels are intentionally a single namespace shared by function and data symbols, and AddLabel() won't
+		// overwrite an existing one - a real ELF symbol name shouldn't lose to the analyzer's later z_un_*.
+		// However it's wrong here, where someone is explicitly naming this address.
+		// So force the requested name in afterwards, unless a function starts here and owns the label:
+		// silently renaming that function isn't what "label this data" should do, and it would undo the same care taken in hle.data.remove.
+		const bool functionOwnsLabel = g_symbolMap->GetFunctionStart(addr) == addr;
+
+		g_symbolMap->AddData(addr, size, type, moduleIndex);
+		g_symbolMap->AddLabel(name.c_str(), addr, moduleIndex);
+		if (!functionOwnsLabel)
+			g_symbolMap->SetLabelName(name.c_str(), addr);
 		g_symbolMap->SortSymbols();
 
 		// Clear cache so the disassembly view picks up the new annotation.
 		g_disassemblyManager.clear();
 
+		// Report the name that actually ended up in the map, not the one that was asked for.
+		const std::string actualName = g_symbolMap->GetLabelString(addr);
+
 		JsonWriter &json = req.Respond();
 		json.writeUint("address", addr);
 		json.writeUint("size", size);
 		json.writeString("type", typeStr);
-		json.writeString("name", name);
+		json.writeString("name", actualName.empty() ? name : actualName);
 	});
 }
 
@@ -843,7 +1066,12 @@ void WebSocketHLEDataRemove(DebuggerRequest &req) {
 		}
 		u32 dataSize = g_symbolMap->GetDataSize(dataBegin);
 
-		g_symbolMap->RemoveData(dataBegin, true);
+		// Labels are shared between data and function symbols, so dropping the label along with the
+		// data would also wipe the name of a function starting at the same address (leaving it
+		// showing up in hle.func.list with an empty name). Only take the label with us if no
+		// function is using it too.
+		const bool functionOwnsLabel = g_symbolMap->GetFunctionStart(dataBegin) == dataBegin;
+		g_symbolMap->RemoveData(dataBegin, !functionOwnsLabel);
 		g_symbolMap->SortSymbols();
 		g_disassemblyManager.clear();
 

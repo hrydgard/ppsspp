@@ -48,11 +48,11 @@
 static Atlas g_ppge_atlas;
 static Draw::DrawContext *g_draw = nullptr;
 
-static u32 atlasPtr;
 static int atlasWidth;
 static int atlasHeight;
-static uint64_t atlasHash;
-static bool atlasRequiresReset;
+
+// The size of the atlas as seen through PPGE_ATLAS_FAKE_ADDRESS, see MemMap.h. 0 until initialized.
+u32 g_ppgeAtlasFakeSize;
 
 struct PPGeVertex {
 	u16_le u, v;
@@ -67,43 +67,43 @@ struct PPGeRemasterVertex {
 };
 
 static PSPPointer<PspGeListArgs> listArgs;
-static u32 listArgsSize = sizeof(PspGeListArgs);
+constexpr u32 listArgsSize = sizeof(PspGeListArgs);
 static u32 savedContextPtr;
-static u32 savedContextSize = 512 * 4;
+constexpr u32 savedContextSize = 512 * 4;
 
 // Display list writer
 static u32 dlPtr;
 static u32 dlWritePtr;
-static u32 dlSize = 0x10000; // should be enough for a frame of gui...
+constexpr u32 dlSize = 0x10000; // should be enough for a frame of gui...
 
 static u32 dataPtr;
 static u32 dataWritePtr;
-static u32 dataSize = 0x10000; // should be enough for a frame of gui...
+constexpr u32 dataSize = 0x10000; // should be enough for a frame of gui...
+
+static u8 *g_atlasImageData = nullptr;
 
 static PSPPointer<u16_le> palette;
-static u32 paletteSize = sizeof(u16) * 16;
+constexpr u32 paletteSize = sizeof(u16) * 16;
+static constexpr u16_le paletteData[16] = { 0x0FFF, 0x1FFF, 0x2FFF, 0x3FFF, 0x4FFF, 0x5FFF, 0x6FFF, 0x7FFF, 0x8FFF, 0x9FFF, 0xAFFF, 0xBFFF, 0xCFFF, 0xDFFF, 0xEFFF, 0xFFFF };
 
 // Vertex collector
 static u32 vertexStart;
 static u32 vertexCount;
 
 // Used for formatting text
-struct AtlasCharVertex
-{
+struct AtlasCharVertex {
 	float x;
 	float y;
 	const AtlasChar *c;
 };
 
-struct AtlasTextMetrics
-{
+struct AtlasTextMetrics {
 	float x;
 	float y;
 	float maxWidth;
 	float lineHeight;
 	float scale;
 	int numLines;
-
 };
 
 typedef std::vector<AtlasCharVertex> AtlasCharLine;
@@ -129,9 +129,8 @@ struct PPGeTextDrawerCacheKey {
 };
 
 struct PPGeTextDrawerImage {
-	PPGeTextDrawerImage() : entry(0) {}
-	TextStringEntry entry;
-	u32 ptr;
+	TextStringEntry entry = 0;
+	u32 ptr = 0;
 };
 
 static std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
@@ -154,9 +153,9 @@ static void PPGeDecimateTextImages(int age = 97);
 
 void PPGeSetTexture(u32 dataAddr, int width, int height);
 
-//only 0xFFFFFF of data is used
+// only 0xFFFFFF of data is used
 static void WriteCmd(u8 cmd, u32 data) {
-	Memory::Write_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
+	Memory::WriteUnchecked_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
 	dlWritePtr += 4;
 	_dbg_assert_(dlWritePtr <= dlPtr + dlSize);
 }
@@ -209,18 +208,15 @@ static void EndVertexDataAndDraw(int prim) {
 	vertexStart = 0;
 }
 
-bool PPGeIsFontTextureAddress(u32 addr) {
-	return addr == atlasPtr;
-}
+static u32 __PPGeDoAlloc(u32 size, bool fromTop, const char *name) {
+	u32 sizeRounded = size;
 
-static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
-	u32 ptr = kernelMemory.Alloc(size, fromTop, name);
+	u32 ptr = kernelMemory.Alloc(sizeRounded, fromTop, name);
 	// Didn't get it, try again after decimating images.
 	if (ptr == (u32)-1) {
 		PPGeDecimateTextImages(4);
 		PPGeImage::Decimate(4);
-
-		ptr = kernelMemory.Alloc(size, fromTop, name);
+		ptr = kernelMemory.Alloc(sizeRounded, fromTop, name);
 		if (ptr == (u32)-1) {
 			return 0;
 		}
@@ -228,8 +224,7 @@ static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
 	return ptr;
 }
 
-void __PPGeSetupListArgs()
-{
+void __PPGeSetupListArgs() {
 	if (listArgs.IsValid())
 		return;
 
@@ -243,8 +238,9 @@ void __PPGeSetupListArgs()
 }
 
 void __PPGeInit() {
-	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	bool skipZIM = System_GetPropertyBool(SYSPROP_SKIP_UI);
+	// PPGe isn't really important for headless, and LoadZIM takes a long time (well not that long, but unnecessary).
+	// TODO: Load it lazily.
+	const bool skipZIM = System_GetPropertyBool(SYSPROP_IS_HEADLESS);
 
 	u8 *imageData[12]{};
 	int width[12]{};
@@ -274,35 +270,28 @@ void __PPGeInit() {
 	dlPtr = __PPGeDoAlloc(dlSize, false, "PPGe Display List");
 	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
 	__PPGeSetupListArgs();
-	atlasPtr = atlasSize == 0 ? 0 : __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
 	palette = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
+	Memory::Memcpy(palette.ptr, (const void *)paletteData, paletteSize, "PPGe Palette");
 
-	// Generate 16-greyscale palette. All PPGe graphics are greyscale so we can use a tiny paletted texture.
-	for (int i = 0; i < 16; i++) {
-		int val = i;
-		palette[i] = (val << 12) | 0xFFF;
+	if (loadedZIM) {
+		const u32_le *imagePtr = (u32_le *)imageData[0];
+		_dbg_assert_(!g_atlasImageData);
+		g_atlasImageData = new u8[atlasSize];
+		g_ppgeAtlasFakeSize = atlasSize;
+
+		// Palettize to 4-bit, the easy way.
+		for (int i = 0; i < width[0] * height[0] / 2; i++) {
+			// Each pixel is 16 bits, so this loads two pixels.
+			const u32 c = imagePtr[i];
+			// It's white anyway, so we only look at one channel of each pixel.
+			const int a1 = (c & 0x0000000F) >> 0;
+			const int a2 = (c & 0x000F0000) >> 16;
+			const u8 cval = (a2 << 4) | a1;
+			g_atlasImageData[i] = cval;
+		}
+
+		free(imageData[0]);
 	}
-	NotifyMemInfo(MemBlockFlags::WRITE, palette.ptr, 16 * sizeof(u16_le), "PPGe Palette");
-
-	const u32_le *imagePtr = (u32_le *)imageData[0];
-	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointerRange(atlasPtr, atlasSize);
-
-	// Palettize to 4-bit, the easy way.
-	for (int i = 0; i < width[0] * height[0] / 2; i++) {
-		// Each pixel is 16 bits, so this loads two pixels.
-		u32 c = imagePtr[i];
-		// It's white anyway, so we only look at one channel of each pixel.
-		int a1 = (c & 0x0000000F) >> 0;
-		int a2 = (c & 0x000F0000) >> 16;
-		u8 cval = (a2 << 4) | a1;
-		ramPtr[i] = cval;
-	}
-	if (atlasPtr != 0) {
-		atlasHash = XXH3_64bits(ramPtr, atlasSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, atlasPtr, atlasSize, "PPGe Atlas");
-	}
-
-	free(imageData[0]);
 
 	// We can't create it here, because Android needs it on the right thread.
 	// Avoid creating ever on headless just to be safe.
@@ -310,10 +299,7 @@ void __PPGeInit() {
 	textDrawer = nullptr;
 	textDrawerImages.clear();
 
-	atlasRequiresReset = false;
-
-	INFO_LOG(Log::sceGe, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
-		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
+	INFO_LOG(Log::sceGe, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas (%i) Args: %08x", dlPtr, dataPtr, atlasSize, listArgs.ptr);
 }
 
 void __PPGeDoState(PointerWrap &p)
@@ -322,27 +308,35 @@ void __PPGeDoState(PointerWrap &p)
 	if (!s)
 		return;
 
+	// Old format: the atlas lived in emulated kernel RAM. We just dummy those fields out, and free
+	// the memory if the state we're loading has some. Note that these must stay initialized - they're
+	// read (not just written) when saving, and uninitialized memory in a savestate is not acceptable.
+	u32 atlasPtr = 0;
+	int dummyAtlasWidth = 0;
+	int dummyAtlasHeight = 0;
 	Do(p, atlasPtr);
-	Do(p, atlasWidth);
-	Do(p, atlasHeight);
+	Do(p, dummyAtlasWidth);
+	Do(p, dummyAtlasHeight);
 	Do(p, palette);
 
-	// If the atlas the save state was created with differs from the current one, reload.
-	uint64_t savedHash = atlasHash;
-	if (s >= 4) {
-		Do(p, savedHash);
-	} else {
-		// Memory was already updated by this point, so check directly.
-		if (atlasPtr != 0) {
-			savedHash = XXH3_64bits(Memory::GetPointerRange(atlasPtr, atlasWidth * atlasHeight / 2), atlasWidth * atlasHeight / 2);
-		} else {
-			savedHash ^= 1;
-		}
+	if (p.mode == PointerWrap::MODE_READ && atlasPtr) {
+		// We don't store the atlas in emulated RAM anymore, so free the old allocation. This is safe
+		// here - __KernelMemoryDoState() runs before us, so the block allocator is already restored.
+		kernelMemory.Free(atlasPtr);
 	}
-	atlasRequiresReset = savedHash != atlasHash;
 
+	// Used to be the hash of the atlas the state was created with, to detect a changed atlas.
+	// The atlas is host-side now and gets rebuilt on load anyway, so it's meaningless.
+	uint64_t dummySavedHash = 0;
+	if (s >= 4) {
+		Do(p, dummySavedHash);
+	}
+
+	// These are compile-time constants now, so a savestate can't be allowed to change them.
+	// Note that old states hold the size *rounded up* to the allocator grain, which we no longer use.
+	u32 dummySavedContextSize = savedContextSize;
 	Do(p, savedContextPtr);
-	Do(p, savedContextSize);
+	Do(p, dummySavedContextSize);
 
 	if (s == 1) {
 		listArgs = 0;
@@ -374,13 +368,15 @@ void __PPGeDoState(PointerWrap &p)
 		textDrawerImages.clear();
 	}
 
+	u32 dummyDlSize = dlSize;
 	Do(p, dlPtr);
 	Do(p, dlWritePtr);
-	Do(p, dlSize);
+	Do(p, dummyDlSize);
 
+	u32 dummyDataSize = dataSize;
 	Do(p, dataPtr);
 	Do(p, dataWritePtr);
-	Do(p, dataSize);
+	Do(p, dummyDataSize);
 
 	Do(p, vertexStart);
 	Do(p, vertexCount);
@@ -389,10 +385,13 @@ void __PPGeDoState(PointerWrap &p)
 	Do(p, char_lines_metrics);
 }
 
-void __PPGeShutdown()
-{
-	if (atlasPtr)
-		kernelMemory.Free(atlasPtr);
+void __PPGeShutdown() {
+	if (g_atlasImageData) {
+		delete[] g_atlasImageData;
+		g_atlasImageData = nullptr;
+	}
+	g_ppgeAtlasFakeSize = 0;
+
 	if (dataPtr)
 		kernelMemory.Free(dataPtr);
 	if (dlPtr)
@@ -404,22 +403,25 @@ void __PPGeShutdown()
 	if (palette)
 		kernelMemory.Free(palette.ptr);
 
-	atlasPtr = 0;
 	dataPtr = 0;
 	dlPtr = 0;
 	savedContextPtr = 0;
 	listArgs = 0;
+	palette = 0;
 
 	delete textDrawer;
 	textDrawer = nullptr;
 
-	for (auto im : textDrawerImages)
+	for (auto &im : textDrawerImages)
 		kernelMemory.Free(im.second.ptr);
 	textDrawerImages.clear();
 }
 
-void PPGeBegin()
-{
+const u8 *PPGeAtlasGetData() {
+	return g_atlasImageData;
+}
+
+void PPGeBegin() {
 	if (!dlPtr)
 		return;
 
@@ -851,6 +853,8 @@ void PPGeDrawCurrentText(u32 color) {
 			WriteCmd(GE_CMD_TEXSIZE0, 9 | (9 << 8));
 		}
 
+		WriteCmd(GE_CMD_TEXBUFWIDTH0, atlasWidth | ((PPGE_ATLAS_FAKE_ADDRESS & 0x0F000000) >> 8));
+
 		BeginVertexData();
 		for (auto i = char_lines.begin(); i != char_lines.end(); ++i) {
 			for (auto j = i->begin(); j != i->end(); ++j) {
@@ -862,7 +866,9 @@ void PPGeDrawCurrentText(u32 color) {
 					EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 
 					uint32_t offset = atlasWidth * wantedPosY * 256 + wantedPosX * 256;
-					WriteCmd(GE_CMD_TEXADDR0, (atlasPtr & 0xFFFFF0) + offset / 2);
+					_dbg_assert_(offset / 2 < g_ppgeAtlasFakeSize);
+					// The base ptr is already set.
+					WriteCmd(GE_CMD_TEXADDR0, (PPGE_ATLAS_FAKE_ADDRESS & 0xFFFFF0) + offset / 2);
 					texturePosX = wantedPosX;
 					texturePosY = wantedPosY;
 
@@ -929,7 +935,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(std::string_view text, const PPGeSty
 
 		if (im.ptr) {
 			int wBytes = (im.entry.bmWidth + 1) / 2;
-			u8 *ramPtr = Memory::GetPointerWriteRange(im.ptr, sz);
+			u8 *ramPtr = Memory::GetPointerWriteRangeOrException(im.ptr, sz);
 			for (int y = 0; y < im.entry.bmHeight; ++y) {
 				for (int x = 0; x < wBytes; ++x) {
 					uint8_t c1 = bitmapData[y * im.entry.bmWidth + x * 2];
@@ -1315,8 +1321,8 @@ void PPGeSetDefaultTexture()
 	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
 	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
 	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
-	WriteCmd(GE_CMD_TEXADDR0, atlasPtr & 0xFFFFF0);
-	WriteCmd(GE_CMD_TEXBUFWIDTH0, atlasWidth | ((atlasPtr & 0xFF000000) >> 8));
+	WriteCmd(GE_CMD_TEXADDR0, PPGE_ATLAS_FAKE_ADDRESS & 0xFFFFF0);
+	WriteCmd(GE_CMD_TEXBUFWIDTH0, atlasWidth | ((PPGE_ATLAS_FAKE_ADDRESS & 0x0F000000) >> 8));
 	WriteCmd(GE_CMD_TEXFLUSH, 0);
 }
 
@@ -1373,7 +1379,7 @@ bool PPGeImage::Load() {
 	int success;
 	if (filename_.empty()) {
 		_dbg_assert_(size_ < MAX_VALID_IMAGE_SIZE);
-		const u8 *srcPtr = Memory::GetPointerRange(png_, (u32)size_);
+		const u8 *srcPtr = Memory::GetPointerRangeOrException(png_, (u32)size_);
 		if (!srcPtr) {
 			ERROR_LOG(Log::sceGe, "Trying to load PPGeImage from invalid range: %08x, %08x bytes", png_, (int)size_);
 			return false;
@@ -1498,9 +1504,4 @@ void PPGeNotifyFrame() {
 
 	PPGeDecimateTextImages();
 	PPGeImage::Decimate();
-
-	if (atlasRequiresReset) {
-		__PPGeShutdown();
-		__PPGeInit();
-	}
 }

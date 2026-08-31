@@ -1623,6 +1623,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
+	// TODO: These should check CoreParameter instead.
 	if (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) {
 		ClearCodeSpace(0);
 	}

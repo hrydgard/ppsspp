@@ -11,6 +11,7 @@
 
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/Util/PathUtil.h"
 
 #include "Common/UI/View.h"
 #include "UI/DriverManagerScreen.h"
@@ -251,6 +252,15 @@ void DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		}
 		delete[] metaData;
 
+		// meta.name and the zip entry names below both get joined onto GetDriverPath()
+		// verbatim (Path::operator/ does no ".." normalization) - without checking for
+		// parent-directory components, a crafted driver zip could write files outside
+		// the intended drivers/<name>/ directory (zip slip, CWE-22).
+		if (HasParentDirComponent(meta.name)) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "invalid driver name");
+			return;
+		}
+
 		const Path newCustomDriver = GetDriverPath() / meta.name;
 		NOTICE_LOG(Log::G3D, "Installing driver into '%s'", newCustomDriver.c_str());
 		File::CreateFullPath(newCustomDriver);
@@ -259,6 +269,11 @@ void DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		zipFileReader->GetFileListing("", &zipListing, nullptr);
 
 		for (auto file : zipListing) {
+			if (HasParentDirComponent(file.name)) {
+				WARN_LOG(Log::G3D, "Skipping zip entry with parent directory component: %s", file.name.c_str());
+				continue;
+			}
+
 			File::CreateEmptyFile(newCustomDriver / file.name);
 
 			size_t size;

@@ -28,13 +28,7 @@ pub fn ask_letter(question: &str, allowed_chars: &str) -> char {
             .read_line(&mut input)
             .expect("Failed to read line");
 
-        match input
-            .trim()
-            .to_lowercase()
-            .as_str()
-            .chars()
-            .next()
-        {
+        match input.trim().to_lowercase().as_str().chars().next() {
             Some(c) => {
                 if allowed_chars.contains(c) {
                     return c;

@@ -112,8 +112,11 @@ const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname);
 bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually = nullptr);
 bool ShouldHLEModuleByImportName(std::string_view importModuleName);
 
+// May return nullptr
 const char *GetHLEFuncName(std::string_view module, u32 nib);
+// May return nullptr if indices out of range.
 const char *GetHLEFuncName(int module, int func);
+
 const HLEModule *GetHLEModuleByName(std::string_view name);
 const HLEFunction *GetHLEFunc(std::string_view module, u32 nib);
 int GetHLEFuncIndexByNib(int moduleIndex, u32 nib);
@@ -181,14 +184,16 @@ size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const c
 u32 GetSyscallOp(std::string_view module, u32 nib);
 bool WriteHLESyscall(std::string_view module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
+void CallSyscallWithPC(MIPSOpcode op, u32 pc);  // better diagnostics
+void CallSyscallUnresolvedAtPC(u32 pc);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
 
 void HLEReturnFromMipsCall();
 
-const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op);
-// For jit, takes arg: const HLEFunction *
-void *GetQuickSyscallFunc(MIPSOpcode op);
+const HLEFunction *GetSyscallFunctionData(MIPSOpcode op, u32 pcForDiagnostics);
+// For jit, the returned function takes the arg: const HLEFunction *
+void *GetQuickSyscallFunc(const HLEFunction *info, MIPSOpcode op);
 
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason);
 

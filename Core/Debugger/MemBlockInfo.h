@@ -96,3 +96,6 @@ static inline bool MemBlockInfoDetailed(uint32_t size) {
 static inline bool MemBlockInfoDetailed(uint32_t size1, uint32_t size2) {
 	return size1 >= MEMINFO_MIN_SIZE || size2 >= MEMINFO_MIN_SIZE || MemBlockInfoDetailed();
 }
+
+class MIPSDebugInterface;
+void DescribeAddress(const MIPSDebugInterface *mips, u32 address, char *buffer, size_t bufferSize);

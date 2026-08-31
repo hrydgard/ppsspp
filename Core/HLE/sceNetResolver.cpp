@@ -112,7 +112,7 @@ static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inA
 			}
 		}
 		net::DNSResolveFree(resolved);
-		Memory::Write_U32(addr.in.sin_addr.s_addr, inAddrPtr);
+		Memory::WriteOrException_U32(addr.in.sin_addr.s_addr, inAddrPtr);
 		INFO_LOG(Log::sceNet, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(),
 			ip2str(addr.in.sin_addr, false).c_str());
 	}

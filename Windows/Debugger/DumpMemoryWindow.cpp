@@ -88,7 +88,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				// queued callback.
 				enum class Outcome { NotInited, OpenFailed, Success } outcome = Outcome::NotInited;
 				Core_RunOnCPUThread([&] {
-					Memory::MemoryInitedLock memLock = Memory::Lock();
+					CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 					if (!PSP_IsInited())
 						return;
 
@@ -99,16 +99,15 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 					}
 
 					if (includeReplacements) {
-						fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+						fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
 					} else {
 						auto savedReplacements = SaveAndClearReplacements();
-						std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 						if (MIPSComp::jit) {
 							auto savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
-							fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
 							MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
 						} else {
-							fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
+							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
 						}
 						RestoreSavedReplacements(savedReplacements);
 					}

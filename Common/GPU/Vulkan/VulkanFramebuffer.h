@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "Common/Common.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
@@ -144,6 +146,8 @@ public:
 	explicit VKRRenderPass(const RPKey &key) : key_(key) {}
 
 	VkRenderPass Get(VulkanContext *vulkan, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+
+	// Only called from VulkanQueueRunner::DestroyDeviceObjects, with the threads stopped - no lock needed.
 	void Destroy(VulkanContext *vulkan) {
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (pass[i]) {
@@ -153,6 +157,14 @@ public:
 	}
 
 private:
+	// Get() creates the passes lazily, and runs on both the main thread (EndCurRenderStep) and the
+	// render thread (PerformRenderPass), so the arrays below need guarding. Without it, two threads
+	// reaching the same empty slot each create a pass and one gets overwritten and leaked - and the
+	// sample count branch can queue a pass for deletion that the other thread is about to use.
+	// Lock ordering: taken while VKRGraphicsPipeline::mutex_ is held (VulkanQueueRunner), never the
+	// other way around.
+	std::mutex mutex_;
+
 	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
 	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
 	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT]{};

@@ -336,7 +336,7 @@ enum GEVertexType : uint32_t {
 };
 
 #define GE_CLEARMODE_COLOR (1<<8)
-#define GE_CLEARMODE_ALPHA (1<<9) //or stencil?
+#define GE_CLEARMODE_ALPHA (1<<9) // and stencil
 #define GE_CLEARMODE_Z     (1<<10)
 #define GE_CLEARMODE_ALL (GE_CLEARMODE_COLOR|GE_CLEARMODE_ALPHA|GE_CLEARMODE_Z)
 

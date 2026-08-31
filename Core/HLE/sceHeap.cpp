@@ -122,14 +122,16 @@ static u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 param
 	u32 grain = 4;
 	// 0 is ignored.
 	if (paramsPtr != 0) {
-		u32 size = Memory::Read_U32(paramsPtr);
-		if (size < 8) {
-			return hleLogError(Log::HLE, 0, "invalid param size");
+		if (Memory::IsValid4AlignedRange(paramsPtr, 8)) {
+			u32 size = Memory::ReadUnchecked_U32(paramsPtr);
+			if (size < 8) {
+				return hleLogError(Log::HLE, 0, "invalid param size");
+			}
+			if (size > 8) {
+				WARN_LOG_REPORT(Log::HLE, "sceHeapAllocHeapMemoryWithOption(): unexpected param size %d", size);
+			}
+			grain = Memory::ReadUnchecked_U32(paramsPtr + 4);
 		}
-		if (size > 8) {
-			WARN_LOG_REPORT(Log::HLE, "sceHeapAllocHeapMemoryWithOption(): unexpected param size %d", size);
-		}
-		grain = Memory::Read_U32(paramsPtr + 4);
 	}
 
 	// There's 8 bytes at the end of every block, reserved.
@@ -178,8 +180,12 @@ static int sceHeapDeleteHeap(u32 heapAddr) {
 
 static int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	if (paramsPtr != 0) {
-		u32 size = Memory::Read_U32(paramsPtr);
-		WARN_LOG_REPORT(Log::HLE, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
+		if (Memory::IsValid4AlignedAddress(paramsPtr)) {
+			u32 size = Memory::ReadUnchecked_U32(paramsPtr);
+			if (size > 4) {
+				WARN_LOG_REPORT(Log::HLE, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
+			}
+		}
 	}	
 	if (!name) {
 		WARN_LOG_REPORT(Log::HLE, "sceHeapCreateHeap(): name is NULL");

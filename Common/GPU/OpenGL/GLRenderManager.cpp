@@ -397,10 +397,13 @@ void GLRenderManager::Finish() {
 	task->frame = curFrame;
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
-		task->initSteps = std::move(initSteps_);
+		{
+			std::lock_guard<std::mutex> initLock(initStepsMutex_);
+			task->initSteps = std::move(initSteps_);
+			initSteps_.clear();
+		}
 		task->steps = std::move(steps_);
 		renderThreadQueue_.push(task);
-		initSteps_.clear();
 		steps_.clear();
 		pushCondVar_.notify_one();
 	}
@@ -474,6 +477,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	if (!skipGLCalls_) {
+		std::lock_guard<std::mutex> lock(pushBuffersMutex_);
 		for (auto iter : frameData.activePushBuffers) {
 			iter->Flush();
 			iter->UnmapDevice();
@@ -500,6 +504,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 	}
 
 	if (!skipGLCalls_) {
+		std::lock_guard<std::mutex> lock(pushBuffersMutex_);
 		for (auto iter : frameData.activePushBuffers) {
 			iter->MapDevice(bufferStrategy_);
 		}
@@ -537,7 +542,11 @@ void GLRenderManager::FlushSync() {
 
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+		{
+			std::lock_guard<std::mutex> initLock(initStepsMutex_);
+			renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+			initSteps_.clear();
+		}
 		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
 		steps_.clear();

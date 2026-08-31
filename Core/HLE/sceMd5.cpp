@@ -33,7 +33,7 @@ u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
 	DEBUG_LOG(Log::HLE, "sceKernelUtilsMt19937Init(%08x, %08x)", ctx, seed);
 	if (!Memory::IsValidAddress(ctx))
 		return -1;
-	void *ptr = Memory::GetPointerWrite(ctx);
+	void *ptr = Memory::GetPointerWriteOrException(ctx);
 	// This is made to match the memory layout of a PSP MT structure exactly.
 	// Let's just construct it in place with placement new. Elite C++ hackery FTW.
 	new (ptr) MersenneTwister(seed);

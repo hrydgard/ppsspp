@@ -3144,7 +3144,7 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 			return false;
 		// If there's no vfb and we're drawing there, must be memory?
 		// TODO: Actually get the stencil.
-		buffer = GPUDebugBuffer(Memory::GetPointerWrite(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);
+		buffer = GPUDebugBuffer(Memory::GetPointerWriteOrException(fb_address), fb_stride, 512, GPU_DBG_FORMAT_8888);
 		return true;
 	}
 

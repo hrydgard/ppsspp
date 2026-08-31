@@ -333,7 +333,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_SIZE_TOO_SMALL);
 	}
 
-	u8 *outPtr = outAddr ? Memory::GetPointerWrite(outAddr) : nullptr;
+	u8 *outPtr = outAddr ? Memory::GetPointerWriteOrException(outAddr) : nullptr;
 
 	int ret = atrac->DecodeData(outPtr, outAddr, &numSamplesWritten, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {

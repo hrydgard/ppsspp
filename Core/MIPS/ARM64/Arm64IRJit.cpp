@@ -65,6 +65,7 @@ static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
+// TODO: Much of this function should be merged with the same function for the other backends.
 bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
@@ -276,7 +277,7 @@ void Arm64JitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(SCRATCH2_64, &NotifyMIPSInterpret);
 	}
 	MOVI2R(X0, inst.constant);
-	QuickCallFunction(SCRATCH2_64, MIPSGetInterpretFunc(op));
+	QuickCallFunction(SCRATCH2_64, &MIPSInterpretTrampoline);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }

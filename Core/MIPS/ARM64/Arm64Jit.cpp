@@ -37,7 +37,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
@@ -581,7 +581,7 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
 		MOVI2R(W0, op.encoding);
-		QuickCallFunction(SCRATCH2_64, (void *)func);
+		QuickCallFunction(SCRATCH2_64, (void *)&MIPSInterpretTrampoline);
 		ApplyRoundingMode();
 		LoadStaticRegisters();
 	}
@@ -708,7 +708,7 @@ void Arm64Jit::WriteSyscallExit() {
 }
 
 bool Arm64Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
-	if (g_breakpoints.IsAddressBreakPoint(addr)) {
+	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		MRS(FLAGTEMPREG, FIELD_NZCV);
 		FlushAll();
 		MOVI2R(SCRATCH1, GetCompilerPC());

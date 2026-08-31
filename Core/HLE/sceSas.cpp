@@ -637,6 +637,14 @@ static u32 sceSasGetGrain(u32 core) {
 }
 
 static u32 sceSasSetGrain(u32 core, int grain) {
+	// Unlike sceSasInit, this took no validation at all - a bad grain size could
+	// both throw on the allocation below and (for a moderately large but successfully
+	// allocated value beyond PSP_SAS_MAX_GRAIN) read out of bounds of the fixed-size
+	// mixTemp_ buffer during mixing. Apply the same bounds sceSasInit uses.
+	if (grain < 0x40 || grain > 0x800 || (grain & 0x1F) != 0) {
+		ERROR_LOG_REPORT(Log::sceSas, "sceSasSetGrain(%08x, %i): bad grain size", core, grain);
+		return hleNoLog(SCE_SAS_ERROR_INVALID_GRAIN);
+	}
 	__SasDrain();
 	sas->SetGrainSize(grain);
 	return hleLogInfo(Log::sceSas, 0);
@@ -665,7 +673,7 @@ static u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 	__SasDrain();
 	for (int i = 0; i < PSP_SAS_VOICES_MAX; i++) {
 		int voiceHeight = sas->voices[i].envelope.GetHeight();
-		Memory::Write_U32(voiceHeight, heightsAddr + i * 4);
+		Memory::WriteOrException_U32(voiceHeight, heightsAddr + i * 4);
 	}
 
 	return hleLogDebug(Log::sceSas, 0);
@@ -735,7 +743,7 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	v.on = false;
 	// This unpauses.  Some games, like Sol Trigger, depend on this.
 	v.paused = false;
-	Memory::Write_U32(0, core + 56 * voiceNum + 20);
+	Memory::WriteOrException_U32(0, core + 56 * voiceNum + 20);
 
 	return hleLogDebug(Log::sceSas, 0);
 }

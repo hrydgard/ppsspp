@@ -13,6 +13,10 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSAsm.h"
+#include "Core/HW/Display.h"
+#include "Core/Reporting.h"
+#include "Core/Debugger/LineInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Common/System/Request.h"
@@ -61,61 +65,104 @@ bool ImDisasmView::getDisasmAddressText(u32 address, char *dest, size_t bufSize,
 	return GetDisasmAddressText(address, dest, bufSize, abbreviateLabels, showData, displaySymbols_);
 }
 
-void ImDisasmView::assembleOpcode(u32 address, const std::string &defaultText) {
-	/*
+void ImDisasmView::assembleOpcode(u32 address, std::string_view defaultText, bool selectAll) {
 	if (!Core_IsStepping()) {
-		MessageBox(wnd, L"Cannot change code while the core is running!", L"Error", MB_OK);
-		return;
-	}
-	std::string op;
-	bool result = InputBox_GetString(MainWindow::GetHInstance(), wnd, L"Assemble opcode", defaultText, op, InputBoxFlags::Default);
-	if (!result) {
+		statusBarText_ = "Can't assemble while the core is running - pause it first.";
 		return;
 	}
 
-	// check if it changes registers first
-	auto separator = op.find('=');
-	if (separator != std::string::npos)
-	{
-		std::string registerName = trimString(op.substr(0, separator));
-		std::string expression = trimString(op.substr(separator + 1));
+	// Just record what to assemble and where. The popup itself has to be opened from inside the
+	// frame that draws it, which is PopupMenu() - see the "assemble" popup there.
+	assembleAddress_ = address;
+	truncate_cpy(assembleTemp_, defaultText);
+	assembleSelectAll_ = selectAll;
+	assembleError_.clear();
+	assemblePopup_ = true;
+}
 
+// The existing instruction, in a form meant to be fed straight back to the assembler - so without
+// symbol substitution, since a branch to a named function doesn't assemble back.
+void ImDisasmView::assembleCurrentOpcode(u32 address) {
+	char text[256];
+	getOpcodeText(address, text, sizeof(text), false);
+	assembleOpcode(address, text, true);
+}
+
+void ImDisasmView::RunToAddress(u32 address, bool nextFrame) {
+	g_breakpoints.SetTempBreakPoint(address);
+
+	if (nextFrame) {
+		// The flip counter, so "greater than what it is now" means "not until something new has
+		// reached the screen". Handy when the address you're interested in is hit many times per
+		// frame and you want the next frame's first hit, not this frame's next one.
+		//
+		// Counting presented frames rather than vblanks matters for a game that doesn't render at
+		// the full refresh rate - at 30fps there are two vblanks per frame, so a vblank-based
+		// condition would let you through halfway into the frame you're trying to skip.
+		//
+		// The flip side is that it only advances when the framebuffer actually changed, so if the
+		// game has stopped drawing - or is wedged in the loop you're trying to debug - this never
+		// trips at all and the core just keeps running.
+		BreakPointCond cond;
+		cond.debug = currentDebugMIPS;
+		cond.expressionString = StringFromFormat("flipcount > %d", __DisplayGetFlipCount());
+		if (initExpression(currentDebugMIPS, cond.expressionString.c_str(), cond.expression)) {
+			g_breakpoints.SetTempBreakPointCond(cond);
+		} else {
+			statusBarText_ = "Couldn't compile the frame condition - running without it.";
+		}
+	}
+
+	g_breakpoints.SetSkipFirst(address);
+	if (Core_IsStepping()) {
+		Core_Resume();
+	}
+}
+
+bool ImDisasmView::applyAssembly(u32 address, std::string_view op) {
+	// Re-checked here, not just when the popup was requested: the popup is modeless, so the core
+	// can have been resumed in between.
+	if (!Core_IsStepping()) {
+		assembleError_ = "Can't assemble while the core is running - pause it first.";
+		return false;
+	}
+
+	// "register=expression" assigns a register instead of assembling anything, same as the old
+	// Win32 debugger. If it doesn't resolve to a register we fall through and try to assemble it,
+	// so an instruction that happens to contain '=' still works.
+	const size_t separator = op.find('=');
+	if (separator != std::string_view::npos) {
+		const std::string_view registerName = StripSpaces(op.substr(0, separator));
+		const std::string expression(StripSpaces(op.substr(separator + 1)));
+
+		PostfixExpression postfix;
 		u32 value;
-		if (parseExpression(expression.c_str(), debugger, value) == true)
-		{
-			for (int cat = 0; cat < debugger->GetNumCategories(); cat++)
-			{
-				for (int reg = 0; reg < debugger->GetNumRegsInCategory(cat); reg++)
-				{
-					if (strcasecmp(debugger->GetRegName(cat, reg).c_str(), registerName.c_str()) == 0)
-					{
-						debugger->SetRegValue(cat, reg, value);
+		if (initExpression(debugger_, expression.c_str(), postfix) && parseExpression(debugger_, postfix, value)) {
+			for (int cat = 0; cat < MIPSDebugInterface::GetNumCategories(); cat++) {
+				for (int reg = 0; reg < MIPSDebugInterface::GetNumRegsInCategory(cat); reg++) {
+					if (equalsNoCase(MIPSDebugInterface::GetRegName(cat, reg), registerName)) {
+						debugger_->SetRegValue(cat, reg, value);
 						Reporting::NotifyDebugger();
-						SendMessage(GetParent(wnd), WM_DEB_UPDATE, 0, 0);
-						return;
+						return true;
 					}
 				}
 			}
 		}
-
-		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op, debugger, address);
+	// Note: MipsAssembleOpcode() takes care of invalidating the instruction cache for what it wrote.
+	std::string error;
+	if (!MipsAssembleOpcode(op, debugger_, address, &error)) {
+		assembleError_ = error;
+		return false;
+	}
+
 	Reporting::NotifyDebugger();
-	if (result == true)
-	{
-		ScanVisibleFunctions();
-
-		if (address == curAddress)
-			gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress, 1));
-
-		redraw();
-	} else {
-		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
-		MessageBox(wnd, error.c_str(), L"Error", MB_OK);
+	ScanVisibleFunctions();
+	if (address == curAddress_) {
+		gotoAddr(g_disassemblyManager.getNthNextAddress(curAddress_, 1));
 	}
-	*/
+	return true;
 }
 
 void ImDisasmView::drawBranchLine(ImDrawList *drawList, Bounds rect, std::map<u32, float> &addressPositions, const BranchLine &line) {
@@ -440,7 +487,7 @@ void ImDisasmView::Draw(ImDrawList *drawList, ImControl &control) {
 	ImGui_PopFont();
 
 	ImGui::OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight);
-	PopupMenu(control);
+	PopupMenu(currentMIPS, control);
 
 	drawList->PopClipRect();
 }
@@ -542,7 +589,7 @@ void ImDisasmView::ProcessKeyboardShortcuts(bool focused) {
 			// disassembleToFile();
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_A)) {
-			// assembleOpcode(curAddress, "");
+			assembleCurrentOpcode(curAddress_);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_G)) {
 			// Goto. should just focus on the goto input?
@@ -735,10 +782,17 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	}
 }
 
-void ImDisasmView::PopupMenu(ImControl &control) {
+void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
-		ImGui::Text("Address: %08x", curAddress_);
+		// The source location is the more useful heading when there is one, but keep the address:
+		// it's what you paste into a bug report or another debugger.
+		const std::string source = g_lineInfo.LookupString(curAddress_);
+		if (source.empty()) {
+			ImGui::Text("Address: %08x", curAddress_);
+		} else {
+			ImGui::Text("%s (%08x)", source.c_str(), curAddress_);
+		}
 		if (ImGui::MenuItem("Toggle breakpoint", "F9")) {
 			toggleBreakpoint();
 		}
@@ -771,22 +825,26 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 			FollowBranch();
 		}
 		if (ImGui::MenuItem("Run to here")) {
-			g_breakpoints.AddBreakPoint(curAddress_, true);
-			g_breakpoints.SetSkipFirst(curAddress_);
-			if (Core_IsStepping()) {
-				Core_Resume();
-			}
+			RunToAddress(curAddress_, false);
+		}
+		if (ImGui::MenuItem("Run to here, next frame")) {
+			RunToAddress(curAddress_, true);
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
+			ImGui::SetTooltip("Ignores hits until a new frame has been presented, to skip the rest of this one.");
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Assemble")) {
-			assembleOpcode(curAddress_, "");
+			assembleCurrentOpcode(curAddress_);
 		}
 		if (ImGui::MenuItem("NOP instructions (destructive)")) {
-			for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
-				Memory::Write_U32(0, addr);
+			if (Memory::IsValid4AlignedRange(selectRangeStart_, selectRangeEnd_ - selectRangeStart_)) {
+				for (u32 addr = selectRangeStart_; addr < selectRangeEnd_; addr += 4) {
+					Memory::WriteUnchecked_U32(0, addr);
+				}
 			}
-			if (currentMIPS) {
-				currentMIPS->InvalidateICache(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
+			if (mips) {
+				mips->InvalidateICacheRangeDeferred(selectRangeStart_, selectRangeEnd_ - selectRangeStart_);
 			}
 		}
 		ImGui::Separator();
@@ -879,6 +937,38 @@ void ImDisasmView::PopupMenu(ImControl &control) {
 		}
 		ImGui::EndPopup();
 	}
+
+	if (assemblePopup_) {
+		ImGui::OpenPopup("assemble");
+		assemblePopup_ = false;
+	}
+	if (ImGui::BeginPopup("assemble")) {
+		char addressText[64];
+		getDisasmAddressText(assembleAddress_, addressText, sizeof(addressText), false, true);
+		ImGui::Text("Assemble at %s", addressText);
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		// AutoSelectAll only when we prefilled with the existing instruction, so it's overwritten
+		// by just typing. Not when onChar() seeded it with the character the user typed - that one
+		// is the start of what they're writing, not something to replace.
+		ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue;
+		if (assembleSelectAll_)
+			inputFlags |= ImGuiInputTextFlags_AutoSelectAll;
+		if (ImGui::InputText("Opcode", assembleTemp_, sizeof(assembleTemp_), inputFlags)) {
+			if (applyAssembly(assembleAddress_, assembleTemp_)) {
+				ImGui::CloseCurrentPopup();
+			}
+			// Otherwise stay open with assembleError_ shown below, so it can be corrected in place.
+		}
+		// Not a modal message box like the Win32 debugger used - keeping the failed text around to
+		// edit is more useful than making the user retype it.
+		if (!assembleError_.empty()) {
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", assembleError_.c_str());
+		}
+		ImGui::TextUnformatted("Tip: \"reg=expression\" sets a register instead.");
+		ImGui::EndPopup();
+	}
 }
 
 void ImDisasmView::updateStatusBarText() {
@@ -894,6 +984,13 @@ void ImDisasmView::updateStatusBarText() {
 	const std::string label = g_symbolMap->GetLabelString(line.info.opcodeAddress);
 	if (!label.empty()) {
 		statusBarText_ = label;
+	}
+
+	// Appended rather than replacing, since knowing which instruction you're on is still the point.
+	// Empty for anything without an unstripped ELF to read DWARF from - see LineInfo.h.
+	const std::string source = g_lineInfo.LookupString(curAddress_);
+	if (!source.empty()) {
+		statusBarText_ += "   " + source;
 	}
 }
 
@@ -1062,10 +1159,10 @@ void ImDisasmView::disassembleToFile() { 	// get size
 	*/
 }
 
-void ImDisasmView::getOpcodeText(u32 address, char* dest, int bufsize) {
+void ImDisasmView::getOpcodeText(u32 address, char *dest, int bufsize, bool insertSymbols) {
 	DisassemblyLineInfo line;
 	address = g_disassemblyManager.getStartAddress(address);
-	g_disassemblyManager.getLine(address, displaySymbols_, line, debugger_);
+	g_disassemblyManager.getLine(address, insertSymbols, line, debugger_);
 	snprintf(dest, bufsize, "%s  %s", line.name.c_str(), line.params.c_str());
 }
 
@@ -1091,10 +1188,10 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	if (ImGui::IsWindowFocused()) {
 		// Process stepping keyboard shortcuts.
 		if (ImGui::IsKeyPressed(ImGuiKey_F10)) {
-			Core_RequestCPUStep(CPUStepType::Over, 1);
+			Core_RequestCPUStep(CPUStepType::Over);
 		}
 		if (ImGui::IsKeyPressed(ImGuiKey_F11)) {
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			Core_RequestCPUStep(CPUStepType::Into);
 		}
 	}
 
@@ -1127,7 +1224,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::SameLine();
 
 	if (ImGui::RepeatButtonShift("Into")) {
-		Core_RequestCPUStep(CPUStepType::Into, 1);
+		Core_RequestCPUStep(CPUStepType::Into);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F11");
@@ -1135,7 +1232,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Over")) {
-		Core_RequestCPUStep(CPUStepType::Over, 1);
+		Core_RequestCPUStep(CPUStepType::Over);
 	}
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("F10");
@@ -1143,13 +1240,13 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Out")) {
-		Core_RequestCPUStep(CPUStepType::Out, 0);
+		Core_RequestCPUStep(CPUStepType::Out);
 	}
 
 	/*
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Frame")) {
-		Core_RequestCPUStep(CPUStepType::Frame, 0);
+		Core_RequestCPUStep(CPUStepType::Frame);
 	}*/
 
 	ImGui::SameLine();
@@ -1217,38 +1314,97 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 	ImGui::SameLine();
 	ImGui::TextUnformatted(BreakReasonToString(breakReason));
 
+	// Now, the address info line.
+	char addrDesc[256];
+	DescribeAddress(mipsDebug, disasmView_.getSelection(), addrDesc, sizeof(addrDesc));
+	ImGui::Text("%08x: %s", disasmView_.getSelection(), addrDesc);
+
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	avail.y -= ImGui::GetTextLineHeightWithSpacing();
 
 	if (ImGui::BeginChild("left", ImVec2(150.0f, avail.y), ImGuiChildFlags_ResizeX)) {
-		if (symCache_.empty() || symsDirty_) {
+		if (symCacheVersion_ != g_symbolMap->Version()) {
+			// The index into symCache_ means something different after a rebuild, and nothing at
+			// all if the map was replaced (which is what happens when a game exits), so re-find
+			// the selection by address instead of carrying the index over.
+			const u32 selectedAddr = (selectedSymbol_ >= 0 && selectedSymbol_ < (int)symCache_.size()) ? symCache_[selectedSymbol_].address : (u32)INVALID_ADDR;
 			symCache_ = g_symbolMap->GetAllActiveSymbols(SymbolType::ST_FUNCTION);
-			symsDirty_ = false;
+			symCacheVersion_ = g_symbolMap->Version();
+			symMatchesDirty_ = true;
+			selectedSymbol_ = -1;
+			if (selectedAddr != INVALID_ADDR) {
+				for (int i = 0; i < (int)symCache_.size(); i++) {
+					if (symCache_[i].address == selectedAddr) {
+						selectedSymbol_ = i;
+						break;
+					}
+				}
+			}
 		}
 
-		if (selectedSymbol_ >= 0 && selectedSymbol_ < symCache_.size()) {
+		if (selectedSymbol_ >= 0 && selectedSymbol_ < (int)symCache_.size()) {
 			auto &sym = symCache_[selectedSymbol_];
 			if (ImGui::TreeNode("Edit Symbol", "Edit %s", sym.name.c_str())) {
 				if (ImGui::InputText("Name", selectedSymbolName_, sizeof(selectedSymbolName_), ImGuiInputTextFlags_EnterReturnsTrue)) {
 					g_symbolMap->SetLabelName(selectedSymbolName_, sym.address);
-					symsDirty_ = true;
 				}
 				ImGui::Text("%08x (size: %0d)", sym.address, sym.size);
 				ImGui::TreePop();
 			}
 		}
 
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::InputTextWithHint("##symfilter", "Filter symbols", symFilter_, sizeof(symFilter_))) {
+			symMatchesDirty_ = true;
+		}
+
+		if (symMatchesDirty_) {
+			symMatchesDirty_ = false;
+			symMatches_.clear();
+			// An empty filter still builds the index list, so the draw loop below has only one
+			// path to get wrong. These lists run to a few thousand entries, and this only reruns
+			// when the filter or the symbol map changes, not per frame.
+			for (int i = 0; i < (int)symCache_.size(); i++) {
+				if (symFilter_[0] == '\0' || containsNoCase(symCache_[i].name, symFilter_))
+					symMatches_.push_back(i);
+			}
+			// By name, because that's what you're reading when you scroll this. The symbol map
+			// hands them over in address order, which is meaningless to browse - a game with a few
+			// thousand functions is just a wall. Sorting the match list rather than symCache_
+			// leaves selectedSymbol_ indexing the cache, so a selection survives filtering, and
+			// this only runs on a rebuild rather than per frame.
+			std::sort(symMatches_.begin(), symMatches_.end(), [this](int a, int b) {
+				const int cmp = strcasecmp(symCache_[a].name.c_str(), symCache_[b].name.c_str());
+				// Ties broken by address so the order can't wobble between rebuilds.
+				return cmp != 0 ? cmp < 0 : symCache_[a].address < symCache_[b].address;
+			});
+		}
+
 		if (ImGui::BeginListBox("##symbols", ImGui::GetContentRegionAvail())) {
 			ImGuiListClipper clipper;
-			clipper.Begin((int)symCache_.size(), -1);
+			clipper.Begin((int)symMatches_.size(), -1);
 			while (clipper.Step()) {
-				for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+					const int i = symMatches_[row];
+					// Names aren't unique (static functions in different modules, mainly),
+					// so the index has to provide the ID instead.
+					ImGui::PushID(i);
 					if (ImGui::Selectable(symCache_[i].name.c_str(), selectedSymbol_ == i)) {
 						disasmView_.gotoAddr(symCache_[i].address);
 						disasmView_.scrollAddressIntoView();
 						truncate_cpy(selectedSymbolName_, symCache_[i].name);
 						selectedSymbol_ = i;
 					}
+					if (ImGui::BeginPopupContextItem("symctx")) {
+						if (ImGui::MenuItem("Copy name to clipboard")) {
+							System_CopyStringToClipboard(symCache_[i].name);
+						}
+						if (ImGui::MenuItem("Copy address to clipboard")) {
+							System_CopyStringToClipboard(StringFromFormat("%08x", symCache_[i].address));
+						}
+						ImGui::EndPopup();
+					}
+					ImGui::PopID();
 				}
 			}
 			clipper.End();

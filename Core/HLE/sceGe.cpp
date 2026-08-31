@@ -274,7 +274,7 @@ void __GeShutdown() {
 
 bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	u64 userdata = (u64)id << 32 | (u64)type;
-	s64 future = atTicks - CoreTiming::GetTicks();
+	s64 future = atTicks - CoreTiming::GetTicks(currentMIPS);
 	if (type == GPU_SYNC_DRAW) {
 		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
 		if (left > future)
@@ -293,7 +293,7 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {
 	ge_pending_cb.push_back(intrdata);
 
 	u64 userdata = (u64)listid << 32 | (u64) pc;
-	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(currentMIPS), geInterruptEvent, userdata);
 	return true;
 }
 
@@ -370,14 +370,14 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	hleCoreTimingForceCheck();
 	DEBUG_LOG(Log::sceGe,
 		"%08x=sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%lld", listID,
-		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks());
+		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks(currentMIPS));
 	return hleNoLog(listID); // We already logged above, logs get confusing if we use hleLogSuccess.
 }
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
 		"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%lld",
-		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks());
+		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks(currentMIPS));
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;
@@ -540,7 +540,7 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 
 	// Let's just dump gstate.
 	if (Memory::IsValidAddress(ctxAddr)) {
-		gstate.Save((u32_le *)Memory::GetPointer(ctxAddr));
+		gstate.Save((u32_le *)Memory::GetPointerOrException(ctxAddr));
 	}
 
 	// This action should probably be pushed to the end of the queue of the display thread -
@@ -554,7 +554,7 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 	}
 
 	if (Memory::IsValidAddress(ctxAddr)) {
-		gstate.Restore((u32_le *)Memory::GetPointer(ctxAddr));
+		gstate.Restore((u32_le *)Memory::GetPointerOrException(ctxAddr));
 	}
 
 	gpu->ReapplyGfxState();

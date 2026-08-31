@@ -66,7 +66,8 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// No immediate response.  Once CPU is stepping, a "cpu.stepping" event will be sent.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Once CPU is stepping, a "cpu.stepping" event will be sent.
 void WebSocketCPUStepping(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -83,7 +84,8 @@ void WebSocketCPUStepping(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// No immediate response.  Once CPU is stepping, a "cpu.resume" event will be sent.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Once CPU is running again, a "cpu.resume" event will be sent.
 void WebSocketCPUResume(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -97,7 +99,7 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 	Core_RunOnCPUThread([&] {
 		g_breakpoints.SetSkipFirst(currentMIPS->pc);
 		if (currentMIPS->inDelaySlot) {
-			Core_RequestCPUStep(CPUStepType::Into, 1);
+			Core_RequestCPUStep(CPUStepType::Into);
 		}
 		Core_Resume();
 	});
@@ -112,6 +114,11 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 //  - paused: boolean, CPU paused or not started yet.
 //  - pc: number value of PC register (inaccurate unless stepping.)
 //  - ticks: number of CPU cycles into emulation.
+//  - us: microseconds of emulated time. Not derivable from ticks on the client side: the PSP's
+//    clock frequency is changeable (scePowerSetCpuClockFrequency), and games do change it, so the
+//    ticks-per-second ratio isn't fixed over a run. This is what to use to answer "how far into
+//    the game am I", e.g. to line up input injection with a wall-clock repro.
+//  - clockHz: the CPU clock frequency right now, for reference.
 // Deliberately not routed through Core_RunOnCPUThread(): this is meant to be a cheap, frequently-pollable
 // status check, and the "pc" field is already documented as inaccurate unless stepping - queuing it would
 // add up to a frame of latency to every poll for no real accuracy benefit. Matches how SteppingBroadcaster
@@ -126,7 +133,9 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 	// Avoid NULL deference.
 	json.writeUint("pc", pspInited ? currentMIPS->pc : 0);
 	// A double ought to be good enough for a 156 day debug session.
-	json.writeFloat("ticks", pspInited ? CoreTiming::GetTicks() : 0);
+	json.writeFloat("ticks", pspInited ? CoreTiming::GetTicks(currentMIPS) : 0);
+	json.writeFloat("us", pspInited ? (double)CoreTiming::PeekGlobalTimeUs() : 0);
+	json.writeUint("clockHz", pspInited ? CoreTiming::GetClockFrequencyHz() : 0);
 }
 
 // Retrieve all regs and their values (cpu.getAllRegs)

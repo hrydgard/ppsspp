@@ -85,6 +85,17 @@ void DoArray(PointerWrap &p, T *x, int count) {
 	DoHelper_<T>::DoArray(p, x, count);
 }
 
+// Lower bound on the bytes one element of a serialized container takes up, used to sanity check
+// element counts read from a savestate against how much buffer is actually left.
+// sizeof(T) is only valid for the types DoHelper_ writes out raw - the same condition as its
+// specialization above. Anything with its own Do()/DoState() (a string, a pointer to a class, a
+// nested container) routinely serializes far fewer bytes than it occupies in memory, and using
+// sizeof(T) for those rejects perfectly good savestates.
+template<class T>
+constexpr size_t SerializeMinElemSize() {
+	return std::is_standard_layout<T>::value && std::is_trivial<T>::value && !std::is_pointer<T>::value ? sizeof(T) : 1;
+}
+
 template<class T>
 void Do(PointerWrap &p, T &x) {
 	DoHelper_<T>::DoThing(p, x);
@@ -95,10 +106,9 @@ void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 	u32 vec_size = (u32)x.size();
 	Do(p, vec_size);
 	// Guard against an attacker-controlled size that would both resize the
-	// vector hugely and read past the end of the buffer. sizeof(T) is a lower
-	// bound on the bytes consumed per element for most uses.
+	// vector hugely and read past the end of the buffer.
 	if (p.mode == PointerWrap::MODE_READ || p.mode == PointerWrap::MODE_VERIFY) {
-		if (vec_size > p.Remaining() / sizeof(T)) {
+		if (vec_size > p.Remaining() / SerializeMinElemSize<T>()) {
 			p.SetError(PointerWrap::ERROR_FAILURE);
 			return;
 		}

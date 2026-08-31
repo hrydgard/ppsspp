@@ -126,14 +126,13 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 }
 
 // Call InitAPI and ShutdownAPI outside this!
-bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, const WindowDesc &windowDesc, std::function<bool(GraphicsContext *)> frame) {
+bool MainThreadFunc(GraphicsContext *graphicsContext, Application *application, const WindowDesc &windowDesc, std::function<bool(GraphicsContext *)> frame, std::string *errorMessage) {
 	// This is now the render thread, and will spawn the emu thread below.
-	std::string error_string;
-	bool success = graphicsContext->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, &error_string);
-	if (!success) {
+	if (!graphicsContext->InitSurface(windowDesc.winsys, windowDesc.data1, windowDesc.data2, errorMessage)) {
+		ERROR_LOG(Log::G3D, "MainThreadFunc: InitSurface failed: %s", errorMessage->c_str());
+		delete application;
 		return false;
 	}
-	std::string errorMessage;
 	if (graphicsContext->NeedsSeparateEmuThread()) {
 		SetCurrentThreadName("RenderThread");
 

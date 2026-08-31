@@ -82,12 +82,12 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 	CheckMemoryBreakpoint(rs, offset);
 
 	switch (op >> 26) {
-	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
-		ir.Write(IROp::LoadFloat, ft, rs, ir.AddConstant(offset));
+	case 49: // lwc1
+		ir.Write(IROp::LoadFloat, ft, rs, 0, offset);
 		break;
 
-	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
-		ir.Write(IROp::StoreFloat, ft, rs, ir.AddConstant(offset));
+	case 57: // swc1
+		ir.Write(IROp::StoreFloat, ft, rs, 0, offset);
 		break;
 
 	default:
@@ -207,10 +207,10 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			// This needs to insert fpcond.
 			ir.Write(IROp::FpCtrlToReg, rt);
 		} else if (fs == 0) {
-			ir.Write(IROp::SetConst, rt, ir.AddConstant(MIPSState::FCR0_VALUE));
+			ir.WriteSetConstant(rt, MIPSState::FCR0_VALUE);
 		} else {
 			// Unsupported regs are always 0.
-			ir.Write(IROp::SetConst, rt, ir.AddConstant(0));
+			ir.WriteSetConstant(rt, 0);
 		}
 		return;
 

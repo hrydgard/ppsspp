@@ -85,6 +85,10 @@ bool containsNoCase(std::string_view haystack, std::string_view needle);
 enum class StringRestriction {
 	None,
 	AlphaNumDashUnderscore,  // Used for infrastructure usernames
+	// For deriving a filename from untrusted data (an ELF's module name, a disc ID). Unlike the
+	// above, disallowed characters become '_' rather than disappearing, so two different names
+	// can't silently collapse onto the same filename.
+	FileName,
 	NoLineBreaksOrSpecials,  // Used for savedata UI. Removes line breaks, backslashes and similar.
 	ConvertToUnixEndings,
 };
