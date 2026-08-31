@@ -48,6 +48,24 @@ pub fn marked_same(comment: &str) -> bool {
     comment.to_ascii_lowercase().starts_with("same")
 }
 
+#[cfg(test)]
+mod tests {
+    use super::Section;
+
+    #[test]
+    fn remove_ampersands_removes_ampersands_from_values() {
+        let mut section = Section {
+            name: "Test".to_string(),
+            title_line: "[Test]".to_string(),
+            lines: vec!["Menu = &Open &Close # Example".to_string()],
+        };
+
+        section.remove_ampersands("Menu");
+
+        assert_eq!(section.lines[0], "Menu = Open Close # Example");
+    }
+}
+
 impl Section {
     pub fn apply_regex(&mut self, key: &str, pattern: &str, replacement: &str) {
         let re = Regex::new(pattern).unwrap();
@@ -100,6 +118,28 @@ impl Section {
             }
             // Escaped linebreaks.
             *line = line.replace("\\n", " ");
+        }
+    }
+
+    pub fn remove_ampersands(&mut self, key: &str) {
+        for line in self.lines.iter_mut() {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos]
+            } else {
+                continue;
+            };
+            if !prefix.trim().eq(key) {
+                continue;
+            }
+            if let Some((_, value)) = split_line(line) {
+                let (value_without_comment, comment) = split_comment(value);
+                let cleaned_value = value_without_comment.replace('&', "").trim().to_string();
+                if comment.is_empty() {
+                    *line = format!("{} = {}", key, cleaned_value);
+                } else {
+                    *line = format!("{} = {} # {}", key, cleaned_value, comment);
+                }
+            }
         }
     }
 
