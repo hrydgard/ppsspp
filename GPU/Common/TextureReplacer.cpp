@@ -490,6 +490,12 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 		return;
 	}
 
+	if (toW == 0 || toH == 0) {
+		// These end up as desc_.newW/newH, which ReplacedTexture::Prepare divides by.
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, range is empty", key.c_str(), value.c_str());
+		return;
+	}
+
 	const u64 rangeKey = ((u64)addr << 32) | ((u64)fromW << 16) | fromH;
 	hashranges_[rangeKey] = WidthHeightPair(toW, toH);
 }
