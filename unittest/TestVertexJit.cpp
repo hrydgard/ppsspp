@@ -628,6 +628,50 @@ static bool TestVertexFloatSkin() {
 
 // TODO: Morph (col, pos, nrm), weights (no skin), morph + weights?
 
+// The one format VtxDec_Tu16_C8888_Pfloat handles (God of War's hottest). Its structs used to
+// name the color and normal fields the other way around, so the alpha check read the normal's
+// padding byte instead of the alpha - always 0, so vertexFullAlpha was never set.
+static bool TestVertexTu16Nrm8C8888Pfloat() {
+	VertexDecoderTestHarness dec;
+	const int vtype = GE_VTYPE_TC_16BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT;
+	bool failed = false;
+
+	auto addVertex = [&dec](u8 a) {
+		dec.Add16(256, 512);            // texcoord
+		dec.Add8(1, 2, 3, a);           // color
+		dec.Add8(10, 20, 30);           // normal (plus a padding byte, left zero)
+		dec.Add8(0);
+		dec.AddFloat(1.0f, 0.5f, -1.0f);
+	};
+
+	addVertex(255);
+	for (int jit = 0; jit <= 1; ++jit) {
+		gstate_c.vertexFullAlpha = true;
+		dec.Execute(vtype, 1, jit == 1);
+		// Decoded order is uv, color, normal, position.
+		dec.AssertFloat("TestVertexTu16Nrm8C8888Pfloat-UV", 256.0f / 32768.0f, 512.0f / 32768.0f);
+		dec.Assert8("TestVertexTu16Nrm8C8888Pfloat-Col", 1, 2, 3, 255);
+		if (!gstate_c.vertexFullAlpha) {
+			printf("TestVertexTu16Nrm8C8888Pfloat: cleared vertexFullAlpha on an opaque vertex\n");
+			failed = true;
+		}
+	}
+
+	addVertex(128);
+	for (int jit = 0; jit <= 1; ++jit) {
+		gstate_c.vertexFullAlpha = true;
+		dec.Execute(vtype, 1, jit == 1);
+		dec.AssertFloat("TestVertexTu16Nrm8C8888Pfloat-UV", 256.0f / 32768.0f, 512.0f / 32768.0f);
+		dec.Assert8("TestVertexTu16Nrm8C8888Pfloat-Col", 1, 2, 3, 128);
+		if (gstate_c.vertexFullAlpha) {
+			printf("TestVertexTu16Nrm8C8888Pfloat: failed to clear vertexFullAlpha\n");
+			failed = true;
+		}
+	}
+
+	return !dec.HasFailed() && !failed;
+}
+
 typedef bool (*VertexTestFunc)();
 
 static VertexTestFunc vertdecTestFuncs[] = {
@@ -643,6 +687,8 @@ static VertexTestFunc vertdecTestFuncs[] = {
 	&TestVertexColor4444,
 	&TestVertexColor5551,
 	&TestVertexColor565,
+
+	&TestVertexTu16Nrm8C8888Pfloat,
 
 	&TestVertex8Skin,
 	&TestVertex16Skin,

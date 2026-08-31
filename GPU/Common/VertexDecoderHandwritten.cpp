@@ -34,6 +34,9 @@
 // God of War.
 void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
 	// Input: 4 + 4 + 4 + 12 = 24 bytes
+	// NOTE: color precedes normal, in both layouts - see coloff/nrmoff in VertexDecoderCommon.
+	// These two used to be named the other way around, which moved the data correctly (both
+	// structs had the same swap) but made the alpha check below read the normal.
 	struct GOWVTX {
 		union {
 			struct {
@@ -42,8 +45,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 			};
 			u32 packed_uv;
 		};
-		u32 packed_normal;
 		u32 col;
+		u32 packed_normal;  // Only 3 bytes of normal, then a padding byte.
 		float x;
 		float y;
 		float z;
@@ -53,8 +56,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 	struct OutVTX {
 		float u;
 		float v;
-		u32 packed_normal;
 		uint32_t col;
+		u32 packed_normal;
 		float x;
 		float y;
 		float z;
@@ -71,36 +74,34 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
-	__m128i alphaMask = _mm_set1_epi32(0xFFFFFFFF);
 	for (int i = 0; i < count; i++) {
 		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
 		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
-		u32 normal = src[i].packed_normal;
-		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
+		u32 color = src[i].col;
+		// The normal's padding byte and the three position floats ride along in the same 16 bytes.
+		__m128i nrmpos = _mm_loadu_si128((const __m128i *)&src[i].packed_normal);
 		_mm_store_sd((double *)&dst[i].u, _mm_castps_pd(finalUV));
-		dst[i].packed_normal = normal;
-		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
-		alphaMask = _mm_and_si128(alphaMask, colpos);
+		dst[i].col = color;
+		_mm_storeu_si128((__m128i *)&dst[i].packed_normal, nrmpos);
+		alpha &= color;
 	}
-	alpha = _mm_cvtsi128_si32(alphaMask);
 
 #elif PPSSPP_ARCH(ARM_NEON)
 	float32x2_t uvScale = vmul_f32(vld1_f32(&uvScaleOffset->uScale), vdup_n_f32(1.0f / 32768.0f));
 	float32x2_t uvOff = vld1_f32(&uvScaleOffset->uOff);
-	uint32x4_t alphaMask = vdupq_n_u32(0xFFFFFFFF);
 	for (int i = 0; i < count; i++) {
 		uint16x4_t uv = vld1_u16(&src[i].u);  // TODO: We only need the first two lanes, maybe there's a better way?
 		uint32x2_t fuv = vget_low_u32(vmovl_u16(uv));  // Only using the first two lanes
 		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
-		u32 normal = src[i].packed_normal;
-		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
-		alphaMask = vandq_u32(alphaMask, colpos);
+		u32 color = src[i].col;
+		// The normal's padding byte and the three position floats ride along in the same 16 bytes.
+		uint32x4_t nrmpos = vld1q_u32((const u32 *)&src[i].packed_normal);
+		alpha &= color;
 		vst1_f32(&dst[i].u, finalUV);
-		dst[i].packed_normal = normal;
-		vst1q_u32(&dst[i].col, colpos);
+		dst[i].col = color;
+		vst1q_u32(&dst[i].packed_normal, nrmpos);
 	}
-	alpha = vgetq_lane_u32(alphaMask, 0);
 #else
 	for (int i = 0; i < count; i++) {
 		float u = src[i].u * uscale + uoff;
@@ -258,7 +259,9 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		int32x2_t a_shifted = vshr_n_s32(vreinterpret_s32_u32(vshl_n_u32(vand_u32(col, amask), 16)), 7);
 		uint32x2_t a = vreinterpret_u32_s32(a_shifted);
 		col = vorr_u32(vorr_u32(r, g), b);
-		col = vorr_u32(col, vand_u32(vshl_n_u32(col, 5), lowbits));
+		// Replicate the top 3 bits down into the low bits - shift right, as SSE above and
+		// RGBA5551ToRGBA8888 both do. This was a left shift, so ARM produced different colors.
+		col = vorr_u32(col, vand_u32(vshr_n_u32(col, 5), lowbits));
 		col = vorr_u32(col, a);
 
 		// TODO: Mix into fewer stores.
