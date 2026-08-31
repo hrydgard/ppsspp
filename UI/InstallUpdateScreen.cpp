@@ -25,6 +25,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/ViewGroup.h"
 
 #include "Core/Config.h"
@@ -33,6 +34,7 @@
 
 #include "UI/InstallUpdateScreen.h"
 #include "UI/MiscViews.h"
+#include "UI/EmuScreen.h"
 
 // An updater carries one file list per hardware revision, and anything the chosen model's list
 // doesn't name isn't part of its firmware. Unpacking the model we claim to be keeps flash0
@@ -64,6 +66,7 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	auto st = GetI18NCategory(I18NCat::STORE);  // Borrow "Size" from here, like GameScreen does.
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	LinearLayout *container = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(600, WRAP_CONTENT, 0.0f, UI::Gravity::G_HCENTER, Margins(10))));
 
@@ -92,6 +95,11 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	installChoice_ = container->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 	installChoice_->OnClick.Add([this](UI::EventParams &e) {
 		StartInstall();
+	});
+
+	Choice *runChoice = container->Add(new Choice(dev->T("Run"), ImageID("I_PLAY")));
+	runChoice->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->switchScreen(new EmuScreen(path_));
 	});
 
 	progressBar_ = container->Add(new ProgressBar());

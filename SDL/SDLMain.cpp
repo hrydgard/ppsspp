@@ -941,7 +941,6 @@ std::vector<std::string> System_GetCameraDeviceList() {
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL:
-	case LaunchUrlType::MARKET_URL:
 	{
 #if PPSSPP_PLATFORM(SWITCH)
 		Uuid uuid = { 0 };

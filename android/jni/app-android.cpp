@@ -283,7 +283,6 @@ void System_Vibrate(int length_ms) {
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
-	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
 	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
 	// Can't really support the below well on Android...
 	case LaunchUrlType::LOCAL_FOLDER: break;

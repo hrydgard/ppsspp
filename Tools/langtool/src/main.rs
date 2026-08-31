@@ -114,6 +114,10 @@ enum Command {
         section: String,
         key: String,
     },
+    RemoveAmpersands {
+        section: String,
+        key: String,
+    },
     ApplyRegex {
         section: String,
         key: String,
@@ -255,6 +259,15 @@ fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<
 fn remove_linebreaks(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
     if let Some(old_section) = target_ini.get_section_mut(section) {
         old_section.remove_linebreaks(key);
+    } else {
+        println!("No section {section}");
+    }
+    Ok(())
+}
+
+fn remove_ampersands(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
+    if let Some(old_section) = target_ini.get_section_mut(section) {
+        old_section.remove_ampersands(key);
     } else {
         println!("No section {section}");
     }
@@ -1043,6 +1056,12 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 ref key,
             } => {
                 remove_linebreaks(&mut target_ini, section, key).unwrap();
+            }
+            Command::RemoveAmpersands {
+                ref section,
+                ref key,
+            } => {
+                remove_ampersands(&mut target_ini, section, key).unwrap();
             }
             Command::ImportSingle {
                 filename: _,
