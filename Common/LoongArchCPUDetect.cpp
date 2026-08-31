@@ -140,9 +140,17 @@ void CPUInfo::Detect()
 #else // __linux__
 	LoongArchCPUInfoParser parser;
 	num_cores = parser.ProcessorCount();
-	logical_cpu_count = parser.TotalLogicalCount() / num_cores;
-	if (logical_cpu_count <= 0)
+	if (num_cores <= 0) {
+		// ProcessorCount() is 0 when /proc/cpuinfo couldn't be read or didn't parse - dividing
+		// by it here raised SIGFPE during static init of cpu_info, before any handler exists.
+		// The guard below this was too late to help.
+		num_cores = 1;
 		logical_cpu_count = 1;
+	} else {
+		logical_cpu_count = parser.TotalLogicalCount() / num_cores;
+		if (logical_cpu_count <= 0)
+			logical_cpu_count = 1;
+	}
 #endif
 
 	unsigned long hwcap = getauxval(AT_HWCAP);
