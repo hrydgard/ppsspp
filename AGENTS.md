@@ -15,10 +15,28 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
    `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff. Check
    `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in the editor.
    Prefer the Edit tool, which does exact string replacement and can't do this.
-5. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The quoting mangles them,
-   and an anchor string like `'...MemBlockInfo.cpp \\\r\n'` silently fails to match, so the patch reports
-   "anchor missing" for reasons that aren't visible. Write the script to a file and run that instead, building
-   separators with `chr(92)` if need be.
+5. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash / MinGW
+   layer strips one level of backslash escaping on the way in, *even with a quoted delimiter* (`<<'PY'`), which
+   normally suppresses all substitution. So the script Python receives is not the one you wrote:
+
+   | You write in the heredoc | Python actually sees | Result |
+   |---|---|---|
+   | `"\r\n"` | `"\r\n"` | fine - survives, because you *want* Python to interpret it |
+   | `"\\n"` (intending a literal `\n` in the output) | `"\n"` | **a real newline is written into the file** |
+   | `'foo \\\r\n'` as a match anchor | `'foo \<CR><LF>'` | **anchor silently doesn't match**, reported as "anchor missing" |
+
+   The tell for the first case is a compiler error like `C2001: newline in string literal`; the second case
+   produces no error at all, just a patch that quietly did nothing. Both are invisible in the heredoc you wrote.
+
+   The rule: **a heredoc is fine as long as every backslash in the script is one you want Python to interpret.
+   The moment you need a literal backslash in the *output*, stop.** Then either:
+   - use the Edit tool instead (exact string replacement, no shell in the path - the best option for the common
+     case of "insert a few lines of C++ that contain `\n`"), or
+   - write the script to a file with the Write tool and run `python thescript.py`, or
+   - build the backslash as `chr(92)` so no literal backslash appears in the heredoc at all.
+
+   Note this is about the *Python source*, not the data: reading and rewriting a CRLF file with `newline=''` and
+   `\r\n` anchors works fine in a heredoc, and is the normal way to patch files here (see rule 4).
 
 ## Core Safety Checks
 
