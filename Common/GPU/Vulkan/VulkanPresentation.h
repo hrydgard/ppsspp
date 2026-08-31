@@ -31,6 +31,11 @@ public:
 	// Mirrors vkQueuePresentKHR: hands the finished image back, waiting on waitSemaphore first.
 	virtual VkResult QueuePresent(VulkanContext *vulkan, VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore) = 0;
 
+	// Called around a queued presentation. Hosts that hand an image to another thread can use this
+	// to keep the caller from invoking its video callback until QueuePresent has completed.
+	virtual void BeginPresent() {}
+	virtual void EndPresent() {}
+
 	virtual uint32_t GetImageCount() const = 0;
 	virtual VkImage GetImage(uint32_t index) const = 0;
 	virtual VkExtent2D GetExtent() const = 0;

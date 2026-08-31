@@ -106,8 +106,8 @@ void LibretroVulkanPresentation::Destroy(VulkanContext *context) {
 	images_.clear();
 	syncIndexMask_ = 0;
 	std::lock_guard<std::mutex> lock(mutex_);
-	currentIndex_ = -1;
-	everPresented_ = false;
+	presentPending_ = false;
+	condVar_.notify_all();
 }
 
 bool LibretroVulkanPresentation::NeedsRecreate() const {
@@ -138,11 +138,19 @@ VkResult LibretroVulkanPresentation::QueuePresent(VulkanContext *vulkan, VkQueue
 		return VK_ERROR_OUT_OF_DATE_KHR;
 	}
 	std::unique_lock<std::mutex> lock(mutex_);
-	currentIndex_ = (int)imageIndex;
 	vulkan_->set_image(vulkan_->handle, &images_[imageIndex].retroImage, 0, nullptr, vulkan_->queue_index);
-	everPresented_ = true;
-	condVar_.notify_all();
 	return VK_SUCCESS;
+}
+
+void LibretroVulkanPresentation::BeginPresent() {
+	std::lock_guard<std::mutex> lock(mutex_);
+	presentPending_ = true;
+}
+
+void LibretroVulkanPresentation::EndPresent() {
+	std::lock_guard<std::mutex> lock(mutex_);
+	presentPending_ = false;
+	condVar_.notify_all();
 }
 
 void LibretroVulkanPresentation::LockQueue() {
@@ -162,7 +170,5 @@ void LibretroVulkanPresentation::PrepareSubmit(VkSubmitInfo &submitInfo) {
 
 void LibretroVulkanPresentation::WaitForPresentation() {
 	std::unique_lock<std::mutex> lock(mutex_);
-	if (everPresented_ && currentIndex_ < 0) {
-		condVar_.wait(lock);
-	}
+	condVar_.wait(lock, [this] { return !presentPending_; });
 }
