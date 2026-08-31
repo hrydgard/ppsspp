@@ -215,6 +215,16 @@ static Path LocalFromRemotePath(std::string_view path) {
 		return Path();
 	case RemoteISOShareType::LOCAL_FOLDER:
 	{
+		// Nothing stops the user from starting the server without ever picking a folder, and an empty
+		// base is NOT harmless here: Path("") / "/etc/passwd" is just Path("/etc/passwd"), since
+		// operator/ doesn't insert a separator when the component already starts with one. That would
+		// serve the entire filesystem to anyone who can reach the port, and none of the checks below
+		// would fire, because no traversal is needed to get there.
+		const Path sharedDir(g_Config.sRemoteISOSharedDir);
+		if (sharedDir.empty()) {
+			return Path();
+		}
+
 		std::string decoded = ServerUriDecode(path);
 
 		if (decoded.empty() || decoded.front() != '/') {
@@ -229,7 +239,14 @@ static Path LocalFromRemotePath(std::string_view path) {
 		if (decoded.find("/..") != std::string::npos) {
 			return Path();
 		}
-		return Path(g_Config.sRemoteISOSharedDir) / decoded;
+
+		// Belt and braces: whatever the path manipulation above ends up doing, the result has to stay
+		// inside the shared directory.
+		const Path localPath = sharedDir / decoded;
+		if (!localPath.StartsWith(sharedDir)) {
+			return Path();
+		}
+		return localPath;
 	}
 	default:
 		return Path();
@@ -316,6 +333,12 @@ static void HandleListing(const http::ServerRequest &request) {
 
 			std::string resource(request.resource());
 			Path localDir = LocalFromRemotePath(resource);
+			if (localDir.empty()) {
+				// Refused (not configured, or traversal attempt). Don't hand an empty path to
+				// GetFilesInDir - on Windows that turns into FindFirstFile("\\*"), i.e. a listing
+				// of the root of the current drive.
+				break;
+			}
 
 			File::GetFilesInDir(localDir, &entries);
 			for (const auto &entry : entries) {
@@ -869,6 +892,12 @@ static void WebServerThread() {
 
 // Only adds flags.
 bool StartWebServer(WebServerFlags flags) {
+	if ((flags & WebServerFlags::DISCS) && (RemoteISOShareType)g_Config.iRemoteISOShareType == RemoteISOShareType::LOCAL_FOLDER && g_Config.sRemoteISOSharedDir.empty()) {
+		// Not fatal - LocalFromRemotePath refuses to resolve anything in this state, so the server just
+		// won't serve any files. Worth a log line so it doesn't look like a mysterious failure.
+		WARN_LOG(Log::Loader, "Remote ISO sharing is set to share a local folder, but no folder is set - nothing will be shared.");
+	}
+
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	switch (serverStatus) {
 	case ServerStatus::RUNNING:
