@@ -427,15 +427,31 @@ inline char asciitolower(char in) {
 	return in;
 }
 
+// Only used for small metadata files (PARAM.SFO, plugin ini). The size below is far above
+// anything legitimate - it exists because the size comes from the zip's central directory,
+// i.e. straight from an untrusted file.
+static const u64 MAX_ZIP_EXTRACT_TO_MEMORY_SIZE = 16 * 1024 * 1024;
+
 static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
-	struct zip_stat zstat;
-	zip_stat_index(z, fileIndex, 0, &zstat);
+	zip_stat_t zstat{};
+	if (zip_stat_index(z, fileIndex, 0, &zstat) != 0) {
+		ERROR_LOG(Log::HLE, "zip_stat_index failed for file %d in zip", fileIndex);
+		return false;
+	}
+	if (!(zstat.valid & ZIP_STAT_SIZE)) {
+		ERROR_LOG(Log::HLE, "No size for file %d in zip", fileIndex);
+		return false;
+	}
 	if (zstat.size == 0) {
 		data->clear();
 		return true;
 	}
+	if (zstat.size > MAX_ZIP_EXTRACT_TO_MEMORY_SIZE) {
+		ERROR_LOG(Log::HLE, "Refusing to extract file %d from zip: declared size %llu is implausible", fileIndex, (unsigned long long)zstat.size);
+		return false;
+	}
 
-	size_t readSize = zstat.size;
+	size_t readSize = (size_t)zstat.size;
 	data->resize(readSize);
 
 	zip_file *zf = zip_fopen_index(z, fileIndex, 0);

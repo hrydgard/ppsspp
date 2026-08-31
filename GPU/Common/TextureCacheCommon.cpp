@@ -410,7 +410,9 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	const u32 *checkp = (const u32 *)Memory::GetPointerOrException(addr);
 
 	// NOTE: I'm not sure we want to align-check the end, so can't use IsValidTextureAddress here.
-	if (Memory::IsValidAddress(addr + sizeInRAM)) {
+	// IsValidAddress on the end address alone isn't enough - the end can land in a different valid
+	// region than the start, e.g. a VRAM texture whose computed end reaches the base of RAM.
+	if (Memory::IsValidRange(addr, sizeInRAM)) {
 		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
 
 		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
