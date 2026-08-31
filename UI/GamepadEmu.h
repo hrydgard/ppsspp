@@ -22,6 +22,7 @@
 
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
 #include "Core/HLE/sceCtrl.h"
 #include "UI/EmuScreen.h"
@@ -366,6 +367,17 @@ namespace CustomKeyData {
 		// IMPORTANT: Only add at the end!
 	};
 	static_assert(ARRAY_SIZE(g_customKeyList) <= 64, "Too many key for a uint64_t bit mask");
+
+	// image and shape come straight from the ini and index the tables above, so anything that
+	// reads them has to run this first.
+	inline void Sanitize(ConfigCustomButton &cfg) {
+		if (cfg.image < 0 || cfg.image >= (int)ARRAY_SIZE(customKeyImages)) {
+			cfg.image = 0;
+		}
+		if (cfg.shape < 0 || cfg.shape >= (int)ARRAY_SIZE(customKeyShapes)) {
+			cfg.shape = 0;
+		}
+	}
 };
 
 // Gesture key only have virtual button that can work without constant press
