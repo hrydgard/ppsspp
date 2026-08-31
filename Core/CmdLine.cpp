@@ -72,11 +72,26 @@ ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &p
 		break;
 	}
 	case CmdParamType::Int:
-		*reinterpret_cast<std::optional<int> *>(optionsPtr + param.offsetInStruct) = std::stoi(value);
+	{
+		// Not std::stoi - that throws on junk, which takes the process down with no diagnostic.
+		int v;
+		if (sscanf(value.c_str(), "%d", &v) != 1) {
+			PRINT_STDERR("Error: Invalid value for integer parameter --%s: '%s'.\n", param.longName, value.c_str());
+			return ParseParamResult::BadValue;
+		}
+		*reinterpret_cast<std::optional<int> *>(optionsPtr + param.offsetInStruct) = v;
 		break;
+	}
 	case CmdParamType::Double:
-		*reinterpret_cast<std::optional<double> *>(optionsPtr + param.offsetInStruct) = std::stod(value);
+	{
+		double v;
+		if (sscanf(value.c_str(), "%lf", &v) != 1) {
+			PRINT_STDERR("Error: Invalid value for number parameter --%s: '%s'.\n", param.longName, value.c_str());
+			return ParseParamResult::BadValue;
+		}
+		*reinterpret_cast<std::optional<double> *>(optionsPtr + param.offsetInStruct) = v;
 		break;
+	}
 	case CmdParamType::String:
 		*reinterpret_cast<std::optional<std::string> *>(optionsPtr + param.offsetInStruct) = value;
 		break;

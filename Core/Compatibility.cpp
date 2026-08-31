@@ -213,7 +213,13 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 	std::string value;
 	Section *section = iniFile.GetSection(option);
 	if (section && section->Get(gameID.c_str(), &value)) {
-		*flag = stof(value);
+		// Not stof - it throws on a malformed entry, and compat.ini is user-editable.
+		float parsed;
+		if (sscanf(value.c_str(), "%f", &parsed) != 1) {
+			WARN_LOG(Log::Loader, "compat.ini: [%s] %s is not a number: '%s'", option, gameID.c_str(), value.c_str());
+			return;
+		}
+		*flag = parsed;
 
 		if (!activeList_.empty()) {
 			activeList_ += "\n";
@@ -226,7 +232,12 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 	std::string value;
 	Section *section = iniFile.GetSection(option);
 	if (section && section->Get(gameID.c_str(), &value)) {
-		*flag = stoi(value);
+		int parsed;
+		if (sscanf(value.c_str(), "%d", &parsed) != 1) {
+			WARN_LOG(Log::Loader, "compat.ini: [%s] %s is not an integer: '%s'", option, gameID.c_str(), value.c_str());
+			return;
+		}
+		*flag = parsed;
 
 		if (!activeList_.empty()) {
 			activeList_ += ":" + std::to_string(*flag) + "\n";
