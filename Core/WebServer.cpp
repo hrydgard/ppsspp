@@ -712,6 +712,14 @@ static void HandleUploadPost(const http::ServerRequest &request) {
 		return;
 	}
 
+	// This handler is registered unconditionally, so it has to check the flag itself - otherwise
+	// closing the Upload screen leaves an unauthenticated write endpoint live for as long as
+	// anything else (remote ISO, the debugger) keeps the server up.
+	if (!(serverFlags & WebServerFlags::FILE_UPLOAD)) {
+		ERROR_LOG(Log::HTTP, "Upload requested, but uploading isn't enabled");
+		return;
+	}
+
 	Path uploadPath;
 	{
 		std::lock_guard<std::mutex> guard(g_webServerLock);

@@ -38,9 +38,9 @@ public:
 
 	// Required callbacks.
 	// TODO: These are so many now that a virtual interface might be more appropriate..
-	void AddListener(ControlListener *listener) {
-		listeners_.push_back(listener);
-	}
+	// Both of these take mutex_ - listeners_ is iterated on the input thread, and screens add and
+	// remove themselves from another one.
+	void AddListener(ControlListener *listener);
 	void RemoveListener(ControlListener *listener);
 
 	// Inject raw PSP key input directly, such as from touch screen controls.
@@ -118,9 +118,8 @@ private:
 
 	int iInternalScreenRotationCached_ = 0;
 
-	// Protects basically all the state.
-	// TODO: Maybe we should piggyback on the screenmanager mutex - it's always locked
-	// when events come in here.
+	// Protects basically all the state. (There is no screenmanager mutex to piggyback on, despite
+	// what a previous comment here claimed - input arrives on its own thread.)
 	std::mutex mutex_;
 
 	std::map<InputMapping, InputSample> curInput_;

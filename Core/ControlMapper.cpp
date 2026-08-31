@@ -833,6 +833,11 @@ void ControlMapper::GetDebugString(StringWriter &w) const {
 	w.F("Rstick: %f, %f\n", converted_[1][0], converted_[1][1]);
 }
 
+void ControlMapper::AddListener(ControlListener *listener) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	listeners_.push_back(listener);
+}
+
 void ControlMapper::RemoveListener(ControlListener *listener) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	auto it = std::find(listeners_.begin(), listeners_.end(), listener);
