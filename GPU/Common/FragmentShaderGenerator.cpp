@@ -1208,13 +1208,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		} else if (fsDepthClamp) {
 			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
-		} else if (useDiscardStencilBugWorkaround) {
-			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
-			// when only stencil is used. The exact situation seems to vary by driver.
-			// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
-			// This doesn't make a ton of sense, but empirically does work.
-			WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 		}
+	} else if (useDiscardStencilBugWorkaround) {
+		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+		// when only stencil is used. The exact situation seems to vary by driver.
+		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+		// This doesn't make a ton of sense, but empirically does work.
+		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {
