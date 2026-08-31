@@ -86,7 +86,11 @@ long parseLong(std::string s) {
 }
 
 bool containsNoCase(std::string_view haystack, std::string_view needle) {
-	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
+	// toupper is UB for negative values other than EOF, and char is signed here - non-ASCII bytes
+	// reach this from e.g. ELF symbol names.
+	auto pred = [](char ch1, char ch2) {
+		return std::toupper((unsigned char)ch1) == std::toupper((unsigned char)ch2);
+	};
 	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
 	return found != haystack.end();
 }

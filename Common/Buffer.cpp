@@ -136,7 +136,9 @@ bool Buffer::FlushToFile(const Path &filename, bool clear) {
 }
 
 void Buffer::PeekAll(std::string *dest) {
-	dest->resize(data_.size());
+	// resize() here would leave that many zero bytes in front of the appended data.
+	dest->clear();
+	dest->reserve(data_.size());
 	data_.iterate_blocks(([dest](const char *blockData, size_t blockSize) {
 		dest->append(blockData, blockSize);
 		return true;
