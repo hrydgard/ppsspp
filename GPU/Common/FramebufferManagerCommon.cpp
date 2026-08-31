@@ -1958,6 +1958,22 @@ static const CopyCandidate *GetBestCopyCandidate(const TinySet<CopyCandidate, 4>
 // NOTE: This is very tricky because there's no information about color depth here, so we'll have to make guesses
 // about what underlying framebuffer is the most likely to be the relevant ones. For src, we can probably prioritize recent
 // ones. For dst, less clear.
+// Source address, stride and height reach us as independent GE registers, so the span a copy is
+// about to read has to be checked against what's actually mapped. The upload paths below took
+// an unchecked pointer and trusted the height. Returns how many rows are safe to read.
+static int ClampCopyRows(u32 srcAddr, int strideInBytes, int height, const char *tag) {
+	if (height <= 0 || strideInBytes <= 0) {
+		return 0;
+	}
+	const u32 needed = (u32)height * (u32)strideInBytes;
+	if (Memory::IsValidRange(srcAddr, needed)) {
+		return height;
+	}
+	const int rows = (int)(Memory::MaxSizeAtAddress(srcAddr) / (u32)strideInBytes);
+	WARN_LOG_N_TIMES(fbcopyrange, 5, Log::FrameBuf, "%s: source %08x only has %d of %d rows mapped", tag, srcAddr, rows, height);
+	return std::min(rows, height);
+}
+
 bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, GPUCopyFlag flags, u32 skipDrawReason) {
 	if (size == 0) {
 		return false;
@@ -2198,7 +2214,9 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		GEBufferFormat srcFormat = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : dstBuffer->fb_format;
 		// TODO: srcStride here looks suspicious! Actually the whole calculation does...
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
-		DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
+		dstH = ClampCopyRows(src, srcStride * BufferFormatBytesPerPixel(srcFormat), dstH, "MemcpyFboUpload");
+		if (dstH > 0)
+			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
@@ -2781,8 +2799,11 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		if (dstRect.channel == RASTER_DEPTH) {
 			WARN_LOG_ONCE(btud, Log::G3D, "Block transfer upload %08x -> %08x (%dx%d %d,%d bpp=%d %s)", srcBasePtr, dstBasePtr, width, height, dstX, dstY, bpp, RasterChannelToString(dstRect.channel));
 			FlushBeforeCopy();
-			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-			DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride * bpp / 2, (int)(dstRect.w_bytes / 2), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
+			const u32 srcStart = srcBasePtr + (srcX + srcY * srcStride) * bpp;
+			const u8 *srcBase = Memory::GetPointerUnchecked(srcStart);
+			const int safeH = ClampCopyRows(srcStart, srcStride * bpp, dstRect.h, "BlockTransferUploadDepth");
+			if (safeH > 0)
+				DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride * bpp / 2, (int)(dstRect.w_bytes / 2), safeH, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
 			RebindFramebuffer("RebindFramebuffer - UploadDepth");
 			return true;
 		}
@@ -2864,7 +2885,8 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		if (dstBuffer && !srcBuffer) {
 			WARN_LOG_ONCE(btu, Log::G3D, "Block transfer upload %08x -> %08x (%dx%d %d,%d bpp=%d)", srcBasePtr, dstBasePtr, width, height, dstX, dstY, bpp);
 			FlushBeforeCopy();
-			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+			const u32 srcStart = srcBasePtr + (srcX + srcY * srcStride) * bpp;
+			const u8 *srcBase = Memory::GetPointerUnchecked(srcStart);
 
 			int dstBpp = BufferFormatBytesPerPixel(dstRect.vfb->fb_format);
 			float dstXFactor = (float)bpp / dstBpp;
@@ -2880,7 +2902,9 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				// Resizing may change the viewport/etc.
 				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			}
-			DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), dstRect.h, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
+			const int safeH = ClampCopyRows(srcStart, srcStride * bpp, dstRect.h, "BlockTransferUpload");
+			if (safeH > 0)
+				DrawPixels(dstRect.vfb, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstRect.vfb->fb_format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstRect.w_bytes / bpp * dstXFactor), safeH, RASTER_COLOR, "BlockTransferCopy_DrawPixels");
 			SetColorUpdated(dstRect.vfb, skipDrawReason);
 			RebindFramebuffer("RebindFramebuffer - NotifyBlockTransferAfter");
 		}
