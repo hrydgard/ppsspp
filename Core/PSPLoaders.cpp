@@ -160,11 +160,21 @@ void InitMemorySizeForGame() {
 		}
 
 		if (umdData.empty()) {
-			std::vector<u8> umdDataBin;
-			// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
-			// indexing an empty vector is undefined.
-			if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
-				umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
+			// A real UMD_DATA.BIN is a few dozen bytes - it's just the disc ID line matched below.
+			// Check the size first: this comes off the disc image, which is not something we trust,
+			// and ReadEntireFile has no limit of its own - it would resize a vector to whatever the
+			// image claims, and the string copy after it doubles that.
+			const s64 MAX_UMD_DATA_SIZE = 4096;
+			const PSPFileInfo info = pspFileSystem.GetFileInfo("disc0:/UMD_DATA.BIN");
+			if (info.exists && info.size > MAX_UMD_DATA_SIZE) {
+				WARN_LOG(Log::Loader, "Ignoring implausibly large UMD_DATA.BIN (%lld bytes)", (long long)info.size);
+			} else if (info.exists) {
+				std::vector<u8> umdDataBin;
+				// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
+				// indexing an empty vector is undefined.
+				if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
+					umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
+				}
 			}
 		}
 
