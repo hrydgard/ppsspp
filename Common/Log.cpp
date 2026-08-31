@@ -136,8 +136,9 @@ bool HandleAssert(bool isDebugAssert, const char *function, const char *file, in
 		const char *threadName = GetCurrentThreadName();
 		OutputDebugStringA(formatted);
 		printf("%s\n", formatted);
-		static const std::string caption = isDebugAssert ? "Debug Assert" : "Critical Assert";
-		std::wstring wcaption = ConvertUTF8ToWString(caption + " " + (threadName ? threadName : "(unknown thread)"));
+		// Not static - it'd freeze at whatever the first assert in the session was.
+		const char *caption = isDebugAssert ? "Debug Assert" : "Critical Assert";
+		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + (threadName ? threadName : "(unknown thread)"));
 		switch (MessageBox(g_dialogParent, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle)) {
 		case IDYES:
 			return true;
