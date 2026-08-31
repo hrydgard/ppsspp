@@ -371,29 +371,6 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	return false;
 }
 
-// Might be used to copy individual settings from defaulted blocks. Didn't end up using this for now.
-void ConfigSetting::CopyFromBlock(const ConfigBlock *other) {
-	_dbg_assert_(offset_ >= 0 && offset_ < other->Size());
-
-	const char *otherOwner = (const char *)other;
-	const char *thisOwner = (const char *)this;
-	switch (type_) {
-	case Type::TYPE_BOOL:   *(bool *)(thisOwner + offset_) = *(const bool *)(otherOwner + offset_); break;
-	case Type::TYPE_INT:    *(int *)(thisOwner + offset_) = *(const int *)(otherOwner + offset_); break;
-	case Type::TYPE_UINT32: *(uint32_t *)(thisOwner + offset_) = *(const uint32_t *)(otherOwner + offset_); break;
-	case Type::TYPE_UINT64: *(uint64_t *)(thisOwner + offset_) = *(const uint64_t *)(otherOwner + offset_); break;
-	case Type::TYPE_FLOAT: *(float *)(thisOwner + offset_) = *(const float *)(otherOwner + offset_); break;
-	case Type::TYPE_STRING: *(std::string *)(thisOwner + offset_) = *(const std::string *)(otherOwner + offset_); break;
-	case Type::TYPE_STRING_VECTOR: *(std::vector<std::string> *)(thisOwner + offset_) = *(const std::vector<std::string> *)(otherOwner + offset_); break;
-	case Type::TYPE_PATH:   *(Path *)(thisOwner + offset_) = *(const Path *)(otherOwner + offset_); break;
-	case Type::TYPE_TOUCH_POS: *(ConfigTouchPos *)(thisOwner + offset_) = *(const ConfigTouchPos *)(otherOwner + offset_); break;
-	case Type::TYPE_CUSTOM_BUTTON: *(ConfigCustomButton *)(thisOwner + offset_) = *(const ConfigCustomButton *)(otherOwner + offset_); break;
-	default:
-		_dbg_assert_msg_(false, "CopyFromBlock(%.*s): Unexpected setting type: %d", STR_VIEW(iniKey_), (int)type_);
-		return;
-	}
-}
-
 void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const {
 	if (!Report())
 		return;

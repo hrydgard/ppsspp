@@ -190,8 +190,6 @@ struct ConfigSetting {
 
 	bool ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const;
 
-	void CopyFromBlock(const ConfigBlock *other);
-
 	// Yes, this can be const because what's modified is not the ConfigSetting struct, but the value which is stored elsewhere.
 	// Should actually be called WriteToIni or something.
 	void WriteToIniSection(const ConfigBlock *configBlock, Section *section) const;
