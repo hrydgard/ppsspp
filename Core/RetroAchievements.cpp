@@ -1178,6 +1178,9 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 	s_game_hash = ComputePSPISOHash(blockDevice);
 	if (s_game_hash.empty()) {
 		ERROR_LOG(Log::Achievements, "Failed to hash - can't identify");
+		// Leaving this set makes IsBlockingExecution() true forever, so EmuScreen stops running
+		// the CPU and the game is frozen until restart. SetGame's equivalent path clears it too.
+		g_isIdentifying = false;
 		return;
 	}
 

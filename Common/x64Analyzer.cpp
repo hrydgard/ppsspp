@@ -195,6 +195,20 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 			info.isMemoryWrite = false;
 			break;
 
+		// The 8-bit forms land here too - (codeByte & 0xF0) == 0x80 covers 0x88..0x8B - and
+		// without them a guest sb, which the x64 JIT emits as 0x88, hit the default below and
+		// failed to decode. That left MemFault unable to skip or ignore a bad byte store the way
+		// it can a word one.
+		case MOVE_REG_TO_MEM8:
+			info.isMemoryWrite = true;
+			info.operandSizeInBytes = 1;
+			break;
+
+		case MOVE_MEM_TO_REG8:
+			info.isMemoryWrite = false;
+			info.operandSizeInBytes = 1;
+			break;
+
 		default:
 			ERROR_LOG(Log::CPU, "Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
 			return false;
@@ -249,16 +263,7 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 				return false;
 			}
 			break;
-		case 0x8a: 
-			if (info.operandSizeInBytes == 4)
-			{
-				info.operandSizeInBytes = 1;
-				break;
-			}
-			else 
-				return false;
-		case 0x8b: 
-			break; //it's OK don't need to do anything
+		// NOTE: 0x88..0x8B never reach here - they're all accessType 1, handled above.
 		default:
 			return false;
 		}

@@ -62,7 +62,9 @@ enum {
 	MOVSX_SHORT     = 0xBF, //movsx on short
 	MOVE_8BIT	    = 0xC6, //move 8-bit immediate
 	MOVE_16_32BIT   = 0xC7, //move 16 or 32-bit immediate
+	MOVE_REG_TO_MEM8 = 0x88, //move 8-bit reg to memory
 	MOVE_REG_TO_MEM = 0x89, //move reg to memory
+	MOVE_MEM_TO_REG8 = 0x8A, //move 8-bit memory to reg
 	MOVE_MEM_TO_REG = 0x8B, //move memory to reg
 	// These two opcodes are shared between MOVUPS (no mandatory prefix) and MOVSS (mandatory 0xF3 prefix).
 	MOVUPS_MOVSS_FROM_RM = 0x10, //movups/movss xmm, xmm/m

@@ -148,7 +148,10 @@ bool HandleAssert(bool isDebugAssert, const char *function, const char *file, in
 			}
 			return false;  // Break into the native debugger.
 		case IDCANCEL:
-			g_assertCancelCallback(formatted, g_assertCancelCallbackUserData);
+			// Via the helper, which null-checks. EmuScreen clears the callback when a game is
+			// unloaded, so an assert after returning to the menu was jumping through null - from
+			// the one button whose whole purpose is surviving the assert.
+			BreakIntoPSPDebugger(formatted);
 			return true;  // don't crash!
 		}
 	}
