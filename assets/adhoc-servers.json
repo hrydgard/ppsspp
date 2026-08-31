@@ -223,6 +223,17 @@
 			"data_mode": "AemuPostoffice",
 			"status_data_json": "http://185.183.157.234:8888/data.json",
 			"icon": "/favicon.ico"
+		},
+		{
+			"name": "Andexplaystream",
+			"host": "psp.andexplaystream.online",
+			"discord": "",
+			"web": "",
+			"location": "Jakarta, Indonesia",
+			"location-emoji": "🇮🇩",
+			"description": "For players looking to play any games",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://psp.andexplaystream.online/data.json"
 		}
 	]
 }
