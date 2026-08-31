@@ -66,6 +66,7 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	auto st = GetI18NCategory(I18NCat::STORE);  // Borrow "Size" from here, like GameScreen does.
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	LinearLayout *container = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(600, WRAP_CONTENT, 0.0f, UI::Gravity::G_HCENTER, Margins(10))));
 
@@ -96,7 +97,7 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		StartInstall();
 	});
 
-	Choice *runChoice = container->Add(new Choice(iz->T("Run"), ImageID("I_PLAY")));
+	Choice *runChoice = container->Add(new Choice(dev->T("Run"), ImageID("I_PLAY")));
 	runChoice->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->switchScreen(new EmuScreen(path_));
 	});
