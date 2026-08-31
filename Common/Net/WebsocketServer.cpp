@@ -493,6 +493,32 @@ bool WebSocketServer::ReadPending() {
 	return true;
 }
 
+// Which close codes we're allowed to put on the wire, per RFC 6455 7.4.1. 1004, 1005, 1006 and
+// 1015 are reserved for local use only, and anything below 1000 is undefined.
+static bool IsCloseCodeSendable(uint16_t code) {
+	if (code >= 3000 && code <= 4999) {
+		// Registered and private-use ranges.
+		return true;
+	}
+	switch ((WebSocketClose)code) {
+	case WebSocketClose::NORMAL:
+	case WebSocketClose::GOING_AWAY:
+	case WebSocketClose::PROTOCOL_ERROR:
+	case WebSocketClose::UNSUPPORTED_DATA:
+	case WebSocketClose::INVALID_DATA:
+	case WebSocketClose::POLICY_VIOLATION:
+	case WebSocketClose::MESSAGE_TOO_LONG:
+	case WebSocketClose::MISSING_EXTENSION:
+	case WebSocketClose::INTERNAL_ERROR:
+	case WebSocketClose::SERVICE_RESTART:
+	case WebSocketClose::TRY_AGAIN_LATER:
+	case WebSocketClose::BAD_GATEWAY:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool WebSocketServer::ReadControlFrame(int opcode, size_t sz) {
 	std::vector<uint8_t> payload;
 	payload.resize(sz);
@@ -522,8 +548,10 @@ bool WebSocketServer::ReadControlFrame(int opcode, size_t sz) {
 	} else if (opcode == (int)Opcode::CLOSE) {
 		if (payload.size() >= 2) {
 			uint16_t reason = (payload[0] << 8) | payload[1];
-			// Send back a close right away.
-			Close(WebSocketClose(reason));
+			// Send back a close right away - but not their code verbatim. NO_STATUS, ABNORMAL and
+			// friends describe how a connection ended locally and RFC 6455 7.4.1 says they must
+			// never go on the wire, so echoing one back would be our protocol violation, not theirs.
+			Close(IsCloseCodeSendable(reason) ? WebSocketClose(reason) : WebSocketClose::PROTOCOL_ERROR);
 		} else {
 			Close(WebSocketClose::NO_STATUS);
 		}
