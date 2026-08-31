@@ -286,7 +286,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
 		if (lmode) {
-			WRITE(p, "  vec3 v_color1: COLOR1;\n");
+			// Needs the same nointerpolation as v_color0 - in HLSL it's the PS input declaration
+			// that decides, so without it the specular term keeps interpolating when flat shading
+			// is on. Both GLSL paths already mark both.
+			WRITE(p, "  %svec3 v_color1: COLOR1;\n", colorInterpolation);
 		}
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		if (needFragCoord) {
