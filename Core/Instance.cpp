@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #endif
@@ -96,10 +97,16 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 	}
 
 	bool result = false;
-	if (mlock(buf, BUF_SIZE) == 0) {
+	// An actual advisory lock on the shm object. This used to call mlock(), which only pins
+	// pages in RAM and provides no mutual exclusion whatsoever - two instances starting at the
+	// same moment could both read the counter and come away with the same PPSSPP_ID, then both
+	// believe they were the first instance and write the config over each other.
+	if (flock(hIDMapFile, LOCK_EX) == 0) {
 		callback(buf);
-		munlock(buf, BUF_SIZE);
+		flock(hIDMapFile, LOCK_UN);
 		result = true;
+	} else {
+		ERROR_LOG(Log::sceNet, "flock(%s) failure: %s", ID_SHM_NAME, GetLastErrorMsg().c_str());
 	}
 
 	munmap(buf, BUF_SIZE);
@@ -157,7 +164,14 @@ void InitInstanceCounter() {
 #endif
 
 	bool success = UpdateInstanceCounter([](volatile InstanceInfo *buf) {
-		PPSSPP_ID = ++buf->next;
+		// The shared segment outlives the processes that used it (see the shm_unlink comment),
+		// so next keeps climbing across runs and eventually wraps this uint8_t. ID 0 is not a
+		// valid instance - it fails the IsFirstInstance() check, which quietly disables config
+		// saving - so skip past it.
+		if (++buf->next == 0) {
+			buf->next = 1;
+		}
+		PPSSPP_ID = buf->next;
 		buf->total++;
 	});
 	if (!success) {
