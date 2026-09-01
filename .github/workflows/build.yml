@@ -321,7 +321,7 @@ jobs:
       if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64'
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev
+        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
 
     - name: Install macOS SDL3 dependencies
       if: runner.os == 'macOS' && matrix.id == 'macos'
@@ -475,7 +475,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev
+        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
 
     - name: Install macOS dependencies
       if: runner.os == 'macOS'
@@ -524,7 +524,7 @@ jobs:
     steps:
     - name: Install Linux dependencies (Alpine)
       run: |
-        apk add build-base wget git bash cmake python3 glu-dev sdl3-dev sdl3_ttf-dev
+        apk add build-base wget git bash cmake python3 glu-dev sdl3-dev sdl3_ttf-dev curl-dev
 
     - uses: actions/checkout@v7
       with:

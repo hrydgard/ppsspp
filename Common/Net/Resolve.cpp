@@ -16,6 +16,12 @@
 
 #ifndef HTTPS_NOT_AVAILABLE
 #include "ext/naett/naett.h"
+// Note: PPSSPP_PLATFORM(LINUX) is also set on Android, which needs no loader.
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+// On Linux, naett goes through libcurl, which we load at runtime - so HTTPS support is
+// only known once we've tried.
+#include "ext/naett/src/naett_curl.h"
+#endif
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -44,11 +50,23 @@ void Init() {
 		_assert_(gJvm != nullptr);
 		naettInit(gJvm);
 #else
-		naettInit(NULL);
+		if (HTTPSAvailable()) {
+			naettInit(NULL);
+		}
 #endif
 #endif
 		g_naettInitialized = true;
 	}
+}
+
+bool HTTPSAvailable() {
+#ifdef HTTPS_NOT_AVAILABLE
+	return false;
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+	return naettCurlLoad() != 0;
+#else
+	return true;
+#endif
 }
 
 void Shutdown() {
