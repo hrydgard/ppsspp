@@ -165,7 +165,8 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
 
 NAETT_FILES := \
-  ${SRC}/ext/naett/naett.c
+  ${SRC}/ext/naett/src/naett_core.c \
+  ${SRC}/ext/naett/src/naett_android.c
 
 MINIMP3_FILES := \
     ${SRC}/ext/minimp3/minimp3.cpp

@@ -467,7 +467,10 @@
     <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\naett\naett.c">
+    <ClCompile Include="..\..\ext\naett\src\naett_core.c">
+      <Filter>ext\naett</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\naett\src\naett_win.c">
       <Filter>ext\naett</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp">
@@ -996,6 +999,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h">
       <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\naett\src\naett_internal.h">
+      <Filter>ext\naett</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\naett\naett.h">
       <Filter>ext\naett</Filter>
