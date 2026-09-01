@@ -7,7 +7,7 @@
 
 #ifndef HTTPS_NOT_AVAILABLE
 
-#include "ext/naett/naett.h"
+#include "ext/naett-lib/naett.h"
 
 namespace http {
 

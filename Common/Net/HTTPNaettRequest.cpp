@@ -8,7 +8,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 
-#include "ext/naett/naett.h"
+#include "ext/naett-lib/naett.h"
 
 namespace http {
 
