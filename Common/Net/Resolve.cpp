@@ -15,7 +15,7 @@
 #include "Common/Net/Resolve.h"
 
 #ifndef HTTPS_NOT_AVAILABLE
-#include "ext/naett/naett.h"
+#include "ext/naett-lib/naett.h"
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)

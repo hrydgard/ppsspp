@@ -500,8 +500,11 @@
     <ClInclude Include="Net\HTTPRequest.h">
       <Filter>Net</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\naett\naett.h">
-      <Filter>ext\naett</Filter>
+    <ClInclude Include="..\ext\naett-lib\src\naett_internal.h">
+      <Filter>ext\naett-lib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\naett-lib\naett.h">
+      <Filter>ext\naett-lib</Filter>
     </ClInclude>
     <ClInclude Include="Net\HTTPNaettRequest.h">
       <Filter>Net</Filter>
@@ -1231,8 +1234,11 @@
     <ClCompile Include="Net\HTTPRequest.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\naett\naett.c">
-      <Filter>ext\naett</Filter>
+    <ClCompile Include="..\ext\naett-lib\src\naett_core.c">
+      <Filter>ext\naett-lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\naett-lib\src\naett_win.c">
+      <Filter>ext\naett-lib</Filter>
     </ClCompile>
     <ClCompile Include="Net\HTTPNaettRequest.cpp">
       <Filter>Net</Filter>
@@ -1579,7 +1585,7 @@
     <Filter Include="ext\basis_universal">
       <UniqueIdentifier>{d6d5f6e0-1c72-496b-af11-6d52d5123033}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ext\naett">
+    <Filter Include="ext\naett-lib">
       <UniqueIdentifier>{34f45db9-5c08-49cb-b349-b9e760ce3213}</UniqueIdentifier>
     </Filter>
     <Filter Include="ext\libchdr">

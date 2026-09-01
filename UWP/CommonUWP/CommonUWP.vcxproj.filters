@@ -94,7 +94,7 @@
     <Filter Include="ext\basis_universal">
       <UniqueIdentifier>{8b92cc15-8e3e-45b1-ba80-ad39b1a9cdc8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ext\naett">
+    <Filter Include="ext\naett-lib">
       <UniqueIdentifier>{403c3154-5e8a-4da1-ba82-8f69bef25e14}</UniqueIdentifier>
     </Filter>
     <Filter Include="ext\minimp3">
@@ -467,8 +467,11 @@
     <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\naett\naett.c">
-      <Filter>ext\naett</Filter>
+    <ClCompile Include="..\..\ext\naett-lib\src\naett_core.c">
+      <Filter>ext\naett-lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\naett-lib\src\naett_win.c">
+      <Filter>ext\naett-lib</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp">
       <Filter>ext\minimp3</Filter>
@@ -997,8 +1000,11 @@
     <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h">
       <Filter>Net</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\naett\naett.h">
-      <Filter>ext\naett</Filter>
+    <ClInclude Include="..\..\ext\naett-lib\src\naett_internal.h">
+      <Filter>ext\naett-lib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\naett-lib\naett.h">
+      <Filter>ext\naett-lib</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Math\CrossSIMD.h">
       <Filter>Math</Filter>
