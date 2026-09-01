@@ -25,15 +25,6 @@
 #include "CommonWindows.h"
 #else
 #include <errno.h>
-
-// See the comment at the call site.
-static std::string StrErrorResult(char *result, const char *buf) {
-	return result ? result : "Unknown error";
-}
-
-static std::string StrErrorResult(int result, const char *buf) {
-	return result == 0 ? buf : "Unknown error";
-}
 #endif
 
 // Generic function to get last error message.
@@ -46,6 +37,21 @@ std::string GetLastErrorMsg() {
 	return GetStringErrorMsg(errno);
 #endif
 }
+
+#ifndef _WIN32
+// Fun hack by Claude: Use function overloading to deal with the two competing
+// signatures of this poorly standardized function.
+
+// selected for GNU strerror_r
+static std::string StrErrorResult(char *result, const char *buf) {
+	return result ? result : "Unknown error";
+}
+
+// selected for XSI strerror_r
+static std::string StrErrorResult(int result, const char *buf) {
+	return result == 0 ? buf : "Unknown error";
+}
+#endif
 
 std::string GetStringErrorMsg(int errCode) {
 	static const size_t buff_size = 1023;
@@ -69,9 +75,7 @@ std::string GetStringErrorMsg(int errCode) {
 #else
 	char err_str[buff_size] = {};
 
-	// strerror_r has two incompatible signatures: the XSI one returns int (0 on success and the
-	// message is in the buffer), the GNU one returns a char * that may not be the buffer at all.
-	// Which one we get depends on _GNU_SOURCE, so let overload resolution sort it out.
+	// See comment for StrErrorResult above.
 	return StrErrorResult(strerror_r(errCode, err_str, buff_size), err_str);
 #endif
 }
