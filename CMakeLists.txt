@@ -271,7 +271,20 @@ if(ANDROID)
 	set(USING_GLES2 ON)
 endif()
 
-if(NOT ANDROID AND NOT WIN32 AND (NOT APPLE OR IOS))
+# naett wraps a native HTTPS implementation per platform: WinHTTP on Windows, the Java
+# APIs on Android, NSURLSession on macOS, and libcurl elsewhere.
+if(WIN32 OR ANDROID OR (APPLE AND NOT IOS))
+	# Nothing to do, these need no external library.
+elseif(UNIX AND NOT APPLE AND NOT LIBRETRO)
+	# We only need the curl headers at build time - libcurl itself is loaded with dlopen
+	# (see ext/naett-lib/src/naett_curl.h), so it stays optional at runtime and a build made
+	# here still starts on a machine without it, just without HTTPS.
+	find_package(CURL)
+	if(NOT CURL_FOUND)
+		message(STATUS "libcurl headers not found - building without HTTPS support")
+		set(HTTPS_NOT_AVAILABLE ON)
+	endif()
+else()
 	set(HTTPS_NOT_AVAILABLE ON)
 endif()
 
