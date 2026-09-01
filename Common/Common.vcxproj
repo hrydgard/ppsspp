@@ -367,6 +367,7 @@
     <ClInclude Include="..\ext\lzma-sdk\RotateDefs.h" />
     <ClInclude Include="..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\ext\naett\naett.h" />
+    <ClInclude Include="..\ext\naett\src\naett_internal.h" />
     <ClInclude Include="..\ext\nanosvg\src\nanosvg.h" />
     <ClInclude Include="..\ext\nanosvg\src\nanosvgrast.h" />
     <ClInclude Include="..\ext\pugixml\pugiconfig.hpp" />
@@ -868,7 +869,8 @@
     <ClCompile Include="..\ext\lzma-sdk\Lzma2Dec.c" />
     <ClCompile Include="..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\ext\minimp3\minimp3.cpp" />
-    <ClCompile Include="..\ext\naett\naett.c" />
+    <ClCompile Include="..\ext\naett\src\naett_core.c" />
+    <ClCompile Include="..\ext\naett\src\naett_win.c" />
     <ClCompile Include="..\ext\pugixml\pugixml.cpp" />
     <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp" />
     <ClCompile Include="ABI.cpp" />

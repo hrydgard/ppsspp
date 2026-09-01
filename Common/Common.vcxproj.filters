@@ -500,6 +500,9 @@
     <ClInclude Include="Net\HTTPRequest.h">
       <Filter>Net</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\naett\src\naett_internal.h">
+      <Filter>ext\naett</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\naett\naett.h">
       <Filter>ext\naett</Filter>
     </ClInclude>
@@ -1231,7 +1234,10 @@
     <ClCompile Include="Net\HTTPRequest.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\naett\naett.c">
+    <ClCompile Include="..\ext\naett\src\naett_core.c">
+      <Filter>ext\naett</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\naett\src\naett_win.c">
       <Filter>ext\naett</Filter>
     </ClCompile>
     <ClCompile Include="Net\HTTPNaettRequest.cpp">
