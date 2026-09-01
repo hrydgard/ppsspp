@@ -403,7 +403,7 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 100, screenManager()));
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 1, screenManager()));
 	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
 	UI::Choice *remoteSubdir;
