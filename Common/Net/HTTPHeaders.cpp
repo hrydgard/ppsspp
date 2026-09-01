@@ -36,7 +36,7 @@ bool RequestHeader::GetParamValue(const char *param_name, std::string *value) co
 			// for that, so parts[1] would be reading off the end of the vector.
 			continue;
 		}
-		DEBUG_LOG(Log::HTTP, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
+		DEBUG_LOG(Log::HTTP, "Param: %.*s Value: %.*s", STR_VIEW(parts[0]), STR_VIEW(parts[1]));
 		if (parts[0] == param_name) {
 			*value = parts[1];
 			return true;
