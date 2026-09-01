@@ -997,6 +997,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_COMMAND:
+		if (!gpu) {
+			break;
+		}
 		switch (LOWORD(wParam)) {
 		case IDC_GEDBG_STEPDRAW:
 			gpu->SetBreakNext(GPUDebug::BreakNext::DRAW);
@@ -1074,13 +1077,18 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_TEXLEVELUP:
-			if (gpu != nullptr) {
-				UpdateTextureLevel(textureLevel_ + 1);
-				UpdatePreviews();
+			if (!gpu) {
+				break;
 			}
+			UpdateTextureLevel(textureLevel_ + 1);
+			UpdatePreviews();
 			break;
 
 		case IDC_GEDBG_RESUME:
+			if (!gpu) {
+				break;
+			}
+
 			SetupPreviews();
 			primaryWindow->Clear();
 			secondWindow->Clear();
@@ -1088,9 +1096,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
-			if (gpu) {
-				gpu->SetBreakNext(GPUDebug::BreakNext::NONE);
-			}
+			gpu->SetBreakNext(GPUDebug::BreakNext::NONE);
 			break;
 
 		case IDC_GEDBG_RECORD:
@@ -1115,21 +1121,26 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FORCEOPAQUE:
-			if (gpu) {
-				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
-				UpdatePreviews();
+			if (!gpu) {
+				break;
 			}
+			forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
+			UpdatePreviews();
 			break;
 
 		case IDC_GEDBG_SHOWCLUT:
-			if (gpu) {
-				showClut_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_SHOWCLUT), BM_GETCHECK, 0, 0) != 0;
-				UpdatePreviews();
+			if (!gpu) {
+				break;
 			}
+			showClut_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_SHOWCLUT), BM_GETCHECK, 0, 0) != 0;
+			UpdatePreviews();
 			break;
 
 		case IDC_GEDBG_SETPRIMFILTER:
 		{
+			if (!gpu) {
+				break;
+			}
 			std::string value;
 			if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim counter ranges", gpu->GetRestrictPrims(), value)) {
 				gpu->SetRestrictPrims(value.c_str());
@@ -1140,10 +1151,16 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_STEPDISPLAYLIST:
+		if (!gpu) {
+			break;
+		}
 		gpu->SetBreakNext(GPUDebug::BreakNext::OP);
 		break;
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
+		if (!gpu) {
+			break;
+		}
 		{
 			u32 pc = (u32)wParam;
 			bool temp;
@@ -1163,6 +1180,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		break;
 
 	case WM_GEDBG_RUNTOWPARAM:
+		if (!gpu) {
+			break;
+		}
 		{
 			u32 pc = (u32)wParam;
 			gpu->GetBreakpoints()->AddAddressBreakpoint(pc, true);
