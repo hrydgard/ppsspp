@@ -153,7 +153,12 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 			MOVI2R(SCRATCH1, imm);
 			addrArg.regOffset = SCRATCH1;
 			addrArg.useRegisterOffset = true;
-			addrArg.signExtendRegOffset = true;
+			// Careful: the register offset is only the W half, extended into the 64-bit base.
+			// A negative imm here is a real displacement from a pointerified register, so it
+			// has to be sign extended. A positive one may be a full 32-bit address off
+			// MEMBASEREG with the top bit set, which we un-sign-extended above - SXTW would
+			// just make it negative again and point us ~2GB below the memory view.
+			addrArg.signExtendRegOffset = imm < 0;
 		}
 	}
 
