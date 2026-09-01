@@ -1193,7 +1193,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
-		return !g_Config.bDisableHTTPS;
+		// On Linux this also depends on whether libcurl could be loaded.
+		return !g_Config.bDisableHTTPS && net::HTTPSAvailable();
 #endif
 case SYSPROP_HAS_FOLDER_BROWSER:
 case SYSPROP_HAS_FILE_BROWSER:
