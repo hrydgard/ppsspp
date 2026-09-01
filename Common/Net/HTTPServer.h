@@ -22,6 +22,10 @@ private:
 	struct Worker {
 		std::thread thread;
 		// Set by the worker as its last act, read by whoever calls Run() next.
+		// It does look a bit fragile with the atomic inside a shared_ptr, but the way
+		// this is used, it should be fine. The atomic is only used to signal that the thread
+		// is done, and the shared_ptr is only used to keep the atomic alive until
+		// the thread is joined.
 		std::shared_ptr<std::atomic<bool>> done;
 	};
 	std::vector<Worker> workers_;
