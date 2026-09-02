@@ -740,8 +740,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
 
-		// Turn off texture replacement for this texture.
+		// Turn off texture replacement for this texture. Both of these need to be reset, GetMipSize
+		// dereferences plan.replaced if doReplace is still set.
 		plan.replaced = nullptr;
+		plan.doReplace = false;
 
 		plan.createW /= plan.scaleFactor;
 		plan.createH /= plan.scaleFactor;
