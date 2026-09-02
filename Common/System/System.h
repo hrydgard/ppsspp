@@ -46,12 +46,15 @@ enum {
 
 enum class LaunchUrlType {
 	BROWSER_URL,
+	MARKET_URL,
 	EMAIL_ADDRESS,
 	LOCAL_FILE,
 	LOCAL_FOLDER,  // Shows the folder. Not supported on all systems of course.
 };
 
 void System_Vibrate(int length_ms);
+void System_ControllerRumbleStart(int deviceIndex);
+void System_ControllerRumbleStop(int deviceIndex);
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url);
 
 // It's sometimes a little unclear what should be a request, and what should be a separate function.

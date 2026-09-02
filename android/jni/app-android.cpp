@@ -280,9 +280,27 @@ void System_Vibrate(int length_ms) {
 	PushCommand("vibrate", temp);
 }
 
+// Software-side controller haptic feedback. Parameter "1" = start vibration,
+// "0" = stop. Device index is 0-based (all pads currently map to pad 0 in
+// PPSSPP's Android input layer, so this targets the active game controller).
+// The actual vibration is performed in Java so it works with Bluetooth and USB
+// controllers alike via InputDevice.getVibrator().
+void System_ControllerRumbleStart(int deviceIndex) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "1,%d", deviceIndex);
+	PushCommand("controllerRumble", temp);
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "0,%d", deviceIndex);
+	PushCommand("controllerRumble", temp);
+}
+
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
+	case LaunchUrlType::MARKET_URL: PushCommand("launchMarket", url); break;
 	case LaunchUrlType::EMAIL_ADDRESS: PushCommand("launchEmail", url); break;
 	// Can't really support the below well on Android...
 	case LaunchUrlType::LOCAL_FOLDER: break;

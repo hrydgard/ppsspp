@@ -659,6 +659,14 @@ void System_Vibrate(int mode) {
 	}
 }
 
+void System_ControllerRumbleStart(int deviceIndex) {
+	(void)deviceIndex;
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	(void)deviceIndex;
+}
+
 AudioBackend *System_CreateAudioBackend() {
 	// Use legacy mechanisms.
 	return nullptr;

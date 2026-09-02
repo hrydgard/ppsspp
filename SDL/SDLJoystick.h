@@ -14,6 +14,8 @@ public:
 
 	void registerEventHandler();
 	void ProcessInput(const SDL_Event &event);
+	static void Rumble(int padIndex, bool start);
+	void syncControllerMirror();
 
 private:
 	void setUpController(SDL_JoystickID deviceID);
@@ -23,6 +25,7 @@ private:
 
 	bool registeredAsEventHandler;
 	std::vector<SDL_Gamepad *> controllers;
+	static std::vector<SDL_Gamepad *> g_sdlJoystickControllers;
 	std::map<int, int> controllerDeviceMap;
 
 	// Deduplicate axis events. Pair is device, axis.

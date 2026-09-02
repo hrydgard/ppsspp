@@ -29,6 +29,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.MediaStore;
@@ -1487,9 +1488,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 					return false;
 				}
 			} else {
-				// Don't need a separate launchMarket, can just use launchBrowser with a market:
-				// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
-				// http://developer.android.com/guide/publishing/publishing.html#marketintent
 				try {
 					Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
 					startActivity(i);
@@ -1594,6 +1592,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				Log.e(TAG, e.toString());
 				return false;
 			}
+		} else if (command.equals("launchMarket")) {
+			// Don't need this, can just use launchBrowser with a market:
+			// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
+			// http://developer.android.com/guide/publishing/publishing.html#marketintent
+			return false;
 		} else if (command.equals("toast")) {
 			Toast toast = Toast.makeText(this, params, Toast.LENGTH_LONG);
 			toast.show();
@@ -1657,15 +1660,58 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 						default:
 							// Requires the vibrate permission, which we don't have, so disabled.
 							break;
+						}
+					} catch (Exception e) {
+						// Ignore. Seen these in reporting but don't understand how.
+					}
+				} else {
+					Log.e(TAG, "Can't vibrate, no surface view");
+				}
+				return true;
+			} else if (command.equals("controllerRumble")) {
+				// Software-side controller haptic feedback, requested by the emulator core
+				// when the "Vibrate controller on button press" option is enabled.
+				// Params: "1,<deviceIndex>" = start, "0,<deviceIndex>" = stop. PPSSPP maps
+				// every connected game controller to DEVICE_ID_PAD_0, so we rumble all
+				// registered pad states. The Android InputDevice Vibrator handles both
+				// Bluetooth and USB gamepads. createRumble() is a hidden API (public on
+				// API 36+ only), so we call it through reflection and fall back to a strong
+				// one-shot waveform effect if unavailable.
+				try {
+					boolean start = params != null && params.startsWith("1");
+					for (int i = 0; i < inputPlayers.size(); i++) {
+						InputDeviceState s = inputPlayers.get(i);
+						if (s != null && s.getDevice() != null && s.getDevice().getId() >= 0) {
+							android.os.Vibrator v = s.getDevice().getVibrator();
+							if (v == null || !v.hasVibrator()) {
+								continue;
+							}
+							if (start) {
+								VibrationEffect effect = null;
+								try {
+									effect = (VibrationEffect) VibrationEffect.class
+										.getMethod("createRumble", int.class, int.class, int.class)
+										.invoke(null, 255, 255, VibrationEffect.DEFAULT_AMPLITUDE);
+								} catch (Exception e1) {
+									try {
+										effect = VibrationEffect.createWaveform(new long[]{0, 50, 50}, new int[]{0, 255, 0}, 0);
+									} catch (Exception e2) {
+										effect = null;
+									}
+								}
+								if (effect != null) {
+									v.vibrate(effect);
+								}
+							} else {
+								v.cancel();
+							}
+						}
 					}
 				} catch (Exception e) {
-					// Ignore. Seen these in reporting but don't understand how.
+					// Vibrator effects require API 26+; ignore on older devices.
 				}
-			} else {
-				Log.e(TAG, "Can't vibrate, no surface view");
-			}
-			return true;
-		} else if (command.equals("finish")) {
+				return true;
+			} else if (command.equals("finish")) {
 			Log.i(TAG, "Setting shuttingDown = true and calling Finish");
 			shuttingDown = true;
 			finish();

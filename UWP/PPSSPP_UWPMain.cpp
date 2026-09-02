@@ -668,7 +668,12 @@ std::vector<std::string> System_GetCameraDeviceList() {
 
 void System_Vibrate(int length_ms) {
 }
-
+void System_ControllerRumbleStart(int deviceIndex) {
+	(void)deviceIndex;
+}
+void System_ControllerRumbleStop(int deviceIndex) {
+	(void)deviceIndex;
+}
 void System_AskForPermission(SystemPermission permission) {
 }
 

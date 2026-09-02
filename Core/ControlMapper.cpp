@@ -7,6 +7,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 
+#include "Common/System/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
@@ -615,6 +616,22 @@ bool ControlMapper::Key(const KeyInput &key) {
 	KeyMap::LockMappings();
 	bool retval = UpdatePSPState(mapping, now);
 	KeyMap::UnlockMappings();
+
+	// Software-side controller haptic feedback: refined "click and vibrate".
+	if (g_Config.bControllerButtonRumble &&
+		key.deviceId >= DEVICE_ID_PAD_0 && key.deviceId <= DEVICE_ID_PAD_9) {
+		const int padIndex = (int)key.deviceId - DEVICE_ID_PAD_0;
+		const int k = key.keyCode;
+		const bool isDpad = (k >= 19 && k <= 22);
+		if (k != 0 && !isDpad) {
+			if (key.flags & KeyInputFlags::DOWN) {
+				System_ControllerRumbleStart(padIndex);
+			} else if (key.flags & KeyInputFlags::UP) {
+				System_ControllerRumbleStop(padIndex);
+			}
+		}
+	}
+
 	return retval;
 }
 
@@ -683,10 +700,7 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 		if (deviceIndex < (size_t)DEVICE_ID_COUNT) {
 			deviceTimestamps_[deviceIndex] = now;
 		}
-		// Same as deviceId above, axisId comes straight from the device and can be out of range.
-		if ((size_t)axis.axisId < JOYSTICK_AXIS_MAX) {
-			rawAxisValue_[axis.axisId] = axis.value;  // these are only used for co-axis mapping
-		}
+		rawAxisValue_[axis.axisId] = axis.value;  // these are only used for co-axis mapping
 		if (axis.value >= 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, 1);
 			InputMapping opposite(axis.deviceId, axis.axisId, -1);
@@ -834,11 +848,6 @@ void ControlMapper::GetDebugString(StringWriter &w) const {
 	}
 	w.F("Lstick: %f, %f\n", converted_[0][0], converted_[0][1]);
 	w.F("Rstick: %f, %f\n", converted_[1][0], converted_[1][1]);
-}
-
-void ControlMapper::AddListener(ControlListener *listener) {
-	std::lock_guard<std::mutex> guard(mutex_);
-	listeners_.push_back(listener);
 }
 
 void ControlMapper::RemoveListener(ControlListener *listener) {

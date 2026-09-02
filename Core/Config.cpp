@@ -234,7 +234,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FileLogging", SETTING(g_Config, bEnableFileLogging), false, CfgFlag::PER_GAME),
 	ConfigSetting("AutoRun", SETTING(g_Config, bAutoRun), true, CfgFlag::DEFAULT),
 	ConfigSetting("IgnoreBadMemAccess", SETTING(g_Config, bIgnoreBadMemAccess), true, CfgFlag::DEFAULT),
-	ConfigSetting("EnableFPUExceptionTraps", SETTING(g_Config, bEnableFPUExceptionTraps), false, CfgFlag::DEFAULT),
 	ConfigSetting("CurrentDirectory", SETTING(g_Config, currentDirectory), "", CfgFlag::DEFAULT),
 	ConfigSetting("ShowDebuggerOnLoad", SETTING(g_Config, bShowDebuggerOnLoad), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowImDebugger", SETTING(g_Config, bShowImDebugger), false, CfgFlag::DONT_SAVE),
@@ -946,6 +945,7 @@ static const ConfigSetting touchControlSettings[] = {
 
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
+	ConfigSetting("ControllerButtonRumble", SETTING(g_Config, bControllerButtonRumble), false, CfgFlag::PER_GAME),
 	
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),
@@ -1382,14 +1382,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Load post process shader values
 	mPostShaderSetting.clear();
 	for (const auto &[key, value] : postShaderSetting->ToMap()) {
-		// The ini is user-editable, and std::stof throws - which would take the process down
-		// during startup config load. LoadGameConfig already parses this section this way.
-		float f = 0.0f;
-		if (sscanf(value.c_str(), "%f", &f) == 1) {
-			mPostShaderSetting[key] = f;
-		} else {
-			WARN_LOG(Log::Config, "Invalid float value string for param %s: '%s'", key.c_str(), value.c_str());
-		}
+		mPostShaderSetting[key] = std::stof(value);
 	}
 
 	const Section *hostOverrideSetting = iniFile.GetOrCreateSection("HostAliases");
@@ -1962,12 +1955,7 @@ void Config::UnloadGameConfig() {
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
 	for (const auto &[k, v] : postShaderSetting) {
-		float f = 0.0f;
-		if (sscanf(v.c_str(), "%f", &f) == 1) {
-			mPostShaderSetting[k] = f;
-		} else {
-			WARN_LOG(Log::Config, "Invalid float value string for param %s: '%s'", k.c_str(), v.c_str());
-		}
+		mPostShaderSetting[k] = std::stof(v);
 	}
 
 	auto postShaderChain = iniFile.GetOrCreateSection("PostShaderList")->ToMap();
