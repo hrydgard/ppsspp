@@ -329,15 +329,18 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	tag = fs->GetID().Description() + " VS " + vs->GetID().Description();
 #endif
 
-	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, sampleCount, cacheLoad, tag.c_str());
-
-	vulkanPipeline->pipeline = pipeline;
+	// These need to be set before creating the pipeline - the render manager checks the flags against
+	// the render pass type of the pipeline's variants.
 	if (useBlendConstant) {
 		pipelineFlags |= PipelineFlags::USES_BLEND_CONSTANT;
 	}
 	if (dss.depthTestEnable || dss.stencilTestEnable) {
 		pipelineFlags |= PipelineFlags::USES_DEPTH_STENCIL;
 	}
+
+	VKRGraphicsPipeline *pipeline = renderManager->CreateGraphicsPipeline(desc, pipelineFlags, variantBitmask, sampleCount, cacheLoad, tag.c_str());
+
+	vulkanPipeline->pipeline = pipeline;
 	vulkanPipeline->pipelineFlags = pipelineFlags;
 	return vulkanPipeline;
 }
