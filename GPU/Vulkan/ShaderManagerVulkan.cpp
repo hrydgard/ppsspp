@@ -82,8 +82,9 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-			delete tag;
 		}
+		// We take ownership of the tag, so delete it whether we got here through success or failure.
+		delete tag;
 		return shaderModule;
 	};
 

@@ -532,7 +532,7 @@ std::string VulkanPipelineKey::GetRasterStateDesc(bool lineBreaks) const {
 		if (raster.blendOpAlpha != VK_BLEND_OP_ADD ||
 			raster.srcAlpha != VK_BLEND_FACTOR_ONE ||
 			raster.destAlpha != VK_BLEND_FACTOR_ZERO) {
-			str.C("A:").W(blendOps[raster.blendOpAlpha]).C("/").W(blendFactors[raster.srcColor]).C(":").W(blendFactors[raster.destColor]).W(" ");
+			str.C("A:").W(blendOps[raster.blendOpAlpha]).C("/").W(blendFactors[raster.srcAlpha]).C(":").W(blendFactors[raster.destAlpha]).W(" ");
 		}
 		str.C(") ");
 		if (lineBreaks) str.endl();
