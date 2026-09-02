@@ -10,7 +10,7 @@ Add and/or translate a PPSSPP UI string.
 - English string: `$3` - if this is empty, the key already exists in `assets/lang/en_US.ini` and
   you're only filling in the languages where it's still untranslated.
 
-Follow the workflow in AGENTS.md under "Translated UI strings (assets/lang)". Run langtool from
+Follow the workflow in docs/translations.md. Run langtool from
 `Tools/langtool`:
 
 1. **Work out what the string actually means before translating it.** This is the part the tool's
