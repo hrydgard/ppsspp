@@ -28,6 +28,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Compatibility.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Debugger/MemBlockInfo.h"
 
 #include "Core/HLE/scePower.h"
@@ -61,6 +62,15 @@ const int numberOfCBPowerSlotsPrivate = 32;
 static bool volatileMemLocked;
 static int powerCbSlots[numberOfCBPowerSlots];
 static std::vector<VolatileWaitingThread> volatileWaitingThreads;
+
+struct KernelSuspendHandler {
+	u32 handler;
+	u32 parameter;
+	u32 gp;
+};
+
+static KernelSuspendHandler kernelSuspendHandlers[32];
+static KernelSuspendHandler kernelResumeHandlers[32];
 
 // Should this belong here, or in CoreTiming?
 static int RealpllFreq = 222000000;
@@ -121,6 +131,8 @@ int PowerBusMhzToHz(int mhz) {
 
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
+	memset(kernelSuspendHandlers, 0, sizeof(kernelSuspendHandlers));
+	memset(kernelResumeHandlers, 0, sizeof(kernelResumeHandlers));
 
 	volatileMemLocked = false;
 	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08400000, 0x400000, "Volatile memory (not locked)");
@@ -141,7 +153,7 @@ void __PowerInit() {
 }
 
 void __PowerDoState(PointerWrap &p) {
-	auto s = p.Section("scePower",1,2);
+	auto s = p.Section("scePower",1,3);
 	if (!s)
 		return;
 
@@ -168,6 +180,49 @@ void __PowerDoState(PointerWrap &p) {
 	DoArray(p, powerCbSlots, ARRAY_SIZE(powerCbSlots));
 	Do(p, volatileMemLocked);
 	Do(p, volatileWaitingThreads);
+	if (s >= 3) {
+		DoArray(p, kernelSuspendHandlers, ARRAY_SIZE(kernelSuspendHandlers));
+		DoArray(p, kernelResumeHandlers, ARRAY_SIZE(kernelResumeHandlers));
+	} else if (p.mode == p.MODE_READ) {
+		memset(kernelSuspendHandlers, 0, sizeof(kernelSuspendHandlers));
+		memset(kernelResumeHandlers, 0, sizeof(kernelResumeHandlers));
+	}
+}
+
+static int RegisterKernelSuspendHandler(KernelSuspendHandler *handlers, int slot, u32 handler, u32 parameter, const char *kind) {
+	if (slot < 0 || slot >= 32)
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "%s slot=%d", kind, slot);
+	if (handler != 0 && !Memory::IsValid4AlignedAddress(handler))
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "%s handler=%08x", kind, handler);
+	handlers[slot] = {handler, parameter, currentMIPS->r[MIPS_REG_GP]};
+	return hleLogDebug(Log::sceKernel, 0, "%s slot=%d handler=%08x param=%08x", kind, slot, handler, parameter);
+}
+
+static int sceKernelRegisterSuspendHandler(int slot, u32 handler, u32 parameter) {
+	return RegisterKernelSuspendHandler(kernelSuspendHandlers, slot, handler, parameter, "suspend");
+}
+
+static int sceKernelRegisterResumeHandler(int slot, u32 handler, u32 parameter) {
+	return RegisterKernelSuspendHandler(kernelResumeHandlers, slot, handler, parameter, "resume");
+}
+
+static int DispatchKernelSuspendHandlers(KernelSuspendHandler *handlers, bool reverse, int argument) {
+	for (int step = 0; step < 32; ++step) {
+		const int index = reverse ? 31 - step : step;
+		if (handlers[index].handler != 0) {
+			const u32 args[2] = {(u32)argument, handlers[index].parameter};
+			hleEnqueueCallWithGP(handlers[index].handler, handlers[index].gp, ARRAY_SIZE(args), args);
+		}
+	}
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
+static int sceKernelDispatchSuspendHandlers(int argument) {
+	return DispatchKernelSuspendHandlers(kernelSuspendHandlers, false, argument);
+}
+
+static int sceKernelDispatchResumeHandlers(int argument) {
+	return DispatchKernelSuspendHandlers(kernelResumeHandlers, true, argument);
 }
 
 static int scePowerGetBatteryLifePercent() {
@@ -208,7 +263,7 @@ static int scePowerIsSuspendRequired() {
 	return hleLogDebug(Log::HLE, 0);
 }
 
-static int scePowerCancelRequest(u32 something) {
+static int scePowerCancelRequest() {
 	return hleLogError(Log::sceMisc, 0, "UNIMPL");
 }
 
@@ -600,7 +655,7 @@ static const HLEFunction scePower[] = {
 	{0X165CE085, nullptr,                                     "scePowerGetPowerSwMode",            '?', ""   },
 	{0XD6D016EF, nullptr,                                     "scePowerLock",                      '?', ""   },
 	{0XCA3D34C1, nullptr,                                     "scePowerUnlock",                    '?', ""   },
-	{0XDB62C9CF, &WrapI_U<scePowerCancelRequest>,             "scePowerCancelRequest",             'i', ""   },
+	{0XDB62C9CF, &WrapI_V<scePowerCancelRequest>,             "scePowerCancelRequest",             'i', ""   },
 	{0X7FA406DD, nullptr,                                     "scePowerIsRequest",                 '?', ""   },
 	{0X2B7C7CF4, &WrapI_V<scePowerRequestStandby>,            "scePowerRequestStandby",            'I', ""   },
 	{0XAC32C9CC, &WrapI_V<scePowerRequestSuspend>,            "scePowerRequestSuspend",            'I', ""   },
@@ -646,6 +701,10 @@ const HLEFunction sceSuspendForUser[] = {
 	{0XA14F40B2, &WrapI_IUU<sceKernelVolatileMemTryLock>,     "sceKernelVolatileMemTryLock",       'i', "ixx"},
 	{0XA569E425, &WrapI_I<sceKernelVolatileMemUnlock>,        "sceKernelVolatileMemUnlock",        'i', "i"  },
 	{0X3E0271D3, &WrapI_IUU<sceKernelVolatileMemLock>,        "sceKernelVolatileMemLock",          'i', "ixx"},
+	{0X91A77137, &WrapI_IUU<sceKernelRegisterSuspendHandler>, "sceKernelRegisterSuspendHandler",  'i', "ixx", HLE_KERNEL_SYSCALL },
+	{0XB43D1A8C, &WrapI_IUU<sceKernelRegisterResumeHandler>,  "sceKernelRegisterResumeHandler",   'i', "ixx", HLE_KERNEL_SYSCALL },
+	{0X8F58B1EC, &WrapI_I<sceKernelDispatchSuspendHandlers>,  "sceKernelDispatchSuspendHandlers", 'i', "i",   HLE_KERNEL_SYSCALL },
+	{0X0AB0C6F3, &WrapI_I<sceKernelDispatchResumeHandlers>,   "sceKernelDispatchResumeHandlers",  'i', "i",   HLE_KERNEL_SYSCALL },
 };
 
 
@@ -666,9 +725,24 @@ static int scePowerSetWakeupCondition(u32 condition) {
 	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
 }
 
+static int scePowerDriverNoop() {
+	return hleLogDebug(Log::sceMisc, 0);
+}
+
 const HLEFunction scePower_driver[] = {
 	{0X5F5006D2, &WrapI_V<scePower_driver_5F5006D2>,          "scePower_driver_5F5006D2",          'i', ""   },
 	{0XBA566CD0, &WrapI_U<scePowerSetWakeupCondition>,        "scePowerSetWakeupCondition",        'i', "x"  },
+	{0X1BA2FCAE, &WrapI_V<scePowerDriverNoop>,                "scePowerSetIdleCallback",          'i', ""   },
+	{0X2509FF3B, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_2509FF3B",         'i', ""   },
+	{0X31AEA94C, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_31AEA94C",         'i', ""   },
+	{0X5C1333B7, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_5C1333B7",         'i', ""   },
+	{0X7A9EA6DE, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_7A9EA6DE",         'i', ""   },
+	{0X872F4ECE, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_872F4ECE",         'i', ""   },
+	{0X88C79735, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_88C79735",         'i', ""   },
+	{0X8C873AA7, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_8C873AA7",         'i', ""   },
+	{0XFA651CE1, &WrapI_V<scePowerDriverNoop>,                "scePower_driver_FA651CE1",         'i', "", HLE_KERNEL_SYSCALL },
+	{0X766CD857, &WrapI_II<scePowerRegisterCallback>,          "scePowerRegisterCallback",         'i', "ii", HLE_KERNEL_SYSCALL },
+	{0X315B8CB6, &WrapI_I<scePowerUnregisterCallback>,         "scePowerUnregisterCallback",       'i', "i",  HLE_KERNEL_SYSCALL },
 };
 
 void Register_scePower_driver() {
@@ -677,4 +751,5 @@ void Register_scePower_driver() {
 
 void Register_sceSuspendForUser() {
 	RegisterHLEModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
+	RegisterHLEModule("sceSuspendForKernel", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }

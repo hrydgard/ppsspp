@@ -38,6 +38,10 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
 void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int microSeconds);
 
+// Installs the exact-firmware native Savedata name helpers before the module
+// starts, independently of Sony's selected Savedata parameter ABI class.
+bool __IoInstallNativeSavedataNameFix(const char *moduleName, u32 moduleCrc, u32 moduleText);
+
 KernelObject *__KernelFileNodeObject();
 KernelObject *__KernelDirListingObject();
 

@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Common/Serialize/Serializer.h"
 
 #include "Common/Serialize/SerializeFuncs.h"
@@ -23,6 +25,7 @@
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
@@ -31,10 +34,79 @@
 
 // g_audioDecoderContexts is to store current playing audios.
 std::map<u32, AudioDecoder *> g_audioDecoderContexts;
+static u32 g_audioCodecTraceCounts[4]{};
 
 static bool oldStateLoaded = false;
 
 static_assert(sizeof(SceAudiocodecCodec) == 128);
+
+struct Mp3FrameInfo {
+	int frameBytes = 0;
+	int samplesPerChannel = 0;
+	int sampleRate = 0;
+	int bitrateIndex = 0;
+	int sampleRateIndex = 0;
+	int type = 0;
+};
+
+static bool ParseMp3FrameHeader(u32 header, Mp3FrameInfo *info) {
+	if ((header & 0xFFE00000) != 0xFFE00000) {
+		return false;
+	}
+	const int version = (header >> 19) & 3;
+	const int layer = (header >> 17) & 3;
+	const int bitrateIndex = (header >> 12) & 15;
+	const int sampleRateIndex = (header >> 10) & 3;
+	const int padding = (header >> 9) & 1;
+	if (version == 1 || layer != 1 || bitrateIndex == 0 || bitrateIndex == 15 || sampleRateIndex == 3) {
+		return false;
+	}
+
+	static constexpr int mpeg1Bitrates[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 };
+	static constexpr int mpeg2Bitrates[] = { 0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160 };
+	static constexpr int mpeg1Rates[] = { 44100, 48000, 32000 };
+	const int rateDivisor = version == 3 ? 1 : version == 2 ? 2 : 4;
+	const int sampleRate = mpeg1Rates[sampleRateIndex] / rateDivisor;
+	const int bitrate = (version == 3 ? mpeg1Bitrates[bitrateIndex] : mpeg2Bitrates[bitrateIndex]) * 1000;
+	const int samplesPerChannel = version == 3 ? 1152 : 576;
+	const int frameBytes = (version == 3 ? 144 : 72) * bitrate / sampleRate + padding;
+	if (frameBytes <= 4) {
+		return false;
+	}
+
+	info->frameBytes = frameBytes;
+	info->samplesPerChannel = samplesPerChannel;
+	info->sampleRate = sampleRate;
+	info->bitrateIndex = bitrateIndex;
+	info->sampleRateIndex = sampleRateIndex;
+	info->type = version == 0 ? 2 : version == 2 ? 0 : 1;
+	return true;
+}
+
+static bool FindMp3Frame(u32 address, int availableBytes, int *prefixBytes, Mp3FrameInfo *info) {
+	if (availableBytes < 4 || !Memory::IsValidRange(address, availableBytes)) {
+		return false;
+	}
+	for (int offset = 0; offset <= availableBytes - 4; ++offset) {
+		const u32 header = (u32)Memory::ReadUnchecked_U8(address + offset) << 24 |
+			(u32)Memory::ReadUnchecked_U8(address + offset + 1) << 16 |
+			(u32)Memory::ReadUnchecked_U8(address + offset + 2) << 8 |
+			(u32)Memory::ReadUnchecked_U8(address + offset + 3);
+		Mp3FrameInfo candidate;
+		if (ParseMp3FrameHeader(header, &candidate) && candidate.frameBytes <= availableBytes - offset) {
+			*prefixBytes = offset;
+			*info = candidate;
+			return true;
+		}
+	}
+	return false;
+}
+
+static void ApplyMp3FrameInfo(SceAudiocodecCodec *ctx, const Mp3FrameInfo &info) {
+	ctx->mp3_9999 = info.type;
+	ctx->mp3_9 = info.bitrateIndex;
+	ctx->mp3_0 = info.sampleRateIndex;
+}
 
 // Atrac3+ (0x1000) frame sizes, and control bytes
 //
@@ -118,6 +190,7 @@ static void clearDecoders() {
 		delete decoder;
 	}
 	g_audioDecoderContexts.clear();
+	std::fill_n(g_audioCodecTraceCounts, ARRAY_SIZE(g_audioCodecTraceCounts), 0);
 }
 
 void __AudioCodecInit() {
@@ -136,9 +209,10 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_OUT_OF_RANGE, "Invalid codec");
 	}
 
-	if (removeDecoder(ctxPtr)) {
-		WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
-	}
+	AudioDecoder *existingDecoder = findDecoder(ctxPtr);
+	const bool reuseDecoder = existingDecoder && existingDecoder->GetAudioType() == audioType;
+	if (existingDecoder && !reuseDecoder)
+		removeDecoder(ctxPtr);
 
 	// Initialize the codec memory.
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
@@ -147,6 +221,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 
 	int bytesPerFrame = 0;
 	int channels = 2;
+	int sampleRate = 44100;
 
 	uint8_t extraData[14]{};
 
@@ -154,14 +229,26 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	// Special actions for some codecs.
 	switch (audioType) {
 	case PSP_CODEC_MP3:
-		// Not seeing inited in Kurok (homebrew)
-		// _dbg_assert_(ctx->inited == 1);
-		ctx->mp3_9999 = 9999;
+	{
+		int prefixBytes = 0;
+		Mp3FrameInfo info;
+		if (FindMp3Frame(ctx->inBuf, ctx->formatOutSamples, &prefixBytes, &info)) {
+			ApplyMp3FrameInfo(ctx, info);
+			sampleRate = info.sampleRate;
+		}
+	}
+		// Offset 0x38 is populated from the MPEG header by GetInfo/decode. Do
+		// not seed it with a sentinel: VSH uses it to select 0x900/0x1200
+		// decoded output bytes.
 		break;
 	case PSP_CODEC_AAC:
 		// AAC / mp4
 		// offsets 40-42 are a 24-bit LE number specifying the sample rate. It's 32000, 44100 or 48000.
 		// neededMem has been set to 0x18f20.
+		sampleRate = ctx->formatOutSamples & 0x00FFFFFF;
+		if (sampleRate < 8000 || sampleRate > 96000) {
+			sampleRate = 44100;
+		}
 		break;
 	case PSP_CODEC_AT3PLUS:
 		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
@@ -185,10 +272,17 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		break;
 	}
 
+	if (reuseDecoder) {
+		// Sony's VSH music player reissues Init for each MP3 access unit. The ME
+		// decoder and its Layer III bit reservoir remain alive until the work area
+		// is reconfigured/released; destroying it here produces a click every frame.
+		return hleLogVerbose(Log::ME, 0, "reusing codec %04x context", codec);
+	}
+
 	// Create audio decoder for given audio codec and push it into AudioList
 	INFO_LOG(Log::ME, "sceAudioDecoder: Creating codec with %04x frame size and %d channels, codec %04x", bytesPerFrame, channels, codec);
 	// We send in extra data with all codec, most ignore it.
-	AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, bytesPerFrame, extraData, sizeof(extraData));
+	AudioDecoder *decoder = CreateAudioDecoder(audioType, sampleRate, channels, bytesPerFrame, extraData, sizeof(extraData));
 	decoder->SetCtxPtr(ctxPtr);
 	g_audioDecoderContexts[ctxPtr] = decoder;
 	return hleLogDebug(Log::ME, 0);
@@ -219,22 +313,75 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 
 	int bytesPerFrame = 0;
 	int channels = 2;
-	int sampleRate = 0;
+	int sampleRate = 44100;
+	u32 inputAddress = ctx->inBuf;
+	int inputPrefixBytes = 0;
+	Mp3FrameInfo mp3Info;
 
 	switch (codec) {
-	case PSP_CODEC_AT3PLUS:
-		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
+	case PSP_CODEC_AT3PLUS: {
+		// Native/Jpcsp work-area semantics. Offset 0x30 selects a raw frame
+		// or a 0x100A-byte container packet; offset 0x40 supplies raw size-2.
+		if (ctx->unk48 == 0 && ctx->unk64 > 0) {
+			bytesPerFrame = ctx->unk64 + 2;
+		} else if (ctx->unk48 != 0) {
+			bytesPerFrame = 0x100A;
+		} else {
+			CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
+		}
+		// PSMF ATRAC3+ access units carry an eight-byte 0x0FD0 frame header.
+		if (Memory::IsValidRange(inputAddress, 8) && Memory::ReadUnchecked_U8(inputAddress) == 0x0F &&
+			Memory::ReadUnchecked_U8(inputAddress + 1) == 0xD0) {
+			const int header = ((int)Memory::ReadUnchecked_U8(inputAddress + 2) << 8) | Memory::ReadUnchecked_U8(inputAddress + 3);
+			bytesPerFrame = (header & 0x3FF) << 3;
+			inputAddress += 8;
+		}
 		break;
+	}
 	case PSP_CODEC_MP3:
-		bytesPerFrame = ctx->srcBytesRead;
+		if (FindMp3Frame(inputAddress, ctx->formatOutSamples, &inputPrefixBytes, &mp3Info)) {
+			inputAddress += inputPrefixBytes;
+			bytesPerFrame = mp3Info.frameBytes;
+			sampleRate = mp3Info.sampleRate;
+			ApplyMp3FrameInfo(ctx, mp3Info);
+		} else {
+			bytesPerFrame = ctx->formatOutSamples;
+		}
 		break;
 	case PSP_CODEC_AAC:
-		bytesPerFrame = ctx->srcBytesRead;
-		sampleRate = ctx->formatOutSamples;
+		sampleRate = ctx->formatOutSamples & 0x00FFFFFF;
+		if (sampleRate < 8000 || sampleRate > 96000) {
+			sampleRate = 44100;
+		}
+		bytesPerFrame = ctx->unk44 == 0 ? 0x600 : 0x609;
 		break;
 	case PSP_CODEC_AT3:
-		bytesPerFrame = 384;
+		switch (ctx->formatOutSamples) {
+		case 0x04: bytesPerFrame = 0x180; break;
+		case 0x06: bytesPerFrame = 0x130; break;
+		case 0x0B: bytesPerFrame = 0x0C0; break;
+		case 0x0E: bytesPerFrame = 0x0C0; break;
+		case 0x0F: bytesPerFrame = 0x098; channels = 1; break;
+		default: bytesPerFrame = 0x180; break;
+		}
 		break;
+	}
+	const int outputCapacity = [&]() {
+		switch (codec) {
+		case PSP_CODEC_AT3PLUS:
+			return ctx->mp3_9999 == 1 && ctx->mp3_0 != ctx->mp3_9999 ? 0x2000 : (ctx->mp3_0 > 0 ? ctx->mp3_0 << 12 : 0x2000);
+		case PSP_CODEC_AT3: return 0x1000;
+		case PSP_CODEC_MP3: return ctx->mp3_9999 == 1 ? 0x1200 : 0x900;
+		case PSP_CODEC_AAC: return ctx->unk45 == 0 ? 0x1000 : 0x2000;
+		default: return 0x1000;
+		}
+	}();
+	ctx->dstSamplesWritten = 0;
+	if (bytesPerFrame <= 0 || !Memory::IsValidRange(inputAddress, bytesPerFrame) ||
+		!Memory::IsValidRange(ctx->outBuf, outputCapacity)) {
+		ctx->err = 0x20B;
+		return hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA,
+			"codec=%s input=%08x/%x output=%08x/%x", GetCodecName(codec), inputAddress, bytesPerFrame, ctx->outBuf, outputCapacity);
 	}
 
 	// find a decoder in audioList
@@ -243,7 +390,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	if (!decoder && oldStateLoaded) {
 		// We must have loaded an old state that did not have sceAudiocodec information.
 		// Fake it by creating the desired context.
-		decoder = CreateAudioDecoder(audioType, 44100, channels, bytesPerFrame);
+		decoder = CreateAudioDecoder(audioType, sampleRate, channels, bytesPerFrame);
 		decoder->SetCtxPtr(ctxPtr);
 		g_audioDecoderContexts[ctxPtr] = decoder;
 	}
@@ -257,17 +404,32 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		DEBUG_LOG(Log::ME, "decoder. in: %08x out: %08x unk40: %02x unk41: %02x", ctx->inBuf, ctx->outBuf, ctx->unk40, ctx->unk41);
 
 		int16_t *outBuf = (int16_t *)Memory::GetPointerWriteOrException(ctx->outBuf);
+		Memory::Memset(ctx->outBuf, 0, outputCapacity, "AudioCodecDecodeOutput");
 
-		bool result = decoder->Decode(Memory::GetPointerOrException(ctx->inBuf), bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
+		bool result = decoder->Decode(Memory::GetPointerOrException(inputAddress), bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
+		u32 &traceCount = g_audioCodecTraceCounts[codec - PSP_CODEC_AT3PLUS];
+		if (traceCount++ < 4) {
+			INFO_LOG(Log::ME, "AudioCodec frame codec=%s input=%d prefix=%d consumed=%d samples=%d capacity=%d rate=%d format=%08x/%08x",
+				GetCodecName(codec), bytesPerFrame, inputPrefixBytes, inDataConsumed, outSamples, outputCapacity, sampleRate,
+				ctx->formatOutSamples, ctx->unk44_32);
+		}
 		if (!result) {
 			ctx->err = 0x20b;
 			ERROR_LOG(Log::ME, "AudioCodec decode failed. Setting error to %08x", ctx->err);
+		} else {
+			const int decodedBytes = outSamples * 2 * (int)sizeof(s16);
+			if (decodedBytes < 0 || decodedBytes > outputCapacity) {
+				ctx->err = 0x20b;
+				ERROR_LOG(Log::ME, "AudioCodec decoded output exceeds capacity: %d > %d", decodedBytes, outputCapacity);
+			} else {
+				ctx->err = 0;
+				ctx->dstSamplesWritten = decodedBytes;
+			}
 		}
 
-		ctx->srcBytesRead = inDataConsumed;
-		ctx->dstSamplesWritten = outSamples;
+		ctx->srcBytesRead = inputPrefixBytes + (inDataConsumed > 0 ? inDataConsumed : bytesPerFrame);
 	}
-	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);
+	return hleLogDebug(Log::ME, 0, "codec %s inputBytes: %d outputBytes: %d channels: %d", GetCodecName(codec), bytesPerFrame, ctx->dstSamplesWritten, channels);
 }
 
 // This is used by sceMp3, in Beats.
@@ -288,9 +450,14 @@ static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
 		// * formatOutSamples = 0x5A1
 		// Our response is written to a bunch of fields, but I really don't know much
 		// about what the values are - this is handled internally in the ME.
+		{
+			int prefixBytes = 0;
+			Mp3FrameInfo info;
+			if (FindMp3Frame(ctx->inBuf, ctx->formatOutSamples, &prefixBytes, &info)) {
+				ApplyMp3FrameInfo(ctx, info);
+			}
+		}
 		ctx->mp3_3 = 3;
-		ctx->mp3_9 = 9;
-		ctx->mp3_0 = 0;
 		ctx->mp3_1 = 1;
 		ctx->mp3_1_first = 1;
 		break;
@@ -310,15 +477,22 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 
 	// Check for expected values.
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);  // On game-owned heap, no need to allocate.
+	// This begins a new work-area configuration. Repeated sceAudiocodecInit calls
+	// after this point reuse the decoder, while a new CheckNeedMem resets it.
+	removeDecoder(ctxPtr);
 
 	switch (codec) {
-	case 0x1000:
+	case 0x1000: {
 		ctx->neededMem = 0x7bc0;
-		if (ctx->unk40 != 0x28 || ctx->unk41 != 0x5c) {
+		int inputBytes = 0;
+		int channels = 0;
+		CalculateInputBytesAndChannelsAt3Plus(ctx, &inputBytes, &channels);
+		if (inputBytes == 0) {
 			ctx->err = 0x20f;
 			return hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Bad format values: %02x %02x", ctx->unk40, ctx->unk41);
 		}
 		break;
+	}
 	case 0x1001:
 		ctx->neededMem = 0x3de0;
 		break;
@@ -326,7 +500,10 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 		ctx->neededMem = 0x3b68;
 		break;
 	case 0x1003:
-		// Kosmodrones uses sceAudiocodec directly (no intermediate library).
+		// Jpcsp's ME-audio bridge reports this EDRAM requirement for AAC.
+		// Sony's VSH video player calls sceAudiocodec directly rather than
+		// through sceAac, so leaving it unset stalls player initialization.
+		ctx->neededMem = 0x658c;
 		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", codec, ctx->unk40, ctx->unk41);
 		break;
 	}
@@ -365,12 +542,17 @@ static int sceAudiocodecGetOutputBytes(u32 ctxPtr, int codec, u32 outBytesAddr) 
 		// Not tested
 		return hleLogError(Log::ME, SCE_MP3_ERROR_BAD_ADDR);
 	}
+	if (!Memory::IsValidRange(ctxPtr, sizeof(SceAudiocodecCodec))) {
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "context=%08x", ctxPtr);
+	}
+	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
 
 	int bytes = 0;
 	switch (codec) {
-	case PSP_CODEC_AT3PLUS: bytes = 0x2000; break;
+	case PSP_CODEC_AT3PLUS: bytes = ctx->mp3_9999 == 1 && ctx->mp3_0 != ctx->mp3_9999 ? 0x2000 : (ctx->mp3_0 > 0 ? ctx->mp3_0 << 12 : 0x2000); break;
 	case PSP_CODEC_AT3: bytes = 0x1000; break;  // Atrac3
-	case PSP_CODEC_MP3: bytes = 0x1200; break;
+	case PSP_CODEC_MP3: bytes = ctx->mp3_9999 == 1 ? 0x1200 : 0x900; break;
+	case PSP_CODEC_AAC: bytes = ctx->unk45 == 0 ? 0x1000 : 0x2000; break;
 	default:
 		return hleLogWarning(Log::ME, 0, "Block size query not implemented for codec %04x", codec);
 	}

@@ -21,6 +21,8 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceImpose.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceReg.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
@@ -43,6 +45,8 @@ static u32 backlightOffTime;
 // See sceImposeChanges, further down.
 static u32 imposeChanges;
 static u32 imposeAvls;
+static u32 impose80000004;
+static u32 impose80000007;
 
 void __ImposeInit() {
 	language = GetPSPLanguage();
@@ -56,10 +60,12 @@ void __ImposeInit() {
 	backlightOffTime = 0;
 	imposeChanges = 0;
 	imposeAvls = 0;
+	impose80000004 = 0;
+	impose80000007 = 0;
 }
 
 void __ImposeDoState(PointerWrap &p) {
-	auto s = p.Section("sceImpose", 1, 2);
+	auto s = p.Section("sceImpose", 1, 3);
 	if (!s)
 		return;
 
@@ -70,6 +76,10 @@ void __ImposeDoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, imposeChanges);
 		Do(p, imposeAvls);
+		if (s >= 3) {
+			Do(p, impose80000004);
+			Do(p, impose80000007);
+		}
 	}
 }
 
@@ -89,13 +99,14 @@ static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal) {
 	language = languageVal;
 	buttonValue = buttonVal;
-	if (language != GetPSPLanguage()) {
-		return hleLogWarning(Log::sceUtility, 0, "ignoring requested language");
-	}
 	return hleLogDebug(Log::sceUtility, 0);
 }
 
 static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr) {
+	if (__KernelIsRunningVSH()) {
+		__RegGetInt("/CONFIG/SYSTEM/XMB", "language", &language);
+		__RegGetInt("/CONFIG/SYSTEM/XMB", "button_assign", &buttonValue);
+	}
 	if (Memory::IsValidAddress(languagePtr))
 		Memory::WriteUnchecked_U32(language, languagePtr);
 	if (Memory::IsValidAddress(btnPtr))
@@ -118,6 +129,9 @@ static u32 sceImposeSetBacklightOffTime(int time) {
 }
 
 static u32 sceImposeGetBacklightOffTime() {
+	if (__KernelIsRunningVSH()) {
+		__RegGetInt("/CONFIG/SYSTEM/POWER_SAVING", "backlight_off_interval", &backlightOffTime);
+	}
 	return hleLogDebug(Log::sceUtility, backlightOffTime);
 }
 
@@ -188,30 +202,46 @@ enum : u32 {
 // everything tells a caller probing for a feature that the feature is there and switched off,
 // which is a different thing from "no such setting".
 static int sceImposeGetParam(int param) {
+	auto registryInt = [](const char *path, const char *name, u32 fallback) {
+		u32 value = fallback;
+		if (__KernelIsRunningVSH()) {
+			__RegGetInt(path, name, &value);
+		}
+		return (int)value;
+	};
 	switch ((u32)param) {
 	case PSP_IMPOSE_MAIN_VOLUME:
-		return hleLogDebug(Log::sceUtility, 30);  // Full, on a 0-30 scale.
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/SYSTEM/SOUND", "main_volume", 30));
 	case PSP_IMPOSE_BACKLIGHT_BRIGHTNESS:
-		return hleLogDebug(Log::sceUtility, 3);
-	case PSP_IMPOSE_AVLS:
-		return hleLogDebug(Log::sceUtility, imposeAvls);
-	case PSP_IMPOSE_MUTE:
-	case PSP_IMPOSE_SOUND_REDUCTION:
-	case PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL:
-		return hleLogDebug(Log::sceUtility, 0);
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/SYSTEM", "backlight_brightness", 3));
 	case PSP_IMPOSE_EQUALIZER_MODE:
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/SYSTEM/SOUND", "equalizer_mode", 0));
+	case PSP_IMPOSE_MUTE:
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/SYSTEM/SOUND", "mute", 0));
+	case PSP_IMPOSE_AVLS:
+		imposeAvls = registryInt("/CONFIG/SYSTEM/SOUND", "avls", imposeAvls);
+		return hleLogDebug(Log::sceUtility, imposeAvls);
 	case PSP_IMPOSE_TIME_FORMAT:
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/DATE", "time_format", 0));
 	case PSP_IMPOSE_DATE_FORMAT:
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/DATE", "date_format", 0));
 	case PSP_IMPOSE_LANGUAGE:
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/SYSTEM/XMB", "language", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH));
+	case PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL:
+		return hleLogDebug(Log::sceUtility, registryInt("/CONFIG/SYSTEM/POWER_SAVING", "backlight_off_interval", 0));
+	case PSP_IMPOSE_SOUND_REDUCTION:
+		return hleLogDebug(Log::sceUtility, registryInt("/SYSPROFILE", "sound_reduction", 0));
+	case PSP_IMPOSE_80000004:
+		return hleLogDebug(Log::sceUtility, (int)impose80000004);
+	case PSP_IMPOSE_80000007:
+		return hleLogDebug(Log::sceUtility, (int)impose80000007);
 	case PSP_IMPOSE_00000100:
 	case PSP_IMPOSE_20000000:
 	case PSP_IMPOSE_80000001:
 	case PSP_IMPOSE_80000002:
 	case PSP_IMPOSE_80000003:
-	case PSP_IMPOSE_80000004:
 	case PSP_IMPOSE_80000005:
 	case PSP_IMPOSE_80000006:
-	case PSP_IMPOSE_80000007:
 	case PSP_IMPOSE_80000008:
 	case PSP_IMPOSE_80000009:
 	case PSP_IMPOSE_8000000A:
@@ -233,13 +263,56 @@ static int sceImposeSetParam(int param, int value) {
 	case PSP_IMPOSE_MAIN_VOLUME:
 		if (value < 0 || value >= 31)
 			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
-		imposeChanges |= PSP_IMPOSE_MAIN_VOLUME;
+		break;
+	case PSP_IMPOSE_BACKLIGHT_BRIGHTNESS:
+		break;
+	case PSP_IMPOSE_EQUALIZER_MODE:
+		break;
+	case PSP_IMPOSE_MUTE:
+		imposeChanges |= PSP_IMPOSE_MUTE;
+		break;
+	case PSP_IMPOSE_TIME_FORMAT:
+		imposeChanges |= PSP_IMPOSE_TIME_FORMAT;
+		break;
+	case PSP_IMPOSE_DATE_FORMAT:
+		imposeChanges |= PSP_IMPOSE_DATE_FORMAT;
+		break;
+	case PSP_IMPOSE_LANGUAGE:
+		imposeChanges |= PSP_IMPOSE_LANGUAGE;
+		break;
+	case PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL:
+		break;
+	case PSP_IMPOSE_SOUND_REDUCTION:
+		break;
+	case PSP_IMPOSE_00000100:
+		if (value < 0 || value > 1)
+			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
+		imposeChanges |= PSP_IMPOSE_00000100;
+		break;
+	case PSP_IMPOSE_80000004:
+		if (value < 0 || value > 1)
+			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
+		impose80000004 = value;
+		break;
+	case PSP_IMPOSE_80000007:
+		impose80000007 = value;
+		break;
+	case PSP_IMPOSE_20000000:
+	case PSP_IMPOSE_80000001:
+	case PSP_IMPOSE_80000002:
+	case PSP_IMPOSE_80000003:
+	case PSP_IMPOSE_80000005:
+	case PSP_IMPOSE_80000006:
+	case PSP_IMPOSE_80000008:
+	case PSP_IMPOSE_80000009:
+	case PSP_IMPOSE_8000000A:
+	case PSP_IMPOSE_8000000B:
 		break;
 	default:
-		// Recording the change is the part callers actually observe, through sceImposeChanges.
-		imposeChanges |= param;
-		break;
+		return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_MODE, "invalid param %08x", param);
 	}
+	// Persistent Settings writes are owned by Sony registry.prx. sceImpose is
+	// transient device/OSD state and must not perform a second host-side write.
 	return hleLogDebug(Log::sceUtility, 0);
 }
 

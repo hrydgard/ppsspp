@@ -107,6 +107,18 @@ static u32 emuRapidFireFrames = 0;
 static bool emuRapidFireToggle = true;
 static u32 emuRapidFireInterval = 5;
 
+struct CtrlSpecialButtonCallback {
+	u32 mask = 0;
+	u32 callback = 0;
+	u32 argument = 0;
+	u32 gp = 0;
+};
+
+static CtrlSpecialButtonCallback ctrlSpecialButtonCallbacks[4];
+static u32 ctrlSpecialOldButtons = 0;
+static u32 ctrlInterceptSupportedButtons = 0xFFFFFFFF;
+static u32 ctrlInterceptAppliedButtons = 0;
+
 // These buttons are not affected by rapid fire (neither is analog.)
 const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
 
@@ -116,6 +128,21 @@ static void __CtrlUpdateLatch()
 	u64 t = CoreTiming::GetGlobalTimeUs();
 
 	u32 buttons = ctrlCurrent.buttons;
+	// Sony's ctrl driver invokes special-button callbacks on every transition,
+	// not only on a rising edge.  Firmware state machines such as sceImpose need
+	// the matching HOME release notification before presenting their UI.
+	const u32 specialChanged = buttons ^ ctrlSpecialOldButtons;
+	for (const CtrlSpecialButtonCallback &callback : ctrlSpecialButtonCallbacks) {
+		if (callback.callback != 0 && (callback.mask & specialChanged) != 0) {
+			const u32 args[3] = { buttons, ctrlSpecialOldButtons, callback.argument };
+			hleEnqueueCallWithGP(callback.callback, callback.gp, ARRAY_SIZE(args), args);
+		}
+	}
+	ctrlSpecialOldButtons = buttons;
+	// The firmware controller driver can hide or force buttons in the user-mode
+	// stream while its kernel clients continue to see raw input.  sceImpose uses
+	// this to keep HOME-menu navigation out of the running game.
+	buttons = (buttons & ctrlInterceptSupportedButtons) | ctrlInterceptAppliedButtons;
 	if (emuRapidFire && emuRapidFireToggle)
 		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
 
@@ -367,6 +394,12 @@ void __CtrlInit() {
 	ctrlBuf = 1;
 	ctrlBufRead = 0;
 	ctrlOldButtons = 0;
+	ctrlSpecialOldButtons = 0;
+	ctrlInterceptSupportedButtons = 0xFFFFFFFF;
+	ctrlInterceptAppliedButtons = 0;
+	for (CtrlSpecialButtonCallback &callback : ctrlSpecialButtonCallbacks) {
+		callback = {};
+	}
 	ctrlLatchBufs = 0;
 	dialogBtnMake = 0;
 
@@ -386,13 +419,34 @@ void __CtrlDoState(PointerWrap &p)
 {
 	std::lock_guard<std::mutex> guard(ctrlMutex);
 
-	auto s = p.Section("sceCtrl", 1, 3);
+	auto s = p.Section("sceCtrl", 1, 5);
 	if (!s)
 		return;
 
 	Do(p, analogEnabled);
 	Do(p, ctrlLatchBufs);
 	Do(p, ctrlOldButtons);
+	if (s >= 5) {
+		Do(p, ctrlInterceptSupportedButtons);
+		Do(p, ctrlInterceptAppliedButtons);
+	} else if (p.mode == p.MODE_READ) {
+		ctrlInterceptSupportedButtons = 0xFFFFFFFF;
+		ctrlInterceptAppliedButtons = 0;
+	}
+	if (s >= 4) {
+		Do(p, ctrlSpecialOldButtons);
+		for (CtrlSpecialButtonCallback &callback : ctrlSpecialButtonCallbacks) {
+			Do(p, callback.mask);
+			Do(p, callback.callback);
+			Do(p, callback.argument);
+			Do(p, callback.gp);
+		}
+	} else if (p.mode == p.MODE_READ) {
+		ctrlSpecialOldButtons = 0;
+		for (CtrlSpecialButtonCallback &callback : ctrlSpecialButtonCallbacks) {
+			callback = {};
+		}
+	}
 
 	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
 	if (s <= 2) {
@@ -565,6 +619,70 @@ static u32 sceCtrlReadLatch(u32 latchDataPtr) {
 	return hleLogDebug(Log::sceCtrl, __CtrlResetLatch());
 }
 
+static int sceCtrlPeekBufferPositiveKernel(u32 ctrlDataPtr, u32 nBufs) {
+	if (nBufs > NUM_CTRL_BUFFERS || !Memory::IsValidRange(ctrlDataPtr, nBufs * sizeof(CtrlData))) {
+		return hleLogError(Log::sceCtrl, SCE_KERNEL_ERROR_INVALID_SIZE);
+	}
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	CtrlData sample = ctrlCurrent;
+	sample.frame = (u32)CoreTiming::GetGlobalTimeUs();
+	if (!analogEnabled)
+		memset(sample.analog, CTRL_ANALOG_CENTER, sizeof(sample.analog));
+	auto output = PSPPointer<CtrlData>::Create(ctrlDataPtr);
+	for (u32 index = 0; index < nBufs; ++index)
+		output[index] = sample;
+	hleEatCycles(330);
+	return hleLogVerbose(Log::sceCtrl, (int)nBufs);
+}
+
+enum CtrlButtonInterceptMode {
+	CTRL_INTERCEPT_NO_MASK = 0,
+	CTRL_INTERCEPT_IGNORE = 1,
+	CTRL_INTERCEPT_APPLY = 2,
+};
+
+static int CtrlGetButtonInterceptMode(u32 buttons) {
+	int mode = CTRL_INTERCEPT_IGNORE;
+	if ((ctrlInterceptSupportedButtons & buttons) != 0)
+		mode = (ctrlInterceptAppliedButtons & buttons) != 0 ? CTRL_INTERCEPT_APPLY : CTRL_INTERCEPT_NO_MASK;
+	return mode;
+}
+
+static int sceCtrlGetButtonIntercept(u32 buttons) {
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	return hleLogVerbose(Log::sceCtrl, CtrlGetButtonInterceptMode(buttons), "buttons=%08x", buttons);
+}
+
+static int sceCtrlSetButtonIntercept(u32 buttons, int mode) {
+	if (mode < CTRL_INTERCEPT_NO_MASK || mode > CTRL_INTERCEPT_APPLY)
+		return hleLogError(Log::sceCtrl, SCE_KERNEL_ERROR_INVALID_MODE);
+	std::lock_guard<std::mutex> guard(ctrlMutex);
+	const int previous = CtrlGetButtonInterceptMode(buttons);
+	if (mode == CTRL_INTERCEPT_IGNORE) {
+		ctrlInterceptSupportedButtons &= ~buttons;
+		ctrlInterceptAppliedButtons &= ~buttons;
+	} else if (mode == CTRL_INTERCEPT_APPLY) {
+		ctrlInterceptSupportedButtons |= buttons;
+		ctrlInterceptAppliedButtons |= buttons;
+	} else {
+		ctrlInterceptSupportedButtons |= buttons;
+		ctrlInterceptAppliedButtons &= ~buttons;
+	}
+	return hleLogDebug(Log::sceCtrl, previous, "buttons=%08x mode=%d", buttons, mode);
+}
+
+static int sceCtrlSetSpecialButtonCallback(int slot, u32 buttonMask, u32 callback, u32 argument) {
+	if (slot < 0 || slot >= (int)ARRAY_SIZE(ctrlSpecialButtonCallbacks)) {
+		return hleLogError(Log::sceCtrl, SCE_KERNEL_ERROR_INVALID_INDEX);
+	}
+	CtrlSpecialButtonCallback &entry = ctrlSpecialButtonCallbacks[slot];
+	entry.mask = buttonMask;
+	entry.callback = callback;
+	entry.argument = argument;
+	entry.gp = currentMIPS->r[MIPS_REG_GP];
+	return hleLogDebug(Log::sceCtrl, 0, "slot=%d mask=%08x callback=%08x", slot, buttonMask, callback);
+}
+
 static const HLEFunction sceCtrl[] =
 {
 	{0X3E65A0EA, nullptr,                                  "sceCtrlInit",                      '?', ""  }, //(int unknown), init with 0
@@ -584,6 +702,13 @@ static const HLEFunction sceCtrl[] =
 	{0X6841BE1A, nullptr,                                  "sceCtrlSetRapidFire",              '?', ""  },
 	{0XA7144800, &WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold",    'i', "ii"},
 	{0X687660FA, &WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold",    'i', "xx"},
+	{0XF6E94EA3, &WrapU_U<sceCtrlSetSamplingMode>,         "sceCtrlSetSamplingMode",           'x', "x", HLE_KERNEL_SYSCALL },
+	{0X1809B9FC, &WrapI_U<sceCtrlGetButtonIntercept>,      "sceCtrlGetButtonIntercept",        'i', "x", HLE_KERNEL_SYSCALL },
+	{0X2BA616AF, &WrapI_UU<sceCtrlPeekBufferPositiveKernel>, "sceCtrlPeekBufferPositive",      'i', "xi", HLE_KERNEL_SYSCALL },
+	{0XDF53E160, &WrapI_IUUU<sceCtrlSetSpecialButtonCallback>, "sceCtrlSetSpecialButtonCallback", 'i', "ixxx", HLE_KERNEL_SYSCALL },
+	{0XF8346777, &WrapI_UI<sceCtrlSetButtonIntercept>,     "sceCtrlSetButtonIntercept",        'i', "xi", HLE_KERNEL_SYSCALL },
+	// Firmware 6.60 kernel alias used by utility.prx.
+	{0XF8EC18BD, &WrapI_U<sceCtrlGetSamplingMode>,         "sceCtrlGetSamplingMode",           'i', "x",  HLE_KERNEL_SYSCALL },
 };
 
 void Register_sceCtrl()

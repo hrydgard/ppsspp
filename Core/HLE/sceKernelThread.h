@@ -37,8 +37,8 @@ class DebugInterface;
 class BlockAllocator;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel);
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, int stackPartitionId = 0);
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int stackPartitionId = 0);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
@@ -297,6 +297,7 @@ public:
 
 	ThreadWaitInfo waitInfo{};
 	SceUID moduleId = -1;
+	int stackPartitionId = 0;
 	KernelThreadDebugInterface debug;
 
 	bool isProcessingCallbacks = false;

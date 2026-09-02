@@ -169,13 +169,13 @@ void InitMemorySizeForGame() {
 			if (info.exists && info.size > MAX_UMD_DATA_SIZE) {
 				WARN_LOG(Log::Loader, "Ignoring implausibly large UMD_DATA.BIN (%lld bytes)", (long long)info.size);
 			} else if (info.exists) {
-				std::vector<u8> umdDataBin;
-				// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
-				// indexing an empty vector is undefined.
-				if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
-					umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
-				}
+			std::vector<u8> umdDataBin;
+			// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
+			// indexing an empty vector is undefined.
+			if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
+				umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
 			}
+		}
 		}
 
 		if (entry.umdDataValue && umdData.find(entry.umdDataValue) == umdData.npos) {

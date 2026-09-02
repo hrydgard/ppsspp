@@ -44,6 +44,8 @@ static uint64_t memStickInsertedAt = 0;
 static uint64_t memstickInitialFree = 0;
 static uint64_t memstickCurrentUse = 0;
 static bool memstickCurrentUseValid = false;
+static uint64_t memstickDeviceCurrentUse = 0;
+static bool memstickDeviceCurrentUseValid = false;
 
 enum FreeCalcStatus {
 	NONE,
@@ -110,6 +112,16 @@ static uint64_t ComputeSizeOfSavedataForGame(const Path &saveFolder, const std::
 	return space;
 }
 
+static u64 ConfiguredMemoryStickSize(const CompatFlags &flags) {
+	// Some older titles require a deliberately small card through compatibility
+	// settings. Otherwise this is the capacity selected in System settings.
+	return flags.ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
+}
+
+u64 MemoryStick_DeviceCapacity() {
+	return ConfiguredMemoryStickSize(PSP_CoreParameter().compat.flags());
+}
+
 u64 MemoryStick_FreeSpace(std::string gameID) {
 	double start = time_now_d();
 	INFO_LOG(Log::IO, "Calculating free disk space (%s)", gameID.c_str());
@@ -119,7 +131,7 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 	// Cap the memory stick size to avoid math errors when old games get sizes that were
 	// not planned for back then (even though 2GB cards were available.)
 	// We have a compat setting to make it even smaller for Harry Potter : Goblet of Fire, see #13266.
-	const u64 memStickSize = flags.ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
+	const u64 memStickSize = ConfiguredMemoryStickSize(flags);
 
 	// Assume the memory stick is only used to store savedata, for the current game only.
 	if (!memstickCurrentUseValid) {
@@ -160,8 +172,40 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 	return space;
 }
 
+u64 MemoryStick_DeviceFreeSpace() {
+	double start = time_now_d();
+	const CompatFlags &flags = PSP_CoreParameter().compat.flags();
+	const u64 memStickSize = MemoryStick_DeviceCapacity();
+
+	if (!memstickDeviceCurrentUseValid) {
+		const Path memstickRoot = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT);
+		memstickDeviceCurrentUse = File::ComputeRecursiveDirectorySize(memstickRoot);
+		memstickDeviceCurrentUseValid = true;
+	}
+
+	u64 simulatedFreeSpace = 0;
+	if (memstickDeviceCurrentUse < memStickSize) {
+		simulatedFreeSpace = memStickSize - memstickDeviceCurrentUse;
+	} else if (flags.ReportSmallMemstick) {
+		// Preserve the compatibility behavior used by MemoryStick_FreeSpace().
+		simulatedFreeSpace = smallMemstickSize / 2;
+	}
+
+	u64 space = simulatedFreeSpace;
+	if (System_GetPropertyBool(SYSPROP_CAN_GET_FREE_SPACE_FAST) || g_Config.bReportAccurateFreeStorageSpace) {
+		const u64 realFreeSpace = pspFileSystem.FreeDiskSpace("ms0:/");
+		space = std::min(simulatedFreeSpace, realFreeSpace);
+	}
+	INFO_LOG(Log::IO,
+		"Memory Stick device space: configured=%llu used=%llu free=%llu (%0.3f s)",
+		(unsigned long long)memStickSize, (unsigned long long)memstickDeviceCurrentUse,
+		(unsigned long long)space, time_now_d() - start);
+	return space;
+}
+
 void MemoryStick_NotifyWrite() {
 	memstickCurrentUseValid = false;
+	memstickDeviceCurrentUseValid = false;
 }
 
 void MemoryStick_SetFatState(MemStickFatState state) {
@@ -212,6 +256,9 @@ void MemoryStick_NotifyGameName(std::string gameID) {
 }
 
 void MemoryStick_Init() {
+	// The folder may have changed while the core was shut down.
+	memstickCurrentUseValid = false;
+	memstickDeviceCurrentUseValid = false;
 	if (g_Config.bMemStickInserted) {
 		memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
 		memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;

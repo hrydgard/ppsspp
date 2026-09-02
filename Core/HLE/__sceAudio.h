@@ -32,6 +32,13 @@ struct AudioDebugStats {
 	int lastPushSize;
 };
 
+struct AudioChannelSubmitStats {
+	u32 calls = 0;
+	u32 submittedFrames = 0;
+	u32 nonSilentCalls = 0;
+	u32 peakSample = 0;
+};
+
 // Easy interface for sceAudio to write to, to keep the complexity in check.
 
 void __AudioInit();
@@ -45,6 +52,8 @@ void __AudioSetSRCFrequency(int freq);
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
 void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
+u32 __AudioGetQueueSampleValues(int chanNum);
+AudioChannelSubmitStats __AudioGetChannelSubmitStats(int chanNum);
 
 void __AudioCPUMHzChange();
 

@@ -46,6 +46,7 @@ struct PspGeListArgs
 };
 
 void Register_sceGe_user();
+void Register_sceGe_driver();
 
 void __GeInit();
 void __GeDoState(PointerWrap &p);

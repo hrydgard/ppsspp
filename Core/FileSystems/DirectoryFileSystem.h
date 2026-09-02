@@ -85,6 +85,7 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
+	int ChStat(const std::string &filename, const PSPFileInfo &info, u32 changebits) override { return 0; }
 	FileSystemFlags Flags() const override { return flags; }
 	u64 FreeDiskSpace(const std::string &path) override;
 
@@ -105,6 +106,10 @@ private:
 	FileSystemFlags flags;
 
 	Path GetLocalPath(std::string_view internalPath) const;
+	Path SavedataJournalPath() const;
+	void RecoverSavedataTransaction();
+	bool BeginSavedataTransaction(std::string_view from, std::string_view to);
+	void FinishSavedataTransaction(std::string_view destination, bool renameSucceeded);
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.

@@ -16,15 +16,20 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 // This code is part shamelessly "inspired" from JPSCP.
+#include <algorithm>
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
+#include "Common/Data/Convert/ColorConv.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -167,6 +172,79 @@ static u32 mpegLibCrc = 0;
 static u32 streamIdGen;
 static int actionPostPut;
 std::map<u32, MpegContext *> g_mpegCtxs;
+static std::map<u32, u32> videocodecEdramAllocations;
+static int mpegBasePixelMode;
+static int mpegBaseDefaultBufferWidth;
+static u32 mpegBaseCscCalls;
+static u32 vshMeMemoryBase;
+static u32 mpegPESCopyCalls;
+static u32 vshVideoOpenCalls;
+static u32 vshVideoDecodeCalls;
+static u32 vshVideoDecodedFrames;
+static u32 vshVideoDeleteCalls;
+
+struct VSHVideoCodecContext {
+	int frameCount = 0;
+	int decodeCalls = 0;
+	int width = 0;
+	int height = 0;
+	u32 imageAllocation = 0;
+	u32 imageAllocationSize = 0;
+	u32 buffers[3][8]{};
+	u32 auxiliary1 = 0;
+	u32 auxiliary2 = 0;
+
+#ifdef USE_FFMPEG
+	AVCodecContext *codec = nullptr;
+	AVFrame *frame = nullptr;
+	SwsContext *sws = nullptr;
+#endif
+
+	VSHVideoCodecContext() = default;
+	~VSHVideoCodecContext() {
+		ResetHostDecoder();
+	}
+
+	void ResetHostDecoder() {
+#ifdef USE_FFMPEG
+		if (frame) {
+			av_frame_free(&frame);
+		}
+		if (codec) {
+			avcodec_free_context(&codec);
+		}
+		if (sws) {
+			sws_freeContext(sws);
+			sws = nullptr;
+		}
+#endif
+	}
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("VSHVideoCodecContext", 1, 2);
+		if (!s) {
+			return;
+		}
+		if (p.mode == PointerWrap::MODE_READ) {
+			ResetHostDecoder();
+		}
+		Do(p, frameCount);
+		if (s >= 2) {
+			Do(p, decodeCalls);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			decodeCalls = 0;
+		}
+		Do(p, width);
+		Do(p, height);
+		Do(p, imageAllocation);
+		Do(p, imageAllocationSize);
+		DoArray(p, &buffers[0][0], 24);
+		Do(p, auxiliary1);
+		Do(p, auxiliary2);
+	}
+};
+
+static std::map<u32, VSHVideoCodecContext *> vshVideoCodecContexts;
 
 // MPEG AVC Resource Management
 static u32 sceMpegAvcResourceAddr = 0;
@@ -354,6 +432,17 @@ void __MpegInit() {
 	mpegLibVersion = 0x010A;
 	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
+	videocodecEdramAllocations.clear();
+	vshVideoCodecContexts.clear();
+	mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
+	mpegBaseDefaultBufferWidth = 0;
+	mpegBaseCscCalls = 0;
+	vshMeMemoryBase = 0;
+	mpegPESCopyCalls = 0;
+	vshVideoOpenCalls = 0;
+	vshVideoDecodeCalls = 0;
+	vshVideoDecodedFrames = 0;
+	vshVideoDeleteCalls = 0;
 
 #ifdef USE_FFMPEG
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
@@ -366,7 +455,7 @@ void __MpegInit() {
 }
 
 void __MpegDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpeg", 1, 4);
+	auto s = p.Section("sceMpeg", 1, 10);
 	if (!s)
 		return;
 
@@ -400,6 +489,53 @@ void __MpegDoState(PointerWrap &p) {
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
 	Do(p, g_mpegCtxs);
+	if (s >= 5) {
+		Do(p, videocodecEdramAllocations);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		videocodecEdramAllocations.clear();
+	}
+	if (s >= 6) {
+		Do(p, vshVideoCodecContexts);
+		Do(p, mpegBasePixelMode);
+		Do(p, mpegBaseDefaultBufferWidth);
+		if (s >= 7) {
+			Do(p, mpegBaseCscCalls);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			mpegBaseCscCalls = 0;
+		}
+		if (s >= 8) {
+			Do(p, vshMeMemoryBase);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			vshMeMemoryBase = 0;
+		}
+		if (s >= 9) {
+			Do(p, mpegPESCopyCalls);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			mpegPESCopyCalls = 0;
+		}
+		if (s >= 10) {
+			Do(p, vshVideoOpenCalls);
+			Do(p, vshVideoDecodeCalls);
+			Do(p, vshVideoDecodedFrames);
+			Do(p, vshVideoDeleteCalls);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			vshVideoOpenCalls = 0;
+			vshVideoDecodeCalls = 0;
+			vshVideoDecodedFrames = 0;
+			vshVideoDeleteCalls = 0;
+		}
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		vshVideoCodecContexts.clear();
+		mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
+		mpegBaseDefaultBufferWidth = 0;
+		mpegBaseCscCalls = 0;
+		vshMeMemoryBase = 0;
+		mpegPESCopyCalls = 0;
+		vshVideoOpenCalls = 0;
+		vshVideoDecodeCalls = 0;
+		vshVideoDecodedFrames = 0;
+		vshVideoDeleteCalls = 0;
+	}
 }
 
 void __MpegShutdown() {
@@ -408,6 +544,19 @@ void __MpegShutdown() {
 		delete it->second;
 	}
 	g_mpegCtxs.clear();
+	for (const auto &[_, allocation] : videocodecEdramAllocations) {
+		if (allocation != 0) {
+			userMemory.Free(allocation);
+		}
+	}
+	videocodecEdramAllocations.clear();
+	for (const auto &[_, context] : vshVideoCodecContexts) {
+		if (context->imageAllocation != 0) {
+			userMemory.Free(context->imageAllocation);
+		}
+		delete context;
+	}
+	vshVideoCodecContexts.clear();
 }
 
 void __MpegLoadModule(int version,u32 crc) {
@@ -2327,32 +2476,834 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 {
 	pmp_videoSource = p;
 	pmp_nBlocks = 0;
-
-	auto lli = PSPPointer<SceMpegLLI>::Create(p);
-	while (lli.IsValid()) {
-		pmp_nBlocks++;
-		// lli.Next ==0 for last block
-		if (lli->Next == 0){
-			break;
+	u32 current = p;
+	while (current != 0 && pmp_nBlocks < 4096) {
+		auto lli = PSPPointer<SceMpegLLI>::Create(current);
+		if (!lli.IsValid()) {
+			return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "lli=%08x", current);
 		}
-		++lli;
+		const u32 source = lli->pSrc;
+		const u32 size = (u32)lli->iSize & 0xFFF;
+		u32 destination = lli->pDst;
+		if (size == 0 || !Memory::IsValidRange(source, size)) {
+			return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_SIZE,
+				"source=%08x size=%u", source, size);
+		}
+		if (!Memory::IsValidRange(destination, size) &&
+			Memory::IsValidRange(vshMeMemoryBase + destination, size)) {
+			destination += vshMeMemoryBase;
+		}
+		if (!Memory::IsValidRange(destination, size)) {
+			return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR,
+				"destination=%08x meBase=%08x size=%u", lli->pDst, vshMeMemoryBase, size);
+		}
+		Memory::Memcpy(destination, source, size, "VSHMpegPESCopy");
+		NotifyMemInfo(MemBlockFlags::WRITE, destination, size, "VSHMpegPESCopy");
+		pmp_nBlocks++;
+		current = lli->Next;
+	}
+	if (current != 0) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_SIZE, "linked list too long");
+	}
+	mpegPESCopyCalls++;
+	if (mpegPESCopyCalls <= 3) {
+		NOTICE_LOG(Log::Mpeg, "Direct VSH copied %d MPEG PES block(s) through ME base %08x", pmp_nBlocks, vshMeMemoryBase);
+	}
+	return hleLogDebug(Log::Mpeg, 0, "source=%08x blocks=%d", p, pmp_nBlocks);
+}
+
+static bool UntileVSHVideoFrame(u32 cscStructAddr, int width, int height,
+	std::vector<u8> *luma, std::vector<u8> *cb, std::vector<u8> *cr) {
+	if (!Memory::IsValidRange(cscStructAddr, 48) || width <= 0 || height <= 0 ||
+		(width & 15) != 0 || (height & 1) != 0) {
+		return false;
+	}
+	u32 sourceAddr[8];
+	for (int i = 0; i < 8; ++i) {
+		sourceAddr[i] = Memory::ReadUnchecked_U32(cscStructAddr + 16 + i * 4);
+	}
+	const int width2 = width / 2;
+	const int height2 = height / 2;
+	const u32 sizeY1 = ((width + 16) >> 5) * (height >> 1) * 16;
+	const u32 sizeY2 = (width >> 5) * (height >> 1) * 16;
+	const u32 sizeC1 = sizeY1 / 2;
+	const u32 sizeC2 = sizeY2 / 2;
+	const u32 sizes[8] = {sizeY1, sizeY2, sizeY1, sizeY2, sizeC1, sizeC2, sizeC1, sizeC2};
+	for (int i = 0; i < 8; ++i) {
+		if (!Memory::IsValidRange(sourceAddr[i], sizes[i])) {
+			return false;
+		}
+	}
+	luma->assign((size_t)width * height, 0);
+	cb->assign((size_t)width2 * height2, 0x80);
+	cr->assign((size_t)width2 * height2, 0x80);
+	const u8 *source[8];
+	for (int i = 0; i < 8; ++i) {
+		source[i] = Memory::GetPointerUnchecked(sourceAddr[i]);
 	}
 
-	DEBUG_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
-	return 0;
+	size_t n = 0;
+	for (int x = 0; x < width; x += 32) {
+		for (int y = 0; y < height; y += 2) {
+			memcpy(&(*luma)[(size_t)y * width + x], source[0] + n, 16);
+			n += 16;
+		}
+	}
+	n = 0;
+	for (int x = 16; x < width; x += 32) {
+		for (int y = 0; y < height; y += 2) {
+			memcpy(&(*luma)[(size_t)y * width + x], source[1] + n, 16);
+			n += 16;
+		}
+	}
+	n = 0;
+	for (int x = 0; x < width; x += 32) {
+		for (int y = 1; y < height; y += 2) {
+			memcpy(&(*luma)[(size_t)y * width + x], source[2] + n, 16);
+			n += 16;
+		}
+	}
+	n = 0;
+	for (int x = 16; x < width; x += 32) {
+		for (int y = 1; y < height; y += 2) {
+			memcpy(&(*luma)[(size_t)y * width + x], source[3] + n, 16);
+			n += 16;
+		}
+	}
+	for (int section = 0; section < 4; ++section) {
+		const int xStart = section >= 2 ? 8 : 0;
+		const int yStart = section & 1;
+		n = 0;
+		for (int x = xStart; x < width2; x += 16) {
+			for (int y = yStart; y < height2; y += 2) {
+				for (int xx = 0; xx < 8; ++xx) {
+					const size_t dest = (size_t)y * width2 + x + xx;
+					(*cb)[dest] = source[4 + section][n++];
+					(*cr)[dest] = source[4 + section][n++];
+				}
+			}
+		}
+	}
+	return true;
+}
+
+static inline u32 VSHYUVToRGBA(u8 y, u8 cb, u8 cr) {
+	const int c = std::max(0, (int)y - 16);
+	const int d = (int)cb - 128;
+	const int e = (int)cr - 128;
+	const u8 r = (u8)std::clamp((298 * c + 409 * e + 128) >> 8, 0, 255);
+	const u8 g = (u8)std::clamp((298 * c - 100 * d - 208 * e + 128) >> 8, 0, 255);
+	const u8 b = (u8)std::clamp((298 * c + 516 * d + 128) >> 8, 0, 255);
+	return r | ((u32)g << 8) | ((u32)b << 16) | 0xFF000000;
+}
+
+static int ConvertVSHVideoFrame(u32 destAddr, int bufferWidth, u32 cscStructAddr,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	if (!Memory::IsValidRange(cscStructAddr, 48)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "csc=%08x", cscStructAddr);
+	}
+	const int width = (int)Memory::ReadUnchecked_U32(cscStructAddr + 4) << 4;
+	const int height = (int)Memory::ReadUnchecked_U32(cscStructAddr + 0) << 4;
+	if (bufferWidth == 0) {
+		bufferWidth = mpegBaseDefaultBufferWidth != 0 ? mpegBaseDefaultBufferWidth : width;
+	}
+	rangeX = std::clamp(rangeX, 0, width);
+	rangeY = std::clamp(rangeY, 0, height);
+	rangeWidth = std::clamp(rangeWidth, 0, width - rangeX);
+	rangeHeight = std::clamp(rangeHeight, 0, height - rangeY);
+	const int bytesPerPixel = mpegBasePixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	if (bufferWidth < rangeWidth || bufferWidth > 2048 ||
+		!Memory::IsValidRange(destAddr, (u32)bufferWidth * std::max(1, rangeHeight) * bytesPerPixel)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR,
+			"dest=%08x stride=%d range=%dx%d", destAddr, bufferWidth, rangeWidth, rangeHeight);
+	}
+
+	std::vector<u8> luma;
+	std::vector<u8> cb;
+	std::vector<u8> cr;
+	if (!UntileVSHVideoFrame(cscStructAddr, width, height, &luma, &cb, &cr)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid tiled YCbCr frame");
+	}
+	u8 *dest = Memory::GetPointerWriteUnchecked(destAddr);
+	for (int y = 0; y < rangeHeight; ++y) {
+		for (int x = 0; x < rangeWidth; ++x) {
+			const int sourceX = rangeX + x;
+			const int sourceY = rangeY + y;
+			const size_t yIndex = (size_t)sourceY * width + sourceX;
+			const size_t cIndex = (size_t)(sourceY / 2) * (width / 2) + sourceX / 2;
+			const u32 rgba = VSHYUVToRGBA(luma[yIndex], cb[cIndex], cr[cIndex]);
+			if (bytesPerPixel == 4) {
+				((u32 *)dest)[(size_t)y * bufferWidth + x] = rgba;
+			} else {
+				u16 value = 0;
+				switch (mpegBasePixelMode) {
+				case GE_CMODE_16BIT_BGR5650: value = RGBA8888ToRGB565(rgba); break;
+				case GE_CMODE_16BIT_ABGR5551: value = RGBA8888ToRGBA5551(rgba); break;
+				case GE_CMODE_16BIT_ABGR4444: value = RGBA8888ToRGBA4444(rgba); break;
+				default: break;
+				}
+				((u16 *)dest)[(size_t)y * bufferWidth + x] = value;
+			}
+		}
+	}
+	NotifyMemInfo(MemBlockFlags::WRITE, destAddr, (u32)bufferWidth * rangeHeight * bytesPerPixel, "VSHVideoCSC");
+	mpegBaseCscCalls++;
+	if (mpegBaseCscCalls <= 3) {
+		NOTICE_LOG(Log::Mpeg, "Direct VSH CSC #%u: dest=%08x stride=%d image=%dx%d range=%d,%d %dx%d mode=%d",
+			mpegBaseCscCalls, destAddr, bufferWidth, width, height, rangeX, rangeY, rangeWidth, rangeHeight, mpegBasePixelMode);
+	}
+	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "dest=%08x %dx%d", destAddr, rangeWidth, rangeHeight),
+		"VSH video CSC", 4000);
+}
+
+static int sceMpegBaseCscInit(int bufferWidth) {
+	// The PSP routine selects the default AVC YCbCr-to-RGB coefficients and
+	// clears alpha. PPSSPP's host conversion already uses those defaults; no
+	// persistent guest buffer is returned by this call.
+	mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
+	mpegBaseDefaultBufferWidth = bufferWidth;
+	return hleLogDebug(Log::Mpeg, 0, "bufferWidth=%d", bufferWidth);
+}
+
+static int sceMpegbaseSetPixelMode(int internalPixelMode) {
+	switch (internalPixelMode) {
+	case 0: mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888; break;
+	case 1: mpegBasePixelMode = GE_CMODE_16BIT_BGR5650; break;
+	case 2: mpegBasePixelMode = GE_CMODE_16BIT_ABGR5551; break;
+	case 3: mpegBasePixelMode = GE_CMODE_16BIT_ABGR4444; break;
+	default: return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "mode=%d", internalPixelMode);
+	}
+	return hleLogDebug(Log::Mpeg, 0, "mode=%d", internalPixelMode);
+}
+
+static int sceMpegBaseSetDefaultBufferWidth(int bufferWidth, u32 coefficientsAddr) {
+	mpegBaseDefaultBufferWidth = bufferWidth;
+	return hleLogDebug(Log::Mpeg, 0, "bufferWidth=%d coefficients=%08x", bufferWidth, coefficientsAddr);
+}
+
+static int sceMpegBaseCscAvc(u32 destAddr, u32 unknownAddr, int bufferWidth, u32 cscStructAddr) {
+	if (!Memory::IsValidRange(cscStructAddr, 48)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
+	}
+	const int width = (int)Memory::ReadUnchecked_U32(cscStructAddr + 4) << 4;
+	const int height = (int)Memory::ReadUnchecked_U32(cscStructAddr + 0) << 4;
+	return ConvertVSHVideoFrame(destAddr, bufferWidth, cscStructAddr, 0, 0, width, height);
+}
+
+static int sceMpegBaseCscAvcRange(u32 destAddr, u32 unknownAddr, u32 rangeAddr, u32 bufferWidth, u32 cscStructAddr) {
+	if (!Memory::IsValidRange(rangeAddr, 16)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "range=%08x", rangeAddr);
+	}
+	return ConvertVSHVideoFrame(destAddr, bufferWidth, cscStructAddr,
+		(int)Memory::ReadUnchecked_U32(rangeAddr + 0) << 4,
+		(int)Memory::ReadUnchecked_U32(rangeAddr + 4) << 4,
+		(int)Memory::ReadUnchecked_U32(rangeAddr + 8) << 4,
+		(int)Memory::ReadUnchecked_U32(rangeAddr + 12) << 4);
+}
+
+static int sceMpegBaseYCrCbCopy(u32 destStructAddr, u32 sourceStructAddr, int flags) {
+	if (!Memory::IsValidRange(destStructAddr, 48) || !Memory::IsValidRange(sourceStructAddr, 48)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR,
+			"dest=%08x source=%08x", destStructAddr, sourceStructAddr);
+	}
+	const u32 width = Memory::ReadUnchecked_U32(sourceStructAddr + 4);
+	const u32 height = Memory::ReadUnchecked_U32(sourceStructAddr + 0);
+	const u32 size1 = ((width + 16) >> 5) * (height >> 1);
+	const u32 size2 = (width >> 5) * (height >> 1);
+	auto copySection = [&](int section, u32 blocks) -> bool {
+		const u32 source = Memory::ReadUnchecked_U32(sourceStructAddr + 16 + section * 4);
+		const u32 dest = Memory::ReadUnchecked_U32(destStructAddr + 16 + section * 4);
+		const u32 size = blocks << 4;
+		if (!Memory::IsValidRange(source, size) || !Memory::IsValidRange(dest, size)) {
+			return false;
+		}
+		Memory::Memcpy(dest, source, size, "VSHMpegYCbCrCopy");
+		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, "VSHMpegYCbCrCopy");
+		return true;
+	};
+	if ((flags & 1) != 0 &&
+		(!copySection(0, size1) || !copySection(1, size2) ||
+		 !copySection(4, size1 >> 1) || !copySection(5, size2 >> 1))) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid even-field buffers");
+	}
+	if ((flags & 2) != 0 &&
+		(!copySection(2, size1) || !copySection(3, size2) ||
+		 !copySection(6, size1 >> 1) || !copySection(7, size2 >> 1))) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid odd-field buffers");
+	}
+	return hleLogDebug(Log::Mpeg, 0, "dest=%08x source=%08x flags=%d %ux%u",
+		destStructAddr, sourceStructAddr, flags, width, height);
 }
 
 const HLEFunction sceMpegbase[] =
 {
 	{0XBEA18F91, &WrapU_U<sceMpegBasePESpacketCopy>,           "sceMpegBasePESpacketCopy",           'x', "x"      },
-	{0X492B5E4B, nullptr,                                      "sceMpegBaseCscInit",                 '?', ""       },
-	{0X0530BE4E, nullptr,                                      "sceMpegbase_0530BE4E",               '?', ""       },
-	{0X91929A21, nullptr,                                      "sceMpegBaseCscAvc",                  '?', ""       },
-	{0X304882E1, nullptr,                                      "sceMpegBaseCscAvcRange",             '?', ""       },
-	{0X7AC0321A, nullptr,                                      "sceMpegBaseYCrCbCopy",               '?', ""       }
+	{0X492B5E4B, &WrapI_I<sceMpegBaseCscInit>,                 "sceMpegBaseCscInit",                 'i', "i"      },
+	{0X0530BE4E, &WrapI_I<sceMpegbaseSetPixelMode>,             "sceMpegbase_0530BE4E",               'i', "i"      },
+	{0X91929A21, &WrapI_UUIU<sceMpegBaseCscAvc>,                "sceMpegBaseCscAvc",                  'i', "xxix"   },
+	{0X304882E1, &WrapI_UUUUU<sceMpegBaseCscAvcRange>,          "sceMpegBaseCscAvcRange",             'i', "xxxxx"  },
+	{0X7AC0321A, &WrapI_UUI<sceMpegBaseYCrCbCopy>,              "sceMpegBaseYCrCbCopy",               'i', "xxi"    },
+	{0XAC9E717E, &WrapI_IU<sceMpegBaseSetDefaultBufferWidth>,  "sceMpegbase_AC9E717E",               'i', "ix"     },
 };
 
 void Register_sceMpegbase()
 {
 	RegisterHLEModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
 };
+
+static u32 AlignVideoSize(u32 value, u32 alignment) {
+	return (value + alignment - 1) & ~(alignment - 1);
+}
+
+static void FreeVSHVideoCodecContext(u32 bufferAddr) {
+	auto it = vshVideoCodecContexts.find(bufferAddr);
+	if (it == vshVideoCodecContexts.end()) {
+		return;
+	}
+	if (it->second->imageAllocation != 0) {
+		userMemory.Free(it->second->imageAllocation);
+	}
+	delete it->second;
+	vshVideoCodecContexts.erase(it);
+}
+
+static VSHVideoCodecContext *GetVSHVideoCodecContext(u32 bufferAddr, bool create) {
+	auto it = vshVideoCodecContexts.find(bufferAddr);
+	if (it != vshVideoCodecContexts.end()) {
+		return it->second;
+	}
+	if (!create) {
+		return nullptr;
+	}
+	auto *context = new VSHVideoCodecContext();
+	vshVideoCodecContexts[bufferAddr] = context;
+	return context;
+}
+
+#ifdef USE_FFMPEG
+static bool EnsureVSHH264Decoder(VSHVideoCodecContext *context) {
+	if (context->codec && context->frame) {
+		return true;
+	}
+	InitFFmpeg();
+	AVCodec *decoder = avcodec_find_decoder(AV_CODEC_ID_H264);
+	if (!decoder) {
+		ERROR_LOG(Log::Mpeg, "Direct VSH could not find the FFmpeg H.264 decoder");
+		return false;
+	}
+	context->codec = avcodec_alloc_context3(decoder);
+	context->frame = av_frame_alloc();
+	if (!context->codec || !context->frame) {
+		context->ResetHostDecoder();
+		return false;
+	}
+	// Let FFmpeg choose a bounded worker count for frame/slice parallelism.
+	context->codec->thread_count = 0;
+	context->codec->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
+	context->codec->flags2 |= AV_CODEC_FLAG2_CHUNKS;
+	if (avcodec_open2(context->codec, decoder, nullptr) < 0) {
+		context->ResetHostDecoder();
+		return false;
+	}
+	return true;
+}
+
+static std::vector<u8> NormalizeVSHH264Packet(const u8 *source, size_t size) {
+	std::vector<u8> packet;
+	if (size >= 3 && source[0] == 0 && source[1] == 0 &&
+		(source[2] == 1 || (size >= 4 && source[2] == 0 && source[3] == 1))) {
+		packet.assign(source, source + size);
+		return packet;
+	}
+
+	// MP4 AVC samples normally prefix each NAL with a big-endian 32-bit size.
+	// Convert the complete sample to Annex B for FFmpeg. If it is not a valid
+	// length-prefixed sample, retain the original bytes for parser tolerance.
+	size_t offset = 0;
+	while (offset + 4 <= size) {
+		const u32 nalSize = ((u32)source[offset] << 24) | ((u32)source[offset + 1] << 16) |
+			((u32)source[offset + 2] << 8) | source[offset + 3];
+		offset += 4;
+		if (nalSize == 0 || nalSize > size - offset) {
+			packet.clear();
+			break;
+		}
+		packet.insert(packet.end(), {0, 0, 0, 1});
+		packet.insert(packet.end(), source + offset, source + offset + nalSize);
+		offset += nalSize;
+	}
+	if (offset != size || packet.empty()) {
+		packet.assign(source, source + size);
+	}
+	return packet;
+}
+
+static bool DecodeVSHH264(VSHVideoCodecContext *context, const u8 *source, size_t size,
+	std::vector<u8> *luma, std::vector<u8> *cb, std::vector<u8> *cr, bool *hasImage) {
+	*hasImage = false;
+	if (!EnsureVSHH264Decoder(context)) {
+		return false;
+	}
+
+	std::vector<u8> packetData = NormalizeVSHH264Packet(source, size);
+	packetData.resize(packetData.size() + AV_INPUT_BUFFER_PADDING_SIZE, 0);
+	AVPacket *packet = av_packet_alloc();
+	if (!packet) {
+		return false;
+	}
+	packet->data = packetData.data();
+	packet->size = (int)(packetData.size() - AV_INPUT_BUFFER_PADDING_SIZE);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
+	const int sendResult = avcodec_send_packet(context->codec, packet);
+	if (sendResult < 0 && sendResult != AVERROR(EAGAIN)) {
+		av_packet_free(&packet);
+		WARN_LOG(Log::Mpeg, "Direct VSH H.264 packet rejected by FFmpeg: %d", sendResult);
+		return false;
+	}
+
+	int receiveResult = AVERROR(EAGAIN);
+	do {
+		receiveResult = avcodec_receive_frame(context->codec, context->frame);
+		if (receiveResult == 0) {
+			*hasImage = true;
+		}
+	} while (receiveResult == 0);
+	av_packet_free(&packet);
+	if (!*hasImage) {
+		return receiveResult == AVERROR(EAGAIN) || receiveResult == AVERROR_EOF;
+	}
+#else
+	int frameFinished = 0;
+	const int decodeResult = avcodec_decode_video2(context->codec, context->frame, &frameFinished, packet);
+	av_packet_free(&packet);
+	if (decodeResult < 0) {
+		return false;
+	}
+	*hasImage = frameFinished != 0;
+	if (!*hasImage) {
+		return true;
+	}
+#endif
+
+	context->width = context->frame->width;
+	context->height = context->frame->height;
+	if (context->width <= 0 || context->height <= 0 || context->width > 720 || context->height > 576) {
+		return false;
+	}
+	const int chromaWidth = (context->width + 1) / 2;
+	const int chromaHeight = (context->height + 1) / 2;
+	luma->resize((size_t)context->width * context->height);
+	cb->resize((size_t)chromaWidth * chromaHeight);
+	cr->resize((size_t)chromaWidth * chromaHeight);
+	u8 *dest[] = {luma->data(), cb->data(), cr->data(), nullptr};
+	int destStride[] = {context->width, chromaWidth, chromaWidth, 0};
+	context->sws = sws_getCachedContext(context->sws,
+		context->width, context->height, (AVPixelFormat)context->frame->format,
+		context->width, context->height, AV_PIX_FMT_YUV420P, SWS_BILINEAR, nullptr, nullptr, nullptr);
+	if (!context->sws) {
+		return false;
+	}
+	return sws_scale(context->sws, context->frame->data, context->frame->linesize,
+		0, context->height, dest, destStride) == context->height;
+}
+#endif
+
+static bool AllocateVSHVideoBuffers(VSHVideoCodecContext *context) {
+	if (context->imageAllocation != 0) {
+		return true;
+	}
+	const int width = context->width;
+	const int height = context->height;
+	const u32 sizeY1 = AlignVideoSize(((width + 16) >> 5) * (height >> 1) * 16, 0x200);
+	const u32 sizeY2 = AlignVideoSize((width >> 5) * (height >> 1) * 16, 0x200);
+	const u32 sizeC1 = AlignVideoSize(((width + 16) >> 5) * (height >> 1) * 8, 0x200);
+	const u32 sizeC2 = AlignVideoSize((width >> 5) * (height >> 1) * 8, 0x200);
+	const u32 perFrame = 2 * (sizeY1 + sizeY2 + sizeC1 + sizeC2);
+	context->imageAllocationSize = 0x100 + perFrame * 3;
+	context->imageAllocation = userMemory.Alloc(context->imageAllocationSize, true, "VSHVideoYCbCr");
+	if (context->imageAllocation == (u32)-1) {
+		context->imageAllocation = 0;
+		context->imageAllocationSize = 0;
+		return false;
+	}
+	Memory::Memset(context->imageAllocation, 0, context->imageAllocationSize, "VSHVideoYCbCrInit");
+	context->auxiliary1 = context->imageAllocation;
+	context->auxiliary2 = context->imageAllocation + 0x40;
+	u32 cursor = context->imageAllocation + 0x100;
+	for (int frame = 0; frame < 3; ++frame) {
+		const u32 sizes[8] = {sizeY1, sizeY1, sizeY2, sizeY2, sizeC1, sizeC1, sizeC2, sizeC2};
+		for (int section = 0; section < 8; ++section) {
+			context->buffers[frame][section] = cursor;
+			if (section >= 4) {
+				Memory::Memset(cursor, 0x80, sizes[section], "VSHVideoChromaInit");
+			}
+			cursor += sizes[section];
+		}
+	}
+	return true;
+}
+
+static void TileVSHVideoFrame(VSHVideoCodecContext *context, int frameIndex,
+	const std::vector<u8> &luma, const std::vector<u8> &cb, const std::vector<u8> &cr) {
+	const int width = context->width;
+	const int height = context->height;
+	const int width2 = width / 2;
+	const int height2 = height / 2;
+	u8 *output[8];
+	for (int i = 0; i < 8; ++i) {
+		output[i] = Memory::GetPointerWriteUnchecked(context->buffers[frameIndex][i]);
+	}
+
+	size_t n = 0;
+	for (int x = 0; x < width; x += 32) {
+		for (int y = 0; y < height; y += 2) {
+			memcpy(output[0] + n, &luma[(size_t)y * width + x], 16);
+			n += 16;
+		}
+	}
+	n = 0;
+	for (int x = 16; x < width; x += 32) {
+		for (int y = 0; y < height; y += 2) {
+			memcpy(output[1] + n, &luma[(size_t)y * width + x], 16);
+			n += 16;
+		}
+	}
+	n = 0;
+	for (int x = 0; x < width; x += 32) {
+		for (int y = 1; y < height; y += 2) {
+			memcpy(output[2] + n, &luma[(size_t)y * width + x], 16);
+			n += 16;
+		}
+	}
+	n = 0;
+	for (int x = 16; x < width; x += 32) {
+		for (int y = 1; y < height; y += 2) {
+			memcpy(output[3] + n, &luma[(size_t)y * width + x], 16);
+			n += 16;
+		}
+	}
+
+	for (int section = 0; section < 4; ++section) {
+		const int xStart = (section >= 2) ? 8 : 0;
+		const int yStart = section & 1;
+		n = 0;
+		for (int x = xStart; x < width2; x += 16) {
+			for (int y = yStart; y < height2; y += 2) {
+				for (int xx = 0; xx < 8; ++xx) {
+					const size_t source = (size_t)y * width2 + x + xx;
+					output[4 + section][n++] = cb[source];
+					output[4 + section][n++] = cr[source];
+				}
+			}
+		}
+	}
+}
+
+static int sceVideocodecOpen(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	FreeVSHVideoCodecContext(bufferAddr);
+	GetVSHVideoCodecContext(bufferAddr, true);
+	vshVideoOpenCalls++;
+	Memory::WriteUnchecked_U32(0x05100601, bufferAddr + 0);
+	switch (type) {
+	case 0: {
+		Memory::WriteUnchecked_U32(1, bufferAddr + 8);
+		Memory::WriteUnchecked_U32(0x3C2C, bufferAddr + 24);
+		Memory::WriteUnchecked_U32(0x15C00, bufferAddr + 32);
+		const u32 secondary = Memory::ReadUnchecked_U32(bufferAddr + 16);
+		if (!Memory::IsValidRange(secondary, 8)) {
+			return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "secondary=%08x", secondary);
+		}
+		Memory::WriteUnchecked_U32(0x1F6400, secondary + 0);
+		Memory::WriteUnchecked_U32(0x15C00, secondary + 4);
+		break;
+	}
+	case 1:
+		Memory::WriteUnchecked_U32(0, bufferAddr + 8);
+		Memory::WriteUnchecked_U32(0x264C, bufferAddr + 24);
+		Memory::WriteUnchecked_U32(0xB69E3, bufferAddr + 32);
+		break;
+	default:
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d", bufferAddr, type);
+}
+
+static int sceVideocodecReleaseEDRAM(u32 bufferAddr) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	auto allocation = videocodecEdramAllocations.find(bufferAddr);
+	if (allocation != videocodecEdramAllocations.end()) {
+		userMemory.Free(allocation->second);
+		videocodecEdramAllocations.erase(allocation);
+	}
+	Memory::WriteUnchecked_U32(0, bufferAddr + 20);
+	Memory::WriteUnchecked_U32(0, bufferAddr + 92);
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x", bufferAddr);
+}
+
+static int sceVideocodecGetEDRAM(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	if (type != 0 && type != 1) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+
+	auto previous = videocodecEdramAllocations.find(bufferAddr);
+	if (previous != videocodecEdramAllocations.end()) {
+		userMemory.Free(previous->second);
+		videocodecEdramAllocations.erase(previous);
+	}
+	u32 size = (Memory::ReadUnchecked_U32(bufferAddr + 24) + 63) & ~63U;
+	u32 allocation = userMemory.Alloc(size, true, "sceVideocodecEDRAM");
+	if (allocation == (u32)-1) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_NO_MEMORY, "size=%u", size);
+	}
+	videocodecEdramAllocations[bufferAddr] = allocation;
+	Memory::WriteUnchecked_U32(allocation, bufferAddr + 20);
+	Memory::WriteUnchecked_U32(allocation, bufferAddr + 92);
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d allocation=%08x size=%u", bufferAddr, type, allocation, size);
+}
+
+static int sceVideocodecInit(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	if (type != 0 && type != 1 && type != 3) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+	Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(bufferAddr + 20) + 8, bufferAddr + 12);
+	if (type == 0) {
+		vshMeMemoryBase = Memory::ReadUnchecked_U32(bufferAddr + 28);
+	}
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d", bufferAddr, type);
+}
+
+static int sceVideocodecGetVersion(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	if (type != 0 && type != 1) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+	Memory::WriteUnchecked_U32(0x78, bufferAddr + 4);
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d", bufferAddr, type);
+}
+
+static int sceVideocodecSetMemory(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	if (type != 0) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+	Memory::WriteUnchecked_U32(0, bufferAddr + 8);
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x memory=%08x/%08x/%08x/%08x", bufferAddr,
+		Memory::ReadUnchecked_U32(bufferAddr + 64), Memory::ReadUnchecked_U32(bufferAddr + 68),
+		Memory::ReadUnchecked_U32(bufferAddr + 72), Memory::ReadUnchecked_U32(bufferAddr + 76));
+}
+
+static int sceVideocodec_893B32B1() {
+	return hleLogDebug(Log::Mpeg, 0);
+}
+
+static int sceVideocodecDecode(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	if (type != 0) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+	auto *context = GetVSHVideoCodecContext(bufferAddr, true);
+	context->decodeCalls++;
+	vshVideoDecodeCalls++;
+	const u32 meSourceOffset = Memory::ReadUnchecked_U32(bufferAddr + 36);
+	u32 sourceAddr = meSourceOffset;
+	const u32 sourceSize = Memory::ReadUnchecked_U32(bufferAddr + 40);
+	if (!Memory::IsValidRange(sourceAddr, sourceSize)) {
+		// mpeg_vsh passes an address in the Media Engine's view plus the
+		// CPU-visible base at work-area offset 0x1C. This is the mapping used by
+		// the native type-0 init command; the EDRAM work allocation is separate.
+		const u32 cpuSourceBase = Memory::ReadUnchecked_U32(bufferAddr + 28);
+		if (meSourceOffset <= 0x02000000 && Memory::IsValidRange(cpuSourceBase + meSourceOffset, sourceSize)) {
+			sourceAddr = cpuSourceBase + meSourceOffset;
+		}
+	}
+	if (!Memory::IsValidRange(sourceAddr, sourceSize)) {
+		auto allocation = videocodecEdramAllocations.find(bufferAddr);
+		if (allocation != videocodecEdramAllocations.end()) {
+			const u32 allocationSize = userMemory.GetBlockSizeFromAddress(allocation->second);
+			if (sourceAddr <= allocationSize && sourceSize <= allocationSize - sourceAddr) {
+				sourceAddr += allocation->second;
+			}
+		}
+	}
+	if (sourceSize == 0 || !Memory::IsValidRange(sourceAddr, sourceSize)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR,
+			"source=%08x size=%u", sourceAddr, sourceSize);
+	}
+	if (context->decodeCalls <= 3) {
+		NOTICE_LOG(Log::Mpeg, "Direct VSH video decode #%d: context=%08x source=%08x size=%u",
+			context->decodeCalls, bufferAddr, sourceAddr, sourceSize);
+	}
+	std::vector<u8> luma;
+	std::vector<u8> cb;
+	std::vector<u8> cr;
+	bool hasImage = false;
+#ifdef USE_FFMPEG
+	if (!DecodeVSHH264(context, Memory::GetPointerUnchecked(sourceAddr), sourceSize, &luma, &cb, &cr, &hasImage)) {
+		Memory::WriteUnchecked_U32(0x80618009, bufferAddr + 8);
+		return hleLogError(Log::Mpeg, -1, "H.264 decode failed source=%08x size=%u", sourceAddr, sourceSize);
+	}
+#else
+	return hleLogError(Log::Mpeg, -1, "FFmpeg is unavailable");
+#endif
+
+	const u32 secondary = Memory::ReadUnchecked_U32(bufferAddr + 16);
+	const u32 yuvStruct = Memory::ReadUnchecked_U32(bufferAddr + 44);
+	const u32 detail = Memory::ReadUnchecked_U32(bufferAddr + 48);
+	const u32 decodeSEI = Memory::ReadUnchecked_U32(bufferAddr + 80);
+	if (!Memory::IsValidRange(secondary, 40) || !Memory::IsValidRange(yuvStruct, 44)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR,
+			"secondary=%08x yuv=%08x", secondary, yuvStruct);
+	}
+
+	Memory::WriteUnchecked_U32(context->width, secondary + 8);
+	Memory::WriteUnchecked_U32(context->height, secondary + 12);
+	Memory::WriteUnchecked_U32(1, secondary + 28);
+	Memory::WriteUnchecked_U32(hasImage ? 1 : 0, secondary + 32);
+	Memory::WriteUnchecked_U32(hasImage ? 0 : 1, secondary + 36);
+	Memory::WriteUnchecked_U32(hasImage ? 1 : 0, yuvStruct + 32);
+	Memory::WriteUnchecked_U32(0, bufferAddr + 8);
+
+	if (hasImage) {
+		if (!AllocateVSHVideoBuffers(context)) {
+			return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_NO_MEMORY);
+		}
+		const int frameIndex = context->frameCount % 3;
+		TileVSHVideoFrame(context, frameIndex, luma, cb, cr);
+		for (int i = 0; i < 8; ++i) {
+			Memory::WriteUnchecked_U32(context->buffers[frameIndex][i], yuvStruct + i * 4);
+		}
+		if (!Memory::IsValidRange(Memory::ReadUnchecked_U32(yuvStruct + 36), 36)) {
+			Memory::WriteUnchecked_U32(context->auxiliary1, yuvStruct + 36);
+		}
+		if (!Memory::IsValidRange(Memory::ReadUnchecked_U32(yuvStruct + 40), 32)) {
+			Memory::WriteUnchecked_U32(context->auxiliary2, yuvStruct + 40);
+		}
+		Memory::WriteUnchecked_U8(0x02, context->auxiliary1 + 0);
+		Memory::WriteUnchecked_U32(90000, context->auxiliary1 + 8);
+		Memory::WriteUnchecked_U32(90000, context->auxiliary1 + 16);
+		Memory::WriteUnchecked_U32(context->frameCount * 2, context->auxiliary1 + 24);
+		Memory::WriteUnchecked_U32(2, context->auxiliary1 + 28);
+		Memory::WriteUnchecked_U8(1, context->auxiliary1 + 33);
+		if (Memory::IsValidRange(detail, 40)) {
+			Memory::WriteUnchecked_U8(1, detail + 0);
+			Memory::WriteUnchecked_U8(0xFF, detail + 1);
+			Memory::WriteUnchecked_U32(3, detail + 4);
+			Memory::WriteUnchecked_U32(4, detail + 8);
+			Memory::WriteUnchecked_U32(1, detail + 12);
+			Memory::WriteUnchecked_U32(0x10000, detail + 20);
+			Memory::WriteUnchecked_U32(4004, detail + 32);
+			Memory::WriteUnchecked_U32(240000, detail + 36);
+		}
+		if (Memory::IsValidRange(decodeSEI, 36)) {
+			Memory::WriteUnchecked_U8(0x02, decodeSEI + 0);
+			Memory::WriteUnchecked_U32(90000, decodeSEI + 8);
+			Memory::WriteUnchecked_U32(90000, decodeSEI + 16);
+			Memory::WriteUnchecked_U32(context->frameCount * 2, decodeSEI + 24);
+			Memory::WriteUnchecked_U32(2, decodeSEI + 28);
+			Memory::WriteUnchecked_U8(1, decodeSEI + 33);
+		}
+		context->frameCount++;
+		vshVideoDecodedFrames++;
+		if (context->frameCount <= 3) {
+			NOTICE_LOG(Log::Mpeg, "Direct VSH decoded frame #%d: %dx%d", context->frameCount, context->width, context->height);
+		}
+		NotifyMemInfo(MemBlockFlags::WRITE, context->imageAllocation, context->imageAllocationSize, "VSHVideoDecode");
+	}
+
+	return hleDelayResult(hleLogDebug(Log::Mpeg, 0,
+		"buffer=%08x source=%08x size=%u image=%d %dx%d", bufferAddr, sourceAddr, sourceSize,
+		hasImage, context->width, context->height), "VSH video decode", 4000);
+}
+
+static int sceVideocodecStop(u32 bufferAddr, int type) {
+	auto *context = GetVSHVideoCodecContext(bufferAddr, false);
+	if (type != 0 && type != 1) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+#ifdef USE_FFMPEG
+	if (context && context->codec) {
+		avcodec_flush_buffers(context->codec);
+	}
+#endif
+	if (context) {
+		NOTICE_LOG(Log::Mpeg, "Direct VSH video codec stop: calls=%d frames=%d csc=%u",
+			context->decodeCalls, context->frameCount, mpegBaseCscCalls);
+	}
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d", bufferAddr, type);
+}
+
+static int sceVideocodecDelete(u32 bufferAddr, int type) {
+	if (type != 0 && type != 1) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_VALUE, "type=%d", type);
+	}
+	FreeVSHVideoCodecContext(bufferAddr);
+	vshVideoDeleteCalls++;
+	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d", bufferAddr, type),
+		"VSH video codec delete", 40000);
+}
+
+static int sceVideocodecGetSEI(u32 bufferAddr, int type) {
+	if (!Memory::IsValidRange(bufferAddr, 96)) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "buffer=%08x", bufferAddr);
+	}
+	const u32 decodeSEI = Memory::ReadUnchecked_U32(bufferAddr + 80);
+	if (Memory::IsValidRange(decodeSEI, 32)) {
+		Memory::WriteUnchecked_U32(0, decodeSEI + 28);
+	}
+	return hleLogDebug(Log::Mpeg, 0, "buffer=%08x type=%d", bufferAddr, type);
+}
+
+const HLEFunction sceVideocodec[] = {
+	{0XC01EC829, &WrapI_UI<sceVideocodecOpen>,        "sceVideocodecOpen",         'i', "xi"},
+	{0X2D31F5B1, &WrapI_UI<sceVideocodecGetEDRAM>,    "sceVideocodecGetEDRAM",     'i', "xi"},
+	{0X17099F0A, &WrapI_UI<sceVideocodecInit>,        "sceVideocodecInit",         'i', "xi"},
+	{0X26927D19, &WrapI_UI<sceVideocodecGetVersion>,  "sceVideocodecGetVersion",   'i', "xi"},
+	{0X745A7B7A, &WrapI_UI<sceVideocodecSetMemory>,   "sceVideocodecSetMemory",    'i', "xi"},
+	{0X893B32B1, &WrapI_V<sceVideocodec_893B32B1>,   "sceVideocodec_893B32B1",    'i', ""  },
+	{0XDBA273FA, &WrapI_UI<sceVideocodecDecode>,      "sceVideocodecDecode",       'i', "xi"},
+	{0XA2F0564E, &WrapI_UI<sceVideocodecStop>,        "sceVideocodecStop",         'i', "xi"},
+	{0X307E6E1C, &WrapI_UI<sceVideocodecDelete>,      "sceVideocodecDelete",       'i', "xi"},
+	{0X627B7D42, &WrapI_UI<sceVideocodecGetSEI>,      "sceVideocodecGetSEI",       'i', "xi"},
+	{0X4F160BF4, &WrapI_U<sceVideocodecReleaseEDRAM>, "sceVideocodecReleaseEDRAM", 'i', "x" },
+};
+
+void Register_sceVideocodec() {
+	RegisterHLEModule("sceVideocodec", ARRAY_SIZE(sceVideocodec), sceVideocodec);
+}
+
+VSHVideoDebugStatus __MpegGetVSHVideoDebugStatus() {
+	VSHVideoDebugStatus status;
+	status.openCalls = vshVideoOpenCalls;
+	status.decodeCalls = vshVideoDecodeCalls;
+	status.decodedFrames = vshVideoDecodedFrames;
+	status.deleteCalls = vshVideoDeleteCalls;
+	status.cscCalls = mpegBaseCscCalls;
+	status.pesCopyCalls = mpegPESCopyCalls;
+	status.activeContexts = (u32)vshVideoCodecContexts.size();
+	status.edramAllocations = (u32)videocodecEdramAllocations.size();
+	for (const auto &[_, context] : vshVideoCodecContexts) {
+		status.imageAllocationBytes += context->imageAllocationSize;
+		if (context->frameCount > 0) {
+			status.width = context->width;
+			status.height = context->height;
+		}
+	}
+	return status;
+}

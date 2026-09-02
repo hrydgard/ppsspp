@@ -22,12 +22,14 @@
 #endif
 
 #include <algorithm>
+#include <map>
 #include <mutex>
 
 #include "Common/CommonTypes.h"
 #include "Common/MemArena.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 
 #include "Core/System.h"
 #include "Core/Core.h"
@@ -46,6 +48,60 @@ namespace Memory {
 // The base pointer to the auto-mirrored arena.
 u8* base = nullptr;
 
+// Sparse backing for invalid accesses configured to continue. This preserves
+// unchecked low-address writes without reserving Jpcsp's full flat allocation.
+static std::map<u32, u32> ignoredMemoryWords;
+
+static constexpr u32 NormalizeIgnoredAddress(u32 address) {
+	return address & 0x1FFFFFFF;
+}
+
+u8 ReadIgnored_U8(u32 address) {
+	address = NormalizeIgnoredAddress(address);
+	auto it = ignoredMemoryWords.find(address & ~3U);
+	return it == ignoredMemoryWords.end() ? 0 : (u8)(it->second >> ((address & 3) * 8));
+}
+
+u16 ReadIgnored_U16(u32 address) {
+	address = NormalizeIgnoredAddress(address) & ~1U;
+	return (u16)(ReadIgnored_U8(address) | (ReadIgnored_U8(address + 1) << 8));
+}
+
+u32 ReadIgnored_U32(u32 address) {
+	address = NormalizeIgnoredAddress(address) & ~3U;
+	auto it = ignoredMemoryWords.find(address);
+	return it == ignoredMemoryWords.end() ? 0 : it->second;
+}
+
+u64 ReadIgnored_U64(u32 address) {
+	address = NormalizeIgnoredAddress(address) & ~3U;
+	return (u64)ReadIgnored_U32(address) | ((u64)ReadIgnored_U32(address + 4) << 32);
+}
+
+void WriteIgnored_U8(u8 value, u32 address) {
+	address = NormalizeIgnoredAddress(address);
+	u32 &word = ignoredMemoryWords[address & ~3U];
+	const int shift = (address & 3) * 8;
+	word = (word & ~(0xFFU << shift)) | ((u32)value << shift);
+}
+
+void WriteIgnored_U16(u16 value, u32 address) {
+	address = NormalizeIgnoredAddress(address) & ~1U;
+	WriteIgnored_U8((u8)value, address);
+	WriteIgnored_U8((u8)(value >> 8), address + 1);
+}
+
+void WriteIgnored_U32(u32 value, u32 address) {
+	address = NormalizeIgnoredAddress(address) & ~3U;
+	ignoredMemoryWords[address] = value;
+}
+
+void WriteIgnored_U64(u64 value, u32 address) {
+	address = NormalizeIgnoredAddress(address) & ~3U;
+	WriteIgnored_U32((u32)value, address);
+	WriteIgnored_U32((u32)(value >> 32), address + 4);
+}
+
 // The MemArena class
 MemArena g_arena;
 // ==============
@@ -54,14 +110,17 @@ u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
 u8 *m_pKernelScratchPad;
+u8 *m_pKseg1ScratchPad;
 u8 *m_pUncachedKernelScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
 u8 *m_pPhysicalRAM[3];
 u8 *m_pUncachedRAM[3];
 u8 *m_pKernelRAM[3];	// RAM mirrored up to "kernel space". Fully accessible at all times currently.
-// Technically starts at 0xA0000000, which we don't properly support (but we don't really support kernel code.)
-// This matches how we handle 32-bit masking.
+// PSP KSEG1 (0xA0000000-0xBFFFFFFF) is the real uncached kernel alias used by
+// firmware modules.  Keep PPSSPP's historical 0xC0000000 mirror as well for
+// compatibility with existing HLE/JIT assumptions.
+u8 *m_pKseg1RAM[3];
 u8 *m_pUncachedKernelRAM[3];
 
 // VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled, so actually it's not correct
@@ -93,11 +152,11 @@ static MemoryView views[] = {
 	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	// Kernel-mode code (e.g. flash0:/reboot.bin) sees the scratchpad through these mirrors -
-	// same two address bits as RAM below (0x80000000 = kernel, 0x40000000 = uncached,
-	// independently combinable), just missing here until this was noticed via a real SIGSEGV
-	// writing 0x80010000 (see docs/VSHBootInvestigation.md).
+	// Kernel-mode firmware uses KSEG0 (cached) and KSEG1 (uncached).  The C001
+	// mirror is retained because PPSSPP historically treated the high bits as
+	// independently combinable flags.
 	{&m_pKernelScratchPad,        0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
+	{&m_pKseg1ScratchPad,         0xA0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
 	{&m_pUncachedKernelScratchPad,0xC0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
 	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
@@ -110,16 +169,19 @@ static MemoryView views[] = {
 	{&m_pPhysicalRAM[0],      0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{&m_pUncachedRAM[0],      0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	{&m_pKernelRAM[0],        0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	{&m_pKseg1RAM[0],         0xA8000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	{&m_pUncachedKernelRAM[0],0xC8000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
 	{&m_pPhysicalRAM[1],      0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
 	{&m_pUncachedRAM[1],      0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
 	{&m_pKernelRAM[1],        0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pKseg1RAM[1],         0xA9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	{&m_pUncachedKernelRAM[1],0xC9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	// Starts at memory + 31 * 2 MB.
 	{&m_pPhysicalRAM[2],      0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
 	{&m_pUncachedRAM[2],      0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
 	{&m_pKernelRAM[2],        0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pKseg1RAM[2],         0xABE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 	{&m_pUncachedKernelRAM[2],0xCBE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
@@ -315,16 +377,10 @@ void MemoryMap_Shutdown() {
 #endif
 }
 
-// On some 32 bit platforms (like old Android, old iOS, etc.), there are/were restrictions on memory map sizes.
-// This particular size I can't find any sources for though.
-static const int MAX_MMAP_SIZE = 31 * 1024 * 1024;
-
-// Every size we actually use (32MB, 64MB, and the 76MB remasters) is a whole number of megabytes.
-static bool IsPlausibleMemorySize(u32 size) {
-	return size != 0 && size <= (u32)MAX_MMAP_SIZE * 3 && (size & 0xFFFFF) == 0;
-}
-
 bool Init(MemMapSetupFlags flags) {
+	ignoredMemoryWords.clear();
+	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
+	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].flags & MV_IS_PRIMARY_RAM)
@@ -346,9 +402,7 @@ bool Init(MemMapSetupFlags flags) {
 	return true;
 }
 
-// Returns false if the new map couldn't be set up - in which case there is no memory map at all,
-// and base is null. Callers must not carry on writing to guest memory.
-bool Reinit() {
+void Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
 	// Held across both halves: between Shutdown() and Init() there is no memory map at all, and a
@@ -356,9 +410,8 @@ bool Reinit() {
 	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
-	const bool success = Init(flags);
+	Init(flags);
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
-	return success;
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
@@ -392,7 +445,7 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 }
 
 void DoState(PointerWrap &p) {
-	auto s = p.Section("Memory", 1, 3);
+	auto s = p.Section("Memory", 1, 4);
 	if (!s)
 		return;
 
@@ -407,10 +460,8 @@ void DoState(PointerWrap &p) {
 		p.DoMarker("PSPModel");
 		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
-			if (oldMemorySize < g_MemorySize && !Reinit()) {
-				ERROR_LOG(Log::MemMap, "Failed to reinit memory to %08x bytes", g_MemorySize);
-				p.SetError(PointerWrap::ERROR_FAILURE);
-				return;
+			if (oldMemorySize < g_MemorySize) {
+				Reinit();
 			}
 		}
 	} else {
@@ -420,20 +471,8 @@ void DoState(PointerWrap &p) {
 		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
 		Do(p, g_MemorySize);
-		if (p.mode == PointerWrap::MODE_READ && !IsPlausibleMemorySize(g_MemorySize)) {
-			// Straight out of the file, so don't hand it to Init() - a bogus size makes the map
-			// fail to allocate, and we'd carry on writing RAM through a null base.
-			ERROR_LOG(Log::MemMap, "Savestate specifies an implausible memory size: %08x", g_MemorySize);
-			g_MemorySize = oldMemorySize;
-			p.SetError(PointerWrap::ERROR_FAILURE);
-			return;
-		}
-		if (oldMemorySize != g_MemorySize && !Reinit()) {
-			ERROR_LOG(Log::MemMap, "Failed to reinit memory to %08x bytes, restoring %08x", g_MemorySize, oldMemorySize);
-			g_MemorySize = oldMemorySize;
+		if (oldMemorySize != g_MemorySize) {
 			Reinit();
-			p.SetError(PointerWrap::ERROR_FAILURE);
-			return;
 		}
 	}
 
@@ -444,12 +483,18 @@ void DoState(PointerWrap &p) {
 	p.DoMarker("VRAM");
 	DoArray(p, m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
+	if (s >= 4) {
+		Do(p, ignoredMemoryWords);
+	} else if (p.mode == p.MODE_READ) {
+		ignoredMemoryWords.clear();
+	}
 }
 
 void Shutdown() {
 	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 flags = 0;
 	MemoryMap_Shutdown();
+	ignoredMemoryWords.clear();
 	base = nullptr;
 	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }

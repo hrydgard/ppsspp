@@ -85,12 +85,35 @@ static u32 sceHprm_driver_DC895B2B() {
 	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
 }
 
+static u32 sceHprmDriverNoop() {
+	return hleLogDebug(Log::sceMisc, 0);
+}
+
+static u32 sceHprmGetRemoteStatus(u32 statusAddr, u32 modelAddr) {
+	// The selected desktop/02g profile has no PSP headphone remote attached.
+	Memory::WriteOrException_U32(0, statusAddr);
+	Memory::WriteOrException_U32(0, modelAddr);
+	return hleLogDebug(Log::sceMisc, 0);
+}
+
 const HLEFunction sceHprm_driver[] =
 {
 	{0XE9B776BE, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},
 	// Purpose unknown - JPCSP names it after its NID too, and returns 0. Present so the VSH's
 	// one startup call resolves instead of trapping.
 	{0XDC895B2B, &WrapU_V<sceHprm_driver_DC895B2B>, "sceHprm_driver_DC895B2B", 'x', ""},
+	{0X0B83352B, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_0B83352B", 'x', ""},
+	{0X1C3525DD, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_1C3525DD", 'x', ""},
+	{0X301063CC, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_301063CC", 'x', ""},
+	{0X370DDC12, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_370DDC12", 'x', ""},
+	{0X8AEC8EE9, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_8AEC8EE9", 'x', ""},
+	{0X9BDE174B, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_9BDE174B", 'x', ""},
+	{0XEFCFD0C5, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_EFCFD0C5", 'x', ""},
+	{0XFA4A25A7, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_FA4A25A7", 'x', ""},
+	{0X1910B327, &WrapU_U<sceHprmPeekCurrentKey>, "sceHprmPeekCurrentKey", 'x', "x", HLE_KERNEL_SYSCALL},
+	{0X8C728BB4, &WrapU_UU<sceHprmGetRemoteStatus>, "sceHprmGetRemoteStatus", 'x', "pp", HLE_KERNEL_SYSCALL},
+	{0XAD158331, &WrapU_V<sceHprmDriverNoop>, "sceHprm_driver_AD158331", 'x', "", HLE_KERNEL_SYSCALL},
+	{0XB2BEADB8, &WrapU_V<sceHprmIsRemoteExist>, "sceHprmIsRemoteExist", 'x', "", HLE_KERNEL_SYSCALL},
 };
 
 void Register_sceHprm_driver()

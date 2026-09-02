@@ -626,10 +626,6 @@ void __NetInit() {
 #ifdef __LIBRETRO__
 	__UPnPInit(2000);
 #endif
-	// The UPnP service thread only exists while UPnP is enabled, and a per-game config (or a
-	// libretro core option) can turn it on after startup. Kick it here so discovery is already
-	// done by the time the game binds its first socket, rather than starting on that request.
-	UPnP_Notify();
 
 	__ResetInitNetLib();
 	__NetApctlInit();
@@ -1777,6 +1773,23 @@ static int sceNetSetDropRate(u32 dropRate, u32 dropDuration) {
 	return hleLogInfo(Log::sceNet, 0);
 }
 
+static int sceNetUpnp_8513C6D1(u32 unknown1, u32 unknown2, u32 unknown3) {
+	return hleLogDebug(Log::sceNet, 0, "compatibility state query %08x %08x %08x", unknown1, unknown2, unknown3);
+}
+
+static int sceNetUpnp_FDA78483() {
+	return hleLogDebug(Log::sceNet, 0, "compatibility state reset");
+}
+
+static int sceNetUpnp_1038E77A(u32 stateAddr) {
+	if (!Memory::IsValidRange(stateAddr, 48)) {
+		return hleLogError(Log::sceNet, -1, "invalid state pointer");
+	}
+	Memory::Memset(stateAddr, 0, 48, "sceNetUpnp state");
+	Memory::WriteUnchecked_U32(1, stateAddr + 4);
+	return hleLogDebug(Log::sceNet, 0);
+}
+
 const HLEFunction sceNet[] = {
 	{0X39AF39A6, &WrapI_UUUUU<sceNetInit>,           "sceNetInit",                      'i', "xxxxx"},
 	{0X281928A9, &WrapU_V<sceNetTerm>,               "sceNetTerm",                      'x', ""     },
@@ -1830,6 +1843,9 @@ const HLEFunction sceNetUpnp[] = {
 	{0X3E32ED9E, &WrapI_V<sceNetUpnpStop>,           "sceNetUpnpStop",                  'i', ""     },
 	{0X540491EF, &WrapI_V<sceNetUpnpTerm>,           "sceNetUpnpTerm",                  'i', ""     },
 	{0XE24220B5, &WrapI_II<sceNetUpnpInit>,          "sceNetUpnpInit",                  'i', "ii"   },
+	{0X8513C6D1, &WrapI_UUU<sceNetUpnp_8513C6D1>,    "sceNetUpnp_8513C6D1",             'i', "xxx"  },
+	{0XFDA78483, &WrapI_V<sceNetUpnp_FDA78483>,       "sceNetUpnp_FDA78483",             'i', ""     },
+	{0X1038E77A, &WrapI_U<sceNetUpnp_1038E77A>,       "sceNetUpnp_1038E77A",             'i', "x"    },
 };
 
 const HLEFunction sceNetIfhandle[] = {
@@ -1843,6 +1859,11 @@ void Register_sceNet() {
 
 void Register_sceNetApctl() {
 	RegisterHLEModule("sceNetApctl", ARRAY_SIZE(sceNetApctl), sceNetApctl);
+	// Sony VSH utility frontends import the same ABI under these firmware
+	// library names.  Keep the ordinary public name for games and expose aliases
+	// instead of duplicating handler state.
+	RegisterHLEModule("sceNetApctl_lib", ARRAY_SIZE(sceNetApctl), sceNetApctl);
+	RegisterHLEModule("sceNetApctl_lib2", ARRAY_SIZE(sceNetApctl), sceNetApctl);
 }
 
 void Register_sceWlanDrv() {

@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -633,7 +635,7 @@ u64 MetaFileSystem::FreeDiskSpace(const std::string &path) {
 void MetaFileSystem::DoState(PointerWrap &p) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 
-	auto s = p.Section("MetaFileSystem", 1);
+	auto s = p.Section("MetaFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -644,47 +646,49 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 
 	u32 n = (u32) fileSystems.size();
 	Do(p, n);
-
-	// The mounts are serialized positionally: one section per mount, in fileSystems order, with no
-	// length to skip by. That order is the order Mount() first saw each prefix during boot, which
-	// spans more than MountFileSystems() - booting an ISO, MountGameISO() has already added umd0:,
-	// umd1:, umd: and disc0: by the time we get there. An older build's savestate simply lacks the
-	// sections for mounts that didn't exist yet, and we have to leave out exactly those to stay
-	// lined up. We only know how many are missing (n), not which, hence the list below.
-	//
-	// ADDING A NEW MOUNT: prepend its prefix here, or every existing savestate stops loading with
-	// "Failure at <whatever section follows>". Newest first, because a state missing k mounts is
-	// missing the k most recently added ones. Where the new mount falls in the order doesn't
-	// matter - skipping it by prefix leaves the relative order of all the others unchanged.
-	//
-	// DO NOT REORDER EXISTING MOUNTS. Sections are paired with filesystems purely by position, so
-	// swapping two Mount() calls feeds every old savestate's sections to the wrong filesystems,
-	// silently and with no version to catch it.
-	//
-	// RENAMING OR REMOVING A MOUNT isn't handled here either: a section in the state we have no
-	// mount for can't be skipped, because we can't know how long it is. Either of those needs a
-	// format change - storing the prefixes, or a length per section.
-	static const char * const mountsAddedOverTime[] = { "flash1:", "pfat0:" };
-
-	const size_t missing = n < (u32)fileSystems.size() ? fileSystems.size() - n : 0;
-	if (n > (u32)fileSystems.size() || missing > ARRAY_SIZE(mountsAddedOverTime)) {
-		p.SetError(p.ERROR_FAILURE);
-		ERROR_LOG(Log::FileSystem, "Savestate failure: number of filesystems doesn't match (%d in state, %d mounted).", (int)n, (int)fileSystems.size());
-		return;
-	}
-
-	for (const MountPoint &mount : fileSystems) {
-		bool skip = false;
-		for (size_t i = 0; i < missing; i++) {
-			if (mount.prefix == mountsAddedOverTime[i]) {
-				skip = true;
-				break;
+	if (s >= 2) {
+		for (u32 i = 0; i < n; ++i) {
+			std::string prefix = p.mode == p.MODE_READ ? std::string() : fileSystems[i].prefix;
+			Do(p, prefix);
+			auto target = std::find_if(fileSystems.begin(), fileSystems.end(), [&](const MountPoint &mount) {
+				return mount.prefix == prefix;
+			});
+			if (target == fileSystems.end()) {
+				p.SetError(p.ERROR_FAILURE);
+				ERROR_LOG(Log::FileSystem, "Savestate failure: filesystem mount '%s' is unavailable.", prefix.c_str());
+				return;
+			}
+			target->system->DoState(p);
+		}
+	} else {
+		bool skipPfat0 = false;
+		if (n != (u32)fileSystems.size()) {
+			if (n == (u32)fileSystems.size() - 1) {
+				skipPfat0 = true;
+			} else {
+				p.SetError(p.ERROR_FAILURE);
+				ERROR_LOG(Log::FileSystem, "Savestate failure: number of filesystems doesn't match.");
+				return;
 			}
 		}
-		if (!skip) {
-			mount.system->DoState(p);
+
+		for (u32 i = 0; i < n; ++i) {
+			if (!skipPfat0 || fileSystems[i].prefix != "pfat0:") {
+				fileSystems[i].system->DoState(p);
+			}
 		}
 	}
+}
+
+int MetaFileSystem::ChStat(const std::string &filename, const PSPFileInfo &info, u32 changebits)
+{
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	IFileSystem *system;
+	int error = MapFilePath(filename, &of, &system);
+	if (error == 0)
+		return system->ChStat(of, info, changebits);
+	return error;
 }
 
 int64_t MetaFileSystem::RecursiveSize(std::string_view dirPath) {

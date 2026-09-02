@@ -38,6 +38,10 @@ public:
 	u32 Alloc(u32 &size, bool fromTop = false, const char *tag = 0);
 	u32 AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromTop = false, const char *tag = 0);
 	u32 AllocAt(u32 position, u32 size, const char *tag = 0);
+	// Split/join already allocated blocks without returning either side to the
+	// free list. Firmware's module-to-block loader uses this for applet PRXs.
+	bool SplitAllocatedBlock(u32 position, u32 firstSize, const char *secondTag = 0);
+	bool JoinAllocatedBlocks(u32 firstPosition, u32 secondPosition);
 
 	bool Free(u32 position);
 	bool FreeExact(u32 position);

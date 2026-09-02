@@ -1426,6 +1426,18 @@
     <ClCompile Include="HLE\sceChkreg.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\MemoryStickStorageFileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\PSPRegistry.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\VSHGameLifecycle.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\VSHModuleRoute.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2324,6 +2336,18 @@
     </ClInclude>
     <ClInclude Include="HLE\sceChkreg.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystems\MemoryStickStorageFileSystem.h">
+      <Filter>FileSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\PSPRegistry.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\VSHGameLifecycle.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\VSHModuleRoute.h">
+      <Filter>HLE</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

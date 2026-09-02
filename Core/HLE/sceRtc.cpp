@@ -37,6 +37,8 @@
 #include "Core/MemMapHelpers.h"
 
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceReg.h"
 #include "Core/HLE/sceRtc.h"
 
 #ifdef HAVE_LIBNX
@@ -50,6 +52,8 @@
 // This way, time doesn't move strangely with savestates, turbo speed, etc.
 static PSPTimeval rtcBaseTime;
 static u64 rtcBaseTicks;
+static u64 rtcAlarmTick;
+static bool rtcAlarmLoaded;
 
 // Grabbed from JPSCP
 // This is the # of microseconds between January 1, 0001 and January 1, 1970.
@@ -153,15 +157,21 @@ void __RtcInit()
 	rtcBaseTime.tv_usec = 0;
 	// Precalculate the current time in microseconds (rtcMagicOffset is offset to 1970.)
 	RtcUpdateBaseTicks();
+	rtcAlarmTick = 0;
+	rtcAlarmLoaded = false;
 }
 
 void __RtcDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceRtc", 1);
+	auto s = p.Section("sceRtc", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, rtcBaseTime);
+	if (s >= 2) {
+		Do(p, rtcAlarmTick);
+		Do(p, rtcAlarmLoaded);
+	}
 	// Update the precalc, pointless to savestate this as it's just based on the other value.
 	RtcUpdateBaseTicks();
 }
@@ -941,25 +951,60 @@ static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 	return 0;
 }
 
-// Returns 0 on success, according to Project Diva 2nd jpcsptrace log
-static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2) {
-	return hleLogError(Log::sceRtc, 0, "UNIMPL");
+static void EnsureRtcAlarmLoaded() {
+	if (rtcAlarmLoaded || !__KernelIsRunningVSH()) {
+		return;
+	}
+	std::vector<u8> data;
+	if (__RegGetBinary("/CONFIG/ALARM", "rtc_alarm_tick", &data) && data.size() == sizeof(u64)) {
+		rtcAlarmTick = 0;
+		for (size_t i = 0; i < sizeof(u64); ++i) {
+			rtcAlarmTick |= (u64)data[i] << (i * 8);
+		}
+	}
+	rtcAlarmLoaded = true;
+}
+
+// Real signature per uOFW: s32 sceRtcSetAlarmTick(u64 *tick). A null pointer
+// clears the retained alarm.
+static int sceRtcSetAlarmTick(u32 tickPtr) {
+	EnsureRtcAlarmLoaded();
+	if (tickPtr == 0) {
+		rtcAlarmTick = 0;
+	} else if (Memory::IsValid4AlignedRange(tickPtr, sizeof(u64))) {
+		rtcAlarmTick = Memory::ReadUnchecked_U64(tickPtr);
+	} else {
+		return hleLogError(Log::sceRtc, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
+	}
+	rtcAlarmLoaded = true;
+	if (__KernelIsRunningVSH()) {
+		std::vector<u8> data(sizeof(rtcAlarmTick));
+		for (size_t i = 0; i < sizeof(u64); ++i) {
+			data[i] = (u8)(rtcAlarmTick >> (i * 8));
+		}
+		if (!__RegSetBinary("/CONFIG/ALARM", "rtc_alarm_tick", data)) {
+			return hleLogError(Log::sceRtc, -1, "could not persist RTC alarm");
+		}
+	}
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 // Real signature per uofw (sceRtc_C2DDBEB5, src/kd/rtc/rtc.c): s32 sceRtcGetAlarmTick(u64 *tick).
-// PPSSPP doesn't track a real hardware RTC alarm, so there's nothing meaningful to report -
-// but leaving this fully unimplemented (nullptr in the function table) meant callers got back
-// PPSSPP's uninitialized-memory poison in *tick instead of a real value. On the VSH boot path
-// (see docs/VSHBootInvestigation.md) that poisoned tick was later dereferenced as a pointer by
-// vsh_module's own code, causing a wild-address SIGSEGV. Write a real (zero) tick instead, same
-// as if no alarm were currently set - matches sceRtcSetAlarmTick() above also being a no-op.
+// The retained alarm is backed by the Direct VSH registry. This also prevents
+// callers from receiving uninitialized-memory poison when no alarm is set.
 static int sceRtcGetAlarmTick(u32 tickPtr) {
+	EnsureRtcAlarmLoaded();
 	auto tick = PSPPointer<u64_le>::Create(tickPtr);
 	if (!tick.IsValid())
 		return hleLogError(Log::sceRtc, 0, "bad address");
 
-	*tick = 0;
+	*tick = rtcAlarmTick;
 	return hleLogDebug(Log::sceRtc, 0);
+}
+
+static int sceRtcIsAlarmed() {
+	EnsureRtcAlarmLoaded();
+	return hleLogDebug(Log::sceRtc, rtcAlarmTick != 0 && __RtcGetCurrentTick() >= rtcAlarmTick ? 1 : 0);
 }
 
 // Caller must check outPtr and srcTickPtr.
@@ -1141,9 +1186,9 @@ const HLEFunction sceRtc[] =
 	{0X1909C99B, &WrapI_UU64<sceRtcSetTime64_t>,           "sceRtcSetTime64_t",              'i', "xX" },
 	{0X62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>,      "sceRtcGetLastAdjustedTime",      'i', "x"  },
 	{0X203CEB0D, &WrapI_U<sceRtcGetLastReincarnatedTime>,  "sceRtcGetLastReincarnatedTime",  'i', "x"  },
-	{0X7D1FBED3, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
+	{0X7D1FBED3, &WrapI_U<sceRtcSetAlarmTick>,             "sceRtcSetAlarmTick",             'i', "x"  },
 	{0XF5FCC995, nullptr,                                  "sceRtcGetCurrentNetworkTick",    '?', ""   },
-	{0X81FCDA34, nullptr,                                  "sceRtcIsAlarmed",                '?', ""   },
+	{0X81FCDA34, &WrapI_V<sceRtcIsAlarmed>,                "sceRtcIsAlarmed",                'i', ""   },
 	{0XFB3B18CD, nullptr,                                  "sceRtcRegisterCallback",         '?', ""   },
 	{0X6A676D2D, nullptr,                                  "sceRtcUnregisterCallback",       '?', ""   },
 	{0XC2DDBEB5, &WrapI_U<sceRtcGetAlarmTick>,             "sceRtcGetAlarmTick",             'i', "x"  },
@@ -1160,8 +1205,17 @@ void Register_sceRtc()
 // checking jpcsp's sceRtc.java, which registers 0xE09880CF as an alternate NID on the exact
 // same sceRtcSetAlarmTick() method (JPCSP doesn't distinguish import module names the way
 // PPSSPP's HLE dispatch does, but the NID->function mapping is the same either way).
+static int sceRtcSetConf(int unknown1, int unknown2, int unknown3, int unknown4) {
+	return hleLogDebug(Log::sceRtc, 0, "%d, %d, %d, %d", unknown1, unknown2, unknown3, unknown4);
+}
+
 const HLEFunction sceRtc_driver[] = {
-	{0XE09880CF, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
+	{0XE09880CF, &WrapI_U<sceRtcSetAlarmTick>,             "sceRtcSetAlarmTick",             'i', "x"  },
+	{0X9012B140, &WrapU_U<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime", 'i', "x"  },
+	{0XDFF30673, &WrapI_IIII<sceRtcSetConf>,               "sceRtcSetConf",                  'i', "iiii"},
+	{0X4E267E02, &WrapI_UU<sceRtcConvertUtcToLocalTime>,   "sceRtcConvertUtcToLocalTime",    'i', "xx", HLE_KERNEL_SYSCALL },
+	{0XCEEF238F, &WrapU_U<sceRtcGetCurrentTick>,           "sceRtcGetCurrentSecureTick",     'x', "x",  HLE_KERNEL_SYSCALL },
+	{0XE7B3ABF4, &WrapU_UU<sceRtcSetTick>,                 "sceRtcSetTick",                  'x', "xP", HLE_KERNEL_SYSCALL },
 };
 
 void Register_sceRtc_driver()

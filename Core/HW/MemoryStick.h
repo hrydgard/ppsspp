@@ -56,4 +56,8 @@ void MemoryStick_SetFatState(MemStickFatState state);
 
 u64 MemoryStick_SectorSize();
 u64 MemoryStick_FreeSpace(std::string gameID);
+u64 MemoryStick_DeviceCapacity();
+// Free space for device-level capacity queries, based on configured capacity
+// minus the complete Memory Stick folder rather than one game's savedata.
+u64 MemoryStick_DeviceFreeSpace();
 void MemoryStick_NotifyWrite();

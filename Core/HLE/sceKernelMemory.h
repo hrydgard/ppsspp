@@ -32,19 +32,32 @@ enum MemblockType {
 	PSP_SMEM_HighAligned = 4,
 };
 
-// Memory partition IDs, as passed to sceKernelAllocPartitionMemory() and friends.
-// Per TyRaNiD: 1 = kernel, 2 = user, 3 = me, 4 = kernel mirror. 5 is the "volatile"
-// partition also used by sceKernelVolatileMemLock() - the VSH uses this partition
-// for its own private allocations while it's running.
+// Memory partition IDs exposed by Sony's sysmem table. IDs 6-12 are Slim
+// System Controller, Media Engine, VSH, and canonical extended partitions;
+// some are aliases or zero-sized depending on the active boot layout.
 enum {
 	KERNEL_PARTITION_ID = 1,
 	USER_PARTITION_ID = 2,
+	OTHER1_PARTITION_ID = 3,
+	OTHER2_PARTITION_ID = 4,
 	VSHELL_PARTITION_ID = 5,
+	SC_USER_PARTITION_ID = 6,
+	ME_USER_PARTITION_ID = 7,
+	EXT_SC_KERNEL_PARTITION_ID = 8,
+	EXT_SC2_KERNEL_PARTITION_ID = 9,
+	EXT_ME_KERNEL_PARTITION_ID = 10,
+	EXT_VSHELL_PARTITION_ID = 11,
+	EXT_KERNEL_PARTITION_ID = 12,
+	MAX_MEMORY_PARTITION_ID = EXT_KERNEL_PARTITION_ID,
 };
 
 extern BlockAllocator userMemory;
 extern BlockAllocator kernelMemory;
 
+// A PSP-2000 game launched by Direct VSH uses the original 24 MiB user
+// partition while resident firmware services own separate upper-RAM
+// partitions. Ordinary PPSSPP boots retain the existing combined layout.
+void __KernelMemorySetDirectVshGamePartitionLayout(bool enabled);
 void __KernelMemoryInit();
 void __KernelMemoryDoState(PointerWrap &p);
 void __KernelMemoryShutdown();
@@ -54,8 +67,18 @@ KernelObject *__KernelMemoryPMBObject();
 KernelObject *__KernelTlsplObject();
 
 BlockAllocator *BlockAllocatorFromID(int id);
+// Internal ownership and savestate lookups must not depend on the current
+// guest privilege level.
+BlockAllocator *BlockAllocatorFromIDUnchecked(int id);
 int BlockAllocatorToID(const BlockAllocator *alloc);
 BlockAllocator *BlockAllocatorFromAddr(u32 addr);
+
+bool __KernelMemoryBlockInfo(SceUID id, u32 *address, u32 *size, int *partitionId);
+int sceKernelQueryMemoryInfo(u32 address, u32 partitionIdPtr, u32 memoryBlockIdPtr);
+SceUID __KernelSeparateMemoryBlock(SceUID id, u32 firstSize);
+int sceKernelJointMemoryBlock(SceUID id1, SceUID id2);
+int sceKernelQueryMemoryBlockInfo(SceUID id, u32 infoPtr);
+int sceKernelPrintf(const char *formatString);
 
 struct VplWaitingThread {
 	SceUID threadID;
@@ -217,6 +240,7 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferFplStatus(SceUID uid, u32 statusPtr);
 
 int sceKernelGetCompiledSdkVersion();
+int sceKernelGetCompilerVersion();
 
 SceUID sceKernelCreateTlspl(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr);
 int sceKernelDeleteTlspl(SceUID uid);

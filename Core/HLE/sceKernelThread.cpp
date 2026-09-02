@@ -20,6 +20,7 @@
 #include <map>
 #include <mutex>
 #include <set>
+#include <string>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log/LogManager.h"
@@ -32,6 +33,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/VSHGameLifecycle.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPS.h"
@@ -273,6 +275,18 @@ public:
 	void run(MipsCall &call) override {
 		INFO_LOG(Log::sceKernel, "Exit callback returned (v0 = %08x). Powering down.", currentMIPS->r[MIPS_REG_V0]);
 		g_exitCallbackPending = false;
+		// Native impose invokes the game's registered callback and expects loadexec
+		// to continue the exit after that callback returns.  A callback is allowed
+		// to call sceKernelExitGame itself, so do not post a duplicate return when
+		// that path has already armed the fresh VSH boot.
+		if (!__KernelIsRunningVSH() && VSHGameLifecycleShouldReturn() && !VSHGameLifecycleFreshVshBootPending()) {
+			std::string error;
+			if (VSHGameLifecycleRequestReturn(&error)) {
+				INFO_LOG(Log::System, "Direct VSH lifecycle: exit callback completed; return to VSH requested");
+			} else {
+				WARN_LOG(Log::System, "Direct VSH return after exit callback failed: %s", error.c_str());
+			}
+		}
 		// The callback may have already powered down by calling sceKernelExitGame - that's fine,
 		// Core_Stop is idempotent. Either way, the host will see CORE_POWERDOWN and tear the game down.
 		Core_Stop();
@@ -308,6 +322,11 @@ void PSPThread::GetQuickInfo(char *ptr, int size) {
 }
 
 BlockAllocator &PSPThread::StackAllocator() {
+	if (stackPartitionId != 0) {
+		BlockAllocator *allocator = BlockAllocatorFromIDUnchecked(stackPartitionId);
+		if (allocator)
+			return *allocator;
+	}
 	if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
 		return kernelMemory;
 	}
@@ -369,7 +388,7 @@ void PSPThread::FreeStack() {
 }
 
 bool PSPThread::PushExtendedStack(u32 size) {
-	u32 stack = userMemory.Alloc(size, true, StringFromFormat("extended/%s", nt.name).c_str());
+	u32 stack = StackAllocator().Alloc(size, true, StringFromFormat("extended/%s", nt.name).c_str());
 	if (stack == (u32)-1)
 		return false;
 
@@ -389,7 +408,7 @@ bool PSPThread::PopExtendedStack() {
 	if (pushedStacks.size() == 0)
 		return false;
 
-	userMemory.Free(currentStack.start);
+	StackAllocator().Free(currentStack.start);
 	currentStack = pushedStacks.back();
 	pushedStacks.pop_back();
 	nt.initialStack = currentStack.start;
@@ -405,13 +424,13 @@ void PSPThread::Cleanup() {
 	if (pushedStacks.size() != 0) {
 		WARN_LOG_REPORT(Log::sceKernel, "Thread ended within an extended stack");
 		for (size_t i = 0; i < pushedStacks.size(); ++i)
-			userMemory.Free(pushedStacks[i].start);
+			StackAllocator().Free(pushedStacks[i].start);
 	}
 	FreeStack();
 }
 
 void PSPThread::DoState(PointerWrap &p) {
-	auto s = p.Section("Thread", 1, 5);
+	auto s = p.Section("Thread", 1, 6);
 	if (!s)
 		return;
 
@@ -447,6 +466,11 @@ void PSPThread::DoState(PointerWrap &p) {
 	Do(p, pendingMipsCalls);
 	Do(p, pushedStacks);
 	Do(p, currentStack);
+	if (s >= 6) {
+		Do(p, stackPartitionId);
+	} else if (p.mode == p.MODE_READ) {
+		stackPartitionId = BlockAllocatorToID(BlockAllocatorFromAddr(currentStack.start));
+	}
 
 	if (s >= 2) {
 		Do(p, waitingThreads);
@@ -463,7 +487,7 @@ struct WaitTypeFuncs
 
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, int stackPartitionId = 0);
 void __KernelResetThread(PSPThread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
@@ -1707,7 +1731,7 @@ void __KernelResetThread(PSPThread *t, int lowestPriority) {
 		ERROR_LOG_REPORT(Log::sceKernel, "Resetting thread with threads waiting on end?");
 }
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, int stackPartitionId) {
 	std::lock_guard<std::mutex> guard(threadqueueLock);
 
 	PSPThread *t = new PSPThread();
@@ -1743,6 +1767,7 @@ PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *n
 	else
 		t->nt.gpreg = 0;  // sceKernelStartThread will take care of this.
 	t->moduleId = moduleId;
+	t->stackPartitionId = stackPartitionId;
 
 	strncpy(t->nt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	t->nt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
@@ -1785,10 +1810,10 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	return id;
 }
 
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr)
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, int stackPartitionId)
 {
 	SceUID id;
-	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr);
+	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr, stackPartitionId);
 	if (newThread->currentStack.start == 0)
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 
@@ -1796,7 +1821,7 @@ SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32
 }
 
 // Note: Removed all the uses of hleReport* etc.
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel) {
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int stackPartitionId) {
 	if (!threadName) {
 		ERROR_LOG(Log::sceKernel, "__KernelCreateThread: NULL thread name");
 		return SCE_KERNEL_ERROR_ERROR;
@@ -1847,19 +1872,31 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		}
 	}
 
-	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
+	if (optionAddr != 0) {
+		if (!Memory::IsValid4AlignedRange(optionAddr, 8)) {
+			ERROR_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): bad options parameter %08x", threadName, optionAddr);
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		}
+		const u32 structSize = Memory::ReadUnchecked_U32(optionAddr);
+		if (structSize != 8) {
+			WARN_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): invalid options size %u", threadName, structSize);
+			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+		}
+		const int requestedStackPartition = (int)Memory::ReadUnchecked_U32(optionAddr + 4);
+		if (requestedStackPartition != 0) {
+			if (!BlockAllocatorFromID(requestedStackPartition)) {
+				WARN_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): invalid stack partition %d", threadName, requestedStackPartition);
+				return SCE_KERNEL_ERROR_ILLEGAL_PARTITION;
+			}
+			stackPartitionId = requestedStackPartition;
+		}
+		DEBUG_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): stack partition %d", threadName, stackPartitionId);
+	}
+
+	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr, stackPartitionId);
 	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY) {
 		ERROR_LOG_REPORT(Log::sceKernel, "out of memory, %08x stack requested", stacksize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
-
-	if (optionAddr != 0) {
-		if (Memory::IsValid4AlignedAddress(optionAddr)) {
-			u32 structSize = Memory::ReadUnchecked_U32(optionAddr);
-			WARN_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
-		} else {
-			ERROR_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): bad options parameter %08x", threadName, optionAddr);
-		}
 	}
 
 	// Creating a thread resumes dispatch automatically.  Probably can't create without it.

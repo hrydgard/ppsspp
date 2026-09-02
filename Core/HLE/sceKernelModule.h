@@ -198,9 +198,9 @@ public:
 	NativeModule nm{};
 	std::vector<ModuleWaitingThread> waitingThreads;
 
-	// From the plugin's perspective, this is the reference to the thread started by LoadExec
+	// From a plugin/service perspective, this is the thread started by LoadExec.
 	SceUID pluginWaitingThread = 0;
-	// Thread started by LoadExec is waiting for these plugins
+	// The LoadExec thread is waiting for these module_start functions.
 	std::vector<SceUID> startingPlugins;
 
 	// TODO: Should we store these grouped by moduleName instead? Seems more reasonable.
@@ -225,6 +225,9 @@ public:
 	u32 crc = 0;
 	PSPPointer<NativeModule> modulePtr{};
 	bool isFake = false;
+	// False for sceKernelLoadModuleToBlock: the supplied partition-memory
+	// object owns and eventually frees the backing range.
+	bool ownsMemoryBlock = true;
 };
 
 KernelObject *__KernelModuleObject();
@@ -234,7 +237,11 @@ void __KernelModuleShutdown();
 class MIPSState;
 
 u32 __KernelGetModuleGP(SceUID module);
+// Returns the GP belonging to the loaded module containing address, or zero
+// when the address is not part of a known module.
+u32 __KernelGetModuleGPByAddress(u32 address);
 bool KernelModuleIsKernelMode(SceUID module);
+bool __KernelIsRunningVSH();
 bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::string *error_string);
 bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string);
 // Exposed so sceVshBridge can reuse it directly for vshKernelLoadModuleBufferVSH, matching JPCSP.

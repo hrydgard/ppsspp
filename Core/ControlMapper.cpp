@@ -685,7 +685,7 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 		}
 		// Same as deviceId above, axisId comes straight from the device and can be out of range.
 		if ((size_t)axis.axisId < JOYSTICK_AXIS_MAX) {
-			rawAxisValue_[axis.axisId] = axis.value;  // these are only used for co-axis mapping
+		rawAxisValue_[axis.axisId] = axis.value;  // these are only used for co-axis mapping
 		}
 		if (axis.value >= 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, 1);

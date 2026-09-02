@@ -17,6 +17,8 @@
 
 #include <cstdarg>
 #include <map>
+#include <mutex>
+#include <unordered_map>
 #include <vector>
 #include <string>
 
@@ -40,6 +42,8 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/VSHGameLifecycle.h"
+#include "Core/HLE/VSHModuleRoute.h"
 #include "Core/HLE/HLE.h"
 
 enum {
@@ -89,12 +93,14 @@ static double hleFlipTime = 0.0;
 
 struct HLEMipsCallInfo {
 	u32 func;
+	u32 gp;
 	PSPAction *action;
 	std::vector<u32> args;
 };
 
 struct HLEMipsCallStack {
 	u32_le nextOff;
+	u32_le gp;
 	union {
 		struct {
 			u32_le func;
@@ -235,6 +241,21 @@ bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually) {
 }
 
 bool ShouldHLEModuleByImportName(std::string_view name) {
+	// The Direct VSH product runs Sony's real registry service so firmware code
+	// reads and writes flash1:/registry/system.ireg/system.dreg itself. Games
+	// retain PPSSPP's ordinary sceReg HLE implementation.
+	if (__KernelIsRunningVSH() && (equalsNoCase(name, "sceReg") || equalsNoCase(name, "sceReg_driver"))) {
+		return false;
+	}
+
+	// Direct VSH loads flash0:/kd/mpeg_vsh.prx, whose sceMpeg ABI and internal
+	// state are tailored to Sony's media applications. Let that real provider
+	// own the high-level library while PPSSPP continues to HLE the lower codec,
+	// audio, and CSC services. The game route keeps PPSSPP's mature sceMpeg HLE.
+	if (__KernelIsRunningVSH() && equalsNoCase(name, "sceMpeg")) {
+		return false;
+	}
+
 	// Check our special metadata lookup. Should probably be merged with the main one.
 	const HLEModuleMeta *meta = GetHLEModuleMetaByImport(name);
 	if (meta) {
@@ -590,11 +611,15 @@ bool hleIsKernelMode() {
 }
 
 void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction) {
+	hleEnqueueCallWithGP(func, currentMIPS->r[MIPS_REG_GP], argc, argv, afterAction);
+}
+
+void hleEnqueueCallWithGP(u32 func, u32 gp, int argc, const u32 *argv, PSPAction *afterAction) {
 	std::vector<u32> args;
 	args.resize(argc);
 	memcpy(args.data(), argv, argc * sizeof(u32));
 
-	enqueuedMipsCalls.push_back({ func, afterAction, args });
+	enqueuedMipsCalls.push_back({ func, gp, afterAction, args });
 
 	hleAfterSyscall |= HLE_AFTER_QUEUED_CALLS;
 }
@@ -609,12 +634,14 @@ static void hleFlushCalls(MIPSState *mips) {
 	sp -= sizeof(HLEMipsCallStack);
 	stackData.ptr = sp;
 	stackData->nextOff = 0xFFFFFFFF;
+	stackData->gp = mips->r[MIPS_REG_GP];
 	stackData->ra = mips->pc;
 	stackData->v0 = mips->r[MIPS_REG_V0];
 	stackData->v1 = mips->r[MIPS_REG_V1];
 
 	// Now we'll set up the first in the chain.
 	mips->pc = enqueuedMipsCalls[0].func;
+	mips->r[MIPS_REG_GP] = enqueuedMipsCalls[0].gp;
 	mips->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)enqueuedMipsCalls[0].args.size(); i++) {
 		mips->r[MIPS_REG_A0 + i] = enqueuedMipsCalls[0].args[i];
@@ -630,6 +657,7 @@ static void hleFlushCalls(MIPSState *mips) {
 		sp -= stackAligned;
 		stackData.ptr = sp;
 		stackData->nextOff = stackAligned;
+		stackData->gp = info.gp;
 		stackData->func = info.func;
 		if (info.action) {
 			stackData->actionIndex = (int)mipsCallActions.size();
@@ -700,6 +728,7 @@ void HLEReturnFromMipsCall() {
 		currentMIPS->pc = stackData->ra;
 		currentMIPS->r[MIPS_REG_V0] = stackData->v0;
 		currentMIPS->r[MIPS_REG_V1] = stackData->v1;
+		currentMIPS->r[MIPS_REG_GP] = stackData->gp;
 
 		sp += sizeof(HLEMipsCallStack);
 
@@ -719,6 +748,7 @@ void HLEReturnFromMipsCall() {
 	// Alright, we have another to call.
 	hleSkipDeadbeef();
 	currentMIPS->pc = stackData->func;
+	currentMIPS->r[MIPS_REG_GP] = stackData->gp;
 	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)stackData->argc; i++) {
 		// The check at the start of the function should be enough to use an unchecked read (well, kinda..)

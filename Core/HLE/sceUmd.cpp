@@ -17,6 +17,7 @@
 
 #include <vector>
 
+#include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -34,6 +35,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/HLE/VSHGameLifecycle.h"
 #include "Core/RetroAchievements.h"
 
 #include "Core/FileSystems/BlockDevices.h"
@@ -42,6 +44,7 @@
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 
 static constexpr u64 MICRO_DELAY_ACTIVATE = 4000;
+static constexpr u64 MICRO_DELAY_INSERT = 100 * 1000;
 // Does not include PSP_UMD_CHANGED.
 static constexpr uint32_t UMD_STAT_ALLOW_WAIT = PSP_UMD_NOT_PRESENT | PSP_UMD_PRESENT | PSP_UMD_NOT_READY | PSP_UMD_READY | PSP_UMD_READABLE;
 
@@ -54,6 +57,7 @@ static int umdStatChangeEvent = -1;
 static int umdInsertChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
+static int umdSuspendResumeMode = 0;
 
 bool g_UMDReplacePermit = false;
 bool UMDInserted = true;
@@ -81,13 +85,23 @@ void __UmdInit()
 	umdWaitingThreads.clear();
 	umdPausedWaits.clear();
 	g_UMDReplacePermit = false;
+	// Direct VSH boots with a physical empty drive. A --mount image remains the
+	// next available medium and is exposed through an explicit insert event once
+	// the shell is live. Ordinary games retain PPSSPP's established inserted
+	// state for mounted discs.
+	const bool directVshBoot = equalsNoCase(PSP_CoreParameter().fileToStart.GetFilename(), "vshmain.prx");
+	UMDInserted = !directVshBoot && (!PSP_CoreParameter().mountIso.empty() || pspFileSystem.GetSystem("disc0:") != nullptr);
+	umdSuspendResumeMode = 0;
+	// Clear a prior lifecycle mount as well as setting the current one. The host
+	// process can boot VSH more than once without exiting.
+	VSHGameLifecycleSetMountedUmd(PSP_CoreParameter().mountIso);
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
 
 void __UmdDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUmd", 1, 3);
+	auto s = p.Section("sceUmd", 1, 4);
 	if (!s)
 		return;
 
@@ -116,6 +130,11 @@ void __UmdDoState(PointerWrap &p)
 	} else {
 		umdInsertChangeEvent = -1;
 		UMDInserted = true;
+	}
+	if (s > 3) {
+		Do(p, umdSuspendResumeMode);
+	} else {
+		umdSuspendResumeMode = 0;
 	}
 	CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
 }
@@ -157,9 +176,12 @@ static void UmdWakeThreads() {
 }
 
 static void __UmdStatChange(u64 userdata, int cyclesLate) {
-	umdActivated = userdata != 0;
+	umdActivated = (userdata & 1) != 0;
 
 	UmdWakeThreads();
+	if ((userdata & 2) != 0 && driveCBId != 0) {
+		__KernelNotifyCallback(driveCBId, __KernelUmdGetState() | PSP_UMD_CHANGED);
+	}
 }
 
 static void __UmdInsertChange(u64 userdata, int cyclesLate) {
@@ -170,9 +192,9 @@ static void __UmdInsertChange(u64 userdata, int cyclesLate) {
 
 static void __KernelUmdActivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
+	u32 notifyArg = UMDInserted ? PSP_UMD_PRESENT | PSP_UMD_READABLE : PSP_UMD_NOT_PRESENT;
 	// PSP_UMD_READY will be returned when sceKernelGetCompiledSdkVersion() != 0
-	if (sceKernelGetCompiledSdkVersion() != 0) {
+	if (UMDInserted && sceKernelGetCompiledSdkVersion() != 0) {
 		notifyArg |= PSP_UMD_READY;
 	}
 	if (driveCBId != 0)
@@ -180,12 +202,12 @@ static void __KernelUmdActivate()
 
 	// Don't activate immediately, take time to "spin up."
 	CoreTiming::RemoveEvent(umdStatChangeEvent);
-	CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_ACTIVATE), umdStatChangeEvent, 1);
+	CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_ACTIVATE), umdStatChangeEvent, UMDInserted ? 1 : 0);
 }
 
 static void __KernelUmdDeactivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
+	u32 notifyArg = UMDInserted ? PSP_UMD_PRESENT | PSP_UMD_READY : PSP_UMD_NOT_PRESENT;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
@@ -269,6 +291,9 @@ static int sceUmdCheckMedium() {
 static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 	DEBUG_LOG(Log::sceIo, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
+	if (!UMDInserted) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND);
+	}
 	if (Memory::IsValidAddress(infoAddr)) {
 		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
 		if (info->size != 8)
@@ -469,6 +494,45 @@ static u32 sceUmdGetErrorStat() {
 	return hleLogDebug(Log::sceIo, umdErrorStat);
 }
 
+static int sceUmdSetSuspendResumeMode(int mode) {
+	umdSuspendResumeMode = mode;
+	return hleLogDebug(Log::sceIo, 0, "mode=%d", mode);
+}
+
+static int sceUmdGetSuspendResumeMode() {
+	return hleLogDebug(Log::sceIo, umdSuspendResumeMode);
+}
+
+void __UmdSetInserted(bool inserted, bool notify) {
+	CoreTiming::RemoveEvent(umdInsertChangeEvent);
+	CoreTiming::RemoveEvent(umdStatChangeEvent);
+	UMDInserted = inserted;
+	umdActivated = false;
+	if (inserted) {
+		// A physical insertion becomes readable after the drive spins up. Wake
+		// READABLE waiters through the same timing event used by sceUmdActivate.
+		// Bit 1 asks the timing callback to deliver the readable transition to
+		// the registered VSH drive callback after spin-up.
+		CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_INSERT), umdStatChangeEvent, 3);
+	}
+	UmdWakeThreads();
+	if (notify && driveCBId != 0) {
+		if (!inserted) {
+			// Match the hardware/Jpcsp removal phase. The later insertion event
+			// delivers PRESENT|READY|READABLE|CHANGED once, after 100 ms.
+			__KernelNotifyCallback(driveCBId, PSP_UMD_NOT_PRESENT | PSP_UMD_NOT_READY);
+		}
+	}
+}
+
+bool __UmdIsInserted() {
+	return UMDInserted;
+}
+
+u32 __UmdGetDriveState() {
+	return __KernelUmdGetState();
+}
+
 void __UmdReplace(const Path &filepath) {
 	std::string error = "";
 	FileLoader *fileLoader;
@@ -533,9 +597,12 @@ const HLEFunction sceUmdUser[] =
 	{0XCBE9F02A, &WrapU_V<sceUmdReplacePermit>,           "sceUmdReplacePermit",          'x', ""  },
 	{0X14C6C45C, nullptr,                                 "sceUmdUnuseUMDInMsUsbWlan",    '?', ""  },
 	{0XB103FA38, nullptr,                                 "sceUmdUseUMDInMsUsbWlan",      '?', ""  },
+	{0X816E656B, &WrapI_I<sceUmdSetSuspendResumeMode>,     "sceUmdSetSuspendResumeMode",   'i', "i" },
+	{0X899B5C41, &WrapI_V<sceUmdGetSuspendResumeMode>,     "sceUmdGetSuspendResumeMode",   'i', ""  },
 };
 
 void Register_sceUmdUser()
 {
 	RegisterHLEModule("sceUmdUser", ARRAY_SIZE(sceUmdUser), sceUmdUser);
+	RegisterHLEModule("sceUmd", ARRAY_SIZE(sceUmdUser), sceUmdUser);
 }

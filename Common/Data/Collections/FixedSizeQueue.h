@@ -129,6 +129,10 @@ public:
 
 	const T &front() const { return storage_[head_]; }
 
+	const T &at(size_t offset) const {
+		return storage_[(head_ + (int)offset) % N];
+	}
+
 	size_t size() const {
 		return count_;
 	}

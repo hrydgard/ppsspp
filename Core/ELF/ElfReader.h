@@ -22,6 +22,8 @@
 #include "Common/File/Path.h"
 #include "Core/ELF/PSPElfTypes.h"
 
+class BlockAllocator;
+
 enum {
 	R_MIPS_NONE,
 	R_MIPS_16,
@@ -173,7 +175,7 @@ public:
 
 	std::vector<SectionID> GetCodeSections() const;
 
-	int LoadInto(u32 vaddr, bool fromTop);
+	int LoadInto(u32 vaddr, bool fromTop, BlockAllocator *targetAllocator = nullptr, bool reserveMemory = true, u32 availableSize = 0);
 	bool LoadSymbols();
 	bool LoadRelocations(const Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);

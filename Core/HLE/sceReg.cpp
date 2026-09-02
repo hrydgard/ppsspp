@@ -1,9 +1,19 @@
 #include <map>
 #include <algorithm>
+#include <cstring>
+#include <iterator>
+#include <memory>
+#include <set>
+#include <vector>
+#include "Core/HLE/PSPRegistry.h"
 #include "Core/HLE/sceReg.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/VSHModuleRoute.h"
+#include "Core/Config.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
@@ -56,6 +66,42 @@ struct KeyValue {
 	int intValue;
 	const KeyValue *dirContents;  // intValue is the count.
 };
+
+struct RegistryValue {
+	ValueType type = ValueType::FAIL;
+	std::vector<u8> data;
+
+	void DoState(PointerWrap &p) {
+		int typeValue = (int)type;
+		Do(p, typeValue);
+		if (p.mode == p.MODE_READ) {
+			type = (ValueType)typeValue;
+		}
+		Do(p, data);
+	}
+};
+
+struct RegistryCategory {
+	std::vector<std::string> order;
+	std::map<std::string, RegistryValue> values;
+	int accessError = 0;
+
+	void DoState(PointerWrap &p) {
+		Do(p, order);
+		Do(p, values);
+		Do(p, accessError);
+	}
+};
+
+static std::map<std::string, RegistryCategory> g_registryCategories;
+static bool g_registryLoaded;
+static bool g_registryPersistent;
+static bool g_registryDirty;
+static bool g_registryRecovered;
+static u64 g_registryGeneration;
+static bool g_registryUsesRealFiles;
+static std::unique_ptr<PSPRegistryFile> g_realRegistry;
+static std::set<std::pair<std::string, std::string>> g_registryDirtyValues;
 
 // TODO: /DATA/FONT/PROPERTY could just be generated from our fontRegistry in sceFont.cpp.
 
@@ -950,6 +996,447 @@ const KeyValue ROOT[] = {
 	{ "SYSPROFILE", ValueType::DIR, "", ARRAY_SIZE(tree_SYSPROFILE), tree_SYSPROFILE },
 };
 
+namespace {
+
+constexpr u32 VSH_REGISTRY_MAX_VALUE_SIZE = 1024 * 1024;
+
+Path RegistryDirectoryPath() {
+	return g_Config.nandRootDirectory / "flash1/registry";
+}
+
+Path RegistryIregPath() {
+	return RegistryDirectoryPath() / "system.ireg";
+}
+
+Path RegistryDregPath() {
+	return RegistryDirectoryPath() / "system.dreg";
+}
+
+Path RegistryDregBackupPath() {
+	return RegistryDirectoryPath() / "system.dreg.bak";
+}
+
+Path RegistryDregTemporaryPath() {
+	return RegistryDirectoryPath() / "system.dreg.tmp";
+}
+
+std::string NormalizeRegistryPath(std::string_view path) {
+	std::string normalized(path);
+	std::replace(normalized.begin(), normalized.end(), '\\', '/');
+
+	constexpr std::string_view prefixes[] = {
+		"flash1:/registry/system",
+		"flash1/registry/system",
+		"flash2:/registry/system",
+		"flash2/registry/system",
+		"/system",
+	};
+	for (std::string_view prefix : prefixes) {
+		if (startsWithNoCase(normalized, prefix)) {
+			normalized.erase(0, prefix.size());
+			break;
+		}
+	}
+	if (normalized.empty()) {
+		return "/";
+	}
+	if (normalized.front() != '/') {
+		normalized.insert(normalized.begin(), '/');
+	}
+	while (normalized.size() > 1 && normalized.back() == '/') {
+		normalized.pop_back();
+	}
+	return normalized;
+}
+
+std::string ChildRegistryPath(std::string_view parent, std::string_view name) {
+	const std::string normalizedParent = NormalizeRegistryPath(parent);
+	return normalizedParent == "/" ? "/" + std::string(name) : normalizedParent + "/" + std::string(name);
+}
+
+void AddKeyInOrder(RegistryCategory &category, std::string_view name) {
+	if (std::find(category.order.begin(), category.order.end(), name) == category.order.end()) {
+		category.order.emplace_back(name);
+	}
+}
+
+RegistryValue SeedRegistryValue(const KeyValue &value) {
+	RegistryValue result;
+	result.type = value.type;
+	switch (value.type) {
+	case ValueType::INT:
+		result.data.resize(sizeof(u32));
+		result.data[0] = (u8)value.intValue;
+		result.data[1] = (u8)(value.intValue >> 8);
+		result.data[2] = (u8)(value.intValue >> 16);
+		result.data[3] = (u8)(value.intValue >> 24);
+		break;
+	case ValueType::STR:
+	case ValueType::BIN:
+		result.data.resize(std::max(0, value.intValue), 0);
+		if (value.strValue && value.strValue[0] != '\0' && !result.data.empty()) {
+			memcpy(result.data.data(), value.strValue, result.data.size());
+		}
+		break;
+	case ValueType::DIR:
+	case ValueType::FAIL:
+	default:
+		break;
+	}
+	return result;
+}
+
+void SeedRegistryCategory(std::string_view path, const KeyValue *values, int count) {
+	RegistryCategory &category = g_registryCategories[NormalizeRegistryPath(path)];
+	if (count == 1 && values[0].type == ValueType::FAIL) {
+		category.accessError = values[0].intValue;
+		return;
+	}
+	for (int i = 0; i < count; ++i) {
+		const KeyValue &source = values[i];
+		AddKeyInOrder(category, source.name);
+		category.values[source.name] = SeedRegistryValue(source);
+		if (source.type == ValueType::DIR) {
+			SeedRegistryCategory(ChildRegistryPath(path, source.name), source.dirContents, source.intValue);
+		}
+	}
+}
+
+void PutRegistryInt(std::string_view path, std::string_view name, u32 value) {
+	RegistryCategory &category = g_registryCategories[NormalizeRegistryPath(path)];
+	AddKeyInOrder(category, name);
+	RegistryValue &entry = category.values[std::string(name)];
+	entry.type = ValueType::INT;
+	entry.data = {(u8)value, (u8)(value >> 8), (u8)(value >> 16), (u8)(value >> 24)};
+}
+
+void PutRegistryString(std::string_view path, std::string_view name, std::string_view value) {
+	RegistryCategory &category = g_registryCategories[NormalizeRegistryPath(path)];
+	AddKeyInOrder(category, name);
+	RegistryValue &entry = category.values[std::string(name)];
+	entry.type = ValueType::STR;
+	entry.data.assign(value.begin(), value.end());
+	entry.data.push_back(0);
+}
+
+void PutRegistryBinary(std::string_view path, std::string_view name, size_t size, u8 value = 0) {
+	RegistryCategory &category = g_registryCategories[NormalizeRegistryPath(path)];
+	AddKeyInOrder(category, name);
+	RegistryValue &entry = category.values[std::string(name)];
+	entry.type = ValueType::BIN;
+	entry.data.assign(size, value);
+}
+
+void SeedFactoryRegistry(bool directVsh) {
+	g_registryCategories.clear();
+	SeedRegistryCategory("/", ROOT, ARRAY_SIZE(ROOT));
+	if (!directVsh) {
+		return;
+	}
+
+	// The structural dump above is useful, but factory state must not preserve
+	// the donor PSP's identity, counters, clock area, or first-boot payload.
+	PutRegistryString("/CONFIG/SYSTEM", "owner_name", "PPSSPP");
+	PutRegistryBinary("/CONFIG/SYSTEM", "first_boot_tick", 64);
+	PutRegistryInt("/DATA/COUNT", "boot_count", 0);
+	PutRegistryInt("/DATA/COUNT", "game_exec_count", 0);
+	PutRegistryInt("/DATA/COUNT", "slide_count", 0);
+	PutRegistryInt("/DATA/COUNT", "usb_connect_count", 0);
+	PutRegistryInt("/DATA/COUNT", "wifi_connect_count", 0);
+	PutRegistryInt("/DATA/COUNT", "psn_access_count", 0);
+	PutRegistryInt("/CONFIG/DATE", "time_zone_offset", 0);
+	PutRegistryString("/CONFIG/DATE", "time_zone_area", "utc");
+	PutRegistryInt("/CONFIG/SYSTEM/XMB", "language", 1);
+	PutRegistryInt("/CONFIG/SYSTEM/XMB", "button_assign", 1);
+}
+
+bool ReadRegistryBytes(const Path &path, std::vector<u8> *data) {
+	std::string file;
+	if (!File::ReadBinaryFileToString(path, &file)) {
+		return false;
+	}
+	data->assign(file.begin(), file.end());
+	return true;
+}
+
+void ImportRealRegistryCategories(const PSPRegistryFile &registry) {
+	g_registryCategories.clear();
+	for (const auto &[path, source] : registry.Categories()) {
+		RegistryCategory category;
+		category.order = source.order;
+		for (const auto &[name, sourceValue] : source.values) {
+			RegistryValue value;
+			value.type = (ValueType)sourceValue.type;
+			value.data = sourceValue.data;
+			category.values.emplace(name, std::move(value));
+		}
+		g_registryCategories.emplace(NormalizeRegistryPath(path), std::move(category));
+	}
+
+	// IREG stores each top-level category independently. sceReg exposes their
+	// names when callers enumerate the synthetic API root.
+	RegistryCategory &root = g_registryCategories["/"];
+	for (const auto &[path, _] : registry.Categories()) {
+		if (path.size() <= 1 || path.find('/', 1) != std::string::npos) {
+			continue;
+		}
+		const std::string name = path.substr(1);
+		AddKeyInOrder(root, name);
+		root.values[name].type = ValueType::DIR;
+	}
+}
+
+bool LoadRealRegistryBacking(bool importCategories, std::string *error) {
+	std::vector<u8> ireg;
+	std::vector<u8> dreg;
+	if (!ReadRegistryBytes(RegistryIregPath(), &ireg) || !ReadRegistryBytes(RegistryDregPath(), &dreg)) {
+		if (error) {
+			*error = "system.ireg/system.dreg are missing";
+		}
+		return false;
+	}
+	auto registry = std::make_unique<PSPRegistryFile>();
+	std::string parseError;
+	if (!registry->Load(ireg, dreg, &parseError)) {
+		// The real backup is useful only when the primary DREG cannot pass its
+		// PSP checksums. IREG is unchanged by existing-key edits.
+		std::vector<u8> backupDreg;
+		if (!ReadRegistryBytes(RegistryDregBackupPath(), &backupDreg) || !registry->Load(ireg, backupDreg, &parseError)) {
+			if (error) {
+				*error = parseError;
+			}
+			return false;
+		}
+		g_registryRecovered = true;
+	}
+	if (importCategories) {
+		ImportRealRegistryCategories(*registry);
+	}
+	g_realRegistry = std::move(registry);
+	return true;
+}
+
+bool WriteRealDreg(const std::vector<u8> &data) {
+	const Path primary = RegistryDregPath();
+	const Path backup = RegistryDregBackupPath();
+	const Path temporary = RegistryDregTemporaryPath();
+	File::Delete(temporary, true);
+	File::IOFile output(temporary, "wb");
+	if (!output || !output.WriteBytes(data.data(), data.size()) || !output.Flush() || !output.Close()) {
+		File::Delete(temporary, true);
+		return false;
+	}
+	if (File::Exists(backup) && !File::Delete(backup)) {
+		File::Delete(temporary, true);
+		return false;
+	}
+	if (!File::Rename(primary, backup)) {
+		File::Delete(temporary, true);
+		return false;
+	}
+	if (!File::Rename(temporary, primary)) {
+		File::Rename(backup, primary);
+		File::Delete(temporary, true);
+		return false;
+	}
+	return true;
+}
+
+bool PersistRegistry() {
+	if (!g_registryPersistent || !g_registryDirty) {
+		return true;
+	}
+	if (!g_registryUsesRealFiles) {
+		return false;
+	}
+	std::string error;
+	if (!g_realRegistry && !LoadRealRegistryBacking(false, &error)) {
+		ERROR_LOG(Log::sceReg, "Could not reload real PSP registry backing: %s", error.c_str());
+		return false;
+	}
+	PSPRegistryFile updated = *g_realRegistry;
+	for (const auto &[path, name] : g_registryDirtyValues) {
+		auto category = g_registryCategories.find(path);
+		if (category == g_registryCategories.end()) {
+			return false;
+		}
+		auto value = category->second.values.find(name);
+		if (value == category->second.values.end() || value->second.type == ValueType::DIR || !updated.HasValue(path, name)) {
+			ERROR_LOG(Log::sceReg, "Refusing to persist non-IREG key %s/%s", path.c_str(), name.c_str());
+			return false;
+		}
+		if (!updated.SetValue(path, name, (PSPRegistryValueType)value->second.type, value->second.data, &error)) {
+			ERROR_LOG(Log::sceReg, "Could not update real PSP registry %s/%s: %s", path.c_str(), name.c_str(), error.c_str());
+			return false;
+		}
+	}
+	if (!WriteRealDreg(updated.DregData())) {
+		ERROR_LOG(Log::sceReg, "Failed atomically writing flash1:/registry/system.dreg");
+		return false;
+	}
+	g_realRegistry = std::make_unique<PSPRegistryFile>(std::move(updated));
+	g_registryGeneration++;
+	g_registryDirty = false;
+	g_registryDirtyValues.clear();
+	INFO_LOG(Log::sceReg, "Persisted real PSP system.dreg generation %llu", (unsigned long long)g_registryGeneration);
+	return true;
+}
+
+bool ValidateRealRegistryValue(std::string_view path, std::string_view name, ValueType type,
+	const std::vector<u8> &data, std::string *error) {
+	if (!g_registryUsesRealFiles) {
+		return true;
+	}
+	if (!g_realRegistry && !LoadRealRegistryBacking(false, error)) {
+		return false;
+	}
+	PSPRegistryFile validation = *g_realRegistry;
+	return validation.SetValue(NormalizeRegistryPath(path), std::string(name), (PSPRegistryValueType)type, data, error);
+}
+
+bool ReadRegistryInt(std::string_view path, std::string_view name, u32 *value) {
+	auto category = g_registryCategories.find(NormalizeRegistryPath(path));
+	if (category == g_registryCategories.end()) {
+		return false;
+	}
+	auto entry = category->second.values.find(std::string(name));
+	if (entry == category->second.values.end() || entry->second.type != ValueType::INT || entry->second.data.size() != sizeof(u32)) {
+		return false;
+	}
+	*value = (u32)entry->second.data[0] | ((u32)entry->second.data[1] << 8) | ((u32)entry->second.data[2] << 16) | ((u32)entry->second.data[3] << 24);
+	return true;
+}
+
+bool ReadRegistryString(std::string_view path, std::string_view name, std::string *value) {
+	auto category = g_registryCategories.find(NormalizeRegistryPath(path));
+	if (category == g_registryCategories.end()) {
+		return false;
+	}
+	auto entry = category->second.values.find(std::string(name));
+	if (entry == category->second.values.end() || entry->second.type != ValueType::STR) {
+		return false;
+	}
+	const size_t length = !entry->second.data.empty() && entry->second.data.back() == 0 ? entry->second.data.size() - 1 : entry->second.data.size();
+	if (length == 0) {
+		value->clear();
+	} else {
+		value->assign((const char *)entry->second.data.data(), length);
+	}
+	return true;
+}
+
+void ApplyRegistrySystemSettings() {
+	if (!g_registryPersistent) {
+		return;
+	}
+	u32 value = 0;
+	std::string stringValue;
+	if (ReadRegistryString("/CONFIG/SYSTEM", "owner_name", &stringValue)) {
+		g_Config.sNickName = stringValue;
+	}
+	if (ReadRegistryInt("/CONFIG/SYSTEM/XMB", "language", &value) && value <= 11) {
+		g_Config.iLanguage = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/SYSTEM/XMB", "button_assign", &value) && value <= 1) {
+		g_Config.iButtonPreference = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/DATE", "time_format", &value)) {
+		g_Config.iTimeFormat = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/DATE", "date_format", &value)) {
+		g_Config.iDateFormat = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/DATE", "time_zone_offset", &value)) {
+		g_Config.iTimeZone = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/DATE", "summer_time", &value)) {
+		g_Config.bDayLightSavings = value != 0;
+	}
+	if (ReadRegistryInt("/CONFIG/SYSTEM/LOCK", "parental_level", &value)) {
+		g_Config.iLockParentalLevel = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/NETWORK/ADHOC", "channel", &value)) {
+		g_Config.iWlanAdhocChannel = (int)value;
+	}
+	if (ReadRegistryInt("/CONFIG/SYSTEM/POWER_SAVING", "wlan_mode", &value)) {
+		g_Config.bWlanPowerSave = value != 0;
+	}
+}
+
+void EnsureRegistryLoaded() {
+	if (g_registryLoaded) {
+		return;
+	}
+	g_registryLoaded = true;
+	g_registryPersistent = false;
+	g_registryDirty = false;
+	g_registryRecovered = false;
+	g_registryGeneration = 0;
+	g_registryUsesRealFiles = false;
+	g_realRegistry.reset();
+	g_registryDirtyValues.clear();
+	SeedFactoryRegistry(false);
+	if (!__KernelIsRunningVSH()) {
+		return;
+	}
+
+	std::string error;
+	if (!LoadRealRegistryBacking(true, &error)) {
+		ERROR_LOG(Log::sceReg, "Direct VSH could not load flash1:/registry/system.ireg/system.dreg: %s", error.c_str());
+		NOTICE_LOG(Log::sceReg, "Direct VSH registry is read-only until valid real flash1 files are provided");
+		return;
+	}
+	g_registryPersistent = true;
+	g_registryUsesRealFiles = true;
+	ApplyRegistrySystemSettings();
+	NOTICE_LOG(Log::sceReg, "Loaded real PSP flash1 registry: %zu categories%s", g_registryCategories.size(),
+		g_registryRecovered ? " (recovered DREG backup)" : "");
+	if (g_registryRecovered) {
+		g_registryDirty = true;
+		PersistRegistry();
+	}
+}
+
+RegistryCategory *LookupMutableCategory(std::string_view path) {
+	EnsureRegistryLoaded();
+	auto category = g_registryCategories.find(NormalizeRegistryPath(path));
+	return category == g_registryCategories.end() ? nullptr : &category->second;
+}
+
+const RegistryCategory *LookupMutableCategory(std::string_view path, bool) {
+	return LookupMutableCategory(path);
+}
+
+bool CategoryIsWritable(const OpenCategory &category) {
+	return g_openRegistryMode == 1 && category.openMode == 1;
+}
+
+bool EnsureCategoryPath(std::string_view path) {
+	const std::string normalized = NormalizeRegistryPath(path);
+	if (g_registryCategories.find(normalized) != g_registryCategories.end()) {
+		return true;
+	}
+	if (normalized == "/") {
+		g_registryCategories[normalized];
+		return true;
+	}
+	const size_t slash = normalized.find_last_of('/');
+	const std::string parent = slash == 0 ? "/" : normalized.substr(0, slash);
+	const std::string name = normalized.substr(slash + 1);
+	if (name.empty() || !EnsureCategoryPath(parent)) {
+		return false;
+	}
+	RegistryCategory &parentCategory = g_registryCategories[parent];
+	AddKeyInOrder(parentCategory, name);
+	RegistryValue &directory = parentCategory.values[name];
+	directory.type = ValueType::DIR;
+	directory.data.clear();
+	g_registryCategories[normalized];
+	return true;
+}
+
+}  // namespace
+
 // Updater checks for CONFIG/SYSTEM/XMB.
 
 // not sure what modes exist, this is conjecture.
@@ -961,73 +1448,86 @@ void __RegInit() {
 	g_openRegistryMode = 0;
 	g_handleGen = 1337;
 	g_openCategories.clear();
+	g_registryCategories.clear();
+	g_registryLoaded = false;
+	g_registryPersistent = false;
+	g_registryDirty = false;
+	g_registryRecovered = false;
+	g_registryGeneration = 0;
+	g_registryUsesRealFiles = false;
+	g_realRegistry.reset();
+	g_registryDirtyValues.clear();
 }
 
 void __RegShutdown() {
-	g_openCategories.clear();
-}
-
-static const KeyValue *LookupCategory(std::string_view path, int *count) {
-	path = StripPrefix("/", path);
-	std::vector<std::string_view> parts;
-	SplitString(path, '/', parts);
-
-	const KeyValue *curDir = ROOT;
-	int curCount = ARRAY_SIZE(ROOT);
-
-	for (const auto part : parts) {
-		bool found = false;
-		for (int i = 0; i < curCount; i++) {
-			if (equals(curDir[i].name, part)) {
-				// Found the subdir.
-				if (curDir[i].type == ValueType::DIR) {
-					// Must update curCount before curDir, of course (since that line accesses it).
-					curCount = curDir[i].intValue;
-					curDir = curDir[i].dirContents;
-					found = true;
-					break;
-				} else {
-					ERROR_LOG(Log::sceReg, "Not a dir");
-					return nullptr;
-				}
-			}
-		}
-		if (!found) {
-			WARN_LOG(Log::sceReg, "LookupCategory: Path not found: %.*s", (int)path.size(), path.data());
-			return nullptr;
-		}
+	if (g_registryLoaded && g_registryDirty) {
+		PersistRegistry();
 	}
-
-	*count = curCount;
-	return curDir;
+	g_openCategories.clear();
+	g_registryCategories.clear();
+	g_registryLoaded = false;
+	g_registryUsesRealFiles = false;
+	g_realRegistry.reset();
+	g_registryDirtyValues.clear();
 }
 
 void __RegDoState(PointerWrap &p) {
-	auto s = p.Section("sceReg", 0, 1);
+	auto s = p.Section("sceReg", 0, 3);
 	if (!s)
 		return;
 	Do(p, g_openRegistryMode);
 	Do(p, g_openCategories);
+	if (s >= 2) {
+		Do(p, g_registryCategories);
+		Do(p, g_registryLoaded);
+		Do(p, g_registryPersistent);
+		Do(p, g_registryDirty);
+		Do(p, g_registryRecovered);
+		Do(p, g_registryGeneration);
+		if (s >= 3) {
+			Do(p, g_registryUsesRealFiles);
+		} else if (p.mode == p.MODE_READ) {
+			g_registryUsesRealFiles = false;
+		}
+	} else if (p.mode == p.MODE_READ) {
+		g_registryCategories.clear();
+		g_registryLoaded = false;
+		g_registryPersistent = false;
+		g_registryDirty = false;
+		g_registryRecovered = false;
+		g_registryGeneration = 0;
+		g_registryUsesRealFiles = false;
+	}
+	if (p.mode == p.MODE_READ) {
+		g_realRegistry.reset();
+		g_registryDirtyValues.clear();
+	}
 }
 
 // Registry level (it seems only /system can exist, so kinda pointless)
 int sceRegOpenRegistry(u32 regParamAddr, int mode, u32 regHandleAddr) {
+	EnsureRegistryLoaded();
 	// There's only one registry and its handle is 0.
-	if (Memory::IsValid4AlignedAddress(regHandleAddr)) {
-		Memory::WriteUnchecked_U32(0, regHandleAddr);
+	if (!Memory::IsValid4AlignedAddress(regHandleAddr)) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH, "invalid handle pointer");
 	}
+	Memory::WriteUnchecked_U32(0, regHandleAddr);
 	g_openRegistryMode = mode;
 
-	if (g_openRegistryMode != REG_OPEN_READONLY) {
-		WARN_LOG(Log::HLE, "sceRegOpenRegistry: Opening registry in non-readonly mode. This is not yet supported (we'll simply emulate it as read-only anyway).");
+	if (mode != 1 && mode != REG_OPEN_READONLY) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "invalid mode %d", mode);
 	}
 
-	return hleLogInfo(Log::sceReg, 0);
+	return hleLogInfo(Log::sceReg, 0, "mode=%d generation=%llu persistent=%d recovered=%d", mode,
+		(unsigned long long)g_registryGeneration, g_registryPersistent, g_registryRecovered);
 }
 
 int sceRegCloseRegistry(int regHandle) {
 	if (regHandle != 0) {
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
+	}
+	if (!PersistRegistry()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "failed to persist registry");
 	}
 	g_openCategories.clear();
 	return hleLogInfo(Log::sceReg, 0);
@@ -1037,13 +1537,29 @@ int sceRegFlushRegistry(int regHandle) {
 	if (regHandle != 0) {
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 	}
-	// For us this is a no-op.
+	if (!PersistRegistry()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "failed to persist registry");
+	}
 	return hleLogInfo(Log::sceReg, 0);
 }
 
 // Seems dangerous! Have not dared to test this on hardware.
 int sceRegRemoveRegistry(u32 regParamAddr) {
-	return hleLogError(Log::sceReg, 0, "UNIMPL");
+	EnsureRegistryLoaded();
+	if (g_registryUsesRealFiles) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "refusing to replace real system.ireg/system.dreg");
+	}
+	if (g_openRegistryMode != 1) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE);
+	}
+	SeedFactoryRegistry(true);
+	g_openCategories.clear();
+	g_registryDirty = true;
+	ApplyRegistrySystemSettings();
+	if (!PersistRegistry()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "failed to reset registry");
+	}
+	return hleLogInfo(Log::sceReg, 0, "reset to deterministic defaults");
 }
 
 int sceRegOpenCategory(int regHandle, const char *name, int mode, u32 regHandleAddr) {
@@ -1052,6 +1568,9 @@ int sceRegOpenCategory(int regHandle, const char *name, int mode, u32 regHandleA
 	}
 	if (!name) {
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_NAME);
+	}
+	if (mode != 1 && mode != REG_OPEN_READONLY) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "invalid mode %d", mode);
 	}
 	if (regHandle != 0) {
 		Memory::WriteUnchecked_U32(-1, regHandleAddr);
@@ -1062,21 +1581,32 @@ int sceRegOpenCategory(int regHandle, const char *name, int mode, u32 regHandleA
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH);
 	}
 
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(name, &count);
-	if (!keyvals) {
+	const std::string path = NormalizeRegistryPath(name);
+	RegistryCategory *category = LookupMutableCategory(path);
+	if (!category && mode == 1 && g_openRegistryMode == 1 && !g_registryUsesRealFiles) {
+		if (!EnsureCategoryPath(path)) {
+			Memory::WriteUnchecked_U32(-1, regHandleAddr);
+			return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH);
+		}
+		g_registryDirty = true;
+		if (!PersistRegistry()) {
+			Memory::WriteUnchecked_U32(-1, regHandleAddr);
+			return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "failed to persist new category");
+		}
+		category = LookupMutableCategory(path);
+	}
+	if (!category) {
 		Memory::WriteUnchecked_U32(-1, regHandleAddr);
-		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND, "%s", path.c_str());
 	}
 
 	// Let's see if this category is marked as inaccessible (presumably from user mode)..
-	if (count == 1 && keyvals[0].type == ValueType::FAIL) {
-		const int errorCode = keyvals[0].intValue;
-		return hleLogWarning(Log::sceReg, errorCode, "Inaccessible category");
+	if (category->accessError != 0) {
+		return hleLogWarning(Log::sceReg, category->accessError, "Inaccessible category");
 	}
 
 	int handle = g_handleGen++;
-	OpenCategory cat{ name, mode };
+	OpenCategory cat{ path, mode };
 	g_openCategories[handle] = cat;
 	Memory::WriteUnchecked_U32(handle, regHandleAddr);
 	return hleLogInfo(Log::sceReg, 0, "open handle: %d", handle);
@@ -1094,18 +1624,100 @@ int sceRegCloseCategory(int regHandle) {
 }
 
 int sceRegRemoveCategory(int regHandle, const char *name) {
-	return hleLogError(Log::sceReg, 0, "UNIMPL");
+	if (!name) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_NAME);
+	}
+	EnsureRegistryLoaded();
+	if (g_registryUsesRealFiles) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "real IREG category allocation is immutable");
+	}
+	std::string path;
+	if (regHandle == 0) {
+		if (g_openRegistryMode != 1) {
+			return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE);
+		}
+		path = NormalizeRegistryPath(name);
+	} else {
+		auto categoryHandle = g_openCategories.find(regHandle);
+		if (categoryHandle == g_openCategories.end() || !CategoryIsWritable(categoryHandle->second)) {
+			return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE);
+		}
+		path = ChildRegistryPath(categoryHandle->second.path, name);
+	}
+	if (path == "/" || g_registryCategories.find(path) == g_registryCategories.end()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+	for (auto it = g_registryCategories.begin(); it != g_registryCategories.end();) {
+		if (it->first == path || startsWith(it->first, path + "/")) {
+			it = g_registryCategories.erase(it);
+		} else {
+			++it;
+		}
+	}
+	const size_t slash = path.find_last_of('/');
+	const std::string parent = slash == 0 ? "/" : path.substr(0, slash);
+	const std::string key = path.substr(slash + 1);
+	auto parentCategory = g_registryCategories.find(parent);
+	if (parentCategory != g_registryCategories.end()) {
+		parentCategory->second.values.erase(key);
+		parentCategory->second.order.erase(std::remove(parentCategory->second.order.begin(), parentCategory->second.order.end(), key), parentCategory->second.order.end());
+	}
+	g_registryDirty = true;
+	return PersistRegistry() ? hleLogInfo(Log::sceReg, 0) : hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 }
 
 int sceRegFlushCategory(int regHandle) {
-	return hleLogError(Log::sceReg, 0, "UNIMPL");
+	if (g_openCategories.find(regHandle) == g_openCategories.end()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+	return PersistRegistry() ? hleLogInfo(Log::sceReg, 0) : hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 }
 
 // Key level
 
+static RegistryCategory *CategoryFromHandle(int handle, OpenCategory **openCategory = nullptr) {
+	auto opened = g_openCategories.find(handle);
+	if (opened == g_openCategories.end()) {
+		return nullptr;
+	}
+	if (openCategory) {
+		*openCategory = &opened->second;
+	}
+	return LookupMutableCategory(opened->second.path);
+}
+
+static int RegistryValueSize(const RegistryValue &value) {
+	return value.type == ValueType::INT ? (int)sizeof(u32) : (value.type == ValueType::DIR ? 0 : (int)value.data.size());
+}
+
+static int WriteRegistryValue(const RegistryValue &value, u32 bufAddr, u32 size) {
+	const u32 required = (u32)RegistryValueSize(value);
+	if (!Memory::IsValidRange(bufAddr, size)) {
+		return -1;
+	}
+	switch (value.type) {
+	case ValueType::INT:
+		if (size < sizeof(u32) || value.data.size() != sizeof(u32)) {
+			return SCE_REG_ERROR_INVALID_PATH;
+		}
+		Memory::MemcpyUnchecked(bufAddr, value.data.data(), sizeof(u32));
+		return 0;
+	case ValueType::STR:
+	case ValueType::BIN:
+		if (size != 0 && required != 0) {
+			Memory::MemcpyUnchecked(bufAddr, value.data.data(), std::min(size, required));
+		}
+		return 0;
+	case ValueType::DIR:
+	case ValueType::FAIL:
+	default:
+		return SCE_REG_ERROR_INVALID_PATH;
+	}
+}
+
 int sceRegGetKeysNum(int catHandle, u32 numAddr) {
-	auto iter = g_openCategories.find(catHandle);
-	if (iter == g_openCategories.end()) {
+	RegistryCategory *category = CategoryFromHandle(catHandle);
+	if (!category) {
 		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
@@ -1113,40 +1725,30 @@ int sceRegGetKeysNum(int catHandle, u32 numAddr) {
 		return -1;
 	}
 
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
-	if (!keyvals) {
-		Memory::WriteUnchecked_U32(-1, numAddr);
-		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
-	}
-
-	Memory::WriteUnchecked_U32(count, numAddr);
+	Memory::WriteUnchecked_U32((u32)category->order.size(), numAddr);
 	return hleLogInfo(Log::sceReg, 0);
 }
 
 int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
-	auto iter = g_openCategories.find(catHandle);
-	if (iter == g_openCategories.end()) {
+	RegistryCategory *category = CategoryFromHandle(catHandle);
+	if (!category) {
 		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
+	if (num < 0) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH);
+	}
 	const int keyLen = 27; // 27 bytes per key name, including null terminator. For some reason?!?
 
 	if (!Memory::IsValidRange(bufAddr, num * keyLen)) {
 		return hleLogError(Log::sceReg, -1, "bad output addr");
 	}
 
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
-	if (!keyvals) {
-		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
-	}
-
-	count = std::min(count, num);
-
-	for (int i = 0; i < num; i++) {
+	const int count = std::min((int)category->order.size(), num);
+	for (int i = 0; i < count; i++) {
 		char *dest = (char *)Memory::GetPointerWriteOrException(bufAddr + i * keyLen);
-		strncpy(dest, keyvals[i].name.c_str(), keyLen);
+		memset(dest, 0, keyLen);
+		strncpy(dest, category->order[i].c_str(), keyLen - 1);
 	}
 
 	return hleLogInfo(Log::sceReg, 0);
@@ -1157,19 +1759,17 @@ int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 
 		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
 	}
 
-	auto iter = g_openCategories.find(catHandle);
-	if (iter == g_openCategories.end()) {
+	RegistryCategory *category = CategoryFromHandle(catHandle);
+	if (!category) {
 		return hleLogError(Log::sceReg, 0, "Not found");
 	}
 
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
-	if (!keyvals) {
-		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
-	}
-
-	for (int i = 0; i < count; i++) {
-		if (equals(keyvals[i].name, name)) {
+	for (int i = 0; i < (int)category->order.size(); i++) {
+		if (equals(category->order[i], name)) {
+			auto value = category->values.find(category->order[i]);
+			if (value == category->values.end()) {
+				return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+			}
 			// Found it!
 			if (Memory::IsValid4AlignedAddress(outKeyHandleAddr)) {
 				// Let's just make the index the key handle.
@@ -1177,21 +1777,13 @@ int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 
 			}
 			if (Memory::IsValid4AlignedAddress(outTypeAddr)) {
 				// Let's just make the index the key handle.
-				Memory::WriteUnchecked_U32((int)keyvals[i].type, outTypeAddr);
+				Memory::WriteUnchecked_U32((int)value->second.type, outTypeAddr);
 			}
-			int size = 0;
+			const int size = RegistryValueSize(value->second);
 			if (Memory::IsValid4AlignedAddress(outSizeAddr)) {
-				switch (keyvals[i].type) {
-				case ValueType::BIN: size = (int)keyvals[i].intValue; break;
-				case ValueType::STR: size = (int)keyvals[i].intValue; break;
-				case ValueType::DIR: size = 0; break;
-				case ValueType::INT: size = 4; break;
-				default: break;
-				}
-				// Let's just make the index the key handle.
 				Memory::WriteUnchecked_U32(size, outSizeAddr);
 			}
-			return hleLogInfo(Log::sceReg, 0, "handle: %d type: %d size: %d", i, (int)keyvals[i].type, size);
+			return hleLogInfo(Log::sceReg, 0, "handle: %d type: %d size: %d", i, (int)value->second.type, size);
 		}
 	}
 
@@ -1203,134 +1795,167 @@ int sceRegGetKeyInfoByName(int catHandle, const char *name, u32 typeAddr, u32 si
 		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
 	}
 
-	auto iter = g_openCategories.find(catHandle);
-	if (iter == g_openCategories.end()) {
+	RegistryCategory *category = CategoryFromHandle(catHandle);
+	if (!category) {
 		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
-	if (!keyvals) {
-		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
-	}
-
-	for (int i = 0; i < count; i++) {
-		if (equals(keyvals[i].name, name)) {
-			int size = 0;
+	auto value = category->values.find(name);
+	if (value != category->values.end()) {
+			const int size = RegistryValueSize(value->second);
 			if (Memory::IsValid4AlignedAddress(typeAddr)) {
-				Memory::WriteUnchecked_U32((int)keyvals[i].type, typeAddr);
+				Memory::WriteUnchecked_U32((int)value->second.type, typeAddr);
 			}
 			if (Memory::IsValid4AlignedAddress(sizeAddr)) {
-				switch (keyvals[i].type) {
-				case ValueType::BIN: size = (int)keyvals[i].intValue; break;
-				case ValueType::STR: size = (int)keyvals[i].intValue; break;
-				case ValueType::DIR: size = 0; break;
-				case ValueType::INT: size = 4; break;
-				default: break;
-				}
 				Memory::WriteUnchecked_U32(size, sizeAddr);
 			}
-			return hleLogInfo(Log::sceReg, 0, "type: %d size: %d", (int)keyvals[i].type, size);
-		}
+			return hleLogInfo(Log::sceReg, 0, "type: %d size: %d", (int)value->second.type, size);
 	}
 
 	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
 }
 
 int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
-	if (!Memory::IsValidRange(bufAddr, size)) {
-		return -1;
-	}
-
-	auto iter = g_openCategories.find(catHandle);
-	if (iter == g_openCategories.end()) {
+	RegistryCategory *category = CategoryFromHandle(catHandle);
+	if (!category) {
 		return hleLogError(Log::sceReg, 0, "Not found");
 	}
-
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
-	if (!keyvals) {
+	if (keyHandle < 0 || keyHandle >= (int)category->order.size()) {
 		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
-
-	if (keyHandle < 0 || keyHandle >= count) {
+	auto value = category->values.find(category->order[keyHandle]);
+	if (value == category->values.end()) {
 		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
-
-	const KeyValue &keyval = keyvals[keyHandle];
-	switch (keyval.type) {
-	case ValueType::BIN:
-		Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-		return hleLogInfo(Log::sceReg, 0);
-	case ValueType::STR:
-		Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-		return hleLogInfo(Log::sceReg, 0, "value: '%s'", keyval.strValue);
-	case ValueType::INT:
-		Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
-		return hleLogInfo(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
-	case ValueType::DIR:
-	case ValueType::FAIL:
-	default:
-		// Return an error?
-		return hleLogWarning(Log::sceReg, 0, "Unexpected type for sceRegGetKeyValue");
-	}
+	const int result = WriteRegistryValue(value->second, bufAddr, size);
+	return result == 0 ? hleLogInfo(Log::sceReg, 0, "type=%d size=%d", (int)value->second.type, RegistryValueSize(value->second)) : hleLogError(Log::sceReg, result);
 }
 
 int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 size) {
 	if (!name) {
 		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
 	}
-	if (!Memory::IsValidRange(bufAddr, size)) {
-		return -1;
-	}
-
-	auto iter = g_openCategories.find(catHandle);
-	if (iter == g_openCategories.end()) {
+	RegistryCategory *category = CategoryFromHandle(catHandle);
+	if (!category) {
 		return hleLogError(Log::sceReg, 0, "Not found");
 	}
-
-	int count = 0;
-	const KeyValue *keyvals = LookupCategory(iter->second.path, &count);
-	if (!keyvals) {
-		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	auto value = category->values.find(name);
+	if (value == category->values.end()) {
+		return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
 	}
-
-	for (int i = 0; i < count; i++) {
-		if (!equals(keyvals[i].name, name))
-			continue;
-
-		const KeyValue &keyval = keyvals[i];
-		switch (keyval.type) {
-		case ValueType::BIN:
-			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-			return hleLogInfo(Log::sceReg, 0);
-		case ValueType::STR:
-			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-			return hleLogInfo(Log::sceReg, 0, "value: '%s'", keyval.strValue);
-		case ValueType::INT:
-			if (size >= sizeof(u32))
-				Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
-			return hleLogInfo(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
-		case ValueType::DIR:
-		case ValueType::FAIL:
-		default:
-			return hleLogWarning(Log::sceReg, 0, "Unexpected type for sceRegGetKeyValueByName");
-		}
-	}
-
-	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
+	const int result = WriteRegistryValue(value->second, bufAddr, size);
+	return result == 0 ? hleLogInfo(Log::sceReg, 0, "type=%d size=%d", (int)value->second.type, RegistryValueSize(value->second)) : hleLogError(Log::sceReg, result);
 }
 
 int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
-	return hleLogError(Log::sceReg, 0);
+	if (!name || size > VSH_REGISTRY_MAX_VALUE_SIZE || !Memory::IsValidRange(bufAddr, size)) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_NAME);
+	}
+	OpenCategory *opened = nullptr;
+	RegistryCategory *category = CategoryFromHandle(catHandle, &opened);
+	if (!category || !opened) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+	if (!CategoryIsWritable(*opened)) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE);
+	}
+	auto value = category->values.find(name);
+	if (value == category->values.end() || value->second.type == ValueType::DIR || value->second.type == ValueType::FAIL) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "key '%s' not found", name);
+	}
+	std::vector<u8> newData;
+	if (value->second.type == ValueType::INT) {
+		if (size < sizeof(u32)) {
+			return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH, "integer value too small");
+		}
+		newData.resize(sizeof(u32));
+		Memory::MemcpyUnchecked(newData.data(), bufAddr, sizeof(u32));
+	} else {
+		newData.resize(size);
+		if (size != 0) {
+			Memory::MemcpyUnchecked(newData.data(), bufAddr, size);
+		}
+	}
+	if (value->second.data == newData) {
+		return hleLogInfo(Log::sceReg, 0, "value unchanged");
+	}
+	std::string backingError;
+	if (!ValidateRealRegistryValue(opened->path, name, value->second.type, newData, &backingError)) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "%s", backingError.c_str());
+	}
+	value->second.data = std::move(newData);
+	g_registryDirty = true;
+	g_registryDirtyValues.emplace(NormalizeRegistryPath(opened->path), name);
+	ApplyRegistrySystemSettings();
+	if (!PersistRegistry()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND, "persistence failed");
+	}
+	return hleLogInfo(Log::sceReg, 0, "updated %s/%s size=%u", opened->path.c_str(), name, size);
 }
 
 int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
-	return hleLogError(Log::sceReg, 0);
+	if (!name || !name[0] || strlen(name) >= REG_KEYNAME_SIZE || size > VSH_REGISTRY_MAX_VALUE_SIZE ||
+		type < (int)ValueType::DIR || type > (int)ValueType::BIN) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_NAME);
+	}
+	if (g_registryUsesRealFiles) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "real DREG key allocation is immutable");
+	}
+	OpenCategory *opened = nullptr;
+	RegistryCategory *category = CategoryFromHandle(catHandle, &opened);
+	if (!category || !opened) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+	if (!CategoryIsWritable(*opened)) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE);
+	}
+	if (category->values.find(name) != category->values.end()) {
+		return hleLogInfo(Log::sceReg, 0, "key already exists");
+	}
+	RegistryValue value;
+	value.type = (ValueType)type;
+	if (value.type == ValueType::INT) {
+		value.data.assign(sizeof(u32), 0);
+	} else if (value.type == ValueType::STR || value.type == ValueType::BIN) {
+		value.data.assign(size, 0);
+	}
+	AddKeyInOrder(*category, name);
+	category->values[name] = std::move(value);
+	if ((ValueType)type == ValueType::DIR) {
+		EnsureCategoryPath(ChildRegistryPath(opened->path, name));
+	}
+	g_registryDirty = true;
+	return PersistRegistry() ? hleLogInfo(Log::sceReg, 0) : hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 }
 // Speculated signature
 int sceRegRemoveKey(int catHandle, int key) {
-	return hleLogError(Log::sceReg, 0);
+	if (g_registryUsesRealFiles) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE, "real DREG key allocation is immutable");
+	}
+	OpenCategory *opened = nullptr;
+	RegistryCategory *category = CategoryFromHandle(catHandle, &opened);
+	if (!category || !opened || key < 0 || key >= (int)category->order.size()) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
+	}
+	if (!CategoryIsWritable(*opened)) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_PERMISSION_FAILURE);
+	}
+	const std::string name = category->order[key];
+	auto value = category->values.find(name);
+	if (value != category->values.end() && value->second.type == ValueType::DIR) {
+		const std::string childPath = ChildRegistryPath(opened->path, name);
+		for (auto it = g_registryCategories.begin(); it != g_registryCategories.end();) {
+			if (it->first == childPath || startsWith(it->first, childPath + "/")) {
+				it = g_registryCategories.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
+	category->values.erase(name);
+	category->order.erase(category->order.begin() + key);
+	g_registryDirty = true;
+	return PersistRegistry() ? hleLogInfo(Log::sceReg, 0) : hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 }
 
 int sceRegGetCategoryNumAtRoot(int regHandle, u32 numCategoriesPtr) {
@@ -1338,14 +1963,16 @@ int sceRegGetCategoryNumAtRoot(int regHandle, u32 numCategoriesPtr) {
 		return hleLogError(Log::sceReg, 0, "Not found");
 	}
 
-	constexpr int numCategories = ARRAY_SIZE(ROOT);
-	static_assert(numCategories == 4);
+	RegistryCategory *root = LookupMutableCategory("/");
+	if (!root) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
+	}
 
 	if (!Memory::IsValid4AlignedAddress(numCategoriesPtr)) {
 		return hleLogError(Log::sceReg, -1, "Invalid pointer");
 	}
 
-	Memory::WriteUnchecked_U32(numCategories, numCategoriesPtr);
+	Memory::WriteUnchecked_U32((u32)root->order.size(), numCategoriesPtr);
 	return hleLogInfo(Log::sceReg, 0);
 }
 
@@ -1354,9 +1981,16 @@ int sceRegGetCategoryListAtRoot(int regHandle, u32 bufPtr, int numCategories) {
 		return hleLogError(Log::sceReg, 0, "Not found");
 	}
 
-	if (numCategories > ARRAY_SIZE(ROOT)) {
+	if (numCategories < 0) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_INVALID_PATH);
+	}
+	RegistryCategory *root = LookupMutableCategory("/");
+	if (!root) {
+		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
+	}
+	if (numCategories > (int)root->order.size()) {
 		WARN_LOG(Log::sceReg, "numCategories too large");
-		numCategories = ARRAY_SIZE(ROOT);
+		numCategories = (int)root->order.size();
 	}
 
 	if (!Memory::IsValidRange(bufPtr, numCategories * 27)) {
@@ -1364,11 +1998,10 @@ int sceRegGetCategoryListAtRoot(int regHandle, u32 bufPtr, int numCategories) {
 	}
 
 	for (int i = 0; i < numCategories; i++) {
-		const KeyValue &kv = ROOT[i];
-		_dbg_assert_msg_(kv.type == ValueType::DIR, "Unexpected non-dir in ROOT");
 		char *dest = (char *)Memory::GetPointerWriteOrException(bufPtr + i * 27);
 		if (dest) {
-			strncpy(dest, kv.name.c_str(), 27);
+			memset(dest, 0, 27);
+			strncpy(dest, root->order[i].c_str(), 26);
 		}
 	}
 
@@ -1396,8 +2029,293 @@ const HLEFunction sceReg[] = {
 	{ 0x9B25EDF1, nullptr, "sceRegExit", 'i', "i" },
 	{ 0xBE8C1263, &WrapI_IU<sceRegGetCategoryNumAtRoot>, "sceRegGetCategoryNumAtRoot", 'i', "ii" },
 	{ 0x835ECE6F, &WrapI_IUI<sceRegGetCategoryListAtRoot>, "sceRegGetCategoryListAtRoot", 'i', "ipi" },
+	// Firmware 6.60 aliases, corroborated against Jpcsp's sceReg table.
+	{ 0xDBA46704, &WrapI_UIU<sceRegOpenRegistry>, "sceRegOpenRegistry", 'i', "xix" },
+	{ 0x49D77D65, &WrapI_I<sceRegCloseRegistry>, "sceRegCloseRegistry", 'i', "i" },
+	{ 0x4F471457, &WrapI_ICIU<sceRegOpenCategory>, "sceRegOpenCategory", 'i', "isix" },
+	{ 0xFC742751, &WrapI_I<sceRegCloseCategory>, "sceRegCloseCategory", 'i', "i" },
+	{ 0x5FD4764A, &WrapI_I<sceRegFlushRegistry>, "sceRegFlushRegistry", 'i', "i" },
+	{ 0xD743A608, &WrapI_I<sceRegFlushCategory>, "sceRegFlushCategory", 'i', "i" },
+	{ 0x3B6CA1E6, &WrapI_ICIU<sceRegCreateKey>, "sceRegCreateKey", 'i', "isix" },
+	{ 0x49C70163, &WrapI_ICUU<sceRegSetKeyValue>, "sceRegSetKeyValue", 'i', "isxx" },
+	{ 0x9980519F, &WrapI_ICUUU<sceRegGetKeyInfo>, "sceRegGetKeyInfo", 'i', "isxxx" },
+	{ 0xF4A3E396, &WrapI_IIUU<sceRegGetKeyValue>, "sceRegGetKeyValue", 'i', "iixx" },
+	{ 0x61DB9D06, &WrapI_IC<sceRegRemoveCategory>, "sceRegRemoveCategory", 'i', "i" },
+	{ 0xF2619407, &WrapI_ICUU<sceRegGetKeyInfoByName>, "sceRegGetKeyInfoByName", 'i', "isxx" },
+	{ 0x38415B9F, &WrapI_ICUU<sceRegGetKeyValueByName>, "sceRegGetKeyValueByName", 'i', "isxx" },
 };
 
 void Register_sceReg() {
 	RegisterHLEModule("sceReg", ARRAY_SIZE(sceReg), sceReg);
+	RegisterHLEModule("sceReg_driver", ARRAY_SIZE(sceReg), sceReg);
+}
+
+bool __RegGetValueForDebugger(std::string_view path, std::string_view name, int *type, std::vector<u8> *data) {
+	RegistryCategory *category = LookupMutableCategory(path);
+	if (!category) {
+		return false;
+	}
+	auto value = category->values.find(std::string(name));
+	if (value == category->values.end()) {
+		return false;
+	}
+	if (type) {
+		*type = (int)value->second.type;
+	}
+	if (data) {
+		*data = value->second.data;
+	}
+	return true;
+}
+
+bool __RegGetInt(std::string_view path, std::string_view name, u32 *value) {
+	EnsureRegistryLoaded();
+	return ReadRegistryInt(path, name, value);
+}
+
+bool __RegGetString(std::string_view path, std::string_view name, std::string *value) {
+	EnsureRegistryLoaded();
+	return ReadRegistryString(path, name, value);
+}
+
+bool __RegSetInt(std::string_view path, std::string_view name, u32 value) {
+	const std::vector<u8> data = {(u8)value, (u8)(value >> 8), (u8)(value >> 16), (u8)(value >> 24)};
+	return __RegSetValueForDebugger(path, name, (int)ValueType::INT, data, nullptr);
+}
+
+bool __RegSetString(std::string_view path, std::string_view name, std::string_view value) {
+	std::vector<u8> data(value.begin(), value.end());
+	data.push_back(0);
+	return __RegSetValueForDebugger(path, name, (int)ValueType::STR, data, nullptr);
+}
+
+bool __RegGetBinary(std::string_view path, std::string_view name, std::vector<u8> *value) {
+	EnsureRegistryLoaded();
+	auto category = g_registryCategories.find(NormalizeRegistryPath(path));
+	if (category == g_registryCategories.end()) {
+		return false;
+	}
+	auto entry = category->second.values.find(std::string(name));
+	if (entry == category->second.values.end() || entry->second.type != ValueType::BIN) {
+		return false;
+	}
+	*value = entry->second.data;
+	return true;
+}
+
+bool __RegSetBinary(std::string_view path, std::string_view name, const std::vector<u8> &value) {
+	return __RegSetValueForDebugger(path, name, (int)ValueType::BIN, value, nullptr);
+}
+
+bool __RegSetValueForDebugger(std::string_view path, std::string_view name, int type, const std::vector<u8> &data, std::string *errorString) {
+	EnsureRegistryLoaded();
+	if (__KernelIsRunningVSH() && VSHRouteForcesRealModule("sceRegistry_Service")) {
+		if (errorString) {
+			*errorString = "Sony registry.prx owns Direct VSH writes; use the real Settings UI";
+		}
+		return false;
+	}
+	if (!g_registryPersistent) {
+		if (errorString) {
+			*errorString = "Direct VSH persistent registry is not active";
+		}
+		return false;
+	}
+	if (name.empty() || name.size() >= REG_KEYNAME_SIZE || type < (int)ValueType::INT || type > (int)ValueType::BIN ||
+		data.size() > VSH_REGISTRY_MAX_VALUE_SIZE || (type == (int)ValueType::INT && data.size() != sizeof(u32))) {
+		if (errorString) {
+			*errorString = "Invalid registry value";
+		}
+		return false;
+	}
+	const std::string normalizedPath = NormalizeRegistryPath(path);
+	auto categoryIt = g_registryCategories.find(normalizedPath);
+	if (categoryIt == g_registryCategories.end()) {
+		if (errorString) {
+			*errorString = "Registry category is not present in system.ireg";
+		}
+		return false;
+	}
+	RegistryCategory &category = categoryIt->second;
+	auto valueIt = category.values.find(std::string(name));
+	if (valueIt == category.values.end() || valueIt->second.type != (ValueType)type) {
+		if (errorString) {
+			*errorString = "Registry key/type is not present in system.dreg";
+		}
+		return false;
+	}
+	RegistryValue &value = valueIt->second;
+	if (value.type == (ValueType)type && value.data == data) {
+		if (errorString) {
+			errorString->clear();
+		}
+		return true;
+	}
+	std::string backingError;
+	if (!ValidateRealRegistryValue(normalizedPath, name, value.type, data, &backingError)) {
+		if (errorString) {
+			*errorString = backingError;
+		}
+		return false;
+	}
+	value.data = data;
+	g_registryDirty = true;
+	g_registryDirtyValues.emplace(normalizedPath, std::string(name));
+	ApplyRegistrySystemSettings();
+	if (!PersistRegistry()) {
+		if (errorString) {
+			*errorString = "Could not persist registry";
+		}
+		return false;
+	}
+	if (errorString) {
+		errorString->clear();
+	}
+	return true;
+}
+
+bool __RegTestStoreRoundTrip(std::string *errorString) {
+	if (!PSPRegistryFileTestRoundTrip(errorString)) {
+		return false;
+	}
+	if (errorString) {
+		errorString->clear();
+	}
+	return true;
+#if 0
+	const auto savedCategories = g_registryCategories;
+	const bool savedLoaded = g_registryLoaded;
+	const bool savedPersistent = g_registryPersistent;
+	const bool savedDirty = g_registryDirty;
+	const bool savedRecovered = g_registryRecovered;
+	const u64 savedGeneration = g_registryGeneration;
+	const std::string savedNickname = g_Config.sNickName;
+	const int savedLanguage = g_Config.iLanguage;
+	const int savedButtonPreference = g_Config.iButtonPreference;
+	const int savedTimeFormat = g_Config.iTimeFormat;
+	const int savedDateFormat = g_Config.iDateFormat;
+	const int savedTimeZone = g_Config.iTimeZone;
+	const bool savedDaylightSavings = g_Config.bDayLightSavings;
+	const int savedParentalLevel = g_Config.iLockParentalLevel;
+	const int savedAdhocChannel = g_Config.iWlanAdhocChannel;
+	const bool savedWlanPowerSave = g_Config.bWlanPowerSave;
+
+	auto restore = [&] {
+		g_registryCategories = savedCategories;
+		g_registryLoaded = savedLoaded;
+		g_registryPersistent = savedPersistent;
+		g_registryDirty = savedDirty;
+		g_registryRecovered = savedRecovered;
+		g_registryGeneration = savedGeneration;
+		g_Config.sNickName = savedNickname;
+		g_Config.iLanguage = savedLanguage;
+		g_Config.iButtonPreference = savedButtonPreference;
+		g_Config.iTimeFormat = savedTimeFormat;
+		g_Config.iDateFormat = savedDateFormat;
+		g_Config.iTimeZone = savedTimeZone;
+		g_Config.bDayLightSavings = savedDaylightSavings;
+		g_Config.iLockParentalLevel = savedParentalLevel;
+		g_Config.iWlanAdhocChannel = savedAdhocChannel;
+		g_Config.bWlanPowerSave = savedWlanPowerSave;
+	};
+	auto fail = [&](const char *message) {
+		if (errorString) {
+			*errorString = message;
+		}
+		restore();
+		return false;
+	};
+
+	SeedFactoryRegistry(true);
+	struct RequiredSetting {
+		const char *path;
+		const char *name;
+		ValueType type;
+	};
+	constexpr RequiredSetting requiredSettings[] = {
+		{"/CONFIG/SYSTEM", "owner_name", ValueType::STR},
+		{"/CONFIG/SYSTEM", "backlight_brightness", ValueType::INT},
+		{"/CONFIG/SYSTEM/XMB", "language", ValueType::INT},
+		{"/CONFIG/SYSTEM/XMB", "button_assign", ValueType::INT},
+		{"/CONFIG/SYSTEM/XMB", "theme_type", ValueType::INT},
+		{"/CONFIG/SYSTEM/XMB/THEME", "wallpaper_mode", ValueType::INT},
+		{"/CONFIG/SYSTEM/SOUND", "main_volume", ValueType::INT},
+		{"/CONFIG/SYSTEM/SOUND", "avls", ValueType::INT},
+		{"/CONFIG/SYSTEM/POWER_SAVING", "suspend_interval", ValueType::INT},
+		{"/CONFIG/DATE", "time_format", ValueType::INT},
+		{"/CONFIG/DATE", "date_format", ValueType::INT},
+		{"/CONFIG/DATE", "time_zone_offset", ValueType::INT},
+		{"/CONFIG/NETWORK/INFRASTRUCTURE", "latest_id", ValueType::INT},
+		{"/CONFIG/ALARM", "alarm_0_time", ValueType::INT},
+	};
+	for (const auto &required : requiredSettings) {
+		auto category = g_registryCategories.find(required.path);
+		if (category == g_registryCategories.end()) {
+			return fail("required settings category missing");
+		}
+		auto value = category->second.values.find(required.name);
+		if (value == category->second.values.end() || value->second.type != required.type) {
+			return fail("required setting missing or has wrong type");
+		}
+	}
+	auto system = g_registryCategories.find("/CONFIG/SYSTEM");
+	if (system == g_registryCategories.end()) {
+		return fail("factory SYSTEM category missing");
+	}
+	auto owner = system->second.values.find("owner_name");
+	if (owner == system->second.values.end() || owner->second.type != ValueType::STR ||
+		owner->second.data != std::vector<u8>{'P', 'P', 'S', 'S', 'P', 'P', 0}) {
+		return fail("factory owner_name is not deterministic");
+	}
+	PutRegistryString("/CONFIG/SYSTEM", "owner_name", "Milestone2");
+	PutRegistryInt("/CONFIG/SYSTEM/XMB", "language", 9);
+	PutRegistryInt("/CONFIG/SYSTEM/SOUND", "main_volume", 12);
+	PutRegistryInt("/CONFIG/SYSTEM/SOUND", "avls", 1);
+	PutRegistryInt("/CONFIG/SYSTEM/XMB/THEME", "wallpaper_mode", 1);
+	PutRegistryInt("/CONFIG/SYSTEM/XMB", "button_assign", 0);
+	PutRegistryInt("/CONFIG/DATE", "time_format", 1);
+	PutRegistryInt("/CONFIG/DATE", "date_format", 1);
+	PutRegistryInt("/CONFIG/DATE", "time_zone_offset", 180);
+	PutRegistryInt("/CONFIG/DATE", "summer_time", 1);
+	PutRegistryInt("/CONFIG/SYSTEM/LOCK", "parental_level", 5);
+	PutRegistryInt("/CONFIG/NETWORK/ADHOC", "channel", 6);
+	PutRegistryInt("/CONFIG/SYSTEM/POWER_SAVING", "wlan_mode", 1);
+	g_registryPersistent = true;
+	ApplyRegistrySystemSettings();
+	if (g_Config.sNickName != "Milestone2" || g_Config.iLanguage != 9 || g_Config.iButtonPreference != 0 ||
+		g_Config.iTimeFormat != 1 || g_Config.iDateFormat != 1 || g_Config.iTimeZone != 180 ||
+		!g_Config.bDayLightSavings || g_Config.iLockParentalLevel != 5 || g_Config.iWlanAdhocChannel != 6 ||
+		!g_Config.bWlanPowerSave) {
+		return fail("registry settings were not applied to PSP system parameters");
+	}
+	EnsureCategoryPath("/CONFIG/NETWORK/INFRASTRUCTURE/42");
+	PutRegistryString("/CONFIG/NETWORK/INFRASTRUCTURE/42", "cnf_name", "RoundTrip");
+
+	const std::vector<u8> serialized = SerializeRegistry(7);
+	std::map<std::string, RegistryCategory> loaded;
+	u64 generation = 0;
+	const std::string serializedString((const char *)serialized.data(), serialized.size());
+	if (!DeserializeRegistry(serializedString, &loaded, &generation) || generation != 7) {
+		return fail("valid registry failed to deserialize");
+	}
+	auto loadedSystem = loaded.find("/CONFIG/SYSTEM");
+	if (loadedSystem == loaded.end() || loadedSystem->second.values["owner_name"].data !=
+		std::vector<u8>{'M', 'i', 'l', 'e', 's', 't', 'o', 'n', 'e', '2', 0}) {
+		return fail("string value did not round-trip");
+	}
+	if (loaded.find("/CONFIG/NETWORK/INFRASTRUCTURE/42") == loaded.end()) {
+		return fail("created category did not round-trip");
+	}
+	std::string corrupt = serializedString;
+	corrupt.back() ^= 0x80;
+	if (DeserializeRegistry(corrupt, &loaded, &generation)) {
+		return fail("corrupt registry passed checksum validation");
+	}
+
+	if (errorString) {
+		errorString->clear();
+	}
+	restore();
+	return true;
+#endif
 }
