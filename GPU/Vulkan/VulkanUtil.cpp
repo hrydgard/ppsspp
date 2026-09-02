@@ -174,7 +174,10 @@ void VulkanComputeShaderManager::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	}
 	pipelines_.Iterate([&](const PipelineKey &key, VkPipeline pipeline) {
-		vulkan_->Delete().QueueDeletePipeline(pipeline);
+		// Can be null if pipeline creation failed - we cache those too, to avoid retrying.
+		if (pipeline != VK_NULL_HANDLE) {
+			vulkan_->Delete().QueueDeletePipeline(pipeline);
+		}
 	});
 	pipelines_.Clear();
 
@@ -264,7 +267,7 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 
 VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs, const char *tag) {
 	PipelineKey key{ cs };
-	VkPipeline pipeline;
+	VkPipeline pipeline = VK_NULL_HANDLE;
 	if (pipelines_.Get(key, &pipeline)) {
 		return pipeline;
 	}
@@ -280,9 +283,12 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs, const char
 	VkResult res = vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(Log::G3D, "Failed to create compute pipeline from shader module (%s)", tag);
+		_dbg_assert_msg_(false, "Failed to create compute pipeline from shader module (%s)", tag);
+		// Insert a null pipeline so we don't retry every time, and don't fall through to the
+		// insert below - inserting the same key twice asserts in DenseHashMap.
 		pipelines_.Insert(key, VK_NULL_HANDLE);
+		return VK_NULL_HANDLE;
 	}
-	_dbg_assert_msg_(res == VK_SUCCESS, "Failed to create compute pipeline from shader module (%s)", tag);
 
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
@@ -290,7 +296,10 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs, const char
 
 void VulkanComputeShaderManager::ClearPipelines() {
 	pipelines_.Iterate([&](const PipelineKey &key, VkPipeline pipeline) {
-		vulkan_->Delete().QueueDeletePipeline(pipeline);
+		// Can be null if pipeline creation failed - we cache those too, to avoid retrying.
+		if (pipeline != VK_NULL_HANDLE) {
+			vulkan_->Delete().QueueDeletePipeline(pipeline);
+		}
 	});
 	pipelines_.Clear();
 }
