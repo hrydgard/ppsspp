@@ -324,6 +324,26 @@ int kirk_CMD4(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
   return KIRK_OPERATION_SUCCESS;
 }
 
+int kirk_CMD5(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
+{
+  const KIRK_AES128CBC_HEADER *header = (const KIRK_AES128CBC_HEADER*)inbuff;
+  static const u8 fuse_key[16] = {0};
+  AES_ctx aesKey;
+
+  if(kirk->is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
+  if(size < (int)sizeof(KIRK_AES128CBC_HEADER)) return KIRK_INVALID_SIZE;
+  if(header->mode != KIRK_MODE_ENCRYPT_CBC) return KIRK_INVALID_MODE;
+  if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
+  if(header->keyseed != 0x100 || header->data_size > size - (int)sizeof(KIRK_AES128CBC_HEADER) || (header->data_size & 15) != 0) return KIRK_INVALID_SIZE;
+
+  // PSP KIRK commands 5/8 use the per-device fuse key. HLE has no physical
+  // fuse secret; Jpcsp's savedata differential uses a stable zero key so HLE
+  // saves and Sony's real utility PRX share one deterministic virtual device.
+  AES_set_key(&aesKey, fuse_key, 128);
+  AES_cbc_encrypt(&aesKey, inbuff + sizeof(KIRK_AES128CBC_HEADER), outbuff + sizeof(KIRK_AES128CBC_HEADER), header->data_size);
+  return KIRK_OPERATION_SUCCESS;
+}
+
 void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId)
 {
   AES_ctx aesKey;
@@ -349,6 +369,23 @@ int kirk_CMD7(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
   AES_set_key(&aesKey, key, 128);
   AES_cbc_decrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff, header->data_size);
   
+  return KIRK_OPERATION_SUCCESS;
+}
+
+int kirk_CMD8(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
+{
+  const KIRK_AES128CBC_HEADER *header = (const KIRK_AES128CBC_HEADER*)inbuff;
+  static const u8 fuse_key[16] = {0};
+  AES_ctx aesKey;
+
+  if(kirk->is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
+  if(size < (int)sizeof(KIRK_AES128CBC_HEADER)) return KIRK_INVALID_SIZE;
+  if(header->mode != KIRK_MODE_DECRYPT_CBC) return KIRK_INVALID_MODE;
+  if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
+  if(header->keyseed != 0x100 || header->data_size > size - (int)sizeof(KIRK_AES128CBC_HEADER) || (header->data_size & 15) != 0) return KIRK_INVALID_SIZE;
+
+  AES_set_key(&aesKey, fuse_key, 128);
+  AES_cbc_decrypt(&aesKey, inbuff + sizeof(KIRK_AES128CBC_HEADER), outbuff, header->data_size);
   return KIRK_OPERATION_SUCCESS;
 }
 
@@ -729,7 +766,9 @@ int kirk_sceUtilsBufferCopyWithRange(KirkState *kirk, u8* outbuff, int outsize, 
   {
     case KIRK_CMD_DECRYPT_PRIVATE: return kirk_CMD1(kirk, outbuff, inbuff, insize); break;  // NOTE: I think this actually trashes inbuff
     case KIRK_CMD_ENCRYPT_IV_0: return kirk_CMD4(kirk, outbuff, inbuff, insize); break;
+    case KIRK_CMD_ENCRYPT_IV_FUSE: return kirk_CMD5(kirk, outbuff, inbuff, insize); break;
     case KIRK_CMD_DECRYPT_IV_0: return kirk_CMD7(kirk, outbuff, inbuff, insize); break;
+    case KIRK_CMD_DECRYPT_IV_FUSE: return kirk_CMD8(kirk, outbuff, inbuff, insize); break;
     case KIRK_CMD_PRIV_SIGN_CHECK: return kirk_CMD10(kirk, inbuff, insize); break;
     case KIRK_CMD_SHA1_HASH: return kirk_CMD11(kirk, outbuff, inbuff, insize); break;
     case KIRK_CMD_ECDSA_GEN_KEYS: return kirk_CMD12(kirk, outbuff, outsize); break;

@@ -211,7 +211,9 @@ int kirk_CMD0(KirkState *kirk, u8* outbuff, const u8* inbuff, int size, int gene
 int kirk_CMD1(KirkState *kirk, u8* outbuff, u8* inbuff, int size);
 
 int kirk_CMD4(KirkState *kirk, u8* outbuff, const u8* inbuff, int size);
+int kirk_CMD5(KirkState *kirk, u8* outbuff, const u8* inbuff, int size);
 int kirk_CMD7(KirkState *kirk, u8* outbuff, const u8* inbuff, int size);
+int kirk_CMD8(KirkState *kirk, u8* outbuff, const u8* inbuff, int size);
 int kirk_CMD10(KirkState *kirk, u8* inbuff, int insize);
 int kirk_CMD11(KirkState *kirk, u8* outbuff, const u8* inbuff, int size);
 int kirk_CMD12(KirkState *kirk, u8* outbuff, int outsize);
