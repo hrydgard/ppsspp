@@ -228,6 +228,13 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 			if (vertexCount > 0 && inds) {
 				GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
+				if (indexUpperBound > 1024) {
+					// NormalizeVertices below writes indexUpperBound - indexLowerBound + 1 vertices
+					// into corners, which only has room until the verts region above it. The index
+					// values are the game's, so the vertexCount cap doesn't bound them. A bbox test
+					// over this many verts is counter-productive anyway - say it's visible.
+					return true;
+				}
 			}
 			// TODO: Avoid normalization if just plain skinning.
 			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode());

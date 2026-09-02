@@ -138,6 +138,9 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	bool *show = nullptr;
 	memset(array, 0, sizeof(array));
 	cfg = &g_Config.CustomButton[id_];
+	// This screen is reachable from the main menu, so neither GamepadEmu nor the layout screen
+	// need have sanitized these yet - and everything below indexes the tables with them.
+	CustomKeyData::Sanitize(*cfg);
 	show = &touch.touchCustom[id_].show;
 	for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++)
 		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));

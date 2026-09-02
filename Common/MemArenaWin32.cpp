@@ -52,6 +52,16 @@ void *MemArena::CreateView(s64 offset, size_t size, void *viewbase) {
 	size = roundup(size);
 #if PPSSPP_PLATFORM(UWP)
 	// We just grabbed some RAM before using RESERVE. This commits it.
+	//
+	// NOTE: This ignores offset, so views don't alias - each gets its own storage. UWP defines
+	// MASKED_PSP_MEMORY, which folds the uncached and kernel address bits away before they get
+	// here, so the only casualties are the three VRAM mirrors at 0x04200000/0x04400000/0x04600000,
+	// which practically nothing depends on.
+	//
+	// Don't try to fix this with placeholders: CreateFileMappingFromApp + VirtualAlloc2FromApp
+	// (MEM_RESERVE_PLACEHOLDER) + MapViewOfFile3FromApp compiles and is available on the targeted
+	// SDK, but the very first reservation fails at runtime with ERROR_INVALID_ADDRESS (487) - not
+	// a per-view problem, the app container just won't hand out placeholders. Tried and reverted.
 	void *ptr = VirtualAllocFromApp(viewbase, size, MEM_COMMIT, PAGE_READWRITE);
 #else
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, viewbase);
