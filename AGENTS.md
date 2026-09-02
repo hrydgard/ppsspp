@@ -623,6 +623,33 @@ Keep commit messages focused, not overly long (although sometimes it's motivated
 is super complex). Do not report things like 100/100 tests passed - that's a given, if tests break
 you aren't supposed to make a commit.
 
+## Code style
+
+4-wide tabs, not spaces.
+
+Instead of:
+
+`printf("%.*s", (int)part.size(), part.data());`
+
+we have a macro:
+
+`printf("%.*s", STR_VIEW(part));`
+
+Style example:
+
+```cpp
+class MyClass {
+public:
+  MyClass(int memberVar) : memberVar_(memberVar) {}
+  int MemberFunc();
+
+private:
+  int memberVar_;
+}
+```
+
+But generally follow the surrounding style. Braces are preferred on the same line. Braces are always used even when they could be omitted due the inner part being just a single line.
+
 ## Quick rebuild on Linux
 
 You don't need to do ./b.sh --debug to verify every single little change, instead use this shortcut:
