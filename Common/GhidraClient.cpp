@@ -81,9 +81,6 @@ bool GhidraClient::FetchSymbols() {
 	}
 	const JsonNode *entriesNode = reader.root().getArray("symbols");
 	if (!entriesNode) {
-		// Null for a missing key, a non-array value, or a root that isn't an object at all -
-		// so any JSON that parses but isn't what we expect. The getTag() check below it could
-		// never catch that, since getArray() already filtered by tag.
 		pendingResult_.error = "symbols is not an array";
 		return false;
 	}
@@ -115,9 +112,6 @@ bool GhidraClient::FetchTypes() {
 	}
 	const JsonNode *entriesNode = reader.root().getArray("types");
 	if (!entriesNode) {
-		// Null for a missing key, a non-array value, or a root that isn't an object at all -
-		// so any JSON that parses but isn't what we expect. The getTag() check below it could
-		// never catch that, since getArray() already filtered by tag.
 		pendingResult_.error = "types is not an array";
 		return false;
 	}
