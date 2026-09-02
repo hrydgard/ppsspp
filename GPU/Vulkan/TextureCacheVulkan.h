@@ -128,7 +128,8 @@ private:
 	bool RunMultipassCompute(VulkanContext *vulkan, VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight);
 	bool ScaleBufferToImage(VulkanContext *vulkan, VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight);
 
-	void LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuffer cmdInit);
+	// Returns false if the constant buffer couldn't be loaded, in which case hardware scaling gets disabled.
+	bool LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuffer cmdInit);
 
 	VulkanComputeShaderManager computeShaderManager_;
 
