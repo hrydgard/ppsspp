@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm> // std::remove
+#include <cctype>
 #include <cstdlib>
 #include <set>
+#include <string_view>
 #include <thread>
 #include <memory>
 
@@ -48,6 +50,7 @@
 #include "Core/HLE/sceChnnlsv.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/HW/AsyncIOManager.h"
 #include "Core/CoreTiming.h"
@@ -76,9 +79,6 @@ extern "C" {
 // For EMULATOR_DEVCTL__GET_AXIS/VKEY
 #include "Core/HLE/Plugins.h"
 #include "Input/KeyCodes.h"
-
-// TODO: Should actually report the real free space like we do in the savedata code.
-static constexpr int FAKE_FREE_SPACE = (1024 + 512) * 1024 * 1024;
 
 /*
 
@@ -886,7 +886,7 @@ static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info) {
 	}
 
 	stat->st_mode = type | info.access;
-	stat->st_attr = attr;
+	stat->st_attr = attr | info.attr;
 	stat->st_size = info.size;
 	ConvertTmToPspDateTime(stat->st_a_time, info.atime, info.atimeUs);
 	ConvertTmToPspDateTime(stat->st_c_time, info.ctime, info.ctimeUs);
@@ -933,24 +933,38 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (!iostat.IsValid())
 		return hleReportError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
 
-	ERROR_LOG(Log::sceIo, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (!info.exists)
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND);
 	if (changebits & SCE_CST_MODE)
-		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change mode to %03o requested", iostat->st_mode);
-	if (changebits & SCE_CST_ATTR) {
-		// These are pretty much all of the reported calls: https://report.ppsspp.org/logs/kind/1115
-		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change attr to %04x requested", iostat->st_attr);
-	}
+		info.access = iostat->st_mode & 0777;
+	if (changebits & SCE_CST_ATTR)
+		info.attr = iostat->st_attr & 0x3F;
 	if (changebits & SCE_CST_SIZE)
-		ERROR_LOG(Log::sceIo, "sceIoChstat: change size requested");
-	if (changebits & SCE_CST_CT)
-		ERROR_LOG(Log::sceIo, "sceIoChstat: change creation time requested");
-	if (changebits & SCE_CST_AT)
-		ERROR_LOG(Log::sceIo, "sceIoChstat: change access time requested");
-	if (changebits & SCE_CST_MT)
-		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change modification time to %04d-%02d-%02d requested", iostat->st_m_time.year, iostat->st_m_time.month, iostat->st_m_time.day);
-	if (changebits & SCE_CST_PRVT)
-		ERROR_LOG(Log::sceIo, "sceIoChstat: change private data requested");
-	return 0;
+		info.size = iostat->st_size;
+	auto convertTime = [](const ScePspDateTime &source) {
+		tm value{};
+		value.tm_year = source.year - 1900;
+		value.tm_mon = source.month - 1;
+		value.tm_mday = source.day;
+		value.tm_hour = source.hour;
+		value.tm_min = source.minute;
+		value.tm_sec = source.second;
+		return value;
+	};
+	if (changebits & SCE_CST_CT) {
+		info.ctime = convertTime(iostat->st_c_time);
+		info.ctimeUs = iostat->st_c_time.microsecond;
+	}
+	if (changebits & SCE_CST_AT) {
+		info.atime = convertTime(iostat->st_a_time);
+		info.atimeUs = iostat->st_a_time.microsecond;
+	}
+	if (changebits & SCE_CST_MT) {
+		info.mtime = convertTime(iostat->st_m_time);
+		info.mtimeUs = iostat->st_m_time.microsecond;
+	}
+	return hleLogDebug(Log::sceIo, pspFileSystem.ChStat(filename, info, changebits));
 }
 
 static u32 npdrmRead(FileNode *f, u8 *data, int size) {
@@ -1647,7 +1661,11 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	case 0x01F20001:
 		// Get UMD disc type
 		if (Memory::IsValid4AlignedRange(outPtr, 8) && outLen >= 8) {
-			Memory::WriteUnchecked_U32(0x10, outPtr + 4);  // Always return game disc (if present)
+			// Native ISO drivers return {-1, type}; leaving the first word
+			// untouched exposed stale guest pointers to VSH. Type 0 means empty,
+			// 0x10 is a game disc (0x20 video, 0x40 audio, 0x80 cleaning).
+			Memory::WriteUnchecked_U32(0xFFFFFFFF, outPtr);
+			Memory::WriteUnchecked_U32(__UmdIsInserted() ? 0x10 : 0, outPtr + 4);
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
 			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
@@ -1739,6 +1757,28 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	}
 
 	// This should really send it on to a FileSystem implementation instead.
+	if (startsWithNoCase(name, "msstor0p1:") || startsWithNoCase(name, "msstor0:") || startsWithNoCase(name, "msstor:")) {
+		switch (cmd) {
+		case 0x02125802:
+			if (!Memory::IsValid4AlignedAddress(outPtr) || outLen < (int)sizeof(u32)) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			Memory::WriteUnchecked_U32(0, outPtr);
+			return hleLogDebug(Log::sceIo, 0);
+		case 0x0211D814:
+			return hleLogDebug(Log::sceIo, 0);
+		case 0x0210D816:
+			return hleLogWarning(Log::sceIo, 0, "ignoring Memory Stick format request");
+		case 0x02025806:
+			if (!Memory::IsValid4AlignedAddress(outPtr) || outLen < (int)sizeof(u32)) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			Memory::WriteUnchecked_U32(MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED ? 1 : 0, outPtr);
+			return hleLogDebug(Log::sceIo, 0);
+		default:
+			return hleLogDebug(Log::sceIo, 0, "unhandled Memory Stick storage devctl %08x", cmd);
+		}
+	}
 
 	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:") || !strcmp(name, "memstick:"))
 	{
@@ -1820,24 +1860,49 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
+		case 0x02015807:
+			// Shared utility.prx controller query. Although first identified while
+			// tracing native savedata, this is retained for the native OSK manager.
+			// Savedata/message lifecycle imports remain HLE-owned independently.
+			if (!Memory::IsValid4AlignedAddress(outPtr) || outLen != (int)sizeof(u32)) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			Memory::WriteUnchecked_U32(0, outPtr);
+			return hleLogDebug(Log::sceIo, 0, "Memory Stick utility controller field");
+		case 0x0202580A:
+			// Four utility-manager controller timing/status counters. Jpcsp's native
+			// probing found that the manager accepts exactly 10000 in all four fields.
+			if (!Memory::IsValid4AlignedAddress(outPtr) || outLen != 4 * (int)sizeof(u32)) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			for (int i = 0; i < 4; ++i) {
+				Memory::WriteUnchecked_U32(10000, outPtr + i * sizeof(u32));
+			}
+			return hleLogDebug(Log::sceIo, 0, "Memory Stick utility status counters");
+		case 0x0201580B:
+			// Submit the 20-byte controller status structure paired with 0x0202580A.
+			if (!Memory::IsValid4AlignedAddress(argAddr) || argLen != 5 * (int)sizeof(u32)) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			return hleLogDebug(Log::sceIo, 0, "Memory Stick utility status acknowledged");
 		case 0x02425818:  
 			// Get MS capacity (fatms0).
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
 				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND);
 			}
-			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
 			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {  // NOTE: not outPtr
 				u32 pointer = Memory::ReadUnchecked_U32(argAddr);
 				u32 sectorSize = 0x200;
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
 				
-				u64 freeSize = FAKE_FREE_SPACE;
+				const u64 capacity = MemoryStick_DeviceCapacity();
+				const u64 freeSize = MemoryStick_DeviceFreeSpace();
 
 				auto deviceSize = PSPPointer<DeviceSize>::Create(pointer);
 				if (deviceSize.IsValid()) {
-					deviceSize->maxClusters = (u32)((freeSize * 95 / 100) / (sectorSize * sectorCount));
-					deviceSize->freeClusters = deviceSize->maxClusters;
+					deviceSize->maxClusters = (u32)((capacity * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize->freeClusters = (u32)((freeSize * 95 / 100) / (sectorSize * sectorCount));
 					deviceSize->maxSectors = deviceSize->maxClusters;
 					deviceSize->sectorSize = sectorSize;
 					deviceSize->sectorCount = sectorCount;
@@ -1862,8 +1927,14 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			break;
 		case 0x02425856:
-			// Used by VSH, no clue what it should do. Let's just return 0.
-			return hleLogError(Log::sceIo, 0, "Unknown memstick devctl: %08x", cmd);
+			// Set the FAT filename character set from
+			// /CONFIG/SYSTEM/CHARACTER_SET/oem. Jpcsp and the 6.61 VSH caller
+			// both pass one input u32 and expect no output.
+			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {
+				const u32 characterSet = Memory::ReadUnchecked_U32(argAddr);
+				return hleLogDebug(Log::sceIo, 0, "memstick character set=%u", characterSet);
+			}
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 	}
 
@@ -1964,18 +2035,18 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
 				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND);
 			}
-			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
 			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {  // NOTE: not outPtr
 				u32 pointer = Memory::ReadUnchecked_U32(argAddr);
 				u32 sectorSize = 0x200;
 				u32 memStickSectorSize = 32 * 1024;
 				u32 sectorCount = memStickSectorSize / sectorSize;
-				u64 freeSize = FAKE_FREE_SPACE;
+				const u64 capacity = MemoryStick_DeviceCapacity();
+				const u64 freeSize = MemoryStick_DeviceFreeSpace();
 
 				auto deviceSize = PSPPointer<DeviceSize>::Create(pointer);
 				if (deviceSize.IsValid()) {
-					deviceSize->maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
-					deviceSize->freeClusters = deviceSize->maxClusters;
+					deviceSize->maxClusters = (u32)((capacity * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize->freeClusters = (u32)((freeSize * 95 / 100) / (sectorSize * sectorCount));
 					deviceSize->maxSectors = deviceSize->maxClusters;
 					deviceSize->sectorSize = sectorSize;
 					deviceSize->sectorCount = sectorCount;
@@ -1986,6 +2057,14 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
 			break;
+		case 0x02425856:
+			// Set the FAT filename character set. VSH uses the canonical
+			// fatms0: device name rather than the ms0: alias.
+			if (Memory::IsValidRange(argAddr, 4) && argLen >= 4) {
+				const u32 characterSet = Memory::ReadUnchecked_U32(argAddr);
+				return hleLogDebug(Log::sceIo, 0, "fatms0 character set=%u", characterSet);
+			}
+			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 		}
 	}
 
@@ -2380,12 +2459,17 @@ public:
 	int GetIDType() const override { return PPSSPP_KERNEL_TMID_DirList; }
 
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("DirListing", 1);
+		auto s = p.Section("DirListing", 1, 2);
 		if (!s)
 			return;
 
 		Do(p, name);
 		Do(p, index);
+		if (s >= 2) {
+			Do(p, fileNameFilter);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			fileNameFilter.clear();
+		}
 
 		// TODO: Is this the right way for it to wake up?
 		int count = (int) listing.size();
@@ -2397,9 +2481,37 @@ public:
 	}
 
 	std::string name;
+	std::string fileNameFilter;
 	std::vector<PSPFileInfo> listing;
 	int index;
 };
+
+static bool MatchesPSPFilePattern(std::string_view name, std::string_view pattern) {
+	// Sony's directory filters use DOS-style wildcards and FAT-style
+	// case-insensitive matching.
+	size_t nameIndex = 0;
+	size_t patternIndex = 0;
+	size_t starIndex = std::string_view::npos;
+	size_t starNameIndex = 0;
+	while (nameIndex < name.size()) {
+		if (patternIndex < pattern.size() &&
+			(pattern[patternIndex] == '?' || tolower((unsigned char)pattern[patternIndex]) == tolower((unsigned char)name[nameIndex]))) {
+			++nameIndex;
+			++patternIndex;
+		} else if (patternIndex < pattern.size() && pattern[patternIndex] == '*') {
+			starIndex = patternIndex++;
+			starNameIndex = nameIndex;
+		} else if (starIndex != std::string_view::npos) {
+			patternIndex = starIndex + 1;
+			nameIndex = ++starNameIndex;
+		} else {
+			return false;
+		}
+	}
+	while (patternIndex < pattern.size() && pattern[patternIndex] == '*')
+		++patternIndex;
+	return patternIndex == pattern.size();
+}
 
 static u32 sceIoDopen(const char *path) {
 	if (!path) {
@@ -2496,6 +2608,12 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		}
 		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointerOrException(dirent_addr);
 
+		const bool firstResult = dir->index == 0;
+		while (dir->index < (int)dir->listing.size() && !dir->fileNameFilter.empty() &&
+			!MatchesPSPFilePattern(dir->listing[dir->index].name, dir->fileNameFilter)) {
+			++dir->index;
+		}
+
 		if (dir->index == (int) dir->listing.size()) {
 			entry->d_name[0] = '\0';
 			return hleLogDebug(Log::sceIo, 0, "end");
@@ -2537,7 +2655,8 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 			}
 		}
 		// TODO: Improve timing.  Only happens on the *first* entry read, ms and umd.
-		if (dir->index++ == 0) {
+		++dir->index;
+		if (firstResult) {
 			return hleDelayResult(hleLogDebug(Log::sceIo, 1, "%s", entry->d_name), "readdir", 1000);
 		}
 		return hleLogDebug(Log::sceIo, 1, "%s", entry->d_name);
@@ -2546,11 +2665,179 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 	}
 }
 
+// Verified on 2026-08-30 with PSP 6.61 savedata_utility.prx SHA-256
+// F822E016E7C250763379AE70E8CC62EC6CF2D198738A9FD8F11A0E6C0A87E204.
+// Native LISTSAVE and LISTLOAD work across the owner-tested games with these
+// two exact shared-helper substitutions installed before ABI-class dispatch.
+// The formatter's real PAF sprintf path left its destination empty in PPSSPP;
+// Jpcsp independently replaces the uppercase helper with host code. Original
+// PRX files and Savedata contents are never modified.
+// 0x13370002/3 are PPSSPP-private internal NIDs adjacent to __IoAsyncFinish;
+// they are not firmware exports. 0x8010300A is the exact capacity error used
+// by the original uppercase helper at text+0x1236C.
+static constexpr u32 NATIVE_SAVEDATA_UTILITY_CRC = 0x68802FB5;
+static constexpr u32 NATIVE_SAVEDATA_UPPER_COPY_NID = 0x13370002;
+static constexpr u32 NATIVE_SAVEDATA_FORMAT_NAME_NID = 0x13370003;
+static constexpr u32 NATIVE_SAVEDATA_NAME_ERROR = 0x8010300A;
+
+static bool NativeSavedataBoundedString(u32 address, size_t capacity, const char **text, size_t *length) {
+	if (!Memory::IsValidRange(address, capacity)) {
+		return false;
+	}
+	*text = (const char *)Memory::GetPointerUnchecked(address);
+	*length = strnlen(*text, capacity);
+	return *length < capacity;
+}
+
+static u32 NativeSavedataFormatName(u32 title, u32 userId, u32 destination) {
+	// Official 6.60 ABI sizes: titleId[13], userId[20].  The firmware helper
+	// writes their combined directory name to a 32-byte matcher scratch slot.
+	constexpr size_t titleCapacity = 13;
+	constexpr size_t userIdCapacity = 20;
+	constexpr size_t destinationCapacity = 32;
+	const char *titleText;
+	const char *userIdText;
+	size_t titleLength;
+	size_t userIdLength;
+	if (!NativeSavedataBoundedString(title, titleCapacity, &titleText, &titleLength) || titleLength == 0 ||
+		!NativeSavedataBoundedString(userId, userIdCapacity, &userIdText, &userIdLength) ||
+		!Memory::IsValidRange(destination, destinationCapacity)) {
+		return NATIVE_SAVEDATA_NAME_ERROR;
+	}
+
+	// The shared frontend helper treats an empty ID or the exact marker "<>"
+	// as title-only.
+	const bool titleOnly = userIdLength == 0 ||
+		(userIdLength == 2 && userIdText[0] == '<' && userIdText[1] == '>');
+	const size_t outputLength = titleLength + (titleOnly ? 0 : userIdLength);
+	if (outputLength >= destinationCapacity) {
+		return NATIVE_SAVEDATA_NAME_ERROR;
+	}
+
+	u8 *output = Memory::GetPointerWriteUnchecked(destination);
+	memcpy(output, titleText, titleLength);
+	if (!titleOnly) {
+		memcpy(output + titleLength, userIdText, userIdLength);
+	}
+	output[outputLength] = 0;
+	return (u32)outputLength;
+}
+
+static u32 NativeSavedataUpperCopy(u32 source, u32 destination, u32 capacity) {
+	// All 14 callers in this exact frontend pass 20 or 33 bytes.
+	constexpr u32 maximumCapacity = 33;
+	const char *sourceText;
+	size_t length;
+	if (capacity == 0 || capacity > maximumCapacity ||
+		!NativeSavedataBoundedString(source, capacity, &sourceText, &length) ||
+		!Memory::IsValidRange(destination, capacity)) {
+		return NATIVE_SAVEDATA_NAME_ERROR;
+	}
+
+	u8 *output = Memory::GetPointerWriteUnchecked(destination);
+	for (size_t i = 0; i < length; ++i) {
+		u8 value = (u8)sourceText[i];
+		output[i] = value >= 'a' && value <= 'z' ? value - ('a' - 'A') : value;
+	}
+	output[length] = 0;
+	return 0;
+}
+
+bool __IoInstallNativeSavedataNameFix(const char *moduleName, u32 moduleCrc, u32 moduleText) {
+	// Sony selects an internal compatibility class from the public parameter
+	// size and compiled SDK.  Install at exact module-load time, before that
+	// dispatch, rather than relying on any class-specific Dclose call site.
+	if (!moduleName || strcmp(moduleName, "sceVshSDUtility_Module") != 0) {
+		return false;
+	}
+	if (moduleCrc != NATIVE_SAVEDATA_UTILITY_CRC) {
+		WARN_LOG(Log::sceUtility, "Refusing native Savedata name fix for unknown module CRC %08x", moduleCrc);
+		return false;
+	}
+
+	constexpr u32 formatterOffset = 0x12244;
+	constexpr u32 upperCopyOffset = 0x1236C;
+	constexpr u32 pafSprintfStubOffset = 0x1EA24;
+	constexpr u32 concatFormatOffset = 0x1FA38;
+	const u32 formatter = moduleText + formatterOffset;
+	const u32 upperCopy = moduleText + upperCopyOffset;
+	if (!Memory::IsValid4AlignedRange(formatter, 0xA0) || !Memory::IsValid4AlignedRange(upperCopy, 0xA4)) {
+		WARN_LOG(Log::sceUtility, "Refusing native Savedata name fix for invalid helper ranges %08x/%08x", formatter, upperCopy);
+		return false;
+	}
+
+	const u32 formatterSyscall = GetSyscallOp("IoFileMgrForUser", NATIVE_SAVEDATA_FORMAT_NAME_NID);
+	const u32 upperCopySyscall = GetSyscallOp("IoFileMgrForUser", NATIVE_SAVEDATA_UPPER_COPY_NID);
+	const bool formatterPatched = Memory::Read_Instruction(formatter, false).encoding == MIPS_MAKE_JR_RA() &&
+		Memory::Read_Instruction(formatter + 4, false).encoding == formatterSyscall;
+	const bool upperCopyPatched = Memory::Read_Instruction(upperCopy, false).encoding == MIPS_MAKE_JR_RA() &&
+		Memory::Read_Instruction(upperCopy + 4, false).encoding == upperCopySyscall;
+
+	const u32 concatFormat = moduleText + concatFormatOffset;
+	const u16 concatHigh = (u16)((concatFormat + 0x8000) >> 16);
+	const u16 concatLow = (u16)concatFormat;
+	const bool formatterOriginal = Memory::Read_Instruction(formatter, false).encoding == 0x27BDFFF0 &&
+		Memory::Read_Instruction(formatter + 4, false).encoding == 0xAFB20008 &&
+		Memory::Read_Instruction(formatter + 0x80, false).encoding == MIPS_MAKE_LUI(MIPS_REG_A1, concatHigh) &&
+		Memory::Read_Instruction(formatter + 0x8C, false).encoding == MIPS_MAKE_ADDIU(MIPS_REG_A1, MIPS_REG_A1, concatLow) &&
+		Memory::Read_Instruction(formatter + 0x90, false).encoding == MIPS_MAKE_JAL(moduleText + pafSprintfStubOffset) &&
+		Memory::Read_Instruction(formatter + 0x94, false).encoding == 0x02003821;
+	const bool upperCopyOriginal = Memory::Read_Instruction(upperCopy, false).encoding == 0x27BDFFF0 &&
+		Memory::Read_Instruction(upperCopy + 4, false).encoding == 0xAFB20008 &&
+		Memory::Read_Instruction(upperCopy + 0x30, false).encoding == 0x3C028010 &&
+		Memory::Read_Instruction(upperCopy + 0x38, false).encoding == 0x3442300A &&
+		Memory::Read_Instruction(upperCopy + 0x9C, false).encoding == MIPS_MAKE_JR_RA() &&
+		Memory::Read_Instruction(upperCopy + 0xA0, false).encoding == 0x27BD0010;
+	const char *formatterState = formatterPatched ? "patched" : formatterOriginal ? "original" : "unknown";
+	const char *upperCopyState = upperCopyPatched ? "patched" : upperCopyOriginal ? "original" : "unknown";
+
+	// Validate both helpers before changing either one.  A fresh unknown module
+	// receives no patches; an already installed verified pair is accepted.
+	if ((!formatterPatched && !formatterOriginal) || (!upperCopyPatched && !upperCopyOriginal)) {
+		WARN_LOG(Log::sceUtility, "Refusing native Savedata name fix for unknown helper opcodes: formatter=%s upper=%s",
+			formatterState, upperCopyState);
+		return false;
+	}
+	const bool installFormatter = !formatterPatched;
+	const bool installUpperCopy = !upperCopyPatched;
+	if (!formatterPatched) {
+		currentMIPS->InvalidateICacheRangeImmediate(formatter, 8);
+		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), formatter);
+		Memory::WriteUnchecked_U32(formatterSyscall, formatter + 4);
+	}
+	if (!upperCopyPatched) {
+		currentMIPS->InvalidateICacheRangeImmediate(upperCopy, 8);
+		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), upperCopy);
+		Memory::WriteUnchecked_U32(upperCopySyscall, upperCopy + 4);
+	}
+	if (installFormatter || installUpperCopy) {
+		NOTICE_LOG(Log::sceUtility, "Installed exact-CRC native Savedata name helpers at %08x/%08x", formatter, upperCopy);
+	}
+	return true;
+}
+
 static u32 sceIoDclose(int id) {
 	return hleLogDebug(Log::sceIo, kernelObjects.Destroy<DirListing>(id));
 }
 
 int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+	if (cmd == 0x02415050) {
+		// Directory filename-filter operation used by Sony's native utility
+		// applets. It targets a directory descriptor, not a FileNode.
+		u32 dirError;
+		DirListing *dir = kernelObjects.Get<DirListing>(id, dirError);
+		if (!dir)
+			return dirError;
+		if (inlen != sizeof(u32) || !Memory::IsValid4AlignedRange(indataPtr, sizeof(u32)))
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		const u32 patternAddr = Memory::ReadUnchecked_U32(indataPtr);
+		const char *pattern = Memory::GetCharPointer(patternAddr);
+		if (!pattern)
+			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		dir->fileNameFilter = pattern;
+		return hleLogDebug(Log::sceIo, 0, "directory filter=%s", pattern);
+	}
+
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
@@ -3024,6 +3311,8 @@ const HLEFunction IoFileMgrForUser[] = {
 	{0xE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "iP"    },
 	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'i', "xip"   },
 	{0x13370001, &WrapI_I<IoAsyncFinish>,               "__IoAsyncFinish",             'i', "i"     },
+	{NATIVE_SAVEDATA_UPPER_COPY_NID, &WrapU_UUU<NativeSavedataUpperCopy>, "__NativeSavedataUpperCopy",  'i', "xxx"   },
+	{NATIVE_SAVEDATA_FORMAT_NAME_NID, &WrapU_UUU<NativeSavedataFormatName>, "__NativeSavedataFormatName", 'i', "xxx"   },
 };
 
 void Register_IoFileMgrForUser() {

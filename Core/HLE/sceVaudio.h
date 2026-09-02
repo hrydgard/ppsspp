@@ -19,8 +19,28 @@
 
 class PointerWrap;
 
+struct VSHVaudioDebugStatus {
+	bool reserved = false;
+	u32 outputCalls = 0;
+	u32 submittedFrames = 0;
+	u32 nonSilentCalls = 0;
+	u32 peakSample = 0;
+	u32 regularOutputCalls = 0;
+	u32 regularNonSilentCalls = 0;
+	u32 regularPeakSample = 0;
+	u32 sampleCount = 0;
+	u32 queuedSampleValues = 0;
+	u32 leftVolume = 0;
+	u32 rightVolume = 0;
+	int effectType = 0;
+	int effectVolume = 0;
+	int alcMode = 0;
+};
+
 void Register_sceVaudio();
+void Register_sceVaudio_driver();
 
 void __VaudioInit();
 void __VaudioDoState(PointerWrap &p);
+VSHVaudioDebugStatus __VaudioGetDebugStatus();
 

@@ -118,6 +118,7 @@ struct PSPFileInfo {
 	std::string name;
 	s64 size = 0;
 	u32 access = 0; //unix 777
+	u32 attr = 0;   // PSP/FAT attribute bits (read-only, hidden, system, archive.)
 	bool exists = false;
 	FileType type = FILETYPE_NORMAL;
 
@@ -152,6 +153,7 @@ public:
 	virtual bool     RmDir(const std::string &dirname) = 0;
 	virtual int      RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     RemoveFile(const std::string &filename) = 0;
+	virtual int      ChStat(const std::string &filename, const PSPFileInfo &info, u32 changebits) { return 0; }
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() const = 0;
@@ -185,6 +187,7 @@ public:
 	bool RmDir(const std::string &dirname) override {return false;}
 	int RenameFile(const std::string &from, const std::string &to) override {return -1;}
 	bool RemoveFile(const std::string &filename) override {return false;}
+	int ChStat(const std::string &filename, const PSPFileInfo &info, u32 changebits) override { return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override { return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	PSPDevType DevType(u32 handle) override { return PSPDevType::INVALID; }
 	FileSystemFlags Flags() const override { return FileSystemFlags::NONE; }

@@ -24,6 +24,20 @@
 
 class PointerWrap;
 
+struct VSHVideoDebugStatus {
+	u32 openCalls = 0;
+	u32 decodeCalls = 0;
+	u32 decodedFrames = 0;
+	u32 deleteCalls = 0;
+	u32 cscCalls = 0;
+	u32 pesCopyCalls = 0;
+	u32 activeContexts = 0;
+	u32 edramAllocations = 0;
+	u32 imageAllocationBytes = 0;
+	int width = 0;
+	int height = 0;
+};
+
 // MPEG statics.
 static const u32 PSMF_MAGIC = 0x464D5350;
 static const int PSMF_STREAM_VERSION_OFFSET = 0x4;
@@ -140,6 +154,8 @@ void __MpegLoadModule(int version, u32 crc);
 void Register_sceMpeg();
 
 void Register_sceMpegbase();
+void Register_sceVideocodec();
+VSHVideoDebugStatus __MpegGetVSHVideoDebugStatus();
 
 void __VideoPmpInit();
 void __VideoPmpDoState(PointerWrap &p);

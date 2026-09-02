@@ -90,6 +90,8 @@ struct WaitVBlankInfo {
 static FrameBufferState framebuf;
 static FrameBufferState latchedFramebuf;
 static bool framebufIsLatched;
+static FrameBufferState firmwareOverlaySavedFramebuf;
+static bool firmwareOverlayActive;
 
 static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
@@ -192,6 +194,8 @@ void __DisplayInit() {
 	numVBlanksSinceFlip = 0;
 	flippedThisFrame = false;
 	framebufIsLatched = false;
+	firmwareOverlayActive = false;
+	firmwareOverlaySavedFramebuf = {};
 	framebuf.topaddr = 0x04000000;
 	framebuf.fmt = GE_FORMAT_8888;
 	framebuf.stride = 512;
@@ -223,13 +227,20 @@ struct GPUStatistics_v0 {
 };
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 7);
+	auto s = p.Section("sceDisplay", 1, 8);
 	if (!s)
 		return;
 
 	Do(p, framebuf);
 	Do(p, latchedFramebuf);
 	Do(p, framebufIsLatched);
+	if (s >= 8) {
+		Do(p, firmwareOverlaySavedFramebuf);
+		Do(p, firmwareOverlayActive);
+	} else if (p.mode == p.MODE_READ) {
+		firmwareOverlaySavedFramebuf = {};
+		firmwareOverlayActive = false;
+	}
 	DisplayHWDoState(p, s <= 2);
 	Do(p, hasSetMode);
 	Do(p, mode);
@@ -887,6 +898,20 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
 	}
 
+	if (firmwareOverlayActive) {
+		// sceDisplay_driver_3E17FE8D installs a firmware-owned display layer
+		// (used by sceImpose). Retail games keep flipping their own framebuffer
+		// underneath it. Preserve those flips as the buffer to restore when Sony
+		// removes the layer, but do not let them replace the visible overlay.
+		firmwareOverlaySavedFramebuf.topaddr = topaddr;
+		firmwareOverlaySavedFramebuf.stride = linesize;
+		firmwareOverlaySavedFramebuf.fmt = (GEBufferFormat)pixelformat;
+		hleEatCycles(290);
+		return hleLogVerbose(Log::sceDisplay, 0,
+			"firmware layer retained; saved game fb=%08x stride=%d fmt=%d sync=%d",
+			topaddr, linesize, pixelformat, sync);
+	}
+
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		if ((GEBufferFormat)pixelformat != latchedFramebuf.fmt || linesize != latchedFramebuf.stride) {
 			return hleReportWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
@@ -1128,6 +1153,74 @@ static u32 sceDisplaySetHoldMode(u32 hMode) {
 	return hleLogWarning(Log::sceDisplay, 0, "UNIMPL");
 }
 
+// Firmware 6.60/6.61 exposes this driver-only call. Jpcsp's implementation
+// and the observed VSH caller agree that it has no arguments and simply
+// acknowledges the request.
+static u32 sceDisplay_driver_996881D2() {
+	return hleLogDebug(Log::sceDisplay, 0);
+}
+
+static u32 sceDisplay_driver_9B18DDDD(u32 colorSpaceMode) {
+	return hleLogDebug(Log::sceDisplay, 0, "colorSpaceMode=%u", colorSpaceMode);
+}
+
+static u32 sceDisplaySetBacklightSel(u32 unknown0, u32 unknown1) {
+	return hleLogDebug(Log::sceDisplay, 0, "%u, %u", unknown0, unknown1);
+}
+
+static u32 sceDisplayGetBacklightSel(u32 selectionAddr) {
+	if (!Memory::IsValid4AlignedAddress(selectionAddr))
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
+	// The 6.60 firmware alias reports the ordinary LCD/backlight profile as zero.
+	Memory::WriteUnchecked_U32(0, selectionAddr);
+	return hleLogDebug(Log::sceDisplay, 0);
+}
+
+static u32 sceDisplayImposeMode(u32 imposeMode) {
+	return hleLogDebug(Log::sceDisplay, 0, "mode=%u", imposeMode);
+}
+
+static u32 sceDisplayGetImposeMode() {
+	return hleLogDebug(Log::sceDisplay, 0);
+}
+
+static u32 sceDisplay_driver_F455917F(u32 activeBacklightMode) {
+	return hleLogDebug(Log::sceDisplay, 0, "activeBacklightMode=%u", activeBacklightMode);
+}
+
+static int sceDisplaySetFirmwareLayer(int layer, u32 topaddr, u32 linesize, int pixelformat, int sync) {
+	if (layer < 0 || layer >= 4) {
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_INDEX, "layer=%d", layer);
+	}
+	if (topaddr == 0) {
+		if (firmwareOverlayActive) {
+			__DisplaySetFramebuf(firmwareOverlaySavedFramebuf.topaddr, firmwareOverlaySavedFramebuf.stride, firmwareOverlaySavedFramebuf.fmt, PSP_DISPLAY_SETBUF_IMMEDIATE);
+			firmwareOverlayActive = false;
+		}
+		return hleLogDebug(Log::sceDisplay, 0, "firmware layer %d disabled", layer);
+	}
+	if (!Memory::IsRAMAddress(topaddr) || (topaddr & 0xF) != 0 || (linesize & 0x3F) != 0 ||
+		pixelformat < 0 || pixelformat > GE_FORMAT_8888 ||
+		(sync != PSP_DISPLAY_SETBUF_IMMEDIATE && sync != PSP_DISPLAY_SETBUF_NEXTFRAME)) {
+		return hleLogError(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_ARGUMENT,
+			"layer=%d top=%08x stride=%u fmt=%d sync=%d", layer, topaddr, linesize, pixelformat, sync);
+	}
+	if (!firmwareOverlayActive) {
+		firmwareOverlaySavedFramebuf = framebuf;
+		firmwareOverlayActive = true;
+	}
+	// KSEG1 is the address seen by Sony's driver; PPSSPP's GPU framebuffer
+	// managers consume the equivalent physical/KUSEG address.
+	const u32 displayAddress = (topaddr & 0xE0000000) == 0xA0000000 ? topaddr & 0x1FFFFFFF : topaddr;
+	__DisplaySetFramebuf(displayAddress, (int)linesize, pixelformat, PSP_DISPLAY_SETBUF_IMMEDIATE);
+	return hleLogDebug(Log::sceDisplay, 0, "firmware layer=%d top=%08x display=%08x stride=%u fmt=%d sync=%d",
+		layer, topaddr, displayAddress, linesize, pixelformat, sync);
+}
+
+static int sceDisplayFirmwareEnableDisable() {
+	return hleLogDebug(Log::sceDisplay, 0);
+}
+
 const HLEFunction sceDisplay[] = {
 	{0X0E20F177, &WrapU_III<sceDisplaySetMode>,               "sceDisplaySetMode",                 'x', "iii" },
 	{0X289D82FE, &WrapI_UIII<sceDisplaySetFramebuf>,          "sceDisplaySetFrameBuf",             'i', "xiii"},
@@ -1152,6 +1245,17 @@ const HLEFunction sceDisplay[] = {
 	{0X9E3C6DC6, &WrapU_II<sceDisplaySetBrightness>,          "sceDisplaySetBrightness",           'x', "ii"  },
 	{0X4D4E10EC, &WrapU_V<sceDisplayIsVblank>,                "sceDisplayIsVblank",                'x', ""    },
 	{0X21038913, &WrapU_V<sceDisplayIsVsync>,                 "sceDisplayIsVsync",                 'x', ""    },
+	{0X996881D2, &WrapU_V<sceDisplay_driver_996881D2>,         "sceDisplay_driver_996881D2",         'x', "", HLE_KERNEL_SYSCALL },
+	{0X117C3E2C, &WrapI_V<sceDisplayFirmwareEnableDisable>,    "sceDisplayEnable",                   'i', "", HLE_KERNEL_SYSCALL },
+	{0X33B620AF, &WrapI_V<sceDisplayFirmwareEnableDisable>,    "sceDisplayDisable",                  'i', "", HLE_KERNEL_SYSCALL },
+	{0X3E17FE8D, &WrapI_IUUII<sceDisplaySetFirmwareLayer>,     "sceDisplaySetFirmwareLayer",         'i', "ixxii", HLE_KERNEL_SYSCALL },
+	{0X9B18DDDD, &WrapU_U<sceDisplay_driver_9B18DDDD>,         "sceDisplay_driver_9B18DDDD",         'x', "x", HLE_KERNEL_SYSCALL },
+	{0XE55F0D50, &WrapU_UU<sceDisplaySetBacklightSel>,         "sceDisplaySetBacklightSel",          'x', "xx", HLE_KERNEL_SYSCALL },
+	{0XF455917F, &WrapU_U<sceDisplay_driver_F455917F>,         "sceDisplay_driver_F455917F",         'x', "x", HLE_KERNEL_SYSCALL },
+	{0X7DF044BA, &WrapU_U<sceDisplayImposeMode>,               "sceDisplay_driver_7DF044BA",         'x', "x", HLE_KERNEL_SYSCALL },
+	{0X96CFAC38, &WrapU_U<sceDisplayGetBacklightSel>,          "sceDisplayGetBacklightSel",          'x', "p", HLE_KERNEL_SYSCALL },
+	{0XD94EB277, &WrapU_V<sceDisplayGetImposeMode>,            "sceDisplay_driver_D94EB277",         'x', "",  HLE_KERNEL_SYSCALL },
+	{0X3552AB11, &WrapU_U<sceDisplaySetHoldMode>,              "sceDisplaySetHoldMode",              'x', "x", HLE_KERNEL_SYSCALL },
 };
 
 void Register_sceDisplay() {

@@ -17,4 +17,18 @@
 
 #pragma once
 
+class PointerWrap;
+
+struct VSHMediaPoolDebugStatus {
+	u32 object = 0;
+	u32 base = 0;
+	u32 size = 0;
+	u32 owner = 0;
+};
+
 void Register_sceVshBridge();
+void Register_vsh();
+
+void __VshBridgeInit();
+void __VshBridgeDoState(PointerWrap &p);
+VSHMediaPoolDebugStatus __VshBridgeGetMediaPoolDebugStatus();

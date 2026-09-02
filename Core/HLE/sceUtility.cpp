@@ -43,6 +43,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/scePower.h"
+#include "Core/HLE/sceReg.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
@@ -170,6 +171,8 @@ static bool accessThreadFinished = true;
 static const char *accessThreadState = "initial";
 static int lastSaveStateVersion = -1;
 static int netParamLatestId = 1;
+static std::string utilityAuthName;
+static std::string utilityAuthKey;
 
 static void CleanupDialogThreads(bool force = false) {
 	if (accessThread) {
@@ -320,13 +323,15 @@ void __UtilityInit() {
 	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
+	utilityAuthName.clear();
+	utilityAuthKey.clear();
 	volatileUnlockEvent = CoreTiming::RegisterEvent("UtilityVolatileUnlock", UtilityVolatileUnlock);
 
 	ResetSecondsSinceLastGameSave();
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 6);
+	auto s = p.Section("sceUtility", 1, 7);
 	if (!s) {
 		return;
 	}
@@ -387,6 +392,13 @@ void __UtilityDoState(PointerWrap &p) {
 		lastSaveStateVersion = -1;
 	} else {
 		lastSaveStateVersion = s.Version();
+	}
+	if (s >= 7) {
+		Do(p, utilityAuthName);
+		Do(p, utilityAuthKey);
+	} else {
+		utilityAuthName.clear();
+		utilityAuthKey.clear();
 	}
 
 	if (!hasAccessThread && accessThread) {
@@ -1215,8 +1227,21 @@ static const char *SystemParamToString(int param) {
 //TODO: should save to config file
 static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG_REPORT(Log::sceUtility, "sceUtilitySetSystemParamString(%s, %08x)", SystemParamToString(id), strPtr);
-	return 0;
+	if (id != PSP_SYSTEMPARAM_ID_STRING_NICKNAME) {
+		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+	}
+	if (!Memory::IsValidNullTerminatedString(strPtr)) {
+		return hleLogError(Log::sceUtility, -1, "invalid nickname pointer");
+	}
+	const std::string nickname = Memory::GetCharPointerUnchecked(strPtr);
+	if (nickname.size() > 127) {
+		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_STRING_TOO_LONG);
+	}
+	if (__KernelIsRunningVSH() && !__RegSetString("/CONFIG/SYSTEM", "owner_name", nickname)) {
+		return hleLogError(Log::sceUtility, -1, "could not persist nickname");
+	}
+	g_Config.sNickName = nickname;
+	return hleLogInfo(Log::sceUtility, 0, "nickname updated");
 }
 
 static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
@@ -1227,12 +1252,18 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
 	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
+	{
+		std::string nickname = g_Config.sNickName;
+		if (__KernelIsRunningVSH()) {
+			__RegGetString("/CONFIG/SYSTEM", "owner_name", &nickname);
+		}
 		// If there's not enough space for the string and null terminator, fail.
-		if (destSize <= (int)g_Config.sNickName.length())
+		if (destSize <= (int)nickname.length())
 			return SCE_ERROR_UTILITY_STRING_TOO_LONG;
-		// TODO: should we zero-pad the output as strncpy does? And what are the semantics for the terminating null if destSize == length?
-		strncpy(buf, g_Config.sNickName.c_str(), destSize);
+		memset(buf, 0, destSize);
+		strncpy(buf, nickname.c_str(), destSize - 1);
 		break;
+	}
 
 	default:
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
@@ -1242,18 +1273,55 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
 }
 
 static u32 sceUtilitySetSystemParamInt(u32 id, u32 value) {
+	const char *path = nullptr;
+	const char *name = nullptr;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		if (value != 0 && value != 1 && value != 6 && value != 11) {
 			return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_ADHOC_CHANNEL);
 		}
-		// Save the setting? We don't really care about this one.
+		path = "/CONFIG/NETWORK/ADHOC";
+		name = "channel";
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
+		if (value > 1) {
+			return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+		}
+		path = "/CONFIG/SYSTEM/POWER_SAVING";
+		name = "wlan_mode";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
+		if (value > PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY) return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+		path = "/CONFIG/DATE"; name = "date_format";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
+		if (value > PSP_SYSTEMPARAM_TIME_FORMAT_12HR) return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+		path = "/CONFIG/DATE"; name = "time_format";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
+		path = "/CONFIG/DATE"; name = "time_zone_offset";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
+		if (value > 1) return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+		path = "/CONFIG/DATE"; name = "summer_time";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
+		if (value > PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED) return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+		path = "/CONFIG/SYSTEM/XMB"; name = "language";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
+		if (value > PSP_SYSTEMPARAM_BUTTON_CROSS) return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+		path = "/CONFIG/SYSTEM/XMB"; name = "button_assign";
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
+		path = "/CONFIG/SYSTEM/LOCK"; name = "parental_level";
 		break;
 	default:
 		// PSP can only set above int parameters
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
+	}
+	if (__KernelIsRunningVSH() && !__RegSetInt(path, name, value)) {
+		return hleLogError(Log::sceUtility, -1, "could not persist system parameter");
 	}
 	return hleLogDebug(Log::sceUtility, 0, "(%s)", SystemParamToString(id));
 }
@@ -1311,6 +1379,43 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 
 	Memory::WriteOrException_U32(param, destaddr);
 	return hleLogInfo(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
+}
+
+static int UtilityGetAuthString(u32 destAddr, const std::string &value, const char *name) {
+	constexpr u32 AUTH_STRING_SIZE = 64;
+	if (!Memory::IsValidRange(destAddr, AUTH_STRING_SIZE)) {
+		return hleLogError(Log::sceUtility, -1, "%s invalid destination", name);
+	}
+	char *dest = (char *)Memory::GetPointerWriteUnchecked(destAddr);
+	memset(dest, 0, AUTH_STRING_SIZE);
+	memcpy(dest, value.data(), std::min(value.size(), (size_t)AUTH_STRING_SIZE - 1));
+	return hleLogDebug(Log::sceUtility, 0, "%s", name);
+}
+
+static int UtilitySetAuthString(u32 sourceAddr, std::string *value, const char *name) {
+	constexpr u32 AUTH_STRING_SIZE = 64;
+	if (!Memory::IsValidRange(sourceAddr, AUTH_STRING_SIZE)) {
+		return hleLogError(Log::sceUtility, -1, "%s invalid source", name);
+	}
+	const char *source = (const char *)Memory::GetPointerUnchecked(sourceAddr);
+	value->assign(source, strnlen(source, AUTH_STRING_SIZE));
+	return hleLogDebug(Log::sceUtility, 0, "%s", name);
+}
+
+static int sceUtilityGetAuthName(u32 destAddr) {
+	return UtilityGetAuthString(destAddr, utilityAuthName, "get auth name");
+}
+
+static int sceUtilitySetAuthName(u32 sourceAddr) {
+	return UtilitySetAuthString(sourceAddr, &utilityAuthName, "set auth name");
+}
+
+static int sceUtilityGetAuthKey(u32 destAddr) {
+	return UtilityGetAuthString(destAddr, utilityAuthKey, "get auth key");
+}
+
+static int sceUtilitySetAuthKey(u32 sourceAddr) {
+	return UtilitySetAuthString(sourceAddr, &utilityAuthKey, "set auth key");
 }
 
 static u32 sceUtilityLoadNetModule(u32 module) {
@@ -1587,10 +1692,10 @@ const HLEFunction sceUtility[] = {
 	{0X417BED54, nullptr,                                          "sceNetplayDialogUpdate",                 '?', ""   },
 	{0XB6CEE597, nullptr,                                          "sceNetplayDialogGetStatus",              '?', ""   },
 
-	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   }, // jpcsp: getAuthName(char *authNameOut64)
-	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   }, // jpcsp: setAuthKey(const char *authKey64)
-	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   }, // jpcsp: setAuthName(const char *authName64)
-	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   }, // jpcsp: getAuthKey(char *authKeyOut64)
+	{0X28D35634, &WrapI_U<sceUtilityGetAuthName>,                   "sceUtilityGetAuthName",                  'i', "x"  },
+	{0X70267ADF, &WrapI_U<sceUtilitySetAuthKey>,                    "sceUtilitySetAuthKey",                   'i', "s"  },
+	{0XECE1D3E5, &WrapI_U<sceUtilitySetAuthName>,                   "sceUtilitySetAuthName",                  'i', "s"  },
+	{0XEF3582B2, &WrapI_U<sceUtilityGetAuthKey>,                    "sceUtilityGetAuthKey",                   'i', "x"  },
 
 	{0x05e242a1, nullptr,                                          "sceUtility_05e242a1",                    '?', ""   },
 	{0x644b513b, nullptr,                                          "sceUtility_644b513b",                    '?', ""   },

@@ -39,6 +39,9 @@ void __UmdInit();
 void __UmdDoState(PointerWrap &p);
 
 void __UmdReplace(const Path &filepath);
+void __UmdSetInserted(bool inserted, bool notify);
+bool __UmdIsInserted();
+u32 __UmdGetDriveState();
 bool getUMDReplacePermit();
 
 void Register_sceUmdUser();

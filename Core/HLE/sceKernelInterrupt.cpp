@@ -36,6 +36,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelMutex.h"
 
 #include "GPU/GPUCommon.h"
@@ -149,6 +150,7 @@ void IntrHandler::copyArgsToCPU(PendingInterrupt& pend)
 	currentMIPS->pc = handler->handlerAddress;
 	currentMIPS->r[MIPS_REG_A0] = handler->subIntrNumber;
 	currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
+	currentMIPS->r[MIPS_REG_GP] = handler->handlerGP;
 	// RA is already taken care of
 }
 
@@ -206,14 +208,52 @@ void IntrHandler::queueUp(int subintr) {
 	}
 }
 
+void SubIntrHandler::DoState(PointerWrap &p) {
+	Do(p, enabled);
+	Do(p, intrNumber);
+	Do(p, subIntrNumber);
+	Do(p, handlerAddress);
+	Do(p, handlerArg);
+	Do(p, handlerGP);
+}
+
+// IntrHandler v1 wrote this POD directly, including its original padding.
+// Keep the exact old layout so existing savestates can be upgraded safely.
+struct LegacySubIntrHandler {
+	bool enabled;
+	int intrNumber;
+	int subIntrNumber;
+	u32 handlerAddress;
+	u32 handlerArg;
+};
+static_assert(sizeof(LegacySubIntrHandler) == 20, "IntrHandler v1 savestate layout changed");
+
 void IntrHandler::DoState(PointerWrap &p)
 {
-	auto s = p.Section("IntrHandler", 1);
+	auto s = p.Section("IntrHandler", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, intrNumber);
-	Do<int, SubIntrHandler>(p, subIntrHandlers);
+	if (s >= 2) {
+		Do<int, SubIntrHandler>(p, subIntrHandlers);
+	} else {
+		std::map<int, LegacySubIntrHandler> legacyHandlers;
+		Do<int, LegacySubIntrHandler>(p, legacyHandlers);
+		if (p.mode == PointerWrap::MODE_READ) {
+			subIntrHandlers.clear();
+			for (const auto &entry : legacyHandlers) {
+				SubIntrHandler handler;
+				handler.enabled = entry.second.enabled;
+				handler.intrNumber = entry.second.intrNumber;
+				handler.subIntrNumber = entry.second.subIntrNumber;
+				handler.handlerAddress = entry.second.handlerAddress;
+				handler.handlerArg = entry.second.handlerArg;
+				handler.handlerGP = __KernelGetModuleGPByAddress(handler.handlerAddress);
+				subIntrHandlers.emplace(entry.first, handler);
+			}
+		}
+	}
 }
 
 void PendingInterrupt::DoState(PointerWrap &p)
@@ -447,26 +487,25 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 		return NULL;
 	}
 	IntrHandler *intr = intrHandlers[intrNumber];
+	SubIntrHandler *subIntrHandler;
 	if (intr->has(subIntrNumber)) {
 		if (intr->get(subIntrNumber)->handlerAddress != 0) {
 			error = SCE_KERNEL_ERROR_FOUND_HANDLER;
 			return NULL;
-		} else {
-			SubIntrHandler *subIntrHandler = intr->get(subIntrNumber);
-			subIntrHandler->handlerAddress = handler;
-			subIntrHandler->handlerArg = handlerArg;
-
-			error = SCE_KERNEL_ERROR_OK;
-			return subIntrHandler;
 		}
+		subIntrHandler = intr->get(subIntrNumber);
+	} else {
+		subIntrHandler = intr->add(subIntrNumber);
+		subIntrHandler->subIntrNumber = subIntrNumber;
+		subIntrHandler->intrNumber = intrNumber;
+		subIntrHandler->enabled = false;
 	}
 
-	SubIntrHandler *subIntrHandler = intr->add(subIntrNumber);
-	subIntrHandler->subIntrNumber = subIntrNumber;
-	subIntrHandler->intrNumber = intrNumber;
 	subIntrHandler->handlerAddress = handler;
 	subIntrHandler->handlerArg = handlerArg;
-	subIntrHandler->enabled = false;
+	// PSP InterruptMan records the callback's owning-module GP here and
+	// restores it for every invocation (uOFW interruptman.c).
+	subIntrHandler->handlerGP = __KernelGetModuleGPByAddress(handler);
 
 	error = SCE_KERNEL_ERROR_OK;
 	return subIntrHandler;
@@ -1055,6 +1094,8 @@ static int sceKernelIsIntrContext() {
 
 const HLEFunction InterruptManagerForKernel[] =
 {
+	{0XFFA8B183, &WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler",    'x', "xxxx", HLE_KERNEL_SYSCALL },
+	{0XFB8E22EC, &WrapU_UU<sceKernelEnableSubIntr>,            "sceKernelEnableSubIntr",             'x', "xx",   HLE_KERNEL_SYSCALL },
 	{0x092968F4, &WrapI_V<sceKernelCpuSuspendIntr>,            "sceKernelCpuSuspendIntr",             'i', ""    ,HLE_KERNEL_SYSCALL },
 	{0X5F10D406, &WrapV_U<sceKernelCpuResumeIntr>,             "sceKernelCpuResumeIntr",              'v', "x"   ,HLE_KERNEL_SYSCALL },
 	{0X3B84732D, &WrapV_U<sceKernelCpuResumeIntrWithSync>,     "sceKernelCpuResumeIntrWithSync",      'v', "x"   ,HLE_KERNEL_SYSCALL },
@@ -1083,6 +1124,8 @@ const HLEFunction InterruptManagerForKernel[] =
 	// real flash0 drivers act on - measured while booting the VSH, they make 31 such calls
 	// (interrupts 4, 12, 15-18, 20-24, 31), and the boot then stalls in GE list execution without
 	// ever starting a plugin module, where leaving them unresolved reaches the shell.
+	{0XD61E6961, &WrapU_UU<sceKernelReleaseSubIntrHandler>,    "sceKernelReleaseSubIntrHandler",     'x', "xx",   HLE_KERNEL_SYSCALL },
+	{0X4023E1A7, &WrapU_UU<sceKernelDisableSubIntr>,           "sceKernelDisableSubIntr",            'x', "xx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_InterruptManagerForKernel()

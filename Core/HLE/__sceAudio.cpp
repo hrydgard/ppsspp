@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <atomic>
+#include <cstdlib>
 #include <mutex>
 #include <algorithm>
 
@@ -50,6 +51,7 @@ std::atomic_flag atomicLock_;
 // We copy samples as they are written into this simple ring buffer.
 // Might try something more efficient later.
 FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
+static AudioChannelSubmitStats channelSubmitStats[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
 
@@ -58,6 +60,7 @@ int eventHostAudioUpdate = -1;
 
 int mixFrequency = 44100;
 int srcFrequency = 0;
+static u64 srcResamplePhase = 0;
 
 const int hwSampleRate = 44100;
 const int hwBlockSize = 64;
@@ -99,6 +102,7 @@ void __AudioInit() {
 	System_AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
+	srcResamplePhase = 0;
 
 	chanQueueMaxSizeFactor = 2;
 	chanQueueMinSizeFactor = 1;
@@ -113,6 +117,7 @@ void __AudioInit() {
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
 		g_audioChans[i].index = i;
 		g_audioChans[i].clear();
+		channelSubmitStats[i] = {};
 	}
 
 	mixBuffer = new s32[hwBlockSize * 2];
@@ -123,7 +128,7 @@ void __AudioInit() {
 }
 
 void __AudioDoState(PointerWrap &p) {
-	auto s = p.Section("sceAudio", 1, 2);
+	auto s = p.Section("sceAudio", 1, 3);
 	if (!s)
 		return;
 
@@ -139,6 +144,11 @@ void __AudioDoState(PointerWrap &p) {
 		// Assume that it was actually the SRC channel frequency.
 		srcFrequency = mixFrequency;
 		mixFrequency = 44100;
+	}
+	if (s >= 3) {
+		Do(p, srcResamplePhase);
+	} else if (p.mode == p.MODE_READ) {
+		srcResamplePhase = 0;
 	}
 
 	if (s >= 2) {
@@ -190,6 +200,24 @@ void __AudioShutdown() {
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	u32 ret = chan.sampleCount;
+	if (chanNum >= 0 && chanNum <= PSP_AUDIO_CHANNEL_MAX) {
+		AudioChannelSubmitStats &stats = channelSubmitStats[chanNum];
+		stats.calls++;
+		stats.submittedFrames += chan.sampleCount;
+		const u32 channels = chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1;
+		const u32 sampleValues = chan.sampleCount * channels;
+		if (Memory::IsValidRange(chan.sampleAddress, sampleValues * sizeof(s16))) {
+			u32 callPeak = 0;
+			for (u32 i = 0; i < sampleValues; ++i) {
+				const int sample = (s16)Memory::ReadUnchecked_U16(chan.sampleAddress + i * sizeof(s16));
+				callPeak = std::max(callPeak, (u32)std::abs(sample));
+			}
+			if (callPeak != 0) {
+				stats.nonSilentCalls++;
+				stats.peakSample = std::max(stats.peakSample, callPeak);
+			}
+		}
+	}
 
 	if (chan.sampleAddress == 0) {
 		// For some reason, multichannel audio lies and returns the sample count here.
@@ -285,6 +313,20 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	return ret;
 }
 
+u32 __AudioGetQueueSampleValues(int chanNum) {
+	if (chanNum < 0 || chanNum > PSP_AUDIO_CHANNEL_MAX) {
+		return 0;
+	}
+	return (u32)chanSampleQueues[chanNum].size();
+}
+
+AudioChannelSubmitStats __AudioGetChannelSubmitStats(int chanNum) {
+	if (chanNum < 0 || chanNum > PSP_AUDIO_CHANNEL_MAX) {
+		return {};
+	}
+	return channelSubmitStats[chanNum];
+}
+
 void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	u32 error;
 	bool wokeThreads = false;
@@ -327,6 +369,7 @@ void __AudioSetOutputFrequency(int freq) {
 
 void __AudioSetSRCFrequency(int freq) {
 	srcFrequency = freq;
+	srcResamplePhase = 0;
 }
 
 // Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
@@ -349,16 +392,17 @@ void __AudioUpdate(bool resetRecording) {
 			continue;
 		}
 
-		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
-		size_t sz = needsResample ? (srcBufferSize * srcFrequency) / mixFrequency : srcBufferSize;
-		if (sz > chanSampleQueues[i].size()) {
-			ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
-		}
-
 		const s16 *buf1 = 0, *buf2 = 0;
-		size_t sz1, sz2;
-
-		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+		size_t sz1 = 0, sz2 = 0;
+		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
+		if (!needsResample) {
+			const size_t wantedValues = srcBufferSize;
+			if (wantedValues > chanSampleQueues[i].size()) {
+				ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i,
+					(int)chanSampleQueues[i].size() / 2, (int)wantedValues / 2);
+			}
+			chanSampleQueues[i].popPointers(wantedValues, &buf1, &sz1, &buf2, &sz2);
+		}
 
 		// We do this check as the very last thing before mixing, to maximize compatibility.
 		if (g_audioChans[i].mute) {
@@ -366,34 +410,39 @@ void __AudioUpdate(bool resetRecording) {
 		}
 
 		if (needsResample) {
-			auto read = [&](size_t i) {
-				if (i < sz1)
-					return buf1[i];
-				if (i < sz1 + sz2)
-					return buf2[i - sz1];
-				if (buf2)
-					return buf2[sz2 - 1];
-				return buf1[sz1 - 1];
-			};
-
-			// TODO: This is terrible, since it's doing it by small chunk and discarding frac.
-			const uint32_t ratio = (uint32_t)(65536.0 * srcFrequency / (double)mixFrequency);
-			uint32_t frac = 0;
-			size_t readIndex = 0;
-			for (size_t outIndex = 0; readIndex < sz && outIndex < srcBufferSize; outIndex += 2) {
-				size_t readIndex2 = readIndex + 2;
-				int16_t l1 = read(readIndex);
-				int16_t r1 = read(readIndex + 1);
-				int16_t l2 = read(readIndex2);
-				int16_t r2 = read(readIndex2 + 1);
-				int sampleL = ((l1 << 16) + (l2 - l1) * (uint16_t)frac) >> 16;
-				int sampleR = ((r1 << 16) + (r2 - r1) * (uint16_t)frac) >> 16;
-				srcBuffer[outIndex] = sampleL;
-				srcBuffer[outIndex + 1] = sampleR;
-				frac += ratio;
-				readIndex += 2 * (uint16_t)(frac >> 16);
-				frac &= 0xffff;
+			const size_t availableFrames = chanSampleQueues[i].size() / 2;
+			const u64 ratio = ((u64)srcFrequency << 32) / (u32)mixFrequency;
+			const u64 lastOutputPhase = srcResamplePhase + ratio * (hwBlockSize - 1);
+			const size_t wantedFrames = (size_t)(lastOutputPhase >> 32) + 2;
+			if (availableFrames < wantedFrames) {
+				ERROR_LOG(Log::sceAudio, "Channel %i resampler underrun at %i of %i frames", i,
+					(int)availableFrames, (int)wantedFrames);
 			}
+			if (availableFrames == 0) {
+				memset(srcBuffer, 0, sizeof(srcBuffer));
+			} else {
+				u64 phase = srcResamplePhase;
+				for (int outputFrame = 0; outputFrame < hwBlockSize; ++outputFrame) {
+					const size_t sourceFrame = std::min<size_t>((size_t)(phase >> 32), availableFrames - 1);
+					const size_t nextFrame = std::min(sourceFrame + 1, availableFrames - 1);
+					const u32 fraction = (u32)phase;
+					for (int channel = 0; channel < 2; ++channel) {
+						const s32 first = chanSampleQueues[i].at(sourceFrame * 2 + channel);
+						const s32 second = chanSampleQueues[i].at(nextFrame * 2 + channel);
+						const s64 interpolated = (s64)first * (1LL << 32) + (s64)(second - first) * fraction;
+						srcBuffer[outputFrame * 2 + channel] = (s16)(interpolated >> 32);
+					}
+					phase += ratio;
+				}
+			}
+
+			const u64 nextPhase = srcResamplePhase + ratio * hwBlockSize;
+			const bool completeBlock = availableFrames >= wantedFrames;
+			const size_t consumeFrames = completeBlock ? (size_t)(nextPhase >> 32) : availableFrames;
+			srcResamplePhase = completeBlock ? nextPhase & 0xFFFFFFFFULL : 0;
+			const s16 *discard1 = nullptr, *discard2 = nullptr;
+			size_t discardSize1 = 0, discardSize2 = 0;
+			chanSampleQueues[i].popPointers(consumeFrames * 2, &discard1, &discardSize1, &discard2, &discardSize2);
 
 			buf1 = srcBuffer;
 			sz1 = srcBufferSize;

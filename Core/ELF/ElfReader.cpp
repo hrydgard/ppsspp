@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
-#include "Common/Data/Text/Demangle.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 
@@ -489,7 +488,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 }
 
 
-int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
+int ElfReader::LoadInto(u32 loadAddress, bool fromTop, BlockAllocator *targetAllocator, bool reserveMemory, u32 availableSize) {
 	DEBUG_LOG(Log::Loader,"String section: %i", header->e_shstrndx);
 
 	if (size_ < sizeof(Elf32_Ehdr)) {
@@ -577,9 +576,29 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 
 	// If a load address is specified that's in regular RAM, override kernel module status
 	bool inUser = totalStart >= PSP_GetUserMemoryBase();
-	BlockAllocator &memblock = (kernelModule && !inUser) ? kernelMemory : userMemory;
+	BlockAllocator &memblock = targetAllocator ? *targetAllocator : ((kernelModule && !inUser) ? kernelMemory : userMemory);
 
-	if (!bRelocate)
+	if (!reserveMemory)
+	{
+		if (loadAddress == 0 || availableSize == 0) {
+			ERROR_LOG(Log::Loader, "Preallocated ELF load has no destination block");
+			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		}
+		if (bRelocate) {
+			if ((u64)totalStart + totalSize > availableSize) {
+				ERROR_LOG(Log::Loader, "Preallocated ELF needs %08x bytes at offset %08x, block has %08x", totalSize, totalStart, availableSize);
+				return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+			}
+			vaddr = loadAddress;
+		} else {
+			if (totalStart < loadAddress || (u64)totalStart + totalSize > (u64)loadAddress + availableSize) {
+				ERROR_LOG(Log::Loader, "Fixed ELF does not fit preallocated block %08x+%08x", loadAddress, availableSize);
+				return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+			}
+			vaddr = totalStart;
+		}
+	}
+	else if (!bRelocate)
 	{
 		// Binary is prerelocated, load it where the first segment starts
 		vaddr = memblock.AllocAt(totalStart, totalSize, modName.c_str());
@@ -933,8 +952,7 @@ bool ElfReader::LoadSymbols()
 				g_symbolMap->AddData(value,size,DATATYPE_BYTE);
 				break;
 			case STT_FUNC:
-				// C++ homebrew is otherwise a wall of _ZN... - see DemangleSymbolName.
-				g_symbolMap->AddFunction(DemangleSymbolName(name).c_str(),value,size);
+				g_symbolMap->AddFunction(name,value,size);
 				break;
 			default:
 				continue;
@@ -1028,18 +1046,16 @@ static int LoadSymbolsFromCompanion(const std::string &data, u32 moduleBase, u32
 			continue;
 
 		const u32 addr = moduleBase + sym->st_value;
-		// C++ homebrew is otherwise a wall of _ZN... - see DemangleSymbolName.
-		const std::string readable = DemangleSymbolName(name);
 		switch (sym->st_info & 0xF) {
 		case STT_FUNC:
 			// updateName: these are the names a human wrote, so they beat the analyzer's
 			// z_un_<address> placeholders rather than losing to whichever got there first.
-			g_symbolMap->AddFunction(readable.c_str(), addr, sym->st_size, -1, true);
+			g_symbolMap->AddFunction(name, addr, sym->st_size, -1, true);
 			added++;
 			break;
 		case STT_OBJECT:
 			g_symbolMap->AddData(addr, sym->st_size, DATATYPE_BYTE);
-			g_symbolMap->AddLabel(readable.c_str(), addr, -1, true);
+			g_symbolMap->AddLabel(name, addr, -1, true);
 			added++;
 			break;
 		default:

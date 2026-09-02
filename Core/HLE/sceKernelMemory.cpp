@@ -49,6 +49,25 @@ const int TLSPL_NUM_INDEXES = 16;
 BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
 BlockAllocator volatileMemory(256);
+static BlockAllocator extSc2KernelMemory(256);
+static BlockAllocator extScKernelMemory(256);
+static BlockAllocator extVshMemory(256);
+
+// PSP-2000 game layout reconstructed in the preserved future variation from
+// uOFW's 6.60 sysmem table. Physical addresses are used here; Memory accepts
+// the matching 0x8xxxxxxx kernel aliases used by firmware.
+constexpr u32 PSP_2000_GAME_USER_MEMORY_SIZE = 0x01800000;
+constexpr u32 EXT_SC2_KERNEL_MEMORY_BASE = 0x0A000000;
+constexpr u32 EXT_SC2_KERNEL_MEMORY_SIZE = 0x01800000;
+constexpr u32 EXT_SC_KERNEL_MEMORY_BASE = 0x0B800000;
+constexpr u32 EXT_SC_KERNEL_MEMORY_SIZE = 0x00400000;
+constexpr u32 EXT_VSHELL_MEMORY_BASE = 0x0BC00000;
+constexpr u32 EXT_VSHELL_MEMORY_SIZE = 0x00400000;
+static_assert(PSP_GetUserMemoryBase() + PSP_2000_GAME_USER_MEMORY_SIZE == EXT_SC2_KERNEL_MEMORY_BASE);
+static_assert(EXT_SC2_KERNEL_MEMORY_BASE + EXT_SC2_KERNEL_MEMORY_SIZE == EXT_SC_KERNEL_MEMORY_BASE);
+static_assert(EXT_SC_KERNEL_MEMORY_BASE + EXT_SC_KERNEL_MEMORY_SIZE == EXT_VSHELL_MEMORY_BASE);
+static_assert(EXT_VSHELL_MEMORY_BASE + EXT_VSHELL_MEMORY_SIZE == PSP_GetKernelMemoryBase() + Memory::RAM_DOUBLE_SIZE);
+static bool directVshGamePartitionLayout = false;
 
 static int vplWaitTimer = -1;
 static int fplWaitTimer = -1;
@@ -308,12 +327,29 @@ void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId);
 
+void __KernelMemorySetDirectVshGamePartitionLayout(bool enabled)
+{
+	directVshGamePartitionLayout = enabled;
+}
+
 void __KernelMemoryInit()
 {
 	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
-	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
+	const u32 userMemoryEnd = directVshGamePartitionLayout
+		? PSP_GetUserMemoryBase() + PSP_2000_GAME_USER_MEMORY_SIZE
+		: PSP_GetUserMemoryEnd();
+	userMemory.Init(PSP_GetUserMemoryBase(), userMemoryEnd - PSP_GetUserMemoryBase(), false);
 	volatileMemory.Init(PSP_GetVolatileMemoryStart(), PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart(), false);
+	if (directVshGamePartitionLayout) {
+		extSc2KernelMemory.Init(EXT_SC2_KERNEL_MEMORY_BASE, EXT_SC2_KERNEL_MEMORY_SIZE, false);
+		extScKernelMemory.Init(EXT_SC_KERNEL_MEMORY_BASE, EXT_SC_KERNEL_MEMORY_SIZE, false);
+		extVshMemory.Init(EXT_VSHELL_MEMORY_BASE, EXT_VSHELL_MEMORY_SIZE, false);
+	} else {
+		extSc2KernelMemory.Shutdown();
+		extScKernelMemory.Shutdown();
+		extVshMemory.Shutdown();
+	}
 
 	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
 	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInitK");
@@ -321,7 +357,16 @@ void __KernelMemoryInit()
 	Memory::Memset(PSP_GetUserMemoryBase(), 0, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
 	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), "MemInitU");
 
-	INFO_LOG(Log::sceKernel, "Kernel and user memory pools initialized");
+	if (directVshGamePartitionLayout) {
+		INFO_LOG(Log::sceKernel,
+			"Kernel/user memory initialized with PSP-2000 game partitions: p2=%08x+%08x p9=%08x+%08x p8=%08x+%08x p11=%08x+%08x",
+			PSP_GetUserMemoryBase(), userMemoryEnd - PSP_GetUserMemoryBase(),
+			EXT_SC2_KERNEL_MEMORY_BASE, EXT_SC2_KERNEL_MEMORY_SIZE,
+			EXT_SC_KERNEL_MEMORY_BASE, EXT_SC_KERNEL_MEMORY_SIZE,
+			EXT_VSHELL_MEMORY_BASE, EXT_VSHELL_MEMORY_SIZE);
+	} else {
+		INFO_LOG(Log::sceKernel, "Kernel and user memory pools initialized");
+	}
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
 	fplWaitTimer = CoreTiming::RegisterEvent("FplTimeout", __KernelFplTimeout);
@@ -344,7 +389,7 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMemory", 1, 3);
+	auto s = p.Section("sceKernelMemory", 1, 5);
 	if (!s)
 		return;
 
@@ -364,6 +409,29 @@ void __KernelMemoryDoState(PointerWrap &p)
 	if (s >= 2) {
 		Do(p, tlsplThreadEndChecks);
 	}
+	if (s >= 4) {
+		Do(p, directVshGamePartitionLayout);
+		if (directVshGamePartitionLayout) {
+			extScKernelMemory.DoState(p);
+			if (s >= 5) {
+				extSc2KernelMemory.DoState(p);
+				extVshMemory.DoState(p);
+			} else if (p.mode == p.MODE_READ) {
+				// Version 4 represented only partition 8.
+				extSc2KernelMemory.Init(EXT_SC2_KERNEL_MEMORY_BASE, EXT_SC2_KERNEL_MEMORY_SIZE, false);
+				extVshMemory.Init(EXT_VSHELL_MEMORY_BASE, EXT_VSHELL_MEMORY_SIZE, false);
+			}
+		} else if (p.mode == p.MODE_READ) {
+			extSc2KernelMemory.Shutdown();
+			extScKernelMemory.Shutdown();
+			extVshMemory.Shutdown();
+		}
+	} else if (p.mode == p.MODE_READ) {
+		directVshGamePartitionLayout = false;
+		extSc2KernelMemory.Shutdown();
+		extScKernelMemory.Shutdown();
+		extVshMemory.Shutdown();
+	}
 
 	MemBlockInfoDoState(p);
 }
@@ -375,6 +443,17 @@ void __KernelMemoryShutdown()
 	volatileMemory.ListBlocks(LogLevel::LDEBUG);
 #endif
 	volatileMemory.Shutdown();
+#ifdef _DEBUG
+	if (directVshGamePartitionLayout) {
+		DEBUG_LOG(Log::sceKernel, "Shutting down PSP-2000 extended memory partitions");
+		extSc2KernelMemory.ListBlocks(LogLevel::LDEBUG);
+		extScKernelMemory.ListBlocks(LogLevel::LDEBUG);
+		extVshMemory.ListBlocks(LogLevel::LDEBUG);
+	}
+#endif
+	extSc2KernelMemory.Shutdown();
+	extScKernelMemory.Shutdown();
+	extVshMemory.Shutdown();
 #ifdef _DEBUG
 	DEBUG_LOG(Log::sceKernel,"Shutting down user memory pool");
 	userMemory.ListBlocks(LogLevel::LDEBUG);
@@ -389,33 +468,66 @@ void __KernelMemoryShutdown()
 	MemBlockInfoShutdown();
 }
 
-BlockAllocator *BlockAllocatorFromID(int id) {
+BlockAllocator *BlockAllocatorFromIDUnchecked(int id) {
 	switch (id) {
 	case KERNEL_PARTITION_ID:
-	case 3:
-	case 4:
-		if (hleIsKernelMode())
-			return &kernelMemory;
-		return nullptr;
+	case OTHER1_PARTITION_ID:
+	case OTHER2_PARTITION_ID:
+		return &kernelMemory;
 
 	case USER_PARTITION_ID:
-	case 6:
+	case SC_USER_PARTITION_ID:
 		return &userMemory;
 
-	case 8:
-	case 10:
-		if (hleIsKernelMode())
-			return &userMemory;
+	case ME_USER_PARTITION_ID:
 		return nullptr;
 
 	case VSHELL_PARTITION_ID:
 		return &volatileMemory;
+
+	case EXT_SC_KERNEL_PARTITION_ID:
+		return directVshGamePartitionLayout ? &extScKernelMemory : &userMemory;
+
+	case EXT_SC2_KERNEL_PARTITION_ID:
+		return directVshGamePartitionLayout ? &extSc2KernelMemory : nullptr;
+
+	case EXT_ME_KERNEL_PARTITION_ID:
+		// Preserve the existing PPSSPP alias outside Direct VSH. The selected
+		// System Controller layout has no ME extended-kernel partition.
+		return directVshGamePartitionLayout ? nullptr : &userMemory;
+
+	case EXT_VSHELL_PARTITION_ID:
+		return directVshGamePartitionLayout ? &extVshMemory : nullptr;
+
+	case EXT_KERNEL_PARTITION_ID:
+		// The canonical extended-kernel partition aliases partition 8 on this
+		// System Controller profile.
+		return directVshGamePartitionLayout ? &extScKernelMemory : nullptr;
 
 	default:
 		break;
 	}
 
 	return nullptr;
+}
+
+BlockAllocator *BlockAllocatorFromID(int id) {
+	switch (id) {
+	case KERNEL_PARTITION_ID:
+	case OTHER1_PARTITION_ID:
+	case OTHER2_PARTITION_ID:
+	case EXT_SC_KERNEL_PARTITION_ID:
+	case EXT_SC2_KERNEL_PARTITION_ID:
+	case EXT_ME_KERNEL_PARTITION_ID:
+	case EXT_VSHELL_PARTITION_ID:
+	case EXT_KERNEL_PARTITION_ID:
+		if (!hleIsKernelMode())
+			return nullptr;
+		break;
+	default:
+		break;
+	}
+	return BlockAllocatorFromIDUnchecked(id);
 }
 
 int BlockAllocatorToID(const BlockAllocator *alloc) {
@@ -425,11 +537,25 @@ int BlockAllocatorToID(const BlockAllocator *alloc) {
 		return USER_PARTITION_ID;
 	if (alloc == &volatileMemory)
 		return VSHELL_PARTITION_ID;
+	if (alloc == &extSc2KernelMemory)
+		return EXT_SC2_KERNEL_PARTITION_ID;
+	if (alloc == &extScKernelMemory)
+		return EXT_SC_KERNEL_PARTITION_ID;
+	if (alloc == &extVshMemory)
+		return EXT_VSHELL_PARTITION_ID;
 	return 0;
 }
 
 BlockAllocator *BlockAllocatorFromAddr(u32 addr) {
 	addr &= 0x3FFFFFFF;
+	if (directVshGamePartitionLayout) {
+		if (addr >= EXT_SC2_KERNEL_MEMORY_BASE && addr < EXT_SC2_KERNEL_MEMORY_BASE + EXT_SC2_KERNEL_MEMORY_SIZE)
+			return &extSc2KernelMemory;
+		if (addr >= EXT_SC_KERNEL_MEMORY_BASE && addr < EXT_SC_KERNEL_MEMORY_BASE + EXT_SC_KERNEL_MEMORY_SIZE)
+			return &extScKernelMemory;
+		if (addr >= EXT_VSHELL_MEMORY_BASE && addr < EXT_VSHELL_MEMORY_BASE + EXT_VSHELL_MEMORY_SIZE)
+			return &extVshMemory;
+	}
 	if (Memory::IsKernelAndNotVolatileAddress(addr))
 		return &kernelMemory;
 	if (Memory::IsKernelAddress(addr))
@@ -523,7 +649,7 @@ static void __KernelSortFplThreads(FPL *fpl)
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
-	if (mpid < 1 || mpid > 9 || mpid == 7)
+	if (mpid < KERNEL_PARTITION_ID || mpid > MAX_MEMORY_PARTITION_ID)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", mpid);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
@@ -804,6 +930,7 @@ public:
 	PartitionMemoryBlock(BlockAllocator *_alloc, const char *_name, u32 size, MemblockType type, u32 alignment)
 	{
 		alloc = _alloc;
+		address = (u32)-1;
 		strncpy(name, _name, 32);
 		name[31] = '\0';
 
@@ -824,12 +951,20 @@ public:
 #endif
 		}
 	}
+	PartitionMemoryBlock(BlockAllocator *_alloc, const char *_name, u32 existingAddress)
+	{
+		alloc = _alloc;
+		address = existingAddress;
+		strncpy(name, _name, 32);
+		name[31] = '\0';
+	}
 	~PartitionMemoryBlock()
 	{
 		if (address != (u32)-1)
 			alloc->Free(address);
 	}
 	bool IsValid() {return address != (u32)-1;}
+	void Disown() { address = (u32)-1; }
 
 	void DoState(PointerWrap &p) override
 	{
@@ -842,7 +977,7 @@ public:
 		if (s >= 2) {
 			int allocType = BlockAllocatorToID(alloc);
 			Do(p, allocType);
-			alloc = BlockAllocatorFromID(allocType);
+			alloc = BlockAllocatorFromIDUnchecked(allocType);
 		}
 	}
 
@@ -850,6 +985,140 @@ public:
 	u32 address;
 	char name[32];
 };
+
+bool __KernelMemoryBlockInfo(SceUID id, u32 *address, u32 *size, int *partitionId) {
+	u32 error;
+	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
+	if (!block || !block->IsValid())
+		return false;
+	if (address)
+		*address = block->address;
+	if (size)
+		*size = block->alloc->GetBlockSizeFromAddress(block->address);
+	if (partitionId)
+		*partitionId = BlockAllocatorToID(block->alloc);
+	return true;
+}
+
+int sceKernelQueryMemoryInfo(u32 address, u32 partitionIdPtr, u32 memoryBlockIdPtr) {
+	if ((partitionIdPtr != 0 && !Memory::IsValid4AlignedAddress(partitionIdPtr)) ||
+		(memoryBlockIdPtr != 0 && !Memory::IsValid4AlignedAddress(memoryBlockIdPtr))) {
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid output pointer");
+	}
+
+	struct QueryState {
+		u32 address;
+		SceUID blockId = 0;
+		int partitionId = 0;
+	} state{address & 0x3FFFFFFF};
+
+	kernelObjects.Iterate<PartitionMemoryBlock>([&state](int id, PartitionMemoryBlock *block) {
+		if (!block->IsValid())
+			return true;
+		const u32 size = block->alloc->GetBlockSizeFromAddress(block->address);
+		if (block->address <= state.address && state.address - block->address < size) {
+			state.blockId = id;
+			state.partitionId = BlockAllocatorToID(block->alloc);
+			return false;
+		}
+		return true;
+	});
+
+	if (state.blockId == 0) {
+		// Executable allocations are allocator blocks too, but PPSSPP does not
+		// wrap each one in a PartitionMemoryBlock UID.
+		BlockAllocator *allocator = BlockAllocatorFromAddr(state.address);
+		const u32 blockStart = allocator ? allocator->GetBlockStartFromAddress(state.address) : (u32)-1;
+		if (!allocator || blockStart == (u32)-1 || allocator->IsBlockFree(blockStart) || memoryBlockIdPtr != 0) {
+			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR,
+				"address %08x is not in a queryable partition block", address);
+		}
+		state.partitionId = BlockAllocatorToID(allocator);
+	}
+	if (partitionIdPtr != 0)
+		Memory::WriteUnchecked_U32(state.partitionId, partitionIdPtr);
+	if (memoryBlockIdPtr != 0)
+		Memory::WriteUnchecked_U32(state.blockId, memoryBlockIdPtr);
+	return hleLogDebug(Log::sceKernel, 0, "address=%08x partition=%d block=%d", address, state.partitionId, state.blockId);
+}
+
+SceUID __KernelSeparateMemoryBlock(SceUID id, u32 firstSize) {
+	u32 error;
+	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
+	if (!block || !block->IsValid())
+		return error;
+
+	firstSize = (firstSize + 0xFF) & ~0xFFU;
+	const u32 fullSize = block->alloc->GetBlockSizeFromAddress(block->address);
+	if (firstSize == 0 || firstSize >= fullSize)
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	const u32 secondAddress = block->address + firstSize;
+	if (!block->alloc->SplitAllocatedBlock(block->address, firstSize, block->name))
+		return SCE_KERNEL_ERROR_ERROR;
+
+	PartitionMemoryBlock *second = new PartitionMemoryBlock(block->alloc, block->name, secondAddress);
+	return kernelObjects.Create(second);
+}
+
+int sceKernelJointMemoryBlock(SceUID id1, SceUID id2) {
+	u32 error1;
+	u32 error2;
+	PartitionMemoryBlock *block1 = kernelObjects.Get<PartitionMemoryBlock>(id1, error1);
+	PartitionMemoryBlock *block2 = kernelObjects.Get<PartitionMemoryBlock>(id2, error2);
+	if (!block1 || !block2 || !block1->IsValid() || !block2->IsValid())
+		return hleLogWarning(Log::sceKernel, !block1 ? error1 : error2, "invalid memory block");
+	if (block1->alloc != block2->alloc)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PARTITION, "different partitions");
+	const u32 firstSize = block1->alloc->GetBlockSizeFromAddress(block1->address);
+	if (block1->address + firstSize != block2->address)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "blocks are not ordered and adjacent");
+
+	const u32 joinedAddress = block1->address;
+	BlockAllocator *allocator = block1->alloc;
+	char joinedName[32];
+	strncpy(joinedName, block1->name, sizeof(joinedName));
+	joinedName[sizeof(joinedName) - 1] = '\0';
+	if (!block1->alloc->JoinAllocatedBlocks(block1->address, block2->address))
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "blocks are not adjacent");
+	block1->Disown();
+	block2->Disown();
+	kernelObjects.Destroy<PartitionMemoryBlock>(id1);
+	kernelObjects.Destroy<PartitionMemoryBlock>(id2);
+	PartitionMemoryBlock *joined = new PartitionMemoryBlock(allocator, joinedName, joinedAddress);
+	return hleLogDebug(Log::sceKernel, kernelObjects.Create(joined));
+}
+
+struct SceSysmemMemoryBlockInfo {
+	u32_le size;
+	char name[32];
+	u32_le attr;
+	u32_le address;
+	u32_le memorySize;
+	u32_le sizeLocked;
+	u32_le used;
+};
+
+int sceKernelQueryMemoryBlockInfo(SceUID id, u32 infoPtr) {
+	auto info = PSPPointer<SceSysmemMemoryBlockInfo>::Create(infoPtr);
+	if (!info.IsValid() || info->size != sizeof(SceSysmemMemoryBlockInfo))
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid info");
+	u32 error;
+	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
+	if (!block || !block->IsValid())
+		return hleLogWarning(Log::sceKernel, error, "invalid memory block");
+
+	SceSysmemMemoryBlockInfo result{};
+	result.size = sizeof(result);
+	strncpy(result.name, block->name, sizeof(result.name) - 1);
+	result.attr = 0;
+	result.address = block->address;
+	result.memorySize = block->alloc->GetBlockSizeFromAddress(block->address);
+	result.sizeLocked = 0;
+	result.used = 0;
+	*info = result;
+	info.NotifyWrite("MemoryBlockInfo");
+	return hleLogDebug(Log::sceKernel, 0);
+}
 
 
 static u32 sceKernelMaxFreeMemSize()
@@ -872,7 +1141,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		if ((addr & (addr - 1)) != 0 || addr == 0)
 			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "invalid alignment %x", addr);
 	}
-	if (partition < 1 || partition > 9 || partition == 7)
+	if (partition < KERNEL_PARTITION_ID || partition > MAX_MEMORY_PARTITION_ID)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %x", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
@@ -910,7 +1179,7 @@ u32 sceKernelGetBlockHeadAddr(SceUID id) {
 	}
 }
 
-static int sceKernelPrintf(const char *formatString) {
+int sceKernelPrintf(const char *formatString) {
 	if (!formatString)
 		return -1;
 
@@ -1185,6 +1454,12 @@ int sceKernelGetCompiledSdkVersion() {
 	return sdkVersion_;
 }
 
+int sceKernelGetCompilerVersion() {
+	if (!(flags_ & SCE_KERNEL_HASCOMPILERVERSION))
+		return 0;
+	return compilerVersion_;
+}
+
 static int sceKernelSetCompilerVersion(int version) {
 	compilerVersion_ = version;
 	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
@@ -1305,7 +1580,7 @@ static void __KernelSortVplThreads(VPL *vpl)
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
-	if (partition < 1 || partition > 9 || partition == 7)
+	if (partition < KERNEL_PARTITION_ID || partition > MAX_MEMORY_PARTITION_ID)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
@@ -1863,7 +2138,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if ((attr & ~PSP_TLSPL_ATTR_KNOWN) >= 0x100)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
-	if (partition < 1 || partition > 9 || partition == 7)
+	if (partition < KERNEL_PARTITION_ID || partition > MAX_MEMORY_PARTITION_ID)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
@@ -2113,7 +2388,7 @@ const HLEFunction SysMemUserForUser[] = {
 	{0X1B4217BC, &WrapI_I<sceKernelSetCompiledSdkVersion603_605>, "sceKernelSetCompiledSdkVersion603_605", 'i', "i"    },
 	{0X358CA1BB, &WrapI_I<sceKernelSetCompiledSdkVersion606>,     "sceKernelSetCompiledSdkVersion606",     'i', "i"    },
 	{0XFC114573, &WrapI_V<sceKernelGetCompiledSdkVersion>,        "sceKernelGetCompiledSdkVersion",        'i', ""     },
-	{0X2A3E5280, nullptr,                                         "sceKernelQueryMemoryInfo",              '?', ""     },
+	{0X2A3E5280, &WrapI_UUU<sceKernelQueryMemoryInfo>,             "sceKernelQueryMemoryInfo",              'i', "xpp"  },
 	{0XACBD88CA, &WrapU_V<sceKernelTotalMemSize>,                 "sceKernelTotalMemSize",                 'x', ""     },
 	{0X945E45DA, &WrapU_V<SysMemUserForUser_945E45DA>,            "SysMemUserForUser_945E45DA",            'x', ""     },
 	{0XA6848DF8, nullptr,                                         "sceKernelSetUsersystemLibWork",         '?', ""     },
@@ -2124,6 +2399,10 @@ const HLEFunction SysMemUserForUser[] = {
 	{0X50F61D8A, &WrapU_U<sceKernelFreeMemoryBlock>,              "sceKernelFreeMemoryBlock",              'x', "x"    },
 	{0XFE707FDF, &WrapU_CUUU<sceKernelAllocMemoryBlock>,          "sceKernelAllocMemoryBlock",             'x', "sxxx" },
 	{0XD8DE5C1E, &WrapU_V<SysMemUserForUser_D8DE5C1E>,            "SysMemUserForUser_D8DE5C1E",            'x', ""     },
+	{0X7158CE7E, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",         'i', "isixx"},
+	{0XC1A26C6F, &WrapI_I<sceKernelFreePartitionMemory>,          "sceKernelFreePartitionMemory",          'i', "i"    },
+	{0XF12A62F7, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",             'x', "i"    },
+	{0XB4F00CB5, &WrapI_V<sceKernelGetCompiledSdkVersion>,        "sceKernelGetCompiledSdkVersion",        'i', ""     },
 };
 
 void Register_SysMemUserForUser() {

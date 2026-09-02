@@ -20,13 +20,17 @@
 #include "Core/FileSystems/FileSystem.h"
 
 void PSPFileInfo::DoState(PointerWrap &p) {
-	auto s = p.Section("PSPFileInfo", 1);
+	auto s = p.Section("PSPFileInfo", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, name);
 	Do(p, size);
 	Do(p, access);
+	if (s >= 2)
+		Do(p, attr);
+	else if (p.mode == PointerWrap::MODE_READ)
+		attr = 0;
 	Do(p, exists);
 	Do(p, type);
 	Do(p, atime);

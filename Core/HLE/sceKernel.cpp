@@ -66,6 +66,7 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "VSHGameLifecycle.h"
 #include "sceMd5.h"
 #include "sceMp3.h"
 #include "sceMpeg.h"
@@ -88,6 +89,7 @@
 #include "sceUsbMic.h"
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
+#include "sceVshBridge.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
 #include "sceMp4.h"
@@ -118,6 +120,7 @@ void __KernelInit()
 		return;
 	}
 	INFO_LOG(Log::sceKernel, "Initializing kernel...");
+	registeredExitCbId = 0;
 
 	__KernelTimeInit();
 	__InterruptsInit();
@@ -154,6 +157,7 @@ void __KernelInit()
 	__NetAdhocInit();
 	__NetAdhocMatchingInit();
 	__VaudioInit();
+	__VshBridgeInit();
 	__CheatInit();
 	__HeapInit();
 	__DmacInit();
@@ -306,6 +310,7 @@ void __KernelDoState(PointerWrap &p)
 		__UsbGpsDoState(p);
 		__UsbMicDoState(p);
 		__RegDoState(p);
+		__VshBridgeDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
@@ -331,6 +336,15 @@ std::string __KernelStateSummary() {
 
 void sceKernelExitGame() {
 	INFO_LOG(Log::sceKernel, "sceKernelExitGame");
+	if (VSHGameLifecycleShouldReturn()) {
+		std::string error;
+		if (VSHGameLifecycleRequestReturn(&error)) {
+			__KernelSwitchOffThread("returning game to Direct VSH");
+			hleNoLogVoid();
+			return;
+		}
+		WARN_LOG(Log::sceKernel, "Direct VSH return failed: %s", error.c_str());
+	}
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 
@@ -341,6 +355,15 @@ void sceKernelExitGame() {
 void sceKernelExitGameWithStatus()
 {
 	INFO_LOG(Log::sceKernel, "sceKernelExitGameWithStatus");
+	if (VSHGameLifecycleShouldReturn()) {
+		std::string error;
+		if (VSHGameLifecycleRequestReturn(&error)) {
+			__KernelSwitchOffThread("returning game to Direct VSH");
+			hleNoLogVoid();
+			return;
+		}
+		WARN_LOG(Log::sceKernel, "Direct VSH return failed: %s", error.c_str());
+	}
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 
@@ -947,7 +970,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0xB736E9FF, &WrapI_IU<sceKernelFreeVpl>,                        "sceKernelFreeVpl",                          'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x1D371B8A, &WrapI_IU<sceKernelCancelVpl>,                      "sceKernelCancelVpl",                        'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x39810265, &WrapI_IU<sceKernelReferVplStatus>,                 "sceKernelReferVplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
-	{0xBC31C1B9, nullptr, "sceKernelExtendKernelStack"},
+	{0xBC31C1B9, &WrapU_UUU<sceKernelExtendThreadStack>,             "sceKernelExtendKernelStack",                'x', "xxx",   HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
 	// New entries must go here at the end, not inserted earlier in this table - the funcindex
 	// (this array position) gets baked directly into resolved-import syscall opcodes written
 	// into guest RAM (see GetSyscallOp() in HLE.cpp), which savestates capture verbatim. Inserting
@@ -958,15 +981,24 @@ const HLEFunction ThreadManForKernel[] =
 	{0xC11BA8C4, &WrapI_II<sceKernelNotifyCallback>,                 "sceKernelNotifyCallback",                   'i', "ii",     HLE_KERNEL_SYSCALL },
 	{0xF6427665, &WrapI_V<sceKernelGetUserLevel>,                    "sceKernelGetUserLevel",                     'i', "",       HLE_KERNEL_SYSCALL },
 	{0x85A2A5BF, &WrapI_V<sceKernelIsUserModeThread>,                "sceKernelIsUserModeThread",                 'i', "",       HLE_KERNEL_SYSCALL },
-	// NOT added on purpose, even though we implement all four for user mode already:
-	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F), sceKernelUnlockMutex
-	// (0x6B30100F) and sceKernelAllocateFpl (0xD979E9BF). They are what the real flash0 NAND and
-	// ID storage drivers use to set themselves up while booting the VSH, and leaving them
-	// unresolved is load-bearing: the drivers fail their init early and the boot moves on. Resolve
-	// them and the drivers instead get all the way through to talking to the NAND controller, which
-	// we don't emulate - sceIdStorage_Service then polls 0xbd101300 forever, no plugin module ever
-	// starts, and the boot is dead where it used to reach the shell. Adding these needs NAND MMIO
-	// (or HLE'ing sceIdStorage/sceNand above the driver) to land first.
+	// mlnbridge uses a callback-aware FPL allocation for its command block and
+	// frees it during shutdown. These are the same kernel objects already used
+	// by the mature user-mode implementations above; unlike the deliberately
+	// unresolved NAND-driver allocation, this path has no hardware dependency.
+	{0xE7282CB6, &WrapI_IUU<sceKernelAllocateFplCB>,                  "sceKernelAllocateFplCB",                    'i', "ixx",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0xF6414A71, &WrapI_IU<sceKernelFreeFpl>,                         "sceKernelFreeFpl",                          'i', "ix",     HLE_KERNEL_SYSCALL },
+	// Sony registry.prx is a real kernel service but its synchronization maps
+	// directly to PPSSPP's mature mutex objects. Import linking restricts these
+	// four kernel aliases to sceRegistry_Service so lowio/NAND containment is
+	// unchanged.
+	{0xB7D098C6, &WrapI_CUIU<sceKernelCreateMutex>,                   "sceKernelCreateMutex",                      'i', "sxip",   HLE_KERNEL_SYSCALL },
+	{0xF8170FBE, &WrapI_I<sceKernelDeleteMutex>,                      "sceKernelDeleteMutex",                      'i', "i",      HLE_KERNEL_SYSCALL },
+	{0xB011B11F, &WrapI_IIU<sceKernelLockMutex>,                      "sceKernelLockMutex",                        'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0x6B30100F, &WrapI_II<sceKernelUnlockMutex>,                     "sceKernelUnlockMutex",                      'i', "ii",     HLE_KERNEL_SYSCALL },
+	// sceKernelAllocateFpl (0xD979E9BF) remains unresolved. The real NAND and ID
+	// storage drivers use it to progress into an unmodeled NAND controller and
+	// then poll 0xbd101300 forever. The mutex aliases above are likewise withheld
+	// from those callers by HLEAllowedForImportingModule().
 };
 
 void Register_ThreadManForUser()
@@ -994,6 +1026,24 @@ void Register_LoadExecForUser()
 // the VSH's own way of tearing itself down - when called from a regular game/homebrew context
 // (which can happen, since these live in a kernel-mode module games can still reach) they have
 // the same observable effect as sceKernelExitGame. See SceKernelLoadExecVSHParam in sceKernel.h.
+static bool ReadVshMainArgsFromParam(u32 paramPtr, const void **args, size_t *size) {
+	*args = nullptr;
+	*size = 0;
+	if (!Memory::IsValidRange(paramPtr, sizeof(SceKernelLoadExecVSHParam))) {
+		return false;
+	}
+	auto param = PSPPointer<SceKernelLoadExecVSHParam>::Create(paramPtr);
+	// vshmainArgsSize/vshmainArgs end at offset 0x18.  Older or truncated
+	// structures do not contain the typed VSHMAIN payload.
+	if (param->size < 0x18 || param->vshmainArgsSize == 0 || param->vshmainArgsSize > 0x400 ||
+		!Memory::IsValidRange(param->vshmainArgs, param->vshmainArgsSize)) {
+		return false;
+	}
+	*args = Memory::GetPointerUnchecked(param->vshmainArgs);
+	*size = param->vshmainArgsSize;
+	return true;
+}
+
 static int sceKernelExitVSH(u32 paramPtr) {
 	if (Memory::IsValidRange(paramPtr, sizeof(SceKernelLoadExecVSHParam))) {
 		auto param = PSPPointer<SceKernelLoadExecVSHParam>::Create(paramPtr);
@@ -1001,11 +1051,67 @@ static int sceKernelExitVSH(u32 paramPtr) {
 	}
 
 	INFO_LOG(Log::sceKernel, "sceKernelExitVSH");
+	if (VSHGameLifecycleShouldReturn()) {
+		// An explicit payload supersedes the chunk-0-compatible state captured at
+		// sceKernelLoadExecVSH.  VSH itself calls sceKernelExitVSH while finishing
+		// that launch; it is not the future game's request to return to XMB.
+		const void *vshMainArgs = nullptr;
+		size_t vshMainArgsSize = 0;
+		if (ReadVshMainArgsFromParam(paramPtr, &vshMainArgs, &vshMainArgsSize)) {
+			VSHGameLifecyclePreserveVshMainArgs(vshMainArgs, vshMainArgsSize);
+		}
+		if (__KernelIsRunningVSH()) {
+			INFO_LOG(Log::sceKernel, "sceKernelExitVSH completed Direct VSH game-launch teardown");
+			__KernelSwitchOffThread("Direct VSH completing game launch");
+			return hleNoLog(0);
+		}
+
+		std::string error;
+		if (VSHGameLifecycleRequestReturn(&error)) {
+			__KernelSwitchOffThread("native impose returning game to Direct VSH");
+			return hleNoLog(0);
+		}
+		WARN_LOG(Log::sceKernel, "Native impose return failed: %s", error.c_str());
+	}
 	__KernelSwitchOffThread("VSH exited");
 	Core_Stop();
 
 	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitVSH()", 0.0f, "kernelexit");
 	return hleNoLog(0);
+}
+
+static int sceKernelCheckExitCallback() {
+	u32 error;
+	PSPCallback *callback = kernelObjects.Get<PSPCallback>(registeredExitCbId, error);
+	return hleLogDebug(Log::sceKernel, callback ? (int)registeredExitCbId : 0);
+}
+
+static int sceKernelInvokeExitCallback() {
+	if (!__KernelInvokeRegisteredExitCallback()) {
+		return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_NO_EXIT_CALLBACK);
+	}
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
+// File/disc VSH LoadExec calls must go through PPSSPP's host boot lifecycle so
+// the target receives normal type detection, game configuration, memory sizing,
+// filesystem mounts, and the selected JIT backend.
+static int sceKernelLoadExecVSH(const char *filename, u32 paramPtr) {
+	if (!filename) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null filename");
+	}
+	if (__KernelIsRunningVSH()) {
+		const void *vshMainArgs = nullptr;
+		size_t vshMainArgsSize = 0;
+		ReadVshMainArgsFromParam(paramPtr, &vshMainArgs, &vshMainArgsSize);
+		std::string error;
+		if (!VSHGameLifecycleRequestBoot(filename, &error, vshMainArgs, vshMainArgsSize)) {
+			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NOFILE, "%s", error.c_str());
+		}
+		__KernelSwitchOffThread("Direct VSH requested game boot");
+		return hleLogInfo(Log::sceKernel, 0, "%s", filename);
+	}
+	return sceKernelLoadExec(filename, paramPtr);
 }
 
 // The VSH's own version of sceKernelLoadExec, used for pushing a game to run over USB/WLAN
@@ -1030,30 +1136,31 @@ static int sceKernelLoadExecBufferVSHUsbWlan(int bufferSize, u32 bufferAddr, u32
 const HLEFunction LoadExecForKernel[] = {
 	{0x4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,            "sceKernelRegisterExitCallback",             'i', "i",      HLE_KERNEL_SYSCALL },
 	{0XA3D5E142, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHVSH",                       'i', "x",      HLE_KERNEL_SYSCALL },
-	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
+	{0X28D0D249, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
 	{0x6D302D3D, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHKernel",                    'i', "x",      HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame
 	{0x05572A5F, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitGame",                         'v', "", HLE_KERNEL_SYSCALL },
 	{0X08F7166C, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHVSH",                       'i', "x",      HLE_KERNEL_SYSCALL },
-	{0XD940C83C, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
-	{0XF9CFCF2F, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExec_F9CFCF2F",                'i', "sx"      },
-	{0XD8320A28, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExecVSHDisc",                  'i', "sx"      },
+	{0XD940C83C, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHMs2",                   'i', "sx"      },
+	{0XF9CFCF2F, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExec_F9CFCF2F",                'i', "sx"      },
+	{0XD8320A28, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHDisc",                  'i', "sx"      },
 	{0XC3474C2A, &WrapI_U<sceKernelExitVSH>,                         "sceKernelExitVSHKernel",                    'i', "x",      HLE_KERNEL_SYSCALL },
 	{0XBEF585EC, &WrapI_IUU<sceKernelLoadExecBufferVSHUsbWlan>,      "sceKernelLoadExecBufferVSHUsbWlan",         'i', "ixx"     },
-	// Everything below here is only known by NID - even JPCSP, which is further along in VSH
-	// support, only knows them by name/NID (or not even that) and stubs them all out.
+	// ARK's systemctrl API and PSPLibDoc confirm that the named file variants
+	// below share the same (filename, SceKernelLoadExecVSHParam *) signature.
+	// Keep the unnamed exports as explicit placeholders.
 	{0X11412288, nullptr,                                            "sceKernelLoadExec_11412288",                '?', ""        },
 	{0XA5ECA6E3, nullptr,                                            "sceKernelLoadExec_11412288",                '?', ""        },
-	{0X00745486, nullptr,                                            "sceKernelLoadExecVSHMs4",                   '?', ""        },
-	{0X4FB44D27, nullptr,                                            "sceKernelLoadExecVSHMs1",                   '?', ""        },
-	{0XCC6A47D2, nullptr,                                            "sceKernelLoadExecVSHMs3",                   '?', ""        },
-	{0X7CABED9B, nullptr,                                            "sceKernelLoadExecVSHMs5",                   '?', ""        },
-	{0X1B305B09, nullptr,                                            "sceKernelLoadExecVSHDiscDebug",             '?', ""        },
-	{0XD4B49C4B, nullptr,                                            "sceKernelLoadExecVSHDiscUpdater",           '?', ""        },
+	{0X00745486, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHMs4",                   'i', "sx"      },
+	{0X4FB44D27, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHMs1",                   'i', "sx"      },
+	{0XCC6A47D2, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHMs3",                   'i', "sx"      },
+	{0X7CABED9B, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHMs5",                   'i', "sx"      },
+	{0X1B305B09, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHDiscDebug",             'i', "sx"      },
+	{0XD4B49C4B, &WrapI_CU<sceKernelLoadExecVSH>,                    "sceKernelLoadExecVSHDiscUpdater",           'i', "sx"      },
 	{0X2B8813AF, nullptr,                                            "sceKernelLoadExecBufferVSHUsbWlanDebug",    '?', ""        },
-	{0X1F08547A, nullptr,                                            "sceKernelInvokeExitCallback",               '?', ""        },
+	{0X1F08547A, &WrapI_V<sceKernelInvokeExitCallback>,              "sceKernelInvokeExitCallback",               'i', "", HLE_KERNEL_SYSCALL },
 	{0X1F88A490, nullptr,                                            "sceKernelRegisterExitCallback",             '?', ""        },
 	{0X24114598, nullptr,                                            "sceKernelUnregisterExitCallback",           '?', ""        },
-	{0XB57D0DEC, nullptr,                                            "sceKernelCheckExitCallback",                '?', ""        },
+	{0XB57D0DEC, &WrapI_V<sceKernelCheckExitCallback>,               "sceKernelCheckExitCallback",                'i', "", HLE_KERNEL_SYSCALL },
 	{0X032A7938, nullptr,                                            "LoadExecForKernel_032A7938",                '?', ""        },
 	{0X077BA314, nullptr,                                            "LoadExecForKernel_077BA314",                '?', ""        },
 	{0X16A68007, nullptr,                                            "LoadExecForKernel_16A68007",                '?', ""        },
@@ -1098,6 +1205,19 @@ void Register_ExceptionManagerForKernel()
 	RegisterHLEModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
 }
 
+static int UtilsForKernel_A6B0A6B8() {
+	// Reads the PSP's optional-cache CP0 flag. PPSSPP exposes no additional
+	// hardware cache to guest code, matching Jpcsp's observed zero result.
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
+static int UtilsForKernel_39FFB756(int mode) {
+	// Native firmware runs a cache-maintenance trampoline from boot ROM. Guest
+	// cache operations are coherent in PPSSPP, so completing the barrier is the
+	// full host-side behavior.
+	return hleLogDebug(Log::sceKernel, 0, "mode=%d", mode);
+}
+
 // Seen in some homebrew
 const HLEFunction UtilsForKernel[] = {
 	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            'i', "xi",     HLE_KERNEL_SYSCALL },
@@ -1119,6 +1239,8 @@ const HLEFunction UtilsForKernel[] = {
 	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",              'i', "xi"      },
 	{0XE860E75E, nullptr,                                            "sceKernelUtilsMt19937Init",                 '?', ""        },
 	{0X06FB8A63, nullptr,                                            "sceKernelUtilsMt19937UInt",                 '?', ""        },
+	{0XA6B0A6B8, &WrapI_V<UtilsForKernel_A6B0A6B8>,                  "UtilsForKernel_A6B0A6B8",                  'i', "",       HLE_KERNEL_SYSCALL },
+	{0X39FFB756, &WrapI_I<UtilsForKernel_39FFB756>,                  "UtilsForKernel_39FFB756",                  'i', "i",      HLE_KERNEL_SYSCALL },
 };
 
 

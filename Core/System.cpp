@@ -57,7 +57,9 @@
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HLE/VSHGameLifecycle.h"
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -68,6 +70,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/MemoryStickStorageFileSystem.h"
 #include "Core/LuaContext.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
@@ -313,6 +316,13 @@ static void MountFileSystems() {
 
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
+	// Sony VSH's Saved Data Utility probes the mounted Memory Stick partition
+	// through its lower-level alias before enumerating ms0:/PSP/SAVEDATA.
+	// Both names refer to the same removable medium; this is not a second copy.
+	auto memstickStorageSystem = std::make_shared<MemoryStickStorageFileSystem>(&pspFileSystem);
+	pspFileSystem.Mount("msstor0p1:", memstickStorageSystem);
+	pspFileSystem.Mount("msstor0:", memstickStorageSystem);
+	pspFileSystem.Mount("msstor:", memstickStorageSystem);
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
 
@@ -461,6 +471,19 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// This must be before Memory::Init because plugins can override the memory size.
 	if (type != IdentifiedFileType::PPSSPP_GE_DUMP) {
 		HLEPlugins::Init();
+	}
+
+	// A PSP-2000 keeps the original 24 MiB game user partition separate from
+	// upper-RAM firmware partitions used by resident services such as impose and
+	// utility/OSK. PPSSPP normally maps only the RAM requested by the title and
+	// aliases partition 8 to user memory. A game launched by Direct VSH needs the
+	// full Slim physical map plus the Sony game-mode partition table.
+	const bool directVshGamePartitionLayout = VSHGameLifecycleShouldReturn() &&
+		Memory::g_PSPModel != PSP_MODEL_FAT && Memory::g_MemorySize == Memory::RAM_NORMAL_SIZE;
+	__KernelMemorySetDirectVshGamePartitionLayout(directVshGamePartitionLayout);
+	if (directVshGamePartitionLayout) {
+		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+		NOTICE_LOG(Log::Loader, "Direct VSH game boot: preserving PSP-2000 partitions 2, 9, 8, and 11");
 	}
 
 	Memory::MemMapSetupFlags memMapFlags = Memory::MemMapSetupFlags::Default;

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstring>
 
 #include "Common/Log.h"
@@ -218,6 +219,53 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 	ListBlocks(LogLevel::LINFO);
 	ERROR_LOG(Log::sceKernel, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, alignedSize, alignedSize);
 	return -1;
+}
+
+bool BlockAllocator::SplitAllocatedBlock(u32 position, u32 firstSize, const char *secondTag)
+{
+	CheckBlocks();
+	Block *block = GetBlockFromAddress(position);
+	if (!block || !block->taken || block->start != position || firstSize == 0 || firstSize >= block->size || (firstSize & (grain_ - 1)) != 0) {
+		ERROR_LOG(Log::sceKernel, "BlockAllocator: invalid allocated split %08x at %08x", position, firstSize);
+		return false;
+	}
+
+	Block *second = InsertFreeAfter(block, block->size - firstSize);
+	second->taken = true;
+	second->SetAllocated(secondTag, suballoc_);
+	CheckBlocks();
+	return true;
+}
+
+bool BlockAllocator::JoinAllocatedBlocks(u32 firstPosition, u32 secondPosition)
+{
+	CheckBlocks();
+	Block *first = GetBlockFromAddress(firstPosition);
+	Block *second = GetBlockFromAddress(secondPosition);
+	if (!first || !second || first == second || !first->taken || !second->taken ||
+		first->start != firstPosition || second->start != secondPosition) {
+		ERROR_LOG(Log::sceKernel, "BlockAllocator: invalid allocated join %08x + %08x", firstPosition, secondPosition);
+		return false;
+	}
+
+	Block *lower = first;
+	Block *upper = second;
+	if (upper->start < lower->start)
+		std::swap(lower, upper);
+	if (lower->next != upper || lower->start + lower->size != upper->start) {
+		ERROR_LOG(Log::sceKernel, "BlockAllocator: allocated blocks are not adjacent %08x + %08x", firstPosition, secondPosition);
+		return false;
+	}
+
+	lower->size += upper->size;
+	lower->next = upper->next;
+	if (upper->next)
+		upper->next->prev = lower;
+	else
+		top_ = lower;
+	delete upper;
+	CheckBlocks();
+	return true;
 }
 
 void BlockAllocator::MergeFreeBlocks(Block *fromBlock)

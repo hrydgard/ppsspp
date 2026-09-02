@@ -9,7 +9,10 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelHeap.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Core/Util/BlockAllocator.h"
 
 static const u32 KERNEL_HEAP_BLOCK_HEADER_SIZE = 8;
@@ -176,6 +179,86 @@ static int sceKernelSetUmdCacheOn(int on) {
 	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
+static int sceKernelMemset32(u32 destAddr, u32 value, int size) {
+	if (size < 0 || (size & 3) != 0 || !Memory::IsValid4AlignedRange(destAddr, size)) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
+	}
+	for (int offset = 0; offset < size; offset += 4) {
+		Memory::WriteUnchecked_U32(value, destAddr + offset);
+	}
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
+static int SysMemForKernel_2A8B8B2D(u32 subscriptionValidity) {
+	// Stores an eight-byte subscription field in SceKernelGameInfo. It is not
+	// relevant to local impose rendering, but the native driver requires the
+	// setter to exist during initialization.
+	return hleLogDebug(Log::sceKernel, 0, "subscription=%08x", subscriptionValidity);
+}
+
+static u32 sceKernelPartitionTotalMemSize(int partitionId) {
+	switch (partitionId) {
+	case KERNEL_PARTITION_ID:
+		return PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase();
+	case USER_PARTITION_ID:
+		return PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase();
+	case VSHELL_PARTITION_ID:
+		return PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart();
+	case 8:  // SCE_KERNEL_EXTENDED_SC_KERNEL_PARTITION on PSP-2000+
+		return Memory::g_PSPModel > 0 ? 0x00400000 : 0;
+	default:
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
+	}
+}
+
+static u32 sceKernelGetGameInfo() {
+	static u32 gameInfoAddr = 0;
+	const char *tag = gameInfoAddr ? kernelMemory.GetBlockTag(gameInfoAddr) : nullptr;
+	bool allocated = false;
+	if (!tag || strcmp(tag, "SceKernelGameInfo") != 0) {
+		// Provisional 6.60/6.61 layout carried forward from the failed hybrid
+		// attempt's comparison with Jpcsp's native-firmware implementation.
+		u32 allocationSize = 220;
+		gameInfoAddr = kernelMemory.Alloc(allocationSize, false, "SceKernelGameInfo");
+		allocated = true;
+	}
+	constexpr u32 size = 220;
+	if (gameInfoAddr == (u32)-1 || !Memory::IsValidRange(gameInfoAddr, size)) {
+		return 0;
+	}
+	if (allocated) {
+		Memory::Memset(gameInfoAddr, 0, size, "SceKernelGameInfo");
+		Memory::WriteUnchecked_U32(size, gameInfoAddr + 0);
+	}
+
+	auto writeString = [](u32 address, u32 capacity, const std::string &value) {
+		u8 *destination = Memory::GetPointerWriteUnchecked(address);
+		memset(destination, 0, capacity);
+		size_t length = value.size();
+		if (length >= capacity)
+			length = capacity - 1;
+		memcpy(destination, value.data(), length);
+	};
+
+	// Offsets are the provisional SceKernelGameInfo 6.61 ABI described above.
+	Memory::WriteUnchecked_U32(0x200, gameInfoAddr + 4);
+	std::string discId = g_paramSFO.GetValueString("DISC_ID");
+	if (discId.empty())
+		discId = g_paramSFORaw.GetValueString("DISC_ID");
+	writeString(gameInfoAddr + 68, 14, discId);
+	writeString(gameInfoAddr + 88, 8, "6.61");
+	Memory::WriteUnchecked_U32(0, gameInfoAddr + 96);
+	Memory::WriteUnchecked_U32(sceKernelGetCompiledSdkVersion(), gameInfoAddr + 100);
+	Memory::WriteUnchecked_U32(sceKernelGetCompilerVersion(), gameInfoAddr + 104);
+	const std::string category = g_paramSFO.GetValueString("CATEGORY");
+	Memory::WriteUnchecked_U32(category == "EG" || category == "MG" ? 0x7F : 0, gameInfoAddr + 112);
+	writeString(gameInfoAddr + 180, 11, "");
+	writeString(gameInfoAddr + 196, 8, "00.00");
+	return hleLogDebug(Log::sceKernel, gameInfoAddr, "disc=%s category=%s sdk=%08x",
+		discId.empty() ? "<empty>" : discId.c_str(), category.empty() ? "<empty>" : category.c_str(),
+		sceKernelGetCompiledSdkVersion());
+}
+
 const HLEFunction SysMemForKernel[] = {
 	{ 0X96A3CE2C, &WrapI_U<sceKernelSetRebootKernel>,              "sceKernelSetRebootKernel",           'i', "x",     HLE_KERNEL_SYSCALL },
 	{ 0X1404C1AA, &WrapI_I<sceKernelSetUmdCacheOn>,                "sceKernelSetUmdCacheOn",             'i', "i",     HLE_KERNEL_SYSCALL },
@@ -193,6 +276,17 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0XEB7A74DB, &WrapI_IUU<sceKernelAllocHeapMemoryWithOption>,  "sceKernelAllocHeapMemoryWithOption", 'i', "ixp" ,  HLE_KERNEL_SYSCALL },
 	{ 0x6373995d, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL},  // 220
 	{ 0x07C586A1, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },  // 220
+	{ 0X22A114DC, &WrapI_UUI<sceKernelMemset32>,                   "sceKernelMemset32",                  'i', "xxi",   HLE_KERNEL_SYSCALL },
+	{ 0X2A8B8B2D, &WrapI_U<SysMemForKernel_2A8B8B2D>,             "SysMemForKernel_2A8B8B2D",          'i', "x",     HLE_KERNEL_SYSCALL },
+	{ 0X53D50AC2, &WrapU_I<sceKernelPartitionTotalMemSize>,       "sceKernelPartitionTotalMemSize",    'x', "i",     HLE_KERNEL_SYSCALL },
+	{ 0XEF29061C, &WrapU_V<sceKernelGetGameInfo>,                  "sceKernelGetGameInfo",               'x', "",      HLE_KERNEL_SYSCALL },
+	{ 0XFAF29F34, &WrapI_UUU<sceKernelQueryMemoryInfo>,            "sceKernelQueryMemoryInfo",            'i', "xpp",   HLE_KERNEL_SYSCALL },
+	{ 0X7158CE7E, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",      'i', "isixx", HLE_KERNEL_SYSCALL },
+	{ 0XC1A26C6F, &WrapI_I<sceKernelFreePartitionMemory>,          "sceKernelFreePartitionMemory",       'i', "i",     HLE_KERNEL_SYSCALL },
+	{ 0XF12A62F7, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",          'x', "i",     HLE_KERNEL_SYSCALL },
+	{ 0X1AB50974, &WrapI_II<sceKernelJointMemoryBlock>,            "sceKernelJointMemoryBlock",         'i', "ii",    HLE_KERNEL_SYSCALL },
+	{ 0XE860BE8F, &WrapI_IU<sceKernelQueryMemoryBlockInfo>,        "sceKernelQueryMemoryBlockInfo",     'i', "ip",    HLE_KERNEL_SYSCALL },
+	{ 0XB4F00CB5, &WrapI_V<sceKernelGetCompiledSdkVersion>,        "sceKernelGetCompiledSdkVersion",    'i', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

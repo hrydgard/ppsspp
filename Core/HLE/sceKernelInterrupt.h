@@ -91,11 +91,14 @@ struct PendingInterrupt {
 
 struct SubIntrHandler
 {
-	bool enabled;
-	int intrNumber;
-	int subIntrNumber;
-	u32 handlerAddress;
-	u32 handlerArg;
+	void DoState(PointerWrap &p);
+
+	bool enabled = false;
+	int intrNumber = 0;
+	int subIntrNumber = 0;
+	u32 handlerAddress = 0;
+	u32 handlerArg = 0;
+	u32 handlerGP = 0;
 };
 
 class IntrHandler

@@ -33,8 +33,11 @@ typedef struct _pspChnnlsvContext2 {
 	/** Context data */
 	s32_le mode;
 	s32_le unkn;
-	u8 cryptedData[0x92];
+	u8 cryptedData[0x10];
 } pspChnnlsvContext2;
+
+static_assert(sizeof(pspChnnlsvContext1) == 40, "sceChnnlsv MAC context ABI changed");
+static_assert(sizeof(pspChnnlsvContext2) == 24, "sceChnnlsv cipher context ABI changed");
 
 int sceSdMacInit(pspChnnlsvContext1& ctx, int value);
 int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length);

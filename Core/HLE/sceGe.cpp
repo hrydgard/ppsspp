@@ -125,6 +125,7 @@ public:
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
 			currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
 			currentMIPS->r[MIPS_REG_A2] = sceKernelGetCompiledSdkVersion() <= 0x02000010 ? 0 : intrdata.pc + 4;
+			currentMIPS->r[MIPS_REG_GP] = handler->handlerGP;
 			// RA is already taken care of in __RunOnePendingInterrupt
 
 			return true;
@@ -646,6 +647,16 @@ const HLEFunction sceGe_user[] = {
 	{0XE66CB92E, &WrapI_IU<sceGeGetStack>,               "sceGeGetStack",                'i', "ix"  },
 };
 
+static const HLEFunction sceGe_driver[] = {
+	// Firmware 6.60+ name for the physical EDRAM-size query. This is distinct
+	// from sceGeEdramGetSize's public NID but has the same 2 MiB result on PSP.
+	{0X547EC5F0, &WrapU_V<sceGeEdramGetSize>, "sceGeEdramGetHwSize", 'x', "", HLE_KERNEL_SYSCALL},
+};
+
 void Register_sceGe_user() {
 	RegisterHLEModule("sceGe_user", ARRAY_SIZE(sceGe_user), sceGe_user);
+}
+
+void Register_sceGe_driver() {
+	RegisterHLEModule("sceGe_driver", ARRAY_SIZE(sceGe_driver), sceGe_driver);
 }

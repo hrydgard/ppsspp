@@ -129,14 +129,6 @@ static u32 sceMp4SearchSyncSampleNum() {
 	return hleLogError(Log::ME, 0, "UNIMPL");
 }
 
-static u32 mp4msv_3C2183C7(u32 unknown1, u32 unknown2) {
-	return hleLogError(Log::ME, 0, "UNIMPL");
-}
-
-static u32 mp4msv_9CA13D1A(u32 unknown1, u32 unknown2) {
-	return hleLogError(Log::ME, 0, "UNIMPL");
-}
-
 const HLEFunction sceMp4[] = {
 	{0X68651CBC, &WrapU_V<sceMp4Init>,                           "sceMp4Init",                        'x', ""       },
 	{0X9042B257, &WrapU_V<sceMp4Finish>,                         "sceMp4Finish",                      'x', ""       },
@@ -180,8 +172,12 @@ const HLEFunction sceMp4[] = {
 };
 
 const HLEFunction mp4msv[] = {
-	{0x3C2183C7, &WrapU_UU<mp4msv_3C2183C7>,                    "mp4msv_3C2183C7",               'x', "xx"      },
-	{0x9CA13D1A, &WrapU_UU<mp4msv_9CA13D1A>,                    "mp4msv_9CA13D1A",               'x', "xx"      },
+	// These used to be executable success stubs. In Direct VSH they shadowed
+	// the complete exports from flash0:/kd/mp4msv.prx, leaving Sony's parser
+	// uninitialized and ultimately handing PAF a bad pointer. Keep the NIDs in
+	// the database for ordinary diagnostics, but let the real PRX own them.
+	{0x3C2183C7, nullptr,                                        "mp4msv_3C2183C7",               '?', ""        },
+	{0x9CA13D1A, nullptr,                                        "mp4msv_9CA13D1A",               '?', ""        },
 };
 
 void Register_sceMp4() {

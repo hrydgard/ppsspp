@@ -146,6 +146,7 @@ void hleSetFlipTime(double t);
 bool hleIsKernelMode();
 // Enqueue a MIPS function to be called after this HLE call finishes.
 void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction = nullptr);
+void hleEnqueueCallWithGP(u32 func, u32 gp, int argc, const u32 *argv, PSPAction *afterAction = nullptr);
 
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);
