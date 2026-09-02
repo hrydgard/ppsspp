@@ -870,6 +870,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 			controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 		}
+		controlsSettings->Add(new CheckBox(&g_Config.bControllerButtonRumble, co->T("ControllerButtonRumble", "Vibrate controller on button press")));
 
 		// The pause button is now a regular on-screen button.
 

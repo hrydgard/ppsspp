@@ -52,6 +52,9 @@ enum class LaunchUrlType {
 };
 
 void System_Vibrate(int length_ms);
+// Rumbles a game controller for as long as a button is held. deviceIndex is 0-based.
+void System_ControllerRumbleStart(int deviceIndex);
+void System_ControllerRumbleStop(int deviceIndex);
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url);
 
 // It's sometimes a little unclear what should be a request, and what should be a separate function.

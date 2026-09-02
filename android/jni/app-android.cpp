@@ -280,6 +280,20 @@ void System_Vibrate(int length_ms) {
 	PushCommand("vibrate", temp);
 }
 
+// Handled in Java, so it works for both Bluetooth and USB pads through
+// InputDevice.getVibrator(). Params are "<start>,<deviceIndex>".
+void System_ControllerRumbleStart(int deviceIndex) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "1,%d", deviceIndex);
+	PushCommand("controllerRumble", temp);
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "0,%d", deviceIndex);
+	PushCommand("controllerRumble", temp);
+}
+
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;

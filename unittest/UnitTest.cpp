@@ -154,6 +154,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
+void System_ControllerRumbleStart(int deviceIndex) {}
+void System_ControllerRumbleStop(int deviceIndex) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".

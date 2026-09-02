@@ -265,3 +265,24 @@ int SDLJoystick::getDeviceIndex(int instanceId) {
 	}
 	return it->second;
 }
+
+void SDLJoystick::Rumble(int padIndex, bool start) {
+	// We currently force every pad to pad 0 (see ProcessInput), so in practice this
+	// rumbles the first connected controller. Indexing by pad keeps working if we ever
+	// stop doing that.
+	if (padIndex < 0 || padIndex >= (int)controllers.size()) {
+		return;
+	}
+	SDL_Gamepad *gamepad = controllers[padIndex];
+	if (!SDL_GamepadConnected(gamepad)) {
+		return;
+	}
+	if (start) {
+		// Duration is in milliseconds - an hour stands in for "until we stop it".
+		if (!SDL_RumbleGamepad(gamepad, 0xFFFF, 0xFFFF, 3600000)) {
+			DEBUG_LOG(Log::System, "Rumble start failed: %s", SDL_GetError());
+		}
+	} else {
+		SDL_RumbleGamepad(gamepad, 0, 0, 0);
+	}
+}
