@@ -664,7 +664,9 @@ void PSP_ForceDebugStats(bool enable) {
 	_assert_(g_coreCollectDebugStatsCounter >= 0);
 }
 
-static void InitGPU(std::string *error_string) {
+// Returns false if the GPU couldn't be brought up - in which case it has already set
+// BootState::Failed and torn the CPU back down, so the caller must not carry on.
+static bool InitGPU(std::string *error_string) {
 	if (!gpu) {  // should be!
 		INFO_LOG(Log::Loader, "Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
@@ -675,8 +677,10 @@ static void InitGPU(std::string *error_string) {
 			*error_string = "Unable to initialize rendering engine.";
 			CPU_Shutdown(false);
 			g_bootState = BootState::Failed;
+			return false;
 		}
 	}
+	return true;
 }
 
 bool PSP_InitStart(const CoreParameter &coreParam) {
@@ -752,7 +756,12 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		// Initialize the GPU as far as we can here (do things like load cache files).
 		_dbg_assert_(!gpu);
 #ifndef __LIBRETRO__
-		InitGPU(errorString);
+		// Must not stamp Complete over the Failed that InitGPU sets - it has already run
+		// CPU_Shutdown(), so PSP_InitUpdate would take the success path on a core that no longer
+		// exists, right down to a null Memory::base.
+		if (!InitGPU(errorString)) {
+			return;
+		}
 #endif
 		g_bootState = BootState::Complete;
 	});
@@ -784,7 +793,13 @@ BootState PSP_InitUpdate(std::string *error_string) {
 	}
 
 #ifdef __LIBRETRO__
-	InitGPU(error_string);
+	if (!InitGPU(error_string)) {
+		// Same as the Failed branch above - the core is already gone.
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+		*error_string = g_CoreParameter.errorString;
+		g_bootState = BootState::Off;
+		return BootState::Failed;
+	}
 #endif
 
 	// Ok, async part of the boot completed, let's finish up things on the main thread.

@@ -266,8 +266,14 @@ void __CheatShutdown() {
 void __CheatDoState(PointerWrap &p) {
 	auto s = p.Section("CwCheat", 0, 2);
 	if (!s) {
+		// A savestate from before this section existed. Registering the event type isn't enough -
+		// CoreTiming::DoState has already replaced the queue with the state's, which has no cheat
+		// event in it, so without scheduling one here hleCheat never runs again and cheats (plus
+		// the enable/disable polling) stay dead for the rest of the session.
 		CheatEvent = -1;
 		CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
+		CoreTiming::RemoveEvent(CheatEvent);
+		CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
 		return;
 	}
 
