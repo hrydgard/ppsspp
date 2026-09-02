@@ -18,10 +18,12 @@ static bool SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event) {
 	return true;
 }
 
+std::vector<SDL_Gamepad *> SDLJoystick::g_sdlJoystickControllers;
+
 SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 	if (init_SDL) {
-		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
+		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC);
 	}
 
 	const char *dbPath = "gamecontrollerdb.txt";
@@ -83,34 +85,41 @@ void SDLJoystick::setUpController(SDL_JoystickID deviceID) {
 		}
 	}
 	SDL_Gamepad *controller = SDL_OpenGamepad(deviceID);
-	if (controller) {
-		if (SDL_GamepadConnected(controller)) {
-			controllers.push_back(controller);
-			controllerDeviceMap[SDL_GetJoystickID(SDL_GetGamepadJoystick(controller))] = deviceID;
-			INFO_LOG(Log::System, "found control pad: %s, loading mapping", SDL_GetGamepadName(controller));
-			// NOTE: The case to InputDeviceID here is wrong, we should do some kind of lookup.
-			KeyMap::NotifyPadConnected((InputDeviceID)deviceID, std::string(pszGUID) + ": " + SDL_GetGamepadName(controller));
-			char *mapping = SDL_GetGamepadMapping(controller);
-			if (!mapping) {
-				WARN_LOG(Log::System, "Could not find mapping in SDL2 controller database");
+		if (controller) {
+			if (SDL_GamepadConnected(controller)) {
+				controllers.push_back(controller);
+				syncControllerMirror();
+				controllerDeviceMap[SDL_GetJoystickID(SDL_GetGamepadJoystick(controller))] = deviceID;
+				INFO_LOG(Log::System, "found control pad: %s, loading mapping", SDL_GetGamepadName(controller));
+				// NOTE: The case to InputDeviceID here is wrong, we should do some kind of lookup.
+				KeyMap::NotifyPadConnected((InputDeviceID)deviceID, std::string(pszGUID) + ": " + SDL_GetGamepadName(controller));
+				char *mapping = SDL_GetGamepadMapping(controller);
+				if (!mapping) {
+					WARN_LOG(Log::System, "Could not find mapping in SDL2 controller database");
+				} else {
+					INFO_LOG(Log::System, "SUCCESS, mapping is: %s", mapping);
+					SDL_free(mapping);
+				}
 			} else {
-				INFO_LOG(Log::System, "SUCCESS, mapping is: %s", mapping);
-				SDL_free(mapping);
+				SDL_CloseGamepad(controller);
 			}
-		} else {
-			SDL_CloseGamepad(controller);
 		}
 	}
-}
 
-SDLJoystick::~SDLJoystick() {
-	if (registeredAsEventHandler) {
-		SDL_RemoveEventWatch(SDLJoystickEventHandlerWrapper, this);
+	SDLJoystick::~SDLJoystick() {
+		if (registeredAsEventHandler) {
+			SDL_RemoveEventWatch(SDLJoystickEventHandlerWrapper, this);
+		}
+		// Drop any references this instance owns from the static mirror before
+		// closing them, so a late Rumble() call can never touch a freed gamepad.
+		for (auto *c : controllers) {
+			auto it = std::find(g_sdlJoystickControllers.begin(), g_sdlJoystickControllers.end(), c);
+			if (it != g_sdlJoystickControllers.end()) {
+				g_sdlJoystickControllers.erase(it);
+			}
+			SDL_CloseGamepad(c);
+		}
 	}
-	for (auto & controller : controllers) {
-		SDL_CloseGamepad(controller);
-	}
-}
 
 void SDLJoystick::registerEventHandler() {
 	SDL_AddEventWatch(SDLJoystickEventHandlerWrapper, this);
@@ -205,16 +214,18 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 		}
 		break;
 	}
-	case SDL_EVENT_GAMEPAD_REMOVED:
-		for (auto it = controllers.begin(); it != controllers.end(); ++it) {
-			if (SDL_GetJoystickID(SDL_GetGamepadJoystick(*it)) == event.gdevice.which) {
-				SDL_CloseGamepad(*it);
-				controllerDeviceMap.erase(event.gdevice.which);
-				controllers.erase(it);
-				break;
+			case SDL_EVENT_GAMEPAD_REMOVED:
+			for (auto it = controllers.begin(); it != controllers.end(); ++it) {
+				if (SDL_GetJoystickID(SDL_GetGamepadJoystick(*it)) == event.gdevice.which) {
+					SDL_CloseGamepad(*it);
+					controllerDeviceMap.erase(event.gdevice.which);
+					controllers.erase(it);
+					syncControllerMirror();
+					break;
+				}
 			}
-		}
-		break;
+			break;
+
 	case SDL_EVENT_GAMEPAD_ADDED:
 	{
 		int prevNumControllers = controllers.size();
@@ -227,11 +238,51 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 	}
 }
 
-int SDLJoystick::getDeviceIndex(int instanceId) {
-	auto it = controllerDeviceMap.find(instanceId);
-	if (it == controllerDeviceMap.end()) {
-		// could not find device
-		return -1;
+	int SDLJoystick::getDeviceIndex(int instanceId) {
+		auto it = controllerDeviceMap.find(instanceId);
+		if (it == controllerDeviceMap.end()) {
+			// could not find device
+			return -1;
+		}
+		return it->second;
 	}
-	return it->second;
-}
+
+	void SDLJoystick::Rumble(int padIndex, bool start) {
+		// PPSSPP currently maps every connected pad to pad 0 (DEVICE_ID_PAD_0), so
+		// this vibrates the first (primary) connected controller. SDL3 supports
+		// multiple controllers and this implementation naturally extends to them if
+		// per-pad device IDs are ever re-enabled.
+		if (padIndex < 0 || padIndex >= (int)g_sdlJoystickControllers.size()) {
+			return;
+		}
+		SDL_Gamepad *gamepad = g_sdlJoystickControllers[padIndex];
+		if (!gamepad || !SDL_GamepadConnected(gamepad)) {
+			return;
+		}
+		if (start) {
+			// SDL3 SDL_RumbleGamepad duration is in milliseconds.
+			// 0xFFFF is the max duration for rumble in some contexts, or we use a large value.
+			// In SDL3, we can use a very large number for "infinite".
+			if (!SDL_RumbleGamepad(gamepad, 0xFFFF, 0xFFFF, 3600000)) {
+				DEBUG_LOG(Log::System, "Rumble start failed: %s", SDL_GetError());
+			}
+		} else {
+			SDL_RumbleGamepad(gamepad, 0, 0, 0);
+		}
+	}
+
+	void SDLJoystick::syncControllerMirror() {
+		// Remove any stale entries this instance no longer owns.
+		g_sdlJoystickControllers.erase(
+			std::remove_if(g_sdlJoystickControllers.begin(), g_sdlJoystickControllers.end(),
+				[this](SDL_Gamepad *c) {
+					return std::find(controllers.begin(), controllers.end(), c) == controllers.end();
+				}),
+			g_sdlJoystickControllers.end());
+		// Append anything new, preserving order (pad index = vector index).
+		for (SDL_Gamepad *c : controllers) {
+			if (std::find(g_sdlJoystickControllers.begin(), g_sdlJoystickControllers.end(), c) == g_sdlJoystickControllers.end()) {
+				g_sdlJoystickControllers.push_back(c);
+			}
+		}
+	}

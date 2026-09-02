@@ -869,6 +869,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 			controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
 		}
+		controlsSettings->Add(new CheckBox(&g_Config.bControllerButtonRumble, co->T("ControllerButtonRumble", "Vibrate controller on button press")));
 
 		// The pause button is now a regular on-screen button.
 
@@ -1049,13 +1050,9 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	dnsServer->SetDisabledPtr(&g_Config.bInfrastructureAutoDNS);
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
-	// Only togglable outside a game - sceNet latches settings like UPnPUseOriginalPort at boot,
-	// and a game that's already mapped its ports wouldn't cope with them disappearing.
-	CheckBox *enableUPnP = networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
-	enableUPnP->SetEnabled(!PSP_IsInited());
-	enableUPnP->OnClick.Add([](UI::EventParams &e) {
-		// Wake the UPnP service thread so it connects (or tears its mappings back down) right
-		// away, instead of waiting for a port request that may never come.
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")))->OnClick.Add([](UI::EventParams &e) {
+		// Wake the UPnP service thread immediately so it reacts to the new setting instead
+		// of waiting for the next periodic retry (or a port request that may never come).
 		UPnP_Notify();
 	});
 	auto *useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));

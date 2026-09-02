@@ -57,7 +57,6 @@
 #include "Core/EmuThread.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
-#include "Core/Util/PSARUnpack.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
@@ -82,8 +81,6 @@ static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
 static bool g_writeFailureScreenshot = true;
 static bool g_writeDebugOutput = true;
-// Set from the savestate callback on the emu thread, read after it has been joined.
-static bool g_stateLoadFailed = false;
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -125,6 +122,8 @@ void System_RunOnMainThread(std::function<void()>) {}
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+void System_ControllerRumbleStart(int deviceIndex) { (void)deviceIndex; }
+void System_ControllerRumbleStop(int deviceIndex) { (void)deviceIndex; }
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
@@ -139,7 +138,6 @@ std::string NativeLoadSecret(std::string_view nameOfSecret) {
 int printUsage(const CommandLineOptions &options, const char *progname, const char *reason) {
 	options.PrintUsage(progname, reason);
 	fprintf(stderr, "  --ir                  use ir interpreter\n");
-	fprintf(stderr, "  --flash0=DIR          use DIR as flash0: instead of the bundled assets (e.g. a real dump)\n");
 	return 1;
 }
 
@@ -341,10 +339,6 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double deadline = time_now_d() + opt.timeout;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
-		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
-		// app. Without this, --state silently did nothing at all.
-		SaveState::Process();
-
 		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
 
@@ -620,40 +614,6 @@ int main(int argc, const char* argv[]) {
 		g_logManager.EnableOutput(LogOutput::Printf);
 	}
 
-	// Unpacking an updater is a standalone action - no emulation involved, so do it here and exit
-	// before any of the setup below.
-	if (cmdLineOptions.unpackUpdater.has_value()) {
-		if (cmdLineOptions.bootFilenames.size() != 1) {
-			fprintf(stderr, "--unpack-updater takes exactly one updater, disc image or PSAR\n");
-			return 1;
-		}
-
-		PSARUnpackOptions unpackOptions;
-		unpackOptions.verbose = testOptions.verbose;
-		if (cmdLineOptions.unpackUpdaterModel.has_value() &&
-			!PSPModelGenerationFromString(cmdLineOptions.unpackUpdaterModel.value(), &unpackOptions.model)) {
-			fprintf(stderr, "Unknown PSP model '%s' - expected 01g..12g or any\n", cmdLineOptions.unpackUpdaterModel.value().c_str());
-			return 1;
-		}
-		PSARUnpackStats stats;
-		std::string unpackError;
-		const bool ok = UnpackUpdater(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
-		if (!ok) {
-			fprintf(stderr, "Unpacking failed: %s\n", unpackError.c_str());
-		}
-		printf("Firmware %s (model %s): %d entries, %d files written, %d directories, %d unresolved names, %d for other models, %d failed\n",
-			stats.firmwareVersion.c_str(), PSPModelGenerationToString(unpackOptions.model), stats.entries, stats.written,
-			stats.directories, stats.unnamed, stats.otherModel, stats.failed);
-		printf("Compression: none=%d zlib=%d KL4E=%d KL3E=%d LZR=%d unknown=%d\n",
-			stats.compressionCounts[(int)PSARCompression::None],
-			stats.compressionCounts[(int)PSARCompression::Zlib],
-			stats.compressionCounts[(int)PSARCompression::KL4E],
-			stats.compressionCounts[(int)PSARCompression::KL3E],
-			stats.compressionCounts[(int)PSARCompression::LZR],
-			stats.compressionCounts[(int)PSARCompression::Unknown]);
-		return ok ? 0 : 1;
-	}
-
 	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS | RestoreSettingsBits::CONTROLS | RestoreSettingsBits::RECENT, false);
 
 	Core_RegisterDebugOutputListeners(&SendDebugOutput, &SendDebugScreenshot);
@@ -789,28 +749,22 @@ int main(int argc, const char* argv[]) {
 	coreParameter.fastForward = true;
 
 	Path exePath = File::GetExeDirectory();
+	g_Config.flash0Directory = exePath / "assets/flash0";
 
-	// --memstick, applied by ApplyToConfig() further up, wins. This runs after it, so without the
-	// check the default below would silently overwrite whatever was asked for.
-	if (!cmdLineOptions.memStick.has_value()) {
-		// TODO: Share this derivation with the main build.
 #if PPSSPP_PLATFORM(WINDOWS)
-		// Mount a filesystem
-		g_Config.memStickDirectory = exePath / "memstick";
-		File::CreateDir(g_Config.memStickDirectory, true);
-		CreateSysDirectories();
+	// Mount a filesystem
+	g_Config.memStickDirectory = exePath / "memstick";
+	File::CreateDir(g_Config.memStickDirectory, true);
+	CreateSysDirectories();
 #elif !PPSSPP_PLATFORM(ANDROID)
-		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
+	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
-	}
-	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
-	coreParameter.nandRoot = g_Config.nandRootDirectory;
 
-	// Try to find the assets flash0 directory. Often this is from a subdirectory.
-	// This is needed for our fallback fonts.
+	// Try to find the flash0 directory.  Often this is from a subdirectory.
 	Path nextPath = exePath;
 	for (int i = 0; i < 5; ++i) {
 		if (File::Exists(nextPath / "assets/flash0")) {
+			g_Config.flash0Directory = nextPath / "assets/flash0";
 #if !PPSSPP_PLATFORM(ANDROID)
 			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
 #endif
@@ -856,9 +810,8 @@ int main(int argc, const char* argv[]) {
 	UpdateUIState(UISTATE_INGAME);
 
 	if (cmdLineOptions.bootVSH.has_value() && cmdLineOptions.bootVSH.value()) {
-		AddToTestsByPath(&testFilenames, (coreParameter.nandRoot / "flash0/vsh/module/vshmain.prx").ToString());
+		AddToTestsByPath(&testFilenames, (g_Config.flash0Directory / "vsh/module/vshmain.prx").ToString());
 	}
-
 	if (testFilenames.empty()) {
 		return printUsage(cmdLineOptions, argv[0], argc <= 1 ? NULL : "No executables specified");
 	}
@@ -879,14 +832,7 @@ int main(int argc, const char* argv[]) {
 	}
 
 	if (stateToLoad) {
-		// Queued now, actually applied by SaveState::Process() once the game is up and running.
-		SaveState::Load(Path(stateToLoad), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-			// The message already reads as a full sentence, e.g. "Failed to load state: <reason>".
-			fprintf(stderr, "%.*s\n", (int)message.size(), message.data());
-			if (status == SaveState::Status::FAILURE) {
-				g_stateLoadFailed = true;
-			}
-		});
+		SaveState::Load(Path(stateToLoad), -1);
 	}
 
 	std::string errorMessage;
@@ -897,23 +843,12 @@ int main(int argc, const char* argv[]) {
 	}
 
 	int retval = 0;
-	if (!MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
+	MainThreadFunc(graphicsContext, new HeadlessApplication(), windowDesc, [&retval, &coreParameter, &testOptions, &testFilenames](GraphicsContext *graphicsContext) {
 		retval = RunTests(graphicsContext, coreParameter, testOptions, testFilenames);
 		return false;
-	}, &errorMessage)) {
-		// No fallbacks in headless - if we can't run it, we can't. Let's not get confusing.
-		fprintf(stderr, "Failed to initialize graphics surface: %s\n", errorMessage.c_str());
-		retval = 1;
-	}
-
-	if (g_stateLoadFailed && retval == 0) {
-		// Whatever the run itself reported, the state we were told to load never got applied.
-		retval = 1;
-	}
+	});
 
 	graphicsContext->ShutdownAPI();
-
-	delete graphicsContext;
 
 	if (cmdLineOptions.debuggerPort.has_value()) {
 		ShutdownWebServer();

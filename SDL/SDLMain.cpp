@@ -642,6 +642,14 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
+void System_ControllerRumbleStart(int deviceIndex) {
+	SDLJoystick::Rumble(deviceIndex, true);
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	SDLJoystick::Rumble(deviceIndex, false);
+}
+
 AudioBackend *System_CreateAudioBackend() {
 	// Use legacy mechanisms.
 	return nullptr;
@@ -941,6 +949,7 @@ std::vector<std::string> System_GetCameraDeviceList() {
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL:
+	case LaunchUrlType::MARKET_URL:
 	{
 #if PPSSPP_PLATFORM(SWITCH)
 		Uuid uuid = { 0 };
@@ -1193,8 +1202,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
-		// On Linux this also depends on whether libcurl could be loaded.
-		return !g_Config.bDisableHTTPS && net::HTTPSAvailable();
+		return !g_Config.bDisableHTTPS;
 #endif
 case SYSPROP_HAS_FOLDER_BROWSER:
 case SYSPROP_HAS_FILE_BROWSER:

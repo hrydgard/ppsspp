@@ -24,6 +24,7 @@
 #include <functional>
 #include <optional>
 #include <mmsystem.h>
+#include <XInput.h>
 #include <shellapi.h>
 #include <Wbemidl.h>
 #include <ShlObj.h>
@@ -144,6 +145,7 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	case LaunchUrlType::BROWSER_URL:
 	case LaunchUrlType::LOCAL_FILE:
 	case LaunchUrlType::LOCAL_FOLDER:
+	case LaunchUrlType::MARKET_URL:
 	case LaunchUrlType::EMAIL_ADDRESS:
 		// ShellExecute handles everything.
 	{
@@ -162,8 +164,70 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 }
 
 void System_Vibrate(int length_ms) {
-	// Ignore on PC. TODO: Actually, we could vibrate a controller if we wanted to, but we should only do that
-	// if it was used within the last few seconds.
+	// Ignore on PC.
+}
+
+// Software-side controller haptic feedback. Vibrates the connected game
+// controller at full power until System_ControllerRumbleStop is called, so
+// vibration lasts exactly as long as a button is held down. XInput controller
+// 0 is targeted (PPSSPP maps all gamepads to pad 0 on Windows). XInput may not
+// be present at runtime on Windows 11 24H2+, so the DLL and function pointer
+// are loaded lazily and a missing API fails silently.
+namespace {
+typedef DWORD(WINAPI *XInputSetStateFn)(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration);
+
+static HMODULE s_rumbleXInputDLL = nullptr;
+static XInputSetStateFn s_rumbleXInputSetState = nullptr;
+
+XInputSetStateFn GetXInputSetStateForRumble() {
+	if (s_rumbleXInputDLL) {
+		return s_rumbleXInputSetState;
+	}
+	static const wchar_t *dllNames[] = { L"XInput1_4.dll", L"XInput1_3.dll", L"XInput9_1_0.dll" };
+	for (const wchar_t *name : dllNames) {
+		s_rumbleXInputDLL = LoadLibraryW(name);
+		if (s_rumbleXInputDLL) {
+			break;
+		}
+	}
+	if (!s_rumbleXInputDLL) {
+		return nullptr;
+	}
+	s_rumbleXInputSetState = (XInputSetStateFn)GetProcAddress((HMODULE)s_rumbleXInputDLL, "XInputSetState");
+	if (!s_rumbleXInputSetState) {
+		FreeLibrary(s_rumbleXInputDLL);
+		s_rumbleXInputDLL = nullptr;
+	}
+	return s_rumbleXInputSetState;
+}
+}  // namespace
+
+void System_ControllerRumbleStart(int deviceIndex) {
+	XInputSetStateFn fn = GetXInputSetStateForRumble();
+	if (!fn) {
+		return;
+	}
+	if (deviceIndex < 0 || deviceIndex >= 4) {
+		return;
+	}
+	XINPUT_VIBRATION vib{};
+	vib.wLeftMotorSpeed = 0xFFFF;
+	vib.wRightMotorSpeed = 0xFFFF;
+	fn((DWORD)deviceIndex, &vib);
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	XInputSetStateFn fn = GetXInputSetStateForRumble();
+	if (!fn) {
+		return;
+	}
+	if (deviceIndex < 0 || deviceIndex >= 4) {
+		return;
+	}
+	XINPUT_VIBRATION vib{};
+	vib.wLeftMotorSpeed = 0;
+	vib.wRightMotorSpeed = 0;
+	fn((DWORD)deviceIndex, &vib);
 }
 
 static void AddDebugRestartArgs() {
@@ -1250,8 +1314,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			[](GraphicsContext *graphicsContext) {
 				NativeFrame(graphicsContext);
 				return GetUIState() != UISTATE_EXIT;
-		}, &errorMessage)) {
-			HandleGraphicsFailure(errorMessage);
+		})) {
+			HandleGraphicsFailure("Failed to initialize main thread function.");
 			return;
 		}
 		graphicsContext->ShutdownAPI();
