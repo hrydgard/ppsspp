@@ -67,12 +67,7 @@ void MsgPipeWaitingThread::WriteCurrentTimeout(SceUID waitID) const
 	if (IsStillWaiting(waitID))
 	{
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-		if (timeoutPtr != 0 && waitTimer != -1)
-		{
-			// Remove any event for this thread.
-			s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
-			Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-		}
+		HLEKernel::WriteRemainingTimeout(waitTimer, threadID, timeoutPtr);
 	}
 }
 

@@ -200,12 +200,7 @@ static bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error,
 		return true;
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-	if (timeoutPtr != 0 && mbxWaitTimer != -1)
-	{
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(mbxWaitTimer, th.threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;

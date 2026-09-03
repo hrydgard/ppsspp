@@ -128,11 +128,7 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-	if (timeoutPtr != 0 && eventFlagWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventFlagWaitTimer, th.threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(eventFlagWaitTimer, th.threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;

@@ -465,11 +465,7 @@ static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && fplWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(fplWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(fplWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
@@ -1247,11 +1243,7 @@ static bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && vplWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(vplWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;

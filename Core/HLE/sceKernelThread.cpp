@@ -676,7 +676,10 @@ static bool __KernelCheckResumeThreadEnd(PSPThread *t, SceUID waitingThreadID, u
 
 	if (t->nt.status == THREADSTATUS_DORMANT) {
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
+		// Note: unlike the helper in KernelWaitHelpers.h, we unschedule even without a timeout ptr.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
+		if (cyclesLeft < 0)
+			cyclesLeft = 0;
 		if (timeoutPtr != 0)
 			Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 		s32 exitStatus = t->nt.exitStatus;
@@ -1476,6 +1479,8 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 			if (HLEKernel::VerifyWait(waitingThread, WAITTYPE_THREADEND, threadID))
 			{
 				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread);
+				if (cyclesLeft < 0)
+					cyclesLeft = 0;
 				if (timeoutPtr != 0)
 					Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 

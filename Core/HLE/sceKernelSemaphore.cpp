@@ -93,14 +93,7 @@ static bool __KernelUnlockSemaForThread(PSPSemaphore *s, SceUID threadID, u32 &e
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && semaWaitTimer != -1)
-	{
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
-		if (cyclesLeft < 0)
-			cyclesLeft = 0;
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(semaWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
