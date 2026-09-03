@@ -26,6 +26,7 @@
 #include "Common/File/Path.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
@@ -332,6 +333,10 @@ const char *PSPModelGenerationToString(PSPModelGeneration generation) {
 	case PSPModelGeneration::PSP_11000: return "11g";
 	default: return "unknown";
 	}
+}
+
+PSPModelGeneration EmulatedModelGeneration() {
+	return g_Config.iPSPModel == PSP_MODEL_FAT ? PSPModelGeneration::PSP_1000 : PSPModelGeneration::PSP_2000;
 }
 
 bool PSPModelGenerationFromString(std::string_view name, PSPModelGeneration *generation) {

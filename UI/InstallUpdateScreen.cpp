@@ -36,13 +36,6 @@
 #include "UI/MiscViews.h"
 #include "UI/EmuScreen.h"
 
-// An updater carries one file list per hardware revision, and anything the chosen model's list
-// doesn't name isn't part of its firmware. Unpacking the model we claim to be keeps flash0
-// consistent with what the emulator reports to games.
-static PSPModelGeneration EmulatedModelGeneration() {
-	return g_Config.iPSPModel == PSP_MODEL_FAT ? PSPModelGeneration::PSP_1000 : PSPModelGeneration::PSP_2000;
-}
-
 InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view title)
 	: UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::ContentsCanScroll), path_(path), title_(title) {
 	destination_ = GetSysDirectory(DIRECTORY_NAND);
