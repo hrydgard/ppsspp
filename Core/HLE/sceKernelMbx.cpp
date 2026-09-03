@@ -144,6 +144,13 @@ struct Mbx : public KernelObject {
 
 			nmb.packetListHead = next;
 			c++;
+			// The list is circular and should come back around to ptr within numMessages steps.
+			// A corrupt list can contain a loop that doesn't include ptr, and without this we'd
+			// just keep following it - every pointer in it is valid, so nothing else stops us.
+			if (c > nmb.numMessages) {
+				ERROR_LOG(Log::sceKernel, "Mbx message list doesn't loop back to the head, corrupt?");
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			}
 		}
 
 		// Tell the receiver about the message.
