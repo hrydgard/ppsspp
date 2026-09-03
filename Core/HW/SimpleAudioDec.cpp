@@ -572,7 +572,10 @@ int AuCtx::AuCheckStreamDataNeeded() {
 int AuCtx::AuStreamBytesNeeded() {
 	if (decoder->GetAudioType() == PSP_CODEC_MP3) {
 		// The endPos and readPos are not considered, except when you've read to the end.
-		if (readPos >= endPos)
+		// Compare signed: readPos is an int and can legitimately go negative (a game can notify
+		// a negative size), and promoting that to u64 would make it look like the end of the
+		// stream instead of what the hardware reports.
+		if ((int64_t)readPos >= (int64_t)endPos)
 			return 0;
 		// Account for the workarea.
 		int offset = AuStreamWorkareaSize();
@@ -593,6 +596,9 @@ int AuCtx::AuStreamWorkareaSize() {
 // check how many bytes we have read from source file
 u32 AuCtx::AuNotifyAddStreamData(int size) {
 	int offset = AuStreamWorkareaSize();
+	// Where AuGetInfoToAddStreamData pointed the game, i.e. where the bytes it just added start.
+	// Data accumulates in the buffer rather than always landing at the beginning.
+	const int writeOffset = AuBufAvailable;
 
 	if (askedReadSize != 0) {
 		// Old save state, numbers already adjusted.
@@ -613,9 +619,10 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 	// and an unbounded positive value would grow sourcebuff without limit (DoS).
 	// The validated range also has to match what's actually read below - it was
 	// checking [AuBuf, AuBuf+size) while the copy reads from [AuBuf+offset, ...).
-	if (size > 0 && size <= (int)AuBufSize && Memory::IsValidRange(AuBuf + offset, size)) {
+	if (size > 0 && (int64_t)offset + writeOffset + size <= (int64_t)AuBufSize &&
+		Memory::IsValidRange(AuBuf + offset + writeOffset, size)) {
 		sourcebuff.resize(sourcebuff.size() + size);
-		Memory::MemcpyUnchecked(&sourcebuff[sourcebuff.size() - size], AuBuf + offset, size);
+		Memory::MemcpyUnchecked(&sourcebuff[sourcebuff.size() - size], AuBuf + offset + writeOffset, size);
 	}
 
 	return 0;
@@ -627,10 +634,11 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	int readsize = AuStreamBytesNeeded();
 	int offset = AuStreamWorkareaSize();
 
-	// we can recharge AuBuf from its beginning
+	// The game appends to what's already buffered, so point it past that rather than at the
+	// start of the work area - the hardware's pointer walks forward as data is added.
 	if (readsize != 0) {
 		if (Memory::IsValidAddress(bufPtr))
-			Memory::WriteUnchecked_U32(AuBuf + offset, bufPtr);
+			Memory::WriteUnchecked_U32(AuBuf + offset + AuBufAvailable, bufPtr);
 		if (Memory::IsValidAddress(sizePtr))
 			Memory::WriteUnchecked_U32(readsize, sizePtr);
 		if (Memory::IsValidAddress(srcPosPtr))
