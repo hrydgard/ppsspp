@@ -439,6 +439,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	PopupMultiChoice *frameSkipping = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), I18NCat::GRAPHICS, screenManager()));
+	frameSkipping->SetChoicesUntranslated(1, (int)ARRAY_SIZE(frameSkip) - 1);
 	frameSkipping->SetEnabledFunc([] {
 		return !g_Config.bAutoFrameSkip;
 	});
@@ -512,7 +513,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new SettingHint(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), frameDuplication));
 
 	if (draw->GetDeviceCaps().setMaxFrameLatencySupported) {
-		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
+		static const char *bufferOptions[] = { "No buffer", "Up to 1" };
 		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), I18NCat::GRAPHICS, screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
 		graphicsSettings->Add(new SettingHint(gr->T("Faster, input lag"), inflightChoice));  // TODO: This hint could use improvement.
@@ -1088,6 +1089,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	});
 	static const char *wlanChannels[] = {"Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
 	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
+	wlanChannelChoice->SetChoicesUntranslated(1, (int)ARRAY_SIZE(wlanChannels) - 1);
 	for (int i = 0; i < 4; i++) {
 		wlanChannelChoice->HideChoice(i + 2);
 		wlanChannelChoice->HideChoice(i + 7);

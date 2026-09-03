@@ -367,11 +367,9 @@ void PopupMultiChoice::HandleClick(UI::EventParams &e) {
 
 	restoreFocus_ = HasFocus();
 
-	auto category = GetI18NCategory(category_);
-
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
-		choices.push_back(category ? std::string(category->T(choices_[i])) : std::string(choices_[i]));
+		choices.push_back(std::string(TranslateChoice(i)));
 	}
 
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_, [this](int num) {ChoiceCallback(num);});
@@ -387,6 +385,12 @@ void PopupMultiChoice::Update() {
 	UpdateText();
 }
 
+std::string_view PopupMultiChoice::TranslateChoice(int index) const {
+	// Choices like plain numbers have no translation, and looking them up would just spam the log.
+	const I18NCat category = untranslated_.find(index) != untranslated_.end() ? I18NCat::NONE : category_;
+	return T(category, choices_[index]);
+}
+
 void PopupMultiChoice::UpdateText() {
 	if (!choices_)
 		return;
@@ -395,7 +399,7 @@ void PopupMultiChoice::UpdateText() {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
 		if (choices_[index]) {
-			std::string text(T(category_, choices_[index]));
+			std::string text(TranslateChoice(index));
 			if (default_ == index) {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
 				text = ApplySafeSubstitutions("%1 (%2)", text, di->T("Default"));
