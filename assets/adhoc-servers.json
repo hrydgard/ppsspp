@@ -211,6 +211,18 @@
 			"data_mode": "AemuPostoffice",
 			"status_xml": "",
 			"icon": "https://raw.githubusercontent.com/MainPiyushHoon/Alpha-Community-Webpage/refs/heads/main/src/images/ALPHA.webp"
+		},
+		{
+			"name": "aemu_postoffice test server",
+			"host": "185.183.157.234",
+			"discord": "https://discord.com/invite/wxeGVkM",
+			"web": "http://185.183.157.234:8888/",
+			"location": "Germany",
+			"location-emoji": "🇩🇪",
+			"description": "Testing ground for aemu_postoffice reference server",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://185.183.157.234:8888/data.json",
+			"icon": "/favicon.ico"
 		}
 	]
 }
