@@ -77,12 +77,17 @@ static int sceKernelAllocHeapMemory(int heapId, int size) {
 	u32 error;
 	KernelHeap *heap = kernelObjects.Get<KernelHeap>(heapId, error);
 	if (!heap) {
-		return hleLogError(Log::sceKernel, error, "invalid heapId");
+		// Returns a pointer, so every failure is a null pointer rather than an error code.
+		return hleLogError(Log::sceKernel, 0, "invalid heapId");
 	}
 
 	// There's 8 bytes at the end of every block, reserved.
 	u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
 	u32 addr = heap->alloc.Alloc(memSize, true);
+	if (addr == (u32)-1) {
+		// This returns a pointer, so failure is a null pointer - not the allocator's -1.
+		return hleLogError(Log::sceKernel, 0, "failed to allocate %d bytes", size);
+	}
 	return hleLogInfo(Log::sceKernel, addr);
 }
 
@@ -139,13 +144,14 @@ static int sceKernelFreeHeapMemory(int heapId, u32 block) {
 static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 paramsPtr) {
 	u32 error;
 	KernelHeap* heap = kernelObjects.Get<KernelHeap>(heapId, error);
+	// Returns a pointer, so every failure below is a null pointer rather than an error code.
 	if (!heap)
-		return hleLogError(Log::sceKernel, error, "invalid heapId");
+		return hleLogError(Log::sceKernel, 0, "invalid heapId");
 	u32 grain = 4;
 	// 0 is ignored.
 	if (paramsPtr != 0) {
 		if (!Memory::IsValid4AlignedRange(paramsPtr, 8))
-			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid paramsPtr");
+			return hleLogError(Log::sceKernel, 0, "invalid paramsPtr");
 		u32 size = Memory::ReadUnchecked_U32(paramsPtr);  // size of the params struct
 		if (size < 8)
 			return hleLogError(Log::sceKernel, 0, "invalid param size");
@@ -153,11 +159,14 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 			WARN_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
 		grain = Memory::ReadUnchecked_U32(paramsPtr + 4);
 	}
-	INFO_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapId, memSize, paramsPtr);
 	// There's 8 bytes at the end of every block, reserved.
 	memSize += 8;
 	u32 addr = heap->alloc.AllocAligned(memSize, grain, grain, true);
-	return addr;
+	if (addr == (u32)-1) {
+		// This returns a pointer, so failure is a null pointer - not the allocator's -1.
+		return hleLogError(Log::sceKernel, 0, "failed to allocate %d bytes", memSize);
+	}
+	return hleLogInfo(Log::sceKernel, addr);
 }
 
 static int sceKernelGetModel() {
