@@ -29,7 +29,6 @@ const char *ShaderLanguageAsString(ShaderLanguage lang);
 enum class ShaderStage {
 	Vertex,
 	Fragment,
-	Geometry,
 	Compute,
 };
 

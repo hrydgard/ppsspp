@@ -55,7 +55,6 @@
 static EShLanguage GetShLanguageFromStage(const ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::Vertex: return EShLangVertex;
-	case ShaderStage::Geometry: return EShLangGeometry;
 	case ShaderStage::Fragment: return EShLangFragment;
 	case ShaderStage::Compute: return EShLangCompute;
 	default: return EShLangVertex;
