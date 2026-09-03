@@ -1435,7 +1435,7 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate) {
 	// If in FIFO mode, that may have cleared another thread to wake up.
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO) {
-		bool wokeThreads;
+		bool wokeThreads = false;
 		std::vector<VplWaitingThread>::iterator iter = vpl->waitingThreads.begin();
 		// Unlock every waiting thread until the first that must still wait.
 		while (iter != vpl->waitingThreads.end() && __KernelUnlockVplForThread(vpl, *iter, error, 0, wokeThreads)) {

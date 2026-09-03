@@ -242,7 +242,8 @@ int sceKernelSignalSema(SceUID id, int signal) {
 			return hleLogError(Log::sceKernel, error, "bad sema id");
 		}
 	} else {
-		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount) {
+		// Done in 64-bit so a huge signal value can't overflow its way past the check.
+		if ((s64)s->ns.currentCount + signal - (s64)s->waitingThreads.size() > s->ns.maxCount) {
 			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_SEMA_OVF, "overflow at %d", s->ns.currentCount);
 		}
 
@@ -279,7 +280,7 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate) {
 	// If in FIFO mode, that may have cleared another thread to wake up.
 	PSPSemaphore *s = kernelObjects.Get<PSPSemaphore>(uid, error);
 	if (s && (s->ns.attr & PSP_SEMA_ATTR_PRIORITY) == PSP_SEMA_ATTR_FIFO) {
-		bool wokeThreads;
+		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter = s->waitingThreads.begin();
 		// Unlock every waiting thread until the first that must still wait.
 		while (iter != s->waitingThreads.end() && __KernelUnlockSemaForThread(s, *iter, error, 0, wokeThreads)) {

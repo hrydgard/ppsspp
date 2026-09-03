@@ -285,7 +285,7 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate) {
 		for (size_t i = 0; i < e->waitingThreads.size(); i++) {
 			EventFlagTh *t = &e->waitingThreads[i];
 			if (t->threadID == threadID) {
-				bool wokeThreads;
+				bool wokeThreads = false;
 
 				// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
 				// The reason is, if it times out, but what it was waiting on is DELETED prior to it
