@@ -233,6 +233,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	} else {
 		_dbg_assert_(draw_->GetDeviceCaps().texture3DSupported);
 		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, th, plan.depth, 1);
+		// Set this together with creating the texture - it has to match the target of the object we
+		// just created even if we bail out below, or the shader gets generated with a 2D sampler
+		// for a 3D texture.
+		entry->status |= TexStatus::IS_3D;
 	}
 
 	// Apply some additional compatibility checks.
@@ -331,9 +335,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		render_->TextureImage(entry->textureName, 0, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, dstFmt, data, GLRAllocType::ALIGNED);
-
-		// Signal that we support depth textures so use it as one.
-		entry->status |= TexStatus::IS_3D;
 
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
