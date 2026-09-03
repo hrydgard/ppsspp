@@ -26,6 +26,8 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/TimeUtil.h"
 
+#include "Core/Config.h"
+
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUDefinitions.h"
@@ -99,7 +101,8 @@ void TextureCacheGLES::ApplySamplerByKey(const SamplerCacheKey &key) {
 		render_->SetTextureLod(0, minLod, maxLod, lodBias);
 	}
 
-	float aniso = 0.0f;
+	// 1.0 means no anisotropic filtering. The queue runner clamps to the device maximum.
+	float aniso = key.aniso ? (float)(1 << g_Config.iAnisotropyLevel) : 1.0f;
 	int minKey = ((int)key.mipEnable << 2) | ((int)key.mipFilt << 1) | ((int)key.minFilt);
 	render_->SetTextureSampler(0,
 		key.sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, key.tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT,

@@ -1281,10 +1281,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				tex->minFilter = c.textureSampler.minFilter;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
-			if (tex->anisotropy != c.textureSampler.anisotropy) {
-				if (c.textureSampler.anisotropy != 0.0f) {
-					glTexParameterf(tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
-				}
+			// 0.0f means "don't care", used by callers that never want anisotropy. Note that we must
+			// only record the value when we actually set it, or we'd think we had reset the texture
+			// to something we never applied.
+			if (tex->anisotropy != c.textureSampler.anisotropy && c.textureSampler.anisotropy != 0.0f && caps_.anisoSupported) {
+				// Values above the device maximum are not allowed, and the minimum is 1.0.
+				glTexParameterf(tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, std::max(1.0f, std::min(c.textureSampler.anisotropy, maxAnisotropyLevel_)));
 				tex->anisotropy = c.textureSampler.anisotropy;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();

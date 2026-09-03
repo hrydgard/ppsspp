@@ -266,7 +266,10 @@ void DrawEngineGLES::Flush() {
 	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
 	if (!vshader) {
 		// Both the requested shader and the software transform fallback failed to compile.
-		// Not much we can do here, let's skip drawing.
+		// Not much we can do here, let's skip drawing. Note that the failure is cached, so this
+		// will keep happening for this shader ID - hence the log, or geometry would just silently
+		// disappear for the rest of the session.
+		WARN_LOG_N_TIMES(novshader, 5, Log::G3D, "Skipping draw, no vertex shader");
 		goto bail;
 	}
 

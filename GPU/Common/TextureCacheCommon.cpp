@@ -195,6 +195,11 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	key.aniso = false;
 	key.texture3d = gstate_c.curTextureIs3D;
 
+	// Anisotropic filtering must stay off for CLUT8-indexed textures - what gets sampled there are
+	// palette indices that the shader depalettizes afterwards, and averaging indices gives garbage.
+	const bool canUseAniso = gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ &&
+		!(entry && (entry->status & TexStatus::CLUT8_INDEXED));
+
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
 
@@ -224,7 +229,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
+			if (canUseAniso) {
 				key.aniso = true;
 			}
 			break;
@@ -260,7 +265,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
+			if (canUseAniso) {
 				key.aniso = true;
 			}
 		}
@@ -293,19 +298,17 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		case TEX_FILTER_AUTO_MAX_QUALITY:
 		default:
 			forceFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && !flatZ) {
+			if (canUseAniso) {
 				key.aniso = true;
 			}
 			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
 				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
 				if (uglyColorTest) {
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
-					key.aniso = false;
 				}
 			}
 			if (pixelMapped) {
 				forceFiltering = TEX_FILTER_FORCE_NEAREST;
-				key.aniso = false;
 			}
 			break;
 		}
@@ -322,6 +325,10 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	case TEX_FILTER_FORCE_NEAREST:
 		key.magFilt = 0;
 		key.minFilt = 0;
+		// Anisotropic filtering is meaningless without minification filtering, and every path that
+		// forces nearest does so to keep the texels exact - so clear it here rather than at each
+		// of the places that can set forceFiltering to nearest.
+		key.aniso = false;
 		break;
 	case TEX_FILTER_AUTO_MAX_QUALITY:
 		// NOTE: We do not override magfilt here. If a game should have pixellated filtering,
