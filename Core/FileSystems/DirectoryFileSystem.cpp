@@ -749,6 +749,17 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	}
 }
 
+// The PSP has no host permission bits to report. Its FAT driver makes a mode up from the entry
+// type and whether it can be written, so a file that happens to be 0644 on the host still looks
+// like 0664 to the game, and a 0755 directory looks like 0777. Passing the host's bits through
+// meant games saw different modes on Windows and Linux - see io/directory and io/file.
+static u32 PspAccessBits(bool isDirectory, bool isWritable) {
+	if (isDirectory) {
+		return 0777;
+	}
+	return isWritable ? 0664 : 0444;
+}
+
 PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;
@@ -774,7 +785,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	if (x.type != FILETYPE_DIRECTORY) {
 		x.size = info.size;
 	}
-	x.access = info.access;
+	x.access = PspAccessBits(info.isDirectory, info.isWritable);
 	time_t atime = info.atime;
 	time_t ctime = info.ctime;
 	time_t mtime = info.mtime;
@@ -934,7 +945,10 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string_view pat
 			}
 		}
 		if (file.name == "..") {
+			// The PSP reports a size for the parent entry, but not for directories in general.
 			entry.size = 4096;
+		} else if (file.isDirectory) {
+			entry.size = 0;
 		} else {
 			entry.size = file.size;
 		}
@@ -943,7 +957,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string_view pat
 		} else {
 			entry.type = FILETYPE_NORMAL;
 		}
-		entry.access = file.access;
+		entry.access = PspAccessBits(file.isDirectory, file.isWritable);
 		entry.exists = file.exists;
 
 		localtime_r((time_t*)&file.atime, &entry.atime);
@@ -960,7 +974,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string_view pat
 			pspInfo.name = "PSP";
 			pspInfo.type = FILETYPE_DIRECTORY;
 			pspInfo.size = 4096;
-			pspInfo.access = 0x777;
+			pspInfo.access = 0777;
 			pspInfo.exists = true;
 			myVector.push_back(pspInfo);
 		}
