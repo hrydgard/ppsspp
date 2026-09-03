@@ -63,5 +63,8 @@ struct AudioChannel {
 // The extra channel is for SRC/Output2/Vaudio (who all share, apparently.)
 extern AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX + 1];
 
+// The sample rates the SRC and VAUDIO channels will accept.
+bool SRCFrequencyAllowed(int freq);
+
 void Register_sceAudio();
 

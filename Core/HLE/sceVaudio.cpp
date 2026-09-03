@@ -42,6 +42,20 @@ void __VaudioDoState(PointerWrap &p) {
 }
 
 static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
+	// The vaudio channel is pickier than the normal ones: only three sample counts, stereo only,
+	// and the same set of sample rates the SRC channel takes.
+	if (format != 2) {
+		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - unexpected format", sampleCount, freq, format);
+		return SCE_KERNEL_ERROR_INVALID_FORMAT;
+	}
+	if (sampleCount != 256 && sampleCount != 1024 && sampleCount != 2048) {
+		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - invalid sample count", sampleCount, freq, format);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	if (freq != 0 && !SRCFrequencyAllowed(freq)) {
+		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - invalid frequency", sampleCount, freq, format);
+		return SCE_ERROR_AUDIO_INVALID_FREQUENCY;
+	}
 	if (vaudioReserved) {
 		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - already reserved", sampleCount, freq, format);
 		return SCE_KERNEL_ERROR_BUSY;

@@ -185,9 +185,11 @@ static int sceAudioGetChannelRestLength(u32 chan) {
 	return hleLogVerbose(Log::sceAudio, remainingSamples);
 }
 
-static u32 GetFreeChannel() {
+static int GetFreeChannel() {
 	// Changed this to allow channel 0. Fixes the startup sound in VSH. TODO: Why did we not allow channel 0 before?
-	for (u32 i = PSP_AUDIO_CHANNEL_MAX - 1; i >= 0; --i) {
+	// The counter has to be signed: as a u32 the i >= 0 condition is always true, so with every
+	// channel reserved it wrapped past zero and ran off the array instead of giving up.
+	for (int i = PSP_AUDIO_CHANNEL_MAX - 1; i >= 0; --i) {
 		if (!g_audioChans[i].reserved)
 			return i;
 	}
@@ -373,7 +375,7 @@ static u32 sceAudioSetVolumeOffset() {
 	return 0;
 }
 
-static bool SRCFrequencyAllowed(int freq) {
+bool SRCFrequencyAllowed(int freq) {
 	if (freq == 44100 || freq == 22050 || freq == 11025)
 		return true;
 	if (freq == 48000 || freq == 32000 || freq == 24000 || freq == 16000 || freq == 12000 || freq == 8000)
