@@ -942,8 +942,10 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
 
-	// Sanity check the file contents
-	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
+	// Sanity check the file contents. Note that the counts are signed, so check for negative too -
+	// otherwise they'd turn into huge sizes in the resize() calls below.
+	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000 ||
+		header.numFragmentShaders < 0 || header.numVertexShaders < 0 || header.numLinkedPrograms < 0) {
 		ERROR_LOG(Log::G3D, "Corrupt shader cache file header, aborting.");
 		return false;
 	}
@@ -958,14 +960,16 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		return false;
 	}
 
+	// Note: ReadArray gets .data(), not &v[0] - the counts can legitimately be zero,
+	// and indexing an empty vector is UB (and asserts in the debug STL).
 	diskCachePending_.vert.resize(header.numVertexShaders);
-	if (!f.ReadArray(&diskCachePending_.vert[0], header.numVertexShaders)) {
+	if (!f.ReadArray(diskCachePending_.vert.data(), header.numVertexShaders)) {
 		diskCachePending_.vert.clear();
 		return false;
 	}
 
 	diskCachePending_.frag.resize(header.numFragmentShaders);
-	if (!f.ReadArray(&diskCachePending_.frag[0], header.numFragmentShaders)) {
+	if (!f.ReadArray(diskCachePending_.frag.data(), header.numFragmentShaders)) {
 		diskCachePending_.vert.clear();
 		diskCachePending_.frag.clear();
 		return false;
