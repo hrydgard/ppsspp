@@ -491,9 +491,12 @@ public:
 	const std::string &firmwareVersion() const { return firmwareVersion_; }
 	const std::string &entryName() const { return entryName_; }
 	bool entryIsDirectory() const { return entryIsDirectory_; }
-	PSARCompression entryCompression() const { return entryCompression_; }
+	// Decrypting an entry's contents is by far the most expensive thing here, and an archive holds
+	// well over a thousand of them - so it doesn't happen until one of these two asks for it. An
+	// entry a filter rejects never gets decrypted at all.
+	PSARCompression entryCompression() { EnsureContents(); return entryCompression_; }
 	// Empty for a directory, or for an entry we couldn't decompress.
-	const std::vector<u8> &entryData() const { return entryData_; }
+	const std::vector<u8> &entryData() { EnsureContents(); return entryData_; }
 	// How far into the archive the next record starts, and where the records stop - i.e. progress.
 	u32 position() const { return pos_; }
 	size_t limit() const { return limit_; }
@@ -501,6 +504,8 @@ public:
 private:
 	// Decrypts one record into 'out'. Returns the decrypted size, or <= 0 on failure.
 	int DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out);
+	// Decodes the current entry's contents, if that hasn't happened yet.
+	void EnsureContents();
 
 	const u8 *psar_;
 	size_t size_;
@@ -518,6 +523,13 @@ private:
 	bool entryIsDirectory_ = false;
 	PSARCompression entryCompression_ = PSARCompression::None;
 	std::vector<u8> entryData_;
+
+	// Where the current entry's contents live, for decoding them later. Records are decrypted
+	// independently of each other, so it doesn't matter that we've moved past them by then.
+	bool contentsDecoded_ = true;
+	u32 contentPos_ = 0;
+	u32 contentChunkSize_ = 0;
+	u32 contentExpandedSize_ = 0;
 
 	std::vector<u8> block_;
 	std::vector<u8> block2_;
@@ -639,6 +651,7 @@ int PSARReader::NextEntry(std::string *error) {
 	entryData_.clear();
 	entryIsDirectory_ = false;
 	entryCompression_ = PSARCompression::None;
+	contentsDecoded_ = true;  // Nothing to decode until we find out there's a payload.
 
 	// Stop when what's left can't hold another whole record. Both archives I've looked at end with
 	// a few bytes of padding that would otherwise be decoded as a truncated entry and reported as
@@ -673,27 +686,40 @@ int PSARReader::NextEntry(std::string *error) {
 		*error = StringFromFormat("Entry '%s' claims an unreasonable size (%u)", entryName_.c_str(), expandedSize);
 		return -1;
 	} else {
-		decoded = DecodeBlock(pos_, chunkSize, block2_);
-		if (decoded <= 0) {
-			WARN_LOG(Log::Loader, "PSAR: couldn't decrypt the contents of '%s'", entryName_.c_str());
-			entryCompression_ = PSARCompression::Unknown;
-		} else {
-			entryCompression_ = DetectCompression(block2_.data(), decoded);
-			if (entryCompression_ == PSARCompression::Zlib) {
-				entryData_.resize(expandedSize);
-				uLongf destLen = expandedSize;
-				const int zResult = uncompress(entryData_.data(), &destLen, block2_.data(), decoded);
-				if (zResult != Z_OK || destLen != expandedSize) {
-					WARN_LOG(Log::Loader, "PSAR: inflate failed for '%s' (%d)", entryName_.c_str(), zResult);
-					entryData_.clear();
-				}
-			}
-			// Anything else we leave empty - the caller reports it through the stats.
-		}
+		contentPos_ = pos_;
+		contentChunkSize_ = chunkSize;
+		contentExpandedSize_ = expandedSize;
+		contentsDecoded_ = false;
 	}
 
 	pos_ += chunkSize;
 	return 1;
+}
+
+void PSARReader::EnsureContents() {
+	if (contentsDecoded_) {
+		return;
+	}
+	contentsDecoded_ = true;
+
+	const int decoded = DecodeBlock(contentPos_, contentChunkSize_, block2_);
+	if (decoded <= 0) {
+		WARN_LOG(Log::Loader, "PSAR: couldn't decrypt the contents of '%s'", entryName_.c_str());
+		entryCompression_ = PSARCompression::Unknown;
+		return;
+	}
+
+	entryCompression_ = DetectCompression(block2_.data(), decoded);
+	if (entryCompression_ == PSARCompression::Zlib) {
+		entryData_.resize(contentExpandedSize_);
+		uLongf destLen = contentExpandedSize_;
+		const int zResult = uncompress(entryData_.data(), &destLen, block2_.data(), decoded);
+		if (zResult != Z_OK || destLen != contentExpandedSize_) {
+			WARN_LOG(Log::Loader, "PSAR: inflate failed for '%s' (%d)", entryName_.c_str(), zResult);
+			entryData_.clear();
+		}
+	}
+	// Anything else we leave empty - the caller reports it through the stats.
 }
 
 bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
@@ -732,7 +758,6 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 		}
 
 		stats->entries++;
-		stats->compressionCounts[(int)reader.entryCompression()]++;
 
 		if (options.progress && reader.limit() > 0) {
 			options.progress(std::min(1.0f, (float)reader.position() / (float)reader.limit()));
@@ -834,6 +859,10 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 			stats->skippedByFilter++;
 			continue;
 		}
+
+		// Past the filter, so this one's contents are worth decrypting. The compression counts
+		// only cover the entries we got this far with, not everything in the archive.
+		stats->compressionCounts[(int)reader.entryCompression()]++;
 
 		if (reader.entryData().empty()) {
 			ERROR_LOG(Log::Loader, "PSAR: no usable contents for '%s' (%s)", reader.entryName().c_str(),

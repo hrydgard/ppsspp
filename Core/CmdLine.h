@@ -75,6 +75,7 @@ struct CommandLineOptions {
 	// Headless: which PSP model the unpacker resolves names against - "01g".."12g", or "any"
 	// (the default) to take whatever file list names each file first.
 	std::optional<std::string> unpackUpdaterModel;
+	std::optional<std::string> unpackUpdaterFilter;
 
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;
