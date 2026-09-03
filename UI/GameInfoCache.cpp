@@ -450,9 +450,14 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex, int max
 
 // Will clear contents on failure.
 static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::string *contents, std::mutex *mtx) {
+	static constexpr s64 MAX_GAME_INFO_FILE_SIZE = 64 * 1024 * 1024;
 	std::string fn(filename);
 	PSPFileInfo info = fs->GetFileInfo(fn);
 	if (!info.exists) {
+		return false;
+	}
+	if (info.size < 0 || info.size > MAX_GAME_INFO_FILE_SIZE) {
+		WARN_LOG(Log::UI, "Ignoring implausibly large game metadata file %s (%lld bytes)", fn.c_str(), (long long)info.size);
 		return false;
 	}
 

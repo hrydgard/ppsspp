@@ -296,10 +296,17 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 			entry->recordTime = UnixTimeFromDirectoryEntry(dir);
 			VERBOSE_LOG(Log::FileSystem, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
-			// Round down to avoid any false reports.
-			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
+			// Validate the complete extent before exposing it through GetFileInfo.
+			// The directory record is untrusted, and retaining an out-of-range
+			// length lets callers resize host buffers from a bogus file size.
+			const u64 firstSector = dir.firstDataSector;
+			const u64 dataSectors = ((u64)dir.dataLength + sectorSize - 1) / sectorSize;
+			const u64 numBlocks = blockDevice->GetNumBlocks();
+			if (firstSector > numBlocks || dataSectors > numBlocks - firstSector) {
 				blockDevice->NotifyReadError();
 				ERROR_LOG(Log::FileSystem, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
+				delete entry;
+				continue;
 			}
 
 			if (entry->isDirectory && !relative) {
