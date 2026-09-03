@@ -596,6 +596,23 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) const {
 	return true;
 }
 
+static const u8 fontPixelSizeInBytes[] = { 0, 0, 1, 3, 4 };  // 0 means 2 pixels per byte
+
+// How far into the glyph buffer a draw can reach. Usually bytesPerLine covers a whole row and this
+// is just bytesPerLine * bufHeight, but nothing makes a game set it that way - with a smaller
+// bytesPerLine the rows overlap and the last one runs past that, so the cache invalidation has to
+// cover the wider of the two.
+static u32 GlyphBufferExtent(const GlyphImage *image) {
+	const u32 rows = (u32)image->bytesPerLine * image->bufHeight;
+	if (image->pixelFormat < 0 || image->pixelFormat > PSP_FONT_PIXELFORMAT_32 || image->bufHeight == 0) {
+		return rows;
+	}
+	const int pixelBytes = fontPixelSizeInBytes[image->pixelFormat];
+	const u32 rowBytes = pixelBytes == 0 ? ((u32)image->bufWidth + 1) / 2 : (u32)image->bufWidth * pixelBytes;
+	const u32 lastRow = (u32)(image->bufHeight - 1) * image->bytesPerLine + rowBytes;
+	return std::max(rows, lastRow);
+}
+
 void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) const {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
@@ -734,7 +751,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 		}
 	}
 
-	gpu->InvalidateCache(image->bufferPtr, image->bytesPerLine * image->bufHeight, GPU_INVALIDATE_SAFE);
+	gpu->InvalidateCache(image->bufferPtr, GlyphBufferExtent(image), GPU_INVALIDATE_SAFE);
 }
 
 // pixelColor arrives already scaled to `pixelformat`'s range, and is *added* to what is in the buffer with saturation; it does not replace it.
@@ -746,17 +763,16 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 		return;
 	}
 
-	static const u8 fontPixelSizeInBytes[] = { 0, 0, 1, 3, 4 }; // 0 means 2 pixels per byte
 	if (pixelformat < 0 || pixelformat > PSP_FONT_PIXELFORMAT_32) {
 		ERROR_LOG_REPORT_ONCE(pfgbadformat, Log::sceFont, "Invalid image format in image: %d", (int)pixelformat);
 		return;
 	}
-	int pixelBytes = fontPixelSizeInBytes[pixelformat];
-	int bufMaxWidth = (pixelBytes == 0 ? bpl * 2 : bpl / pixelBytes);
-	if (x >= bufMaxWidth) {
-		return;
-	}
+	const int pixelBytes = fontPixelSizeInBytes[pixelformat];
 
+	// Deliberately no check that x fits within bytesPerLine. The hardware just works out an
+	// address and writes, so with a bytesPerLine smaller than the row needs, rows overlap and the
+	// glyph smears across them - see the "Linesize = 1" case in pspautotests font/charglyphimage.
+	// The bufWidth/bufHeight rectangle above and the address check below are what keep this sane.
 	int framebufferAddr = base + (y * bpl) + (pixelBytes == 0 ? x / 2 : x * pixelBytes);
 	if (!Memory::IsValidAddress(framebufferAddr)) {
 		return;
