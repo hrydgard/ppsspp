@@ -552,6 +552,12 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		alignment = 4;
 
 	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
+	// The size check above uses 4 byte alignment, but the caller can ask for much more than that,
+	// so the aligned total can still overflow - and then we'd allocate a small block while
+	// numBlocks stays huge, handing out block addresses outside it.
+	if ((u64)(u32)alignedSize * (u64)numBlocks > 0xFFFFFFFFULL)
+		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
+
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = allocator->Alloc(totalSize, atEnd, StringFromFormat("FPL/%s", name).c_str());
@@ -843,7 +849,9 @@ public:
 	}
 
 	BlockAllocator *alloc;
-	u32 address;
+	// Note: the savestate constructor doesn't allocate, and DoState bails out if the section is
+	// missing - so this needs a value the destructor won't try to free.
+	u32 address = (u32)-1;
 	char name[32];
 };
 
@@ -1900,6 +1908,11 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 
 	// Upalign.  Strangely, the sceKernelReferTlsplStatus value is the original.
 	u32 alignedSize = (blockSize + alignment - 1) & ~(alignment - 1);
+	// The size check above uses 4 byte alignment, but the caller can ask for much more than that,
+	// so the aligned total can still overflow - and then we'd allocate a small block while
+	// totalBlocks stays huge, handing out block addresses outside it.
+	if ((u64)alignedSize * (u64)count > 0xFFFFFFFFULL)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
 
 	u32 totalSize = alignedSize * count;
 	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, StringFromFormat("TLS/%s", name).c_str());
