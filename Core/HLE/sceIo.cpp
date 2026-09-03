@@ -2096,12 +2096,32 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	return hleNoLog(SCE_KERNEL_ERROR_UNSUP);
 }
 
+static bool IoPathHasWildcard(const char *path) {
+	return path && strpbrk(path, "*?") != nullptr;
+}
+
 static u32 sceIoRename(const char *from, const char *to) {
 	// TODO: Timing isn't terribly accurate.
+
+	// sceIoRename doesn't expand wildcards, it refuses them - in either path, and before it
+	// looks at whether anything is actually there.
+	if (IoPathHasWildcard(from) || IoPathHasWildcard(to)) {
+		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "wildcard in path"), "file renamed", 1000);
+	}
+
 	if (!pspFileSystem.GetFileInfo(from).exists)
 		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file renamed", 1000);
 
+	// The PSP won't rename onto something that already exists, and renaming a file onto itself
+	// counts. Host rename() would happily replace the destination.
+	if (pspFileSystem.GetFileInfo(to).exists)
+		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "destination exists"), "file renamed", 1000);
+
 	int result = pspFileSystem.RenameFile(from, to);
+	if (result == (int)SCE_KERNEL_ERROR_XDEV) {
+		// Renaming across devices is refused up front, without the wait the other errors take.
+		return hleLogError(Log::sceIo, result, "cannot rename across devices");
+	}
 	if (result < 0)
 		WARN_LOG(Log::sceIo, "Could not move %s to %s", from, to);
 	return hleDelayResult(hleLogDebug(Log::sceIo, result), "file renamed", 1000);
