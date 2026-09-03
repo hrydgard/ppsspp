@@ -292,7 +292,6 @@ void DrawEngineGLES::Flush() {
 		int vertexCount;
 		int maxIndex;
 		bool useElements;
-		DecodeVerts(dec_, decoded_);
 		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
 		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
