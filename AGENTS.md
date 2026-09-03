@@ -25,13 +25,16 @@ for it:
 1. Keep style changes minimal unless requested. Follow existing code patterns and conventions.
 2. Keep cross-platform parity in mind when changing shared code. See below for more multiplatform tips
 3. Never `git push` (to any remote) without asking the user first. Committing locally is fine when asked; pushing requires explicit approval.
-4. **Most files in this repo are CRLF** - `.vcxproj`, `.vcxproj.filters`, `android/jni/Android.mk`,
+4. **Don't write code on `master`.** When asked to make a code change while on `master`, create an
+   appropriately named branch first (`git checkout -b some-descriptive-name`) and do the work there.
+   If you're already on a topic branch, just keep working on it.
+5. **Most files in this repo are CRLF** - `.vcxproj`, `.vcxproj.filters`, `android/jni/Android.mk`,
    `libretro/Makefile.common`, `AGENTS.md`, and much of the source. If you patch one with a script, read *and*
    write with `newline=''`; reading with Python's default universal-newline translation and writing with
    `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff. Check
    `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in the editor.
    Prefer the Edit tool, which does exact string replacement and can't do this.
-5. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash / MinGW
+6. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash / MinGW
    layer strips one level of backslash escaping on the way in, *even with a quoted delimiter* (`<<'PY'`), which
    normally suppresses all substitution. So the script Python receives is not the one you wrote:
 
@@ -52,7 +55,7 @@ for it:
    - build the backslash as `chr(92)` so no literal backslash appears in the heredoc at all.
 
    Note this is about the *Python source*, not the data: reading and rewriting a CRLF file with `newline=''` and
-   `\r\n` anchors works fine in a heredoc, and is the normal way to patch files here (see rule 4).
+   `\r\n` anchors works fine in a heredoc, and is the normal way to patch files here (see rule 5).
 
 ## Core Safety Checks
 
