@@ -65,6 +65,15 @@ every failure has to be 0 or callers checking for null see success.
 - **VTimer scheduling arithmetic.** The `base + schedule - current` u64->s64 conversion wraps
   negative on underflow, which the `goalUs < minGoalUs` clamp catches.
 
+## Latent, worth knowing about
+
+`__KernelSendMsgPipe` / `__KernelReceiveMsgPipe` have two shapes of transfer loop. The buffered one
+explicitly breaks when a transfer would move zero bytes; the unbuffered ones (`bufSize == 0`) don't -
+they only make progress inside `if (bytesToSend > 0)`, so a queued waiting thread with a zero
+`freeSize` would spin forever. That can't happen today because every `AddSendWaitingThread` /
+`AddReceiveWaitingThread` call site is guarded by a `size != 0` check, but the invariant lives two
+call sites away from the loop that depends on it.
+
 ## Open, deliberately not changed
 
 - **`__KernelStartThread` doesn't bound `argSize`.** `sp -= (argSize + 0xf) & ~0xf` with `argSize`
@@ -88,5 +97,8 @@ savestate loop; `Thread`'s start/refer paths and the callback machinery; `Mbx`'s
 Audited across all 14 files by pattern: unchecked memory access, timeout writeback, null checks
 after `kernelObjects.Get`, name copies, allocator return values, uninitialised members.
 
-Not read line by line: the interrupt dispatch half of `sceKernelInterrupt.cpp`, the wait-queue
-bodies of `MsgPipe` / `EventFlag` / `Mutex`, and thread scheduling proper.
+Also checked: `MsgPipe`'s transfer loops, and the interrupt dispatch in `sceKernelInterrupt.cpp`
+(`__TriggerInterrupt` indexes `intrHandlers` without a bounds or null check, unlike
+`__RunOnePendingInterrupt`, but every caller passes an internal constant).
+
+Not read line by line: the `EventFlag` / `Mutex` wait-queue bodies, and thread scheduling proper.
