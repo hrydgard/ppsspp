@@ -835,7 +835,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		flags |= WebServerFlags::DEBUGGER;
 	}
 	if (flags != WebServerFlags::NONE) {
-		StartWebServer(WebServerFlags::ALL);
+		StartWebServer(flags);
 	}
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
