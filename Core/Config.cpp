@@ -755,7 +755,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("GfxDebugOutput", SETTING(g_Config, bGfxDebugOutput), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("LogFrameDrops", SETTING(g_Config, bLogFrameDrops), false, CfgFlag::DEFAULT),
 
-	ConfigSetting("InflightFrames", SETTING(g_Config, iInflightFrames), 3, CfgFlag::DEFAULT),
+	ConfigSetting("InflightFrames", SETTING(g_Config, iInflightFrames), 2, CfgFlag::DEFAULT),
 	ConfigSetting("RenderDuplicateFrames", SETTING(g_Config, bRenderDuplicateFrames), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("MultiThreading", SETTING(g_Config, bRenderMultiThreading), true, CfgFlag::DEFAULT),
@@ -1611,6 +1611,9 @@ void Config::PostLoadCleanup() {
 
 	// Clamp save state slot count to somewhat sane limits.
 	iSaveStateSlotCount = std::clamp(iSaveStateSlotCount, 1, 100);
+
+	// Three frames in flight showed no benefit over two, so the option is gone. Squash old values.
+	iInflightFrames = std::clamp(iInflightFrames, 1, 2);
 }
 
 void Config::PreSaveCleanup() {
