@@ -76,9 +76,43 @@ Failed tests:
   threads/mbx/refer/refer
 ```
 
-Lines prefixed with `O` are from the `.expected` file (real PSP), `E` is what PPSSPP produced, and `+` means a match.
+Lines prefixed with `O` are what PPSSPP produced (the Output), `E` is the corresponding line from
+the `.expected` file recorded on a real PSP, and `+` means a match.
 
-The diff is line-by-line, so an `O` line followed by an `E` line at the same conceptual position means PPSSPP produced different output at that spot. A `+` line means both outputs agreed on that line.
+The diff is line-by-line, so an `O` line followed by an `E` line at the same conceptual position
+means PPSSPP produced different output at that spot. A `+` line means both outputs agreed on that
+line.
+
+### The `[x]` and `[r]` markers - they're about scheduling
+
+Most tests print their lines through `checkpoint()` in `pspautotests/common/common.c`, which tags
+every line with `[x]` or `[r]`:
+
+```
+O [x] While open: OK (allocated 12)
+E [x] While open: OK (allocated 0)
+```
+
+The tag is not decoration. Each `checkpoint()` call starts a helper thread that does nothing but
+set a flag, then terminates and restarts it for the next one. If that thread got a chance to run
+before the next checkpoint, the line is tagged `[r]` - a **r**eschedule happened while the code
+under test ran. If it never got scheduled, the line is tagged `[x]`. (With `CHECKPOINT_ENABLE_TIME`
+the tag becomes `[x/1234]`, adding the microseconds since the previous checkpoint.)
+
+So the marker records **whether the syscall between the two checkpoints yielded to another
+thread**, which is a big part of what these tests are checking.
+
+That means a diff where only the marker differs, like
+
+```
+O [x]   GetCharInfo on open: 00000000
+E [r]   GetCharInfo on open: 00000000
+```
+
+is not a value bug at all - the return value matched. It says our implementation of that call
+doesn't reschedule where the real one does (or the other way round). Fixing it means changing
+whether the HLE function yields - `hleReSchedule`, `hleDelayResult` and friends - not what it
+returns. Don't go hunting for a wrong value; there isn't one.
 
 ## Workflow for fixing a test
 
