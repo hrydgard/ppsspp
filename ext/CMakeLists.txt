@@ -51,6 +51,58 @@ add_library(xxhash STATIC
 	xxhash.h
 )
 
+set(aemu_postoffice_client_obj
+	aemu_postoffice/client/postoffice.c
+	aemu_postoffice/client/postoffice_mem_stdc.c
+	aemu_postoffice/client/mutex_impl_cpp.cpp
+	aemu_postoffice/client/delay_impl_cpp.cpp
+	aemu_postoffice/client/log_impl_ppsspp.cpp
+)
+
+if(WIN32)
+	list(APPEND aemu_postoffice_client_obj
+		${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/sock_impl_windows.c
+	)
+endif()
+
+if(LINUX OR ANDROID OR MACOSX OR IOS OR BSD)
+	list(APPEND aemu_postoffice_client_obj
+		${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/sock_impl_linux.c
+	)
+endif()
+
+add_library(aemu_postoffice_client STATIC
+	${aemu_postoffice_client_obj}
+)
+
+set(aemu_postoffice_server_obj
+	aemu_postoffice/server_cpp/server.cpp
+	aemu_postoffice/server_cpp/session.cpp
+	aemu_postoffice/server_cpp/semaphore.cpp
+	aemu_postoffice/server_cpp/log.cpp
+)
+
+if(WIN32)
+	list(APPEND aemu_postoffice_server_obj
+		${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/server_cpp/native_socket_windows.cpp
+	)
+endif()
+
+if(LINUX OR ANDROID OR MACOSX OR IOS OR BSD)
+	list(APPEND aemu_postoffice_server_obj
+		${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/server_cpp/native_socket_linux.cpp
+	)
+endif()
+
+add_library(aemu_postoffice_server STATIC
+	${aemu_postoffice_server_obj}
+)
+
+set_target_properties(aemu_postoffice_server
+	PROPERTIES
+	CXX_STANDARD 20
+)
+
 set(FT_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BZIP2 OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_PNG OFF CACHE BOOL "" FORCE)
