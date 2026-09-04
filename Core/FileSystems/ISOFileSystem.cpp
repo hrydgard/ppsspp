@@ -302,6 +302,20 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				ERROR_LOG(Log::FileSystem, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
+			// The directory record is untrusted, and callers size host buffers from entry->size, so
+			// don't let it claim more data than the image actually contains. We clamp rather than
+			// drop the entry - truncated ISOs are common and used to work with just the warning
+			// above, and dropping EBOOT.BIN would turn that into an unbootable game. For a sane
+			// file this is a no-op, since the extent always fits in its sectors.
+			if (isFile) {
+				const u64 numBlocks = blockDevice->GetNumBlocks();
+				const u64 firstSector = dir.firstDataSector;
+				const s64 availableBytes = firstSector >= numBlocks ? 0 : (s64)((numBlocks - firstSector) * (u64)sectorSize);
+				if (entry->size > availableBytes) {
+					entry->size = availableBytes;
+				}
+			}
+
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
 					blockDevice->NotifyReadError();
