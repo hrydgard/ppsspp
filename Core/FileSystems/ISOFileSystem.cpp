@@ -499,7 +499,11 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		}
 
 		VolDescriptor desc;
-		blockDevice->ReadBlock(16, (u8 *)&desc);
+		if (!blockDevice->ReadBlock(16, (u8 *)&desc)) {
+			blockDevice->NotifyReadError();
+			ERROR_LOG(Log::FileSystem, "Failed to read volume descriptor for the path table");
+			return SCE_KERNEL_ERROR_ERRNO_IO_ERROR;
+		}
 		if (outlen < (u32)desc.pathTableLength) {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		} else {
@@ -517,7 +521,9 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 				u8 temp[2048];
 				// `blocks` whole sectors starting at `block` were already consumed by
 				// ReadBlocks() above, so the trailing partial sector is the next one.
-				blockDevice->ReadBlock(block + blocks, temp);
+				if (!blockDevice->ReadBlock(block + blocks, temp)) {
+					memset(temp, 0, sizeof(temp));
+				}
 				memcpy(out, temp, size);
 			}
 			return 0;
@@ -616,7 +622,11 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 
 		const u8 *const start = pointer;
 		if (firstBlockSize > 0) {
-			blockDevice->ReadBlock(secNum++, theSector);
+			// theSector is uninitialized stack memory, so on a failed read we must not copy it out -
+			// that would hand host stack contents to the game.
+			if (!blockDevice->ReadBlock(secNum++, theSector)) {
+				memset(theSector, 0, sizeof(theSector));
+			}
 			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
 			pointer += firstBlockSize;
 		}
@@ -627,7 +637,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			pointer += middleSize;
 		}
 		if (lastBlockSize > 0) {
-			blockDevice->ReadBlock(secNum++, theSector);
+			if (!blockDevice->ReadBlock(secNum++, theSector)) {
+				memset(theSector, 0, sizeof(theSector));
+			}
 			memcpy(pointer, theSector, lastBlockSize);
 			pointer += lastBlockSize;
 		}
