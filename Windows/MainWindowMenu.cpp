@@ -687,7 +687,8 @@ namespace MainWindow {
 		case ID_TEXTURESCALING_2X:   setTexScalingMultiplier(TEXSCALING_2X); break;
 		case ID_TEXTURESCALING_3X:   setTexScalingMultiplier(TEXSCALING_3X); break;
 		case ID_TEXTURESCALING_4X:   setTexScalingMultiplier(TEXSCALING_4X); break;
-		case ID_TEXTURESCALING_5X:   setTexScalingMultiplier(TEXSCALING_MAX); break;
+		case ID_TEXTURESCALING_5X:   setTexScalingMultiplier(TEXSCALING_5X); break;
+		case ID_TEXTURESCALING_6X:   setTexScalingMultiplier(TEXSCALING_6X); break;
 
 		case ID_TEXTURESCALING_XBRZ:            setTexScalingType(TextureScalerCommon::XBRZ); break;
 		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScalerCommon::HYBRID); break;
@@ -1137,6 +1138,7 @@ namespace MainWindow {
 			ID_TEXTURESCALING_3X,
 			ID_TEXTURESCALING_4X,
 			ID_TEXTURESCALING_5X,
+			ID_TEXTURESCALING_6X,
 		};
 		if (g_Config.iTexScalingLevel < TEXSCALING_OFF)
 			g_Config.iTexScalingLevel = TEXSCALING_OFF;
@@ -1152,6 +1154,7 @@ namespace MainWindow {
 
 		EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
 		EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
+		EnableMenuItem(menu, ID_TEXTURESCALING_6X, MF_ENABLED);
 
 		static const int texscalingtypeitems[] = {
 			ID_TEXTURESCALING_XBRZ,

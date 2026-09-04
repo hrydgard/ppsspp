@@ -457,16 +457,17 @@ void scaleBicubicMitchell(int factor, const u32 *data, u32 *out, int w, int h, i
 
 //////////////////////////////////////////////////////////////////// Bilinear scaling
 
-const static u8 BILINEAR_FACTORS[4][3][2] = {
+const static u8 BILINEAR_FACTORS[5][3][2] = {
 		{ { 44, 211 }, { 0, 0 }, { 0, 0 } }, // x2
 		{ { 64, 191 }, { 0, 255 }, { 0, 0 } }, // x3
 		{ { 77, 178 }, { 26, 229 }, { 0, 0 } }, // x4
 		{ { 102, 153 }, { 51, 204 }, { 0, 255 } }, // x5
+		{ { 106, 149 }, { 64, 191 }, { 21, 234 } }, // x6
 };
 // integral bilinear upscaling by factor f, horizontal part
 template<int f>
 void bilinearHt(const u32 *data, u32 *out, int w, int l, int u) {
-	static_assert(f > 1 && f <= 5, "Bilinear scaling only implemented for factors 2 to 5");
+	static_assert(f > 1 && f <= 6, "Bilinear scaling only implemented for factors 2 to 6");
 	int outw = w*f;
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < w; ++x) {
@@ -490,14 +491,15 @@ void bilinearH(int factor, const u32 *data, u32 *out, int w, int l, int u) {
 	case 3: bilinearHt<3>(data, out, w, l, u); break;
 	case 4: bilinearHt<4>(data, out, w, l, u); break;
 	case 5: bilinearHt<5>(data, out, w, l, u); break;
-	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	case 6: bilinearHt<6>(data, out, w, l, u); break;
+	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 6");
 	}
 }
 // integral bilinear upscaling by factor f, vertical part
 // gl/gu == global lower and upper bound
 template<int f>
 void bilinearVt(const u32 *data, u32 *out, int w, int gl, int gu, int l, int u) {
-	static_assert(f>1 && f <= 5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
+	static_assert(f > 1 && f <= 6, "Bilinear scaling only implemented for factors 2 to 6");
 	int outw = w*f;
 	for (int xb = 0; xb < outw / BLOCK_SIZE + 1; ++xb) {
 		for (int y = l; y < u; ++y) {
@@ -524,7 +526,8 @@ void bilinearV(int factor, const u32 *data, u32 *out, int w, int gl, int gu, int
 	case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;
 	case 4: bilinearVt<4>(data, out, w, gl, gu, l, u); break;
 	case 5: bilinearVt<5>(data, out, w, gl, gu, l, u); break;
-	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	case 6: bilinearVt<6>(data, out, w, gl, gu, l, u); break;
+	default: ERROR_LOG(Log::G3D, "Bilinear upsampling only implemented for factors 2 to 6");
 	}
 }
 

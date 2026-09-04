@@ -48,7 +48,7 @@ protected:
 	static bool IsEmptyOrFlat(const u32 *data, int pixels) ;
 
 	// depending on the factor and texture sizes, these can get pretty large 
-	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
-	// of course, scaling factor 5 is totally silly anyway
+	// maximum is (~150 MB total for a 512 by 512 texture with scaling factor 6 and hybrid scaling)
+	// of course, scaling factor 6 is totally silly anyway
 	AlignedVector<u32, 16> bufDeposter, bufOutput, bufTmp1, bufTmp2, bufTmp3;
 };

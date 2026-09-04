@@ -543,7 +543,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	}
 
 #ifndef MOBILE_DEVICE
-	static const char *texScaleLevels[] = {"Off", "2x", "3x", "4x", "5x"};
+	static const char *texScaleLevels[] = {"Off", "2x", "3x", "4x", "5x", "6x"};
 #else
 	static const char *texScaleLevels[] = {"Off", "2x", "3x"};
 #endif

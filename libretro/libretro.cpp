@@ -863,6 +863,8 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iTexScalingLevel = 4;
       else if (!strcmp(var.value, "5x"))
          g_Config.iTexScalingLevel = 5;
+      else if (!strcmp(var.value, "6x"))
+         g_Config.iTexScalingLevel = 6;
    }
 
    var.key = "ppsspp_texture_deposterize";
