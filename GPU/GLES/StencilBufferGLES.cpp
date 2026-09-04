@@ -136,7 +136,7 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilReadbackSampler_);
 
 	// We must bind the program after starting the render pass.
-	draw_->SetScissorRect(0, 0, w, h);
+	draw_->SetScissorRect(x, y, w, h);
 	draw_->BindPipeline(stencilReadbackPipeline_);
 
 	// Fullscreen triangle coordinates.

@@ -886,9 +886,9 @@ struct CacheHeader {
 	uint32_t version;
 	uint32_t useFlags;
 	uint32_t detectFlags;
-	int numVertexShaders;
-	int numFragmentShaders;
-	int numLinkedPrograms;
+	uint32_t numVertexShaders;
+	uint32_t numFragmentShaders;
+	uint32_t numLinkedPrograms;
 };
 
 bool ShaderManagerGLES::LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine) {
@@ -942,7 +942,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
 
-	// Sanity check the file contents
+	// Sanity check the file contents. Counts are now unsigned so this is enough.
 	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
 		ERROR_LOG(Log::G3D, "Corrupt shader cache file header, aborting.");
 		return false;
@@ -959,13 +959,13 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	}
 
 	diskCachePending_.vert.resize(header.numVertexShaders);
-	if (!f.ReadArray(&diskCachePending_.vert[0], header.numVertexShaders)) {
+	if (!f.ReadArray(diskCachePending_.vert.data(), header.numVertexShaders)) {
 		diskCachePending_.vert.clear();
 		return false;
 	}
 
 	diskCachePending_.frag.resize(header.numFragmentShaders);
-	if (!f.ReadArray(&diskCachePending_.frag[0], header.numFragmentShaders)) {
+	if (!f.ReadArray(diskCachePending_.frag.data(), header.numFragmentShaders)) {
 		diskCachePending_.vert.clear();
 		diskCachePending_.frag.clear();
 		return false;

@@ -258,14 +258,20 @@ void DrawEngineGLES::Flush() {
 		lastUseHwTransform_ = useHWTransform;
 	}
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
-
-	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back. However, this can no longer really happen... Need to fix this.
-
 	GLRBuffer *vertexBuffer = nullptr;
 	GLRBuffer *indexBuffer = nullptr;
 	uint32_t vertexBufferOffset = 0;
 	uint32_t indexBufferOffset = 0;
+
+	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
+	if (!vshader) {
+		// Both the requested shader and the software transform fallback failed to compile.
+		// Not much we can do here, let's skip drawing. Note that the failure is cached.
+		WARN_LOG_N_TIMES(novshader, 5, Log::G3D, "Skipping draw, no vertex shader");
+		goto bail;
+	}
+
+	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back.
 
 	if (useHWTransform) {
 		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
@@ -284,7 +290,6 @@ void DrawEngineGLES::Flush() {
 		int vertexCount;
 		int maxIndex;
 		bool useElements;
-		DecodeVerts(dec_, decoded_);
 		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
 		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
@@ -317,6 +322,11 @@ void DrawEngineGLES::Flush() {
 		ApplyDrawStateLate(false, 0);
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, clipInfoFlags_, false);
+		if (!program) {
+			// Failed to link. No program is bound, so drawing would use whatever was bound before.
+			goto bail;
+		}
+
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
