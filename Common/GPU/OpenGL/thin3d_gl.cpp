@@ -201,7 +201,6 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	case ShaderStage::Vertex: return GL_VERTEX_SHADER;
 #ifndef USING_GLES2
 	case ShaderStage::Compute: return GL_COMPUTE_SHADER;
-	case ShaderStage::Geometry: return GL_GEOMETRY_SHADER;
 #endif
 	case ShaderStage::Fragment:
 	default:

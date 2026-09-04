@@ -822,7 +822,6 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	deviceFeatures_.enabled.standard.samplerAnisotropy = deviceFeatures_.available.standard.samplerAnisotropy;
 	deviceFeatures_.enabled.standard.shaderClipDistance = deviceFeatures_.available.standard.shaderClipDistance;
 	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
-	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
 	deviceFeatures_.enabled.standard.sampleRateShading = deviceFeatures_.available.standard.sampleRateShading;
 
 	// A host application (e.g. a libretro frontend) may require some additional features to be enabled.

@@ -47,7 +47,7 @@ enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
-	USES_GEOMETRY_SHADER = (1 << 3),
+	// Note: (1 << 3) is free, it used to be USES_GEOMETRY_SHADER.
 	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
 	USES_DISCARD = (1 << 5),
 	USES_FLAT_SHADING = (1 << 6),

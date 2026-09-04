@@ -73,7 +73,6 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 				switch (stage) {
 				case VK_SHADER_STAGE_VERTEX_BIT: createTag = "game_vertex"; break;
 				case VK_SHADER_STAGE_FRAGMENT_BIT: createTag = "game_fragment"; break;
-				case VK_SHADER_STAGE_GEOMETRY_BIT: createTag = "game_geometry"; break;
 				case VK_SHADER_STAGE_COMPUTE_BIT: createTag = "game_compute"; break;
 				default: break;
 				}
@@ -378,7 +377,7 @@ struct VulkanCacheHeader {
 	uint32_t detectFlags;
 	int numVertexShaders;
 	int numFragmentShaders;
-	int numGeometryShaders;
+	int unused_numGeometryShaders;  // Always 0, kept so the file format stays compatible.
 };
 
 bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) {
@@ -464,7 +463,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 	}
 
-	NOTICE_LOG(Log::G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
+	NOTICE_LOG(Log::G3D, "ShaderCache: Loaded %d vertex and %d fragment shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, failCount);
 	return true;
 }
 
@@ -476,7 +475,7 @@ void ShaderManagerVulkan::SaveCache(FILE *f, DrawEngineVulkan *drawEngine) {
 	header.detectFlags = 0;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
-	header.numGeometryShaders = 0;
+	header.unused_numGeometryShaders = 0;
 	bool writeFailed = fwrite(&header, sizeof(header), 1, f) != 1;
 	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *vs) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;

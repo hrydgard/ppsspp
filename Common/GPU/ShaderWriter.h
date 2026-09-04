@@ -97,12 +97,10 @@ public:
 	// Simple shaders with no special tricks.
 	void BeginVSMain(Slice<InputDef> inputs, Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
 	void BeginFSMain(Slice<UniformDef> uniforms, Slice<VaryingDef> varyings);
-	void BeginGSMain(Slice<VaryingDef> varyings, Slice<VaryingDef> outVaryings);
 
 	// For simple shaders that output a single color, we can deal with this generically.
 	void EndVSMain(Slice<VaryingDef> varyings);
 	void EndFSMain(const char *vec4_color_variable);
-	void EndGSMain();
 
 	const ShaderLanguageDesc &Lang() const {
 		return lang_;
