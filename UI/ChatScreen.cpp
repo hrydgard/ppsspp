@@ -10,6 +10,7 @@
 #include "Common/UI/UI.h"
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/File/FileUtil.h"  // For the localtime_r shim on Windows.
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Request.h"
 #include "Core/Config.h"
@@ -137,11 +138,13 @@ void ChatMenu::UpdateChat() {
 	using namespace UI;
 	if (chatVert_ != nullptr) {
 		chatVert_->Clear(); //read Access violation is proadhoc.cpp use NULL_->Clear() pointer?
-		std::vector<std::string> chatLog = getChatLog();
-		for (auto i : chatLog) {
+		std::vector<ChatLogEntry> chatLog = getChatLog();
+		for (const auto &entry : chatLog) {
+			const std::string &i = entry.text;
 			uint32_t namecolor = 0x29B6F6;
 			uint32_t textcolor = 0xFFFFFF;
 			uint32_t infocolor = 0xFDD835;
+			uint32_t timecolor = 0x9E9E9E;
 
 			std::string name = g_Config.sNickName;
 			std::string displayname = i.substr(0, i.find(':'));
@@ -150,12 +153,27 @@ void ChatMenu::UpdateChat() {
 				namecolor = 0xE53935;
 			}
 
+			std::string timestamp;
+			if (g_Config.bChatTimestamps) {
+				char buf[16];
+				tm localTime;
+				localtime_r(&entry.timestamp, &localTime);
+				if (strftime(buf, sizeof(buf), "%H:%M ", &localTime)) {
+					timestamp = buf;
+				}
+			}
+
 			if (i.length() <= displayname.length() || i[displayname.length()] != ':') {
-				TextView *v = chatVert_->Add(new TextView(i, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+				// Info line - no name to color separately, so the timestamp can just go in the text.
+				TextView *v = chatVert_->Add(new TextView(timestamp + i, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 				v->SetTextColor(0xFF000000 | infocolor);
 			} else {
 				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 				line->SetSpacing(0.0f);
+				if (!timestamp.empty()) {
+					TextView *timeView = line->Add(new TextView(timestamp, ALIGN_LEFT, true, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f)));
+					timeView->SetTextColor(0xFF000000 | timecolor);
+				}
 				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT, true, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f)));
 				nameView->SetTextColor(0xFF000000 | namecolor);
 

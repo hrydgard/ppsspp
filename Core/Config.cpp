@@ -755,7 +755,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("GfxDebugOutput", SETTING(g_Config, bGfxDebugOutput), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("LogFrameDrops", SETTING(g_Config, bLogFrameDrops), false, CfgFlag::DEFAULT),
 
-	ConfigSetting("InflightFrames", SETTING(g_Config, iInflightFrames), 3, CfgFlag::DEFAULT),
+	ConfigSetting("InflightFrames", SETTING(g_Config, iInflightFrames), 2, CfgFlag::DEFAULT),
 	ConfigSetting("RenderDuplicateFrames", SETTING(g_Config, bRenderDuplicateFrames), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("MultiThreading", SETTING(g_Config, bRenderMultiThreading), true, CfgFlag::DEFAULT),
@@ -1057,6 +1057,7 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableNetworkChat", SETTING(g_Config, bEnableNetworkChat), false, CfgFlag::PER_GAME),
 	ConfigSetting("ChatButtonPosition", SETTING(g_Config, iChatButtonPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("ChatScreenPosition", SETTING(g_Config, iChatScreenPosition), (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
+	ConfigSetting("ChatTimestamps", SETTING(g_Config, bChatTimestamps), true, CfgFlag::PER_GAME),
 	ConfigSetting("EnableQuickChat", SETTING(g_Config, bEnableQuickChat), true, CfgFlag::PER_GAME),
 	ConfigSetting("QuickChat1", SETTING(g_Config, sQuickChat[0]), "Quick Chat 1", CfgFlag::PER_GAME),
 	ConfigSetting("QuickChat2", SETTING(g_Config, sQuickChat[1]), "Quick Chat 2", CfgFlag::PER_GAME),
@@ -1611,6 +1612,9 @@ void Config::PostLoadCleanup() {
 
 	// Clamp save state slot count to somewhat sane limits.
 	iSaveStateSlotCount = std::clamp(iSaveStateSlotCount, 1, 100);
+
+	// Three frames in flight showed no benefit over two, so the option is gone. Squash old values.
+	iInflightFrames = std::clamp(iInflightFrames, 1, 2);
 }
 
 void Config::PreSaveCleanup() {

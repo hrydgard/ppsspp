@@ -120,7 +120,17 @@ sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
 static std::mutex chatLogLock;
-static std::vector<std::string> chatLog;
+static std::vector<ChatLogEntry> chatLog;
+// Enough to scroll back through a decent conversation without growing unbounded.
+static const size_t MAX_CHAT_LOG_LINES = 250;
+
+// chatLogLock must be held.
+static void AddChatLogEntry(std::string text) {
+	chatLog.push_back(ChatLogEntry{std::move(text), time(nullptr)});
+	if (chatLog.size() > MAX_CHAT_LOG_LINES) {
+		chatLog.erase(chatLog.begin(), chatLog.begin() + (chatLog.size() - MAX_CHAT_LOG_LINES));
+	}
+}
 static int chatMessageGeneration = 0;
 static int chatMessageCount = 0;
 
@@ -1322,25 +1332,21 @@ void sendChat(std::string_view chatString) {
 				std::string name = g_Config.sNickName;
 
 				std::lock_guard<std::mutex> guard(chatLogLock);
-				chatLog.emplace_back(name.substr(0, 8) + ": " + chat.message);
+				AddChatLogEntry(name.substr(0, 8) + ": " + chat.message);
 				chatMessageGeneration++;
 			}
 		}
 	} else {
 		std::lock_guard<std::mutex> guard(chatLogLock);
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		chatLog.push_back(std::string(n->T("You're in Offline Mode, go to lobby or online hall")));
+		AddChatLogEntry(std::string(n->T("You're in Offline Mode, go to lobby or online hall")));
 		INFO_LOG(Log::sceNet, "Offline. Would have sent: %.*s", STR_VIEW(chatString));
 		chatMessageGeneration++;
 	}
 }
 
-std::vector<std::string> getChatLog() {
+std::vector<ChatLogEntry> getChatLog() {
 	std::lock_guard<std::mutex> guard(chatLogLock);
-	// If the log gets large, trim it down.
-	if (chatLog.size() > 50) {
-		chatLog.erase(chatLog.begin(), chatLog.begin() + (chatLog.size() - 50));
-	}
 	return chatLog;
 }
 
@@ -1555,7 +1561,7 @@ int friendFinder() {
 						incoming.append((char*)packet->base.message);
 
 						std::lock_guard<std::mutex> guard(chatLogLock);
-						chatLog.push_back(incoming);
+						AddChatLogEntry(incoming);
 						chatMessageGeneration++;
 						chatMessageCount++;
 
@@ -1626,7 +1632,7 @@ int friendFinder() {
 						//joined.append((char *)packet->ip);
 
 						std::lock_guard<std::mutex> guard(chatLogLock);
-						chatLog.push_back(incoming);
+						AddChatLogEntry(incoming);
 						chatMessageGeneration++;
 
 #ifdef LOCALHOST_AS_PEER

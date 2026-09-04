@@ -62,6 +62,22 @@ Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool 
 	return filename;
 }
 
+// The custom shader and theme directories are lower case for legacy reasons, which is confusing
+// since every other directory is upper case - and on a case sensitive file system, like the one
+// iOS uses, the case actually matters. So we prefer the upper case name now, but keep using a
+// lower case directory that already exists, so nobody has to move their files.
+static Path PreferUpperCaseDir(const Path &parent, const char *upperCase, const char *lowerCase) {
+	const Path upper = parent / upperCase;
+	if (File::Exists(upper)) {
+		return upper;
+	}
+	const Path lower = parent / lowerCase;
+	if (File::Exists(lower)) {
+		return lower;
+	}
+	return upper;
+}
+
 Path GetSysDirectory(PSPDirectories directoryType) {
 	const Path &memStickDirectory = g_Config.memStickDirectory;
 	Path pspDirectory;
@@ -109,9 +125,9 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	case DIRECTORY_AUDIO:
 		return pspDirectory / "AUDIO";
 	case DIRECTORY_CUSTOM_SHADERS:
-		return pspDirectory / "shaders";
+		return PreferUpperCaseDir(pspDirectory, "SHADERS", "shaders");
 	case DIRECTORY_CUSTOM_THEMES:
-		return pspDirectory / "themes";
+		return PreferUpperCaseDir(pspDirectory, "THEMES", "themes");
 	case DIRECTORY_NAND:
 		return pspDirectory / "NAND";
 

@@ -61,7 +61,15 @@ bool ZipFileLoader::Initialize(int fileIndex) {
 		ERROR_LOG(Log::IO, "Failed to get name for file index %d", fileIndex);
 		return false;
 	}
+	// Callers (Identify_File and friends) compare against lowercase extensions, like
+	// Path::GetFileExtension returns. Not using tolower to avoid the Turkish I problem.
 	fileExtension_ = KeepIncludingLast(name, '.');
+	for (size_t i = 0; i < fileExtension_.size(); i++) {
+		char c = fileExtension_[i];
+		if (c >= 'A' && c <= 'Z') {
+			fileExtension_[i] = c + ('a' - 'A');
+		}
+	}
 
 	_dbg_assert_(zstat.index == fileIndex);
 	dataFileSize_ = zstat.size;

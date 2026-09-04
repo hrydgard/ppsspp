@@ -611,6 +611,7 @@ public:
 	bool bDontDownloadInfraJson;
 	int iChatButtonPosition;
 	int iChatScreenPosition;
+	bool bChatTimestamps;
 
 	bool bEnableQuickChat;
 	std::string sQuickChat[5];

@@ -512,6 +512,10 @@ typedef struct ciso_header
 // TODO: Need much better error handling.
 
 static const u32 CSO_READ_BUFFER_SIZE = 256 * 1024;
+// The frame size decides how big readBuffer and zlibBuffer are, straight from the header, so
+// without a ceiling a 96-byte file can ask us for a couple of gigabytes. Real images use 2KB
+// through 64KB; this leaves a lot of room above that and still bounds what a header can cost us.
+static const u32 CSO_MAX_FRAME_SIZE = 16 * 1024 * 1024;
 
 CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader)
@@ -536,6 +540,9 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		return;
 	} else if (frameSize < 0x800) {
 		errorString_ = StringFromFormat("CSO block size %i unsupported, must be at least one sector", frameSize);
+		return;
+	} else if (frameSize > CSO_MAX_FRAME_SIZE) {
+		errorString_ = StringFromFormat("CSO block size %u unsupported, too large", frameSize);
 		return;
 	}
 

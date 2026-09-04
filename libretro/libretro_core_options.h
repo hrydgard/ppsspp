@@ -436,10 +436,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       {
          { "No buffer", NULL },
          { "Up to 1",   NULL },
-         { "Up to 2",   NULL },
          { NULL, NULL },
       },
-      "Up to 2"
+      "Up to 1"
    },
    {
       "ppsspp_button_preference",
