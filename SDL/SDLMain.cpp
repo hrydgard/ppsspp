@@ -696,6 +696,17 @@ static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType 
 	filters.push_back("*");
 }
 
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+// Opens a file or folder in whatever the desktop associates with it, without blocking the caller.
+static void LaunchXdgOpen(const std::string &path) {
+	pid_t pid = fork();
+	if (pid == 0) {
+		execlp("xdg-open", "xdg-open", path.c_str(), nullptr);
+		_exit(1);
+	}
+}
+#endif
+
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
@@ -866,14 +877,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 #elif PPSSPP_PLATFORM(MAC)
 		OSXShowInFinder(param1.c_str());
 #elif (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
-		pid_t pid = fork();
-		if (pid < 0)
-			return true;
-
-		if (pid == 0) {
-			execlp("xdg-open", "xdg-open", param1.c_str(), nullptr);
-			exit(1);
-		}
+		LaunchXdgOpen(param1);
 #endif /* PPSSPP_PLATFORM(WINDOWS) */
 		return true;
 	}
@@ -985,6 +989,8 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 #if defined(__APPLE__)
 		// If it's a folder and we're on a mac, open it in finder.
 		OSXShowInFinder(std::string(url).c_str());
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+		LaunchXdgOpen(std::string(url));
 #endif
 		// INFO_LOG(Log::System, "LaunchUrlType::LOCAL_FILE not implemented on this platform");
 		break;
