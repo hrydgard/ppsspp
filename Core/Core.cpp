@@ -275,6 +275,7 @@ const char *CoreStateToString(CoreState state) {
 	switch (state) {
 	case CORE_RUNNING_CPU: return "RUNNING_CPU";
 	case CORE_NEXTFRAME: return "NEXTFRAME";
+	case CORE_REENTER_DISPATCH: return "REENTER_DISPATCH";
 	case CORE_STEPPING_CPU: return "STEPPING_CPU";
 	case CORE_POWERDOWN: return "POWERDOWN";
 	case CORE_RUNTIME_ERROR: return "RUNTIME_ERROR";
@@ -727,7 +728,10 @@ bool Core_NextFrame() {
 
 	_dbg_assert_(coreState != CORE_STEPPING_GE && coreState != CORE_RUNNING_GE);
 
-	if (coreState == CORE_RUNNING_CPU) {
+	if (coreState == CORE_RUNNING_CPU || coreState == CORE_REENTER_DISPATCH) {
+		// REENTER_DISPATCH is just a request to bounce out of the dispatcher and come back in,
+		// so that pending jit cache invalidations get applied. Switching to NEXTFRAME instead
+		// bounces out just as well, and both can happen simultaneously, so need to handle it here.
 		::coreState = CORE_NEXTFRAME;
 		return true;
 	} else if (coreState == CORE_STEPPING_CPU) {
