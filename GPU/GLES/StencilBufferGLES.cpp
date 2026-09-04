@@ -136,8 +136,6 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilReadbackSampler_);
 
 	// We must bind the program after starting the render pass.
-	// Note: scissor to the region we're about to read back, not to (0, 0, w, h) - every caller
-	// passes (0, 0) today, but with a nonzero origin the copy below would read scissored-away pixels.
 	draw_->SetScissorRect(x, y, w, h);
 	draw_->BindPipeline(stencilReadbackPipeline_);
 

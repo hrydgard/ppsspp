@@ -886,9 +886,9 @@ struct CacheHeader {
 	uint32_t version;
 	uint32_t useFlags;
 	uint32_t detectFlags;
-	int numVertexShaders;
-	int numFragmentShaders;
-	int numLinkedPrograms;
+	uint32_t numVertexShaders;
+	uint32_t numFragmentShaders;
+	uint32_t numLinkedPrograms;
 };
 
 bool ShaderManagerGLES::LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine) {
@@ -942,10 +942,8 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	diskCachePending_.start = time_now_d();
 	diskCachePending_.Clear();
 
-	// Sanity check the file contents. Note that the counts are signed, so check for negative too -
-	// otherwise they'd turn into huge sizes in the resize() calls below.
-	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000 ||
-		header.numFragmentShaders < 0 || header.numVertexShaders < 0 || header.numLinkedPrograms < 0) {
+	// Sanity check the file contents. Counts are now unsigned so this is enough.
+	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
 		ERROR_LOG(Log::G3D, "Corrupt shader cache file header, aborting.");
 		return false;
 	}
@@ -960,8 +958,6 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		return false;
 	}
 
-	// Note: ReadArray gets .data(), not &v[0] - the counts can legitimately be zero,
-	// and indexing an empty vector is UB (and asserts in the debug STL).
 	diskCachePending_.vert.resize(header.numVertexShaders);
 	if (!f.ReadArray(diskCachePending_.vert.data(), header.numVertexShaders)) {
 		diskCachePending_.vert.clear();
