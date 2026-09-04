@@ -332,8 +332,15 @@ void DrawEngineD3D11::Flush() {
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
 		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, clipInfoFlags_);
+		if (vshader->Failed() || fshader->Failed()) {
+			WARN_LOG_N_TIMES(d3d11shaderfail, 5, Log::G3D, "Skipping draw, shader compilation failed");
+			goto bail;
+		}
 		ID3D11InputLayout *inputLayout;
-		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
+		if (FAILED(SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout))) {
+			// Can't draw without an input layout - the draw would silently do nothing anyway.
+			goto bail;
+		}
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), false);
@@ -443,6 +450,10 @@ void DrawEngineD3D11::Flush() {
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
 			shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, false, clipInfoFlags_);
+			if (vshader->Failed() || fshader->Failed()) {
+				WARN_LOG_N_TIMES(d3d11shaderfail, 5, Log::G3D, "Skipping draw, shader compilation failed");
+				goto bail;
+			}
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), result.pixelMapped);
@@ -498,6 +509,7 @@ void DrawEngineD3D11::Flush() {
 		}
 	}
 
+bail:
 	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 	gpuCommon_->NotifyFlush();
