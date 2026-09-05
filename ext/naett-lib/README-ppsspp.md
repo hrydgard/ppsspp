@@ -116,3 +116,6 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
   release build that walked into a null dereference. Returns NULL instead.
 - `src/naett_osx.c`: the delegate callbacks ignore a response that's already complete, so a
   cancellation we asked for doesn't overwrite the error that caused it.
+- `src/naett_core.c` / `naett.h`: `naettInit` asserted it was only ever called once, so a caller
+  that can be entered more than again needed a flag purely to guard it. A repeat call is a no-op
+  now, the way `WSAStartup` behaves, and `net::Init` dropped its `g_naettInitialized`.

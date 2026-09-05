@@ -17,6 +17,10 @@ typedef void* naettInitData;
 /**
  * @brief Global init method.
  * Call to initialize the library.
+ *
+ * PPSSPP: calling this more than once is fine - everything after the first call does nothing,
+ * including the platform setup, so the init data from the first call is the one that sticks.
+ * Not thread safe; call it during startup, before anything else can reach the library.
  */
 void naettInit(naettInitData initThing);
 

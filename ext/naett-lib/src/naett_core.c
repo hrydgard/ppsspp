@@ -137,7 +137,12 @@ static void applyOptionParams(InternalRequest* req, InternalOption* option) {
 // Public API
 
 void naettInit(naettInitData initData) {
-    assert(!initialized);
+    // PPSSPP: upstream asserted that this was the first call. Callers that can be entered more
+    // than once then need a flag of their own purely to guard this, which is bookkeeping the
+    // library may as well do itself - so a repeat call is a no-op instead.
+    if (initialized) {
+        return;
+    }
     naettPlatformInit(initData);
     initialized = 1;
 }
