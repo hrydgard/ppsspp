@@ -349,6 +349,11 @@ const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string_view path
 	if (pathLength <= pathIndex)
 		return treeroot;
 
+	if (!treeroot) {
+		// The constructor gave up - no ISO9660 volume descriptor, or it wouldn't read.
+		return nullptr;
+	}
+
 	TreeEntry *entry = treeroot;
 	while (true) {
 		if (!entry->valid) {

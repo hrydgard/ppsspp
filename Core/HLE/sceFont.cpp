@@ -8,6 +8,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Common/StringUtils.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -21,7 +22,12 @@
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Font/PGF.h"
+#include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/System/OSD.h"
 
 constexpr int MAX_FONT_REFS = 4;
 
@@ -81,8 +87,17 @@ struct FontRegistryEntry {
 	u32 fontFileSize;
 	u32 stingySize; // for the FONT_OPEN_INTERNAL_STINGY mode, from pspautotests.
 	bool ignoreIfMissing;
+	// The earliest firmware known to ship this font, as major * 100 + minor, or 0 if every
+	// firmware has it. A game can't want a font that didn't exist when it was made, so this is
+	// what keeps us from forever chasing a file its own disc could never provide.
+	int minFirmware;
 };
 
+// The minFirmware values come from unpacking flash0:/font out of the updater on every disc in a
+// large library, covering firmware 1.50 through 6.60. jpn0 and ltn0..ltn15 are in all of them;
+// kr0.pgf is the only one that ever appeared later, absent in 1.50 and present from 1.52 on.
+// (The updaters carry more than we register: shadow.pgf in 2.00-2.60, gb3s1518.bwfon from 2.60,
+// arib.pgf and imagefont.bin from 3.71.)
 static const FontRegistryEntry fontRegistry[] = {
 	// This was added for Chinese translations and is not normally loaded on a PSP.
 	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0, 1581700, 145844, true },
@@ -103,7 +118,7 @@ static const FontRegistryEntry fontRegistry[] = {
 	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0, 41772, 16436 },
 	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0, 45184, 16272 },
 	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0, 43044, 16704 },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0, 394192, 51856 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0, 394192, 51856, false, 152 },
 };
 
 static const float pointDPI = 72.f;
@@ -872,6 +887,98 @@ static LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 	}
 }
 
+// The real PSP fonts live in flash0, which we only have if the user installed a firmware.
+static const char *const g_nandFontPath = "flash0:/font/";
+
+// The firmware this game was built against, which bounds the fonts it can ask for. Practically
+// all discs declare it in PARAM.SFO, and the version of the updater they carry stands in for the
+// rest. Zero when we can't tell, which asks for nothing beyond the fonts every firmware has.
+static int GameFirmwareVersion() {
+	int version = g_paramSFO.GetSystemVersion();
+	if (version == 0) {
+		version = ParamSFOData::VersionToInt(ReadMountedDiscUpdaterVersion());
+	}
+	return version;
+}
+
+// Whether NAND has the fonts this game could actually ask for. Not every font we know of - an
+// older game's firmware never had the later ones, so requiring those could never be satisfied and
+// we'd unpack the same updater on every launch.
+//
+// One directory listing rather than a stat per font, since on Android's scoped storage the
+// individual checks are slow.
+static bool NandFontsComplete() {
+	const int firmware = GameFirmwareVersion();
+
+	std::string_view fontDir(g_nandFontPath);
+	fontDir.remove_suffix(1);  // GetDirListing doesn't want the trailing slash.
+
+	bool dirExists = false;
+	const std::vector<PSPFileInfo> listing = pspFileSystem.GetDirListing(fontDir, &dirExists);
+	if (!dirExists) {
+		return false;
+	}
+
+	for (const FontRegistryEntry &entry : fontRegistry) {
+		if (entry.ignoreIfMissing) {
+			// zh_gb.pgf, which we added for Chinese translations. No firmware ships it, so
+			// waiting for one to show up would mean never being satisfied.
+			continue;
+		}
+		if (entry.minFirmware > firmware) {
+			// Didn't exist yet when this game was made.
+			continue;
+		}
+		bool found = false;
+		for (const PSPFileInfo &file : listing) {
+			if (equalsNoCase(file.name, entry.fileName)) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			DEBUG_LOG(Log::sceFont, "%s missing from NAND (game wants firmware %d)", entry.fileName, firmware);
+			return false;
+		}
+	}
+	return true;
+}
+
+// Most UMDs carry a firmware updater, so if we're missing real fonts we can pull them out of
+// whatever game is running rather than making the user find an updater themselves. Our bundled
+// substitutes are a good deal worse - some homebrew even trips over them.
+static bool InstallFontsFromDiscUpdater() {
+	if (!MountedDiscHasUpdater()) {
+		return false;
+	}
+
+	INFO_LOG(Log::sceFont, "No fonts in NAND, trying the firmware updater on the disc (%s)",
+		ReadMountedDiscUpdaterVersion().c_str());
+
+	PSARUnpackOptions options;
+	options.model = EmulatedModelGeneration();
+	// Just the fonts - the rest of a firmware is none of our business here.
+	options.prefixFilter = g_nandFontPath;
+
+	PSARUnpackStats stats;
+	std::string error;
+	if (!UnpackUpdaterFromMountedDisc(GetSysDirectory(DIRECTORY_NAND), options, &stats, &error)) {
+		WARN_LOG(Log::sceFont, "Couldn't unpack fonts from the disc's updater: %s", error.c_str());
+		return false;
+	}
+	if (stats.written == 0) {
+		// The updater has no font list for the model we're emulating.
+		WARN_LOG(Log::sceFont, "The disc's updater had no fonts for this PSP model");
+		return false;
+	}
+
+	INFO_LOG(Log::sceFont, "Installed %d font files from the disc's %s updater", stats.written,
+		stats.firmwareVersion.c_str());
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, sy->T("Installed fonts"), stats.firmwareVersion, 3.0f);
+	return true;
+}
+
 static void __LoadInternalFonts() {
 	if (internalFonts.size()) {
 		// Fonts already loaded.
@@ -883,6 +990,8 @@ static void __LoadInternalFonts() {
 	const bool checkClassicOverrides = pspFileSystem.GetFileInfo(fontOverridePath).exists;
 	if (checkClassicOverrides) {
 		WARN_LOG(Log::sceFont, "Classic font overrides active, ignoring NAND: %s", fontOverridePath.c_str());
+	} else if (!NandFontsComplete()) {
+		InstallFontsFromDiscUpdater();
 	}
 
 	if ((pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/zh_gb.pgf").exists) && (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/oldfont.prx").exists)) {
@@ -912,6 +1021,10 @@ static void __LoadInternalFonts() {
 		if (checkClassicOverrides && !bufferRead) {
 			// No game font, let's try classic override path. NOTE: This is not recommended - use flash0.
 			fontFilename = fontOverridePath + entry.fileName;
+			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
+		} else if (!bufferRead) {
+			// The real fonts, from a firmware the user installed or that we took off a disc.
+			fontFilename = std::string(g_nandFontPath) + entry.fileName;
 			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
 		}
 

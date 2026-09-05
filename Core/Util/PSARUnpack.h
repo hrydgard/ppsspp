@@ -67,6 +67,10 @@ enum class PSPModelGeneration {
 };
 
 const char *PSPModelGenerationToString(PSPModelGeneration generation);
+// The model we're claiming to be. An updater carries one file list per hardware revision, and
+// anything the chosen model's list doesn't name isn't part of its firmware, so unpacking this
+// one keeps flash0 consistent with what the emulator reports to games.
+PSPModelGeneration EmulatedModelGeneration();
 // Accepts "01g".."12g", a bare number, or "any". Returns false if it's none of those.
 bool PSPModelGenerationFromString(std::string_view name, PSPModelGeneration *generation);
 
