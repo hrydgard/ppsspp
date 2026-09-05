@@ -62,10 +62,15 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	std::vector<char> buf;
 	// We're non-blocking and reading from an OS buffer, so try to read as much as we can at a time.
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (knownSize >= 65536 * 16) {
 		buf.resize(65536);
 	} else if (knownSize >= 1024 * 16) {
 		buf.resize(knownSize / 16);
+#else 
+	if (knownSize > 8192) {
+		buf.resize(8192);
+#endif // !PPSSPP_PLATFORM(SWITCH)
 	} else {
 		buf.resize(1024);
 	}

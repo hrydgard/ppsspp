@@ -222,6 +222,24 @@ else ifeq ($(platform), tvos-arm64)
 	PLATFORM_EXT = darwin
 	TARGET_ARCH = arm
 
+# Nintendo Switch
+else ifeq ($(platform), libnx)
+   include $(DEVKITPRO)/libnx/switch_rules
+   PIC = 1
+   TARGET := $(TARGET_NAME)_libretro_$(platform).a
+   CPUOPTS := -g -march=armv8-a -mtune=cortex-a57 -mtp=soft -mcpu=cortex-a57+crc+fp+simd
+   PLATCFLAGS = -D__aarch64__ -fPIE -I$(PORTLIBS)/include/ -I$(LIBNX)/include/ -ffunction-sections -fdata-sections -ftls-model=local-exec -DEGL
+   PLATCFLAGS += $(INCLUDE) -D__SWITCH__=1 -DMOBILE_DEVICE -DHAVE_LIBNX
+   # ext/aemu_postoffice's sock_impl.h only reaches for <netinet/in.h> under
+   # __unix/__APPLE__/__PSP__, so on the Switch sockaddr_in stays incomplete.
+   # Stand-in until that submodule learns about __SWITCH__; nothing else in the
+   # compiled set tests __unix (the two libretro-common users spell it __unix__).
+   PLATCFLAGS += -D__unix
+   WITH_DYNAREC = 1
+   STATIC_LINKING = 1
+   HAVE_NEON = 1
+   TARGET_ARCH = arm64
+
 # Android
 else ifneq (,$(findstring android,$(platform)))
 	fpic = -fPIC
@@ -427,9 +445,18 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
-ifneq ($(platform), emscripten)
-	# ffmpeg does not work with emscripten
+COREFLAGS += -D__LIBRETRO__ -DPPSSPP
+
+# The Switch builds neither miniupnp nor glew (see Makefile.common), so the
+# defines that go with them would only promise something that is not there.
+ifneq ($(platform), libnx)
+	COREFLAGS += -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
+endif
+
+# ffmpeg does not work with emscripten. On the Switch the bundled fork has no
+# build, and the portlibs one is far newer than the media code here expects -
+# avcodec_find_decoder returns const AVCodec* there, for one.
+ifeq (,$(filter emscripten libnx,$(platform)))
 	COREFLAGS += -DUSE_FFMPEG
 endif
 
@@ -448,7 +475,7 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   CXXFLAGS += -std=c++17
+   CXXFLAGS += -std=gnu++17
 else
    CXXFLAGS += -std:c++17
 endif
@@ -464,8 +491,8 @@ ifeq ($(GLEW_EGL),1)
 endif
 
 OBJECTS		+= $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(ASMFILES:.S=.o)
-CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
-CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 
 LDFLAGS		+= $(FFMPEGLDFLAGS) $(fpic)
 ifeq (,$(findstring android,$(platform))$(findstring msvc,$(platform)))

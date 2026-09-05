@@ -15,6 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_PLATFORM(SWITCH)
+#include <strings.h>  // strcasecmp: newlib does not reach it through the headers below
+#endif
 #include "Common/Log.h"
 #include "Common/Math/expression_parser.h"
 #include "Common/StringUtils.h"

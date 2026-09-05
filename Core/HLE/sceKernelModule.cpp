@@ -74,6 +74,11 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in Misc.cpp
+extern size_t strnlen(const char *s, size_t maxlen);
+#endif // PPSSPP_PLATFORM(SWITCH)
+
 enum : u32 {
 	// Function exports.
 	NID_MODULE_START = 0xD632ACDB,

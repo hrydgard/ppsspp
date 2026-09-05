@@ -15,6 +15,15 @@
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
+// The EXT spellings come from EXT_clip_cull_distance, which the Switch's GL
+// headers do not carry - the core names are there and hold the same values.
+#if !defined(GL_MAX_CLIP_DISTANCES_EXT) && defined(GL_MAX_CLIP_DISTANCES)
+#define GL_MAX_CLIP_DISTANCES_EXT GL_MAX_CLIP_DISTANCES
+#endif
+#if !defined(GL_MAX_CULL_DISTANCES_EXT) && defined(GL_MAX_CULL_DISTANCES)
+#define GL_MAX_CULL_DISTANCES_EXT GL_MAX_CULL_DISTANCES
+#endif
+
 #include "Common/Log.h"
 
 #if defined(USING_GLES2)

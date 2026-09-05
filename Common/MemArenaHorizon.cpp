@@ -24,6 +24,12 @@
 static uintptr_t memoryBase = 0;
 static uintptr_t memoryCodeBase = 0;
 static uintptr_t memorySrcBase = 0;
+// Held for the lifetime of the process: the two base addresses are looked up
+// once and then kept in the statics above across ReleaseSpace()/Find4GBBase()
+// cycles, so the reservations that keep libnx from handing the same address
+// space to anyone else have to live exactly as long.
+static VirtmemReservation *memoryBaseReservation = nullptr;
+static VirtmemReservation *memoryCodeBaseReservation = nullptr;
 
 size_t MemArena::roundup(size_t x) {
 	return x;
@@ -68,11 +74,42 @@ void MemArena::ReleaseView(s64 offset, void *view, size_t size) {
 u8 *MemArena::Find4GBBase() {
 	memorySrcBase = (uintptr_t)memalign(0x1000, 0x10000000);
 
-	if (!memoryBase)
-		memoryBase = (uintptr_t)virtmemReserve(0x10000000);
+	// The virtmemFind* calls only locate free address space; unlike the
+	// virtmemReserve() they replaced, they do not claim it. libnx wants the
+	// manager mutex held while looking, and a reservation to stand in for the
+	// mapping wherever the range is not mapped on the spot - without one, the
+	// next caller can be handed a slice that overlaps this one.
+	if (!memoryBase || !memoryCodeBase) {
+		virtmemLock();
 
-	if (!memoryCodeBase)
-		memoryCodeBase = (uintptr_t)virtmemReserve(0x10000000);
+		if (!memoryBase) {
+			memoryBase = (uintptr_t)virtmemFindAslr(0x10000000, 0x1000);
+			// Nothing maps this range here - CreateView() maps the individual
+			// views into it later - so the reservation is all that holds it.
+			if (memoryBase)
+				memoryBaseReservation = virtmemAddReservation((void *)memoryBase, 0x10000000);
+		}
+
+		if (!memoryCodeBase) {
+			// This one goes to svcMapProcessCodeMemory(), which wants an
+			// address out of the code memory region rather than general
+			// purpose address space.
+			memoryCodeBase = (uintptr_t)virtmemFindCodeMemory(0x10000000, 0x1000);
+			// ReleaseSpace() unmaps this again while the address stays cached
+			// for the next Find4GBBase(), so it needs holding across that gap
+			// as well.
+			if (memoryCodeBase)
+				memoryCodeBaseReservation = virtmemAddReservation((void *)memoryCodeBase, 0x10000000);
+		}
+
+		virtmemUnlock();
+	}
+
+	if (!memorySrcBase || !memoryBase || !memoryCodeBase || !memoryBaseReservation || !memoryCodeBaseReservation) {
+		printf("Failed to reserve the address space... src: %p base: %p code: %p\n",
+			   (void *)memorySrcBase, (void *)memoryBase, (void *)memoryCodeBase);
+		return nullptr;
+	}
 
 	if (R_FAILED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)memoryCodeBase, (u64)memorySrcBase, 0x10000000)))
 		printf("Failed to map memory...\n");
