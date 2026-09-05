@@ -1709,8 +1709,14 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			gpu->BeginHostFrame(displayLayoutConfig);
 		}
 
-		// Freeze-frame functionality (loads a savestate on every frame).
-		if (PSP_CoreParameter().freezeNext) {
+		// Freeze-frame functionality (loads a savestate on every frame). It's a savestate load
+		// like any other, so it's banned in hardcore mode - and checked here rather than only
+		// where it's toggled, since hardcore mode can come up after the fact, once the game
+		// has been identified.
+		if (Achievements::HardcoreModeActive()) {
+			PSP_CoreParameter().freezeNext = false;
+			PSP_CoreParameter().frozen = false;
+		} else if (PSP_CoreParameter().freezeNext) {
 			PSP_CoreParameter().frozen = true;
 			PSP_CoreParameter().freezeNext = false;
 			SaveState::SaveToRam(freezeState_);

@@ -196,17 +196,15 @@ int g_screenshotFailures;
 		pspFileSystem.DoState(p);
 	}
 
-	// Hardcore mode bans loading savestates outright, and saving too unless the user opted
-	// back into that.
-	bool BannedInHardcoreMode(OperationType type) {
-		if (!Achievements::HardcoreModeActive()) {
-			return false;
-		}
-		return !(g_Config.bAchievementsSaveStateInHardcoreMode && type == OperationType::Save);
-	}
-
 	void Enqueue(const SaveState::Operation &op) {
-		if (!NetworkAllowSaveState() || BannedInHardcoreMode(op.type)) {
+		if (!NetworkAllowSaveState()) {
+			return;
+		}
+		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
+		// back into that. Callers that ask WarnUserIfHardcoreModeActive themselves never get
+		// this far, so there's no double message - this is for the paths that go straight to
+		// the queue, like --state and auto-load.
+		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
 			return;
 		}
 
@@ -816,9 +814,8 @@ int g_screenshotFailures;
 			// read as active yet. An operation queued in that window (a hotkey press, --state,
 			// auto-load) passed the check in Enqueue and would otherwise be applied here, after
 			// identification has finished and hardcore mode has come up.
-			if (BannedInHardcoreMode(op.type)) {
+			if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
 				WARN_LOG(Log::SaveState, "Dropping queued savestate operation - hardcore mode is active");
-				Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save);
 				continue;
 			}
 
