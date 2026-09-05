@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <limits>
 
 #include "ppsspp_config.h"
 
@@ -721,8 +722,15 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		png.format = PNG_FORMAT_RGBA;
 
 		std::vector<uint8_t> &out = data_[mipLevel];
-		// TODO: Should probably try to handle out-of-memory gracefully here.
-		out.resize(level.w * level.h * 4);
+		const size_t width = (size_t)level.w;
+		const size_t height = (size_t)level.h;
+		if (level.w <= 0 || level.h <= 0 ||
+			width > std::numeric_limits<size_t>::max() / height ||
+			width * height > std::numeric_limits<size_t>::max() / 4) {
+			ERROR_LOG(Log::TexReplacement, "PNG replacement dimensions are too large: %s (%dx%d)", filename.c_str(), level.w, level.h);
+			return LoadLevelResult::LOAD_ERROR;
+		}
+		out.resize(width * height * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
 			out.resize(0);
