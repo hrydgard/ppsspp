@@ -26,11 +26,11 @@ HTTPSRequest::~HTTPSRequest() {
 // The response body, and the flag that stops it arriving. naett hands us chunks on its own
 // transfer thread, and there's no way to make it stop and be sure it has: naettClose only really
 // cancels on Android, and waiting for the others would mean blocking shutdown. So the buffer it
-// writes into is refcounted separately from the request - if we go away first, the sink stays
-// alive and a late chunk lands somewhere harmless instead of in a destroyed object.
+// writes into is owned separately from the request, and that ownership can move - if we go away
+// first, the sink is handed off rather than destroyed, and a late chunk lands somewhere that
+// still exists instead of in a destroyed object.
 struct NaettBodySink {
 	Buffer buffer;
-	int length = 0;
 	// Written by us, read by the transfer thread.
 	std::atomic<bool> cancelled{false};
 };
@@ -40,7 +40,7 @@ struct NaettBodySink {
 // while a callback might still be in flight, and neither can these, so both are deliberately
 // leaked. Allocated with new and never deleted, so it can't be destroyed out from under a late
 // callback during static destruction either.
-static std::vector<std::shared_ptr<NaettBodySink>> *g_abandonedSinks = new std::vector<std::shared_ptr<NaettBodySink>>();
+static std::vector<std::unique_ptr<NaettBodySink>> *g_abandonedSinks = new std::vector<std::unique_ptr<NaettBodySink>>();
 
 int HTTPSRequest::WriteBodyThunk(const void *source, int bytes, void *userData) {
 	NaettBodySink *sink = (NaettBodySink *)userData;
@@ -54,7 +54,6 @@ int HTTPSRequest::WriteBodyThunk(const void *source, int bytes, void *userData) 
 	}
 	char *dest = sink->buffer.Append((size_t)bytes);
 	memcpy(dest, source, bytes);
-	sink->length += bytes;
 	return bytes;
 }
 
@@ -88,7 +87,7 @@ void HTTPSRequest::Start() {
 	options.push_back(naettTimeout(30 * 1000));  // milliseconds
 	// Our own writer, so that Cancel() can actually stop a transfer rather than just relabelling
 	// it once it finishes.
-	sink_ = std::make_shared<NaettBodySink>();
+	sink_ = std::make_unique<NaettBodySink>();
 	// In case someone managed to cancel us between construction and here.
 	sink_->cancelled = cancelled_;
 	options.push_back(naettBodyWriter(&HTTPSRequest::WriteBodyThunk, sink_.get()));
@@ -142,8 +141,7 @@ void HTTPSRequest::Join() {
 		WARN_LOG(Log::HTTP, "Abandoning an unfinished request to '%s' - shutting down", url_.c_str());
 		if (sink_) {
 			sink_->cancelled = true;
-			g_abandonedSinks->push_back(sink_);
-			sink_.reset();
+			g_abandonedSinks->push_back(std::move(sink_));
 		}
 		res_ = nullptr;
 		req_ = nullptr;
@@ -168,8 +166,8 @@ bool HTTPSRequest::Done() {
 	// -1000 is a code specified by us to represent cancellation, that is unlikely to ever collide with naett error codes.
 	resultCode_ = IsCancelled() ? -1000 : naettGetStatus(res_);
 	// The body arrived in the sink as it was read; take it over now that nothing else will touch it.
-	const int bodyLength = sink_ ? sink_->length : 0;
-	if (sink_ && bodyLength > 0) {
+	const int bodyLength = sink_ ? (int)sink_->buffer.size() : 0;
+	if (bodyLength > 0) {
 		buffer_.Append(sink_->buffer);
 	}
 	if (resultCode_ < 0) {

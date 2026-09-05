@@ -1,7 +1,8 @@
 #pragma once
 
-#include <thread>
+#include <memory>
 #include <string_view>
+#include <thread>
 
 #include "Common/Net/HTTPRequest.h"
 
@@ -10,6 +11,8 @@
 #include "ext/naett-lib/naett.h"
 
 namespace http {
+
+struct NaettBodySink;
 
 // Really an asynchronous request.
 class HTTPSRequest : public Request {
@@ -36,10 +39,10 @@ private:
 	bool completed_ = false;
 	bool failed_ = false;
 
-	// Where the response body lands. Deliberately not a member of this object: naett writes into
-	// it from its own transfer thread, and that can outlive us if we're torn down before the
-	// request finishes. See NaettBodySink in the .cpp.
-	std::shared_ptr<struct NaettBodySink> sink_;
+	// Where the response body lands. Deliberately not part of this object: naett writes into it
+	// from its own transfer thread, and that can outlive us if we're torn down before the request
+	// finishes, so ownership has to be able to move elsewhere. See NaettBodySink in the .cpp.
+	std::unique_ptr<NaettBodySink> sink_;
 
 	// Naett state
 	naettReq *req_ = nullptr;
