@@ -54,3 +54,11 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
   `naettPlatformCloseResponse`.
 - `src/naett_objc.h`: `addMethod`/`addIvar` reported failure with `assert` only, so in release a
   delegate could silently come up without its methods. They print as well now.
+- `src/naett_win.c`: the header sizing call only reports a size when it fails with
+  `ERROR_INSUFFICIENT_BUFFER`; on any other failure the size stayed zero and `unpackHeaders` ran
+  `wcslen` over a `malloc(0)` block. Checked, and the second query's result is checked too.
+- `src/naett_win.c`: `winToUTF8`/`winFromUTF8`/`wcsndup` could all return NULL and every caller
+  used the result unchecked - `packHeaders` most visibly, whose result is indexed as
+  `headers[0]`. All checked now.
+- `src/naett_win.c`: `res->bytesLeft` is unsigned, so a read longer than the announced count
+  wrapped it into an enormous value and kept the read loop running.
