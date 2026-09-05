@@ -71,6 +71,17 @@ private:
 	bool HasCheatWithName(const std::string &name);
 	bool RebuildCheatFile(int index);
 
+	// Works out the folder/comment nesting from the PSPAR structure codes in fileInfo_.
+	void ComputeCheatLayout();
+
+	struct CheatLayout {
+		int depth = 0;                 // How deep in folders, for indentation.
+		bool isComment = false;        // Show as text rather than a checkbox.
+		bool isFolder = false;         // This entry is a folder header.
+		int singleSelectParent = -1;   // Enclosing single-select folder, if any.
+	};
+	std::vector<CheatLayout> layout_;
+
 	CWCheatEngine *engine_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
 	std::string gameID_;

@@ -106,6 +106,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
+#include "Core/CwCheat.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -2446,6 +2447,55 @@ bool TestInputMapping() {
 	return true;
 }
 
+// The PSPAR/TempAR folder and comment codes (_M 0xCF00000n) organize the cheat list. See #21257.
+bool TestCheatStructureCodes() {
+	Path tempRoot = Path("unittest_cheat_test");
+	File::DeleteDirRecursively(tempRoot);
+	EXPECT_TRUE(File::CreateDir(tempRoot));
+	Path cheatFile = tempRoot / "cheats.db";
+
+	const char *contents =
+		"_S ULUS-10000\n"
+		"_G Test Game\n"
+		"_C0 Speed\n"
+		"_M 0xCF000000 0x00000002\n"   // single select folder, next two entries are inside it
+		"_C1 Double\n"
+		"_L 0x20000000 0x00000002\n"
+		"_C1 Quadruple\n"
+		"_L 0x20000000 0x00000004\n"
+		"_C0 Read me\n"
+		"_M 0xCF000001 0x00000001\n"   // comment, and so is the entry after it
+		"_C0 Turning both speeds on is a bad idea\n"
+		"_L 0x20000000 0x00000000\n"
+		"_C1 Infinite health\n"
+		"_L 0x20000000 0x00000063\n";
+	EXPECT_TRUE(File::WriteStringToFile(false, contents, cheatFile));
+
+	CheatFileParser parser(cheatFile, "ULUS10000");
+	// The structure codes must not be reported as unsupported TempAR codes.
+	EXPECT_TRUE(parser.Parse());
+	EXPECT_EQ_INT((int)parser.GetErrors().size(), 0);
+
+	const std::vector<CheatFileInfo> &info = parser.GetFileInfo();
+	EXPECT_EQ_INT((int)info.size(), 6);
+	EXPECT_EQ_INT((int)info[0].structure, (int)CheatStructure::SingleSelectFolder);
+	EXPECT_EQ_INT(info[0].subItems, 2);
+	EXPECT_EQ_INT((int)info[1].structure, (int)CheatStructure::None);
+	EXPECT_EQ_INT((int)info[2].structure, (int)CheatStructure::None);
+	EXPECT_EQ_INT((int)info[3].structure, (int)CheatStructure::Comment);
+	EXPECT_EQ_INT(info[3].subItems, 1);
+	EXPECT_EQ_INT((int)info[5].structure, (int)CheatStructure::None);
+
+	// A folder carries no cheat lines of its own, so it can't turn into a runnable cheat.
+	for (const auto &cheat : parser.GetCheats()) {
+		EXPECT_FALSE(cheat.name == "Speed");
+		EXPECT_FALSE(cheat.name == "Read me");
+	}
+
+	File::DeleteDirRecursively(tempRoot);
+	return true;
+}
+
 bool TestEscapeMenuString() {
 	char c;
 	std::string temp = UnescapeMenuString("&File", &c);
@@ -3010,6 +3060,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(InputMapping),
+	TEST_ITEM(CheatStructureCodes),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
 	TEST_ITEM(Substitutions),
