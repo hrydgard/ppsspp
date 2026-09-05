@@ -14,7 +14,13 @@ void naettPlatformInit(naettInitData initData) {
 
 static char* winToUTF8(LPWSTR source) {
     int length = WideCharToMultiByte(CP_UTF8, 0, source, -1, NULL, 0, NULL, NULL);
+    if (length <= 0) {
+        return NULL;
+    }
     char* chars = (char*)malloc(length);
+    if (chars == NULL) {
+        return NULL;
+    }
     int result = WideCharToMultiByte(CP_UTF8, 0, source, -1, chars, length, NULL, NULL);
     if (!result) {
         free(chars);
@@ -25,7 +31,13 @@ static char* winToUTF8(LPWSTR source) {
 
 static LPWSTR winFromUTF8(const char* source) {
     int length = MultiByteToWideChar(CP_UTF8, 0, source, -1, NULL, 0);
+    if (length <= 0) {
+        return NULL;
+    }
     LPWSTR chars = (LPWSTR)malloc(length * sizeof(WCHAR));
+    if (chars == NULL) {
+        return NULL;
+    }
     int result = MultiByteToWideChar(CP_UTF8, 0, source, -1, chars, length);
     if (!result) {
         free(chars);
@@ -43,6 +55,9 @@ static LPWSTR winFromUTF8(const char* source) {
 
 static LPWSTR wcsndup(LPCWSTR str, size_t len) {
     LPWSTR result = calloc(1, sizeof(WCHAR) * (len + 1));
+    if (result == NULL) {
+        return NULL;
+    }
     wcsncpy(result, str, len);
     return result;
 }
@@ -69,6 +84,10 @@ static void unpackHeaders(InternalResponse* res, LPWSTR packed) {
     KVLink* firstHeader = NULL;
     while ((len = wcslen(packed)) != 0) {
         char* header = winToUTF8(packed);
+        if (header == NULL) {
+            packed += len + 1;
+            continue;
+        }
         char* split = strchr(header, ':');
         if (split) {
             *split = 0;
@@ -94,6 +113,9 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
 
     switch (status) {
         case WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE: {
+            // PPSSPP: the sizing call only fills in bufSize when it fails with
+            // ERROR_INSUFFICIENT_BUFFER. Any other failure left it at zero, and unpackHeaders
+            // then ran wcslen over a malloc(0) block.
             DWORD bufSize = 0;
             WinHttpQueryHeaders(request,
                 WINHTTP_QUERY_RAW_HEADERS,
@@ -101,15 +123,18 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
                 NULL,
                 &bufSize,
                 WINHTTP_NO_HEADER_INDEX);
-            LPWSTR buffer = (LPWSTR)malloc(bufSize);
-            WinHttpQueryHeaders(request,
-                WINHTTP_QUERY_RAW_HEADERS,
-                WINHTTP_HEADER_NAME_BY_INDEX,
-                buffer,
-                &bufSize,
-                WINHTTP_NO_HEADER_INDEX);
-            unpackHeaders(res, buffer);
-            free(buffer);
+            if (bufSize >= sizeof(WCHAR)) {
+                LPWSTR buffer = (LPWSTR)calloc(1, bufSize + sizeof(WCHAR));
+                if (buffer != NULL && WinHttpQueryHeaders(request,
+                        WINHTTP_QUERY_RAW_HEADERS,
+                        WINHTTP_HEADER_NAME_BY_INDEX,
+                        buffer,
+                        &bufSize,
+                        WINHTTP_NO_HEADER_INDEX)) {
+                    unpackHeaders(res, buffer);
+                }
+                free(buffer);
+            }
 
             const char* contentLength = naettGetHeader((naettRes*)res, "Content-Length");
             if (!contentLength || sscanf(contentLength, "%d", &res->contentLength) != 1) {
@@ -157,7 +182,9 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
                 res->complete = 1;
             }
             res->totalBytesRead += (int)bytesRead;
-            res->bytesLeft -= bytesRead;
+            // PPSSPP: bytesLeft is unsigned, so a read longer than announced used to wrap it
+            // into an enormous count and keep the read loop going.
+            res->bytesLeft = bytesRead >= res->bytesLeft ? 0 : res->bytesLeft - bytesRead;
             if (res->bytesLeft > 0) {
                 size_t bytesToRead = min(res->bytesLeft, sizeof(res->buffer));
                 if (!WinHttpReadData(request, res->buffer, (DWORD)bytesToRead, NULL)) {
@@ -212,6 +239,9 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
 
 int naettPlatformInitRequest(InternalRequest* req) {
     LPWSTR url = winFromUTF8(req->url);
+    if (url == NULL) {
+        return 0;
+    }
 
     URL_COMPONENTS components;
     ZeroMemory(&components, sizeof(components));
@@ -230,6 +260,9 @@ int naettPlatformInitRequest(InternalRequest* req) {
     req->host = wcsndup(components.lpszHostName, components.dwHostNameLength);
     req->resource = wcsndup(components.lpszUrlPath, components.dwUrlPathLength + components.dwExtraInfoLength);
     free(url);
+    if (req->host == NULL || req->resource == NULL) {
+        return 0;
+    }
 
     LPWSTR uaBuf = winFromUTF8(req->options.userAgent ? req->options.userAgent : NAETT_UA);
     req->session = WinHttpOpen(uaBuf,
@@ -269,6 +302,12 @@ int naettPlatformInitRequest(InternalRequest* req) {
     }
 
     LPCWSTR headers = packHeaders(req);
+    if (headers == NULL) {
+        // PPSSPP: only happens if a header didn't survive the UTF-8 conversion, but upstream
+        // indexed straight into it.
+        naettPlatformFreeRequest(req);
+        return 0;
+    }
     if (headers[0] != 0) {
         if (!WinHttpAddRequestHeaders(
                 req->request, headers, -1, WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE)) {
@@ -326,6 +365,20 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
+    // PPSSPP: this used to be empty. The status callback carries the response as its context, so
+    // once it's freed any further completion writes through a dangling pointer. Unhook the
+    // callback and close the request handle, which stops new ones being raised.
+    //
+    // This is not a full cancel: a callback already running on another thread isn't waited for,
+    // which would need the WINHTTP_CALLBACK_STATUS_HANDLE_CLOSING handshake. Closing a response
+    // that hasn't completed still isn't supported here - see naettClose in naett.h.
+    InternalRequest* req = res->request;
+    if (req == NULL || req->request == NULL) {
+        return;
+    }
+    WinHttpSetStatusCallback(req->request, NULL, WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0);
+    WinHttpCloseHandle(req->request);
+    req->request = NULL;
 }
 
 #endif  // __WINDOWS__
