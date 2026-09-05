@@ -214,6 +214,14 @@ Keep commit messages focused, not overly long (although sometimes it's motivated
 is super complex). Do not report things like 100/100 tests passed - that's a given, if tests break
 you aren't supposed to make a commit.
 
+Omit the session marker.
+
+## Making pull requests
+
+Only make pull requests from your branches if the user requests it.
+
+Prefix your PR messages with this: "### Claude says". Also omit the session marker.
+
 ## Code style
 
 4-wide tabs, not spaces.
@@ -232,10 +240,13 @@ Style example:
 class MyClass {
 public:
   MyClass(int memberVar) : memberVar_(memberVar) {}
-  int MemberFunc();
+  int MemberFunc() const {
+    int localVar = 0;
+  }
 
 private:
   int memberVar_;
+  int initializedMemberVar_ = 0;
 }
 ```
 
