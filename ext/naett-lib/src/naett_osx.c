@@ -105,18 +105,31 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
         id allHeaders = objc_msgSend_t(id)(response, sel("allHeaderFields"));
 
         NSUInteger headerCount = objc_msgSend_t(NSUInteger)(allHeaders, sel("count"));
-        id headerNames[headerCount];
-        id headerValues[headerCount];
-
-        objc_msgSend_t(NSInteger, id*, id*, NSUInteger)(
-            allHeaders, sel("getObjects:andKeys:count:"), headerValues, headerNames, headerCount);
+        // PPSSPP: this was a pair of VLAs sized straight from the response, so a server with
+        // enough headers ran the stack out - and a response with none at all is a zero-length
+        // VLA, which is undefined on its own. Heap, and nothing to do when there are none.
         KVLink* firstHeader = NULL;
-        for (int i = 0; i < headerCount; i++) {
-            naettAlloc(KVLink, node);
-            node->key = strdup(objc_msgSend_t(const char*)(headerNames[i], sel("UTF8String")));
-            node->value = strdup(objc_msgSend_t(const char*)(headerValues[i], sel("UTF8String")));
-            node->next = firstHeader;
-            firstHeader = node;
+        if (headerCount > 0) {
+            id* headerNames = (id*)calloc(headerCount, sizeof(id));
+            id* headerValues = (id*)calloc(headerCount, sizeof(id));
+            if (headerNames != NULL && headerValues != NULL) {
+                objc_msgSend_t(NSInteger, id*, id*, NSUInteger)(
+                    allHeaders, sel("getObjects:andKeys:count:"), headerValues, headerNames, headerCount);
+                for (NSUInteger i = 0; i < headerCount; i++) {
+                    const char* key = objc_msgSend_t(const char*)(headerNames[i], sel("UTF8String"));
+                    const char* value = objc_msgSend_t(const char*)(headerValues[i], sel("UTF8String"));
+                    if (key == NULL || value == NULL) {
+                        continue;
+                    }
+                    naettAlloc(KVLink, node);
+                    node->key = strdup(key);
+                    node->value = strdup(value);
+                    node->next = firstHeader;
+                    firstHeader = node;
+                }
+            }
+            free(headerNames);
+            free(headerValues);
         }
         res->headers = firstHeader;
 
@@ -156,6 +169,10 @@ static id createDelegate(void) {
         addMethod(TaskDelegateClass, "URLSession:dataTask:didReceiveData:", didReceiveData, "v@:@@@");
         addMethod(TaskDelegateClass, "URLSession:task:didCompleteWithError:", didComplete, "v@:@@@");
         addIvar(TaskDelegateClass, "response", sizeof(void*), "^v");
+        // PPSSPP: a class from objc_allocateClassPair isn't usable until it's registered, and
+        // upstream never did - it went straight to +alloc. Methods, protocols and ivars all have
+        // to be added before this call, which is why it comes last.
+        objc_registerClassPair(TaskDelegateClass);
     }
 
     id delegate = objc_msgSend_id((id)TaskDelegateClass, sel("alloc"));
@@ -179,6 +196,10 @@ void naettPlatformMakeRequest(InternalResponse* res) {
         delegate,
         nil);
 
+    // PPSSPP: sessionWithConfiguration: hands back an autoreleased session, and the pool below
+    // is drained before we return. It survived on NSURLSession keeping itself alive while tasks
+    // run, but we hold the pointer until naettClose, so hold a reference to go with it.
+    retain(session);
     res->session = session;
 
     id task = objc_msgSend_t(id, id)(session, sel("dataTaskWithRequest:"), req->urlRequest);
@@ -193,7 +214,11 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
+    if (res->session == nil) {
+        return;
+    }
     objc_msgSend_void(res->session, sel("invalidateAndCancel"));
+    release(res->session);
     res->session = nil;
 }
 

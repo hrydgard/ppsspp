@@ -43,3 +43,14 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
 - `src/naett_linux.c`: `headerCallback` only handed its `strndup` to the header list when the
   line had a colon, and leaked it otherwise. curl passes the status line and the blank line that
   ends the header block, so that leaked at least twice per response.
+- `src/naett_osx.c`: the delegate class was built with `objc_allocateClassPair` and then used
+  without ever calling `objc_registerClassPair`, which the runtime requires before the class can
+  be instantiated. Registered now, after the methods and ivar are added.
+- `src/naett_osx.c`: the response header arrays were VLAs sized from the server's header count -
+  unbounded stack use from network data, and a zero-length VLA when a response had no headers.
+  They're heap allocations now, skipped entirely when there are none.
+- `src/naett_osx.c`: the `NSURLSession` was stored in the response without a `retain`, though the
+  autorelease pool it came from is drained before returning. Retained, and released in
+  `naettPlatformCloseResponse`.
+- `src/naett_objc.h`: `addMethod`/`addIvar` reported failure with `assert` only, so in release a
+  delegate could silently come up without its methods. They print as well now.
