@@ -807,8 +807,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		// Launch into specified start screen. This is useful for testing UI, more screens can be easily added here.
 		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
 			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new TouchTestScreen(Path()));
 		}
-		g_screenManager->push(new TouchTestScreen(Path()));
 		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {

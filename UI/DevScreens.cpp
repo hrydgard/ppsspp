@@ -894,7 +894,7 @@ void TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 
 void TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 	g_Config.Save("GameSettingsScreen::RenderingBackend");
-	System_RestartApp("--touchscreentest");
+	System_RestartApp("--start-screen=touchscreentest");
 }
 
 void TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
