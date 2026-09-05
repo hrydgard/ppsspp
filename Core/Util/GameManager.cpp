@@ -549,6 +549,7 @@ std::string GameManager::GetPBPGameID(FileLoader *loader) const {
 }
 
 std::string GameManager::GetISOGameID(FileLoader *loader) const {
+	static constexpr s64 MAX_PARAM_SFO_SIZE = 1024 * 1024;
 	SequentialHandleAllocator handles;
 	std::string errorString;
 	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(loader, &errorString));
@@ -566,10 +567,16 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	if (handle < 0) {
 		return "";
 	}
+	if (info.size < 0 || info.size > MAX_PARAM_SFO_SIZE) {
+		WARN_LOG(Log::Loader, "Ignoring implausibly large PARAM.SFO (%lld bytes)", (long long)info.size);
+		umd.CloseFile(handle);
+		return "";
+	}
 
 	std::string sfoData;
-	sfoData.resize(info.size);
-	umd.ReadFile(handle, (u8 *)&sfoData[0], info.size);
+	sfoData.resize((size_t)info.size);
+	if (info.size > 0)
+		umd.ReadFile(handle, (u8 *)sfoData.data(), info.size);
 	umd.CloseFile(handle);
 
 	ParamSFOData sfo;

@@ -302,6 +302,20 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				ERROR_LOG(Log::FileSystem, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
+			// The directory record is untrusted, and callers size host buffers from entry->size, so
+			// don't let it claim more data than the image actually contains. We clamp rather than
+			// drop the entry - truncated ISOs are common and used to work with just the warning
+			// above, and dropping EBOOT.BIN would turn that into an unbootable game. For a sane
+			// file this is a no-op, since the extent always fits in its sectors.
+			if (isFile) {
+				const u64 numBlocks = blockDevice->GetNumBlocks();
+				const u64 firstSector = dir.firstDataSector;
+				const s64 availableBytes = firstSector >= numBlocks ? 0 : (s64)((numBlocks - firstSector) * (u64)sectorSize);
+				if (entry->size > availableBytes) {
+					entry->size = availableBytes;
+				}
+			}
+
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
 					blockDevice->NotifyReadError();
@@ -485,7 +499,11 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		}
 
 		VolDescriptor desc;
-		blockDevice->ReadBlock(16, (u8 *)&desc);
+		if (!blockDevice->ReadBlock(16, (u8 *)&desc)) {
+			blockDevice->NotifyReadError();
+			ERROR_LOG(Log::FileSystem, "Failed to read volume descriptor for the path table");
+			return SCE_KERNEL_ERROR_ERRNO_IO_ERROR;
+		}
 		if (outlen < (u32)desc.pathTableLength) {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		} else {
@@ -503,7 +521,9 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 				u8 temp[2048];
 				// `blocks` whole sectors starting at `block` were already consumed by
 				// ReadBlocks() above, so the trailing partial sector is the next one.
-				blockDevice->ReadBlock(block + blocks, temp);
+				if (!blockDevice->ReadBlock(block + blocks, temp)) {
+					memset(temp, 0, sizeof(temp));
+				}
 				memcpy(out, temp, size);
 			}
 			return 0;
@@ -602,7 +622,11 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 
 		const u8 *const start = pointer;
 		if (firstBlockSize > 0) {
-			blockDevice->ReadBlock(secNum++, theSector);
+			// theSector is uninitialized stack memory, so on a failed read we must not copy it out -
+			// that would hand host stack contents to the game.
+			if (!blockDevice->ReadBlock(secNum++, theSector)) {
+				memset(theSector, 0, sizeof(theSector));
+			}
 			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
 			pointer += firstBlockSize;
 		}
@@ -613,7 +637,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			pointer += middleSize;
 		}
 		if (lastBlockSize > 0) {
-			blockDevice->ReadBlock(secNum++, theSector);
+			if (!blockDevice->ReadBlock(secNum++, theSector)) {
+				memset(theSector, 0, sizeof(theSector));
+			}
 			memcpy(pointer, theSector, lastBlockSize);
 			pointer += lastBlockSize;
 		}
