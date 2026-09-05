@@ -868,11 +868,21 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		return false;
 	}
 
-	const u32_le *entryPos = (const u32_le *)Memory::GetPointerUnchecked(module->libstub);
+	const u32_le *entryStart = (const u32_le *)Memory::GetPointerUnchecked(module->libstub);
+	const u32_le *entryPos = entryStart;
 	const u32_le *entryEnd = (const u32_le *)Memory::GetPointerUnchecked(module->libstubend);
 
 	bool needReport = false;
 	while (entryPos < entryEnd) {
+		// The range check above only covers up to libstubend, but a final entry starting just
+		// short of it extends past. Make sure the whole struct is in mapped memory before reading.
+		const u32 entryAddr = module->libstub + (u32)(entryPos - entryStart) * sizeof(u32);
+		if (!Memory::IsValidRange(entryAddr, sizeof(PspLibStubEntry))) {
+			ERROR_LOG_REPORT(Log::Loader, "Module stub entry at %08x runs off the end of memory", entryAddr);
+			needReport = true;
+			break;
+		}
+
 		const PspLibStubEntry *entry = (const PspLibStubEntry *)entryPos;
 		entryPos += entry->size;
 
@@ -901,8 +911,9 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 
 		// If nidData is 0, only variables are being imported.
 		if (entry->numFuncs > 0 && entry->nidData != 0) {
-			if (!Memory::IsValidAddress(entry->nidData)) {
-				ERROR_LOG_REPORT(Log::Loader, "Crazy nidData address %08x, skipping entire module", entry->nidData);
+			// Note: the whole array has to be valid, not just the first word - numFuncs comes from the module.
+			if (!Memory::IsValidRange(entry->nidData, entry->numFuncs * sizeof(u32))) {
+				ERROR_LOG_REPORT(Log::Loader, "Crazy nidData address %08x (%d funcs), skipping entire module", entry->nidData, entry->numFuncs);
 				needReport = true;
 				continue;
 			}
@@ -930,8 +941,9 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		// We skip vars when reimporting, since we might double-offset.
 		// We only reimport funcs, which can't be double-offset.
 		if (entry->numVars > 0 && entry->varData != 0 && !reimporting) {
-			if (!Memory::IsValidAddress(entry->varData)) {
-				ERROR_LOG_REPORT(Log::Loader, "Crazy varData address %08x, skipping rest of module", entry->varData);
+			// Note: the whole array has to be valid, not just the first word - numVars comes from the module.
+			if (!Memory::IsValidRange(entry->varData, entry->numVars * 8)) {
+				ERROR_LOG_REPORT(Log::Loader, "Crazy varData address %08x (%d vars), skipping rest of module", entry->varData, entry->numVars);
 				needReport = true;
 				continue;
 			}
@@ -949,12 +961,20 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 				}
 
 				WriteVarSymbolState state;
+				// The relocation list is zero terminated, but the terminator comes from the module,
+				// so bound the scan by what's actually mapped from varRefsPtr on.
+				const u32 maxRefs = Memory::ClampValidSizeAt(varRefsPtr, 0x01000000) / sizeof(u32);
 				const u32_le *varRef = (const u32_le *)Memory::GetPointerUnchecked(varRefsPtr);
-				for (; *varRef != 0; ++varRef) {
+				const u32_le *varRefEnd = varRef + maxRefs;
+				for (; varRef < varRefEnd && *varRef != 0; ++varRef) {
 					var.nid = nid;
 					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
 					var.type = *varRef >> 26;
 					module->ImportVar(state, var);
+				}
+				if (varRef == varRefEnd) {
+					WARN_LOG_REPORT(Log::Loader, "Unterminated relocation list for nid %08x in %s", nid, modulename);
+					needReport = true;
 				}
 			}
 		} else if (entry->numVars > 0 && !reimporting) {
@@ -969,6 +989,11 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		std::string debugInfo;
 		entryPos = (const u32_le *)Memory::GetPointerOrException(module->libstub);
 		while (entryPos < entryEnd) {
+			// Same partial-entry check as the loop above.
+			const u32 entryAddr = module->libstub + (u32)(entryPos - entryStart) * sizeof(u32);
+			if (!Memory::IsValidRange(entryAddr, sizeof(PspLibStubEntry)))
+				break;
+
 			const PspLibStubEntry *entry = (const PspLibStubEntry *)entryPos;
 			entryPos += entry->size;
 

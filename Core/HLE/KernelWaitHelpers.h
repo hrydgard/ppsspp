@@ -29,6 +29,21 @@
 namespace HLEKernel
 {
 
+// Cancels the pending timeout event for a wait that's being satisfied, and writes the time
+// remaining back to the game.
+// Note the clamp: UnscheduleEvent returns the scheduled time minus the current time, which goes
+// negative when the event is already overdue but hasn't been processed yet. Without the clamp we'd
+// write a huge bogus timeout back into the game's variable.
+inline void WriteRemainingTimeout(int waitTimer, SceUID threadID, u32 timeoutPtr) {
+	if (timeoutPtr == 0 || waitTimer == -1)
+		return;
+
+	s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
+	if (cyclesLeft < 0)
+		cyclesLeft = 0;
+	Memory::WriteOrException_U32((u32)cyclesToUs(cyclesLeft), timeoutPtr);
+}
+
 // Should be called from the CoreTiming handler for the wait func.
 template <typename KO, WaitType waitType>
 inline void WaitExecTimeout(SceUID threadID) {

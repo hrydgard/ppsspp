@@ -144,6 +144,13 @@ struct Mbx : public KernelObject {
 
 			nmb.packetListHead = next;
 			c++;
+			// The list is circular and should come back around to ptr within numMessages steps.
+			// A corrupt list can contain a loop that doesn't include ptr, and without this we'd
+			// just keep following it - every pointer in it is valid, so nothing else stops us.
+			if (c > nmb.numMessages) {
+				ERROR_LOG(Log::sceKernel, "Mbx message list doesn't loop back to the head, corrupt?");
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			}
 		}
 
 		// Tell the receiver about the message.
@@ -200,12 +207,7 @@ static bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error,
 		return true;
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-	if (timeoutPtr != 0 && mbxWaitTimer != -1)
-	{
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(mbxWaitTimer, th.threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;

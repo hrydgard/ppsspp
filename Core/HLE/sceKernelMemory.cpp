@@ -465,11 +465,7 @@ static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && fplWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(fplWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(fplWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
@@ -556,6 +552,12 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		alignment = 4;
 
 	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
+	// The size check above uses 4 byte alignment, but the caller can ask for much more than that,
+	// so the aligned total can still overflow - and then we'd allocate a small block while
+	// numBlocks stays huge, handing out block addresses outside it.
+	if ((u64)(u32)alignedSize * (u64)numBlocks > 0xFFFFFFFFULL)
+		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
+
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = allocator->Alloc(totalSize, atEnd, StringFromFormat("FPL/%s", name).c_str());
@@ -847,7 +849,9 @@ public:
 	}
 
 	BlockAllocator *alloc;
-	u32 address;
+	// Note: the savestate constructor doesn't allocate, and DoState bails out if the section is
+	// missing - so this needs a value the destructor won't try to free.
+	u32 address = (u32)-1;
 	char name[32];
 };
 
@@ -1247,11 +1251,7 @@ static bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && vplWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(vplWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
@@ -1443,7 +1443,7 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate) {
 	// If in FIFO mode, that may have cleared another thread to wake up.
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO) {
-		bool wokeThreads;
+		bool wokeThreads = false;
 		std::vector<VplWaitingThread>::iterator iter = vpl->waitingThreads.begin();
 		// Unlock every waiting thread until the first that must still wait.
 		while (iter != vpl->waitingThreads.end() && __KernelUnlockVplForThread(vpl, *iter, error, 0, wokeThreads)) {
@@ -1908,6 +1908,11 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 
 	// Upalign.  Strangely, the sceKernelReferTlsplStatus value is the original.
 	u32 alignedSize = (blockSize + alignment - 1) & ~(alignment - 1);
+	// The size check above uses 4 byte alignment, but the caller can ask for much more than that,
+	// so the aligned total can still overflow - and then we'd allocate a small block while
+	// totalBlocks stays huge, handing out block addresses outside it.
+	if ((u64)alignedSize * (u64)count > 0xFFFFFFFFULL)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
 
 	u32 totalSize = alignedSize * count;
 	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, StringFromFormat("TLS/%s", name).c_str());
