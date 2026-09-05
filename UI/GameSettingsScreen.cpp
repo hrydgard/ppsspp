@@ -1151,6 +1151,15 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new RemoteISOScreen(gamePath_));
 	});
+
+	tools->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
+	if (!enableReportsSet_)
+		enableReports_ = Reporting::IsEnabled();
+	enableReportsSet_ = true;
+	CheckBox *enableReportsCheckbox;
+	enableReportsCheckbox = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
+	enableReportsCheckbox->SetEnabledFunc([]() { return Reporting::IsSupported(); });
+	tools->Add(enableReportsCheckbox);
 }
 
 void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
@@ -1364,15 +1373,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
 	UI::PopupSliderChoice *sizeChoice = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, 16, sy->T("Memory Stick size", "Memory Stick size"), screenManager(), "GB"));
 	sizeChoice->SetFormat("%d GB");
-
-	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	if (!enableReportsSet_)
-		enableReports_ = Reporting::IsEnabled();
-	enableReportsSet_ = true;
-	CheckBox *enableReportsCheckbox;
-	enableReportsCheckbox = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
-	enableReportsCheckbox->SetEnabledFunc([]() { return Reporting::IsSupported(); });
-	systemSettings->Add(enableReportsCheckbox);
 
 	systemSettings->Add(new ItemHeader(sy->T("Emulation")));
 
