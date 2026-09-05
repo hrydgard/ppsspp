@@ -14,6 +14,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdatomic.h>
+#include <errno.h>
 
 static pthread_t workerThread;
 static int handleReadFD = 0;
@@ -21,8 +23,9 @@ static int handleWriteFD = 0;
 
 // PPSSPP: upstream had a panic() here that called exit(1). Taking the whole application
 // down because a download failed isn't acceptable for us, so failures now leave the
-// backend disabled and requests complete with naettGenericError instead.
-static int workerRunning = 0;
+// backend disabled and requests complete with naettGenericError instead. Atomic because
+// the worker writes it while the request path reads it.
+static atomic_int workerRunning = 0;
 
 static void fail(const char* message) {
     fprintf(stderr, "naett: %s\n", message);
@@ -62,6 +65,8 @@ static void* curlWorker(void* data) {
             curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &responseCode);
             res->code = (int)responseCode;
             res->complete = 1;
+            // PPSSPP: curl wants the easy handle out of the multi before it's cleaned up.
+            curl_multi_remove_handle(mc, handle);
             curl_easy_cleanup(handle);
         }
 
@@ -73,7 +78,10 @@ static void* curlWorker(void* data) {
             usleep(100 * 1000);
         }
 
-        int bytesRead = read(handleReadFD, newHandle.buf, sizeof(newHandle.buf) - newHandlePos);
+        // PPSSPP: upstream always read into the start of the buffer while tracking a position,
+        // so a short read would have restarted mid-pointer and handed curl a mangled handle. A
+        // write of this size to a pipe is atomic, which is the only reason it never bit.
+        int bytesRead = read(handleReadFD, newHandle.buf + newHandlePos, sizeof(newHandle.buf) - newHandlePos);
         if (bytesRead > 0) {
             newHandlePos += bytesRead;
         }
@@ -99,6 +107,7 @@ void naettPlatformInit(naettInitData initData) {
     int fds[2];
     if (pipe(fds) != 0) {
         fail("failed to open pipe");
+        curl_multi_cleanup(mc);
         return;
     }
     handleReadFD = fds[0];
@@ -113,25 +122,38 @@ void naettPlatformInit(naettInitData initData) {
     workerRunning = 1;
     if (pthread_create(&workerThread, &attr, curlWorker, mc) != 0) {
         fail("failed to start the HTTP worker thread");
+        // PPSSPP: nothing owns any of this now that there's no worker.
+        close(handleReadFD);
+        close(handleWriteFD);
+        handleReadFD = handleWriteFD = -1;
+        curl_multi_cleanup(mc);
     }
+    pthread_attr_destroy(&attr);
 }
 
 int naettPlatformInitRequest(InternalRequest* req) {
     return 1;
 }
 
+// PPSSPP: the body callbacks return int, and curl reads the result as a size_t - so a negative
+// return used to come through as an enormous count rather than as the error it is. Returning
+// something other than what curl asked for aborts the transfer, which is what we want.
 static size_t readCallback(char* buffer, size_t size, size_t numItems, void* userData) {
     InternalResponse* res = (InternalResponse*)userData;
     InternalRequest* req = res->request;
-    return req->options.bodyReader(buffer, size * numItems, req->options.bodyReaderData);
+    int bytesRead = req->options.bodyReader(buffer, (int)(size * numItems), req->options.bodyReaderData);
+    return bytesRead > 0 ? (size_t)bytesRead : 0;
 }
 
 static size_t writeCallback(char* ptr, size_t size, size_t numItems, void* userData) {
     InternalResponse* res = (InternalResponse*)userData;
     InternalRequest* req = res->request;
-    size_t bytesWritten = req->options.bodyWriter(ptr, size * numItems, req->options.bodyWriterData);
+    int bytesWritten = req->options.bodyWriter(ptr, (int)(size * numItems), req->options.bodyWriterData);
+    if (bytesWritten <= 0) {
+        return 0;
+    }
     res->totalBytesRead += bytesWritten;
-    return bytesWritten;
+    return (size_t)bytesWritten;
 }
 
 #define METHOD(A, B, C) (((A) << 16) | ((B) << 8) | (C))
@@ -220,6 +242,11 @@ void naettPlatformMakeRequest(InternalResponse* res) {
     }
 
     CURL* c = curl_easy_init();
+    if (c == NULL) {
+        res->code = naettGenericError;
+        res->complete = 1;
+        return;
+    }
     curl_easy_setopt(c, CURLOPT_URL, req->url);
     curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT_MS, (long)req->options.timeoutMS);
 
@@ -263,7 +290,21 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 
     curl_easy_setopt(c, CURLOPT_PRIVATE, res);
 
-    write(handleWriteFD, &c, sizeof(c));
+    // PPSSPP: this is the only thing that hands the request to the worker. Upstream ignored the
+    // result, so a failed write meant a request that never ran and never completed - the caller
+    // then waits on naettComplete forever.
+    ssize_t written = write(handleWriteFD, &c, sizeof(c));
+    while (written < 0 && errno == EINTR) {
+        written = write(handleWriteFD, &c, sizeof(c));
+    }
+    if (written != (ssize_t)sizeof(c)) {
+        fprintf(stderr, "naett: couldn't queue a request for the HTTP worker\n");
+        curl_slist_free_all(headerList);
+        res->headerList = NULL;
+        curl_easy_cleanup(c);
+        res->code = naettGenericError;
+        res->complete = 1;
+    }
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {

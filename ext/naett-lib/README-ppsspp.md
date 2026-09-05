@@ -62,3 +62,18 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
   `headers[0]`. All checked now.
 - `src/naett_win.c`: `res->bytesLeft` is unsigned, so a read longer than the announced count
   wrapped it into an enormous value and kept the read loop running.
+- `src/naett_linux.c`: the worker read the queued `CURL*` out of the pipe into the start of its
+  buffer while tracking a fill position, so a short read would have resumed mid-pointer and
+  handed curl a mangled handle. Only ever safe because a write that size to a pipe is atomic.
+- `src/naett_linux.c`: the easy handle is removed from the multi before being cleaned up, which
+  is what curl asks for. `curl_multi_remove_handle` and `curl_multi_cleanup` were added to the
+  dlopen table in `naett_curl.h`/`naett_curl.c` for this.
+- `src/naett_linux.c`: `workerRunning` is written by the worker and read by the request path, so
+  it's an `atomic_int` now rather than a plain `int`.
+- `src/naett_linux.c`: the `write` that hands a request to the worker was unchecked - a failed
+  one meant a request that never ran and never completed, so the caller polled `naettComplete`
+  forever. Also retries on `EINTR`, and `curl_easy_init` failure is handled.
+- `src/naett_linux.c`: the read and write callbacks returned the body callbacks' `int` straight
+  to curl, which reads it as a `size_t` - a negative arrived as an enormous count instead of an
+  error.
+- `src/naett_linux.c`: the multi handle and the pipe leaked when init failed partway.
