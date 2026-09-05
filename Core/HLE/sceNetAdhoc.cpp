@@ -1907,13 +1907,13 @@ void __AdhocNotifInit() {
 	sendTargetPeers.clear();
 }
 
-static void aemu_postoffice_server_log(const char *format, ...){
+static void aemu_postoffice_server_log(const char *format, ...) {
 	char log_buf[1024] = {0};
 	va_list args;
 	va_start(args, format);
 	int len = vsnprintf(log_buf, sizeof(log_buf), format, args);
 	va_end(args);
-	if (len < 1024 && log_buf[len - 1] == '\n'){
+	if (len < 1024 && log_buf[len - 1] == '\n') {
 		log_buf[len - 1] = '\0';
 	}
 	INFO_LOG(Log::sceNet, "%s", log_buf);
@@ -1959,11 +1959,11 @@ void __NetAdhocInit() {
 				if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
 					break;
 				}
-				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE){
+				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE) {
 					wait_time = std::chrono::milliseconds(100);
 				}
 				auto time_taken = now - std::chrono::high_resolution_clock::now();
-				if (time_taken < wait_time){
+				if (time_taken < wait_time) {
 					std::this_thread::sleep_for(wait_time - time_taken);
 				}
 			}
