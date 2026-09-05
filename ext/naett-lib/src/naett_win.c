@@ -365,6 +365,20 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
+    // PPSSPP: this used to be empty. The status callback carries the response as its context, so
+    // once it's freed any further completion writes through a dangling pointer. Unhook the
+    // callback and close the request handle, which stops new ones being raised.
+    //
+    // This is not a full cancel: a callback already running on another thread isn't waited for,
+    // which would need the WINHTTP_CALLBACK_STATUS_HANDLE_CLOSING handshake. Closing a response
+    // that hasn't completed still isn't supported here - see naettClose in naett.h.
+    InternalRequest* req = res->request;
+    if (req == NULL || req->request == NULL) {
+        return;
+    }
+    WinHttpSetStatusCallback(req->request, NULL, WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0);
+    WinHttpCloseHandle(req->request);
+    req->request = NULL;
 }
 
 #endif  // __WINDOWS__

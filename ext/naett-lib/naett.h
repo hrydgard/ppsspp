@@ -131,6 +131,12 @@ naettReq* naettGetRequest(naettRes* response);
 
 /**
  * @brief Closes a response object.
+ *
+ * PPSSPP: the response should be complete (see `naettComplete`) before closing it. Only the
+ * Android backend actually cancels an in-flight request and waits for its worker; the others
+ * stop what they can and return, so a transfer already inside a callback on another thread can
+ * still be running as this returns. Closing an incomplete response is therefore not safe in
+ * general - wait for it, or let it leak, which is what we do on shutdown.
  */
 void naettClose(naettRes* response);
 

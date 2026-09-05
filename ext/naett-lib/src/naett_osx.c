@@ -98,6 +98,12 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     id p = pool();
 
     object_getInstanceVariable(self, "response", (void**)&res);
+    // PPSSPP: didComplete already checked this; this one didn't, and the delegate outlives the
+    // response when a session is invalidated.
+    if (res == NULL) {
+        release(p);
+        return;
+    }
 
     if (res->headers == NULL) {
         id response = objc_msgSend_t(id)(dataTask, sel("response"));
@@ -139,10 +145,15 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
         }
     }
 
+    if (res->request == NULL) {
+        release(p);
+        return;
+    }
+
     const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
     NSUInteger length = objc_msgSend_t(NSUInteger)(data, sel("length"));
 
-    res->request->options.bodyWriter(bytes, length, res->request->options.bodyWriterData);
+    res->request->options.bodyWriter(bytes, (int)length, res->request->options.bodyWriterData);
     res->totalBytesRead += (int)length;
 
     release(p);
@@ -216,6 +227,13 @@ void naettPlatformFreeRequest(InternalRequest* req) {
 void naettPlatformCloseResponse(InternalResponse* res) {
     if (res->session == nil) {
         return;
+    }
+    // PPSSPP: invalidateAndCancel returns before the session is done with its delegate, so clear
+    // the back pointer the delegate holds - a callback that lands afterwards then sees NULL
+    // rather than a freed response.
+    id delegate = objc_msgSend_t(id)(res->session, sel("delegate"));
+    if (delegate != nil) {
+        object_setInstanceVariable(delegate, "response", NULL);
     }
     objc_msgSend_void(res->session, sel("invalidateAndCancel"));
     release(res->session);

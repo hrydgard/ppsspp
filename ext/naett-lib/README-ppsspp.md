@@ -88,3 +88,15 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
 - `src/naett_android.c`: `GetMethodID` returns NULL for a method it can't find, and calling with
   a NULL `jmethodID` aborts the VM; the header loop could also hand `GetStringUTFChars` a null
   value for a header with no entries.
+- `src/naett_core.c`: `naettClose` cleared `res->request` before calling the backend's close,
+  which is the one thing the backend needs - the WinHTTP handles hang off the request. The
+  backend goes first now.
+- `naett.h`: documented that a response should be complete before it's closed. Only the Android
+  backend really cancels and waits.
+- `src/naett_win.c`: `naettPlatformCloseResponse` was empty, so the status callback kept the
+  freed response as its context. Unhooks the callback and closes the request handle. Not a full
+  cancel - a callback already running isn't waited for, which would need the
+  `WINHTTP_CALLBACK_STATUS_HANDLE_CLOSING` handshake.
+- `src/naett_osx.c`: `invalidateAndCancel` returns before the session lets go of its delegate, so
+  the delegate's back pointer to the response is cleared first, and `didReceiveData` checks it
+  (as `didCompleteWithError` already did).

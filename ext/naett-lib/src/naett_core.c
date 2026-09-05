@@ -416,8 +416,10 @@ void naettClose(naettRes* response) {
     assert(response != NULL);
 
     InternalResponse* res = (InternalResponse*)response;
-    res->request = NULL;
+    // PPSSPP: the backends need the request to shut a response down - it owns the handles on
+    // Windows, for one - so clear it after they've had their turn, not before.
     naettPlatformCloseResponse(res);
+    res->request = NULL;
     KVLink* node = res->headers;
     freeKVList(node);
     free(res->body.data);
