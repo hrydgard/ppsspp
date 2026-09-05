@@ -204,6 +204,15 @@ private:
 
 extern DisassemblyManager g_disassemblyManager;
 
+// Drops the cached disassembly. Call this when what it describes - emulated memory and the symbol
+// map - goes away. DisassemblyManager.cpp isn't built for libretro (see libretro/Makefile.common),
+// so there it's a no-op, the same way the WebSocket debugger entry points are.
+#ifdef __LIBRETRO__
+inline void ClearDisassemblyCache() {}
+#else
+void ClearDisassemblyCache();
+#endif
+
 bool isInInterval(u32 start, u32 size, u32 value);
 bool IsLikelyStringAt(uint32_t addr);
 

@@ -209,7 +209,6 @@ CtrlDisAsmView::~CtrlDisAsmView()
 {
 	DeleteObject(font);
 	DeleteObject(boldfont);
-	g_disassemblyManager.clear();
 }
 
 static COLORREF scaleColor(COLORREF color, float factor)

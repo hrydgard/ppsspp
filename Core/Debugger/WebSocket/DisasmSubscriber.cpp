@@ -37,9 +37,6 @@ public:
 	WebSocketDisasmState() {
 		g_disassemblyManager.setCpu(currentDebugMIPS);
 	}
-	~WebSocketDisasmState() {
-		g_disassemblyManager.clear();
-	}
 
 	void Base(DebuggerRequest &req);
 	void Disasm(DebuggerRequest &req);
