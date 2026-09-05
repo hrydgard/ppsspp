@@ -89,11 +89,35 @@ void HTTPSRequest::Start() {
 	// Our own writer, so that Cancel() can actually stop a transfer rather than just relabelling
 	// it once it finishes.
 	sink_ = std::make_shared<NaettBodySink>();
+	// In case someone managed to cancel us between construction and here.
+	sink_->cancelled = cancelled_;
 	options.push_back(naettBodyWriter(&HTTPSRequest::WriteBodyThunk, sink_.get()));
 
 	const naettOption **opts = (const naettOption **)options.data();
 	req_ = naettRequestWithOptions(url_.c_str(), (int)options.size(), opts);
+	if (!req_) {
+		// naett couldn't set the request up - a URL it can't parse, most likely. Fail it here
+		// rather than handing a null to naettMake.
+		ERROR_LOG(Log::HTTP, "Couldn't create a request for '%s'", url_.c_str());
+		resultCode_ = naettGenericError;
+		failed_ = true;
+		completed_ = true;
+		sink_.reset();
+		progress_.Update(0, 0, true);
+		return;
+	}
 	res_ = naettMake(req_);
+	if (!res_) {
+		ERROR_LOG(Log::HTTP, "Couldn't start a request for '%s'", url_.c_str());
+		naettFree(req_);
+		req_ = nullptr;
+		resultCode_ = naettGenericError;
+		failed_ = true;
+		completed_ = true;
+		sink_.reset();
+		progress_.Update(0, 0, true);
+		return;
+	}
 
 	progress_.Update(0, 0, false);
 }
@@ -129,8 +153,10 @@ void HTTPSRequest::Join() {
 bool HTTPSRequest::Done() {
 	if (completed_)
 		return true;
-
-	_dbg_assert_(res_ != nullptr);
+	if (!res_) {
+		// Never started, or already let go of. Nothing left to wait for.
+		return true;
+	}
 
 	if (!naettComplete(res_)) {
 		int total = 0;
@@ -163,6 +189,10 @@ bool HTTPSRequest::Done() {
 			break;
 		case naettGenericError:  // -5
 			ERROR_LOG(Log::HTTP, "Generic error");
+			break;
+		case -1000:
+			// Ours, not naett's - see above. Cancelling is a normal thing to do, not an error.
+			INFO_LOG(Log::HTTP, "Request to '%s' cancelled", url_.c_str());
 			break;
 		default:
 			ERROR_LOG(Log::HTTP, "Unhandled naett error %d", resultCode_);

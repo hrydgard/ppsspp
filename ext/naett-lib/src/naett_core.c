@@ -310,6 +310,12 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
 naettRes* naettMake(naettReq* request) {
     assert(initialized);
     assert(request != NULL);
+    // PPSSPP: naettRequest* returns NULL when the platform can't set the request up - a URL it
+    // can't parse, most likely - and the assert above is compiled out in release, so this used to
+    // walk straight into a null dereference.
+    if (request == NULL) {
+        return NULL;
+    }
 
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);

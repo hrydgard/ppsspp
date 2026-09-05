@@ -107,3 +107,12 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
   the data just keeps arriving.
 - `naett.h`: documented what the body writer's return value means, since three of the four
   backends' behaviour depends on it.
+- `src/naett_win.c`: a short write from the body writer marked the request complete and then
+  queued another read anyway, so the transfer carried on and WinHTTP kept writing into a
+  response the caller was by then free to close. It stops there now, and the callback returns
+  early for anything raised after the request is complete.
+- `src/naett_core.c`: `naettMake` only asserted that the request wasn't NULL, and the request
+  constructors return NULL when the platform can't set one up - a URL it can't parse, say. In a
+  release build that walked into a null dereference. Returns NULL instead.
+- `src/naett_osx.c`: the delegate callbacks ignore a response that's already complete, so a
+  cancellation we asked for doesn't overwrite the error that caused it.

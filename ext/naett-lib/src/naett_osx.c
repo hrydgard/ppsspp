@@ -100,7 +100,8 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     object_getInstanceVariable(self, "response", (void**)&res);
     // PPSSPP: didComplete already checked this; this one didn't, and the delegate outlives the
     // response when a session is invalidated.
-    if (res == NULL) {
+    if (res == NULL || res->complete) {
+        // PPSSPP: once complete, the caller may already be closing this - don't touch it further.
         release(p);
         return;
     }
@@ -174,6 +175,11 @@ static void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
     InternalResponse* res = NULL;
     object_getInstanceVariable(self, "response", (void**)&res);
     if (res != NULL) {
+        // PPSSPP: if we already failed the request - a writer that wouldn't take the data, say -
+        // that's the reason we want reported, not the cancellation it caused.
+        if (res->complete) {
+            return;
+        }
         if (error != nil) {
             res->code = naettConnectionError;
         }
