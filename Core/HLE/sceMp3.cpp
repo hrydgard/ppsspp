@@ -60,9 +60,6 @@
 //
 // BUGS
 //
-// Custom music plays but starts stuttering:
-// * Beats
-//
 // Custom music just repeats a small section:
 // * Crazy Taxi
 

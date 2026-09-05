@@ -577,9 +577,29 @@ int AuCtx::AuStreamBytesNeeded() {
 		// stream instead of what the hardware reports.
 		if ((int64_t)readPos >= (int64_t)endPos)
 			return 0;
-		// Account for the workarea.
-		int offset = AuStreamWorkareaSize();
-		return (int)AuBufSize - AuBufAvailable - offset;
+
+		// The area after the workarea is double buffered: the game may write ahead up to the end
+		// of the half that follows the one the decoder is currently reading from, so a half only
+		// opens up once the decoder has consumed past its end. Decoding a single frame therefore
+		// usually frees nothing at all, which is what the hardware reports (audio/mp3/checkneeded).
+		// Games depend on it: Beats sleeps 50ms every time sceMp3CheckStreamDataNeeded() says it's
+		// behind, so handing back the bytes each decode consumed made it sleep once per frame and
+		// fall to less than half of realtime - badly stuttering custom soundtracks.
+		//
+		// Every case seen so far - the two hardware tests, Beats and Wipeout Pulse - passes the
+		// minimum 8192 byte buffer, so the split being exactly half is unverified for anything
+		// larger. If a game with a bigger buffer ever streams badly, suspect this first: the real
+		// granularity could be a fixed chunk size rather than half of whatever it was given.
+		int half = AuStreamHalfSize();
+		if (half <= 0)
+			return 0;
+		int64_t written = (int64_t)readPos - (int64_t)startPos;
+		int64_t consumed = written - AuBufAvailable;
+		// Floor division - consumed can go negative if a game notifies a negative size.
+		int64_t halvesDone = consumed / half - ((consumed % half < 0) ? 1 : 0);
+		// Note that this is deliberately not clamped to the buffer size. The hardware reports
+		// 6721 bytes to write for an 8192 byte buffer after notifying a size of -1.
+		return (int)std::max((int64_t)0, (halvesDone + 2) * half - written);
 	}
 
 	// TODO: Untested.  Maybe similar to MP3.
@@ -593,12 +613,29 @@ int AuCtx::AuStreamWorkareaSize() {
 	return 0;
 }
 
+// Size of each of the two halves the stream buffer is split into, after the workarea.
+int AuCtx::AuStreamHalfSize() {
+	return ((int)AuBufSize - AuStreamWorkareaSize()) / 2;
+}
+
+// Offset into the stream buffer (past the workarea) that the next added bytes go to. The write
+// position simply walks the two halves in turn and wraps around, it doesn't follow the decoder.
+int AuCtx::AuStreamWriteOffset() {
+	int size = AuStreamHalfSize() * 2;
+	if (size <= 0)
+		return 0;
+	int64_t pos = ((int64_t)readPos - (int64_t)startPos) % size;
+	if (pos < 0)
+		pos += size;
+	return (int)pos;
+}
+
 // check how many bytes we have read from source file
 u32 AuCtx::AuNotifyAddStreamData(int size) {
 	int offset = AuStreamWorkareaSize();
 	// Where AuGetInfoToAddStreamData pointed the game, i.e. where the bytes it just added start.
-	// Data accumulates in the buffer rather than always landing at the beginning.
-	const int writeOffset = AuBufAvailable;
+	// Has to be sampled before readPos moves on below.
+	const int writeOffset = AuStreamWriteOffset();
 
 	if (askedReadSize != 0) {
 		// Old save state, numbers already adjusted.
@@ -634,11 +671,11 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	int readsize = AuStreamBytesNeeded();
 	int offset = AuStreamWorkareaSize();
 
-	// The game appends to what's already buffered, so point it past that rather than at the
-	// start of the work area - the hardware's pointer walks forward as data is added.
+	// The write position walks forward through the two halves as data is added and wraps around,
+	// so point the game at that rather than at the start of the work area.
 	if (readsize != 0) {
 		if (Memory::IsValidAddress(bufPtr))
-			Memory::WriteUnchecked_U32(AuBuf + offset + AuBufAvailable, bufPtr);
+			Memory::WriteUnchecked_U32(AuBuf + offset + AuStreamWriteOffset(), bufPtr);
 		if (Memory::IsValidAddress(sizePtr))
 			Memory::WriteUnchecked_U32(readsize, sizePtr);
 		if (Memory::IsValidAddress(srcPosPtr))

@@ -64,6 +64,8 @@ public:
 	int AuCheckStreamDataNeeded();
 	int AuStreamBytesNeeded();
 	int AuStreamWorkareaSize();
+	int AuStreamHalfSize();
+	int AuStreamWriteOffset();
 	u32 AuResetPlayPosition();
 	u32 AuResetPlayPositionByFrame(int position);
 	u32 AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr);
