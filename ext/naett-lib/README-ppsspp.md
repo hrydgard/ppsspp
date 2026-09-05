@@ -33,3 +33,13 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
 - `src/naett_linux.c`: `curl_easy_setopt` is varargs and takes a `long` for these options;
   upstream passed `int` literals and `int` variables, which is UB on LP64 (and what curl's own
   typecheck macros warn about). They're `1L`/`(long)` now.
+- `src/naett_core.c`: `naettFree` never freed `options.userAgent`, though it's `strdup`'d by
+  the same setter as `method`. Leaked once per request for every caller that sets a user agent,
+  which we do on all of them.
+- `src/naett_core.c`: `defaultBodyWriter` doubled an `int` capacity until it fit, which is signed
+  overflow on a large response, and used the `realloc` result without checking it - losing the
+  old pointer and then `memcpy`ing through NULL. Grows in `int64_t` against `INT_MAX` and
+  reports failure by returning short, which every caller already treats as an error.
+- `src/naett_linux.c`: `headerCallback` only handed its `strndup` to the header list when the
+  line had a colon, and leaked it otherwise. curl passes the status line and the blank line that
+  ends the header block, so that leaked at least twice per response.

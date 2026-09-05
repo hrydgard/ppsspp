@@ -1,6 +1,8 @@
 #include "naett_internal.h"
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <limits.h>
 #include <stddef.h>
 #include <string.h>
 #include <assert.h>
@@ -81,18 +83,34 @@ static int defaultBodyReader(void* dest, int bufferSize, void* userData) {
     return bytesToRead;
 }
 
+// PPSSPP: `bytes` and the resulting capacity come off the network, so the growth has to be
+// done in a type that can't wrap into a negative capacity, and a failed realloc has to leave
+// the buffer we already have intact. Returning short is how this reports failure - every
+// caller compares the result against what it asked to write and errors the request out.
 static int defaultBodyWriter(const void* source, int bytes, void* userData) {
     Buffer* buffer = (Buffer*) userData;
-    int newCapacity = buffer->capacity;
-    if (newCapacity == 0) {
-        newCapacity = bytes;
+    if (bytes <= 0) {
+        return 0;
     }
-    while (newCapacity - buffer->size < bytes) {
-        newCapacity *= 2;
-    }
-    if (newCapacity != buffer->capacity) {
-        buffer->data = realloc(buffer->data, newCapacity);
-        buffer->capacity = newCapacity;
+    if (buffer->capacity - buffer->size < bytes) {
+        int64_t newCapacity = buffer->capacity > 0 ? buffer->capacity : bytes;
+        while (newCapacity - buffer->size < bytes) {
+            newCapacity *= 2;
+            if (newCapacity > INT_MAX) {
+                newCapacity = INT_MAX;
+                break;
+            }
+        }
+        if (newCapacity - buffer->size < bytes) {
+            // Doesn't fit in the int sizes this struct uses.
+            return 0;
+        }
+        void* newData = realloc(buffer->data, (size_t)newCapacity);
+        if (newData == NULL) {
+            return 0;
+        }
+        buffer->data = newData;
+        buffer->capacity = (int)newCapacity;
     }
     char* dest = ((char*)buffer->data) + buffer->size;
     memcpy(dest, source, bytes);
@@ -388,6 +406,8 @@ void naettFree(naettReq* request) {
     KVLink* node = req->options.headers;
     freeKVList(node);
     free((void*)req->options.method);
+    // PPSSPP: userAgent is strdup'd by stringSetter like method is, and was never freed.
+    free((void*)req->options.userAgent);
     free((void*)req->url);
     free(request);
 }

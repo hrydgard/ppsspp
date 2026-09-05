@@ -171,6 +171,9 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
     size_t headerSize = size * nitems;
 
     char* headerName = strndup(buffer, headerSize);
+    if (headerName == NULL) {
+        return headerSize;
+    }
     char* split = strchr(headerName, ':');
     if (split) {
         *split = 0;
@@ -195,6 +198,11 @@ static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* use
         node->key = headerName;
         node->value = headerValue;
         res->headers = node;
+    } else {
+        // PPSSPP: no colon, so the list never takes ownership of this copy. curl hands us the
+        // status line and the blank line that terminates the header block, neither of which has
+        // one - so upstream leaked at least twice per response, more with redirects.
+        free(headerName);
     }
 
     return headerSize;
