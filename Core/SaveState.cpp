@@ -197,13 +197,14 @@ int g_screenshotFailures;
 	}
 
 	void Enqueue(const SaveState::Operation &op) {
-		if (!NetworkAllowSaveState()) {
+		// These two both refuse the operation, and both say so - dropping it silently just
+		// looks like the hotkey didn't work. Callers that ask the same questions themselves
+		// return before getting here, so nothing shows a message twice.
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
-		// back into that. Callers that ask WarnUserIfHardcoreModeActive themselves never get
-		// this far, so there's no double message - this is for the paths that go straight to
-		// the queue, like --state and auto-load.
+		// back into that.
 		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
 			return;
 		}
@@ -217,7 +218,7 @@ int g_screenshotFailures;
 	}
 
 	void Load(const Path &filename, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -228,7 +229,7 @@ int g_screenshotFailures;
 	}
 
 	void Save(const Path &filename, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -398,7 +399,7 @@ int g_screenshotFailures;
 	}
 
 	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -439,7 +440,7 @@ int g_screenshotFailures;
 	}
 
 	bool UndoLoad(std::string_view gamePrefix, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return false;
 		}
 
@@ -465,7 +466,7 @@ int g_screenshotFailures;
 	}
 
 	void SaveSlot(std::string_view gamePrefix, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -510,7 +511,7 @@ int g_screenshotFailures;
 	}
 
 	bool UndoSaveSlot(std::string_view gamePrefix, int slot) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return false;
 		}
 
@@ -543,7 +544,7 @@ int g_screenshotFailures;
 	}
 
 	bool UndoLastSave(std::string_view gamePrefix) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return false;
 		}
 
