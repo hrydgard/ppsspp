@@ -1876,28 +1876,51 @@ static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, con
 	ConvertFormatToRGBA8888(GETextureFormat(format), dst, src, numPixels);
 }
 
+// How much source a decode actually touches. Rows sit `stride` apart, but each row reads `width`
+// of them, and the two come from independent GE registers - so when width > stride the last row
+// reaches past the end of its own stride. Anything bounding the source has to take both into
+// account, or we read past what we checked. Texels for the linear formats, 4x4 blocks for DXT.
+// Same shape as the adjustment TextureReplacer::ComputeHash and the GE recorder already make.
+static uint32_t SourceExtent(int width, int stride, int rows) {
+	if (rows <= 0) {
+		return 0;
+	}
+	const uint32_t extra = width > stride ? (uint32_t)(width - stride) : 0;
+	return (uint32_t)stride * (uint32_t)rows + extra;
+}
+
 template <typename DXTBlock, int n>
 static TextureAlpha DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr, const uint8_t *texptr,
 	int w, int h, int bufw, bool reverseColors) {
 
-	int minw = std::min(bufw, w);
 	uint32_t *dst = (uint32_t *)out;
 	int outPitch32 = outPitch / sizeof(uint32_t);
 	const DXTBlock *src = (const DXTBlock *)texptr;
 
-	if (!Memory::IsValidRange(texaddr, ((h + 3) / 4) * (bufw / 4) * sizeof(DXTBlock))) {
-		ERROR_LOG_REPORT(Log::TexCache, "DXT%d texture extends beyond valid RAM: %08x + %d x %d", n, texaddr, bufw, h);
-		uint32_t limited = Memory::ClampValidSizeAt(texaddr, (h / 4) * (bufw / 4) * sizeof(DXTBlock));
-		// This might possibly be 0, but try to decode what we can (might even be how the PSP behaves.)
-		h = (((int)limited / sizeof(DXTBlock)) / (bufw / 4)) * 4;
+	// Blocks are laid out in rows of bufw/4, but a row decodes w/4 of them - and when w > bufw
+	// that runs on into the next row's blocks, which is what the software sampler does too (see
+	// the DXT cases in Sampler.cpp). So don't stop at bufw, just make sure the check covers it.
+	const int blocksPerRow = std::max(bufw / 4, 1);
+	const int blockRows = (h + 3) / 4;
+	const int rowBlocks = (w + 3) / 4;
+	const uint32_t neededBlocks = SourceExtent(rowBlocks, blocksPerRow, blockRows);
+
+	if (!Memory::IsValidRange(texaddr, neededBlocks * sizeof(DXTBlock))) {
+		ERROR_LOG_REPORT(Log::TexCache, "DXT%d texture extends beyond valid RAM: %08x + %d x %d (w=%d)", n, texaddr, bufw, h, w);
+		const uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBlocks * sizeof(DXTBlock));
+		// Drop block rows until the last one's blocks fit too. This might land on 0, but try to
+		// decode what we can (might even be how the PSP behaves.)
+		const uint32_t availableBlocks = (uint32_t)(limited / sizeof(DXTBlock));
+		const uint32_t lastRowBlocks = std::max(rowBlocks, blocksPerRow);
+		h = availableBlocks >= lastRowBlocks ? (int)((availableBlocks - lastRowBlocks) / blocksPerRow + 1) * 4 : 0;
 	}
 
 	u32 alphaSum = 1;
 	for (int y = 0; y < h; y += 4) {
-		u32 blockIndex = (y / 4) * (bufw / 4);
+		u32 blockIndex = (y / 4) * blocksPerRow;
 		int blockHeight = std::min(h - y, 4);
-		for (int x = 0; x < minw; x += 4) {
-			int blockWidth = std::min(minw - x, 4);
+		for (int x = 0; x < w; x += 4) {
+			int blockWidth = std::min(w - x, 4);
 			if constexpr (n == 1)
 				DecodeDXT1Block(dst + outPitch32 * y + x, (const DXT1Block *)src + blockIndex, outPitch32, blockWidth, blockHeight, &alphaSum);
 			else if constexpr (n == 3)
@@ -1951,6 +1974,22 @@ static void Expand4To8Bits(u8 *dest, const u8 *src, int srcWidth) {
 	}
 }
 
+// Unswizzles a level into tmpTexBuf32_ and hands back a pointer to it. Sized for the texels the
+// decode is going to read rather than just bufw per row - UnswizzleFromMem only fills the stride,
+// so when w reaches past it the tail is zeroed instead of left as whatever the buffer held.
+const u8 *TextureCacheCommon::UnswizzleToTemp(const u8 *texptr, int w, int h, int bufw, int bytesPerPixel) {
+	const int rows = (h + 7) & ~7;
+	const uint32_t texels = SourceExtent(w, bufw, rows);
+	tmpTexBuf32_.resize(texels);
+	if (w > bufw) {
+		memset(tmpTexBuf32_.data(), 0, texels * sizeof(u32));
+	}
+	// 4-bit indices are the one format that packs two texels per byte.
+	const u32 destPitch = bytesPerPixel == 0 ? bufw / 2 : bufw * bytesPerPixel;
+	UnswizzleFromMem(tmpTexBuf32_.data(), destPitch, texptr, bufw, h, bytesPerPixel);
+	return (const u8 *)tmpTexBuf32_.data();
+}
+
 TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
@@ -1990,11 +2029,14 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	const uint32_t bytesPerRow = (bpp * bufw) / 8;
 	// Swizzled textures are read in 8-row blocks, rounding the height up.
 	const uint32_t rows = swizzled ? ((h + 7) & ~7) : h;
-	const uint32_t neededBytes = bytesPerRow * rows;
+	const uint32_t neededBytes = (bpp * SourceExtent(w, bufw, rows) + 7) / 8;
 	if (bytesPerRow > 0 && !isPPGE && !Memory::IsValidRange(texaddr, neededBytes)) {
-		ERROR_LOG_REPORT(Log::TexCache, "Texture extends beyond valid RAM: %08x + %d x %d", texaddr, bufw, h);
-		uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
-		h = limited / bytesPerRow;
+		ERROR_LOG_REPORT(Log::TexCache, "Texture extends beyond valid RAM: %08x + %d x %d (w=%d)", texaddr, bufw, h, w);
+		const uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
+		// Drop rows until the last one's w texels fit too, not just its bufw stride.
+		const uint32_t availableTexels = (limited * 8) / bpp;
+		const uint32_t lastRowTexels = std::max(w, bufw);
+		h = availableTexels >= lastRowTexels ? (int)((availableTexels - lastRowTexels) / bufw + 1) : 0;
 		if (swizzled)
 			h &= ~7;
 	}
@@ -2012,9 +2054,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		if (swizzled) {
-			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32_.data(), bufw / 2, texptr, bufw, h, 0);
-			texptr = (u8 *)tmpTexBuf32_.data();
+			texptr = UnswizzleToTemp(texptr, w, h, bufw, 0);
 		}
 
 		if (toClut8) {
@@ -2098,9 +2138,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	case GE_TFMT_CLUT8:
 		if (toClut8) {
 			if (gstate.isTextureSwizzled()) {
-				tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-				UnswizzleFromMem(tmpTexBuf32_.data(), bufw, texptr, bufw, h, 1);
-				texptr = (u8 *)tmpTexBuf32_.data();
+				texptr = UnswizzleToTemp(texptr, w, h, bufw, 1);
 			}
 			// After deswizzling, we are in the correct format and can just copy.
 			for (int y = 0; y < h; ++y) {
@@ -2149,9 +2187,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 			}
 		}*/ else {
 			// We don't have enough space for all rows in out, so use a temp buffer.
-			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 2, texptr, bufw, h, 2);
-			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
+			const u8 *unswizzled = UnswizzleToTemp(texptr, w, h, bufw, 2);
 
 			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (expandTo32bit) {
@@ -2198,9 +2234,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 				ReverseColors(out, out, format, h * outPitch / 4, useBGRA);
 			}
 		}*/ else {
-			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 4, texptr, bufw, h, 4);
-			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
+			const u8 *unswizzled = UnswizzleToTemp(texptr, w, h, bufw, 4);
 
 			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (reverseColors) {
@@ -2235,9 +2269,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int w, int h, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
 	if (gstate.isTextureSwizzled()) {
-		tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-		UnswizzleFromMem(tmpTexBuf32_.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
-		texptr = (u8 *)tmpTexBuf32_.data();
+		texptr = UnswizzleToTemp(texptr, w, h, bufw, bytesPerIndex);
 	}
 
 	// Misshitsu no Sacrifice has separate CLUT data, this is a hack to allow it.
@@ -2790,24 +2822,26 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 			break;
 		}
 
-		// If size reaches 1, stop, and override maxlevel.
 		int tw = gstate.getTextureWidth(i);
 		int th = gstate.getTextureHeight(i);
-		if (tw == 1 || th == 1) {
-			plan.levelsToLoad = i + 1;  // next level is assumed to be invalid
-			break;
-		}
 
+		// Note: this has to happen before the size-1 break below, or a level like 1x256 under a
+		// 256x256 level 0 is accepted as a valid mip and then decoded into an allocation sized
+		// from the halved level-0 dimensions, overrunning it.
 		if (i > 0) {
 			int lastW = gstate.getTextureWidth(i - 1);
 			int lastH = gstate.getTextureHeight(i - 1);
 
-			if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
-				if (tw != 1 && tw != (lastW >> 1))
-					plan.badMipSizes = true;
-				else if (th != 1 && th != (lastH >> 1))
-					plan.badMipSizes = true;
-			}
+			if (tw != 1 && tw != (lastW >> 1))
+				plan.badMipSizes = true;
+			else if (th != 1 && th != (lastH >> 1))
+				plan.badMipSizes = true;
+		}
+
+		// If size reaches 1, stop, and override maxlevel.
+		if (tw == 1 || th == 1) {
+			plan.levelsToLoad = i + 1;  // next level is assumed to be invalid
+			break;
 		}
 	}
 
