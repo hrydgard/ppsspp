@@ -2114,6 +2114,10 @@ void __NetAdhocInit() {
 
 			aemu_postoffice_server::Server relay_server(config);
 
+			UPnP_Add(IP_PROTOCOL_TCP, AEMU_POSTOFFICE_PORT);
+
+			INFO_LOG(Log::sceNet, "RelayServer: Listening for Connections on TCP Port %u", AEMU_POSTOFFICE_PORT);
+
 			while (adhocServerRunning) {
 				auto now = std::chrono::high_resolution_clock::now();
 				auto pump_status = relay_server.pump();
@@ -2129,6 +2133,10 @@ void __NetAdhocInit() {
 					std::this_thread::sleep_for(wait_time - time_taken);
 				}
 			}
+
+			INFO_LOG(Log::sceNet, "RelayServer: Shutdown complete");
+
+			UPnP_Remove(IP_PROTOCOL_TCP, AEMU_POSTOFFICE_PORT);
 		});
 	}
 }
