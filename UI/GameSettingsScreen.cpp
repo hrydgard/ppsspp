@@ -583,23 +583,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *smartFiltering = graphicsSettings->Add(new CheckBox(&g_Config.bSmart2DTexFiltering, gr->T("Smart 2D texture filtering")));
 	smartFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
-#else
-	// If you enabled it through the ini, you can see this. Useful for testing.
-	bool showCardboardSettings = config.bEnableCardboardVR;
-#endif
-	if (showCardboardSettings) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-		graphicsSettings->Add(new CheckBox(&config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-		cardboardScreenSize->SetEnabledPtr(&config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardXShift->SetEnabledPtr(&config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::SPEED_COUNTER, gr->T("Show Speed")));
@@ -1108,11 +1091,31 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	using namespace UI;
 
+	// TODO: Most of the settings were moved here from elsewhere, so they use the wrong translation objects,
+	// to avoid having to change all inis... This isn't a sustainable situation :P
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
+
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
+#else
+	// If you enabled it through the ini, you can see this. Useful for testing.
+	bool showCardboardSettings = config.bEnableCardboardVR;
+#endif
+	if (showCardboardSettings) {
+		tools->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
+		tools->Add(new CheckBox(&config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = tools->Add(new PopupSliderChoice(&config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetEnabledPtr(&config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardXShift = tools->Add(new PopupSliderChoice(&config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetEnabledPtr(&config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardYShift = tools->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
+	}
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 
@@ -1125,7 +1128,6 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 		retro->SetIconRight(ImageID("I_RETROACHIEVEMENTS_LOGO"));
 	}
 
-	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new SavedataScreen(gamePath_));
 	});
