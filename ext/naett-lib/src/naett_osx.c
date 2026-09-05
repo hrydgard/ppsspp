@@ -153,7 +153,18 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     const void* bytes = objc_msgSend_t(const void*)(data, sel("bytes"));
     NSUInteger length = objc_msgSend_t(NSUInteger)(data, sel("length"));
 
-    res->request->options.bodyWriter(bytes, (int)length, res->request->options.bodyWriterData);
+    // PPSSPP: a writer that doesn't take everything is failing the request - that's how a caller
+    // aborts a transfer, and how the default writer reports that it couldn't grow. Upstream threw
+    // the result away here, so a short write silently truncated the body and still looked like a
+    // success. Cancel the task too, or the data just keeps coming.
+    int written = res->request->options.bodyWriter(bytes, (int)length, res->request->options.bodyWriterData);
+    if (written != (int)length) {
+        res->code = naettReadError;
+        res->complete = 1;
+        objc_msgSend_void(dataTask, sel("cancel"));
+        release(p);
+        return;
+    }
     res->totalBytesRead += (int)length;
 
     release(p);

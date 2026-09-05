@@ -100,3 +100,10 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
 - `src/naett_osx.c`: `invalidateAndCancel` returns before the session lets go of its delegate, so
   the delegate's back pointer to the response is cleared first, and `didReceiveData` checks it
   (as `didCompleteWithError` already did).
+- `src/naett_osx.c` / `src/naett_android.c`: both threw away the body writer's return value.
+  Windows and Linux already treat a short write as a failed request - it's how the default
+  writer reports it couldn't grow, and how we cancel a transfer - so on those two a short write
+  silently truncated the body and still looked like a success. Apple also cancels the task, or
+  the data just keeps arriving.
+- `naett.h`: documented what the body writer's return value means, since three of the four
+  backends' behaviour depends on it.
