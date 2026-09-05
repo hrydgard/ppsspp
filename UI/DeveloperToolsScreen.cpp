@@ -24,6 +24,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/StringUtils.h"
@@ -212,6 +213,12 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 
 	list->Add(new CheckBox(&g_Config.bShowSaveLoadIndicator, dev->T("Show indicator when saving/loading")));
+
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(X86) && !PPSSPP_PLATFORM(UWP)
+	if (cpu_info.OS64bit) {
+		list->Add(new CheckBox(&g_Config.bWow64Warning, dev->T("Show warning when launching 32-bit PPSSPP on 64-bit system")));
+	}
+#endif
 
 #if PPSSPP_PLATFORM(ANDROID)
 	static const char *framerateModes[] = { "Default", "Request 60 Hz", "Force 60Hz" };

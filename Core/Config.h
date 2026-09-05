@@ -199,6 +199,7 @@ public:
 	bool bPauseOnLostFocus;
 
 	// These are Win UI only
+	bool bWow64Warning;
 	bool bTopMost;
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
