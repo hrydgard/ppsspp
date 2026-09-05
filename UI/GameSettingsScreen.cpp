@@ -583,23 +583,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	CheckBox *smartFiltering = graphicsSettings->Add(new CheckBox(&g_Config.bSmart2DTexFiltering, gr->T("Smart 2D texture filtering")));
 	smartFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
-#else
-	// If you enabled it through the ini, you can see this. Useful for testing.
-	bool showCardboardSettings = config.bEnableCardboardVR;
-#endif
-	if (showCardboardSettings) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-		graphicsSettings->Add(new CheckBox(&config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-		PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-		cardboardScreenSize->SetEnabledPtr(&config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardXShift->SetEnabledPtr(&config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::FPS_COUNTER, gr->T("Show FPS Counter")));
 	graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::SPEED_COUNTER, gr->T("Show Speed")));
@@ -1100,21 +1083,46 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
-	if (Discord::IsAvailable()) {
-		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
-	}
 }
 
 void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	using namespace UI;
 
+	// TODO: Most of the settings were moved here from elsewhere, so they use the wrong translation objects,
+	// to avoid having to change all inis... This isn't a sustainable situation :P
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	tools->Add(new ItemHeader(ms->T("Tools")));
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
+#else
+	// If you enabled it through the ini, you can see this. Useful for testing.
+	bool showCardboardSettings = g_Config.bEnableCardboardVR;
+#endif
+	if (showCardboardSettings) {
+		tools->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
+		tools->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = tools->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardXShift = tools->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardYShift = tools->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+	}
+
+	auto integrationsHeader = new ItemHeader("Third-party integrations");
+	tools->Add(integrationsHeader);
+	int32_t integrationCount = 0;
+
+	if (Discord::IsAvailable()) {
+		tools->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
+		integrationCount++;
+	}
 
 	const bool showRetroAchievements = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR;
 	if (showRetroAchievements) {
@@ -1123,9 +1131,14 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 			screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
 		});
 		retro->SetIconRight(ImageID("I_RETROACHIEVEMENTS_LOGO"));
+		integrationCount++;
 	}
 
-	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
+	if (!integrationCount) {
+		tools->Add(new SettingHint("No third-party integrations available for this device.", nullptr));
+	}
+
+	tools->Add(new ItemHeader(ms->T("Tools")));
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new SavedataScreen(gamePath_));
 	});
@@ -1138,6 +1151,15 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new RemoteISOScreen(gamePath_));
 	});
+
+	tools->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
+	if (!enableReportsSet_)
+		enableReports_ = Reporting::IsEnabled();
+	enableReportsSet_ = true;
+	CheckBox *enableReportsCheckbox;
+	enableReportsCheckbox = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
+	enableReportsCheckbox->SetEnabledFunc([]() { return Reporting::IsSupported(); });
+	tools->Add(enableReportsCheckbox);
 }
 
 void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
@@ -1351,15 +1373,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
 	UI::PopupSliderChoice *sizeChoice = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, 16, sy->T("Memory Stick size", "Memory Stick size"), screenManager(), "GB"));
 	sizeChoice->SetFormat("%d GB");
-
-	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	if (!enableReportsSet_)
-		enableReports_ = Reporting::IsEnabled();
-	enableReportsSet_ = true;
-	CheckBox *enableReportsCheckbox;
-	enableReportsCheckbox = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
-	enableReportsCheckbox->SetEnabledFunc([]() { return Reporting::IsSupported(); });
-	systemSettings->Add(enableReportsCheckbox);
 
 	systemSettings->Add(new ItemHeader(sy->T("Emulation")));
 
