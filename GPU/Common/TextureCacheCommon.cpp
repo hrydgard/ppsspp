@@ -1951,6 +1951,35 @@ static void Expand4To8Bits(u8 *dest, const u8 *src, int srcWidth) {
 	}
 }
 
+// How many source texels a decode actually touches. Rows sit bufw texels apart, but every row
+// reads w of them, and w and bufw are independent GE registers - so when w > bufw the last row
+// reaches past the end of its own stride. Anything bounding the source has to take both into
+// account, or we read past what we checked. Same shape as the adjustment in
+// TextureReplacer::ComputeHash and the GE recorder.
+static uint32_t TextureSourceTexels(int w, int bufw, int rows) {
+	if (rows <= 0) {
+		return 0;
+	}
+	const uint32_t extraw = w > bufw ? (uint32_t)(w - bufw) : 0;
+	return (uint32_t)bufw * (uint32_t)rows + extraw;
+}
+
+// Unswizzles a level into tmpTexBuf32_ and hands back a pointer to it. Sized for the texels the
+// decode is going to read rather than just bufw per row - UnswizzleFromMem only fills the stride,
+// so when w reaches past it the tail is zeroed instead of left as whatever the buffer held.
+const u8 *TextureCacheCommon::UnswizzleToTemp(const u8 *texptr, int w, int h, int bufw, int bytesPerPixel) {
+	const int rows = (h + 7) & ~7;
+	const uint32_t texels = TextureSourceTexels(w, bufw, rows);
+	tmpTexBuf32_.resize(texels);
+	if (w > bufw) {
+		memset(tmpTexBuf32_.data(), 0, texels * sizeof(u32));
+	}
+	// 4-bit indices are the one format that packs two texels per byte.
+	const u32 destPitch = bytesPerPixel == 0 ? bufw / 2 : bufw * bytesPerPixel;
+	UnswizzleFromMem(tmpTexBuf32_.data(), destPitch, texptr, bufw, h, bytesPerPixel);
+	return (const u8 *)tmpTexBuf32_.data();
+}
+
 TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags) {
 	u32 alphaSum = 0xFFFFFFFF;
 	u32 fullAlphaMask = 0x0;
@@ -1978,14 +2007,6 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	// Source rows are only bufw texels wide, and both the range check below and the unswizzle
-	// buffer are sized from bufw - so don't let the decode loops read past that. w and bufw are
-	// independent GE registers, so w > bufw is reachable. The DXT paths already clamp this way
-	// (see minw in DecodeDXTBlocks).
-	if (w > bufw) {
-		w = bufw;
-	}
-
 	u32 ppgeOffset;
 	const bool isPPGE = IsPPGEAtlasFakeAddress(texaddr, &ppgeOffset);
 
@@ -1998,11 +2019,14 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	const uint32_t bytesPerRow = (bpp * bufw) / 8;
 	// Swizzled textures are read in 8-row blocks, rounding the height up.
 	const uint32_t rows = swizzled ? ((h + 7) & ~7) : h;
-	const uint32_t neededBytes = bytesPerRow * rows;
+	const uint32_t neededBytes = (bpp * TextureSourceTexels(w, bufw, rows) + 7) / 8;
 	if (bytesPerRow > 0 && !isPPGE && !Memory::IsValidRange(texaddr, neededBytes)) {
-		ERROR_LOG_REPORT(Log::TexCache, "Texture extends beyond valid RAM: %08x + %d x %d", texaddr, bufw, h);
-		uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
-		h = limited / bytesPerRow;
+		ERROR_LOG_REPORT(Log::TexCache, "Texture extends beyond valid RAM: %08x + %d x %d (w=%d)", texaddr, bufw, h, w);
+		const uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
+		// Drop rows until the last one's w texels fit too, not just its bufw stride.
+		const uint32_t availableTexels = (limited * 8) / bpp;
+		const uint32_t lastRowTexels = std::max(w, bufw);
+		h = availableTexels >= lastRowTexels ? (int)((availableTexels - lastRowTexels) / bufw + 1) : 0;
 		if (swizzled)
 			h &= ~7;
 	}
@@ -2020,9 +2044,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		if (swizzled) {
-			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32_.data(), bufw / 2, texptr, bufw, h, 0);
-			texptr = (u8 *)tmpTexBuf32_.data();
+			texptr = UnswizzleToTemp(texptr, w, h, bufw, 0);
 		}
 
 		if (toClut8) {
@@ -2106,9 +2128,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	case GE_TFMT_CLUT8:
 		if (toClut8) {
 			if (gstate.isTextureSwizzled()) {
-				tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-				UnswizzleFromMem(tmpTexBuf32_.data(), bufw, texptr, bufw, h, 1);
-				texptr = (u8 *)tmpTexBuf32_.data();
+				texptr = UnswizzleToTemp(texptr, w, h, bufw, 1);
 			}
 			// After deswizzling, we are in the correct format and can just copy.
 			for (int y = 0; y < h; ++y) {
@@ -2157,9 +2177,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 			}
 		}*/ else {
 			// We don't have enough space for all rows in out, so use a temp buffer.
-			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 2, texptr, bufw, h, 2);
-			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
+			const u8 *unswizzled = UnswizzleToTemp(texptr, w, h, bufw, 2);
 
 			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (expandTo32bit) {
@@ -2206,9 +2224,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 				ReverseColors(out, out, format, h * outPitch / 4, useBGRA);
 			}
 		}*/ else {
-			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 4, texptr, bufw, h, 4);
-			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
+			const u8 *unswizzled = UnswizzleToTemp(texptr, w, h, bufw, 4);
 
 			fullAlphaMask = TfmtRawToFullAlpha(format);
 			if (reverseColors) {
@@ -2243,9 +2259,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int w, int h, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit) {
 	if (gstate.isTextureSwizzled()) {
-		tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
-		UnswizzleFromMem(tmpTexBuf32_.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
-		texptr = (u8 *)tmpTexBuf32_.data();
+		texptr = UnswizzleToTemp(texptr, w, h, bufw, bytesPerIndex);
 	}
 
 	// Misshitsu no Sacrifice has separate CLUT data, this is a hack to allow it.
