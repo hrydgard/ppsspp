@@ -320,6 +320,7 @@ void BreakpointManager::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &
 		breakPoints_[bp].hasCond = true;
 		breakPoints_[bp].cond = cond;
 		currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
+		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 }
 
@@ -328,6 +329,7 @@ void BreakpointManager::ChangeBreakPointRemoveCond(u32 addr) {
 	if (bp != INVALID_BREAKPOINT) {
 		breakPoints_[bp].hasCond = false;
 		currentMIPS->InvalidateICacheRangeDeferred(addr - 4, 8);
+		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 }
 
@@ -438,6 +440,7 @@ int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, B
 		}
 		updateMemChecks_ = true;
 		currentMIPS->ClearJitCacheDeferred();  // memchecks apply to all memory accesses
+		System_Notify(SystemNotification::DISASSEMBLY);
 		return (int)memChecks_.size() - 1;
 	} else {
 		// Update with additional cond and action bits. Not sure if we should OR or override?
@@ -449,6 +452,7 @@ int BreakpointManager::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, B
 		}
 		updateMemChecks_ = true;
 		currentMIPS->ClearJitCacheDeferred();  // memchecks apply to all memory accesses
+		System_Notify(SystemNotification::DISASSEMBLY);
 		return (int)mc;
 	}
 }
@@ -464,6 +468,7 @@ void BreakpointManager::RemoveMemCheck(u32 start, u32 end)
 			MemBlockReleaseDetailed();
 		updateMemChecks_ = true;
 		currentMIPS->ClearJitCacheDeferred();  // memchecks apply to all memory accesses
+		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 }
 
@@ -476,6 +481,7 @@ void BreakpointManager::ChangeMemCheck(u32 start, u32 end, MemCheckCondition con
 		memChecks_[mc].action = action;
 		updateMemChecks_ = true;
 		currentMIPS->ClearJitCacheDeferred();  // memchecks apply to all memory accesses
+		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 }
 
@@ -498,6 +504,7 @@ void BreakpointManager::ChangeMemCheckAddCond(u32 start, u32 end, const BreakPoi
 		memChecks_[mc].hasCondition = true;
 		memChecks_[mc].condition = cond;
 		// No need to update jit for a condition add/remove, they're not baked in.
+		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 }
 
@@ -506,6 +513,7 @@ void BreakpointManager::ChangeMemCheckRemoveCond(u32 start, u32 end) {
 	if (mc != INVALID_MEMCHECK) {
 		memChecks_[mc].hasCondition = false;
 		// No need to update jit for a condition add/remove, they're not baked in.
+		System_Notify(SystemNotification::DISASSEMBLY);
 	}
 }
 
