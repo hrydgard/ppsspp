@@ -1,6 +1,9 @@
 #ifndef HTTPS_NOT_AVAILABLE
 
+#include <atomic>
 #include <cstring>
+#include <memory>
+#include <vector>
 
 #include "Common/Net/HTTPRequest.h"
 #include "Common/Net/HTTPNaettRequest.h"
@@ -18,6 +21,48 @@ HTTPSRequest::HTTPSRequest(RequestMethod method, std::string_view url, std::stri
 
 HTTPSRequest::~HTTPSRequest() {
 	HTTPSRequest::Join();
+}
+
+// The response body, and the flag that stops it arriving. naett hands us chunks on its own
+// transfer thread, and there's no way to make it stop and be sure it has: naettClose only really
+// cancels on Android, and waiting for the others would mean blocking shutdown. So the buffer it
+// writes into is refcounted separately from the request - if we go away first, the sink stays
+// alive and a late chunk lands somewhere harmless instead of in a destroyed object.
+struct NaettBodySink {
+	Buffer buffer;
+	int length = 0;
+	// Written by us, read by the transfer thread.
+	std::atomic<bool> cancelled{false};
+};
+
+// Sinks belonging to requests that hadn't finished when they were torn down, which only happens
+// at shutdown - RequestManager cancels from its destructor. The naett objects can't be freed
+// while a callback might still be in flight, and neither can these, so both are deliberately
+// leaked. Allocated with new and never deleted, so it can't be destroyed out from under a late
+// callback during static destruction either.
+static std::vector<std::shared_ptr<NaettBodySink>> *g_abandonedSinks = new std::vector<std::shared_ptr<NaettBodySink>>();
+
+int HTTPSRequest::WriteBodyThunk(const void *source, int bytes, void *userData) {
+	NaettBodySink *sink = (NaettBodySink *)userData;
+	if (sink->cancelled) {
+		// Taking less than we were given fails the request, which is how naett lets us stop a
+		// transfer. Without this, cancelling only relabelled the result once it finished anyway.
+		return 0;
+	}
+	if (bytes <= 0) {
+		return 0;
+	}
+	char *dest = sink->buffer.Append((size_t)bytes);
+	memcpy(dest, source, bytes);
+	sink->length += bytes;
+	return bytes;
+}
+
+void HTTPSRequest::Cancel() {
+	Request::Cancel();
+	if (sink_) {
+		sink_->cancelled = true;
+	}
 }
 
 void HTTPSRequest::Start() {
@@ -41,6 +86,10 @@ void HTTPSRequest::Start() {
 	}
 	// 30 s timeout - not sure what's reasonable?
 	options.push_back(naettTimeout(30 * 1000));  // milliseconds
+	// Our own writer, so that Cancel() can actually stop a transfer rather than just relabelling
+	// it once it finishes.
+	sink_ = std::make_shared<NaettBodySink>();
+	options.push_back(naettBodyWriter(&HTTPSRequest::WriteBodyThunk, sink_.get()));
 
 	const naettOption **opts = (const naettOption **)options.data();
 	req_ = naettRequestWithOptions(url_.c_str(), (int)options.size(), opts);
@@ -52,15 +101,28 @@ void HTTPSRequest::Start() {
 void HTTPSRequest::Join() {
 	if (!res_ || !req_)
 		return;  // No pending operation.
-	// Tear down.
-	if (completed_) {
-		_dbg_assert_(req_);
+	// Tear down. A request that finished while nobody was polling Done() can still be closed
+	// properly - it's only one that's genuinely still running that can't be.
+	if (completed_ || naettComplete(res_)) {
 		naettClose(res_);
 		naettFree(req_);
 		res_ = nullptr;
 		req_ = nullptr;
+		sink_.reset();
 	} else {
-		ERROR_LOG(Log::HTTP, "HTTPSRequest::Join called before completion");
+		// Only reachable at shutdown, since RequestManager cancels from its destructor and
+		// otherwise waits for Done(). Closing a response naett is still working on isn't safe on
+		// three of the four backends, and there's nothing of ours to wait on, so let the request
+		// go and keep its sink alive - a chunk arriving after this point then writes somewhere
+		// that still exists. The process is on its way out; this is the last word on it.
+		WARN_LOG(Log::HTTP, "Abandoning an unfinished request to '%s' - shutting down", url_.c_str());
+		if (sink_) {
+			sink_->cancelled = true;
+			g_abandonedSinks->push_back(sink_);
+			sink_.reset();
+		}
+		res_ = nullptr;
+		req_ = nullptr;
 	}
 }
 
@@ -79,10 +141,11 @@ bool HTTPSRequest::Done() {
 
 	// -1000 is a code specified by us to represent cancellation, that is unlikely to ever collide with naett error codes.
 	resultCode_ = IsCancelled() ? -1000 : naettGetStatus(res_);
-	int bodyLength;
-	const void *body = naettGetBody(res_, &bodyLength);
-	char *dest = buffer_.Append(bodyLength);
-	memcpy(dest, body, bodyLength);
+	// The body arrived in the sink as it was read; take it over now that nothing else will touch it.
+	const int bodyLength = sink_ ? sink_->length : 0;
+	if (sink_ && bodyLength > 0) {
+		buffer_.Append(sink_->buffer);
+	}
 	if (resultCode_ < 0) {
 		// It's a naett error. Translate and handle.
 		switch (resultCode_) {

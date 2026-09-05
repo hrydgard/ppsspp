@@ -24,11 +24,22 @@ public:
 	bool Done() override;
 	bool Failed() const override { return failed_; }
 
+	// Cancelling has to reach naett, or it only changes the code we report once the transfer ends
+	// on its own. See the .cpp.
+	void Cancel() override;
+
 private:
+	static int WriteBodyThunk(const void *source, int bytes, void *userData);
+
 	std::string postData_;
 	std::string postMime_;
 	bool completed_ = false;
 	bool failed_ = false;
+
+	// Where the response body lands. Deliberately not a member of this object: naett writes into
+	// it from its own transfer thread, and that can outlive us if we're torn down before the
+	// request finishes. See NaettBodySink in the .cpp.
+	std::shared_ptr<struct NaettBodySink> sink_;
 
 	// Naett state
 	naettReq *req_ = nullptr;
