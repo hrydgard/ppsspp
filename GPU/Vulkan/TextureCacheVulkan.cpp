@@ -426,9 +426,9 @@ static void BarrierComputeImage(VkCommandBuffer cmd, VkImage image) {
 	batch.Flush(cmd);
 }
 
-void TextureCacheVulkan::LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuffer cmdInit) {
+bool TextureCacheVulkan::LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuffer cmdInit) {
 	if (cbufferInited_) {
-		return;
+		return true;
 	}
 
 	_dbg_assert_(!cbufferPath_.empty());
@@ -437,8 +437,12 @@ void TextureCacheVulkan::LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuff
 	size_t constantsSize;
 	uint8_t *contents = g_VFS.ReadFile(cbufferPath_.c_str(), &constantsSize);
 	if (!contents) {
-		ERROR_LOG(Log::G3D, "Failed to read constant buffer file '%s'", cbufferPath_.c_str());
-		return;
+		ERROR_LOG(Log::G3D, "Failed to read constant buffer file '%s' - disabling hardware scaling", cbufferPath_.c_str());
+		// The scaling shaders declare the constant buffer, so dispatching them without it would leave
+		// a statically used descriptor binding unwritten. Drop the shaders instead, which makes
+		// HasScalingShader() false so following textures take the CPU scaling path.
+		ClearScalingShaders(vulkan);
+		return false;
 	}
 	textureScaleCBuffer_.Create(vulkan, "TextureScale CBuffer", constantsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 	VulkanPushPool *pushPool = drawEngine_->GetPushBufferForTextureData();
@@ -453,6 +457,7 @@ void TextureCacheVulkan::LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuff
 	delete[] contents;
 
 	cbufferInited_ = true;
+	return true;
 }
 
 bool TextureCacheVulkan::RunMultipassCompute(VulkanContext *vulkan, VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight) {
@@ -462,7 +467,9 @@ bool TextureCacheVulkan::RunMultipassCompute(VulkanContext *vulkan, VkCommandBuf
 	std::vector<std::unique_ptr<VulkanTexture>> scratchTextures;
 	scratchTextures.reserve(multipassScratchDescs_.size());
 
-	LoadConstantBuffer(vulkan, cmdInit);
+	if (!LoadConstantBuffer(vulkan, cmdInit)) {
+		return false;
+	}
 
 	for (const MultipassScratchDesc &scratchDesc : multipassScratchDescs_) {
 		auto scratch = std::make_unique<VulkanTexture>(vulkan, scratchDesc.tag);
@@ -537,7 +544,9 @@ bool TextureCacheVulkan::ScaleBufferToImage(VulkanContext *vulkan, VkCommandBuff
 		return false;
 	}
 
-	LoadConstantBuffer(vulkan, cmdInit);
+	if (!LoadConstantBuffer(vulkan, cmdInit)) {
+		return false;
+	}
 
 	switch (textureScalePipeline_) {
 	case TextureScalePipelineType::SINGLE_PASS: {
@@ -740,8 +749,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 		}
 
-		// Turn off texture replacement for this texture.
+		// Turn off texture replacement for this texture. Both of these need to be reset, GetMipSize
+		// dereferences plan.replaced if doReplace is still set.
 		plan.replaced = nullptr;
+		plan.doReplace = false;
 
 		plan.createW /= plan.scaleFactor;
 		plan.createH /= plan.scaleFactor;
