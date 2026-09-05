@@ -2237,10 +2237,6 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	if (g_adhocServerIP.in.sin_addr.s_addr == INADDR_NONE)
 		return SOCKET_ERROR;
 
-	// Don't need to connect if AdhocServer IP is the same with this instance localhost IP and having AdhocServer disabled
-	if (g_adhocServerIP.in.sin_addr.s_addr == g_localhostIP.in.sin_addr.s_addr && !g_Config.bEnableAdhocServer)
-		return SOCKET_ERROR;
-
 	// Connect to Adhoc Server
 	int errorcode = 0;
 	int cnt = 0;

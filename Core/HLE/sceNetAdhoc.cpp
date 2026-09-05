@@ -60,6 +60,8 @@
 #include "Core/HLE/NetAdhocCommon.h"
 
 #include "ext/aemu_postoffice/client/postoffice_client.h"
+#include "ext/aemu_postoffice/server_cpp/server.h"
+#include "ext/aemu_postoffice/server_cpp/log.h"
 
 #ifdef _WIN32
 #undef errno
@@ -96,6 +98,7 @@ bool trackingRelayFailure = false;
 bool relayDisabled = false;
 bool relayFirstConnect = true;
 bool g_serverListLoaded = false;
+std::thread relayThread;
 
 int gameModeNotifyEvent = -1;
 
@@ -326,6 +329,10 @@ void __NetAdhocShutdown() {
 	adhocServerRunning = false;
 	if (adhocServerThread.joinable()) {
 		adhocServerThread.join();
+	}
+
+	if (relayThread.joinable()) {
+		relayThread.join();
 	}
 
 	NetAdhocctl_Term();
@@ -1900,6 +1907,18 @@ void __AdhocNotifInit() {
 	sendTargetPeers.clear();
 }
 
+static void aemu_postoffice_server_log(const char *format, ...) {
+	char log_buf[1024] = {0};
+	va_list args;
+	va_start(args, format);
+	int len = vsnprintf(log_buf, sizeof(log_buf), format, args);
+	va_end(args);
+	if (len < 1024 && log_buf[len - 1] == '\n') {
+		log_buf[len - 1] = '\0';
+	}
+	INFO_LOG(Log::sceNet, "%s", log_buf);
+}
+
 void __NetAdhocInit() {
 	friendFinderRunning = false;
 	netAdhocInited = false;
@@ -1912,6 +1931,47 @@ void __NetAdhocInit() {
 	adhocServerRunning = false;
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
+
+		// relay thread
+		relayThread = std::thread([] () {
+			SetCurrentThreadName("AEMUPostoffice");
+
+			aemu_postoffice_server::LOG = aemu_postoffice_server_log;
+
+			struct aemu_postoffice_server::config config;
+			/*
+			 * strict mode requires adhocctl data to be fed into the relay, either from
+			 * aemu_postoffice's implementation of adhocctl, or by constructing the snapshot
+			 * from ppsspp's adhocctl server
+			 */
+			config.strict_mode = false;
+
+			aemu_postoffice_server::Server relay_server(config);
+
+			UPnP_Add(IP_PROTOCOL_TCP, AEMU_POSTOFFICE_PORT);
+
+			INFO_LOG(Log::sceNet, "RelayServer: Listening for Connections on TCP Port %u", AEMU_POSTOFFICE_PORT);
+
+			while (adhocServerRunning) {
+				auto now = std::chrono::high_resolution_clock::now();
+				auto pump_status = relay_server.pump();
+				auto wait_time = std::chrono::milliseconds(8);
+				if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
+					break;
+				}
+				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE) {
+					wait_time = std::chrono::milliseconds(100);
+				}
+				auto time_taken = now - std::chrono::high_resolution_clock::now();
+				if (time_taken < wait_time) {
+					std::this_thread::sleep_for(wait_time - time_taken);
+				}
+			}
+
+			INFO_LOG(Log::sceNet, "RelayServer: Shutdown complete");
+
+			UPnP_Remove(IP_PROTOCOL_TCP, AEMU_POSTOFFICE_PORT);
+		});
 	}
 }
 
