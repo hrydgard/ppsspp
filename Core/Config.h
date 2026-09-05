@@ -520,6 +520,7 @@ public:
 	bool bShowTouchPause;
 
 	bool bHapticFeedback;
+	bool bControllerButtonRumble;
 
 	// We also use the XInput settings as analog settings on other platforms like Android.
 	float fAnalogDeadzone;

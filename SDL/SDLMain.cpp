@@ -646,6 +646,18 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
+void System_ControllerRumbleStart(int deviceIndex) {
+	if (joystick) {
+		joystick->Rumble(deviceIndex, true);
+	}
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	if (joystick) {
+		joystick->Rumble(deviceIndex, false);
+	}
+}
+
 AudioBackend *System_CreateAudioBackend() {
 	// Use legacy mechanisms.
 	return nullptr;

@@ -1985,6 +1985,8 @@ void System_Notify(SystemNotification notification) {
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 void System_PostUIMessage(UIMessage message, std::string_view param) {}
 void System_RunOnMainThread(std::function<void()>) {}
+void System_ControllerRumbleStart(int deviceIndex) {}
+void System_ControllerRumbleStop(int deviceIndex) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 void System_Toast(std::string_view str) {}

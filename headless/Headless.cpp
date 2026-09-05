@@ -128,6 +128,8 @@ void System_RunOnMainThread(std::function<void()>) {}
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+void System_ControllerRumbleStart(int deviceIndex) {}
+void System_ControllerRumbleStop(int deviceIndex) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}

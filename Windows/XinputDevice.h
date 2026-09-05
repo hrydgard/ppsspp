@@ -4,6 +4,11 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Windows/InputDevice.h"
 
+// Button rumble ("Vibrate controller on button press"), driven from
+// System_ControllerRumbleStart/Stop. Mixed into whatever vibration the game itself
+// asked for, so the two don't fight over the motors.
+void XinputSetButtonRumble(int pad, bool on);
+
 class XinputDevice final : public InputDevice {
 public:
 	XinputDevice();
@@ -15,6 +20,7 @@ private:
 	void ReleaseAllKeys(int pad);
 	void ApplyButtons(int pad, const XINPUT_STATE &state);
 	void ApplyVibration(int pad, XINPUT_VIBRATION &vibration);
+	void ApplyButtonRumble(int pad, XINPUT_VIBRATION &vibration);
 
 	struct PadData {
 		bool connected = false;
