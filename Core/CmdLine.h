@@ -66,6 +66,7 @@ struct CommandLineOptions {
 	// meant copying it in. Points at the same layout the app uses, so the two can share one.
 	std::optional<std::string> memStick;
 	std::optional<std::string> stateToLoad;
+	std::optional<std::string> stateToSave;
 
 	// Headless: unpack the firmware inside an official updater EBOOT.PBP (given as the boot
 	// filename) into this directory, then exit without booting anything.

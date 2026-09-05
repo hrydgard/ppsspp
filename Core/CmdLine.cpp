@@ -195,6 +195,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount directory as the root of host0:/."},
 	{POFF(memStick), CmdParamType::String, "memstick", '\0', "Memory stick root directory (contains PSP/GAME etc)"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
+	{POFF(stateToSave), CmdParamType::String, "save-state", '\0', "Save a state to FILE partway through the run", CmdLineMode::Headless},
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
 	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},

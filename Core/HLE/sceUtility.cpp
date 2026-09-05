@@ -46,6 +46,7 @@
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNetAdhoc.h"
 
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
@@ -1220,19 +1221,23 @@ static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 }
 
 static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
-	if (!Memory::IsValidRange(destAddr, destSize)) {
+	// A size that isn't positive can't hold the string, and that's what the PSP reports - not a
+	// bad-buffer error. Range checking it first would turn a negative size into a huge range.
+	if (destSize > 0 && !Memory::IsValidRange(destAddr, destSize)) {
 		// TODO: What error code?
 		return hleLogError(Log::sceUtility, -1);
 	}
-	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
+	{
 		// If there's not enough space for the string and null terminator, fail.
 		if (destSize <= (int)g_Config.sNickName.length())
 			return SCE_ERROR_UTILITY_STRING_TOO_LONG;
+		char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 		// TODO: should we zero-pad the output as strncpy does? And what are the semantics for the terminating null if destSize == length?
 		strncpy(buf, g_Config.sNickName.c_str(), destSize);
 		break;
+	}
 
 	default:
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
@@ -1263,7 +1268,10 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		param = g_Config.iWlanAdhocChannel;
-		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+		// Only once adhocctl is up. The FIXME below wondered whether this error depends on that,
+		// and it does - utility/systemparam gets a plain 0 out of the hardware before any adhoc
+		// module is initialized, which is the state nearly every game asks this in.
+		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC && netAdhocctlInited) {
 			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either,
 			//        Not sure whether this error code only returned after Adhocctl Initialized (ie. netAdhocctlInited) or also before initialized.
 			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED),

@@ -84,6 +84,9 @@ static bool g_writeFailureScreenshot = true;
 static bool g_writeDebugOutput = true;
 // Set from the savestate callback on the emu thread, read after it has been joined.
 static bool g_stateLoadFailed = false;
+// Set by --save-state. Saving needs the game to actually be running, so it happens from the run
+// loop rather than up front like a load does.
+static std::string g_stateToSave;
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -338,12 +341,23 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	}
 
 	bool passed = true;
-	double deadline = time_now_d() + opt.timeout;
+	const double startTime = time_now_d();
+	double deadline = startTime + opt.timeout;
+	// Late enough that the game is past booting, early enough to leave the run some time after.
+	double saveStateAt = startTime + opt.timeout * 0.7;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
 		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
 		// app. Without this, --state silently did nothing at all.
 		SaveState::Process();
+
+		if (!g_stateToSave.empty() && time_now_d() > saveStateAt) {
+			const std::string filename = g_stateToSave;
+			g_stateToSave.clear();
+			SaveState::Save(Path(filename), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+				fprintf(stderr, "%.*s\n", (int)message.size(), message.data());
+			});
+		}
 
 		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
@@ -876,6 +890,10 @@ int main(int argc, const char* argv[]) {
 			ShutdownWebServer();
 			return 1;
 		}
+	}
+
+	if (cmdLineOptions.stateToSave.has_value()) {
+		g_stateToSave = cmdLineOptions.stateToSave.value();
 	}
 
 	if (stateToLoad) {
