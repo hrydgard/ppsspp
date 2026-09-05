@@ -196,6 +196,26 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		ptr += sizeof(rev3extra);
 	}
 
+	// Also cap the lengths so a crafted font can't force absurd allocations
+	// or loops downstream. Real PGF fonts are tiny.
+	if (header.charPointerLength < 0 || header.charPointerLength > 0x100000 ||
+		header.charMapLength < 0 || header.charMapLength > 0x100000 ||
+		header.shadowMapLength < 0 || header.shadowMapLength > 0x10000) {
+		return false;
+	}
+
+	// BPE fields are signed in the on-disk header, but getBits() only accepts
+	// positive widths up to one machine word. Validate them before converting
+	// them to unsigned values for the table-size calculations below.
+	if (header.charMapBpe < 0 || header.charMapBpe > 32 ||
+		header.charPointerBpe < 0 || header.charPointerBpe > 32 ||
+		header.shadowMapBpe < 0 || header.shadowMapBpe > 32 ||
+		(header.charMapLength > 0 && header.charMapBpe == 0) ||
+		(header.charPointerLength > 0 && header.charPointerBpe == 0) ||
+		(header.shadowMapLength > 0 && header.shadowMapBpe == 0)) {
+		return false;
+	}
+
 	// Validate that all tables fit in the input buffer before reading any of
 	// them. Use 64-bit arithmetic: the original 32-bit signed size math could
 	// overflow for crafted lengths.
@@ -205,14 +225,6 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u64 compTableSize = header.revision == 3 ? ((u64)rev3extra.compCharMapLength1 + rev3extra.compCharMapLength2) * 4 : 0;
 	const u64 charMapSize = (((u64)header.charMapLength * header.charMapBpe + 31) & ~31ull) / 8;
 	const u64 charPointerSize = (((u64)header.charPointerLength * header.charPointerBpe + 31) & ~31ull) / 8;
-
-	// Also cap the lengths so a crafted font can't force absurd allocations
-	// or loops downstream. Real PGF fonts are tiny.
-	if (header.charPointerLength < 0 || header.charPointerLength > 0x100000 ||
-		header.charMapLength < 0 || header.charMapLength > 0x100000 ||
-		header.shadowMapLength < 0 || header.shadowMapLength > 0x10000) {
-		return false;
-	}
 
 	if (headerSize + tablesSize + shadowCharMapSize + compTableSize + charMapSize + charPointerSize > dataSize) {
 		return false;
