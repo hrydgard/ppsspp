@@ -1083,9 +1083,6 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bAllowSpeedControlWhileConnected, n->T("Allow speed control while connected (not recommended)")));
-	if (Discord::IsAvailable()) {
-		networkingSettings->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
-	}
 }
 
 void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
@@ -1094,6 +1091,7 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	// TODO: Most of the settings were moved here from elsewhere, so they use the wrong translation objects,
 	// to avoid having to change all inis... This isn't a sustainable situation :P
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
@@ -1117,7 +1115,14 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
 	}
 
-	tools->Add(new ItemHeader(ms->T("Tools")));
+	auto integrationsHeader = new ItemHeader("Third-party integrations");
+	tools->Add(integrationsHeader);
+	int32_t integrationCount = 0;
+
+	if (Discord::IsAvailable()) {
+		tools->Add(new CheckBox(&g_Config.bDiscordRichPresence, n->T("Send Discord Presence information")));
+		integrationCount++;
+	}
 
 	const bool showRetroAchievements = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR;
 	if (showRetroAchievements) {
@@ -1126,8 +1131,14 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 			screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
 		});
 		retro->SetIconRight(ImageID("I_RETROACHIEVEMENTS_LOGO"));
+		integrationCount++;
 	}
 
+	if (!integrationCount) {
+		tools->Add(new SettingHint("No third-party integrations available for this device.", nullptr));
+	}
+
+	tools->Add(new ItemHeader(ms->T("Tools")));
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new SavedataScreen(gamePath_));
 	});
