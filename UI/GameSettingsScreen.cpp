@@ -1102,17 +1102,17 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;
 #else
 	// If you enabled it through the ini, you can see this. Useful for testing.
-	bool showCardboardSettings = config.bEnableCardboardVR;
+	bool showCardboardSettings = g_Config.bEnableCardboardVR;
 #endif
 	if (showCardboardSettings) {
 		tools->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-		tools->Add(new CheckBox(&config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-		PopupSliderChoice *cardboardScreenSize = tools->Add(new PopupSliderChoice(&config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-		cardboardScreenSize->SetEnabledPtr(&config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardXShift = tools->Add(new PopupSliderChoice(&config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardXShift->SetEnabledPtr(&config.bEnableCardboardVR);
-		PopupSliderChoice *cardboardYShift = tools->Add(new PopupSliderChoice(&config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-		cardboardYShift->SetEnabledPtr(&config.bEnableCardboardVR);
+		tools->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+		PopupSliderChoice *cardboardScreenSize = tools->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 150, 50, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardXShift = tools->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -150, 150, 0, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
+		PopupSliderChoice *cardboardYShift = tools->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, 0, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
 	}
 
 	auto integrationsHeader = new ItemHeader("Third-party integrations");
