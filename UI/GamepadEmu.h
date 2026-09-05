@@ -223,6 +223,7 @@ protected:
 
 private:
 	const GestureControlConfig &GetZone();
+	void ReleaseHeldSwipeKeys();
 
 	int zoneIndex_;
 	float lastX_ = 0.0f;
