@@ -1723,7 +1723,7 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
 	// the GPU backend code.
 	g_Config.Save(why);
-	std::string param = "--gamesettings";
+	std::string param = "--start-screen=gamesettings";
 	if (editThenRestore) {
 		// We won't pass the gameID, so don't resume back into settings.
 		param.clear();
