@@ -77,3 +77,14 @@ Keep this list up to date - it's what makes it possible to move to a newer upstr
   to curl, which reads it as a `size_t` - a negative arrived as an enormous count instead of an
   error.
 - `src/naett_linux.c`: the multi handle and the pipe leaked when init failed partway.
+- `src/naett_android.c`: `getEnv` called `AttachCurrentThread` and nothing ever detached.
+  `processRequest` detaches its own thread, but `naettPlatformInitRequest`/`FreeRequest` run on
+  the caller's, and a thread that exits while attached is fatal on Android. They attach only if
+  the thread wasn't already, and detach when they're done.
+- `src/naett_android.c`: `pthread_create`'s result was ignored - with no worker, nothing sets
+  `complete` and the caller polls `naettComplete` forever.
+- `src/naett_android.c`: `getOutputStream` can throw, and the calls after it ran with the
+  exception still pending, which isn't allowed for most of JNI. Checked now.
+- `src/naett_android.c`: `GetMethodID` returns NULL for a method it can't find, and calling with
+  a NULL `jmethodID` aborts the VM; the header loop could also hand `GetStringUTFChars` a null
+  value for a header with no entries.

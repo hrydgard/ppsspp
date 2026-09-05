@@ -31,11 +31,34 @@ static JavaVM* getVM() {
     return globalVM;
 }
 
-static JNIEnv* getEnv() {
+// PPSSPP: AttachCurrentThread on an already-attached thread is a no-op that still hands back the
+// env, so report whether we're the ones who attached it. A thread that exits while attached is
+// fatal on Android ("Native thread exiting without having called DetachCurrentThread"), and
+// naettPlatformInitRequest/FreeRequest run on whichever thread the caller uses.
+static JNIEnv* getEnvAttached(int* attached) {
     JavaVM* vm = getVM();
-    JNIEnv* env;
-    (*vm)->AttachCurrentThread(vm, &env, NULL);
+    JNIEnv* env = NULL;
+    *attached = 0;
+    if ((*vm)->GetEnv(vm, (void**)&env, JNI_VERSION_1_6) == JNI_OK) {
+        return env;
+    }
+    if ((*vm)->AttachCurrentThread(vm, &env, NULL) != JNI_OK) {
+        return NULL;
+    }
+    *attached = 1;
     return env;
+}
+
+static void detachIfAttached(int attached) {
+    if (attached) {
+        JavaVM* vm = getVM();
+        (*vm)->DetachCurrentThread(vm);
+    }
+}
+
+static JNIEnv* getEnv() {
+    int attached = 0;
+    return getEnvAttached(&attached);
 }
 
 static int catch (JNIEnv* env) {
@@ -47,14 +70,23 @@ static int catch (JNIEnv* env) {
 }
 
 static jmethodID getMethod(JNIEnv* env, jobject instance, const char* method, const char* sig) {
+    if (instance == NULL) {
+        return NULL;
+    }
     jclass clazz = (*env)->GetObjectClass(env, instance);
     jmethodID id = (*env)->GetMethodID(env, clazz, method, sig);
     (*env)->DeleteLocalRef(env, clazz);
     return id;
 }
 
+// PPSSPP: GetMethodID leaves an exception pending and returns NULL when it can't find the
+// method, and calling with a NULL jmethodID aborts the VM. Bail out instead - the caller's
+// catch() picks up the pending exception.
 static jobject call(JNIEnv* env, jobject instance, const char* method, const char* sig, ...) {
     jmethodID methodID = getMethod(env, instance, method, sig);
+    if (methodID == NULL) {
+        return NULL;
+    }
     va_list args;
     va_start(args, sig);
     jobject result = (*env)->CallObjectMethodV(env, instance, methodID, args);
@@ -64,6 +96,9 @@ static jobject call(JNIEnv* env, jobject instance, const char* method, const cha
 
 static void voidCall(JNIEnv* env, jobject instance, const char* method, const char* sig, ...) {
     jmethodID methodID = getMethod(env, instance, method, sig);
+    if (methodID == NULL) {
+        return;
+    }
     va_list args;
     va_start(args, sig);
     (*env)->CallVoidMethodV(env, instance, methodID, args);
@@ -72,6 +107,9 @@ static void voidCall(JNIEnv* env, jobject instance, const char* method, const ch
 
 static jint intCall(JNIEnv* env, jobject instance, const char* method, const char* sig, ...) {
     jmethodID methodID = getMethod(env, instance, method, sig);
+    if (methodID == NULL) {
+        return 0;
+    }
     va_list args;
     va_start(args, sig);
     jint result = (*env)->CallIntMethodV(env, instance, methodID, args);
@@ -84,7 +122,11 @@ void naettPlatformInit(naettInitData initData) {
 }
 
 int naettPlatformInitRequest(InternalRequest* req) {
-    JNIEnv* env = getEnv();
+    int attached = 0;
+    JNIEnv* env = getEnvAttached(&attached);
+    if (env == NULL) {
+        return 0;
+    }
     (*env)->PushLocalFrame(env, 10);
     jclass URL = (*env)->FindClass(env, "java/net/URL");
     jmethodID newURL = (*env)->GetMethodID(env, URL, "<init>", "(Ljava/lang/String;)V");
@@ -92,10 +134,12 @@ int naettPlatformInitRequest(InternalRequest* req) {
     jobject url = (*env)->NewObject(env, URL, newURL, urlString);
     if (catch (env)) {
         (*env)->PopLocalFrame(env, NULL);
+        detachIfAttached(attached);
         return 0;
     }
     req->urlObject = (*env)->NewGlobalRef(env, url);
     (*env)->PopLocalFrame(env, NULL);
+    detachIfAttached(attached);
     return 1;
 }
 
@@ -137,6 +181,12 @@ static void* processRequest(void* data) {
         strcmp(req->options.method, "PATCH") == 0 || strcmp(req->options.method, "DELETE") == 0) {
         voidCall(env, connection, "setDoOutput", "(Z)V", 1);
         outputStream = call(env, connection, "getOutputStream", "()Ljava/io/OutputStream;");
+        // PPSSPP: most JNI calls are not safe to make with an exception pending, and this one
+        // throws for anything from a refused connection to a protocol the server won't take.
+        if (catch (env)) {
+            res->code = naettConnectionError;
+            goto finally;
+        }
     }
     jobject methodString = (*env)->NewStringUTF(env, req->options.method);
     voidCall(env, connection, "setRequestMethod", "(Ljava/lang/String;)V", methodString);
@@ -182,11 +232,25 @@ static void* processRequest(void* data) {
         if (name == NULL) {
             continue;
         }
-        const char* nameString = (*env)->GetStringUTFChars(env, name, NULL);
-
         jobject values = call(env, headerMap, "get", "(Ljava/lang/Object;)Ljava/lang/Object;", name);
         jstring value = call(env, values, "get", "(I)Ljava/lang/Object;", 0);
+        // PPSSPP: a header with no values gives a null here, and GetStringUTFChars on it aborts.
+        if (value == NULL) {
+            (*env)->ExceptionClear(env);
+            (*env)->DeleteLocalRef(env, name);
+            (*env)->DeleteLocalRef(env, values);
+            continue;
+        }
+        const char* nameString = (*env)->GetStringUTFChars(env, name, NULL);
         const char* valueString = (*env)->GetStringUTFChars(env, value, NULL);
+        if (nameString == NULL || valueString == NULL) {
+            if (nameString) (*env)->ReleaseStringUTFChars(env, name, nameString);
+            if (valueString) (*env)->ReleaseStringUTFChars(env, value, valueString);
+            (*env)->DeleteLocalRef(env, name);
+            (*env)->DeleteLocalRef(env, value);
+            (*env)->DeleteLocalRef(env, values);
+            continue;
+        }
 
         naettAlloc(KVLink, node);
         node->key = strdup(nameString);
@@ -255,8 +319,17 @@ static void startWorkerThread(InternalResponse* res) {
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&res->workerThread, &attr, processRequest, res);
-    pthread_setname_np(res->workerThread, "naett worker thread");
+    // PPSSPP: upstream ignored this. With no thread, nothing ever sets res->complete and the
+    // caller polls naettComplete forever.
+    if (pthread_create(&res->workerThread, &attr, processRequest, res) != 0) {
+        LOGE("Failed to start the request worker thread");
+        res->workerThread = 0;
+        res->code = naettGenericError;
+        res->complete = 1;
+    } else {
+        pthread_setname_np(res->workerThread, "naett worker thread");
+    }
+    pthread_attr_destroy(&attr);
 }
 
 void naettPlatformMakeRequest(InternalResponse* res) {
@@ -264,8 +337,18 @@ void naettPlatformMakeRequest(InternalResponse* res) {
 }
 
 void naettPlatformFreeRequest(InternalRequest* req) {
-    JNIEnv* env = getEnv();
+    if (req->urlObject == NULL) {
+        // Init failed before it got that far.
+        return;
+    }
+    int attached = 0;
+    JNIEnv* env = getEnvAttached(&attached);
+    if (env == NULL) {
+        return;
+    }
     (*env)->DeleteGlobalRef(env, req->urlObject);
+    req->urlObject = NULL;
+    detachIfAttached(attached);
 }
 
 void naettPlatformCloseResponse(InternalResponse* res) {
