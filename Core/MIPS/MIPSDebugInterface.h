@@ -62,7 +62,7 @@ public:
 		switch (cat) {
 		case 0: snprintf(out, outSize, "%08X", cpu->r[index]); break;
 		case 1: snprintf(out, outSize, "%f", cpu->f[index]); break;
-		case 2: snprintf(out, outSize, "N/A"); break;
+		case 2: snprintf(out, outSize, "%f", cpu->v[voffset[index]]); break;
 		}
 	}
 
