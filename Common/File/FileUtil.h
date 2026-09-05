@@ -123,6 +123,10 @@ bool MoveIfFast(const Path &srcFilename, const Path &destFilename);
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const Path &filename);
 
+// Can we actually create files in this directory? Checks by trying, since permission bits
+// don't tell the whole story (Windows ACLs, read-only mounts, ...).
+bool IsDirectoryWritable(const Path &path);
+
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
 bool OpenFileInEditor(const Path &fileName);

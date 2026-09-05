@@ -1068,6 +1068,18 @@ bool CreateEmptyFile(const Path &filename) {
 	return true;
 }
 
+bool IsDirectoryWritable(const Path &path) {
+	// There's no portable way to ask, so just try it and clean up after ourselves.
+	const Path probe = path / ".ppsspp_write_test";
+	FILE *file = OpenCFile(probe, "wb");
+	if (!file) {
+		return false;
+	}
+	fclose(file);
+	Delete(probe, true);
+	return true;
+}
+
 // Deletes an empty directory, returns true on success
 // WARNING: On Android with content URIs, it will delete recursively!
 bool DeleteDir(const Path &path) {
