@@ -106,6 +106,8 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
+#include "Core/ControlMapper.h"
+#include "Core/HLE/sceCtrl.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -2446,6 +2448,77 @@ bool TestInputMapping() {
 	return true;
 }
 
+// Records what the ControlMapper tells us, so a test can check it.
+class TestControlListener : public ControlListener {
+public:
+	void OnVKey(VirtKey vkey, bool down) override {
+		vkeyDown[vkey] = down;
+	}
+	void UpdatePSPButtons(uint32_t buttonMask, uint32_t changedMask) override {
+		buttons = (buttons & ~changedMask) | buttonMask;
+	}
+	uint32_t buttons = 0;
+	std::map<VirtKey, bool> vkeyDown;
+};
+
+static bool SendKey(ControlMapper *mapper, int keyCode, bool down) {
+	KeyInput key{};
+	key.deviceId = DEVICE_ID_PAD_0;
+	key.keyCode = (InputKeyCode)keyCode;
+	key.flags = down ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+	return mapper->Key(key);
+}
+
+// A mapping shouldn't fire when a longer mapping sharing an input with it is held. See #20621.
+bool TestComboSuppression() {
+	using KeyMap::MultiInputMapping;
+
+	InputMapping a(DEVICE_ID_PAD_0, NKCODE_BUTTON_1);
+	InputMapping b(DEVICE_ID_PAD_0, NKCODE_BUTTON_2);
+
+	KeyMap::ClearAllMappings();
+	KeyMap::SetInputMapping(CTRL_CIRCLE, MultiInputMapping(a), true);
+	KeyMap::SetInputMapping(CTRL_SQUARE, MultiInputMapping(b), true);
+	MultiInputMapping combo(a);
+	combo.mappings.push_back(b);
+	KeyMap::SetInputMapping(VIRTKEY_PAUSE, combo, true);
+
+	TestControlListener listener;
+	ControlMapper mapper;
+	mapper.AddListener(&listener);
+
+	// A on its own presses Circle.
+	SendKey(&mapper, NKCODE_BUTTON_1, true);
+	EXPECT_EQ_INT((int)(listener.buttons & CTRL_CIRCLE), (int)CTRL_CIRCLE);
+	EXPECT_FALSE(listener.vkeyDown[VIRTKEY_PAUSE]);
+
+	// Adding B completes the combo, so Circle lets go and Square never presses.
+	SendKey(&mapper, NKCODE_BUTTON_2, true);
+	EXPECT_TRUE(listener.vkeyDown[VIRTKEY_PAUSE]);
+	EXPECT_EQ_INT((int)(listener.buttons & CTRL_CIRCLE), 0);
+	EXPECT_EQ_INT((int)(listener.buttons & CTRL_SQUARE), 0);
+
+	// Letting go of B ends the combo, and since A is still held, Circle comes back.
+	SendKey(&mapper, NKCODE_BUTTON_2, false);
+	EXPECT_FALSE(listener.vkeyDown[VIRTKEY_PAUSE]);
+	EXPECT_EQ_INT((int)(listener.buttons & CTRL_CIRCLE), (int)CTRL_CIRCLE);
+	EXPECT_EQ_INT((int)(listener.buttons & CTRL_SQUARE), 0);
+
+	// And releasing A leaves nothing pressed.
+	SendKey(&mapper, NKCODE_BUTTON_1, false);
+	EXPECT_EQ_INT((int)(listener.buttons & (CTRL_CIRCLE | CTRL_SQUARE)), 0);
+
+	// B on its own still presses Square - suppression only applies while the combo is held.
+	SendKey(&mapper, NKCODE_BUTTON_2, true);
+	EXPECT_EQ_INT((int)(listener.buttons & CTRL_SQUARE), (int)CTRL_SQUARE);
+	EXPECT_FALSE(listener.vkeyDown[VIRTKEY_PAUSE]);
+	SendKey(&mapper, NKCODE_BUTTON_2, false);
+
+	mapper.RemoveListener(&listener);
+	KeyMap::ClearAllMappings();
+	return true;
+}
+
 bool TestEscapeMenuString() {
 	char c;
 	std::string temp = UnescapeMenuString("&File", &c);
@@ -3010,6 +3083,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(InputMapping),
+	TEST_ITEM(ComboSuppression),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
 	TEST_ITEM(Substitutions),
