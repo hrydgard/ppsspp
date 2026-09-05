@@ -218,6 +218,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 
 	const JsonGet root = reader.root();
 	const JsonGet def = root.getDict("default");
+	if (!def) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a default object");
+		return false;
+	}
 
 	// Load the default DNS.
 	if (def) {
@@ -233,6 +237,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	}
 
 	const JsonNode *games = root.getArray("games");
+	if (!games) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a games array");
+		return false;
+	}
 	for (const JsonNode *iter : games->value) {
 		JsonGet game = iter->value;
 		// Goddamn I have to change the json reader we're using. So ugly.
@@ -374,7 +382,7 @@ bool LoadAutoDNS(std::string_view json) {
 
 std::shared_ptr<http::Request> g_infraDL;
 
-static const std::string_view jsonUrl = "http://metadata.ppsspp.org/infra-dns.json";
+static const std::string_view jsonUrl = "https://metadata.ppsspp.org/infra-dns.json";
 
 void DeleteAutoDNSCacheFile() {
 	File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
