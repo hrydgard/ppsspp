@@ -503,8 +503,15 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	if (pcmAddr)
 		Memory::WriteOrException_U32(outptr, pcmAddr);
 
+	// The stream is over once the decoder has consumed up to endPos, whatever is still sitting in
+	// the buffer. A game can hand us more than the file actually had - audio/mp3/stream notifies
+	// the full size it asked for even when the read came up short - and the hardware won't decode
+	// that tail, it just reports the end. A stream that still has loops left was already rewound
+	// by the block below, so this only stops us for good.
+	bool end = (int64_t)readPos - AuBufAvailable >= (int64_t)endPos;
+
 	// Decode a single frame in sourcebuff and output into PCMBuf.
-	if (!sourcebuff.empty()) {
+	if (!end && !sourcebuff.empty()) {
 		// FFmpeg doesn't seem to search for a sync for us, so let's do that.
 		int nextSync = 0;
 		if (decoder->GetAudioType() == PSP_CODEC_MP3) {
@@ -533,7 +540,9 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		}
 	}
 
-	bool end = readPos - AuBufAvailable >= (int64_t)endPos;
+	// Check again now that the decode has consumed more. The hardware rewinds in the same call that
+	// decodes the last frame, so the sum reads back as zero right after it (audio/mp3/getsumdecoded).
+	end = (int64_t)readPos - AuBufAvailable >= (int64_t)endPos;
 	if (end && LoopNum != 0) {
 		// When looping, start the sum back off at zero and reset readPos to the start.
 		SumDecodedSamples = 0;

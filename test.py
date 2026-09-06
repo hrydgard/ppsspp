@@ -112,6 +112,7 @@ tests_good = [
   "audio/mp3/release",
   "audio/mp3/reserve",
   "audio/mp3/setloopnum",
+  "audio/mp3/stream",
   "audio/output2/changelength",
   "audio/output2/reserve",
   "audio/output2/threads",
