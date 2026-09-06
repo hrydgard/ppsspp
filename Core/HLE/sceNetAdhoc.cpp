@@ -1937,6 +1937,7 @@ void __NetAdhocInit() {
 			SetCurrentThreadName("AEMUPostoffice");
 
 			aemu_postoffice_server::LOG = aemu_postoffice_server_log;
+			aemu_postoffice_server::LOG_TS = aemu_postoffice_server_log;
 
 			struct aemu_postoffice_server::config config;
 			/*
