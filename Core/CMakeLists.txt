@@ -494,6 +494,8 @@ add_library(Core STATIC
 	HLE/sceKernelTime.h
 	HLE/sceKernelVTimer.cpp
 	HLE/sceKernelVTimer.h
+	HLE/sceVideocodec.cpp
+	HLE/sceVideocodec.h
 	HLE/sceMpeg.cpp
 	HLE/sceMpeg.h
 	HLE/sceMpegbase.cpp

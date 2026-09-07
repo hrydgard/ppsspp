@@ -801,6 +801,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceKernelThread.cpp \
 	       $(COREDIR)/HLE/sceKernelTime.cpp \
 	       $(COREDIR)/HLE/sceKernelVTimer.cpp \
+	       $(COREDIR)/HLE/sceVideocodec.cpp \
 	       $(COREDIR)/HLE/sceMpeg.cpp \
 	       $(COREDIR)/HLE/sceMpegbase.cpp \
 	       $(COREDIR)/HLE/sceNet.cpp \

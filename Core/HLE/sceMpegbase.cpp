@@ -27,6 +27,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceMpegbase.h"
+#include "Core/HLE/sceVideocodec.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/ge_constants.h"
 
@@ -116,21 +117,21 @@ static bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 	const u8 *c[4] = {};
 	const int ySize[4] = { lumaSizeLeft, lumaSizeRight, lumaSizeLeft, lumaSizeRight };
 	const int cSize[4] = { chromaSizeLeft, chromaSizeLeft, chromaSizeRight, chromaSizeRight };
+	// These are addresses in the Media Engine's memory, not in PSP RAM, so they resolve through
+	// sceVideocodec rather than through Memory::. A descriptor that was never filled in holds
+	// small integers instead, and those simply aren't in the ME's range.
 	for (int i = 0; i < 4; i++) {
 		if (ySize[i] > 0) {
-			if (!Memory::IsValidRange(buffers[i], ySize[i])) {
+			y[i] = VideocodecMEPointer(buffers[i], ySize[i]);
+			if (!y[i]) {
 				return false;
 			}
-			y[i] = Memory::GetTypedPointerRange<u8>(buffers[i], ySize[i]);
 		}
 		if (cSize[i] > 0) {
-			if (!Memory::IsValidRange(buffers[4 + i], cSize[i])) {
+			c[i] = VideocodecMEPointer(buffers[4 + i], cSize[i]);
+			if (!c[i]) {
 				return false;
 			}
-			c[i] = Memory::GetTypedPointerRange<u8>(buffers[4 + i], cSize[i]);
-		}
-		if ((ySize[i] > 0 && !y[i]) || (cSize[i] > 0 && !c[i])) {
-			return false;
 		}
 	}
 

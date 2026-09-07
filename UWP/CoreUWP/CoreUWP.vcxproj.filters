@@ -127,6 +127,7 @@
     <ClCompile Include="..\..\Core\HLE\sceMp3.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceMp4.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceAac.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceVideocodec.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceMpeg.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceMpegbase.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceMt19937.cpp" />
@@ -525,6 +526,7 @@
     <ClInclude Include="..\..\Core\HLE\sceAudio.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudiocodec.h" />
     <ClInclude Include="..\..\Core\HLE\sceMpegbase.h" />
+    <ClInclude Include="..\..\Core\HLE\sceVideocodec.h" />
     <ClInclude Include="..\..\Core\HW\AvcDecoder.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudioRouting.h" />
     <ClInclude Include="..\..\Core\HLE\sceCcc.h" />
