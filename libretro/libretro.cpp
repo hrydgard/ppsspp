@@ -1174,8 +1174,10 @@ void retro_init(void)
       // auto-detection, which only fires if a debugger was already attached before Init() ran) so the
       // log always shows up in the debugger's Output window when debugging the core in-process with
       // RetroArch, regardless of where RetroArch itself routes the ExternalCallback log messages.
-      g_logManager.EnableOutput(LogOutput::ExternalCallback | LogOutput::DebugString);
-      g_logManager.SetExternalLogCallback(&RetroLogCallback, (void *)log_cb);
+      g_logManager.EnableOutput(LogOutput::DebugString);
+      // AddExternalLogCallback() enables LogOutput::ExternalCallback itself. Never removed - this
+      // callback lives as long as the core does.
+      g_logManager.AddExternalLogCallback(&RetroLogCallback, (void *)log_cb);
    }
 
    VsyncSwapIntervalReset();
