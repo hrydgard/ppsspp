@@ -48,6 +48,7 @@
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
+#include "Core/Util/KL4E.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/BlockAllocator.h"
@@ -1273,7 +1274,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			g_OSD.Show(OSDType::MESSAGE_WARNING, StringFromFormat("HLE for '%s' has been manually disabled", head->modname));
 		}
 		const u8 *in = ptr;
-		const auto isGzip = head->comp_attribute & 1;
+		const bool isCompressed = (head->comp_attribute & 1) != 0;
 		// Kind of odd.
 		u32 size = head->psp_size;
 		if (size > elfSize) {
@@ -1311,22 +1312,36 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			return nullptr;
 		}
 
-		// decompress if required.
-		if (isGzip) {
-			_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
-
+		// decompress if required. comp_attribute bit 0 says "compressed"; which scheme is then
+		// decided by the payload's own magic - gzip, or Sony's KL4E/KL3E. (JPCSP instead reads
+		// bits 8-11 of comp_attribute, but the magic is right there and can't disagree.)
+		if (isCompressed) {
 			// Can't decompress in place so we need a temporary buffer.
 			u8 *temp = (u8 *)malloc(decryptedSize);
-			_assert_msg_(temp != nullptr, "Failed to allocate gzip decompression buffer (decryptedSize: %d)", decryptedSize);
+			_assert_msg_(temp != nullptr, "Failed to allocate decompression buffer (decryptedSize: %d)", decryptedSize);
 			memcpy(temp, ptr, decryptedSize);
-			int outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
+
+			bool isKL3E = false;
+			int outBytes;
+			const char *scheme;
+			if (IsKL4EMagic(temp, decryptedSize, &isKL3E)) {
+				scheme = isKL3E ? "KL3E" : "KL4E";
+				// The decompressor is handed the stream header, i.e. past the four-byte magic.
+				outBytes = DecompressKL4E((u8 *)ptr, maxElfSize, temp + 4, (size_t)decryptedSize - 4, nullptr, isKL3E);
+				if (outBytes < 0) {
+					// A PSP error code, not a byte count.
+					outBytes = -1;
+				}
+			} else {
+				scheme = "gzip";
+				_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
+				outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
+			}
 			free(temp);
 			if (outBytes < 0) {
-				// Not necessarily actually gzip - some kd/ system modules (and possibly VSH
-				// modules) use KL4E compression instead, which we don't support decompressing.
-				// Bail out cleanly here rather than falling through to parse whatever's left
-				// in the buffer (still compressed, not a valid ELF) as if it were real code.
-				*error_string = StringFromFormat("Module '%s' decompression failed", head->modname);
+				// Bail out cleanly rather than falling through to parse whatever's left in the
+				// buffer (still compressed, not a valid ELF) as if it were real code.
+				*error_string = StringFromFormat("Module '%s' %s decompression failed", head->modname, scheme);
 				delete [] newptr;
 				module->Cleanup();
 				kernelObjects.Destroy<PSPModule>(module->GetUID());
@@ -1334,7 +1349,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				error = SCE_KERNEL_ERROR_FILEERR;
 				return nullptr;
 			}
-			INFO_LOG(Log::sceModule, "gzip is enabled in '%s', decompressing (%d -> %d bytes, bufmax=%d).", head->modname, decryptedSize, outBytes, maxElfSize);
+			INFO_LOG(Log::sceModule, "'%s' is %s-compressed, decompressing (%d -> %d bytes, bufmax=%d).", head->modname, scheme, decryptedSize, outBytes, maxElfSize);
 		}
 
 		if (fakeLoadedModule) {

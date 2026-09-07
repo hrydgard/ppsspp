@@ -363,6 +363,9 @@
     <ClCompile Include="Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\KL4E.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\PSARUnpack.cpp">
       <Filter>Util</Filter>
     </ClCompile>
