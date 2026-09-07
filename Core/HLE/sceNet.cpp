@@ -31,6 +31,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Data/Format/JSONReader.h"
+#include "Common/System/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -218,6 +219,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 
 	const JsonGet root = reader.root();
 	const JsonGet def = root.getDict("default");
+	if (!def) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a default object");
+		return false;
+	}
 
 	// Load the default DNS.
 	if (def) {
@@ -233,6 +238,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	}
 
 	const JsonNode *games = root.getArray("games");
+	if (!games) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a games array");
+		return false;
+	}
 	for (const JsonNode *iter : games->value) {
 		JsonGet game = iter->value;
 		// Goddamn I have to change the json reader we're using. So ugly.
@@ -374,10 +383,15 @@ bool LoadAutoDNS(std::string_view json) {
 
 std::shared_ptr<http::Request> g_infraDL;
 
-static const std::string_view jsonUrl = "http://metadata.ppsspp.org/infra-dns.json";
+static constexpr std::string_view jsonUrlHttp = "http://metadata.ppsspp.org/infra-dns.json";
+static constexpr std::string_view jsonUrlHttps = "https://metadata.ppsspp.org/infra-dns.json";
+
+static std::string_view GetInfraDNSUrl() {
+	return System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? jsonUrlHttps : jsonUrlHttp;
+}
 
 void DeleteAutoDNSCacheFile() {
-	File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
+	File::Delete(g_DownloadManager.UrlToCachePath(GetInfraDNSUrl()));
 }
 
 void StartInfraJsonDownload() {
@@ -391,7 +405,7 @@ void StartInfraJsonDownload() {
 
 	if (!g_Config.bDontDownloadInfraJson) {
 		const char * const acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+		g_infraDL = g_DownloadManager.StartDownload(GetInfraDNSUrl(), Path(), http::RequestFlags::Cached24H, acceptMime);
 	}
 }
 
@@ -436,7 +450,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		// First, fall back to cache if it exists. Could build this functionality into the download manager
 		// but it would be a bit awkward.
 		std::string json;
-		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(jsonUrl), &json) && !json.empty()) {
+		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(GetInfraDNSUrl()), &json) && !json.empty()) {
 			WARN_LOG(Log::sceNet, "Failed to download infra-dns.json, falling back to cached file");
 			*jsonOutput = json;
 			LoadAutoDNS(*jsonOutput);
