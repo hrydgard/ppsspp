@@ -394,9 +394,13 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	switch (codec) {
 	case 0x1000:
 		ctx->neededMem = 0x7bc0;
+		// avcodec.prx does no format check here at all - it just forwards to the ME - and the
+		// caller isn't obliged to have filled these in yet. mpeg.prx calls this with both bytes
+		// still zero, and rejecting that stopped its audio dead. Only worth a note when they
+		// aren't the pair libatrac3plus writes.
 		if (ctx->fmt.at3.formatByte1 != 0x28 || ctx->fmt.at3.formatByte2 != 0x5c) {
-			ctx->err = 0x20f;
-			return hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Bad format values: %02x %02x", ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
+			WARN_LOG(Log::ME, "sceAudiocodecCheckNeedMem: unfamiliar Atrac3+ format bytes %02x %02x",
+				ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		}
 		break;
 	case 0x1001:
