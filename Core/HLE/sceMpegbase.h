@@ -17,7 +17,16 @@
 
 #pragma once
 
+#include <vector>
+
+#include "Common/CommonTypes.h"
+
 void Register_sceMpegbase();
 
 // Called per boot, from __MpegInit.
 void __MpegBaseInit();
+
+// The PES payload sceMpegBasePESpacketCopy gathered for a given destination. On hardware that copy
+// lands in Media Engine memory, which sceVideocodec would then read back; we keep it here instead.
+// Returns nullptr if nothing was copied to that address.
+const std::vector<u8> *MpegBaseGetPESPacket(u32 dest);

@@ -35,6 +35,8 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceVideocodec.h"
+#include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceMpegbase.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/HW/AvcDecoder.h"
 #include "Core/MemMap.h"
@@ -473,12 +475,26 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		return hleLogError(Log::ME, -1, "bad output descriptor");
 	}
 
+	// The access unit address mpeg.prx passes is in Media Engine space, which we can't read -
+	// on hardware sceMpegBasePESpacketCopy DMA'd the data there. That copy is ours, so use what
+	// it gathered instead, and fall back to main memory for any caller that points at it
+	// directly.
 	bool gotFrame = false;
+	const u8 *au = nullptr;
+	int auBytes = 0;
 	if (auSize > 0 && Memory::IsValidRange(auAddr, auSize)) {
-		const u8 *au = Memory::GetTypedPointerRange<u8>(auAddr, auSize);
-		if (au) {
-			gotFrame = vctx.decoder->Decode(au, auSize);
+		au = Memory::GetTypedPointerRange<u8>(auAddr, auSize);
+		auBytes = auSize;
+	} else {
+		// Ask for the payload copied to this exact address - the same call carries audio too.
+		const std::vector<u8> *pes = MpegBaseGetPESPacket(auAddr);
+		if (pes && !pes->empty()) {
+			au = pes->data();
+			auBytes = (int)pes->size();
 		}
+	}
+	if (au && auBytes > 0) {
+		gotFrame = vctx.decoder->Decode(au, auBytes);
 	}
 
 	const int width = gotFrame ? vctx.decoder->Width() : 0;
@@ -533,7 +549,7 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 	}
 
 	return hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",
-		type, auSize, gotFrame ? "frame" : "no frame yet", width, height);
+		type, auBytes, gotFrame ? "frame" : "no frame yet", width, height);
 }
 
 static int sceVideocodecStop(u32 ctxAddr, int type) {

@@ -26,6 +26,7 @@
 #include "Core/HLE/sceMpegbase.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -348,6 +349,15 @@ private:
 };
 
 void __MpegInit() {
+	// We used to load flash0's mpeg.prx here, before the game module, on the theory that a game
+	// calling sceMpegInit without asking sceUtility for the AV module first would otherwise find
+	// nothing to resolve against. In practice a game either ships its own sceMpeg_library on the
+	// disc (Death Jr., Pursuit Force) or asks sceUtility (Thrillville), and both of those paths
+	// arrive in time on their own - while loading it here costs 33KB at the top of user memory
+	// for nothing. Stacks allocate from the top, so that pushed Pursuit Force's main thread stack
+	// down by exactly that much and left the largest free block just under the 256KB it wanted,
+	// which failed the boot outright. If a game turns up that really does need it early, make the
+	// load conditional on the game not providing its own rather than bringing this back.
 	__MpegBaseInit();
 	isMpegInit = false;
 	mpegLibVersion = 0x010A;

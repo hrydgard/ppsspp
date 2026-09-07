@@ -20,6 +20,7 @@
 // mpeg.prx drives these directly, so they have to be real for the firmware module to run in place
 // of our sceMpeg HLE.
 
+#include <map>
 #include <vector>
 
 #include "Common/Swap.h"
@@ -31,12 +32,18 @@
 #include "Core/MemMapHelpers.h"
 #include "GPU/ge_constants.h"
 
+// The PES payloads gathered by sceMpegBasePESpacketCopy, keyed by the destination each was
+// copied to. It carries audio as well as video - the destination is what tells them apart - so
+// sceVideocodec has to ask for the one matching the address it was handed.
+static std::map<u32, std::vector<u8>> g_pesPackets;
+
 // Set by sceMpegBaseCscInit / sceMpegBaseCscSetPixelMode, and used when the caller passes 0.
 static int g_mpegBaseBufferWidth = 512;
 static int g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
 
 void __MpegBaseInit() {
 	// None of this survives a boot on hardware.
+	g_pesPackets.clear();
 	g_mpegBaseBufferWidth = 512;
 	g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
 }
@@ -56,8 +63,39 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 	}
 	MpegSetPmpVideoSource(p, nBlocks);
 
-	DEBUG_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy(%08x), received %d block(s)", p, nBlocks);
+	// On hardware this is the DMA that moves the PES payload into the Media Engine's own memory,
+	// after which mpeg.prx hands sceVideocodecDecode an ME-side address we have no way to read.
+	// Since the copy is ours, gather the blocks here instead and let sceVideocodec decode from
+	// this - see MpegBaseGetPESPacket.
+	lli = PSPPointer<SceMpegLLI>::Create(p);
+	u32 dest = 0;
+	std::vector<u8> gathered;
+	for (int i = 0; i < nBlocks && lli.IsValid(); i++) {
+		if (i == 0) {
+			dest = lli->pDst;
+		}
+		// The list is game-supplied, so check the span before taking a pointer to it: the range
+		// accessors raise a memory exception rather than returning null, and a malformed block
+		// shouldn't fault the game when the intent here is to skip it.
+		const u8 *src = (lli->iSize > 0 && Memory::IsValidRange(lli->pSrc, lli->iSize))
+			? Memory::GetTypedPointerRange<u8>(lli->pSrc, lli->iSize) : nullptr;
+		if (src) {
+			gathered.insert(gathered.end(), src, src + lli->iSize);
+		}
+		++lli;
+	}
+	if (dest != 0) {
+		g_pesPackets[dest] = std::move(gathered);
+	}
+
+	DEBUG_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy(%08x), %d block(s) -> %08x, %d bytes",
+		p, nBlocks, dest, dest ? (int)g_pesPackets[dest].size() : 0);
 	return 0;
+}
+
+const std::vector<u8> *MpegBaseGetPESPacket(u32 dest) {
+	auto it = g_pesPackets.find(dest);
+	return it == g_pesPackets.end() ? nullptr : &it->second;
 }
 
 
