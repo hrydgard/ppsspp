@@ -726,7 +726,7 @@ endif()
 list(APPEND CoreExtraLibs armips)
 
 target_link_libraries(Core GPU Common chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua
-	aemu_postoffice_client ${CoreExtraLibs} ${CMAKE_DL_LIBS})
+	aemu_postoffice_client aemu_postoffice_server ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 
 # Winsock
 if(WIN32)
