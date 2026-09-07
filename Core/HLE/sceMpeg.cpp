@@ -23,6 +23,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceMpegbase.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/HLE.h"
@@ -121,13 +122,10 @@ static AVPixelFormat pmp_want_pix_fmt;
 
 #endif
 
-struct SceMpegLLI
-{
-	u32 pSrc;
-	u32 pDst;
-	u32 Next;
-	int iSize;
-};
+void MpegSetPmpVideoSource(u32 addr, int blocks) {
+	pmp_videoSource = addr;
+	pmp_nBlocks = blocks;
+}
 
 void SceMpegAu::read(u32 addr) {
 	Memory::Memcpy(this, addr, sizeof(*this), "SceMpegAu");
@@ -350,6 +348,7 @@ private:
 };
 
 void __MpegInit() {
+	__MpegBaseInit();
 	isMpegInit = false;
 	mpegLibVersion = 0x010A;
 	streamIdGen = 1;
@@ -2322,37 +2321,3 @@ void Register_sceMpeg()
 }
 
 // This function is currently only been used for PMP videos
-// p pointing to a SceMpegLLI structure consists of video frame blocks.
-static u32 sceMpegBasePESpacketCopy(u32 p)
-{
-	pmp_videoSource = p;
-	pmp_nBlocks = 0;
-
-	auto lli = PSPPointer<SceMpegLLI>::Create(p);
-	while (lli.IsValid()) {
-		pmp_nBlocks++;
-		// lli.Next ==0 for last block
-		if (lli->Next == 0){
-			break;
-		}
-		++lli;
-	}
-
-	DEBUG_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
-	return 0;
-}
-
-const HLEFunction sceMpegbase[] =
-{
-	{0XBEA18F91, &WrapU_U<sceMpegBasePESpacketCopy>,           "sceMpegBasePESpacketCopy",           'x', "x"      },
-	{0X492B5E4B, nullptr,                                      "sceMpegBaseCscInit",                 '?', ""       },
-	{0X0530BE4E, nullptr,                                      "sceMpegbase_0530BE4E",               '?', ""       },
-	{0X91929A21, nullptr,                                      "sceMpegBaseCscAvc",                  '?', ""       },
-	{0X304882E1, nullptr,                                      "sceMpegBaseCscAvcRange",             '?', ""       },
-	{0X7AC0321A, nullptr,                                      "sceMpegBaseYCrCbCopy",               '?', ""       }
-};
-
-void Register_sceMpegbase()
-{
-	RegisterHLEModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
-};

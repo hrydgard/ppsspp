@@ -802,6 +802,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceKernelTime.cpp \
 	       $(COREDIR)/HLE/sceKernelVTimer.cpp \
 	       $(COREDIR)/HLE/sceMpeg.cpp \
+	       $(COREDIR)/HLE/sceMpegbase.cpp \
 	       $(COREDIR)/HLE/sceNet.cpp \
 	       $(COREDIR)/HLE/sceNet_lib.cpp \
 	       $(COREDIR)/HLE/NetAdhocCommon.cpp \

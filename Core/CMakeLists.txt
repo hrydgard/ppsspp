@@ -496,6 +496,8 @@ add_library(Core STATIC
 	HLE/sceKernelVTimer.h
 	HLE/sceMpeg.cpp
 	HLE/sceMpeg.h
+	HLE/sceMpegbase.cpp
+	HLE/sceMpegbase.h
 	HLE/sceNet.cpp
 	HLE/sceNet.h
 	HLE/sceNet_lib.cpp

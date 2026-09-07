@@ -57,6 +57,7 @@
 #include "sceNetAdhocMatching.h"
 #include "sceNp.h"
 #include "sceMpeg.h"
+#include "sceMpegbase.h"
 #include "sceOpenPSID.h"
 #include "sceResmgr.h"
 #include "sceP3da.h"

@@ -638,6 +638,7 @@
     <ClCompile Include="HLE\sceKernelTime.cpp" />
     <ClCompile Include="HLE\sceKernelVTimer.cpp" />
     <ClCompile Include="HLE\sceMpeg.cpp" />
+    <ClCompile Include="HLE\sceMpegbase.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
     <ClCompile Include="HLE\sceNet_lib.cpp" />
     <ClCompile Include="HLE\NetAdhocCommon.cpp" />
@@ -1151,6 +1152,7 @@
     <ClInclude Include="HLE\sceKernelThread.h" />
     <ClInclude Include="HLE\sceKernelTime.h" />
     <ClInclude Include="HLE\sceMpeg.h" />
+    <ClInclude Include="HLE\sceMpegbase.h" />
     <ClInclude Include="HLE\sceNet.h" />
     <ClInclude Include="HLE\sceNet_lib.h" />
     <ClInclude Include="HLE\NetAdhocCommon.h" />

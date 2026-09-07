@@ -128,6 +128,7 @@
     <ClCompile Include="..\..\Core\HLE\sceMp4.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceAac.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceMpeg.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMpegbase.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceMt19937.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNet.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNet_lib.cpp" />
@@ -522,6 +523,7 @@
     <ClInclude Include="..\..\Core\HLE\sceAtrac.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudio.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudiocodec.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMpegbase.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudioRouting.h" />
     <ClInclude Include="..\..\Core\HLE\sceCcc.h" />
     <ClInclude Include="..\..\Core\HLE\sceChnnlsv.h" />
