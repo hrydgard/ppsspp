@@ -164,7 +164,9 @@ enum class DisableHLEFlags : int {
 	sceMp3 = (1 << 5),
 	sceParseHttp = (1 << 6),
 	sceCcc = (1 << 7),  // character conversion library.
-	Count = 8,
+	// Swaps in flash0:/kd/libmp4.prx and mp4msv.prx, which then decode through our sceAudiocodec.
+	sceMp4 = (1 << 8),
+	Count = 9,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);

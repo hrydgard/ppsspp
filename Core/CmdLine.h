@@ -78,6 +78,10 @@ struct CommandLineOptions {
 	std::optional<std::string> unpackUpdaterModel;
 	std::optional<std::string> unpackUpdaterFilter;
 
+	// Bitmask of DisableHLEFlags: run the real firmware module instead of our HLE for those
+	// libraries. Needs a firmware dump under the NAND directory.
+	std::optional<int> disableHLE;
+
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;
 	std::optional<int> breakAction;

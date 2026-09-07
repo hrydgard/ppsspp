@@ -22,6 +22,9 @@
 
 #include "Common/Math/CrossSIMD.h"
 
+#include "Common/File/FileUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/System/OSD.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
@@ -153,6 +156,9 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"scePsmfPlayer", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
 	{"sceSAScore", "sceSasCore"},
 	{"sceCcc_Library", "sceCcc", DisableHLEFlags::sceCcc},
+	// libmp4.prx needs 41 functions from mp4msv.prx, so the two only make sense swapped together.
+	{"sceMp4_library", "sceMp4", DisableHLEFlags::sceMp4},
+	{"mp4msv_module", "mp4msv", DisableHLEFlags::sceMp4},
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
 	{"SceParseURI_Library"},
 	// Guessing these names
@@ -198,6 +204,12 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 }
 
 // Process compat flags.
+// Flags the user asked for that we can't honour this boot, because the firmware modules they
+// need aren't in the NAND directory. Subtracted in GetDisableHLEFlags so that a missing dump
+// leaves the HLE in place rather than handing the game unresolved imports, which is much worse
+// than our stubs. Recomputed per boot, since the dump can appear between runs.
+static DisableHLEFlags g_unavailableDisableFlags = (DisableHLEFlags)0;
+
 static DisableHLEFlags GetDisableHLEFlags() {
 	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | AlwaysDisableHLEFlags();
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
@@ -208,6 +220,8 @@ static DisableHLEFlags GetDisableHLEFlags() {
 	}
 
 	flags &= ~(DisableHLEFlags)g_Config.iForceEnableHLE;
+	// Anything whose firmware module isn't actually present stays HLE'd.
+	flags &= ~g_unavailableDisableFlags;
 	return flags;
 }
 
@@ -262,7 +276,25 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 		WARN_LOG(Log::HLE, "Someone else woke up HLE-blocked thread %d?", threadID);
 }
 
+// Which firmware files a flag needs before it can be honoured.
+static void CheckDisableHLEAvailability() {
+	g_unavailableDisableFlags = (DisableHLEFlags)0;
+
+	if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceMp4) {
+		const Path kd = g_Config.nandRootDirectory / "flash0" / "kd";
+		if (!File::Exists(kd / "libmp4.prx") || !File::Exists(kd / "mp4msv.prx")) {
+			g_unavailableDisableFlags |= DisableHLEFlags::sceMp4;
+			ERROR_LOG(Log::HLE, "Asked to run the real sceMp4, but %s doesn't have libmp4.prx and "
+				"mp4msv.prx - keeping the HLE.", kd.c_str());
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			g_OSD.Show(OSDType::MESSAGE_WARNING,
+				sy->T("Real sceMp4 needs a firmware dump in the NAND folder - using HLE instead"), 6.0f);
+		}
+	}
+}
+
 void HLEInit() {
+	CheckDisableHLEAvailability();
 	RegisterAllModules();
 	g_stackSize = 0;
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);

@@ -2713,6 +2713,34 @@ struct GetModuleIdByAddressArg
 	SceUID result;
 };
 
+// ModuleMgrForUser_D2FBC957. Looks up the gp value of whichever module contains an address, which
+// is how a library that is handed function pointers from another module can call them: MIPS code
+// needs the callee's gp in place. libmp4.prx uses it on the three callbacks it is given.
+// Named after what it does; the official name isn't known.
+static u32 sceKernelGetModuleGPByAddress(u32 addr, u32 gpPtr) {
+	if (!Memory::IsValidAddress(gpPtr)) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad gp pointer");
+	}
+
+	u32 gp = 0;
+	bool found = false;
+	kernelObjects.Iterate<PSPModule>([&](int id, PSPModule *module) -> bool {
+		const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
+		if (start != 0 && start <= addr && start + size > addr) {
+			gp = module->nm.gp_value;
+			found = true;
+			return false;
+		}
+		return true;
+	});
+
+	if (!found) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_UNKNOWN_MODULE, "no module at %08x", addr);
+	}
+	Memory::WriteUnchecked_U32(gp, gpPtr);
+	return hleLogDebug(Log::sceModule, 0, "gp=%08x", gp);
+}
+
 static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
 	GetModuleIdByAddressArg state;
@@ -3028,6 +3056,7 @@ const HLEFunction ModuleMgrForUser[] = {
 	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx"    },
 	{0XE4C4211C, nullptr,                                               "sceKernelLoadModuleWithBlockOffset",      '?', ""       },
 	{0XFBE27467, nullptr,                                               "sceKernelLoadModuleByIDWithBlockOffset",  '?', ""       },
+	{0XD2FBC957, &WrapU_UU<sceKernelGetModuleGPByAddress>,              "sceKernelGetModuleGPByAddress",          'x', "xx"     },
 };
 
 const HLEFunction ModuleMgrForKernel[] = {

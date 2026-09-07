@@ -727,12 +727,17 @@ int main(int argc, const char* argv[]) {
 	g_Config.iReverbVolume = VOLUMEHI_FULL;
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
-	g_Config.iForceEnableHLE = 0xFFFFFFFF;  // Run all modules as HLE. We don't have anything to load in this context.
 	g_Config.bSkipDeadbeefFilling = false;
 
 	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
+
+	// Run all modules as HLE - a headless run normally has no firmware to load them from. An
+	// explicit --disable-hle means the caller does have a dump and wants the real thing, so leave
+	// the modules they asked for alone.
+	g_Config.iForceEnableHLE = 0xFFFFFFFF & ~g_Config.iDisableHLE;
+
 
 	// This looks contradictory to the above. But, this preserves the old test behavior which apparently ran the JIT for the CPU
 	// but ended up running software vertex decoding due to the setting in g_Config. Yeah, it's a mess.
