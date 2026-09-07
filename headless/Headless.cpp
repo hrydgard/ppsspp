@@ -59,6 +59,7 @@
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
 #include "Core/Util/PkgUnpack.h"
+#include "headless/ReverseEngineer.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
@@ -860,6 +861,18 @@ int main(int argc, const char* argv[]) {
 	}
 	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
 	coreParameter.nandRoot = g_Config.nandRootDirectory;
+	// Placed here rather than with the other early-exit subcommands above, because resolving a
+	// "flash0:/kd/foo.prx" module path needs nandRootDirectory, which is only settled just above.
+	if (cmdLineOptions.reModule.has_value()) {
+		ReverseEngineerOptions reOptions;
+		reOptions.modulePath = cmdLineOptions.reModule.value();
+		reOptions.outDir = cmdLineOptions.reOut.value_or("re-out");
+		reOptions.funcFilter = cmdLineOptions.reFunc.value_or("");
+		reOptions.symsFile = cmdLineOptions.reSyms.value_or("");
+		reOptions.verbose = testOptions.verbose;
+		return RunReverseEngineer(reOptions);
+	}
+
 
 	// Try to find the assets flash0 directory. Often this is from a subdirectory.
 	// This is needed for our fallback fonts.
