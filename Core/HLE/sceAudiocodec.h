@@ -28,10 +28,7 @@ enum PSPAudioType {
 	PSP_CODEC_AT3 = 0x00001001,
 	PSP_CODEC_MP3 = 0x00001002,
 	PSP_CODEC_AAC = 0x00001003,  // sceMp4 decodes this in an mp4 container
-	// 0x1004 is accepted by the hardware and handled much like MP3 (it shares MP3's frame-size
-	// calculator, with the parameter fields at different offsets), but nothing seen so far uses
-	// it and we don't know what it is. MPEG Layer II is a guess. Not a gap in the enum: the
-	// range check above really does accept six values.
+	// 0x1004 is handled by parts of the firmware but it's ultimately rejected by the ME code. Never implemented.
 	PSP_CODEC_UNKNOWN_1004 = 0x00001004,
 	PSP_CODEC_WMA = 0x00001005,
 };

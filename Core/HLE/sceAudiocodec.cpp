@@ -73,6 +73,11 @@ static_assert(offsetof(SceAudiocodecCodec, allocMem) == 0x68);
 
 // Atrac3 (0x1001)
 //
+// The Media Engine only ever sees the first 0x68 bytes of this structure - me_wrapper.prx does
+// sceKernelDcacheWritebackInvalidateRange(ctx, 0x68) before handing it over, and avcodec.prx
+// validates the same range - so whatever the hardware uses to size an Atrac3 frame has to be in
+// there. The only Atrac3-specific thing anything writes is the joint-stereo flag in byte 1.
+//
 // Frame size          data byte           JointStereo?
 // -------------------------------------------------
 // 0x180               0x04                0
