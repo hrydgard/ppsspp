@@ -35,19 +35,41 @@ std::map<u32, AudioDecoder *> g_audioDecoderContexts;
 static bool oldStateLoaded = false;
 
 static_assert(sizeof(SceAudiocodecCodec) == 128);
+// Games allocate this structure and the ME writes into it, so every offset is load-bearing.
+static_assert(offsetof(SceAudiocodecCodec, inBuf) == 0x18);
+static_assert(offsetof(SceAudiocodecCodec, outBuf) == 0x20);
+static_assert(offsetof(SceAudiocodecCodec, fmt) == 0x28);
+static_assert(offsetof(SceAudiocodecCodec, fmt.at3.at3Related) == 0x30);
+static_assert(offsetof(SceAudiocodecCodec, fmt.mp3.version) == 0x38);
+static_assert(offsetof(SceAudiocodecCodec, fmt.mp3.bitrateIndex) == 0x44);
+static_assert(offsetof(SceAudiocodecCodec, fmt.mp3.sampleRateIndex) == 0x48);
+static_assert(offsetof(SceAudiocodecCodec, fmt.mp3.channelConfig) == 0x54);
+static_assert(offsetof(SceAudiocodecCodec, allocMem) == 0x68);
+
+// Notes on the codec-specific fields, from watching games and from reading the firmware modules
+// that drive this interface (avcodec.prx, libatrac3plus.prx, libmp3.prx). See the union in
+// sceAudiocodec.h for the layout.
+//
+// A general point worth knowing: the hardware never needs an exact input frame size here. The
+// only thing sceAudiocodecDecode does with the size is a cache writeback over inBuf before
+// handing the frame to the ME, so every "size" the firmware computes or stores is an upper
+// bound.
 
 // Atrac3+ (0x1000) frame sizes, and control bytes
 //
 // Bitrate    Frame Size    Byte 1     Byte 2  Channels
 // -----------------------------------------------------
 // 48kbps     0x118           0x24       0x22     1?         // This hits "Frame data doesn't match channel configuration".
-// 64kbps     0x178
+// 64kbps     0x178          (0x2e implied by the formula below)
 // 96kbps?    0x230           0x28       0x45     2
 // 128kbps    0x2E8           0x28       0x5c     2
 //
-// Seems like maybe the frame size is equal to "Byte 2" * 8 + 8
+// The frame size really is "Byte 2" * 8 + 8 - it holds for all three rows we have both numbers
+// for, and libatrac3plus.prx writes 0x28/0x5c (the 128kbps row) into these two bytes at init as
+// the worst case it sizes its EDRAM allocation against. So byte 2 is the hardware's own frame
+// descriptor and reading it, as we do, is the right thing.
 //
-// Known byte values.
+// The channel guess below (bit 3 of byte 1) fits both data points we have and nothing else.
 
 // Atrac3 (0x1001)
 //
@@ -58,24 +80,36 @@ static_assert(sizeof(SceAudiocodecCodec) == 128);
 // 0x0C0               0x0B                1
 // 0x0C0               0x0E                0
 // 0x098               0x0F                0
+//
+// NOTE: sceAudiocodecDecode below hardcodes 384 (0x180) bytes per frame for Atrac3, which is only
+// the first row. If a game ever drives Atrac3 through sceAudiocodec at one of the other sizes we
+// will decode garbage.
 
 // AAC (0x1003)
 // ------------------------------------------------
 // Sample rate is at offset 0x28.
 // srcBytesConsumed can be very small the first frames.
 // 0x1000 is always the frame size.
+// The firmware sizes AAC from the bytes at 0x2c and 0x2d rather than from 0x28: input is
+// 0x600 or 0x609, output 0x1000 or 0x2000, depending on those two. Consistent with the above.
 
 // MP3 (0x1002)
 // ------------------------------------------------
-
+// The parameters live at 0x38 (MPEG version index: 0 = MPEG2, 1 = MPEG1, 2 = MPEG2.5), 0x44
+// (bitrate index) and 0x48 (sample rate index), and index the standard MPEG Layer III tables.
+// sceAudiocodecInit presets 0x38 to 9999 meaning "not known yet", and GetInfo fills these in -
+// which is why our GetInfo writes plausible values for a 128kbps 44.1kHz stereo stream.
+// 0x54 is the channel configuration: libmp3.prx reads it as (value == 3) ? mono : stereo.
+// 0x28 is not this frame's size - libmp3.prx writes 0x5A1 there once, the largest an MP3 frame
+// can ever be. Output is 0x1200 bytes for MPEG1 (1152 samples) and 0x900 otherwise (576).
 
 void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *inputBytes, int *channels) {
 	*inputBytes = 0;
 	*channels = 2;
 
-	int size = ctx->unk41 * 8 + 8;
+	int size = ctx->fmt.at3.formatByte2 * 8 + 8;
 	// No idea if this is accurate, this is just a guess...
-	if (ctx->unk40 & 8) {
+	if (ctx->fmt.at3.formatByte1 & 8) {
 		*channels = 2;
 	} else {
 		*channels = 1;
@@ -142,7 +176,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 
 	// Initialize the codec memory.
 	auto ctx = PSPPointer<SceAudiocodecCodec>::Create(ctxPtr);
-	ctx->unk_init = 0x5100601;  // Firmware version indicator?
+	ctx->magic = 0x5100601;
 	ctx->err = 0;
 
 	int bytesPerFrame = 0;
@@ -156,7 +190,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	case PSP_CODEC_MP3:
 		// Not seeing inited in Kurok (homebrew)
 		// _dbg_assert_(ctx->inited == 1);
-		ctx->mp3_9999 = 9999;
+		ctx->fmt.mp3.version = 9999;
 		break;
 	case PSP_CODEC_AAC:
 		// AAC / mp4
@@ -230,7 +264,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		break;
 	case PSP_CODEC_AAC:
 		bytesPerFrame = ctx->srcBytesRead;
-		sampleRate = ctx->formatOutSamples;
+		sampleRate = ctx->fmt.aac.sampleRate;
 		break;
 	case PSP_CODEC_AT3:
 		bytesPerFrame = 384;
@@ -254,7 +288,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		int inDataConsumed = 0;
 		int outSamples = 0;
 
-		DEBUG_LOG(Log::ME, "decoder. in: %08x out: %08x unk40: %02x unk41: %02x", ctx->inBuf, ctx->outBuf, ctx->unk40, ctx->unk41);
+		DEBUG_LOG(Log::ME, "decoder. in: %08x out: %08x format: %02x %02x", ctx->inBuf, ctx->outBuf, ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 
 		int16_t *outBuf = (int16_t *)Memory::GetPointerWriteOrException(ctx->outBuf);
 
@@ -285,14 +319,14 @@ static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
 		// When this is called, the caller has written:
 		// * inptr
 		// * outptr
-		// * formatOutSamples = 0x5A1
+		// * fmt.mp3.maxFrameBytes = 0x5A1
 		// Our response is written to a bunch of fields, but I really don't know much
 		// about what the values are - this is handled internally in the ME.
-		ctx->mp3_3 = 3;
-		ctx->mp3_9 = 9;
-		ctx->mp3_0 = 0;
-		ctx->mp3_1 = 1;
-		ctx->mp3_1_first = 1;
+		ctx->fmt.mp3.unk3c = 3;
+		ctx->fmt.mp3.bitrateIndex = 9;
+		ctx->fmt.mp3.sampleRateIndex = 0;
+		ctx->fmt.mp3.unk60 = 1;
+		ctx->fmt.mp3.channelConfig = 1;
 		break;
 	}
 
@@ -314,9 +348,9 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	switch (codec) {
 	case 0x1000:
 		ctx->neededMem = 0x7bc0;
-		if (ctx->unk40 != 0x28 || ctx->unk41 != 0x5c) {
+		if (ctx->fmt.at3.formatByte1 != 0x28 || ctx->fmt.at3.formatByte2 != 0x5c) {
 			ctx->err = 0x20f;
-			return hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Bad format values: %02x %02x", ctx->unk40, ctx->unk41);
+			return hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Bad format values: %02x %02x", ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		}
 		break;
 	case 0x1001:
@@ -327,12 +361,12 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 		break;
 	case 0x1003:
 		// Kosmodrones uses sceAudiocodec directly (no intermediate library).
-		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", codec, ctx->unk40, ctx->unk41);
+		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", codec, ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		break;
 	}
 
 	ctx->err = 0;
-	ctx->unk_init = 0x5100601;
+	ctx->magic = 0x5100601;
 
 	return hleLogWarning(Log::ME, 0, "%s", GetCodecName(codec));
 }
