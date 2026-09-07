@@ -10,6 +10,14 @@ Add and/or translate a PPSSPP UI string.
 - English string: `$3` - if this is empty, the key already exists in `assets/lang/en_US.ini` and
   you're only filling in the languages where it's still untranslated.
 
+Those three are split off the invocation positionally, so they're only right if it was called as
+`/add-string <Section> "<Key>" ["<English string>"]`. Called with a sentence instead, they'll be
+three arbitrary words - so **check them before you touch anything**: `$1` has to be a real `[Section]`
+in `assets/lang/en_US.ini`, and `$2` a key that exists under it (or, for a new string, one that
+doesn't exist anywhere yet and that you can find in the C++). If they don't hold up, work out the
+real section and key from what was actually asked for, say which values you settled on, and carry on
+from there - don't translate whatever the positional split happened to produce.
+
 Follow the workflow in docs/translations.md. Run langtool from
 `Tools/langtool`:
 
@@ -36,8 +44,11 @@ Follow the workflow in docs/translations.md. Run langtool from
 
    One line per language, named after the ini file minus the extension (`lt-LT`, `he_IL_invert`,
    `zh_TW`, ...), plus an `en_US` line carrying the English string itself if you were given one -
-   that's what creates the key in `en_US.ini`. No trailing `# comments` on those lines, they'd end
-   up inside the translation. Placeholders like `%1` and `%d` have to appear verbatim in the
+   that's what creates the key in `en_US.ini`. For a key that already exists, that line has to be
+   the existing English text character for character: it overwrites `en_US.ini` like any other
+   language, so a stray reword there silently changes the source string every other language was
+   translated from. Diff `en_US.ini` afterwards to confirm it didn't move.
+   No trailing `# comments` on those lines, they'd end up inside the translation. Placeholders like `%1` and `%d` have to appear verbatim in the
    translation, in whatever position the target language needs them.
 
    **If you don't know a language well enough to be confident, leave it out.** A key that's missing

@@ -21,6 +21,10 @@ from `Tools/langtool`:
    sv_SE = Teststräng
    lt-LT = Testeilutė
    ```
+   For a key that already exists, the `en_US` line has to be the current English text character for
+   character - it overwrites `en_US.ini` like any other language, so a stray reword there quietly
+   changes the string all the others were just translated from. Diff `en_US.ini` afterwards to check
+   it didn't move.
    No trailing `# comments` on those lines, they'd end up inside the translation. Placeholders have to
    survive verbatim. If you don't know a language well enough, leave it out - a key that's missing from
    a language file falls back to the English string at runtime, which is much better than a confident
