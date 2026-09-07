@@ -127,6 +127,39 @@ void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *i
 	}
 }
 
+// Atrac3 (0x1001). Unlike Atrac3+, the context doesn't carry a frame size - libatrac3plus.prx
+// (and our mirror of it in AtracCtx2) writes only the joint-stereo flag into formatByte1 for
+// Atrac3, so in general the size can't be recovered from the context alone.
+//
+// One case is unambiguous, though. Of the five frame sizes the hardware supports, exactly one is
+// joint stereo (66kbps stereo, 0xC0 bytes), so that flag pins the size down by itself. Everything
+// else falls back to the 132kbps stereo frame, which is what the old hardcoded 384 was.
+static int Atrac3BytesPerFrameFromContext(const SceAudiocodecCodec *ctx, int *channels);
+
+// The MPEG sample rates, indexed by [version][sampleRateIndex] exactly as the hardware's own
+// table in avcodec.prx does. Version is 0 = MPEG2, 1 = MPEG1, 2 = MPEG2.5.
+static const int g_mpegSampleRates[3][4] = {
+	{ 22050, 24000, 16000, 0 },
+	{ 44100, 48000, 32000, 0 },
+	{ 11025, 12000,  8000, 0 },
+};
+
+// Returns 0 if the context doesn't describe a rate we recognize - which includes the common case
+// where sceAudiocodecInit has run but GetInfo hasn't filled the fields in yet (version is 9999).
+static int Mp3SampleRateFromContext(const SceAudiocodecCodec *ctx) {
+	const int version = ctx->fmt.mp3.version;
+	const int index = ctx->fmt.mp3.sampleRateIndex;
+	if (version < 0 || version >= 3 || index < 0 || index >= 4) {
+		return 0;
+	}
+	return g_mpegSampleRates[version][index];
+}
+
+// libmp3.prx reads the channel configuration this way.
+static int Mp3ChannelsFromContext(const SceAudiocodecCodec *ctx) {
+	return ctx->fmt.mp3.channelConfig == 3 ? 1 : 2;
+}
+
 // find the audio decoder for corresponding ctxPtr in audioList
 static AudioDecoder *findDecoder(u32 ctxPtr) {
 	auto it = g_audioDecoderContexts.find(ctxPtr);
@@ -202,10 +235,9 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		break;
 	case PSP_CODEC_AT3:
 	{
-		// See AtracBase::CreateDecoder. Need to properly understand this one day..
-		//
-		// TODO: How do we get the bytesPerFrame?
-		bytesPerFrame = 384;  // TODO: Calculate from params.
+		// See AtracBase::CreateDecoder. The context only tells us whether the stream is joint
+		// stereo, which pins the frame size down in that one case - see the function.
+		bytesPerFrame = Atrac3BytesPerFrameFromContext(ctx, &channels);
 		bool jointStereo = IsAtrac3StreamJointStereo(PSP_CODEC_AT3, bytesPerFrame, channels);
 		// The only thing that changes are the jointStereo_ values.
 		extraData[0] = 1;
@@ -260,14 +292,23 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
 		break;
 	case PSP_CODEC_MP3:
-		bytesPerFrame = ctx->srcBytesRead;
+		// Not srcBytesRead - that's an output field holding what the *previous* call consumed.
+		// The hardware uses the bound at 0x28, which the caller also guarantees is readable at
+		// inBuf (it does a cache writeback over exactly that range), so it's the safe length to
+		// hand a decoder that parses the frame header itself.
+		bytesPerFrame = ctx->fmt.mp3.maxFrameBytes;
+		if (bytesPerFrame <= 0) {
+			bytesPerFrame = ctx->srcBytesRead;
+		}
+		channels = Mp3ChannelsFromContext(ctx);
+		sampleRate = Mp3SampleRateFromContext(ctx);
 		break;
 	case PSP_CODEC_AAC:
 		bytesPerFrame = ctx->srcBytesRead;
 		sampleRate = ctx->fmt.aac.sampleRate;
 		break;
 	case PSP_CODEC_AT3:
-		bytesPerFrame = 384;
+		bytesPerFrame = Atrac3BytesPerFrameFromContext(ctx, &channels);
 		break;
 	}
 
@@ -432,6 +473,22 @@ static const At3HeaderMap at3HeaderMap[] = {
 	// At this size, stereo can only use joint stereo.
 	{ 0x00C0, 2, 1 }, // 66 kbps stereo
 };
+
+static int Atrac3BytesPerFrameFromContext(const SceAudiocodecCodec *ctx, int *channels) {
+	// AtracCtx2 puts the joint-stereo flag here for Atrac3, mirroring libatrac3plus.
+	const bool jointStereo = (ctx->fmt.at3.formatByte1 & 1) != 0;
+	if (jointStereo) {
+		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
+			if (at3HeaderMap[i].jointStereo) {
+				*channels = at3HeaderMap[i].channels;
+				return at3HeaderMap[i].bytes;
+			}
+		}
+	}
+	// 132kbps stereo - by far the most common, and what we assumed unconditionally before.
+	*channels = 2;
+	return 0x180;
+}
 
 bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels) {
 	if (codecType != PSP_CODEC_AT3) {
