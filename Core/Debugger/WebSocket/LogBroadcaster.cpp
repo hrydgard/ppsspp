@@ -100,13 +100,14 @@ static void BroadcastCallback(const LogMessage &message, void *userdata) {
 
 LogBroadcaster::LogBroadcaster() {
 	listener_ = new DebuggerLogListener();
-	g_logManager.SetExternalLogCallback(&BroadcastCallback, (void *)listener_);
-	g_logManager.EnableOutput(LogOutput::ExternalCallback);
+	// One of these exists per open connection, so it registers alongside any other client's
+	// rather than replacing it - see AddExternalLogCallback().
+	callbackHandle_ = g_logManager.AddExternalLogCallback(&BroadcastCallback, (void *)listener_);
 }
 
 LogBroadcaster::~LogBroadcaster() {
-	g_logManager.DisableOutput(LogOutput::ExternalCallback);
-	g_logManager.SetExternalLogCallback(nullptr, nullptr);
+	// Returns only once no log call is inside our callback, so the listener is safe to delete.
+	g_logManager.RemoveExternalLogCallback(callbackHandle_);
 	delete listener_;
 }
 
