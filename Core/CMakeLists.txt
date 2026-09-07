@@ -597,6 +597,8 @@ add_library(Core STATIC
 	HW/Display.h
 	HW/GpioMMIO.cpp
 	HW/GpioMMIO.h
+	HW/AvcDecoder.cpp
+	HW/AvcDecoder.h
 	HW/MediaEngine.cpp
 	HW/MediaEngine.h
 	HW/MpegDemux.cpp

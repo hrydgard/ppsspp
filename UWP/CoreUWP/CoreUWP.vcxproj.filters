@@ -165,6 +165,7 @@
     <ClCompile Include="..\..\Core\HW\Camera.cpp" />
     <ClCompile Include="..\..\Core\HW\Display.cpp" />
     <ClCompile Include="..\..\Core\HW\GpioMMIO.cpp" />
+    <ClCompile Include="..\..\Core\HW\AvcDecoder.cpp" />
     <ClCompile Include="..\..\Core\HW\MediaEngine.cpp" />
     <ClCompile Include="..\..\Core\HW\MemoryStick.cpp" />
     <ClCompile Include="..\..\Core\HW\MpegDemux.cpp" />
@@ -524,6 +525,7 @@
     <ClInclude Include="..\..\Core\HLE\sceAudio.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudiocodec.h" />
     <ClInclude Include="..\..\Core\HLE\sceMpegbase.h" />
+    <ClInclude Include="..\..\Core\HW\AvcDecoder.h" />
     <ClInclude Include="..\..\Core\HLE\sceAudioRouting.h" />
     <ClInclude Include="..\..\Core\HLE\sceCcc.h" />
     <ClInclude Include="..\..\Core\HLE\sceChnnlsv.h" />
