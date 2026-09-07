@@ -1686,16 +1686,29 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			u32 scanEnd = module->textEnd;
 
 			if (Memory::IsValid4AlignedRange(scanStart, scanEnd - scanStart)) {
+				// libent/libstub come from the module's own header, and nothing has checked that
+				// they land inside the range validated just above. flash0:/kd/sysmem.prx and
+				// loadcore.prx from a real firmware dump put them tens of megabytes past the end
+				// of the text. So let's clamp.
+				const u32 textStart = scanStart;
+				auto clampToText = [textStart, scanEnd](u32 addr) {
+					return std::min(std::max(addr, textStart), scanEnd);
+				};
+				auto scanRange = [&insertSymbols](u32 from, u32 to) {
+					if (from < to) {
+						insertSymbols = MIPSAnalyst::ScanForFunctions(from, to, insertSymbols);
+					}
+				};
 				// Skip the exports and imports sections, they're not code.
 				if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
-					insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub), insertSymbols);
-					scanStart = std::min(modinfo->libentend, modinfo->libstubend);
+					scanRange(scanStart, clampToText(std::min(modinfo->libent, modinfo->libstub)));
+					scanStart = clampToText(std::min(modinfo->libentend, modinfo->libstubend));
 				}
 				if (scanEnd >= std::max(modinfo->libent, modinfo->libstub)) {
-					insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub), insertSymbols);
-					scanStart = std::max(modinfo->libentend, modinfo->libstubend);
+					scanRange(scanStart, clampToText(std::max(modinfo->libent, modinfo->libstub)));
+					scanStart = clampToText(std::max(modinfo->libentend, modinfo->libstubend));
 				}
-				insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, insertSymbols);
+				scanRange(scanStart, scanEnd);
 			} else {
 				ERROR_LOG(Log::Loader, "Bad text scan range %08x-%08x", scanStart, scanEnd);
 			}
