@@ -60,9 +60,6 @@
 //
 // BUGS
 //
-// Custom music plays but starts stuttering:
-// * Beats
-//
 // Custom music just repeats a small section:
 // * Crazy Taxi
 
@@ -297,7 +294,13 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	Au->SetReadPos(Au->startPos);
 	Au->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 
-	int handle = (int)g_mp3Map.size();
+	// Take the lowest free handle. Using the map size instead would hand back a handle that's
+	// already in use if a lower one was released first - releasing 0 while 1 is still open made
+	// the next reserve return 1 again, leaking that context and playing over the game's stream.
+	int handle = 0;
+	while (g_mp3Map.find(handle) != g_mp3Map.end()) {
+		handle++;
+	}
 	g_mp3Map[handle] = Au;
 
 	return hleLogDebug(Log::ME, handle);
