@@ -236,9 +236,9 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 		if ((ctx->info).codec != PSP_CODEC_AT3) {
 			// At3plus
 			// Configure the codec for the sample size, or whatever that data is.
-			(ctx->codec).unk40 = wave->sampleSizeMaybe;
-			(ctx->codec).unk48 = 0;
-			(ctx->codec).unk41 = wave->tailFlag;
+			(ctx->codec).fmt.at3.formatByte1 = wave->sampleSizeMaybe;
+			(ctx->codec).fmt.at3.at3Related = 0;
+			(ctx->codec).fmt.at3.formatByte2 = wave->tailFlag;
 			return 0;
 		}
 		// At3. Set up the hardware codec (hopefully we can correctly support this in sceAudiocodec and thus sceAtrac LLE in the future)
@@ -246,10 +246,10 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 		for (int counter = 4; counter >= 0; counter--) {
 			if ((g_at3BitrateMeta[counter].sampleSize == (ctx->info).sampleSize) &&
 				((int)g_at3BitrateMeta[counter].dataByte == wave->sampleSizeMaybe)) {
-				(ctx->codec).unk40 = (char)g_at3BitrateMeta[counter].jointStereo;
-				(ctx->codec).unk41 = 0;
-				(ctx->codec).unk42 = 0;
-				(ctx->codec).unk43 = 0;
+				(ctx->codec).fmt.at3.formatByte1 = (char)g_at3BitrateMeta[counter].jointStereo;
+				(ctx->codec).fmt.at3.formatByte2 = 0;
+				(ctx->codec).fmt.at3.unk2a = 0;
+				(ctx->codec).fmt.at3.unk2b = 0;
 				return 0;
 			}
 		}
