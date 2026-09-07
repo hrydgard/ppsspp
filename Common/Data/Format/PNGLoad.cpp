@@ -148,8 +148,12 @@ bool PNGHeaderPeek::IsValidPNGHeader() const {
 	if (magic != 0x474e5089 || ihdrTag != 0x52444849) {
 		return false;
 	}
-	// Reject crazy sized images, too.
-	if (Width() > 32768 && Height() > 32768) {
+	// Keep the peeker's limit consistent with pngLoadPtr(). A replacement
+	// texture is decoded into an uncompressed RGBA buffer, so accepting one
+	// oversized dimension would still allow a decompression bomb.
+	const int width = Width();
+	const int height = Height();
+	if (width <= 0 || height <= 0 || width > 8192 || height > 8192) {
 		return false;
 	}
 	return true;
