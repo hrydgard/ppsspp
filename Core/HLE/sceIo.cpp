@@ -2399,6 +2399,16 @@ public:
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_DirList; }
 	int GetIDType() const override { return PPSSPP_KERNEL_TMID_DirList; }
 
+	// The FAT short name for an entry, which games read out of d_private. Derived from the listing
+	// rather than stored, so it needs no savestate of its own - it's rebuilt on first use, which
+	// includes after loading a state.
+	const std::string &ShortName(int i) {
+		if (shortNames_.size() != listing.size()) {
+			GenerateFatShortNames(listing, &shortNames_);
+		}
+		return shortNames_[i];
+	}
+
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("DirListing", 1);
 		if (!s)
@@ -2419,6 +2429,9 @@ public:
 	std::string name;
 	std::vector<PSPFileInfo> listing;
 	int index;
+
+private:
+	std::vector<std::string> shortNames_;
 };
 
 static u32 sceIoDopen(const char *path) {
@@ -2530,6 +2543,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		bool isFAT = pspFileSystem.FlagsFromFilename(dir->name) & FileSystemFlags::SIMULATE_FAT32;
 		// Only write d_private for memory stick
 		if (isFAT) {
+			const std::string &shortName = dir->ShortName(dir->index);
 			// All files look like they're executable on FAT. This is required for Beats, see issue #14812
 			entry->d_stat.st_mode |= 0111;
 			// write d_private for supporting Custom BGM
@@ -2540,7 +2554,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 					// - [0..12] "8.3" file name (null-terminated), could be empty.
 					// - [13..???] long file name (null-terminated)
 
-					// Hm, so currently we don't write the short name at all to d_private? TODO
+					strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private), shortName.c_str(), 13);
 					strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 				}
 				else {
@@ -2549,8 +2563,8 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 					// - [4..19] "8.3" file name (null-terminated), could be empty.
 					// - [20..???] long file name (null-terminated)
 					auto size = Memory::ReadUnchecked_U32(entry->d_private);
-					// Hm, so currently we don't write the short name at all to d_private? TODO
 					if (size >= 1044) {
+						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 4), shortName.c_str(), 16);
 						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 					}
 				}
