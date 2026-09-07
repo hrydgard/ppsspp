@@ -32,4 +32,5 @@ public:
 
 private:
 	DebuggerLogListener *listener_;
+	int callbackHandle_ = -1;
 };
