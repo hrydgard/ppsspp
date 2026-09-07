@@ -336,6 +336,7 @@
     <ClInclude Include="..\..\Core\Util\DisArm64.h" />
     <ClInclude Include="..\..\Core\Util\GameManager.h" />
     <ClInclude Include="..\..\Core\Util\PPGeDraw.h" />
+    <ClInclude Include="..\..\Core\Util\KL4E.h" />
     <ClInclude Include="..\..\Core\Util\PSARUnpack.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\ext\cityhash\city.h" />
@@ -655,6 +656,7 @@
     <ClCompile Include="..\..\Core\Util\DisArm64.cpp" />
     <ClCompile Include="..\..\Core\Util\GameManager.cpp" />
     <ClCompile Include="..\..\Core\Util\PPGeDraw.cpp" />
+    <ClCompile Include="..\..\Core\Util\KL4E.cpp" />
     <ClCompile Include="..\..\Core\Util\PSARUnpack.cpp" />
     <ClCompile Include="..\..\Core\WaveFile.cpp" />
     <ClCompile Include="..\..\ext\cityhash\city.cpp" />
