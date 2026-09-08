@@ -219,6 +219,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ARCHIVE_RAR;
 	} else if (!memcmp(&id, "\x37\x7A\xBC\xAF", 4)) {
 		return IdentifiedFileType::ARCHIVE_7Z;
+	} else if (!memcmp(&id, "\x7F""PKG", 4)) {
+		return IdentifiedFileType::PSP_PKG;
 	}
 
 	// "~PSP" is an encrypted PRX. The module loader decrypts those on the way in, so as far as
@@ -279,6 +281,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ARCHIVE_RAR;
 	} else if (extension == ".7z") {
 		return IdentifiedFileType::ARCHIVE_7Z;
+	} else if (extension == ".pkg") {
+		// Magic didn't match, but the name says what it was meant to be - report it as a PKG so
+		// the install screen can explain what's wrong with it.
+		return IdentifiedFileType::PSP_PKG;
 	}
 	return IdentifiedFileType::UNKNOWN;
 }
@@ -673,6 +679,7 @@ const char *IdentifiedFileTypeToString(IdentifiedFileType type) {
 	case IdentifiedFileType::UNKNOWN_ISO: return "UNKNOWN_ISO";
 	case IdentifiedFileType::ARCHIVE_RAR: return "ARCHIVE_RAR";
 	case IdentifiedFileType::ARCHIVE_ZIP: return "ARCHIVE_ZIP";
+	case IdentifiedFileType::PSP_PKG: return "PSP_PKG";
 	case IdentifiedFileType::ARCHIVE_7Z: return "ARCHIVE_7Z";
 	case IdentifiedFileType::PSP_PS1_PBP: return "PSP_PS1_PBP";
 	case IdentifiedFileType::PSX_ISO: return "PSX_ISO";

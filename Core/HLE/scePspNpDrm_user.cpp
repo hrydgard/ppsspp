@@ -1,7 +1,11 @@
+#include "ext/libkirk/AES.h"
+#include "ext/libkirk/amctrl.h"
+
 #include "Core/HLE/scePspNpDrm_user.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceChnnlsv.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 
@@ -130,6 +134,45 @@ static int sceNpDrmEdataGetDataSize(u32 edataFd) {
 
 static int sceNpDrmOpen() {
 	return hleLogError(Log::sceIo, 0, "UNIMPL: sceNpDrmOpen()");
+}
+
+// The last pass over a module key. This one belongs to npdrm.prx's module path rather than to the
+// PGD/amctrl side, so it isn't among the keys in ext/libkirk.
+static const u8 drmModuleKey[16] = {
+	0xBA, 0x87, 0xE4, 0xAB, 0x2C, 0x60, 0x5F, 0x59, 0xB8, 0x3B, 0xDB, 0xA6, 0x82, 0xFD, 0xAE, 0x14,
+};
+
+bool NpDrmDeriveModuleKey(const u8 *edatHeader, u8 *keyOut) {
+	// The low byte of the u32 at 0x08 picks which fixed key to derive from the content ID at 0x10.
+	char contentId[0x31]{};
+	memcpy(contentId, edatHeader + 0x10, 0x30);
+	const int keyMode = 0x01000000 | edatHeader[0x08];
+	const int result = sceNpDrmGetFixedKey(__ChnnlsvKirkState(), keyOut, contentId, keyMode);
+	if (result != 0) {
+		return false;
+	}
+
+	const u8 flags = edatHeader[0x0F];
+	if (flags & 1) {
+		// The game is meant to hand the licensee key over before it loads the module.
+		if (!isLicenseeKeySet) {
+			return false;
+		}
+		for (int i = 0; i < PSP_NPDRM_LICENSEE_KEY_LENGTH; i++) {
+			keyOut[i] ^= licenseeKey[i];
+		}
+	}
+	if (flags & 2) {
+		for (int i = 0; i < 16; i++) {
+			keyOut[i] ^= edatHeader[0x40 + i];
+		}
+	}
+
+	// JPCSP does this as CBC with an all-zero IV, which over a single block is a plain decrypt.
+	AES_ctx ctx;
+	AES_set_key(&ctx, drmModuleKey, 128);
+	AES_decrypt(&ctx, keyOut, keyOut);
+	return true;
 }
 
 const HLEFunction sceNpDrm[] = {

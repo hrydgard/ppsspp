@@ -35,12 +35,9 @@
 #include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
-extern "C"
-{
 #include "zlib.h"
 #include "ext/libkirk/amctrl.h"
 #include "ext/libkirk/kirk_engine.h"
-};
 
 static u16 ReadLE16(const u8 *ptr) {
 	return ptr[0] | (ptr[1] << 8);

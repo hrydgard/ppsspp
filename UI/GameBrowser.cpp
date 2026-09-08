@@ -239,6 +239,7 @@ void GameButton::Draw(UIContext &dc) {
 	case IdentifiedFileType::ARCHIVE_ZIP: imageIcon = ImageID("I_ARCHIVE_ZIP"); drawBackground = false; break;
 	case IdentifiedFileType::ARCHIVE_7Z: imageIcon = ImageID("I_ARCHIVE_7Z"); drawBackground = false; break;
 	case IdentifiedFileType::ARCHIVE_RAR: imageIcon = ImageID("I_ARCHIVE_RAR"); drawBackground = false; break;
+	case IdentifiedFileType::PSP_PKG: imageIcon = ImageID("I_FOLDER_UPLOAD"); drawBackground = false; break;
 	default: break;
 	}
 
@@ -880,11 +881,12 @@ void GameBrowser::Refresh() {
 			}
 		}
 
-		// Put RAR/ZIP files at the end to get them out of the way.
+		// Put RAR/ZIP files at the end to get them out of the way. Game update packages go here
+		// too - they're not something to boot, they're something to install.
 		// We do support unpacking some of them automatically.
 		if (browseFlags_ & BrowseFlags::ARCHIVES) {
 			fileInfo.clear();
-			path_.GetListing(fileInfo, "zip:rar:r00:r01:7z:");
+			path_.GetListing(fileInfo, "zip:rar:r00:r01:7z:pkg:");
 			if (!fileInfo.empty()) {
 				for (size_t i = 0; i < fileInfo.size(); i++) {
 					if (!fileInfo[i].isDirectory) {

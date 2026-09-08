@@ -82,6 +82,12 @@ struct CommandLineOptions {
 	// libraries. Needs a firmware dump under the NAND directory.
 	std::optional<int> disableHLE;
 
+	// Headless: install the game update in a .pkg (given as the boot filename) into this
+	// directory, then exit without booting anything. The directory is the game folder itself -
+	// the app puts that under PSP/GAME/<DISC_ID>, but here the caller picks. See
+	// Core/Util/PkgUnpack.h.
+	std::optional<std::string> installPkg;
+
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;
 	std::optional<int> breakAction;

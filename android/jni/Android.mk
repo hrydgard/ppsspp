@@ -814,6 +814,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/PPGeDraw.cpp \
   $(SRC)/Core/Util/KL4E.cpp \
   $(SRC)/Core/Util/PSARUnpack.cpp \
+  $(SRC)/Core/Util/PkgUnpack.cpp \
   $(SRC)/Core/Util/RecentFiles.cpp \
   $(SRC)/Core/Util/VideoPlayer.cpp \
   $(SRC)/git-version.cpp
@@ -988,6 +989,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/BaseScreens.cpp \
   $(SRC)/UI/Background.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
+  $(SRC)/UI/InstallPkgScreen.cpp \
   $(SRC)/UI/InstallUpdateScreen.cpp \
   $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/JitCompareScreen.cpp \

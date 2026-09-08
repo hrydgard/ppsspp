@@ -52,6 +52,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PkgUnpack.h"
 #include "Core/Util/RecentFiles.h"
 #include "Common/Data/Text/I18n.h"
 
@@ -898,6 +899,70 @@ bool GameManager::InstallZipOnThread(ZipFileTask task) {
 
 	installThread_ = std::thread([this, task]() {
 		InstallZipContents(task);
+	});
+	return true;
+}
+
+// Installing a game update from a .pkg. Unlike a zip there's nothing to guess about - the
+// package says which disc it patches, and that decides the destination folder.
+void GameManager::InstallPkgContents(Path pkgPath, bool deleteAfter) {
+	SetCurrentThreadName("InstallPkgContents");
+
+	AndroidJNIThreadContext context;  // Destructor detaches.
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+
+	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, 0.0f, 0.1f);
+
+	bool success = false;
+	std::string error;
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(pkgPath));
+	PkgReader reader;
+	if (!loader || !reader.Open(loader.get(), &error)) {
+		ERROR_LOG(Log::HLE, "PKG install failed: %s", error.c_str());
+		SetInstallError(iz->T("This PKG file isn't a PSP game update"));
+	} else if (!reader.Info().isGameUpdate) {
+		SetInstallError(iz->T("This PKG file isn't a PSP game update"));
+	} else {
+		const Path destination = GetSysDirectory(DIRECTORY_GAME) / reader.Info().discId;
+		success = InstallPkg(reader, destination, [this](float progress) {
+			installProgress_ = progress;
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, installProgress_, 0.1f);
+		}, &error);
+		if (!success) {
+			ERROR_LOG(Log::HLE, "PKG install failed: %s", error.c_str());
+			SetInstallError(iz->T("Failed to install the game update"));
+		}
+	}
+
+	// Close the package before anything tries to delete it.
+	loader.reset();
+
+	if (deleteAfter && success) {
+		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
+			System_MoveToTrash(pkgPath);
+		} else {
+			File::Delete(pkgPath);
+		}
+	}
+
+	g_OSD.RemoveProgressBar("install", success, 0.5f);
+	installProgress_ = 1.0f;
+	InstallDone();
+	if (success) {
+		ResetInstallError();
+	}
+}
+
+bool GameManager::InstallPkgOnThread(const Path &pkgPath, bool deleteAfter) {
+	if (InstallInProgress() || installDonePending_) {
+		return false;
+	}
+
+	installThread_ = std::thread([this, pkgPath, deleteAfter]() {
+		InstallPkgContents(pkgPath, deleteAfter);
 	});
 	return true;
 }

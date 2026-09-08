@@ -153,6 +153,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::ARCHIVE_RAR:
 	case IdentifiedFileType::ARCHIVE_ZIP:
 	case IdentifiedFileType::ARCHIVE_7Z:
+	case IdentifiedFileType::PSP_PKG:
 	case IdentifiedFileType::UNKNOWN:
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
@@ -918,6 +919,7 @@ handleELF:
 			}
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
+			case IdentifiedFileType::PSP_PKG:
 				info_->SetTitle(info_->GetFilePath().GetFilename());
 				info_->icon.dataLoaded = true;
 				break;

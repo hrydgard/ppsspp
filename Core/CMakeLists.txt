@@ -699,6 +699,8 @@ add_library(Core STATIC
 	Util/KL4E.h
 	Util/PSARUnpack.cpp
 	Util/PSARUnpack.h
+	Util/PkgUnpack.cpp
+	Util/PkgUnpack.h
 	Util/RecentFiles.cpp
 	Util/RecentFiles.h
 	${CMAKE_SOURCE_DIR}/ext/disarm.cpp
