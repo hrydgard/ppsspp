@@ -278,6 +278,33 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 	return true;
 }
 
+bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
+	// sceMpegbase only has the first of the eight addresses, so find whose allocation it is.
+	const VideocodecCtx *found = nullptr;
+	for (const auto &[addr, ctx] : g_videocodecCtxs) {
+		if (ctx.frameBuffers && ctx.frameBuffers == firstBuffer) {
+			found = &ctx;
+			break;
+		}
+	}
+	if (!found) {
+		return false;
+	}
+	const int width = found->frameBufferWidth, height = found->frameBufferHeight;
+	const int lumaLeft = ((width + 16) >> 5) * (height >> 1) * 16;
+	const int lumaRight = (width >> 5) * (height >> 1) * 16;
+	const int sizes[8] = {
+		lumaLeft, lumaRight, lumaLeft, lumaRight,
+		lumaLeft >> 1, lumaLeft >> 1, lumaRight >> 1, lumaRight >> 1,
+	};
+	u32 addr = found->frameBuffers;
+	for (int i = 0; i < 8; i++) {
+		buffers[i] = addr;
+		addr += (sizes[i] + 63) & ~63;
+	}
+	return true;
+}
+
 // Writes the decoded frame into the eight buffers the hardware uses. The image is in 32-pixel
 // vertical bands split into two 16-pixel halves, and which buffer a row lands in depends on
 // whether it is even or odd. This is the exact inverse of ReadTiledYCbCr in sceMpeg.cpp, which

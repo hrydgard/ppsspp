@@ -233,10 +233,13 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		return hleLogError(Log::Mpeg, -1, "range outside the frame");
 	}
 
+	// The descriptor only carries the four luma buffers. Recover the full set from the allocation
+	// sceVideocodec handed out - both ends of that are ours.
 	u32 buffers[8]{};
 	for (int i = 0; i < 4; i++) {
 		buffers[i] = csc->buffer[i];
 	}
+	VideocodecGetFrameBuffers(csc->buffer[0], buffers);
 
 	std::vector<u8> luma, cb, cr;
 	if (!ReadTiledYCbCr(buffers, width, height, luma, cb, cr)) {

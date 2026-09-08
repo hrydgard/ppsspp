@@ -31,3 +31,7 @@ void Register_sceVideocodec();
 // buffers and the EDRAM block both live there, so anything reading them goes through this rather
 // than through Memory:: - the ME's memory is not part of PSP RAM.
 u8 *VideocodecMEPointer(u32 addr, u32 size);
+// mpeg.prx copies only the four luma buffers into the descriptor it hands sceMpegBaseCscAvc.
+// Both ends of that are ours, so the conversion can recover the other four from the allocation
+// they came from. Returns false if `firstBuffer` isn't one we handed out.
+bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]);
