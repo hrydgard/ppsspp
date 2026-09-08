@@ -247,7 +247,20 @@ DisableHLEFlags GetEffectiveDisableHLEFlags() {
 }
 
 // Note: name is the modname from prx, not the export module name!
+// See SetForceRealModuleLoads.
+static bool g_forceRealModuleLoads = false;
+
+void SetForceRealModuleLoads(bool force) {
+	g_forceRealModuleLoads = force;
+}
+
 bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually) {
+	if (g_forceRealModuleLoads) {
+		if (wasDisabledManually) {
+			*wasDisabledManually = false;
+		}
+		return false;
+	}
 	if (wasDisabledManually) {
 		*wasDisabledManually = false;
 	}

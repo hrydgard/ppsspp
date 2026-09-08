@@ -20,6 +20,7 @@ for it:
 | [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md) | Writing a new pspautotest, and running it on a real PSP over PSPLink to record its `.expected` |
 | [docs/frametest.md](docs/frametest.md) | Framedump rendering tests |
 | [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) | WebSocket debugger protocol reference |
+| [docs/reverse-engineering.md](docs/reverse-engineering.md) | Disassembling a firmware PRX with `--re-module`, to find out what the hardware actually does |
 
 ## General instructions
 
@@ -135,6 +136,27 @@ SDL/SDLMain.cpp
 UWP/PPSSPP_UWPMain.cpp
 android/jni/app-android.cpp
 libretro/libretro.cpp
+
+## Reverse-engineering the firmware
+
+When a question about hardware behaviour can't be settled from the docs or from JPCSP - what a
+field in a codec context means, what a library actually returns when a buffer runs dry - the
+firmware itself can be read. `PPSSPPHeadless --re-module flash0:/kd/libmp3.prx --re-out DIR`
+loads one PRX standalone and writes an annotated disassembly, the export/import tables with NIDs
+resolved, and a call graph. It needs a firmware dump (`--memstick` pointing at one; PPSSPP can
+unpack an updater itself with `--unpack-updater`).
+
+Full usage, and how to accumulate names in a `.ppsym` file so the disassembly stays readable:
+[docs/reverse-engineering.md](docs/reverse-engineering.md).
+
+Two things to know before trusting what you read there:
+
+- **Don't infer a function's arity from the registers it reads.** MIPS code routinely leaves an
+  argument untouched for a callee to pick up, so a function that reads only `a0` may well take
+  three. The per-function register evidence block flags this as `FORWARDED`; follow the callees.
+- **Record how you know.** A comment saying which module and function a fact came from is worth
+  more than the fact alone, since the next person can re-derive it. Behavioural findings belong
+  in the tree; bulk transcriptions of Sony's code do not.
 
 ## Command-line parsing
 

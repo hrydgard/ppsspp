@@ -1297,6 +1297,8 @@ if(HEADLESS)
 		headless/Headless.cpp
 		headless/Compare.cpp
 		headless/Compare.h
+		headless/ReverseEngineer.cpp
+		headless/ReverseEngineer.h
 	)
 	if(SDL_LIB_TARGET)
 		list(APPEND HeadlessSource

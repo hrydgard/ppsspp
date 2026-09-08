@@ -110,6 +110,13 @@ struct HLEModuleMeta {
 const HLEModuleMeta *GetHLEModuleMetaByFlag(DisableHLEFlags flag);
 const HLEModuleMeta *GetHLEModuleMeta(std::string_view modname);
 bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually = nullptr);
+// When set, ShouldHLEModule always says no, so every module genuinely loads and runs Sony's
+// code. Needed by the headless reverse-engineering dump (headless/ReverseEngineer.cpp), which
+// exists precisely to look at the real thing - including modules like sceAudiocodec_Driver that
+// have no DisableHLEFlags bit of their own and so can't be turned off the normal way.
+// Only affects loading; imports still resolve through the HLE tables, which is what gives
+// imported functions their names.
+void SetForceRealModuleLoads(bool force);
 bool ShouldHLEModuleByImportName(std::string_view importModuleName);
 
 // May return nullptr

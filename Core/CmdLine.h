@@ -88,6 +88,18 @@ struct CommandLineOptions {
 	// Core/Util/PkgUnpack.h.
 	std::optional<std::string> installPkg;
 
+	// Headless: load one PRX standalone (no game) and write a reverse-engineering report -
+	// module header, exports/imports, per-function disassembly and a call graph - then exit.
+	// See headless/ReverseEngineer.cpp.
+	std::optional<std::string> reModule;
+	// Where the report goes. Defaults to "re-out" next to the current directory.
+	std::optional<std::string> reOut;
+	// Only disassemble this one function, by name or "0x08801234".
+	std::optional<std::string> reFunc;
+	// A .ppsym file of already-known names to apply before dumping, so the disassembly comes
+	// out readable. Module-relative, same format the emulator saves.
+	std::optional<std::string> reSyms;
+
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;
 	std::optional<int> breakAction;
