@@ -31,6 +31,10 @@
 
 // g_audioDecoderContexts is to store current playing audios.
 std::map<u32, AudioDecoder *> g_audioDecoderContexts;
+// The Atrac3+ frame size each decoder in the map above was created for. mpeg.prx doesn't put the
+// frame size in the context, and at init time the input buffer is still empty, so for that path we
+// only learn it from the first frame - at which point the decoder has to be rebuilt to match.
+static std::map<u32, int> g_at3PlusFrameBytes;
 
 static bool oldStateLoaded = false;
 
@@ -108,13 +112,38 @@ static_assert(offsetof(SceAudiocodecCodec, allocMem) == 0x68);
 // 0x28 is not this frame's size - libmp3.prx writes 0x5A1 there once, the largest an MP3 frame
 // can ever be. Output is 0x1200 bytes for MPEG1 (1152 samples) and 0x900 otherwise (576).
 
-void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *inputBytes, int *channels) {
+void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *inputBytes, int *channels, int *headerBytes = nullptr) {
 	*inputBytes = 0;
 	*channels = 2;
+	if (headerBytes) {
+		*headerBytes = 0;
+	}
 
-	int size = ctx->fmt.at3.formatByte2 * 8 + 8;
+	u8 formatByte1 = ctx->fmt.at3.formatByte1;
+	u8 formatByte2 = ctx->fmt.at3.formatByte2;
+
+	// Atrac3+ frames inside a PSMF still carry their 8-byte header, starting with the 0x0FD0 sync
+	// word; libatrac3plus.prx strips it before handing the frame over, mpeg.prx leaves it on for
+	// the hardware to parse. So when the sync word is still there, take the size from the frame
+	// and step over the header, exactly as MpegDemux does on the HLE path. Bytes 2 and 3 are the
+	// same pair that ends up in the context, but with two more size bits in the first of them.
+	const u8 *frame = Memory::IsValidRange(ctx->inBuf, 4) ? Memory::GetPointerUnchecked(ctx->inBuf) : nullptr;
+	if (frame && frame[0] == 0x0F && frame[1] == 0xD0) {
+		formatByte1 = frame[2];
+		formatByte2 = frame[3];
+		if (headerBytes) {
+			*headerBytes = 8;
+		}
+		// The full size, unlike the context's, has two more high bits in the first byte. The
+		// 0x10 is the header plus the 8 the context's own formula adds.
+		*channels = (formatByte1 & 8) ? 2 : 1;
+		*inputBytes = (((formatByte1 & 0x03) << 8) | (formatByte2 * 8)) + 0x10 - 8;
+		return;
+	}
+
+	int size = formatByte2 * 8 + 8;
 	// No idea if this is accurate, this is just a guess...
-	if (ctx->fmt.at3.formatByte1 & 8) {
+	if (formatByte1 & 8) {
 		*channels = 2;
 	} else {
 		*channels = 1;
@@ -180,6 +209,7 @@ static bool removeDecoder(u32 ctxPtr) {
 	if (it != g_audioDecoderContexts.end()) {
 		delete it->second;
 		g_audioDecoderContexts.erase(it);
+		g_at3PlusFrameBytes.erase(ctxPtr);
 		return true;
 	}
 	return false;
@@ -190,6 +220,7 @@ static void clearDecoders() {
 		delete decoder;
 	}
 	g_audioDecoderContexts.clear();
+	g_at3PlusFrameBytes.clear();
 }
 
 void __AudioCodecInit() {
@@ -262,6 +293,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	AudioDecoder *decoder = CreateAudioDecoder(audioType, 44100, channels, bytesPerFrame, extraData, sizeof(extraData));
 	decoder->SetCtxPtr(ctxPtr);
 	g_audioDecoderContexts[ctxPtr] = decoder;
+	g_at3PlusFrameBytes[ctxPtr] = bytesPerFrame;
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -291,10 +323,11 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	int bytesPerFrame = 0;
 	int channels = 2;
 	int sampleRate = 0;
+	int headerBytes = 0;
 
 	switch (codec) {
 	case PSP_CODEC_AT3PLUS:
-		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
+		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels, &headerBytes);
 		break;
 	case PSP_CODEC_MP3:
 		// Not srcBytesRead - that's an output field holding what the *previous* call consumed.
@@ -328,6 +361,19 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		g_audioDecoderContexts[ctxPtr] = decoder;
 	}
 
+	if (decoder && codec == PSP_CODEC_AT3PLUS && bytesPerFrame > 0) {
+		auto it = g_at3PlusFrameBytes.find(ctxPtr);
+		if (it == g_at3PlusFrameBytes.end() || it->second != bytesPerFrame) {
+			// Only reachable when the context didn't carry a frame size at init - mpeg.prx.
+			INFO_LOG(Log::ME, "sceAudiocodecDecode: Atrac3+ frame is %04x bytes, rebuilding decoder", bytesPerFrame);
+			removeDecoder(ctxPtr);
+			decoder = CreateAudioDecoder(audioType, 44100, channels, bytesPerFrame);
+			decoder->SetCtxPtr(ctxPtr);
+			g_audioDecoderContexts[ctxPtr] = decoder;
+			g_at3PlusFrameBytes[ctxPtr] = bytesPerFrame;
+		}
+	}
+
 	if (decoder) {
 		// Use SimpleAudioDec to decode audio
 		// Decode audio
@@ -338,13 +384,13 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 
 		int16_t *outBuf = (int16_t *)Memory::GetPointerWriteOrException(ctx->outBuf);
 
-		bool result = decoder->Decode(Memory::GetPointerOrException(ctx->inBuf), bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
+		bool result = decoder->Decode(Memory::GetPointerOrException(ctx->inBuf + headerBytes), bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
 		if (!result) {
 			ctx->err = 0x20b;
 			ERROR_LOG(Log::ME, "AudioCodec decode failed. Setting error to %08x", ctx->err);
 		}
 
-		ctx->srcBytesRead = inDataConsumed;
+		ctx->srcBytesRead = inDataConsumed + headerBytes;
 		ctx->dstSamplesWritten = outSamples;
 	}
 	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);
@@ -395,11 +441,11 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	case 0x1000:
 		ctx->neededMem = 0x7bc0;
 		// avcodec.prx does no format check here at all - it just forwards to the ME - and the
-		// caller isn't obliged to have filled these in yet. mpeg.prx calls this with both bytes
-		// still zero, and rejecting that stopped its audio dead. Only worth a note when they
-		// aren't the pair libatrac3plus writes.
-		if (ctx->fmt.at3.formatByte1 != 0x28 || ctx->fmt.at3.formatByte2 != 0x5c) {
-			WARN_LOG(Log::ME, "sceAudiocodecCheckNeedMem: unfamiliar Atrac3+ format bytes %02x %02x",
+		// caller isn't obliged to have filled these in yet, so this stays a note. libatrac3plus
+		// writes 28 5c (the worst case it sizes EDRAM against); mpeg.prx writes the real frame's
+		// own header bytes, so anything with bit 3 of the first byte is ordinary.
+		if (ctx->fmt.at3.formatByte1 != 0x28 && ctx->fmt.at3.formatByte1 != 0x24) {
+			DEBUG_LOG(Log::ME, "sceAudiocodecCheckNeedMem: unfamiliar Atrac3+ format bytes %02x %02x",
 				ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		}
 		break;
