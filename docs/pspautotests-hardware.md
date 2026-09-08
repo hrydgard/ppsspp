@@ -217,9 +217,16 @@ to `host0:` with `sceIo` directly rather than through newlib's `FILE`, since tha
 libcglue in. Formatting still goes through newlib's `vsnprintf`, so the usual format specifiers
 are all available.
 
-**PPSSPP can't run these yet.** `PPSSPPHeadless` times out on a kernel PRX built this way, so a
-kernel-mode test can't go in `test.py` - keep it as a hardware reference and diff it by hand
-against its user-mode twin.
+Output reaches an emulator the same way it reaches the cable: a kernel build feeds
+`sceIoDevctl("emulator:", SEND_OUTPUT)` as well as writing the file, and calls
+`sceKernelExitGame` at the end so headless stops rather than spinning to its timeout. Both are
+easy to forget when writing a new harness - without the first the test appears to produce nothing,
+and without the second it always reports TIMEOUT even though it ran.
+
+One emulator-side note, since it took a while to pin down: privilege on the PSP belongs to the
+*caller*, not to the syscall. PPSSPP's `hleIsKernelMode()` only reports whether the entry point
+itself is a kernel-only export, so a kernel module calling an ordinary `ForUser` NID used to look
+like user mode. `__KernelCurThreadIsKernelMode()` answers the question this test needs.
 
 ## Worked example: FAT short names
 

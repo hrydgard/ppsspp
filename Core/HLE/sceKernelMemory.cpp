@@ -390,11 +390,17 @@ void __KernelMemoryShutdown()
 }
 
 BlockAllocator *BlockAllocatorFromID(int id) {
+	// A kernel module gets the privileged partitions whichever entry point it came in through -
+	// threads/tls/kernel/partition records sceKernelCreateTlspl accepting 1, 3 and 4 from a
+	// kernel module and refusing them from user mode, and it reaches the kernel through the
+	// ordinary ThreadManForUser NID either way. hleIsKernelMode() alone only catches the case
+	// where the export itself is kernel-only.
+	const bool kernelMode = hleIsKernelMode() || __KernelCurThreadIsKernelMode();
 	switch (id) {
 	case KERNEL_PARTITION_ID:
 	case 3:
 	case 4:
-		if (hleIsKernelMode())
+		if (kernelMode)
 			return &kernelMemory;
 		return nullptr;
 
@@ -404,7 +410,7 @@ BlockAllocator *BlockAllocatorFromID(int id) {
 
 	case 8:
 	case 10:
-		if (hleIsKernelMode())
+		if (kernelMode)
 			return &userMemory;
 		return nullptr;
 
