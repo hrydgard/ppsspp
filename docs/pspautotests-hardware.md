@@ -136,18 +136,31 @@ python3 test.py --graphics=software io/shortname/shortname
 
 ## Gotchas
 
-- **`gentest.py` runs `make` for the whole test directory, not just your test.** Several older
-  tests no longer compile with the modern pspdev GCC (15.x turns `-Wint-conversion` into an error,
-  e.g. `tests/misc/dcache.c`), and the build failure aborts the run before it reaches the PSP.
-  Work around it with `gentest.py -k` (`--keep`, skips `make` entirely) after building your own
-  target by hand with `make yourtest.prx`.
-- **Rebuilding a `.prx` with a newer toolchain balloons it** - `testgp.prx` went from 117 KB to
-  191 KB with no source change. The `.prx` files are committed, so check `git status` and revert
-  any you didn't mean to touch; don't sweep unrelated rebuilds into your commit.
-- **`host0:` is not a FAT volume.** It's PSPLink's bridge to the PC, and it has its own rules -
-  `tests/io/directory` shows it uppercasing short names, and there are no 8.3 short names at all.
-  Anything testing FAT semantics has to run against `ms0:`, i.e. create a scratch directory on the
-  real memory stick (and clean it up).
+- **`gentest.py` runs `make` for the whole test directory, not just your test**, so a neighbour
+  that doesn't compile stops your test before it ever reaches the PSP. Everything under `tests/`
+  builds with pspdev GCC 15 as of the "Make the tests build with a current pspdev toolchain"
+  commit; if you hit a broken one anyway, `gentest.py -k` (`--keep`) skips `make` entirely and
+  you can build your own target by hand with `make yourtest.prx`.
+- **Rebuilding a `.prx` is not free, so don't regenerate one you didn't change.** The binaries are
+  committed and were built with a much older SDK. Rebuilding with the current toolchain grows them
+  by roughly a third (`testgp.prx`: 117 KB to 191 KB), and it can change what a test *does*:
+  `time_t` is 64-bit now, so `rtc/convert`'s `sceRtcSetTime_t(&pt, 62135596800ULL)` marshals
+  differently than the committed binary and stops matching its own `.expected`. Check
+  `git status` and revert any `.prx` you didn't mean to touch.
+- **A `.prx` you did rebuild deserves a hardware run before you commit it.** Build it, run it, and
+  diff the output against the committed `.expected` - if it differs, decide whether the test
+  genuinely changed or whether the toolchain did. Note the committed `.expected` files have CRLF
+  line endings (they were recorded on Windows) while a fresh run writes LF, so compare with
+  `diff <(tr -d '\r' < __testoutput.txt) <(tr -d '\r' < the.expected)`.
+- **Each test PRX stays resident after it runs.** Run a handful back to back and the next
+  `Load/Start` fails with `0x80020190` (out of memory) - which looks exactly like a hung test.
+  `pspsh -p 3000 -e reset` between runs, and wait for the PSP to come back before the next one.
+- **`host0:` is not a FAT volume, and it isn't even the same across hosts.** It's PSPLink's bridge
+  to the PC, so it inherits the PC's filesystem: `tests/io/directory` was recorded on Windows and
+  does not match on macOS, where `..` reports a different size and short names come back as
+  `1.txt` rather than `1.TXT`. Anything testing FAT semantics has to run against `ms0:` - create a
+  scratch directory on the real memory stick and clean it up - and anything reading `host0:` will
+  only reproduce on the OS it was recorded on.
 - **A test that hangs leaves the PSP wedged.** `gentest.py` issues `pspsh -e reset` after a
   timeout, but if you ran the PRX by hand, do that yourself. Default timeout is 10s; raise it with
   `-t SECONDS`.
