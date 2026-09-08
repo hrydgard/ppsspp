@@ -48,9 +48,103 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 	return mt->R32();
 }
 
-// TODO: This MD5 stuff needs tests!
+// The MD5 context lives in the game's own memory, exactly as it does on hardware, so two digests
+// can be in flight at once. Layout confirmed against a real PSP by pspautotests hash/md5ctx:
+// 96 bytes, and the word at offset 16 is never written by the kernel.
+//
+// sceKernelUtilsSha1Block* below still keeps one global state, for the same reason this used to -
+// there's no hardware recording of the SHA-1 context layout yet.
+struct PSPMd5Context {
+	u32_le h[4];
+	u32_le pad;           // the kernel leaves this one alone
+	u16_le usRemains;     // bytes currently held in buf
+	u16_le usComputed;    // stays zero on hardware
+	u64_le ullTotalLen;   // total bytes fed in so far
+	u8 buf[64];
+};
 
-static md5_context md5_ctx;
+static void Md5ContextRead(const PSPPointer<PSPMd5Context> &ctx, md5_context *out) {
+	for (int i = 0; i < 4; i++) {
+		out->state[i] = ctx->h[i];
+	}
+	u64 total = ctx->ullTotalLen;
+	out->total[0] = (u32)total;
+	out->total[1] = (u32)(total >> 32);
+	memcpy(out->buffer, ctx->buf, sizeof(out->buffer));
+}
+
+static void Md5ContextWrite(PSPPointer<PSPMd5Context> &ctx, const md5_context *in) {
+	for (int i = 0; i < 4; i++) {
+		ctx->h[i] = (u32)in->state[i];
+	}
+	u64 total = (u64)(u32)in->total[0] | ((u64)(u32)in->total[1] << 32);
+	ctx->ullTotalLen = total;
+	ctx->usRemains = (u16)(total & 0x3F);
+	ctx->usComputed = 0;
+	ctx.NotifyWrite("Md5Context");
+}
+
+// Hardware streams every byte through buf on its way into the digest, so after a whole-block
+// update buf holds that block - not just the leftover tail. Our md5 hashes full blocks straight
+// out of the caller's buffer, so reproduce what the PSP would have left behind: the data laid
+// into a 64 byte window at its absolute offset in the stream.
+static void Md5ContextFillBuf(PSPPointer<PSPMd5Context> &ctx, u64 totalBefore, const u8 *data, u32 len) {
+	if (len == 0) {
+		return;
+	}
+	if (len >= 64) {
+		data += len - 64;
+		totalBefore += len - 64;
+		len = 64;
+	}
+	for (u32 i = 0; i < len; i++) {
+		ctx->buf[(u32)((totalBefore + i) % 64)] = data[i];
+	}
+	ctx.NotifyWrite("Md5Context");
+}
+
+// Init touches only the state and the counters - buf and the pad word are left as they were.
+static int Md5BlockInit(u32 ctxAddr) {
+	auto ctx = PSPPointer<PSPMd5Context>::Create(ctxAddr);
+	if (!ctx.IsValid())
+		return hleLogError(Log::HLE, -1, "bad context address");
+	md5_context fresh;
+	ppsspp_md5_starts(&fresh);
+	for (int i = 0; i < 4; i++) {
+		ctx->h[i] = (u32)fresh.state[i];
+	}
+	ctx->usRemains = 0;
+	ctx->usComputed = 0;
+	ctx->ullTotalLen = 0;
+	ctx.NotifyWrite("Md5Context");
+	return hleLogDebug(Log::HLE, 0);
+}
+
+static int Md5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
+	auto ctx = PSPPointer<PSPMd5Context>::Create(ctxAddr);
+	if (!ctx.IsValid() || !Memory::IsValidRange(dataPtr, len))
+		return hleLogError(Log::HLE, -1, "bad address");
+	md5_context work;
+	Md5ContextRead(ctx, &work);
+	u64 totalBefore = ctx->ullTotalLen;
+	const u8 *data = Memory::GetPointerWriteUnchecked(dataPtr);
+	ppsspp_md5_update(&work, (unsigned char *)data, (int)len);
+	Md5ContextWrite(ctx, &work);
+	Md5ContextFillBuf(ctx, totalBefore, data, len);
+	return hleLogDebug(Log::HLE, 0);
+}
+
+static int Md5BlockResult(u32 ctxAddr, u32 digestAddr) {
+	auto ctx = PSPPointer<PSPMd5Context>::Create(ctxAddr);
+	if (!ctx.IsValid() || !Memory::IsValidRange(digestAddr, 16))
+		return hleLogError(Log::HLE, -1, "bad address");
+	md5_context work;
+	Md5ContextRead(ctx, &work);
+	ppsspp_md5_finish(&work, Memory::GetPointerWriteUnchecked(digestAddr));
+	Md5ContextWrite(ctx, &work);
+	return hleLogDebug(Log::HLE, 0);
+}
+
 
 static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
@@ -63,33 +157,15 @@ static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 }
 
 static int sceMd5BlockInit(u32 ctxAddr) {
-	DEBUG_LOG(Log::HLE, "sceMd5BlockInit(%08x)", ctxAddr);
-	if (!Memory::IsValidAddress(ctxAddr))
-		return -1;
-
-	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
-	// which will work just fine unless games do several MD5 concurrently.
-
-	ppsspp_md5_starts(&md5_ctx);
-	return 0;
+	return Md5BlockInit(ctxAddr);
 }
 
 static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
-	DEBUG_LOG(Log::HLE, "sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
-	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
-		return -1;
-	
-	ppsspp_md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
-	return 0;
+	return Md5BlockUpdate(ctxAddr, dataPtr, len);
 }
 
 static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
-	DEBUG_LOG(Log::HLE, "sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
-	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
-		return -1;
-
-	ppsspp_md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
-	return 0;
+	return Md5BlockResult(ctxAddr, digestAddr);
 }
 
 int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
@@ -103,33 +179,15 @@ int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
 }
 
 int sceKernelUtilsMd5BlockInit(u32 ctxAddr) {
-	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5BlockInit(%08x)", ctxAddr);
-	if (!Memory::IsValidAddress(ctxAddr))
-		return -1;
-
-	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
-	// which will work just fine unless games do several MD5 concurrently.
-
-	ppsspp_md5_starts(&md5_ctx);
-	return 0;
+	return Md5BlockInit(ctxAddr);
 }
 
 int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
-	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
-	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
-		return -1;
-
-	ppsspp_md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
-	return 0;
+	return Md5BlockUpdate(ctxAddr, dataPtr, (u32)len);
 }
 
 int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
-	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
-	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
-		return -1;
-
-	ppsspp_md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
-	return 0;
+	return Md5BlockResult(ctxAddr, digestAddr);
 }
 
 

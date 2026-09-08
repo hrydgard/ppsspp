@@ -1863,7 +1863,10 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if ((attr & ~PSP_TLSPL_ATTR_KNOWN) >= 0x100)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
-	if (partition < 1 || partition > 9 || partition == 7)
+	// Tlspl draws the line at 6, unlike Vpl above: threads/tls/create records 7, 8, 9 and 10 all
+	// returning ILLEGAL_ARGUMENT on a real PSP, where threads/vpl/create has 8 and 9 falling
+	// through to ILLEGAL_PERM. Same-looking check, genuinely different range.
+	if (partition < 1 || partition > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
