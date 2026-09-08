@@ -1921,14 +1921,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	return module;
 }
 
-SceUID KernelLoadModule(const std::string &filename, std::string *error_string) {
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string, bool fromTop) {
 	std::vector<uint8_t> buffer;
 	if (pspFileSystem.ReadEntireFile(filename, buffer) < 0)
 		return SCE_KERNEL_ERROR_NOFILE;
 
 	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	u32 magic;
-	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, false, error_string, &magic, filename, error);
+	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, fromTop, error_string, &magic, filename, error);
 
 	if (module == nullptr)
 		return error;

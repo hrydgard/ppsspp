@@ -108,7 +108,7 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 				continue;
 			}
 			std::string error;
-			SceUID id = KernelLoadModule(paths[i], &error);
+			SceUID id = KernelLoadModule(paths[i], &error, true);
 			if (id < 0) {
 				ERROR_LOG(Log::sceUtility, "sceMp4 HLE is disabled, but %s wouldn't load (%s) - "
 					"the game will get unresolved imports", paths[i], error.c_str());
