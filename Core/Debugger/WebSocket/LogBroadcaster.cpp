@@ -52,7 +52,15 @@ public:
 			splitPoint = nextMessage_;
 			readCount = Count();
 		} else {
-			splitPoint = read_;
+			// read_ counts messages ever read, so it has to be wrapped to index the ring - the
+			// overflow branch above starts from nextMessage_, which already is an index. Without
+			// the modulo this went wrong the moment a session logged BUFFER_SIZE messages: with
+			// splitPoint >= BUFFER_SIZE the first copy loop below is empty, so the second one
+			// handed back messages_[0..readCount-1] - the oldest entries in the buffer, not the
+			// new ones - and every later poll stayed that far out of step. High-volume sources
+			// (a log-only breakpoint in a hot loop) hit it within seconds, and the result looked
+			// like the tail of the log going missing rather than being wrong.
+			splitPoint = read_ % BUFFER_SIZE;
 			readCount = count_ - read_;
 		}
 
