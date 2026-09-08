@@ -174,6 +174,7 @@ static int ComputeAtracStateAndInitSecondBuffer(SceAtracIdInfo *info, u32 readSi
 
 	if (bufferSize < (u32)info->fileDataEnd) {
 		if (info->streamDataByte < (s32)info->sampleSize * 2) {
+			// sampleSize * 3 would be more accurate, but we increase tolerance for GTA LCS custom music (#20692).
 			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		loopEnd = info->loopEnd;
