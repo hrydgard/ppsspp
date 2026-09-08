@@ -1863,10 +1863,17 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if ((attr & ~PSP_TLSPL_ATTR_KNOWN) >= 0x100)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
-	// Tlspl draws the line at 6, unlike Vpl above: threads/tls/create records 7, 8, 9 and 10 all
-	// returning ILLEGAL_ARGUMENT on a real PSP, where threads/vpl/create has 8 and 9 falling
-	// through to ILLEGAL_PERM. Same-looking check, genuinely different range.
-	if (partition < 1 || partition > 6)
+	// From user mode only 1-6 exist: threads/tls/partition records 7 and up all returning
+	// ILLEGAL_ARGUMENT on a real PSP, where 1, 3 and 4 fall through to ILLEGAL_PERM below. Note
+	// this differs from sceKernelCreateVpl above, which does let 8 and 9 reach the permission
+	// check - the two used to share a range that was only ever right for Vpl.
+	//
+	// The kernel-mode range is left as it was, since 8 and 10 map to the user partition for a
+	// kernel caller and there's no hardware recording from kernel mode to check it against - a
+	// test PRX built on this suite's common code doesn't fit in the kernel partition alongside
+	// PSPLink.
+	const u32 highestPartition = hleIsKernelMode() ? 9 : 6;
+	if (partition < 1 || partition == 7 || partition > highestPartition)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);

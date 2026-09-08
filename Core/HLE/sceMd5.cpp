@@ -52,8 +52,8 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 // can be in flight at once. Layout confirmed against a real PSP by pspautotests hash/md5ctx:
 // 96 bytes, and the word at offset 16 is never written by the kernel.
 //
-// sceKernelUtilsSha1Block* below still keeps one global state, for the same reason this used to -
-// there's no hardware recording of the SHA-1 context layout yet.
+// SHA-1 gets the same treatment further down. Its context is the same size with the same
+// bookkeeping, but note it does not stream whole blocks through buf the way MD5 does.
 struct PSPMd5Context {
 	u32_le h[4];
 	u32_le pad;           // the kernel leaves this one alone
@@ -191,7 +191,55 @@ int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 }
 
 
-static sha1_context sha1_ctx;
+// SHA-1's context, confirmed against a real PSP by pspautotests hash/sha1ctx. Same 96 bytes and
+// same bookkeeping as MD5, but no pad word - and unlike MD5, a whole-block update leaves buf
+// alone rather than copying the block through it, which is what our sha1 does anyway.
+struct PSPSha1Context {
+	u32_le h[5];
+	u16_le usRemains;
+	u16_le usComputed;
+	u64_le ullTotalLen;
+	u8 buf[64];
+};
+
+static void Sha1ContextRead(const PSPPointer<PSPSha1Context> &ctx, sha1_context *out) {
+	for (int i = 0; i < 5; i++) {
+		out->state[i] = ctx->h[i];
+	}
+	u64 total = ctx->ullTotalLen;
+	out->total[0] = (u32)total;
+	out->total[1] = (u32)(total >> 32);
+	memcpy(out->buffer, ctx->buf, sizeof(out->buffer));
+}
+
+static void Sha1ContextWrite(PSPPointer<PSPSha1Context> &ctx, const sha1_context *in) {
+	for (int i = 0; i < 5; i++) {
+		ctx->h[i] = (u32)in->state[i];
+	}
+	u64 total = (u64)(u32)in->total[0] | ((u64)(u32)in->total[1] << 32);
+	ctx->ullTotalLen = total;
+	ctx->usRemains = (u16)(total & 0x3F);
+	ctx->usComputed = 0;
+	memcpy(ctx->buf, in->buffer, sizeof(ctx->buf));
+	ctx.NotifyWrite("Sha1Context");
+}
+
+static int Sha1BlockInit(u32 ctxAddr) {
+	auto ctx = PSPPointer<PSPSha1Context>::Create(ctxAddr);
+	if (!ctx.IsValid())
+		return hleLogError(Log::HLE, -1, "bad context address");
+	sha1_context fresh;
+	sha1_starts(&fresh);
+	for (int i = 0; i < 5; i++) {
+		ctx->h[i] = (u32)fresh.state[i];
+	}
+	ctx->usRemains = 0;
+	ctx->usComputed = 0;
+	ctx->ullTotalLen = 0;
+	ctx.NotifyWrite("Sha1Context");
+	return hleLogDebug(Log::HLE, 0);
+}
+
 
 int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
@@ -204,34 +252,29 @@ int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
 }
 
 int sceKernelUtilsSha1BlockInit(u32 ctxAddr) {
-	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1BlockInit(%08x)", ctxAddr);
-	if (!Memory::IsValidAddress(ctxAddr))
-		return -1;
-
-	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
-	// which will work just fine unless games do several MD5 concurrently.
-
-	sha1_starts(&sha1_ctx);
-
-	return 0;
+	return Sha1BlockInit(ctxAddr);
 }
 
 int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len) {
-	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1BlockUpdate(%08x, %08x, %d)", ctxAddr, dataAddr, len);
-	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataAddr))
-		return -1;
-
-	sha1_update(&sha1_ctx, Memory::GetPointerWriteUnchecked(dataAddr), (int)len);
-	return 0;
+	auto ctx = PSPPointer<PSPSha1Context>::Create(ctxAddr);
+	if (!ctx.IsValid() || !Memory::IsValidRange(dataAddr, len))
+		return hleLogError(Log::HLE, -1, "bad address");
+	sha1_context work;
+	Sha1ContextRead(ctx, &work);
+	sha1_update(&work, Memory::GetPointerWriteUnchecked(dataAddr), (int)len);
+	Sha1ContextWrite(ctx, &work);
+	return hleLogDebug(Log::HLE, 0);
 }
 
 int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr) {
-	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1BlockResult(%08x, %08x)", ctxAddr, digestAddr);
-	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
-		return -1;
-
-	sha1_finish(&sha1_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
-	return 0;
+	auto ctx = PSPPointer<PSPSha1Context>::Create(ctxAddr);
+	if (!ctx.IsValid() || !Memory::IsValidRange(digestAddr, 20))
+		return hleLogError(Log::HLE, -1, "bad address");
+	sha1_context work;
+	Sha1ContextRead(ctx, &work);
+	sha1_finish(&work, Memory::GetPointerWriteUnchecked(digestAddr));
+	Sha1ContextWrite(ctx, &work);
+	return hleLogDebug(Log::HLE, 0);
 }
 
 
