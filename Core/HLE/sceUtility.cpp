@@ -364,6 +364,9 @@ void __UtilityInit() {
 	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
+	// Vital to reset these between games, otherwise we might think they're already loaded.
+	g_mp4RealModules[0] = 0;
+	g_mp4RealModules[1] = 0;
 	volatileUnlockEvent = CoreTiming::RegisterEvent("UtilityVolatileUnlock", UtilityVolatileUnlock);
 
 	ResetSecondsSinceLastGameSave();
