@@ -203,14 +203,23 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc;
 }
 
-// Process compat flags.
+// Which modules we're HLE-ing is part of the machine's state, not a live setting: it's decided
+// when each module is loaded, and the syscall stubs written into memory then are what a savestate
+// captures. So latch it on the first use after boot, save it in the state, and restore it on load
+// - otherwise a state made on one side of the boundary gets its imports re-resolved against the
+// other, and every call into the module lands on an unresolved stub. Changing the setting takes
+// effect on the next boot, which is the only point it could have taken effect anyway.
+static DisableHLEFlags g_effectiveDisableHLE;
+static bool g_disableHLELatched;
+
 // Flags the user asked for that we can't honour this boot, because the firmware modules they
-// need aren't in the NAND directory. Subtracted in GetDisableHLEFlags so that a missing dump
+// need aren't in the NAND directory. Subtracted in ComputeDisableHLEFlags so that a missing dump
 // leaves the HLE in place rather than handing the game unresolved imports, which is much worse
 // than our stubs. Recomputed per boot, since the dump can appear between runs.
 static DisableHLEFlags g_unavailableDisableFlags = (DisableHLEFlags)0;
 
-static DisableHLEFlags GetDisableHLEFlags() {
+// Process compat flags.
+static DisableHLEFlags ComputeDisableHLEFlags() {
 	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | AlwaysDisableHLEFlags();
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
 		flags |= DisableHLEFlags::sceFont;
@@ -223,6 +232,18 @@ static DisableHLEFlags GetDisableHLEFlags() {
 	// Anything whose firmware module isn't actually present stays HLE'd.
 	flags &= ~g_unavailableDisableFlags;
 	return flags;
+}
+
+static DisableHLEFlags GetDisableHLEFlags() {
+	if (!g_disableHLELatched) {
+		g_effectiveDisableHLE = ComputeDisableHLEFlags();
+		g_disableHLELatched = true;
+	}
+	return g_effectiveDisableHLE;
+}
+
+DisableHLEFlags GetEffectiveDisableHLEFlags() {
+	return GetDisableHLEFlags();
 }
 
 // Note: name is the modname from prx, not the export module name!
@@ -296,15 +317,27 @@ static void CheckDisableHLEAvailability() {
 void HLEInit() {
 	CheckDisableHLEAvailability();
 	RegisterAllModules();
+	// Latched lazily rather than here: the compat flags this depends on aren't loaded yet.
+	g_disableHLELatched = false;
 	g_stackSize = 0;
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
 	g_idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
 }
 
 void HLEDoState(PointerWrap &p) {
-	auto s = p.Section("HLE", 1, 2);
+	auto s = p.Section("HLE", 1, 3);
 	if (!s)
 		return;
+
+	if (s >= 3) {
+		int disableHLE = (int)GetDisableHLEFlags();
+		Do(p, disableHLE);
+		if (p.mode == p.MODE_READ) {
+			// Whatever the config says now, this state's modules were loaded under these flags.
+			g_effectiveDisableHLE = (DisableHLEFlags)disableHLE;
+			g_disableHLELatched = true;
+		}
+	}
 
 	// Can't be inside a syscall when saving state, reset this so errors aren't misleading.
 	if (g_stackSize) {

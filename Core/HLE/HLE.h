@@ -127,6 +127,9 @@ void RegisterHLEModule(std::string_view name, int numFunctions, const HLEFunctio
 int GetNumRegisteredHLEModules();
 const HLEModule *GetHLEModuleByIndex(int index);
 DisableHLEFlags AlwaysDisableHLEFlags();
+// The flags actually in effect for this boot - latched at the first module load and restored from
+// savestates, so it can differ from what g_Config says if the setting changed since.
+DisableHLEFlags GetEffectiveDisableHLEFlags();
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();

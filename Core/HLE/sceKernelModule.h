@@ -247,7 +247,11 @@ bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32
 bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
-SceUID KernelLoadModule(const std::string &filename, std::string *error_string);
+// fromTop puts the module at the top of the user partition instead of the bottom. Use it for
+// firmware modules we inject before the game loads - taking the bottom pushes the game's own ELF
+// up, which shifts every address in it and invalidates cheats and achievements, and outright
+// fails for a game like Tekken 6 whose EBOOT must load at a fixed low address.
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string, bool fromTop = false);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);
