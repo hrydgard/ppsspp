@@ -581,7 +581,7 @@ int main(int argc, const char* argv[]) {
 	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the
 	// WebSocket debugger silently fails to listen. Only done when requested since headless
 	// otherwise has no use for networking.
-	if (cmdLineOptions.debuggerPort.has_value())
+	if (cmdLineOptions.DebuggerPort().has_value())
 		net::Init();
 
 	AutoTestOptions testOptions{};
@@ -767,9 +767,12 @@ int main(int argc, const char* argv[]) {
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
-	// Run all modules as HLE - a headless run normally has no firmware to load them from. An
-	// explicit --disable-hle means the caller does have a dump and wants the real thing, so leave
-	// the modules they asked for alone.
+	// Run all modules as HLE - a headless run normally has no firmware to load them from, and the
+	// homebrew that pspautotests is made of doesn't ship the user libraries a retail disc does, so
+	// even the graduated modules (scePsmfPlayer and friends) have nothing real to run. An explicit
+	// --disable-hle means the caller does have what's needed and wants the real thing, so leave
+	// the modules they asked for alone - including the graduated ones, which is how you get a disc
+	// game's own libpsmfplayer.prx to run here the way it does in the app.
 	g_Config.iForceEnableHLE = 0xFFFFFFFF & ~g_Config.iDisableHLE;
 
 
@@ -936,13 +939,19 @@ int main(int argc, const char* argv[]) {
 		return printUsage(cmdLineOptions, argv[0], argc <= 1 ? NULL : "No executables specified");
 	}
 
-	if (cmdLineOptions.debuggerPort.has_value()) {
-		coreParameter.startBreak = true;
+	if (cmdLineOptions.DebuggerPort().has_value()) {
+		coreParameter.startBreak = cmdLineOptions.DebuggerBreaksAtStart();
+		if (coreParameter.startBreak) {
+			// Worth saying out loud: a run that looks frozen with zero progress is usually this,
+			// not the game. Send cpu.resume, or use --debugger-run to skip the wait entirely.
+			fprintf(stderr, "--debugger: breaking at the entry point, waiting for a client to "
+				"resume the CPU (cpu.resume). Use --debugger-run to start running instead.\n");
+		}
 		StartWebServer(WebServerFlags::DEBUGGER);
 		// We break at start and wait for a debugger to drive us, so coming up without one just
 		// hangs until the timeout. Better to say why and bail - see WebServerSetRequireExactPort().
 		if (!WebServerWaitForStartup()) {
-			fprintf(stderr, "Failed to start the debugger web server on port %d\n", cmdLineOptions.debuggerPort.value());
+			fprintf(stderr, "Failed to start the debugger web server on port %d\n", cmdLineOptions.DebuggerPort().value());
 			// The server thread has exited but is still joinable - without this, its std::thread
 			// destructor would call std::terminate() on the way out and we'd abort instead of
 			// returning a useful exit code.
@@ -992,7 +1001,7 @@ int main(int argc, const char* argv[]) {
 
 	delete graphicsContext;
 
-	if (cmdLineOptions.debuggerPort.has_value()) {
+	if (cmdLineOptions.DebuggerPort().has_value()) {
 		ShutdownWebServer();
 	}
 
@@ -1006,7 +1015,7 @@ int main(int argc, const char* argv[]) {
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
-	if (cmdLineOptions.debuggerPort.has_value()) {
+	if (cmdLineOptions.DebuggerPort().has_value()) {
 		net::Shutdown();
 	}
 	TimeShutdown();

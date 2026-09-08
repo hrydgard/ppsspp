@@ -223,6 +223,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(generateInterpreterDispatch), CmdParamType::Bool, "generate-interpreter-dispatch", '\0', "Generate C++ interpreter dispatch code (ExecInstruction) to stdout and exit", CmdLineMode::Headless},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
+	{POFF(debuggerRunPort), CmdParamType::Int, "debugger-run", '\0', "Like --debugger, but starts running instead of waiting at the entry point", CmdLineMode::Headless},
 	{POFF(autoSaveLoadSymbols), CmdParamType::Bool, "auto-save-load-symbols", '\0', "Auto save/load per-module and per-game symbol files (see bAutoSaveLoadSymbols)", CmdLineMode::Both},
 	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
 	{POFF(disableHLE), CmdParamType::Int, "disable-hle", '\0', "Bitmask of libraries to run the real firmware module for instead of our HLE", CmdLineMode::Both},
@@ -538,14 +539,14 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (pauseMenuExit.has_value()) {
 		g_Config.bPauseMenuExitsEmulator = pauseMenuExit.value();
 	}
-	if (debuggerPort.has_value()) {
-		g_Config.iRemoteISOPort = debuggerPort.value();
+	if (DebuggerPort().has_value()) {
+		g_Config.iRemoteISOPort = DebuggerPort().value();
 		g_Config.DoNotSaveSetting(&g_Config.iRemoteISOPort);
 		g_Config.bRemoteDebuggerOnStartup = true;
 		g_Config.DoNotSaveSetting(&g_Config.bRemoteDebuggerOnStartup);
 		// --debugger=0 still means "pick any free port", but a specific port was asked for by
 		// something that intends to connect to it, so don't quietly come up on a different one.
-		WebServerSetRequireExactPort(debuggerPort.value() != 0);
+		WebServerSetRequireExactPort(DebuggerPort().value() != 0);
 	}
 
 	if (autoSaveLoadSymbols.has_value()) {

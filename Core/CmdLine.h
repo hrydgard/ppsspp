@@ -46,6 +46,17 @@ struct CommandLineOptions {
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
+	// Same, but without breaking at the entry point first.
+	std::optional<int> debuggerRunPort;
+
+	// The port either of the two debugger options asked for, if any.
+	std::optional<int> DebuggerPort() const {
+		return debuggerPort.has_value() ? debuggerPort : debuggerRunPort;
+	}
+	// --debugger waits at the entry point for a client to drive it; --debugger-run doesn't.
+	bool DebuggerBreaksAtStart() const {
+		return debuggerPort.has_value();
+	}
 
 	// Overrides g_Config.bAutoSaveLoadSymbols for this run only (see SymbolMap::SaveModuleSymbols/
 	// LoadModuleSymbols and Core/HLE/sceKernelModule.cpp) - handy for headless runs that want
