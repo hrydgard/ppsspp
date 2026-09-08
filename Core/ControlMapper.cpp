@@ -391,6 +391,93 @@ void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
 	}
 }
 
+// Works out which mappings are currently being overridden by a longer one. If you map something
+// to L2+R2, you don't want whatever L2 and R2 are mapped to on their own to fire as well, so while
+// a combo is fully held, the shorter mappings sharing an input with it are suppressed.
+// mutex_ should be locked, and also KeyMap::LockMappings().
+void ControlMapper::UpdateComboSuppression() {
+	if (KeyMap::HasChanged(comboMappingsGeneration_)) {
+		KeyMap::GetAllComboMappingsNoLock(&comboMappings_);
+	}
+
+	comboSuppressionChanged_.clear();
+	if (comboMappings_.empty() && comboSuppression_.empty()) {
+		// By far the common case - nobody has mapped a combo, so there's nothing to suppress.
+		return;
+	}
+
+	std::map<InputMapping, size_t> prevSuppression = std::move(comboSuppression_);
+	comboSuppression_.clear();
+
+	for (const auto &combo : comboMappings_) {
+		// Is every input of the combo held down? Same conditions as the main loops below.
+		bool all = true;
+		double curTime = 0.0;
+		for (const auto &mapping : combo.mappings) {
+			auto iter = curInput_.find(mapping);
+			if (iter == curInput_.end()) {
+				all = false;
+				break;
+			}
+			// Stop reverse ordering from triggering.
+			if (g_Config.bStrictComboOrder && iter->second.timestamp < curTime) {
+				all = false;
+				break;
+			}
+			curTime = iter->second.timestamp;
+			if (iter->second.value <= 0.0f || iter->second.value <= GetDeviceAxisThreshold(iter->first.deviceId, mapping)) {
+				all = false;
+				break;
+			}
+		}
+		if (!all) {
+			continue;
+		}
+		// It is, so record it as the one to beat for each of its inputs.
+		for (const auto &mapping : combo.mappings) {
+			size_t &longest = comboSuppression_[mapping];
+			longest = std::max(longest, combo.mappings.size());
+		}
+	}
+
+	// Outputs are only re-evaluated when an input they use has changed, so when suppression
+	// starts or stops for an input, we have to treat that input as changed too. Otherwise
+	// releasing one button of a held combo wouldn't bring back what the others map to alone.
+	for (const auto &[mapping, size] : comboSuppression_) {
+		auto iter = prevSuppression.find(mapping);
+		if (iter == prevSuppression.end() || iter->second != size) {
+			comboSuppressionChanged_.push_back(mapping);
+		}
+	}
+	for (const auto &[mapping, size] : prevSuppression) {
+		if (!comboSuppression_.count(mapping)) {
+			comboSuppressionChanged_.push_back(mapping);
+		}
+	}
+}
+
+bool ControlMapper::SuppressionChanged(const KeyMap::MultiInputMapping &multiMapping) const {
+	for (const auto &changed : comboSuppressionChanged_) {
+		if (multiMapping.mappings.contains(changed)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool ControlMapper::IsSuppressedByCombo(const KeyMap::MultiInputMapping &multiMapping) const {
+	if (comboSuppression_.empty()) {
+		return false;
+	}
+	for (const auto &mapping : multiMapping.mappings) {
+		auto iter = comboSuppression_.find(mapping);
+		if (iter != comboSuppression_.end() && multiMapping.mappings.size() < iter->second) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // Can only be called from Key or Axis.
 // mutex_ should be locked, and also KeyMap::LockMappings().
 // TODO: We should probably make a batched version of this.
@@ -405,6 +492,8 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	case ROTATION_LOCKED_VERTICAL:      rotations = 1; break;
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 3; break;
 	}
+
+	UpdateComboSuppression();
 
 	// For the PSP's digital button inputs, we just go through and put the flags together.
 	uint32_t buttonMask = 0;
@@ -429,7 +518,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 		// If a mapping could consist of a combo, we could trivially check it here.
 		for (auto &multiMapping : inputMappings) {
 			// Check if the changed mapping was involved in this PSP key.
-			if (multiMapping.mappings.contains(changedMapping)) {
+			if (multiMapping.mappings.contains(changedMapping) || SuppressionChanged(multiMapping)) {
 				changedButtonMask |= mask;
 			}
 			// Check if all inputs are "on".
@@ -452,7 +541,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 				if (!down)
 					all = false;
 			}
-			if (all) {
+			if (all && !IsSuppressedByCombo(multiMapping)) {
 				buttonMask |= mask;
 			}
 		}
@@ -484,8 +573,12 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 		bool touchedByMapping = false;
 		float value = 0.0f;
 		for (auto &multiMapping : inputMappings) {
-			if (multiMapping.mappings.contains(changedMapping)) {
+			if (multiMapping.mappings.contains(changedMapping) || SuppressionChanged(multiMapping)) {
 				touchedByMapping = true;
+			}
+
+			if (IsSuppressedByCombo(multiMapping)) {
+				continue;
 			}
 
 			float product = 1.0f;  // We multiply the various inputs in a combo mapping with each other.
