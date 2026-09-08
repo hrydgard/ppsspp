@@ -174,6 +174,13 @@ public:
 	std::vector<SectionID> GetCodeSections() const;
 
 	int LoadInto(u32 vaddr, bool fromTop);
+
+	// Set when LoadInto() rejects the image, so the caller can put the reason in the error it
+	// shows instead of only an error code. Untranslated - this is for developers and bug reports.
+	const std::string &LoadError() const {
+		return loadError_;
+	}
+
 	bool LoadSymbols();
 	bool LoadRelocations(const Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);
@@ -196,6 +203,7 @@ private:
 	std::vector<u32> segmentVAddr;
 	size_t size_ = 0;
 	u32 firstSegAlign = 0;
+	std::string loadError_;
 };
 
 // Homebrew usually ships the unstripped ELF it was built from next to the EBOOT (app.elf beside

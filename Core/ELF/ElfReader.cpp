@@ -544,8 +544,18 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 	if (header->e_ident[EI_DATA] != ELFDATA2LSB)
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 
-	if (size_ < header->e_phoff + sizeof(Elf32_Phdr) * GetNumSegments() || size_ < header->e_shoff + sizeof(Elf32_Shdr) * GetNumSections()) {
-		ERROR_LOG(Log::Loader, "Truncated ELF, %d bytes with %d sections and %d segments", (int)size_, GetNumSections(), GetNumSegments());
+	const size_t phdrEnd = header->e_phoff + sizeof(Elf32_Phdr) * GetNumSegments();
+	const size_t shdrEnd = header->e_shoff + sizeof(Elf32_Shdr) * GetNumSections();
+	if (size_ < phdrEnd || size_ < shdrEnd) {
+		// Say which table runs off the end and by how much. "Truncated ELF" on its own sends you
+		// looking at the executable, when the usual cause is that we were handed fewer bytes than
+		// the file really has - a short read, or a size clamped somewhere upstream.
+		const char *which = size_ < phdrEnd ? "program header table" : "section header table";
+		const size_t needed = size_ < phdrEnd ? phdrEnd : shdrEnd;
+		loadError_ = StringFromFormat(
+			"Truncated ELF: %s ends at %d but only %d bytes are available (%d short), %d sections, %d segments",
+			which, (int)needed, (int)size_, (int)(needed - size_), GetNumSections(), GetNumSegments());
+		ERROR_LOG(Log::Loader, "%s", loadError_.c_str());
 		// Probably not the right error code.
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}

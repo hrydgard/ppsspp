@@ -1468,7 +1468,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	int result = reader.LoadInto(loadAddress, fromTop);
 	if (result != SCE_KERNEL_ERROR_OK) {
-		ERROR_LOG(Log::sceModule, "LoadInto failed with error %08x",result);
+		// Carry the reader's reason up, so what the user is shown says more than an error code.
+		if (!reader.LoadError().empty()) {
+			*error_string = reader.LoadError();
+		} else {
+			*error_string = StringFromFormat("ELF load failed (%08x)", result);
+		}
+		ERROR_LOG(Log::sceModule, "LoadInto failed with error %08x: %s", result, error_string->c_str());
 		delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<PSPModule>(module->GetUID());
@@ -2092,7 +2098,8 @@ static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t siz
 			module->Cleanup();
 			kernelObjects.Destroy<PSPModule>(module->GetUID());
 		}
-		ERROR_LOG(Log::Loader, "Failed to load module %s", filename);
+		ERROR_LOG(Log::Loader, "Failed to load module %s (%d bytes): %s", filename, (int)size,
+			error_string->empty() ? "no reason given" : error_string->c_str());
 		*error_string = "Failed to load executable: " + *error_string;
 		delete[] param_argp;
 		delete[] param_key;
