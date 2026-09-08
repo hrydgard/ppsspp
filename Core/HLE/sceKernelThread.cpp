@@ -2290,6 +2290,17 @@ SceUID __KernelGetCurThreadModuleId() {
 	return 0;
 }
 
+bool __KernelCurThreadIsKernelMode() {
+	PSPThread *thread = __GetCurrentThread();
+	if (thread && (thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0) {
+		return true;
+	}
+	// A kernel module's own main thread isn't necessarily flagged kernel - the attribute comes
+	// from PSP_MAIN_THREAD_ATTR in the module info, which needn't set it - so fall back to what
+	// module the thread belongs to, the same way sceKernelCreateThread decides allowKernel.
+	return KernelModuleIsKernelMode(__KernelGetCurThreadModuleId());
+}
+
 u32 __KernelGetCurThreadStack() {
 	PSPThread *t = __GetCurrentThread();
 	if (t)

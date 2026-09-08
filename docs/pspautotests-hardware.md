@@ -174,6 +174,60 @@ python3 test.py --graphics=software io/shortname/shortname
 - **The module must be named `TESTMODULE`** (`common.c` does this) or `gentest.py` prints the load
   line as an unexpected result.
 
+## Kernel-mode tests
+
+Some behaviour differs by privilege - `sceKernelCreateTlspl` accepts partitions 1, 3 and 4 from a
+kernel module and rejects them with `ILLEGAL_PERM` from user mode - so occasionally a test has to
+run as a kernel module. `tests/threads/tls/kernel` is the working example. Set `COMMON_KERNEL = 1`
+in the Makefile before including `common.mk` and you get a kernel build:
+
+```make
+TARGETS = partition
+EXTRA_OBJS = tlspl-imports.o
+COMMON_KERNEL = 1
+
+COMMON_DIR = ../../../../common
+include $(COMMON_DIR)/common.mk
+```
+
+Three things make this work, and all three took a while to find, so don't undo them casually:
+
+- **`USE_KERNEL_LIBS`, set automatically by `common.mk`.** The stock `crt0_prx.o` references
+  `__libcglue_init`, which pulls in the whole of libcglue, which imports `sceNetInet`,
+  `sceUtility` and the `ForUser` IO libraries. A kernel module that imports any of those fails to
+  load with `8002013C` (library not found), and no amount of trimming `LIBS` helps because the
+  reference comes from the startup object itself. `USE_KERNEL_LIBS` selects a different startup -
+  and brings `-nostdlib`, so `common/kernelglue.c` supplies the newlib support hooks that go
+  missing: `_sbrk` over a fixed heap, the `_read`/`_write`/`_close` stubs, no-op retargetable
+  locks, and `module_start`.
+- **Nothing may import a `ForUser` library.** `ThreadManForUser` is fine, but `SysMemUserForUser`
+  is not, which is why `common.c` compiles the `sceKernelSetCompiledSdkVersion` helpers out of
+  kernel builds - a function pointer table referencing them is enough to pull the stubs in.
+  Watch for this: `psp-strings yourtest.prx | grep For` lists what you're importing. Beware also
+  that `ThreadManForKernel` does not export the Tlspl calls - importing them from there links
+  cleanly and then returns `8002013A`, library not yet linked, from every call.
+- **Size.** The kernel partition has about 285 KB free with PSPLink resident, 242 KB of it
+  contiguous, and loading over the cable needs room for the file *and* the loaded image at once.
+  A kernel build therefore gets a 4 KB `schedfBuffer` and a 4 KB heap instead of the user build's
+  64 KB and 21 MB. `psp-size yourtest.elf` plus the `.prx` file size against `meminfo`'s MAXFREE
+  tells you whether it will fit; `800200D9` (memblock alloc failed) means it didn't.
+
+Output works normally - `printf`, `checkpoint` and `schedf` all behave - but a kernel build writes
+to `host0:` with `sceIo` directly rather than through newlib's `FILE`, since that's what dragged
+libcglue in. Formatting still goes through newlib's `vsnprintf`, so the usual format specifiers
+are all available.
+
+Output reaches an emulator the same way it reaches the cable: a kernel build feeds
+`sceIoDevctl("emulator:", SEND_OUTPUT)` as well as writing the file, and calls
+`sceKernelExitGame` at the end so headless stops rather than spinning to its timeout. Both are
+easy to forget when writing a new harness - without the first the test appears to produce nothing,
+and without the second it always reports TIMEOUT even though it ran.
+
+One emulator-side note, since it took a while to pin down: privilege on the PSP belongs to the
+*caller*, not to the syscall. PPSSPP's `hleIsKernelMode()` only reports whether the entry point
+itself is a kernel-only export, so a kernel module calling an ordinary `ForUser` NID used to look
+like user mode. `__KernelCurThreadIsKernelMode()` answers the question this test needs.
+
 ## Worked example: FAT short names
 
 `tests/io/shortname` was written this way and is a decent template. It creates a scratch directory
