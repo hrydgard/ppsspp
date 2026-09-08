@@ -17,6 +17,7 @@ for it:
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
 | [docs/pspautotests.md](docs/pspautotests.md) | Workflow for improving PPSSPP using pspautotests |
+| [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md) | Writing a new pspautotest, and running it on a real PSP over PSPLink to record its `.expected` |
 | [docs/frametest.md](docs/frametest.md) | Framedump rendering tests |
 | [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) | WebSocket debugger protocol reference |
 
@@ -105,7 +106,8 @@ python test.py -g --graphics=software
 New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, listed in
 both CMakeLists.txt and the Visual Studio project. See [docs/building.md](docs/building.md) for the
 details and [docs/pspautotests.md](docs/pspautotests.md) for a workflow for improving PPSSPP with
-pspautotest results.
+pspautotest results. To write a *new* pspautotest and record its `.expected` from a real PSP over
+PSPLink, see [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md).
 
 ## Multiplatform considerations
 
