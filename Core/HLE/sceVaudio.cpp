@@ -42,15 +42,18 @@ void __VaudioDoState(PointerWrap &p) {
 }
 
 static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
-	// The vaudio channel is pickier than the normal ones: only three sample counts, stereo only,
-	// and the same set of sample rates the SRC channel takes.
+	// The vaudio channel is pickier than the normal ones: a fixed set of sample counts, stereo
+	// only, and the same set of sample rates the SRC channel takes. It tests
+	// 256/576/1024/1152 and then 2048, returning 0x80000104, before it looks at the format at all.
+	// 576 and 1152 are the MPEG-2/2.5 and MPEG-1 Layer III frame sizes, so leaving them out broke
+	// games that feed MP3 frames straight to the vaudio channel.
+	if (sampleCount != 256 && sampleCount != 576 && sampleCount != 1024 && sampleCount != 1152 && sampleCount != 2048) {
+		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - invalid sample count", sampleCount, freq, format);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
 	if (format != 2) {
 		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - unexpected format", sampleCount, freq, format);
 		return SCE_KERNEL_ERROR_INVALID_FORMAT;
-	}
-	if (sampleCount != 256 && sampleCount != 1024 && sampleCount != 2048) {
-		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - invalid sample count", sampleCount, freq, format);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	}
 	if (freq != 0 && !SRCFrequencyAllowed(freq)) {
 		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - invalid frequency", sampleCount, freq, format);
