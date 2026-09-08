@@ -307,10 +307,15 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 			// drop the entry - truncated ISOs are common and used to work with just the warning
 			// above, and dropping EBOOT.BIN would turn that into an unbootable game. For a sane
 			// file this is a no-op, since the extent always fits in its sectors.
+			// Measured in bytes, not whole sectors: an image whose length isn't a multiple of the
+			// sector size still contains its final partial sector, and a file is allowed to end
+			// there. Counting blocks discards that tail, which clamped real files short - a dump
+			// with EBOOT.BIN running to the last byte of the image lost the end of it, and the ELF
+			// section headers that live there went with it.
 			if (isFile) {
-				const u64 numBlocks = blockDevice->GetNumBlocks();
-				const u64 firstSector = dir.firstDataSector;
-				const s64 availableBytes = firstSector >= numBlocks ? 0 : (s64)((numBlocks - firstSector) * (u64)sectorSize);
+				const u64 imageBytes = blockDevice->GetUncompressedSize();
+				const u64 firstByte = (u64)dir.firstDataSector * (u64)sectorSize;
+				const s64 availableBytes = firstByte >= imageBytes ? 0 : (s64)(imageBytes - firstByte);
 				if (entry->size > availableBytes) {
 					entry->size = availableBytes;
 				}
