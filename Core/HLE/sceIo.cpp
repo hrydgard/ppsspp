@@ -58,9 +58,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
-extern "C" {
 #include "ext/libkirk/amctrl.h"
-};
 
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/sceRtc.h"

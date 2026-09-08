@@ -3,6 +3,10 @@
 
 #include "kirk_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AES_KEY_LEN_128	(128)
 #define AES_KEY_LEN_192	(192)
 #define AES_KEY_LEN_256	(256)
@@ -47,5 +51,9 @@ void AES_CMAC(AES_ctx *ctx, const unsigned char *input, int length, unsigned cha
 int	rijndaelKeySetupEnc(u32 [], const u8 [], int);
 int	rijndaelKeySetupDec(u32 [], const u8 [], int);
 void rijndaelEncrypt(const u32 [], int, const u8 pt[16], u8 ct[16]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __RIJNDAEL_H */

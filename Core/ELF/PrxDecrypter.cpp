@@ -2,11 +2,8 @@
 #include <array>
 #include <string.h>
 
-extern "C"
-{
 #include "ext/libkirk/kirk_engine.h"
 #include "ext/libkirk/SHA1.h"
-}
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"

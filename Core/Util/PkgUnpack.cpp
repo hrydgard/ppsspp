@@ -31,9 +31,7 @@
 #include "Core/System.h"
 #include "Core/Util/PkgUnpack.h"
 
-extern "C" {
 #include "ext/libkirk/AES.h"
-}
 
 // See docs/pkg_notes.md. Field offsets in the 0xC0-byte header:
 static const u32 PKG_MAGIC = 0x7F504B47;  // "\x7FPKG"

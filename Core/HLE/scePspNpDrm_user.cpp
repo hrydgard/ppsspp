@@ -1,10 +1,5 @@
-// kirk_engine.h includes AES.h from outside its own extern "C" block, so whoever pulls it in first
-// decides the linkage the AES_* functions get. Do it here, the way PrxDecrypter.cpp does, or they
-// come through sceChnnlsv.h below with C++ linkage and fail to link.
-extern "C" {
-#include "ext/libkirk/kirk_engine.h"
+#include "ext/libkirk/AES.h"
 #include "ext/libkirk/amctrl.h"
-}
 
 #include "Core/HLE/scePspNpDrm_user.h"
 #include "Core/MemMapHelpers.h"

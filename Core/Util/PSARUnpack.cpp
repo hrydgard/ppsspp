@@ -37,9 +37,7 @@
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
 
-extern "C" {
 #include "ext/libkirk/kirk_engine.h"
-}
 
 // A PSAR record is [header][entry], where the header is 0x150 bytes of PRX-style encryption
 // metadata and the entry is 0x110 bytes describing one file. Pre-decrypted archives (rare, and
