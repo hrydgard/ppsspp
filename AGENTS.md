@@ -28,12 +28,16 @@ for it:
 4. **Don't write code on `master`.** When asked to make a code change while on `master`, create an
    appropriately named branch first (`git checkout -b some-descriptive-name`) and do the work there.
    If you're already on a topic branch, just keep working on it.
-5. **Most files in this repo are CRLF** - `.vcxproj`, `.vcxproj.filters`, `android/jni/Android.mk`,
-   `libretro/Makefile.common`, `AGENTS.md`, and much of the source. If you patch one with a script, read *and*
-   write with `newline=''`; reading with Python's default universal-newline translation and writing with
-   `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff. Check
-   `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in the editor.
-   Prefer the Edit tool, which does exact string replacement and can't do this.
+5. **Never assume a file's line endings - preserve whatever is on disk.** Which ending a file has
+   depends on where it was checked out: on Windows everything is auto-checked-out as CRLF, while a
+   Linux checkout leaves files as they are stored, so the same file (`.vcxproj`, `.vcxproj.filters`,
+   `android/jni/Android.mk`, `libretro/Makefile.common`, this file, much of the source) is CRLF in one
+   working copy and LF in another. Don't hardcode either, and don't "fix" a file's endings to match
+   what a doc claims. If you patch one with a script, read *and* write with `newline=''`, which keeps
+   whatever was there; reading with Python's default universal-newline translation and writing with
+   `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff.
+   Check `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in
+   the editor. Prefer the Edit tool, which does exact string replacement and can't do this.
 6. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash / MinGW
    layer strips one level of backslash escaping on the way in, *even with a quoted delimiter* (`<<'PY'`), which
    normally suppresses all substitution. So the script Python receives is not the one you wrote:
@@ -61,6 +65,13 @@ for it:
 
 1. For HLE, CPU, GPU, timing, threading, and memory changes, call out regression risks explicitly.
 2. Consider savestate compatibility when changing serialized state.
+3. **Never insert an entry into the middle of an `HLEFunction` array.** A savestate stores the
+   syscall opcode, which encodes the entry's *index* in that array - so inserting anywhere but the
+   end silently repoints every later entry, and old savestates start calling the wrong function.
+   This applies to adding a *single* function to an *existing* module, which is when it is easiest
+   to forget: put it last in the array even when alphabetical or NID order would put it elsewhere,
+   and even when the array is otherwise tidily sorted. The same rule governs the order of
+   `Register_*()` calls in `Core/HLE/HLETables.cpp` - new modules go at the very end.
 
 ## Build and validation
 
@@ -174,7 +185,8 @@ things silently if ignored:
   never inserted alphabetically among the existing `Register_*()` calls.
 - **New entries in an existing module's function table go at the very end of that array too** - a
   savestate captures the syscall opcode encoding the entry's array index, so shifting later entries
-  makes old savestates call the wrong function.
+  makes old savestates call the wrong function. See Core Safety Checks above: this holds for any
+  edit to any `HLEFunction` array, not just when adding a module.
 
 Also: a new `.cpp`/`.c` file has to be added to **seven** build files (CMake, Core.vcxproj + filters,
 the two UWP projects, `android/jni/Android.mk`, `libretro/Makefile.common`); headers to the first five.

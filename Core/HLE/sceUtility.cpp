@@ -85,6 +85,49 @@ static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 	JpegNotifyLoadStatus(state);
 }
 
+// The MP4 libraries are a good candidate for running the real thing: libmp4.prx needs only two
+// functions from sceAudiocodec (Init and Decode) plus ordinary kernel calls, and mp4msv.prx - the
+// 41 functions libmp4 leans on - imports nothing at all. So with a firmware dump present, the pair
+// can be loaded for real and left to decode through our sceAudiocodec HLE.
+static SceUID g_mp4RealModules[2] = { 0, 0 };
+
+static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
+	if (!((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceMp4)) {
+		return;
+	}
+
+	if (state == 1) {
+		// mp4msv first - libmp4 imports from it, and an import can only resolve to a module that
+		// is already loaded.
+		static const char *const paths[2] = {
+			"flash0:/kd/mp4msv.prx",
+			"flash0:/kd/libmp4.prx",
+		};
+		for (int i = 0; i < 2; i++) {
+			if (g_mp4RealModules[i]) {
+				continue;
+			}
+			std::string error;
+			SceUID id = KernelLoadModule(paths[i], &error);
+			if (id < 0) {
+				ERROR_LOG(Log::sceUtility, "sceMp4 HLE is disabled, but %s wouldn't load (%s) - "
+					"the game will get unresolved imports", paths[i], error.c_str());
+				return;
+			}
+			int result = __KernelStartModule(id, 0, 0, 0, nullptr, nullptr);
+			if (result < 0) {
+				ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", paths[i], result);
+				return;
+			}
+			g_mp4RealModules[i] = id;
+			INFO_LOG(Log::sceUtility, "Loaded the real %s", paths[i]);
+		}
+	} else if (state == -1) {
+		g_mp4RealModules[0] = 0;
+		g_mp4RealModules[1] = 0;
+	}
+}
+
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 	if (state == 1) {
 		// If HLE of sceAtrac is disabled, things will break!
@@ -139,7 +182,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
 	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
 	ModuleLoadInfo(0x307, 0x00000000, "av_g729"),
-	ModuleLoadInfo(0x308, 0x0003c000, "av_mp4", mp4ModuleDeps),
+	ModuleLoadInfo(0x308, 0x0003c000, "av_mp4", mp4ModuleDeps, &NotifyLoadStatusMp4),
 	ModuleLoadInfo(0x3fe, 0x00000000, "me_stuff"),
 	ModuleLoadInfo(0x3ff, 0x00000000, "me_core"),  // ME Core?
 	ModuleLoadInfo(0x400, 0x0000c000, "np_common"),

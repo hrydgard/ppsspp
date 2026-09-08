@@ -217,6 +217,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
 	{POFF(autoSaveLoadSymbols), CmdParamType::Bool, "auto-save-load-symbols", '\0', "Auto save/load per-module and per-game symbol files (see bAutoSaveLoadSymbols)", CmdLineMode::Both},
 	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
+	{POFF(disableHLE), CmdParamType::Int, "disable-hle", '\0', "Bitmask of libraries to run the real firmware module for instead of our HLE", CmdLineMode::Both},
 	{POFF(memReadAction), CmdParamType::Enum, "memread", '\0', "Set the action for memory read exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
 	{POFF(memWriteAction), CmdParamType::Enum, "memwrite", '\0', "Set the action for memory write exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
 	{POFF(breakAction), CmdParamType::Enum, "break", '\0', "Set the action for break exceptions", CmdLineMode::Both, g_ExceptionActionValues, ARRAY_SIZE(g_ExceptionActionValues)},
@@ -542,6 +543,12 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (autoSaveLoadSymbols.has_value()) {
 		g_Config.bAutoSaveLoadSymbols = autoSaveLoadSymbols.value();
 		g_Config.DoNotSaveSetting(&g_Config.bAutoSaveLoadSymbols);
+	}
+
+	if (disableHLE.has_value()) {
+		// DoNotSaveSetting so a per-game config can't quietly put the HLE back.
+		g_Config.iDisableHLE = disableHLE.value();
+		g_Config.DoNotSaveSetting(&g_Config.iDisableHLE);
 	}
 
 	if (logLevel.has_value()) {
