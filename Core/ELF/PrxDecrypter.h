@@ -19,6 +19,7 @@
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
+#include "Common/Swap.h"  // PSP_Header below is all _le types.
 
 #ifdef _MSC_VER
 #pragma pack(push, 1)

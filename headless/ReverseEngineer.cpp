@@ -42,6 +42,7 @@
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
@@ -54,6 +55,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
+#include "Core/Util/KL4E.h"
 
 #include "headless/ReverseEngineer.h"
 
@@ -310,6 +312,57 @@ void WriteRegEvidence(FILE *f, const FuncInfo &func) {
 
 }  // namespace
 
+int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
+	const Path in = ResolveModulePath(inPath);
+	std::string data;
+	if (!File::ReadBinaryFileToString(in, &data)) {
+		fprintf(stderr, "re-decrypt: couldn't read %s\n", in.c_str());
+		return 1;
+	}
+	if (data.size() < 0x150) {
+		fprintf(stderr, "re-decrypt: %s is too small to hold a header (%d bytes)\n", in.c_str(), (int)data.size());
+		return 1;
+	}
+
+	const u32 tag = *(const u32_le *)(data.data() + 0xD0);
+	printf("re-decrypt: %s, %d bytes, tag %08X\n", in.c_str(), (int)data.size(), tag);
+
+	// Decrypts in place on the PSP too, but keep the input around so a failure leaves it readable.
+	std::vector<u8> out(data.size());
+	int outSize = pspDecryptPRX((const u8 *)data.data(), out.data(), (u32)data.size());
+	if (outSize <= 0) {
+		fprintf(stderr, "re-decrypt: no key for tag %08X, or the data didn't decrypt (%d)\n", tag, outSize);
+		return 1;
+	}
+
+	// The plaintext is usually still compressed - the ME images are KL4E. Unpack it here rather
+	// than leaving that to the caller, since the point is to get at the code.
+	bool isKL3E = false;
+	if (IsKL4EMagic(out.data(), outSize, &isKL3E)) {
+		// The header's elf_size is the decompressed size, but it's zero in the ME images, so
+		// just give the decompressor plenty of room and go by what it returns.
+		const int maxOut = std::max(16 * 1024 * 1024, outSize * 16);
+		std::vector<u8> unpacked(maxOut);
+		const int unpackedSize = DecompressKL4E(unpacked.data(), maxOut, out.data() + 4, (size_t)outSize - 4, nullptr, isKL3E);
+		if (unpackedSize < 0) {
+			fprintf(stderr, "re-decrypt: %s decompression failed (%d)\n", isKL3E ? "KL3E" : "KL4E", unpackedSize);
+			return 1;
+		}
+		printf("re-decrypt: %s: %d -> %d bytes\n", isKL3E ? "KL3E" : "KL4E", outSize, unpackedSize);
+		unpacked.resize(unpackedSize);
+		out = std::move(unpacked);
+		outSize = unpackedSize;
+	}
+
+	const Path outFile(outPath);
+	if (!File::WriteDataToFile(false, out.data(), outSize, outFile)) {
+		fprintf(stderr, "re-decrypt: couldn't write %s\n", outFile.c_str());
+		return 1;
+	}
+	printf("re-decrypt: wrote %d bytes to %s\n", outSize, outFile.c_str());
+	return 0;
+}
+
 int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 	const Path modulePath = ResolveModulePath(opts.modulePath);
 	if (!File::Exists(modulePath)) {
@@ -334,36 +387,65 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 		return 1;
 	}
 
-	// Mount the containing directory so the normal file-backed loader path can be used.
 	const std::string dir = modulePath.GetDirectory();
 	const std::string filename = modulePath.GetFilename();
-	auto hostFs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, Path(dir), FileSystemFlags::FLASH);
-	pspFileSystem.Mount("host0:", hostFs);
 
-	std::string error;
-	const SceUID uid = KernelLoadModule("host0:/" + filename, &error);
-	if (uid < 0) {
-		fprintf(stderr, "re: failed to load %s: %s\n", modulePath.c_str(), error.c_str());
-		ShutdownMinimalPSP();
-		return 1;
-	}
+	PSPModule *module = nullptr;
+	std::string moduleName;
+	u32 base = 0;
+	u32 blockSize = 0;
 
-	u32 kerr = 0;
-	PSPModule *module = kernelObjects.Get<PSPModule>(uid, kerr);
-	if (!module) {
-		fprintf(stderr, "re: loaded module vanished (uid %d)\n", uid);
-		ShutdownMinimalPSP();
-		return 1;
-	}
-	if (module->isFake) {
-		fprintf(stderr, "re: module was fake-loaded (HLE stub) rather than really loaded - can't analyze\n");
-		ShutdownMinimalPSP();
-		return 1;
-	}
+	if (opts.rawBase) {
+		// A flat image: no header, no relocation, nothing to resolve. Just put it where it was
+		// linked to run and let the function scanner loose on it.
+		std::string data;
+		if (!File::ReadBinaryFileToString(modulePath, &data)) {
+			fprintf(stderr, "re: couldn't read %s\n", modulePath.c_str());
+			ShutdownMinimalPSP();
+			return 1;
+		}
+		if (!Memory::IsValid4AlignedRange(opts.rawBase, (u32)data.size())) {
+			fprintf(stderr, "re: %08x + %d bytes isn't a valid aligned RAM range\n",
+				opts.rawBase, (int)data.size());
+			ShutdownMinimalPSP();
+			return 1;
+		}
+		Memory::MemcpyUnchecked(opts.rawBase, data.data(), (u32)data.size());
+		moduleName = filename;
+		base = opts.rawBase;
+		blockSize = (u32)data.size();
+		printf("re: raw image %s at %08x, %d bytes\n", filename.c_str(), base, blockSize);
+		MIPSAnalyst::ScanForFunctions(base, base + blockSize - 4, true);
+	} else {
+		// Mount the containing directory so the normal file-backed loader path can be used.
+		auto hostFs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, Path(dir), FileSystemFlags::FLASH);
+		pspFileSystem.Mount("host0:", hostFs);
 
-	const std::string moduleName = module->nm.name;
-	const u32 base = module->memoryBlockAddr;
-	const u32 blockSize = module->memoryBlockSize;
+		std::string error;
+		const SceUID uid = KernelLoadModule("host0:/" + filename, &error);
+		if (uid < 0) {
+			fprintf(stderr, "re: failed to load %s: %s\n", modulePath.c_str(), error.c_str());
+			ShutdownMinimalPSP();
+			return 1;
+		}
+
+		u32 kerr = 0;
+		module = kernelObjects.Get<PSPModule>(uid, kerr);
+		if (!module) {
+			fprintf(stderr, "re: loaded module vanished (uid %d)\n", uid);
+			ShutdownMinimalPSP();
+			return 1;
+		}
+		if (module->isFake) {
+			fprintf(stderr, "re: module was fake-loaded (HLE stub) rather than really loaded - can't analyze\n");
+			ShutdownMinimalPSP();
+			return 1;
+		}
+
+		moduleName = module->nm.name;
+		base = module->memoryBlockAddr;
+		blockSize = module->memoryBlockSize;
+	}
 
 	// The loader's function scan names everything z_un_<addr>. We know better for two whole
 	// categories: exported functions have a NID the HLE tables can often name, and every import
@@ -371,21 +453,23 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 	// disassembly below reads as a name instead of a bare address.
 	const int moduleIdx = g_symbolMap->GetModuleIndexByName(moduleName);
 	int namedExports = 0, namedImports = 0;
-	for (const FuncSymbolExport &exp : module->exportedFuncs) {
-		const char *known = GetHLEFuncName(exp.moduleName, exp.nid);
-		const std::string name = known ? known : StringFromFormat("%s_%08x", exp.moduleName, exp.nid);
-		u32 size = g_symbolMap->GetFunctionSize(exp.symAddr);
-		if (size == SymbolMap::INVALID_ADDRESS) {
-			size = 4;
+	if (module) {
+		for (const FuncSymbolExport &exp : module->exportedFuncs) {
+			const char *known = GetHLEFuncName(exp.moduleName, exp.nid);
+			const std::string name = known ? known : StringFromFormat("%s_%08x", exp.moduleName, exp.nid);
+			u32 size = g_symbolMap->GetFunctionSize(exp.symAddr);
+			if (size == SymbolMap::INVALID_ADDRESS) {
+				size = 4;
+			}
+			g_symbolMap->AddFunction(name.c_str(), exp.symAddr, size, moduleIdx, true);
+			namedExports++;
 		}
-		g_symbolMap->AddFunction(name.c_str(), exp.symAddr, size, moduleIdx, true);
-		namedExports++;
-	}
-	for (const FuncSymbolImport &imp : module->importedFuncs) {
-		const char *known = GetHLEFuncName(imp.moduleName, imp.nid);
-		const std::string name = known ? known : StringFromFormat("%s_%08x", imp.moduleName, imp.nid);
-		g_symbolMap->AddFunction(name.c_str(), imp.stubAddr, 8, moduleIdx, true);
-		namedImports++;
+		for (const FuncSymbolImport &imp : module->importedFuncs) {
+			const char *known = GetHLEFuncName(imp.moduleName, imp.nid);
+			const std::string name = known ? known : StringFromFormat("%s_%08x", imp.moduleName, imp.nid);
+			g_symbolMap->AddFunction(name.c_str(), imp.stubAddr, 8, moduleIdx, true);
+			namedImports++;
+		}
 	}
 
 	// Optional pre-existing names, so the disassembly comes out readable instead of a wall of
@@ -404,7 +488,7 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 	// file offsets rather than addresses, so the loader's own scan is left with nothing to look
 	// at and finds no functions. For reverse engineering we would still like the disassembly, and
 	// we know exactly which range is code, so scan it ourselves.
-	{
+	if (module) {
 		bool anyInModule = false;
 		for (const SymbolEntry &sym : g_symbolMap->GetAllActiveSymbols(ST_FUNCTION)) {
 			if (sym.address >= base && sym.address < base + blockSize) {
@@ -485,44 +569,50 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 
 	fprintf(f, "# %s\n\n", moduleName.c_str());
 	fprintf(f, "- file: `%s`\n", modulePath.GetFilename().c_str());
-	fprintf(f, "- crc32: `%08x`  (matches `PSP/SYSTEM/SYMBOLS/%s_%08x.ppsym`)\n", module->crc, moduleName.c_str(), module->crc);
-	fprintf(f, "- attribute: `%04x`%s\n", (u32)module->nm.attribute,
-		(module->nm.attribute & PSP_MODULE_KERNEL_MODE) ? " (kernel mode)" : "");
-	fprintf(f, "- version: %d.%d\n", module->nm.version[1], module->nm.version[0]);
-	fprintf(f, "- loaded at: `%08x`, size `%08x`\n", base, blockSize);
-	fprintf(f, "- text: `%08x`..`%08x`  data: `%x`  bss: `%x`  gp: `%08x`\n",
-		(u32)module->nm.text_addr, (u32)module->nm.text_addr + (u32)module->nm.text_size,
-		(u32)module->nm.data_size, (u32)module->nm.bss_size, (u32)module->nm.gp_value);
-	fprintf(f, "- entry: `%08x`  module_start: `%08x`  module_stop: `%08x`\n\n",
-		(u32)module->nm.entry_addr, (u32)module->nm.module_start_func, (u32)module->nm.module_stop_func);
+	if (!module) {
+		fprintf(f, "- raw image, loaded at `%08x`, size `%08x`\n", base, blockSize);
+		fprintf(f, "- no module header: no exports, imports, segments or relocation.\n\n");
+	} else {
+		fprintf(f, "- crc32: `%08x`  (matches `PSP/SYSTEM/SYMBOLS/%s_%08x.ppsym`)\n", module->crc, moduleName.c_str(), module->crc);
+		fprintf(f, "- attribute: `%04x`%s\n", (u32)module->nm.attribute,
+			(module->nm.attribute & PSP_MODULE_KERNEL_MODE) ? " (kernel mode)" : "");
+		fprintf(f, "- version: %d.%d\n", module->nm.version[1], module->nm.version[0]);
+		fprintf(f, "- loaded at: `%08x`, size `%08x`\n", base, blockSize);
+		fprintf(f, "- text: `%08x`..`%08x`  data: `%x`  bss: `%x`  gp: `%08x`\n",
+			(u32)module->nm.text_addr, (u32)module->nm.text_addr + (u32)module->nm.text_size,
+			(u32)module->nm.data_size, (u32)module->nm.bss_size, (u32)module->nm.gp_value);
+		fprintf(f, "- entry: `%08x`  module_start: `%08x`  module_stop: `%08x`\n\n",
+			(u32)module->nm.entry_addr, (u32)module->nm.module_start_func, (u32)module->nm.module_stop_func);
 
-	fprintf(f, "## Segments\n\n| # | address | size |\n|---|---|---|\n");
-	for (u32 i = 0; i < module->nm.nsegment && i < 4; i++) {
-		fprintf(f, "| %d | `%08x` | `%x` |\n", i, (u32)module->nm.segmentaddr[i], (u32)module->nm.segmentsize[i]);
-	}
+		fprintf(f, "## Segments\n\n| # | address | size |\n|---|---|---|\n");
+		for (u32 i = 0; i < module->nm.nsegment && i < 4; i++) {
+			fprintf(f, "| %d | `%08x` | `%x` |\n", i, (u32)module->nm.segmentaddr[i], (u32)module->nm.segmentsize[i]);
+		}
 
-	fprintf(f, "\n## Exports (%d functions, %d variables)\n\n",
-		(int)module->exportedFuncs.size(), (int)module->exportedVars.size());
-	fprintf(f, "| library | NID | address | name |\n|---|---|---|---|\n");
-	for (const FuncSymbolExport &exp : module->exportedFuncs) {
-		const char *known = GetHLEFuncName(exp.moduleName, exp.nid);
-		fprintf(f, "| `%s` | `%08x` | `%08x` | %s |\n", exp.moduleName, exp.nid, exp.symAddr,
-			known ? known : nameOf(exp.symAddr).c_str());
-	}
-	for (const VarSymbolExport &exp : module->exportedVars) {
-		fprintf(f, "| `%s` | `%08x` | `%08x` | *(variable)* |\n", exp.moduleName, exp.nid, exp.symAddr);
-	}
+		fprintf(f, "\n## Exports (%d functions, %d variables)\n\n",
+			(int)module->exportedFuncs.size(), (int)module->exportedVars.size());
+		fprintf(f, "| library | NID | address | name |\n|---|---|---|---|\n");
+		for (const FuncSymbolExport &exp : module->exportedFuncs) {
+			const char *known = GetHLEFuncName(exp.moduleName, exp.nid);
+			fprintf(f, "| `%s` | `%08x` | `%08x` | %s |\n", exp.moduleName, exp.nid, exp.symAddr,
+				known ? known : nameOf(exp.symAddr).c_str());
+		}
+		for (const VarSymbolExport &exp : module->exportedVars) {
+			fprintf(f, "| `%s` | `%08x` | `%08x` | *(variable)* |\n", exp.moduleName, exp.nid, exp.symAddr);
+		}
 
-	fprintf(f, "\n## Imports (%d functions, %d variables)\n\n",
-		(int)module->importedFuncs.size(), (int)module->importedVars.size());
-	fprintf(f, "| library | NID | stub | name |\n|---|---|---|---|\n");
-	for (const FuncSymbolImport &imp : module->importedFuncs) {
-		const char *known = GetHLEFuncName(imp.moduleName, imp.nid);
-		fprintf(f, "| `%s` | `%08x` | `%08x` | %s |\n", imp.moduleName, imp.nid, imp.stubAddr,
-			known ? known : "*(unknown NID)*");
-	}
-	for (const VarSymbolImport &imp : module->importedVars) {
-		fprintf(f, "| `%s` | `%08x` | `%08x` | *(variable)* |\n", imp.moduleName, imp.nid, imp.stubAddr);
+		fprintf(f, "\n## Imports (%d functions, %d variables)\n\n",
+			(int)module->importedFuncs.size(), (int)module->importedVars.size());
+		fprintf(f, "| library | NID | stub | name |\n|---|---|---|---|\n");
+		for (const FuncSymbolImport &imp : module->importedFuncs) {
+			const char *known = GetHLEFuncName(imp.moduleName, imp.nid);
+			fprintf(f, "| `%s` | `%08x` | `%08x` | %s |\n", imp.moduleName, imp.nid, imp.stubAddr,
+				known ? known : "*(unknown NID)*");
+		}
+		for (const VarSymbolImport &imp : module->importedVars) {
+			fprintf(f, "| `%s` | `%08x` | `%08x` | *(variable)* |\n", imp.moduleName, imp.nid, imp.stubAddr);
+		}
+
 	}
 
 	fprintf(f, "\n## Functions (%d)\n\n", (int)funcs.size());
@@ -677,7 +767,9 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 		written++;
 	}
 
-	printf("re: %s (crc %08x) at %08x, %d bytes\n", moduleName.c_str(), module->crc, base, blockSize);
+	if (module) {
+		printf("re: %s (crc %08x) at %08x, %d bytes\n", moduleName.c_str(), module->crc, base, blockSize);
+	}
 	printf("re: %d exports (%d named), %d imports (%d named), %d functions; wrote %d disassembly file(s)\n",
 		(int)module->exportedFuncs.size(), namedExports, (int)module->importedFuncs.size(), namedImports,
 		(int)funcs.size(), written);

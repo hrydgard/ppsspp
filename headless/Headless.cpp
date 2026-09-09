@@ -863,12 +863,17 @@ int main(int argc, const char* argv[]) {
 	coreParameter.nandRoot = g_Config.nandRootDirectory;
 	// Placed here rather than with the other early-exit subcommands above, because resolving a
 	// "flash0:/kd/foo.prx" module path needs nandRootDirectory, which is only settled just above.
+	if (cmdLineOptions.reDecrypt.has_value()) {
+		return RunDecryptFile(cmdLineOptions.reDecrypt.value(), cmdLineOptions.reDecryptOut.value_or("decrypted.bin"));
+	}
 	if (cmdLineOptions.reModule.has_value()) {
 		ReverseEngineerOptions reOptions;
 		reOptions.modulePath = cmdLineOptions.reModule.value();
 		reOptions.outDir = cmdLineOptions.reOut.value_or("re-out");
 		reOptions.funcFilter = cmdLineOptions.reFunc.value_or("");
 		reOptions.symsFile = cmdLineOptions.reSyms.value_or("");
+		// Accepts "0x08300000" or plain decimal.
+		reOptions.rawBase = (u32)strtoul(cmdLineOptions.reRawBase.value_or("0").c_str(), nullptr, 0);
 		reOptions.verbose = testOptions.verbose;
 		return RunReverseEngineer(reOptions);
 	}
