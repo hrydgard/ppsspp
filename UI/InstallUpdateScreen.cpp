@@ -36,12 +36,13 @@
 #include "UI/MiscViews.h"
 #include "UI/EmuScreen.h"
 
-InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun)
+InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun, u64 archiveSize)
 	: UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::ContentsCanScroll), path_(path), title_(title), allowRun_(allowRun) {
 	destination_ = GetSysDirectory(DIRECTORY_NAND);
 
+	fileSize_ = archiveSize;
 	File::FileInfo fileInfo;
-	if (File::GetFileInfo(path_, &fileInfo)) {
+	if (fileSize_ == 0 && File::GetFileInfo(path_, &fileInfo)) {
 		fileSize_ = fileInfo.size;
 	}
 	// There's no practical way to merge two firmwares, so an install replaces whatever is there.
