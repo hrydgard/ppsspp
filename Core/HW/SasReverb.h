@@ -25,6 +25,9 @@ public:
 	~SasReverb();
 
 	void SetPreset(int preset);
+	// sceSasRevParam's delay and feedback, both 0..127. Only the Echo and Delay presets use
+	// them; the hardware recomputes most of their parameters from these.
+	void SetParams(int delay, int feedback);
 	int GetPreset() { return preset_; }
 
 	static const char *GetPresetName(int preset);
@@ -38,7 +41,15 @@ private:
 		BUFSIZE = 0x20000,
 	};
 
+	// Copies the current preset into data_, then patches it for Echo/Delay. Called whenever the
+	// preset or the parameters change.
+	void ApplyParams();
+
 	int16_t *workspace_;
+	// The preset in effect, as a mutable copy: Echo and Delay are partly computed at runtime.
+	SasReverbData *data_;
 	int preset_;
 	int pos_;
+	int delay_ = 0;
+	int feedback_ = 0;
 };

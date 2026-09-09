@@ -20,12 +20,16 @@
 
 #include "Common/Math/math_util.h"
 #include "Core/Config.h"
+#include "Core/HW/SasAudio.h"
 #include "Core/HW/SasReverb.h"
 #include "Core/Util/AudioFormat.h"
 
-// This is under the assumption that the reverb used in Sas is the same as the PSX SPU reverb.
-
+// The Sas reverb really is the PSX SPU reverb, with some tweaks. The formula below is nocash's:
+//
 // Source: http://problemkaputt.de/psx-spx.htm#spureverbformula
+//
+// The preset constants, though, are the PSP's own and not the PS1's. Six of the nine are the
+// same in both; Room and Echo/Delay are not.
 
 struct SasReverbData {
 	const char *name;
@@ -76,8 +80,9 @@ static const SasReverbData presets[10] = {
 		0x26C0,
 		0x007D,0x005B,0x6D80,0x54B8,(int16_t)0xBED0,0x0000,0x0000,(int16_t)0xBA80,
 		0x5800,0x5300,0x04D6,0x0333,0x03F0,0x0227,0x0374,0x01EF,
-		0x0334,0x01B5,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
-		0x0000,0x0000,0x01B4,0x0136,0x00B8,0x005C, //(int16_t)0x8000,(int16_t)0x8000,
+		// The diff-side taps used to be zero here, straight from the PS1 table. The PSP has real values.
+		0x0336,0x01B7,0x0335,0x01B6,0x0334,0x01B5,0x0334,0x01B5,
+		0x0334,0x01B5,0x01B4,0x0136,0x00B8,0x005C, //(int16_t)0x8000,(int16_t)0x8000,
 	},
 	{
 		"Studio Small",
@@ -125,22 +130,33 @@ static const SasReverbData presets[10] = {
 		0x1056,0x0AE1,0x0AE0,0x07A2,0x0464,0x0232, //(int16_t)0x8000,(int16_t)0x8000,
 	},
 
+	// Echo and Delay are not really presets: the hardware recomputes mLSAME, mRSAME, mLCOMB1,
+	// dLSAME, mLAPF1, mRAPF1 and vWALL from sceSasRevParam's delay and feedback every time the
+	// preset is (re)loaded - see ApplyParams() below. What's left in the table is the constants
+	// that recompute reads (dAPF1, dAPF2, mRCOMB1, dRSAME, mLAPF2) plus the fields it doesn't
+	// touch. The values below are the PSP's, not the PS1's; the rows here used to be the PS1's,
+	// which have zeros where the hardware has real diff-side taps.
+	//
+	// The stored mLSAME etc. are what the recompute produces at delay 255, but sceSasRevParam
+	// caps delay at 127, and a game that never calls it leaves delay at 0.
 	{
 		"Echo (almost infinite)",
 		0x18040,
-		0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,(int16_t)0xC080,
-		0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
-		0x1005,0x0005,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
-		0x0000,0x0000,0x1004,0x1002,0x0004,0x0002, //(int16_t)0x8000,(int16_t)0x8000,
+		0x0003,0x0003,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,(int16_t)0x8100,
+		0x0000,0x0000,0x1FFD,0x0FFD,0x1009,0x0009,0x0000,0x0000,
+		0x1009,0x0009,0x1FFF,0x1FFF,0x1FFE,0x1FFE,0x1FFE,0x1FFE,
+		0x1FFE,0x1FFE,0x1008,0x1004,0x0008,0x0004, //(int16_t)0x8000,(int16_t)0x8000,
 	},
 
+	// Identical to Echo apart from vWALL, which is the default feedback: full for Echo, none for
+	// Delay. That single field is the whole difference between "almost infinite" and "one shot".
 	{
 		"Delay (one - shot echo)",
 		0x18040,
-		0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,0x0000,
-		0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
-		0x1005,0x0005,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
-		0x0000,0x0000,0x1004,0x1002,0x0004,0x0002, //(int16_t)0x8000,(int16_t)0x8000,
+		0x0003,0x0003,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,0x0000,
+		0x0000,0x0000,0x1FFD,0x0FFD,0x1009,0x0009,0x0000,0x0000,
+		0x1009,0x0009,0x1FFF,0x1FFF,0x1FFE,0x1FFE,0x1FFE,0x1FFE,
+		0x1FFE,0x1FFE,0x1008,0x1004,0x0008,0x0004, //(int16_t)0x8000,(int16_t)0x8000,
 	},
 
 	{
@@ -155,15 +171,19 @@ static const SasReverbData presets[10] = {
 
 SasReverb::SasReverb() : preset_(-1), pos_(0) {
 	workspace_ = new int16_t[BUFSIZE];
+	data_ = new SasReverbData{};
 }
 
 SasReverb::~SasReverb() {
 	delete[] workspace_;
+	delete data_;
 }
 
 const char *SasReverb::GetPresetName(int preset) {
 	if (preset == -1) {
 		return "Off";
+	} else if (preset < 0 || preset >= ARRAY_SIZE(presets)) {
+		return "Invalid";
 	}
 	return presets[preset].name;
 }
@@ -181,6 +201,41 @@ void SasReverb::SetPreset(int preset) {
 	} else {
 		pos_ = 0;
 	}
+	ApplyParams();
+}
+
+void SasReverb::SetParams(int delay, int feedback) {
+	delay_ = delay;
+	feedback_ = feedback;
+	ApplyParams();
+}
+
+// Echo and Delay are computed presets. The ME reloads the whole record and then, for those two
+// types only, recomputes seven of its fields from sceSasRevParam's delay and feedback - so the
+// echo length and its feedback are live controls, not fixed per preset.
+//
+// With D = delay + 1:
+//   mLSAME = D*32 - dAPF1     mLCOMB1 = mRCOMB1 + D*16    mLAPF1 = mLAPF2 + D*16
+//   mRSAME = D*16 - dAPF2     dLSAME  = dRSAME  + D*16    mRAPF1 = D*16 + mLAPF2/2
+//   vWALL  = feedback << 8
+// The remaining fields, including the diff-side and comb3/comb4 taps, keep their table values.
+void SasReverb::ApplyParams() {
+	if (preset_ == -1) {
+		return;
+	}
+	*data_ = presets[preset_];
+	if (preset_ != PSP_SAS_EFFECT_TYPE_ECHO && preset_ != PSP_SAS_EFFECT_TYPE_DELAY) {
+		return;
+	}
+
+	const int d16 = (delay_ + 1) * 16;
+	data_->mLSAME = (int16_t)(d16 * 2 - data_->dAPF1);
+	data_->mRSAME = (int16_t)(d16 - data_->dAPF2);
+	data_->mLCOMB1 = (int16_t)(data_->mRCOMB1 + d16);
+	data_->dLSAME = (int16_t)(data_->dRSAME + d16);
+	data_->mLAPF1 = (int16_t)(data_->mLAPF2 + d16);
+	data_->mRAPF1 = (int16_t)(d16 + (data_->mLAPF2 >> 1));
+	data_->vWALL = (int16_t)(-(feedback_ << 8));
 }
 
 // Wraps around the upper part of a buffer.
@@ -236,7 +291,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		volRight *= reverbVolumeMultiplier;
 	}
 
-	const SasReverbData &d = presets[preset_];
+	const SasReverbData &d = *data_;
 
 	// We put this on the stack instead of in the object to let the compiler optimize better (avoid mem r/w).
 	BufferWrapper<BUFSIZE> b(workspace_, pos_, d.size);

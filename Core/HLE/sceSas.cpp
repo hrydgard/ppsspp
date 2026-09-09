@@ -609,8 +609,7 @@ static u32 sceSasRevParam(u32 core, int delay, int feedback) {
 	}
 
 	__SasDrain();
-	sas->waveformEffect.delay = delay;
-	sas->waveformEffect.feedback = feedback;
+	sas->SetWaveformEffectParams(delay, feedback);
 	return hleLogDebug(Log::sceSas, 0);
 }
 
