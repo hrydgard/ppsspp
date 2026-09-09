@@ -384,7 +384,20 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 
 		int16_t *outBuf = (int16_t *)Memory::GetPointerWriteOrException(ctx->outBuf);
 
-		bool result = decoder->Decode(Memory::GetPointerOrException(ctx->inBuf + headerBytes), bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
+		// For Atrac3+ in a PSMF the length came out of the frame's own header, so it's only as
+		// trustworthy as the stream - check the whole span before handing it to the decoder
+		// rather than just the first byte, which is all GetPointerOrException would look at.
+		// IsValidRange first: the range accessors raise a memory exception rather than returning
+		// null, and a stream that lies about its length shouldn't fault the game.
+		const u32 inAddr = ctx->inBuf + headerBytes;
+		const u8 *inBuf = (bytesPerFrame > 0 && Memory::IsValidRange(inAddr, bytesPerFrame))
+			? Memory::GetPointerUnchecked(inAddr) : nullptr;
+		if (!inBuf) {
+			ctx->err = 0x20b;
+			return hleLogError(Log::ME, 0, "%d bytes at %08x isn't readable", bytesPerFrame, inAddr);
+		}
+
+		bool result = decoder->Decode(inBuf, bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
 		if (!result) {
 			ctx->err = 0x20b;
 			ERROR_LOG(Log::ME, "AudioCodec decode failed. Setting error to %08x", ctx->err);
