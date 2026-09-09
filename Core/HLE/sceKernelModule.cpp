@@ -1228,6 +1228,15 @@ static void LoadAndStartVshKernelModules() {
 		LoadAndStartVshKernelModule(ResolveVshModelModule(path).c_str(), nullptr);
 	}
 
+	// Firmwares up to about 4.05 keep scePaf's heap allocator in a module of its own, which paf
+	// imports as scePafHeaparea and can't allocate a single byte without. 5.01 and later compiled
+	// it into paf.prx and dropped the module, so this is absent (and unwanted) on those - hence
+	// the existence check rather than a warning from the loader. heaparea1 and heaparea2 are the
+	// same code with different compiled-in pool sizes; the first is the one the shell asks for.
+	if (pspFileSystem.GetFileInfo("flash0:/vsh/module/heaparea1.prx").exists) {
+		LoadAndStartVshKernelModule("flash0:/vsh/module/heaparea1.prx", nullptr);
+	}
+
 	static const char *const vshUiKernelModulePaths[] = {
 		"flash0:/kd/vshbridge.prx",
 		"flash0:/vsh/module/paf.prx",
@@ -1536,8 +1545,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
-	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0) {
-		// Used by the PSP's Visual Shell (VSH/XMB) and modules it loads, such as vshmain.prx.
+	// Used by the PSP's Visual Shell (VSH/XMB) and modules it loads, such as vshmain.prx. The
+	// name check is for firmware 1.50, whose vshmain.prx declares no attributes at all - Sony
+	// only started setting PSP_MODULE_VSH_MODE in 1.52. Without it the whole VSH bootstrap
+	// below was skipped and the shell ran with none of its support modules loaded.
+	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0 || equals(modinfo->name, "vsh_module")) {
 		g_runningVSH = true;
 		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
 	}
@@ -1567,30 +1579,43 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
 
-	if (equals(module->nm.name, "scePaf_Module")) {
-		// scePaf's own heap allocator expects a real memory-pool base address to already be
-		// patched into this BSS slot before any of its code runs. Real hardware's loader (or
-		// an early kernel init step) apparently does this - checked all 27 of scePaf's
-		// exported data vars, this address isn't one of them, so it's not the normal NID
-		// var-import linking path. Without this, offsets from scePaf's internal
-		// bump-allocator get used directly as absolute pointers, crashing almost immediately
-		// when a client module (e.g. vsh_module) makes its first heap allocation.
-		// See docs/VSHBootInvestigation.md for the full investigation.
-		//
-		// The slot is the second of the two pool pointers scePaf's own init fills in with
-		// sceKernelTryAllocateFpl. Its offset from the module base moves with every build, but
-		// it sits at a fixed distance below gp in all of them - checked against the paf.prx of
-		// 6.00, 6.20, 6.31, 6.37, 6.39, 6.60 and 6.61, where the base-relative offset ranges
-		// over 0x18CCD8..0x18D728 and gp - slot is 0x7E88 every time.
-		const u32 scePafHeapArenaGpOffset = 0x7E88;
-		u32 scePafHeapArenaSize = 0x00850000;  // Matches scePaf's own compiled-in default heap size.
+	// scePaf's heap allocator expects a real memory-pool base address to already be in one of its
+	// BSS slots before any of its code runs. The module that owns the allocator fills that slot in
+	// itself, from its own module_start - but that start thread hasn't been scheduled yet when
+	// vshmain makes its first allocation, so the pointer is still null and the shell writes
+	// through it. Real hardware's kernel bootstrap starts these modules one at a time and waits;
+	// we can't, so pre-fill the slot with a real block instead. Without this the boot dies almost
+	// immediately, either on a null write inside scePaf (5.01+) or on vshmain storing the null the
+	// allocator handed back (up to 4.05). See docs/VSHBootInvestigation.md for the investigation.
+	//
+	// Which module owns it moved: up to about 4.05 the allocator is a separate heaparea1.prx, and
+	// from 5.01 it's compiled into paf.prx. Either way the slot is the second of the two pool
+	// pointers that module's init fills in with sceKernelTryAllocateFpl, and either way its offset
+	// from the module base moves with every build while its offset from gp does not - checked
+	// against paf.prx on 6.00, 6.20, 6.31, 6.37, 6.39, 6.60 and 6.61 (base-relative 0x18CCD8 to
+	// 0x18D728, gp - slot 0x7E88 every time) and heaparea1.prx on 3.95 and 4.05.
+	struct PafHeapOwner {
+		const char *moduleName;
+		u32 poolPointerGpOffset;
+	};
+	static const PafHeapOwner pafHeapOwners[] = {
+		{ "scePaf_Module", 0x7E88 },
+		{ "scePafHeaparea_Module", 0x7FCC },
+	};
+	for (const PafHeapOwner &owner : pafHeapOwners) {
+		if (!equals(module->nm.name, owner.moduleName)) {
+			continue;
+		}
+		// Matches the compiled-in default pool size in both modules.
+		u32 scePafHeapArenaSize = 0x00850000;
 		u32 arenaAddr = userMemory.Alloc(scePafHeapArenaSize, false, "scePafHeapArena");
-		u32 patchAddr = module->nm.gp_value - scePafHeapArenaGpOffset;
+		u32 patchAddr = module->nm.gp_value - owner.poolPointerGpOffset;
 		if (arenaAddr != (u32)-1 && Memory::IsValid4AlignedAddress(patchAddr)) {
 			Memory::WriteUnchecked_U32(arenaAddr, patchAddr);
 		} else {
-			WARN_LOG(Log::sceModule, "Failed to patch scePaf heap arena pointer");
+			WARN_LOG(Log::sceModule, "Failed to patch %s heap arena pointer", owner.moduleName);
 		}
+		break;
 	}
 
 	if (equals(module->nm.name, "vsh_module")) {
@@ -3163,6 +3188,12 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0xD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL },
 	{0xD5DDAB1F, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xD86DD11B, &WrapU_C<sceKernelSearchModuleByName>,                 "sceKernelSearchModuleByName",             'x', "s",     HLE_KERNEL_SYSCALL },
+	// The 1.x NID for sceKernelLoadModuleVSH - same function, matched by its callee set in
+	// modulemgr.prx (sceKernelIsIntrContext, sceIoOpen/Ioctl/Close, sceKernelGetUserLevel).
+	// This is how the VSH loads its own plugins, so leaving it unresolved meant vshmain got
+	// module id 0 back and the sceKernelStartModule after it failed with UNKNOWN_MODULE.
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{0xA4370E7C, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser() {

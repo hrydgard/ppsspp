@@ -946,6 +946,14 @@ static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2) {
 	return hleLogError(Log::sceRtc, 0, "UNIMPL");
 }
 
+// "Has the RTC alarm fired?" - we don't model one and sceRtcSetAlarmTick above is a no-op, so the
+// answer is always no. Same as JPCSP, which returns a bare 0. Left unimplemented this returned
+// SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED, and the 3.0x-3.5x VSH took that as "ask the hardware
+// instead" and blocked forever on a syscon reply.
+static int sceRtcIsAlarmed() {
+	return hleLogDebug(Log::sceRtc, 0);
+}
+
 // Real signature per uofw (sceRtc_C2DDBEB5, src/kd/rtc/rtc.c): s32 sceRtcGetAlarmTick(u64 *tick).
 // PPSSPP doesn't track a real hardware RTC alarm, so there's nothing meaningful to report -
 // but leaving this fully unimplemented (nullptr in the function table) meant callers got back
@@ -1143,7 +1151,7 @@ const HLEFunction sceRtc[] =
 	{0X203CEB0D, &WrapI_U<sceRtcGetLastReincarnatedTime>,  "sceRtcGetLastReincarnatedTime",  'i', "x"  },
 	{0X7D1FBED3, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
 	{0XF5FCC995, nullptr,                                  "sceRtcGetCurrentNetworkTick",    '?', ""   },
-	{0X81FCDA34, nullptr,                                  "sceRtcIsAlarmed",                '?', ""   },
+	{0X81FCDA34, &WrapI_V<sceRtcIsAlarmed>,                "sceRtcIsAlarmed",                'i', ""   },
 	{0XFB3B18CD, nullptr,                                  "sceRtcRegisterCallback",         '?', ""   },
 	{0X6A676D2D, nullptr,                                  "sceRtcUnregisterCallback",       '?', ""   },
 	{0XC2DDBEB5, &WrapI_U<sceRtcGetAlarmTick>,             "sceRtcGetAlarmTick",             'i', "x"  },
@@ -1173,6 +1181,12 @@ const HLEFunction sceRtc_driver[] = {
 	{0X54B9C589, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 6.31 - 6.39
 	{0X68AED59A, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 6.00 - 6.20
 	{0XADAF231F, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 5.03 - 5.55
+	{0X55AC1C23, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 3.95 - 4.05
+	{0X827BCB3F, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 3.72 - 3.90
+	{0X329E8E3A, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 3.71
+	// 3.51 and older didn't renumber it for kernel mode at all - the driver library exports it
+	// under the same NID as the user-mode one.
+	{0X7D1FBED3, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 2.71 - 3.51
 };
 
 void Register_sceRtc_driver()

@@ -1160,10 +1160,13 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
 }
 
 bool FirmwareVersionSupportsVSH(std::string_view version) {
-	// Every firmware from 5.01 up boots to an interactive XMB, checked one release at a time
-	// against every version that ships on a disc (5.01, 5.02, 5.03, 5.50, 5.55, 6.00, 6.10,
-	// 6.20, 6.30, 6.31, 6.35, 6.37, 6.39, 6.60) plus the download-only 6.61. 4.05 and below
-	// still die on a null write inside vsh_module - a separate problem, not an offset to move.
+	// Every firmware boots to an interactive XMB, checked one release at a time against all 39
+	// versions that ship on a disc - 1.50 through 6.60 - plus the download-only 6.61. So the
+	// only question left is whether this is a firmware at all: a fonts-only NAND has no version
+	// and nothing to boot.
+	//
+	// The lower bound is a sanity check rather than a real limit. 1.50 is the oldest firmware
+	// there is, so anything below it isn't a version string we wrote.
 	//
 	// "6.61" -> 661. Sony always writes the minor part with two digits, but don't rely on it:
 	// a single-digit one is a tens value ("5.5" is 5.50, not 5.05).
@@ -1186,7 +1189,7 @@ bool FirmwareVersionSupportsVSH(std::string_view version) {
 	} else if (version.size() - dot != 3) {
 		return false;
 	}
-	return numeric >= 501;
+	return numeric >= 150;
 }
 
 std::string BundledUpdateInfo::Describe() const {
