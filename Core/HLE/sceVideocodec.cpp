@@ -500,15 +500,17 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 	bool gotFrame = false;
 	const u8 *au = nullptr;
 	int auBytes = 0;
+	// Owns the gathered payload for as long as au points into it.
+	std::vector<u8> pes;
 	if (auSize > 0 && Memory::IsValidRange(auAddr, auSize)) {
 		au = Memory::GetTypedPointerRange<u8>(auAddr, auSize);
 		auBytes = auSize;
 	} else {
-		// Ask for the payload copied to this exact address - the same call carries audio too.
-		const std::vector<u8> *pes = MpegBaseGetPESPacket(auAddr);
-		if (pes && !pes->empty()) {
-			au = pes->data();
-			auBytes = (int)pes->size();
+		// Take the payload copied to this exact address - the same call carries audio too.
+		pes = MpegBaseTakePESPacket(auAddr);
+		if (!pes.empty()) {
+			au = pes.data();
+			auBytes = (int)pes.size();
 		}
 	}
 	if (au && auBytes > 0) {

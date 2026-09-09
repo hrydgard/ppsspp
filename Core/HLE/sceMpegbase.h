@@ -26,7 +26,8 @@ void Register_sceMpegbase();
 // Called per boot, from __MpegInit.
 void __MpegBaseInit();
 
-// The PES payload sceMpegBasePESpacketCopy gathered for a given destination. On hardware that copy
-// lands in Media Engine memory, which sceVideocodec would then read back; we keep it here instead.
-// Returns nullptr if nothing was copied to that address.
-const std::vector<u8> *MpegBaseGetPESPacket(u32 dest);
+// Takes the PES payload sceMpegBasePESpacketCopy gathered for a given destination. On hardware that
+// copy lands in Media Engine memory, which sceVideocodec would then read back; we keep it here
+// instead. The payload is moved out and dropped from the table, so each one is decoded once.
+// Empty if nothing was copied to that address.
+std::vector<u8> MpegBaseTakePESPacket(u32 dest);

@@ -36,7 +36,6 @@
 // copied to. It carries audio as well as video - the destination is what tells them apart - so
 // sceVideocodec has to ask for the one matching the address it was handed.
 static std::map<u32, std::vector<u8>> g_pesPackets;
-
 // Set by sceMpegBaseCscInit / sceMpegBaseCscSetPixelMode, and used when the caller passes 0.
 static int g_mpegBaseBufferWidth = 512;
 static int g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
@@ -66,7 +65,7 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 	// On hardware this is the DMA that moves the PES payload into the Media Engine's own memory,
 	// after which mpeg.prx hands sceVideocodecDecode an ME-side address we have no way to read.
 	// Since the copy is ours, gather the blocks here instead and let sceVideocodec decode from
-	// this - see MpegBaseGetPESPacket.
+	// this - see MpegBaseTakePESPacket.
 	lli = PSPPointer<SceMpegLLI>::Create(p);
 	u32 dest = 0;
 	std::vector<u8> gathered;
@@ -100,9 +99,16 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 	return 0;
 }
 
-const std::vector<u8> *MpegBaseGetPESPacket(u32 dest) {
+std::vector<u8> MpegBaseTakePESPacket(u32 dest) {
 	auto it = g_pesPackets.find(dest);
-	return it == g_pesPackets.end() ? nullptr : &it->second;
+	if (it == g_pesPackets.end()) {
+		return std::vector<u8>();
+	}
+	// Handed over, not lent: leaving it behind meant the first decode of the next movie could pick
+	// up the last packet of the previous one, if the address came round again.
+	std::vector<u8> packet = std::move(it->second);
+	g_pesPackets.erase(it);
+	return packet;
 }
 
 
